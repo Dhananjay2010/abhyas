@@ -13,6 +13,7 @@ Next: the guided session with timers.
 | Live | https://abhyas-indol.vercel.app |
 | Supabase ref | `bjtjhnfyheruxldqbmrj` |
 | Node | 20.19.6 (`.nvmrc`) — run `npm run dev:nvm`, not `npm run dev` |
+| Implementation notes | [context/](context/README.md) — one file per step |
 
 ---
 
