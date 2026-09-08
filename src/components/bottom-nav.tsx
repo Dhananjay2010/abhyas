@@ -1,9 +1,10 @@
 import Link from "next/link";
 
-/** Today and Progress are built; History and Settings are still to come. */
 const TABS = [
   { href: "/today", label: "Today" },
+  { href: "/history", label: "History" },
   { href: "/progress", label: "Progress" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function BottomNav({ active }: { active: string }) {

@@ -1,0 +1,72 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { BottomNav } from "@/components/bottom-nav";
+import { SettingsForm, type SettingsState } from "./settings-form";
+
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/");
+
+  const [profileRes, settingsRes, equipmentRes, userEquipmentRes, injuriesRes] =
+    await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
+      supabase.from("equipment").select("id, name, category").order("sort_order"),
+      supabase.from("user_equipment").select("equipment_id"),
+      supabase.from("user_injuries").select("body_region, severity"),
+    ]);
+
+  const profile = profileRes.data;
+  if (!profile) redirect("/");
+  if (!profile.onboarding_completed_at) redirect("/onboarding");
+  const st = settingsRes.data;
+
+  const initial: SettingsState = {
+    goal: profile.goal,
+    level: profile.level,
+    primaryTrack: profile.primary_track,
+    daysPerWeek: profile.days_per_week,
+    yogaDaysPerWeek: profile.yoga_days_per_week ?? 0,
+    preferredSessionMinutes: profile.preferred_session_minutes ?? 60,
+    hasAllEquipment: profile.has_all_equipment ?? false,
+    equipmentIds: (userEquipmentRes.data ?? []).map((r) => r.equipment_id),
+    injuries: (injuriesRes.data ?? []).map((r) => ({
+      bodyRegion: r.body_region,
+      severity: r.severity,
+    })),
+    planningMode: st?.planning_mode ?? "progression",
+    perSetLogging: st?.per_set_logging ?? true,
+    resumeSession: st?.resume_session ?? true,
+    cooldownEnabled: st?.cooldown_enabled ?? true,
+    restAutostart: st?.rest_timer_autostart ?? true,
+    restSound: st?.rest_timer_sound ?? true,
+    restVibrate: st?.rest_timer_vibrate ?? true,
+    restOverrideSeconds: st?.rest_seconds_override ?? null,
+    bodyweightPrompt: st?.bodyweight_prompt ?? "weekly",
+    meditationDefaultMinutes: st?.meditation_default_minutes ?? 10,
+  };
+
+  return (
+    <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
+      <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+      <p className="mt-2 mb-8 text-sm text-muted">
+        Signed in as {user.email}. Changes save as you make them.
+      </p>
+
+      <SettingsForm initial={initial} equipment={equipmentRes.data ?? []} />
+
+      <form action="/auth/signout" method="post" className="mt-12">
+        <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
+          Sign out
+        </button>
+      </form>
+
+      <BottomNav active="/settings" />
+    </main>
+  );
+}

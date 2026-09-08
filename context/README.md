@@ -29,7 +29,8 @@ pick the project up.
 | [07](07-guided-session.md) | Guided session with timers | Done |
 | [08](08-progression.md) | Progression from logged sets | Done |
 | [09](09-progress-charts-and-streaks.md) | Progress charts and streaks | Done |
-| 10 | Settings, history, block rollover | Next |
+| [10](10-settings-and-history.md) | Settings and history | Done |
+| 11 | Block rollover, yoga and breathing runners | Next |
 
 ## Live references
 
