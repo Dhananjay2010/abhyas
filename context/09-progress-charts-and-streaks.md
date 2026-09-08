@@ -115,8 +115,8 @@ with an explicit `timeZone` and arithmetic stays inside UTC so it cannot drift.
 - Not verified against a real signed-in account with real history — the
   harness uses fixture data, and no session has yet been completed for real.
 - No date-range filter; the page shows the last 14 sessions and 120 weigh-ins.
-- Streaks are computed only from the **active** block's start date, so they
-  reset when a new block is built. They should span blocks.
+- ~~Streaks are computed only from the active block, so they reset when a new
+  block is built.~~ **Fixed in step 11**: `buildDayRecords` walks every block.
 - `bodyweight_prompt` in settings is stored but nothing prompts yet; logging is
   manual from the Progress page.
 - History and Settings tabs are not built, so the bottom nav has two entries.
@@ -126,3 +126,4 @@ with an explicit `timeZone` and arithmetic stays inside UTC so it cannot drift.
 
 - Initial Progress screen, two views, streak rules, charts and bottom nav.
 - Added `src/lib/dates.ts` and fixed the UTC-vs-local date bug in four places.
+- Step 11 made streaks span blocks.

@@ -41,7 +41,22 @@ export type GeneratorInput = {
   /** Current injuries hard-filter. Past ones only drive warm-up prehab. */
   currentInjuryRegions: BodyRegion[];
   catalogue: CandidateExercise[];
+  /**
+   * Main lifts from the previous block, keyed `${dayIndex}:${pattern}`.
+   *
+   * Day INDEX, not label: a 4-day split is Upper/Lower/Upper/Lower, so labels
+   * repeat and both Upper days would collide on one key, leaving the second
+   * unable to carry its own main lift.
+   *
+   * SPEC section 6: at block end the main compound lifts carry over, because
+   * that is where progress lives, while accessories rotate for variety. Only
+   * the first two slots of a day consult this.
+   */
+  carryOver?: Record<string, string>;
 };
+
+/** How many slots per day are treated as the main lifts. */
+export const CARRY_OVER_SLOTS = 2;
 
 export type GeneratedExercise = {
   exerciseId: string;
@@ -158,8 +173,18 @@ function pickForSlot(
   used: Set<string>,
   input: GeneratorInput,
   rng: () => number,
+  dayIndex?: number,
 ): CandidateExercise | null {
-  const wantCompound = slotIndex < 2;
+  const wantCompound = slotIndex < CARRY_OVER_SLOTS;
+
+  // Keep the main lifts from the previous block so progression is not reset.
+  if (wantCompound && dayIndex !== undefined && input.carryOver) {
+    const kept = input.carryOver[`${dayIndex}:${pattern}`];
+    if (kept && !used.has(kept)) {
+      const match = pool.find((e) => e.id === kept);
+      if (match) return match;
+    }
+  }
 
   for (const p of [pattern, PATTERN_FALLBACK[pattern]]) {
     if (!p) continue;
@@ -221,7 +246,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
 
     const exercises: GeneratedExercise[] = [];
     entry.slots.forEach((pattern, i) => {
-      const picked = pickForSlot(pattern, i, pool, used, input, rng);
+      const picked = pickForSlot(pattern, i, pool, used, input, rng, dayIndex);
       if (!picked) return;
       used.add(picked.id);
 

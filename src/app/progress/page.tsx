@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
 import { BottomNav } from "@/components/bottom-nav";
-import { computeStreaks, type DayRecord } from "@/lib/progress/streaks";
-import { dateRange, isoWeekday, localDateString } from "@/lib/dates";
+import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
+import { localDateString } from "@/lib/dates";
+import type { Database } from "@/lib/database.types";
 import { LogWeight } from "./log-weight";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export default async function ProgressPage() {
   const timezone = profile.timezone || "Asia/Kolkata";
   const today = localDateString(timezone);
 
-  const [weightsRes, volumeRes, strengthRes, programRes, sessionsRes] = await Promise.all([
+  const [weightsRes, volumeRes, strengthRes, programsRes, sessionsRes] = await Promise.all([
     supabase
       .from("body_metrics")
       .select("recorded_on, weight_kg")
@@ -49,11 +50,7 @@ export default async function ProgressPage() {
       .select("exercise_id, exercise_name, local_date, best_e1rm, top_weight_kg")
       .order("local_date")
       .limit(400),
-    supabase
-      .from("programs")
-      .select("id, started_on")
-      .eq("status", "active")
-      .maybeSingle(),
+    supabase.from("programs").select("id, started_on, ends_on").order("started_on"),
     supabase
       .from("sessions")
       .select("local_date, status, actual_type")
@@ -62,27 +59,33 @@ export default async function ProgressPage() {
   ]);
 
   // ---- streaks -----------------------------------------------------------
-  // Build one record per calendar day since the block started, so rest days
-  // are represented and can be skipped rather than counted as misses.
-  let dayRecords: DayRecord[] = [];
-  if (programRes.data) {
-    const { data: programDays } = await supabase
-      .from("program_days")
-      .select("day_index, day_type")
-      .eq("program_id", programRes.data.id);
+  // Across every block, not just the active one: a streak that reset because a
+  // new four-week block began would punish the user for our own bookkeeping.
+  const programs = (programsRes.data ?? []).map((p) => ({
+    id: p.id,
+    startedOn: p.started_on,
+    endsOn: p.ends_on,
+  }));
 
-    const typeByWeekday = new Map((programDays ?? []).map((d) => [d.day_index, d.day_type]));
-    const completedDates = new Set(
-      (sessionsRes.data ?? []).filter((s) => s.status === "completed").map((s) => s.local_date),
-    );
+  const { data: allProgramDays } = await supabase
+    .from("program_days")
+    .select("program_id, day_index, day_type");
 
-    const from = programRes.data.started_on > today ? today : programRes.data.started_on;
-    dayRecords = dateRange(from, today).map((date) => ({
-      localDate: date,
-      dayType: typeByWeekday.get(isoWeekday(date)) ?? "rest",
-      completed: completedDates.has(date),
-    }));
+  type DayType = Database["public"]["Enums"]["day_type"];
+  const dayTypesByProgram: Record<string, Record<number, DayType>> = {};
+  for (const d of allProgramDays ?? []) {
+    (dayTypesByProgram[d.program_id] ??= {})[d.day_index] = d.day_type;
   }
+
+  const dayRecords = buildDayRecords({
+    programs,
+    dayTypesByProgram,
+    completedDates: new Set(
+      (sessionsRes.data ?? []).filter((s) => s.status === "completed").map((s) => s.local_date),
+    ),
+    today,
+  });
+
   const streaks = computeStreaks(dayRecords, today);
 
   // ---- charts ------------------------------------------------------------

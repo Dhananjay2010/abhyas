@@ -30,7 +30,8 @@ pick the project up.
 | [08](08-progression.md) | Progression from logged sets | Done |
 | [09](09-progress-charts-and-streaks.md) | Progress charts and streaks | Done |
 | [10](10-settings-and-history.md) | Settings and history | Done |
-| 11 | Block rollover, yoga and breathing runners | Next |
+| [11](11-block-rollover.md) | Block rollover | Done |
+| 12 | Yoga and breathing runners | Next |
 
 ## Live references
 

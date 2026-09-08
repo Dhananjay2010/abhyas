@@ -170,5 +170,64 @@ console.log("\n10. Everything at once: 52yo, BMI 31, shoulder + lower back injur
   );
 }
 
+console.log("\n11. Block rollover carries the main lifts and rotates accessories");
+{
+  const block1 = generateProgram(base({ blockNumber: 1 }));
+
+  // Mimic extractCarryOver: first two slots of each day, compounds only.
+  const carryOver: Record<string, string> = {};
+  for (const day of block1.days) {
+    day.exercises.slice(0, 2).forEach((e) => {
+      const ex = byId.get(e.exerciseId)!;
+      if (ex.mechanic !== "compound") return;
+      const key = `${day.dayIndex}:${ex.movement_pattern}`;
+      if (!(key in carryOver)) carryOver[key] = e.exerciseId;
+    });
+  }
+  check("block 1 produced main lifts to carry", Object.keys(carryOver).length > 0,
+    `${Object.keys(carryOver).length} lifts`);
+
+  const block2 = generateProgram(base({ blockNumber: 2, carryOver }));
+
+  let mainKept = 0;
+  let mainTotal = 0;
+  for (const day of block2.days) {
+    day.exercises.slice(0, 2).forEach((e) => {
+      const ex = byId.get(e.exerciseId)!;
+      if (ex.mechanic !== "compound") return;
+      const key = `${day.dayIndex}:${ex.movement_pattern}`;
+      if (key in carryOver) {
+        mainTotal++;
+        if (carryOver[key] === e.exerciseId) mainKept++;
+      }
+    });
+  }
+  check("every carried main lift reappears", mainTotal > 0 && mainKept === mainTotal,
+    `${mainKept}/${mainTotal}`);
+
+  const accessoriesOf = (p: ReturnType<typeof generateProgram>) =>
+    new Set(p.days.flatMap((d) => d.exercises.slice(2).map((e) => e.exerciseId)));
+  const a1 = accessoriesOf(block1);
+  const a2 = accessoriesOf(block2);
+  const shared = [...a1].filter((x) => a2.has(x)).length;
+  const rotated = a1.size - shared;
+  check("accessories rotate", rotated > 0, `${rotated} of ${a1.size} changed`);
+
+  check("no exercise repeats within block 2",
+    new Set(block2.days.flatMap((d) => d.exercises.map((e) => e.exerciseId))).size ===
+      block2.days.flatMap((d) => d.exercises).length);
+
+  // A carried lift that is no longer allowed must not survive.
+  const injured = generateProgram(
+    base({ blockNumber: 2, carryOver, currentInjuryRegions: ["shoulder"] }),
+  );
+  const bad = injured.days
+    .flatMap((d) => d.exercises)
+    .map((e) => byId.get(e.exerciseId)!)
+    .filter((e) => e.contraindicated_regions.includes("shoulder"));
+  check("carry-over cannot bypass the injury filter", bad.length === 0,
+    bad.map((b) => b.name).join(", "));
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

@@ -4,6 +4,8 @@ import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
 import { BottomNav } from "@/components/bottom-nav";
+import { ensureCurrentBlock } from "@/lib/program/rollover";
+import { localDateString } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +45,14 @@ export default async function TodayPage() {
 
   const timezone = profile.timezone || "Asia/Kolkata";
   const firstName = profile.display_name?.split(" ")[0] ?? "";
+
+  // A four-week block that has run its course rolls over here, on load. This is
+  // a no-op while the block is current, so it is safe on every request.
+  const rollover = await ensureCurrentBlock(
+    supabase,
+    user.id,
+    localDateString(timezone),
+  );
 
   const { data: program } = await supabase
     .from("programs")
@@ -116,6 +126,18 @@ export default async function TodayPage() {
           </p>
         )}
       </header>
+
+      {rollover.status === "rolled_over" && (
+        <p className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+          Block {rollover.blockNumber} starts today. Your main lifts carried over
+          with their weights; the accessory work has been refreshed.
+        </p>
+      )}
+      {rollover.status === "error" && (
+        <p className="mt-4 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+          Your block ended but the next one could not be built: {rollover.error}
+        </p>
+      )}
 
       {today?.day_type === "rest" && (
         <p className="mt-6 text-muted">

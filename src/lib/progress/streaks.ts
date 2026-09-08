@@ -1,6 +1,8 @@
 import type { Database } from "@/lib/database.types";
 
-export { dateRange, isoWeekday } from "@/lib/dates";
+import { dateRange, isoWeekday } from "@/lib/dates";
+
+export { dateRange, isoWeekday };
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
@@ -57,4 +59,39 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
   }
 
   return { current, longest: Math.max(longest, current), totalSessions };
+}
+
+
+/**
+ * Turn a user's whole training history into one record per calendar day.
+ *
+ * Streaks must span blocks: a streak that resets simply because a new
+ * four-week block began would punish the user for the app's own bookkeeping.
+ * Each date is attributed to whichever program covers it, falling back to the
+ * most recent program that had already started.
+ */
+export function buildDayRecords(input: {
+  programs: { id: string; startedOn: string; endsOn: string }[];
+  /** programId -> weekday (1..7) -> day type */
+  dayTypesByProgram: Record<string, Record<number, DayType>>;
+  completedDates: Set<string>;
+  today: string;
+}): DayRecord[] {
+  const { programs, dayTypesByProgram, completedDates, today } = input;
+  if (programs.length === 0) return [];
+
+  const ordered = [...programs].sort((a, b) => a.startedOn.localeCompare(b.startedOn));
+  const first = ordered[0].startedOn;
+  if (first > today) return [];
+
+  return dateRange(first, today).map((date) => {
+    const covering =
+      ordered.find((p) => p.startedOn <= date && p.endsOn >= date) ??
+      [...ordered].reverse().find((p) => p.startedOn <= date);
+
+    const dayType =
+      (covering && dayTypesByProgram[covering.id]?.[isoWeekday(date)]) ?? "rest";
+
+    return { localDate: date, dayType, completed: completedDates.has(date) };
+  });
 }

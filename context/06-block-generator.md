@@ -137,11 +137,13 @@ Database writes verified separately under RLS (step 02).
 - Yoga days generate no content yet; `yoga_playlists` is empty.
 - No warm-up is attached to a day yet. `warmup_exercises` is seeded and
   injury-aware selection is designed, but not wired.
-- Blocks do not auto-roll at four weeks; a new one needs "Rebuild this block".
+- ~~Blocks do not auto-roll at four weeks.~~ **Done in step 11** — see
+  [11-block-rollover.md](11-block-rollover.md).
 
 ## Change log
 
 - Initial engine, splits, prescription, persistence and 30 tests.
 - Step 08 implemented progression and deload dosing; gaps above updated.
+- Step 11 added carry-over between blocks (`carryOver`, `CARRY_OVER_SLOTS`).
 - Added `buildPlan()` and a Today button, for users who onboarded before block
   generation existed.

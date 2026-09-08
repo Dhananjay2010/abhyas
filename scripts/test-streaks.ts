@@ -4,7 +4,13 @@
  *
  *   npx tsx scripts/test-streaks.ts
  */
-import { computeStreaks, dateRange, isoWeekday, type DayRecord } from "../src/lib/progress/streaks";
+import {
+  buildDayRecords,
+  computeStreaks,
+  dateRange,
+  isoWeekday,
+  type DayRecord,
+} from "../src/lib/progress/streaks";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -95,6 +101,41 @@ console.log("\n6. Helpers");
   check("range spans a month end",
     dateRange("2026-08-30", "2026-09-02").join(",") === "2026-08-30,2026-08-31,2026-09-01,2026-09-02",
     dateRange("2026-08-30", "2026-09-02").join(","));
+}
+
+console.log("\n7. Streaks span blocks");
+{
+  // Block 1 ends on the 4th, block 2 starts on the 5th. Training Mon/Wed/Fri
+  // in both. A streak must not reset just because the block rolled over.
+  const records = buildDayRecords({
+    programs: [
+      { id: "b1", startedOn: "2026-08-31", endsOn: "2026-09-04" },
+      { id: "b2", startedOn: "2026-09-05", endsOn: "2026-10-02" },
+    ],
+    dayTypesByProgram: {
+      b1: { 1: "weights", 2: "rest", 3: "weights", 4: "rest", 5: "weights", 6: "rest", 7: "rest" },
+      b2: { 1: "weights", 2: "rest", 3: "weights", 4: "rest", 5: "weights", 6: "rest", 7: "rest" },
+    },
+    completedDates: new Set([
+      "2026-08-31", "2026-09-02", "2026-09-04", "2026-09-07", "2026-09-09",
+    ]),
+    today: "2026-09-09",
+  });
+  const s = computeStreaks(records, "2026-09-09");
+  check("streak carries across the block boundary", s.current === 5, `${s.current}`);
+  check("every day between is accounted for", records.length === 10, `${records.length}`);
+  check("a day in block 2 uses block 2's schedule",
+    records.find((r) => r.localDate === "2026-09-07")?.dayType === "weights");
+
+  const gap = buildDayRecords({
+    programs: [{ id: "b1", startedOn: "2026-09-01", endsOn: "2026-09-03" }],
+    dayTypesByProgram: { b1: { 1: "weights", 2: "weights", 3: "weights", 4: "weights", 5: "weights", 6: "weights", 7: "weights" } },
+    completedDates: new Set(["2026-09-01"]),
+    today: "2026-09-05",
+  });
+  check("dates past a block's end still get a schedule", gap.length === 5, `${gap.length}`);
+  check("no programs means no records",
+    buildDayRecords({ programs: [], dayTypesByProgram: {}, completedDates: new Set(), today: "2026-09-05" }).length === 0);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

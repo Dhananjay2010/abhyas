@@ -4,8 +4,8 @@
 > Working name. Easy to change — it appears only in branding constants.
 
 **Status:** Onboarding, catalogue (604), block generator, guided session, progression,
-the progress screen, settings and history built.
-Next: automatic block rollover, then the yoga and breathing runners.
+the progress screen, settings, history and block rollover built.
+Next: the yoga and breathing runners.
 **Last updated:** 2026-09-08
 
 | | |

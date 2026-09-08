@@ -15,7 +15,13 @@ const CATALOGUE_COLUMNS =
   "level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds";
 
 export type BuildResult =
-  | { ok: true; programId: string; trainingDays: number; totalExercises: number }
+  | {
+      ok: true;
+      programId: string;
+      blockNumber: number;
+      trainingDays: number;
+      totalExercises: number;
+    }
   | { ok: false; error: string };
 
 /**
@@ -27,6 +33,7 @@ export type BuildResult =
 export async function createBlockForUser(
   supabase: Client,
   userId: string,
+  options: { carryOver?: Record<string, string> } = {},
 ): Promise<BuildResult> {
   const [profileRes, weightRes, equipmentRes, injuriesRes, catalogueRes, lastBlockRes] =
     await Promise.all([
@@ -85,6 +92,7 @@ export async function createBlockForUser(
       .filter((i) => i.severity === "current")
       .map((i) => i.body_region),
     catalogue,
+    carryOver: options.carryOver,
   };
 
   const plan = generateProgram(input);
@@ -172,6 +180,7 @@ export async function createBlockForUser(
   return {
     ok: true,
     programId: program.id,
+    blockNumber: plan.blockNumber,
     trainingDays: trainingDays.length,
     totalExercises: exerciseRows.length,
   };
