@@ -26,7 +26,8 @@ pick the project up.
 | [04](04-onboarding.md) | Onboarding flow | Done |
 | [05](05-exercise-catalogue.md) | Exercise catalogue | Done |
 | [06](06-block-generator.md) | Block generator | Done |
-| 07 | Guided session with timers | Next |
+| [07](07-guided-session.md) | Guided session with timers | Done |
+| 08 | Progression from logged sets | Next |
 
 ## Live references
 

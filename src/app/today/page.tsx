@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
+import { StartSessionButton } from "./start-session-button";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,15 @@ export default async function TodayPage() {
 
   const isTraining = today?.day_type === "weights" || today?.day_type === "bodyweight";
 
+  const localToday = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+  const { data: todaySession } = await supabase
+    .from("sessions")
+    .select("id, status")
+    .eq("local_date", localToday)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
       <header>
@@ -120,6 +130,22 @@ export default async function TodayPage() {
       )}
 
       {isTraining && (
+        <div className="mt-7">
+          {todaySession?.status === "completed" ? (
+            <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
+              Session complete. Well done.
+            </p>
+          ) : (
+            <StartSessionButton
+              label={
+                todaySession?.status === "in_progress" ? "Resume session" : "Start session"
+              }
+            />
+          )}
+        </div>
+      )}
+
+      {isTraining && (
         <section className="mt-7">
           <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
             15 min warm-up, then
@@ -145,7 +171,7 @@ export default async function TodayPage() {
             })}
           </ol>
           <p className="mt-4 text-center text-xs text-muted">
-            The guided session with timers comes next.
+            Warm-up is built from today&apos;s muscles and any joint you flagged.
           </p>
         </section>
       )}
