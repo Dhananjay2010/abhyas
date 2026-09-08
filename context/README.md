@@ -28,7 +28,8 @@ pick the project up.
 | [06](06-block-generator.md) | Block generator | Done |
 | [07](07-guided-session.md) | Guided session with timers | Done |
 | [08](08-progression.md) | Progression from logged sets | Done |
-| 09 | Progress charts, streaks, block rollover | Next |
+| [09](09-progress-charts-and-streaks.md) | Progress charts and streaks | Done |
+| 10 | Settings, history, block rollover | Next |
 
 ## Live references
 

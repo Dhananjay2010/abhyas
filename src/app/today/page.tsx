@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
+import { BottomNav } from "@/components/bottom-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,7 @@ export default async function TodayPage() {
         <div className="mt-8">
           <BuildPlanButton label="Build my first block" />
         </div>
+        <BottomNav active="/today" />
       </main>
     );
   }
@@ -95,7 +97,7 @@ export default async function TodayPage() {
     .maybeSingle();
 
   return (
-    <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
+    <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <header>
         <p className="text-sm text-muted">
           {DAY_NAMES[todayIndex - 1]} · Block {program.block_number} · Week {week} of 4
@@ -228,6 +230,8 @@ export default async function TodayPage() {
           </button>
         </form>
       </div>
+
+      <BottomNav active="/today" />
     </main>
   );
 }

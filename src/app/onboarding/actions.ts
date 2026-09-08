@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
+import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -48,6 +49,12 @@ export async function saveAboutYou(input: {
 
   const { supabase, user } = await requireUser();
 
+  const { data: tzRow } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .single();
+
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
@@ -58,8 +65,9 @@ export async function saveAboutYou(input: {
     .eq("id", user.id);
   if (profileError) return { ok: false, error: profileError.message };
 
-  // The first weigh-in doubles as the BMI input for the safety filters.
-  const today = new Date().toISOString().slice(0, 10);
+  // The first weigh-in doubles as the BMI input for the safety filters. It is
+  // dated in the user's timezone, not UTC.
+  const today = localDateString(tzRow?.timezone || "Asia/Kolkata");
   const { error: weightError } = await supabase
     .from("body_metrics")
     .upsert(

@@ -11,6 +11,10 @@
   --color-accent-hover: #e8850c;
   --color-accent-fg: #1a1000;
   --color-danger: #f87171;
+  /* Chart data hue. Validated against --color-surface (#151a1f): inside the
+     dark-mode lightness band and above 3:1 contrast. Do not swap for the
+     brand accent, which is too light on this surface. */
+  --color-chart: #d95926;
   --color-success: #4ade80;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;

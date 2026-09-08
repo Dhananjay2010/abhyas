@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
+import { addDays, localDateString } from "@/lib/dates";
 import {
   generateProgram,
   type CandidateExercise,
@@ -106,9 +107,8 @@ export async function createBlockForUser(
     .eq("user_id", userId)
     .eq("status", "active");
 
-  const startedOn = new Date();
-  const endsOn = new Date(startedOn);
-  endsOn.setDate(endsOn.getDate() + 27); // four weeks inclusive
+  const startedOn = localDateString(profile.timezone || "Asia/Kolkata");
+  const endsOn = addDays(startedOn, 27); // four weeks inclusive
 
   const { data: program, error: programError } = await supabase
     .from("programs")
@@ -120,8 +120,8 @@ export async function createBlockForUser(
       primary_track: input.primaryTrack,
       goal: input.goal,
       level: input.level,
-      started_on: startedOn.toISOString().slice(0, 10),
-      ends_on: endsOn.toISOString().slice(0, 10),
+      started_on: startedOn,
+      ends_on: endsOn,
       deload_week: plan.deloadWeek,
       status: "active",
     })

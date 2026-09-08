@@ -622,6 +622,13 @@ export type Database = {
             foreignKeyName: "session_exercises_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
+            referencedRelation: "session_volume"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_exercises_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
@@ -1030,7 +1037,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      exercise_strength_history: {
+        Row: {
+          best_e1rm: number | null
+          exercise_id: string | null
+          exercise_name: string | null
+          local_date: string | null
+          movement_pattern:
+            | Database["public"]["Enums"]["movement_pattern"]
+            | null
+          top_weight_kg: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_volume: {
+        Row: {
+          duration_seconds: number | null
+          is_deload: boolean | null
+          local_date: string | null
+          session_id: string | null
+          set_count: number | null
+          user_id: string | null
+          volume_kg: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
