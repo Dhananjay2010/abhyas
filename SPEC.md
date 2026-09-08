@@ -3,8 +3,15 @@
 > **Abhyas** (अभ्यास) — *practice; repetition*. One word covering weights, yoga and meditation.
 > Working name. Easy to change — it appears only in branding constants.
 
-**Status:** Specification agreed. Not yet built.
+**Status:** Foundation built — schema live, auth wired, deployed.
 **Last updated:** 2026-09-08
+
+| | |
+|---|---|
+| Repo | https://github.com/Dhananjay2010/abhyas (private) |
+| Live | https://abhyas-indol.vercel.app |
+| Supabase ref | `bjtjhnfyheruxldqbmrj` |
+| Node | 20.19.6 (`.nvmrc`) — run `npm run dev:nvm`, not `npm run dev` |
 
 ---
 
