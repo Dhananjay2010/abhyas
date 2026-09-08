@@ -3,8 +3,8 @@
 > **Abhyas** (अभ्यास) — *practice; repetition*. One word covering weights, yoga and meditation.
 > Working name. Easy to change — it appears only in branding constants.
 
-**Status:** Onboarding, catalogue (604), block generator and the guided session built.
-Next: progression — updating working weights from logged sets.
+**Status:** Onboarding, catalogue (604), block generator, guided session and progression built.
+Next: progress charts, streaks, and automatic block rollover.
 **Last updated:** 2026-09-08
 
 | | |

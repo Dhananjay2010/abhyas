@@ -17,7 +17,7 @@ No LLM is involved. It is repeatable, free and testable.
 | `src/lib/program/prescription.ts` | Goal → sets, reps, rest; deload |
 | `src/lib/program/persist.ts` | Loads inputs, calls the engine, writes to the database |
 | `src/app/today/actions.ts` | `buildPlan()` server action |
-| `scripts/test-generator.ts` | 30 checks against the real catalogue |
+| `scripts/test-generator.ts` | 30 checks against a fixture of the real catalogue |
 
 `generateProgram(input) → GeneratedProgram` is pure: catalogue in, plan out, no
 I/O. That is what makes it testable without a session.
@@ -129,12 +129,11 @@ Database writes verified separately under RLS (step 02).
 
 ## Known gaps
 
-- Progression is **not yet implemented**. The schema (`exercise_progress`) and
-  the rules (double progression, +1.25/2.5/5 kg, stall rule) are specified, but
-  nothing updates working weights yet — that arrives with session logging.
-- The deload week is stored (`deload_week = 4`) and surfaced on Today, but
-  prescriptions are not yet reduced during it. `applyDeload()` exists and is
-  unused.
+- ~~Progression is not yet implemented.~~ **Done in step 08** — see
+  [08-progression.md](08-progression.md).
+- ~~Deload prescriptions are not reduced.~~ **Done in step 08**:
+  `startSession` applies `applyDeload()` to the set count and the suggested
+  weight drops to about 70%.
 - Yoga days generate no content yet; `yoga_playlists` is empty.
 - No warm-up is attached to a day yet. `warmup_exercises` is seeded and
   injury-aware selection is designed, but not wired.
@@ -143,5 +142,6 @@ Database writes verified separately under RLS (step 02).
 ## Change log
 
 - Initial engine, splits, prescription, persistence and 30 tests.
+- Step 08 implemented progression and deload dosing; gaps above updated.
 - Added `buildPlan()` and a Today button, for users who onboarded before block
   generation existed.

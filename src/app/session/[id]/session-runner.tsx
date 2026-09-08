@@ -59,6 +59,8 @@ export type RunnerExercise = {
   repsMin: number;
   repsMax: number;
   restSeconds: number;
+  workingWeightKg: number | null;
+  suggestedWeightKg: number | null;
   status: Database["public"]["Enums"]["exercise_status"];
   feel: Feel | null;
   sets: LoggedSet[];
@@ -110,6 +112,7 @@ export function SessionRunner({
   const [exercises, setExercises] = useState(initialExercises);
   const [error, setError] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
+  const [progressNotes, setProgressNotes] = useState<{ name: string; message: string }[]>([]);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
   // Resume where the session actually stopped rather than at the top.
@@ -319,6 +322,22 @@ export function SessionRunner({
             value={`${exercises.filter((e) => e.status === "completed").length} of ${exercises.length}`}
           />
         </div>
+        {progressNotes.length > 0 && (
+          <section className="mt-8">
+            <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
+              What changed for next time
+            </h2>
+            <ul className="space-y-2">
+              {progressNotes.map((n, i) => (
+                <li key={i} className="rounded-xl border border-border bg-surface px-4 py-3 text-sm">
+                  <span className="font-semibold">{n.name}</span>
+                  <p className="mt-1 text-muted">{n.message}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <div className="mt-10">
           <BigButton
             onClick={() => {
@@ -356,8 +375,11 @@ export function SessionRunner({
   const setsDone = current.sets.length;
   const allSetsDone = setsDone >= current.plannedSets;
   const nextSetNumber = setsDone + 1;
+  // Prefer a weight already logged this session; otherwise start from where
+  // progression left this lift (reduced during a deload week).
   const lastWeight =
-    [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ?? null;
+    [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
+    current.suggestedWeightKg;
 
   async function onLogSet(reps: number | null, weightKg: number | null) {
     const ok = await run(() =>
@@ -382,10 +404,19 @@ export function SessionRunner({
   }
 
   async function onFinishExercise(feel: Feel | null, skipped = false) {
-    const ok = await run(() =>
-      actions.finishExercise({ sessionExerciseId: current.id, feel, skipped }),
-    );
-    if (!ok) return;
+    const result = await actions.finishExercise({
+      sessionExerciseId: current.id,
+      feel,
+      skipped,
+    });
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    if (result.data?.message) {
+      setProgressNotes((prev) => [...prev, { name: current.name, message: result.data!.message }]);
+    }
     setExercises((prev) =>
       prev.map((e) =>
         e.id === current.id ? { ...e, status: skipped ? "skipped" : "completed", feel } : e,
@@ -417,11 +448,25 @@ export function SessionRunner({
       error={error}
     >
       <div onPointerDown={onAnyTap}>
+        {progressNotes.length > 0 && (
+          <p className="mb-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+            <span className="font-semibold">{progressNotes[progressNotes.length - 1].name}:</span>{" "}
+            {progressNotes[progressNotes.length - 1].message}
+          </p>
+        )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
           {current.plannedSets} sets × {current.repsMin}–{current.repsMax} reps
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
+        {current.workingWeightKg !== null && (
+          <p className="mt-2 text-sm text-muted">
+            Working weight {current.workingWeightKg} kg
+            {current.suggestedWeightKg !== null &&
+              current.suggestedWeightKg !== current.workingWeightKg &&
+              ` · today ${current.suggestedWeightKg} kg`}
+          </p>
+        )}
         {isDeload && (
           <p className="mt-3 text-sm text-muted">
             Deload — keep the weight light and stop well short of failure.

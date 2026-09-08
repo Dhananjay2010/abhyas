@@ -6,7 +6,7 @@
  * is asserted here is the part that can hurt someone: that safety filters
  * actually remove what they claim to.
  *
- *   npx tsx scripts/test-generator.ts <catalogue.json>
+ *   npm run test:generator
  */
 import { readFileSync } from "node:fs";
 import {
@@ -15,7 +15,10 @@ import {
   type GeneratorInput,
 } from "../src/lib/program/generate";
 
-const catalogue = JSON.parse(readFileSync(process.argv[2], "utf8")) as CandidateExercise[];
+// Defaults to the committed fixture so the suite runs offline; refresh it with
+// scripts/export-catalogue.sh after changing the exercise seed.
+const fixture = process.argv[2] ?? "scripts/fixtures/catalogue.json";
+const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
 const byId = new Map(catalogue.map((e) => [e.id, e]));
 
 let failures = 0;

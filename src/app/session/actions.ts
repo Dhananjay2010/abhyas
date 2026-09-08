@@ -5,6 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { isEligible, type CandidateExercise } from "@/lib/program/generate";
+import {
+  evaluateProgression,
+  type ExerciseMeta,
+  type ProgressState,
+} from "@/lib/program/progression";
+import { applyDeload } from "@/lib/program/prescription";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -91,6 +97,8 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   );
   const week = Math.min(4, Math.max(1, Math.floor(daysIn / 7) + 1));
 
+  const isDeloadWeekEarly = week === program.deload_week;
+
   const { data: session, error: sessionError } = await supabase
     .from("sessions")
     .insert({
@@ -99,7 +107,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       program_day_id: day.id,
       local_date: today,
       week_in_block: week,
-      is_deload: week === program.deload_week,
+      is_deload: isDeloadWeekEarly,
       planned_type: day.day_type,
       actual_type: day.day_type,
       status: "in_progress",
@@ -118,18 +126,37 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     .eq("program_day_id", day.id)
     .order("order_index");
 
+  const isDeloadWeek = isDeloadWeekEarly;
+
   if (planned && planned.length > 0) {
     const { error } = await supabase.from("session_exercises").insert(
-      planned.map((p) => ({
-        session_id: session.id,
-        user_id: user.id, // corrected by the definer trigger
-        exercise_id: p.exercise_id,
-        order_index: p.order_index,
-        planned_sets: p.target_sets,
-        planned_reps_min: p.target_reps_min,
-        planned_reps_max: p.target_reps_max,
-        rest_seconds: p.rest_seconds,
-      })),
+      planned.map((p) => {
+        // Week 4 of a block cuts volume; the weight suggestion is reduced
+        // separately when the session is rendered.
+        const dose = isDeloadWeek
+          ? applyDeload({
+              sets: p.target_sets,
+              repsMin: p.target_reps_min,
+              repsMax: p.target_reps_max,
+              restSeconds: p.rest_seconds,
+            })
+          : {
+              sets: p.target_sets,
+              repsMin: p.target_reps_min,
+              repsMax: p.target_reps_max,
+              restSeconds: p.rest_seconds,
+            };
+        return {
+          session_id: session.id,
+          user_id: user.id, // corrected by the definer trigger
+          exercise_id: p.exercise_id,
+          order_index: p.order_index,
+          planned_sets: dose.sets,
+          planned_reps_min: dose.repsMin,
+          planned_reps_max: dose.repsMax,
+          rest_seconds: dose.restSeconds,
+        };
+      }),
     );
     if (error) return { ok: false, error: error.message };
   }
@@ -183,12 +210,21 @@ export async function deleteSet(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+export type ProgressionFeedback = { outcome: string; message: string };
+
+/**
+ * Complete an exercise and apply progression from what was actually logged.
+ *
+ * Progression runs here rather than at the end of the session so that a
+ * workout cut short still banks the exercises that were finished.
+ */
 export async function finishExercise(input: {
   sessionExerciseId: string;
   feel: SetFeel | null;
   skipped?: boolean;
-}): Promise<Result> {
-  const { supabase } = await requireUser();
+}): Promise<Result<ProgressionFeedback | null>> {
+  const { supabase, user } = await requireUser();
+
   const { error } = await supabase
     .from("session_exercises")
     .update({
@@ -197,7 +233,148 @@ export async function finishExercise(input: {
       completed_at: new Date().toISOString(),
     })
     .eq("id", input.sessionExerciseId);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  if (error) return { ok: false, error: error.message };
+
+  if (input.skipped) return { ok: true, data: null };
+
+  const feedback = await applyProgression(supabase, user.id, input.sessionExerciseId, input.feel);
+  return { ok: true, data: feedback };
+}
+
+type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
+
+async function applyProgression(
+  supabase: ServerClient,
+  userId: string,
+  sessionExerciseId: string,
+  feel: SetFeel | null,
+): Promise<ProgressionFeedback | null> {
+  const { data: settings } = await supabase
+    .from("user_settings")
+    .select("planning_mode")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  // Daily-menu mode keeps no working-weight memory. History is preserved, so
+  // switching back to progression resumes from where it left off.
+  if (settings?.planning_mode === "daily_menu") return null;
+
+  const { data: se } = await supabase
+    .from("session_exercises")
+    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, exercises(mechanic, movement_pattern, equipment_ids, progression_chain, progression_rank)")
+    .eq("id", sessionExerciseId)
+    .maybeSingle();
+  if (!se) return null;
+
+  const ex = se.exercises as unknown as {
+    mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
+    movement_pattern: MovementPattern;
+    equipment_ids: string[];
+    progression_chain: string | null;
+    progression_rank: number | null;
+  };
+  if (!ex) return null;
+
+  const [sessionRes, setsRes, progressRes] = await Promise.all([
+    supabase.from("sessions").select("is_deload, local_date, program_id").eq("id", se.session_id).maybeSingle(),
+    supabase
+      .from("session_sets")
+      .select("reps, weight_kg")
+      .eq("session_exercise_id", sessionExerciseId)
+      .eq("is_warmup_set", false)
+      .order("set_number"),
+    supabase
+      .from("exercise_progress")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("exercise_id", se.exercise_id)
+      .maybeSingle(),
+  ]);
+
+  const meta: ExerciseMeta = {
+    mechanic: ex.mechanic,
+    movementPattern: ex.movement_pattern,
+    isBodyweight: (ex.equipment_ids ?? []).length === 0,
+    progressionChain: ex.progression_chain,
+    progressionRank: ex.progression_rank,
+  };
+
+  const prior = progressRes.data;
+  const state: ProgressState = {
+    currentWorkingWeightKg: prior?.current_working_weight_kg === null || prior === null
+      ? null
+      : Number(prior.current_working_weight_kg),
+    currentTargetReps: prior?.current_target_reps ?? null,
+    consecutiveFailures: prior?.consecutive_failures ?? 0,
+    bestWeightKg: prior?.best_weight_kg === null || prior === null ? null : Number(prior.best_weight_kg),
+    bestReps: prior?.best_reps ?? null,
+    bestE1rm: prior?.best_e1rm === null || prior === null ? null : Number(prior.best_e1rm),
+    totalSessions: prior?.total_sessions ?? 0,
+  };
+
+  const decision = evaluateProgression({
+    sets: (setsRes.data ?? []).map((s) => ({
+      reps: s.reps,
+      weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
+    })),
+    plannedSets: se.planned_sets ?? 3,
+    repsMin: se.planned_reps_min ?? 8,
+    repsMax: se.planned_reps_max ?? 12,
+    feel,
+    meta,
+    state,
+    isDeload: sessionRes.data?.is_deload ?? false,
+  });
+
+  await supabase.from("exercise_progress").upsert(
+    {
+      user_id: userId,
+      exercise_id: se.exercise_id,
+      current_working_weight_kg: decision.nextWorkingWeightKg,
+      current_target_reps: decision.nextTargetReps,
+      consecutive_failures: decision.consecutiveFailures,
+      last_performed_on: sessionRes.data?.local_date ?? null,
+      best_weight_kg: decision.bestWeightKg,
+      best_reps: decision.bestReps,
+      best_e1rm: decision.bestE1rm,
+      total_sessions: state.totalSessions + 1,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,exercise_id" },
+  );
+
+  // Outgrew a bodyweight variation: upgrade the plan so next time is harder.
+  if (decision.wantsHarderVariation && ex.progression_chain) {
+    await upgradeVariation(supabase, userId, se.exercise_id, ex.progression_chain, ex.progression_rank ?? 0);
+  }
+
+  return { outcome: decision.outcome, message: decision.message };
+}
+
+/** Swap the exercise in the active program for the next link in its chain. */
+async function upgradeVariation(
+  supabase: ServerClient,
+  userId: string,
+  currentExerciseId: string,
+  chain: string,
+  rank: number,
+) {
+  const { data: next } = await supabase
+    .from("exercises")
+    .select("id")
+    .eq("progression_chain", chain)
+    .gt("progression_rank", rank)
+    .eq("is_active", true)
+    .order("progression_rank")
+    .limit(1)
+    .maybeSingle();
+  if (!next) return;
+
+  await supabase
+    .from("program_day_exercises")
+    .update({ exercise_id: next.id })
+    .eq("user_id", userId)
+    .eq("exercise_id", currentExerciseId);
 }
 
 export async function finishSession(input: {

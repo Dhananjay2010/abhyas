@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "dev:nvm": "./scripts/dev.sh",
-    "test:generator": "tsx scripts/test-generator.ts"
+    "test:generator": "tsx scripts/test-generator.ts",
+    "test:progression": "tsx scripts/test-progression.ts",
+    "test": "npm run test:generator && npm run test:progression"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

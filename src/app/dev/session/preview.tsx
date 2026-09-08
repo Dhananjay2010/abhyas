@@ -13,7 +13,10 @@ const ok = async () => ({ ok: true }) as const;
 const STUB: SessionActions = {
   markWarmupDone: ok,
   logSet: ok,
-  finishExercise: ok,
+  finishExercise: async () => ({
+    ok: true as const,
+    data: { outcome: "progressed", message: "All sets at the top of the range — up to 62.5 kg." },
+  }),
   finishSession: ok,
   abandonSession: ok,
   swapExercise: ok,
@@ -52,13 +55,15 @@ const EXERCISES: RunnerExercise[] = [
     id: "e1", exerciseId: "x1", name: "Barbell Bench Press",
     cue: "Compound push movement targeting chest, front delts, triceps. Barbell, Bench.",
     primaryMuscles: ["chest"], plannedSets: 4, repsMin: 8, repsMax: 12,
-    restSeconds: 8, status: "pending", feel: null, sets: [],
+    restSeconds: 8, workingWeightKg: 60, suggestedWeightKg: 60,
+    status: "pending", feel: null, sets: [],
   },
   {
     id: "e2", exerciseId: "x2", name: "Wide-Grip Lat Pulldown",
     cue: "Compound pull movement targeting lats. Lat pulldown.",
     primaryMuscles: ["lats"], plannedSets: 3, repsMin: 8, repsMax: 12,
-    restSeconds: 8, status: "pending", feel: null, sets: [],
+    restSeconds: 8, workingWeightKg: null, suggestedWeightKg: null,
+    status: "pending", feel: null, sets: [],
   },
 ];
 

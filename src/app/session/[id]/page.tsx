@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
+import { suggestedWeight } from "@/lib/program/progression";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 
@@ -45,6 +46,19 @@ export default async function SessionPage({
     ]);
 
   const rows = exercisesRes.data ?? [];
+  const exerciseIds = rows
+    .map((r) => (r.exercises as unknown as { id: string } | null)?.id)
+    .filter((x): x is string => Boolean(x));
+
+  // Where the user currently stands on each lift, so the weight field starts
+  // at the right number instead of blank.
+  const { data: progressRows } = await supabase
+    .from("exercise_progress")
+    .select("exercise_id, current_working_weight_kg, current_target_reps, best_weight_kg")
+    .in("exercise_id", exerciseIds.length ? exerciseIds : ["00000000-0000-0000-0000-000000000000"]);
+  const progressByExercise = new Map(
+    (progressRows ?? []).map((p) => [p.exercise_id, p]),
+  );
 
   // Sets already logged, so a resumed session picks up where it stopped.
   const { data: loggedSets } = await supabase
@@ -59,9 +73,15 @@ export default async function SessionPage({
       id: string;
       name: string;
       cue: string | null;
-      movement_pattern: string;
+      movement_pattern: Database["public"]["Enums"]["movement_pattern"];
       primary_muscles: Muscle[];
+      equipment_ids: string[];
     };
+    const progress = progressByExercise.get(ex?.id ?? "");
+    const working =
+      progress?.current_working_weight_kg === null || progress === undefined
+        ? null
+        : Number(progress.current_working_weight_kg);
     return {
       id: r.id,
       exerciseId: ex?.id ?? "",
@@ -74,6 +94,18 @@ export default async function SessionPage({
       restSeconds: r.rest_seconds ?? 90,
       status: r.status,
       feel: r.feel,
+      workingWeightKg: working,
+      suggestedWeightKg: suggestedWeight(
+        { currentWorkingWeightKg: working },
+        session.is_deload,
+        {
+          mechanic: null,
+          movementPattern: ex?.movement_pattern ?? "other",
+          isBodyweight: (ex?.equipment_ids ?? []).length === 0,
+          progressionChain: null,
+          progressionRank: null,
+        },
+      ),
       sets: (loggedSets ?? [])
         .filter((s) => s.session_exercise_id === r.id)
         .map((s) => ({
