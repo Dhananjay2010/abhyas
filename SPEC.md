@@ -3,7 +3,7 @@
 > **Abhyas** (अभ्यास) — *practice; repetition*. One word covering weights, yoga and meditation.
 > Working name. Easy to change — it appears only in branding constants.
 
-**Status:** Foundation built — schema live, auth wired, deployed.
+**Status:** Onboarding built. Next: exercise catalogue, then the block generator.
 **Last updated:** 2026-09-08
 
 | | |
