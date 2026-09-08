@@ -1,15 +1,28 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { GOALS, LEVELS, SPLIT_BY_DAYS, ageOn } from "@/lib/onboarding/options";
+import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
+import { BuildPlanButton } from "./build-plan-button";
 
 export const dynamic = "force-dynamic";
 
-const TRACK_LABELS: Record<string, string> = {
-  weights: "Gym — weights",
-  bodyweight: "Bodyweight at home",
-  yoga: "Yoga",
-  meditation: "Breathing and meditation",
-};
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** ISO weekday (1 = Monday) for "now" in the user's own timezone. */
+function localWeekday(timezone: string): number {
+  const name = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, weekday: "long" })
+    .format(new Date());
+  const i = DAY_NAMES.indexOf(name);
+  return i === -1 ? 1 : i + 1;
+}
+
+function weekInBlock(startedOn: string, timezone: string): number {
+  const today = new Date(
+    new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date()),
+  );
+  const start = new Date(`${startedOn}T00:00:00`);
+  const days = Math.floor((today.getTime() - start.getTime()) / 86400000);
+  return Math.min(4, Math.max(1, Math.floor(days / 7) + 1));
+}
 
 export default async function TodayPage() {
   const supabase = await createClient();
@@ -18,92 +31,177 @@ export default async function TodayPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/");
 
-  const [profileRes, weightRes, injuriesRes, equipmentRes] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).single(),
-    supabase
-      .from("body_metrics")
-      .select("weight_kg")
-      .order("recorded_on", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase.from("user_injuries").select("body_region, severity"),
-    supabase.from("user_equipment").select("equipment_id"),
-  ]);
-
-  const profile = profileRes.data;
-  if (!profile) throw new Error(profileRes.error?.message ?? "Profile not found");
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+  if (!profile) throw new Error(profileError?.message ?? "Profile not found");
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
-  const weightKg = weightRes.data?.weight_kg ?? null;
-  const age = profile.date_of_birth ? ageOn(profile.date_of_birth) : null;
-  const bmi =
-    weightKg && profile.height_cm
-      ? weightKg / (Number(profile.height_cm) / 100) ** 2
-      : null;
+  const timezone = profile.timezone || "Asia/Kolkata";
+  const firstName = profile.display_name?.split(" ")[0] ?? "";
 
-  const trainingDays = (profile.days_per_week ?? 0) - (profile.yoga_days_per_week ?? 0);
-  const injuries = injuriesRes.data ?? [];
-  const equipmentCount = equipmentRes.data?.length ?? 0;
+  const { data: program } = await supabase
+    .from("programs")
+    .select("id, block_number, split_type, started_on, ends_on, deload_week")
+    .eq("status", "active")
+    .maybeSingle();
 
-  const rows: [string, string][] = [
-    ["Goal", GOALS.find((g) => g.value === profile.goal)?.label ?? "—"],
-    ["Level", LEVELS.find((l) => l.value === profile.level)?.label ?? "—"],
-    ["Track", TRACK_LABELS[profile.primary_track ?? ""] ?? "—"],
-    [
-      "Week",
-      profile.yoga_days_per_week
-        ? `${trainingDays} training + ${profile.yoga_days_per_week} yoga`
-        : `${profile.days_per_week} days`,
-    ],
-    ["Split", SPLIT_BY_DAYS[profile.days_per_week ?? 0] ?? "—"],
-    ["Age", age !== null ? `${age}` : "—"],
-    ["BMI", bmi ? bmi.toFixed(1) : "—"],
-    [
-      "Equipment",
-      profile.has_all_equipment ? "Everything" : `${equipmentCount} selected`,
-    ],
-    [
-      "Injuries",
-      injuries.length === 0
-        ? "None"
-        : injuries.map((i) => i.body_region.replace("_", " ")).join(", "),
-    ],
-  ];
+  if (!program) {
+    return (
+      <main className="mx-auto w-full max-w-md px-6 py-12">
+        <h1 className="text-3xl font-bold tracking-tight">Hello{firstName && `, ${firstName}`}</h1>
+        <p className="mt-3 text-muted">
+          Your profile is set but you have no training block yet. Building one takes a
+          second and uses your goal, level, equipment and injuries.
+        </p>
+        <div className="mt-8">
+          <BuildPlanButton label="Build my first block" />
+        </div>
+      </main>
+    );
+  }
+
+  const { data: days } = await supabase
+    .from("program_days")
+    .select("id, day_index, day_type, focus, label")
+    .eq("program_id", program.id)
+    .order("day_index");
+
+  const todayIndex = localWeekday(timezone);
+  const today = days?.find((d) => d.day_index === todayIndex);
+  const week = weekInBlock(program.started_on, timezone);
+  const isDeload = week === program.deload_week;
+
+  const { data: todayExercises } = today
+    ? await supabase
+        .from("program_day_exercises")
+        .select("order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern)")
+        .eq("program_day_id", today.id)
+        .order("order_index")
+    : { data: null };
+
+  const isTraining = today?.day_type === "weights" || today?.day_type === "bodyweight";
 
   return (
-    <main className="mx-auto w-full max-w-md px-6 py-12">
-      <h1 className="text-3xl font-bold tracking-tight">
-        Hello{profile.display_name ? `, ${profile.display_name.split(" ")[0]}` : ""}
-      </h1>
-      <p className="mt-2 text-muted">Your profile is set. Here is what we will build on.</p>
+    <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
+      <header>
+        <p className="text-sm text-muted">
+          {DAY_NAMES[todayIndex - 1]} · Block {program.block_number} · Week {week} of 4
+        </p>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight">
+          {today?.day_type === "rest"
+            ? "Rest day"
+            : today?.day_type === "yoga"
+              ? "Yoga"
+              : (today?.label ?? "Today")}
+        </h1>
+        {isDeload && isTraining && (
+          <p className="mt-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+            Deload week. Lighter loads, nothing near failure — this is what lets week 5
+            go up.
+          </p>
+        )}
+      </header>
 
-      <dl className="mt-8 divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface text-sm">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex justify-between gap-4 px-5 py-3.5">
-            <dt className="text-muted">{label}</dt>
-            <dd className="text-right font-medium">{value}</dd>
-          </div>
-        ))}
-      </dl>
-
-      {bmi && bmi >= 30 && (
-        <p className="mt-4 rounded-xl border border-border bg-surface-2 px-5 py-4 text-sm text-muted">
-          Your plan will leave out jumping and other high-impact work, and favour
-          supported and machine variations. You can override this in Settings later.
+      {today?.day_type === "rest" && (
+        <p className="mt-6 text-muted">
+          Nothing scheduled. Rest properly, or do something light — a walk, mobility, or
+          a breathing session.
         </p>
       )}
 
-      <div className="mt-8 rounded-xl border border-dashed border-border px-5 py-6 text-center">
-        <p className="text-sm text-muted">
-          Next: the exercise catalogue and your first four-week block.
+      {today?.day_type === "yoga" && (
+        <p className="mt-6 text-muted">
+          A yoga session today. The Yoga with Adriene player comes next — for now, treat
+          this as your active day.
         </p>
-      </div>
+      )}
 
-      <form action="/auth/signout" method="post" className="mt-8">
-        <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
-          Sign out
-        </button>
-      </form>
+      {isTraining && (
+        <section className="mt-7">
+          <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
+            15 min warm-up, then
+          </h2>
+          <ol className="space-y-2">
+            {(todayExercises ?? []).map((row) => {
+              const ex = row.exercises as unknown as { name: string; cue: string | null };
+              return (
+                <li
+                  key={row.order_index}
+                  className="rounded-xl border border-border bg-surface px-4 py-3.5"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-semibold">{ex?.name}</span>
+                    <span className="shrink-0 text-sm tabular-nums text-accent">
+                      {row.target_sets} × {row.target_reps_min}–{row.target_reps_max}
+                    </span>
+                  </div>
+                  {ex?.cue && <p className="mt-1 text-sm text-muted">{ex.cue}</p>}
+                  <p className="mt-1 text-xs text-muted">{row.rest_seconds}s rest</p>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="mt-4 text-center text-xs text-muted">
+            The guided session with timers comes next.
+          </p>
+        </section>
+      )}
+
+      <section className="mt-10">
+        <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
+          Your week
+        </h2>
+        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface text-sm">
+          {(days ?? []).map((d) => (
+            <li
+              key={d.day_index}
+              className={`flex justify-between gap-4 px-4 py-3 ${
+                d.day_index === todayIndex ? "bg-surface-2" : ""
+              }`}
+            >
+              <span className={d.day_index === todayIndex ? "font-semibold" : "text-muted"}>
+                {DAY_NAMES[d.day_index - 1]}
+              </span>
+              <span className={d.day_type === "rest" ? "text-muted" : "font-medium"}>
+                {d.label}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="mt-10 space-y-3 text-sm">
+        <div className="flex justify-between gap-4 text-muted">
+          <span>Goal</span>
+          <span className="text-fg">
+            {GOALS.find((g) => g.value === profile.goal)?.label ?? "—"}
+          </span>
+        </div>
+        <div className="flex justify-between gap-4 text-muted">
+          <span>Level</span>
+          <span className="text-fg">
+            {LEVELS.find((l) => l.value === profile.level)?.label ?? "—"}
+          </span>
+        </div>
+        <div className="flex justify-between gap-4 text-muted">
+          <span>Age</span>
+          <span className="text-fg">
+            {profile.date_of_birth ? ageOn(profile.date_of_birth) : "—"}
+          </span>
+        </div>
+      </section>
+
+      <div className="mt-10 space-y-3">
+        <BuildPlanButton label="Rebuild this block" />
+        <form action="/auth/signout" method="post">
+          <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
+            Sign out
+          </button>
+        </form>
+      </div>
     </main>
   );
 }

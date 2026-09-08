@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/database.types";
 import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
+import { createBlockForUser } from "@/lib/program/persist";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
@@ -158,6 +159,11 @@ export async function completeOnboarding(): Promise<ActionResult> {
 
   if (missing.length > 0)
     return { ok: false, error: `Still missing: ${missing.join(", ")}.` };
+
+  // Build the first block before marking onboarding done, so a user never lands
+  // on Today with a completed profile and no plan.
+  const block = await createBlockForUser(supabase, user.id);
+  if (!block.ok) return { ok: false, error: block.error };
 
   const { error } = await supabase
     .from("profiles")

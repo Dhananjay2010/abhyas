@@ -271,6 +271,7 @@ export type Database = {
           category: Database["public"]["Enums"]["exercise_category"]
           contraindicated_regions: Database["public"]["Enums"]["body_region"][]
           created_at: string
+          cue: string | null
           default_rest_seconds: number
           equipment_ids: string[]
           force: Database["public"]["Enums"]["force_type"] | null
@@ -281,6 +282,7 @@ export type Database = {
           is_unilateral: boolean
           level_min: Database["public"]["Enums"]["fitness_level"]
           mechanic: Database["public"]["Enums"]["mechanic_type"] | null
+          movement_pattern: Database["public"]["Enums"]["movement_pattern"]
           name: string
           primary_muscles: Database["public"]["Enums"]["muscle"][]
           progression_chain: string | null
@@ -298,6 +300,7 @@ export type Database = {
           category: Database["public"]["Enums"]["exercise_category"]
           contraindicated_regions?: Database["public"]["Enums"]["body_region"][]
           created_at?: string
+          cue?: string | null
           default_rest_seconds?: number
           equipment_ids?: string[]
           force?: Database["public"]["Enums"]["force_type"] | null
@@ -308,6 +311,7 @@ export type Database = {
           is_unilateral?: boolean
           level_min?: Database["public"]["Enums"]["fitness_level"]
           mechanic?: Database["public"]["Enums"]["mechanic_type"] | null
+          movement_pattern?: Database["public"]["Enums"]["movement_pattern"]
           name: string
           primary_muscles: Database["public"]["Enums"]["muscle"][]
           progression_chain?: string | null
@@ -325,6 +329,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["exercise_category"]
           contraindicated_regions?: Database["public"]["Enums"]["body_region"][]
           created_at?: string
+          cue?: string | null
           default_rest_seconds?: number
           equipment_ids?: string[]
           force?: Database["public"]["Enums"]["force_type"] | null
@@ -335,6 +340,7 @@ export type Database = {
           is_unilateral?: boolean
           level_min?: Database["public"]["Enums"]["fitness_level"]
           mechanic?: Database["public"]["Enums"]["mechanic_type"] | null
+          movement_pattern?: Database["public"]["Enums"]["movement_pattern"]
           name?: string
           primary_muscles?: Database["public"]["Enums"]["muscle"][]
           progression_chain?: string | null
@@ -1074,6 +1080,25 @@ export type Database = {
       injury_severity: "current" | "past"
       mechanic_type: "compound" | "isolation"
       media_type: "photo" | "gif" | "video_youtube"
+      movement_pattern:
+        | "horizontal_press"
+        | "vertical_press"
+        | "horizontal_pull"
+        | "vertical_pull"
+        | "squat"
+        | "hinge"
+        | "lunge"
+        | "calf"
+        | "core"
+        | "biceps"
+        | "triceps"
+        | "lateral_delt"
+        | "rear_delt"
+        | "forearm"
+        | "neck"
+        | "carry"
+        | "cardio"
+        | "other"
       muscle:
         | "chest"
         | "lats"
@@ -1291,6 +1316,26 @@ export const Constants = {
       injury_severity: ["current", "past"],
       mechanic_type: ["compound", "isolation"],
       media_type: ["photo", "gif", "video_youtube"],
+      movement_pattern: [
+        "horizontal_press",
+        "vertical_press",
+        "horizontal_pull",
+        "vertical_pull",
+        "squat",
+        "hinge",
+        "lunge",
+        "calf",
+        "core",
+        "biceps",
+        "triceps",
+        "lateral_delt",
+        "rear_delt",
+        "forearm",
+        "neck",
+        "carry",
+        "cardio",
+        "other",
+      ],
       muscle: [
         "chest",
         "lats",
