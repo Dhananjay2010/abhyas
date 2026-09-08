@@ -4,6 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 /** Routes reachable without a session. Everything else redirects to "/". */
 const PUBLIC_PATHS = ["/", "/auth", "/legal"];
 
+/** Dev-only harnesses, never routable in production (the pages 404 there too). */
+const DEV_PATHS = process.env.NODE_ENV === "development" ? ["/dev"] : [];
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -34,7 +37,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some(
+  const isPublic = [...PUBLIC_PATHS, ...DEV_PATHS].some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 

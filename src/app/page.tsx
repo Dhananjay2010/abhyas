@@ -13,7 +13,14 @@ export default async function LandingPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (user) redirect("/today");
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarding_completed_at")
+      .eq("id", user.id)
+      .single();
+    redirect(profile?.onboarding_completed_at ? "/today" : "/onboarding");
+  }
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-between px-6 py-12">
