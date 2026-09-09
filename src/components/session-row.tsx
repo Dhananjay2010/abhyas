@@ -19,6 +19,30 @@ const STATUS_LABEL: Record<string, string> = {
   rest: "Rest",
 };
 
+const TYPE_LABEL: Record<string, string> = {
+  weights: "Workout",
+  bodyweight: "Workout",
+  yoga: "Yoga",
+  meditation: "Breathing",
+  rest: "Rest",
+  active_recovery: "Active recovery",
+};
+
+/**
+ * What to call a session in a list.
+ *
+ * The program day's label ("Push", "Legs") is only right when the session was
+ * actually that kind of training. A yoga session recorded on a Legs day must
+ * not be listed as "Legs", and the raw enum "meditation" must never reach the
+ * screen.
+ */
+export function sessionLabel(dayLabel: string | null, actualType: string | null): string {
+  if (actualType === "yoga" || actualType === "meditation") {
+    return TYPE_LABEL[actualType];
+  }
+  return dayLabel ?? TYPE_LABEL[actualType ?? ""] ?? "Session";
+}
+
 function longDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return new Intl.DateTimeFormat("en-GB", {

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BottomNav } from "@/components/bottom-nav";
 import { localDateString } from "@/lib/dates";
-import { SessionRow, type SessionSummary } from "@/components/session-row";
+import { SessionRow, sessionLabel, type SessionSummary } from "@/components/session-row";
 
 export const dynamic = "force-dynamic";
 
@@ -57,10 +57,10 @@ export default async function HistoryPage() {
             const summary: SessionSummary = {
               id: s.id,
               localDate: s.local_date,
-              label:
-                (s.program_days as unknown as { label: string } | null)?.label ??
-                s.actual_type ??
-                "Session",
+              label: sessionLabel(
+                (s.program_days as unknown as { label: string } | null)?.label ?? null,
+                s.actual_type,
+              ),
               status: s.status,
               isDeload: s.is_deload,
               durationSeconds: s.duration_seconds,

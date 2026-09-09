@@ -35,7 +35,7 @@ export default async function SessionPage({
         .from("session_exercises")
         // Must be one string literal: Supabase infers row types from it, and a
         // concatenation degrades the result to GenericStringError.
-        .select("id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, exercises(id, name, cue, movement_pattern, primary_muscles, equipment_ids)")
+        .select("id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, primary_muscles, equipment_ids)")
         .eq("session_id", id)
         .order("order_index"),
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
@@ -45,6 +45,12 @@ export default async function SessionPage({
       supabase.from("user_equipment").select("equipment_id"),
     ]);
 
+  // A failed query used to fall through to "this session has no exercises",
+  // which is indistinguishable from a genuinely empty session. It hid a
+  // PGRST201 ambiguous-embed error for the entire life of this page.
+  if (exercisesRes.error) {
+    throw new Error(`Could not load this session's exercises: ${exercisesRes.error.message}`);
+  }
   const rows = exercisesRes.data ?? [];
   const exerciseIds = rows
     .map((r) => (r.exercises as unknown as { id: string } | null)?.id)

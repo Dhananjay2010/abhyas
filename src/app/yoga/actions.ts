@@ -57,11 +57,16 @@ export async function markYogaVideoDone(videoId: string): Promise<Result> {
   );
   if (progressError) return { ok: false, error: progressError.message };
 
-  const { data: session } = await supabase
+  // Only reuse a session that is actually a yoga slot. Reusing whatever row
+  // happened to exist meant a yoga session inherited a strength day's
+  // program_day, and History listed it as "Legs".
+  const { data: candidates } = await supabase
     .from("sessions")
-    .select("id")
-    .eq("local_date", today)
-    .maybeSingle();
+    .select("id, status, planned_type")
+    .eq("local_date", today);
+  const session = (candidates ?? []).find(
+    (c) => c.status !== "completed" && c.planned_type === "yoga",
+  );
 
   const payload = {
     status: "completed" as const,

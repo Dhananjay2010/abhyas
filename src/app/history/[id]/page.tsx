@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { sessionLabel } from "@/components/session-row";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -31,14 +32,14 @@ export default async function SessionDetailPage({
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, local_date, status, duration_seconds, is_deload, week_in_block, notes, program_days(label)")
+    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, program_days(label)")
     .eq("id", id)
     .maybeSingle();
   if (!session) notFound();
 
-  const { data: exercises } = await supabase
+  const { data: exercises, error: exercisesError } = await supabase
     .from("session_exercises")
-    .select("id, order_index, status, feel, planned_sets, planned_reps_min, planned_reps_max, exercises(name), swapped_from_exercise_id")
+    .select("id, order_index, status, feel, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(name), swapped_from_exercise_id")
     .eq("session_id", id)
     .order("order_index");
 
@@ -50,7 +51,14 @@ export default async function SessionDetailPage({
     .eq("is_warmup_set", false)
     .order("set_number");
 
-  const label = (session.program_days as unknown as { label: string } | null)?.label ?? "Session";
+  if (exercisesError) {
+    throw new Error(`Could not load this session: ${exercisesError.message}`);
+  }
+
+  const label = sessionLabel(
+    (session.program_days as unknown as { label: string } | null)?.label ?? null,
+    session.actual_type,
+  );
   const minutes = session.duration_seconds ? Math.round(session.duration_seconds / 60) : null;
   const volume = (sets ?? []).reduce(
     (n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0),

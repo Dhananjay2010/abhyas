@@ -110,13 +110,22 @@ export default async function TodayPage() {
     (equipmentCount ?? 0) === 0;
 
   const localToday = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
-  const { data: todaySession } = await supabase
+  // Judged per training type, not "most recent session of any kind". A
+  // one-minute breathing session used to be the newest row and made Today
+  // announce "Session complete", hiding the Start button and locking the user
+  // out of their actual workout for the rest of the day.
+  const { data: todaySessions } = await supabase
     .from("sessions")
-    .select("id, status")
-    .eq("local_date", localToday)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .select("id, status, actual_type")
+    .eq("local_date", localToday);
+
+  const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
+  const strengthDone = (todaySessions ?? []).some(
+    (s) => s.status === "completed" && isStrength(s.actual_type),
+  );
+  const strengthOpen = (todaySessions ?? []).find(
+    (s) => (s.status === "in_progress" || s.status === "planned") && isStrength(s.actual_type),
+  );
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
@@ -206,15 +215,13 @@ export default async function TodayPage() {
 
       {isTraining && (
         <div className="mt-7">
-          {todaySession?.status === "completed" ? (
+          {strengthDone ? (
             <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
               Session complete. Well done.
             </p>
           ) : (
             <StartSessionButton
-              label={
-                todaySession?.status === "in_progress" ? "Resume session" : "Start session"
-              }
+              label={strengthOpen ? "Resume session" : "Start session"}
             />
           )}
         </div>

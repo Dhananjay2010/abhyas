@@ -268,7 +268,7 @@ async function applyProgression(
 
   const { data: se } = await supabase
     .from("session_exercises")
-    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, exercises(mechanic, movement_pattern, equipment_ids, progression_chain, progression_rank)")
+    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(mechanic, movement_pattern, equipment_ids, progression_chain, progression_rank)")
     .eq("id", sessionExerciseId)
     .maybeSingle();
   if (!se) return null;
@@ -432,7 +432,7 @@ export async function findAlternatives(
 
   const { data: current } = await supabase
     .from("session_exercises")
-    .select("session_id, exercise_id, exercises(movement_pattern)")
+    .select("session_id, exercise_id, exercises!session_exercises_exercise_id_fkey(movement_pattern)")
     .eq("id", sessionExerciseId)
     .maybeSingle();
   if (!current) return { ok: false, error: "Exercise not found" };
