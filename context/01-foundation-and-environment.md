@@ -113,3 +113,21 @@ expected; `.env*` and `.vercel` are both git-ignored.
 - Migrated `middleware.ts` to `proxy.ts` for Next 16.
 - Added `scripts/dev.sh` and `.nvmrc` after the Turbopack/Node 14 failure.
 - Added `.vercelignore`; fixed git identity and rewrote commit history.
+
+## Serverless region must match the database region
+
+Reported as "everything is laggy" on first real use, 2026-09-09.
+
+Vercel defaulted the functions to **`iad1`** (Washington DC) while the Supabase
+project lives in **Mumbai**. Every server-side query therefore crossed roughly
+12,000 km and back, so latency scaled with the number of queries a page makes:
+`/breathe` (two queries) floored around 420 ms TTFB while `/today` (about
+eight) reached 790 ms. Nothing in the application code was slow.
+
+`vercel.json` now pins `"regions": ["bom1"]` — Mumbai — putting the compute
+next to the data.
+
+**When adding a page, remember its cost is roughly (number of queries x round
+trip).** Co-location makes each round trip cheap, but a page that fires a dozen
+sequential queries will still feel slow; batch them with `Promise.all` as the
+existing pages do.
