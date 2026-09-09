@@ -149,9 +149,11 @@ export function evaluateProgression(input: {
   const succeeded = completedAllSets && hitTopOfRange;
 
   if (succeeded) {
-    // Bodyweight has no plate to add: add reps, then move to a harder variation.
-    if (meta.isBodyweight || heaviest === 0) {
-      const canProgressVariation = meta.progressionChain !== null;
+    // Decide on what was ACTUALLY lifted, not on how the exercise is classified.
+    // Keying off meta.isBodyweight meant a weighted sit-up or dip progressed
+    // reps and never stored the load the user had used.
+    if (heaviest === 0) {
+      const canProgressVariation = meta.isBodyweight && meta.progressionChain !== null;
       const nextReps = (state.currentTargetReps ?? repsMax) + 2;
 
       if (canProgressVariation && nextReps > repsMax + 4) {

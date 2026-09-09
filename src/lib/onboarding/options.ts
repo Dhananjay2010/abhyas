@@ -104,6 +104,18 @@ export const SPLIT_BY_DAYS: Record<number, string> = {
   6: "Push, pull, legs — twice through",
 };
 
+/**
+ * The split the generator will actually produce.
+ *
+ * It is chosen by TRAINING days, not total days, so a hint keyed off
+ * days-per-week alone promises "Upper / lower" to someone who picked 4 days
+ * with 1 yoga day and then receives Full Body.
+ */
+export function splitLabelFor(daysPerWeek: number, yogaDays: number): string {
+  const training = Math.max(1, daysPerWeek - Math.min(yogaDays, daysPerWeek - 1));
+  return SPLIT_BY_DAYS[training] ?? `Full body, ${training} times a week`;
+}
+
 export const MIN_AGE_YEARS = 16;
 
 export function ageOn(dateOfBirth: string, on: Date = new Date()): number {

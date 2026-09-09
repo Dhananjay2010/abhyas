@@ -135,7 +135,7 @@ MACHINE_BY_NAME = [
 
 # Support equipment the name implies but the dataset never records.
 IMPLIED_EQUIPMENT = [
-    (r"\bpull-?ups?\b|\bchin-?ups?\b|\bhanging\b|\bmuscle up\b", "pull_up_bar"),
+    (r"\bpull[- ]?ups?\b|\bchin[- ]?ups?\b|\bhanging\b|\bmuscle up\b", "pull_up_bar"),
     (r"\bdips?\b", "dip_bars"),
     (r"\bincline\b|\bdecline\b", "adjustable_bench"),
     (r"\bbench press\b|\blying\b|\bbench\b", "flat_bench"),
@@ -183,6 +183,10 @@ def map_equipment(raw: str | None, name: str) -> list[str]:
 # Order matters: the first match wins. Plurals are everywhere in this dataset
 # ("Dumbbell Lunges", "Barbell Squats"), so every noun here tolerates a
 # trailing s -- without it the safety filters below silently miss them.
+# Separators are written [- ]? throughout, never -?, because this dataset mixes
+# "Step-up", "Stepup" and "Step Ups" freely. A rule that only tolerates the
+# hyphen silently fails on the spaced form -- which is how step-ups reached a
+# user who had flagged a current knee injury.
 PATTERN_RULES: list[tuple[str, str]] = [
     (r"\bcalf\b|\bcalves\b", "calf"),
     (r"\bshrugs?\b", "other"),
@@ -190,13 +194,13 @@ PATTERN_RULES: list[tuple[str, str]] = [
     (r"\bleg curls?\b|\bnordic\b|\bgood mornings?\b|\bromanian\b|"
      r"\bdeadlifts?\b|\bhip thrusts?\b|\bglute bridges?\b|"
      r"\bback extensions?\b|\bhyperextensions?\b|\bswings?\b|"
-     r"\bpull ?throughs?\b|\bgood-?mornings?\b", "hinge"),
+     r"\bpull ?throughs?\b|\bgood[- ]?mornings?\b", "hinge"),
     (r"\bcurls?\b", "biceps"),
-    (r"\blunges?\b|\bstep-?ups?\b|\bsplit squats?\b|\bbulgarian\b|"
+    (r"\blunges?\b|\bstep[- ]?ups?\b|\bsplit squats?\b|\bbulgarian\b|"
      r"\bpistols?\b", "lunge"),
     (r"\bsquats?\b|\bleg press(es)?\b|\bleg extensions?\b|\bwall sits?\b",
      "squat"),
-    (r"\bpull-?ups?\b|\bchin-?ups?\b|\bpulldowns?\b|\blat pulls?\b|"
+    (r"\bpull[- ]?ups?\b|\bchin[- ]?ups?\b|\bpulldowns?\b|\blat pulls?\b|"
      r"\bmuscle ups?\b", "vertical_pull"),
     (r"\brows?\b|\bface pulls?\b", "horizontal_pull"),
     (r"\brear delts?\b|\breverse fly(es)?\b|\breverse machine fly(es)?\b|"
@@ -205,13 +209,13 @@ PATTERN_RULES: list[tuple[str, str]] = [
      r"\bfront raises?\b", "lateral_delt"),
     (r"\boverhead press(es)?\b|\bshoulder press(es)?\b|\bmilitary press(es)?\b|"
      r"\bpush press(es)?\b|\barnold\b|\bhandstand\b", "vertical_press"),
-    (r"\bbench press(es)?\b|\bpush-?ups?\b|\bchest press(es)?\b|\bfly(es)?\b|"
+    (r"\bbench press(es)?\b|\bpush[- ]?ups?\b|\bchest press(es)?\b|\bfly(es)?\b|"
      r"\bflyes?\b|\bpec decks?\b|\bdips?\b|\bcrossovers?\b", "horizontal_press"),
     (r"\btriceps?\b|\bskull ?crushers?\b|\bpushdowns?\b|\bkickbacks?\b|"
-     r"\bclose-?grip\b|\bextensions?\b", "triceps"),
-    (r"\bcrunch(es)?\b|\bsit-?ups?\b|\bplanks?\b|\bab \b|\bab-\b|"
+     r"\bclose[- ]?grip\b|\bextensions?\b", "triceps"),
+    (r"\bcrunch(es)?\b|\bsit[- ]?ups?\b|\bplanks?\b|\bab \b|\bab-\b|"
      r"\bwoodchops?\b|\brussian twists?\b|\bhollow\b|\bdead bugs?\b|"
-     r"\bbird dogs?\b|\bmountain climbers?\b|\bv-?ups?\b|\btoes to bar\b|"
+     r"\bbird dogs?\b|\bmountain climbers?\b|\bv[- ]?ups?\b|\btoes to bar\b|"
      r"\bleg raises?\b|\bknee raises?\b", "core"),
     (r"\bcarr(y|ies)\b|\bfarmers?\b", "carry"),
     (r"\bnecks?\b", "neck"),
@@ -286,27 +290,27 @@ MEDIUM_IMPACT = re.compile(r"\bruns?\b|\brunning\b|\bjogs?\b|\bjump ropes?\b|"
                            r"\bskipping\b|\bmountain climbers?\b")
 
 HIGH_SPINAL = re.compile(
-    r"\bback squats?\b|\bfront squats?\b|\bdeadlifts?\b|\bgood mornings?\b|\bbent-?over rows?\b|"
+    r"\bback squats?\b|\bfront squats?\b|\bdeadlifts?\b|\bgood mornings?\b|\bbent[- ]?over rows?\b|"
     r"\bbarbell rows?\b|\bmilitary press(es)?\b|\bstanding.*press(es)?\b|\brack pulls?\b|\bcleans?\b|"
     r"\bsnatch(es)?\b|\bjerks?\b|\bzercher\b|\boverhead squats?\b")
 LOW_SPINAL = re.compile(
-    r"\bsquats?\b|\bhinges?\b|\bromanian\b|\blunges?\b|\bstep-?ups?\b|\bhip thrusts?\b|"
+    r"\bsquats?\b|\bhinges?\b|\bromanian\b|\blunges?\b|\bstep[- ]?ups?\b|\bhip thrusts?\b|"
     r"\bswings?\b|\bcarr(y|ies)\b|\bfarmers?\b|\boverhead press(es)?\b|\bshoulder press(es)?\b")
 
 CONTRA_RULES: list[tuple[str, list[str]]] = [
-    (r"\bsquats?\b|\blunges?\b|\bstep-?ups?\b|\bleg extensions?\b|\bpistols?\b|"
+    (r"\bsquats?\b|\blunges?\b|\bstep[- ]?ups?\b|\bleg extensions?\b|\bpistols?\b|"
      r"\bjumps?\b|\bleg press(es)?\b|\bhack squats?\b|\bbulgarian\b|\bwall sits?\b",
      ["knee"]),
-    (r"\bdeadlifts?\b|\bgood mornings?\b|\bbent-?over\b|\bback extensions?\b|"
-     r"\bhyperextensions?\b|\bsit-?ups?\b|\bback squats?\b|\bbarbell rows?\b|"
+    (r"\bdeadlifts?\b|\bgood mornings?\b|\bbent[- ]?over\b|\bback extensions?\b|"
+     r"\bhyperextensions?\b|\bsit[- ]?ups?\b|\bback squats?\b|\bbarbell rows?\b|"
      r"\brack pulls?\b|\bromanian\b|\bcleans?\b|\bsnatch(es)?\b", ["lower_back"]),
     (r"\boverhead press(es)?\b|\bshoulder press(es)?\b|\bmilitary press(es)?\b|"
      r"\bbehind.*neck\b|\bupright rows?\b|\bdips?\b|\bbench press(es)?\b|"
-     r"\bpull-?ups?\b|\bchin-?ups?\b|\blateral raises?\b|\bhandstand\b|"
+     r"\bpull[- ]?ups?\b|\bchin[- ]?ups?\b|\blateral raises?\b|\bhandstand\b|"
      r"\bsnatch(es)?\b|\bfly(es)?\b", ["shoulder"]),
-    (r"\bskull ?crushers?\b|\bdips?\b|\bclose-?grip\b|\bpushdowns?\b|"
+    (r"\bskull ?crushers?\b|\bdips?\b|\bclose[- ]?grip\b|\bpushdowns?\b|"
      r"\bkickbacks?\b|\btriceps? extensions?\b|\bcurls?\b", ["elbow"]),
-    (r"\bfront squats?\b|\bcleans?\b|\bpush-?ups?\b|\bplanks?\b|\bhandstand\b|"
+    (r"\bfront squats?\b|\bcleans?\b|\bpush[- ]?ups?\b|\bplanks?\b|\bhandstand\b|"
      r"\bsnatch(es)?\b|\bwrists?\b|\bab wheels?\b|\bab rollers?\b", ["wrist"]),
     (r"\bjumps?\b|\bhops?\b|\bbounds?\b|\bcalf raises?\b|\bsprints?\b|"
      r"\bskipping\b|\bjump ropes?\b", ["ankle"]),

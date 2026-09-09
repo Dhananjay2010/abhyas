@@ -110,6 +110,18 @@ with an explicit `timeZone` and arithmetic stays inside UTC so it cannot drift.
   the readout from "6320 kg · 7 Sep" to "4820 kg · 12 Aug"; the value table
   opened with 7 rows.
 
+## Bug: a same-day rebuild zeroed the streak
+
+`buildDayRecords` attributed each date to the **first** program covering it.
+Rebuilding a block leaves two programs starting the same day, and the older,
+retired one had a different schedule — so a training day was read as a rest day
+and the streak skipped a session the user had just completed. The screen showed
+"Streak 0" beside "Days trained 1".
+
+It now searches newest-first, and the Progress page orders programs by
+`started_on` then `created_at` so "newest" is well defined on a same-day
+rebuild.
+
 ## Known gaps
 
 - Not verified against a real signed-in account with real history — the

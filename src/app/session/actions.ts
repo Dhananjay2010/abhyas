@@ -401,7 +401,10 @@ export async function finishSession(input: {
     .eq("id", input.sessionId);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/today");
+  // Deliberately NOT revalidating here. Revalidating refreshes the session
+  // route, whose "completed -> redirect to /today" guard then fires before the
+  // client can show the summary, so the user never saw their totals or what
+  // progression changed. Today is refreshed when they leave the summary.
   return { ok: true };
 }
 

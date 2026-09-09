@@ -119,6 +119,21 @@ kickbacks out of triceps into hinge. Mismatches are now **0**.
   a pull-up bar leans on the fallback pattern.
 - Instruction text is a generated cue, not written coaching.
 
+## Bug: rule separators only tolerated a hyphen
+
+Found in testing, 2026-09-09. Every rule used `-?` between the words of a
+compound name, which matches `step-up` and `stepup` but **not `step up`**. The
+dataset mixes all three freely, so "Barbell Step Ups" and "Dumbbell Step Ups"
+carried **no knee contraindication** while "Step-up with Knee Raise" did — and
+one of them was the first exercise prescribed to a user who had flagged a
+current knee injury.
+
+Every separator is now `[- ]?`. Verified afterwards that no `step ups`,
+`push ups`, `pull ups` or `sit ups` is missing its contraindication. Shipped as
+`20260909110000_fix_separator_safety_rules.sql`.
+
+**Rule: never write `-?` in these patterns; write `[- ]?`.**
+
 ## Change log
 
 - Initial import: 604 exercises, `movement_pattern` and `cue` columns added.

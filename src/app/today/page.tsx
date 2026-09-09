@@ -176,20 +176,6 @@ export default async function TodayPage() {
           <p className="mt-6 text-muted">
             Nothing scheduled. Rest properly, or do something light.
           </p>
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <Link
-              href="/breathe"
-              className="rounded-xl border border-border bg-surface px-4 py-4 text-center text-sm font-medium transition-colors hover:border-accent"
-            >
-              Breathing
-            </Link>
-            <Link
-              href="/yoga"
-              className="rounded-xl border border-border bg-surface px-4 py-4 text-center text-sm font-medium transition-colors hover:border-accent"
-            >
-              Yoga
-            </Link>
-          </div>
         </>
       )}
 
@@ -257,6 +243,31 @@ export default async function TodayPage() {
           </p>
         </section>
       )}
+
+      {/*
+        Always reachable, whatever today is. These previously appeared only on
+        rest and yoga days, so on a training day there was no way to open either
+        without typing the URL.
+      */}
+      <section className="mt-10">
+        <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
+          Anytime
+        </h2>
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/yoga"
+            className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium transition-colors hover:border-accent"
+          >
+            Yoga
+          </Link>
+          <Link
+            href="/breathe"
+            className="rounded-xl border border-border bg-surface px-4 py-3 text-center text-sm font-medium transition-colors hover:border-accent"
+          >
+            Breathing
+          </Link>
+        </div>
+      </section>
 
       <section className="mt-10">
         <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">

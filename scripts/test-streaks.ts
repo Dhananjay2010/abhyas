@@ -138,5 +138,31 @@ console.log("\n7. Streaks span blocks");
     buildDayRecords({ programs: [], dayTypesByProgram: {}, completedDates: new Set(), today: "2026-09-05" }).length === 0);
 }
 
+console.log("\n8. A block rebuilt the same day must not erase today's streak");
+{
+  // Regression: rebuilding on 9 Sept leaves two programs covering that date.
+  // The retired one has Wednesday as rest; the active one has it as training.
+  // Taking the older schedule made the streak skip a session just completed.
+  const records = buildDayRecords({
+    programs: [
+      { id: "retired", startedOn: "2026-09-09", endsOn: "2026-10-06" },
+      { id: "active", startedOn: "2026-09-09", endsOn: "2026-10-06" },
+    ],
+    dayTypesByProgram: {
+      retired: { 1: "yoga", 2: "weights", 3: "rest", 4: "weights", 5: "weights", 6: "rest", 7: "rest" },
+      active: { 1: "yoga", 2: "weights", 3: "weights", 4: "rest", 5: "weights", 6: "weights", 7: "rest" },
+    },
+    completedDates: new Set(["2026-09-09"]),
+    today: "2026-09-09",
+  });
+  check("today uses the newest block's schedule",
+    records.find((r) => r.localDate === "2026-09-09")?.dayType === "weights",
+    `${records.find((r) => r.localDate === "2026-09-09")?.dayType}`);
+  const s = computeStreaks(records, "2026-09-09");
+  check("streak counts the completed session", s.current === 1, `${s.current}`);
+  check("days trained agrees with the streak",
+    s.totalSessions === 1 && s.current === 1, `${s.totalSessions} vs ${s.current}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

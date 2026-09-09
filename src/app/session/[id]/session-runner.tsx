@@ -676,6 +676,8 @@ function SetEntry({
           <input
             type="number"
             inputMode="numeric"
+            min={0}
+            max={999}
             value={reps}
             onChange={(e) => setReps(e.target.value)}
             className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-4 text-center text-2xl font-semibold tabular-nums outline-none focus:border-accent"
@@ -687,6 +689,8 @@ function SetEntry({
             type="number"
             inputMode="decimal"
             step="0.5"
+            min={0}
+            max={999}
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder="—"

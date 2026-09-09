@@ -7,7 +7,7 @@ import {
   GOALS,
   HOME_TRACKS,
   LEVELS,
-  SPLIT_BY_DAYS,
+  splitLabelFor,
   type BodyRegion,
   type Goal,
   type InjurySeverity,
@@ -168,7 +168,7 @@ export function SettingsForm({
           </div>
         </Field>
 
-        <Field label="Days per week" hint={SPLIT_BY_DAYS[s.daysPerWeek ?? 0] ?? ""}>
+        <Field label="Days per week" hint={splitLabelFor(s.daysPerWeek ?? 3, s.yogaDaysPerWeek)}>
           <Segmented
             options={[3, 4, 5, 6].map((n) => ({ value: n, label: `${n}` }))}
             value={s.daysPerWeek}

@@ -129,6 +129,17 @@ idempotent, does nothing when rows exist, and skips yoga and breathing sessions,
 which have no exercises by design. The empty-session screen also explains what
 to check instead of just stating the fact.
 
+## Bug: the session summary was never shown
+
+`finishSession` called `revalidatePath("/today")`. That refreshed the session
+route, whose `status === "completed"` guard then redirected to Today before the
+client could paint the summary — so the user never saw their time, volume, or
+the "what changed for next time" progression messages, which are the payoff of
+the whole workout.
+
+The revalidation is gone. Today is refreshed when the user leaves the summary,
+which it already did.
+
 ## Known gaps
 
 **Not verified from here, and it matters:**

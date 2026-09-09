@@ -67,8 +67,10 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
  *
  * Streaks must span blocks: a streak that resets simply because a new
  * four-week block began would punish the user for the app's own bookkeeping.
- * Each date is attributed to whichever program covers it, falling back to the
- * most recent program that had already started.
+ * Each date is attributed to the MOST RECENT program covering it, falling back
+ * to the most recent program that had already started. Recency matters: a block
+ * rebuilt on the same day leaves two programs covering that date, and only the
+ * newer one reflects what the user is actually doing.
  */
 export function buildDayRecords(input: {
   programs: { id: string; startedOn: string; endsOn: string }[];
@@ -84,10 +86,16 @@ export function buildDayRecords(input: {
   const first = ordered[0].startedOn;
   if (first > today) return [];
 
+  // Search newest-first. Rebuilding a block on the same day leaves two programs
+  // covering that date, and the older one is the retired schedule -- taking it
+  // made a training day look like a rest day, so the streak silently skipped
+  // the session the user had just finished.
+  const newestFirst = [...ordered].reverse();
+
   return dateRange(first, today).map((date) => {
     const covering =
-      ordered.find((p) => p.startedOn <= date && p.endsOn >= date) ??
-      [...ordered].reverse().find((p) => p.startedOn <= date);
+      newestFirst.find((p) => p.startedOn <= date && p.endsOn >= date) ??
+      newestFirst.find((p) => p.startedOn <= date);
 
     const dayType =
       (covering && dayTypesByProgram[covering.id]?.[isoWeekday(date)]) ?? "rest";

@@ -9,7 +9,7 @@ import {
   LEVELS,
   MIN_AGE_YEARS,
   SEXES,
-  SPLIT_BY_DAYS,
+  splitLabelFor,
   type BodyRegion,
   type Goal,
   type InjurySeverity,
@@ -464,7 +464,7 @@ export function OnboardingFlow({
             <OptionCard
               key={d}
               label={`${d} days`}
-              description={trainsPhysically ? SPLIT_BY_DAYS[d] : undefined}
+              description={trainsPhysically ? splitLabelFor(d, yogaDays) : undefined}
               selected={daysPerWeek === d}
               onClick={() => {
                 setDaysPerWeek(d);
@@ -503,9 +503,10 @@ export function OnboardingFlow({
               compact
               label={n === 0 ? "No yoga" : `${n} yoga ${n === 1 ? "day" : "days"}`}
               description={
-                n === 0
+                (n === 0
                   ? `All ${daysPerWeek} days are training`
-                  : `${(daysPerWeek ?? 0) - n} training + ${n} yoga`
+                  : `${(daysPerWeek ?? 0) - n} training + ${n} yoga`) +
+                ` · ${splitLabelFor(daysPerWeek ?? 3, n)}`
               }
               selected={yogaDays === n}
               onClick={() => setYogaDays(n)}

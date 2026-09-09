@@ -107,6 +107,15 @@ in development is still a real defect in the code.
   in → hold → out → hold to completion; 4-7-8 skips the trailing hold; Nadi
   Shodhana alternates Left → Right → Left → Right across cycles 1–4.
 
+## Bug: yoga and breathing were unreachable on a training day
+
+Today linked to them only on rest and yoga days, and neither is in the bottom
+nav, so on a training day there was no way to open either without typing the
+URL. Today now carries an "Anytime" row on every day type.
+
+Breathing cycle counts derived from the user's preferred minutes also landed on
+awkward numbers (55 cycles, "10:05"); they are rounded to the nearest five.
+
 ## Known gaps
 
 - **Neither runner has been used on a real account.** The harnesses stub

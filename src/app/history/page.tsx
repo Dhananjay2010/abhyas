@@ -43,7 +43,9 @@ export default async function HistoryPage() {
       <p className="mt-2 mb-8 text-sm text-muted">
         {sessions.length === 0
           ? "Nothing here yet."
-          : `Your last ${sessions.length} ${sessions.length === 1 ? "session" : "sessions"}.`}
+          : sessions.length === 1
+            ? "Your most recent session."
+            : `Your last ${sessions.length} sessions.`}
       </p>
 
       {sessions.length === 0 ? (

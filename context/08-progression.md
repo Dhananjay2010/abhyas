@@ -105,6 +105,18 @@ progress is invisible, and forging a row for another user is blocked.
 field pre-filled from it, progression banner shown on the next exercise, and
 the summary listing every change.
 
+## Bug: a weight logged on a bodyweight exercise was discarded
+
+The load path was gated on `meta.isBodyweight || heaviest === 0`, so an
+exercise that happens to need no equipment took the rep-progression branch even
+when the user had actually loaded it. Weighted sit-ups, dips and planks
+progressed reps and **never stored the weight**.
+
+The gate is now `heaviest === 0` — decided on what was actually lifted, not on
+how the exercise is classified. The variation ladder still requires a genuinely
+bodyweight movement, so an equipment exercise logged without weight cannot ask
+for a harder variation.
+
 ## Known gaps
 
 - The real signed-in path is still unverified from here; the harness stubs

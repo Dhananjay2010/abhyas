@@ -235,12 +235,11 @@ export function BreathingRunner({
   // ---- set up a chosen pattern -------------------------------------------
   if (selected) {
     const cycleSeconds = phasesOf(selected).reduce((n, p) => n + p.seconds, 0);
-    const options = [
-      selected.defaultCycles,
-      Math.round((defaultMinutes * 60) / Math.max(1, cycleSeconds)),
-      20,
-      30,
-    ]
+    // The count derived from the user's preferred minutes lands on ugly numbers
+    // (55 cycles, "10:05"), so it is rounded to the nearest five.
+    const fromMinutes =
+      Math.round((defaultMinutes * 60) / Math.max(1, cycleSeconds) / 5) * 5;
+    const options = [selected.defaultCycles, fromMinutes, 20, 30]
       .filter((n, i, a) => n > 0 && a.indexOf(n) === i)
       .sort((a, b) => a - b);
 

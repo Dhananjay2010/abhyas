@@ -50,7 +50,13 @@ export default async function ProgressPage() {
       .select("exercise_id, exercise_name, local_date, best_e1rm, top_weight_kg")
       .order("local_date")
       .limit(400),
-    supabase.from("programs").select("id, started_on, ends_on").order("started_on"),
+    // Ordered oldest-first with created_at breaking same-day ties, so
+    // buildDayRecords can treat the last match as the newest block.
+    supabase
+      .from("programs")
+      .select("id, started_on, ends_on, created_at")
+      .order("started_on")
+      .order("created_at"),
     supabase
       .from("sessions")
       .select("local_date, status, actual_type")

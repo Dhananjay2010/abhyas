@@ -29,6 +29,8 @@ export function LogWeight({ current }: { current: number | null }) {
           type="number"
           inputMode="decimal"
           step="0.1"
+          min={25}
+          max={300}
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}

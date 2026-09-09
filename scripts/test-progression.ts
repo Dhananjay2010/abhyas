@@ -180,5 +180,39 @@ console.log("\n11. Deload suggests roughly 70% of working weight");
     suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT) === null);
 }
 
+console.log("\n12. A weight logged on a bodyweight exercise must count");
+{
+  // Regression: weighted sit-ups took the rep path because the exercise needs
+  // no equipment, so the load was thrown away and never progressed.
+  const weighted = run({
+    meta: PUSHUP,
+    sets: sets(4, 12, 25),
+    feel: "right",
+    state: fresh({ currentWorkingWeightKg: 25, currentTargetReps: 12 }),
+  });
+  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 27.5,
+    `${weighted.nextWorkingWeightKg}`);
+  check("outcome is progressed", weighted.outcome === "progressed", weighted.outcome);
+
+  // With no weight it must still take the rep/variation path.
+  const unweighted = run({
+    meta: PUSHUP,
+    sets: sets(4, 12, null),
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 12 }),
+  });
+  check("no weight still progresses reps", unweighted.nextTargetReps === 14,
+    `${unweighted.nextTargetReps}`);
+  check("and invents no weight", unweighted.nextWorkingWeightKg === null);
+
+  // An equipment-based exercise logged with no weight must not claim a variation.
+  const noLoad = run({
+    meta: BENCH,
+    sets: sets(4, 12, null),
+    state: fresh({ currentWorkingWeightKg: null }),
+  });
+  check("equipment exercise with no weight does not ask for a variation",
+    !noLoad.wantsHarderVariation, `${noLoad.outcome}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
