@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
+import Link from "next/link";
 import { BottomNav } from "@/components/bottom-nav";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { localDateString } from "@/lib/dates";
@@ -140,17 +141,45 @@ export default async function TodayPage() {
       )}
 
       {today?.day_type === "rest" && (
-        <p className="mt-6 text-muted">
-          Nothing scheduled. Rest properly, or do something light — a walk, mobility, or
-          a breathing session.
-        </p>
+        <>
+          <p className="mt-6 text-muted">
+            Nothing scheduled. Rest properly, or do something light.
+          </p>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <Link
+              href="/breathe"
+              className="rounded-xl border border-border bg-surface px-4 py-4 text-center text-sm font-medium transition-colors hover:border-accent"
+            >
+              Breathing
+            </Link>
+            <Link
+              href="/yoga"
+              className="rounded-xl border border-border bg-surface px-4 py-4 text-center text-sm font-medium transition-colors hover:border-accent"
+            >
+              Yoga
+            </Link>
+          </div>
+        </>
       )}
 
       {today?.day_type === "yoga" && (
-        <p className="mt-6 text-muted">
-          A yoga session today. The Yoga with Adriene player comes next — for now, treat
-          this as your active day.
-        </p>
+        <div className="mt-6">
+          <p className="text-muted">
+            A yoga day. Pick up your series where you left off.
+          </p>
+          <Link
+            href="/yoga"
+            className="mt-5 block rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            Start yoga
+          </Link>
+          <Link
+            href="/breathe"
+            className="mt-3 block rounded-xl border border-border bg-surface-2 px-6 py-3 text-center text-sm font-medium text-muted transition-colors hover:text-fg"
+          >
+            Breathing instead
+          </Link>
+        </div>
       )}
 
       {isTraining && (

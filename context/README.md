@@ -31,7 +31,7 @@ pick the project up.
 | [09](09-progress-charts-and-streaks.md) | Progress charts and streaks | Done |
 | [10](10-settings-and-history.md) | Settings and history | Done |
 | [11](11-block-rollover.md) | Block rollover | Done |
-| 12 | Yoga and breathing runners | Next |
+| [12](12-yoga-and-breathing.md) | Yoga and breathing runners | Done |
 
 ## Live references
 
