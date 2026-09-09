@@ -127,6 +127,37 @@ database. All pass:
 
 Database writes verified separately under RLS (step 02).
 
+## Bug: yoga and breathing tracks were given a strength split
+
+Found on first real use, 2026-09-09.
+
+A user who chose **yoga** in onboarding was handed a six-day push/pull/legs
+weights split. `generateProgram` only special-cased `bodyweight`; `yoga` and
+`meditation` fell straight through to the strength templates, and the day type
+was written as `weights`.
+
+It compounded: the yoga branch of onboarding skips the equipment step (yoga
+needs none), so `equipment_ids` was empty and `has_all_equipment` false. The
+equipment hard-filter then cut the pool from 604 exercises to the 66 that need
+none — and **nothing in the catalogue is a pulling movement without
+equipment**. Both Pull days generated zero exercises, and starting one showed
+"this session has no exercises" with no way forward.
+
+Three fixes:
+
+1. `generateProgram` returns early for `yoga` and `meditation`: a week of that
+   practice plus rest, no strength templates, no exercises.
+2. A training day that fills no slots now backfills from whatever is eligible
+   rather than shipping empty.
+3. `createBlockForUser`'s "all days empty" guard now checks `length > 0` first.
+   `[].every()` is true, so without it every yoga plan would have been rejected
+   as unbuildable — a bug introduced by fix 1 and caught before shipping.
+
+Today also warns when a strength track has no equipment recorded, since that is
+the misconfiguration behind the thin plan.
+
+Covered by regression tests 12 and 13 in `scripts/test-generator.ts`.
+
 ## Known gaps
 
 - ~~Progression is not yet implemented.~~ **Done in step 08** — see
@@ -145,5 +176,6 @@ Database writes verified separately under RLS (step 02).
 - Initial engine, splits, prescription, persistence and 30 tests.
 - Step 08 implemented progression and deload dosing; gaps above updated.
 - Step 11 added carry-over between blocks (`carryOver`, `CARRY_OVER_SLOTS`).
+- Fixed yoga/breathing tracks being given a strength split, and empty training days.
 - Added `buildPlan()` and a Today button, for users who onboarded before block
   generation existed.

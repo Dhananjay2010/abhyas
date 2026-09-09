@@ -100,7 +100,9 @@ export async function createBlockForUser(
   const trainingDays = plan.days.filter(
     (d) => d.dayType === "weights" || d.dayType === "bodyweight",
   );
-  if (trainingDays.every((d) => d.exercises.length === 0)) {
+  // [].every() is true, so without the length check this rejects every
+  // yoga- or breathing-led plan, which has no strength days by design.
+  if (trainingDays.length > 0 && trainingDays.every((d) => d.exercises.length === 0)) {
     return {
       ok: false,
       error:

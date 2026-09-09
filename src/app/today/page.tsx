@@ -98,6 +98,17 @@ export default async function TodayPage() {
 
   const isTraining = today?.day_type === "weights" || today?.day_type === "bodyweight";
 
+  // A strength plan with no equipment recorded is a misconfiguration that
+  // produces a thin, odd-looking plan. Say so rather than letting the user
+  // wonder why their Pull day is full of core work.
+  const { count: equipmentCount } = await supabase
+    .from("user_equipment")
+    .select("*", { count: "exact", head: true });
+  const needsEquipment =
+    (profile.primary_track === "weights" || profile.primary_track === "bodyweight") &&
+    !profile.has_all_equipment &&
+    (equipmentCount ?? 0) === 0;
+
   const localToday = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
   const { data: todaySession } = await supabase
     .from("sessions")
@@ -127,6 +138,17 @@ export default async function TodayPage() {
           </p>
         )}
       </header>
+
+      {needsEquipment && (
+        <p className="mt-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
+          You have no equipment listed, so your plan is limited to what needs
+          none. Add your equipment in{" "}
+          <Link href="/settings" className="underline underline-offset-2">
+            Settings
+          </Link>{" "}
+          and rebuild the block.
+        </p>
+      )}
 
       {rollover.status === "rolled_over" && (
         <p className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">

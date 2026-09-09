@@ -364,7 +364,14 @@ export function SessionRunner({
         wakeLock={wakeLock}
         error={error}
       >
-        <p className="text-muted">This session has no exercises.</p>
+        <p className="text-muted">
+          This session has no exercises. That usually means the plan could not
+          find anything matching your equipment, level and injuries for today.
+        </p>
+        <p className="mt-3 text-muted">
+          Check your equipment list in Settings, then rebuild your block from
+          Today.
+        </p>
         <div className="mt-8">
           <BigButton onClick={() => router.push("/today")}>Back to Today</BigButton>
         </div>

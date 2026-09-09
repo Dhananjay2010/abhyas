@@ -201,6 +201,32 @@ function pickForSlot(
 }
 
 export function generateProgram(input: GeneratorInput): GeneratedProgram {
+  // A yoga- or breathing-led plan is a week of that practice plus rest. It is
+  // NOT a strength split: previously these tracks fell through to push/pull/
+  // legs, so someone who chose yoga was handed six days of weights and no yoga
+  // at all, with the equipment filter then emptying half the days.
+  if (input.primaryTrack === "yoga" || input.primaryTrack === "meditation") {
+    const active = new Set(activeDayIndices(input.daysPerWeek));
+    const isYoga = input.primaryTrack === "yoga";
+    return {
+      splitType: "custom",
+      daysPerWeek: input.daysPerWeek,
+      blockNumber: input.blockNumber,
+      deloadWeek: 4,
+      days: Array.from({ length: 7 }, (_, i) => {
+        const dayIndex = i + 1;
+        const on = active.has(dayIndex);
+        return {
+          dayIndex,
+          dayType: on ? input.primaryTrack : ("rest" as DayType),
+          focus: on ? input.primaryTrack : null,
+          label: on ? (isYoga ? "Yoga" : "Breathing") : "Rest",
+          exercises: [],
+        };
+      }),
+    };
+  }
+
   const trainingDays = Math.max(
     1,
     input.daysPerWeek - Math.min(input.yogaDaysPerWeek, input.daysPerWeek - 1),
@@ -262,6 +288,35 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         restSeconds: p.restSeconds,
       });
     });
+
+    // A day with no exercises is a dead end for the user, and it happens when
+    // the eligible pool has nothing for any of the day's patterns -- a
+    // bodyweight user with no pull-up bar has no pulling movement at all. Fall
+    // back to whatever is eligible rather than shipping an empty day.
+    if (exercises.length === 0) {
+      const backfill = pool
+        .filter((e) => !used.has(e.id))
+        .sort(
+          (a, b) =>
+            score(b, true, input.level) - score(a, true, input.level) ||
+            a.slug.localeCompare(b.slug),
+        )
+        .slice(0, 4);
+
+      backfill.forEach((picked) => {
+        used.add(picked.id);
+        const p = prescribe(input.goal, input.level, picked.mechanic === "isolation");
+        exercises.push({
+          exerciseId: picked.id,
+          name: picked.name,
+          orderIndex: exercises.length,
+          targetSets: p.sets,
+          targetRepsMin: p.repsMin,
+          targetRepsMax: p.repsMax,
+          restSeconds: p.restSeconds,
+        });
+      });
+    }
 
     days.push({
       dayIndex,

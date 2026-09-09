@@ -64,6 +64,13 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .update({ status: "in_progress", started_at: new Date().toISOString() })
       .eq("id", existing.id)
       .is("started_at", null);
+
+    // A session row can exist with no exercises attached -- an abandoned first
+    // attempt, or a row created by a yoga or breathing session earlier today.
+    // Returning it as-is used to strand the user on "this session has no
+    // exercises" with no way forward, permanently, because this branch would
+    // keep returning the same empty shell.
+    await ensureSessionExercises(supabase, user.id, existing.id);
     return { ok: true, data: { sessionId: existing.id } };
   }
 
@@ -515,4 +522,53 @@ export async function swapExercise(input: {
     .eq("id", input.sessionExerciseId);
 
   return error ? { ok: false, error: error.message } : { ok: true };
+}
+
+
+/**
+ * Make sure a session has its exercises, copying them from the program day.
+ *
+ * Idempotent: it does nothing when rows already exist, so it is safe to call
+ * on every resume.
+ */
+async function ensureSessionExercises(
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  userId: string,
+  sessionId: string,
+): Promise<void> {
+  const { count } = await supabase
+    .from("session_exercises")
+    .select("id", { count: "exact", head: true })
+    .eq("session_id", sessionId);
+  if ((count ?? 0) > 0) return;
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("program_day_id, actual_type")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  // Yoga and breathing sessions have no exercises by design.
+  if (!session?.program_day_id) return;
+  if (session.actual_type === "yoga" || session.actual_type === "meditation") return;
+
+  const { data: planned } = await supabase
+    .from("program_day_exercises")
+    .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds")
+    .eq("program_day_id", session.program_day_id)
+    .order("order_index");
+  if (!planned || planned.length === 0) return;
+
+  await supabase.from("session_exercises").insert(
+    planned.map((p) => ({
+      session_id: sessionId,
+      user_id: userId,
+      exercise_id: p.exercise_id,
+      order_index: p.order_index,
+      planned_sets: p.target_sets,
+      planned_reps_min: p.target_reps_min,
+      planned_reps_max: p.target_reps_max,
+      rest_seconds: p.rest_seconds,
+    })),
+  );
 }

@@ -229,5 +229,57 @@ console.log("\n11. Block rollover carries the main lifts and rotates accessories
     bad.map((b) => b.name).join(", "));
 }
 
+console.log("\n12. A yoga or breathing track is not a strength split");
+{
+  // Regression: choosing yoga used to fall through to push/pull/legs, so the
+  // user got six days of weights, no yoga at all, and -- with no equipment
+  // recorded, because the yoga branch of onboarding skips that step -- two
+  // completely empty Pull days.
+  const yoga = generateProgram(
+    base({ primaryTrack: "yoga", daysPerWeek: 6, hasAllEquipment: false, equipmentIds: [] }),
+  );
+  check("no weights days", !yoga.days.some((d) => d.dayType === "weights"),
+    yoga.days.map((d) => d.dayType).join(","));
+  check("six yoga days", yoga.days.filter((d) => d.dayType === "yoga").length === 6,
+    `${yoga.days.filter((d) => d.dayType === "yoga").length}`);
+  check("one rest day", yoga.days.filter((d) => d.dayType === "rest").length === 1);
+  check("no exercises prescribed", yoga.days.every((d) => d.exercises.length === 0));
+
+  const breathe = generateProgram(
+    base({ primaryTrack: "meditation", daysPerWeek: 4, hasAllEquipment: false, equipmentIds: [] }),
+  );
+  check("breathing track gives breathing days",
+    breathe.days.filter((d) => d.dayType === "meditation").length === 4,
+    `${breathe.days.filter((d) => d.dayType === "meditation").length}`);
+}
+
+console.log("\n13. No training day is ever empty");
+{
+  // With no equipment there is no pulling movement in the catalogue at all, so
+  // Pull days used to come out with zero exercises and strand the user on
+  // "this session has no exercises".
+  for (const days of [3, 4, 5, 6]) {
+    const plan = generateProgram(
+      base({ primaryTrack: "bodyweight", hasAllEquipment: false, equipmentIds: [], daysPerWeek: days }),
+    );
+    const empty = plan.days.filter(
+      (d) => (d.dayType === "weights" || d.dayType === "bodyweight") && d.exercises.length === 0,
+    );
+    check(`${days}-day bodyweight plan has no empty day`, empty.length === 0,
+      empty.map((d) => d.label).join(", "));
+  }
+
+  // The same shape as the real report: gym track, nothing selected.
+  const noKit = generateProgram(
+    base({ primaryTrack: "weights", hasAllEquipment: false, equipmentIds: [], daysPerWeek: 6 }),
+  );
+  const empty = noKit.days.filter((d) => d.dayType === "weights" && d.exercises.length === 0);
+  check("6-day gym plan with no equipment has no empty day", empty.length === 0,
+    empty.map((d) => d.label).join(", "));
+  check("and still no duplicates",
+    new Set(noKit.days.flatMap((d) => d.exercises.map((e) => e.exerciseId))).size ===
+      noKit.days.flatMap((d) => d.exercises).length);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

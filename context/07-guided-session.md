@@ -116,6 +116,19 @@ The capability readout proved itself during testing: it reported the genuine
 wake-lock failure `The requesting page is not visible`, because the browser
 pane was hidden.
 
+## Bug: an existing session could be handed back empty
+
+`startSession` returned early when a session row already existed for today,
+without checking whether it had any exercises attached. A row created by an
+abandoned attempt — or by a yoga or breathing session earlier the same day —
+would be returned as an empty shell, and because the same branch ran on every
+retry, the user was stranded permanently on "this session has no exercises".
+
+`ensureSessionExercises` now runs on both the create and the resume path. It is
+idempotent, does nothing when rows exist, and skips yoga and breathing sessions,
+which have no exercises by design. The empty-session screen also explains what
+to check instead of just stating the fact.
+
 ## Known gaps
 
 **Not verified from here, and it matters:**
@@ -140,3 +153,4 @@ pane was hidden.
 
 - Initial guided session: phases, set logging, rest timer, wake lock, summary.
 - Added exercise swap, filtered through the generator's eligibility rules.
+- Fixed startSession handing back a session with no exercises.
