@@ -232,7 +232,7 @@ export function BarChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full touch-none"
         role="img"
-        aria-label={`${title}. ${points.length} sessions, most recent ${formatValue(points[points.length - 1].value, unit)}.`}
+        aria-label={`${title}. ${points.length} ${points.length === 1 ? "session" : "sessions"}, most recent ${formatValue(points[points.length - 1].value, unit)}.`}
         onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - rect.left) / rect.width) * width;

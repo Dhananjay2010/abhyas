@@ -154,3 +154,45 @@ to check instead of just stating the fact.
 - Initial guided session: phases, set logging, rest timer, wake lock, summary.
 - Added exercise swap, filtered through the generator's eligibility rules.
 - Fixed startSession handing back a session with no exercises.
+
+## Bug: ambiguous PostgREST embeds broke the session, progression and swap
+
+Found by testing the deployed app against a real account, 2026-09-09. This is
+the most consequential defect found so far.
+
+`session_exercises` has **two** foreign keys to `exercises` — `exercise_id` and
+`swapped_from_exercise_id`. A bare `exercises(...)` embed is therefore
+ambiguous, and PostgREST rejects the **entire query** with `PGRST201`. Four
+queries did exactly that, and each silently degraded to an empty result:
+
+| Query | Consequence |
+|---|---|
+| Session page | "This session has no exercises" even with five attached — the reported bug |
+| `applyProgression` | No working weight was ever updated |
+| `findAlternatives` | Swap never returned anything |
+| History detail | Rendered no exercises at all |
+
+The fix names the foreign key: `exercises!session_exercises_exercise_id_fkey(…)`.
+The hint only disambiguates — the returned key is still `exercises`, so the
+property access does not change.
+
+**Why it survived every harness:** the harnesses inject fixture data and stub
+persistence, so they exercise layout and interaction and never the query. Type
+checking cannot catch it either, because the generated types describe the
+relationship as valid; only PostgREST decides at runtime that it is ambiguous.
+
+To stop it recurring, the session and history pages now **throw on a query
+error** instead of falling through to an empty list. A failed query and a
+genuinely empty session are no longer indistinguishable.
+
+**Rule for this schema:** any table with more than one foreign key to the same
+parent must name the constraint in its embeds. Today that means
+`session_exercises → exercises` and `exercise_substitutions → exercises`.
+
+## Bug: Today called the day done because of a breathing session
+
+`Today` picked the most recent session row of any type to decide state, so a
+one-minute breathing session made it announce "Session complete", hide the
+Start button, and lock the user out of their actual workout for the rest of the
+day. It now judges per training type: only a completed `weights` or
+`bodyweight` session counts as the day's workout being done.
