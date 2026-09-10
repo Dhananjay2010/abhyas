@@ -1,8 +1,14 @@
 # 14 — Moving the database to Mumbai
 
-Status: **in progress.** Backup taken and verified; the new project cannot be
-created until a free-plan slot is released. This file is the runbook and the
-record.
+Status: **data migration complete; sign-in not yet re-enabled.** The new
+project holds a verified copy of everything and production points at it. What
+remains is the Google OAuth credentials, which cannot pass through a terminal.
+
+| | |
+|---|---|
+| Old project | `bjtjhnfyheruxldqbmrj` — `ap-northeast-1` (Tokyo), **paused**, not yet deleted |
+| New project | `brldynuhozaszaduwfse` — `ap-south-1` (Mumbai), live |
+| Functions | `bom1` (Mumbai), alongside the data |
 
 ## Why
 
@@ -106,8 +112,53 @@ means un-pausing the Tokyo project and deleting the Mumbai one. After step 8,
 rollback is reverting the two environment variables and `vercel.json` and
 redeploying — the Tokyo project still holds the data until step 11 removes it.
 
+## What the restore actually did
+
+Restored with `psql` against the new project, in order: `roles.sql`,
+`schema.sql`, `data.sql`. Two errors, both `permission denied` on
+`storage.buckets_vectors` and `storage.vector_indexes` — internal Supabase
+tables this app does not use, empty in the source. Nothing else failed.
+
+Verified afterwards, because matching row counts alone would not catch a
+broken restore:
+
+| Check | Result |
+|---|---|
+| Row counts, 18 tables incl. `auth.users` | all match the backup |
+| RLS policies | 58 |
+| Tables with RLS enabled | 22 |
+| Views (`session_volume`, `exercise_strength_history`) | 2 |
+| Functions / triggers | 3 / 12 |
+| Orphaned `program_day_exercises`, `session_exercises`, `program_days`, `profiles` | **0** |
+
+The orphan checks are the ones that matter. `exercises.id` is
+`gen_random_uuid()` and the seed migration inserts by slug without explicit
+ids, so **re-running the migrations on the new project would have minted
+different UUIDs and dangled every `program_day_exercises.exercise_id`**. That
+is why the data was restored from the dump rather than rebuilt by
+`supabase db push`.
+
+`supabase_migrations.schema_migrations` is not part of a `db dump`, so the ten
+applied versions were re-registered with `supabase migration repair --status
+applied <version>`, one at a time — the command rejects a space-separated
+list. `supabase migration list` now shows local and remote in sync.
+
+## Measured
+
+Probe (`/api/diag`) from the production function, same code throughout:
+
+| Configuration | Single query | Five in parallel |
+|---|---|---|
+| `bom1` → Tokyo (original) | ~1000 ms | ~1272 ms wall |
+| `hnd1` → Tokyo (interim) | 36 ms | 74 ms wall |
+| **`bom1` → Mumbai (now)** | **~20 ms** | **35–70 ms wall** |
+
+On top of which the user's own hop to the server is back to Indian latency
+rather than crossing to Tokyo.
+
 ## Change log
 
 | Date | Change |
 |---|---|
 | 2026-09-10 | Created. Backup taken and verified; blocked at step 1 on the free-plan project limit. |
+| 2026-09-10 | Old project paused to free a slot. `abhyas-mumbai` created in `ap-south-1`, roles/schema/data restored, integrity verified, migration history repaired. Vercel and local environment variables re-pointed; `vercel.json` back to `bom1`; deployed. Outstanding: Google OAuth credentials on the new project, then delete the Tokyo project. |
