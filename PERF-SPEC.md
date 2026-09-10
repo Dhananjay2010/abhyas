@@ -402,7 +402,44 @@ Until both are cleared the cutover stays undone, and production keeps running
 on Tokyo compute next to the Tokyo database — which is a correct, consistent
 configuration, just not the optimal one.
 
-### 6.9 Previous open question (resolved above)
+### 6.9 The migration, and what it measured
+
+The database now lives in `ap-south-1` and `vercel.json` is back to `bom1`, so
+the user, the compute and the data are all in India. Full runbook and the
+verification in `context/14-database-region-migration.md`.
+
+Probe from the production function, same application code throughout:
+
+| Configuration | Single query | Five in parallel |
+|---|---|---|
+| `bom1` → Tokyo (as found this morning) | ~1000 ms | ~1272 ms wall |
+| `hnd1` → Tokyo (interim) | 36 ms | 74 ms wall |
+| **`bom1` → Mumbai (now)** | **~20 ms** | **35–70 ms wall** |
+
+Sign-in was verified against the migrated account rather than assumed: the new
+project has exactly one `auth.users` row and one `auth.identities` row, the
+profile still joins to it, and `onboarding_completed_at` is the original
+timestamp. Google matched the migrated identity instead of minting a second
+user, which was the failure this migration could most plausibly have produced.
+
+### 6.10 The profiler was lying by omission
+
+Page-level `[perf]` lines appeared in preview logs and never in production.
+The cause is the scheduling: `after()` runs the callback once the response has
+been sent, and on production the instance is frozen at that moment, so the
+output goes nowhere. Only the proxy's synchronous line survived.
+
+That is worse than having no profiler, because the empty output reads as "no
+slow requests" rather than "no data". The summary is now written by a short
+timer re-armed by each Supabase call, firing once they stop and while the
+request is still alive, with `after()` kept as a backstop and a flag so only
+one of them speaks.
+
+**The general lesson, worth more than the fix:** an instrument that can fail
+silently has to be checked against a case where it is known to have something
+to say. This one was only ever confirmed on preview.
+
+### 6.11 Previous open question (resolved above)
 
 Still to be explained. The profiler now also records event-loop lag, cold
 versus warm, and region on every line, because a fetch that takes a second

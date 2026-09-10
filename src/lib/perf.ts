@@ -32,7 +32,8 @@ type Store = {
   route: string;
   calls: Call[];
   started: number;
-  logScheduled: boolean;
+  emitted: boolean;
+  timer?: ReturnType<typeof setTimeout>;
   cold: boolean;
   maxLagMs: number;
   stopSampling?: () => void;
@@ -52,7 +53,7 @@ export const perfStore = cache((): Store => {
     route: "",
     calls: [],
     started: performance.now(),
-    logScheduled: false,
+    emitted: false,
     cold: invocationsOnThisInstance === 1,
     maxLagMs: 0,
   };
@@ -135,18 +136,26 @@ export function setPerfRoute(route: string) {
 }
 
 /**
- * Emit one line per request, after the response has been sent.
+ * Emit one line per request, once all its Supabase calls have settled.
  *
- * `after()` keeps the logging off the critical path; if it is unavailable
- * (a context that forbids it) the summary is emitted inline rather than
- * failing the request.
+ * This was originally scheduled with `after()`, which is the right primitive
+ * on paper — it runs the callback once the response is sent, keeping logging
+ * off the critical path. In practice those lines never appeared in production
+ * logs, only in preview: the instance is frozen the moment it responds and the
+ * output goes nowhere. A profiler that silently logs nothing is worse than no
+ * profiler, because it is trusted.
+ *
+ * So the summary is emitted from a short timer that is re-armed by every
+ * recorded call and fires once they stop, while the request is still alive.
+ * `after()` stays as a backstop for whichever fires first; `emitted` makes sure
+ * only one of them speaks.
  */
 function scheduleLog(store: Store) {
-  if (store.logScheduled) return;
-  store.logScheduled = true;
-
   const emit = () => {
+    if (store.emitted) return;
+    store.emitted = true;
     store.stopSampling?.();
+    if (store.timer) clearTimeout(store.timer);
     const total = performance.now() - store.started;
     const dbMs = store.calls.reduce((n, c) => n + c.ms, 0);
     const slowest = [...store.calls].sort((a, b) => b.ms - a.ms).slice(0, 3);
@@ -162,9 +171,14 @@ function scheduleLog(store: Store) {
     );
   };
 
+  // Re-armed by each call, so the line is written once the page has stopped
+  // querying rather than after the first query returns.
+  if (store.timer) clearTimeout(store.timer);
+  store.timer = setTimeout(emit, 120);
+
   try {
     after(emit);
   } catch {
-    emit();
+    // `after()` is unavailable here; the timer above still covers it.
   }
 }
