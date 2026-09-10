@@ -13,6 +13,7 @@ const ok = async () => ({ ok: true }) as const;
 const STUB: SessionActions = {
   markWarmupDone: ok,
   logSet: ok,
+  deleteSet: ok,
   finishExercise: async () => ({
     ok: true as const,
     data: { outcome: "progressed", message: "All sets at the top of the range — up to 62.5 kg." },
