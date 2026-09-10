@@ -331,7 +331,78 @@ consolidation into single-call-per-screen database functions is worth much
 less than it looked an hour ago, so it is **deferred until the region change
 has been measured** rather than built on an assumption for a second time.
 
-### 6.7 Previous open question (resolved above)
+### 6.7 Measured after the region change
+
+Production, `hnd1`, same code and same database — only the region moved. Taken
+with `src/app/api/diag/route.ts`, which measures the path between the function
+and Supabase directly and needs no signed-in session:
+
+```
+region              hnd1
+event-loop lag      0.5 - 4.4 ms
+single query, warm  36 ms   (was ~1000 ms)
+5 in parallel       74 ms wall  (was ~1272 ms)
+auth health         43 ms
+jwks fetch          61 ms
+first call on a
+  cold instance     ~500-600 ms, then 24-47 ms
+```
+
+**A Supabase round trip went from roughly a second to 36 ms.** The event-loop
+lag figure settles the other half of the question: the process was never
+starved, so every one of those slow fetches really was the network, and no
+amount of query tuning would have touched it.
+
+The one remaining cold-path cost is the first call on a fresh instance,
+~500-600 ms, which is the TLS handshake. It is paid once per instance, and it
+is the strongest remaining argument for collapsing a screen into a single
+database call — one handshake instead of five — but at 500 ms once, not
+19 seconds every time.
+
+### 6.8 Moving the database to Mumbai
+
+Requested, and correct in principle: `ap-south-1` would put the data next to
+both the compute and the user instead of splitting the difference. Recorded
+here as a plan rather than a completed step, because two parts of it cannot be
+done from a terminal.
+
+**What it is worth, now that the region is fixed.** The remaining gain is
+roughly 100 ms on the single hop between the phone and the server, plus perhaps
+20 ms per database round trip. Call it 150-200 ms per page load. That is real,
+but it is a refinement on top of a change that already recovered around 950 ms
+per query — worth doing, worth knowing the scale of.
+
+**What it takes.** Supabase cannot change a project's region in place; there is
+no such command, only `projects create` / `projects delete` and PITR restore
+*within* a project. So:
+
+1. Full dump of the existing project, including the `auth` schema — without
+   `auth.users` the accounts are gone and every `profiles.id` is orphaned.
+2. A new project in `ap-south-1`.
+3. Restore schema, then data.
+4. New URL and anon key into Vercel and `.env.local`; `vercel.json` back to
+   `bom1`.
+5. Re-point Google OAuth.
+6. Verify sign-in on the new project *before* cutting production over, then
+   retire the old one.
+
+**The two blockers.**
+
+- **Step 1 needs Docker.** `supabase db dump` shells out to `pg_dump` inside a
+  container and refuses a local binary; `pg_dump` 18.6 is now installed via
+  `brew install libpq` but the CLI does not use it. Docker Desktop needs
+  administrator rights to install.
+- **Step 5 needs credentials that should not pass through a terminal.** A new
+  project means a new ref, so `https://<new-ref>.supabase.co/auth/v1/callback`
+  has to be added to the Google Cloud OAuth client, and that client's ID and
+  secret have to be entered into the new project's auth settings. Those are
+  entered by hand, in the two dashboards, by their owner.
+
+Until both are cleared the cutover stays undone, and production keeps running
+on Tokyo compute next to the Tokyo database — which is a correct, consistent
+configuration, just not the optimal one.
+
+### 6.9 Previous open question (resolved above)
 
 Still to be explained. The profiler now also records event-loop lag, cold
 versus warm, and region on every line, because a fetch that takes a second

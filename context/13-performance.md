@@ -239,8 +239,35 @@ its own line, on every exit including the unauthenticated redirect.
   deliberately; see `PERF-SPEC.md` section 6.
 - **Reference-table caching dropped**, with reasoning, in `PERF-SPEC.md` 2.9.
 
+## The finding that mattered more than all of the above
+
+The database is in `ap-northeast-1` (**Tokyo**). The serverless functions were
+pinned to `bom1` (**Mumbai**) by an earlier commit titled "Run serverless
+functions in Mumbai, next to the database", and by a note in
+`context/01-foundation-and-environment.md` that stated the same. The region had
+been written down from memory and then trusted twice — including by the work
+above, which spent its first pass optimising round-trip *count* while each
+round trip silently cost 120 ms of ocean.
+
+`supabase projects list` settles it in one line, and now appears in the context
+notes so it cannot be assumed again.
+
+`vercel.json` pins `hnd1`. Measured on production with
+`src/app/api/diag/route.ts`, same code and same database:
+
+| | Mumbai compute | Tokyo compute |
+|---|---|---|
+| Single query, warm | ~1000 ms | **36 ms** |
+| Five in parallel | ~1272 ms wall | **74 ms wall** |
+| Event-loop lag | — | 0.5-4.4 ms |
+
+The lag figure is what proves the diagnosis rather than merely fitting it: the
+process was never starved, so the slow fetches were genuinely the network.
+
 ## Change log
 
 | Date | Change |
 |---|---|
 | 2026-09-10 | Step created: loading skeletons, persistent tab bar, local JWT verification, collapsed query waterfalls, client router cache, landing-page bundle cut, `PERF_DEBUG` profiling. |
+| 2026-09-10 | `startSession` collapsed from seven waves to three, and stripped of the `revalidatePath("/today")` that made it re-render Today on the critical path. Four screens stopped rendering twice per mutation (action revalidation *and* `router.refresh()`). Start now shows the session skeleton immediately. |
+| 2026-09-10 | Serverless region corrected from `bom1` to `hnd1` after discovering the database is in Tokyo, not Mumbai. A Supabase round trip went from ~1000 ms to 36 ms. Merged and deployed to production. |
