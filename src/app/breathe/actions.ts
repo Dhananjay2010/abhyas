@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 
@@ -48,6 +48,6 @@ export async function completeBreathingSession(input: {
         });
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/today");
+  revalidateTrainingData();
   return { ok: true };
 }

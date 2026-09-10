@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
@@ -176,6 +176,6 @@ export async function completeOnboarding(): Promise<ActionResult> {
     .eq("id", user.id);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/today");
+  revalidateTrainingData();
   return { ok: true };
 }

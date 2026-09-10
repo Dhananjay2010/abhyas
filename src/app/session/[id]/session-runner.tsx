@@ -19,6 +19,7 @@ import {
   findAlternatives,
   logSet,
   markWarmupDone,
+  refreshAfterSession,
   swapExercise,
   type Alternative,
 } from "../actions";
@@ -32,6 +33,7 @@ export type SessionActions = {
   abandonSession: typeof abandonSession;
   findAlternatives: typeof findAlternatives;
   swapExercise: typeof swapExercise;
+  refreshAfterSession: typeof refreshAfterSession;
 };
 
 const REAL_ACTIONS: SessionActions = {
@@ -42,6 +44,7 @@ const REAL_ACTIONS: SessionActions = {
   abandonSession,
   findAlternatives,
   swapExercise,
+  refreshAfterSession,
 };
 
 type Feel = Database["public"]["Enums"]["set_feel"];
@@ -340,8 +343,14 @@ export function SessionRunner({
 
         <div className="mt-10">
           <BigButton
-            onClick={() => {
+            onClick={async () => {
               if (onExit) return onExit();
+              // Today, History and Progress all changed while this session ran.
+              // The refresh happens here rather than in `finishSession`,
+              // because a revalidation from there re-renders this route and its
+              // completed-session guard would redirect away before the summary
+              // could be read.
+              await actions.refreshAfterSession();
               router.push("/today");
               router.refresh();
             }}

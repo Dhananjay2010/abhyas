@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 
@@ -84,6 +85,6 @@ export async function markYogaVideoDone(videoId: string): Promise<Result> {
   if (sessionError) return { ok: false, error: sessionError.message };
 
   revalidatePath("/yoga");
-  revalidatePath("/today");
+  revalidateTrainingData();
   return { ok: true };
 }

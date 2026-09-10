@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 export function SignInButton() {
   const [pending, setPending] = useState(false);
@@ -10,6 +9,11 @@ export function SignInButton() {
   async function signIn() {
     setPending(true);
     setError(null);
+    // Imported here rather than at the top of the file so the Supabase browser
+    // client — a ~250 KB chunk — is fetched when someone actually chooses to
+    // sign in, instead of on every first load of the landing page. The button
+    // is already in its pending state by the time this resolves.
+    const { createClient } = await import("@/lib/supabase/client");
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",

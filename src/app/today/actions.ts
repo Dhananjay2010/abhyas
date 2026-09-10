@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { createBlockForUser } from "@/lib/program/persist";
 
@@ -19,6 +19,6 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   const result = await createBlockForUser(supabase, user.id);
   if (!result.ok) return { ok: false, error: result.error };
 
-  revalidatePath("/today");
+  revalidateTrainingData();
   return { ok: true };
 }

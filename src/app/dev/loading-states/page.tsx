@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import TodayLoading from "@/app/today/loading";
 import HistoryLoading from "@/app/history/loading";
 import ProgressLoading from "@/app/progress/loading";
@@ -12,6 +13,8 @@ import SessionLoading from "@/app/session/[id]/loading";
  * so their shape can be compared against the screens they stand in for.
  */
 export default function LoadingStatesHarness() {
+  if (process.env.NODE_ENV !== "development") notFound();
+
   const screens = [
     ["Today", <TodayLoading key="t" />],
     ["History", <HistoryLoading key="h" />],

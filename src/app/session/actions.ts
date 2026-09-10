@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
@@ -165,7 +165,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     if (error) return { ok: false, error: error.message };
   }
 
-  revalidatePath("/today");
+  revalidateTrainingData();
   return { ok: true, data: { sessionId: session.id } };
 }
 
@@ -412,7 +412,22 @@ export async function abandonSession(sessionId: string): Promise<Result> {
     .update({ status: "skipped" })
     .eq("id", sessionId);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/today");
+  revalidateTrainingData();
+  return { ok: true };
+}
+
+/**
+ * Refresh the screens a finished session changed.
+ *
+ * `finishSession` deliberately revalidates nothing, because any revalidation
+ * inside a Server Action re-renders the route the user is on — here the
+ * session route, whose "completed -> redirect to /today" guard would fire and
+ * snatch away the summary before it could be read. This is the same work,
+ * moved to the moment the user leaves the summary, when a re-render resolving
+ * to /today is exactly where they asked to go.
+ */
+export async function refreshAfterSession(): Promise<Result> {
+  revalidateTrainingData();
   return { ok: true };
 }
 
