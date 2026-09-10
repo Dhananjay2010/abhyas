@@ -12,7 +12,7 @@ GitHub, with a working local development loop.
 | Framework | Next.js 16 (App Router) + React 19 |
 | Language | TypeScript, strict |
 | Styling | Tailwind CSS 4 |
-| Database / auth | Supabase (free tier, Mumbai region) |
+| Database / auth | Supabase (free tier, `ap-northeast-1` / Tokyo) |
 | Hosting | Vercel |
 | Node | 20.19.6, pinned in `.nvmrc` |
 
@@ -118,14 +118,46 @@ expected; `.env*` and `.vercel` are both git-ignored.
 
 Reported as "everything is laggy" on first real use, 2026-09-09.
 
-Vercel defaulted the functions to **`iad1`** (Washington DC) while the Supabase
-project lives in **Mumbai**. Every server-side query therefore crossed roughly
-12,000 km and back, so latency scaled with the number of queries a page makes:
-`/breathe` (two queries) floored around 420 ms TTFB while `/today` (about
-eight) reached 790 ms. Nothing in the application code was slow.
+Vercel defaulted the functions to **`iad1`** (Washington DC). Every server-side
+query therefore crossed an ocean and back, so latency scaled with the number of
+queries a page makes: `/breathe` (two queries) floored around 420 ms TTFB while
+`/today` (about eight) reached 790 ms. Nothing in the application code was slow.
 
-`vercel.json` now pins `"regions": ["bom1"]` — Mumbai — putting the compute
-next to the data.
+`vercel.json` was changed to `"regions": ["bom1"]` — Mumbai — on the belief
+that the database was in Mumbai too.
+
+**It is not.** Checked against Supabase's own API on 2026-09-10:
+
+```
+$ supabase projects list
+{"ref":"bjtjhnfyheruxldqbmrj","name":"abhyas","region":"ap-northeast-1", ...}
+```
+
+`ap-northeast-1` is **Tokyo**. The compute was moved from one distant region to
+a slightly less distant one, and the note above recorded a guess as a fact.
+Mumbai to Tokyo is roughly 120 ms of round-trip network, paid by every single
+Supabase call, which is why the instrumented logs later showed primary-key
+selects taking about a second.
+
+`vercel.json` now pins **`hnd1`** — Tokyo — which is the region Supabase
+actually runs this project in.
+
+The trade-off is deliberate and worth stating. The user is in India, so pinning
+the functions to Tokyo adds roughly 100 ms to the one hop between their phone
+and the server. It removes roughly 120 ms from each of the five to seven hops
+between the server and the database. One page load makes one of the former and
+several of the latter, so it is a clear net win — but it is a compromise, and
+the better answer is below.
+
+**The right long-term fix is to move the database to `ap-south-1` (Mumbai)**,
+which would put the data next to both the compute and the user rather than
+splitting the difference. Supabase cannot change a project's region in place;
+it means creating a new project in `ap-south-1` and restoring a backup into it,
+then re-pointing `vercel.json` at `bom1`. That is a deliberate operation with
+downtime, so it is written down here rather than done quietly.
+
+**Never record a region from memory.** `supabase projects list` reports it, and
+`x-vercel-id` on any response names the region the function ran in.
 
 **When adding a page, remember its cost is roughly (number of queries x round
 trip).** Co-location makes each round trip cheap, but a page that fires a dozen

@@ -278,7 +278,60 @@ that anything was happening. The button now renders the session screen's own
 skeleton, full screen, the moment it is pressed — the same skeleton the route
 shows, so nothing jumps when the navigation lands.
 
-### 6.5 Open question: the one-second floor
+### 6.5 The one-second floor: the database is in Tokyo
+
+Answered, and it is not the application's fault at all.
+
+```
+$ supabase projects list
+{"ref":"bjtjhnfyheruxldqbmrj","name":"abhyas","region":"ap-northeast-1", ...}
+```
+
+`ap-northeast-1` is **Tokyo**. The serverless functions were pinned to `bom1`
+— **Mumbai** — by an earlier commit whose message reads "Run serverless
+functions in Mumbai, next to the database", and by a note in
+`context/01-foundation-and-environment.md` stating the database lives in
+Mumbai. Neither was ever checked; the region was recorded from memory.
+
+Mumbai to Tokyo is roughly 120 ms of round-trip network. Every Supabase call
+pays it, and a fresh TLS connection pays it three times before sending a byte.
+That is the floor, and it explains every number in 6.1: why a primary-key
+select costs about a second, why running five at once is so much better than
+running five in sequence, and why a cold instance opening five or seven new
+connections across an ocean took eighteen to twenty-seven seconds.
+
+It also explains why my own measurement from this laptop showed a trivial
+select costing ~161 ms of "Supabase-side" time against a gateway that answers
+in ~36 ms: the gateway is a nearby Cloudflare edge, and the extra 125 ms is the
+hop to Tokyo.
+
+**`vercel.json` now pins `hnd1` — Tokyo — the region the database is actually
+in.** The expected effect is to take roughly 120 ms off *every* Supabase round
+trip, which on a five-call screen is worth far more than any further query
+tuning.
+
+The trade-off, stated plainly: the user is in India, so putting the functions
+in Tokyo adds roughly 100 ms to the single hop between their phone and the
+server, to remove roughly 120 ms from each of the five to seven hops between
+the server and the database. Net clearly positive, but it is splitting the
+difference.
+
+**The better fix is to move the database to `ap-south-1` (Mumbai)**, putting
+the data next to both the compute and the user. Supabase cannot change a
+project's region in place — it means a new project and a restored backup — so
+it is a decision, not a patch.
+
+### 6.6 What this means for the query work
+
+Sections 2 to 5 collapsed the waterfalls, and 6.1 shows that worked. But the
+premise underneath — that the round-trip *count* was the problem — was only
+half right. The count mattered so much precisely because each round trip cost
+120 ms more than it should have. With the region corrected, a further
+consolidation into single-call-per-screen database functions is worth much
+less than it looked an hour ago, so it is **deferred until the region change
+has been measured** rather than built on an assumption for a second time.
+
+### 6.7 Previous open question (resolved above)
 
 Still to be explained. The profiler now also records event-loop lag, cold
 versus warm, and region on every line, because a fetch that takes a second
