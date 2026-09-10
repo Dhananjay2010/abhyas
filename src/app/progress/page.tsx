@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
-import { BottomNav } from "@/components/bottom-nav";
 import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
 import { localDateString } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
@@ -17,10 +16,7 @@ function shortDate(iso: string): string {
 }
 
 export default async function ProgressPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
   const { data: profile } = await supabase
@@ -197,7 +193,6 @@ export default async function ProgressPage() {
         </section>
       )}
 
-      <BottomNav active="/progress" />
     </main>
   );
 }

@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
 import Link from "next/link";
-import { BottomNav } from "@/components/bottom-nav";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { localDateString } from "@/lib/dates";
 
@@ -30,10 +29,7 @@ function weekInBlock(startedOn: string, timezone: string): number {
 }
 
 export default async function TodayPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
   const { data: profile, error: profileError } = await supabase
@@ -72,7 +68,6 @@ export default async function TodayPage() {
         <div className="mt-8">
           <BuildPlanButton label="Build my first block" />
         </div>
-        <BottomNav active="/today" />
       </main>
     );
   }
@@ -322,7 +317,6 @@ export default async function TodayPage() {
         </form>
       </div>
 
-      <BottomNav active="/today" />
     </main>
   );
 }

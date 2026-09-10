@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
 import { suggestedWeight } from "@/lib/program/progression";
 import type { Database } from "@/lib/database.types";
@@ -15,10 +15,7 @@ export default async function SessionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
   const { data: session } = await supabase

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
@@ -12,10 +12,7 @@ type InjurySeverity = Database["public"]["Enums"]["injury_severity"];
 export type Result = { ok: true } | { ok: false; error: string };
 
 async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
 }

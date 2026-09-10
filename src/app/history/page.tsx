@@ -1,16 +1,12 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { BottomNav } from "@/components/bottom-nav";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 import { SessionRow, sessionLabel, type SessionSummary } from "@/components/session-row";
 
 export const dynamic = "force-dynamic";
 
 export default async function HistoryPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
   const { data: profile } = await supabase
@@ -78,7 +74,6 @@ export default async function HistoryPage() {
         </ul>
       )}
 
-      <BottomNav active="/history" />
     </main>
   );
 }

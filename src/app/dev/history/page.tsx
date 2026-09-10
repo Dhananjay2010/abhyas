@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { SessionRow, type SessionSummary } from "@/components/session-row";
-import { BottomNav } from "@/components/bottom-nav";
 
 /** Development-only harness for the history list. */
 export const dynamic = "force-dynamic";
@@ -26,7 +25,6 @@ export default async function DevHistoryPage() {
           </li>
         ))}
       </ul>
-      <BottomNav active="/history" />
     </main>
   );
 }

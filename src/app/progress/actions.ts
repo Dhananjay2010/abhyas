@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 
 export type LogWeightResult = { ok: true } | { ok: false; error: string };
@@ -11,10 +11,7 @@ export async function logBodyWeight(weightKg: number): Promise<LogWeightResult> 
     return { ok: false, error: "Weight should be between 25 and 300 kg." };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const { data: profile } = await supabase

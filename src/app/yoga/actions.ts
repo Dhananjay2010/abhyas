@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 
 export type Result = { ok: true } | { ok: false; error: string };
@@ -16,10 +16,7 @@ export type Result = { ok: true } | { ok: false; error: string };
  * exactly like a strength session.
  */
 export async function markYogaVideoDone(videoId: string): Promise<Result> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const { data: video } = await supabase
