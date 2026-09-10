@@ -6,6 +6,7 @@ import { StartSessionButton } from "./start-session-button";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { localDateString } from "@/lib/dates";
+import { closeStaleSessions } from "@/lib/session/close-stale";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export default async function TodayPage() {
   // Nothing here depends on anything else here, so all three go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes, openRes] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase
       .from("programs")
@@ -47,6 +48,14 @@ export default async function TodayPage() {
     // produces a thin, odd-looking plan. Say so rather than letting the user
     // wonder why their Pull day is full of core work.
     supabase.from("user_equipment").select("*", { count: "exact", head: true }),
+    // Sessions still open from an earlier day. Fetched without a date filter
+    // because the local date is not known until the profile arrives.
+    supabase
+      .from("sessions")
+      .select("id, local_date")
+      .in("status", ["planned", "in_progress"])
+      .order("local_date", { ascending: false })
+      .limit(20),
   ]);
 
   const profile = profileRes.data;
@@ -56,6 +65,11 @@ export default async function TodayPage() {
   const timezone = profile.timezone || "Asia/Kolkata";
   const firstName = profile.display_name?.split(" ")[0] ?? "";
   const localToday = localDateString(timezone);
+
+  // A session left open on an earlier day is closed out here. Without this, a
+  // workout that was trained but never walked through the summary counted for
+  // nothing at all — see lib/session/close-stale.ts. No-op on a normal day.
+  const credited = await closeStaleSessions(supabase, openRes.data ?? [], localToday);
 
   // A four-week block that has run its course rolls over here, on load. Handing
   // it the block we just read makes the common case — the block is current —
@@ -176,6 +190,14 @@ export default async function TodayPage() {
             Settings
           </Link>{" "}
           and rebuild the block.
+        </p>
+      )}
+
+      {credited > 0 && (
+        <p className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+          {credited === 1
+            ? "A session you had left open has been counted — you had logged sets in it."
+            : `${credited} sessions you had left open have been counted — you had logged sets in them.`}
         </p>
       )}
 

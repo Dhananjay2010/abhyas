@@ -1,5 +1,10 @@
 # QA pass — 2026-09-10
 
+> **Status: every High and Medium issue below is fixed.** See
+> `context/15-qa-fixes.md` for what was changed and how each fix was verified.
+> The findings are kept in full, because the reasoning is why the fixes look
+> the way they do. L1 and L2 remain open by choice.
+
 A testing pass over the guided session, onboarding, settings, yoga, breathing
 and the charts, plus an audit of the server logic against the live database.
 
@@ -28,7 +33,7 @@ touch input (findings were driven programmatically).
 
 ## High
 
-### H1 — A second tap on "Log set" silently loses a set
+### H1 — [FIXED] A second tap on "Log set" silently loses a set
 
 **Reproduced.** With an 800 ms server response — which is what this app had
 until the region fix earlier today — tap "Log set 1", wait 300 ms, tap again:
@@ -59,7 +64,7 @@ against 4 planned, so `evaluateProgression` sees `working.length < plannedSets`
 tap. This is most likely to happen exactly when the app is slow, which is when
 people tap twice.
 
-### H2 — No async button in the session runner is guarded
+### H2 — [FIXED] No async button in the session runner is guarded
 
 `disabled` does not appear anywhere in `session-runner.tsx`. `BigButton` and
 `GhostButton` take only `children` and `onClick`; neither has a pending state.
@@ -74,7 +79,7 @@ increment twice (60 → 65 kg instead of 62.5 kg).
 One fix covers both: a pending state on the shared button components, or a
 guard ref in the handlers.
 
-### H3 — `logSet` validates nothing, at any layer
+### H3 — [FIXED] `logSet` validates nothing, at any layer
 
 `logSet` (`session/actions.ts:206`) writes `reps` and `weight_kg` straight
 through. `session_sets` has **no CHECK constraints**. The client's `onLog` does
@@ -101,7 +106,7 @@ Downstream, proved in `scripts/qa/adversarial.ts`:
 - `weight_kg` is `numeric(6,2)`, so anything above 9999.99 raises a raw
   Postgres overflow error at the user.
 
-### H4 — A workout you did but never "finished" counts for nothing
+### H4 — [FIXED] A workout you did but never "finished" counts for nothing
 
 `session_volume` and the streak calculation both require
 `status = 'completed'`. Nothing ever reaps a stale `in_progress` session.
@@ -120,7 +125,7 @@ lands in the same state.
 
 ## Medium
 
-### M1 — Reps prefill at the top of the range, and that drives progression
+### M1 — [FIXED] Reps prefill at the top of the range, and that drives progression
 
 `SetEntry` initialises `reps` to `repsTarget`, which is `current.repsMax`. In a
 4×8–12 exercise the field reads **12** before the user touches it.
@@ -137,7 +142,7 @@ did not earn — and the increases compound weekly.
 Prefilling `repsMin`, or leaving it blank, would make progression reflect what
 was actually done.
 
-### M2 — A logged set cannot be corrected
+### M2 — [FIXED] A logged set cannot be corrected
 
 Sets render as plain `<li>` elements. There is no edit or delete affordance
 anywhere. `deleteSet()` exists in `session/actions.ts:228` and is **never
@@ -146,14 +151,14 @@ imported** — dead code.
 Combined with H3, a mistyped set (60 kg where 6 kg was meant, a stray 999) is
 permanent, and it feeds progression.
 
-### M3 — A stray 0-rep set quietly costs the user weight
+### M3 — [FIXED] A stray 0-rep set quietly costs the user weight
 
 `evaluateProgression` filters to `reps > 0`, so a 0-rep set does not count as a
 completed set. Four sets logged with one at 0 reps → `hold`, failures 1. The
 same again → `backed_off`, **60 kg → 55 kg** (proved in the adversarial run).
 Rejecting 0 reps at entry (H3) removes this.
 
-### M4 — Exit and Skip have no confirmation, and Skip cannot be undone
+### M4 — [FIXED] Exit and Skip have no confirmation, and Skip cannot be undone
 
 The Exit control sits in the header next to the elapsed clock and leaves
 immediately, mid-set, with no prompt. "Skip this exercise" likewise, and there
@@ -223,14 +228,15 @@ Worth recording so these are not re-tested or re-reported:
 
 ---
 
-## Suggested order of work
+## What was done
 
-1. **H2** — a pending state on `BigButton`/`GhostButton`. One change, and it
-   closes **H1** as well as the double-progression risk.
-2. **H3** — validate in `logSet` (reps 1–100, weight 0–500), mirror it on the
-   client, and add CHECK constraints to `session_sets` as the backstop.
-3. **H4** — decide what a session that was done but never closed should count
-   for, and either finish it on exit or reap it.
-4. **M1** — stop prefilling the top of the rep range.
-5. **M2** — wire up the `deleteSet` action that already exists.
-6. **M4**, then **M3** (fixed by H3), then **L1**, **L2**.
+All eight High and Medium issues are fixed; `context/15-qa-fixes.md` records
+the implementation and the verification for each.
+
+**Still open, by choice:**
+
+- **L1** — the UTC/local date mixing in `weekInBlock` and `startSession`.
+  Correct on Vercel, which runs functions in UTC. Left as a documented landmine
+  rather than a silent one; worth fixing next time that code is touched.
+- **L2** — `best_weight_kg` fetched and unused in `session/[id]/page.tsx`. A
+  dead field, not a defect.

@@ -11,6 +11,7 @@ import {
   type ProgressState,
 } from "@/lib/program/progression";
 import { applyDeload } from "@/lib/program/prescription";
+import { validateSet } from "@/lib/session/validation";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -209,6 +210,9 @@ export async function logSet(input: {
   reps: number | null;
   weightKg: number | null;
 }): Promise<Result> {
+  const invalid = validateSet(input.reps, input.weightKg);
+  if (invalid) return { ok: false, error: invalid };
+
   const { supabase, user } = await requireUser();
   const { error } = await supabase.from("session_sets").upsert(
     {

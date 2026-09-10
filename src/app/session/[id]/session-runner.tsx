@@ -12,8 +12,10 @@ import {
   vibrate,
   vibrationSupported,
 } from "@/lib/session/device";
+import { validateSet } from "@/lib/session/validation";
 import {
   abandonSession,
+  deleteSet,
   finishExercise,
   finishSession,
   findAlternatives,
@@ -28,6 +30,7 @@ import {
 export type SessionActions = {
   markWarmupDone: typeof markWarmupDone;
   logSet: typeof logSet;
+  deleteSet: typeof deleteSet;
   finishExercise: typeof finishExercise;
   finishSession: typeof finishSession;
   abandonSession: typeof abandonSession;
@@ -39,6 +42,7 @@ export type SessionActions = {
 const REAL_ACTIONS: SessionActions = {
   markWarmupDone,
   logSet,
+  deleteSet,
   finishExercise,
   finishSession,
   abandonSession,
@@ -176,11 +180,49 @@ export function SessionRunner({
     [exercises],
   );
 
+  /**
+   * Run one server action at a time, and refuse a second while one is in
+   * flight.
+   *
+   * Every control in this screen used to fire on every tap, and the state
+   * update that hides or advances a button only happens *after* the server
+   * answers. On a slow connection that leaves the button live for the whole
+   * round trip, and a second tap ran the action again with the same arguments.
+   * For `logSet` that appended a duplicate set number to local state: the
+   * counter claimed two sets, the list showed one, the next button skipped
+   * ahead, and only one row was ever written — and the exercise then finished
+   * short of its planned set count, which progression reads as a missed
+   * session. Twice in a row and it drops the working weight ten percent.
+   *
+   * The ref is what actually does the work: two taps in the same tick both see
+   * a stale `busy` state, but only one can win a synchronous ref check. The
+   * state exists so the buttons can show it.
+   */
+  const busyRef = useRef(false);
+  const [busy, setBusy] = useState(false);
+
+  /**
+   * Skipping an exercise cannot be undone — there is no navigation back to it
+   * for the rest of the session — and it sat one unguarded tap away among the
+   * secondary actions. Leaving is confirmed separately, inside `Shell`, since
+   * that button lives in the header. Neither loses logged sets, which is why
+   * both ask rather than block.
+   */
+  const [confirming, setConfirming] = useState<"skip" | null>(null);
+
   async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>) {
-    const r = await fn();
-    if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
-    else setError(null);
-    return r.ok;
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const r = await fn();
+      if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
+      else setError(null);
+      return r.ok;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   }
 
   // ---- warm-up ----------------------------------------------------------
@@ -222,6 +264,7 @@ export function SessionRunner({
 
           <div className="mt-10 space-y-3">
             <BigButton
+              disabled={busy}
               onClick={async () => {
                 if (isLast) {
                   await run(() => actions.markWarmupDone(sessionId));
@@ -234,6 +277,7 @@ export function SessionRunner({
               {isLast ? "Warm-up done, start training" : "Next"}
             </BigButton>
             <GhostButton
+              disabled={busy}
               onClick={async () => {
                 await run(() => actions.markWarmupDone(sessionId));
                 setPhase("work");
@@ -277,6 +321,7 @@ export function SessionRunner({
         </ul>
         <div className="mt-10 space-y-3">
           <BigButton
+            disabled={busy}
             onClick={async () => {
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
@@ -287,6 +332,7 @@ export function SessionRunner({
             Done
           </BigButton>
           <GhostButton
+            disabled={busy}
             onClick={async () => {
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
@@ -315,6 +361,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        confirmExit={false}
       >
         <div className="space-y-3">
           <Stat label="Time" value={formatClock(elapsed)} />
@@ -343,6 +390,7 @@ export function SessionRunner({
 
         <div className="mt-10">
           <BigButton
+            disabled={busy}
             onClick={async () => {
               if (onExit) return onExit();
               // Today, History and Progress all changed while this session ran.
@@ -399,6 +447,28 @@ export function SessionRunner({
     [...current.sets].reverse().find((s) => s.weightKg !== null)?.weightKg ??
     current.suggestedWeightKg;
 
+  /**
+   * What the reps field starts on — and, for the first set, nothing.
+   *
+   * This used to be `repsMax`, the TOP of the range. Double progression adds
+   * weight precisely when every set reaches the top, so the untouched default
+   * was itself a full house: tapping "Log set" four times without reading the
+   * screen recorded a perfect session and earned a weight increase nobody had
+   * done.
+   *
+   * Defaulting to the bottom of the range is no better, only wrong in the other
+   * direction — four sets at the bottom reads as a missed session, and two of
+   * those drop the working weight ten percent. Any prefilled number is the app
+   * guessing and then recording the guess as fact.
+   *
+   * So the first set of an exercise has to be typed. After that the previous
+   * set's reps carry forward, because that is a number the user actually
+   * entered, and it saves the typing on the sets that match — which is most of
+   * them.
+   */
+  const defaultReps =
+    [...current.sets].reverse().find((s) => s.reps !== null)?.reps ?? null;
+
   async function onLogSet(reps: number | null, weightKg: number | null) {
     const ok = await run(() =>
       actions.logSet({
@@ -421,12 +491,37 @@ export function SessionRunner({
     }
   }
 
+  /** Remove the most recently logged set, so a mistyped one can be corrected. */
+  async function onUndoSet(setNumber: number) {
+    const ok = await run(() => actions.deleteSet(current.id, setNumber));
+    if (!ok) return;
+    setExercises((prev) =>
+      prev.map((e) =>
+        e.id === current.id
+          ? { ...e, sets: e.sets.filter((x) => x.setNumber !== setNumber) }
+          : e,
+      ),
+    );
+    setRestEndsAt(null);
+  }
+
   async function onFinishExercise(feel: Feel | null, skipped = false) {
-    const result = await actions.finishExercise({
-      sessionExerciseId: current.id,
-      feel,
-      skipped,
-    });
+    // Guarded like every other action: finishExercise applies progression, so
+    // running it twice could add the weight increment twice.
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    let result;
+    try {
+      result = await actions.finishExercise({
+        sessionExerciseId: current.id,
+        feel,
+        skipped,
+      });
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
     if (!result.ok) {
       setError(result.error);
       return;
@@ -521,12 +616,32 @@ export function SessionRunner({
                 }`}
               >
                 <span className="text-sm font-medium">Set {n}</span>
-                <span className="text-sm tabular-nums">
-                  {logged
-                    ? settings.perSetLogging
-                      ? `${logged.reps ?? "—"} reps${logged.weightKg ? ` · ${logged.weightKg} kg` : ""}`
-                      : "done"
-                    : "—"}
+                <span className="flex items-center gap-3">
+                  <span className="text-sm tabular-nums">
+                    {logged
+                      ? settings.perSetLogging
+                        ? `${logged.reps ?? "—"} reps${logged.weightKg ? ` · ${logged.weightKg} kg` : ""}`
+                        : "done"
+                      : "—"}
+                  </span>
+                  {/*
+                    Undo, offered only on the most recently logged set.
+                    A mistyped set was previously permanent: the rows were not
+                    interactive and `deleteSet` existed in the actions file
+                    without ever being imported. Restricting it to the last set
+                    keeps the numbering contiguous — removing set 2 of 3 would
+                    leave a hole that the next "Log set" would collide with.
+                  */}
+                  {logged && n === setsDone && (
+                    <button
+                      disabled={busy}
+                      onClick={() => onUndoSet(n)}
+                      aria-label={`Undo set ${n}`}
+                      className="rounded-lg px-2 py-1 text-xs font-medium text-muted underline underline-offset-2 transition-colors hover:text-danger disabled:opacity-60"
+                    >
+                      Undo
+                    </button>
+                  )}
                 </span>
               </li>
             );
@@ -538,9 +653,10 @@ export function SessionRunner({
             key={nextSetNumber}
             perSetLogging={settings.perSetLogging}
             defaultWeight={lastWeight}
-            repsTarget={current.repsMax}
+            defaultReps={defaultReps}
             setNumber={nextSetNumber}
             onLog={onLogSet}
+            disabled={busy}
           />
         )}
 
@@ -551,8 +667,9 @@ export function SessionRunner({
               {FEELS.map((f) => (
                 <button
                   key={f.value}
+                  disabled={busy}
                   onClick={() => onFinishExercise(f.value)}
-                  className="rounded-xl border border-border bg-surface px-3 py-4 text-sm font-medium transition-colors hover:border-accent hover:text-accent"
+                  className="rounded-xl border border-border bg-surface px-3 py-4 text-sm font-medium transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
                 >
                   {f.label}
                 </button>
@@ -575,6 +692,7 @@ export function SessionRunner({
                 {alternatives.map((a) => (
                   <li key={a.exerciseId}>
                     <button
+                      disabled={busy}
                       onClick={async () => {
                         const ok = await run(() =>
                           actions.swapExercise({
@@ -592,7 +710,7 @@ export function SessionRunner({
                         );
                         setAlternatives(null);
                       }}
-                      className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent"
+                      className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-60"
                     >
                       <span className="font-medium">{a.name}</span>
                       {a.cue && <p className="mt-1 text-xs text-muted">{a.cue}</p>}
@@ -610,6 +728,7 @@ export function SessionRunner({
         <div className="mt-8 space-y-2">
           {!alternatives && current.sets.length === 0 && (
             <GhostButton
+              disabled={busy || loadingAlternatives}
               onClick={async () => {
                 setLoadingAlternatives(true);
                 const r = await actions.findAlternatives(current.id);
@@ -621,10 +740,38 @@ export function SessionRunner({
               {loadingAlternatives ? "Finding alternatives…" : "Swap this exercise"}
             </GhostButton>
           )}
-          <GhostButton onClick={() => onFinishExercise(null, true)}>
-            Skip this exercise
-          </GhostButton>
+          {confirming === "skip" ? (
+            <div className="rounded-xl border border-border bg-surface-2 px-4 py-3">
+              <p className="text-sm">
+                Skip {current.name}? You will not be able to come back to it in this
+                session.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirming(null);
+                    onFinishExercise(null, true);
+                  }}
+                  className="flex-1 rounded-lg bg-surface px-4 py-2 text-sm font-medium text-danger disabled:opacity-60"
+                >
+                  Skip it
+                </button>
+                <button
+                  onClick={() => setConfirming(null)}
+                  className="flex-1 rounded-lg bg-surface px-4 py-2 text-sm font-medium"
+                >
+                  Keep going
+                </button>
+              </div>
+            </div>
+          ) : (
+            <GhostButton disabled={busy} onClick={() => setConfirming("skip")}>
+              Skip this exercise
+            </GhostButton>
+          )}
           <GhostButton
+            disabled={busy}
             onClick={async () => {
               if (await run(() => actions.abandonSession(sessionId))) {
                 if (onExit) onExit();
@@ -656,25 +803,39 @@ export function SessionRunner({
 function SetEntry({
   perSetLogging,
   defaultWeight,
-  repsTarget,
+  defaultReps,
   setNumber,
   onLog,
+  disabled = false,
 }: {
   perSetLogging: boolean;
   defaultWeight: number | null;
-  repsTarget: number;
+  /** Null on the first set of an exercise, so it has to be entered. */
+  defaultReps: number | null;
   setNumber: number;
   onLog: (reps: number | null, weightKg: number | null) => void;
+  disabled?: boolean;
 }) {
   // Remounted per set via a key at the call site, so the fields reset naturally
   // rather than being reset from an effect.
-  const [reps, setReps] = useState(String(repsTarget));
+  const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
   const [weight, setWeight] = useState(defaultWeight !== null ? String(defaultWeight) : "");
+
+  // The same rules the server enforces, so the button explains itself before a
+  // round trip rather than after one. An empty reps field is only meaningful
+  // when per-set logging is off, where the runner records that a set happened
+  // without asking for numbers; here it means the user has not said yet.
+  const invalid =
+    reps === ""
+      ? "Enter the reps you did."
+      : validateSet(Number(reps), weight === "" ? null : Number(weight));
 
   if (!perSetLogging) {
     return (
       <div className="mt-6">
-        <BigButton onClick={() => onLog(null, null)}>Set {setNumber} done</BigButton>
+        <BigButton disabled={disabled} onClick={() => onLog(null, null)}>
+          Set {setNumber} done
+        </BigButton>
       </div>
     );
   }
@@ -709,8 +870,17 @@ function SetEntry({
           />
         </label>
       </div>
+      {invalid && (
+        <p
+          role={reps === "" ? undefined : "alert"}
+          className={`mt-3 text-center text-sm ${reps === "" ? "text-muted" : "text-danger"}`}
+        >
+          {invalid}
+        </p>
+      )}
       <div className="mt-3">
         <BigButton
+          disabled={disabled || invalid !== null}
           onClick={() =>
             onLog(reps === "" ? null : Number(reps), weight === "" ? null : Number(weight))
           }
@@ -729,6 +899,7 @@ function Shell({
   onExit,
   wakeLock,
   error,
+  confirmExit = true,
   children,
 }: {
   title: string;
@@ -737,8 +908,15 @@ function Shell({
   onExit: () => void;
   wakeLock: { active: boolean };
   error: string | null;
+  /** Off on the summary, where leaving is the expected next step. */
+  confirmExit?: boolean;
   children: React.ReactNode;
 }) {
+  // Owned here rather than by the caller so every phase inherits the same
+  // guard without repeating it. The button sits beside the elapsed clock, well
+  // inside thumb reach, and used to leave mid-set on a single tap.
+  const [confirmingExit, setConfirmingExit] = useState(false);
+
   return (
     <main className="mx-auto min-h-dvh w-full max-w-md px-6 pt-6 pb-16">
       <header className="flex items-center justify-between gap-4">
@@ -756,7 +934,7 @@ function Shell({
           )}
           <span className="text-sm tabular-nums text-muted">{formatClock(elapsed)}</span>
           <button
-            onClick={onExit}
+            onClick={() => (confirmExit ? setConfirmingExit(true) : onExit())}
             aria-label="Leave session"
             className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted"
           >
@@ -764,6 +942,33 @@ function Shell({
           </button>
         </div>
       </header>
+
+      {confirmingExit && (
+        <div
+          role="alertdialog"
+          aria-label="Leave session"
+          className="mt-4 rounded-xl border border-border bg-surface-2 px-4 py-3"
+        >
+          <p className="text-sm">
+            Leave this session? Everything you have logged is already saved, and you
+            can pick it up again from Today.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={onExit}
+              className="flex-1 rounded-lg bg-surface px-4 py-2 text-sm font-medium text-danger"
+            >
+              Leave
+            </button>
+            <button
+              onClick={() => setConfirmingExit(false)}
+              className="flex-1 rounded-lg bg-surface px-4 py-2 text-sm font-medium"
+            >
+              Stay
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <p
@@ -782,14 +987,17 @@ function Shell({
 function BigButton({
   children,
   onClick,
+  disabled = false,
 }: {
   children: React.ReactNode;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="w-full rounded-xl bg-accent px-6 py-5 text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+      disabled={disabled}
+      className="w-full rounded-xl bg-accent px-6 py-5 text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60"
     >
       {children}
     </button>
@@ -799,14 +1007,17 @@ function BigButton({
 function GhostButton({
   children,
   onClick,
+  disabled = false,
 }: {
   children: React.ReactNode;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg"
+      disabled={disabled}
+      className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-60"
     >
       {children}
     </button>
