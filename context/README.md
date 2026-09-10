@@ -32,6 +32,7 @@ pick the project up.
 | [10](10-settings-and-history.md) | Settings and history | Done |
 | [11](11-block-rollover.md) | Block rollover | Done |
 | [12](12-yoga-and-breathing.md) | Yoga and breathing runners | Done |
+| [13](13-performance.md) | Navigation performance | Done |
 
 ## Live references
 

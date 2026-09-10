@@ -99,9 +99,31 @@ five seconds ago re-fetches the whole screen from the server.
 
 - The landing page pulls all of `@supabase/supabase-js` into the browser
   (a 254 KB chunk) purely so the sign-in button can call `signInWithOAuth`.
-- `/dev/*` preview harnesses are compiled into the production build.
 - `history/page.tsx:35` selects the whole `session_volume` view with no filter
   while rendering only 60 rows.
+
+### 2.9 Two findings that did not survive a closer look
+
+Recorded because a reader of this document should not go looking for problems
+that are not there.
+
+- **`/dev/*` in production.** The harnesses are compiled into the build, but
+  every one of them already calls `notFound()` unless `NODE_ENV` is
+  `development`. They are unreachable in production; the only cost is build
+  output size. Not worth changing.
+- **Caching the reference tables (Stage 4 below).** The premise was that
+  re-reading seeded data on every request is wasted work. Two facts undo it.
+  The tables are tiny — 29 warm-up exercises, 72 pieces of equipment, 36
+  breathing patterns — and once the waterfalls are collapsed those reads sit
+  inside a parallel batch, so they cost nothing unless they are the slowest
+  query in it. And they are readable by `authenticated` only, not `anon`
+  (`grant select ... to authenticated`, policy `for select to authenticated`),
+  so caching them across users would need either an RLS change — out of scope
+  here — or a per-user cache key, which caches identical data once per user to
+  save a query that was not on the critical path. Stage 4 is therefore dropped
+  rather than implemented. If block generation ever becomes the complaint, the
+  ~600-row `exercises` catalogue read in `lib/program/persist.ts` is the one
+  worth revisiting.
 
 ## 3. What we are going to change
 
@@ -148,11 +170,11 @@ production.
   first.
 - Same treatment for `/session/[id]`, `/progress`, `/history`.
 
-### Stage 4 — Cache what never changes per user
+### Stage 4 — Cache what never changes per user — **dropped**
 
-- Wrap reference-table reads in `unstable_cache` with a long revalidate and a
-  tag per table, using an anon Supabase client so no user data enters the
-  cache.
+See 2.9. Measured against the actual table sizes and the post-Stage-3 query
+shape, this buys nothing and costs an invalidation obligation on every seed
+migration.
 
 ### Stage 5 — Client cache and bundle
 
@@ -161,7 +183,6 @@ production.
   mutation (`/history` and `/progress` are currently missed when a session
   completes).
 - Load `@supabase/supabase-js` on demand in the sign-in button.
-- Exclude `/dev/*` from the production build.
 
 ### Stage 6 — Re-measure and regression-test
 
