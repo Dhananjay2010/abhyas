@@ -13,7 +13,7 @@ All v1 tracks now have a session experience.
 |---|---|
 | Repo | https://github.com/Dhananjay2010/abhyas (private) |
 | Live | https://abhyas-indol.vercel.app |
-| Supabase ref | `bjtjhnfyheruxldqbmrj` |
+| Supabase ref | `brldynuhozaszaduwfse` (`ap-south-1`, Mumbai) |
 | Node | 20.19.6 (`.nvmrc`) — run `npm run dev:nvm`, not `npm run dev` |
 | Implementation notes | [context/](context/README.md) — one file per step |
 

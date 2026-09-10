@@ -41,4 +41,5 @@ pick the project up.
 |---|---|
 | Repo | https://github.com/Dhananjay2010/abhyas (private) |
 | Production | https://abhyas-indol.vercel.app |
-| Supabase project ref | `bjtjhnfyheruxldqbmrj` (region: `ap-northeast-1`, Tokyo) |
+| Supabase project ref | `brldynuhozaszaduwfse` (region: `ap-south-1`, Mumbai) |
+| Vercel function region | `bom1` (Mumbai) — must stay next to the database; see [14](14-database-region-migration.md) |
