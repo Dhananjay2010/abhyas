@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { markYogaVideoDone } from "./actions";
 
 export type YogaVideo = {
@@ -36,7 +35,6 @@ export function YogaPlayer({
   channelUrl: string;
   actions?: Actions;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -110,7 +108,8 @@ export function YogaPlayer({
                   const r = await actions.markYogaVideoDone(playing.id);
                   if (!r.ok) return setError(r.error);
                   setPlayingId(null);
-                  router.refresh();
+                  // markYogaVideoDone revalidates "/yoga"; the re-rendered tree
+                  // comes back with the action. A refresh here fetched it twice.
                 })
               }
               className="w-full rounded-xl bg-accent px-6 py-4 text-base font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"

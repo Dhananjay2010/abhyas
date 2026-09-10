@@ -351,8 +351,10 @@ export function SessionRunner({
               // completed-session guard would redirect away before the summary
               // could be read.
               await actions.refreshAfterSession();
+              // The revalidation above purged Today from the client cache, so
+              // this navigation fetches it fresh; a refresh as well would fetch
+              // it twice.
               router.push("/today");
-              router.refresh();
             }}
           >
             Back to Today

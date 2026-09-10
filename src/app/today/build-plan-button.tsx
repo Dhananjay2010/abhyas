@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { buildPlan } from "./actions";
 
 export function BuildPlanButton({ label }: { label: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +16,8 @@ export function BuildPlanButton({ label }: { label: string }) {
             setError(null);
             const r = await buildPlan();
             if (!r.ok) return setError(r.error);
-            router.refresh();
+            // buildPlan revalidates "/today"; the fresh tree arrives with the
+            // action's response.
           })
         }
         className="w-full rounded-xl bg-accent px-6 py-4 text-base font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"

@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { logBodyWeight } from "./actions";
 
 export function LogWeight({ current }: { current: number | null }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(current !== null ? String(current) : "");
   const [pending, startTransition] = useTransition();
@@ -45,7 +43,9 @@ export function LogWeight({ current }: { current: number | null }) {
               const r = await logBodyWeight(Number(value));
               if (!r.ok) return setError(r.error);
               setOpen(false);
-              router.refresh();
+              // logBodyWeight revalidates "/progress" and the action's response
+              // carries the new tree. Refreshing as well re-fetched all seven of
+              // this screen's queries for a second time.
             })
           }
           className="shrink-0 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-accent-fg disabled:opacity-50"
