@@ -1,6 +1,6 @@
 # 15 — Fixes from the QA pass
 
-Every High and Medium finding in `QA-FINDINGS.md` is closed here. The findings
+Every finding in `QA-FINDINGS.md` is closed here. The findings
 document keeps the original reasoning; this file records what changed and how
 each change was checked.
 
@@ -147,9 +147,63 @@ next step. Skip names the exercise and says it cannot be returned to.
 Neither loses logged sets, which is why both ask rather than block, and why the
 Leave copy says so explicitly.
 
+## Dates, and the duplication that hid the bug (L1)
+
+Two places computed which week of a block a date falls in, and both did it by
+subtracting a **locally**-parsed date from a **UTC**-parsed one — the exact trap
+`lib/dates.ts` opens by warning about. It was invisible because Vercel runs
+functions in UTC, where the two parse identically. Under a negative-offset
+server timezone the answer shifts by a day, taking the deload week with it.
+
+The duplication is the more interesting half: the same eight lines existed in
+`today/page.tsx` and in `startSession`, so the bug had to be written twice and
+could have been fixed in only one.
+
+Now there is one implementation:
+
+- `daysBetween(from, to)` in `lib/dates.ts` — both sides read as UTC, so the
+  result is a difference of calendar days with no clock in it. It sits beside
+  `addDays`, which already worked this way.
+- `weekInBlock(startedOn, today)` and `BLOCK_WEEKS` in
+  `lib/program/prescription.ts`, used by both callers. Clamped at both ends: a
+  block past its four weeks reports week 4 until rollover replaces it, and a
+  start date in the future reports week 1 rather than zero.
+
+Two smaller consolidations came with it, because they were the same class of
+thing:
+
+- Both callers also derived the weekday by formatting the clock a *second*
+  time, separately from the local date. Across a midnight boundary the two
+  reads could disagree — Today could show Tuesday's plan against Wednesday's
+  date. Both now use `isoWeekday(localToday)`, derived from the date already
+  computed. Checked against the old implementation over 2,400 comparisons —
+  six user timezones × 400 days × three server timezones — with no mismatch
+  before the swap.
+- `session/actions.ts` had its own private copy of `localDateString`. Deleted;
+  it uses the shared one.
+
+`ageOn` in `lib/onboarding/options.ts` still parses inline, and is **left
+alone deliberately**: it parses local and compares with local getters, so it is
+internally consistent and not an instance of this bug. Threading a timezone
+through it would touch onboarding and the generator to move a one-day edge on a
+legal minimum.
+
+**Verified** by `scripts/test-dates.ts`, now part of `npm test`: calendar
+arithmetic in both directions, month, year and leap boundaries, three DST
+transitions including the 25-hour day, the full 1→4 walk of a block with
+clamping at both ends, and the same instant read either side of the date line.
+The whole suite passes under `UTC`, `America/New_York`, `Pacific/Midway` and
+`Australia/Sydney`.
+
+## The unused field (L2)
+
+`best_weight_kg` was selected in `session/[id]/page.tsx` and never read. Dropped
+from the query.
+
 ## Verified
 
-- `npm test` — generator, progression and streaks all pass.
+- `npm test` — generator, progression, streaks and dates all pass, under four
+  different server timezones.
 - `npx tsc --noEmit`, `npx eslint src --max-warnings=0`, `next build` — clean.
 - The browser checks described above, at mobile width, against the real
   components in `/dev/session`.
@@ -166,10 +220,10 @@ Leave copy says so explicitly.
   path has not been walked.
 - **H4 has not been observed firing**, because it needs a session left open on
   a previous day. The credit banner on Today is the thing to watch for.
-- **L1 and L2 are open by choice**, recorded in `QA-FINDINGS.md`.
 
 ## Change log
 
 | Date | Change |
 |---|---|
 | 2026-09-10 | Created. All High and Medium findings from the QA pass fixed: single-entry guard on every session action, three-layer set validation plus CHECK constraints, first-set reps must be typed, Undo on the last logged set, stale sessions closed out on Today, confirmations on Leave and Skip. |
+| 2026-09-10 | Low findings fixed: block-week and weekday arithmetic consolidated onto UTC-safe shared helpers and covered by a new `npm run test:dates` suite; the duplicated private `localDateString` in `session/actions.ts` removed; the unused `best_weight_kg` select dropped. |

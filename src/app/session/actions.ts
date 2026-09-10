@@ -10,8 +10,9 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
-import { applyDeload } from "@/lib/program/prescription";
+import { applyDeload, weekInBlock } from "@/lib/program/prescription";
 import { validateSet } from "@/lib/session/validation";
+import { isoWeekday, localDateString } from "@/lib/dates";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -24,11 +25,6 @@ async function requireUser() {
   const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
-}
-
-/** The user's local calendar date, which is how sessions are keyed. */
-function localDate(timezone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
 }
 
 /**
@@ -70,7 +66,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   ]);
 
   const timezone = profileRes.data?.timezone || "Asia/Kolkata";
-  const today = localDate(timezone);
+  const today = localDateString(timezone);
 
   const existing = (openRes.data ?? []).find((s) => s.local_date === today);
 
@@ -94,23 +90,15 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const program = programRes.data;
   if (!program) return { ok: false, error: "You have no active training block." };
 
-  const weekday = new Intl.DateTimeFormat("en-GB", {
-    timeZone: timezone,
-    weekday: "long",
-  }).format(new Date());
-  const dayIndex =
-    ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].indexOf(
-      weekday,
-    ) + 1;
+  // From the local date already computed above, not a second read of the clock:
+  // deriving them separately let the weekday and the date disagree across a
+  // midnight boundary.
+  const dayIndex = isoWeekday(today);
 
-  const day = (program.program_days ?? []).find((d) => d.day_index === (dayIndex || 1));
+  const day = (program.program_days ?? []).find((d) => d.day_index === dayIndex);
   if (!day) return { ok: false, error: "No plan for today." };
 
-  const daysIn = Math.floor(
-    (new Date(today).getTime() - new Date(`${program.started_on}T00:00:00`).getTime()) /
-      86400000,
-  );
-  const week = Math.min(4, Math.max(1, Math.floor(daysIn / 7) + 1));
+  const week = weekInBlock(program.started_on, today);
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------

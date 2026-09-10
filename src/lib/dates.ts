@@ -26,6 +26,22 @@ export function addDays(iso: string, days: number): string {
   return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
 }
 
+/**
+ * Whole days from `from` to `to`, both yyyy-mm-dd. Negative when `to` is earlier.
+ *
+ * Both sides are read as UTC, so the result is a plain difference of calendar
+ * days with no timezone in it. The trap this exists to avoid is the one at the
+ * top of this file: `new Date("2026-09-10")` is UTC midnight while
+ * `new Date("2026-09-10T00:00:00")` is *local* midnight, so subtracting one
+ * from the other silently mixes two clocks and shifts the answer by the
+ * server's offset. Two callers did exactly that.
+ */
+export function daysBetween(from: string, to: string): number {
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
+}
+
 /** Every date from `from` to `to`, inclusive. */
 export function dateRange(from: string, to: string): string[] {
   const out: string[] = [];

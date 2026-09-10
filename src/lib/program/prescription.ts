@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+import { daysBetween } from "@/lib/dates";
 
 type Goal = Database["public"]["Enums"]["fitness_goal"];
 type Level = Database["public"]["Enums"]["fitness_level"];
@@ -59,4 +60,26 @@ export function applyDeload(p: Prescription): Prescription {
     repsMax: p.repsMax,
     restSeconds: p.restSeconds,
   };
+}
+
+/** A training block runs four weeks, the last of which is the deload. */
+export const BLOCK_WEEKS = 4;
+
+/**
+ * Which week of the block a date falls in, 1..BLOCK_WEEKS.
+ *
+ * Both callers used to compute this inline, and both did it by subtracting a
+ * locally-parsed date from a UTC-parsed one — the trap `lib/dates.ts` opens by
+ * warning about. It happened to be correct because Vercel runs functions in
+ * UTC, where the two parse identically, and would have shifted by a day the
+ * moment that stopped being true. `daysBetween` reads both sides as UTC, so the
+ * answer is a difference of calendar days with no clock in it.
+ *
+ * Clamped at both ends: a block that has run past its four weeks reports week 4
+ * until the rollover replaces it, and a start date in the future reports week 1
+ * rather than zero or negative.
+ */
+export function weekInBlock(startedOn: string, today: string): number {
+  const days = daysBetween(startedOn, today);
+  return Math.min(BLOCK_WEEKS, Math.max(1, Math.floor(days / 7) + 1));
 }

@@ -52,7 +52,7 @@ export default async function SessionPage({
       supabase.from("user_equipment").select("equipment_id"),
       supabase
         .from("exercise_progress")
-        .select("exercise_id, current_working_weight_kg, current_target_reps, best_weight_kg"),
+        .select("exercise_id, current_working_weight_kg, current_target_reps"),
     ]);
 
   // A failed query used to fall through to "this session has no exercises",

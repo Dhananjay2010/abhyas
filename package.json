@@ -10,8 +10,9 @@
     "dev:nvm": "./scripts/dev.sh",
     "test:generator": "tsx scripts/test-generator.ts",
     "test:progression": "tsx scripts/test-progression.ts",
-    "test": "npm run test:generator && npm run test:progression && npm run test:streaks",
-    "test:streaks": "tsx scripts/test-streaks.ts"
+    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates",
+    "test:streaks": "tsx scripts/test-streaks.ts",
+    "test:dates": "tsx scripts/test-dates.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
