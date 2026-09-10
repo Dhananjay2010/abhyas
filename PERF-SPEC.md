@@ -422,7 +422,27 @@ profile still joins to it, and `onboarding_completed_at` is the original
 timestamp. Google matched the migrated identity instead of minting a second
 user, which was the failure this migration could most plausibly have produced.
 
-### 6.10 The profiler was lying by omission
+### 6.10 Where it finished
+
+| | single query | five in parallel |
+|---|---|---|
+| `bom1` → Tokyo, as found | ~1000 ms | ~1272 ms wall |
+| `hnd1` → Tokyo, interim | 36 ms | 74 ms wall |
+| **`bom1` → Mumbai, now** | **~20 ms** | **35–70 ms wall** |
+
+Roughly **fifty times** faster on the cost that dominated every screen, plus
+the user's own hop to the server back inside India. On top of that: a tap now
+paints a skeleton within a frame instead of freezing the previous screen,
+starting a session runs three round trips instead of nineteen, and four
+screens stopped rendering themselves twice per mutation.
+
+The order in which those were found is worth remembering. The first pass spent
+its effort on round-trip *count*, which was real but secondary; the thing that
+actually dominated was a region recorded from memory and never checked. **The
+measurement should have come first, and the reason it did not is that the
+existing note in `context/` read like a fact.**
+
+### 6.11 The profiler was lying by omission
 
 Page-level `[perf]` lines appeared in preview logs and never in production.
 The cause is the scheduling: `after()` runs the callback once the response has
@@ -439,7 +459,7 @@ one of them speaks.
 silently has to be checked against a case where it is known to have something
 to say. This one was only ever confirmed on preview.
 
-### 6.11 Previous open question (resolved above)
+### 6.12 Previous open question (resolved above)
 
 Still to be explained. The profiler now also records event-loop lag, cold
 versus warm, and region on every line, because a fetch that takes a second

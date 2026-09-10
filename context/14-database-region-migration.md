@@ -1,14 +1,13 @@
 # 14 — Moving the database to Mumbai
 
-Status: **data migration complete; sign-in not yet re-enabled.** The new
-project holds a verified copy of everything and production points at it. What
-remains is the Google OAuth credentials, which cannot pass through a terminal.
+Status: **complete.** The old project has been deleted.
 
 | | |
 |---|---|
-| Old project | `bjtjhnfyheruxldqbmrj` — `ap-northeast-1` (Tokyo), **paused**, not yet deleted |
-| New project | `brldynuhozaszaduwfse` — `ap-south-1` (Mumbai), live |
+| Project | `brldynuhozaszaduwfse` — `ap-south-1` (Mumbai) |
 | Functions | `bom1` (Mumbai), alongside the data |
+| Old project | `bjtjhnfyheruxldqbmrj` (Tokyo) — deleted 2026-09-10 |
+| Backup | `../Fitness-db-backup-2026-09-10/` — roles, schema, data incl. `auth` |
 
 ## Why
 
@@ -156,9 +155,37 @@ Probe (`/api/diag`) from the production function, same code throughout:
 On top of which the user's own hop to the server is back to Indian latency
 rather than crossing to Tokyo.
 
+## Verified after cut-over
+
+Signed in against the migrated account, then checked the database directly
+rather than trusting the screen:
+
+| Check | Result |
+|---|---|
+| `auth.users` | **1** — Google matched the migrated identity |
+| `auth.identities` | 1 |
+| Profile joins to that user | yes |
+| `onboarding_completed_at` | unchanged, 2026-09-09 |
+| Programs / active days / planned exercises | 2 / 7 / 26 |
+
+The single-user check is the one that mattered. Had Google minted a second
+account instead of matching the migrated `auth.identities` row, sign-in would
+still have "worked" — straight into an empty onboarding flow, with every
+existing record stranded behind an unreachable id.
+
+`startSession` was exercised too, though not in the way it first appeared.
+No new session row showed up after the test, which looked wrong until the
+backup was compared: session `8b758fda` was `in_progress` when the dump was
+taken and is `skipped` now. So the tap took the **resume** path — found today's
+open session, confirmed its four exercises, handed the user to it — and
+`abandonSession` closed it on exit. Exactly right, and the absence of a new
+row was the evidence rather than a problem. The create-a-new-session path has
+not been observed since the rewrite.
+
 ## Change log
 
 | Date | Change |
 |---|---|
 | 2026-09-10 | Created. Backup taken and verified; blocked at step 1 on the free-plan project limit. |
-| 2026-09-10 | Old project paused to free a slot. `abhyas-mumbai` created in `ap-south-1`, roles/schema/data restored, integrity verified, migration history repaired. Vercel and local environment variables re-pointed; `vercel.json` back to `bom1`; deployed. Outstanding: Google OAuth credentials on the new project, then delete the Tokyo project. |
+| 2026-09-10 | Old project paused to free a slot. `abhyas-mumbai` created in `ap-south-1`, roles/schema/data restored, integrity verified, migration history repaired. Vercel and local environment variables re-pointed; `vercel.json` back to `bom1`; deployed. |
+| 2026-09-10 | Google OAuth re-pointed at the new project; sign-in verified against the migrated account; Tokyo project deleted. Migration complete. |
