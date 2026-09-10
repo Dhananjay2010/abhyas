@@ -12,6 +12,7 @@
  * single timing call inside the page itself.
  */
 import { cache } from "react";
+import { after } from "next/server";
 
 export const PERF_ENABLED = process.env.PERF_DEBUG === "1";
 
@@ -103,7 +104,11 @@ function scheduleLog(store: Store) {
     );
   };
 
-  import("next/server")
-    .then(({ after }) => after(emit))
-    .catch(() => emit());
+  try {
+    after(emit);
+  } catch {
+    // `after()` is unavailable in some contexts. Logging is not worth failing
+    // a request over, so emit inline instead.
+    emit();
+  }
 }

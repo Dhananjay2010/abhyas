@@ -57,7 +57,15 @@ export function BottomNav() {
           <li key={t.href} className="flex-1">
             <Link
               href={t.href}
-              prefetch
+              // Default (automatic) prefetching on purpose, not prefetch={true}.
+              // Automatic fetches only the destination's loading skeleton, so a
+              // tap paints instantly and the data follows. prefetch={true} would
+              // fetch all four tabs in full on every screen — and rendering
+              // Today is not free of consequences: it is where a finished
+              // four-week block rolls over into the next one, and the user would
+              // then never see the "Block N starts today" message, because the
+              // rollover would already have happened in a prefetch they never
+              // asked for.
               aria-current={active === t.href ? "page" : undefined}
               className={`block px-4 pt-3 text-center text-sm font-medium transition-colors ${
                 active === t.href ? "text-accent" : "text-muted"
