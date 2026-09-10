@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { revalidateTrainingData } from "@/lib/revalidate";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { createBlockForUser } from "@/lib/program/persist";
 
 export type BuildPlanResult = { ok: true } | { ok: false; error: string };
@@ -13,15 +13,12 @@ export type BuildPlanResult = { ok: true } | { ok: false; error: string };
  * existed, and whenever goal, level, equipment or injuries change.
  */
 export async function buildPlan(): Promise<BuildPlanResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
   const result = await createBlockForUser(supabase, user.id);
   if (!result.ok) return { ok: false, error: result.error };
 
-  revalidatePath("/today");
+  revalidateTrainingData();
   return { ok: true };
 }

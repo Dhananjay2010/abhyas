@@ -1,15 +1,11 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { BottomNav } from "@/components/bottom-nav";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { YogaPlayer, type YogaPlaylist } from "./yoga-player";
 
 export const dynamic = "force-dynamic";
 
 export default async function YogaPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
   const [playlistsRes, videosRes, progressRes] = await Promise.all([
@@ -60,7 +56,6 @@ export default async function YogaPage() {
 
       <YogaPlayer playlists={playlists} channelUrl={channelUrl} />
 
-      <BottomNav active="/today" />
     </main>
   );
 }

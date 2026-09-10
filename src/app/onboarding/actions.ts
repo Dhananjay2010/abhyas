@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { revalidateTrainingData } from "@/lib/revalidate";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
 import { localDateString } from "@/lib/dates";
@@ -14,10 +14,7 @@ type InjurySeverity = Database["public"]["Enums"]["injury_severity"];
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
 }
@@ -179,6 +176,6 @@ export async function completeOnboarding(): Promise<ActionResult> {
     .eq("id", user.id);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/today");
+  revalidateTrainingData();
   return { ok: true };
 }

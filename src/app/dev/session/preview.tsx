@@ -19,6 +19,7 @@ const STUB: SessionActions = {
   }),
   finishSession: ok,
   abandonSession: ok,
+  refreshAfterSession: ok,
   swapExercise: ok,
   findAlternatives: async () => ({
     ok: true as const,

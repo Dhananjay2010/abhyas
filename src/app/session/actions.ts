@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { revalidateTrainingData } from "@/lib/revalidate";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { isEligible, type CandidateExercise } from "@/lib/program/generate";
@@ -20,10 +20,7 @@ export type Result<T = undefined> =
   | { ok: false; error: string };
 
 async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
 }
@@ -43,42 +40,57 @@ function localDate(timezone: string): string {
 export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const { supabase, user } = await requireUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone, primary_track")
-    .eq("id", user.id)
-    .single();
-  const timezone = profile?.timezone || "Asia/Kolkata";
+  // ---- wave 1 -------------------------------------------------------------
+  // This action used to run seven round trips one after another, and it is the
+  // one the user waits on with their finger still on the button: the elapsed
+  // timer starts when the session row is inserted, so every second spent here
+  // is a second already gone by the time the runner appears on screen.
+  //
+  // Two of those dependencies were only apparent. The open-session lookup was
+  // filtered by today's local date, which needs the timezone from the profile;
+  // it now fetches open sessions regardless of date and matches the date in
+  // code, of which there is at most a handful. And the day lookup needed the
+  // active program's id, so the program is fetched with all seven of its days
+  // embedded and the right one is picked once the timezone is known.
+  const [profileRes, openRes, programRes] = await Promise.all([
+    supabase.from("profiles").select("timezone, primary_track").eq("id", user.id).single(),
+    supabase
+      .from("sessions")
+      .select("id, status, local_date")
+      .in("status", ["planned", "in_progress"])
+      .order("local_date", { ascending: false })
+      .limit(10),
+    supabase
+      .from("programs")
+      // One string literal: Supabase infers the row type from it.
+      .select("id, started_on, deload_week, program_days(id, day_index, day_type, focus, label)")
+      .eq("status", "active")
+      .maybeSingle(),
+  ]);
+
+  const timezone = profileRes.data?.timezone || "Asia/Kolkata";
   const today = localDate(timezone);
 
-  const { data: existing } = await supabase
-    .from("sessions")
-    .select("id, status")
-    .eq("local_date", today)
-    .in("status", ["planned", "in_progress"])
-    .maybeSingle();
+  const existing = (openRes.data ?? []).find((s) => s.local_date === today);
 
   if (existing) {
-    await supabase
-      .from("sessions")
-      .update({ status: "in_progress", started_at: new Date().toISOString() })
-      .eq("id", existing.id)
-      .is("started_at", null);
-
     // A session row can exist with no exercises attached -- an abandoned first
     // attempt, or a row created by a yoga or breathing session earlier today.
     // Returning it as-is used to strand the user on "this session has no
     // exercises" with no way forward, permanently, because this branch would
     // keep returning the same empty shell.
-    await ensureSessionExercises(supabase, user.id, existing.id);
+    await Promise.all([
+      supabase
+        .from("sessions")
+        .update({ status: "in_progress", started_at: new Date().toISOString() })
+        .eq("id", existing.id)
+        .is("started_at", null),
+      ensureSessionExercises(supabase, user.id, existing.id),
+    ]);
     return { ok: true, data: { sessionId: existing.id } };
   }
 
-  const { data: program } = await supabase
-    .from("programs")
-    .select("id, started_on, deload_week")
-    .eq("status", "active")
-    .maybeSingle();
+  const program = programRes.data;
   if (!program) return { ok: false, error: "You have no active training block." };
 
   const weekday = new Intl.DateTimeFormat("en-GB", {
@@ -90,12 +102,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       weekday,
     ) + 1;
 
-  const { data: day } = await supabase
-    .from("program_days")
-    .select("id, day_type, focus, label")
-    .eq("program_id", program.id)
-    .eq("day_index", dayIndex || 1)
-    .maybeSingle();
+  const day = (program.program_days ?? []).find((d) => d.day_index === (dayIndex || 1));
   if (!day) return { ok: false, error: "No plan for today." };
 
   const daysIn = Math.floor(
@@ -103,38 +110,41 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       86400000,
   );
   const week = Math.min(4, Math.max(1, Math.floor(daysIn / 7) + 1));
+  const isDeloadWeek = week === program.deload_week;
 
-  const isDeloadWeekEarly = week === program.deload_week;
+  // ---- wave 2 -------------------------------------------------------------
+  // Creating the session and reading what to put in it are independent: both
+  // need only the day, which wave one already produced.
+  const [sessionRes, plannedRes] = await Promise.all([
+    supabase
+      .from("sessions")
+      .insert({
+        user_id: user.id,
+        program_id: program.id,
+        program_day_id: day.id,
+        local_date: today,
+        week_in_block: week,
+        is_deload: isDeloadWeek,
+        planned_type: day.day_type,
+        actual_type: day.day_type,
+        status: "in_progress",
+        started_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single(),
+    supabase
+      .from("program_day_exercises")
+      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds")
+      .eq("program_day_id", day.id)
+      .order("order_index"),
+  ]);
 
-  const { data: session, error: sessionError } = await supabase
-    .from("sessions")
-    .insert({
-      user_id: user.id,
-      program_id: program.id,
-      program_day_id: day.id,
-      local_date: today,
-      week_in_block: week,
-      is_deload: isDeloadWeekEarly,
-      planned_type: day.day_type,
-      actual_type: day.day_type,
-      status: "in_progress",
-      started_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-
-  if (sessionError || !session) {
-    return { ok: false, error: sessionError?.message ?? "Could not start the session" };
+  const session = sessionRes.data;
+  if (sessionRes.error || !session) {
+    return { ok: false, error: sessionRes.error?.message ?? "Could not start the session" };
   }
 
-  const { data: planned } = await supabase
-    .from("program_day_exercises")
-    .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds")
-    .eq("program_day_id", day.id)
-    .order("order_index");
-
-  const isDeloadWeek = isDeloadWeekEarly;
-
+  const planned = plannedRes.data;
   if (planned && planned.length > 0) {
     const { error } = await supabase.from("session_exercises").insert(
       planned.map((p) => {
@@ -168,7 +178,19 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     if (error) return { ok: false, error: error.message };
   }
 
-  revalidatePath("/today");
+  // Deliberately NOT revalidating. This action is invoked from a button on
+  // Today, and revalidating a path re-renders it — so `revalidatePath("/today")`
+  // here made Next render the whole Today screen again, five more queries, as
+  // part of this action's response, while the user stood waiting to start a
+  // workout they are about to navigate away from. It was pure cost on the one
+  // path where latency is felt most.
+  //
+  // Nothing goes stale as a result. The session's own screen is fetched fresh
+  // by the navigation that follows; Today is refreshed by
+  // `refreshAfterSession()` when the user comes back, and by `abandonSession`
+  // if they quit. The worst case is that returning to Today within the client
+  // cache's window shows "Start session" instead of "Resume session" — and
+  // pressing it finds this very session and resumes it.
   return { ok: true, data: { sessionId: session.id } };
 }
 
@@ -415,7 +437,22 @@ export async function abandonSession(sessionId: string): Promise<Result> {
     .update({ status: "skipped" })
     .eq("id", sessionId);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/today");
+  revalidateTrainingData();
+  return { ok: true };
+}
+
+/**
+ * Refresh the screens a finished session changed.
+ *
+ * `finishSession` deliberately revalidates nothing, because any revalidation
+ * inside a Server Action re-renders the route the user is on — here the
+ * session route, whose "completed -> redirect to /today" guard would fire and
+ * snatch away the summary before it could be read. This is the same work,
+ * moved to the moment the user leaves the summary, when a re-render resolving
+ * to /today is exactly where they asked to go.
+ */
+export async function refreshAfterSession(): Promise<Result> {
+  revalidateTrainingData();
   return { ok: true };
 }
 
@@ -539,17 +576,17 @@ async function ensureSessionExercises(
   userId: string,
   sessionId: string,
 ): Promise<void> {
-  const { count } = await supabase
-    .from("session_exercises")
-    .select("id", { count: "exact", head: true })
-    .eq("session_id", sessionId);
-  if ((count ?? 0) > 0) return;
-
+  // One round trip answers both questions this needs: whether the session
+  // already has exercises, and which program day to copy them from. It used to
+  // ask them separately, on the resume path, which is the path a user takes
+  // when they have already been waiting once.
   const { data: session } = await supabase
     .from("sessions")
-    .select("program_day_id, actual_type")
+    .select("program_day_id, actual_type, session_exercises(id)")
     .eq("id", sessionId)
     .maybeSingle();
+
+  if ((session?.session_exercises ?? []).length > 0) return;
 
   // Yoga and breathing sessions have no exercises by design.
   if (!session?.program_day_id) return;

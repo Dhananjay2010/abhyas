@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
 import Link from "next/link";
-import { BottomNav } from "@/components/bottom-nav";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { localDateString } from "@/lib/dates";
 
@@ -30,36 +29,60 @@ function weekInBlock(startedOn: string, timezone: string): number {
 }
 
 export default async function TodayPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-  if (!profile) throw new Error(profileError?.message ?? "Profile not found");
+  // ---- wave 1 -------------------------------------------------------------
+  // Nothing here depends on anything else here, so all three go at once. This
+  // page used to await eight queries one after another; the two that remain
+  // are the only genuine dependencies in the screen.
+  const [profileRes, programRes, equipmentRes] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    supabase
+      .from("programs")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .eq("status", "active")
+      .maybeSingle(),
+    // A strength plan with no equipment recorded is a misconfiguration that
+    // produces a thin, odd-looking plan. Say so rather than letting the user
+    // wonder why their Pull day is full of core work.
+    supabase.from("user_equipment").select("*", { count: "exact", head: true }),
+  ]);
+
+  const profile = profileRes.data;
+  if (!profile) throw new Error(profileRes.error?.message ?? "Profile not found");
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
   const timezone = profile.timezone || "Asia/Kolkata";
   const firstName = profile.display_name?.split(" ")[0] ?? "";
+  const localToday = localDateString(timezone);
 
-  // A four-week block that has run its course rolls over here, on load. This is
-  // a no-op while the block is current, so it is safe on every request.
+  // A four-week block that has run its course rolls over here, on load. Handing
+  // it the block we just read makes the common case — the block is current —
+  // free: it compares two dates and returns, with no query of its own.
   const rollover = await ensureCurrentBlock(
     supabase,
     user.id,
-    localDateString(timezone),
+    localToday,
+    programRes.data,
   );
 
-  const { data: program } = await supabase
-    .from("programs")
-    .select("id, block_number, split_type, started_on, ends_on, deload_week")
-    .eq("status", "active")
-    .maybeSingle();
+  // A rollover replaced the active block, so the row read above is stale.
+  // This happens on one day in twenty-eight.
+  let program = programRes.data;
+  if (rollover.status === "rolled_over") {
+    const { data: fresh } = await supabase
+      .from("programs")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .eq("status", "active")
+      .maybeSingle();
+    program = fresh;
+  }
+
+  const needsEquipment =
+    (profile.primary_track === "weights" || profile.primary_track === "bodyweight") &&
+    !profile.has_all_equipment &&
+    (equipmentRes.count ?? 0) === 0;
 
   if (!program) {
     return (
@@ -72,53 +95,50 @@ export default async function TodayPage() {
         <div className="mt-8">
           <BuildPlanButton label="Build my first block" />
         </div>
-        <BottomNav active="/today" />
       </main>
     );
   }
 
-  const { data: days } = await supabase
-    .from("program_days")
-    .select("id, day_index, day_type, focus, label")
-    .eq("program_id", program.id)
-    .order("day_index");
+  // ---- wave 2 -------------------------------------------------------------
+  // The week's days arrive with each day's exercises embedded. That is one
+  // round trip instead of two, and it removes the dependency that forced the
+  // exercise query to wait for the day query to name today's row.
+  const [daysRes, sessionsRes] = await Promise.all([
+    supabase
+      .from("program_days")
+      // One string literal: Supabase infers the row type from it, and a
+      // concatenation degrades the result to GenericStringError.
+      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern))")
+      .eq("program_id", program.id)
+      .order("day_index")
+      .order("order_index", { referencedTable: "program_day_exercises" }),
+    // Judged per training type, not "most recent session of any kind". A
+    // one-minute breathing session used to be the newest row and made Today
+    // announce "Session complete", hiding the Start button and locking the user
+    // out of their actual workout for the rest of the day.
+    supabase
+      .from("sessions")
+      .select("id, status, actual_type")
+      .eq("local_date", localToday),
+  ]);
 
+  const days = daysRes.data;
   const todayIndex = localWeekday(timezone);
   const today = days?.find((d) => d.day_index === todayIndex);
   const week = weekInBlock(program.started_on, timezone);
   const isDeload = week === program.deload_week;
-
-  const { data: todayExercises } = today
-    ? await supabase
-        .from("program_day_exercises")
-        .select("order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern)")
-        .eq("program_day_id", today.id)
-        .order("order_index")
-    : { data: null };
-
   const isTraining = today?.day_type === "weights" || today?.day_type === "bodyweight";
 
-  // A strength plan with no equipment recorded is a misconfiguration that
-  // produces a thin, odd-looking plan. Say so rather than letting the user
-  // wonder why their Pull day is full of core work.
-  const { count: equipmentCount } = await supabase
-    .from("user_equipment")
-    .select("*", { count: "exact", head: true });
-  const needsEquipment =
-    (profile.primary_track === "weights" || profile.primary_track === "bodyweight") &&
-    !profile.has_all_equipment &&
-    (equipmentCount ?? 0) === 0;
+  const todayExercises = (today?.program_day_exercises ?? []) as Array<{
+    order_index: number;
+    target_sets: number | null;
+    target_reps_min: number | null;
+    target_reps_max: number | null;
+    rest_seconds: number | null;
+    exercises: { name: string; cue: string | null } | null;
+  }>;
 
-  const localToday = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
-  // Judged per training type, not "most recent session of any kind". A
-  // one-minute breathing session used to be the newest row and made Today
-  // announce "Session complete", hiding the Start button and locking the user
-  // out of their actual workout for the rest of the day.
-  const { data: todaySessions } = await supabase
-    .from("sessions")
-    .select("id, status, actual_type")
-    .eq("local_date", localToday);
-
+  const todaySessions = sessionsRes.data;
   const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
   const strengthDone = (todaySessions ?? []).some(
     (s) => s.status === "completed" && isStrength(s.actual_type),
@@ -219,8 +239,8 @@ export default async function TodayPage() {
             15 min warm-up, then
           </h2>
           <ol className="space-y-2">
-            {(todayExercises ?? []).map((row) => {
-              const ex = row.exercises as unknown as { name: string; cue: string | null };
+            {todayExercises.map((row) => {
+              const ex = row.exercises;
               return (
                 <li
                   key={row.order_index}
@@ -322,7 +342,6 @@ export default async function TodayPage() {
         </form>
       </div>
 
-      <BottomNav active="/today" />
     </main>
   );
 }

@@ -1,14 +1,11 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { OnboardingFlow, type InitialState } from "./onboarding-flow";
 
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
   const [profileRes, weightRes, equipmentRes, userEquipmentRes, injuriesRes] =

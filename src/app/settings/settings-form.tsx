@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import {
   BODY_REGIONS,
   GOALS,
@@ -80,7 +79,6 @@ export function SettingsForm({
   equipment: EquipmentRow[];
   actions?: SettingsActions;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
@@ -93,7 +91,10 @@ export function SettingsForm({
       if (!r.ok) return setError(r.error);
       setError(null);
       if (affectsPlan) setPlanStale(true);
-      router.refresh();
+      // No router.refresh() here. updateSettings and friends revalidate
+      // "/settings", and Next.js returns the re-rendered tree with the action's
+      // own response — refreshing on top of that fetched this five-query screen
+      // a second time, on every single toggle.
     });
   }
 

@@ -32,6 +32,7 @@ pick the project up.
 | [10](10-settings-and-history.md) | Settings and history | Done |
 | [11](11-block-rollover.md) | Block rollover | Done |
 | [12](12-yoga-and-breathing.md) | Yoga and breathing runners | Done |
+| [13](13-performance.md) | Navigation performance | Done |
 
 ## Live references
 
@@ -39,4 +40,4 @@ pick the project up.
 |---|---|
 | Repo | https://github.com/Dhananjay2010/abhyas (private) |
 | Production | https://abhyas-indol.vercel.app |
-| Supabase project ref | `bjtjhnfyheruxldqbmrj` (region: Mumbai) |
+| Supabase project ref | `bjtjhnfyheruxldqbmrj` (region: `ap-northeast-1`, Tokyo) |

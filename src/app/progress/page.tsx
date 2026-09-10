@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
-import { BottomNav } from "@/components/bottom-nav";
 import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
 import { localDateString } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
@@ -17,24 +16,27 @@ function shortDate(iso: string): string {
 }
 
 export default async function ProgressPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone, onboarding_completed_at")
-    .eq("id", user.id)
-    .single();
-  if (!profile) redirect("/");
-  if (!profile.onboarding_completed_at) redirect("/onboarding");
-
-  const timezone = profile.timezone || "Asia/Kolkata";
-  const today = localDateString(timezone);
-
-  const [weightsRes, volumeRes, strengthRes, programsRes, sessionsRes] = await Promise.all([
+  // Every query on this screen is independent — none of them needs a value
+  // from another — so they all go at once. The profile used to be awaited on
+  // its own first, and the program days afterwards, which made three waves of
+  // waiting out of one wave of work.
+  const [
+    profileRes,
+    weightsRes,
+    volumeRes,
+    strengthRes,
+    programsRes,
+    sessionsRes,
+    programDaysRes,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("timezone, onboarding_completed_at")
+      .eq("id", user.id)
+      .single(),
     supabase
       .from("body_metrics")
       .select("recorded_on, weight_kg")
@@ -62,7 +64,15 @@ export default async function ProgressPage() {
       .select("local_date, status, actual_type")
       .order("local_date")
       .limit(200),
+    supabase.from("program_days").select("program_id, day_index, day_type"),
   ]);
+
+  const profile = profileRes.data;
+  if (!profile) redirect("/");
+  if (!profile.onboarding_completed_at) redirect("/onboarding");
+
+  const timezone = profile.timezone || "Asia/Kolkata";
+  const today = localDateString(timezone);
 
   // ---- streaks -----------------------------------------------------------
   // Across every block, not just the active one: a streak that reset because a
@@ -73,9 +83,7 @@ export default async function ProgressPage() {
     endsOn: p.ends_on,
   }));
 
-  const { data: allProgramDays } = await supabase
-    .from("program_days")
-    .select("program_id, day_index, day_type");
+  const allProgramDays = programDaysRes.data;
 
   type DayType = Database["public"]["Enums"]["day_type"];
   const dayTypesByProgram: Record<string, Record<number, DayType>> = {};
@@ -197,7 +205,6 @@ export default async function ProgressPage() {
         </section>
       )}
 
-      <BottomNav active="/progress" />
     </main>
   );
 }

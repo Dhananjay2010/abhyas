@@ -1,15 +1,11 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { BottomNav } from "@/components/bottom-nav";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { SettingsForm, type SettingsState } from "./settings-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
   const [profileRes, settingsRes, equipmentRes, userEquipmentRes, injuriesRes] =
@@ -66,7 +62,6 @@ export default async function SettingsPage() {
         </button>
       </form>
 
-      <BottomNav active="/settings" />
     </main>
   );
 }

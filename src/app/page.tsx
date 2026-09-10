@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthedClient } from "@/lib/supabase/auth";
 import { SignInButton } from "./sign-in-button";
 
 export default async function LandingPage({
@@ -8,10 +8,7 @@ export default async function LandingPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthedClient();
 
   if (user) {
     const { data: profile } = await supabase
