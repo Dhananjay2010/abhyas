@@ -24,9 +24,14 @@ const ACTIVE_FOR: Array<[test: (p: string) => boolean, tab: string]> = [
   [(p) => p === "/settings", "/settings"],
   // Yoga and breathing are reached from Today and belong to it.
   [(p) => p === "/yoga" || p === "/breathe", "/today"],
-  // The dev harnesses preview real screens, so they keep the real chrome —
-  // and light up the tab whose screen they are previewing.
-  [(p) => p.startsWith("/dev/"), ""],
+  // Dev harnesses that preview a tabbed screen keep the real chrome, so what
+  // they show matches what ships. The harnesses for full-screen routes — the
+  // guided session and onboarding — are deliberately absent, because those
+  // routes have no tab bar either.
+  [(p) => p === "/dev/history", "/history"],
+  [(p) => p === "/dev/settings", "/settings"],
+  [(p) => p === "/dev/charts", "/progress"],
+  [(p) => p === "/dev/yoga" || p === "/dev/breathe" || p === "/dev/loading-states", "/today"],
 ];
 
 /**
@@ -42,12 +47,8 @@ const ACTIVE_FOR: Array<[test: (p: string) => boolean, tab: string]> = [
  */
 export function BottomNav() {
   const pathname = usePathname();
-  const match = ACTIVE_FOR.find(([test]) => test(pathname));
-  if (!match) return null;
-  const active =
-    match[1] ||
-    TABS.find((t) => pathname.startsWith(`/dev${t.href}`))?.href ||
-    "/today";
+  const active = ACTIVE_FOR.find(([test]) => test(pathname))?.[1];
+  if (!active) return null;
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
