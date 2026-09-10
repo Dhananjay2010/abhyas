@@ -5,6 +5,9 @@ import { CARRY_OVER_SLOTS } from "./generate";
 
 type Client = SupabaseClient<Database>;
 
+/** The fields of the active block that a rollover decision actually needs. */
+export type ActiveBlock = { id: string; ends_on: string };
+
 export type RolloverResult =
   | { status: "current"; programId: string }
   | { status: "rolled_over"; programId: string; blockNumber: number }
@@ -68,7 +71,8 @@ export async function extractCarryOver(
  * Make sure the user's active block covers today, rolling to the next block
  * when the current one has run its four weeks.
  *
- * Safe to call on every page load: it is a no-op while the block is current.
+ * Safe to call on every page load: while the block is current this makes no
+ * database calls at all when the caller supplies the block it already read.
  * Returns "none" when the user has no block at all — Today offers to build one
  * rather than creating it behind their back.
  */
@@ -76,12 +80,22 @@ export async function ensureCurrentBlock(
   supabase: Client,
   userId: string,
   today: string,
+  activeBlock?: ActiveBlock | null,
 ): Promise<RolloverResult> {
-  const { data: active } = await supabase
-    .from("programs")
-    .select("id, block_number, ends_on")
-    .eq("status", "active")
-    .maybeSingle();
+  // The caller almost always has the active block in hand already — Today reads
+  // it to render the header. Accepting it here removes a second, identical
+  // `programs` query from every load of that page. Passing nothing keeps the
+  // original self-contained behaviour.
+  const active =
+    activeBlock !== undefined
+      ? activeBlock
+      : (
+          await supabase
+            .from("programs")
+            .select("id, block_number, ends_on")
+            .eq("status", "active")
+            .maybeSingle()
+        ).data;
 
   if (!active) return { status: "none" };
   if (active.ends_on >= today) return { status: "current", programId: active.id };

@@ -18,58 +18,66 @@ export default async function SessionPage({
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at")
-    .eq("id", id)
-    .maybeSingle();
-  if (!session) notFound();
-  if (session.status === "completed") redirect("/today");
-
-  const [exercisesRes, settingsRes, profileRes, injuriesRes, warmupsRes, equipmentRes] =
+  // ---- one wave -----------------------------------------------------------
+  // This screen is opened mid-workout, so its latency is felt more than any
+  // other. It used to run six waves of queries one after another: the session,
+  // then a batch of six, then the user's progress on each lift (which needed
+  // the exercise ids from the batch), then the sets already logged (which
+  // needed the session-exercise ids).
+  //
+  // Both of those dependencies are removed rather than merely parallelised.
+  // The sets come back embedded in the session row, so nothing has to learn an
+  // id first; and `exercise_progress` is read whole — row-level security scopes
+  // it to this user and it holds one small row per lift they have ever trained,
+  // so filtering it by the ids in this session bought nothing but a round trip.
+  const [sessionRes, settingsRes, profileRes, injuriesRes, warmupsRes, equipmentRes, progressRes] =
     await Promise.all([
       supabase
-        .from("session_exercises")
+        .from("sessions")
         // Must be one string literal: Supabase infers row types from it, and a
         // concatenation degrades the result to GenericStringError.
-        .select("id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, primary_muscles, equipment_ids)")
-        .eq("session_id", id)
-        .order("order_index"),
+        //
+        // `exercises` is disambiguated by constraint name because
+        // session_exercises points at it twice — once for the exercise itself
+        // and once for what it was swapped from. Without the hint PostgREST
+        // answers PGRST201 rather than guessing.
+        .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, is_warmup_set))")
+        .eq("id", id)
+        .eq("session_exercises.session_sets.is_warmup_set", false)
+        .order("order_index", { referencedTable: "session_exercises" })
+        .order("set_number", { referencedTable: "session_exercises.session_sets" })
+        .maybeSingle(),
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       supabase.from("profiles").select("primary_track, has_all_equipment").eq("id", user.id).single(),
       supabase.from("user_injuries").select("body_region"),
       supabase.from("warmup_exercises").select("*").eq("is_active", true),
       supabase.from("user_equipment").select("equipment_id"),
+      supabase
+        .from("exercise_progress")
+        .select("exercise_id, current_working_weight_kg, current_target_reps, best_weight_kg"),
     ]);
 
   // A failed query used to fall through to "this session has no exercises",
   // which is indistinguishable from a genuinely empty session. It hid a
-  // PGRST201 ambiguous-embed error for the entire life of this page.
-  if (exercisesRes.error) {
-    throw new Error(`Could not load this session's exercises: ${exercisesRes.error.message}`);
+  // PGRST201 ambiguous-embed error for the entire life of this page, so a real
+  // failure is raised rather than swallowed.
+  //
+  // The one exception is a route parameter that is not a UUID at all: Postgres
+  // rejects it as invalid input (22P02), and the honest answer to "/session/
+  // nonsense" is 404, not a server error.
+  if (sessionRes.error) {
+    if (sessionRes.error.code === "22P02") notFound();
+    throw new Error(`Could not load this session: ${sessionRes.error.message}`);
   }
-  const rows = exercisesRes.data ?? [];
-  const exerciseIds = rows
-    .map((r) => (r.exercises as unknown as { id: string } | null)?.id)
-    .filter((x): x is string => Boolean(x));
 
-  // Where the user currently stands on each lift, so the weight field starts
-  // at the right number instead of blank.
-  const { data: progressRows } = await supabase
-    .from("exercise_progress")
-    .select("exercise_id, current_working_weight_kg, current_target_reps, best_weight_kg")
-    .in("exercise_id", exerciseIds.length ? exerciseIds : ["00000000-0000-0000-0000-000000000000"]);
+  const session = sessionRes.data;
+  if (!session) notFound();
+  if (session.status === "completed") redirect("/today");
+
+  const rows = session.session_exercises ?? [];
   const progressByExercise = new Map(
-    (progressRows ?? []).map((p) => [p.exercise_id, p]),
+    (progressRes.data ?? []).map((p) => [p.exercise_id, p]),
   );
-
-  // Sets already logged, so a resumed session picks up where it stopped.
-  const { data: loggedSets } = await supabase
-    .from("session_sets")
-    .select("session_exercise_id, set_number, reps, weight_kg")
-    .in("session_exercise_id", rows.length ? rows.map((r) => r.id) : ["00000000-0000-0000-0000-000000000000"])
-    .eq("is_warmup_set", false)
-    .order("set_number");
 
   const exercises: RunnerExercise[] = rows.map((r) => {
     const ex = r.exercises as unknown as {
@@ -109,13 +117,11 @@ export default async function SessionPage({
           progressionRank: null,
         },
       ),
-      sets: (loggedSets ?? [])
-        .filter((s) => s.session_exercise_id === r.id)
-        .map((s) => ({
-          setNumber: s.set_number,
-          reps: s.reps,
-          weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
-        })),
+      sets: (r.session_sets ?? []).map((s) => ({
+        setNumber: s.set_number,
+        reps: s.reps,
+        weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
+      })),
     };
   });
 

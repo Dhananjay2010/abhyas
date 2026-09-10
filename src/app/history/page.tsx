@@ -9,25 +9,34 @@ export default async function HistoryPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone, onboarding_completed_at")
-    .eq("id", user.id)
-    .single();
-  if (!profile) redirect("/");
-  if (!profile.onboarding_completed_at) redirect("/onboarding");
-
-  const today = localDateString(profile.timezone || "Asia/Kolkata");
-
-  const [sessionsRes, volumeRes] = await Promise.all([
+  // The profile is only needed for the timezone, and nothing else here waits
+  // on it, so it goes out with the rest rather than ahead of them.
+  const [profileRes, sessionsRes, volumeRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("timezone, onboarding_completed_at")
+      .eq("id", user.id)
+      .single(),
     supabase
       .from("sessions")
       .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, program_days(label)")
       .order("local_date", { ascending: false })
       .limit(60),
-    supabase.from("session_volume").select("session_id, volume_kg, set_count"),
+    // Bounded to comfortably cover the 60 sessions rendered above. This used to
+    // select the whole view: every completed session the user has ever done,
+    // aggregated, to annotate at most sixty rows.
+    supabase
+      .from("session_volume")
+      .select("session_id, volume_kg, set_count")
+      .order("local_date", { ascending: false })
+      .limit(120),
   ]);
 
+  const profile = profileRes.data;
+  if (!profile) redirect("/");
+  if (!profile.onboarding_completed_at) redirect("/onboarding");
+
+  const today = localDateString(profile.timezone || "Asia/Kolkata");
   const sessions = sessionsRes.data ?? [];
   const volumeById = new Map(
     (volumeRes.data ?? []).map((v) => [v.session_id, v]),
