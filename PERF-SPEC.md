@@ -203,7 +203,102 @@ migration.
   session, log sets, finish exercise, finish session, history detail, progress,
   log weight, settings changes, yoga, breathing, sign out.
 
-## 6. Explicitly out of scope for now
+## 6. Round two — measured on the real app
+
+Everything in sections 2 to 5 was reasoned from the code. This section is what
+the instrumented preview actually said once it was in use with a real signed-in
+session, and what that changed.
+
+### 6.1 The numbers that mattered
+
+From `PERF_DEBUG=1` on the preview, real requests:
+
+```
+/today          calls=5  supabase=78009ms  wall=35312ms   (cold)
+/session/[id]   calls=7  supabase=124552ms wall=19265ms   (cold)
+/today          calls=5  supabase=39780ms  wall=19364ms
+/progress       calls=7  supabase=15129ms  wall=3834ms
+/settings       calls=5  supabase=5368ms   wall=1272ms
+/history        calls=3  supabase=2922ms   wall=990ms
+/today          calls=5  supabase=6489ms   wall=2599ms
+```
+
+Two things fall out of this.
+
+**The parallelisation works.** In every line the sum of the call durations is
+several times the wall time, which is only possible if the calls overlap. The
+waterfalls really are gone.
+
+**Each individual call is still absurdly slow.** A primary-key select on
+`profiles` took 1818 ms in the last line above, and 8323 ms in the first. The
+function runs in `bom1` and the database is in Mumbai; this should be single
+-digit milliseconds. There is a floor of roughly a second per Supabase round
+trip when warm, and eighteen to twenty-seven seconds when the instance is
+cold. **This, not the query count, is now the dominant cost**, and nothing in
+the application code explains it.
+
+### 6.2 Starting a session: nineteen round trips
+
+The user's report — "starting a session took a very long time, and when the
+screen came the timer already showed 30 seconds gone" — is fully explained by
+the logs. A tap on Start ran:
+
+1. `startSession`, seven sequential round trips;
+2. a **complete re-render of Today**, five more, because the action called
+   `revalidatePath("/today")` and revalidating a path re-renders it — and Today
+   was the page the button was on;
+3. the session screen itself, seven more.
+
+The elapsed timer counts from the session row's `started_at`, which is written
+in step 1, so the whole of steps 2 and 3 was already on the clock before the
+runner appeared.
+
+Fixed: `startSession` is three waves instead of seven, and revalidates nothing
+— Today is refreshed on the way back instead, by `refreshAfterSession()` and
+`abandonSession()`.
+
+### 6.3 The same mistake, from the other direction
+
+Four screens were rendering themselves twice per mutation: the Server Action
+revalidated the path it was invoked from — which re-renders it — *and* the
+client called `router.refresh()` afterwards. Settings paid that on every
+toggle of a five-query screen; Progress on every weight logged, at seven
+queries. The action's response already carries the re-rendered tree, so the
+client refreshes are gone.
+
+This is worth stating as a rule, because it is not obvious: **`revalidatePath`
+on the page you are already on is not a cache hint, it is a synchronous
+re-render on the critical path.** Use it for *other* screens; let the action's
+own response handle the current one.
+
+### 6.4 Starting a session now shows the session
+
+A disabled button reading "Starting…" left the user on Today with no sense
+that anything was happening. The button now renders the session screen's own
+skeleton, full screen, the moment it is pressed — the same skeleton the route
+shows, so nothing jumps when the navigation lands.
+
+### 6.5 Open question: the one-second floor
+
+Still to be explained. The profiler now also records event-loop lag, cold
+versus warm, and region on every line, because a fetch that takes a second
+because the network took a second, and a fetch that takes a second because the
+process was too starved to run the callback that resolves it, look identical
+from the outside and want opposite fixes. `src/app/api/diag/route.ts` measures
+the same thing directly: gateway round trips that touch no table, the cheapest
+real query repeated warm, five of them in parallel, and event-loop lag around
+all of it.
+
+Depending on the answer, the next step is one of:
+
+- **Network or gateway bound** — collapse each screen to a *single* database
+  round trip with a Postgres function returning JSON, rather than five or seven
+  parallel ones. Today, the session screen, Progress and Settings each become
+  one call.
+- **Process starved / cold-start bound** — attack boot cost and keep instances
+  warm; fewer, larger responses still help, but less.
+
+## 7. Explicitly out of scope for now
 
 Next.js 16 Cache Components (`cacheComponents: true`) with partial
 prerendering and partial prefetching. It is the deeper fix and it is where
