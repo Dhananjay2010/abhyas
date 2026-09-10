@@ -459,7 +459,35 @@ one of them speaks.
 silently has to be checked against a case where it is known to have something
 to say. This one was only ever confirmed on preview.
 
-### 6.12 Previous open question (resolved above)
+### 6.12 Profiling switched off in production
+
+`PERF_DEBUG` and `PERF_TOKEN` were never stored on the Vercel project — they
+were passed per deployment with `-e`/`-b` — so a plain `vercel deploy --prod`
+is what turns them off. Done on 2026-09-10, and confirmed rather than assumed:
+
+| Check | Result |
+|---|---|
+| `Server-Timing` header on `/` | absent |
+| `/api/diag` with the token that previously worked | `307` — the proxy no longer treats it as public, so it is not even reachable |
+| `[perf]` lines in a 90-second window carrying 12 requests | **0** |
+| All routes | healthy, `bom1::bom1` |
+
+The instrumentation stays in the codebase, dormant behind the flag. Turning it
+back on is one deploy:
+
+```bash
+vercel deploy --prod -e PERF_DEBUG=1 -b PERF_DEBUG=1 \
+  -e PERF_TOKEN=<secret> -b PERF_TOKEN=<secret>
+```
+
+Both flags have to be passed with `-b` as well as `-e`. The proxy runs in the
+Edge runtime, where Next.js inlines `process.env` at build time; passing only
+the runtime value leaves `PROBE_PATHS` compiled as empty and the probe
+unreachable. That cost one wasted deploy to discover.
+
+`PERF_DEBUG=1` remains in `.env.local`, where it is useful and costs nothing.
+
+### 6.13 Previous open question (resolved above)
 
 Still to be explained. The profiler now also records event-loop lag, cold
 versus warm, and region on every line, because a fetch that takes a second
