@@ -43,9 +43,7 @@ export default async function SessionPage({
         // answers PGRST201 rather than guessing.
         .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, is_warmup_set))")
         .eq("id", id)
-        .eq("session_exercises.session_sets.is_warmup_set", false)
         .order("order_index", { referencedTable: "session_exercises" })
-        .order("set_number", { referencedTable: "session_exercises.session_sets" })
         .maybeSingle(),
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       supabase.from("profiles").select("primary_track, has_all_equipment").eq("id", user.id).single(),
@@ -117,11 +115,20 @@ export default async function SessionPage({
           progressionRank: null,
         },
       ),
-      sets: (r.session_sets ?? []).map((s) => ({
-        setNumber: s.set_number,
-        reps: s.reps,
-        weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
-      })),
+      // Warm-up sets are excluded and the order applied here rather than in the
+      // query. PostgREST is documented to filter an embedded resource without
+      // dropping its parent, but if that were ever wrong the failure would be
+      // silent and severe: a session that has not been started yet has no
+      // logged sets, so every exercise would vanish from the runner. A handful
+      // of rows per exercise is not worth taking that on trust.
+      sets: (r.session_sets ?? [])
+        .filter((set) => !set.is_warmup_set)
+        .sort((a, b) => a.set_number - b.set_number)
+        .map((set) => ({
+          setNumber: set.set_number,
+          reps: set.reps,
+          weightKg: set.weight_kg === null ? null : Number(set.weight_kg),
+        })),
     };
   });
 
