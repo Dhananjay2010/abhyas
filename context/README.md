@@ -34,7 +34,7 @@ pick the project up.
 | [12](12-yoga-and-breathing.md) | Yoga and breathing runners | Done |
 | [13](13-performance.md) | Navigation performance | Done |
 | [14](14-database-region-migration.md) | Moving the database to Mumbai | Done |
-| [15](15-qa-fixes.md) | QA fixes: session logging, validation, stale sessions | Done |
+| [15](15-qa-fixes.md) | QA fixes: session logging, validation, stale sessions, dates | Done |
 
 ## Live references
 

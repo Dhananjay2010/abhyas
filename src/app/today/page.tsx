@@ -5,29 +5,13 @@ import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { localDateString } from "@/lib/dates";
+import { isoWeekday, localDateString } from "@/lib/dates";
 import { closeStaleSessions } from "@/lib/session/close-stale";
+import { weekInBlock } from "@/lib/program/prescription";
 
 export const dynamic = "force-dynamic";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-/** ISO weekday (1 = Monday) for "now" in the user's own timezone. */
-function localWeekday(timezone: string): number {
-  const name = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, weekday: "long" })
-    .format(new Date());
-  const i = DAY_NAMES.indexOf(name);
-  return i === -1 ? 1 : i + 1;
-}
-
-function weekInBlock(startedOn: string, timezone: string): number {
-  const today = new Date(
-    new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date()),
-  );
-  const start = new Date(`${startedOn}T00:00:00`);
-  const days = Math.floor((today.getTime() - start.getTime()) / 86400000);
-  return Math.min(4, Math.max(1, Math.floor(days / 7) + 1));
-}
 
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
@@ -137,9 +121,11 @@ export default async function TodayPage() {
   ]);
 
   const days = daysRes.data;
-  const todayIndex = localWeekday(timezone);
+  // Derived from the user's own local date rather than re-reading the clock,
+  // so the weekday and the date can never disagree at a midnight boundary.
+  const todayIndex = isoWeekday(localToday);
   const today = days?.find((d) => d.day_index === todayIndex);
-  const week = weekInBlock(program.started_on, timezone);
+  const week = weekInBlock(program.started_on, localToday);
   const isDeload = week === program.deload_week;
   const isTraining = today?.day_type === "weights" || today?.day_type === "bodyweight";
 

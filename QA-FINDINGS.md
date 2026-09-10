@@ -1,9 +1,8 @@
 # QA pass — 2026-09-10
 
-> **Status: every High and Medium issue below is fixed.** See
-> `context/15-qa-fixes.md` for what was changed and how each fix was verified.
-> The findings are kept in full, because the reasoning is why the fixes look
-> the way they do. L1 and L2 remain open by choice.
+> **Status: every issue below is fixed.** See `context/15-qa-fixes.md` for
+> what was changed and how each fix was verified. The findings are kept in
+> full, because the reasoning is why the fixes look the way they do.
 
 A testing pass over the guided session, onboarding, settings, yoga, breathing
 and the charts, plus an audit of the server logic against the live database.
@@ -172,7 +171,7 @@ resumed the same day — but both are one-tap, unguarded, during a workout.
 
 ## Low / latent
 
-### L1 — Week and deload maths mix UTC and local date parsing
+### L1 — [FIXED] Week and deload maths mix UTC and local date parsing
 
 `weekInBlock` (`today/page.tsx`) and the `daysIn` calculation in
 `startSession` both do:
@@ -190,7 +189,7 @@ Currently harmless: Vercel runs functions in UTC, so both parse identically.
 `TZ=America/New_York`**, including the deload week landing on the wrong week.
 A landmine rather than a live bug.
 
-### L2 — `exercise_progress.best_weight_kg` is fetched and never used
+### L2 — [FIXED] `exercise_progress.best_weight_kg` is fetched and never used
 
 Selected in `session/[id]/page.tsx:55`, never read.
 
@@ -230,13 +229,9 @@ Worth recording so these are not re-tested or re-reported:
 
 ## What was done
 
-All eight High and Medium issues are fixed; `context/15-qa-fixes.md` records
-the implementation and the verification for each.
+All ten issues are fixed. `context/15-qa-fixes.md` records the implementation
+and the verification for each.
 
-**Still open, by choice:**
-
-- **L1** — the UTC/local date mixing in `weekInBlock` and `startSession`.
-  Correct on Vercel, which runs functions in UTC. Left as a documented landmine
-  rather than a silent one; worth fixing next time that code is touched.
-- **L2** — `best_weight_kg` fetched and unused in `session/[id]/page.tsx`. A
-  dead field, not a defect.
+The date arithmetic behind L1 is now covered by `npm run test:dates`, which is
+part of `npm test` and passes under UTC, negative-offset and date-line
+timezones alike.
