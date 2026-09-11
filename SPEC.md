@@ -7,7 +7,9 @@
 the progress screen, settings, history, block rollover,
 and the yoga and breathing runners built.
 All v1 tracks now have a session experience.
-**Last updated:** 2026-09-08
+Breathing has its own tab, redesigned in [BREATHE-SPEC.md](BREATHE-SPEC.md)
+(phase 1 built on `feature/breathe-tab`).
+**Last updated:** 2026-09-12
 
 | | |
 |---|---|
@@ -214,6 +216,12 @@ Seeded patterns:
 
 All timings and cycle counts are **user-adjustable in Settings**. Animated expanding-circle pacer, optional haptics on phase change.
 
+> Since 2026-09-12 the breathing experience is specified in detail in
+> [BREATHE-SPEC.md](BREATHE-SPEC.md), which supersedes this section where they
+> differ. Its preferences live in the Breathe tab, not Settings. Lengths are
+> chosen in minutes, and synthesised tones guide each breath. Per-pattern
+> timing editing is still to come (its phase 2).
+
 ---
 
 ## 10. Exercise database & media
@@ -282,7 +290,9 @@ Media lives in a **separate `exercise_media` table** keyed to the exercise, carr
 **`exercise_media`** — exercise_id, type (`photo`|`gif`|`video_youtube`), url / youtube_id, position, attribution, licence
 **`exercise_substitutions`** — exercise_id, substitute_exercise_id, rank *(manual overrides; the default substitution list is computed from matching muscles + available equipment)*
 **`warmup_exercises`** — slug, name, target_regions, type (`cardio`|`mobility`|`prehab`), duration_seconds, media
-**`breathing_patterns`** — slug, name, inhale_s, hold_in_s, exhale_s, hold_out_s, default_cycles, benefit, contraindications
+**`breathing_patterns`** — slug, name, inhale_s, hold_in_s, exhale_s, hold_out_s, default_cycles, benefit, contraindications; since 2026-09-12 also subtitle, phases (jsonb), intents, max_cycles, how_to, why, evidence_label, evidence_url
+
+**`breathing_logs`** *(per user, RLS)* — session_id, pattern_id, pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance. Written with its session by `record_breathing_practice()`. See BREATHE-SPEC.md §6.
 **`yoga_playlists`** — title, youtube_playlist_id, creator, level, description
 **`yoga_videos`** — playlist_id, youtube_video_id, title, duration_minutes, day_index, focus_areas
 
@@ -306,7 +316,7 @@ Media lives in a **separate `exercise_media` table** keyed to the exercise, carr
 | Rest duration override | goal default |
 | Session length | 60 min |
 | Body-weight prompt — daily / weekly / never | weekly |
-| Meditation default duration + per-pattern timings | 10 min |
+| Breathing: usual length, sound, seconds count, settle-in, check-in, vibration — **set in the Breathe tab** since 2026-09-12. Per-pattern timings still to come. | 10 min · tones · show · on · after · on |
 | Equipment | from onboarding |
 | Injuries | from onboarding |
 | Goal / level / days per week | from onboarding |
@@ -323,7 +333,7 @@ Changing goal, level, days/week or equipment **regenerates the current block** (
 - **Dark by default.** Gym lighting, evening use.
 - Mobile-first, ~390px design target; desktop is a centred column.
 - Large type and large tap targets — readable and hittable mid-set with sweaty hands.
-- Bottom navigation: **Today · History · Progress · Settings**
+- Bottom navigation: **Today · Breathe · History · Progress · Settings** (Breathe added 2026-09-12)
 - Minimal chrome during a session. One job per screen.
 
 ---

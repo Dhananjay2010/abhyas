@@ -35,6 +35,7 @@ pick the project up.
 | [13](13-performance.md) | Navigation performance | Done |
 | [14](14-database-region-migration.md) | Moving the database to Mumbai | Done |
 | [15](15-qa-fixes.md) | QA fixes: session logging, validation, stale sessions, dates | Done |
+| [16](16-breathe-tab.md) | The Breathe tab, phase 1 ([BREATHE-SPEC.md](../BREATHE-SPEC.md)) | Built; awaiting phone review |
 
 ## Live references
 

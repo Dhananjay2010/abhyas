@@ -19,7 +19,11 @@ export default async function HistoryPage() {
       .single(),
     supabase
       .from("sessions")
-      .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, program_days(label)")
+      // The pattern is named through its foreign key. A bare embed resolves
+      // today (checked against the live API), but breathing_logs also links
+      // these two tables, and if it ever became a many-to-many join a bare
+      // embed would turn ambiguous and fail -- the breakage context/07 records.
+      .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name), breathing_logs(breaths)")
       .order("local_date", { ascending: false })
       .limit(60),
     // Bounded to comfortably cover the 60 sessions rendered above. This used to
@@ -35,6 +39,10 @@ export default async function HistoryPage() {
   const profile = profileRes.data;
   if (!profile) redirect("/");
   if (!profile.onboarding_completed_at) redirect("/onboarding");
+
+  if (sessionsRes.error) {
+    throw new Error(`Could not load your history: ${sessionsRes.error.message}`);
+  }
 
   const today = localDateString(profile.timezone || "Asia/Kolkata");
   const sessions = sessionsRes.data ?? [];
@@ -61,18 +69,24 @@ export default async function HistoryPage() {
         <ul className="space-y-2">
           {sessions.map((s) => {
             const vol = volumeById.get(s.id);
+            const isBreathing = s.actual_type === "meditation";
+            const logs = (s.breathing_logs ?? []) as Array<{ breaths: number }>;
             const summary: SessionSummary = {
               id: s.id,
               localDate: s.local_date,
               label: sessionLabel(
                 (s.program_days as unknown as { label: string } | null)?.label ?? null,
                 s.actual_type,
+                (s.breathing_patterns as unknown as { name: string } | null)?.name ?? null,
               ),
               status: s.status,
               isDeload: s.is_deload,
               durationSeconds: s.duration_seconds,
               setCount: vol?.set_count ?? 0,
               volumeKg: Number(vol?.volume_kg ?? 0),
+              breathing: isBreathing
+                ? { breaths: logs.length ? logs.reduce((n, l) => n + l.breaths, 0) : null }
+                : null,
             };
             return (
               <li key={s.id}>

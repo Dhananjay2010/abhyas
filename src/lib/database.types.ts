@@ -69,51 +69,148 @@ export type Database = {
         }
         Relationships: []
       }
+      breathing_logs: {
+        Row: {
+          breaths: number
+          created_at: string
+          cycles_completed: number
+          ended_early: boolean
+          guidance: string
+          id: string
+          mood_after: number | null
+          mood_before: number | null
+          pattern_id: string | null
+          pattern_name: string
+          planned_cycles: number
+          seconds: number
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          breaths: number
+          created_at?: string
+          cycles_completed: number
+          ended_early?: boolean
+          guidance?: string
+          id?: string
+          mood_after?: number | null
+          mood_before?: number | null
+          pattern_id?: string | null
+          pattern_name: string
+          planned_cycles: number
+          seconds: number
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          breaths?: number
+          created_at?: string
+          cycles_completed?: number
+          ended_early?: boolean
+          guidance?: string
+          id?: string
+          mood_after?: number | null
+          mood_before?: number | null
+          pattern_id?: string | null
+          pattern_name?: string
+          planned_cycles?: number
+          seconds?: number
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "breathing_logs_pattern_id_fkey"
+            columns: ["pattern_id"]
+            isOneToOne: false
+            referencedRelation: "breathing_patterns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breathing_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "session_volume"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "breathing_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       breathing_patterns: {
         Row: {
           benefit: string | null
           contraindications: string | null
           default_cycles: number
           description: string | null
+          evidence_label: string | null
+          evidence_url: string | null
           exhale_seconds: number
           hold_in_seconds: number
           hold_out_seconds: number
+          how_to: string[]
           id: string
           inhale_seconds: number
+          intents: string[]
           level: Database["public"]["Enums"]["fitness_level"]
+          max_cycles: number | null
           name: string
+          phases: Json
           slug: string
           sort_order: number
+          subtitle: string | null
+          why: string | null
         }
         Insert: {
           benefit?: string | null
           contraindications?: string | null
           default_cycles?: number
           description?: string | null
+          evidence_label?: string | null
+          evidence_url?: string | null
           exhale_seconds: number
           hold_in_seconds?: number
           hold_out_seconds?: number
+          how_to?: string[]
           id?: string
           inhale_seconds: number
+          intents?: string[]
           level?: Database["public"]["Enums"]["fitness_level"]
+          max_cycles?: number | null
           name: string
+          phases: Json
           slug: string
           sort_order?: number
+          subtitle?: string | null
+          why?: string | null
         }
         Update: {
           benefit?: string | null
           contraindications?: string | null
           default_cycles?: number
           description?: string | null
+          evidence_label?: string | null
+          evidence_url?: string | null
           exhale_seconds?: number
           hold_in_seconds?: number
           hold_out_seconds?: number
+          how_to?: string[]
           id?: string
           inhale_seconds?: number
+          intents?: string[]
           level?: Database["public"]["Enums"]["fitness_level"]
+          max_cycles?: number | null
           name?: string
+          phases?: Json
           slug?: string
           sort_order?: number
+          subtitle?: string | null
+          why?: string | null
         }
         Relationships: []
       }
@@ -839,6 +936,11 @@ export type Database = {
       user_settings: {
         Row: {
           bodyweight_prompt: Database["public"]["Enums"]["bodyweight_prompt"]
+          breathing_check_in: string
+          breathing_guidance: string
+          breathing_settle_in: boolean
+          breathing_show_count: boolean
+          breathing_vibrate: boolean
           cooldown_enabled: boolean
           created_at: string
           meditation_default_minutes: number
@@ -856,6 +958,11 @@ export type Database = {
         }
         Insert: {
           bodyweight_prompt?: Database["public"]["Enums"]["bodyweight_prompt"]
+          breathing_check_in?: string
+          breathing_guidance?: string
+          breathing_settle_in?: boolean
+          breathing_show_count?: boolean
+          breathing_vibrate?: boolean
           cooldown_enabled?: boolean
           created_at?: string
           meditation_default_minutes?: number
@@ -873,6 +980,11 @@ export type Database = {
         }
         Update: {
           bodyweight_prompt?: Database["public"]["Enums"]["bodyweight_prompt"]
+          breathing_check_in?: string
+          breathing_guidance?: string
+          breathing_settle_in?: boolean
+          breathing_show_count?: boolean
+          breathing_vibrate?: boolean
           cooldown_enabled?: boolean
           created_at?: string
           meditation_default_minutes?: number
@@ -1073,7 +1185,21 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      record_breathing_practice: {
+        Args: {
+          p_breaths: number
+          p_cycles: number
+          p_ended_early: boolean
+          p_guidance: string
+          p_local_date: string
+          p_log_id: string
+          p_mood_before: number
+          p_pattern_id: string
+          p_planned_cycles: number
+          p_seconds: number
+        }
+        Returns: string
+      }
     }
     Enums: {
       body_region:

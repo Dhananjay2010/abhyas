@@ -15,7 +15,7 @@ with per-session detail, and the four-tab bottom nav the spec calls for.
 | `src/app/history/page.tsx` | Session list |
 | `src/app/history/[id]/page.tsx` | Session detail with every logged set |
 | `src/components/session-row.tsx` | Shared row, used by the page and the harness |
-| `src/components/bottom-nav.tsx` | Today · History · Progress · Settings |
+| `src/components/bottom-nav.tsx` | Today · Breathe · History · Progress · Settings (Breathe added in step 16) |
 | `src/app/dev/settings`, `src/app/dev/history` | Development-only harnesses |
 
 ## Settings
@@ -27,7 +27,9 @@ Grouped so the consequences are obvious:
 **Injuries** — region chips with a current/past toggle.
 **During a session** — planning mode, per-set logging, resume, cool-down, rest
 timer auto-start / sound / vibration, rest length override, session length.
-**Reminders** — weigh-in cadence, breathing session length.
+**Reminders** — weigh-in cadence. Breathing session length used to be here; since
+step 16 it lives in the Breathe tab with the other breathing preferences, and
+this section links there.
 
 ### Changes save immediately; plan changes only *offer* a rebuild
 
@@ -69,6 +71,13 @@ not have to sum sets client-side.
 The detail page shows every exercise with its logged sets, whether it was
 skipped, whether it was swapped in, and how it felt.
 
+Breathing is shown differently since step 16:
+
+- **The row** is named after the practice and reads "Breathing · m:ss · N
+  breaths".
+- **The detail page** (`breathing-detail.tsx`) shows time, breaths, sound, the
+  check-in and whether it ended early, instead of a workout page with no sets.
+
 ## Verification performed
 
 Through the development harnesses at 375px:
@@ -101,3 +110,6 @@ Through the development harnesses at 375px:
 ## Change log
 
 - Initial Settings and History, four-tab nav, shared `SessionRow`.
+- 2026-09-12 (step 16): a fifth tab, Breathe. Breathing session length moved
+  out of Settings. History names breathing practices and has a breathing
+  detail page.

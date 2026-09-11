@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
   BODY_REGIONS,
@@ -59,7 +60,6 @@ export type SettingsState = {
   restVibrate: boolean;
   restOverrideSeconds: number | null;
   bodyweightPrompt: "daily" | "weekly" | "never";
-  meditationDefaultMinutes: number;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -458,16 +458,14 @@ export function SettingsForm({
           />
         </Field>
 
-        <Field label="Breathing session length">
-          <Segmented
-            options={[5, 10, 20, 30].map((n) => ({ value: n, label: `${n}m` }))}
-            value={s.meditationDefaultMinutes}
-            onChange={(n) => {
-              setS({ ...s, meditationDefaultMinutes: n });
-              save(() => actions.updateSessionSettings({ meditation_default_minutes: n }));
-            }}
-          />
-        </Field>
+        {/* Breathing's own preferences moved to the Breathe tab (BREATHE-SPEC.md, Q9). */}
+        <p className="text-sm text-muted">
+          Breathing length, sound and check-ins are set in the{" "}
+          <Link href="/breathe" className="text-fg underline underline-offset-2">
+            Breathe tab
+          </Link>
+          .
+        </p>
       </Section>
 
       <Section title="Not built yet">
