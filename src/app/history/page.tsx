@@ -23,7 +23,7 @@ export default async function HistoryPage() {
       // today (checked against the live API), but breathing_logs also links
       // these two tables, and if it ever became a many-to-many join a bare
       // embed would turn ambiguous and fail -- the breakage context/07 records.
-      .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name), breathing_logs(breaths)")
+      .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name), breathing_logs(breaths, routine_name)")
       .order("local_date", { ascending: false })
       .limit(60),
     // Bounded to comfortably cover the 60 sessions rendered above. This used to
@@ -70,14 +70,23 @@ export default async function HistoryPage() {
           {sessions.map((s) => {
             const vol = volumeById.get(s.id);
             const isBreathing = s.actual_type === "meditation";
-            const logs = (s.breathing_logs ?? []) as Array<{ breaths: number }>;
+            const logs = (s.breathing_logs ?? []) as Array<{
+              breaths: number;
+              routine_name: string | null;
+            }>;
+            // A routine is named for itself. The session's own pattern link
+            // points at its first step, which would name a "Downshift" after
+            // the sigh it happens to start with.
+            const routineName = logs.find((l) => l.routine_name)?.routine_name ?? null;
             const summary: SessionSummary = {
               id: s.id,
               localDate: s.local_date,
               label: sessionLabel(
                 (s.program_days as unknown as { label: string } | null)?.label ?? null,
                 s.actual_type,
-                (s.breathing_patterns as unknown as { name: string } | null)?.name ?? null,
+                routineName ??
+                  (s.breathing_patterns as unknown as { name: string } | null)?.name ??
+                  null,
               ),
               status: s.status,
               isDeload: s.is_deload,

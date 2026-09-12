@@ -33,21 +33,32 @@ export default async function SessionDetailPage({
     .from("sessions")
     // The pattern is named through its foreign key, so a second link between
     // the two tables (breathing_logs is one) can never make it ambiguous.
-    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance)")
+    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance, routine_name, routine_step)")
     .eq("id", id)
     .maybeSingle();
   if (!session) notFound();
 
   if (session.actual_type === "meditation") {
     const pattern = session.breathing_patterns as unknown as { name: string; slug: string } | null;
-    const log = ((session.breathing_logs ?? []) as unknown as BreathingLog[])[0] ?? null;
+    // A routine has one log per step, in step order. A single practice has one.
+    const logs = ((session.breathing_logs ?? []) as unknown as BreathingLog[])
+      .slice()
+      .sort((a, b) => (a.routine_step ?? 1) - (b.routine_step ?? 1));
+    const first = logs[0] ?? null;
+    const routineName = first?.routine_name ?? null;
     return (
       <BreathingDetail
-        name={pattern?.name ?? log?.pattern_name ?? "Breathing"}
-        slug={pattern?.slug ?? null}
+        name={routineName ?? pattern?.name ?? first?.pattern_name ?? "Breathing"}
+        // A routine repeats as a routine; there is no single practice to send
+        // you back to. Its own slug is not on the log, so the button is left
+        // off rather than pointing somewhere wrong.
+        slug={routineName ? null : (pattern?.slug ?? null)}
+        isRoutine={routineName !== null}
         localDate={session.local_date}
-        seconds={log?.seconds ?? session.duration_seconds}
-        log={log}
+        seconds={
+          logs.length > 0 ? logs.reduce((n, l) => n + l.seconds, 0) : session.duration_seconds
+        }
+        logs={logs}
       />
     );
   }

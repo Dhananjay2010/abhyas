@@ -35,7 +35,18 @@ export type PracticeInput = {
   endedEarly: boolean;
   moodBefore: number | null;
   guidance: Guidance;
+  /**
+   * A step of a routine. The first step leaves `sessionId` null and is given
+   * one back; every later step passes that session, so the whole routine is
+   * one entry in History with a log per step.
+   */
+  routineId?: string | null;
+  routineStep?: number | null;
+  sessionId?: string | null;
 };
+
+/** Matches the `routine_step` check and the six-step cap on `breathing_routines.steps`. */
+export const MAX_ROUTINE_STEPS = 6;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const whole = (n: unknown, lo: number, hi: number): n is number =>
@@ -60,6 +71,22 @@ export function validatePractice(p: PracticeInput): string | null {
   if (typeof p.endedEarly !== "boolean") return "That practice could not be saved.";
   if (p.moodBefore !== null && !isMood(p.moodBefore)) return "That check-in is not valid.";
   if (!isGuidance(p.guidance)) return "That sound setting is not valid.";
+
+  // A routine step is all three fields or none of them. Half of them would
+  // write a log that belongs to a routine but sits in its own session, or a
+  // step with no place in the order.
+  const routineId = p.routineId ?? null;
+  const routineStep = p.routineStep ?? null;
+  const sessionId = p.sessionId ?? null;
+  if (routineId !== null && !UUID.test(routineId)) return "That routine could not be identified.";
+  if (sessionId !== null && !UUID.test(sessionId)) return "That routine could not be identified.";
+  if (routineId === null && routineStep !== null) return "That routine could not be identified.";
+  if (routineId !== null && !whole(routineStep, 1, MAX_ROUTINE_STEPS)) {
+    return "That routine step is not valid.";
+  }
+  // Only a later step carries a session, and only a routine has later steps.
+  if (sessionId !== null && routineId === null) return "That routine could not be identified.";
+  if (sessionId !== null && routineStep === 1) return "That routine could not be identified.";
   return null;
 }
 

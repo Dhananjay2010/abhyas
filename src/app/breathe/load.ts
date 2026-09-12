@@ -15,6 +15,12 @@ import {
   type Pattern,
   type UserPattern,
 } from "@/lib/breathing/pattern";
+import {
+  ROUTINE_COLUMNS,
+  resolveRoutine,
+  routineFromRow,
+  type ResolvedRoutine,
+} from "@/lib/breathing/routine";
 
 type Client = SupabaseClient<Database>;
 
@@ -90,6 +96,54 @@ export async function loadPractice(
     pattern,
     prefs: prefsFromRow(settingsRes.data),
     lastCycles: previous?.planned_cycles ?? null,
+    firstPractice: (countRes.count ?? 0) === 0,
+  };
+}
+
+export type LoadedRoutine = {
+  resolved: ResolvedRoutine;
+  prefs: BreathingPrefs;
+  firstPractice: boolean;
+};
+
+/**
+ * One routine by its slug, with every step's practice already found and its
+ * length worked out.
+ *
+ * The steps are resolved against your own timings, so a routine that says
+ * "Coherent, 2 min" still runs for about two minutes if you have retimed
+ * Coherent. Null when the routine is unknown or one of its practices is
+ * missing -- `resolveRoutine` explains why a partial routine is not offered.
+ */
+export async function loadRoutine(
+  supabase: Client,
+  userId: string,
+  slug: string,
+): Promise<LoadedRoutine | null> {
+  const [routineRes, patternsRes, mineRes, settingsRes, countRes] = await Promise.all([
+    supabase.from("breathing_routines").select(ROUTINE_COLUMNS).eq("slug", slug).maybeSingle(),
+    supabase.from("breathing_patterns").select(PATTERN_COLUMNS).order("sort_order"),
+    supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS),
+    supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", userId).maybeSingle(),
+    supabase.from("breathing_logs").select("id", { count: "exact", head: true }),
+  ]);
+
+  const routine = routineRes.data ? routineFromRow(routineRes.data) : null;
+  if (!routine) return null;
+
+  const builtins = (patternsRes.data ?? [])
+    .map((row) => patternFromRow(row))
+    .filter((p): p is Pattern => p !== null);
+  const owned = (mineRes.data ?? [])
+    .map(userPatternFromRow)
+    .filter((p): p is UserPattern => p !== null);
+
+  const resolved = resolveRoutine(routine, withUserPatterns(builtins, owned));
+  if (!resolved) return null;
+
+  return {
+    resolved,
+    prefs: prefsFromRow(settingsRes.data),
     firstPractice: (countRes.count ?? 0) === 0,
   };
 }

@@ -14,6 +14,12 @@ import {
   type Pattern,
   type UserPattern,
 } from "@/lib/breathing/pattern";
+import {
+  ROUTINE_COLUMNS,
+  resolveRoutine,
+  routineFromRow,
+  type ResolvedRoutine,
+} from "@/lib/breathing/routine";
 import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { suggestPractice } from "@/lib/breathing/suggest";
 import { BreatheHome, type LastPractice } from "./breathe-home";
@@ -45,10 +51,20 @@ export default async function BreathePage({
   const utcToday = localDateString("UTC");
   const since = addDays(utcToday, -370);
 
-  const [patternsRes, mineRes, settingsRes, profileRes, practicesRes, logsRes, trainingRes] =
+  const [
+    patternsRes,
+    mineRes,
+    routinesRes,
+    settingsRes,
+    profileRes,
+    practicesRes,
+    logsRes,
+    trainingRes,
+  ] =
     await Promise.all([
       supabase.from("breathing_patterns").select(PATTERN_COLUMNS).order("sort_order"),
       supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS).order("created_at"),
+      supabase.from("breathing_routines").select(ROUTINE_COLUMNS).order("sort_order"),
       supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", user.id).maybeSingle(),
       supabase.from("profiles").select("timezone").eq("id", user.id).single(),
       // Sessions rather than logs: practices recorded before breathing_logs
@@ -62,7 +78,9 @@ export default async function BreathePage({
         .limit(2000),
       supabase
         .from("breathing_logs")
-        .select("pattern_id, user_pattern_id, planned_cycles, pattern_name, mood_before, mood_after")
+        .select(
+          "pattern_id, user_pattern_id, planned_cycles, pattern_name, routine_id, routine_name, mood_before, mood_after",
+        )
         .order("created_at", { ascending: false })
         .limit(200),
       // Did you train today? Two days of workouts is enough to answer it once
@@ -88,6 +106,15 @@ export default async function BreathePage({
     .filter((p): p is UserPattern => p !== null);
   const patterns = withUserPatterns(builtins, owned);
 
+  // A routine whose practices are not all there is not offered at all: a
+  // "Downshift" missing its first step is not Downshift.
+  const routines = (routinesRes.data ?? [])
+    .map((row) => {
+      const routine = routineFromRow(row);
+      return routine ? resolveRoutine(routine, patterns) : null;
+    })
+    .filter((r): r is ResolvedRoutine => r !== null);
+
   const timezone = profileRes.data?.timezone || "Asia/Kolkata";
   const today = localDateString(timezone);
   const stats = breathingStats(
@@ -99,13 +126,18 @@ export default async function BreathePage({
   );
 
   // Newest first, so the first log seen for a practice is its latest length.
+  //
+  // A routine's steps are skipped here: their lengths were the routine's
+  // choice, not yours, so they must not become the length a practice offers on
+  // its own, nor the practice "Again" repeats.
   const logs = logsRes.data ?? [];
+  const solo = logs.filter((l) => l.routine_id === null);
   const lastCyclesByPattern: Record<string, number> = {};
-  for (const log of logs) {
+  for (const log of solo) {
     const key = log.user_pattern_id ?? log.pattern_id;
     if (key && !(key in lastCyclesByPattern)) lastCyclesByPattern[key] = log.planned_cycles;
   }
-  const latest = logs[0];
+  const latest = solo[0];
   const latestKey = latest ? (latest.user_pattern_id ?? latest.pattern_id) : null;
   // A practice of your own is keyed by your row; a built-in by the built-in,
   // even when you have retimed it.
@@ -123,10 +155,12 @@ export default async function BreathePage({
     excludeId: last?.patternId ?? null,
   });
 
+  // A routine is rated as a whole -- both check-ins sit on its first step --
+  // so it is grouped under its own name rather than under that step's practice.
   const shifts = calmShifts(
     logs.map(
       (l): MoodLog => ({
-        patternName: l.pattern_name,
+        patternName: l.routine_name ?? l.pattern_name,
         moodBefore: l.mood_before,
         moodAfter: l.mood_after,
       }),
@@ -140,6 +174,7 @@ export default async function BreathePage({
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <BreatheHome
         patterns={patterns}
+        routines={routines}
         prefs={prefsFromRow(settingsRes.data)}
         stats={stats}
         lastCyclesByPattern={lastCyclesByPattern}

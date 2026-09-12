@@ -28,8 +28,14 @@ export type DataResult<T> = { ok: true; data: T } | { ok: false; error: string }
  * all. It also carries the fix for B1: it never reuses a session that is not a
  * planned breathing slot, so an unfinished workout is left alone.
  * See supabase/migrations/20260912090000_breathe_phase_one.sql.
+ *
+ * Returns the session it wrote into. A routine's first step passes no session
+ * and keeps this id; its later steps pass it back, so the whole routine is one
+ * session with a log per step.
  */
-export async function recordBreathingPractice(input: PracticeInput): Promise<Result> {
+export async function recordBreathingPractice(
+  input: PracticeInput,
+): Promise<DataResult<{ sessionId: string }>> {
   const invalid = validatePractice(input);
   if (invalid) return { ok: false, error: invalid };
 
@@ -43,7 +49,7 @@ export async function recordBreathingPractice(input: PracticeInput): Promise<Res
     .single();
   const today = localDateString(profile?.timezone || "Asia/Kolkata");
 
-  const { error } = await supabase.rpc("record_breathing_practice", {
+  const { data, error } = await supabase.rpc("record_breathing_practice", {
     p_log_id: input.logId,
     p_local_date: today,
     // Nullable in SQL, but the type generator marks every argument non-null.
@@ -58,12 +64,16 @@ export async function recordBreathingPractice(input: PracticeInput): Promise<Res
     // is nullable in SQL, and null is how "no check-in" is recorded.
     p_mood_before: input.moodBefore as number,
     p_guidance: input.guidance,
+    p_session_id: (input.sessionId ?? null) as string,
+    p_routine_id: (input.routineId ?? null) as string,
+    p_routine_step: (input.routineStep ?? null) as number,
   });
   if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "That practice was not saved." };
 
   revalidatePath("/breathe", "layout");
   revalidateTrainingData();
-  return { ok: true };
+  return { ok: true, data: { sessionId: data } };
 }
 
 /** The "how do you feel now?" answer, added to a practice that is already saved. */

@@ -3,7 +3,7 @@ import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { INTENTS, type Intent } from "@/lib/breathing/pattern";
 import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { suggestPractice } from "@/lib/breathing/suggest";
-import { PRACTICES, PREFS } from "./fixture";
+import { PRACTICES, PREFS, ROUTINES } from "./fixture";
 import { HomePreview } from "./previews";
 
 /**
@@ -54,6 +54,7 @@ export default async function DevBreathePage({
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <HomePreview
         patterns={PRACTICES}
+        routines={ROUTINES}
         prefs={PREFS}
         stats={stats}
         last={last}

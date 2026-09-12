@@ -255,12 +255,15 @@ practices. Section 15 has the detail. **Phase 2 is now complete.**
 
 - Not done, and deliberately so: distinct vibration patterns. There is one
   pulse per phase kind, which is enough on the phones that vibrate at all.
-- **Phase 3:**
-  - Routines
-  - Kapalabhati behind a safety confirmation
-  - A signature shape per pattern
-  - Recorded voice clips
-  - A seven-day "Breath foundations" journey
+**Phase 3 — in progress (branch `breathe/routines`).** Designed in section 16,
+in this build order:
+
+  - **3a** Routines — 16.1
+  - **3b** A signature shape per practice — 16.2
+  - **3c** Kapalabhati behind a safety confirmation — 16.3
+  - **3d** A seven-day "Breath foundations" journey — 16.4
+  - Recorded voice clips — **not in this phase**; 16.5 says why, and what it
+    needs from you
 
 ---
 
@@ -532,12 +535,17 @@ components):
   account.
 
   Still not exercised on a signed-in account: the phase 2b screens (your own
-  timings, your own practices), and every sound mode but tones. Those rest on
-  the harness, on the database function run as your user in SQL, and on the
-  queries checked against the live API.
+  timings, your own practices), every sound mode but tones, and **a routine
+  actually run through** (phase 3a). Those rest on the harness, on the database
+  function run as your user in SQL, and on the queries checked against the live
+  API.
 
-- **Chrome could not be driven from here** (no browser was connected), so the
-  signed-in checks are yours to run rather than mine.
+- **The Browser pane was hidden for the phase 3a session**, which makes the
+  page a hidden document: `requestAnimationFrame` never fires and the practice
+  auto-pauses, both correctly. The sequence was watched by shimming
+  `requestAnimationFrame` onto a timer and stubbing `document.hidden`, with
+  scripted clicks rather than real taps. **The motion itself, and real taps, are
+  unproven** — 17.3 says so too.
 - **The automated Enter and Space keys did not activate the focused Resume
   button.** Clicking it works. My key handler leaves a focused button alone, so
   a real keyboard should work, but the automation could not prove it.
@@ -589,6 +597,27 @@ one):
 13. Bhramari: the hum should sound under the exhale, in any mode.
 14. Pause mid-practice: everything, including the bed, should go quiet, and
     come back on Resume.
+
+**And for the routines (phase 3a). These have never been run signed in, so they
+matter most:**
+
+15. Breathe → **Reset** → Start. It is the shortest, about three minutes. Watch
+    the seam between its two steps: the first should wind down briefly, then a
+    screen saying "Physiological Sigh done", naming Coherent Breathing, and
+    counting down from six. It should start the second step without a tap.
+16. The header during a routine should read "Reset · step 1 of 2", with the
+    small step marks under the progress bar.
+17. At the end: the time and breaths should be the **whole routine**, named
+    "Reset", saying "All 2 steps".
+18. **History should show one entry named "Reset"**, not "Physiological Sigh",
+    and opening it should list both steps with their own times.
+19. Do a routine and then go back to the Breathe tab. The **"Again" card must
+    not** now offer a practice at a routine's step length.
+20. Start **Downshift** and press **End here** at the first hand-off. The
+    ending should say "1 of 2 steps" and History should still hold what you
+    did.
+21. Rate a routine at the end, twice on different days. It should appear in
+    "What works for you" under the routine's name.
 
 ---
 
@@ -736,6 +765,204 @@ with a second "Out" beneath it — and switching that row on would have added a
 second exhale. Slots are now matched by kind, in order, and three tests hold it
 there.
 
+## 16. Phase 3 — design
+
+Section 7 names five things. This section says what each of them actually is,
+because the list alone does not decide anything. The order below is the build
+order: routines first, because they are the largest addition and the one a
+person would notice.
+
+### 16.1 Routines — a sequence, not a single practice
+
+A routine is two to four practices run back to back without leaving the
+session screen. You choose the routine, not each practice inside it.
+
+Seeded:
+
+| Routine | Steps | About |
+|---|---|---|
+| Downshift after training | Physiological Sigh (5 breaths) → Extended Exhale (2 min) → Coherent (2 min) | Drop the heart rate fast, then settle |
+| Wind down for sleep | Extended Exhale (3 min) → 4-7-8 (4 breaths) → Bhramari (2 min) | Long exhales, then the hum |
+| Start the morning | Anulom Vilom (2 min) → Box Breathing (3 min) | Balance, then a steady edge |
+| Reset in three minutes | Physiological Sigh (3 breaths) → Coherent (2.5 min) | The short one, for the middle of a day |
+
+**How it runs.** The session screen already separates what outlives one
+practice (`BreathingSession`) from one practice (`Practice`, remounted by key
+for "Again"). A routine reuses exactly that: each step is a `Practice`, and
+finishing one moves to the next by changing the key. Between steps there is a
+short hand-off — the next practice's name, a countdown, and a Skip — rather
+than the full ending screen, which appears only once at the end.
+
+**What gets recorded.** One session for the whole routine, one
+`breathing_logs` row per completed step. So History shows a single entry named
+for the routine, and opening it lists the steps. Saving happens step by step,
+so leaving after step two keeps steps one and two.
+
+**Schema.** `breathing_routines` (slug, name, subtitle, about, `steps jsonb`,
+intents, sort order) and `breathing_logs.routine_id` + `routine_step`.
+`record_breathing_practice` gains `p_session_id`: the first step creates or
+claims the session as it does today, later steps append to that session and add
+their seconds to its duration. A retry is still a no-op, keyed on the log id,
+so the duration cannot double-count.
+
+### 16.2 A signature shape per practice
+
+Today every practice is the same circle. Each will get a shape that matches
+what it is, driven by the same eased `size` and `progress` the engine already
+returns:
+
+| Shape | Practices |
+|---|---|
+| Orb (today's) | Coherent, Extended Exhale, Ujjayi, Sheetali, and anything of your own |
+| Square traced on its perimeter | Box Breathing |
+| Lobes, the open side lit | Nadi Shodhana, Anulom Vilom |
+| Ripples spreading outward | Bhramari |
+| Teardrop, weighted to the exhale | 4-7-8, Physiological Sigh |
+
+A `shape` column on `breathing_patterns`, defaulting to `orb`, so a practice of
+your own and anything unrecognised keeps today's circle. The reduced-motion
+alternative stays what it is: no shape animates when the system asks for less
+motion.
+
+### 16.3 Kapalabhati, behind a safety confirmation
+
+Decision Q4. Rapid forceful exhales through the nose with passive inhales, in
+rounds, with normal breathing between them.
+
+**It does not fit the phase model**, and forcing it in would be wrong: 30 pumps
+is 60 phases, past the 24-phase cap, and the app does not pace each pump
+individually anyway — it sets a tempo and you follow. So two new phase kinds:
+
+- `pump` — *n* breaths per second for *s* seconds. One phase, not sixty. The
+  shape pulses at that rate and the count is shown.
+- `rest` — breathe normally for *s* seconds. Like a hold, but the shape idles
+  rather than freezing.
+
+Kapalabhati is then `[pump 30 s at 1.5/s, rest 30 s]`, three rounds. The two
+kinds are additive: every existing pattern is untouched.
+
+**The confirmation** is shown once, before the first Kapalabhati ever, and
+remembered. It names who should not do it — pregnancy, high blood pressure,
+heart conditions, epilepsy, glaucoma, recent surgery, a hernia, or on a full
+stomach — and requires a deliberate tap. It is not a checkbox buried in
+settings.
+
+### 16.4 Breath foundations — seven days
+
+A short course, one practice a day with a sentence about what it teaches. Day
+one is the physiological sigh; day seven is whichever practice your own
+check-ins rate best. Progress is a row per person (`user_journey_progress`:
+journey, days completed, started on), and a day counts once you finish that
+day's practice. Missing a day does not reset it — the whole point is to come
+back.
+
+### 16.5 Recorded voice clips — not in this phase, and why
+
+Q3 agreed to "the phone's own voice now, with recorded clips later". Later is
+not now, and the reason is plain: recorded clips need a recorded human voice,
+and there is no way for me to produce one. Synthesising them would just be the
+device voice again, hosted.
+
+So this stays open, and it needs you: if you want it, the shortest path is you
+recording about twenty short cues in English and Hindi ("Breathe in", "Hold",
+"Breathe out", "Settle in", the counts), and I will build the loading, the
+fallback and the preference around them. Until then the device voice stands,
+and section 13's note about what Safari does and does not offer still applies.
+
+## 17. Phase 3a — routines, as built
+
+### 17.1 What changed for you
+
+- **Four routines**, listed on the Breathe tab above the practices and filtered
+  by the same chips: **Downshift** (after training), **Wind Down** (for sleep),
+  **Morning**, and **Reset** (three minutes, mid-day).
+- **A routine's page** shows what is in it, in order, with each step's length
+  and every caution any step carries, said once. The only choices are how it
+  sounds — the lengths belong to the routine.
+- **It runs straight through.** A step ends, a hand-off names what is next and
+  counts down six seconds, and the next step starts on its own. "Start now"
+  skips the wait; "End here" stops, and what you have done is already saved.
+- **The ending summarises the whole routine**, not its last step: total time,
+  total breaths, the routine's name, and how many of its steps you did.
+- **History shows it as one thing** — one entry named for the routine, opening
+  onto the steps with their own times and breaths.
+
+### 17.2 How it is put together
+
+| Part | Where |
+|---|---|
+| Routine rows, step parsing, resolving against your timings | `src/lib/breathing/routine.ts` |
+| Loading one | `src/app/breathe/load.ts` — `loadRoutine` |
+| Its page | `src/app/breathe/routine/[slug]/{page,routine-setup}.tsx` |
+| Running it | `src/app/breathe/routine/[slug]/session/page.tsx`, into the existing `BreathingSession` |
+| The hand-off | `Handoff`, in `[slug]/session/breathing-session.tsx` |
+| Harness | `/dev/breathe/routine/quick/session?speed=8` — two short steps, the whole sequence in seconds |
+
+Migration `20260915090000_breathe_routines.sql`, applied 2026-09-12:
+
+| Change | Purpose |
+|---|---|
+| `breathing_routines` (slug, name, `steps jsonb`, intents) | The catalogue, read-only from the client, like `breathing_patterns` |
+| `breathing_logs` + `routine_id`, `routine_name`, `routine_step` | Which routine a log was part of, and where in it |
+| `record_breathing_practice` + `p_session_id`, `p_routine_id`, `p_routine_step` | A later step appends to the session the first step opened |
+
+Three decisions worth knowing:
+
+1. **A step's length is stored as an intent** (`minutes` or `cycles`), not as a
+   cycle count, and resolved against *your* phases. A practice you have retimed
+   still runs for about as long as the routine says.
+2. **Both check-ins go on the first step's log**, because "what works for you"
+   pairs before and after on one row. Split across steps, every routine would
+   silently vanish from it.
+3. **A routine missing any of its practices is not offered at all** rather than
+   offered short.
+
+### 17.3 Verified
+
+- **Unit tests:** 25 groups, all passing. The new ones cover step parsing (one
+  step, seven steps, both units at once, neither, fractional cycles), resolving
+  (order, caps, a missing practice, a practice of your own as a step, a retimed
+  practice keeping its duration), the four seeded routines parsed straight out
+  of the migration file, and the all-or-nothing rule for a routine step's save
+  fields.
+- **Against the live database, as you, rolled back — 18 checks:** three steps
+  landing in one session; one session row; the duration being the steps added
+  up; one log per step, each naming its routine, its place and its own
+  practice; the check-in on the first step; a retried step returning the same
+  session and writing nothing; a session from another day refused; an unknown
+  routine refused; B1 still holding; a planned breathing slot still claimed;
+  and a single practice still recording with no routine at all. A **second user
+  was created inside the transaction**, so "someone else's session" was a real
+  row: it was invisible, could not be written into, and its duration was
+  untouched. Afterwards the database was checked: one user, no future sessions,
+  no routine logs — the rollback took.
+- **In the harness, end to end:** the two-step routine watched from the
+  check-in through step one, its wind-down, the hand-off counting 6 → 1, step
+  two starting with no settle-in, and the ending reading "0:40 · 4 breaths ·
+  Quick Test · All 2 steps". The save payloads were read off the console: step
+  one with no session, step two carrying the session step one opened. The
+  rating went to step one's log. "Again" restarted from step one. "End here" at
+  the hand-off gave "1 of 2 steps". With saving set to fail, the ending said
+  "An earlier step of this routine could not be saved."
+- **The real signed-in pages:** `/breathe` listing all four routines with their
+  step names and lengths; `/breathe/routine/downshift` reading "5 breaths · 2
+  min · 2 min, 4:46 of breathing in all"; `/breathe/routine/reset/session`
+  opening on "Reset · step 1 of 2"; an unknown slug 404ing.
+- **Production build** compiles with both new routes present.
+
+**Two things this found.** A step written as "5 breaths" displayed as "45 sec",
+because the label re-derived its unit from the practice's cap instead of
+honouring the unit the step was written in. And ending part-way through the
+last step still claimed "All 2 steps"; it now says "2 of 2".
+
+**How the browser was driven, honestly.** The Browser pane was hidden for this
+session, which makes the document hidden: `requestAnimationFrame` never fires
+and the practice correctly auto-pauses. To watch the sequence at all I shimmed
+`requestAnimationFrame` onto a timer and stubbed `document.hidden` in the page,
+and clicked through scripted `.click()` calls rather than real pointer events.
+So the component logic, the state machine and the payloads are proven; **the
+motion itself, and real taps, are not.** That is on the phone checklist.
+
 ## Change log
 
 - **2026-09-11** — Draft: review of the current section (7 bugs, 13 experience
@@ -764,3 +991,13 @@ there.
 - **2026-09-12** — You practised on localhost while signed in, and the app
   recorded it correctly. The "nothing has been run signed in" gap in section 13
   is closed for phase 1 and 2a.
+- **2026-09-12** — `main` pushed to GitHub (`d26d898`), which is the first time
+  any of the Breathe work has left this machine.
+- **2026-09-12, phase 3** — Designed in section 16, with recorded voice clips
+  deliberately excluded and the reason written down (16.5). **3a, routines,
+  built** on branch `breathe/routines`: four seeded routines, the hand-off
+  between steps, one session with a log per step, and the History and
+  home-screen changes that follow. Migration `20260915090000_breathe_routines`
+  applied. Section 17 has the detail. Fixed during testing: a step written in
+  breaths displayed in seconds, and an ending that claimed "All 2 steps" after
+  being cut short.

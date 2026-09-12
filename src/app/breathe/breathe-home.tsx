@@ -13,6 +13,12 @@ import {
   type Intent,
   type Pattern,
 } from "@/lib/breathing/pattern";
+import {
+  routineHref,
+  routineLength,
+  stepNames,
+  type ResolvedRoutine,
+} from "@/lib/breathing/routine";
 import { warmUpSpeech } from "@/lib/breathing/speech";
 import type { BreathingStats, CalmShift } from "@/lib/breathing/stats";
 import type { Suggestion } from "@/lib/breathing/suggest";
@@ -67,6 +73,7 @@ function weekLine(stats: BreathingStats): string {
  */
 export function BreatheHome({
   patterns,
+  routines = [],
   prefs: initialPrefs,
   stats,
   lastCyclesByPattern,
@@ -79,6 +86,8 @@ export function BreatheHome({
   actions = REAL,
 }: {
   patterns: Pattern[];
+  /** Sequences of practices, already resolved against this person's timings. */
+  routines?: ResolvedRoutine[];
   prefs: BreathingPrefs;
   stats: BreathingStats;
   lastCyclesByPattern: Record<string, number>;
@@ -99,8 +108,15 @@ export function BreatheHome({
   const [starting, setStarting] = useState(false);
   const closePrefs = useCallback(() => setShowPrefs(false), []);
 
-  const available = INTENTS.filter((i) => patterns.some((p) => p.intents.includes(i.value)));
+  const available = INTENTS.filter(
+    (i) =>
+      patterns.some((p) => p.intents.includes(i.value)) ||
+      routines.some((r) => r.routine.intents.includes(i.value)),
+  );
   const shown = intent ? patterns.filter((p) => p.intents.includes(intent)) : patterns;
+  const shownRoutines = intent
+    ? routines.filter((r) => r.routine.intents.includes(intent))
+    : routines;
   const again = last ? patterns.find((p) => p.id === last.patternId) : undefined;
   const againLength = again && last ? lengthFor(again, prefs, last.cycles) : null;
   const starter = patterns.find((p) => p.slug === STARTER_SLUG);
@@ -231,6 +247,41 @@ export function BreatheHome({
             })}
           </div>
         </div>
+      )}
+
+      {shownRoutines.length > 0 && (
+        <section className="mt-7">
+          <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">Routines</h2>
+          <p className="mt-1 text-sm text-muted">
+            Several practices in a row, without having to choose between them.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {shownRoutines.map(({ routine, steps, seconds }) => (
+              <li key={routine.id}>
+                <Link
+                  href={routineHref(routine.slug, basePath)}
+                  className="block rounded-2xl border border-breath/20 px-5 py-4 transition-colors hover:border-breath/50"
+                  style={{ background: CARD_BG }}
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="truncate text-lg font-semibold">{routine.name}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-breath-ink/60">
+                      {routineLength(seconds)}
+                    </span>
+                  </div>
+                  {routine.subtitle && (
+                    <p className="mt-0.5 text-sm text-breath-ink/70">{routine.subtitle}</p>
+                  )}
+                  <p className="mt-2 truncate text-xs text-breath">{stepNames(steps)}</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {shownRoutines.length > 0 && (
+        <h2 className="mt-8 text-xs font-semibold tracking-wider text-muted uppercase">Practices</h2>
       )}
 
       <ul className="mt-4 space-y-2">
