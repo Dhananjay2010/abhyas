@@ -334,7 +334,21 @@ Walking lunge, Cat-cow and Glute bridge, none of which is a static stretch and
 none of which can be held for 30 seconds. There is no stretch data to draw on:
 `warmup_exercises` is seeded with `cardio`, `mobility` and `prehab` only.
 
-### M9 — The block number increments on every rebuild
+### M9 — "Rebuild this block" on Today is unguarded
+
+Settings guards a rebuild behind an explanatory banner — "Your plan no longer
+matches these answers. Rebuilding keeps every session you have already logged."
+— and a deliberate second tap. Today offers the same operation as
+`BuildPlanButton`, a **full-width accent-coloured primary button** at the
+bottom of the page, directly above Sign out, that fires `buildPlan()` on the
+first tap with no confirmation and no explanation of what it will do.
+
+It discards the current block's exercise selection, resets `started_on` to
+today (so the deload week moves) and increments the block number. Nothing is
+lost from history, but it is the most consequential control on the screen and
+it is the least protected one.
+
+### M10 — The block number increments on every rebuild
 
 `createBlockForUser` sets `blockNumber = (last block_number ?? 0) + 1` and runs
 on every "Rebuild this block" and every goal / level / days / equipment change,
@@ -386,6 +400,12 @@ re-plan of the current block, not a new one.
 - **Access control.** `/history/<someone-else's-uuid>`, `/session/<unknown>`
   and `/history/not-a-uuid` all return a clean 404 — no leak, and a malformed
   UUID does not reach Postgres as a cast error.
+- **Auth, end to end.** Sign out returns to a well-judged landing page (the
+  proposition, three bullets, the disclaimer, one button). While signed out,
+  every one of `/today`, `/history`, `/progress`, `/settings`, `/breathe`,
+  `/yoga` and `/onboarding` redirects to `/` with no data in the response.
+  "Continue with Google" then signs back in through the account chooser and
+  lands on Today with everything intact.
 - **Onboarding validation**, end to end: under-16 and future dates of birth,
   height 320 cm, weight 600 kg, and a disabled Continue on every unanswered
   step.
