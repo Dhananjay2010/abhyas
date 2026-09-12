@@ -293,6 +293,13 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // the eligible pool has nothing for any of the day's patterns -- a
     // bodyweight user with no pull-up bar has no pulling movement at all. Fall
     // back to whatever is eligible rather than shipping an empty day.
+    //
+    // The day is relabelled when that happens. It used to keep its template
+    // name, so a bodyweight-at-home beginner was shown a day headed "Pull"
+    // whose five exercises were sit-ups and crunches: not one pulling
+    // movement, because the catalogue has no equipment-free horizontal pull.
+    // Calling it what it is beats naming a muscle group it does not train.
+    const backfilled = exercises.length === 0;
     if (exercises.length === 0) {
       const backfill = pool
         .filter((e) => !used.has(e.id))
@@ -322,7 +329,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       dayIndex,
       dayType: input.primaryTrack === "bodyweight" ? "bodyweight" : "weights",
       focus: entry.focus,
-      label: entry.label,
+      label: backfilled ? "Full body" : entry.label,
       exercises,
     });
   }

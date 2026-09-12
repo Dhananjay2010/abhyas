@@ -20,10 +20,14 @@ async function requireUser() {
 /** Session preferences. None of these affect the generated plan. */
 export async function updateSessionSettings(patch: SettingsUpdate): Promise<Result> {
   const { supabase, user } = await requireUser();
+  // Upsert, not update. `user_settings` is created by the on_auth_user_created
+  // trigger, so a plain UPDATE quietly matches zero rows for any account whose
+  // row is missing — and PostgREST reports no error for that, so the action
+  // returned ok, the toggle moved on screen, and the change was gone on the
+  // next load. The row's own column defaults fill anything the patch omits.
   const { error } = await supabase
     .from("user_settings")
-    .update(patch)
-    .eq("user_id", user.id);
+    .upsert({ ...patch, user_id: user.id }, { onConflict: "user_id" });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/settings");
   return { ok: true };

@@ -24,6 +24,22 @@ const CARDIO_PREFERENCE: Record<string, string[]> = {
 };
 
 /**
+ * What each cardio warm-up needs before it can be suggested.
+ *
+ * `warmup_exercises` carries no equipment column, so the requirement lives
+ * here. Without it the gym preference list opens with "Easy stationary bike"
+ * for every weights user, whatever they told us they have — a plan that led
+ * with a bike for someone whose only equipment was a yoga mat, directly
+ * contradicting "We never suggest an exercise you cannot do." The last two
+ * options in each list need nothing, so there is always something left.
+ */
+const CARDIO_EQUIPMENT: Record<string, string> = {
+  "easy-bike": "stationary_bike",
+  "easy-row": "rowing_machine",
+  "skipping-light": "jump_rope",
+};
+
+/**
  * Build the 15-minute warm-up for a session: general cardio, then mobility for
  * the muscles about to be trained, then prehab for any flagged joint.
  *
@@ -38,7 +54,7 @@ export function selectWarmup(input: {
   track: Track;
   availableEquipment: Set<string> | null;
 }): WarmupItem[] {
-  const { warmups, trainingMuscles, injuryRegions, track } = input;
+  const { warmups, trainingMuscles, injuryRegions, track, availableEquipment } = input;
   const muscles = new Set(trainingMuscles);
   const regions = new Set(injuryRegions);
 
@@ -47,9 +63,18 @@ export function selectWarmup(input: {
   // 1. Five minutes of easy cardio.
   const preference =
     CARDIO_PREFERENCE[track === "weights" ? "gym" : "home"] ?? CARDIO_PREFERENCE.home;
+  // A null set means "has everything"; an empty one means they listed nothing.
+  const canUse = (slug: string) => {
+    const needs = CARDIO_EQUIPMENT[slug];
+    return !needs || availableEquipment === null || availableEquipment.has(needs);
+  };
   const cardioPool = byType("cardio");
   const cardio =
-    preference.map((slug) => cardioPool.find((w) => w.slug === slug)).find(Boolean) ??
+    preference
+      .filter(canUse)
+      .map((slug) => cardioPool.find((w) => w.slug === slug))
+      .find(Boolean) ??
+    cardioPool.find((w) => canUse(w.slug)) ??
     cardioPool[0];
 
   // 2. Five minutes of mobility for what is about to be trained. Exercises that

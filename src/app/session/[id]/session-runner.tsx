@@ -586,7 +586,16 @@ export function SessionRunner({
           </p>
         )}
 
-        {restRemaining > 0 && (
+        {/*
+          Shown while a rest is actually running, which is what `restEndsAt`
+          means. This used to key off `restRemaining > 0`, a number the effect
+          leaves untouched whenever the end time is cleared with time still on
+          the clock — so the panel stayed on screen with the countdown frozen
+          at whatever second it had reached, and nothing would clear it until
+          the next set was logged. That happened on the rest timer's own
+          "Skip" button, on Undo, and at every exercise transition.
+        */}
+        {restEndsAt !== null && (
           <div className="mt-6 flex items-center justify-between rounded-xl border border-accent/40 bg-accent/10 px-5 py-4">
             <span className="text-sm text-accent">Rest</span>
             <span className="text-3xl font-bold tabular-nums text-accent">

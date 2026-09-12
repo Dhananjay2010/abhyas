@@ -98,6 +98,8 @@ export const BODY_REGIONS: Option<BodyRegion>[] = [
 
 /** Days per week -> split, exactly as specified. Shown to the user so the plan is legible. */
 export const SPLIT_BY_DAYS: Record<number, string> = {
+  1: "Full body, once a week",
+  2: "Full body, twice a week",
   3: "Full body, three times a week",
   4: "Upper / lower, twice each",
   5: "Push, pull, legs, upper, lower",
@@ -113,7 +115,10 @@ export const SPLIT_BY_DAYS: Record<number, string> = {
  */
 export function splitLabelFor(daysPerWeek: number, yogaDays: number): string {
   const training = Math.max(1, daysPerWeek - Math.min(yogaDays, daysPerWeek - 1));
-  return SPLIT_BY_DAYS[training] ?? `Full body, ${training} times a week`;
+  // Every reachable value of `training` (1..6) has an entry above. The
+  // fallback existed for 1 and 2, and read "Full body, 1 times a week" —
+  // which is what someone picking 4 days with 3 of them yoga was shown.
+  return SPLIT_BY_DAYS[training] ?? "Full body";
 }
 
 export const MIN_AGE_YEARS = 16;
