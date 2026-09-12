@@ -217,6 +217,7 @@ Seeded patterns:
 | Ujjayi | 5–0–5–0, throat narrowed | Steadiness without counting |
 | Anulom Vilom | alternate nostril, no holds | Balance, gentler than Nadi Shodhana |
 | Sheetali | 4–0–6–0 through a rolled tongue | Cooling, after training |
+| Kapalabhati | 20 pumps at one a second, then 40s rest | Energy. Behind a one-time safety confirmation (added 2026-09-12) |
 
 All timings and cycle counts are **user-adjustable in Settings**. Animated expanding-circle pacer, optional haptics on phase change.
 
@@ -228,7 +229,8 @@ All timings and cycle counts are **user-adjustable in Settings**. Animated expan
 > **Per-pattern timings are editable and practices of your own can be created**,
 > which is what this section asked for. Since 2026-09-12 there are also
 > **routines** — two to four practices run back to back inside one session
-> (Downshift, Wind Down, Morning, Reset).
+> (Downshift, Wind Down, Morning, Reset) — and **Kapalabhati**, the one
+> practice gated behind a safety confirmation you are asked for once.
 
 ---
 

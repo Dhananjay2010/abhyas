@@ -31,7 +31,16 @@ export default async function DevPracticeSessionPage({
   if (!base) notFound();
 
   const speed = Math.min(20, Math.max(1, Number(search.speed) || 1));
-  const pattern = { ...base, phases: base.phases.map((p) => ({ ...p, seconds: p.seconds / speed })) };
+  // The pump rate is scaled with the phase, so a sped-up round still has the
+  // same number of pumps in it -- otherwise the thing being tested changes.
+  const pattern = {
+    ...base,
+    phases: base.phases.map((p) => ({
+      ...p,
+      seconds: p.seconds / speed,
+      ...(p.rate ? { rate: p.rate * speed } : {}),
+    })),
+  };
   const cycle = buildCycle(pattern.phases);
   const options = parseSessionSearch(search, PREFS, {
     fallbackCycles: initialCycles({

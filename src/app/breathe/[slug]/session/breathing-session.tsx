@@ -18,6 +18,7 @@ import {
   scheduleBell,
   scheduleGlide,
   scheduleHum,
+  schedulePumps,
   scheduleSwell,
   startAmbience,
   unlockBreathAudio,
@@ -38,6 +39,7 @@ import {
   buildCycle,
   nextPhaseStart,
   positionAt,
+  pumpAt,
   type Position,
   type Side,
   type TimedPhase,
@@ -330,6 +332,7 @@ function Practice({
   const settle = options.settleIn && stepIndex === 0 ? SETTLE_SECONDS : 0;
   const windDown = nextStep ? STEP_WIND_DOWN_SECONDS : WIND_DOWN_SECONDS;
   const hasSides = cycle.phases.some((p) => p.side !== null);
+  const pumps = cycle.phases.some((p) => p.kind === "pump");
   const reduced = usePrefersReducedMotion();
   // The server cannot know either of these. Rendering as "can play, no
   // context yet" there means a cold load asks for a tap, and a practice opened
@@ -613,6 +616,14 @@ function Practice({
           keep(scheduleHum(ctx, out, { at, duration }), at + duration);
           return;
         }
+        // Pumping keeps its knocks in every mode -- they are the tempo, not
+        // decoration, and a voice cannot count at one a second. A rest is
+        // silent on purpose: nothing is being paced.
+        if (p.kind === "pump") {
+          keep(schedulePumps(ctx, out, { at, count: p.pumps, rate: p.rate }), at + duration);
+          return;
+        }
+        if (p.kind === "rest") return;
         if (modeRef.current === "voice") return;
         if (modeRef.current === "ocean") {
           keep(
@@ -701,7 +712,13 @@ function Practice({
         if (key !== keyRef.current) {
           keyRef.current = key;
           setView({ sub: "practice", phase: pos.phase, cycleIndex: pos.cycleIndex });
-          setAnnounce(`${pos.phase.cue}. ${Math.round(pos.phase.seconds)} seconds.`);
+          setAnnounce(
+            pos.phase.kind === "pump"
+              ? `${pos.phase.cue}. ${pos.phase.pumps} pumps, one every ${
+                  pos.phase.rate === 1 ? "second" : `${(1 / pos.phase.rate).toFixed(1)} seconds`
+                }.`
+              : `${pos.phase.cue}. ${Math.round(pos.phase.seconds)} seconds.`,
+          );
           // Speech cannot be put on the audio clock, so it is said as the
           // phase turns -- within a frame of the sound the other modes make.
           if (soundOnRef.current && modeRef.current === "voice") {
@@ -709,10 +726,19 @@ function Practice({
             speak(spokenCue(pos.phase, options.voiceLang, before.kind === "inhale"), options.voiceLang);
           }
           if (options.vibrate) {
+            // Once at the turn of the phase. A buzz per pump would be a
+            // second tempo running against the one you are following.
             vibrate(pos.phase.kind === "inhale" ? 60 : pos.phase.kind === "exhale" ? [30, 40, 30] : 20);
           }
         }
-        const c = options.showCount ? Math.max(1, Math.ceil(pos.phaseRemaining - 1e-6)) : null;
+        // Pumping counts pumps, not seconds: the number you are following is
+        // "twelve of twenty", and a seconds countdown alongside it would be a
+        // second thing to track.
+        const c = !options.showCount
+          ? null
+          : pos.phase.kind === "pump"
+            ? pumpAt(pos.phase, pos.phaseElapsed)
+            : Math.max(1, Math.ceil(pos.phaseRemaining - 1e-6));
         if (c !== countRef.current) {
           countRef.current = c;
           setCount(c);
@@ -928,8 +954,17 @@ function Practice({
           <div aria-hidden="true" className="breath-idle mx-auto h-20 w-20 rounded-full" style={{ background: ORB_BG }} />
           <h1 className="mt-6 text-center text-3xl font-semibold tracking-tight">{title}</h1>
           <p className="mt-2 text-center text-sm text-breath-ink/70">
-            {formatClock(seconds)} · {breaths} {breaths === 1 ? "breath" : "breaths"} ·{" "}
-            {routine ? routine.name : pattern.name}
+            {/* A pumping practice counts its pumps, the same word the round
+                itself used. A routine mixes practices, so it stays breaths. */}
+            {formatClock(seconds)} · {breaths}{" "}
+            {!routine && pumps
+              ? breaths === 1
+                ? "pump"
+                : "pumps"
+              : breaths === 1
+                ? "breath"
+                : "breaths"}{" "}
+            · {routine ? routine.name : pattern.name}
           </p>
           {routine && (
             <p className="mt-1 text-center text-xs text-breath-ink/55">
@@ -1008,7 +1043,13 @@ function Practice({
       ? "Sit comfortably, shoulders soft. When you are ready, breathe out fully."
       : view.sub === "winddown"
         ? "Notice how you feel."
-        : null;
+        : view.phase.kind === "pump"
+          ? "Belly in sharply. Let the breath in happen by itself."
+          : // Nothing is being paced through a rest, so the orb holds still and
+            // the ring around it counts down to the next round.
+            view.phase.kind === "rest"
+            ? "Nothing to follow. The ring fills until the next round."
+            : null;
   const fade = `transition-opacity duration-300 ${controls ? "opacity-100" : "pointer-events-none opacity-0"}`;
 
   return (
@@ -1137,7 +1178,11 @@ function Practice({
           {aside && <p className="mt-2 text-sm leading-relaxed text-breath-ink/65">{aside}</p>}
           {count !== null && (
             <p aria-hidden="true" className="mt-2 text-lg tabular-nums text-breath-ink/55">
-              {count}
+              {/* Pumping counts up to the round's total; everything else
+                  counts the seconds of the phase down. */}
+              {view.sub === "practice" && view.phase.kind === "pump"
+                ? `${count} / ${view.phase.pumps}`
+                : count}
             </p>
           )}
           {hasSides && view.sub === "practice" && <NostrilGuide open={view.phase.side} />}

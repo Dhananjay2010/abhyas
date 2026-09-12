@@ -234,6 +234,9 @@ export async function updateBreathingPrefs(patch: PrefsPatch): Promise<Result> {
   if (patch.vibrate !== undefined) update.breathing_vibrate = patch.vibrate;
   if (patch.settleIn !== undefined) update.breathing_settle_in = patch.settleIn;
   if (patch.checkIn !== undefined) update.breathing_check_in = patch.checkIn;
+  if (patch.kapalabhatiAck !== undefined) {
+    update.breathing_kapalabhati_ack = patch.kapalabhatiAck;
+  }
   if (Object.keys(update).length === 0) return { ok: true };
 
   const { supabase, user } = await getAuthedClient();

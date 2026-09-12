@@ -559,6 +559,88 @@ because the label re-derived its unit from the practice's own cap instead of
 honouring the unit the step was written in. And ending part-way through the
 last step still claimed "All 2 steps"; it now says "2 of 2".
 
+## Phase 3c — Kapalabhati (2026-09-12, branch `breathe/kapalabhati`)
+
+Decision Q4, designed in `BREATHE-SPEC.md` section 16.3 and recorded as built
+in section 18.
+
+### Two new phase kinds, and why they had to exist
+
+The three original kinds cannot express Kapalabhati. Twenty pumps would be
+forty phases, past the twenty-four a pattern may have — and the app does not
+pace each pump anyway. It sets a tempo and you follow it. So:
+
+- **`pump`** — *n* breaths a second for *s* seconds, as one phase. It carries a
+  `rate`, and `buildCycle` precomputes `pumps` from it.
+- **`rest`** — breathing normally for *s* seconds. Deliberately not a hold:
+  nothing is held, and the orb must not animate as though it were pacing you.
+
+A pump is the only phase that does not travel from `from` to `to`. `sizeIn`
+gives it an oscillation between `PUMP_LOW` (0.22) and `PUMP_HIGH` (0.5),
+starting high and snapping down, because the first movement of a pump is the
+forceful exhale. `pumpAt(phase, elapsed)` says which pump is happening, and
+that is what the screen counts.
+
+Both kinds are additive: every existing pattern parses and runs unchanged, and
+`parsePhases` only accepts a `rate` on a phase that actually pumps, between 0.5
+and 4 a second.
+
+### What had to be told this practice is different
+
+1. **Length is chosen in rounds** (`lengthPlan` → `unit: "rounds"`), with no
+   custom option. Neither minutes nor breaths is how anyone chooses to do it.
+2. **The rhythm preview samples the engine twice a pump**, so the small orb on
+   the card pumps instead of drifting — 42 keyframes over a 60-second round.
+3. **`resolveRoutine` refuses a routine containing it.** A routine runs straight
+   through without asking, which is exactly what the confirmation exists to
+   prevent. No seeded routine names it; this is a guard, not a fix.
+4. **The timing editor is not offered** for a practice that pumps, and
+   `validatePatternDraft` still accepts only inhale, hold and exhale — so a
+   practice you build yourself cannot contain a pump or a rest.
+5. **Two screens count pumps, not breaths.** They are breaths, but "60 breaths"
+   beside "3 rounds" only raises the question.
+
+### Sound
+
+`schedulePumps` in `audio.ts`: a dry 147 Hz knock per pump, the whole round
+scheduled in one call on the audio clock so the tempo cannot drift. It plays in
+**every** mode, voice included — the knocks are the tempo, not decoration, and
+no voice can count at one a second. A rest is silent on purpose. Vibration
+fires once at the turn of a phase rather than per pump, which would be a second
+tempo running against the one you are following.
+
+### The confirmation
+
+`user_settings.breathing_kapalabhati_ack`, a boolean column rather than a table:
+there is one practice that needs this, and a table would be pretending
+otherwise. The comment in the migration says what to do if a second ever
+arrives.
+
+`PracticeSetup` renders `SafetyGate` instead of itself when
+`needsConfirming(pattern.phases)` and the acknowledgement is unset. The gate has
+no Start button at all — accepting it saves the preference and reveals the
+setup.
+
+### Seeded gentler than designed
+
+Section 16.3 sketched `pump 30 s at 1.5/s, rest 30 s`. What shipped is **20
+pumps at one a second, then 40 seconds of rest**, three rounds. This is the one
+practice here that can genuinely make someone faint; the conservative version is
+a tempo a beginner can hold, with a rest long enough to notice how they feel
+before the next round. The spec records the change and the reason.
+
+### Verified
+
+28 test groups pass. **The gate was accepted on the real signed-in account and
+`breathing_kapalabhati_ack` confirmed `true` in the live database** — the first
+phase-3 screen exercised signed in. A round was watched end to end in the
+harness: the counter stepping 1/20 to 20/20, the rest counting down, round two
+counting again, and the log recording 40 breaths for two rounds. The orb's own
+transform was sampled while it ran and swings exactly between `PUMP_LOW` and
+`PUMP_HIGH`. `BREATHE-SPEC.md` section 18.3 has the detail.
+
+**What this found:** two screens describing pumps as "breaths".
+
 ## Known gaps
 
 - **Signed in: partly closed.** On 2026-09-12 Dhananjay practised on localhost
@@ -595,12 +677,24 @@ last step still claimed "All 2 steps"; it now says "2 of 2".
   than sending you somewhere wrong.
 - **A routine's length is not adjustable.** That is the point of it being a
   routine, but it means a five-minute Downshift cannot be made three.
-- Phase 3 is partly built. Still to come: Kapalabhati behind a safety
-  confirmation (3c), a signature shape per practice (3b), and the seven-day
-  journey (3d). Recorded voice clips are deliberately not in this phase —
-  `BREATHE-SPEC.md` §16.5 says why and what it needs from Dhananjay.
+- **Kapalabhati's tempo is a judgement call.** Twenty pumps at one a second is
+  a conservative reading of how it is taught; nobody has yet done a round on a
+  real device and said whether the knocks are followable or the pulse is a
+  flicker. Checklist items 22-27 in `BREATHE-SPEC.md` cover it.
+- **A pumping practice cannot be retimed**, by design, so someone who wants
+  thirty pumps cannot have them.
+- Phase 3 is partly built. Still to come: a signature shape per practice (3b)
+  and the seven-day journey (3d). Recorded voice clips are deliberately not in
+  this phase — `BREATHE-SPEC.md` §16.5 says why and what it needs from
+  Dhananjay.
 
 ## Change log
+
+- **2026-09-12, phase 3c.** Kapalabhati, on `breathe/kapalabhati`: the `pump`
+  and `rest` phase kinds, lengths chosen in rounds, a knock per pump, and the
+  one-time safety confirmation. Migration `20260916090000_breathe_kapalabhati`
+  applied. The gate was accepted signed in and confirmed in the database. Fixed
+  while testing: two screens counting pumps as "breaths".
 
 - **2026-09-12, phase 3a.** Routines, on `breathe/routines`: four seeded
   sequences, the hand-off between steps, one session with a log per step, and

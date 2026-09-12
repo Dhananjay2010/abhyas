@@ -10,6 +10,7 @@ import {
   INTENTS,
   LEVEL_LABEL,
   draftFrom,
+  needsConfirming,
   secondsLabel,
   sessionSearch,
   type BreathingPrefs,
@@ -96,9 +97,15 @@ export function PracticeSetup({
   const [prefError, setPrefError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [, startTransition] = useTransition();
+  // Kapalabhati is the one practice here that can genuinely make someone
+  // faint, so it asks once, ever, before it will open (decision Q4).
+  const [confirmed, setConfirmed] = useState(
+    () => !needsConfirming(pattern.phases) || prefs.kapalabhatiAck,
+  );
 
   const seconds = Math.round(cycle.seconds * cycles);
   const breaths = cycles * cycle.breaths;
+  const pumping = needsConfirming(pattern.phases);
   const minutes = Math.max(1, Math.round(seconds / 60));
   const atCap = pattern.maxCycles !== null && cycles >= pattern.maxCycles;
 
@@ -130,6 +137,19 @@ export function PracticeSetup({
       })}`,
     );
   };
+
+  if (!confirmed) {
+    return (
+      <SafetyGate
+        pattern={pattern}
+        basePath={basePath}
+        onAccept={() => {
+          setConfirmed(true);
+          remember({ kapalabhatiAck: true });
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -217,7 +237,10 @@ export function PracticeSetup({
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-sm font-medium">How long?</h2>
           <span className="text-xs tabular-nums text-muted">
-            {breaths} {breaths === 1 ? "breath" : "breaths"} · {formatClock(seconds)}
+            {/* A pumping practice counts its pumps. They are breaths, but
+                "60 breaths" beside "3 rounds" only raises the question. */}
+            {breaths} {pumping ? (breaths === 1 ? "pump" : "pumps") : breaths === 1 ? "breath" : "breaths"} ·{" "}
+            {formatClock(seconds)}
           </span>
         </div>
         <div role="radiogroup" aria-label="Length" className="mt-2 flex gap-1 rounded-xl bg-surface-2 p-1">
@@ -323,13 +346,17 @@ export function PracticeSetup({
       </button>
 
       {/* Remounts when the saved timings change, so the editor always opens on
-          what is actually saved. */}
-      <TimingSection
-        key={JSON.stringify(pattern.phases)}
-        pattern={pattern}
-        basePath={basePath}
-        actions={actions}
-      />
+          what is actually saved. Not offered for a practice that pumps: its
+          rounds are what they are, and a hand-set pump length is exactly the
+          change this practice should not make easy. */}
+      {!pumping && (
+        <TimingSection
+          key={JSON.stringify(pattern.phases)}
+          pattern={pattern}
+          basePath={basePath}
+          actions={actions}
+        />
+      )}
 
       {pattern.why && (
         <section className="mt-10">
@@ -347,6 +374,88 @@ export function PracticeSetup({
           )}
         </section>
       )}
+    </>
+  );
+}
+
+/**
+ * The one-time safety confirmation before Kapalabhati (decision Q4).
+ *
+ * A screen of its own rather than a note you can scroll past, because this is
+ * the only practice here with a real list of people who should not do it. It
+ * asks once and is remembered; "Not now" goes back rather than leaving you on
+ * a page you cannot use.
+ */
+function SafetyGate({
+  pattern,
+  basePath,
+  onAccept,
+}: {
+  pattern: Pattern;
+  basePath: string;
+  onAccept: () => void;
+}) {
+  return (
+    <>
+      <Link
+        href={basePath}
+        className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-fg"
+      >
+        <Icon.Back /> Breathe
+      </Link>
+
+      <section className="mt-8">
+        <p className="text-[11px] font-semibold tracking-wider text-amber-300 uppercase">
+          Before you try this one
+        </p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight">{pattern.name}</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted">
+          {pattern.description}
+        </p>
+      </section>
+
+      <div
+        role="note"
+        className="mt-6 rounded-xl border border-amber-400/30 bg-amber-400/10 px-5 py-4 text-sm leading-relaxed text-amber-100"
+      >
+        <div className="flex gap-3">
+          <Icon.Caution className="mt-0.5 shrink-0 text-amber-300" />
+          <div>
+            <p className="font-semibold">Do not do this practice if you are:</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>pregnant</li>
+              <li>living with high blood pressure or a heart condition</li>
+              <li>living with epilepsy or glaucoma</li>
+              <li>recovering from abdominal surgery, or have a hernia</li>
+              <li>on a full stomach</li>
+            </ul>
+            <p className="mt-3">
+              Sit upright, never lying down and never while driving. If you feel dizzy, tingly
+              or light-headed, <strong>stop and breathe normally</strong>. That is the signal to
+              stop, not to push through.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-sm leading-relaxed text-muted">
+        Every other practice here slows you down. This one does the opposite, which is why it
+        asks first. You will only be asked once.
+      </p>
+
+      <button
+        type="button"
+        onClick={onAccept}
+        className="mt-8 w-full rounded-xl bg-accent px-6 py-5 text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+      >
+        I have read this — continue
+      </button>
+      <Link
+        href={basePath}
+        className="mt-3 block rounded-xl border border-border px-6 py-4 text-center font-medium text-muted transition-colors hover:text-fg"
+      >
+        Not now
+      </Link>
     </>
   );
 }

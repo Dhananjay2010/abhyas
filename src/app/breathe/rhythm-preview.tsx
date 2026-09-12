@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { buildCycle, type BreathPhase } from "@/lib/breathing/engine";
+import { buildCycle, positionAt, type BreathPhase } from "@/lib/breathing/engine";
 import { ORB_BG } from "@/lib/breathing/theme";
 import { usePrefersReducedMotion } from "./use-media";
 
@@ -31,11 +31,29 @@ export function RhythmPreview({
   useEffect(() => {
     const el = ref.current;
     if (!el || reduced || typeof el.animate !== "function") return;
-    const frames: Keyframe[] = cycle.phases.map((p) => ({
-      offset: p.offset / cycle.seconds,
-      transform: `scale(${scaleFor(p.from)})`,
-      easing: p.kind === "hold" ? "linear" : "ease-in-out",
-    }));
+    const frames: Keyframe[] = [];
+    for (const p of cycle.phases) {
+      // A pump phase is not a journey from one size to another, so one
+      // keyframe at its start would show Kapalabhati as a slow drift -- which
+      // is the opposite of what it is. Sampled twice a pump instead, through
+      // the engine, so the preview pumps the way the practice does.
+      if (p.kind === "pump") {
+        for (let k = 0; k < p.pumps * 2; k++) {
+          const at = p.offset + k / (2 * p.rate);
+          frames.push({
+            offset: Math.min(1, at / cycle.seconds),
+            transform: `scale(${scaleFor(positionAt(cycle, 1, at).size)})`,
+            easing: "ease-in-out",
+          });
+        }
+        continue;
+      }
+      frames.push({
+        offset: p.offset / cycle.seconds,
+        transform: `scale(${scaleFor(p.from)})`,
+        easing: p.kind === "hold" || p.kind === "rest" ? "linear" : "ease-in-out",
+      });
+    }
     frames.push({
       offset: 1,
       transform: `scale(${scaleFor(cycle.phases[cycle.phases.length - 1].to)})`,

@@ -1,6 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import { buildCycle, cyclesForMinutes, lengthLabel, type Cycle } from "./engine";
-import { INTENTS, type Intent, type Pattern } from "./pattern";
+import { INTENTS, needsConfirming, type Intent, type Pattern } from "./pattern";
 
 type RoutineRow = Database["public"]["Tables"]["breathing_routines"]["Row"];
 
@@ -114,6 +114,10 @@ export function resolveRoutine(routine: Routine, patterns: Pattern[]): ResolvedR
   for (const step of routine.steps) {
     const pattern = patterns.find((p) => p.kind === "builtin" && p.slug === step.slug);
     if (!pattern) return null;
+    // A practice behind a safety confirmation cannot be a step. A routine runs
+    // straight through without asking, which is exactly what that confirmation
+    // exists to prevent.
+    if (needsConfirming(pattern.phases)) return null;
 
     const cycle = buildCycle(pattern.phases);
     const cycles =

@@ -1,13 +1,12 @@
 # BREATHE-SPEC.md — the Breathe tab
 
-**Status:** Phase 1 (the tab and the practice), phase 2a (sound) and phase 2b
-(your own timings, your own practices, the suggestion, what works for you, and
-four more practices) are built and verified. **Phase 2 is complete**; only
-phase 3 remains. The sound modes and the phase 2b screens still want a look on
-a real phone (section 13).
-**Branches:** `feature/breathe-tab` off `main`, then `breathe/sound` stacked on
-it, because phase 1 is not merged yet. To review the sound work on its own,
-diff `breathe/sound` against `feature/breathe-tab`.
+**Status:** Phases 1, 2a, 2b and **3a (routines)** are built, verified and on
+`main`. **3c (Kapalabhati)** is built and awaiting merge. Still open: 3b, a
+signature shape per practice, and 3d, the seven-day journey; recorded voice
+clips are deliberately excluded and 16.5 says why. Most of this still wants a
+look on a real phone (section 13).
+**Branches:** phases 1 and 2 merged as `d26d898`, phase 3a as `f77a64d`. Phase
+3c is on `breathe/kapalabhati`, cut from `main`.
 **Scope:** The breathing section only. Other screens are touched only where
 breathing data shows up in them, and each of those was a decision (section 9).
 **Implementation record:** [context/16-breathe-tab.md](context/16-breathe-tab.md)
@@ -258,10 +257,11 @@ practices. Section 15 has the detail. **Phase 2 is now complete.**
 **Phase 3 — in progress (branch `breathe/routines`).** Designed in section 16,
 in this build order:
 
-  - **3a** Routines — 16.1
-  - **3b** A signature shape per practice — 16.2
-  - **3c** Kapalabhati behind a safety confirmation — 16.3
-  - **3d** A seven-day "Breath foundations" journey — 16.4
+  - **3a** Routines — 16.1. **Done**; section 17.
+  - **3c** Kapalabhati behind a safety confirmation — 16.3. **Done**;
+    section 18.
+  - **3b** A signature shape per practice — 16.2. Open.
+  - **3d** A seven-day "Breath foundations" journey — 16.4. Open.
   - Recorded voice clips — **not in this phase**; 16.5 says why, and what it
     needs from you
 
@@ -619,6 +619,26 @@ matter most:**
 21. Rate a routine at the end, twice on different days. It should appear in
     "What works for you" under the routine's name.
 
+**And for Kapalabhati (phase 3c). This one is worth doing carefully:**
+
+22. **The gate is waiting for you.** It was accepted once from here while
+    testing, then set back to `false` so you would see it yourself — so
+    `/breathe/kapalabhati` should open on the safety note and offer no Start
+    button until you accept it. To see it again after that, set
+    `breathing_kapalabhati_ack` back to `false` in `user_settings`.
+23. **One round only, the first time.** Sit upright. The count should step
+    `1 / 20` to `20 / 20` at one a second, with a knock on each — this is the
+    part only a real device can judge: the knocks must be audible over your own
+    breathing without being sharp, and the orb's pulse must be followable
+    rather than a flicker.
+24. During the rest, the orb should hold still while the ring around it fills.
+    If the orb pulses here, something is wrong: nothing is pacing you.
+25. Try it with **Voice**. The knocks should keep playing, with "Pumping. Sharp
+    out through the nose" said once at the top of the round.
+26. History should read "Kapalabhati", with 20 breaths for one round.
+27. If you feel dizzy, stop — and tell me, because the seeded tempo is a
+    judgement call I would rather revise than defend.
+
 ---
 
 ## 14. Phase 2a — sound, as built
@@ -838,8 +858,15 @@ individually anyway — it sets a tempo and you follow. So two new phase kinds:
 - `rest` — breathe normally for *s* seconds. Like a hold, but the shape idles
   rather than freezing.
 
-Kapalabhati is then `[pump 30 s at 1.5/s, rest 30 s]`, three rounds. The two
-kinds are additive: every existing pattern is untouched.
+Kapalabhati is then `[pump, rest]`, three rounds. The two kinds are additive:
+every existing pattern is untouched.
+
+**Built gentler than this sketch said.** The numbers above were `pump 30 s at
+1.5/s, rest 30 s`. What shipped is **20 pumps at one a second, then 40 seconds
+of rest**, three rounds — three minutes in all. This is the one practice here
+that can genuinely make someone faint, and the conservative version is a tempo
+a beginner can actually hold with a rest long enough to notice how they feel
+before the next round. Section 18 records it as built.
 
 **The confirmation** is shown once, before the first Kapalabhati ever, and
 remembered. It names who should not do it — pregnancy, high blood pressure,
@@ -963,6 +990,97 @@ and clicked through scripted `.click()` calls rather than real pointer events.
 So the component logic, the state machine and the payloads are proven; **the
 motion itself, and real taps, are not.** That is on the phone checklist.
 
+## 18. Phase 3c — Kapalabhati, as built
+
+### 18.1 What changed for you
+
+- **Kapalabhati is there**, eleventh in the list, marked Advanced, and the
+  first practice behind the **Energy** chip — which until now had nothing.
+- **It asks once, before it will open.** A screen of its own naming who should
+  not do it, with "I have read this — continue" and "Not now". Answered once
+  and remembered; it never asks again.
+- **It is chosen in rounds**, not minutes and not breaths: 1, 2 or 3. Three
+  rounds is three minutes.
+- **A round pumps and then rests.** Twenty pumps at one a second, counted on
+  screen as `12 / 20`, with a short knock on each. Then forty seconds of
+  breathing normally: the orb holds still, because nothing is pacing you, and
+  the ring around it fills until the next round.
+- **Its timings cannot be edited**, unlike every other practice.
+
+### 18.2 How it is put together
+
+Two new phase kinds in `src/lib/breathing/engine.ts`:
+
+| Kind | What it is |
+|---|---|
+| `pump` | *n* breaths a second for *s* seconds, as **one** phase. Twenty pumps as forty phases would pass the twenty-four a pattern may have — and the app does not pace each pump anyway, it sets a tempo you follow |
+| `rest` | Breathing normally for *s* seconds. Not a hold: nothing is held, and the screen must not animate as though it were pacing you |
+
+A pump is the only phase that does not simply travel from one size to another:
+`positionAt` gives it an oscillation at its own rate, starting high and
+snapping down, because the first movement of a pump is the forceful exhale.
+`pumpAt` says which pump is happening, which is what the counter shows.
+
+The knock per pump is `schedulePumps` in `audio.ts` — a dry 147 Hz tick, the
+whole round scheduled in one call on the audio clock so the tempo never
+drifts. It plays in **every** sound mode, including voice: the knocks are the
+tempo, not decoration, and no voice can count at one a second. A rest is
+silent on purpose.
+
+Three places had to be told this practice is different:
+
+1. **Length** is chosen in rounds (`lengthPlan`), with no custom option.
+2. **The rhythm preview** samples the engine twice a pump, so the little orb on
+   the card actually pumps instead of drifting.
+3. **`resolveRoutine` refuses a routine containing it.** A routine runs
+   straight through without asking, which is exactly what the confirmation
+   exists to prevent. No seeded routine uses it; this is a guard, not a fix.
+
+The confirmation is `user_settings.breathing_kapalabhati_ack` — a column, not a
+table, because there is one practice that needs it and inventing a table would
+be pretending otherwise. Migration `20260916090000_breathe_kapalabhati.sql`,
+applied 2026-09-12.
+
+**`pump` and `rest` stay ours.** `validatePatternDraft` still accepts only
+inhale, hold and exhale, so a practice you build yourself cannot contain them,
+and the timing editor is not offered for a practice that pumps.
+
+### 18.3 Verified
+
+- **Unit tests:** 28 groups, all passing. The new ones cover the round's shape
+  (two phases, not forty; twenty breaths; a minute long), the oscillation
+  (high at the top of each second, lowest half way through, back up a second
+  later), the pump counter including its upper bound, the rest easing down
+  without ever rising, rounds as the unit end to end, parsing (an absurd rate
+  dropped, a rate on a non-pumping phase ignored, a rest alone still refused),
+  the four-slot rule for your own practices, the acknowledgement as a boolean
+  preference, the seeded phases read straight out of the migration file, and
+  the routine guard.
+- **Signed in, on the real account** — the first time a phase-3 screen has
+  been: `/breathe` listing Kapalabhati as "3 rounds · Skull-shining breath ·
+  Energy" with all four routines still resolving; `/breathe/kapalabhati`
+  opening on the gate with no Start button; accepting it revealing the setup;
+  **`breathing_kapalabhati_ack` confirmed `true` in the live database**; a
+  reload no longer gated; and the session route opening on "Sharp out through
+  the nose".
+- **In the harness, a round watched end to end:** the counter stepping 1/20 to
+  20/20, then "Breathe normally" counting 10 down to 1, then round two counting
+  1/20 again; the ending recording `cycles: 2, breaths: 40, seconds: 30`. The
+  orb's own transform was sampled while it ran: it swings between 0.55 and 0.71
+  with 34 turning points, which is exactly `PUMP_LOW`–`PUMP_HIGH` through the
+  painter. The rhythm preview's animation has 42 keyframes over 60 seconds, so
+  it pumps rather than drifts.
+- **Production build** compiles.
+
+**Two wording fixes this found.** The setup screen read "60 breaths" beside
+"3 rounds", and the ending read "40 breaths"; both now say pumps, the same word
+the round itself uses.
+
+**Still the hidden-pane caveat** from 17.3: the Browser pane was hidden, so
+`requestAnimationFrame` was shimmed and clicks were scripted. The counter, the
+sizes and the payloads are real; the motion at full speed and real taps are
+yours to confirm.
+
 ## Change log
 
 - **2026-09-11** — Draft: review of the current section (7 bugs, 13 experience
@@ -1001,3 +1119,14 @@ motion itself, and real taps, are not.** That is on the phone checklist.
   applied. Section 17 has the detail. Fixed during testing: a step written in
   breaths displayed in seconds, and an ending that claimed "All 2 steps" after
   being cut short.
+- **2026-09-12** — Phase 3a merged to `main` and pushed (`f77a64d`).
+- **2026-09-12, phase 3c** — **Kapalabhati built**, on branch
+  `breathe/kapalabhati`: two new phase kinds (`pump` and `rest`), a length
+  chosen in rounds, a knock on every pump, and the one-time safety confirmation
+  agreed as decision Q4. Seeded gentler than section 16.3 sketched — twenty
+  pumps at one a second with a forty-second rest — and 16.3 now says why.
+  Migration `20260916090000_breathe_kapalabhati` applied. Section 18 has the
+  detail. **The gate was accepted on the real signed-in account and the
+  acknowledgement confirmed in the live database**, which is the first phase-3
+  screen exercised signed in. Fixed during testing: two screens counting pumps
+  as "breaths".

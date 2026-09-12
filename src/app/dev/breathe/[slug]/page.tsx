@@ -8,6 +8,9 @@ import { SetupPreview } from "../previews";
  *
  *   ?fresh=1   never practised anything: the safety note shows
  *   ?last=11   done this pattern before, at 11 cycles
+ *   ?ack=1     you have already accepted the Kapalabhati safety note, so its
+ *              gate is skipped. Without it, /dev/breathe/kapalabhati opens on
+ *              the gate, which is what a first visit looks like.
  */
 export const dynamic = "force-dynamic";
 
@@ -29,7 +32,7 @@ export default async function DevPracticePage({
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <SetupPreview
         pattern={pattern}
-        prefs={PREFS}
+        prefs={{ ...PREFS, kapalabhatiAck: search.ack === "1" }}
         lastCycles={Number.isInteger(last) && last > 0 ? last : null}
         firstPractice={search.fresh === "1"}
       />
