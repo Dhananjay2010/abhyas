@@ -40,7 +40,7 @@ insert into breathing_patterns
    array[
      'Sit upright, somewhere you could stay for a few minutes. Do not do this lying down.',
      'Rest a hand on your belly. Breathe in to about half full.',
-     'Pull the belly sharply in to push the air out through your nose. The breath in after it happens on its own -- do not help it.',
+     'Pull the belly sharply in to push the air out through your nose. The breath in after it happens on its own — do not help it.',
      'Follow the screen: one pump a second, twenty a round.',
      'Between rounds, breathe normally and do nothing. That rest is part of the practice, not a gap in it.',
      'If you feel dizzy or tingly, stop. That is the signal to stop, not to push on.'

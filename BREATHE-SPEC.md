@@ -1417,14 +1417,47 @@ created and then deleted, and the course progress row was removed so day one is
 still yours to do. Preferences, the Kapalabhati acknowledgement and the four
 older logs were verified unchanged against a snapshot taken before the run.
 
-### 21.4 The one thing deliberately not done
+### 21.4 Kapalabhati, run signed in (2026-09-13)
 
-**The Kapalabhati gate has never been accepted from here.** It is a statement
-about your own health — pregnancy, blood pressure, a heart condition — and
-tapping "I have read this" on your behalf is not something I should do, even
-though I could reset the flag afterwards. So the practice behind it is verified
-in the harness and in SQL but has never been run signed in. Checklist items
-22-27 are still yours. Say the word and I will run it and reset the flag.
+You asked for this one to be tested and the flag put back, so it was.
+
+| Step | Result |
+|---|---|
+| **"Not now"** | Returns to the Breathe tab and leaves `breathing_kapalabhati_ack` **false** — the gate is not spent by looking at it |
+| **"I have read this — continue"** | Opens the setup screen, which is the only way past it |
+| Setup | "Pump 20s / Rest 40s", **Advanced · Energy**, the full contraindication list, the six-step how-to, and a length chosen in **rounds** (1, 2, 3) with "That is as many as this practice allows in one go." |
+| One round | **The count stepped one a second, exactly**: 11/20 at 0.6s, 12/20 at 1.6s, on to 20/20 at 9.6s, then "Breathe normally. 40 seconds." with the count gone |
+| The rest | `from = 0.5, to = 0.32` over forty seconds — a drift, not a pulse and not a freeze, which is what §16.3 asked for |
+| Ending | **"1:00 · 20 pumps · Kapalabhati"** — pumps, not breaths |
+| The row | `cycles=1/1 breaths=20 seconds=60 ended_early=false` |
+
+**One bug found, and only visible in the live list:** History showed
+"Kapalabhati · 1:00 · **20 breaths**". The ending screen and the detail page
+both said "pumps"; the list could not, because it had the practice's name but
+not its phases. Fixed by asking the existing embed for `phases` too. A routine
+is excluded explicitly: it can never contain a gated practice, and its pattern
+link points at its first step, so it would have taken the wrong word from it.
+
+**And one more literal `--`**, in Kapalabhati's how-to — "the breath in after it
+happens on its own -- do not help it". Same slip as the course text, same fix
+(`20260919090000_kapalabhati_dash.sql`), and the database was then swept for
+every other seeded field: **zero left**.
+
+**What could not be tested.** The knocks. Item 23's real question is whether
+they are audible over your own breathing without being sharp, and whether the
+pulse is followable rather than a flicker at full speed. Neither survives a
+backgrounded tab. **The tempo is still a judgement call I would rather revise
+than defend** — if twenty at one a second feels fast, say so.
+
+**Put back afterwards:** the session and its log were deleted and
+`breathing_kapalabhati_ack` was set to **false**, so the gate is waiting for
+you exactly as it was.
+
+### 21.5 What still cannot be tested from here
+
+**Kapalabhati was tested on 2026-09-13, at your request, and the flag reset.**
+Section 21.4 records it. The gate is back to unaccepted, so checklist item 22
+still works as written.
 
 **The shapes at full speed, and anything about a real phone.** The Chrome tab
 is background-throttled exactly like the in-app pane — `requestAnimationFrame`
@@ -1523,3 +1556,14 @@ vibration, or the wake lock. That is what section 13's checklist is for.
   only the first. Also confirmed: the local date is the user's, not UTC's
   (recorded at 02:20 IST); a routine writes one session with a log per step;
   and `?day=2` is refused by the server, not just hidden in the UI.
+
+- **2026-09-13, later** — **Kapalabhati tested signed in at your request, and
+  the flag reset afterwards.** Section 21.4. The count steps exactly one a
+  second (measured 11/20 through 20/20 at 1.0s intervals), the ending says
+  "20 pumps", and the row reads 1/1 rounds. **Two more fixes:** History called
+  a Kapalabhati session "20 breaths" because the list had the practice's name
+  but not its phases, and Kapalabhati's how-to carried one more literal `--`
+  (migration `20260919090000_kapalabhati_dash`). Every seeded field in the
+  database was then swept: no literal double hyphens left anywhere. What the
+  knocks sound like, and whether the pulse is followable at full speed, are
+  still yours — checklist items 23 and 25.
