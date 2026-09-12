@@ -195,3 +195,234 @@ pattern, and the app told me Flutter Kicks was a "Compound pull movement
 targeting glutes."
 
 Not fixed: this is a data-curation pass over 604 rows, not a code change.
+
+---
+
+## Medium
+
+### M1 — Isometric exercises are prescribed and logged in reps
+
+Today's plan contained **Plank — 2 sets × 8–12 reps**, with a Reps field, a
+Weight (kg) field and the prompt "Enter the reps you did." There is no way to
+record a 45-second hold, so the user has to invent a number, and that invented
+number then drives progression.
+
+The schema has no concept of a timed exercise — `exercises` has sets, reps and
+rest, and nothing else. At least sixteen catalogue entries are holds or carries
+by name (Plank, Side Bridge, Isometric Chest Squeezes, Isometric Wipers, the
+neck isometrics, the glute bridges), and every one of them gets a rep target.
+
+Needs a `metric` column (`reps` | `seconds`) on `exercises`, a seconds input in
+the runner, and `session_sets` to carry duration. Not a small change, so not
+attempted here.
+
+### M2 — The warm-up ignored the equipment list  *(fixed)*
+
+The first warm-up item of my session was **"Easy stationary bike · 5 min"** for
+a user whose entire equipment list was a yoga mat — directly contradicting the
+line on the equipment screen, "We never suggest an exercise you have no
+equipment for."
+
+`selectWarmup` declares `availableEquipment: Set<string> | null` in its input
+type and the caller in `session/[id]/page.tsx` builds it correctly, but the
+function never destructures it. The cardio choice was made from `track` alone,
+so every weights user got the bike first.
+
+**Fixed** in `warmup.ts`: a slug → equipment map (`easy-bike` →
+`stationary_bike`, `easy-row` → `rowing_machine`, `skipping-light` →
+`jump_rope`) now filters the preference list. Brisk walk and marching in place
+need nothing, so there is always a fallback.
+
+### M3 — A settings write can report success while changing nothing  *(fixed)*
+
+`updateSessionSettings` did a plain `.update()` on `user_settings`. PostgREST
+treats an update matching zero rows as success, so the action returned `ok`,
+the toggle moved on screen, and the change was gone on the next load with no
+error shown anywhere.
+
+**How I hit it, honestly:** my own reset script deleted the `user_settings`
+row, and nothing in the app recreates it — the row is only ever created by the
+`on_auth_user_created` trigger, which fires on signup. So a genuine new user
+does **not** hit this. What the episode exposes is real anyway: the app assumes
+a row that no code path guarantees, and when the assumption breaks it fails
+silently rather than loudly. Every "During a session" setting **and every
+Breathe preference** were affected, because `breathe/actions.ts` wrote the same
+way.
+
+Confirmed by contrast, live: with the row missing, "Session length 45m" (a
+`profiles` write) persisted across a reload while "Log every set" and the
+weigh-in reminder (both `user_settings` writes) reverted every time.
+
+**Fixed**: both `settings/actions.ts` and `breathe/actions.ts` now `upsert`
+on `user_id`. You still need to run `restore-user-settings.sql` once for your
+own account, since the fix is not deployed yet.
+
+### M4 — Abandoning a session leaves a junk row, and starting again makes another
+
+`startSession` reuses an existing session only when its status is `planned` or
+`in_progress`. `abandonSession` sets it to `skipped`, which is in neither list,
+so the next "Start session" inserts a **new** row for the same `local_date`.
+Today then shows "Start session" again, because `strengthDone` only looks for
+`completed`.
+
+Start → exit → start → exit leaves one "Skipped" entry in History per attempt.
+Your pre-reset History had exactly this: **four identical "Push · Thu 10 Sept ·
+Skipped" rows**, which is what led me to the code path. I could not re-trigger
+it after the reset because a completed session for today blocks a restart.
+
+### M5 — The session summary is missing what the spec promises
+
+SPEC §7 says the summary shows "duration, total volume, PRs hit". It shows
+Time, Sets logged, Exercises, and Total volume **only when volume > 0** (so a
+bodyweight session correctly hides it — that part is right). **PRs are not
+shown at all**, even though `exercise_progress.best_weight_kg` and `best_e1rm`
+are maintained on every set.
+
+The **"What about tomorrow?" prompt is absent entirely** — *keep the plan ·
+swap the day · rest*, which SPEC §7 calls "what makes the plan feel like
+yours", along with its "if a day is missed, the same prompt appears on next
+open". Searching the whole app for it finds hits only inside Breathe. The
+session ends at "Back to Today".
+
+### M6 — Rest days offer nothing, and cannot be overridden
+
+SPEC §8: "The engine schedules them, the user overrides them. A rest day still
+shows options: full rest, active recovery (mobility flow), yoga, or meditation.
+Nothing is forced."
+
+What a rest day actually renders is one sentence — "Nothing scheduled. Rest
+properly, or do something light." — plus the Yoga and Breathing links that
+appear on every day anyway. There is no active-recovery flow (the
+`active_recovery` day type exists in the schema and is never produced or
+offered) and no way to say "I want to train today".
+
+This is the **first screen a new user sees** if they sign up on a rest day,
+which is what happened to me: onboarding finished on a Sunday, and the app's
+opening move was "Nothing scheduled."
+
+### M7 — Session length is a setting that does nothing
+
+Settings offers 30m / 45m / 60m / 75m and stores `preferred_session_minutes`.
+Nothing reads it: the only references in the whole of `src/` are the Settings
+page writing it and reading it back. The generator does not consult it, so the
+number of exercises and sets is identical at 30m and 75m.
+
+Related: the session promises "15 min warm-up" on Today, while the warm-up it
+builds is 5 + 1 + 1 + 1 + 1 = **9 minutes**, and there is no ramp-up-sets phase
+(SPEC §7's third warm-up component). A beginner on general fitness gets 2 sets
+per exercise, so the whole "one hour" framing — the app's defining constraint —
+is not enforced anywhere.
+
+### M8 — Warm-up and cool-down items have no timer, and the cool-down is the warm-up again
+
+Each warm-up screen states a duration ("5 min", "1 min") and nothing counts it
+down; the only clock is total elapsed. SPEC §7 describes the session as
+"screen-by-screen, timer-driven", and the rest timer between sets is the only
+timer that exists.
+
+The cool-down is worse: it renders `warmup.filter(w => w.phase === "mobility")`
+— literally the same four items the user did as their warm-up — under the
+instruction "Hold each for about 30 seconds". Mine listed Bodyweight squat,
+Walking lunge, Cat-cow and Glute bridge, none of which is a static stretch and
+none of which can be held for 30 seconds. There is no stretch data to draw on:
+`warmup_exercises` is seeded with `cardio`, `mobility` and `prehab` only.
+
+### M9 — The block number increments on every rebuild
+
+`createBlockForUser` sets `blockNumber = (last block_number ?? 0) + 1` and runs
+on every "Rebuild this block" and every goal / level / days / equipment change,
+each time also resetting `started_on` to today. Three settings changes during
+this session took a brand-new account from "Block 1" to "Block 3"; your
+pre-reset account was showing **"Block 23 · Week 1 of 4"**, implying 92 weeks
+of training.
+
+SPEC §6 increments the block at the end of four weeks. A rebuild is a
+re-plan of the current block, not a new one.
+
+---
+
+## Low
+
+- **"Full body, 1 times a week"** *(fixed)* — the yoga-days step offered
+  "Full body, 2 times a week" and "Full body, 1 times a week" next to a
+  correctly worded "Full body, three times a week". `SPLIT_BY_DAYS` had no
+  entries for 1 and 2, so the template fallback showed through. Added both.
+- **"Best streak · 1 sessions"** *(fixed)* — Progress pluralised the current
+  streak correctly and hard-coded `sub="sessions"` for the best one.
+- **Progression messages say "weight" for bodyweight work** — "Staying at this
+  weight until every set reaches the top of the range" appeared for Single Leg
+  Butt Kick and for Plank, neither of which has a weight.
+- **Injury severity toggles have no `aria-pressed`** — every other toggle in
+  `settings-form.tsx` has one. The Current/Past pair is styled-only, so a
+  screen reader cannot tell which is selected.
+- **Undoing a set leaves the rest timer running** — arguably it should stop,
+  since the set it was resting from no longer exists. (The panel no longer
+  freezes after H1, but it does keep counting.)
+- **Today still lists the original plan after a session** — after completing a
+  session in which I swapped Double Leg Butt Kick for Bodyweight Squat, Today
+  showed "Session complete. Well done." above the *unmodified* original five
+  exercises, including the one I swapped away.
+- **A progression banner persists onto later exercises** — "Bodyweight Squat:
+  Every set at the top of the range…" was still on screen two exercises later.
+- **No way to see any day but today** — Today lists the week as labels only.
+  A new user who lands on a rest day cannot look at what the week holds.
+- **Cold loads are slow** — a warm Today renders in ~370 ms and all six routes
+  answered in 115–200 ms when measured directly, but the first load after a
+  cold function sat on "Loading today's plan…" for well over ten seconds. The
+  bottom nav prefetches all five tabs on every page, so each visit fans out
+  into four extra RSC renders, each re-running that route's queries.
+
+---
+
+## Checked and healthy
+
+- **Access control.** `/history/<someone-else's-uuid>`, `/session/<unknown>`
+  and `/history/not-a-uuid` all return a clean 404 — no leak, and a malformed
+  UUID does not reach Postgres as a cast error.
+- **Onboarding validation**, end to end: under-16 and future dates of birth,
+  height 320 cm, weight 600 kg, and a disabled Continue on every unanswered
+  step.
+- **Set logging**: 0 reps, negative weight, 999 reps and 99999 kg all rejected
+  with specific messages; triple-tapping "Log set" with a 1500 ms server delay
+  wrote exactly one set; every async control disables for the round trip.
+- **Undo** removes the set and restores the counter and the Swap button.
+- **Swap** offered six same-pattern alternatives and applied cleanly mid-session.
+- **Progression**, live: three sets at the top of the range produced "target
+  goes up to 14 reps" for a bodyweight movement; three sets below it produced
+  the hold message. Both match SPEC §6.
+- **History detail** is genuinely good — per-set rows, "swapped in", "skipped",
+  the per-exercise feel, and "—" for a session with no load.
+- **Body weight**: rejects 5 kg, upserts within the same day rather than
+  stacking entries, and the single-entry empty state reads well.
+- **Yoga**: nine playlists, the embed loads with its "Open on YouTube"
+  fallback and attribution, "I did this" advances the series and records
+  1 of 31, and it writes its own session that History shows separately.
+- **Days trained** counted 1 for a day with both a weights and a yoga session,
+  which is right.
+- **Settings → rebuild** shows the confirmation SPEC §13 asks for, and the
+  rebuilt plan reflected the change both times (4 → 6 days, then yoga mat →
+  full gym, which turned a Legs day of butt kicks and crunches into Hack Squat,
+  Cable Deadlifts, Step-up with Knee Raise, Standing Calf Raises and Crunches).
+- **Mobile layout** at 375 × 812: no horizontal overflow on the session,
+  settings, charts or onboarding screens; large type and full-width tap targets.
+- **Server health.** The Chrome extension's network panel reported a run of
+  503s on server actions. Vercel's own logs for the same window show 98× 200
+  and 2× 404 (a probe of mine) and **no 503 at all**, so that was an artefact
+  of the instrumentation, not the app. Worth recording so it is not chased
+  again.
+
+---
+
+## What I could not test
+
+- **Real iOS Safari** — wake lock, vibration, audio unlock and PWA install.
+  SPEC §15 calls this mandatory and it cannot be done from here. The session
+  screen surfaced `screen may sleep (Failed to execute 'request' on
+  'WakeLock': …)` throughout, which is expected for a background tab but means
+  the wake lock itself is still unverified on a phone.
+- **Resume, "End session early", per-set-logging off, and daily-menu mode** —
+  all need a session that can be started, and a completed session for today
+  blocks that. Worth a deliberate pass tomorrow.
+- **The Google OAuth screens**, since the browser was already signed in.
+- **Charts with real data** — every session I logged was bodyweight at 0 kg, so
+  volume stayed at 0 and no volume chart had anything to draw.
