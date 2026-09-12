@@ -1,12 +1,12 @@
 # BREATHE-SPEC.md — the Breathe tab
 
-**Status:** Phases 1, 2a, 2b and **3a (routines)** are built, verified and on
-`main`. **3c (Kapalabhati)** is built and awaiting merge. Still open: 3b, a
-signature shape per practice, and 3d, the seven-day journey; recorded voice
+**Status:** Phases 1, 2a, 2b, **3a (routines)** and **3c (Kapalabhati)** are
+built, verified and on `main`. **3b (a signature shape per practice)** is built
+and awaiting merge. Only 3d, the seven-day journey, remains; recorded voice
 clips are deliberately excluded and 16.5 says why. Most of this still wants a
 look on a real phone (section 13).
-**Branches:** phases 1 and 2 merged as `d26d898`, phase 3a as `f77a64d`. Phase
-3c is on `breathe/kapalabhati`, cut from `main`.
+**Branches:** phases 1 and 2 merged as `d26d898`, phase 3a as `f77a64d`, phase
+3c as `9d4ebed`. Phase 3b is on `breathe/shapes`, cut from `main`.
 **Scope:** The breathing section only. Other screens are touched only where
 breathing data shows up in them, and each of those was a decision (section 9).
 **Implementation record:** [context/16-breathe-tab.md](context/16-breathe-tab.md)
@@ -260,7 +260,7 @@ in this build order:
   - **3a** Routines — 16.1. **Done**; section 17.
   - **3c** Kapalabhati behind a safety confirmation — 16.3. **Done**;
     section 18.
-  - **3b** A signature shape per practice — 16.2. Open.
+  - **3b** A signature shape per practice — 16.2. **Done**; section 19.
   - **3d** A seven-day "Breath foundations" journey — 16.4. Open.
   - Recorded voice clips — **not in this phase**; 16.5 says why, and what it
     needs from you
@@ -639,6 +639,24 @@ matter most:**
 27. If you feel dizzy, stop — and tell me, because the seeded tempo is a
     judgement call I would rather revise than defend.
 
+**And for the shapes (phase 3b). These are the one thing a screenshot cannot
+settle:**
+
+28. Open the Breathe tab and look at the list. Every practice should have a
+    different silhouette breathing its own rhythm — a rounded square for the
+    box, a teardrop for 4-7-8 and the sigh, a pair of lobes for the two
+    alternate-nostril ones, a ringed circle for Bhramari.
+29. **Box Breathing.** The ring should draw one side of the square per phase
+    and close the box exactly as a cycle ends. This is the one to judge: if the
+    corners do not land on the phase changes, something is off.
+30. **Nadi Shodhana.** The lobe on the open side should be clearly brighter,
+    and both should be equal through a hold.
+31. **Bhramari.** Rings should spread outward while you hum and stop between
+    breaths.
+32. **Kapalabhati.** A flash on every pump, dark through the rest.
+33. Turn on Reduce Motion in iOS accessibility settings and do a minute. Nothing
+    should move: the shape should brighten and dim instead.
+
 ---
 
 ## 14. Phase 2a — sound, as built
@@ -838,6 +856,7 @@ returns:
 | Lobes, the open side lit | Nadi Shodhana, Anulom Vilom |
 | Ripples spreading outward | Bhramari |
 | Teardrop, weighted to the exhale | 4-7-8, Physiological Sigh |
+| A flash on every pump | Kapalabhati — added with 3c, after this table was written |
 
 A `shape` column on `breathing_patterns`, defaulting to `orb`, so a practice of
 your own and anything unrecognised keeps today's circle. The reduced-motion
@@ -1081,6 +1100,86 @@ the round itself uses.
 sizes and the payloads are real; the motion at full speed and real taps are
 yours to confirm.
 
+## 19. Phase 3b — a signature shape per practice, as built
+
+### 19.1 What changed for you
+
+Until now every practice was the same circle, so the screen told you nothing
+about which one you were doing. Each now has a shape that matches what it is:
+
+| Shape | Practices | What it does |
+|---|---|---|
+| **Square** | Box Breathing | The ring traces **one side per phase**, so a full cycle draws the box |
+| **Teardrop** | 4-7-8, Physiological Sigh | Round at the bottom, drawn to a point — the silhouette of a long exhale |
+| **Lobes** | Nadi Shodhana, Anulom Vilom | Two lobes breathing together, the open nostril lit and the closed one dimmed |
+| **Ripples** | Bhramari | Three rings spreading outward while you hum, still between breaths |
+| **Pulse** | Kapalabhati | A ring flashing on every pump, dark through the rest |
+| **Circle** | Coherent, Extended Exhale, Ujjayi, Sheetali, anything of yours | The smooth even ones, unchanged |
+
+The cards carry the **silhouette** too, so you can tell practices apart in the
+list before starting one.
+
+### 19.2 How it is put together
+
+`src/app/breathe/breath-shape.tsx` is one component with a `paint` handle.
+Everything is driven by the two numbers the engine already returns — the eased
+size and the progress through the phase — and written straight to the DOM from
+the frame callback, never through React. It replaced the orb `div` and the ring
+`svg` the session used to hold directly.
+
+Two details worth keeping:
+
+- **`pathLength={1}`.** The ring is normalised to a length of 1 whatever
+  outline it has, so the painter writes a fraction and never has to know a
+  circumference or measure a path. That is what lets a square ring and a circle
+  ring share one line of code.
+- **The square traces the cycle, not the phase.** `cycleProgress` is
+  `(phaseIndex + progress) / phaseCount`, so it sweeps once per cycle and
+  resets — and it still works if you switch a hold off and leave three phases.
+
+The shape is **content**: a `shape` column on `breathing_patterns`, defaulting
+to `orb`, so a practice seeded later can declare its own without the player
+changing, and anything unrecognised falls back to the circle. Migration
+`20260917090000_breathe_shapes.sql`, applied 2026-09-12. A practice of your own
+is always a circle — it is whatever you made it, and a silhouette would claim
+something about it that is not true.
+
+At card size none of the real drawing reads, so `RhythmPreview` carries the
+silhouette instead: a border radius per shape, a pair of lobes, a still ring
+for the hum. The rhythm it was already animating does the rest.
+
+### 19.3 Verified
+
+- **Unit tests:** 29 groups. The new one checks the six shapes are accepted,
+  that anything unknown, missing or of the wrong type falls back to the circle,
+  that your own practice is a circle, and reads the assignments **straight out
+  of the migration file** so the table above cannot drift from the database.
+- **Every shape driven in the browser and measured, not eyeballed:**
+  - **Square:** the ring swept `0.025 → 0.225 → 0.425 → 0.625 → 0.825` across
+    the four phases and reset — one side per phase, over the whole cycle.
+  - **Lobes:** sampled as a time series through a full Nadi Shodhana cycle.
+    Left phases `L=1.00 R=0.24`, right phases `L=0.24 R=1.00`, holds
+    `0.62/0.62` with neither favoured. (A first pass that recorded only the
+    last value per cue looked inverted; that was the one-sample overlap where
+    the painter has advanced and React has not re-rendered the words yet, not a
+    bug.)
+  - **Ripples:** three rings at staggered radii (83, 113, 142) with fading
+    opacities during the hum, all at zero on the inhale.
+  - **Pulse:** exactly 20 flashes in a 20-pump round, opacity 0 → 0.5, radius
+    104 → 130, and completely dark through the rest.
+  - **Silhouettes on the cards:** every one of the eleven practices measured —
+    `24%` for the box, `50% 50% 50% 0` for both teardrops, two lobes for both
+    alternate-nostril practices, a ring for Bhramari, `50%` for the rest.
+- **Reduced motion**, forced by overriding the media query: the shape held
+  `scale(0.84)` across all fifty samples and the breath came through opacity
+  instead, 0.35 to 1.0. Ripples and the pump flash stay off.
+- **Production build** compiles, and the now-unused `RING_R`/`RING_C` were
+  removed from the theme.
+
+**Still the hidden-pane caveat** from 17.3: the pane was hidden, so
+`requestAnimationFrame` was shimmed and clicks were scripted. Every number
+above is real; how the shapes *look* at full speed on a phone is yours.
+
 ## Change log
 
 - **2026-09-11** — Draft: review of the current section (7 bugs, 13 experience
@@ -1130,3 +1229,11 @@ yours to confirm.
   acknowledgement confirmed in the live database**, which is the first phase-3
   screen exercised signed in. Fixed during testing: two screens counting pumps
   as "breaths".
+- **2026-09-12** — Phase 3c merged to `main` and pushed (`9d4ebed`).
+- **2026-09-12, phase 3b** — **A signature shape per practice built**, on
+  branch `breathe/shapes`: a square traced one side per phase, teardrops, lobes
+  that light the open nostril, ripples for the hum, a flash per pump, and the
+  circle for the smooth ones. A `shape` column makes it content rather than
+  code. The cards carry the silhouette too. Migration
+  `20260917090000_breathe_shapes` applied. Section 19 has the detail, including
+  every shape measured in the browser rather than eyeballed.

@@ -230,7 +230,8 @@ All timings and cycle counts are **user-adjustable in Settings**. Animated expan
 > which is what this section asked for. Since 2026-09-12 there are also
 > **routines** — two to four practices run back to back inside one session
 > (Downshift, Wind Down, Morning, Reset) — and **Kapalabhati**, the one
-> practice gated behind a safety confirmation you are asked for once.
+> practice gated behind a safety confirmation you are asked for once. Each
+> practice also has **its own shape** on screen rather than a shared circle.
 
 ---
 
@@ -300,7 +301,7 @@ Media lives in a **separate `exercise_media` table** keyed to the exercise, carr
 **`exercise_media`** — exercise_id, type (`photo`|`gif`|`video_youtube`), url / youtube_id, position, attribution, licence
 **`exercise_substitutions`** — exercise_id, substitute_exercise_id, rank *(manual overrides; the default substitution list is computed from matching muscles + available equipment)*
 **`warmup_exercises`** — slug, name, target_regions, type (`cardio`|`mobility`|`prehab`), duration_seconds, media
-**`breathing_patterns`** — slug, name, inhale_s, hold_in_s, exhale_s, hold_out_s, default_cycles, benefit, contraindications; since 2026-09-12 also subtitle, phases (jsonb), intents, max_cycles, how_to, why, evidence_label, evidence_url
+**`breathing_patterns`** — slug, name, inhale_s, hold_in_s, exhale_s, hold_out_s, default_cycles, benefit, contraindications; since 2026-09-12 also subtitle, phases (jsonb), intents, max_cycles, how_to, why, evidence_label, evidence_url, shape
 
 **`breathing_routines`** — slug, name, subtitle, description, about, steps (jsonb: a practice slug and a length per step), intents, sort_order *(added 2026-09-12)*
 **`user_breathing_patterns`** *(per user, RLS)* — base_pattern_id (null for a practice of your own), name, phases (jsonb) *(added 2026-09-12)*

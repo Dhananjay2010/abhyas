@@ -187,6 +187,7 @@ export type Database = {
           max_cycles: number | null
           name: string
           phases: Json
+          shape: string
           slug: string
           sort_order: number
           subtitle: string | null
@@ -210,6 +211,7 @@ export type Database = {
           max_cycles?: number | null
           name: string
           phases: Json
+          shape?: string
           slug: string
           sort_order?: number
           subtitle?: string | null
@@ -233,6 +235,7 @@ export type Database = {
           max_cycles?: number | null
           name?: string
           phases?: Json
+          shape?: string
           slug?: string
           sort_order?: number
           subtitle?: string | null

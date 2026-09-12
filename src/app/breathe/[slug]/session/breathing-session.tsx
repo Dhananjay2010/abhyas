@@ -46,9 +46,10 @@ import {
 } from "@/lib/breathing/engine";
 import { MOODS, moodLabel, type Pattern, type SessionOptions } from "@/lib/breathing/pattern";
 import type { ResolvedStep, Routine } from "@/lib/breathing/routine";
-import { GLOW_BG, HALO_BG, ORB_BG, RING_C, RING_R, SESSION_BG } from "@/lib/breathing/theme";
+import { GLOW_BG, HALO_BG, ORB_BG, SESSION_BG } from "@/lib/breathing/theme";
 import { formatClock, useWakeLock, vibrate } from "@/lib/session/device";
 import { rateBreathingPractice, recordBreathingPractice } from "../../actions";
+import { BreathShape, type ShapeFrame, type ShapeHandle } from "../../breath-shape";
 import { Icon, WeekStrip } from "../../controls";
 import { usePrefersReducedMotion } from "../../use-media";
 
@@ -376,10 +377,9 @@ function Practice({
   const live = stage === "running" && !paused && !needsTap;
   useWakeLock(live);
 
-  const orbRef = useRef<HTMLDivElement>(null);
+  const shapeRef = useRef<ShapeHandle>(null);
   const glowRef = useRef<HTMLDivElement>(null);
   const haloRef = useRef<HTMLDivElement>(null);
-  const ringRef = useRef<SVGCircleElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLButtonElement>(null);
 
@@ -550,28 +550,26 @@ function Practice({
     clock.resume();
     let raf = 0;
 
-    const paint = (size: number, ring: number, overall: number) => {
-      const orb = orbRef.current;
-      if (orb) {
-        if (reduced) {
-          // The same information without the zoom: the orb brightens and dims.
-          orb.style.transform = "scale(0.8)";
-          orb.style.opacity = String(0.4 + 0.6 * size);
-        } else {
-          orb.style.transform = `scale(${0.42 + 0.58 * size})`;
-          orb.style.opacity = "1";
-        }
-      }
+    const paint = (frame: ShapeFrame, overall: number) => {
+      shapeRef.current?.paint(frame);
       const glow = glowRef.current;
       if (glow) {
-        glow.style.opacity = String(0.15 + 0.55 * size);
-        if (!reduced) glow.style.transform = `scale(${0.62 + 0.5 * size})`;
+        glow.style.opacity = String(0.15 + 0.55 * frame.size);
+        if (!reduced) glow.style.transform = `scale(${0.62 + 0.5 * frame.size})`;
       }
-      if (haloRef.current) haloRef.current.style.opacity = String(0.25 + 0.75 * size);
-      if (ringRef.current) ringRef.current.style.strokeDashoffset = String(RING_C * (1 - ring));
+      if (haloRef.current) haloRef.current.style.opacity = String(0.25 + 0.75 * frame.size);
       if (barRef.current) {
         barRef.current.style.transform = `scaleX(${Math.min(1, Math.max(0, overall))})`;
       }
+    };
+
+    /** Nothing is being breathed: the settle-in and the wind-down. */
+    const still: ShapeFrame = {
+      size: 0,
+      progress: 0,
+      cycleProgress: 0,
+      kind: "hold",
+      side: null,
     };
 
     const keep = (voice: Voice, until: number) => {
@@ -704,7 +702,7 @@ function Practice({
           countRef.current = c;
           setCount(c);
         }
-        paint(0, 0, 0);
+        paint(still, 0);
         sound(t, null);
       } else if (t < total) {
         const pos = positionAt(cycle, options.cycles, t);
@@ -748,7 +746,17 @@ function Practice({
           leftRef.current = left;
           setSecondsLeft(left);
         }
-        paint(pos.size, pos.progress, t / total);
+        paint(
+          {
+            size: pos.size,
+            progress: pos.progress,
+            // One side of the square per phase, so a whole cycle draws the box.
+            cycleProgress: (pos.phase.index + pos.progress) / cycle.phases.length,
+            kind: pos.phase.kind,
+            side: pos.phase.side,
+          },
+          t / total,
+        );
         sound(t, pos);
       } else {
         // The last breath is done. It is saved now, before the wind-down, so
@@ -778,7 +786,7 @@ function Practice({
           setSecondsLeft(0);
           if (options.vibrate) vibrate([40, 60, 40]);
         }
-        paint(0, 0, 1);
+        paint(still, 1);
       }
 
       raf = requestAnimationFrame(frame);
@@ -1141,34 +1149,14 @@ function Practice({
             className="absolute inset-0 rounded-full"
             style={{ background: GLOW_BG, filter: "blur(16px)", opacity: 0.15, transform: "scale(0.62)" }}
           />
-          <div
-            ref={orbRef}
-            aria-hidden="true"
-            className="rounded-full"
-            style={{
-              width: "76%",
-              height: "76%",
-              background: ORB_BG,
-              boxShadow: "0 0 70px 6px rgba(111, 216, 210, 0.22), inset -18px -24px 60px rgba(8, 40, 60, 0.35)",
-              transform: reduced ? "scale(0.8)" : "scale(0.42)",
-              opacity: reduced ? 0.4 : 1,
-            }}
+          {/* The practice's own shape, and the ring around it. Both are drawn
+              by `paint` from the frame callback, never through React. */}
+          <BreathShape
+            ref={shapeRef}
+            shape={pattern.shape}
+            reduced={reduced}
+            className="absolute inset-0"
           />
-          <svg aria-hidden="true" viewBox="0 0 300 300" className="absolute inset-0 h-full w-full -rotate-90">
-            <circle cx="150" cy="150" r={RING_R} fill="none" stroke="rgba(220, 243, 241, 0.1)" strokeWidth="2.5" />
-            <circle
-              ref={ringRef}
-              cx="150"
-              cy="150"
-              r={RING_R}
-              fill="none"
-              stroke="#6fd8d2"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeDasharray={RING_C}
-              strokeDashoffset={RING_C}
-            />
-          </svg>
         </div>
 
         <div className="mt-[min(1.75rem,3dvh)] min-h-24 max-w-sm shrink-0 text-center">
