@@ -124,11 +124,18 @@ Coverage measured across realistic profiles (`scripts/qa/repro-pools2.ts`):
 
 | Profile | Eligible | Patterns with nothing |
 |---|---|---|
-| home bodyweight, no equipment | 55 / 604 | vertical_pull, horizontal_pull, calf, biceps, rear_delt, lateral_delt |
-| home bodyweight, + pull-up bar | 58 / 604 | horizontal_pull, calf, biceps, rear_delt, lateral_delt |
+| home bodyweight, no equipment | 55 / 604 | vertical_pull, horizontal_pull, **vertical_press**, calf, biceps, rear_delt, lateral_delt |
+| home bodyweight, + pull-up bar | 58 / 604 | horizontal_pull, vertical_press, calf, biceps, rear_delt, lateral_delt |
+| gym, yoga mat only | 55 / 604 | same as no equipment |
 | gym, dumbbells + flat bench | 124 / 604 | vertical_pull |
-| gym, everything, knee injury | 350 / 604 | lunge |
-| gym, everything | 375 / 604 | — |
+| gym, everything, current knee injury | 350 / 604 | lunge |
+| gym, everything, beginner | 375 / 604 | — |
+| gym, everything, intermediate | 573 / 604 | — |
+
+Seven of thirteen patterns are unreachable for a home user with no equipment.
+There is no equipment-free **vertical press** either — pike and decline push-ups
+are the standard answer and are not in the seed — so that track cannot train
+shoulders overhead any more than it can train back.
 
 Two separate things are wrong:
 

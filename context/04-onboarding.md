@@ -112,3 +112,4 @@ a finished profile and no plan.
 - Fixed the progress denominator growing mid-flow.
 - Added an explanatory note when the equipment catalogue fails to load.
 - Wired first-block generation into `completeOnboarding`.
+- **2026-09-13.** QA pass 2: `SPLIT_BY_DAYS` gained entries for 1 and 2 training days — the fallback had been rendering "Full body, 1 times a week" on the yoga-days step. See [17](17-qa-pass-2.md).

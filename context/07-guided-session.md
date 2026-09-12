@@ -207,3 +207,4 @@ one-minute breathing session made it announce "Session complete", hide the
 Start button, and lock the user out of their actual workout for the rest of the
 day. It now judges per training type: only a completed `weights` or
 `bodyweight` session counts as the day's workout being done.
+- **2026-09-13.** QA pass 2: the rest panel now renders on `restEndsAt !== null` instead of a derived counter, fixing a frozen, undismissable rest timer after Skip, Undo and every exercise transition. `selectWarmup` now actually uses the `availableEquipment` it was being passed, so the warm-up stops suggesting a stationary bike to someone who has none. See [17](17-qa-pass-2.md).

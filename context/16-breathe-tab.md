@@ -976,3 +976,4 @@ drifted. The four were regenerated from the live rows.
   - The practice layout became a column so it can't overlap on short screens.
   - iOS detection moved from `navigator.platform` to the user agent.
   - A comment claiming the History embed was ambiguous was corrected.
+- **2026-09-13.** QA pass 2: the Breathe preferences write upserts instead of updating, for the same reason as Settings — an update against a missing `user_settings` row silently changed nothing. See [17](17-qa-pass-2.md).

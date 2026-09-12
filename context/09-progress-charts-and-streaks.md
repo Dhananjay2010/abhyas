@@ -139,3 +139,4 @@ rebuild.
 - Initial Progress screen, two views, streak rules, charts and bottom nav.
 - Added `src/lib/dates.ts` and fixed the UTC-vs-local date bug in four places.
 - Step 11 made streaks span blocks.
+- **2026-09-13.** QA pass 2: "Best streak" pluralises its unit instead of always reading "sessions". See [17](17-qa-pass-2.md).
