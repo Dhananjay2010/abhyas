@@ -911,6 +911,19 @@ drifted. The four were regenerated from the live rows.
 
 ## Change log
 
+- **2026-09-13, production, running.** The section exercised signed in rather
+  than only read: a practice, a routine and a course day each end to end, every
+  resulting row checked in the database, and the account restored from a
+  snapshot afterwards (four sessions and five logs deleted, the journey
+  progress row removed). `BREATHE-SPEC.md` §21.3 records it. **Fixed:** a
+  routine showed the "before" check-in at the start of *every* step, because
+  the `checkin === "both"` stage was not guarded by `stepIndex === 0` the way
+  the settle-in already was. Worth knowing for next time: a Chrome tab driven
+  by the extension is background-throttled exactly like the in-app pane —
+  `requestAnimationFrame` fired zero times in five seconds — and scripted
+  `element.click()` does not reach React's handlers there, so real clicks and
+  a timer-based rAF shim are both necessary.
+
 - **2026-09-12, production.** The whole section checked on
   abhyas-indol.vercel.app signed in as Dhananjay, deployment `55d202e`.
   `BREATHE-SPEC.md` §21 records what was checked. Fixed: four literal `--` in
