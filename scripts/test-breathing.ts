@@ -25,11 +25,23 @@ import { PausableClock } from "../src/lib/breathing/clock";
 import { breathingStats } from "../src/lib/breathing/stats";
 import {
   DEFAULT_PREFS,
+  draftFrom,
+  mineId,
+  mineSlug,
   parsePhases,
   parseSessionSearch,
+  patternFromUser,
   sessionSearch,
+  toEditorSlots,
+  withUserPatterns,
 } from "../src/lib/breathing/pattern";
-import { validatePractice, validatePrefs } from "../src/lib/breathing/validation";
+import { suggestPractice } from "../src/lib/breathing/suggest";
+import { calmShifts } from "../src/lib/breathing/stats";
+import {
+  validatePatternDraft,
+  validatePractice,
+  validatePrefs,
+} from "../src/lib/breathing/validation";
 import { uuid } from "../src/lib/breathing/client";
 import { spokenCue } from "../src/lib/breathing/speech";
 
@@ -340,10 +352,17 @@ console.log("\n17. What the server accepts as a practice");
   const good = {
     logId: "3f1f2c1e-8a4b-4c6d-9e0f-1a2b3c4d5e6f",
     patternId: "70bd9d9e-dd90-4db7-bafc-e2553c19277f",
+    userPatternId: null,
     cycles: 4, plannedCycles: 4, breaths: 4, seconds: 64,
     endedEarly: false, moodBefore: null, guidance: "tones" as const,
   };
   check("a normal practice passes", validatePractice(good) === null);
+  check("a practice of your own passes",
+    validatePractice({ ...good, patternId: null, userPatternId: "1d0f3b6a-2c4e-4a7b-8c9d-0e1f2a3b4c5d" }) === null);
+  check("a practice belonging to neither is refused",
+    validatePractice({ ...good, patternId: null }) !== null);
+  check("a malformed practice id of your own is refused",
+    validatePractice({ ...good, userPatternId: "nope" }) !== null);
   check("zero breaths is refused", validatePractice({ ...good, cycles: 0 }) !== null);
   check("more cycles than planned is refused", validatePractice({ ...good, cycles: 5 }) !== null);
   check("a fractional second count is refused", validatePractice({ ...good, seconds: 63.5 }) !== null);
@@ -383,6 +402,98 @@ console.log("\n18. Ids work without a secure context");
 {
   const id = uuid();
   check("a v4 uuid", /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id), id);
+}
+
+console.log("\n20. Your own timings, and your own practices");
+{
+  const good = { name: "Evening wind-down", phases: [BOX[0], BOX[2]] };
+  check("a sound draft passes", validatePatternDraft(good) === null);
+  check("it needs a name", validatePatternDraft({ ...good, name: "  " }) !== null);
+  check("a very long name is refused", validatePatternDraft({ ...good, name: "x".repeat(61) }) !== null);
+  check("timings go in half-seconds",
+    validatePatternDraft({ ...good, phases: [{ ...BOX[0], seconds: 4.3 }, BOX[2]] }) !== null);
+  check("half-seconds are fine",
+    validatePatternDraft({ ...good, phases: [{ ...BOX[0], seconds: 4.5 }, BOX[2]] }) === null);
+  check("a phase longer than a minute is refused",
+    validatePatternDraft({ ...good, phases: [{ ...BOX[0], seconds: 61 }, BOX[2]] }) !== null);
+  check("a breath longer than five minutes is refused",
+    validatePatternDraft({ ...good, phases: [{ ...BOX[0], seconds: 60 }, { ...BOX[1], seconds: 60 }, { ...BOX[2], seconds: 60 }, { ...BOX[3], seconds: 60 }, { ...BOX[1], seconds: 60 }, { ...BOX[1], seconds: 60 }] }) !== null);
+  check("it needs a way in", validatePatternDraft({ ...good, phases: [BOX[2]] }) !== null);
+  check("and a way out", validatePatternDraft({ ...good, phases: [BOX[0]] }) !== null);
+
+  const withHoldsOff = draftFrom("Mine", [BOX[0], { ...BOX[1], seconds: 0 }, BOX[2], { ...BOX[3], seconds: 0 }]);
+  check("a hold set to zero is dropped when saved", withHoldsOff.phases.length === 2, `${withHoldsOff.phases.length}`);
+
+  // Editing a saved practice used to fill the four slots by position, which
+  // put an exhale in the hold's slot and offered a second exhale below it.
+  const slots = toEditorSlots([
+    { kind: "inhale", seconds: 4, cue: "Breathe in" },
+    { kind: "exhale", seconds: 8, cue: "Breathe out" },
+  ]);
+  check("editing keeps each phase in its own slot",
+    slots.map((p) => `${p.kind}:${p.seconds}`).join(" ") === "inhale:4 hold:0 exhale:8 hold:0",
+    slots.map((p) => `${p.kind}:${p.seconds}`).join(" "));
+  const bothHolds = toEditorSlots([
+    { kind: "inhale", seconds: 4, cue: "In" },
+    { kind: "hold", seconds: 2, cue: "Hold" },
+    { kind: "exhale", seconds: 6, cue: "Out" },
+    { kind: "hold", seconds: 3, cue: "Hold" },
+  ]);
+  check("two holds keep their order",
+    bothHolds.map((p) => p.seconds).join(",") === "4,2,6,3", bothHolds.map((p) => p.seconds).join(","));
+  check("a round trip through the editor is lossless",
+    draftFrom("x", toEditorSlots(withHoldsOff.phases)).phases.length === 2);
+
+  const builtins = [
+    { ...patternFromUser({ id: "b1", basePatternId: null, name: "Box", phases: BOX }), kind: "builtin" as const, slug: "box-breathing", id: "b1" },
+  ];
+  const merged = withUserPatterns(builtins, [
+    { id: "u1", basePatternId: "b1", name: "Box", phases: [{ ...BOX[0], seconds: 5 }, BOX[2]] },
+    { id: "u2", basePatternId: null, name: "Evening wind-down", phases: [BOX[0], BOX[2]] },
+  ]);
+  check("your timings replace ours", merged[0].phases[0].seconds === 5 && merged[0].adjusted);
+  check("and the practice keeps its own id", merged[0].id === "b1" && merged[0].userPatternId === "u1");
+  check("your own practice joins the list", merged[1].kind === "mine" && merged[1].name === "Evening wind-down");
+  check("and lives at a mine- slug", merged[1].slug === mineSlug("u2") && mineId(merged[1].slug) === "u2");
+  check("an untouched built-in is not marked", withUserPatterns(builtins, [])[0].adjusted === false);
+}
+
+console.log("\n21. What to suggest for right now");
+{
+  const patterns = ["box-breathing", "four-seven-eight", "coherent-breathing", "physiological-sigh", "extended-exhale"].map(
+    (slug) => ({ ...patternFromUser({ id: slug, basePatternId: null, name: slug, phases: BOX }), kind: "builtin" as const, slug, id: slug }),
+  );
+  const at = (hour: number, trainedToday = false, excludeId: string | null = null) =>
+    suggestPractice({ patterns, hour, trainedToday, excludeId })?.pattern.slug;
+  check("after training, the sigh", at(15, true) === "physiological-sigh");
+  check("late at night, 4-7-8", at(22) === "four-seven-eight");
+  check("early hours count as night", at(3) === "four-seven-eight");
+  check("in the morning, the box", at(8) === "box-breathing");
+  check("otherwise, coherent breathing", at(15) === "coherent-breathing");
+  check("never the one already offered as Again", at(15, false, "coherent-breathing") === "extended-exhale");
+  check("nothing to suggest from an empty list",
+    suggestPractice({ patterns: [], hour: 9, trainedToday: false }) === null);
+}
+
+console.log("\n22. What works for you");
+{
+  const shifts = calmShifts([
+    { patternName: "Box Breathing", moodBefore: 2, moodAfter: 4 },
+    { patternName: "Box Breathing", moodBefore: 3, moodAfter: 5 },
+    { patternName: "Box Breathing", moodBefore: null, moodAfter: 3 },
+    { patternName: "4-7-8", moodBefore: 1, moodAfter: 4 },
+    { patternName: "Bhramari", moodBefore: 2, moodAfter: null },
+  ]);
+  check("only practices you rated, and only with enough of them",
+    shifts.length === 1 && shifts[0].patternName === "Box Breathing", JSON.stringify(shifts.map((s) => s.patternName)));
+  check("counts every rated practice", shifts[0].practices === 3, `${shifts[0].practices}`);
+  check("averages how you felt afterwards", near(shifts[0].averageAfter, 4), `${shifts[0].averageAfter}`);
+  check("and the shift, from the ones with both", near(shifts[0].averageShift ?? -1, 2), `${shifts[0].averageShift}`);
+  const noBefore = calmShifts([
+    { patternName: "Ujjayi", moodBefore: null, moodAfter: 4 },
+    { patternName: "Ujjayi", moodBefore: null, moodAfter: 5 },
+  ]);
+  check("no shift when you never checked in first", noBefore[0].averageShift === null);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

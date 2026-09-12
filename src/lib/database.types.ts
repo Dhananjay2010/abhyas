@@ -85,6 +85,7 @@ export type Database = {
           seconds: number
           session_id: string
           user_id: string
+          user_pattern_id: string | null
         }
         Insert: {
           breaths: number
@@ -101,6 +102,7 @@ export type Database = {
           seconds: number
           session_id: string
           user_id: string
+          user_pattern_id?: string | null
         }
         Update: {
           breaths?: number
@@ -117,6 +119,7 @@ export type Database = {
           seconds?: number
           session_id?: string
           user_id?: string
+          user_pattern_id?: string | null
         }
         Relationships: [
           {
@@ -138,6 +141,13 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breathing_logs_user_pattern_id_fkey"
+            columns: ["user_pattern_id"]
+            isOneToOne: false
+            referencedRelation: "user_breathing_patterns"
             referencedColumns: ["id"]
           },
         ]
@@ -883,6 +893,44 @@ export type Database = {
           },
         ]
       }
+      user_breathing_patterns: {
+        Row: {
+          base_pattern_id: string | null
+          created_at: string
+          id: string
+          name: string
+          phases: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_pattern_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          phases: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_pattern_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phases?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_breathing_patterns_base_pattern_id_fkey"
+            columns: ["base_pattern_id"]
+            isOneToOne: false
+            referencedRelation: "breathing_patterns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_equipment: {
         Row: {
           equipment_id: string
@@ -1206,6 +1254,7 @@ export type Database = {
           p_pattern_id: string
           p_planned_cycles: number
           p_seconds: number
+          p_user_pattern_id: string
         }
         Returns: string
       }

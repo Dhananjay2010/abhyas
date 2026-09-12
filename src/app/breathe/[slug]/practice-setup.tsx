@@ -5,25 +5,42 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { unlockBreathAudio } from "@/lib/breathing/audio";
 import { noteInAppStart } from "@/lib/breathing/client";
-import { buildCycle, cyclesForMinutes, initialCycles, lengthPlan } from "@/lib/breathing/engine";
+import { buildCycle, cyclesForMinutes, initialCycles, lengthPlan, type BreathPhase } from "@/lib/breathing/engine";
 import {
   INTENTS,
   LEVEL_LABEL,
+  draftFrom,
   secondsLabel,
   sessionSearch,
   type BreathingPrefs,
   type Pattern,
 } from "@/lib/breathing/pattern";
 import { warmUpSpeech } from "@/lib/breathing/speech";
-import type { PrefsPatch } from "@/lib/breathing/validation";
+import { validatePatternDraft, type PrefsPatch } from "@/lib/breathing/validation";
 import { formatClock } from "@/lib/session/device";
-import { updateBreathingPrefs } from "../actions";
+import {
+  resetPatternTiming,
+  savePatternTiming,
+  saveCustomPattern,
+  updateBreathingPrefs,
+} from "../actions";
 import { Choice, Field, Icon } from "../controls";
 import { RhythmPreview } from "../rhythm-preview";
 import { SoundControls } from "../sound-controls";
+import { TimingEditor } from "../timing-editor";
 
-type Actions = { updateBreathingPrefs: typeof updateBreathingPrefs };
-const REAL: Actions = { updateBreathingPrefs };
+type Actions = {
+  updateBreathingPrefs: typeof updateBreathingPrefs;
+  savePatternTiming: typeof savePatternTiming;
+  resetPatternTiming: typeof resetPatternTiming;
+  saveCustomPattern: typeof saveCustomPattern;
+};
+const REAL: Actions = {
+  updateBreathingPrefs,
+  savePatternTiming,
+  resetPatternTiming,
+  saveCustomPattern,
+};
 
 const segment = (on: boolean) =>
   `min-h-10 flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -126,6 +143,11 @@ export function PracticeSetup({
       <section className="mt-6 flex flex-col items-center text-center">
         <RhythmPreview phases={pattern.phases} size={136} />
         <h1 className="mt-6 text-3xl font-bold tracking-tight">{pattern.name}</h1>
+        {(pattern.kind === "mine" || pattern.adjusted) && (
+          <p className="mt-2 rounded-full border border-breath/30 px-3 py-1 text-xs text-breath">
+            {pattern.kind === "mine" ? "Your own practice" : "Your timings"}
+          </p>
+        )}
         {pattern.subtitle && <p className="mt-1 text-muted">{pattern.subtitle}</p>}
 
         <ul aria-label="One round" className="mt-4 flex flex-wrap justify-center gap-1.5">
@@ -300,6 +322,15 @@ export function PracticeSetup({
         {starting ? "Starting…" : "Start"}
       </button>
 
+      {/* Remounts when the saved timings change, so the editor always opens on
+          what is actually saved. */}
+      <TimingSection
+        key={JSON.stringify(pattern.phases)}
+        pattern={pattern}
+        basePath={basePath}
+        actions={actions}
+      />
+
       {pattern.why && (
         <section className="mt-10">
           <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">Why it works</h2>
@@ -317,5 +348,118 @@ export function PracticeSetup({
         </section>
       )}
     </>
+  );
+}
+
+/**
+ * Your own timings for this practice.
+ *
+ * It edits the seconds of the phases the practice already has -- never their
+ * order, their words, or which nostril is open -- so it works for Nadi
+ * Shodhana's six phases and the sigh's two-part inhale as well as for a
+ * four-count square. `SPEC.md` section 9.4 asked for this from the start.
+ */
+function TimingSection({
+  pattern,
+  basePath,
+  actions,
+}: {
+  pattern: Pattern;
+  basePath: string;
+  actions: Actions;
+}) {
+  const router = useRouter();
+  const [phases, setPhases] = useState<BreathPhase[]>(pattern.phases);
+  const [status, setStatus] = useState<{
+    state: "idle" | "saving" | "saved" | "error";
+    error?: string;
+  }>({ state: "idle" });
+  const [, startTransition] = useTransition();
+
+  const changed = JSON.stringify(phases) !== JSON.stringify(pattern.phases);
+  const draft = draftFrom(pattern.name, phases);
+
+  const save = () => {
+    const invalid = validatePatternDraft(draft);
+    if (invalid) return setStatus({ state: "error", error: invalid });
+    setStatus({ state: "saving" });
+    startTransition(async () => {
+      const r =
+        pattern.kind === "mine" && pattern.userPatternId
+          ? await actions.saveCustomPattern({ id: pattern.userPatternId, draft })
+          : await actions.savePatternTiming({ basePatternId: pattern.id, draft });
+      if (!r.ok) return setStatus({ state: "error", error: r.error });
+      setStatus({ state: "saved" });
+      router.refresh();
+    });
+  };
+
+  const reset = () => {
+    setStatus({ state: "saving" });
+    startTransition(async () => {
+      const r = await actions.resetPatternTiming(pattern.id);
+      if (!r.ok) return setStatus({ state: "error", error: r.error });
+      setPhases(pattern.defaultPhases);
+      setStatus({ state: "saved" });
+      router.refresh();
+    });
+  };
+
+  return (
+    <details className="group mt-6 rounded-xl border border-border bg-surface px-4 py-3">
+      <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium [&::-webkit-details-marker]:hidden">
+        {pattern.kind === "mine" ? "Timing" : "Adjust timing"}
+        <Icon.Chevron className="text-muted transition-transform group-open:rotate-180" />
+      </summary>
+
+      <p className="mt-2 text-xs leading-relaxed text-muted">
+        {pattern.kind === "mine"
+          ? "Your practice, for as long as you want each part to be."
+          : "Make it yours. Saved timings are used every time you practise this."}
+      </p>
+
+      <div className="mt-3">
+        <TimingEditor
+          phases={phases}
+          onChange={setPhases}
+          canRemoveHolds={pattern.kind === "mine"}
+        />
+      </div>
+
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={!changed || status.state === "saving"}
+          className="flex-1 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-fg disabled:opacity-40"
+        >
+          {status.state === "saving" ? "Saving…" : "Save timings"}
+        </button>
+        {pattern.adjusted && (
+          <button
+            type="button"
+            onClick={reset}
+            disabled={status.state === "saving"}
+            className="rounded-xl border border-border px-4 py-3 text-sm font-medium text-muted transition-colors hover:text-fg"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+
+      <p aria-live="polite" className="mt-2 min-h-4 text-xs">
+        {status.state === "saved" && <span className="text-muted">Saved</span>}
+        {status.state === "error" && <span className="text-danger">{status.error}</span>}
+      </p>
+
+      {pattern.kind === "mine" && pattern.userPatternId && (
+        <Link
+          href={`${basePath}/new?id=${pattern.userPatternId}`}
+          className="text-xs text-muted underline underline-offset-2 hover:text-fg"
+        >
+          Rename or delete this practice
+        </Link>
+      )}
+    </details>
   );
 }

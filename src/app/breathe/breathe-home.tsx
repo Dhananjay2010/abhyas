@@ -14,8 +14,10 @@ import {
   type Pattern,
 } from "@/lib/breathing/pattern";
 import { warmUpSpeech } from "@/lib/breathing/speech";
-import type { BreathingStats } from "@/lib/breathing/stats";
+import type { BreathingStats, CalmShift } from "@/lib/breathing/stats";
+import type { Suggestion } from "@/lib/breathing/suggest";
 import { CARD_BG } from "@/lib/breathing/theme";
+import { MOODS } from "@/lib/breathing/pattern";
 import { updateBreathingPrefs } from "./actions";
 import { Icon, WeekStrip } from "./controls";
 import { PrefsSheet } from "./prefs-sheet";
@@ -69,6 +71,8 @@ export function BreatheHome({
   stats,
   lastCyclesByPattern,
   last,
+  suggestion,
+  shifts,
   intent: initialIntent,
   todayIndex,
   basePath = "/breathe",
@@ -79,6 +83,10 @@ export function BreatheHome({
   stats: BreathingStats;
   lastCyclesByPattern: Record<string, number>;
   last: LastPractice | null;
+  /** One practice for right now, and why. */
+  suggestion: Suggestion | null;
+  /** How each practice leaves you, once you have rated a few. */
+  shifts: CalmShift[];
   intent: Intent | null;
   todayIndex: number;
   basePath?: string;
@@ -164,7 +172,26 @@ export function BreatheHome({
             <Icon.Play />
           </span>
         </button>
-      ) : starter ? (
+      ) : null}
+
+      {suggestion ? (
+        <Link
+          href={`${basePath}/${suggestion.pattern.slug}`}
+          className={`flex items-center gap-4 rounded-2xl border border-breath/25 px-5 py-4 transition-colors hover:border-breath/50 ${
+            again ? "mt-3" : "mt-7"
+          }`}
+          style={{ background: CARD_BG }}
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold tracking-wider text-breath uppercase">
+              For right now
+            </p>
+            <p className="mt-1 text-lg font-semibold">{suggestion.pattern.name}</p>
+            <p className="text-sm leading-relaxed text-breath-ink/70">{suggestion.reason}</p>
+          </div>
+          <RhythmPreview phases={suggestion.pattern.phases} size={48} />
+        </Link>
+      ) : !again && starter ? (
         <Link
           href={`${basePath}/${starter.slug}`}
           className="mt-7 flex items-center gap-4 rounded-2xl border border-breath/25 px-5 py-4 transition-colors hover:border-breath/50"
@@ -222,15 +249,55 @@ export function BreatheHome({
                     <span className="shrink-0 text-xs tabular-nums text-muted">{len.label}</span>
                   </div>
                   {p.subtitle && <p className="mt-0.5 text-sm text-muted">{p.subtitle}</p>}
-                  {p.intents.length > 0 && (
-                    <p className="mt-1 text-xs text-breath">{p.intents.map(intentLabel).join(" · ")}</p>
-                  )}
+                  <p className="mt-1 text-xs text-breath">
+                    {[
+                      p.kind === "mine" ? "Yours" : null,
+                      p.adjusted ? "Your timings" : null,
+                      ...p.intents.map(intentLabel),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
                 </div>
               </Link>
             </li>
           );
         })}
       </ul>
+
+      <Link
+        href={`${basePath}/new`}
+        className="mt-3 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border px-4 py-3.5 text-sm font-medium text-muted transition-colors hover:border-breath/40 hover:text-fg"
+      >
+        + Create your own
+      </Link>
+
+      {shifts.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">
+            What works for you
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {shifts.slice(0, 3).map((s) => (
+              <li
+                key={s.patternName}
+                className="flex items-baseline justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3"
+              >
+                <span className="min-w-0 truncate text-sm font-medium">{s.patternName}</span>
+                <span className="shrink-0 text-xs text-muted">
+                  {MOODS.find((m) => m.value === Math.round(s.averageAfter))?.label ?? ""} afterwards
+                  {s.averageShift !== null && s.averageShift > 0.05
+                    ? `, up ${s.averageShift.toFixed(1)}`
+                    : ""}
+                  {" · "}
+                  {s.practices} {s.practices === 1 ? "time" : "times"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted">From your own check-ins after each practice.</p>
+        </section>
+      )}
 
       {showPrefs && (
         <PrefsSheet

@@ -2,14 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { buildCycle, initialCycles } from "@/lib/breathing/engine";
-import {
-  PATTERN_COLUMNS,
-  PREFS_COLUMNS,
-  parseSessionSearch,
-  patternFromRow,
-  prefsFromRow,
-} from "@/lib/breathing/pattern";
+import { parseSessionSearch } from "@/lib/breathing/pattern";
 import { breathingStats } from "@/lib/breathing/stats";
+import { loadPractice } from "../../load";
 import { BreathingSession } from "./breathing-session";
 
 export const dynamic = "force-dynamic";
@@ -34,9 +29,8 @@ export default async function PracticeSessionPage({
   // Enough to cover this week in any timezone, for the strip on the ending.
   const since = addDays(localDateString("UTC"), -8);
 
-  const [patternRes, settingsRes, profileRes, weekRes] = await Promise.all([
-    supabase.from("breathing_patterns").select(PATTERN_COLUMNS).eq("slug", slug).maybeSingle(),
-    supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", user.id).maybeSingle(),
+  const [loaded, profileRes, weekRes] = await Promise.all([
+    loadPractice(supabase, user.id, slug),
     supabase.from("profiles").select("timezone").eq("id", user.id).single(),
     supabase
       .from("sessions")
@@ -45,11 +39,9 @@ export default async function PracticeSessionPage({
       .eq("status", "completed")
       .gte("local_date", since),
   ]);
+  if (!loaded) notFound();
 
-  const pattern = patternRes.data ? patternFromRow(patternRes.data) : null;
-  if (!pattern) notFound();
-
-  const prefs = prefsFromRow(settingsRes.data);
+  const { pattern, prefs } = loaded;
   const cycle = buildCycle(pattern.phases);
   const options = parseSessionSearch(search, prefs, {
     fallbackCycles: initialCycles({
@@ -57,7 +49,7 @@ export default async function PracticeSessionPage({
       maxCycles: pattern.maxCycles,
       defaultCycles: pattern.defaultCycles,
       preferredMinutes: prefs.defaultMinutes,
-      lastCycles: null,
+      lastCycles: loaded.lastCycles,
     }),
     maxCycles: pattern.maxCycles,
     cycleSeconds: cycle.seconds,

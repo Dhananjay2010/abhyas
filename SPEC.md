@@ -8,7 +8,7 @@ the progress screen, settings, history, block rollover,
 and the yoga and breathing runners built.
 All v1 tracks now have a session experience.
 Breathing has its own tab, redesigned in [BREATHE-SPEC.md](BREATHE-SPEC.md)
-(phase 1 built on `feature/breathe-tab`).
+(phases 1 and 2 built: the tab, the practice, sound, and your own practices).
 **Last updated:** 2026-09-12
 
 | | |
@@ -213,14 +213,20 @@ Seeded patterns:
 | Physiological sigh | double inhale–0–long exhale–0 | Fast stress relief |
 | Nadi Shodhana | alternate nostril | Balance |
 | Bhramari | humming exhale | Anxiety |
+| Extended exhale | 4–0–6–0 | The gentlest way down (added 2026-09-12) |
+| Ujjayi | 5–0–5–0, throat narrowed | Steadiness without counting |
+| Anulom Vilom | alternate nostril, no holds | Balance, gentler than Nadi Shodhana |
+| Sheetali | 4–0–6–0 through a rolled tongue | Cooling, after training |
 
 All timings and cycle counts are **user-adjustable in Settings**. Animated expanding-circle pacer, optional haptics on phase change.
 
 > Since 2026-09-12 the breathing experience is specified in detail in
 > [BREATHE-SPEC.md](BREATHE-SPEC.md), which supersedes this section where they
 > differ. Its preferences live in the Breathe tab, not Settings. Lengths are
-> chosen in minutes, and synthesised tones guide each breath. Per-pattern
-> timing editing is still to come (its phase 2).
+> chosen in minutes; a practice is guided by tones, a breath-synced ocean, or
+> the phone's voice in English or Hindi, over an optional background sound.
+> **Per-pattern timings are editable and practices of your own can be created**,
+> which is what this section asked for.
 
 ---
 
@@ -316,7 +322,7 @@ Media lives in a **separate `exercise_media` table** keyed to the exercise, carr
 | Rest duration override | goal default |
 | Session length | 60 min |
 | Body-weight prompt — daily / weekly / never | weekly |
-| Breathing: usual length, sound, seconds count, settle-in, check-in, vibration — **set in the Breathe tab** since 2026-09-12. Per-pattern timings still to come. | 10 min · tones · show · on · after · on |
+| Breathing: usual length, sound (tones / ocean / voice / off), background sound and volume, voice language, seconds count, settle-in, check-in, vibration — **set in the Breathe tab** since 2026-09-12. Per-pattern timings are edited on each practice. | 10 min · tones · none · 40% · English · show · on · after · on |
 | Equipment | from onboarding |
 | Injuries | from onboarding |
 | Goal / level / days per week | from onboarding |

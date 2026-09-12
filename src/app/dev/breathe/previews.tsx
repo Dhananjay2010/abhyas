@@ -4,9 +4,12 @@ import { useMemo, useRef } from "react";
 import { BreatheHome, type LastPractice } from "@/app/breathe/breathe-home";
 import { PracticeSetup } from "@/app/breathe/[slug]/practice-setup";
 import { BreathingSession } from "@/app/breathe/[slug]/session/breathing-session";
+import { CustomPatternForm } from "@/app/breathe/new/custom-pattern-form";
+import type { BreathPhase } from "@/lib/breathing/engine";
 import type { BreathingPrefs, Intent, Pattern, SessionOptions } from "@/lib/breathing/pattern";
-import type { BreathingStats } from "@/lib/breathing/stats";
-import type { PracticeInput } from "@/lib/breathing/validation";
+import type { BreathingStats, CalmShift } from "@/lib/breathing/stats";
+import type { Suggestion } from "@/lib/breathing/suggest";
+import type { PatternDraft, PracticeInput } from "@/lib/breathing/validation";
 
 /**
  * The real breathing components with the server actions stubbed.
@@ -17,10 +20,43 @@ import type { PracticeInput } from "@/lib/breathing/validation";
  */
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const updateBreathingPrefs = async (patch: unknown) => {
-  console.info("[breathe harness] updateBreathingPrefs", JSON.stringify(patch));
+const log = async (name: string, payload: unknown) => {
+  console.info(`[breathe harness] ${name}`, JSON.stringify(payload));
   await wait(250);
+};
+
+const updateBreathingPrefs = async (patch: unknown) => {
+  await log("updateBreathingPrefs", patch);
   return { ok: true } as const;
+};
+
+const savePatternTiming = async (input: { basePatternId: string; draft: PatternDraft }) => {
+  await log("savePatternTiming", input);
+  return { ok: true } as const;
+};
+
+const resetPatternTiming = async (basePatternId: string) => {
+  await log("resetPatternTiming", { basePatternId });
+  return { ok: true } as const;
+};
+
+const saveCustomPattern = async (input: { id?: string; draft: PatternDraft }) => {
+  await log("saveCustomPattern", input);
+  // The fixture's own practice, so saving a new one lands on a page that
+  // exists here rather than on an id nothing in the harness knows.
+  return { ok: true, data: { id: input.id ?? "00000000-0000-4000-9000-000000000001" } } as const;
+};
+
+const deleteCustomPattern = async (id: string) => {
+  await log("deleteCustomPattern", { id });
+  return { ok: true } as const;
+};
+
+const SETUP_ACTIONS = {
+  updateBreathingPrefs,
+  savePatternTiming,
+  resetPatternTiming,
+  saveCustomPattern,
 };
 
 export function HomePreview(props: {
@@ -29,6 +65,8 @@ export function HomePreview(props: {
   stats: BreathingStats;
   last: LastPractice | null;
   lastCyclesByPattern: Record<string, number>;
+  suggestion: Suggestion | null;
+  shifts: CalmShift[];
   intent: Intent | null;
   todayIndex: number;
 }) {
@@ -41,7 +79,21 @@ export function SetupPreview(props: {
   lastCycles: number | null;
   firstPractice: boolean;
 }) {
-  return <PracticeSetup {...props} basePath="/dev/breathe" actions={{ updateBreathingPrefs }} />;
+  return <PracticeSetup {...props} basePath="/dev/breathe" actions={SETUP_ACTIONS} />;
+}
+
+export function NewPreview({
+  existing,
+}: {
+  existing?: { id: string; name: string; phases: BreathPhase[] };
+}) {
+  return (
+    <CustomPatternForm
+      existing={existing}
+      basePath="/dev/breathe"
+      actions={{ saveCustomPattern, deleteCustomPattern }}
+    />
+  );
 }
 
 export function SessionPreview({
@@ -59,8 +111,8 @@ export function SessionPreview({
   const actions = useMemo(
     () => ({
       recordBreathingPractice: async (input: PracticeInput) => {
-        console.info("[breathe harness] recordBreathingPractice", JSON.stringify(input));
-        await wait(400);
+        await log("recordBreathingPractice", input);
+        await wait(150);
         if (failuresLeft.current > 0) {
           failuresLeft.current -= 1;
           return { ok: false, error: "The harness is set to fail the first save." } as const;
@@ -68,8 +120,7 @@ export function SessionPreview({
         return { ok: true } as const;
       },
       rateBreathingPractice: async (input: { logId: string; moodAfter: number }) => {
-        console.info("[breathe harness] rateBreathingPractice", JSON.stringify(input));
-        await wait(200);
+        await log("rateBreathingPractice", input);
         return { ok: true } as const;
       },
     }),

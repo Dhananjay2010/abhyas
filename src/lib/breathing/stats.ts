@@ -39,3 +39,56 @@ export function breathingStats(practices: PracticeDay[], today: string): Breathi
 
   return { weekStart, weekDays, weekSeconds, streak };
 }
+
+// ---------------------------------------------------------------------------
+// Does it actually work for you?
+// ---------------------------------------------------------------------------
+
+export type MoodLog = {
+  patternName: string;
+  moodBefore: number | null;
+  moodAfter: number | null;
+};
+
+export type CalmShift = {
+  patternName: string;
+  practices: number;
+  /** Average of how you felt afterwards, 1 (tense) to 5 (calm). */
+  averageAfter: number;
+  /** Average change, when you checked in before as well. Null when you never did. */
+  averageShift: number | null;
+};
+
+/**
+ * How each practice leaves you, from your own check-ins.
+ *
+ * Only practices you rated count, and only those you have rated at least
+ * `minimum` times: one good evening is not evidence, and saying so with a
+ * single data point would be worse than saying nothing.
+ */
+export function calmShifts(logs: MoodLog[], minimum = 2): CalmShift[] {
+  const byPattern = new Map<string, MoodLog[]>();
+  for (const log of logs) {
+    if (log.moodAfter === null) continue;
+    const list = byPattern.get(log.patternName);
+    if (list) list.push(log);
+    else byPattern.set(log.patternName, [log]);
+  }
+
+  const out: CalmShift[] = [];
+  for (const [patternName, rated] of byPattern) {
+    if (rated.length < minimum) continue;
+    const withBoth = rated.filter((l) => l.moodBefore !== null);
+    const mean = (ns: number[]) => ns.reduce((a, b) => a + b, 0) / ns.length;
+    out.push({
+      patternName,
+      practices: rated.length,
+      averageAfter: mean(rated.map((l) => l.moodAfter as number)),
+      averageShift: withBoth.length
+        ? mean(withBoth.map((l) => (l.moodAfter as number) - (l.moodBefore as number)))
+        : null,
+    });
+  }
+
+  return out.sort((a, b) => b.practices - a.practices || b.averageAfter - a.averageAfter);
+}

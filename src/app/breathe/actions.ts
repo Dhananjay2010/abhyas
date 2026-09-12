@@ -5,15 +5,20 @@ import type { Database } from "@/lib/database.types";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
+import { parsePhases } from "@/lib/breathing/pattern";
 import {
   isMood,
+  validatePatternDraft,
   validatePractice,
   validatePrefs,
+  MAX_CUSTOM_PATTERNS,
+  type PatternDraft,
   type PracticeInput,
   type PrefsPatch,
 } from "@/lib/breathing/validation";
 
 export type Result = { ok: true } | { ok: false; error: string };
+export type DataResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 /**
  * Record a finished (or deliberately ended) practice.
@@ -41,7 +46,9 @@ export async function recordBreathingPractice(input: PracticeInput): Promise<Res
   const { error } = await supabase.rpc("record_breathing_practice", {
     p_log_id: input.logId,
     p_local_date: today,
-    p_pattern_id: input.patternId,
+    // Nullable in SQL, but the type generator marks every argument non-null.
+    p_pattern_id: input.patternId as string,
+    p_user_pattern_id: input.userPatternId as string,
     p_cycles: input.cycles,
     p_planned_cycles: input.plannedCycles,
     p_breaths: input.breaths,
@@ -82,6 +89,121 @@ export async function rateBreathingPractice(input: {
 
   revalidatePath("/breathe", "layout");
   revalidatePath("/history", "layout");
+  return { ok: true };
+}
+
+/**
+ * Your own timings for one of our practices.
+ *
+ * One row per practice per person, so saving again replaces what was there.
+ * `SPEC.md` section 9.4 asked for this from the start.
+ */
+export async function savePatternTiming(input: {
+  basePatternId: string;
+  draft: PatternDraft;
+}): Promise<Result> {
+  const invalid = validatePatternDraft(input.draft);
+  if (invalid) return { ok: false, error: invalid };
+  // The phases go into jsonb, so they are re-read by the same parser the
+  // player uses before they are trusted.
+  if (!parsePhases(input.draft.phases)) return { ok: false, error: "Those timings are not valid." };
+
+  const { supabase, user } = await getAuthedClient();
+  if (!user) return { ok: false, error: "Not signed in" };
+
+  const { error } = await supabase.from("user_breathing_patterns").upsert(
+    {
+      user_id: user.id,
+      base_pattern_id: input.basePatternId,
+      name: input.draft.name.trim(),
+      phases: input.draft.phases,
+    },
+    { onConflict: "user_id,base_pattern_id" },
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/breathe", "layout");
+  return { ok: true };
+}
+
+/** Back to the timings we ship. */
+export async function resetPatternTiming(basePatternId: string): Promise<Result> {
+  const { supabase, user } = await getAuthedClient();
+  if (!user) return { ok: false, error: "Not signed in" };
+
+  const { error } = await supabase
+    .from("user_breathing_patterns")
+    .delete()
+    .eq("base_pattern_id", basePatternId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/breathe", "layout");
+  return { ok: true };
+}
+
+/** A practice you made yourself. Returns its id, so the caller can open it. */
+export async function saveCustomPattern(input: {
+  id?: string;
+  draft: PatternDraft;
+}): Promise<DataResult<{ id: string }>> {
+  const invalid = validatePatternDraft(input.draft);
+  if (invalid) return { ok: false, error: invalid };
+  if (!parsePhases(input.draft.phases)) return { ok: false, error: "That practice is not valid." };
+
+  const { supabase, user } = await getAuthedClient();
+  if (!user) return { ok: false, error: "Not signed in" };
+
+  const row = { name: input.draft.name.trim(), phases: input.draft.phases };
+
+  if (input.id) {
+    const { data, error } = await supabase
+      .from("user_breathing_patterns")
+      .update(row)
+      .eq("id", input.id)
+      .is("base_pattern_id", null)
+      .select("id")
+      .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: "That practice was not found." };
+    revalidatePath("/breathe", "layout");
+    return { ok: true, data: { id: data.id } };
+  }
+
+  const { count } = await supabase
+    .from("user_breathing_patterns")
+    .select("id", { count: "exact", head: true })
+    .is("base_pattern_id", null);
+  if ((count ?? 0) >= MAX_CUSTOM_PATTERNS) {
+    return { ok: false, error: `You can keep ${MAX_CUSTOM_PATTERNS} of your own practices.` };
+  }
+
+  const { data, error } = await supabase
+    .from("user_breathing_patterns")
+    .insert({ user_id: user.id, base_pattern_id: null, ...row })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/breathe", "layout");
+  return { ok: true, data: { id: data.id } };
+}
+
+/**
+ * Delete a practice of yours. Its history survives: the log keeps the name it
+ * was practised under, and the foreign key is cleared rather than cascading.
+ */
+export async function deleteCustomPattern(id: string): Promise<Result> {
+  const { supabase, user } = await getAuthedClient();
+  if (!user) return { ok: false, error: "Not signed in" };
+
+  const { error } = await supabase
+    .from("user_breathing_patterns")
+    .delete()
+    .eq("id", id)
+    .is("base_pattern_id", null);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/breathe", "layout");
   return { ok: true };
 }
 

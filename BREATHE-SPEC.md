@@ -1,9 +1,10 @@
 # BREATHE-SPEC.md — the Breathe tab
 
-**Status:** Phase 1 (the tab and the practice) and phase 2a (sound) are built
-and verified in the browser and against the database. Both wait on your review
-on a real phone (section 13). The rest of phase 2, and all of phase 3, have not
-started.
+**Status:** Phase 1 (the tab and the practice), phase 2a (sound) and phase 2b
+(your own timings, your own practices, the suggestion, what works for you, and
+four more practices) are built and verified. **Phase 2 is complete**; only
+phase 3 remains. The sound modes and the phase 2b screens still want a look on
+a real phone (section 13).
 **Branches:** `feature/breathe-tab` off `main`, then `breathe/sound` stacked on
 it, because phase 1 is not merged yet. To review the sound work on its own,
 diff `breathe/sound` against `feature/breathe-tab`.
@@ -134,7 +135,8 @@ Breathing" tile stays as a second way in.
 - Caution, where it applies.
 - Length in minutes, with a cap where the practice has one.
 - Guidance.
-- Adjust timing (Phase 2).
+- **Adjust timing** — a stepper for each phase the practice has, in
+  half-seconds, saved as yours and used every time. Reset puts ours back.
 - Start.
 
 ### 5.4 The practice — `/breathe/[slug]/session`
@@ -174,9 +176,10 @@ license or download. The voice is whatever the phone already has.
 
 ### 5.7 Content
 
-The six practices are kept and fixed. Extended exhale, Ujjayi, Anulom Vilom and
-Sheetali are Phase 2. The routines and Kapalabhati are Phase 3. Wim Hof-style
-breathing is excluded.
+Ten practices: the original six, fixed, plus **Extended Exhale, Ujjayi, Anulom
+Vilom and Sheetali**, added in phase 2b. On top of those, any number of your
+own. The routines and Kapalabhati are Phase 3. Wim Hof-style breathing is
+excluded.
 
 ### 5.8 Progress, inside the tab
 
@@ -246,12 +249,12 @@ Differences from the proposal in section 6 are listed in 11.2.
 their own volume, voice in English and Hindi, and Bhramari's hum. Section 14
 records how it was built and what was verified.
 
-- **Still Phase 2:**
-  - The per-pattern timing editor and "Create your own"
-  - The "For right now" recommendation
-  - Calm-shift insights
-  - The four new single practices
-  - Distinct vibration patterns (there is one pulse per phase kind today)
+**Phase 2b — done (same branch).** Your own timings for any practice, your own
+practices, the "for right now" suggestion, what works for you, and four more
+practices. Section 15 has the detail. **Phase 2 is now complete.**
+
+- Not done, and deliberately so: distinct vibration patterns. There is one
+  pulse per phase kind, which is enough on the phones that vibrate at all.
 - **Phase 3:**
   - Routines
   - Kapalabhati behind a safety confirmation
@@ -521,12 +524,20 @@ components):
 
 ## 13. Known gaps, and what only your phone can prove
 
-- **Nothing has been run signed in.** Google is the only way in and can't be
-  used from here. The real pages have not rendered with your data, and the app
-  has not yet written a practice through its own UI. What stands in for that:
-  - the database function exercised as your user in SQL
-  - the queries checked against the live API
-  - every component exercised in the harness
+- **Signed in: closed on 2026-09-12.** You practised on localhost while signed
+  in, and the app wrote it through its own screens: Physiological Sigh, 7
+  breaths, 63 seconds, tones, your "Okay" check-in saved, on a completed
+  meditation session for 2026-09-12 — one `breathing_logs` row, one session,
+  nothing else touched. That was the phase 1 and 2a path end to end on a real
+  account.
+
+  Still not exercised on a signed-in account: the phase 2b screens (your own
+  timings, your own practices), and every sound mode but tones. Those rest on
+  the harness, on the database function run as your user in SQL, and on the
+  queries checked against the live API.
+
+- **Chrome could not be driven from here** (no browser was connected), so the
+  signed-in checks are yours to run rather than mine.
 - **The automated Enter and Space keys did not activate the focused Resume
   button.** Clicking it works. My key handler leaves a focused button alone, so
   a real keyboard should work, but the automation could not prove it.
@@ -655,6 +666,76 @@ one):
 - The "Again" card built a practice without the new sound fields. Typecheck
   caught it before a browser ever did.
 
+## 15. Phase 2b — your own practice, as built
+
+### 15.1 What changed for the user
+
+- **Adjust timing**, on every practice. A stepper per phase, in half-seconds.
+  It edits the phases a practice already has, so it fits Nadi Shodhana's six
+  and the sigh's two-part inhale as readily as a four-count square, and it
+  never lets you reorder or rename them into nonsense. Saved timings are used
+  every time; **Reset** puts ours back. This is what `SPEC.md` §9.4 asked for
+  and never had.
+- **Your own practices.** Name one, set in / hold / out / hold in half-seconds,
+  and it joins the list at `/breathe/mine-<id>`, with its own rhythm preview.
+  A hold at zero is simply left out. Editing and deleting live on the same
+  screen; deleting keeps the practices you have already done in your history,
+  because the log keeps the name it was practised under.
+- **For right now** — one suggestion, with the reason on the card: after a
+  workout, the sigh; late in the evening, 4-7-8; in the morning, the box;
+  otherwise coherent breathing. Never the practice the "Again" card is already
+  offering.
+- **What works for you** — from your own check-ins: how each practice tends to
+  leave you, and the average shift when you check in before as well. It appears
+  only once a practice has been rated twice, because one good evening is not
+  evidence.
+- **Four more practices:** Extended Exhale, Ujjayi, Anulom Vilom and Sheetali.
+- Your practices are marked in the list: **Yours**, or **Your timings** on one
+  of ours you have retimed.
+
+### 15.2 How it is put together
+
+- **One table for both.** `user_breathing_patterns` holds a list of phases that
+  belongs to you. With `base_pattern_id` set it is your timing for one of ours;
+  without, it is a practice of your own. A partial unique index gives you one
+  set of timings per practice, so saving again replaces the first.
+- **`withUserPatterns`** folds your rows into ours: your timings replace ours
+  on the practice itself (which keeps its own id, so history still groups it),
+  and your own practices join the end.
+- **One loader.** `loadPractice` resolves a slug for both the setup screen and
+  the practice itself, so the two can never disagree about what a slug means.
+- **The save function takes either.** A practice of your own records
+  `user_pattern_id` with no built-in behind it; a retimed built-in records
+  both. It refuses a practice id that is not yours, and the log keeps a
+  snapshot of the name either way.
+- **The suggestion is a pure function** of the hour where you are, whether you
+  trained today, and what the Again card is already showing — so it is tested
+  rather than eyeballed.
+
+### 15.3 Verified
+
+- **Unit tests:** 22 groups, all passing, including the new rules (names,
+  half-seconds, a minute per phase, five minutes per breath, a way in and a way
+  out), the merge of your rows into ours, every branch of the suggestion, and
+  the calm-shift averages.
+- **Against the live database, as you, rolled back:** a practice of your own
+  logged with your row and no built-in; a retimed built-in keeping both ids; a
+  retry writing nothing; a practice id that is not yours refused; a stranger
+  seeing none of it; the one-timing-per-practice index holding; and B1 still
+  holding — an unfinished workout untouched.
+- **In the harness, by clicking:** the suggestion at 22:00 (4-7-8, "It is late…")
+  and after training (the sigh); the insights section; the badges; a practice of
+  your own; a retimed built-in showing 5s chips and Reset; saving with no name
+  refused with nothing sent; a hold switched on and the payload carrying three
+  phases with the switched-off hold dropped; timings saved (payload, then
+  "Saved") and reset; and deleting, which returns you to the tab.
+
+**The bug this found:** editing a saved practice filled the four editable slots
+by position, so a practice of "in 4, out 8" showed its exhale in the hold's slot
+with a second "Out" beneath it — and switching that row on would have added a
+second exhale. Slots are now matched by kind, in order, and three tests hold it
+there.
+
 ## Change log
 
 - **2026-09-11** — Draft: review of the current section (7 bugs, 13 experience
@@ -675,3 +756,11 @@ one):
   Migration `20260913090000_breathe_sound` applied. Section 14 has the detail.
   Fixed during testing: a pitch measurement that reported half the true pitch,
   a hydration failure in the lab, and a missing field on the "Again" card.
+- **2026-09-12, later still** — Phase 2b, completing phase 2: your own timings,
+  your own practices, the "for right now" suggestion, what works for you, and
+  four more practices. Migration `20260914090000_breathe_your_own` applied.
+  Section 15 has the detail. Fixed during testing: the editor put a saved
+  practice's phases in the wrong slots.
+- **2026-09-12** — You practised on localhost while signed in, and the app
+  recorded it correctly. The "nothing has been run signed in" gap in section 13
+  is closed for phase 1 and 2a.

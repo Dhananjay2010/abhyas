@@ -37,6 +37,10 @@ It fixes the seven bugs recorded in `BREATHE-SPEC.md` §3.1 (B1–B7).
 | `src/lib/breathing/theme.ts` | Session colours and ring geometry, importable by server components |
 | `src/app/breathe/page.tsx`, `breathe-home.tsx` | The tab |
 | `src/app/breathe/prefs-sheet.tsx`, `controls.tsx`, `rhythm-preview.tsx`, `use-media.ts` | Shared pieces |
+| `src/app/breathe/load.ts` | Resolves a slug to a practice -- ours, retimed, or yours -- for both screens |
+| `src/app/breathe/timing-editor.tsx` | A stepper per phase, in half-seconds |
+| `src/app/breathe/new/*` | Making, editing and deleting a practice of your own |
+| `src/lib/breathing/suggest.ts` | The "for right now" rule, as a pure function |
 | `src/app/breathe/actions.ts` | `recordBreathingPractice`, `rateBreathingPractice`, `updateBreathingPrefs` |
 | `src/app/breathe/[slug]/page.tsx`, `practice-setup.tsx` | Setup |
 | `src/app/breathe/[slug]/session/page.tsx`, `breathing-session.tsx` | The practice |
@@ -398,10 +402,80 @@ the tone's sub-octave and reported half the pitch, a hydration failure from
 reading the device's voices during render, and the "Again" card building a
 practice without the new fields.
 
+## Phase 2b — your own practice (2026-09-12, branch `breathe/sound`)
+
+Migration `20260914090000_breathe_your_own.sql`: four more practices, the
+`user_breathing_patterns` table, `breathing_logs.user_pattern_id`, and
+`record_breathing_practice()` replaced (the old signature dropped) to take
+either kind of practice.
+
+### One table for two things
+
+`user_breathing_patterns` is a list of phases that belongs to you.
+
+- `base_pattern_id` set -- your timings for one of ours
+- `base_pattern_id` null -- a practice you made
+
+A partial unique index on `(user_id, base_pattern_id) where base_pattern_id is
+not null` means one set of timings per practice, so saving twice replaces
+rather than accumulates. The same owner rules as every other user table.
+
+`withUserPatterns(builtins, mine)` folds them together: your timings replace
+ours **on the practice itself**, which keeps its own id so history still groups
+it, and gains `adjusted: true` and the id of the row holding them. Your own
+practices join the end with `kind: "mine"` and a slug of `mine-<id>`, which is
+why they need no slug column and route through the same `[slug]` pages.
+
+### Resolving a slug
+
+`load.ts` does it once for both the setup screen and the practice, so they can
+never disagree. It also answers "how long did I do this one last time" from the
+last fifty logs, keyed by the built-in for ours and by your row for yours.
+
+### Recording one
+
+The function now takes `p_pattern_id` and `p_user_pattern_id`:
+
+- a practice of your own -- your row only
+- one of ours you have retimed -- both, so History still groups it
+- a practice id that is not yours -- refused, rather than logged nameless
+
+Deleting a practice of your own clears the foreign key rather than cascading,
+and the log keeps the name it was practised under, so your history survives.
+
+### The editor
+
+`TimingEditor` steps the seconds of the phases a practice already has, in
+half-seconds, never their order or their words. That is what lets one control
+serve Nadi Shodhana's six phases, the sigh's two-part inhale and a four-count
+square. `toEditorSlots` lays a saved practice back out in the four editable
+slots by **kind, in order** -- see the bug below.
+
+### Suggesting one
+
+`suggestPractice` is a pure function of the hour where the user is, whether
+they trained today, and what the Again card already offers. `calmShifts` groups
+your rated practices and needs two before it says anything.
+
+### Verified
+
+22 test groups pass. The save function was exercised as the real user under
+RLS, rolled back, covering a practice of your own, a retimed built-in, an
+idempotent retry, an id that is not yours, the unique index, and B1. Every
+screen and both save flows were clicked through in the harness.
+`BREATHE-SPEC.md` §15 has the numbers.
+
+**The bug this found:** the edit form filled the four editable slots by
+position, so a saved "in 4, out 8" showed its exhale in the hold's slot with a
+phantom second "Out" below it. Slots are matched by kind now, with tests.
+
 ## Known gaps
 
-- **Not run signed in.** The app has not written a practice through its own UI
-  on a real account. The phone checklist is in `BREATHE-SPEC.md` §13.
+- **Signed in: partly closed.** On 2026-09-12 Dhananjay practised on localhost
+  while signed in and the app recorded it correctly (Physiological Sigh, 7
+  breaths, 63 seconds, tones, check-in saved). That covers phase 1 and 2a. The
+  phase 2b screens and the other sound modes have still only been exercised in
+  the harness and in SQL. The phone checklist is in `BREATHE-SPEC.md` §13.
 - **Real-device behaviour is unproven:** iOS silent switch and audio unlock,
   vibration, the wake lock across a long practice, and locking the phone
   mid-practice.
@@ -419,11 +493,20 @@ practice without the new fields.
   silent.
 - The tanpura is synthesised, not a recording, and the beds loop a six-second
   noise buffer.
-- Still not built: the timing editor, "Create your own", the "for right now"
-  recommendation, the four new practices, and calm-shift insights.
+- A practice of your own is the four-slot shape (in, hold, out, hold): no
+  nostril sides, no two-part inhale, no reordering. Ours can be retimed but not
+  restructured.
+- You can keep twenty of your own.
+- Phase 3 is not built: routines, Kapalabhati, a signature shape per practice,
+  recorded voice clips, and the seven-day journey.
 
 ## Change log
 
+- **2026-09-12, later still.** Phase 2b, completing phase 2: your own timings,
+  your own practices, the "for right now" suggestion, what works for you, and
+  four more practices (Extended Exhale, Ujjayi, Anulom Vilom, Sheetali).
+  Migration `20260914090000_breathe_your_own` applied. Fixed while testing: the
+  edit form put a saved practice's phases in the wrong slots.
 - **2026-09-12, later.** Phase 2a: Ocean, the four beds with their own volume,
   voice in English and Hindi, and Bhramari's hum. Migration
   `20260913090000_breathe_sound` applied. Fixed while testing: a pitch

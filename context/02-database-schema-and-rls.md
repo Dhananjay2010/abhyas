@@ -36,6 +36,7 @@ new migration, never by editing an old one.
 | `20260908210200_refresh_exercise_patterns.sql` | Catalogue correction (generated) |
 | `20260912090000_breathe_phase_one.sql` | Breathing pattern phases and content, `breathing_logs`, breathing preference columns on `user_settings`, `record_breathing_practice()` — step 16 |
 | `20260913090000_breathe_sound.sql` | Guidance widened to `tones`/`ocean`/`voice`/`off`, background-sound and voice-language preferences, Bhramari's exhale marked as hummed — step 16, phase 2a |
+| `20260914090000_breathe_your_own.sql` | Four more practices, the `user_breathing_patterns` table (your timings and your own practices), `breathing_logs.user_pattern_id`, and `record_breathing_practice()` replaced to accept either kind — step 16, phase 2b |
 
 Push with `supabase db push`. Query the remote without Docker using
 `supabase db query --linked "<sql>"` — note the `--linked` flag, as it defaults
@@ -169,3 +170,10 @@ insert them after switching back.
   `tones`, `ocean`, `voice` and `off` in both `user_settings` and
   `breathing_logs`, plus columns for the background sound, its volume and the
   voice language. No new tables or policies, so the counts above still hold.
+- 2026-09-12 (step 16, phase 2b): four more breathing practices, and
+  `user_breathing_patterns` — one table for both your own practices and your
+  timings for ours, told apart by whether `base_pattern_id` is set, with a
+  partial unique index giving you one set of timings per practice. That makes
+  **23 tables and 66 policies.** `record_breathing_practice()` was replaced
+  (the old signature dropped) to take either kind of practice, and it refuses
+  one that is not yours.

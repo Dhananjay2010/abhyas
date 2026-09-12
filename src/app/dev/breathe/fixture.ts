@@ -1,11 +1,27 @@
-import { DEFAULT_PREFS, type BreathingPrefs, type Pattern } from "@/lib/breathing/pattern";
+import {
+  DEFAULT_PREFS,
+  withUserPatterns,
+  type BreathingPrefs,
+  type Pattern,
+  type UserPattern,
+} from "@/lib/breathing/pattern";
+
+/** Everything a built-in pattern carries before your own rows are folded in. */
+type Seed = Omit<Pattern, "kind" | "userPatternId" | "adjusted" | "defaultPhases">;
+
+const builtIn = (seed: Seed): Pattern => ({
+  ...seed,
+  kind: "builtin",
+  userPatternId: null,
+  adjusted: false,
+  defaultPhases: seed.phases,
+});
 
 /**
- * The six seeded patterns, exactly as
- * supabase/migrations/20260912090000_breathe_phase_one.sql writes them, so the
- * harness shows the real content. Keep the two in step by hand.
+ * The seeded patterns, as the migrations write them, so the harness shows the
+ * real content. Keep the two in step by hand.
  */
-export const PATTERNS: Pattern[] = [
+const SEEDS: Seed[] = [
   {
     id: "00000000-0000-4000-8000-000000000001",
     slug: "box-breathing",
@@ -171,5 +187,34 @@ export const PATTERNS: Pattern[] = [
     evidenceUrl: null,
   },
 ];
+
+export const PATTERNS: Pattern[] = SEEDS.map(builtIn);
+
+/** One practice of your own, and your own timings for Box Breathing. */
+export const MINE: UserPattern[] = [
+  {
+    id: "00000000-0000-4000-9000-000000000001",
+    basePatternId: null,
+    name: "Evening wind-down",
+    phases: [
+      { kind: "inhale", seconds: 4, cue: "Breathe in" },
+      { kind: "exhale", seconds: 8, cue: "Breathe out" },
+    ],
+  },
+  {
+    id: "00000000-0000-4000-9000-000000000002",
+    basePatternId: SEEDS[0].id,
+    name: "Box Breathing",
+    phases: [
+      { kind: "inhale", seconds: 5, cue: "Breathe in" },
+      { kind: "hold", seconds: 5, cue: "Hold" },
+      { kind: "exhale", seconds: 5, cue: "Breathe out" },
+      { kind: "hold", seconds: 5, cue: "Hold" },
+    ],
+  },
+];
+
+/** What the tab actually shows: ours, retimed where you have retimed them, plus yours. */
+export const PRACTICES: Pattern[] = withUserPatterns(PATTERNS, MINE);
 
 export const PREFS: BreathingPrefs = { ...DEFAULT_PREFS, defaultMinutes: 5 };

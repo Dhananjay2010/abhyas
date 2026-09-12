@@ -3,6 +3,7 @@ import type { BreathPhase, PhaseKind, Side } from "./engine";
 
 type PatternRow = Database["public"]["Tables"]["breathing_patterns"]["Row"];
 type SettingsRow = Database["public"]["Tables"]["user_settings"]["Row"];
+type UserPatternRow = Database["public"]["Tables"]["user_breathing_patterns"]["Row"];
 
 export type Intent = "calm" | "sleep" | "focus" | "energy" | "recover" | "balance";
 
@@ -27,6 +28,7 @@ export type Pattern = {
   contraindications: string | null;
   level: string;
   intents: Intent[];
+  /** What is actually breathed: your timings if you have saved any. */
   phases: BreathPhase[];
   maxCycles: number | null;
   defaultCycles: number;
@@ -34,6 +36,14 @@ export type Pattern = {
   why: string | null;
   evidenceLabel: string | null;
   evidenceUrl: string | null;
+  /** One of ours, or one you made yourself. */
+  kind: "builtin" | "mine";
+  /** The row holding your timings, or your practice itself. Null for an untouched built-in. */
+  userPatternId: string | null;
+  /** A built-in you have retimed. */
+  adjusted: boolean;
+  /** What it was before you changed it, so "reset" has something to go back to. */
+  defaultPhases: BreathPhase[];
 };
 
 /** Exactly the columns `patternFromRow` reads. A literal, so Supabase infers the row type from it. */
@@ -99,7 +109,110 @@ export function patternFromRow(row: Pick<PatternRow, PatternColumns>): Pattern |
     why: row.why,
     evidenceLabel: row.evidence_label,
     evidenceUrl: row.evidence_url,
+    kind: "builtin",
+    userPatternId: null,
+    adjusted: false,
+    defaultPhases: phases,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Your own timings, and your own practices
+//
+// One table holds both (`user_breathing_patterns`): a row with a base pattern
+// is your timing for one of ours, a row without one is a practice you made.
+// ---------------------------------------------------------------------------
+
+export const USER_PATTERN_COLUMNS = "id, base_pattern_id, name, phases" as const;
+type UserPatternColumns = "id" | "base_pattern_id" | "name" | "phases";
+
+export type UserPattern = {
+  id: string;
+  basePatternId: string | null;
+  name: string;
+  phases: BreathPhase[];
+};
+
+export function userPatternFromRow(
+  row: Pick<UserPatternRow, UserPatternColumns>,
+): UserPattern | null {
+  const phases = parsePhases(row.phases);
+  if (!phases) return null;
+  return { id: row.id, basePatternId: row.base_pattern_id, name: row.name, phases };
+}
+
+/** A practice of yours lives at /breathe/mine-<id>, so it needs no slug of its own. */
+export const mineSlug = (id: string) => `mine-${id}`;
+export const isMineSlug = (slug: string) => slug.startsWith("mine-");
+export const mineId = (slug: string) => slug.slice("mine-".length);
+
+export function patternFromUser(mine: UserPattern): Pattern {
+  return {
+    id: mine.id,
+    slug: mineSlug(mine.id),
+    name: mine.name,
+    subtitle: "Yours",
+    description: null,
+    benefit: null,
+    contraindications: null,
+    level: "beginner",
+    intents: [],
+    phases: mine.phases,
+    maxCycles: null,
+    defaultCycles: 10,
+    howTo: [],
+    why: null,
+    evidenceLabel: null,
+    evidenceUrl: null,
+    kind: "mine",
+    userPatternId: mine.id,
+    adjusted: false,
+    defaultPhases: mine.phases,
+  };
+}
+
+/** Your rows folded in: your timings replace ours, and your own practices join the end. */
+export function withUserPatterns(builtins: Pattern[], mine: UserPattern[]): Pattern[] {
+  const timings = new Map(
+    mine.filter((m) => m.basePatternId).map((m) => [m.basePatternId as string, m]),
+  );
+  const adjusted = builtins.map((p) => {
+    const own = timings.get(p.id);
+    return own ? { ...p, phases: own.phases, userPatternId: own.id, adjusted: true } : p;
+  });
+  return [...adjusted, ...mine.filter((m) => !m.basePatternId).map(patternFromUser)];
+}
+
+/** What gets saved: the phases that are switched off are dropped. */
+export const draftFrom = (name: string, phases: BreathPhase[]) => ({
+  name,
+  phases: phases.filter((p) => p.seconds > 0),
+});
+
+/** Where "create your own" starts: a box with the holds switched off. */
+export const DRAFT_PHASES: BreathPhase[] = [
+  { kind: "inhale", seconds: 4, cue: "Breathe in" },
+  { kind: "hold", seconds: 0, cue: "Hold" },
+  { kind: "exhale", seconds: 4, cue: "Breathe out" },
+  { kind: "hold", seconds: 0, cue: "Hold" },
+];
+
+/**
+ * A saved practice laid back out in the four editable slots (in, hold, out,
+ * hold), so a phase that was switched off can be switched on again.
+ *
+ * Matched by kind, in order -- never by position. Filling the slots by index
+ * put a saved practice's exhale into the hold's slot, which showed "Out" where
+ * a hold belonged and offered a second exhale below it.
+ */
+export function toEditorSlots(saved: BreathPhase[]): BreathPhase[] {
+  const left = [...saved];
+  return DRAFT_PHASES.map((slot) => {
+    const i = left.findIndex((p) => p.kind === slot.kind);
+    if (i === -1) return { ...slot, seconds: 0 };
+    const [taken] = left.splice(i, 1);
+    return { ...slot, ...taken };
+  });
 }
 
 /** "5.5s", "4s". */

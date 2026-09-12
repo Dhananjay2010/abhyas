@@ -308,7 +308,10 @@ function Practice({
       actions
         .recordBreathingPractice({
           logId,
-          patternId: pattern.id,
+          // A practice of your own has no built-in behind it; a built-in you
+          // have retimed carries both, so history still groups it correctly.
+          patternId: pattern.kind === "mine" ? null : pattern.id,
+          userPatternId: pattern.userPatternId,
           cycles: o.cycles,
           plannedCycles: options.cycles,
           breaths: o.breaths,
@@ -338,7 +341,17 @@ function Practice({
             }),
         );
     },
-    [actions, logId, pattern.id, options.cycles, moodBefore, onSaved, sendMood],
+    [
+      actions,
+      logId,
+      pattern.id,
+      pattern.kind,
+      pattern.userPatternId,
+      options.cycles,
+      moodBefore,
+      onSaved,
+      sendMood,
+    ],
   );
   const doSaveRef = useRef(doSave);
   useEffect(() => {

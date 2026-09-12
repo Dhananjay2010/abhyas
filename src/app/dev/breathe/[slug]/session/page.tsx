@@ -3,7 +3,7 @@ import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { buildCycle, initialCycles } from "@/lib/breathing/engine";
 import { parseSessionSearch } from "@/lib/breathing/pattern";
 import { breathingStats } from "@/lib/breathing/stats";
-import { PATTERNS, PREFS } from "../../fixture";
+import { PRACTICES, PREFS } from "../../fixture";
 import { SessionPreview } from "../../previews";
 
 /**
@@ -12,8 +12,8 @@ import { SessionPreview } from "../../previews";
  *
  *   ?speed=8    divide every phase by 8, so a whole practice can be watched
  *   ?fail=1     the first save fails, to exercise "Try again"
- *   plus every option the real URL carries: cycles, sound, count, vib,
- *   settle, checkin
+ *   plus every option the real URL carries: cycles, sound, amb, vol, lang,
+ *   count, vib, settle, checkin
  */
 export const dynamic = "force-dynamic";
 
@@ -27,7 +27,7 @@ export default async function DevPracticeSessionPage({
   if (process.env.NODE_ENV !== "development") notFound();
   const { slug } = await params;
   const search = await searchParams;
-  const base = PATTERNS.find((p) => p.slug === slug);
+  const base = PRACTICES.find((p) => p.slug === slug);
   if (!base) notFound();
 
   const speed = Math.min(20, Math.max(1, Number(search.speed) || 1));
