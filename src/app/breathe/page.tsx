@@ -1,49 +1,154 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { BreathingRunner, type Pattern } from "./breathing-runner";
+import { addDays, isoWeekday, localDateString } from "@/lib/dates";
+import {
+  INTENTS,
+  PATTERN_COLUMNS,
+  PREFS_COLUMNS,
+  USER_PATTERN_COLUMNS,
+  patternFromRow,
+  prefsFromRow,
+  userPatternFromRow,
+  withUserPatterns,
+  type Intent,
+  type Pattern,
+  type UserPattern,
+} from "@/lib/breathing/pattern";
+import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
+import { suggestPractice } from "@/lib/breathing/suggest";
+import { BreatheHome, type LastPractice } from "./breathe-home";
 
 export const dynamic = "force-dynamic";
 
-export default async function BreathePage() {
+/** The hour where the user is, which is the only hour a suggestion should reason about. */
+function hourIn(timezone: string): number {
+  const hour = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour: "numeric",
+    hour12: false,
+  }).format(new Date());
+  const n = Number(hour);
+  return Number.isFinite(n) ? n % 24 : 12;
+}
+
+export default async function BreathePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
+  const search = await searchParams;
 
-  const [patternsRes, settingsRes] = await Promise.all([
-    supabase.from("breathing_patterns").select("*").order("sort_order"),
-    supabase
-      .from("user_settings")
-      .select("meditation_default_minutes")
-      .eq("user_id", user.id)
-      .maybeSingle(),
-  ]);
+  // Only a lower bound, so it does not need the user's timezone and nothing
+  // has to wait for the profile. A year is more than any streak worth showing.
+  const utcToday = localDateString("UTC");
+  const since = addDays(utcToday, -370);
 
-  const patterns: Pattern[] = (patternsRes.data ?? []).map((p) => ({
-    id: p.id,
-    slug: p.slug,
-    name: p.name,
-    description: p.description,
-    inhale: Number(p.inhale_seconds),
-    holdIn: Number(p.hold_in_seconds),
-    exhale: Number(p.exhale_seconds),
-    holdOut: Number(p.hold_out_seconds),
-    defaultCycles: p.default_cycles,
-    benefit: p.benefit,
-    contraindications: p.contraindications,
-  }));
+  const [patternsRes, mineRes, settingsRes, profileRes, practicesRes, logsRes, trainingRes] =
+    await Promise.all([
+      supabase.from("breathing_patterns").select(PATTERN_COLUMNS).order("sort_order"),
+      supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS).order("created_at"),
+      supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", user.id).maybeSingle(),
+      supabase.from("profiles").select("timezone").eq("id", user.id).single(),
+      // Sessions rather than logs: practices recorded before breathing_logs
+      // existed still count towards the week and the streak.
+      supabase
+        .from("sessions")
+        .select("local_date, duration_seconds")
+        .eq("actual_type", "meditation")
+        .eq("status", "completed")
+        .gte("local_date", since)
+        .limit(2000),
+      supabase
+        .from("breathing_logs")
+        .select("pattern_id, user_pattern_id, planned_cycles, pattern_name, mood_before, mood_after")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      // Did you train today? Two days of workouts is enough to answer it once
+      // the timezone arrives.
+      supabase
+        .from("sessions")
+        .select("local_date, actual_type")
+        .eq("status", "completed")
+        .in("actual_type", ["weights", "bodyweight"])
+        .gte("local_date", addDays(utcToday, -1))
+        .limit(10),
+    ]);
+
+  if (patternsRes.error) {
+    throw new Error(`Could not load the breathing practices: ${patternsRes.error.message}`);
+  }
+
+  const builtins = (patternsRes.data ?? [])
+    .map((row) => patternFromRow(row))
+    .filter((p): p is Pattern => p !== null);
+  const owned = (mineRes.data ?? [])
+    .map(userPatternFromRow)
+    .filter((p): p is UserPattern => p !== null);
+  const patterns = withUserPatterns(builtins, owned);
+
+  const timezone = profileRes.data?.timezone || "Asia/Kolkata";
+  const today = localDateString(timezone);
+  const stats = breathingStats(
+    (practicesRes.data ?? []).map((s) => ({
+      localDate: s.local_date,
+      seconds: s.duration_seconds ?? 0,
+    })),
+    today,
+  );
+
+  // Newest first, so the first log seen for a practice is its latest length.
+  const logs = logsRes.data ?? [];
+  const lastCyclesByPattern: Record<string, number> = {};
+  for (const log of logs) {
+    const key = log.user_pattern_id ?? log.pattern_id;
+    if (key && !(key in lastCyclesByPattern)) lastCyclesByPattern[key] = log.planned_cycles;
+  }
+  const latest = logs[0];
+  const latestKey = latest ? (latest.user_pattern_id ?? latest.pattern_id) : null;
+  // A practice of your own is keyed by your row; a built-in by the built-in,
+  // even when you have retimed it.
+  const lastPattern = latestKey
+    ? patterns.find((p) => (p.kind === "mine" ? p.id === latestKey : p.id === latestKey))
+    : undefined;
+  const last: LastPractice | null =
+    lastPattern && latest ? { patternId: lastPattern.id, cycles: latest.planned_cycles } : null;
+
+  const trainedToday = (trainingRes.data ?? []).some((s) => s.local_date === today);
+  const suggestion = suggestPractice({
+    patterns,
+    hour: hourIn(timezone),
+    trainedToday,
+    excludeId: last?.patternId ?? null,
+  });
+
+  const shifts = calmShifts(
+    logs.map(
+      (l): MoodLog => ({
+        patternName: l.pattern_name,
+        moodBefore: l.mood_before,
+        moodAfter: l.mood_after,
+      }),
+    ),
+  );
+
+  const asked = typeof search.intent === "string" ? search.intent : null;
+  const intent = INTENTS.some((i) => i.value === asked) ? (asked as Intent) : null;
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
-      <h1 className="text-3xl font-bold tracking-tight">Breathe</h1>
-      <p className="mt-2 mb-8 text-sm text-muted">
-        Pick a pattern. The circle grows as you breathe in and shrinks as you breathe
-        out, so you can follow it without counting.
-      </p>
-
-      <BreathingRunner
+      <BreatheHome
         patterns={patterns}
-        defaultMinutes={settingsRes.data?.meditation_default_minutes ?? 10}
+        prefs={prefsFromRow(settingsRes.data)}
+        stats={stats}
+        lastCyclesByPattern={lastCyclesByPattern}
+        last={last}
+        suggestion={suggestion}
+        shifts={shifts}
+        intent={intent}
+        todayIndex={isoWeekday(today)}
       />
-
     </main>
   );
 }

@@ -10,6 +10,9 @@ const SESSIONS: SessionSummary[] = [
   { id: "3", localDate: "2026-09-05", label: "Upper", status: "completed", isDeload: true, durationSeconds: 2700, setCount: 12, volumeKg: 4100 },
   { id: "4", localDate: "2026-09-04", label: "Yoga", status: "completed", isDeload: false, durationSeconds: 1800, setCount: 0, volumeKg: 0 },
   { id: "5", localDate: "2026-09-02", label: "Lower", status: "skipped", isDeload: false, durationSeconds: null, setCount: 0, volumeKg: 0 },
+  { id: "6", localDate: "2026-09-08", label: "Box Breathing", status: "completed", isDeload: false, durationSeconds: 304, setCount: 0, volumeKg: 0, breathing: { breaths: 19 } },
+  { id: "7", localDate: "2026-09-06", label: "Physiological Sigh", status: "completed", isDeload: false, durationSeconds: 45, setCount: 0, volumeKg: 0, breathing: { breaths: 5 } },
+  { id: "8", localDate: "2026-09-03", label: "Breathing", status: "completed", isDeload: false, durationSeconds: 600, setCount: 0, volumeKg: 0, breathing: { breaths: null } },
 ];
 
 export default async function DevHistoryPage() {

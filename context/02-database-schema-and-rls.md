@@ -8,11 +8,15 @@ property that matters most.
 
 ## Current state
 
+Counted against the live database on 2026-09-12, after step 16 added
+`breathing_logs` and its four policies.
+
 | | |
 |---|---|
-| Public tables | 21 |
-| RLS policies | 58 |
+| Public tables | 22 |
+| RLS policies | 62 |
 | Tables with RLS disabled | **0** |
+| Public functions | 4 |
 | Seeded equipment | 37 |
 | Seeded warm-up exercises | 29 |
 | Seeded breathing patterns | 6 |
@@ -30,6 +34,9 @@ new migration, never by editing an old one.
 | `20260908210000_movement_patterns.sql` | `movement_pattern` enum + column, `cue` column |
 | `20260908210100_seed_exercises.sql` | Exercise catalogue (generated) |
 | `20260908210200_refresh_exercise_patterns.sql` | Catalogue correction (generated) |
+| `20260912090000_breathe_phase_one.sql` | Breathing pattern phases and content, `breathing_logs`, breathing preference columns on `user_settings`, `record_breathing_practice()` — step 16 |
+| `20260913090000_breathe_sound.sql` | Guidance widened to `tones`/`ocean`/`voice`/`off`, background-sound and voice-language preferences, Bhramari's exhale marked as hummed — step 16, phase 2a |
+| `20260914090000_breathe_your_own.sql` | Four more practices, the `user_breathing_patterns` table (your timings and your own practices), `breathing_logs.user_pattern_id`, and `record_breathing_practice()` replaced to accept either kind — step 16, phase 2b |
 
 Push with `supabase db push`. Query the remote without Docker using
 `supabase db query --linked "<sql>"` — note the `--linked` flag, as it defaults
@@ -44,7 +51,13 @@ to a local database that does not exist here.
 **Per user (owner-only, all four verbs):** `profiles`, `user_settings`,
 `user_equipment`, `user_injuries`, `programs`, `program_days`,
 `program_day_exercises`, `sessions`, `session_exercises`, `session_sets`,
-`exercise_progress`, `body_metrics`, `user_yoga_progress`
+`exercise_progress`, `body_metrics`, `user_yoga_progress`, `breathing_logs`
+
+`breathing_logs` is a child of `sessions` and follows the same rule as the other
+child tables: `set_user_id_from_parent('sessions', 'session_id')` sets its
+owner. It is normally written only through `record_breathing_practice()`, a
+`SECURITY INVOKER` function, so RLS still governs every statement inside it
+(step 16).
 
 ## Decisions and why
 
@@ -148,3 +161,19 @@ insert them after switching back.
 - Initial schema, RLS, triggers and reference seed.
 - Added `movement_pattern` enum and column, plus `cue`, for the block generator.
 - Added `machine_generic` equipment row during the catalogue import.
+- 2026-09-12 (step 16): breathing phases and content on `breathing_patterns`, the
+  `breathing_logs` table (RLS, owner trigger), breathing preference columns and
+  a 1–60 range on `meditation_default_minutes`, and
+  `record_breathing_practice()`. The function was verified as the real user
+  under RLS inside a transaction that rolled back.
+- 2026-09-12 (step 16, phase 2a): the breathing guidance values widened to
+  `tones`, `ocean`, `voice` and `off` in both `user_settings` and
+  `breathing_logs`, plus columns for the background sound, its volume and the
+  voice language. No new tables or policies, so the counts above still hold.
+- 2026-09-12 (step 16, phase 2b): four more breathing practices, and
+  `user_breathing_patterns` — one table for both your own practices and your
+  timings for ours, told apart by whether `base_pattern_id` is set, with a
+  partial unique index giving you one set of timings per practice. That makes
+  **23 tables and 66 policies.** `record_breathing_practice()` was replaced
+  (the old signature dropped) to take either kind of practice, and it refuses
+  one that is not yours.

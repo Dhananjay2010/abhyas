@@ -5,10 +5,19 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/today", label: "Today" },
+  { href: "/breathe", label: "Breathe" },
   { href: "/history", label: "History" },
   { href: "/progress", label: "Progress" },
   { href: "/settings", label: "Settings" },
 ];
+
+/**
+ * The Breathe tab and a practice's setup page, but not the practice itself
+ * (`/breathe/<slug>/session`). That is full screen, so it is left off the
+ * allowlist and the bar disappears while you breathe.
+ */
+const BREATHE_PAGE = /^\/breathe(\/[^/]+)?$/;
+const DEV_BREATHE_PAGE = /^\/dev\/breathe(\/[^/]+)?$/;
 
 /**
  * Routes that show the tab bar, and which tab each one lights up.
@@ -22,8 +31,9 @@ const ACTIVE_FOR: Array<[test: (p: string) => boolean, tab: string]> = [
   [(p) => p === "/history" || p.startsWith("/history/"), "/history"],
   [(p) => p === "/progress", "/progress"],
   [(p) => p === "/settings", "/settings"],
-  // Yoga and breathing are reached from Today and belong to it.
-  [(p) => p === "/yoga" || p === "/breathe", "/today"],
+  [(p) => BREATHE_PAGE.test(p), "/breathe"],
+  // Yoga is reached from Today and belongs to it.
+  [(p) => p === "/yoga", "/today"],
   // Dev harnesses that preview a tabbed screen keep the real chrome, so what
   // they show matches what ships. The harnesses for full-screen routes — the
   // guided session and onboarding — are deliberately absent, because those
@@ -31,7 +41,8 @@ const ACTIVE_FOR: Array<[test: (p: string) => boolean, tab: string]> = [
   [(p) => p === "/dev/history", "/history"],
   [(p) => p === "/dev/settings", "/settings"],
   [(p) => p === "/dev/charts", "/progress"],
-  [(p) => p === "/dev/yoga" || p === "/dev/breathe" || p === "/dev/loading-states", "/today"],
+  [(p) => DEV_BREATHE_PAGE.test(p), "/breathe"],
+  [(p) => p === "/dev/yoga" || p === "/dev/loading-states", "/today"],
 ];
 
 /**
@@ -67,7 +78,8 @@ export function BottomNav() {
               // rollover would already have happened in a prefetch they never
               // asked for.
               aria-current={active === t.href ? "page" : undefined}
-              className={`block px-4 pt-3 text-center text-sm font-medium transition-colors ${
+              // px-1: five labels have to fit a 375px screen.
+              className={`block px-1 pt-3 text-center text-sm font-medium transition-colors ${
                 active === t.href ? "text-accent" : "text-muted"
               }`}
               style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}

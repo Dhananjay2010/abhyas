@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { BreathingDetail, type BreathingLog } from "./breathing-detail";
+import { Stat } from "./stat";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +31,26 @@ export default async function SessionDetailPage({
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, program_days(label)")
+    // The pattern is named through its foreign key, so a second link between
+    // the two tables (breathing_logs is one) can never make it ambiguous.
+    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance)")
     .eq("id", id)
     .maybeSingle();
   if (!session) notFound();
+
+  if (session.actual_type === "meditation") {
+    const pattern = session.breathing_patterns as unknown as { name: string; slug: string } | null;
+    const log = ((session.breathing_logs ?? []) as unknown as BreathingLog[])[0] ?? null;
+    return (
+      <BreathingDetail
+        name={pattern?.name ?? log?.pattern_name ?? "Breathing"}
+        slug={pattern?.slug ?? null}
+        localDate={session.local_date}
+        seconds={log?.seconds ?? session.duration_seconds}
+        log={log}
+      />
+    );
+  }
 
   const { data: exercises, error: exercisesError } = await supabase
     .from("session_exercises")
@@ -122,14 +140,5 @@ export default async function SessionDetailPage({
         })}
       </ol>
     </main>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-surface px-3 py-3">
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="mt-0.5 font-semibold tabular-nums">{value}</dd>
-    </div>
   );
 }

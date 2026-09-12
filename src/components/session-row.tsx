@@ -9,6 +9,8 @@ export type SessionSummary = {
   durationSeconds: number | null;
   setCount: number;
   volumeKg: number;
+  /** Present for a breathing practice, which is described by its breaths, not its sets. */
+  breathing?: { breaths: number | null } | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -34,13 +36,23 @@ const TYPE_LABEL: Record<string, string> = {
  * The program day's label ("Push", "Legs") is only right when the session was
  * actually that kind of training. A yoga session recorded on a Legs day must
  * not be listed as "Legs", and the raw enum "meditation" must never reach the
- * screen.
+ * screen. A breathing practice is named for what it was ("Box Breathing"),
+ * falling back to "Breathing" for one recorded before the pattern was kept.
  */
-export function sessionLabel(dayLabel: string | null, actualType: string | null): string {
-  if (actualType === "yoga" || actualType === "meditation") {
-    return TYPE_LABEL[actualType];
-  }
+export function sessionLabel(
+  dayLabel: string | null,
+  actualType: string | null,
+  patternName?: string | null,
+): string {
+  if (actualType === "meditation") return patternName ?? TYPE_LABEL.meditation;
+  if (actualType === "yoga") return TYPE_LABEL.yoga;
   return dayLabel ?? TYPE_LABEL[actualType ?? ""] ?? "Session";
+}
+
+/** m:ss. A breathing practice is often under a minute, which "0 min" would hide. */
+export function clockLabel(totalSeconds: number): string {
+  const s = Math.max(0, Math.round(totalSeconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 function longDate(iso: string): string {
@@ -52,13 +64,19 @@ function longDate(iso: string): string {
 
 export function SessionRow({ s, today }: { s: SessionSummary; today: string }) {
   const minutes = s.durationSeconds ? Math.round(s.durationSeconds / 60) : null;
-  const details = [
-    STATUS_LABEL[s.status] ?? s.status,
-    s.isDeload ? "deload" : null,
-    minutes !== null ? `${minutes} min` : null,
-    s.setCount > 0 ? `${s.setCount} sets` : null,
-    s.volumeKg > 0 ? `${Math.round(s.volumeKg)} kg` : null,
-  ].filter(Boolean);
+  const details = s.breathing
+    ? [
+        "Breathing",
+        s.durationSeconds ? clockLabel(s.durationSeconds) : null,
+        s.breathing.breaths ? `${s.breathing.breaths} breaths` : null,
+      ].filter(Boolean)
+    : [
+        STATUS_LABEL[s.status] ?? s.status,
+        s.isDeload ? "deload" : null,
+        minutes !== null ? `${minutes} min` : null,
+        s.setCount > 0 ? `${s.setCount} sets` : null,
+        s.volumeKg > 0 ? `${Math.round(s.volumeKg)} kg` : null,
+      ].filter(Boolean);
 
   return (
     <Link

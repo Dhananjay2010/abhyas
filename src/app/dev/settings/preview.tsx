@@ -45,7 +45,6 @@ const INITIAL: SettingsState = {
   restVibrate: true,
   restOverrideSeconds: null,
   bodyweightPrompt: "weekly",
-  meditationDefaultMinutes: 10,
 };
 
 export function SettingsPreview() {

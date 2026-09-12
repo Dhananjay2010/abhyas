@@ -17,6 +17,14 @@
   --color-chart: #d95926;
   --color-success: #4ade80;
 
+  /* Breathe. A cool palette for a practice meant to slow you down; the orange
+     accent stays on primary actions so it still reads as Abhyas.
+     --color-breath is over 10:1 against --color-surface (#151a1f), so it is
+     safe for small text as well as the orb. */
+  --color-breath: #6fd8d2;
+  --color-breath-deep: #0b1622;
+  --color-breath-ink: #dcf3f1;
+
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
@@ -36,4 +44,42 @@ body {
 /* Nothing in a guided session should be accidentally selectable mid-set. */
 button {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Breathe: each phase's words fade in as the phase begins. */
+@keyframes breath-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.breath-fade {
+  animation: breath-fade 450ms ease-out both;
+}
+
+/* Breathe: the orb while a practice is loading. */
+@keyframes breath-idle {
+  0%,
+  100% {
+    transform: scale(0.86);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+}
+.breath-idle {
+  animation: breath-idle 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breath-fade,
+  .breath-idle {
+    animation: none;
+  }
 }

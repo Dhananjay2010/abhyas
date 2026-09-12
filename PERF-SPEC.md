@@ -113,8 +113,9 @@ that are not there.
   output size. Not worth changing.
 - **Caching the reference tables (Stage 4 below).** The premise was that
   re-reading seeded data on every request is wasted work. Two facts undo it.
-  The tables are tiny — 29 warm-up exercises, 72 pieces of equipment, 36
-  breathing patterns — and once the waterfalls are collapsed those reads sit
+  The tables are tiny — 29 warm-up exercises, 72 pieces of equipment, 6
+  breathing patterns (this said 36 until 2026-09-12; the table has always
+  had six) — and once the waterfalls are collapsed those reads sit
   inside a parallel batch, so they cost nothing unless they are the slowest
   query in it. And they are readable by `authenticated` only, not `anon`
   (`grant select ... to authenticated`, policy `for select to authenticated`),

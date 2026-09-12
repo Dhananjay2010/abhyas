@@ -62,6 +62,11 @@ a completed session for the day.
 
 ## Breathing pacer
 
+> **Superseded on 2026-09-12 by the Breathe tab — see
+> [16-breathe-tab.md](16-breathe-tab.md).** `breathing-runner.tsx` no longer
+> exists. The description below is kept as the record of what it was; its two
+> bugs are why the new player derives everything from a pure timeline.
+
 The six seeded patterns, with a circle that grows on the inhale, shrinks on the
 exhale and holds still during a hold, so the shape itself carries the
 instruction. Zero-length phases are skipped, so 4-7-8 correctly runs
@@ -128,10 +133,17 @@ awkward numbers (55 cycles, "10:05"); they are rounded to the nearest five.
   length would show a stale figure.
 - The yoga player does not resume mid-video or track partial progress.
 - Per-pattern breathing timings are not yet user-editable, though `SPEC.md`
-  section 9.4 calls for it; only the cycle count is adjustable.
+  section 9.4 calls for it. Still true after step 16; it is Phase 2 of
+  `BREATHE-SPEC.md`.
+- The breathing half of the first bullet no longer holds in full: step 16 ran
+  the new save function as the real user against the live database (rolled
+  back). The app has still not written a practice through its own UI.
 - Yoga sessions are not attached to a `program_day`, so on a rest day a yoga
   session is recorded as an extra rather than replacing anything.
 
 ## Change log
 
 - Initial yoga player and breathing pacer, 200 verified videos seeded.
+- 2026-09-12: the breathing pacer was replaced by the Breathe tab (step 16),
+  which also fixed the bug where finishing a breathing session could overwrite
+  an unfinished workout.
