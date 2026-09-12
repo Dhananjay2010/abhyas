@@ -897,11 +897,11 @@ drifted. The four were regenerated from the live rows.
   future` clock skew was seen once on production — shows a full-page error
   rather than a degraded tab. It recovers on reload and the error screen offers
   one. `BREATHE-SPEC.md` §21.2 records the occurrence.
-- **History says "breaths" for a pumping practice.** A Kapalabhati session
-  reads "60 breaths" rather than "60 pumps", because the history row has the
-  practice's name but not its phases, so it cannot tell that it pumps. The
-  ending screen and the detail page both get this right; only the list does
-  not.
+- ~~History says "breaths" for a pumping practice.~~ **Fixed 2026-09-13**: the
+  history query already embedded the pattern, so it now asks for `phases` too
+  and `SessionRow` says "pumps" when any phase pumps. A routine is excluded
+  explicitly — it can never contain a gated practice, and its pattern link
+  points at its first step, so it would take the wrong word from it.
 - **No practice has been started on production.** The player is verified end to
   end in the harness and the saving path was proven signed in on localhost, but
   nothing has been run on the deployed site, deliberately — starting day one of

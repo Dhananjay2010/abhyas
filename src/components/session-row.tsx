@@ -9,8 +9,12 @@ export type SessionSummary = {
   durationSeconds: number | null;
   setCount: number;
   volumeKg: number;
-  /** Present for a breathing practice, which is described by its breaths, not its sets. */
-  breathing?: { breaths: number | null } | null;
+  /**
+   * Present for a breathing practice, which is described by its breaths, not
+   * its sets. `pumps` is set for a pumping practice (Kapalabhati), which counts
+   * pumps rather than breaths -- the same word its own round and ending use.
+   */
+  breathing?: { breaths: number | null; pumps?: boolean } | null;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -62,15 +66,17 @@ function longDate(iso: string): string {
   }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
+/** "20 pumps", "1 breath". Kapalabhati is counted in the word it paces you in. */
+const breathCount = (n: number, pumps?: boolean) =>
+  `${n} ${pumps ? (n === 1 ? "pump" : "pumps") : n === 1 ? "breath" : "breaths"}`;
+
 export function SessionRow({ s, today }: { s: SessionSummary; today: string }) {
   const minutes = s.durationSeconds ? Math.round(s.durationSeconds / 60) : null;
   const details = s.breathing
     ? [
         "Breathing",
         s.durationSeconds ? clockLabel(s.durationSeconds) : null,
-        s.breathing.breaths
-          ? `${s.breathing.breaths} ${s.breathing.breaths === 1 ? "breath" : "breaths"}`
-          : null,
+        s.breathing.breaths ? breathCount(s.breathing.breaths, s.breathing.pumps) : null,
       ].filter(Boolean)
     : [
         STATUS_LABEL[s.status] ?? s.status,
