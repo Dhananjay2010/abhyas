@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { audioSupported, unlockBreathAudio } from "@/lib/breathing/audio";
-import { isIOS, noteInAppStart } from "@/lib/breathing/client";
+import { unlockBreathAudio } from "@/lib/breathing/audio";
+import { noteInAppStart } from "@/lib/breathing/client";
 import { buildCycle, cyclesForMinutes, initialCycles, lengthPlan } from "@/lib/breathing/engine";
 import {
   INTENTS,
@@ -12,15 +12,15 @@ import {
   secondsLabel,
   sessionSearch,
   type BreathingPrefs,
-  type Guidance,
   type Pattern,
 } from "@/lib/breathing/pattern";
+import { warmUpSpeech } from "@/lib/breathing/speech";
 import type { PrefsPatch } from "@/lib/breathing/validation";
 import { formatClock } from "@/lib/session/device";
 import { updateBreathingPrefs } from "../actions";
 import { Choice, Field, Icon } from "../controls";
 import { RhythmPreview } from "../rhythm-preview";
-import { useClientValue } from "../use-media";
+import { SoundControls } from "../sound-controls";
 
 type Actions = { updateBreathingPrefs: typeof updateBreathingPrefs };
 const REAL: Actions = { updateBreathingPrefs };
@@ -67,14 +67,18 @@ export function PracticeSetup({
     }),
   );
   const [custom, setCustom] = useState(() => !plan.options.some((o) => o.cycles === cycles));
-  const [guidance, setGuidance] = useState<Guidance>(prefs.guidance);
+  // How this practice will sound. These are preferences too, so a change here
+  // is remembered for next time.
+  const [sound, setSound] = useState({
+    guidance: prefs.guidance,
+    ambience: prefs.ambience,
+    ambienceVolume: prefs.ambienceVolume,
+    voiceLang: prefs.voiceLang,
+  });
   const [showCount, setShowCount] = useState(prefs.showCount);
   const [prefError, setPrefError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [, startTransition] = useTransition();
-
-  const canPlay = useClientValue(audioSupported, true);
-  const silentSwitchMutes = useClientValue(() => isIOS() && !("audioSession" in navigator), false);
 
   const seconds = Math.round(cycle.seconds * cycles);
   const breaths = cycles * cycle.breaths;
@@ -90,14 +94,18 @@ export function PracticeSetup({
   const start = () => {
     if (starting) return;
     setStarting(true);
-    // This tap is the gesture iOS needs before any sound is allowed, and the
-    // context it unlocks survives the navigation to the practice screen.
-    if (guidance === "tones") unlockBreathAudio();
+    // This tap is the gesture iOS needs before any sound is allowed -- Web
+    // Audio and speech are granted separately -- and what it unlocks survives
+    // the navigation to the practice screen.
+    if (sound.guidance !== "off") {
+      unlockBreathAudio();
+      if (sound.guidance === "voice") warmUpSpeech(sound.voiceLang);
+    }
     noteInAppStart();
     router.push(
       `${basePath}/${pattern.slug}/session${sessionSearch({
         cycles,
-        guidance,
+        ...sound,
         showCount,
         vibrate: prefs.vibrate,
         settleIn: prefs.settleIn,
@@ -105,14 +113,6 @@ export function PracticeSetup({
       })}`,
     );
   };
-
-  const soundHint = !canPlay
-    ? "This browser cannot play sound."
-    : guidance === "tones"
-      ? silentSwitchMutes
-        ? "A soft tone rises as you breathe in and falls as you breathe out. On this iPhone the silent switch mutes it."
-        : "A soft tone rises as you breathe in and falls as you breathe out, so you can close your eyes."
-      : null;
 
   return (
     <>
@@ -263,20 +263,13 @@ export function PracticeSetup({
 
       <section className="mt-7 space-y-4">
         <h2 className="text-sm font-medium">Guidance</h2>
-        <Field label="Sound" hint={soundHint}>
-          <Choice
-            label="Sound"
-            value={guidance}
-            options={[
-              { value: "tones", label: "Tones" },
-              { value: "off", label: "Off" },
-            ]}
-            onChange={(g) => {
-              setGuidance(g);
-              remember({ guidance: g });
-            }}
-          />
-        </Field>
+        <SoundControls
+          prefs={sound}
+          onChange={(patch) => {
+            setSound((s) => ({ ...s, ...patch }));
+            remember(patch);
+          }}
+        />
         <Field label="Seconds count">
           <Choice
             label="Seconds count"

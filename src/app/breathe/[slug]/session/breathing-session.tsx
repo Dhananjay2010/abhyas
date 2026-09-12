@@ -17,9 +17,21 @@ import {
   breathAudio,
   scheduleBell,
   scheduleGlide,
+  scheduleHum,
+  scheduleSwell,
+  startAmbience,
   unlockBreathAudio,
+  type AmbienceHandle,
   type Voice,
 } from "@/lib/breathing/audio";
+import {
+  onVoicesChanged,
+  speak,
+  speechSupported,
+  spokenCue,
+  stopSpeech,
+  warmUpSpeech,
+} from "@/lib/breathing/speech";
 import { openedFromApp, uuid } from "@/lib/breathing/client";
 import { PausableClock } from "@/lib/breathing/clock";
 import {
@@ -207,7 +219,7 @@ function Practice({
   const [tapped, setTapped] = useState(false);
   const [paused, setPaused] = useState(false);
   const [pauseAt, setPauseAt] = useState({ t: 0, cycles: 0 });
-  const [soundOn, setSoundOn] = useState(options.guidance === "tones");
+  const [soundOn, setSoundOn] = useState(options.guidance !== "off");
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [view, setView] = useState<View>({
     sub: settle > 0 ? "settle" : "practice",
@@ -223,6 +235,13 @@ function Practice({
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [save, setSave] = useState<Status>({ state: "idle" });
   const [rate, setRate] = useState<Status>({ state: "idle" });
+
+  // Voice falls back to tones on a browser that cannot speak, and says so.
+  const canSpeak = useSyncExternalStore(onVoicesChanged, speechSupported, () => true);
+  const wantsVoice = options.guidance === "voice";
+  /** What is actually playing. Turning sound back on after choosing "off" gives tones. */
+  const mode: "tones" | "ocean" | "voice" =
+    wantsVoice && canSpeak ? "voice" : options.guidance === "ocean" ? "ocean" : "tones";
 
   const needsTap = stage === "running" && soundOn && canPlay && !hasContext && !tapped;
   const live = stage === "running" && !paused && !needsTap;
@@ -241,6 +260,8 @@ function Practice({
   const blockedRef = useRef(false);
   const scheduled = useRef(new Set<string>());
   const voices = useRef<Array<{ voice: Voice; until: number }>>([]);
+  const ambience = useRef<AmbienceHandle | null>(null);
+  const modeRef = useRef(mode);
   const savedRef = useRef(false);
   const pendingMood = useRef<number | null>(null);
   const soundOnRef = useRef(soundOn);
@@ -249,6 +270,10 @@ function Practice({
   useEffect(() => {
     soundOnRef.current = soundOn;
   }, [soundOn]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   useEffect(() => {
     stageRef.current = stage;
@@ -260,6 +285,9 @@ function Practice({
     const when = breathAudio()?.ctx.currentTime;
     for (const v of voices.current) v.voice.stop(when);
     voices.current = [];
+    ambience.current?.stop(when);
+    ambience.current = null;
+    stopSpeech();
     scheduled.current.clear();
   }, []);
 
@@ -287,7 +315,7 @@ function Practice({
           seconds: o.seconds,
           endedEarly: o.endedEarly,
           moodBefore,
-          guidance: soundOnRef.current ? "tones" : "off",
+          guidance: soundOnRef.current ? modeRef.current : "off",
         })
         .then(
           (r) => {
@@ -419,6 +447,49 @@ function Practice({
       const now = ctx.currentTime;
       const done = scheduled.current;
 
+      // The bed underneath, started as soon as sound is allowed and stopped
+      // with everything else on a pause.
+      if (options.ambience !== "none" && !ambience.current) {
+        ambience.current = startAmbience(ctx, out, options.ambience, options.ambienceVolume, now + 0.05);
+      }
+
+      /**
+       * What a phase sounds like, in whichever mode is playing.
+       *
+       * A hummed phase is a hum in every mode: it is the practice's own
+       * instruction, not decoration. Voice says the cue at the boundary
+       * instead, so nothing is scheduled for it here.
+       */
+      const schedulePhase = (p: TimedPhase, at: number, duration: number, fromSize: number) => {
+        if (duration <= 0.3) return;
+        if (p.hum) {
+          keep(scheduleHum(ctx, out, { at, duration }), at + duration);
+          return;
+        }
+        if (modeRef.current === "voice") return;
+        if (modeRef.current === "ocean") {
+          keep(
+            scheduleSwell(ctx, out, {
+              at,
+              duration,
+              fromSize,
+              // A hold is a wave that holds its level.
+              toSize: p.kind === "hold" ? fromSize : p.to,
+            }),
+            at + duration,
+          );
+          return;
+        }
+        if (p.kind === "hold") {
+          keep(
+            scheduleBell(ctx, out, { at, hz: fromSize >= 0.5 ? BELL_HIGH : BELL_LOW, peak: 0.05, decay: 1.4 }),
+            at + 1.5,
+          );
+          return;
+        }
+        keep(scheduleGlide(ctx, out, { at, duration, fromSize, toSize: p.to }), at + duration);
+      };
+
       // Three soft ticks counting into the first breath.
       if (t < 0) {
         for (const k of [3, 2, 1]) {
@@ -438,17 +509,7 @@ function Practice({
         const key = `${pos.cycleIndex}:${pos.phase.index}`;
         if (!done.has(key)) {
           done.add(key);
-          if (pos.phase.kind !== "hold" && pos.phaseRemaining > 0.3) {
-            keep(
-              scheduleGlide(ctx, out, {
-                at: now + 0.02,
-                duration: pos.phaseRemaining,
-                fromSize: pos.size,
-                toSize: pos.phase.to,
-              }),
-              now + pos.phaseRemaining,
-            );
-          }
+          schedulePhase(pos.phase, now + 0.02, pos.phaseRemaining, pos.size);
         }
       }
 
@@ -458,14 +519,8 @@ function Practice({
         const key = `${next.cycleIndex}:${next.phase.index}`;
         if (!done.has(key)) {
           done.add(key);
-          const at = now + Math.max(0, next.at - t);
           const p = next.phase;
-          keep(
-            p.kind === "hold"
-              ? scheduleBell(ctx, out, { at, hz: p.from >= 0.5 ? BELL_HIGH : BELL_LOW, peak: 0.05, decay: 1.4 })
-              : scheduleGlide(ctx, out, { at, duration: p.seconds, fromSize: p.from, toSize: p.to }),
-            at + p.seconds,
-          );
+          schedulePhase(p, now + Math.max(0, next.at - t), p.seconds, p.from);
         }
       }
 
@@ -500,6 +555,12 @@ function Practice({
           keyRef.current = key;
           setView({ sub: "practice", phase: pos.phase, cycleIndex: pos.cycleIndex });
           setAnnounce(`${pos.phase.cue}. ${Math.round(pos.phase.seconds)} seconds.`);
+          // Speech cannot be put on the audio clock, so it is said as the
+          // phase turns -- within a frame of the sound the other modes make.
+          if (soundOnRef.current && modeRef.current === "voice") {
+            const before = cycle.phases[(pos.phase.index - 1 + cycle.phases.length) % cycle.phases.length];
+            speak(spokenCue(pos.phase, options.voiceLang, before.kind === "inhale"), options.voiceLang);
+          }
           if (options.vibrate) {
             vibrate(pos.phase.kind === "inhale" ? 60 : pos.phase.kind === "exhale" ? [30, 40, 30] : 20);
           }
@@ -556,20 +617,48 @@ function Practice({
       clock.pause();
       stopVoices();
     };
-  }, [live, clock, settle, total, cycle, options.cycles, options.showCount, options.vibrate, reduced, stopVoices]);
+  }, [
+    live,
+    clock,
+    settle,
+    total,
+    cycle,
+    options.cycles,
+    options.showCount,
+    options.vibrate,
+    options.ambience,
+    options.ambienceVolume,
+    options.voiceLang,
+    reduced,
+    stopVoices,
+  ]);
 
   // Silence on the way out, whatever the way out was.
   useEffect(() => stopVoices, [stopVoices]);
 
   // ---- actions -------------------------------------------------------------
 
+  /**
+   * Everything sound needs from a tap, in one place.
+   *
+   * iOS grants Web Audio and speech separately, and both only from inside a
+   * gesture -- speech again after the app has been in the background, which is
+   * why Resume warms it up too.
+   */
+  const allowSound = () => {
+    if (!soundOn) return;
+    unlockBreathAudio();
+    if (mode === "voice") warmUpSpeech(options.voiceLang);
+  };
+
   const begin = () => {
-    if (soundOn) unlockBreathAudio();
+    allowSound();
     setTapped(true);
     setStage("running");
   };
 
   const resume = () => {
+    allowSound();
     setPaused(false);
     setControls(true);
   };
@@ -604,6 +693,7 @@ function Practice({
       stopVoices();
     } else {
       unlockBreathAudio();
+      if (mode === "voice") warmUpSpeech(options.voiceLang);
       setSoundOn(true);
     }
   };
@@ -615,7 +705,7 @@ function Practice({
   };
 
   const again = () => {
-    if (soundOn) unlockBreathAudio();
+    allowSound();
     onAgain();
   };
 
@@ -773,7 +863,7 @@ function Practice({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              unlockBreathAudio();
+              allowSound();
             }}
             className="rounded-full border border-breath/40 px-4 py-2 text-xs text-breath"
             style={{ background: "rgba(11, 22, 34, 0.85)" }}
@@ -781,6 +871,12 @@ function Practice({
             The browser paused the sound. Tap to turn it back on.
           </button>
         </div>
+      )}
+
+      {soundOn && !soundBlocked && wantsVoice && !canSpeak && (
+        <p className="relative mt-3 shrink-0 px-6 text-center text-xs text-breath-ink/60">
+          This browser cannot speak, so tones are playing instead.
+        </p>
       )}
 
       {/* A column, not absolute positioning: whatever the screen's height, the

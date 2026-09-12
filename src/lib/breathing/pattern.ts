@@ -67,6 +67,7 @@ export function parsePhases(value: unknown): BreathPhase[] | null {
     const phase: BreathPhase = { kind: p.kind as PhaseKind, seconds: p.seconds, cue: p.cue };
     if (typeof p.label === "string" && p.label.trim() !== "") phase.label = p.label;
     if (p.side === "left" || p.side === "right") phase.side = p.side as Side;
+    if (p.hum === true) phase.hum = true;
     if (typeof p.to === "number" && p.to >= 0 && p.to <= 1) phase.to = p.to;
     out.push(phase);
   }
@@ -114,13 +115,46 @@ export const LEVEL_LABEL: Record<string, string> = {
 // Preferences
 // ---------------------------------------------------------------------------
 
-export type Guidance = "tones" | "off";
+export type Guidance = "tones" | "ocean" | "voice" | "off";
 export type CheckIn = "off" | "after" | "both";
+export type Ambience = "none" | "rain" | "waves" | "brown" | "tanpura";
+export type VoiceLang = "en" | "hi";
+
+export const GUIDANCE_OPTIONS: ReadonlyArray<{ value: Guidance; label: string; hint: string }> = [
+  { value: "tones", label: "Tones", hint: "A soft tone rises as you breathe in and falls as you breathe out." },
+  { value: "ocean", label: "Ocean", hint: "A wave swells as you breathe in and ebbs as you breathe out." },
+  { value: "voice", label: "Voice", hint: "Your phone says each cue out loud." },
+  { value: "off", label: "Off", hint: "Nothing but the screen." },
+];
+
+export const AMBIENCE_OPTIONS: ReadonlyArray<{ value: Ambience; label: string }> = [
+  { value: "none", label: "None" },
+  { value: "rain", label: "Rain" },
+  { value: "waves", label: "Waves" },
+  { value: "brown", label: "Hush" },
+  { value: "tanpura", label: "Tanpura" },
+];
+
+export const VOICE_LANGS: ReadonlyArray<{ value: VoiceLang; label: string }> = [
+  { value: "en", label: "English" },
+  { value: "hi", label: "हिन्दी" },
+];
+
+const GUIDANCES: ReadonlySet<string> = new Set(GUIDANCE_OPTIONS.map((g) => g.value));
+const AMBIENCES: ReadonlySet<string> = new Set(AMBIENCE_OPTIONS.map((a) => a.value));
+
+export const isGuidance = (v: unknown): v is Guidance => typeof v === "string" && GUIDANCES.has(v);
+export const isAmbience = (v: unknown): v is Ambience => typeof v === "string" && AMBIENCES.has(v);
+export const isVoiceLang = (v: unknown): v is VoiceLang => v === "en" || v === "hi";
 
 export type BreathingPrefs = {
   /** The usual length, in minutes. Stored in `meditation_default_minutes`. */
   defaultMinutes: number;
   guidance: Guidance;
+  /** The bed under the guidance, and how loud it is (0-100). */
+  ambience: Ambience;
+  ambienceVolume: number;
+  voiceLang: VoiceLang;
   showCount: boolean;
   vibrate: boolean;
   settleIn: boolean;
@@ -130,6 +164,9 @@ export type BreathingPrefs = {
 export const DEFAULT_PREFS: BreathingPrefs = {
   defaultMinutes: 10,
   guidance: "tones",
+  ambience: "none",
+  ambienceVolume: 40,
+  voiceLang: "en",
   showCount: true,
   vibrate: true,
   settleIn: true,
@@ -137,17 +174,21 @@ export const DEFAULT_PREFS: BreathingPrefs = {
 };
 
 export const PREFS_COLUMNS =
-  "meditation_default_minutes, breathing_guidance, breathing_show_count, breathing_vibrate, breathing_settle_in, breathing_check_in" as const;
+  "meditation_default_minutes, breathing_guidance, breathing_ambience, breathing_ambience_volume, breathing_voice_lang, breathing_show_count, breathing_vibrate, breathing_settle_in, breathing_check_in" as const;
 
 type PrefsColumns =
-  | "meditation_default_minutes" | "breathing_guidance" | "breathing_show_count"
+  | "meditation_default_minutes" | "breathing_guidance" | "breathing_ambience"
+  | "breathing_ambience_volume" | "breathing_voice_lang" | "breathing_show_count"
   | "breathing_vibrate" | "breathing_settle_in" | "breathing_check_in";
 
 export function prefsFromRow(row: Pick<SettingsRow, PrefsColumns> | null): BreathingPrefs {
   if (!row) return DEFAULT_PREFS;
   return {
     defaultMinutes: row.meditation_default_minutes,
-    guidance: row.breathing_guidance === "off" ? "off" : "tones",
+    guidance: isGuidance(row.breathing_guidance) ? row.breathing_guidance : DEFAULT_PREFS.guidance,
+    ambience: isAmbience(row.breathing_ambience) ? row.breathing_ambience : DEFAULT_PREFS.ambience,
+    ambienceVolume: clampVolume(row.breathing_ambience_volume),
+    voiceLang: isVoiceLang(row.breathing_voice_lang) ? row.breathing_voice_lang : DEFAULT_PREFS.voiceLang,
     showCount: row.breathing_show_count,
     vibrate: row.breathing_vibrate,
     settleIn: row.breathing_settle_in,
@@ -156,6 +197,13 @@ export function prefsFromRow(row: Pick<SettingsRow, PrefsColumns> | null): Breat
         ? row.breathing_check_in
         : "after",
   };
+}
+
+export const VOLUME_STEP = 10;
+
+export function clampVolume(v: unknown): number {
+  const n = typeof v === "number" && Number.isFinite(v) ? Math.round(v) : DEFAULT_PREFS.ambienceVolume;
+  return Math.min(100, Math.max(0, n));
 }
 
 /** 30 stays because Settings used to offer it, and someone may have chosen it there. */
@@ -172,6 +220,9 @@ export const DEFAULT_MINUTE_CHOICES = [1, 3, 5, 10, 20, 30];
 export type SessionOptions = {
   cycles: number;
   guidance: Guidance;
+  ambience: Ambience;
+  ambienceVolume: number;
+  voiceLang: VoiceLang;
   showCount: boolean;
   vibrate: boolean;
   settleIn: boolean;
@@ -185,6 +236,9 @@ export function sessionSearch(o: SessionOptions): string {
   const q = new URLSearchParams({
     cycles: String(o.cycles),
     sound: o.guidance,
+    amb: o.ambience,
+    vol: String(o.ambienceVolume),
+    lang: o.voiceLang,
     count: o.showCount ? "1" : "0",
     vib: o.vibrate ? "1" : "0",
     settle: o.settleIn ? "1" : "0",
@@ -216,10 +270,16 @@ export function parseSessionSearch(
   const cycles = Number.isInteger(asked) && asked >= 1 ? Math.min(asked, ceiling) : Math.min(opts.fallbackCycles, ceiling);
 
   const sound = one(search.sound);
+  const amb = one(search.amb);
+  const lang = one(search.lang);
+  const vol = Number(one(search.vol));
   const checkin = one(search.checkin);
   return {
     cycles,
-    guidance: sound === "tones" || sound === "off" ? sound : prefs.guidance,
+    guidance: isGuidance(sound) ? sound : prefs.guidance,
+    ambience: isAmbience(amb) ? amb : prefs.ambience,
+    ambienceVolume: Number.isFinite(vol) ? clampVolume(vol) : prefs.ambienceVolume,
+    voiceLang: isVoiceLang(lang) ? lang : prefs.voiceLang,
     showCount: flag(one(search.count), prefs.showCount),
     vibrate: flag(one(search.vib), prefs.vibrate),
     settleIn: flag(one(search.settle), prefs.settleIn),

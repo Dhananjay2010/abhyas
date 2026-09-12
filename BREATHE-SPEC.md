@@ -1,9 +1,12 @@
 # BREATHE-SPEC.md — the Breathe tab
 
-**Status:** Phase 1 is built on `feature/breathe-tab` and verified in the browser
-and against the database. It is waiting for your review on a real phone
-(section 13). Phases 2 and 3 have not started.
-**Branch:** `feature/breathe-tab` (cut from `main`)
+**Status:** Phase 1 (the tab and the practice) and phase 2a (sound) are built
+and verified in the browser and against the database. Both wait on your review
+on a real phone (section 13). The rest of phase 2, and all of phase 3, have not
+started.
+**Branches:** `feature/breathe-tab` off `main`, then `breathe/sound` stacked on
+it, because phase 1 is not merged yet. To review the sound work on its own,
+diff `breathe/sound` against `feature/breathe-tab`.
 **Scope:** The breathing section only. Other screens are touched only where
 breathing data shows up in them, and each of those was a decision (section 9).
 **Implementation record:** [context/16-breathe-tab.md](context/16-breathe-tab.md)
@@ -146,10 +149,20 @@ Breathing" tile stays as a second way in.
 
 ### 5.5 Sound and voice
 
-- **Tones** are in Phase 1.
-- **Ocean**, the ambience beds (rain, brown noise, a tanpura-style drone),
-  **Voice** in English and Hindi, and Bhramari's hum are Phase 2.
-- Everything is synthesised with Web Audio.
+All of this is built (phase 1 gave Tones; phase 2a the rest):
+
+- **Tones** — a glide that rises and falls with the breath, with a bell at each
+  hold.
+- **Ocean** — a wave that swells as you breathe in, holds its level through a
+  hold, and ebbs as you breathe out.
+- **Voice** — the phone speaking each cue, in English or Hindi.
+- **Off**.
+- **A bed underneath, at its own volume:** rain, waves, a deep hush, or a
+  tanpura-style drone.
+- **Bhramari's exhale hums**, in every mode, so you have a pitch to match.
+
+Everything except the voice is synthesised with Web Audio: nothing to host,
+license or download. The voice is whatever the phone already has.
 
 ### 5.6 The ending
 
@@ -194,7 +207,8 @@ kept for primary actions.
 | Timeline engine | `src/lib/breathing/engine.ts` | Pure functions of time; replaces the interval state machine behind the old frozen-timer and double-count bugs |
 | Clock | `src/lib/breathing/clock.ts` | A pausable stopwatch; paused time is never counted |
 | Patterns and preferences | `src/lib/breathing/pattern.ts` | Row mapping, phase validation, URL options, check-in scale |
-| Sound | `src/lib/breathing/audio.ts` | One shared context, unlocked by the Start tap; cues scheduled on the audio clock |
+| Sound | `src/lib/breathing/audio.ts` | One shared context, unlocked by the Start tap; cues scheduled on the audio clock. Tones, ocean swells, the hum and the four beds |
+| Voice | `src/lib/breathing/speech.ts` | The phone's own voice, warmed up by the same tap; what to say, in English and Hindi; a report of what the device offers |
 | Stats | `src/lib/breathing/stats.ts` | Week strip, minutes this week, streak in calendar days |
 | Validation | `src/lib/breathing/validation.ts` | Shared by the browser and the server |
 | Server actions | `src/app/breathe/actions.ts` | `recordBreathingPractice`, `rateBreathingPractice`, `updateBreathingPrefs` |
@@ -209,6 +223,14 @@ applied 2026-09-12:
 | `user_settings` + `breathing_guidance`, `breathing_show_count`, `breathing_vibrate`, `breathing_settle_in`, `breathing_check_in`; a 1–60 range on `meditation_default_minutes` | The Breathe tab's preferences |
 | `record_breathing_practice(...)` | `SECURITY INVOKER`: writes the session and the log in one transaction, and carries the B1 fix and safe retries |
 
+Phase 2a added migration `20260913090000_breathe_sound.sql`, also additive:
+
+| Change | Purpose |
+|---|---|
+| `breathing_guidance` widened to `tones`, `ocean`, `voice`, `off`, in both `user_settings` and `breathing_logs` | The new modes, and a record of which one a practice used |
+| `breathing_ambience`, `breathing_ambience_volume`, `breathing_voice_lang` | The bed, how loud, and which language speaks |
+| `"hum": true` on Bhramari's exhale | A phase can say it is hummed, so the player hums with you instead of gliding |
+
 Differences from the proposal in section 6 are listed in 11.2.
 
 ---
@@ -220,14 +242,16 @@ Differences from the proposal in section 6 are listed in 11.2.
 - **Moved into Phase 1 from Phase 2:** remembered preferences, and part of
   breathing stats (the week strip, minutes this week, the streak). Decision Q9
   needed preferences to have a home, and the ending needed the week.
+**Phase 2a — sound — done (branch `breathe/sound`).** Ocean, the four beds with
+their own volume, voice in English and Hindi, and Bhramari's hum. Section 14
+records how it was built and what was verified.
+
 - **Still Phase 2:**
-  - Ocean, the ambience beds and the tanpura drone
-  - Voice in English and Hindi
-  - Distinct vibration patterns (Phase 1 has one pulse per phase kind)
   - The per-pattern timing editor and "Create your own"
   - The "For right now" recommendation
   - Calm-shift insights
   - The four new single practices
+  - Distinct vibration patterns (there is one pulse per phase kind today)
 - **Phase 3:**
   - Routines
   - Kapalabhati behind a safety confirmation
@@ -511,6 +535,18 @@ components):
 - Practices recorded before this work show as "Breathing" with no details.
 - Per-pattern timing editing (`SPEC.md` §9.4) is still open: Phase 2.
 
+**Sound, specifically** (phase 2a):
+
+- **Nothing about the voice can be proven from here.** iOS speaks only from
+  inside a tap, and can stop speaking after the app has been in the background;
+  Safari often will not list its voices at all, so a language cannot always be
+  chosen; and Hindi is present only if the phone has it installed. The practice
+  warms speech up on Start and again on Resume, the screens say what the device
+  reports, and `/dev/breathe-sound` shows it — but your phone is the test.
+- The tanpura is a synthesised approximation, not a recording.
+- The beds loop a six-second noise buffer. It is noise, so the loop is not
+  audible, but it is a loop.
+
 **Checklist for your phone** (iPhone Safari, and an Android phone if you have
 one):
 
@@ -529,7 +565,95 @@ one):
 7. Leave a 5-minute practice untouched. The screen should stay on throughout.
 8. Android only: the phone buzzes on each phase.
 
+**And for the sound (phase 2a):**
+
+9. Open `/dev/breathe-sound` on the phone. It measures every sound, lists the
+   voices that phone actually has, and plays each one on a tap. This needs no
+   sign-in, so it works from the dev server over your network.
+10. A practice with **Ocean**: the wave should swell as you breathe in, sit
+    still through a hold, and ebb as you breathe out.
+11. A practice with **Voice**, in English and then in Hindi. If Hindi is
+    missing, the screen should say so rather than falling silent.
+12. Any mode with **Rain** or **Tanpura** underneath, and the volume changed.
+13. Bhramari: the hum should sound under the exhale, in any mode.
+14. Pause mid-practice: everything, including the bed, should go quiet, and
+    come back on Resume.
+
 ---
+
+## 14. Phase 2a — sound, as built
+
+### 14.1 What changed for the user
+
+- **Sound is now four choices**: Tones, Ocean, Voice, Off — on the setup screen
+  and in the preferences sheet, which share one control so they cannot drift
+  apart.
+- **Ocean** follows the same eased curve as the orb: louder and brighter as you
+  fill, still through a hold, ebbing as you empty. No bells; the sea itself
+  tells you where you are.
+- **Voice** says short cues — "Breathe in", "Hold", "In through the left",
+  "Sniff", "Hum" — in English or Hindi. The screen's longer sentence stays on
+  screen; what is spoken is the short form, because a four-second breath has no
+  room for a sentence.
+- **A bed underneath**, at its own volume in steps of ten: rain, waves, hush or
+  tanpura.
+- **Bhramari hums**: its exhale is marked as hummed in the data, so every mode
+  plays a quiet drone to match pitch with.
+- **The screens say what the device can actually do**: whether this browser can
+  play sound, whether it can speak, which voice it would use, and whether a
+  Hindi voice exists. A "Hear it" button tries it there and then.
+- **Voice falls back to tones** on a browser that cannot speak, and says so.
+
+### 14.2 How it is put together
+
+- Ocean is pink noise through a low-pass, with the gain and the cutoff both
+  driven by the same eased size curve the orb uses, as a `setValueCurveAtTime`
+  over the phase. A hold is simply a phase whose size does not change.
+- The beds are synthesised too: rain is two filtered noise layers, waves adds a
+  fourteen-second swell of its own, the hush is noise pushed down to a brown
+  slope, and the tanpura is four detuned saw strings shimmering at different
+  rates through a low-pass.
+- Speech cannot be put on the audio clock, so a cue is spoken as the phase
+  turns — within a frame of where the other modes place their sound.
+- iOS grants Web Audio and speech separately, and both only inside a gesture.
+  Start, Again, Begin, Resume and the sound toggle all grant both.
+- Everything a practice sounds like travels in the session URL
+  (`sound`, `amb`, `vol`, `lang`), so what was chosen is what runs.
+
+### 14.3 Verified
+
+- **Unit tests:** 19 groups now, including the new URL fields (round trip,
+  junk falling back, a volume of 480 clamped to 100), every guidance value
+  accepted and an invented one refused, and what the voice says in both
+  languages — including that the sigh's second inhale is "Sniff" and Bhramari's
+  exhale is "Hum".
+- **The sound lab** (`/dev/breathe-sound`) renders every sound through the
+  browser's own Web Audio engine and measures it: **18 of 18 passed.** The wave
+  swells (0.0034 → 0.0123 → 0.0226), holds its level through a hold (0.0247 →
+  0.0222), ebbs (0.0236 → 0.0032) and never clips; the hum sounds at 174 Hz and
+  fades; all four beds fade in, play and stay well below clipping; and the
+  waves bed rises and falls on its own.
+- **A live Ocean practice:** the URL carried `sound=ocean&amb=rain&vol=40`, the
+  rain bed started, the settle ticks played, and the swells arrived at the
+  phase boundaries — with no tone glides scheduled.
+- **A live Voice practice:** the warm-up spoke on the Start tap, then "Breathe
+  in" at 5.0s (the moment the settle-in ended), "Hold" at 9.0s and "Breathe
+  out" at 13.0s — every one started, none errored, and each matched the screen.
+  Only the settle bells were scheduled, with no glides or swells.
+- **Bhramari:** the hum was scheduled for its exhale, 8 seconds at 175 Hz.
+- Typecheck, lint and `next build` are clean.
+
+**Found and fixed while testing:**
+
+- The lab's pitch measurement locked onto the tone's sub-octave partial once
+  its search band was widened for the hum, and reported half the pitch. The
+  sound was fine; the measurement was not. Each sound is now searched in the
+  band where its fundamental actually lives.
+- The lab read the device's voices during render, which the server cannot know,
+  and hydration failed. It reads them through the same store as everything
+  else now.
+- The "Again" card built a practice without the new sound fields. Typecheck
+  caught it before a browser ever did.
 
 ## Change log
 
@@ -546,3 +670,8 @@ one):
   back), the live API, the browser harness and a production build. Fixed during
   testing: overlap on short screens, the iOS detection false positive, and a
   wrong code comment. `PERF-SPEC.md`'s pattern count corrected.
+- **2026-09-12, later** — Phase 2a (sound), on `breathe/sound`: Ocean, the four
+  beds with their own volume, voice in English and Hindi, and Bhramari's hum.
+  Migration `20260913090000_breathe_sound` applied. Section 14 has the detail.
+  Fixed during testing: a pitch measurement that reported half the true pitch,
+  a hydration failure in the lab, and a missing field on the "Again" card.

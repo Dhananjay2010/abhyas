@@ -156,7 +156,7 @@ export const PATTERNS: Pattern[] = [
     intents: ["calm", "sleep"],
     phases: [
       { kind: "inhale", seconds: 4, cue: "Breathe in through your nose" },
-      { kind: "exhale", seconds: 8, cue: "Hum, mmmm", label: "Hum" },
+      { kind: "exhale", seconds: 8, cue: "Hum, mmmm", label: "Hum", hum: true },
     ],
     maxCycles: null,
     defaultCycles: 8,

@@ -27,7 +27,9 @@ It fixes the seven bugs recorded in `BREATHE-SPEC.md` §3.1 (B1–B7).
 | `supabase/migrations/20260912090000_breathe_phase_one.sql` | Pattern phases and content, `breathing_logs`, preference columns, `record_breathing_practice` |
 | `src/lib/breathing/engine.ts` | The timeline: `buildCycle`, `positionAt`, `nextPhaseStart`, lengths |
 | `src/lib/breathing/clock.ts` | `PausableClock` |
-| `src/lib/breathing/audio.ts` | The shared AudioContext, `scheduleGlide`, `scheduleBell`, dev-only cue log |
+| `src/lib/breathing/audio.ts` | The shared AudioContext; `scheduleGlide`, `scheduleBell`, `scheduleSwell`, `scheduleHum`, `startAmbience`; dev-only cue log |
+| `src/lib/breathing/speech.ts` | The phone's own voice: warm-up, what to say in English and Hindi, what the device offers, dev-only speech log |
+| `src/app/breathe/sound-controls.tsx` | The sound settings, shared by the setup screen and the preferences sheet |
 | `src/lib/breathing/pattern.ts` | Types, row mapping, `parsePhases`, preferences, session URL options, moods |
 | `src/lib/breathing/stats.ts` | Week strip, minutes this week, streak |
 | `src/lib/breathing/validation.ts` | Practice and preference rules, shared by client and server |
@@ -315,6 +317,87 @@ See `BREATHE-SPEC.md` §12 for the full list.
 - **Sound lab.** 11 of 11 measurements passed in Chromium's Web Audio.
 - **Static checks.** Typecheck, lint and `next build` are clean.
 
+## Phase 2a — sound (2026-09-12, branch `breathe/sound`)
+
+Migration `20260913090000_breathe_sound.sql`, additive: guidance widens to
+`tones | ocean | voice | off` in both `user_settings` and `breathing_logs`;
+`breathing_ambience`, `breathing_ambience_volume` and `breathing_voice_lang`
+join the preferences; and Bhramari's exhale gains `"hum": true`.
+
+### Ocean
+
+`scheduleSwell` is pink noise through a high-pass and a low-pass, where the
+gain **and** the cutoff both follow the same eased size curve the orb does,
+written as a `setValueCurveAtTime` across the phase. A hold is a phase whose
+size does not change, so the sea holds its level -- which is the signal to
+hold, with no bell needed. Ocean therefore schedules something for every
+phase, holds included, where tones schedule a glide and a bell.
+
+### The beds
+
+`startAmbience` returns a handle with `setVolume` and `stop`, fades in over two
+seconds and out over one and a half, and is stopped with everything else on a
+pause.
+
+- **rain** two noise layers, a bright patter and a low hiss
+- **waves** noise under a low-pass whose gain is swung by a 0.07 Hz oscillator,
+  about fourteen seconds a wave, deliberately not synced to your breath
+- **hush** noise pushed through two low-passes to a brown-ish slope
+- **tanpura** four saw strings (Pa, Sa, Sa detuned, Sa an octave down) through a
+  low-pass, each shimmering at its own slow rate. An approximation, not a
+  recording
+
+All of them share one six-second noise buffer per context, cached in a
+`WeakMap`, each source starting at a random offset so two layers never phase
+together.
+
+### The hum
+
+A phase may carry `hum: true`. Bhramari's exhale does, and the player then
+plays a quiet saw with a 5.5 Hz vibrato through a low-pass -- a pitch to match
+rather than a glide that would fight the humming. It plays in every mode, since
+it is the practice's own instruction.
+
+### Voice
+
+`speech.ts` wraps the Web Speech API and is honest about it:
+
+- **iOS speaks only from inside a tap**, so `warmUpSpeech` speaks one silent
+  utterance from the Start, Again, Begin, Resume and sound-toggle taps. iOS can
+  also stop speaking after the app has been backgrounded, which is why Resume
+  warms it again.
+- **Safari often returns an empty voice list**, so a voice cannot always be
+  chosen. An empty list is reported as "the system picks", not as a missing
+  language.
+- Other browsers fill the list late, so `voiceschanged` feeds a
+  `useSyncExternalStore`.
+- What is spoken is the short form ("In through the left", "Sniff", "Hum"), not
+  the screen's sentence, because a four-second breath has no room for one.
+  Hindi has its own wording rather than a translation of the English.
+- A cue is spoken as the phase turns. Speech cannot be scheduled on the audio
+  clock, so it lands within a frame of where the other modes place their sound.
+- If the browser cannot speak at all, the practice plays tones and says so.
+
+### Where the settings live
+
+`SoundControls` is shared by the setup screen and the preferences sheet, so the
+two cannot drift. Everything a practice sounds like travels in the session URL
+(`sound`, `amb`, `vol`, `lang`), and `parseSessionSearch` clamps it.
+
+### Verified
+
+19 test groups pass, including the new URL fields and what the voice says in
+both languages. The sound lab (`/dev/breathe-sound`) renders every sound
+offline and measures it: 18 of 18. A live Ocean practice scheduled the rain bed
+and swells at the phase boundaries with no glides; a live Voice practice spoke
+the warm-up on the tap and then each cue exactly on the boundary (5.0s, 9.0s,
+13.0s), all started, none errored. `BREATHE-SPEC.md` §14 has the numbers.
+
+Three things were wrong and were fixed: a pitch measurement that locked onto
+the tone's sub-octave and reported half the pitch, a hydration failure from
+reading the device's voices during render, and the "Again" card building a
+practice without the new fields.
+
 ## Known gaps
 
 - **Not run signed in.** The app has not written a practice through its own UI
@@ -328,11 +411,24 @@ See `BREATHE-SPEC.md` §12 for the full list.
 - The streak window is 370 days.
 - Practices recorded before `breathing_logs` existed show as "Breathing" with no
   details.
-- Phase 2 is not built: Ocean, ambience, voice, the timing editor, "Create your
-  own", the recommendation, new practices and calm-shift.
+- **Nothing about the voice is proven off this Mac.** iOS speaks only from a
+  tap, can stop after backgrounding, and may not list its voices at all; Hindi
+  exists only if the phone has it. The dev-only `__breathSpeech` log records
+  whether each utterance started or errored, and `/dev/breathe-sound` shows
+  what the device offers, so a failure on the phone is legible rather than
+  silent.
+- The tanpura is synthesised, not a recording, and the beds loop a six-second
+  noise buffer.
+- Still not built: the timing editor, "Create your own", the "for right now"
+  recommendation, the four new practices, and calm-shift insights.
 
 ## Change log
 
+- **2026-09-12, later.** Phase 2a: Ocean, the four beds with their own volume,
+  voice in English and Hindi, and Bhramari's hum. Migration
+  `20260913090000_breathe_sound` applied. Fixed while testing: a pitch
+  measurement that reported half the true pitch, a hydration failure in the
+  lab, and a missing field on the "Again" card.
 - **2026-09-12.** Phase 1 built and verified. During testing:
   - The practice layout became a column so it can't overlap on short screens.
   - iOS detection moved from `navigator.platform` to the user agent.

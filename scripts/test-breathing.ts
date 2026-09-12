@@ -31,6 +31,7 @@ import {
 } from "../src/lib/breathing/pattern";
 import { validatePractice, validatePrefs } from "../src/lib/breathing/validation";
 import { uuid } from "../src/lib/breathing/client";
+import { spokenCue } from "../src/lib/breathing/speech";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -69,7 +70,7 @@ const NADI: BreathPhase[] = [
 ];
 const BHRAMARI: BreathPhase[] = [
   { kind: "inhale", seconds: 4, cue: "Breathe in through your nose" },
-  { kind: "exhale", seconds: 8, cue: "Hum, mmmm", label: "Hum" },
+  { kind: "exhale", seconds: 8, cue: "Hum, mmmm", label: "Hum", hum: true },
 ];
 
 console.log("\n1. Box breathing walks in, hold, out, hold, and the orb follows");
@@ -132,6 +133,7 @@ console.log("\n5. Bhramari hums on the exhale (bug B7)");
 {
   const c = buildCycle(BHRAMARI);
   check("the exhale says to hum", c.phases[1].cue.startsWith("Hum") && c.phases[1].label === "Hum");
+  check("and is marked as hummed, so the guide hums with you", c.phases[1].hum && !c.phases[0].hum);
 }
 
 console.log("\n6. Fractional seconds do not drift");
@@ -296,7 +298,19 @@ console.log("\n15. Every pattern the migration seeds parses and builds");
 
 console.log("\n16. A session URL cannot ask for more than the setup screen allows");
 {
-  const o = { cycles: 19, guidance: "off", showCount: false, vibrate: true, settleIn: false, checkIn: "both" } as const;
+  // In the order parseSessionSearch returns them, so the round trip can be
+  // compared as a whole.
+  const o = {
+    cycles: 19,
+    guidance: "ocean",
+    ambience: "rain",
+    ambienceVolume: 70,
+    voiceLang: "hi",
+    showCount: false,
+    vibrate: true,
+    settleIn: false,
+    checkIn: "both",
+  } as const;
   const back = parseSessionSearch(
     Object.fromEntries(new URLSearchParams(sessionSearch(o))),
     DEFAULT_PREFS,
@@ -308,14 +322,17 @@ console.log("\n16. A session URL cannot ask for more than the setup screen allow
   const hour = parseSessionSearch({ cycles: "5000" }, DEFAULT_PREFS, { fallbackCycles: 4, maxCycles: null, cycleSeconds: 16 });
   check("nothing longer than an hour", hour.cycles === 225, `${hour.cycles}`);
   const junk = parseSessionSearch(
-    { cycles: "abc", sound: "loud", checkin: "x", count: "maybe" },
+    { cycles: "abc", sound: "loud", checkin: "x", count: "maybe", amb: "thunder", lang: "ta", vol: "999" },
     DEFAULT_PREFS,
     { fallbackCycles: 7, maxCycles: null, cycleSeconds: 16 },
   );
   check("junk falls back to your preferences",
     junk.cycles === 7 && junk.guidance === DEFAULT_PREFS.guidance &&
-    junk.checkIn === DEFAULT_PREFS.checkIn && junk.showCount === DEFAULT_PREFS.showCount,
+    junk.checkIn === DEFAULT_PREFS.checkIn && junk.showCount === DEFAULT_PREFS.showCount &&
+    junk.ambience === DEFAULT_PREFS.ambience && junk.voiceLang === DEFAULT_PREFS.voiceLang,
     JSON.stringify(junk));
+  const loud = parseSessionSearch({ vol: "480" }, DEFAULT_PREFS, { fallbackCycles: 7, maxCycles: null, cycleSeconds: 16 });
+  check("a silly volume is clamped, not obeyed", loud.ambienceVolume === 100, `${loud.ambienceVolume}`);
 }
 
 console.log("\n17. What the server accepts as a practice");
@@ -331,10 +348,35 @@ console.log("\n17. What the server accepts as a practice");
   check("more cycles than planned is refused", validatePractice({ ...good, cycles: 5 }) !== null);
   check("a fractional second count is refused", validatePractice({ ...good, seconds: 63.5 }) !== null);
   check("a mood outside 1-5 is refused", validatePractice({ ...good, moodBefore: 6 }) !== null);
-  check("a sound mode that does not exist yet is refused", validatePractice({ ...good, guidance: "ocean" as never }) !== null);
+  check("every sound mode that exists is accepted",
+    (["tones", "ocean", "voice", "off"] as const).every((g) => validatePractice({ ...good, guidance: g }) === null));
+  check("a sound mode that does not exist is refused", validatePractice({ ...good, guidance: "whale" as never }) !== null);
   check("a malformed id is refused", validatePractice({ ...good, logId: "1" }) !== null);
   check("preferences: only the listed lengths", validatePrefs({ defaultMinutes: 7 }) !== null && validatePrefs({ defaultMinutes: 5 }) === null);
   check("preferences: only real check-in modes", validatePrefs({ checkIn: "sometimes" as never }) !== null);
+  check("preferences: only real background sounds",
+    validatePrefs({ ambience: "thunder" as never }) !== null && validatePrefs({ ambience: "rain" }) === null);
+  check("preferences: volume within 0-100",
+    validatePrefs({ ambienceVolume: 140 }) !== null && validatePrefs({ ambienceVolume: 40 }) === null);
+  check("preferences: only the two voice languages",
+    validatePrefs({ voiceLang: "ta" as never }) !== null && validatePrefs({ voiceLang: "hi" }) === null);
+}
+
+console.log("\n19. What the voice says (short, and in the right language)");
+{
+  const nadi = buildCycle(NADI).phases;
+  const sigh = buildCycle(SIGH).phases;
+  const bhramari = buildCycle(BHRAMARI).phases;
+  check("plain inhale", spokenCue(buildCycle(BOX).phases[0], "en") === "Breathe in");
+  check("a hold", spokenCue(buildCycle(BOX).phases[1], "en") === "Hold");
+  check("in through the left", spokenCue(nadi[0], "en") === "In through the left");
+  check("out through the right", spokenCue(nadi[2], "en") === "Out through the right");
+  check("the sigh's second inhale is a sniff", spokenCue(sigh[1], "en", true) === "Sniff");
+  check("but a first inhale is not", spokenCue(sigh[0], "en", false) === "Breathe in");
+  check("a hummed exhale says hum", spokenCue(bhramari[1], "en") === "Hum");
+  check("Hindi for breathe in", spokenCue(buildCycle(BOX).phases[0], "hi") === "साँस लीजिए");
+  check("Hindi for a hold", spokenCue(buildCycle(BOX).phases[1], "hi") === "रोकिए");
+  check("Hindi names the nostril", spokenCue(nadi[2], "hi") === "दाएँ नथुने से छोड़िए");
 }
 
 console.log("\n18. Ids work without a secure context");

@@ -936,11 +936,14 @@ export type Database = {
       user_settings: {
         Row: {
           bodyweight_prompt: Database["public"]["Enums"]["bodyweight_prompt"]
+          breathing_ambience: string
+          breathing_ambience_volume: number
           breathing_check_in: string
           breathing_guidance: string
           breathing_settle_in: boolean
           breathing_show_count: boolean
           breathing_vibrate: boolean
+          breathing_voice_lang: string
           cooldown_enabled: boolean
           created_at: string
           meditation_default_minutes: number
@@ -958,11 +961,14 @@ export type Database = {
         }
         Insert: {
           bodyweight_prompt?: Database["public"]["Enums"]["bodyweight_prompt"]
+          breathing_ambience?: string
+          breathing_ambience_volume?: number
           breathing_check_in?: string
           breathing_guidance?: string
           breathing_settle_in?: boolean
           breathing_show_count?: boolean
           breathing_vibrate?: boolean
+          breathing_voice_lang?: string
           cooldown_enabled?: boolean
           created_at?: string
           meditation_default_minutes?: number
@@ -980,11 +986,14 @@ export type Database = {
         }
         Update: {
           bodyweight_prompt?: Database["public"]["Enums"]["bodyweight_prompt"]
+          breathing_ambience?: string
+          breathing_ambience_volume?: number
           breathing_check_in?: string
           breathing_guidance?: string
           breathing_settle_in?: boolean
           breathing_show_count?: boolean
           breathing_vibrate?: boolean
+          breathing_voice_lang?: string
           cooldown_enabled?: boolean
           created_at?: string
           meditation_default_minutes?: number

@@ -13,6 +13,7 @@ import {
   type Intent,
   type Pattern,
 } from "@/lib/breathing/pattern";
+import { warmUpSpeech } from "@/lib/breathing/speech";
 import type { BreathingStats } from "@/lib/breathing/stats";
 import { CARD_BG } from "@/lib/breathing/theme";
 import { updateBreathingPrefs } from "./actions";
@@ -105,13 +106,20 @@ export function BreatheHome({
   const startAgain = () => {
     if (!again || !againLength || starting) return;
     setStarting(true);
-    // This tap is the gesture that lets the practice screen make sound.
-    if (prefs.guidance === "tones") unlockBreathAudio();
+    // This tap is the gesture that lets the practice screen make sound. iOS
+    // grants Web Audio and speech separately, and both only from a gesture.
+    if (prefs.guidance !== "off") {
+      unlockBreathAudio();
+      if (prefs.guidance === "voice") warmUpSpeech(prefs.voiceLang);
+    }
     noteInAppStart();
     router.push(
       `${basePath}/${again.slug}/session${sessionSearch({
         cycles: againLength.cycles,
         guidance: prefs.guidance,
+        ambience: prefs.ambience,
+        ambienceVolume: prefs.ambienceVolume,
+        voiceLang: prefs.voiceLang,
         showCount: prefs.showCount,
         vibrate: prefs.vibrate,
         settleIn: prefs.settleIn,

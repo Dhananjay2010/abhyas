@@ -6,6 +6,7 @@ import type { PrefsPatch } from "@/lib/breathing/validation";
 import { vibrationSupported } from "@/lib/session/device";
 import type { Result } from "./actions";
 import { Choice, Field } from "./controls";
+import { SoundControls } from "./sound-controls";
 import { useClientValue } from "./use-media";
 
 /**
@@ -80,17 +81,7 @@ export function PrefsSheet({
             />
           </Field>
 
-          <Field label="Sound">
-            <Choice
-              label="Sound"
-              value={prefs.guidance}
-              options={[
-                { value: "tones", label: "Tones" },
-                { value: "off", label: "Off" },
-              ]}
-              onChange={(g) => set({ guidance: g })}
-            />
-          </Field>
+          <SoundControls prefs={prefs} onChange={set} />
 
           <Field label="Seconds count">
             <Choice

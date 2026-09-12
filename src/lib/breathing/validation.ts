@@ -8,7 +8,16 @@
  * the copy that protects the database. The CHECK constraints in the migration
  * are the last line behind both.
  */
-import { DEFAULT_MINUTE_CHOICES, type CheckIn, type Guidance } from "./pattern";
+import {
+  DEFAULT_MINUTE_CHOICES,
+  isAmbience,
+  isGuidance,
+  isVoiceLang,
+  type Ambience,
+  type CheckIn,
+  type Guidance,
+  type VoiceLang,
+} from "./pattern";
 
 export type PracticeInput = {
   /** Chosen by the client, so a retried save is recognised rather than doubled. */
@@ -39,13 +48,16 @@ export function validatePractice(p: PracticeInput): string | null {
   if (!whole(p.seconds, 1, 7200)) return "That practice length is not valid.";
   if (typeof p.endedEarly !== "boolean") return "That practice could not be saved.";
   if (p.moodBefore !== null && !isMood(p.moodBefore)) return "That check-in is not valid.";
-  if (p.guidance !== "tones" && p.guidance !== "off") return "That sound setting is not valid.";
+  if (!isGuidance(p.guidance)) return "That sound setting is not valid.";
   return null;
 }
 
 export type PrefsPatch = Partial<{
   defaultMinutes: number;
   guidance: Guidance;
+  ambience: Ambience;
+  ambienceVolume: number;
+  voiceLang: VoiceLang;
   showCount: boolean;
   vibrate: boolean;
   settleIn: boolean;
@@ -56,8 +68,20 @@ export function validatePrefs(p: PrefsPatch): string | null {
   if (p.defaultMinutes !== undefined && !DEFAULT_MINUTE_CHOICES.includes(p.defaultMinutes)) {
     return "Choose one of the listed lengths.";
   }
-  if (p.guidance !== undefined && p.guidance !== "tones" && p.guidance !== "off") {
+  if (p.guidance !== undefined && !isGuidance(p.guidance)) {
     return "That sound setting is not valid.";
+  }
+  if (p.ambience !== undefined && !isAmbience(p.ambience)) {
+    return "That background sound is not valid.";
+  }
+  if (p.voiceLang !== undefined && !isVoiceLang(p.voiceLang)) {
+    return "That voice language is not valid.";
+  }
+  if (
+    p.ambienceVolume !== undefined &&
+    !(Number.isInteger(p.ambienceVolume) && p.ambienceVolume >= 0 && p.ambienceVolume <= 100)
+  ) {
+    return "That volume is not valid.";
   }
   if (p.checkIn !== undefined && p.checkIn !== "off" && p.checkIn !== "after" && p.checkIn !== "both") {
     return "That check-in setting is not valid.";

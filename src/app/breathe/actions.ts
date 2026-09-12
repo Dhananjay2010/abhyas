@@ -95,6 +95,9 @@ export async function updateBreathingPrefs(patch: PrefsPatch): Promise<Result> {
   const update: SettingsUpdate = {};
   if (patch.defaultMinutes !== undefined) update.meditation_default_minutes = patch.defaultMinutes;
   if (patch.guidance !== undefined) update.breathing_guidance = patch.guidance;
+  if (patch.ambience !== undefined) update.breathing_ambience = patch.ambience;
+  if (patch.ambienceVolume !== undefined) update.breathing_ambience_volume = patch.ambienceVolume;
+  if (patch.voiceLang !== undefined) update.breathing_voice_lang = patch.voiceLang;
   if (patch.showCount !== undefined) update.breathing_show_count = patch.showCount;
   if (patch.vibrate !== undefined) update.breathing_vibrate = patch.vibrate;
   if (patch.settleIn !== undefined) update.breathing_settle_in = patch.settleIn;

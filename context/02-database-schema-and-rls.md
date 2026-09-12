@@ -35,6 +35,7 @@ new migration, never by editing an old one.
 | `20260908210100_seed_exercises.sql` | Exercise catalogue (generated) |
 | `20260908210200_refresh_exercise_patterns.sql` | Catalogue correction (generated) |
 | `20260912090000_breathe_phase_one.sql` | Breathing pattern phases and content, `breathing_logs`, breathing preference columns on `user_settings`, `record_breathing_practice()` — step 16 |
+| `20260913090000_breathe_sound.sql` | Guidance widened to `tones`/`ocean`/`voice`/`off`, background-sound and voice-language preferences, Bhramari's exhale marked as hummed — step 16, phase 2a |
 
 Push with `supabase db push`. Query the remote without Docker using
 `supabase db query --linked "<sql>"` — note the `--linked` flag, as it defaults
@@ -164,3 +165,7 @@ insert them after switching back.
   a 1–60 range on `meditation_default_minutes`, and
   `record_breathing_practice()`. The function was verified as the real user
   under RLS inside a transaction that rolled back.
+- 2026-09-12 (step 16, phase 2a): the breathing guidance values widened to
+  `tones`, `ocean`, `voice` and `off` in both `user_settings` and
+  `breathing_logs`, plus columns for the background sound, its volume and the
+  voice language. No new tables or policies, so the counts above still hold.

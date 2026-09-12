@@ -24,6 +24,8 @@ export type BreathPhase = {
   label?: string;
   /** Which nostril is open, for alternate-nostril patterns. */
   side?: Side;
+  /** The phase is hummed, as Bhramari's exhale is. The guide hums with you. */
+  hum?: boolean;
   /** Orb size the phase ends at, 0..1. An inhale ends at 1 and an exhale at 0 unless told otherwise. */
   to?: number;
 };
@@ -35,6 +37,7 @@ export type TimedPhase = {
   cue: string;
   label: string;
   side: Side | null;
+  hum: boolean;
   /** Seconds from the start of the cycle. */
   offset: number;
   /** Orb size at the start and at the end of the phase, 0..1. */
@@ -116,6 +119,7 @@ export function buildCycle(input: BreathPhase[]): Cycle {
       cue: p.cue,
       label: p.label ?? DEFAULT_LABEL[p.kind],
       side: p.side ?? null,
+      hum: p.hum === true,
       offset,
       from: sizes[index].from,
       to: sizes[index].to,
