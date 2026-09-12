@@ -1382,15 +1382,56 @@ card really pumps rather than drifting.
 3. **"1 breaths" in History.** A missing plural guard in `SessionRow`,
    pre-existing since phase 1 and visible on two of your own sessions. Fixed.
 
-### 21.3 The one thing deliberately not done
+### 21.3 A second pass, signed in and running practices (2026-09-13)
 
-**No practice was started on your account.** Running one would put a session in
-your history for today, and running day one of the course would consume it and
-close day two until tomorrow — which is exactly the thing checklist items 36
-and 37 are there for you to see. The player itself is verified end to end in
-the harness (four full runs, §20.3); what is unverified on production is the
-saving of a practice that you start, and that is one tap away whenever you want
-it.
+The pass above checked screens. This one ran them, on your account, and then
+put your data back exactly as it was.
+
+| Path | Result |
+|---|---|
+| A practice, end to end | Coherent Breathing, 3 cycles: **0:33 · 3 breaths**, saved. The database row read `cycles=3/3 breaths=3 sec=33 early=false mood=2→4 guidance=off` |
+| Both check-ins | Answered before and after; the ending showed **"Uneasy → Settled"**, and both landed on the same row |
+| The local date | Recorded as **2026-09-13** at 02:20 IST — the user's date, not UTC's. Only a test after midnight catches this |
+| The week strip | Updated live on the ending screen, 3 min → 4 min, with today lit |
+| Pause | The practice **auto-paused when the window lost focus**, with an accurate "0:26 so far · 2 full breaths" |
+| Back button | Opened the pause sheet rather than leaving (B6), on production |
+| A routine | Reset, end to end: **one session (76s) with a log per step** — sigh 3 breaths/27s, coherent 4 breaths/49s. The ending read "1:16 · 7 breaths · Reset" and **"2 of 2 steps"**, not "All 2 steps", because it was cut short |
+| The routine in History | Listed as "Reset", and its detail page broke out both steps and named which one ended early |
+| A course day | Day 1 run to the end: **"Day 1 of 7 · 6 to go"**, and the progress row read `days_completed=1, last_day_on=2026-09-13` |
+| **One a day** | Afterwards the course said **"Day 2 opens tomorrow"** with no Start button, and `?day=2` **redirected** — the rule holds in the UI and on the server |
+| Repeating a done day | `?day=1` still opens, as intended |
+| URL tampering | 4-7-8 asked for 99 cycles → **8**; coherent asked for 9999 → **327** (the one-hour bound); `cycles=abc` and `-5` → the saved preference; **a course day ignored `cycles=500`** and ran its own 6 |
+| Bad URLs | Unknown practice, routine and journey slugs all 404; `?day=0`, `-1`, `99`, `abc` all redirect to the course |
+| The square | Seen animating on the practice screen for the first time — the ring tracing the box and nearly closed by the final hold |
+
+**One bug found, and it needed a routine to find it.** With "Ask before and
+after" on, a routine asked **"How do you feel right now?" before every step**,
+not just the first. Settling in was already limited to step one; the check-in
+was not. It interrupted the sequence and wrote a `mood_before` onto the second
+step's log that nothing reads, since a routine keeps both its answers on the
+first step's row. Fixed, and confirmed in the harness: the two-step routine now
+asks once, then runs step 1 → hand-off → step 2 without stopping.
+
+**What was put back.** Four practice sessions and five breathing logs were
+created and then deleted, and the course progress row was removed so day one is
+still yours to do. Preferences, the Kapalabhati acknowledgement and the four
+older logs were verified unchanged against a snapshot taken before the run.
+
+### 21.4 The one thing deliberately not done
+
+**The Kapalabhati gate has never been accepted from here.** It is a statement
+about your own health — pregnancy, blood pressure, a heart condition — and
+tapping "I have read this" on your behalf is not something I should do, even
+though I could reset the flag afterwards. So the practice behind it is verified
+in the harness and in SQL but has never been run signed in. Checklist items
+22-27 are still yours. Say the word and I will run it and reset the flag.
+
+**The shapes at full speed, and anything about a real phone.** The Chrome tab
+is background-throttled exactly like the in-app pane — `requestAnimationFrame`
+fired **zero** times in five seconds — so every run above used a timer in place
+of the compositor. The engine is time-based, so the durations, breath counts
+and saved rows are all real; what a shim cannot show is motion at 60fps, sound,
+vibration, or the wake lock. That is what section 13's checklist is for.
 
 ## Change log
 
@@ -1473,3 +1514,12 @@ it.
   first time, and every card's rhythm was read off the live page. No practice
   was started on your account, and the Kapalabhati gate is still waiting for
   you.
+
+- **2026-09-13** — The section run, not just read, on production signed in:
+  a practice, a routine and a course day each taken end to end, with the
+  database row checked after every one and the account restored to its
+  snapshot afterwards. Section 21.3 records it. **One bug found and fixed:**
+  a routine asked "How do you feel right now?" before every step instead of
+  only the first. Also confirmed: the local date is the user's, not UTC's
+  (recorded at 02:20 IST); a routine writes one session with a log per step;
+  and `?day=2` is refused by the server, not just hidden in the UI.

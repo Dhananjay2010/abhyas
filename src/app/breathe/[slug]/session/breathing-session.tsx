@@ -406,7 +406,14 @@ function Practice({
 
   const [logId] = useState(() => uuid());
   const [clock] = useState(() => new PausableClock());
-  const [stage, setStage] = useState<Stage>(options.checkIn === "both" ? "checkin" : "running");
+  // "How do you feel right now?" belongs at the start of a routine, not before
+  // every step of it -- the same reasoning as the settle-in above. A routine is
+  // rated as a whole, and both its answers are kept on the first step's log, so
+  // asking again mid-routine interrupts the sequence to collect a number
+  // nothing reads.
+  const [stage, setStage] = useState<Stage>(
+    options.checkIn === "both" && stepIndex === 0 ? "checkin" : "running",
+  );
   const [tapped, setTapped] = useState(false);
   const [paused, setPaused] = useState(false);
   const [pauseAt, setPauseAt] = useState({ t: 0, cycles: 0 });
