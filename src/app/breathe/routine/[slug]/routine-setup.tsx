@@ -124,7 +124,7 @@ export function RoutineSetup({
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-breath/40 text-xs font-semibold tabular-nums text-breath">
               {i + 1}
             </span>
-            <RhythmPreview phases={step.pattern.phases} size={44} />
+            <RhythmPreview phases={step.pattern.phases} shape={step.pattern.shape} size={44} />
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="truncate font-semibold">{step.pattern.name}</span>

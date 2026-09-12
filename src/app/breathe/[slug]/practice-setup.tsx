@@ -161,7 +161,7 @@ export function PracticeSetup({
       </Link>
 
       <section className="mt-6 flex flex-col items-center text-center">
-        <RhythmPreview phases={pattern.phases} size={136} />
+        <RhythmPreview phases={pattern.phases} shape={pattern.shape} size={136} />
         <h1 className="mt-6 text-3xl font-bold tracking-tight">{pattern.name}</h1>
         {(pattern.kind === "mine" || pattern.adjusted) && (
           <p className="mt-2 rounded-full border border-breath/30 px-3 py-1 text-xs text-breath">

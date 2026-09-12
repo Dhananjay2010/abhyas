@@ -26,6 +26,7 @@ const SEEDS: Seed[] = [
   {
     id: "00000000-0000-4000-8000-000000000001",
     slug: "box-breathing",
+    shape: "square",
     name: "Box Breathing",
     subtitle: "Four equal sides",
     description: "Equal counts on all four phases. Inhale, hold, exhale, hold — a square.",
@@ -54,6 +55,7 @@ const SEEDS: Seed[] = [
   {
     id: "00000000-0000-4000-8000-000000000002",
     slug: "four-seven-eight",
+    shape: "teardrop",
     name: "4-7-8 Breathing",
     subtitle: "The long exhale, for sleep",
     description: "Inhale for 4, hold for 7, exhale slowly for 8. The long exhale is the point.",
@@ -81,6 +83,7 @@ const SEEDS: Seed[] = [
   {
     id: "00000000-0000-4000-8000-000000000003",
     slug: "coherent-breathing",
+    shape: "orb",
     name: "Coherent Breathing",
     subtitle: "About five and a half breaths a minute",
     description: "Smooth, even breathing at about five and a half breaths a minute. No holds.",
@@ -107,6 +110,7 @@ const SEEDS: Seed[] = [
   {
     id: "00000000-0000-4000-8000-000000000004",
     slug: "physiological-sigh",
+    shape: "teardrop",
     name: "Physiological Sigh",
     subtitle: "Double inhale, long exhale",
     description: "A double inhale through the nose — one full, one short sniff on top — then a long exhale through the mouth.",
@@ -134,6 +138,7 @@ const SEEDS: Seed[] = [
   {
     id: "00000000-0000-4000-8000-000000000005",
     slug: "nadi-shodhana",
+    shape: "lobes",
     name: "Nadi Shodhana",
     subtitle: "Alternate-nostril breathing",
     description: "Close one nostril, inhale; close the other, exhale. Alternate sides each cycle.",
@@ -164,6 +169,7 @@ const SEEDS: Seed[] = [
   {
     id: "00000000-0000-4000-8000-000000000006",
     slug: "bhramari",
+    shape: "ripple",
     name: "Bhramari",
     subtitle: "Humming bee breath",
     description: "Inhale through the nose, then hum steadily all the way through the exhale.",
@@ -190,6 +196,7 @@ const SEEDS: Seed[] = [
   {
     id: "00000000-0000-4000-8000-000000000007",
     slug: "kapalabhati",
+    shape: "pulse",
     name: "Kapalabhati",
     subtitle: "Skull-shining breath",
     description:

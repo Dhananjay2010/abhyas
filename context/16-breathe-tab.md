@@ -641,6 +641,79 @@ transform was sampled while it ran and swings exactly between `PUMP_LOW` and
 
 **What this found:** two screens describing pumps as "breaths".
 
+## Phase 3b — a signature shape per practice (2026-09-12, branch `breathe/shapes`)
+
+`BREATHE-SPEC.md` section 16.2 is the design; section 19 is what was built.
+
+### The problem
+
+Every practice drew the same circle, so the screen told you nothing about which
+one you were doing. Six shapes now: a square whose ring traces one side per
+phase, a teardrop for the two weighted to the exhale, two lobes with the open
+nostril lit, ripples spreading while you hum, a flash on every pump, and the
+circle for the smooth even ones.
+
+### One component, one method
+
+`src/app/breathe/breath-shape.tsx` owns all of it and exposes exactly one
+thing: `paint(frame)`. The frame carries what the engine already returns -- the
+eased size, the progress through the phase, the cycle progress, the phase kind
+and the open side -- and the component writes straight to the DOM. Nothing goes
+through React, which is what the practice screen already required of the orb it
+replaced.
+
+Two decisions carry most of the weight:
+
+- **`pathLength={1}`** on the ring. SVG normalises whatever outline the shape
+  has to a length of one, so the painter writes a fraction and never measures a
+  path or computes a circumference. A square ring and a circle ring share the
+  same line.
+- **The square traces the cycle, not the phase.** `cycleProgress` is
+  `(phaseIndex + progress) / phaseCount`, which sweeps once per cycle and
+  resets. It still works if a hold is switched off and only three phases
+  remain -- the box simply becomes thirds.
+
+The pump flash is read off the size rather than plumbed through as a second
+number: during a pump the size already oscillates between the engine's two
+pumping bounds, so normalising it gives the flash for free. Those two bounds
+are duplicated in the shape module on purpose, with a comment saying why: how
+bright a flash is a drawing decision, not a breathing one.
+
+### Shape is content
+
+A `shape` column on `breathing_patterns`, checked against the six names and
+defaulting to `'orb'`. A pattern seeded later declares its own without the
+player changing, and `asShape` coerces anything unknown, missing or of the
+wrong type back to the circle. A practice of your own is always a circle: it is
+whatever you made it, and a silhouette would claim something untrue about it.
+
+### The cards
+
+None of the real drawing reads at fifty pixels, so `RhythmPreview` carries the
+silhouette instead -- a border radius per shape, a pair of lobes, one still ring
+for the hum -- over the rhythm it was already animating. A teardrop is a square
+with three rounded corners turned onto its point, so its rotation has to ride
+along inside every scale keyframe rather than sitting on a wrapper.
+
+### Verified
+
+29 test groups, including one that reads the shape assignments **straight out
+of the migration file**, so the documented table cannot drift from the database.
+Every shape was then driven in the browser and measured rather than eyeballed:
+the square's ring sweeping `0.025 → 0.825` across four phases and resetting; the
+lobes sampled as a time series through a full Nadi Shodhana cycle; the hum's
+three rings at staggered radii with fading opacities and dark on the inhale;
+exactly 20 flashes in a 20-pump round; and all eleven card silhouettes. Reduced
+motion was forced by overriding the media query: the shape held `scale(0.84)`
+across fifty samples while opacity carried the breath.
+
+**Worth remembering for next time:** a first pass at the lobes recorded only the
+last sampled value per cue and looked inverted. It was not a bug -- it was the
+one-sample window where the frame callback has advanced to the next phase and
+React has not re-rendered the words yet. A time series showed it immediately.
+Sampling a rAF-painted DOM against React-rendered text needs a series, not a
+map.
+
 ## Known gaps
 
 - **Signed in: partly closed.** On 2026-09-12 Dhananjay practised on localhost
@@ -683,12 +756,22 @@ transform was sampled while it ran and swings exactly between `PUMP_LOW` and
   flicker. Checklist items 22-27 in `BREATHE-SPEC.md` cover it.
 - **A pumping practice cannot be retimed**, by design, so someone who wants
   thirty pumps cannot have them.
-- Phase 3 is partly built. Still to come: a signature shape per practice (3b)
-  and the seven-day journey (3d). Recorded voice clips are deliberately not in
-  this phase — `BREATHE-SPEC.md` §16.5 says why and what it needs from
-  Dhananjay.
+- **How the shapes actually look is unproven.** Every number behind them was
+  measured, but the Browser pane was hidden for all of it, so nobody has yet
+  watched a square close its corners on the phase changes at full speed on a
+  phone. Checklist items 28-33 in `BREATHE-SPEC.md` cover it.
+- Phase 3 is nearly done. Only the seven-day journey (3d) remains. Recorded
+  voice clips are deliberately not in this phase — `BREATHE-SPEC.md` §16.5 says
+  why and what it needs from Dhananjay.
 
 ## Change log
+
+- **2026-09-12, phase 3b.** A signature shape per practice, on
+  `breathe/shapes`: one `BreathShape` component with a single `paint` method,
+  a `shape` column making it content rather than code, and silhouettes on the
+  cards. Migration `20260917090000_breathe_shapes` applied. `RING_R` and
+  `RING_C` removed from the theme, now that the ring is normalised with
+  `pathLength`.
 
 - **2026-09-12, phase 3c.** Kapalabhati, on `breathe/kapalabhati`: the `pump`
   and `rest` phase kinds, lengths chosen in rounds, a knock per pump, and the

@@ -18,13 +18,16 @@ export const HALO_BG =
 export const GLOW_BG =
   "radial-gradient(circle, rgba(111, 216, 210, 0.55) 0%, rgba(111, 216, 210, 0) 68%)";
 
-/** The orb itself: lit from the upper left, deepening to teal. */
+/**
+ * The orb itself: lit from the upper left, deepening to teal.
+ *
+ * Still here for the small idle orbs -- the check-in, the ending, the hand-off
+ * between routine steps, the loading skeleton. The practice's own shape is
+ * drawn in SVG by `breath-shape.tsx`, which carries the same colours as
+ * gradient stops.
+ */
 export const ORB_BG =
   "radial-gradient(circle at 36% 30%, #dcfbf8 0%, #86e2dc 26%, #36a3b3 62%, #1d5f7c 100%)";
 
 /** Cards on the Breathe tab that lead into a practice. */
 export const CARD_BG = "linear-gradient(135deg, #11293b 0%, #0d1c28 55%, #151a1f 100%)";
-
-/** The ring around the orb that fills over each phase. */
-export const RING_R = 146;
-export const RING_C = 2 * Math.PI * RING_R;

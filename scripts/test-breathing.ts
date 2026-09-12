@@ -26,6 +26,7 @@ import { PausableClock } from "../src/lib/breathing/clock";
 import { breathingStats } from "../src/lib/breathing/stats";
 import {
   DEFAULT_PREFS,
+  asShape,
   draftFrom,
   mineId,
   mineSlug,
@@ -115,7 +116,7 @@ function fakePattern(
     id: uuid(), slug, name, subtitle: null, description: null, benefit: null,
     contraindications: null, level: "beginner", intents: [], phases, maxCycles,
     defaultCycles: 10, howTo: [], why: null, evidenceLabel: null, evidenceUrl: null,
-    kind: "builtin", userPatternId: null, adjusted: false, defaultPhases: phases,
+    shape: "orb", kind: "builtin", userPatternId: null, adjusted: false, defaultPhases: phases,
   };
 }
 
@@ -782,6 +783,38 @@ console.log("\n28. A routine cannot smuggle a gated practice past its confirmati
       { slug: "coherent-breathing", minutes: 1 },
       { slug: "kapalabhati", cycles: 1 },
     ]), patterns) === null);
+}
+
+console.log("\n29. Every practice's shape, and the fallback for anything else");
+{
+  check("the six shapes are accepted",
+    (["orb", "square", "lobes", "teardrop", "ripple", "pulse"] as const).every((s) => asShape(s) === s));
+  check("an unknown shape falls back to the circle", asShape("hexagon") === "orb");
+  check("so does a missing one", asShape(null) === "orb" && asShape(undefined) === "orb");
+  check("and one of the wrong type", asShape(7) === "orb");
+
+  // A practice of your own is whatever you made it, so it gets the circle
+  // rather than a silhouette claiming something about its shape.
+  check("your own practice is a circle",
+    patternFromUser({ id: uuid(), basePatternId: null, name: "Mine", phases: COHERENT }).shape === "orb");
+
+  // The migration is the source of truth for which practice looks like what.
+  const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260917090000_breathe_shapes.sql"), "utf8");
+  const assigned = new Map<string, string>();
+  for (const m of sql.matchAll(/set shape = '(\w+)'\s+where slug (?:=|in) \(?([^;]+?)\)?;/g)) {
+    for (const slug of m[2].split(",")) assigned.set(slug.trim().replace(/'/g, ""), m[1]);
+  }
+  check("the box is a square", assigned.get("box-breathing") === "square", `${assigned.get("box-breathing")}`);
+  check("both long exhales are teardrops",
+    assigned.get("four-seven-eight") === "teardrop" && assigned.get("physiological-sigh") === "teardrop");
+  check("both alternate-nostril practices are lobes",
+    assigned.get("nadi-shodhana") === "lobes" && assigned.get("anulom-vilom") === "lobes");
+  check("the hum ripples", assigned.get("bhramari") === "ripple");
+  check("Kapalabhati pulses", assigned.get("kapalabhati") === "pulse");
+  check("only the declared shapes are used",
+    [...assigned.values()].every((s) => asShape(s) === s), [...assigned.values()].join(","));
+  check("the smooth ones are left alone, so they keep the circle",
+    !assigned.has("coherent-breathing") && !assigned.has("ujjayi") && !assigned.has("sheetali") && !assigned.has("extended-exhale"));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

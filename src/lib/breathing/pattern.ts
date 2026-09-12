@@ -7,6 +7,21 @@ type UserPatternRow = Database["public"]["Tables"]["user_breathing_patterns"]["R
 
 export type Intent = "calm" | "sleep" | "focus" | "energy" | "recover" | "balance";
 
+/**
+ * What a practice looks like while you do it.
+ *
+ * Content rather than code: the column says which, so a practice seeded later
+ * can declare its own without the player changing. Anything unrecognised, and
+ * every practice of your own, falls back to the circle.
+ */
+export type Shape = "orb" | "square" | "lobes" | "teardrop" | "ripple" | "pulse";
+
+const SHAPES: ReadonlySet<string> = new Set<Shape>([
+  "orb", "square", "lobes", "teardrop", "ripple", "pulse",
+]);
+
+export const asShape = (v: unknown): Shape => (typeof v === "string" && SHAPES.has(v) ? (v as Shape) : "orb");
+
 /** In the order the chips appear. A chip with no practice behind it is not shown. */
 export const INTENTS: ReadonlyArray<{ value: Intent; label: string }> = [
   { value: "calm", label: "Calm" },
@@ -36,6 +51,8 @@ export type Pattern = {
   why: string | null;
   evidenceLabel: string | null;
   evidenceUrl: string | null;
+  /** What it looks like while you do it. */
+  shape: Shape;
   /** One of ours, or one you made yourself. */
   kind: "builtin" | "mine";
   /** The row holding your timings, or your practice itself. Null for an untouched built-in. */
@@ -48,12 +65,12 @@ export type Pattern = {
 
 /** Exactly the columns `patternFromRow` reads. A literal, so Supabase infers the row type from it. */
 export const PATTERN_COLUMNS =
-  "id, slug, name, subtitle, description, benefit, contraindications, level, intents, phases, max_cycles, default_cycles, how_to, why, evidence_label, evidence_url" as const;
+  "id, slug, name, subtitle, description, benefit, contraindications, level, intents, phases, max_cycles, default_cycles, how_to, why, evidence_label, evidence_url, shape" as const;
 
 type PatternColumns =
   | "id" | "slug" | "name" | "subtitle" | "description" | "benefit" | "contraindications"
   | "level" | "intents" | "phases" | "max_cycles" | "default_cycles" | "how_to" | "why"
-  | "evidence_label" | "evidence_url";
+  | "evidence_label" | "evidence_url" | "shape";
 
 const KINDS: ReadonlySet<string> = new Set<PhaseKind>([
   "inhale",
@@ -127,6 +144,7 @@ export function patternFromRow(row: Pick<PatternRow, PatternColumns>): Pattern |
     why: row.why,
     evidenceLabel: row.evidence_label,
     evidenceUrl: row.evidence_url,
+    shape: asShape(row.shape),
     kind: "builtin",
     userPatternId: null,
     adjusted: false,
@@ -182,6 +200,9 @@ export function patternFromUser(mine: UserPattern): Pattern {
     why: null,
     evidenceLabel: null,
     evidenceUrl: null,
+    // A practice of your own is whatever you made it, so it gets the circle
+    // rather than a silhouette that would claim something about its shape.
+    shape: "orb",
     kind: "mine",
     userPatternId: mine.id,
     adjusted: false,

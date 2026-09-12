@@ -205,7 +205,7 @@ export function BreatheHome({
             <p className="mt-1 text-lg font-semibold">{suggestion.pattern.name}</p>
             <p className="text-sm leading-relaxed text-breath-ink/70">{suggestion.reason}</p>
           </div>
-          <RhythmPreview phases={suggestion.pattern.phases} size={48} />
+          <RhythmPreview phases={suggestion.pattern.phases} shape={suggestion.pattern.shape} size={48} />
         </Link>
       ) : !again && starter ? (
         <Link
@@ -222,7 +222,7 @@ export function BreatheHome({
               Five minutes a day. In a 2023 trial it lifted mood more than meditation did.
             </p>
           </div>
-          <RhythmPreview phases={starter.phases} size={48} />
+          <RhythmPreview phases={starter.phases} shape={starter.shape} size={48} />
         </Link>
       ) : null}
 
@@ -293,7 +293,7 @@ export function BreatheHome({
                 href={`${basePath}/${p.slug}`}
                 className="flex items-center gap-4 rounded-2xl border border-border bg-surface px-4 py-3.5 transition-colors hover:border-breath/40"
               >
-                <RhythmPreview phases={p.phases} size={52} />
+                <RhythmPreview phases={p.phases} shape={p.shape} size={52} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="font-semibold">{p.name}</span>
