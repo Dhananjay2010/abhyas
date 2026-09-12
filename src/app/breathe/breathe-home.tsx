@@ -13,6 +13,7 @@ import {
   type Intent,
   type Pattern,
 } from "@/lib/breathing/pattern";
+import { dayLine, journeyHref, type ResolvedJourney } from "@/lib/breathing/journey";
 import {
   routineHref,
   routineLength,
@@ -74,6 +75,7 @@ function weekLine(stats: BreathingStats): string {
 export function BreatheHome({
   patterns,
   routines = [],
+  journeys = [],
   prefs: initialPrefs,
   stats,
   lastCyclesByPattern,
@@ -88,6 +90,8 @@ export function BreatheHome({
   patterns: Pattern[];
   /** Sequences of practices, already resolved against this person's timings. */
   routines?: ResolvedRoutine[];
+  /** Courses, already resolved against this person's timings and progress. */
+  journeys?: ResolvedJourney[];
   prefs: BreathingPrefs;
   stats: BreathingStats;
   lastCyclesByPattern: Record<string, number>;
@@ -249,6 +253,56 @@ export function BreatheHome({
         </div>
       )}
 
+      {/* A course is not about an intent, so it steps aside while the list is
+          being filtered by one rather than sitting there ignoring the filter. */}
+      {!intent && journeys.length > 0 && (
+        <section className="mt-7">
+          <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">Course</h2>
+          <ul className="mt-3 space-y-2">
+            {journeys.map(({ journey, days, progress, today }) => (
+              <li key={journey.id}>
+                <Link
+                  href={journeyHref(journey.slug, basePath)}
+                  className={`block rounded-2xl border px-5 py-4 transition-colors ${
+                    today ? "border-breath/50 hover:border-breath" : "border-breath/20 hover:border-breath/50"
+                  }`}
+                  style={{ background: CARD_BG }}
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="truncate text-lg font-semibold">{journey.name}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-breath-ink/60">
+                      {dayLine(progress.daysCompleted, days.length)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-breath-ink/70">
+                    {today
+                      ? `Day ${today.number}: ${today.day.title}`
+                      : progress.completed
+                        ? "Finished. Every practice in it is still here."
+                        : `Day ${progress.daysCompleted + 1} opens tomorrow.`}
+                  </p>
+                  {/* One mark a day: where you are, before a word is read. */}
+                  <div aria-hidden="true" className="mt-3 flex gap-1">
+                    {days.map((d) => (
+                      <span
+                        key={d.number}
+                        className={`h-1 flex-1 rounded-full ${
+                          d.state === "done"
+                            ? "bg-breath"
+                            : d.state === "today"
+                              ? "bg-breath/40"
+                              : "bg-breath-ink/15"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {shownRoutines.length > 0 && (
         <section className="mt-7">
           <h2 className="text-xs font-semibold tracking-wider text-muted uppercase">Routines</h2>
@@ -280,7 +334,8 @@ export function BreatheHome({
         </section>
       )}
 
-      {shownRoutines.length > 0 && (
+      {/* The list only needs naming once something else is above it. */}
+      {(shownRoutines.length > 0 || (!intent && journeys.length > 0)) && (
         <h2 className="mt-8 text-xs font-semibold tracking-wider text-muted uppercase">Practices</h2>
       )}
 

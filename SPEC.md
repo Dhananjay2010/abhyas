@@ -231,7 +231,10 @@ All timings and cycle counts are **user-adjustable in Settings**. Animated expan
 > **routines** — two to four practices run back to back inside one session
 > (Downshift, Wind Down, Morning, Reset) — and **Kapalabhati**, the one
 > practice gated behind a safety confirmation you are asked for once. Each
-> practice also has **its own shape** on screen rather than a shared circle.
+> practice also has **its own shape** on screen rather than a shared circle,
+> and there is a seven-day course, **Breath foundations**, one practice a day
+> with a sentence on what it teaches — its last day chosen from your own
+> check-ins.
 
 ---
 
@@ -304,6 +307,8 @@ Media lives in a **separate `exercise_media` table** keyed to the exercise, carr
 **`breathing_patterns`** — slug, name, inhale_s, hold_in_s, exhale_s, hold_out_s, default_cycles, benefit, contraindications; since 2026-09-12 also subtitle, phases (jsonb), intents, max_cycles, how_to, why, evidence_label, evidence_url, shape
 
 **`breathing_routines`** — slug, name, subtitle, description, about, steps (jsonb: a practice slug and a length per step), intents, sort_order *(added 2026-09-12)*
+**`breathing_journeys`** — slug, name, subtitle, description, about, days (jsonb: a practice slug, a length, a title and what that day teaches), sort_order *(added 2026-09-12)*
+**`user_journey_progress`** *(per user, read-only to the client)* — journey_id, days_completed, started_on, last_day_on, completed_at. Written only by `advance_journey_day()`, which enforces days in order and one a day. See BREATHE-SPEC.md §20 *(added 2026-09-12)*
 **`user_breathing_patterns`** *(per user, RLS)* — base_pattern_id (null for a practice of your own), name, phases (jsonb) *(added 2026-09-12)*
 
 **`breathing_logs`** *(per user, RLS)* — session_id, pattern_id, user_pattern_id, pattern_name, routine_id, routine_name, routine_step, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance. Written with its session by `record_breathing_practice()`; a routine writes one row per step into one session. See BREATHE-SPEC.md §6 and §17.

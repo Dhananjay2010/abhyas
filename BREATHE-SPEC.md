@@ -1,12 +1,12 @@
 # BREATHE-SPEC.md — the Breathe tab
 
-**Status:** Phases 1, 2a, 2b, **3a (routines)** and **3c (Kapalabhati)** are
-built, verified and on `main`. **3b (a signature shape per practice)** is built
-and awaiting merge. Only 3d, the seven-day journey, remains; recorded voice
-clips are deliberately excluded and 16.5 says why. Most of this still wants a
-look on a real phone (section 13).
+**Status:** **Phase 3 is complete.** Phases 1, 2a, 2b, 3a (routines), 3c
+(Kapalabhati), 3b (shapes) and **3d (the seven-day course)** are all built and
+verified. Recorded voice clips are deliberately excluded and 16.5 says why.
+Most of this still wants a look on a real phone (section 13).
 **Branches:** phases 1 and 2 merged as `d26d898`, phase 3a as `f77a64d`, phase
-3c as `9d4ebed`. Phase 3b is on `breathe/shapes`, cut from `main`.
+3c as `9d4ebed`, phase 3b as `9817818`. Phase 3d is on `breathe/journey`, cut
+from `main`.
 **Scope:** The breathing section only. Other screens are touched only where
 breathing data shows up in them, and each of those was a decision (section 9).
 **Implementation record:** [context/16-breathe-tab.md](context/16-breathe-tab.md)
@@ -254,14 +254,14 @@ practices. Section 15 has the detail. **Phase 2 is now complete.**
 
 - Not done, and deliberately so: distinct vibration patterns. There is one
   pulse per phase kind, which is enough on the phones that vibrate at all.
-**Phase 3 — in progress (branch `breathe/routines`).** Designed in section 16,
-in this build order:
+**Phase 3 — complete.** Designed in section 16, built in this order:
 
   - **3a** Routines — 16.1. **Done**; section 17.
   - **3c** Kapalabhati behind a safety confirmation — 16.3. **Done**;
     section 18.
   - **3b** A signature shape per practice — 16.2. **Done**; section 19.
-  - **3d** A seven-day "Breath foundations" journey — 16.4. Open.
+  - **3d** The seven-day "Breath foundations" course — 16.4. **Done**;
+    section 20.
   - Recorded voice clips — **not in this phase**; 16.5 says why, and what it
     needs from you
 
@@ -656,6 +656,28 @@ settle:**
 32. **Kapalabhati.** A flash on every pump, dark through the rest.
 33. Turn on Reduce Motion in iOS accessibility settings and do a minute. Nothing
     should move: the shape should brighten and dim instead.
+
+**And for the course (phase 3d). This one takes a week, which is the point:**
+
+34. The Breathe tab should show **Course · Breath foundations · 7 days** above
+    the routines, with "Day 1: The fastest way down". It disappears while you
+    filter by an intent, because a course is not about one.
+35. Open it. All seven days should be listed with what each teaches, day one
+    open and the rest dimmed. **Day seven should name a real practice** — with
+    no check-ins yet it will say so and fall back to Coherent Breathing.
+36. Do day one. The header should read "Breath foundations · day 1 of 7", and
+    the ending "Day 1 of 7 · 6 to go".
+37. **Go back in.** Day two should say it opens tomorrow, and there should be
+    no Start button. This is the rule that makes it a week; if it lets you
+    straight into day two, tell me.
+38. Tomorrow, do day two. Then leave it a few days and come back — the course
+    should be exactly where you left it, not reset.
+39. Somewhere in the middle, **stop a day part-way** with End and save. The
+    practice should appear in History and the ending should say the day counts
+    when you reach the end of it. The day should still be open afterwards.
+40. By day seven you will have rated six practices. **Day seven should be
+    whichever one you rated best**, and say so. That is the only part of this
+    the app cannot know in advance, and the only part worth the week.
 
 ---
 
@@ -1180,6 +1202,130 @@ for the hum. The rhythm it was already animating does the rest.
 `requestAnimationFrame` was shimmed and clicks were scripted. Every number
 above is real; how the shapes *look* at full speed on a phone is yours.
 
+---
+
+## 20. Phase 3d — Breath foundations, as built
+
+### 20.1 What changed for you
+
+A course on the Breathe tab: **seven days, one practice a day, each with a
+sentence saying what it teaches.** It sits above the routines, shows a mark per
+day, and names the day that is open.
+
+| Day | Practice | What it teaches |
+|---|---|---|
+| 1 | Physiological Sigh, 6 breaths | The fastest way down |
+| 2 | Coherent Breathing, 3 min | A rhythm you can hold |
+| 3 | Extended Exhale, 3 min | The exhale is the brake |
+| 4 | Box Breathing, 3 min | Holding still is part of it |
+| 5 | Anulom Vilom, 4 min | Attention needs somewhere to go |
+| 6 | Bhramari, 4 min | A breath you can feel |
+| 7 | **Chosen from your check-ins**, 5 min | The one that works on you |
+
+The course page lists all seven, including the ones ahead — the reason to
+follow a course rather than pick a practice is that someone decided the order
+and can say why, and hiding what is coming would take that away. Only the open
+day can be started. Its practice runs exactly as any other practice does: the
+same player, the same sound, the same ending and check-in, with one line added
+saying where the day leaves you.
+
+**Two rules make it a course rather than a list.** Days go in order, and one
+counts per calendar day. Miss a week and nothing resets — the next day is still
+there. Finish a day and the next says "opens tomorrow", with a link back to the
+practices, because the course ending for today is not a reason to stop
+breathing.
+
+**A day counts when you reach the end of it.** Ending part-way still saves the
+practice to History; it just does not count the day, and the ending screen says
+so rather than letting you find out tomorrow. Repeating a day is allowed and
+counts nothing, which is what "Again" on the ending screen does.
+
+### 20.2 How it is put together
+
+**Schema** — `20260918090000_breathe_journey.sql`, entirely additive.
+
+- `breathing_journeys` (slug, name, subtitle, description, about, `days jsonb`).
+  A day is a routine step plus a title and a `teaches` sentence.
+- `user_journey_progress` (user, journey, `days_completed`, `started_on`,
+  `last_day_on`, `completed_at`), one row per person per course.
+- `advance_journey_day(journey, day, local_date, log_id)`.
+
+**The progress table has a read policy and no write policy at all.** Every
+write goes through `advance_journey_day`, which is the only place the two rules
+exist. This is the one function in the section that is `security definer`
+rather than `security invoker`, and that is the reason: with no write path for
+the client, the rules *are* the write path, and leaving them to the caller
+would make them decoration. Everything it touches is scoped to `auth.uid()`.
+
+- It counts a day only against a `breathing_logs` row that exists **and is
+  yours**, so a day cannot be counted against nothing, or against somebody
+  else's practice.
+- Being refused is not an error. Repeating a day is an ordinary thing to do, so
+  the function returns where you are and whether it moved, and the screen says
+  which.
+
+**Day seven** is `{"pick": "best", …}`, resolved at load by `bestRated` against
+the same check-ins that feed "What works for you". Highest average afterwards
+wins, ties go to the practice done more often. A gated practice is never
+chosen, however well it rates — a course must not walk anyone past Kapalabhati's
+confirmation. A routine's name matches no practice and drops out on its own.
+With too few check-ins the day falls back to the practice named in the course
+and says plainly that it is a fallback, so a brand new course still resolves.
+
+**Where the day is counted** — `BreathingSession` wraps the save action for a
+journey exactly as it wraps it for a routine: the practice saves first, and
+only a successful, not-ended-early save counts the day. So the retry on a
+failed save counts the day too, and nothing new had to be threaded through the
+player.
+
+**Routes** — `/breathe/journey/<slug>` and `/breathe/journey/<slug>/session`,
+mirroring the routines. **Which day may run is decided on the server, not taken
+from the URL**: a day that is done can be run again (a reload straight after
+finishing one lands there), but a day still ahead redirects back to the course.
+
+### 20.3 Verified
+
+**The two rules, as the real user against the live database, rolled back.**
+Eleven checks, all passing: day one counts; repeating it counts nothing; day
+two is refused on the same date and accepted the next; day six cannot be jumped
+to; an invented practice id is refused; only your own progress row is visible;
+the table cannot be written or inserted into directly (RLS refuses); the
+seventh day stamps `completed_at`; and there is no eighth day. A twelfth check,
+in its own transaction, confirms **a stranger's practice cannot count your
+day** and creates no progress row when it tries.
+
+**Logic** — three new test groups (30, 31, 32) in `scripts/test-breathing.ts`,
+which now runs 32 groups. They cover day parsing and its refusals, day states,
+labels in the unit the day was written in, the one-a-day and finished cases,
+`bestRated`'s ordering and its two exclusions, and the fallback. Group 32 reads
+**the seeded course out of the migration** and checks every day against the
+slugs in the pattern migrations, so the course cannot name a practice that does
+not exist.
+
+**In the browser** — every screen state driven and read: the course not
+started, three days in, already counted today, and finished; the card on the
+Breathe tab in each of those, with its day marks checked mark by mark; day
+seven resolving to the best-rated practice and falling back with no check-ins;
+the nav allowlist across ten routes. A day was then run end to end four times —
+finished (`Day 4 of 7 · 3 to go`), repeated (`already counted today`), ended
+part-way (`Day 4 counts when you reach the end of it`, with the practice still
+saved), and with the save failing then retried, where the day correctly counts
+only once the retry lands.
+
+**Two latent bugs found and fixed on the way**, both from phase 3a:
+
+- The tab bar was missing from the routine setup page. The nav allowlist
+  matched one path segment after `/breathe`, and routines live two deep.
+- A routine's practice screen loaded the Breathe tab's bright skeleton instead
+  of the dark room, because `loading.tsx` only existed under `[slug]/session`.
+
+**Still the hidden-pane caveat** from 17.3: the pane was hidden, so
+`requestAnimationFrame` was shimmed and the clicks were scripted.
+
+**What is not covered.** There is no way to restart a finished course. It felt
+worse to invent a reset nobody has asked for than to leave the course finished
+and the practices where they are; if you want one, it is a small addition.
+
 ## Change log
 
 - **2026-09-11** — Draft: review of the current section (7 bugs, 13 experience
@@ -1237,3 +1383,17 @@ above is real; how the shapes *look* at full speed on a phone is yours.
   code. The cards carry the silhouette too. Migration
   `20260917090000_breathe_shapes` applied. Section 19 has the detail, including
   every shape measured in the browser rather than eyeballed.
+- **2026-09-12** — Phase 3b merged to `main` and pushed (`9817818`).
+- **2026-09-12, phase 3d** — **Breath foundations built**, on branch
+  `breathe/journey`, **completing phase 3**: a seven-day course, one practice a
+  day with a sentence on what it teaches, in order and one a day, with the last
+  day chosen from your own check-ins. Migration
+  `20260918090000_breathe_journey` applied. Section 20 has the detail. The two
+  course rules were tested as the real user against the live database and
+  rolled back — twelve checks, including that a stranger's practice cannot
+  count your day and that the progress table refuses every direct write. Found
+  and fixed on the way: two latent phase-3a bugs (the tab bar missing from the
+  routine setup page, and a routine's practice screen loading the bright tab
+  skeleton instead of the dark room), and the dev fixture missing four
+  practices, which had been silently hiding two of the four routines from the
+  harness.

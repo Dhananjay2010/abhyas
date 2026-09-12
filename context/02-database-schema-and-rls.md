@@ -40,6 +40,7 @@ new migration, never by editing an old one.
 | `20260915090000_breathe_routines.sql` | The `breathing_routines` catalogue (four seeded sequences), `breathing_logs.routine_id`/`routine_name`/`routine_step`, and `record_breathing_practice()` replaced again so a later step appends to the session the first step opened — step 16, phase 3a |
 | `20260916090000_breathe_kapalabhati.sql` | Kapalabhati, the first pattern using the `pump` and `rest` phase kinds, and `user_settings.breathing_kapalabhati_ack` for its one-time safety confirmation — step 16, phase 3c |
 | `20260917090000_breathe_shapes.sql` | `breathing_patterns.shape`, so each practice declares what it looks like while you do it — step 16, phase 3b |
+| `20260918090000_breathe_journey.sql` | The `breathing_journeys` catalogue (the seven-day course), `user_journey_progress`, and `advance_journey_day()` — the only `SECURITY DEFINER` function in the breathing section, because the progress table has no write policy — step 16, phase 3d |
 
 Push with `supabase db push`. Query the remote without Docker using
 `supabase db query --linked "<sql>"` — note the `--linked` flag, as it defaults
@@ -49,7 +50,8 @@ to a local database that does not exist here.
 
 **Reference (public read, no writes):** `equipment`, `exercises`,
 `exercise_media`, `exercise_substitutions`, `warmup_exercises`,
-`breathing_patterns`, `breathing_routines`, `yoga_playlists`, `yoga_videos`
+`breathing_patterns`, `breathing_routines`, `breathing_journeys`,
+`yoga_playlists`, `yoga_videos`
 
 **Per user (owner-only, all four verbs):** `profiles`, `user_settings`,
 `user_equipment`, `user_injuries`, `programs`, `program_days`,
@@ -61,6 +63,10 @@ child tables: `set_user_id_from_parent('sessions', 'session_id')` sets its
 owner. It is normally written only through `record_breathing_practice()`, a
 `SECURITY INVOKER` function, so RLS still governs every statement inside it
 (step 16).
+
+**Read-only to the client:** `user_journey_progress`. It is per-user and
+owner-readable like the tables above, but has no insert, update or delete
+policy: `advance_journey_day()` is its only write path (step 16, phase 3d).
 
 ## Decisions and why
 
@@ -193,3 +199,20 @@ insert them after switching back.
   double-counting them. It was verified as the real user under RLS in a
   rolled-back transaction — including against a second user created inside that
   transaction, whose session was invisible, unwritable and untouched.
+- 2026-09-12 (step 16, phase 3d): `breathing_journeys`, a reference table with
+  a single read policy holding the seven-day course in a `days jsonb` column,
+  and `user_journey_progress`, one row per person per course. That makes **26
+  tables and 69 policies** — and note that the count of policies rose by only
+  two for two tables, because `user_journey_progress` deliberately has a select
+  policy and **no write policy at all.**
+
+  It is the one per-user table here that the client cannot write. Every change
+  goes through `advance_journey_day()`, the section's only `SECURITY DEFINER`
+  function, because the two rules that make the course a course — days in
+  order, one counted per calendar day — have to live somewhere the caller
+  cannot skip. Definer rights are safe here for the usual reason: everything it
+  touches is scoped to `auth.uid()`, it is granted only to `authenticated`, and
+  it counts a day only against a `breathing_logs` row that is the caller's own.
+  Verified as the real user under RLS in rolled-back transactions: twelve
+  checks, including that a second user's practice cannot count your day and
+  that direct writes and inserts to the progress table are both refused.

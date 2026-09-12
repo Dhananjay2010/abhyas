@@ -16,13 +16,26 @@ import {
   type UserPattern,
 } from "@/lib/breathing/pattern";
 import {
+  JOURNEY_COLUMNS,
+  PROGRESS_COLUMNS,
+  journeyFromRow,
+  progressFromRow,
+  resolveJourney,
+  type ResolvedJourney,
+} from "@/lib/breathing/journey";
+import {
   ROUTINE_COLUMNS,
   resolveRoutine,
   routineFromRow,
   type ResolvedRoutine,
 } from "@/lib/breathing/routine";
+import { calmShifts, type MoodLog } from "@/lib/breathing/stats";
+import { localDateString } from "@/lib/dates";
 
 type Client = SupabaseClient<Database>;
+
+/** The same window the Breathe tab reads its check-ins over. */
+const RATED_LOGS = 200;
 
 /** The last 50 are ample for "how long did I do this one last time". */
 const RECENT_LOGS = 50;
@@ -145,5 +158,88 @@ export async function loadRoutine(
     resolved,
     prefs: prefsFromRow(settingsRes.data),
     firstPractice: (countRes.count ?? 0) === 0,
+  };
+}
+
+export type LoadedJourney = {
+  resolved: ResolvedJourney;
+  prefs: BreathingPrefs;
+  firstPractice: boolean;
+  /** The local date where the user is, which is what "one a day" is counted in. */
+  today: string;
+};
+
+/**
+ * One journey by its slug, with every day's practice found, its length worked
+ * out, and where this person is up to.
+ *
+ * Both pages that need a journey -- the course itself and a day running -- go
+ * through here, so they cannot disagree about which day is open. The
+ * check-ins are read because the last day is chosen from them; see
+ * `bestRated`.
+ */
+export async function loadJourney(
+  supabase: Client,
+  userId: string,
+  slug: string,
+): Promise<LoadedJourney | null> {
+  const [journeyRes, patternsRes, mineRes, settingsRes, profileRes, logsRes, countRes] =
+    await Promise.all([
+      supabase.from("breathing_journeys").select(JOURNEY_COLUMNS).eq("slug", slug).maybeSingle(),
+      supabase.from("breathing_patterns").select(PATTERN_COLUMNS).order("sort_order"),
+      supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS),
+      supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", userId).maybeSingle(),
+      supabase.from("profiles").select("timezone").eq("id", userId).single(),
+      supabase
+        .from("breathing_logs")
+        .select("pattern_name, routine_name, mood_before, mood_after")
+        .order("created_at", { ascending: false })
+        .limit(RATED_LOGS),
+      supabase.from("breathing_logs").select("id", { count: "exact", head: true }),
+    ]);
+
+  const journey = journeyRes.data ? journeyFromRow(journeyRes.data) : null;
+  if (!journey) return null;
+
+  // A second round trip, because it needs the journey's id. Nothing above
+  // depends on it, so it is the only thing serialised here.
+  const progressRes = await supabase
+    .from("user_journey_progress")
+    .select(PROGRESS_COLUMNS)
+    .eq("journey_id", journey.id)
+    .maybeSingle();
+
+  const builtins = (patternsRes.data ?? [])
+    .map((row) => patternFromRow(row))
+    .filter((p): p is Pattern => p !== null);
+  const owned = (mineRes.data ?? [])
+    .map(userPatternFromRow)
+    .filter((p): p is UserPattern => p !== null);
+
+  const today = localDateString(profileRes.data?.timezone || "Asia/Kolkata");
+  const shifts = calmShifts(
+    (logsRes.data ?? []).map(
+      (l): MoodLog => ({
+        patternName: l.routine_name ?? l.pattern_name,
+        moodBefore: l.mood_before,
+        moodAfter: l.mood_after,
+      }),
+    ),
+  );
+
+  const resolved = resolveJourney({
+    journey,
+    patterns: withUserPatterns(builtins, owned),
+    progress: progressFromRow(progressRes.data),
+    today,
+    shifts,
+  });
+  if (!resolved) return null;
+
+  return {
+    resolved,
+    prefs: prefsFromRow(settingsRes.data),
+    firstPractice: (countRes.count ?? 0) === 0,
+    today,
   };
 }

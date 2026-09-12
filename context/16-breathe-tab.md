@@ -714,6 +714,122 @@ React has not re-rendered the words yet. A time series showed it immediately.
 Sampling a rAF-painted DOM against React-rendered text needs a series, not a
 map.
 
+## Phase 3d — Breath foundations, a seven-day course (2026-09-12, branch `breathe/journey`)
+
+`BREATHE-SPEC.md` §16.4 asked for a short course, one practice a day with a
+sentence on what it teaches, day one the physiological sigh and day seven
+whichever practice the person's own check-ins rate best. §20 records it as
+built.
+
+### What makes it a course rather than a list
+
+Two rules, and they are the whole design: **days go in order, and one counts
+per calendar day.** Without the second rule a seven-day course is an
+afternoon's work and teaches nothing about coming back. Missing days never
+resets anything, because the point is to return.
+
+A third decision follows from them: **a day counts when you reach the end of
+it.** Ending part-way still saves the practice — it is a practice you did — but
+the day stays open, and the ending screen says so rather than letting someone
+discover it tomorrow. The alternative, counting any practice however short,
+would make "End and save" after five seconds a day of the course.
+
+### Where the rules live
+
+`supabase/migrations/20260918090000_breathe_journey.sql` adds
+`breathing_journeys`, `user_journey_progress` and
+`advance_journey_day(journey, day, local_date, log_id)`.
+
+`user_journey_progress` has a **select policy and no write policy at all**.
+Every write goes through the function, which is the only place the two rules
+exist. This is the one function in the breathing section that is `security
+definer` rather than `security invoker`: with no client write path, the rules
+*are* the write path, and leaving them to the caller would make them
+decoration. Everything it touches is scoped to `auth.uid()`, and it is granted
+only to `authenticated`.
+
+Two details worth keeping:
+
+- **A day counts only against a `breathing_logs` row that exists and is
+  yours.** The caller passes the log it has just written. This is checked
+  before the progress row is created, so a refused attempt leaves no trace.
+- **Refusing is not an error.** Repeating a day is an ordinary thing to do —
+  "Again" on the ending screen does exactly that — so the function returns
+  `(days_completed, day_count, advanced)` rather than raising, and the screen
+  says which case it was. A function that threw here would put a red error in
+  front of someone who had just finished a practice.
+
+### The last day
+
+Day seven is `{"pick": "best", "slug": <fallback>, …}`. `bestRated` in
+`src/lib/breathing/journey.ts` resolves it against the same `calmShifts` that
+feed "What works for you": highest average afterwards, ties to the practice
+done more often.
+
+Two exclusions matter. A **gated practice is never chosen**, however well it
+rates — a course must not walk anyone past Kapalabhati's confirmation, which is
+the same rule `resolveRoutine` applies to steps. And a **routine's name matches
+no practice**, so routines drop out on their own, because check-ins group a
+routine under its own name.
+
+With too few check-ins the day falls back to the slug the course names and says
+plainly that it is a fallback. That matters more than it sounds: without a
+fallback, a brand new course would fail to resolve for everyone who has never
+answered a check-in, which is everybody on day one.
+
+### Where the day is counted
+
+`BreathingSession` wraps the save action for a journey exactly as it wraps it
+for a routine (`saveDay` beside `saveStep`). The practice saves first; only a
+successful, not-ended-early save counts the day. Two things fall out of this
+for free: the retry on a failed save counts the day too, and nothing new had to
+be threaded through `Practice`, which already had six props too many.
+
+### Routes
+
+`/breathe/journey/<slug>` and `/breathe/journey/<slug>/session`, mirroring the
+routines, with `loadJourney` in `src/app/breathe/load.ts` shared by both so
+they cannot disagree about which day is open.
+
+**Which day may run is decided on the server, not read from the URL.** A day
+that is done can be run again — a reload straight after finishing one lands
+there, and repeating is allowed anyway — but a day still ahead redirects back
+to the course.
+
+### Verified
+
+32 test groups. Group 32 reads **the seeded course out of the migration file**
+and checks every day's slug against the slugs in the pattern migrations, so the
+course cannot name a practice that does not exist.
+
+The two rules were tested as the real user against the live database inside a
+rolled-back transaction: twelve checks covering ordering, one-a-day, jumping
+ahead, an invented log id, a **stranger's** log id, direct writes and inserts
+(both refused by RLS), `completed_at` on the seventh day, and the absence of an
+eighth.
+
+In the browser, every screen state was driven and read — not started, three
+days in, already counted today, finished, and day seven both chosen and falling
+back — and a day was run end to end four times: finished, repeated, ended
+part-way, and with the save failing then retried.
+
+**Two latent phase-3a bugs surfaced while wiring this up.** Both were fixed
+here rather than noted:
+
+- The tab bar was missing from the routine setup page. `BREATHE_PAGE` in
+  `src/components/bottom-nav.tsx` matched one path segment after `/breathe`,
+  and routines live two deep. The regex now names `routine` and `journey`
+  explicitly and was checked across ten routes.
+- A routine's practice screen loaded the Breathe tab's bright skeleton instead
+  of the dark room, because `loading.tsx` existed only under `[slug]/session`.
+  Both nested session routes now re-export it.
+
+**And one in the dev harness:** `fixture.ts` was missing four practices
+(Extended Exhale, Ujjayi, Anulom Vilom, Sheetali), which `resolveRoutine`
+silently turned into two of the four routines never appearing in the harness at
+all. The fixture's own comment says "keep the two in step by hand", and it had
+drifted. The four were regenerated from the live rows.
+
 ## Known gaps
 
 - **Signed in: partly closed.** On 2026-09-12 Dhananjay practised on localhost
@@ -760,11 +876,35 @@ map.
   measured, but the Browser pane was hidden for all of it, so nobody has yet
   watched a square close its corners on the phase changes at full speed on a
   phone. Checklist items 28-33 in `BREATHE-SPEC.md` cover it.
-- Phase 3 is nearly done. Only the seven-day journey (3d) remains. Recorded
-  voice clips are deliberately not in this phase — `BREATHE-SPEC.md` §16.5 says
-  why and what it needs from Dhananjay.
+- **A finished course cannot be restarted.** `advance_journey_day` only ever
+  moves forward, and no reset exists. Inventing one nobody asked for felt worse
+  than leaving the course finished with its practices still on the tab, but it
+  is a small addition if it is wanted.
+- **The course has not been lived.** Every state was reached by setting
+  progress directly; nobody has yet done day one, come back tomorrow and found
+  day two open. That is a seven-day test only Dhananjay can run, and checklist
+  items 34-40 in `BREATHE-SPEC.md` are written for it. Item 37 — that day two
+  refuses to open on the same day — is the one that matters, because it is the
+  rule the whole thing rests on.
+- **A journey day is not marked in History.** The log records the practice, not
+  which day of which course it was, so History reads "Box Breathing" rather
+  than "Day 4 of Breath foundations". Tagging it would mean two more columns
+  and two more arguments on `record_breathing_practice`; the course page is
+  where progress lives, and it was not worth that.
+- Phase 3 is complete. Recorded voice clips are deliberately not in it —
+  `BREATHE-SPEC.md` §16.5 says why and what it needs from Dhananjay.
 
 ## Change log
+
+- **2026-09-12, phase 3d.** Breath foundations, on `breathe/journey`,
+  completing phase 3: a seven-day course, in order and one a day, with the last
+  day chosen from your own check-ins. Migration
+  `20260918090000_breathe_journey` applied; the two course rules live in
+  `advance_journey_day` and were tested as the real user against the live
+  database. Fixed while testing: the tab bar missing from the routine setup
+  page, a routine's practice screen loading the wrong skeleton, and four
+  practices missing from the dev fixture that had been hiding two routines from
+  the harness.
 
 - **2026-09-12, phase 3b.** A signature shape per practice, on
   `breathe/shapes`: one `BreathShape` component with a single `paint` method,
