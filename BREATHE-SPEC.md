@@ -1326,6 +1326,72 @@ only once the retry lands.
 worse to invent a reset nobody has asked for than to leave the course finished
 and the practices where they are; if you want one, it is a small addition.
 
+---
+
+## 21. The whole section, on production (2026-09-12)
+
+Everything above was verified against localhost and the live database. This is
+the section checked on **abhyas-indol.vercel.app**, signed in as you, on
+deployment `55d202e`.
+
+### 21.1 What was checked, and what it showed
+
+| Screen | Result |
+|---|---|
+| Breathe tab | Week strip, Again, "For right now" (correctly picking 4-7-8 late in the evening), all six intent chips, the Course card, all four routines, all eleven practices, Create your own |
+| Intent filter | Filtering by Sleep leaves Wind Down alone and **hides the course**, as designed |
+| Course | Seven days, day one open, the rest dimmed, each with its own practice's silhouette |
+| `?day=5` | **Redirected back to the course.** A day still ahead cannot be jumped to by URL, and the decision is made on the server |
+| Kapalabhati | **The gate is intact and waiting for you** — the safety note, "I have read this — continue" and "Not now", no Start. It was not accepted from here |
+| Routine (Wind Down) | Three steps at the right lengths, both cautions shown once, 6:16 total, "Why in this order" |
+| Practice (Box Breathing) | Phases, level, intents, benefit, caution, how-to, lengths, guidance, the timings editor, "Why it works" |
+| History | The four breathing sessions with names, durations and breath counts |
+| Tab bar | Present on every setup page including the two nested ones, absent on every `/session` route |
+
+**The shapes, seen rather than measured.** Section 19 could only measure them,
+because the pane was hidden. On production, in a browser I could actually look
+at, all eleven silhouettes render and are distinguishable: the rounded square
+for the box, teardrops for 4-7-8 and the sigh, paired lobes for both
+alternate-nostril practices, the ringed circle for Bhramari, circles for the
+smooth ones.
+
+**And each card breathes its own rhythm.** Read off the live page as WAAPI
+keyframes: box 16s in 5 frames with the holds visible as repeated values,
+4-7-8 19s, coherent 11s, the sigh 9s with the two-part inhale at 0.884, Nadi
+Shodhana 32s over seven frames, Anulom Vilom 16s — and **Kapalabhati 42
+keyframes across 60 seconds**, which is twenty pumps sampled twice each, so the
+card really pumps rather than drifting.
+
+### 21.2 Three things found, all fixed
+
+1. **A real error on the first request after the deploy.** The Breathe tab
+   showed "This page couldn't load". The Vercel runtime log named it:
+   `Could not load the breathing practices: JWT issued at future`. It is clock
+   skew between Supabase's token and the function's host, not a regression —
+   and it did not recur in eighteen further requests. But it is worth knowing
+   that **any transient error loading the pattern list takes the whole tab
+   down**, because `/breathe/page.tsx` throws on `patternsRes.error`. It
+   recovers on reload and the error screen offers one. Left as it is, but
+   written down here rather than dismissed.
+2. **Four literal `--` in the seeded course text**, where every other piece of
+   seeded content in the app uses a real em dash. Only visible by reading the
+   live page. Fixed by `20260918100000_breathe_journey_dashes.sql` — a
+   correction rather than an edit, because the original insert ends in
+   `on conflict do nothing` and would not have touched the existing row. The
+   source migration is fixed too, so a fresh database never has it.
+3. **"1 breaths" in History.** A missing plural guard in `SessionRow`,
+   pre-existing since phase 1 and visible on two of your own sessions. Fixed.
+
+### 21.3 The one thing deliberately not done
+
+**No practice was started on your account.** Running one would put a session in
+your history for today, and running day one of the course would consume it and
+close day two until tomorrow — which is exactly the thing checklist items 36
+and 37 are there for you to see. The player itself is verified end to end in
+the harness (four full runs, §20.3); what is unverified on production is the
+saving of a practice that you start, and that is one tap away whenever you want
+it.
+
 ## Change log
 
 - **2026-09-11** — Draft: review of the current section (7 bugs, 13 experience
@@ -1397,3 +1463,13 @@ and the practices where they are; if you want one, it is a small addition.
   skeleton instead of the dark room), and the dev fixture missing four
   practices, which had been silently hiding two of the four routines from the
   harness.
+- **2026-09-12** — Phase 3d merged to `main` and pushed (`55d202e`), and
+  **the whole section checked on production** signed in as you. Section 21
+  records it. Three things found and fixed: four literal `--` in the seeded
+  course text (migration `20260918100000_breathe_journey_dashes`), "1 breaths"
+  in History, and a transient `JWT issued at future` that takes the whole
+  Breathe tab down when the pattern query fails — that one is written down
+  rather than fixed. The shapes were seen rather than only measured for the
+  first time, and every card's rhythm was read off the live page. No practice
+  was started on your account, and the Kapalabhati gate is still waiting for
+  you.
