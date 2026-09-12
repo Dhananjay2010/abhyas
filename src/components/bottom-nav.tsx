@@ -12,12 +12,18 @@ const TABS = [
 ];
 
 /**
- * The Breathe tab and a practice's setup page, but not the practice itself
- * (`/breathe/<slug>/session`). That is full screen, so it is left off the
- * allowlist and the bar disappears while you breathe.
+ * The Breathe tab and the pages that lead into a practice -- one practice
+ * (`/breathe/<slug>`), a routine (`/breathe/routine/<slug>`) and a course
+ * (`/breathe/journey/<slug>`) -- but never the practice itself, which ends in
+ * `/session`. That is full screen, so it is left off the allowlist and the bar
+ * disappears while you breathe.
+ *
+ * The nested two both have to be named. Matching "one segment after /breathe"
+ * alone quietly dropped the bar from the routine setup page when routines
+ * moved under a path of their own.
  */
-const BREATHE_PAGE = /^\/breathe(\/[^/]+)?$/;
-const DEV_BREATHE_PAGE = /^\/dev\/breathe(\/[^/]+)?$/;
+const BREATHE_PAGE = /^\/breathe(\/(?:routine|journey)\/[^/]+|\/[^/]+)?$/;
+const DEV_BREATHE_PAGE = /^\/dev\/breathe(\/(?:routine|journey)\/[^/]+|\/[^/]+)?$/;
 
 /**
  * Routes that show the tab bar, and which tab each one lights up.

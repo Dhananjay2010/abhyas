@@ -3,7 +3,8 @@ import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { INTENTS, type Intent } from "@/lib/breathing/pattern";
 import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { suggestPractice } from "@/lib/breathing/suggest";
-import { PRACTICES, PREFS, ROUTINES } from "./fixture";
+import type { ResolvedJourney } from "@/lib/breathing/journey";
+import { PRACTICES, PREFS, ROUTINES, fixtureJourney } from "./fixture";
 import { HomePreview } from "./previews";
 
 /**
@@ -13,6 +14,8 @@ import { HomePreview } from "./previews";
  *   /dev/breathe?fresh=1    someone who has never practised
  *   /dev/breathe?hour=22    pretend it is late, for the suggestion
  *   /dev/breathe?trained=1  pretend today was a training day
+ *   /dev/breathe?days=0     the course, this many days in (0-7)
+ *   /dev/breathe?doneToday=1  today's day of the course is already counted
  */
 export const dynamic = "force-dynamic";
 
@@ -49,12 +52,22 @@ export default async function DevBreathePage({
   const asked = typeof search.intent === "string" ? search.intent : null;
   const intent = INTENTS.some((i) => i.value === asked) ? (asked as Intent) : null;
   const last = fresh ? null : { patternId: PRACTICES[0].id, cycles: 11 };
+  const shifts = fresh ? [] : calmShifts(RATED);
+
+  const askedDays = Number(search.days);
+  const journey = fixtureJourney({
+    daysCompleted: fresh ? 0 : Number.isInteger(askedDays) ? askedDays : 3,
+    doneToday: search.doneToday === "1",
+    today,
+    shifts,
+  });
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <HomePreview
         patterns={PRACTICES}
         routines={ROUTINES}
+        journeys={[journey].filter((j): j is ResolvedJourney => j !== null)}
         prefs={PREFS}
         stats={stats}
         last={last}
@@ -65,7 +78,7 @@ export default async function DevBreathePage({
           trainedToday: search.trained === "1",
           excludeId: last?.patternId ?? null,
         })}
-        shifts={fresh ? [] : calmShifts(RATED)}
+        shifts={shifts}
         intent={intent}
         todayIndex={isoWeekday(today)}
       />

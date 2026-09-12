@@ -5,7 +5,15 @@ import {
   type Pattern,
   type UserPattern,
 } from "@/lib/breathing/pattern";
+import { addDays } from "@/lib/dates";
+import {
+  resolveJourney,
+  type Journey,
+  type JourneyProgress,
+  type ResolvedJourney,
+} from "@/lib/breathing/journey";
 import { resolveRoutine, type ResolvedRoutine, type Routine } from "@/lib/breathing/routine";
+import type { CalmShift } from "@/lib/breathing/stats";
 
 /** Everything a built-in pattern carries before your own rows are folded in. */
 type Seed = Omit<Pattern, "kind" | "userPatternId" | "adjusted" | "defaultPhases">;
@@ -224,6 +232,116 @@ const SEEDS: Seed[] = [
     evidenceLabel: null,
     evidenceUrl: null,
   },
+  {
+    id: "00000000-0000-4000-8000-000000000008",
+    slug: "extended-exhale",
+    shape: "orb",
+    name: "Extended Exhale",
+    subtitle: "Out for longer than in",
+    description: "Breathe in for four, out for six. No holds, nothing to strain against.",
+    benefit: "The gentlest way down. Safe for anyone, any time.",
+    contraindications: null,
+    level: "beginner",
+    intents: ["calm", "sleep"],
+    phases: [
+      { kind: "inhale", seconds: 4, cue: "Breathe in" },
+      { kind: "exhale", seconds: 6, cue: "Breathe out slowly" },
+    ],
+    maxCycles: null,
+    defaultCycles: 30,
+    howTo: [
+      "Sit or lie down, whichever is more comfortable.",
+      "Breathe in through your nose for four.",
+      "Breathe out through your nose for six, smooth and unhurried.",
+      "If six feels long, breathe more shallowly rather than faster.",
+    ],
+    why: "Breathing out is the half of the breath that slows your heart, so making the exhale longer than the inhale is the simplest way there is to settle. Nothing is held, so there is nothing to brace against.",
+    evidenceLabel: null,
+    evidenceUrl: null,
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000009",
+    slug: "ujjayi",
+    shape: "orb",
+    name: "Ujjayi",
+    subtitle: "Ocean breath",
+    description: "Breathe through the nose with the throat slightly narrowed, so each breath has a soft sound to follow.",
+    benefit: "Steadies you without counting. The sound does the work.",
+    contraindications: "Stop if your throat feels sore or you become light-headed.",
+    level: "beginner",
+    intents: ["calm", "focus"],
+    phases: [
+      { kind: "inhale", seconds: 5, cue: "In through the nose, softly" },
+      { kind: "exhale", seconds: 5, cue: "Out with a whisper in the throat" },
+    ],
+    maxCycles: null,
+    defaultCycles: 27,
+    howTo: [
+      "Mouth closed, breathing through your nose throughout.",
+      "Narrow the back of your throat a little, as though fogging a mirror with your mouth shut.",
+      "You should hear a soft hiss, like surf heard from a distance. It is a whisper, not a strain.",
+      "Keep both halves of the breath the same length.",
+    ],
+    why: "The narrowed throat slows the air, which lengthens every breath without you having to count. The sound gives your attention something steady to rest on.",
+    evidenceLabel: null,
+    evidenceUrl: null,
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000010",
+    slug: "anulom-vilom",
+    shape: "lobes",
+    name: "Anulom Vilom",
+    subtitle: "Alternate nostrils, no holds",
+    description: "The alternation of Nadi Shodhana without the breath holds. A gentler place to start.",
+    benefit: "Balance and a quiet mind, with nothing held.",
+    contraindications: "Skip it if your nose is blocked.",
+    level: "beginner",
+    intents: ["balance", "calm"],
+    phases: [
+      { kind: "inhale", seconds: 4, cue: "In through the left", side: "left" },
+      { kind: "exhale", seconds: 4, cue: "Out through the right", side: "right" },
+      { kind: "inhale", seconds: 4, cue: "In through the right", side: "right" },
+      { kind: "exhale", seconds: 4, cue: "Out through the left", side: "left" },
+    ],
+    maxCycles: null,
+    defaultCycles: 10,
+    howTo: [
+      "Sit tall, left hand resting in your lap.",
+      "Right thumb closes the right nostril; your ring finger closes the left.",
+      "Follow the screen: it shows which side is open for each breath.",
+      "One round is in left, out right, in right, out left.",
+    ],
+    why: "The same alternation as Nadi Shodhana, without holding the breath, so it suits anyone the holds do not. Switching sides takes just enough attention to keep the mind from wandering.",
+    evidenceLabel: null,
+    evidenceUrl: null,
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000011",
+    slug: "sheetali",
+    shape: "orb",
+    name: "Sheetali",
+    subtitle: "The cooling breath",
+    description: "Draw the air in across a rolled tongue, then breathe out through the nose.",
+    benefit: "Cooling. Good after training, or in the heat.",
+    contraindications: "Not when you are already cold or your nose is blocked, and not if cold air sets off your asthma.",
+    level: "beginner",
+    intents: ["recover", "calm"],
+    phases: [
+      { kind: "inhale", seconds: 4, cue: "In through a rolled tongue" },
+      { kind: "exhale", seconds: 6, cue: "Out through your nose" },
+    ],
+    maxCycles: null,
+    defaultCycles: 20,
+    howTo: [
+      "Roll your tongue into a tube and let the tip sit just past your lips.",
+      "If your tongue will not roll, part your teeth and draw the air through them instead. That version is Sheetkari.",
+      "Draw the air in through the tube. It should feel cool.",
+      "Close your mouth and breathe out through your nose.",
+    ],
+    why: "Air drawn across a wet tongue cools as the moisture evaporates, which is why this one is taught for heat and for cooling down after effort.",
+    evidenceLabel: null,
+    evidenceUrl: null,
+  },
 ];
 
 export const PATTERNS: Pattern[] = SEEDS.map(builtIn);
@@ -306,3 +424,71 @@ const ROUTINE_SEEDS: Array<Omit<Routine, "id">> = [
 export const ROUTINES: ResolvedRoutine[] = ROUTINE_SEEDS.map((seed, i) =>
   resolveRoutine({ ...seed, id: `00000000-0000-4000-a000-00000000000${i + 1}` }, PRACTICES),
 ).filter((r): r is ResolvedRoutine => r !== null);
+
+/**
+ * The course, as 20260918090000_breathe_journey.sql seeds it, but with every
+ * day counted in breaths rather than minutes so a day can be watched from
+ * Start to ending in well under a minute.
+ *
+ * The seventh day is a `pick: "best"` day here too, so the harness exercises
+ * the branch that chooses a practice from the check-ins rather than from the
+ * course.
+ */
+export const JOURNEY: Journey = {
+  id: "00000000-0000-4000-b000-000000000001",
+  slug: "foundations",
+  name: "Breath foundations",
+  subtitle: "Seven days",
+  description:
+    "One practice a day for a week, each teaching one thing. By the end you will know which of them works on you.",
+  about: "The order is deliberate: the mechanism first, then the holds, then attention, then sound.",
+  days: [
+    { slug: "physiological-sigh", cycles: 2, title: "The fastest way down", teaches: "Two breaths in, one long breath out." },
+    { slug: "coherent-breathing", cycles: 2, title: "A rhythm you can hold", teaches: "In and out, evenly, with nothing to count." },
+    { slug: "extended-exhale", cycles: 2, title: "The exhale is the brake", teaches: "Breathing out is the half that slows your heart." },
+    { slug: "box-breathing", cycles: 2, title: "Holding still is part of it", teaches: "Four equal sides, two of which do not move." },
+    { slug: "anulom-vilom", cycles: 1, title: "Attention needs somewhere to go", teaches: "Your hand closes one nostril, then the other." },
+    { slug: "bhramari", cycles: 2, title: "A breath you can feel", teaches: "The hum turns the exhale into something physical." },
+    { pick: "best", slug: "coherent-breathing", cycles: 2, title: "The one that works on you", teaches: "Whichever of them left you calmest. Your evidence, not ours." },
+  ],
+};
+
+/** Someone part-way through: three days done, and today's is open. */
+export const JOURNEY_PROGRESS: JourneyProgress = {
+  daysCompleted: 3,
+  startedOn: "2026-09-09",
+  lastDayOn: "2026-09-11",
+  completed: false,
+};
+
+/**
+ * The course at any point in it, so every state on the screen -- not started,
+ * part-way, waiting for tomorrow, finished -- can be opened by URL rather than
+ * waited for over seven real days.
+ */
+export function fixtureJourney({
+  daysCompleted = JOURNEY_PROGRESS.daysCompleted,
+  doneToday = false,
+  today,
+  shifts = [],
+}: {
+  daysCompleted?: number;
+  /** Today's day is already counted, so the next one waits for tomorrow. */
+  doneToday?: boolean;
+  today: string;
+  shifts?: CalmShift[];
+}): ResolvedJourney | null {
+  const done = Math.max(0, Math.min(daysCompleted, JOURNEY.days.length));
+  return resolveJourney({
+    journey: JOURNEY,
+    patterns: PRACTICES,
+    progress: {
+      daysCompleted: done,
+      startedOn: addDays(today, -done),
+      lastDayOn: done === 0 ? null : doneToday ? today : addDays(today, -1),
+      completed: done === JOURNEY.days.length,
+    },
+    today,
+    shifts,
+  });
+}

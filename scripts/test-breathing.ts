@@ -40,6 +40,16 @@ import {
   type Pattern,
 } from "../src/lib/breathing/pattern";
 import {
+  MAX_DAYS,
+  NO_PROGRESS,
+  bestRated,
+  dayLine,
+  parseDays,
+  resolveJourney,
+  type Journey,
+  type JourneyDay,
+} from "../src/lib/breathing/journey";
+import {
   parseSteps,
   resolveRoutine,
   routineLength,
@@ -48,7 +58,7 @@ import {
   type RoutineStep,
 } from "../src/lib/breathing/routine";
 import { suggestPractice } from "../src/lib/breathing/suggest";
-import { calmShifts } from "../src/lib/breathing/stats";
+import { calmShifts, type CalmShift } from "../src/lib/breathing/stats";
 import {
   validatePatternDraft,
   validatePractice,
@@ -815,6 +825,181 @@ console.log("\n29. Every practice's shape, and the fallback for anything else");
     [...assigned.values()].every((s) => asShape(s) === s), [...assigned.values()].join(","));
   check("the smooth ones are left alone, so they keep the circle",
     !assigned.has("coherent-breathing") && !assigned.has("ujjayi") && !assigned.has("sheetali") && !assigned.has("extended-exhale"));
+}
+
+console.log("\n30. The course: its days parse, and each one reads in its own unit");
+{
+  const good = [
+    { slug: "physiological-sigh", cycles: 6, title: "A", teaches: "a" },
+    { slug: "coherent-breathing", minutes: 3, title: "B", teaches: "b" },
+    { pick: "best", slug: "coherent-breathing", minutes: 5, title: "C", teaches: "c" },
+  ];
+  check("a well-formed course parses", parseDays(good)?.length === 3);
+  check("and the chosen day keeps its rule", parseDays(good)?.[2].pick === "best");
+  check("a day with no title is refused",
+    parseDays([{ slug: "a", cycles: 1, teaches: "x" }, ...good]) === null);
+  check("a day with no sentence about what it teaches is refused",
+    parseDays([{ slug: "a", cycles: 1, title: "x" }, ...good]) === null);
+  check("a day with both units is refused",
+    parseDays([{ slug: "a", cycles: 1, minutes: 1, title: "x", teaches: "y" }, ...good]) === null);
+  check("a day with neither is refused",
+    parseDays([{ slug: "a", title: "x", teaches: "y" }, ...good]) === null);
+  // An unknown rule must not quietly become an ordinary day on the fallback.
+  check("an unknown rule is refused",
+    parseDays([{ pick: "worst", slug: "a", minutes: 1, title: "x", teaches: "y" }, ...good]) === null);
+  check("a course of two days is refused", parseDays(good.slice(0, 2)) === null);
+  check("so is one longer than the cap",
+    parseDays(Array.from({ length: MAX_DAYS + 1 }, () => good[0])) === null);
+  check("and anything that is not an array", parseDays({ days: good }) === null);
+
+  const patterns = [
+    fakePattern("physiological-sigh", "Physiological Sigh", SIGH),
+    fakePattern("coherent-breathing", "Coherent Breathing", COHERENT),
+    fakePattern("bhramari", "Bhramari", BHRAMARI),
+    fakePattern("kapalabhati", "Kapalabhati", KAPALABHATI, 3),
+  ];
+  const journey: Journey = {
+    id: uuid(), slug: "foundations", name: "Breath foundations", subtitle: "Seven days",
+    description: "…", about: null,
+    days: parseDays(good) as JourneyDay[],
+  };
+  const resolved = resolveJourney({
+    journey, patterns, today: "2026-09-12",
+    progress: { daysCompleted: 1, startedOn: "2026-09-11", lastDayOn: "2026-09-11", completed: false },
+  });
+  check("every day resolves to a practice", resolved?.days.length === 3);
+  // The same trap the routine steps had: a day asked for in breaths must not
+  // be reported in seconds just because its practice has no cap.
+  check("a day counted in breaths says breaths", resolved?.days[0].label === "6 breaths",
+    resolved?.days[0].label);
+  check("a day paced in minutes says minutes", resolved?.days[1].label.includes("min") === true,
+    resolved?.days[1].label);
+  check("the day behind you is done", resolved?.days[0].state === "done");
+  check("the next one is open today", resolved?.days[1].state === "today");
+  check("the one after that is still ahead", resolved?.days[2].state === "ahead");
+  check("and the open one is the one Start runs", resolved?.today?.number === 2);
+  check("a course missing a practice is not offered",
+    resolveJourney({
+      journey, patterns: patterns.filter((p) => p.slug !== "coherent-breathing"),
+      today: "2026-09-12", progress: NO_PROGRESS,
+    }) === null);
+
+  // One a day. This is the whole difference between a seven-day course and a
+  // list you could get through in an afternoon.
+  const sameDay = resolveJourney({
+    journey, patterns, today: "2026-09-12",
+    progress: { daysCompleted: 1, startedOn: "2026-09-12", lastDayOn: "2026-09-12", completed: false },
+  });
+  check("a day already counted today closes the next one", sameDay?.days[1].state === "tomorrow");
+  check("so there is nothing to start", sameDay?.today === null);
+
+  const finished = resolveJourney({
+    journey, patterns, today: "2026-09-12",
+    progress: { daysCompleted: 3, startedOn: "2026-09-09", lastDayOn: "2026-09-11", completed: true },
+  });
+  check("a finished course has every day done",
+    finished?.days.every((d) => d.state === "done") === true);
+  check("and nothing left to start", finished?.today === null);
+
+  check("the line reads for a fresh course", dayLine(0, 7) === "7 days");
+  check("and part-way through", dayLine(3, 7) === "Day 3 of 7 done");
+  check("and at the end", dayLine(7, 7) === "Finished");
+}
+
+console.log("\n31. The last day is chosen from your own check-ins");
+{
+  const patterns = [
+    fakePattern("coherent-breathing", "Coherent Breathing", COHERENT),
+    fakePattern("bhramari", "Bhramari", BHRAMARI),
+    fakePattern("kapalabhati", "Kapalabhati", KAPALABHATI, 3),
+  ];
+  const shift = (patternName: string, averageAfter: number, practices = 2): CalmShift => ({
+    patternName, practices, averageAfter, averageShift: 1,
+  });
+
+  check("the highest average afterwards wins",
+    bestRated([shift("Coherent Breathing", 3.5), shift("Bhramari", 4.8)], patterns)?.slug === "bhramari");
+  check("a tie goes to the one done more often",
+    bestRated([shift("Bhramari", 4, 2), shift("Coherent Breathing", 4, 9)], patterns)?.slug ===
+      "coherent-breathing");
+  // A course must never hand someone Kapalabhati: the confirmation exists
+  // precisely so that practice is never reached without a deliberate tap.
+  check("the gated practice is never chosen, however well it rates",
+    bestRated([shift("Kapalabhati", 5), shift("Bhramari", 3)], patterns)?.slug === "bhramari");
+  // Check-ins group a routine under the routine's name, which matches no
+  // practice and must simply drop out.
+  check("a routine's name matches nothing and is ignored",
+    bestRated([shift("Downshift", 5), shift("Bhramari", 3)], patterns)?.slug === "bhramari");
+  check("no check-ins means no answer", bestRated([], patterns) === null);
+
+  const day: JourneyDay = {
+    pick: "best", slug: "coherent-breathing", minutes: 2,
+    title: "The one that works on you", teaches: "…",
+  };
+  const journey: Journey = {
+    id: uuid(), slug: "foundations", name: "Breath foundations", subtitle: null,
+    description: "…", about: null,
+    days: [
+      { slug: "coherent-breathing", minutes: 1, title: "A", teaches: "a" },
+      { slug: "bhramari", minutes: 1, title: "B", teaches: "b" },
+      day,
+    ],
+  };
+  const args = { journey, patterns, today: "2026-09-12", progress: NO_PROGRESS };
+
+  const chosen = resolveJourney({ ...args, shifts: [shift("Bhramari", 4.8)] });
+  check("the chosen day runs the practice your check-ins rate best",
+    chosen?.days[2].pattern.slug === "bhramari", chosen?.days[2].pattern.slug);
+  check("and says why", chosen?.days[2].chosenBecause === "Your check-ins rate Bhramari highest.");
+
+  const unrated = resolveJourney(args);
+  check("with no check-ins it falls back to the day's own practice",
+    unrated?.days[2].pattern.slug === "coherent-breathing");
+  check("and claims no reason it does not have", unrated?.days[2].chosenBecause === null);
+  // The fallback is a real practice, so the course still resolves for someone
+  // who has never answered a check-in. That is most people on day one.
+  check("so a brand new course is still offered", unrated !== null);
+}
+
+console.log("\n32. The seeded course matches the practices that exist");
+{
+  const sql = readFileSync(
+    resolve(process.cwd(), "supabase/migrations/20260918090000_breathe_journey.sql"),
+    "utf8",
+  );
+  const json = sql.match(/'(\[[\s\S]*?\])'::jsonb/)?.[1];
+  const days = parseDays(JSON.parse(json ?? "null"));
+  check("the seeded days parse", days?.length === 7, `${days?.length}`);
+  check("day one is the sigh, as the spec says",
+    days?.[0].slug === "physiological-sigh", days?.[0].slug);
+  check("day seven is chosen from your check-ins", days?.[6].pick === "best");
+  check("and every other day is not", days?.slice(0, 6).every((d) => d.pick === undefined) === true);
+  check("every day teaches something in a sentence",
+    days?.every((d) => d.teaches.length > 20 && d.title.length > 3) === true);
+
+  // Every slug must be a practice that is actually seeded, or the whole course
+  // hides itself. The pattern migrations are the list.
+  const seeded = new Set<string>();
+  for (const file of [
+    "20260908090200_seed_reference_data.sql",
+    "20260914090000_breathe_your_own.sql",
+    "20260916090000_breathe_kapalabhati.sql",
+  ]) {
+    const text = readFileSync(resolve(process.cwd(), "supabase/migrations", file), "utf8");
+    // Only the practice insert, so an unrelated tuple elsewhere in the file
+    // cannot make a missing slug look present. Bounded by `on conflict` rather
+    // than by the statement's semicolon, because two of the descriptions
+    // contain one.
+    const from = text.indexOf("insert into breathing_patterns");
+    const block = text.slice(from, text.indexOf("on conflict", from));
+    for (const m of block.matchAll(/^\s*\('([a-z-]+)', '/gm)) seeded.add(m[1]);
+  }
+  check("all eleven practices were found", seeded.size === 11, [...seeded].join(","));
+  check("every day names a practice that exists",
+    days?.every((d) => seeded.has(d.slug)) === true,
+    days?.map((d) => d.slug).filter((s) => !seeded.has(s)).join(","));
+  check("and none of them is the gated one",
+    days?.every((d) => d.slug !== "kapalabhati") === true);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

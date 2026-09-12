@@ -5,9 +5,12 @@ import { BreatheHome, type LastPractice } from "@/app/breathe/breathe-home";
 import { PracticeSetup } from "@/app/breathe/[slug]/practice-setup";
 import {
   BreathingSession,
+  type JourneyRun,
   type RoutineRun,
 } from "@/app/breathe/[slug]/session/breathing-session";
+import { JourneyView } from "@/app/breathe/journey/[slug]/journey-view";
 import { RoutineSetup } from "@/app/breathe/routine/[slug]/routine-setup";
+import type { ResolvedJourney } from "@/lib/breathing/journey";
 import type { ResolvedRoutine } from "@/lib/breathing/routine";
 import { CustomPatternForm } from "@/app/breathe/new/custom-pattern-form";
 import { uuid } from "@/lib/breathing/client";
@@ -68,6 +71,7 @@ const SETUP_ACTIONS = {
 export function HomePreview(props: {
   patterns: Pattern[];
   routines: ResolvedRoutine[];
+  journeys: ResolvedJourney[];
   prefs: BreathingPrefs;
   stats: BreathingStats;
   last: LastPractice | null;
@@ -86,6 +90,14 @@ export function RoutineSetupPreview(props: {
   firstPractice: boolean;
 }) {
   return <RoutineSetup {...props} basePath="/dev/breathe" actions={{ updateBreathingPrefs }} />;
+}
+
+export function JourneyPreview(props: {
+  resolved: ResolvedJourney;
+  prefs: BreathingPrefs;
+  firstPractice: boolean;
+}) {
+  return <JourneyView {...props} basePath="/dev/breathe" actions={{ updateBreathingPrefs }} />;
 }
 
 export function SetupPreview(props: {
@@ -113,20 +125,26 @@ export function NewPreview({
 
 export function SessionPreview({
   failFirst,
+  dayCounted = true,
   ...props
 }: {
   /** One practice. Omitted when `run` supplies one per step. */
   pattern?: Pattern;
   /** A routine, run step by step. */
   run?: RoutineRun | null;
+  /** A day of a course. */
+  journey?: JourneyRun | null;
   options: SessionOptions;
   week: { days: boolean[]; seconds: number };
   todayIndex: number;
   /** Make the first save fail, to exercise the retry. */
   failFirst: boolean;
+  /** False to answer "already counted today", which is what a repeat gets. */
+  dayCounted?: boolean;
 }) {
   const failuresLeft = useRef(failFirst ? 1 : 0);
   const session = useRef<string | null>(null);
+  const counted = useRef(false);
   const actions = useMemo(
     () => ({
       recordBreathingPractice: async (input: PracticeInput) => {
@@ -145,8 +163,23 @@ export function SessionPreview({
         await log("rateBreathingPractice", input);
         return { ok: true } as const;
       },
+      // The real function refuses a second advance on the same date, so the
+      // harness does too: the second finish of a day answers "already
+      // counted", which is the state the ending screen has to get right.
+      recordJourneyDay: async (input: { journeyId: string; day: number; logId: string }) => {
+        await log("recordJourneyDay", input);
+        const advanced = dayCounted && !counted.current;
+        if (advanced) counted.current = true;
+        const dayCount = props.journey?.dayCount ?? 7;
+        return {
+          ok: true,
+          // Either way the day is now behind you: what differs is whether
+          // this finish is what put it there.
+          data: { daysCompleted: input.day, dayCount, advanced },
+        } as const;
+      },
     }),
-    [],
+    [dayCounted, props.journey?.dayCount],
   );
   return <BreathingSession {...props} homeHref="/dev/breathe" actions={actions} />;
 }

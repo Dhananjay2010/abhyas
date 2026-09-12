@@ -48,7 +48,12 @@ import { MOODS, moodLabel, type Pattern, type SessionOptions } from "@/lib/breat
 import type { ResolvedStep, Routine } from "@/lib/breathing/routine";
 import { GLOW_BG, HALO_BG, ORB_BG, SESSION_BG } from "@/lib/breathing/theme";
 import { formatClock, useWakeLock, vibrate } from "@/lib/session/device";
-import { rateBreathingPractice, recordBreathingPractice } from "../../actions";
+import {
+  rateBreathingPractice,
+  recordBreathingPractice,
+  recordJourneyDay,
+  type JourneyDayResult,
+} from "../../actions";
 import { BreathShape, type ShapeFrame, type ShapeHandle } from "../../breath-shape";
 import { Icon, WeekStrip } from "../../controls";
 import { usePrefersReducedMotion } from "../../use-media";
@@ -56,8 +61,9 @@ import { usePrefersReducedMotion } from "../../use-media";
 type Actions = {
   recordBreathingPractice: typeof recordBreathingPractice;
   rateBreathingPractice: typeof rateBreathingPractice;
+  recordJourneyDay: typeof recordJourneyDay;
 };
-const REAL: Actions = { recordBreathingPractice, rateBreathingPractice };
+const REAL: Actions = { recordBreathingPractice, rateBreathingPractice, recordJourneyDay };
 
 const SETTLE_SECONDS = 5;
 const WIND_DOWN_SECONDS = 10;
@@ -85,12 +91,27 @@ const noSubscribe = () => () => {};
 /** A routine being run: which practices, in order. */
 export type RoutineRun = { routine: Routine; steps: ResolvedStep[] };
 
+/** One day of a course being run. The practice itself is an ordinary practice. */
+export type JourneyRun = {
+  id: string;
+  name: string;
+  /** 1-based, as it reads on the screen. */
+  day: number;
+  dayCount: number;
+  title: string;
+};
+
+/** Whether the day was counted, and where that leaves the course. */
+type DayNote = { ok: true; result: JourneyDayResult } | { ok: false };
+
 type SessionProps = {
   /** A single practice. Ignored when `run` is given, which supplies one per step. */
   pattern?: Pattern;
   options: SessionOptions;
   /** Set when this is a routine rather than one practice. */
   run?: RoutineRun | null;
+  /** Set when this practice is a day of a course. */
+  journey?: JourneyRun | null;
   /** This week before this visit: Monday..Sunday, and seconds breathed. */
   week: { days: boolean[]; seconds: number };
   /** 1..7, Monday first. */
@@ -122,10 +143,11 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
   const [tally, setTally] = useState<Tally>(EMPTY_TALLY);
   const [savedSeconds, setSavedSeconds] = useState(0);
   const [fromApp] = useState(() => openedFromApp());
+  const [dayNote, setDayNote] = useState<DayNote | null>(null);
   const leavingRef = useRef(false);
   const finishedRef = useRef(false);
   const pauseRef = useRef<() => void>(() => {});
-  const { homeHref, run } = props;
+  const { homeHref, run, journey } = props;
 
   // The session the first step opened, and a queue so two steps never race to
   // open one. A step that failed to save leaves the id null, and the next step
@@ -186,6 +208,7 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
     sessionId.current = null;
     rateLogId.current = null;
     chain.current = Promise.resolve();
+    setDayNote(null);
     setTally(EMPTY_TALLY);
     setStep(0);
     setAttempt((a) => a + 1);
@@ -227,9 +250,44 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
     [actions],
   );
 
+  /**
+   * Saves the practice, then counts the day.
+   *
+   * In that order and only on success, because a day of a course is not a
+   * thing in its own right: it is a practice that happened. A practice ended
+   * part-way counts nothing -- the course asks you to reach the end of the
+   * day's practice, and the ending screen says so rather than quietly moving
+   * on.
+   */
+  const saveDay = useCallback<typeof recordBreathingPractice>(
+    async (input) => {
+      const r = await actions.recordBreathingPractice(input);
+      if (!r.ok || !journey || input.endedEarly) return r;
+      try {
+        const d = await actions.recordJourneyDay({
+          journeyId: journey.id,
+          day: journey.day,
+          logId: input.logId,
+        });
+        // The practice itself is saved either way. A day that could not be
+        // counted is said out loud rather than left to look finished.
+        setDayNote(d.ok ? { ok: true, result: d.data } : { ok: false });
+      } catch {
+        setDayNote({ ok: false });
+      }
+      return r;
+    },
+    [actions, journey],
+  );
+
   const stepActions = useMemo<Actions>(
     () => ({
-      recordBreathingPractice: run ? saveStep : actions.recordBreathingPractice,
+      ...actions,
+      recordBreathingPractice: run
+        ? saveStep
+        : journey
+          ? saveDay
+          : actions.recordBreathingPractice,
       // A routine is rated once, on the first step's log, so the "before" and
       // "after" answers stay on the same row and still read as a pair.
       rateBreathingPractice: run
@@ -237,7 +295,7 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
             actions.rateBreathingPractice({ ...input, logId: rateLogId.current ?? input.logId })
         : actions.rateBreathingPractice,
     }),
-    [actions, run, saveStep],
+    [actions, run, journey, saveStep, saveDay],
   );
 
   const todayIdx = props.todayIndex - 1;
@@ -262,6 +320,7 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
       stepIndex={run ? step : 0}
       stepCount={run ? run.steps.length : 1}
       nextStep={run && step + 1 < run.steps.length ? run.steps[step + 1] : null}
+      dayNote={dayNote}
       before={tally}
       registerPause={registerPause}
       onFinished={onFinished}
@@ -289,6 +348,8 @@ type PracticeProps = Omit<SessionProps, "actions" | "homeHref" | "pattern" | "ru
   stepCount: number;
   /** The step after this one, or null when this is the last. */
   nextStep: ResolvedStep | null;
+  /** Whether this day of the course was counted. Null until the save lands. */
+  dayNote: DayNote | null;
   /** What the earlier steps added up to, for the summary at the end. */
   before: Tally;
   registerPause: (fn: () => void) => void;
@@ -315,9 +376,11 @@ function Practice({
   todayIndex,
   actions,
   routine,
+  journey = null,
   stepIndex,
   stepCount,
   nextStep,
+  dayNote,
   before,
   registerPause,
   onFinished,
@@ -984,6 +1047,9 @@ function Practice({
                 : `${stepsDone} of ${stepCount} steps`}
             </p>
           )}
+          {journey && (
+            <DayLine journey={journey} note={dayNote} endedEarly={outcome.endedEarly} />
+          )}
 
           {options.checkIn !== "off" && (
             <section className="mt-10">
@@ -1089,6 +1155,11 @@ function Practice({
         {routine && (
           <p className="mt-1 text-xs text-breath-ink/45">
             {routine.name} · step {stepIndex + 1} of {stepCount}
+          </p>
+        )}
+        {journey && (
+          <p className="mt-1 text-xs text-breath-ink/45">
+            {journey.name} · day {journey.day} of {journey.dayCount}
           </p>
         )}
         <div className="mt-3 h-1 overflow-hidden rounded-full bg-breath-ink/10">
@@ -1501,6 +1572,65 @@ function NostrilGuide({ open }: { open: Side | null }) {
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Where a day of a course leaves you.
+ *
+ * Every case is said plainly, including the two that are not progress: a
+ * practice stopped part-way does not count a day, and a day already counted
+ * today stays counted once. Silence in either case would read as "done", and
+ * you would find out tomorrow that the course had not moved.
+ */
+function DayLine({
+  journey,
+  note,
+  endedEarly,
+}: {
+  journey: JourneyRun;
+  note: DayNote | null;
+  endedEarly: boolean;
+}) {
+  const line = "mt-1 text-center text-xs";
+
+  if (endedEarly) {
+    return (
+      <p className={`${line} text-breath-ink/55`}>
+        Day {journey.day} counts when you reach the end of it.
+      </p>
+    );
+  }
+  if (note === null) {
+    return (
+      <p className={`${line} text-breath-ink/55`}>
+        {journey.name} · day {journey.day} of {journey.dayCount}
+      </p>
+    );
+  }
+  if (!note.ok) {
+    return (
+      <p role="alert" className={`${line} text-danger`}>
+        This day could not be counted. It will count next time you finish it.
+      </p>
+    );
+  }
+
+  const { daysCompleted, dayCount, advanced } = note.result;
+  if (!advanced) {
+    return (
+      <p className={`${line} text-breath-ink/55`}>
+        Day {daysCompleted} of {dayCount} · already counted today
+      </p>
+    );
+  }
+  const left = dayCount - daysCompleted;
+  return (
+    <p className={`${line} text-breath`}>
+      {left === 0
+        ? `That is the whole course. ${dayCount} days.`
+        : `Day ${daysCompleted} of ${dayCount} · ${left} to go`}
+    </p>
   );
 }
 

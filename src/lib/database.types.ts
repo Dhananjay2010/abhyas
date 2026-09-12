@@ -69,6 +69,42 @@ export type Database = {
         }
         Relationships: []
       }
+      breathing_journeys: {
+        Row: {
+          about: string | null
+          created_at: string
+          days: Json
+          description: string
+          id: string
+          name: string
+          slug: string
+          sort_order: number
+          subtitle: string | null
+        }
+        Insert: {
+          about?: string | null
+          created_at?: string
+          days: Json
+          description: string
+          id?: string
+          name: string
+          slug: string
+          sort_order?: number
+          subtitle?: string | null
+        }
+        Update: {
+          about?: string | null
+          created_at?: string
+          days?: Json
+          description?: string
+          id?: string
+          name?: string
+          slug?: string
+          sort_order?: number
+          subtitle?: string | null
+        }
+        Relationships: []
+      }
       breathing_logs: {
         Row: {
           breaths: number
@@ -1039,6 +1075,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_journey_progress: {
+        Row: {
+          completed_at: string | null
+          days_completed: number
+          journey_id: string
+          last_day_on: string | null
+          started_on: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          days_completed?: number
+          journey_id: string
+          last_day_on?: string | null
+          started_on: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          days_completed?: number
+          journey_id?: string
+          last_day_on?: string | null
+          started_on?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_journey_progress_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "breathing_journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_settings: {
         Row: {
           bodyweight_prompt: Database["public"]["Enums"]["bodyweight_prompt"]
@@ -1303,6 +1377,19 @@ export type Database = {
       }
     }
     Functions: {
+      advance_journey_day: {
+        Args: {
+          p_day: number
+          p_journey_id: string
+          p_local_date: string
+          p_log_id: string
+        }
+        Returns: {
+          advanced: boolean
+          day_count: number
+          days_completed: number
+        }[]
+      }
       record_breathing_practice: {
         Args: {
           p_breaths: number

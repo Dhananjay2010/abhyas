@@ -5,6 +5,7 @@ import type { Database } from "@/lib/database.types";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
+import { MAX_DAYS } from "@/lib/breathing/journey";
 import { parsePhases } from "@/lib/breathing/pattern";
 import {
   isMood,
@@ -74,6 +75,63 @@ export async function recordBreathingPractice(
   revalidatePath("/breathe", "layout");
   revalidateTrainingData();
   return { ok: true, data: { sessionId: data } };
+}
+
+export type JourneyDayResult = {
+  daysCompleted: number;
+  dayCount: number;
+  /** False when the day was already counted, or is not the day that is open. */
+  advanced: boolean;
+};
+
+/**
+ * Count a day of a journey, against the practice that was just saved.
+ *
+ * The two rules that make this a course -- days in order, one a day -- live in
+ * `advance_journey_day`, not here, because the progress table has no write
+ * policy at all. Being refused is not an error: repeating a day is an ordinary
+ * thing to do, so the function reports where you are either way.
+ * See supabase/migrations/20260918090000_breathe_journey.sql.
+ */
+export async function recordJourneyDay(input: {
+  journeyId: string;
+  day: number;
+  logId: string;
+}): Promise<DataResult<JourneyDayResult>> {
+  if (!Number.isInteger(input.day) || input.day < 1 || input.day > MAX_DAYS) {
+    return { ok: false, error: "That is not a day of this course." };
+  }
+
+  const { supabase, user } = await getAuthedClient();
+  if (!user) return { ok: false, error: "Not signed in" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .single();
+
+  const { data, error } = await supabase.rpc("advance_journey_day", {
+    p_journey_id: input.journeyId,
+    p_day: input.day,
+    // The day this counts towards is the user's own date, never the browser's.
+    p_local_date: localDateString(profile?.timezone || "Asia/Kolkata"),
+    p_log_id: input.logId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const row = data?.[0];
+  if (!row) return { ok: false, error: "That day was not recorded." };
+
+  revalidatePath("/breathe", "layout");
+  return {
+    ok: true,
+    data: {
+      daysCompleted: row.days_completed,
+      dayCount: row.day_count,
+      advanced: row.advanced,
+    },
+  };
 }
 
 /** The "how do you feel now?" answer, added to a practice that is already saved. */

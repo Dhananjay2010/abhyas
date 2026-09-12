@@ -15,6 +15,14 @@ import {
   type UserPattern,
 } from "@/lib/breathing/pattern";
 import {
+  JOURNEY_COLUMNS,
+  PROGRESS_COLUMNS,
+  journeyFromRow,
+  progressFromRow,
+  resolveJourney,
+  type ResolvedJourney,
+} from "@/lib/breathing/journey";
+import {
   ROUTINE_COLUMNS,
   resolveRoutine,
   routineFromRow,
@@ -55,6 +63,8 @@ export default async function BreathePage({
     patternsRes,
     mineRes,
     routinesRes,
+    journeysRes,
+    progressRes,
     settingsRes,
     profileRes,
     practicesRes,
@@ -65,6 +75,10 @@ export default async function BreathePage({
       supabase.from("breathing_patterns").select(PATTERN_COLUMNS).order("sort_order"),
       supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS).order("created_at"),
       supabase.from("breathing_routines").select(ROUTINE_COLUMNS).order("sort_order"),
+      supabase.from("breathing_journeys").select(JOURNEY_COLUMNS).order("sort_order"),
+      // Every journey's progress at once: there is one course today, and a
+      // second round trip per course would be a query for nothing.
+      supabase.from("user_journey_progress").select(PROGRESS_COLUMNS),
       supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", user.id).maybeSingle(),
       supabase.from("profiles").select("timezone").eq("id", user.id).single(),
       // Sessions rather than logs: practices recorded before breathing_logs
@@ -167,6 +181,26 @@ export default async function BreathePage({
     ),
   );
 
+  // Resolved after the check-ins, because a course may end on a day chosen
+  // from them. A course whose practices are not all there is not offered, for
+  // the same reason a routine is not.
+  const progressByJourney = new Map(
+    (progressRes.data ?? []).map((row) => [row.journey_id, row]),
+  );
+  const journeys = (journeysRes.data ?? [])
+    .map((row) => {
+      const journey = journeyFromRow(row);
+      if (!journey) return null;
+      return resolveJourney({
+        journey,
+        patterns,
+        progress: progressFromRow(progressByJourney.get(journey.id) ?? null),
+        today,
+        shifts,
+      });
+    })
+    .filter((j): j is ResolvedJourney => j !== null);
+
   const asked = typeof search.intent === "string" ? search.intent : null;
   const intent = INTENTS.some((i) => i.value === asked) ? (asked as Intent) : null;
 
@@ -175,6 +209,7 @@ export default async function BreathePage({
       <BreatheHome
         patterns={patterns}
         routines={routines}
+        journeys={journeys}
         prefs={prefsFromRow(settingsRes.data)}
         stats={stats}
         lastCyclesByPattern={lastCyclesByPattern}
