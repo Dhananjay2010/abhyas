@@ -50,7 +50,7 @@ insert into breathing_journeys (slug, name, subtitle, description, about, days, 
 
   ('foundations', 'Breath foundations', 'Seven days',
    'One practice a day for a week, each teaching one thing. By the end you will know which of them works on you.',
-   'The order is deliberate. The first three days are the mechanism -- what a long exhale actually does. Day four adds the holds, day five gives your attention somewhere to go, day six adds sound. Day seven is not ours to choose: by then you have rated six practices, and the one your own check-ins rate highest is the one you should keep.',
+   'The order is deliberate. The first three days are the mechanism — what a long exhale actually does. Day four adds the holds, day five gives your attention somewhere to go, day six adds sound. Day seven is not ours to choose: by then you have rated six practices, and the one your own check-ins rate highest is the one you should keep.',
    '[
      {"slug": "physiological-sigh", "cycles": 6,
       "title": "The fastest way down",
@@ -58,7 +58,7 @@ insert into breathing_journeys (slug, name, subtitle, description, about, days, 
 
      {"slug": "coherent-breathing", "minutes": 3,
       "title": "A rhythm you can hold",
-      "teaches": "In and out, evenly, about six breaths a minute. Nothing to count and nothing to hold -- this is the baseline everything else is measured against."},
+      "teaches": "In and out, evenly, about six breaths a minute. Nothing to count and nothing to hold — this is the baseline everything else is measured against."},
 
      {"slug": "extended-exhale", "minutes": 3,
       "title": "The exhale is the brake",
@@ -70,7 +70,7 @@ insert into breathing_journeys (slug, name, subtitle, description, about, days, 
 
      {"slug": "anulom-vilom", "minutes": 4,
       "title": "Attention needs somewhere to go",
-      "teaches": "Your hand closes one nostril, then the other. The point is not the nostrils -- it is that a wandering mind now has a job."},
+      "teaches": "Your hand closes one nostril, then the other. The point is not the nostrils — it is that a wandering mind now has a job."},
 
      {"slug": "bhramari", "minutes": 4,
       "title": "A breath you can feel",
@@ -78,7 +78,7 @@ insert into breathing_journeys (slug, name, subtitle, description, about, days, 
 
      {"pick": "best", "slug": "coherent-breathing", "minutes": 5,
       "title": "The one that works on you",
-      "teaches": "Six practices, six check-ins. This is whichever of them left you calmest -- your evidence, not ours. Keep it."}
+      "teaches": "Six practices, six check-ins. This is whichever of them left you calmest — your evidence, not ours. Keep it."}
    ]'::jsonb,
    1)
 

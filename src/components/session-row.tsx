@@ -68,7 +68,9 @@ export function SessionRow({ s, today }: { s: SessionSummary; today: string }) {
     ? [
         "Breathing",
         s.durationSeconds ? clockLabel(s.durationSeconds) : null,
-        s.breathing.breaths ? `${s.breathing.breaths} breaths` : null,
+        s.breathing.breaths
+          ? `${s.breathing.breaths} ${s.breathing.breaths === 1 ? "breath" : "breaths"}`
+          : null,
       ].filter(Boolean)
     : [
         STATUS_LABEL[s.status] ?? s.status,

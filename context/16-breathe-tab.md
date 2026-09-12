@@ -891,10 +891,33 @@ drifted. The four were regenerated from the live rows.
   than "Day 4 of Breath foundations". Tagging it would mean two more columns
   and two more arguments on `record_breathing_practice`; the course page is
   where progress lives, and it was not worth that.
+- **A transient error on the pattern query takes the whole Breathe tab down.**
+  `src/app/breathe/page.tsx` throws on `patternsRes.error`, which is
+  deliberate, but it means a momentary Supabase failure — a `JWT issued at
+  future` clock skew was seen once on production — shows a full-page error
+  rather than a degraded tab. It recovers on reload and the error screen offers
+  one. `BREATHE-SPEC.md` §21.2 records the occurrence.
+- **History says "breaths" for a pumping practice.** A Kapalabhati session
+  reads "60 breaths" rather than "60 pumps", because the history row has the
+  practice's name but not its phases, so it cannot tell that it pumps. The
+  ending screen and the detail page both get this right; only the list does
+  not.
+- **No practice has been started on production.** The player is verified end to
+  end in the harness and the saving path was proven signed in on localhost, but
+  nothing has been run on the deployed site, deliberately — starting day one of
+  the course would consume it before Dhananjay could see it.
 - Phase 3 is complete. Recorded voice clips are deliberately not in it —
   `BREATHE-SPEC.md` §16.5 says why and what it needs from Dhananjay.
 
 ## Change log
+
+- **2026-09-12, production.** The whole section checked on
+  abhyas-indol.vercel.app signed in as Dhananjay, deployment `55d202e`.
+  `BREATHE-SPEC.md` §21 records what was checked. Fixed: four literal `--` in
+  the seeded course text (migration `20260918100000_breathe_journey_dashes`, a
+  correction rather than an edit because the original insert ends in `on
+  conflict do nothing`), and "1 breaths" in `SessionRow`. The shapes were seen
+  rather than only measured for the first time.
 
 - **2026-09-12, phase 3d.** Breath foundations, on `breathe/journey`,
   completing phase 3: a seven-day course, in order and one a day, with the last
