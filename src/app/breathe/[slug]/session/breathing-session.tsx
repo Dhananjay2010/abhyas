@@ -43,6 +43,7 @@ import {
   type TimedPhase,
 } from "@/lib/breathing/engine";
 import { MOODS, moodLabel, type Pattern, type SessionOptions } from "@/lib/breathing/pattern";
+import type { ResolvedStep, Routine } from "@/lib/breathing/routine";
 import { GLOW_BG, HALO_BG, ORB_BG, RING_C, RING_R, SESSION_BG } from "@/lib/breathing/theme";
 import { formatClock, useWakeLock, vibrate } from "@/lib/session/device";
 import { rateBreathingPractice, recordBreathingPractice } from "../../actions";
@@ -57,6 +58,14 @@ const REAL: Actions = { recordBreathingPractice, rateBreathingPractice };
 
 const SETTLE_SECONDS = 5;
 const WIND_DOWN_SECONDS = 10;
+/**
+ * Between two steps of a routine. Short, because the hand-off screen that
+ * follows is itself the pause -- ten seconds of wind-down and then a hand-off
+ * would leave you waiting twice.
+ */
+const STEP_WIND_DOWN_SECONDS = 3;
+/** How long the hand-off waits before the next step starts on its own. */
+const HANDOFF_SECONDS = 6;
 /** How far ahead each cue is put on the audio clock. */
 const LOOKAHEAD = 0.25;
 const CONTROLS_HIDE_MS = 3500;
@@ -70,9 +79,15 @@ const ORB_BOX = "min(300px, 36dvh)";
 
 const noSubscribe = () => () => {};
 
+/** A routine being run: which practices, in order. */
+export type RoutineRun = { routine: Routine; steps: ResolvedStep[] };
+
 type SessionProps = {
-  pattern: Pattern;
+  /** A single practice. Ignored when `run` is given, which supplies one per step. */
+  pattern?: Pattern;
   options: SessionOptions;
+  /** Set when this is a routine rather than one practice. */
+  run?: RoutineRun | null;
   /** This week before this visit: Monday..Sunday, and seconds breathed. */
   week: { days: boolean[]; seconds: number };
   /** 1..7, Monday first. */
@@ -81,22 +96,41 @@ type SessionProps = {
   actions?: Actions;
 };
 
+/** What the steps before this one added up to, for the routine's summary at the end. */
+type Tally = { seconds: number; breaths: number; steps: number; failed: number };
+const EMPTY_TALLY: Tally = { seconds: 0, breaths: 0, steps: 0, failed: 0 };
+
 /**
  * The practice screen: full screen, no tab bar, and a back button that pauses.
  *
  * This outer part owns what must outlive one practice: the history entry that
  * turns "back" into "pause", how to leave, and the running total for the week.
  * "Again" remounts the inner practice from scratch with a new key.
+ *
+ * For a routine it also owns the sequence. Each step is the same `Practice`
+ * component remounted with a new key, and the saves are chained: the first step
+ * opens a session, every later step is given that session, so the routine is
+ * one entry in History with a log per step.
  */
 export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
   const router = useRouter();
   const [attempt, setAttempt] = useState(0);
+  const [step, setStep] = useState(0);
+  const [tally, setTally] = useState<Tally>(EMPTY_TALLY);
   const [savedSeconds, setSavedSeconds] = useState(0);
   const [fromApp] = useState(() => openedFromApp());
   const leavingRef = useRef(false);
   const finishedRef = useRef(false);
   const pauseRef = useRef<() => void>(() => {});
-  const { homeHref } = props;
+  const { homeHref, run } = props;
+
+  // The session the first step opened, and a queue so two steps never race to
+  // open one. A step that failed to save leaves the id null, and the next step
+  // opens its own session rather than losing the practice entirely.
+  const sessionId = useRef<string | null>(null);
+  const chain = useRef<Promise<unknown>>(Promise.resolve());
+  /** The first step's log, which carries both check-ins so they stay on one row. */
+  const rateLogId = useRef<string | null>(null);
 
   const leave = useCallback(() => {
     leavingRef.current = true;
@@ -143,7 +177,65 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
     finishedRef.current = finished;
   }, []);
   const onSaved = useCallback((seconds: number) => setSavedSeconds((n) => n + seconds), []);
-  const onAgain = useCallback(() => setAttempt((a) => a + 1), []);
+
+  /** Start the whole thing over: a single practice, or a routine from step one. */
+  const onAgain = useCallback(() => {
+    sessionId.current = null;
+    rateLogId.current = null;
+    chain.current = Promise.resolve();
+    setTally(EMPTY_TALLY);
+    setStep(0);
+    setAttempt((a) => a + 1);
+  }, []);
+
+  const onNextStep = useCallback((done: { seconds: number; breaths: number; saved: boolean }) => {
+    setTally((t) => ({
+      seconds: t.seconds + done.seconds,
+      breaths: t.breaths + done.breaths,
+      steps: t.steps + 1,
+      failed: t.failed + (done.saved ? 0 : 1),
+    }));
+    setStep((s) => s + 1);
+  }, []);
+
+  /**
+   * Saves, in order, threading the session through.
+   *
+   * Serialised rather than fired in parallel because the second step must not
+   * start its own session while the first is still opening one. `chain` is
+   * kept un-rejected so one failed step does not block the next.
+   */
+  const saveStep = useCallback<typeof recordBreathingPractice>(
+    (input) => {
+      const next = chain.current.then(async () => {
+        const r = await actions.recordBreathingPractice({
+          ...input,
+          sessionId: input.routineStep && input.routineStep > 1 ? sessionId.current : null,
+        });
+        if (r.ok) {
+          sessionId.current = r.data.sessionId;
+          if (rateLogId.current === null) rateLogId.current = input.logId;
+        }
+        return r;
+      });
+      chain.current = next.catch(() => {});
+      return next;
+    },
+    [actions],
+  );
+
+  const stepActions = useMemo<Actions>(
+    () => ({
+      recordBreathingPractice: run ? saveStep : actions.recordBreathingPractice,
+      // A routine is rated once, on the first step's log, so the "before" and
+      // "after" answers stay on the same row and still read as a pair.
+      rateBreathingPractice: run
+        ? (input) =>
+            actions.rateBreathingPractice({ ...input, logId: rateLogId.current ?? input.logId })
+        : actions.rateBreathingPractice,
+    }),
+    [actions, run, saveStep],
+  );
 
   const todayIdx = props.todayIndex - 1;
   const week = {
@@ -151,16 +243,28 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
     seconds: props.week.seconds + savedSeconds,
   };
 
+  const current = run ? run.steps[Math.min(step, run.steps.length - 1)] : null;
+  const pattern = current ? current.pattern : (props.pattern as Pattern);
+  const options = current ? { ...props.options, cycles: current.cycles } : props.options;
+
   return (
     <Practice
-      key={attempt}
+      key={`${attempt}:${step}`}
       {...props}
+      pattern={pattern}
+      options={options}
       week={week}
-      actions={actions}
+      actions={stepActions}
+      routine={run ? run.routine : null}
+      stepIndex={run ? step : 0}
+      stepCount={run ? run.steps.length : 1}
+      nextStep={run && step + 1 < run.steps.length ? run.steps[step + 1] : null}
+      before={tally}
       registerPause={registerPause}
       onFinished={onFinished}
       onSaved={onSaved}
       onAgain={onAgain}
+      onNextStep={onNextStep}
       onLeave={leave}
     />
   );
@@ -172,12 +276,23 @@ type Outcome = { cycles: number; seconds: number; breaths: number; endedEarly: b
 type Status = { state: "idle" | "saving" | "saved" | "error"; error?: string };
 type View = { sub: Sub; phase: TimedPhase; cycleIndex: number };
 
-type PracticeProps = Omit<SessionProps, "actions" | "homeHref"> & {
+type PracticeProps = Omit<SessionProps, "actions" | "homeHref" | "pattern" | "run"> & {
+  pattern: Pattern;
   actions: Actions;
+  /** Set when this practice is one step of a routine. */
+  routine: Routine | null;
+  /** 0-based. Always 0 for a single practice. */
+  stepIndex: number;
+  stepCount: number;
+  /** The step after this one, or null when this is the last. */
+  nextStep: ResolvedStep | null;
+  /** What the earlier steps added up to, for the summary at the end. */
+  before: Tally;
   registerPause: (fn: () => void) => void;
   onFinished: (finished: boolean) => void;
   onSaved: (seconds: number) => void;
   onAgain: () => void;
+  onNextStep: (done: { seconds: number; breaths: number; saved: boolean }) => void;
   onLeave: () => void;
 };
 
@@ -196,15 +311,24 @@ function Practice({
   week,
   todayIndex,
   actions,
+  routine,
+  stepIndex,
+  stepCount,
+  nextStep,
+  before,
   registerPause,
   onFinished,
   onSaved,
   onAgain,
+  onNextStep,
   onLeave,
 }: PracticeProps) {
   const cycle = useMemo(() => buildCycle(pattern.phases), [pattern.phases]);
   const total = cycle.seconds * options.cycles;
-  const settle = options.settleIn ? SETTLE_SECONDS : 0;
+  // Settling in belongs at the start of a routine, not between its steps --
+  // the hand-off already is the pause.
+  const settle = options.settleIn && stepIndex === 0 ? SETTLE_SECONDS : 0;
+  const windDown = nextStep ? STEP_WIND_DOWN_SECONDS : WIND_DOWN_SECONDS;
   const hasSides = cycle.phases.some((p) => p.side !== null);
   const reduced = usePrefersReducedMotion();
   // The server cannot know either of these. Rendering as "can play, no
@@ -235,6 +359,8 @@ function Practice({
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [save, setSave] = useState<Status>({ state: "idle" });
   const [rate, setRate] = useState<Status>({ state: "idle" });
+  /** "End here" on a routine's hand-off: finish now rather than go on. */
+  const [stopHere, setStopHere] = useState(false);
 
   // Voice falls back to tones on a browser that cannot speak, and says so.
   const canSpeak = useSyncExternalStore(onVoicesChanged, speechSupported, () => true);
@@ -263,6 +389,8 @@ function Practice({
   const ambience = useRef<AmbienceHandle | null>(null);
   const modeRef = useRef(mode);
   const savedRef = useRef(false);
+  /** Whether this step's save actually landed, so the routine's summary can be honest. */
+  const savedOkRef = useRef(false);
   const pendingMood = useRef<number | null>(null);
   const soundOnRef = useRef(soundOn);
   const stageRef = useRef(stage);
@@ -319,14 +447,18 @@ function Practice({
           endedEarly: o.endedEarly,
           moodBefore,
           guidance: soundOnRef.current ? modeRef.current : "off",
+          routineId: routine?.id ?? null,
+          routineStep: routine ? stepIndex + 1 : null,
         })
         .then(
           (r) => {
             if (!r.ok) {
               setSave({ state: "error", error: r.error });
+              savedOkRef.current = false;
               return;
             }
             setSave({ state: "saved" });
+            savedOkRef.current = true;
             onSaved(o.seconds);
             const m = pendingMood.current;
             if (m !== null) {
@@ -351,6 +483,8 @@ function Practice({
       moodBefore,
       onSaved,
       sendMood,
+      routine,
+      stepIndex,
     ],
   );
   const doSaveRef = useRef(doSave);
@@ -604,7 +738,7 @@ function Practice({
           setOutcome(o);
           doSaveRef.current(o);
         }
-        if (t >= total + WIND_DOWN_SECONDS) {
+        if (t >= total + windDown) {
           setStage("finished");
           return;
         }
@@ -635,6 +769,7 @@ function Practice({
     clock,
     settle,
     total,
+    windDown,
     cycle,
     options.cycles,
     options.showCount,
@@ -751,9 +886,36 @@ function Practice({
     );
   }
 
+  // Between two steps of a routine: what is next, and a moment before it.
+  if (stage === "finished" && outcome && nextStep && !stopHere) {
+    return (
+      <Handoff
+        routine={routine}
+        next={nextStep}
+        stepNumber={stepIndex + 2}
+        stepCount={stepCount}
+        justDone={pattern.name}
+        onGo={() => {
+          allowSound();
+          onNextStep({
+            seconds: outcome.seconds,
+            breaths: outcome.breaths,
+            saved: savedOkRef.current,
+          });
+        }}
+        onStop={() => setStopHere(true)}
+      />
+    );
+  }
+
   if (stage === "finished" && outcome) {
     const weekMinutes =
       week.seconds === 0 ? "0 min" : week.seconds < 60 ? "Under a minute" : `${Math.round(week.seconds / 60)} min`;
+    // A routine's summary is the whole thing, not just its last step.
+    const seconds = before.seconds + outcome.seconds;
+    const breaths = before.breaths + outcome.breaths;
+    const title = outcome.endedEarly || stopHere ? "Every breath counts." : "Nicely done.";
+    const stepsDone = before.steps + 1;
     return (
       <Room>
         <div
@@ -764,13 +926,21 @@ function Practice({
           }}
         >
           <div aria-hidden="true" className="breath-idle mx-auto h-20 w-20 rounded-full" style={{ background: ORB_BG }} />
-          <h1 className="mt-6 text-center text-3xl font-semibold tracking-tight">
-            {outcome.endedEarly ? "Every breath counts." : "Nicely done."}
-          </h1>
+          <h1 className="mt-6 text-center text-3xl font-semibold tracking-tight">{title}</h1>
           <p className="mt-2 text-center text-sm text-breath-ink/70">
-            {formatClock(outcome.seconds)} · {outcome.breaths} {outcome.breaths === 1 ? "breath" : "breaths"} ·{" "}
-            {pattern.name}
+            {formatClock(seconds)} · {breaths} {breaths === 1 ? "breath" : "breaths"} ·{" "}
+            {routine ? routine.name : pattern.name}
           </p>
+          {routine && (
+            <p className="mt-1 text-center text-xs text-breath-ink/55">
+              {/* "All 3 steps" only when all three were actually breathed
+                  through. Reaching the last step and stopping part-way is
+                  "3 of 3", not all of them. */}
+              {stepsDone === stepCount && !outcome.endedEarly
+                ? `All ${stepCount} steps`
+                : `${stepsDone} of ${stepCount} steps`}
+            </p>
+          )}
 
           {options.checkIn !== "off" && (
             <section className="mt-10">
@@ -798,6 +968,12 @@ function Practice({
           </section>
 
           <SaveLine status={save} onRetry={() => doSave(outcome)} />
+          {before.failed > 0 && (
+            <p role="alert" className="mt-2 text-center text-xs text-danger">
+              {before.failed === 1 ? "An earlier step" : `${before.failed} earlier steps`} of this
+              routine could not be saved.
+            </p>
+          )}
 
           <div className="mt-auto grid grid-cols-2 gap-3 pt-10">
             <button
@@ -861,6 +1037,11 @@ function Practice({
             {view.sub === "winddown" ? "Done" : formatClock(secondsLeft)}
           </span>
         </div>
+        {routine && (
+          <p className="mt-1 text-xs text-breath-ink/45">
+            {routine.name} · step {stepIndex + 1} of {stepCount}
+          </p>
+        )}
         <div className="mt-3 h-1 overflow-hidden rounded-full bg-breath-ink/10">
           <div
             ref={barRef}
@@ -868,6 +1049,20 @@ function Practice({
             style={{ transform: "scaleX(0)" }}
           />
         </div>
+        {routine && (
+          // Where this step sits in the routine, so the progress bar above it
+          // reads as "this practice" rather than "the whole thing".
+          <div aria-hidden="true" className="mt-1.5 flex gap-1">
+            {Array.from({ length: stepCount }, (_, i) => (
+              <span
+                key={i}
+                className={`h-0.5 flex-1 rounded-full ${
+                  i < stepIndex ? "bg-breath/70" : i === stepIndex ? "bg-breath/40" : "bg-breath-ink/10"
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </header>
 
       {soundOn && soundBlocked && (
@@ -1121,6 +1316,95 @@ function Room({ children }: { children: ReactNode }) {
     <div className="fixed inset-0 z-40 overflow-y-auto text-breath-ink" style={{ background: SESSION_BG }}>
       {children}
     </div>
+  );
+}
+
+/**
+ * Between two steps of a routine.
+ *
+ * It starts the next step on its own, because a routine you have to tap
+ * through four times is not a routine. The countdown is visible and can be
+ * taken either way: "Start now" skips the wait, "End here" stops the routine
+ * and goes to the ending, where what you have done is already saved.
+ */
+function Handoff({
+  routine,
+  next,
+  stepNumber,
+  stepCount,
+  justDone,
+  onGo,
+  onStop,
+}: {
+  routine: Routine | null;
+  next: ResolvedStep;
+  /** 1-based number of the step about to start. */
+  stepNumber: number;
+  stepCount: number;
+  justDone: string;
+  onGo: () => void;
+  onStop: () => void;
+}) {
+  const [left, setLeft] = useState(HANDOFF_SECONDS);
+  const goRef = useRef(onGo);
+  useEffect(() => {
+    goRef.current = onGo;
+  }, [onGo]);
+
+  useEffect(() => {
+    const started = Date.now();
+    const id = setInterval(() => {
+      const remaining = HANDOFF_SECONDS - Math.floor((Date.now() - started) / 1000);
+      if (remaining <= 0) {
+        clearInterval(id);
+        setLeft(0);
+        goRef.current();
+      } else {
+        setLeft(remaining);
+      }
+    }, 250);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <Room>
+      <div className="mx-auto flex min-h-full max-w-md flex-col items-center justify-center px-6 py-12 text-center">
+        <p className="text-xs font-semibold tracking-wider text-breath uppercase">
+          {justDone} done
+        </p>
+        <div aria-hidden="true" className="breath-idle mt-8 h-20 w-20 rounded-full" style={{ background: ORB_BG }} />
+
+        <p className="mt-8 text-sm text-breath-ink/60">
+          {routine ? `${routine.name} · ` : ""}step {stepNumber} of {stepCount}
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">{next.pattern.name}</h1>
+        <p className="mt-2 text-sm text-breath-ink/70">
+          {next.label}
+          {next.pattern.subtitle ? ` · ${next.pattern.subtitle}` : ""}
+        </p>
+
+        <p aria-live="polite" className="mt-8 text-sm tabular-nums text-breath-ink/55">
+          Starting in {left}
+        </p>
+
+        <div className="mt-8 grid w-full grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onStop}
+            className="rounded-xl border border-white/15 px-6 py-4 font-semibold transition-colors hover:border-white/30"
+          >
+            End here
+          </button>
+          <button
+            type="button"
+            onClick={onGo}
+            className="rounded-xl bg-accent px-6 py-4 font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            Start now
+          </button>
+        </div>
+      </div>
+    </Room>
   );
 }
 

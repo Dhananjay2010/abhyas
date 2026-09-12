@@ -35,7 +35,7 @@ pick the project up.
 | [13](13-performance.md) | Navigation performance | Done |
 | [14](14-database-region-migration.md) | Moving the database to Mumbai | Done |
 | [15](15-qa-fixes.md) | QA fixes: session logging, validation, stale sessions, dates | Done |
-| [16](16-breathe-tab.md) | The Breathe tab: the practice, sound, and your own practices ([BREATHE-SPEC.md](../BREATHE-SPEC.md)) | Phases 1 and 2 done; phase 3 open |
+| [16](16-breathe-tab.md) | The Breathe tab: the practice, sound, your own practices, and routines ([BREATHE-SPEC.md](../BREATHE-SPEC.md)) | Phases 1, 2 and 3a done; 3b–3d open |
 
 ## Live references
 

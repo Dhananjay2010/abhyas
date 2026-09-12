@@ -82,6 +82,9 @@ export type Database = {
           pattern_id: string | null
           pattern_name: string
           planned_cycles: number
+          routine_id: string | null
+          routine_name: string | null
+          routine_step: number | null
           seconds: number
           session_id: string
           user_id: string
@@ -99,6 +102,9 @@ export type Database = {
           pattern_id?: string | null
           pattern_name: string
           planned_cycles: number
+          routine_id?: string | null
+          routine_name?: string | null
+          routine_step?: number | null
           seconds: number
           session_id: string
           user_id: string
@@ -116,6 +122,9 @@ export type Database = {
           pattern_id?: string | null
           pattern_name?: string
           planned_cycles?: number
+          routine_id?: string | null
+          routine_name?: string | null
+          routine_step?: number | null
           seconds?: number
           session_id?: string
           user_id?: string
@@ -127,6 +136,13 @@ export type Database = {
             columns: ["pattern_id"]
             isOneToOne: false
             referencedRelation: "breathing_patterns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breathing_logs_routine_id_fkey"
+            columns: ["routine_id"]
+            isOneToOne: false
+            referencedRelation: "breathing_routines"
             referencedColumns: ["id"]
           },
           {
@@ -221,6 +237,45 @@ export type Database = {
           sort_order?: number
           subtitle?: string | null
           why?: string | null
+        }
+        Relationships: []
+      }
+      breathing_routines: {
+        Row: {
+          about: string | null
+          created_at: string
+          description: string
+          id: string
+          intents: string[]
+          name: string
+          slug: string
+          sort_order: number
+          steps: Json
+          subtitle: string | null
+        }
+        Insert: {
+          about?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          intents?: string[]
+          name: string
+          slug: string
+          sort_order?: number
+          steps: Json
+          subtitle?: string | null
+        }
+        Update: {
+          about?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          intents?: string[]
+          name?: string
+          slug?: string
+          sort_order?: number
+          steps?: Json
+          subtitle?: string | null
         }
         Relationships: []
       }
@@ -1253,7 +1308,10 @@ export type Database = {
           p_mood_before: number
           p_pattern_id: string
           p_planned_cycles: number
+          p_routine_id?: string
+          p_routine_step?: number
           p_seconds: number
+          p_session_id?: string
           p_user_pattern_id: string
         }
         Returns: string

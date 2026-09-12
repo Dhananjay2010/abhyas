@@ -5,6 +5,7 @@ import {
   type Pattern,
   type UserPattern,
 } from "@/lib/breathing/pattern";
+import { resolveRoutine, type ResolvedRoutine, type Routine } from "@/lib/breathing/routine";
 
 /** Everything a built-in pattern carries before your own rows are folded in. */
 type Seed = Omit<Pattern, "kind" | "userPatternId" | "adjusted" | "defaultPhases">;
@@ -218,3 +219,53 @@ export const MINE: UserPattern[] = [
 export const PRACTICES: Pattern[] = withUserPatterns(PATTERNS, MINE);
 
 export const PREFS: BreathingPrefs = { ...DEFAULT_PREFS, defaultMinutes: 5 };
+
+/**
+ * The routines, as 20260915090000_breathe_routines.sql seeds them, plus one
+ * two-step routine that exists only here: `quick` runs in seconds, so the whole
+ * chain -- step, hand-off, step, ending -- can be watched end to end.
+ */
+const ROUTINE_SEEDS: Array<Omit<Routine, "id">> = [
+  {
+    slug: "downshift",
+    name: "Downshift",
+    subtitle: "After training",
+    description: "Drop the heart rate first, then settle into something you could keep doing.",
+    about: "Hard effort leaves the sympathetic side of your nervous system switched on.",
+    intents: ["recover", "calm"],
+    steps: [
+      { slug: "physiological-sigh", cycles: 5 },
+      { slug: "extended-exhale", minutes: 2 },
+      { slug: "coherent-breathing", minutes: 2 },
+    ],
+  },
+  {
+    slug: "wind-down",
+    name: "Wind Down",
+    subtitle: "For sleep",
+    description: "Long exhales, then the count that stops you thinking, then the hum.",
+    about: "Each step is quieter than the one before it.",
+    intents: ["sleep", "calm"],
+    steps: [
+      { slug: "extended-exhale", minutes: 3 },
+      { slug: "four-seven-eight", cycles: 4 },
+      { slug: "bhramari", minutes: 2 },
+    ],
+  },
+  {
+    slug: "quick",
+    name: "Quick Test",
+    subtitle: "Harness only",
+    description: "Two short steps, for watching the hand-off between them.",
+    about: null,
+    intents: ["calm"],
+    steps: [
+      { slug: "physiological-sigh", cycles: 2 },
+      { slug: "coherent-breathing", cycles: 2 },
+    ],
+  },
+];
+
+export const ROUTINES: ResolvedRoutine[] = ROUTINE_SEEDS.map((seed, i) =>
+  resolveRoutine({ ...seed, id: `00000000-0000-4000-a000-00000000000${i + 1}` }, PRACTICES),
+).filter((r): r is ResolvedRoutine => r !== null);

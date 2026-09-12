@@ -34,7 +34,16 @@ import {
   sessionSearch,
   toEditorSlots,
   withUserPatterns,
+  type Pattern,
 } from "../src/lib/breathing/pattern";
+import {
+  parseSteps,
+  resolveRoutine,
+  routineLength,
+  stepNames,
+  type Routine,
+  type RoutineStep,
+} from "../src/lib/breathing/routine";
 import { suggestPractice } from "../src/lib/breathing/suggest";
 import { calmShifts } from "../src/lib/breathing/stats";
 import {
@@ -84,6 +93,30 @@ const BHRAMARI: BreathPhase[] = [
   { kind: "inhale", seconds: 4, cue: "Breathe in through your nose" },
   { kind: "exhale", seconds: 8, cue: "Hum, mmmm", label: "Hum", hum: true },
 ];
+const EXTENDED: BreathPhase[] = [
+  { kind: "inhale", seconds: 4, cue: "Breathe in" },
+  { kind: "exhale", seconds: 6, cue: "Breathe out slowly" },
+];
+
+/** A built-in pattern with only the fields the routine code reads. */
+function fakePattern(
+  slug: string,
+  name: string,
+  phases: BreathPhase[],
+  maxCycles: number | null = null,
+): Pattern {
+  return {
+    id: uuid(), slug, name, subtitle: null, description: null, benefit: null,
+    contraindications: null, level: "beginner", intents: [], phases, maxCycles,
+    defaultCycles: 10, howTo: [], why: null, evidenceLabel: null, evidenceUrl: null,
+    kind: "builtin", userPatternId: null, adjusted: false, defaultPhases: phases,
+  };
+}
+
+const fakeRoutine = (steps: RoutineStep[]): Routine => ({
+  id: uuid(), slug: "downshift", name: "Downshift", subtitle: "After training",
+  description: "…", about: null, intents: ["recover"], steps,
+});
 
 console.log("\n1. Box breathing walks in, hold, out, hold, and the orb follows");
 {
@@ -494,6 +527,125 @@ console.log("\n22. What works for you");
     { patternName: "Ujjayi", moodBefore: null, moodAfter: 5 },
   ]);
   check("no shift when you never checked in first", noBefore[0].averageShift === null);
+}
+
+console.log("\n23. Routines: the steps parse, resolve, and keep their order");
+{
+  const patterns: Pattern[] = [
+    fakePattern("physiological-sigh", "Physiological Sigh", SIGH),
+    fakePattern("extended-exhale", "Extended Exhale", EXTENDED),
+    fakePattern("coherent-breathing", "Coherent Breathing", COHERENT),
+    fakePattern("four-seven-eight", "4-7-8", FOUR_SEVEN_EIGHT, 8),
+  ];
+  const routine = fakeRoutine([
+    { slug: "physiological-sigh", cycles: 5 },
+    { slug: "extended-exhale", minutes: 2 },
+    { slug: "coherent-breathing", minutes: 2 },
+  ]);
+
+  const r = resolveRoutine(routine, patterns);
+  check("every step resolves", r !== null && r.steps.length === 3);
+  if (r) {
+    check("the order is the routine's order",
+      r.steps.map((s) => s.pattern.slug).join(",") === "physiological-sigh,extended-exhale,coherent-breathing",
+      r.steps.map((s) => s.pattern.slug).join(","));
+    // The sigh is 9s a breath, so five breaths is 45s. Extended exhale is 10s,
+    // so two minutes is 12 cycles. Coherent is 11s, so two minutes is 11.
+    check("breaths are taken literally", r.steps[0].cycles === 5, `${r.steps[0].cycles}`);
+    check("minutes become whole cycles", r.steps[1].cycles === 12 && r.steps[2].cycles === 11,
+      `${r.steps[1].cycles}, ${r.steps[2].cycles}`);
+    check("the total is the steps added up", near(r.seconds, 45 + 120 + 121), `${r.seconds}`);
+    check("each step is labelled in its own unit",
+      r.steps[0].label === "5 breaths" && r.steps[1].label === "2 min",
+      `${r.steps[0].label} / ${r.steps[1].label}`);
+  }
+
+  // A step that is capped must not exceed the cap, however it is asked for.
+  const capped = resolveRoutine(
+    fakeRoutine([{ slug: "four-seven-eight", cycles: 40 }, { slug: "coherent-breathing", minutes: 1 }]),
+    patterns,
+  );
+  check("a capped practice is held at its cap", capped !== null && capped.steps[0].cycles === 8,
+    `${capped?.steps[0].cycles}`);
+
+  check("a routine naming a missing practice is not offered",
+    resolveRoutine(fakeRoutine([{ slug: "kapalabhati", minutes: 1 }, { slug: "coherent-breathing", minutes: 1 }]), patterns) === null);
+  check("a practice of your own cannot be a step",
+    resolveRoutine(fakeRoutine([{ slug: mineSlug(uuid()), minutes: 1 }, { slug: "coherent-breathing", minutes: 1 }]), patterns) === null);
+
+  // Your timings change how long a step's breaths take, which is the point of
+  // storing the length as an intent rather than as a cycle count.
+  const slow = patterns.map((p) =>
+    p.slug === "coherent-breathing"
+      ? { ...p, phases: [
+          { kind: "inhale" as const, seconds: 6, cue: "In" },
+          { kind: "exhale" as const, seconds: 6, cue: "Out" },
+        ], adjusted: true }
+      : p,
+  );
+  const retimed = resolveRoutine(routine, slow);
+  check("a retimed practice still runs for about as long",
+    retimed !== null && retimed.steps[2].cycles === 10 && near(retimed.steps[2].seconds, 120),
+    `${retimed?.steps[2].cycles} cycles, ${retimed?.steps[2].seconds}s`);
+
+  check("a two-minute-ish routine reads as one", routineLength(286) === "About 5 min", routineLength(286));
+  check("the steps are named for the card",
+    r !== null && stepNames(r.steps) === "Physiological Sigh · Extended Exhale · Coherent Breathing");
+}
+
+console.log("\n24. Routine rows are checked before they reach the player");
+{
+  const ok = [{ slug: "a", minutes: 2 }, { slug: "b", cycles: 5 }];
+  check("a well-formed pair passes", parseSteps(ok)?.length === 2);
+  check("one step is not a routine", parseSteps([ok[0]]) === null);
+  check("seven steps is too many", parseSteps(Array.from({ length: 7 }, () => ok[0])) === null);
+  check("a step with no length is refused", parseSteps([{ slug: "a" }, ok[1]]) === null);
+  check("a step with both units is refused", parseSteps([{ slug: "a", minutes: 2, cycles: 5 }, ok[1]]) === null);
+  check("a nameless step is refused", parseSteps([{ minutes: 2 }, ok[1]]) === null);
+  check("a fractional cycle count is refused", parseSteps([{ slug: "a", cycles: 2.5 }, ok[1]]) === null);
+  check("an hour-long step is refused", parseSteps([{ slug: "a", minutes: 61 }, ok[1]]) === null);
+  check("half-minutes are allowed", parseSteps([{ slug: "a", minutes: 2.5 }, ok[1]])?.[0].minutes === 2.5);
+  check("not an array at all", parseSteps("downshift") === null);
+
+  const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260915090000_breathe_routines.sql"), "utf8");
+  const blocks = [...sql.matchAll(/'(\[[\s\S]*?\])'::jsonb/g)].map((m) => m[1]);
+  check("four step lists found in the migration", blocks.length === 4, `${blocks.length}`);
+  blocks.forEach((b, i) => {
+    check(`routine ${i + 1} parses`, parseSteps(JSON.parse(b)) !== null);
+  });
+}
+
+console.log("\n25. A routine step is saved as all of a routine, or none of it");
+{
+  const good = {
+    logId: "3f1f2c1e-8a4b-4c6d-9e0f-1a2b3c4d5e6f",
+    patternId: "70bd9d9e-dd90-4db7-bafc-e2553c19277f",
+    userPatternId: null,
+    cycles: 4, plannedCycles: 4, breaths: 4, seconds: 64,
+    endedEarly: false, moodBefore: null, guidance: "tones" as const,
+  };
+  const routineId = "8c2f1a3b-4d5e-4f6a-8b9c-0d1e2f3a4b5c";
+  const sessionId = "9d3a2b4c-5e6f-4a7b-9c8d-1e2f3a4b5c6d";
+
+  check("a practice on its own still passes", validatePractice(good) === null);
+  check("the first step of a routine passes",
+    validatePractice({ ...good, routineId, routineStep: 1 }) === null);
+  check("a later step carrying its session passes",
+    validatePractice({ ...good, routineId, routineStep: 2, sessionId }) === null);
+  check("a step number without a routine is refused",
+    validatePractice({ ...good, routineStep: 2 }) !== null);
+  check("a routine without a step number is refused",
+    validatePractice({ ...good, routineId }) !== null);
+  check("a session without a routine is refused",
+    validatePractice({ ...good, sessionId }) !== null);
+  check("the first step must not carry a session",
+    validatePractice({ ...good, routineId, routineStep: 1, sessionId }) !== null);
+  check("a seventh step is refused",
+    validatePractice({ ...good, routineId, routineStep: 7, sessionId }) !== null);
+  check("a malformed routine id is refused",
+    validatePractice({ ...good, routineId: "nope", routineStep: 1 }) !== null);
+  check("a malformed session id is refused",
+    validatePractice({ ...good, routineId, routineStep: 2, sessionId: "nope" }) !== null);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

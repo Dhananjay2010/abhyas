@@ -37,6 +37,7 @@ new migration, never by editing an old one.
 | `20260912090000_breathe_phase_one.sql` | Breathing pattern phases and content, `breathing_logs`, breathing preference columns on `user_settings`, `record_breathing_practice()` — step 16 |
 | `20260913090000_breathe_sound.sql` | Guidance widened to `tones`/`ocean`/`voice`/`off`, background-sound and voice-language preferences, Bhramari's exhale marked as hummed — step 16, phase 2a |
 | `20260914090000_breathe_your_own.sql` | Four more practices, the `user_breathing_patterns` table (your timings and your own practices), `breathing_logs.user_pattern_id`, and `record_breathing_practice()` replaced to accept either kind — step 16, phase 2b |
+| `20260915090000_breathe_routines.sql` | The `breathing_routines` catalogue (four seeded sequences), `breathing_logs.routine_id`/`routine_name`/`routine_step`, and `record_breathing_practice()` replaced again so a later step appends to the session the first step opened — step 16, phase 3a |
 
 Push with `supabase db push`. Query the remote without Docker using
 `supabase db query --linked "<sql>"` — note the `--linked` flag, as it defaults
@@ -46,7 +47,7 @@ to a local database that does not exist here.
 
 **Reference (public read, no writes):** `equipment`, `exercises`,
 `exercise_media`, `exercise_substitutions`, `warmup_exercises`,
-`breathing_patterns`, `yoga_playlists`, `yoga_videos`
+`breathing_patterns`, `breathing_routines`, `yoga_playlists`, `yoga_videos`
 
 **Per user (owner-only, all four verbs):** `profiles`, `user_settings`,
 `user_equipment`, `user_injuries`, `programs`, `program_days`,
@@ -177,3 +178,16 @@ insert them after switching back.
   **23 tables and 66 policies.** `record_breathing_practice()` was replaced
   (the old signature dropped) to take either kind of practice, and it refuses
   one that is not yours.
+- 2026-09-12 (step 16, phase 3a): `breathing_routines`, a reference table with
+  a single read policy like `breathing_patterns`, holding four seeded
+  sequences of practices in a `steps jsonb` column. That makes **24 tables and
+  67 policies.** `breathing_logs` gained `routine_id`, `routine_name` and
+  `routine_step`, all nullable, so every practice logged before this and every
+  single practice from now on is unchanged.
+  `record_breathing_practice()` was replaced again (the old signature dropped)
+  with three further arguments: a later step of a routine passes the session
+  the first step opened, and its seconds are added to that session's duration.
+  The early return on an existing log id is what keeps a retry from
+  double-counting them. It was verified as the real user under RLS in a
+  rolled-back transaction — including against a second user created inside that
+  transaction, whose session was invisible, unwritable and untouched.

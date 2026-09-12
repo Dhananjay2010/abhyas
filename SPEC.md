@@ -226,7 +226,9 @@ All timings and cycle counts are **user-adjustable in Settings**. Animated expan
 > chosen in minutes; a practice is guided by tones, a breath-synced ocean, or
 > the phone's voice in English or Hindi, over an optional background sound.
 > **Per-pattern timings are editable and practices of your own can be created**,
-> which is what this section asked for.
+> which is what this section asked for. Since 2026-09-12 there are also
+> **routines** — two to four practices run back to back inside one session
+> (Downshift, Wind Down, Morning, Reset).
 
 ---
 
@@ -298,7 +300,10 @@ Media lives in a **separate `exercise_media` table** keyed to the exercise, carr
 **`warmup_exercises`** — slug, name, target_regions, type (`cardio`|`mobility`|`prehab`), duration_seconds, media
 **`breathing_patterns`** — slug, name, inhale_s, hold_in_s, exhale_s, hold_out_s, default_cycles, benefit, contraindications; since 2026-09-12 also subtitle, phases (jsonb), intents, max_cycles, how_to, why, evidence_label, evidence_url
 
-**`breathing_logs`** *(per user, RLS)* — session_id, pattern_id, pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance. Written with its session by `record_breathing_practice()`. See BREATHE-SPEC.md §6.
+**`breathing_routines`** — slug, name, subtitle, description, about, steps (jsonb: a practice slug and a length per step), intents, sort_order *(added 2026-09-12)*
+**`user_breathing_patterns`** *(per user, RLS)* — base_pattern_id (null for a practice of your own), name, phases (jsonb) *(added 2026-09-12)*
+
+**`breathing_logs`** *(per user, RLS)* — session_id, pattern_id, user_pattern_id, pattern_name, routine_id, routine_name, routine_step, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance. Written with its session by `record_breathing_practice()`; a routine writes one row per step into one session. See BREATHE-SPEC.md §6 and §17.
 **`yoga_playlists`** — title, youtube_playlist_id, creator, level, description
 **`yoga_videos`** — playlist_id, youtube_video_id, title, duration_minutes, day_index, focus_areas
 

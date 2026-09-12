@@ -3,8 +3,14 @@
 import { useMemo, useRef } from "react";
 import { BreatheHome, type LastPractice } from "@/app/breathe/breathe-home";
 import { PracticeSetup } from "@/app/breathe/[slug]/practice-setup";
-import { BreathingSession } from "@/app/breathe/[slug]/session/breathing-session";
+import {
+  BreathingSession,
+  type RoutineRun,
+} from "@/app/breathe/[slug]/session/breathing-session";
+import { RoutineSetup } from "@/app/breathe/routine/[slug]/routine-setup";
+import type { ResolvedRoutine } from "@/lib/breathing/routine";
 import { CustomPatternForm } from "@/app/breathe/new/custom-pattern-form";
+import { uuid } from "@/lib/breathing/client";
 import type { BreathPhase } from "@/lib/breathing/engine";
 import type { BreathingPrefs, Intent, Pattern, SessionOptions } from "@/lib/breathing/pattern";
 import type { BreathingStats, CalmShift } from "@/lib/breathing/stats";
@@ -61,6 +67,7 @@ const SETUP_ACTIONS = {
 
 export function HomePreview(props: {
   patterns: Pattern[];
+  routines: ResolvedRoutine[];
   prefs: BreathingPrefs;
   stats: BreathingStats;
   last: LastPractice | null;
@@ -71,6 +78,14 @@ export function HomePreview(props: {
   todayIndex: number;
 }) {
   return <BreatheHome {...props} basePath="/dev/breathe" actions={{ updateBreathingPrefs }} />;
+}
+
+export function RoutineSetupPreview(props: {
+  resolved: ResolvedRoutine;
+  prefs: BreathingPrefs;
+  firstPractice: boolean;
+}) {
+  return <RoutineSetup {...props} basePath="/dev/breathe" actions={{ updateBreathingPrefs }} />;
 }
 
 export function SetupPreview(props: {
@@ -100,7 +115,10 @@ export function SessionPreview({
   failFirst,
   ...props
 }: {
-  pattern: Pattern;
+  /** One practice. Omitted when `run` supplies one per step. */
+  pattern?: Pattern;
+  /** A routine, run step by step. */
+  run?: RoutineRun | null;
   options: SessionOptions;
   week: { days: boolean[]; seconds: number };
   todayIndex: number;
@@ -108,6 +126,7 @@ export function SessionPreview({
   failFirst: boolean;
 }) {
   const failuresLeft = useRef(failFirst ? 1 : 0);
+  const session = useRef<string | null>(null);
   const actions = useMemo(
     () => ({
       recordBreathingPractice: async (input: PracticeInput) => {
@@ -117,7 +136,10 @@ export function SessionPreview({
           failuresLeft.current -= 1;
           return { ok: false, error: "The harness is set to fail the first save." } as const;
         }
-        return { ok: true } as const;
+        // A routine's later steps are given the session its first step opened,
+        // so the harness has to hand one back like the real action does.
+        session.current ??= uuid();
+        return { ok: true, data: { sessionId: session.current } } as const;
       },
       rateBreathingPractice: async (input: { logId: string; moodAfter: number }) => {
         await log("rateBreathingPractice", input);

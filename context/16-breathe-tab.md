@@ -469,6 +469,96 @@ screen and both save flows were clicked through in the harness.
 position, so a saved "in 4, out 8" showed its exhale in the hold's slot with a
 phantom second "Out" below it. Slots are matched by kind now, with tests.
 
+## Phase 3a — routines (2026-09-12, branch `breathe/routines`)
+
+A routine is two to four practices run back to back inside one session.
+`BREATHE-SPEC.md` §16.1 is the design; §17 is what was built and verified.
+
+### The shape of a routine
+
+`breathing_routines` holds the catalogue, read-only from the client under the
+same single `select` policy as `breathing_patterns`. Four are seeded:
+Downshift (after training), Wind Down (for sleep), Morning, and Reset.
+
+`steps jsonb` names each practice by slug and gives its length in one of the
+two units the setup screen offers:
+
+```json
+[{"slug": "physiological-sigh", "cycles": 5},
+ {"slug": "extended-exhale",    "minutes": 2}]
+```
+
+**The length is stored as the intent, not as a cycle count.** `resolveRoutine`
+(`src/lib/breathing/routine.ts`) turns it into real cycles against whatever
+phases that practice has *for this person*, so a Coherent Breathing you have
+retimed to six seconds a side still runs for about the two minutes the routine
+promises — eleven cycles become ten. A routine whose steps cannot all be found
+resolves to null and is not offered at all, because "Downshift" without its
+first step is not Downshift.
+
+### Running one
+
+`BreathingSession` already separated what outlives a practice from one practice
+(`Practice`, remounted by key for "Again"). A routine reuses that exactly: the
+key becomes `attempt:step`, and finishing a step increments the step.
+
+Between steps, `Handoff` names what is next and counts down six seconds before
+starting it on its own — a routine you have to tap through four times is not a
+routine. "Start now" skips the wait; "End here" stops and goes to the ending,
+where what you have already done is saved. Two details make the seam work:
+settling in happens only on step one (`stepIndex === 0`), and the wind-down
+between steps is three seconds rather than ten, because the hand-off is itself
+the pause.
+
+### One session, a log per step
+
+`record_breathing_practice` gained `p_session_id`, `p_routine_id` and
+`p_routine_step`. The first step passes no session and gets one back exactly as
+a single practice does; later steps pass that session, and their seconds are
+added to its duration. The early return on an existing log id is what stops a
+retry counting those seconds twice.
+
+The threading lives in `BreathingSession`, not in `Practice`: a promise chain
+serialises the saves so the second step cannot open its own session while the
+first is still opening one, and the outer component passes `Practice` a wrapped
+`recordBreathingPractice` that fills in the session. If a step's save fails the
+session id stays null and the next step opens its own — a degraded result
+rather than a lost practice — and the ending says so: "An earlier step of this
+routine could not be saved."
+
+**Both check-ins go on the first step's log.** `calmShifts` pairs "before" and
+"after" on one row, so splitting them across steps would silently drop every
+routine out of "what works for you". The outer component therefore rewrites the
+rating's log id to the first step's.
+
+### What it changes elsewhere
+
+- **Breathe home** lists routines above the practices, filtered by the same
+  intent chips.
+- **"Again" and remembered lengths skip routine logs.** A routine's step
+  lengths were the routine's choice, not yours, so they must not become the
+  length a practice offers on its own.
+- **"What works for you"** groups a routine under its own name
+  (`routine_name ?? pattern_name`).
+- **History** names a session for its routine rather than for the first step's
+  practice, and the detail page lists the steps with their own times and
+  breaths. Its "Sound" stat now reads from `GUIDANCE_OPTIONS`, so Ocean and
+  Voice appear — before this it only knew Tones and Off, a gap left from phase
+  2a.
+
+### Verified
+
+25 test groups pass. The database function was exercised as the real user under
+RLS and rolled back — 18 checks, including a second user created inside the
+transaction so "someone else's session" was a real row rather than a case the
+test had to skip. The whole sequence was watched end to end in the harness.
+`BREATHE-SPEC.md` §17.3 has the detail.
+
+**Two things this found.** A step written as "5 breaths" displayed as "45 sec",
+because the label re-derived its unit from the practice's own cap instead of
+honouring the unit the step was written in. And ending part-way through the
+last step still claimed "All 2 steps"; it now says "2 of 2".
+
 ## Known gaps
 
 - **Signed in: partly closed.** On 2026-09-12 Dhananjay practised on localhost
@@ -497,10 +587,27 @@ phantom second "Out" below it. Slots are matched by kind now, with tests.
   nostril sides, no two-part inhale, no reordering. Ours can be retimed but not
   restructured.
 - You can keep twenty of your own.
-- Phase 3 is not built: routines, Kapalabhati, a signature shape per practice,
-  recorded voice clips, and the seven-day journey.
+- **A routine's steps are ours, never yours.** `resolveRoutine` looks only at
+  built-in practices, so a practice you made cannot be a step. Your *timings*
+  for a built-in are honoured.
+- **A routine cannot be repeated from History.** The log records the routine's
+  name but not its slug, so the detail page leaves "Practise again" off rather
+  than sending you somewhere wrong.
+- **A routine's length is not adjustable.** That is the point of it being a
+  routine, but it means a five-minute Downshift cannot be made three.
+- Phase 3 is partly built. Still to come: Kapalabhati behind a safety
+  confirmation (3c), a signature shape per practice (3b), and the seven-day
+  journey (3d). Recorded voice clips are deliberately not in this phase —
+  `BREATHE-SPEC.md` §16.5 says why and what it needs from Dhananjay.
 
 ## Change log
+
+- **2026-09-12, phase 3a.** Routines, on `breathe/routines`: four seeded
+  sequences, the hand-off between steps, one session with a log per step, and
+  the History and home-screen changes that follow from it. Migration
+  `20260915090000_breathe_routines` applied. Fixed while testing: a step
+  written in breaths displayed in seconds, and an ending that claimed "All 2
+  steps" after being cut short.
 
 - **2026-09-12, later still.** Phase 2b, completing phase 2: your own timings,
   your own practices, the "for right now" suggestion, what works for you, and
