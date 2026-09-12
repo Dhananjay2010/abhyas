@@ -187,6 +187,36 @@ const SEEDS: Seed[] = [
     evidenceLabel: null,
     evidenceUrl: null,
   },
+  {
+    id: "00000000-0000-4000-8000-000000000007",
+    slug: "kapalabhati",
+    name: "Kapalabhati",
+    subtitle: "Skull-shining breath",
+    description:
+      "Short, sharp exhales through the nose with the belly. The breath in happens by itself.",
+    benefit: "Wakes you up. Warming, and clearing when the head feels dull.",
+    contraindications:
+      "Not while pregnant, or with high blood pressure, a heart condition, epilepsy, glaucoma, a hernia, recent abdominal surgery, or on a full stomach. Stop at once if you feel dizzy or light-headed and breathe normally.",
+    level: "expert",
+    intents: ["energy"],
+    phases: [
+      { kind: "pump", seconds: 20, rate: 1, cue: "Sharp out through the nose", label: "Pump" },
+      { kind: "rest", seconds: 40, cue: "Breathe normally", label: "Rest" },
+    ],
+    maxCycles: 3,
+    defaultCycles: 3,
+    howTo: [
+      "Sit upright, somewhere you could stay for a few minutes. Do not do this lying down.",
+      "Rest a hand on your belly. Breathe in to about half full.",
+      "Pull the belly sharply in to push the air out through your nose. The breath in after it happens on its own — do not help it.",
+      "Follow the screen: one pump a second, twenty a round.",
+      "Between rounds, breathe normally and do nothing. That rest is part of the practice, not a gap in it.",
+      "If you feel dizzy or tingly, stop. That is the signal to stop, not to push on.",
+    ],
+    why: "Every other practice here slows you down; this one does the opposite. The forceful exhales are driven by the belly while the in-breath stays passive, which is why it is taught as cleansing rather than calming.",
+    evidenceLabel: null,
+    evidenceUrl: null,
+  },
 ];
 
 export const PATTERNS: Pattern[] = SEEDS.map(builtIn);

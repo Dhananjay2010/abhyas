@@ -5,10 +5,14 @@ import { secondsLabel } from "@/lib/breathing/pattern";
 import { MAX_PHASE_SECONDS, MIN_PHASE_SECONDS, PHASE_STEP } from "@/lib/breathing/validation";
 import { formatClock } from "@/lib/session/device";
 
+// The editor only ever sees the three timed kinds: a practice that pumps is
+// not offered here, and a practice you build yourself is the four-slot shape.
 const KIND_LABEL: Record<BreathPhase["kind"], string> = {
   inhale: "In",
   hold: "Hold",
   exhale: "Out",
+  pump: "Pump",
+  rest: "Rest",
 };
 
 function phaseLabel(phase: BreathPhase): string {

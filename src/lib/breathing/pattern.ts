@@ -55,7 +55,16 @@ type PatternColumns =
   | "level" | "intents" | "phases" | "max_cycles" | "default_cycles" | "how_to" | "why"
   | "evidence_label" | "evidence_url";
 
-const KINDS: ReadonlySet<string> = new Set<PhaseKind>(["inhale", "hold", "exhale"]);
+const KINDS: ReadonlySet<string> = new Set<PhaseKind>([
+  "inhale",
+  "hold",
+  "exhale",
+  "pump",
+  "rest",
+]);
+
+/** A practice that pumps (Kapalabhati) is gated behind a one-time confirmation. */
+export const needsConfirming = (phases: BreathPhase[]) => phases.some((p) => p.kind === "pump");
 
 /**
  * `phases` is jsonb, so the database only promises "an array". Anything that is
@@ -79,10 +88,19 @@ export function parsePhases(value: unknown): BreathPhase[] | null {
     if (p.side === "left" || p.side === "right") phase.side = p.side as Side;
     if (p.hum === true) phase.hum = true;
     if (typeof p.to === "number" && p.to >= 0 && p.to <= 1) phase.to = p.to;
+    // Between one pump every two seconds and four a second. Faster than that
+    // is not a tempo anyone can follow, and the screen would only flicker.
+    if (p.kind === "pump" && typeof p.rate === "number" && p.rate >= 0.5 && p.rate <= 4) {
+      phase.rate = p.rate;
+    }
     out.push(phase);
   }
 
-  // A breath needs a way in and a way out.
+  // A pumping pattern is its own thing: the pumping is both halves of the
+  // breath, so it needs no separate inhale and exhale.
+  if (out.some((p) => p.kind === "pump" && p.seconds > 0)) return out;
+
+  // Every other pattern: a breath needs a way in and a way out.
   if (!out.some((p) => p.kind === "inhale" && p.seconds > 0)) return null;
   if (!out.some((p) => p.kind === "exhale" && p.seconds > 0)) return null;
   return out;
@@ -272,6 +290,8 @@ export type BreathingPrefs = {
   vibrate: boolean;
   settleIn: boolean;
   checkIn: CheckIn;
+  /** You have read and accepted the Kapalabhati safety note. Asked once, ever. */
+  kapalabhatiAck: boolean;
 };
 
 export const DEFAULT_PREFS: BreathingPrefs = {
@@ -284,15 +304,17 @@ export const DEFAULT_PREFS: BreathingPrefs = {
   vibrate: true,
   settleIn: true,
   checkIn: "after",
+  kapalabhatiAck: false,
 };
 
 export const PREFS_COLUMNS =
-  "meditation_default_minutes, breathing_guidance, breathing_ambience, breathing_ambience_volume, breathing_voice_lang, breathing_show_count, breathing_vibrate, breathing_settle_in, breathing_check_in" as const;
+  "meditation_default_minutes, breathing_guidance, breathing_ambience, breathing_ambience_volume, breathing_voice_lang, breathing_show_count, breathing_vibrate, breathing_settle_in, breathing_check_in, breathing_kapalabhati_ack" as const;
 
 type PrefsColumns =
   | "meditation_default_minutes" | "breathing_guidance" | "breathing_ambience"
   | "breathing_ambience_volume" | "breathing_voice_lang" | "breathing_show_count"
-  | "breathing_vibrate" | "breathing_settle_in" | "breathing_check_in";
+  | "breathing_vibrate" | "breathing_settle_in" | "breathing_check_in"
+  | "breathing_kapalabhati_ack";
 
 export function prefsFromRow(row: Pick<SettingsRow, PrefsColumns> | null): BreathingPrefs {
   if (!row) return DEFAULT_PREFS;
@@ -309,6 +331,7 @@ export function prefsFromRow(row: Pick<SettingsRow, PrefsColumns> | null): Breat
       row.breathing_check_in === "off" || row.breathing_check_in === "both"
         ? row.breathing_check_in
         : "after",
+    kapalabhatiAck: row.breathing_kapalabhati_ack,
   };
 }
 

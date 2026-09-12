@@ -38,6 +38,7 @@ new migration, never by editing an old one.
 | `20260913090000_breathe_sound.sql` | Guidance widened to `tones`/`ocean`/`voice`/`off`, background-sound and voice-language preferences, Bhramari's exhale marked as hummed — step 16, phase 2a |
 | `20260914090000_breathe_your_own.sql` | Four more practices, the `user_breathing_patterns` table (your timings and your own practices), `breathing_logs.user_pattern_id`, and `record_breathing_practice()` replaced to accept either kind — step 16, phase 2b |
 | `20260915090000_breathe_routines.sql` | The `breathing_routines` catalogue (four seeded sequences), `breathing_logs.routine_id`/`routine_name`/`routine_step`, and `record_breathing_practice()` replaced again so a later step appends to the session the first step opened — step 16, phase 3a |
+| `20260916090000_breathe_kapalabhati.sql` | Kapalabhati, the first pattern using the `pump` and `rest` phase kinds, and `user_settings.breathing_kapalabhati_ack` for its one-time safety confirmation — step 16, phase 3c |
 
 Push with `supabase db push`. Query the remote without Docker using
 `supabase db query --linked "<sql>"` — note the `--linked` flag, as it defaults

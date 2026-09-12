@@ -37,6 +37,7 @@ export type CueRecord =
   | { kind: "swell"; at: number; duration: number; fromSize: number; toSize: number }
   | { kind: "hum"; at: number; duration: number; hz: number }
   | { kind: "bell"; at: number; hz: number }
+  | { kind: "pump"; at: number; hz: number }
   | { kind: "ambience"; at: number; bed: string; volume: number }
   | { kind: "stop"; at: number };
 
@@ -239,6 +240,60 @@ export function scheduleBell(
 /** Bell pitches, an octave above the glide's range so they sit clear of it. */
 export const BELL_HIGH = sizeToHz(1) * 2;
 export const BELL_LOW = sizeToHz(0) * 2;
+
+/**
+ * A round of Kapalabhati: one short knock per pump, on the beat.
+ *
+ * A tone that rose and fell would be wrong here -- a pump is a single sharp
+ * movement, not a shape you follow through. So each one is a brief, dry knock,
+ * quiet enough to sit under the sound of your own breathing, and the whole
+ * round is scheduled in one go on the audio clock so the tempo never drifts.
+ */
+export function schedulePumps(
+  ctx: BaseAudioContext,
+  out: AudioNode,
+  opts: { at: number; count: number; rate: number },
+): Voice {
+  const { at, count, rate } = opts;
+  record({ kind: "pump", at, hz: PUMP_HZ });
+
+  const gain = ctx.createGain();
+  gain.gain.value = 1;
+  gain.connect(out);
+
+  const osc = ctx.createOscillator();
+  osc.type = "triangle";
+  osc.frequency.value = PUMP_HZ;
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(SILENT, at);
+  osc.connect(env).connect(gain);
+
+  const step = 1 / rate;
+  for (let i = 0; i < count; i++) {
+    const t = at + i * step;
+    // A knock, not a note: up in four milliseconds, gone in ninety.
+    env.gain.setValueAtTime(SILENT, t);
+    env.gain.exponentialRampToValueAtTime(0.09, t + 0.004);
+    env.gain.exponentialRampToValueAtTime(SILENT, t + 0.09);
+  }
+  const until = at + count * step;
+  osc.start(at);
+  osc.stop(until + 0.2);
+
+  return {
+    stop(when = ctx.currentTime) {
+      fadeOut(gain.gain, when, 0.02);
+      try {
+        osc.stop(when + 0.15);
+      } catch {
+        // Already stopped.
+      }
+    },
+  };
+}
+
+/** Low and dry, well under the glide, so a round of pumping does not shrill. */
+const PUMP_HZ = 146.83;
 
 // ---------------------------------------------------------------------------
 // Noise

@@ -17,6 +17,7 @@ import {
   lengthPlan,
   nextPhaseStart,
   positionAt,
+  pumpAt,
   type BreathPhase,
 } from "../src/lib/breathing/engine";
 import { readFileSync } from "node:fs";
@@ -28,6 +29,7 @@ import {
   draftFrom,
   mineId,
   mineSlug,
+  needsConfirming,
   parsePhases,
   parseSessionSearch,
   patternFromUser,
@@ -92,6 +94,10 @@ const NADI: BreathPhase[] = [
 const BHRAMARI: BreathPhase[] = [
   { kind: "inhale", seconds: 4, cue: "Breathe in through your nose" },
   { kind: "exhale", seconds: 8, cue: "Hum, mmmm", label: "Hum", hum: true },
+];
+const KAPALABHATI: BreathPhase[] = [
+  { kind: "pump", seconds: 20, rate: 1, cue: "Sharp out through the nose", label: "Pump" },
+  { kind: "rest", seconds: 40, cue: "Breathe normally", label: "Rest" },
 ];
 const EXTENDED: BreathPhase[] = [
   { kind: "inhale", seconds: 4, cue: "Breathe in" },
@@ -646,6 +652,136 @@ console.log("\n25. A routine step is saved as all of a routine, or none of it");
     validatePractice({ ...good, routineId: "nope", routineStep: 1 }) !== null);
   check("a malformed session id is refused",
     validatePractice({ ...good, routineId, routineStep: 2, sessionId: "nope" }) !== null);
+}
+
+console.log("\n26. Kapalabhati pumps, rests, and is counted in rounds");
+{
+  const c = buildCycle(KAPALABHATI);
+  check("one round is a minute", c.seconds === 60, `${c.seconds}`);
+  check("two phases, not forty", c.phases.length === 2, `${c.phases.length}`);
+
+  const pump = c.phases[0];
+  const rest = c.phases[1];
+  check("the pump phase knows its tempo and its count",
+    pump.rate === 1 && pump.pumps === 20, `${pump.rate} / ${pump.pumps}`);
+  check("a rest has no tempo", rest.rate === 0 && rest.pumps === 0);
+  check("a round is twenty breaths", c.breaths === 20, `${c.breaths}`);
+  check("default labels", pump.label === "Pump" && rest.label === "Rest");
+
+  const at = (t: number) => positionAt(c, 3, t);
+  // One pump a second, starting with the sharp exhale: high at the top of each
+  // second, lowest half way through it.
+  check("a pump starts high", near(at(0).size, 0.5), `${at(0).size}`);
+  check("and snaps down by the half second", near(at(0.5).size, 0.22), `${at(0.5).size}`);
+  check("and is back up a second later", near(at(1).size, 0.5), `${at(1).size}`);
+  check("the second pump dips too", near(at(1.5).size, 0.22), `${at(1.5).size}`);
+  check("pumps are counted as they happen",
+    pumpAt(pump, 0) === 1 && pumpAt(pump, 0.9) === 1 && pumpAt(pump, 1) === 2 && pumpAt(pump, 11.4) === 12,
+    `${pumpAt(pump, 0)}, ${pumpAt(pump, 1)}, ${pumpAt(pump, 11.4)}`);
+  check("the count never runs past the round", pumpAt(pump, 19.99) === 20, `${pumpAt(pump, 19.99)}`);
+  check("nothing else pumps", pumpAt(rest, 5) === 0);
+
+  // The rest eases from where the pumping left the orb down to a resting size
+  // and settles there. It is still easing in the final tenth of a second, so
+  // "settled" is a millimetre, not an exact equality.
+  check("the rest begins where the pumping ended",
+    at(20).phase.kind === "rest" && near(at(20).size, 0.5), `${at(20).size}`);
+  check("and eases down without ever rising",
+    at(20).size > at(30).size && at(30).size > at(40).size && at(40).size > at(50).size,
+    [20, 30, 40, 50].map((t) => at(t).size.toFixed(3)).join(" > "));
+  check("and has settled by the end of it", near(at(59.9).size, 0.32, 1e-3), `${at(59.9).size}`);
+  check("round two starts pumping again",
+    at(60).cycleIndex === 1 && at(60).phase.kind === "pump" && near(at(60).size, 0.5));
+  check("a pump is not paced as a hold", pump.from === pump.to && near(pump.to, 0.5));
+
+  // Rounds, not minutes and not breaths: "3 min" and "60 breaths" are both
+  // true of three rounds, and neither is how anyone chooses to do it.
+  const plan = lengthPlan(c, 3);
+  check("chosen in rounds", plan.unit === "rounds", plan.unit);
+  check("one option per round, capped",
+    plan.options.map((o) => o.label).join(", ") === "1 round, 2 rounds, 3 rounds",
+    plan.options.map((o) => o.label).join(", "));
+  check("no custom length", plan.maxMinutes === null);
+  check("labelled in rounds", lengthLabel(c, 2, 3) === "2 rounds", lengthLabel(c, 2, 3));
+  check("its own count is the starting length",
+    initialCycles({ cycle: c, maxCycles: 3, defaultCycles: 3, preferredMinutes: 10, lastCycles: null }) === 3);
+  check("what you did last time still wins",
+    initialCycles({ cycle: c, maxCycles: 3, defaultCycles: 3, preferredMinutes: 10, lastCycles: 1 }) === 1);
+  check("an uncapped pumping pattern is still offered in rounds",
+    lengthPlan(buildCycle(KAPALABHATI), null).options.length === 5);
+
+  // The engine's other guarantees still hold for it.
+  const next = nextPhaseStart(c, 3, 5);
+  check("the phase after the pumping is the rest",
+    next !== null && next.at === 20 && next.phase.kind === "rest", `${next?.at}`);
+  check("a URL cannot ask for a fourth round",
+    parseSessionSearch({ cycles: "9" }, DEFAULT_PREFS, {
+      fallbackCycles: 3, maxCycles: 3, cycleSeconds: c.seconds,
+    }).cycles === 3);
+}
+
+console.log("\n27. The new phase kinds are parsed, and stay ours");
+{
+  const raw = [
+    { kind: "pump", seconds: 20, rate: 1, cue: "Sharp out", label: "Pump" },
+    { kind: "rest", seconds: 40, cue: "Breathe normally" },
+  ];
+  const parsed = parsePhases(raw);
+  check("a pumping pattern parses", parsed !== null && parsed.length === 2);
+  check("the rate survives", parsed?.[0].rate === 1, `${parsed?.[0].rate}`);
+  check("a pumping pattern needs no inhale or exhale", parsed !== null);
+  check("an absurd rate is dropped rather than trusted",
+    parsePhases([{ ...raw[0], rate: 40 }, raw[1]])?.[0].rate === undefined);
+  check("a rate on a phase that does not pump is ignored",
+    parsePhases([{ kind: "inhale", seconds: 4, cue: "In", rate: 3 }, { kind: "exhale", seconds: 4, cue: "Out" }])?.[0].rate === undefined);
+  check("a rest alone is still not a pattern", parsePhases([raw[1]]) === null);
+  check("an unknown kind is still refused",
+    parsePhases([{ kind: "gasp", seconds: 4, cue: "Gasp" }, raw[1]]) === null);
+
+  // A practice you build yourself stays the four-slot shape.
+  check("you cannot save a pump of your own",
+    validatePatternDraft({ name: "Mine", phases: raw as BreathPhase[] }) !== null);
+  check("nor a rest",
+    validatePatternDraft({
+      name: "Mine",
+      phases: [
+        { kind: "inhale", seconds: 4, cue: "In" },
+        { kind: "rest", seconds: 4, cue: "Rest" },
+        { kind: "exhale", seconds: 4, cue: "Out" },
+      ] as BreathPhase[],
+    }) !== null);
+
+  check("a pumping practice is the one that asks first", needsConfirming(parsed as BreathPhase[]));
+  check("an ordinary practice does not", !needsConfirming(BOX));
+
+  // The gate is remembered as a preference, and only as a boolean.
+  check("the acknowledgement is a preference", validatePrefs({ kapalabhatiAck: true }) === null);
+  check("and only a boolean", validatePrefs({ kapalabhatiAck: "yes" as never }) !== null);
+
+  const sql = readFileSync(resolve(process.cwd(), "supabase/migrations/20260916090000_breathe_kapalabhati.sql"), "utf8");
+  const block = sql.match(/'(\[[\s\S]*?\])'::jsonb/);
+  check("the seeded phases parse", block !== null && parsePhases(JSON.parse(block[1])) !== null);
+  check("and are the ones tested here",
+    block !== null && JSON.stringify(parsePhases(JSON.parse(block[1]))) === JSON.stringify(parsePhases(KAPALABHATI)),
+    block ? JSON.stringify(parsePhases(JSON.parse(block[1]))) : "");
+}
+
+console.log("\n28. A routine cannot smuggle a gated practice past its confirmation");
+{
+  const patterns: Pattern[] = [
+    fakePattern("coherent-breathing", "Coherent Breathing", COHERENT),
+    fakePattern("kapalabhati", "Kapalabhati", KAPALABHATI, 3),
+  ];
+  check("a routine of ordinary practices resolves",
+    resolveRoutine(fakeRoutine([
+      { slug: "coherent-breathing", minutes: 1 },
+      { slug: "coherent-breathing", minutes: 1 },
+    ]), patterns) !== null);
+  check("one containing Kapalabhati does not",
+    resolveRoutine(fakeRoutine([
+      { slug: "coherent-breathing", minutes: 1 },
+      { slug: "kapalabhati", cycles: 1 },
+    ]), patterns) === null);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

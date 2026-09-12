@@ -1043,6 +1043,7 @@ export type Database = {
           breathing_ambience_volume: number
           breathing_check_in: string
           breathing_guidance: string
+          breathing_kapalabhati_ack: boolean
           breathing_settle_in: boolean
           breathing_show_count: boolean
           breathing_vibrate: boolean
@@ -1068,6 +1069,7 @@ export type Database = {
           breathing_ambience_volume?: number
           breathing_check_in?: string
           breathing_guidance?: string
+          breathing_kapalabhati_ack?: boolean
           breathing_settle_in?: boolean
           breathing_show_count?: boolean
           breathing_vibrate?: boolean
@@ -1093,6 +1095,7 @@ export type Database = {
           breathing_ambience_volume?: number
           breathing_check_in?: string
           breathing_guidance?: string
+          breathing_kapalabhati_ack?: boolean
           breathing_settle_in?: boolean
           breathing_show_count?: boolean
           breathing_vibrate?: boolean

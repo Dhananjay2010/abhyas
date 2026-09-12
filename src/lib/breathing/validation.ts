@@ -122,6 +122,8 @@ export function validatePatternDraft(draft: PatternDraft): string | null {
 
   let total = 0;
   for (const p of phases) {
+    // Deliberately not `pump` or `rest`: those are Kapalabhati's, and a
+    // practice you build yourself stays the four-slot shape.
     if (p.kind !== "inhale" && p.kind !== "hold" && p.kind !== "exhale") {
       return "That phase is not valid.";
     }
@@ -153,6 +155,7 @@ export type PrefsPatch = Partial<{
   vibrate: boolean;
   settleIn: boolean;
   checkIn: CheckIn;
+  kapalabhatiAck: boolean;
 }>;
 
 export function validatePrefs(p: PrefsPatch): string | null {
@@ -177,7 +180,7 @@ export function validatePrefs(p: PrefsPatch): string | null {
   if (p.checkIn !== undefined && p.checkIn !== "off" && p.checkIn !== "after" && p.checkIn !== "both") {
     return "That check-in setting is not valid.";
   }
-  for (const key of ["showCount", "vibrate", "settleIn"] as const) {
+  for (const key of ["showCount", "vibrate", "settleIn", "kapalabhatiAck"] as const) {
     if (p[key] !== undefined && typeof p[key] !== "boolean") return "That setting is not valid.";
   }
   return null;

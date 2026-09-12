@@ -185,6 +185,8 @@ const EN = {
   exhaleLeft: "Out through the left",
   exhaleRight: "Out through the right",
   hum: "Hum",
+  pump: "Pumping. Sharp out through the nose",
+  rest: "Rest. Breathe normally",
   settle: "Settle in",
   done: "That was the last breath",
 };
@@ -199,6 +201,8 @@ const HI = {
   exhaleLeft: "बाएँ नथुने से छोड़िए",
   exhaleRight: "दाएँ नथुने से छोड़िए",
   hum: "गुनगुनाइए",
+  pump: "अब कपालभाति। नाक से तेज़ी से छोड़िए",
+  rest: "विश्राम। सामान्य साँस लीजिए",
   settle: "आराम से बैठिए",
   done: "यह आख़िरी साँस थी",
 };
@@ -208,6 +212,10 @@ const words = (lang: VoiceLang) => (lang === "hi" ? HI : EN);
 /** The spoken form of a phase: short, sided where the practice has sides. */
 export function spokenCue(phase: TimedPhase, lang: VoiceLang, previousWasInhale = false): string {
   const w = words(lang);
+  // Pumping and resting are said once, at the start of the phase. The voice
+  // cannot count at one a second, so the knocks keep the tempo instead.
+  if (phase.kind === "pump") return w.pump;
+  if (phase.kind === "rest") return w.rest;
   if (phase.kind === "hold") return w.hold;
   if (phase.kind === "exhale") {
     if (phase.hum) return w.hum;
