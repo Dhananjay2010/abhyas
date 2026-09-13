@@ -114,3 +114,4 @@ active block blocked by the unique index.
 ## Change log
 
 - Initial rollover, carry-over and cross-block streaks.
+- **2026-09-13.** Rollover is now the only path that starts a new block. A rebuild re-plans the block you are in, keeping its number and dates, so the deload week stays where it was going to land. See [19](19-qa-pass-2-remainder.md).

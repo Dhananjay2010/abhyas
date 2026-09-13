@@ -6,6 +6,7 @@ import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
 import {
+  describePersonalBest,
   evaluateProgression,
   type ExerciseMeta,
   type ProgressState,
@@ -25,6 +26,19 @@ async function requireUser() {
   const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
+}
+
+/**
+ * Whether a session of this type is "the day's workout".
+ *
+ * Yoga and breathing are offered on every screen as anytime activities, so
+ * neither finishing nor abandoning one says anything about whether the day's
+ * training happened. Only a strength session owns the day. Today, `planDay`
+ * and `startSession` all have to agree on this, and when they did not, a
+ * six-minute breathing session in the morning could speak for the whole day.
+ */
+function ownsTheDay(t: Database["public"]["Enums"]["day_type"] | null): boolean {
+  return t === "weights" || t === "bodyweight";
 }
 
 /**
@@ -53,8 +67,10 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     supabase.from("profiles").select("timezone, primary_track").eq("id", user.id).single(),
     supabase
       .from("sessions")
-      .select("id, status, local_date")
-      .in("status", ["planned", "in_progress"])
+      // `skipped` is in here so that an attempt ended early can be picked up
+      // again -- see the reuse logic below.
+      .select("id, status, local_date, actual_type, started_at")
+      .in("status", ["planned", "in_progress", "skipped"])
       .order("local_date", { ascending: false })
       .limit(10),
     supabase
@@ -68,7 +84,21 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const timezone = profileRes.data?.timezone || "Asia/Kolkata";
   const today = localDateString(timezone);
 
-  const existing = (openRes.data ?? []).find((s) => s.local_date === today);
+  const todayRows = (openRes.data ?? []).filter((s) => s.local_date === today);
+  const existing =
+    todayRows.find((s) => s.status === "planned" || s.status === "in_progress") ??
+    /*
+      An attempt that was ended early. `abandonSession` writes `skipped`, which
+      used to be in neither of the statuses this looked for, so pressing Start
+      again inserted a SECOND row for the same day: start, quit, start, quit
+      left four identical "Skipped" entries in History and stranded the sets
+      logged in each of them. Reusing the row means one entry per day and the
+      earlier sets come back with it.
+
+      Only the day's own workout qualifies. A skipped yoga or breathing row must
+      not be turned into a strength session.
+    */
+    todayRows.find((s) => s.status === "skipped" && ownsTheDay(s.actual_type));
 
   if (existing) {
     // A session row can exist with no exercises attached -- an abandoned first
@@ -79,9 +109,21 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     await Promise.all([
       supabase
         .from("sessions")
-        .update({ status: "in_progress", started_at: new Date().toISOString() })
-        .eq("id", existing.id)
-        .is("started_at", null),
+        .update({
+          status: "in_progress",
+          /*
+            Stamped on a first start, and again when a deliberately abandoned
+            session is restarted. The session clock is wall time since
+            `started_at`, so carrying the old stamp across a quit at 7am and a
+            restart at 1pm would record a six-hour workout. Resuming an
+            `in_progress` session keeps its stamp, because that is the
+            phone-locked-mid-set case the clock is meant to survive.
+          */
+          ...(existing.started_at === null || existing.status === "skipped"
+            ? { started_at: new Date().toISOString() }
+            : {}),
+        })
+        .eq("id", existing.id),
       ensureSessionExercises(supabase, user.id, existing.id),
     ]);
     return { ok: true, data: { sessionId: existing.id } };
@@ -235,7 +277,12 @@ export async function deleteSet(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
-export type ProgressionFeedback = { outcome: string; message: string };
+export type ProgressionFeedback = {
+  outcome: string;
+  message: string;
+  /** One line naming a best that was beaten, or null. SPEC section 7. */
+  personalBest: string | null;
+};
 
 /**
  * Complete an exercise and apply progression from what was actually logged.
@@ -376,7 +423,13 @@ async function applyProgression(
     await upgradeVariation(supabase, userId, se.exercise_id, ex.progression_chain, ex.progression_rank ?? 0);
   }
 
-  return { outcome: decision.outcome, message: decision.message };
+  return {
+    outcome: decision.outcome,
+    message: decision.message,
+    personalBest: decision.personalBest
+      ? describePersonalBest(decision.personalBest)
+      : null,
+  };
 }
 
 /** Swap the exercise in the active program for the next link in its chain. */
@@ -716,9 +769,6 @@ export async function planDay(input: {
     .from("sessions")
     .select("id, status, actual_type")
     .eq("local_date", input.localDate);
-
-  const ownsTheDay = (t: Database["public"]["Enums"]["day_type"] | null) =>
-    t === "weights" || t === "bodyweight";
 
   const settled = (existing ?? []).find(
     (s) =>

@@ -268,7 +268,7 @@ weigh-in reminder (both `user_settings` writes) reverted every time.
 on `user_id`. You still need to run `restore-user-settings.sql` once for your
 own account, since the fix is not deployed yet.
 
-### M4 — Abandoning a session leaves a junk row, and starting again makes another
+### M4 — Abandoning a session leaves a junk row, and starting again makes another  *(fixed)*
 
 `startSession` reuses an existing session only when its status is `planned` or
 `in_progress`. `abandonSession` sets it to `skipped`, which is in neither list,
@@ -281,7 +281,14 @@ Your pre-reset History had exactly this: **four identical "Push · Thu 10 Sept �
 Skipped" rows**, which is what led me to the code path. I could not re-trigger
 it after the reset because a completed session for today blocks a restart.
 
-### M5 — The session summary is missing what the spec promises  *(partly fixed)*
+**Fixed.** `startSession` now reuses an abandoned strength session for today
+instead of inserting a second row, so the day keeps one entry and the sets
+logged before walking away come back with it. The session clock is restamped on
+a deliberate restart — carrying the original stamp across a quit at 7am and a
+restart at 1pm would have recorded a six-hour workout — while an `in_progress`
+resume keeps its clock, which is the phone-locked-mid-set case.
+
+### M5 — The session summary is missing what the spec promises  *(fixed)*
 
 SPEC §7 says the summary shows "duration, total volume, PRs hit". It shows
 Time, Sets logged, Exercises, and Total volume **only when volume > 0** (so a
@@ -295,11 +302,16 @@ yours", along with its "if a day is missed, the same prompt appears on next
 open". Searching the whole app for it found hits only inside Breathe, and the
 session ended at "Back to Today".
 
-**Fixed.** Both now exist: the prompt closes every session, and Today asks the
-same question about today when yesterday was a training day nobody finished. A
-choice is a one-day override that Today honours; nothing about the block
-shifts. **PRs in the summary are still missing** — that part of M5 stands. See
+**Fixed, both parts.** The prompt closes every session, and Today asks the same
+question about today when yesterday was a training day nobody finished. A choice
+is a one-day override that Today honours; nothing about the block shifts. See
 [context/18](context/18-timed-exercises-and-tomorrow.md).
+
+**PRs now exist too**: a "Personal bests" section above "what changed for next
+time", listing only bests that were **beaten** — a first session sets a baseline
+and claims no record. The longest hold for timed work, the most reps for
+unloaded work, the heaviest set or the best estimated 1RM for loaded work, one
+line per exercise. See [context/19](context/19-qa-pass-2-remainder.md).
 
 ### M6 — Rest days offer nothing, and cannot be overridden
 
@@ -324,11 +336,14 @@ Nothing reads it: the only references in the whole of `src/` are the Settings
 page writing it and reading it back. The generator does not consult it, so the
 number of exercises and sets is identical at 30m and 75m.
 
-Related: the session promises "15 min warm-up" on Today, while the warm-up it
+Related: the session promised "15 min warm-up" on Today, while the warm-up it
 builds is 5 + 1 + 1 + 1 + 1 = **9 minutes**, and there is no ramp-up-sets phase
 (SPEC §7's third warm-up component). A beginner on general fitness gets 2 sets
 per exercise, so the whole "one hour" framing — the app's defining constraint —
 is not enforced anywhere.
+
+*(The heading is fixed — it no longer claims a duration the app does not build.
+The setting doing nothing is the finding, and it stands.)*
 
 ### M8 — Warm-up and cool-down items have no timer, and the cool-down is the warm-up again
 
@@ -344,7 +359,7 @@ Walking lunge, Cat-cow and Glute bridge, none of which is a static stretch and
 none of which can be held for 30 seconds. There is no stretch data to draw on:
 `warmup_exercises` is seeded with `cardio`, `mobility` and `prehab` only.
 
-### M9 — "Rebuild this block" on Today is unguarded
+### M9 — "Rebuild this block" on Today is unguarded  *(fixed)*
 
 Settings guards a rebuild behind an explanatory banner — "Your plan no longer
 matches these answers. Rebuilding keeps every session you have already logged."
@@ -358,7 +373,12 @@ today (so the deload week moves) and increments the block number. Nothing is
 lost from history, but it is the most consequential control on the screen and
 it is the least protected one.
 
-### M10 — The block number increments on every rebuild
+**Fixed.** The confirmation lives in `BuildPlanButton`, so both callers get it:
+it says what a rebuild changes and what it keeps, and asks. "Build my first
+block" opts out — there is no plan to replace. (And after M10, a rebuild no
+longer moves the deload week or the block number at all.)
+
+### M10 — The block number increments on every rebuild  *(fixed)*
 
 `createBlockForUser` sets `blockNumber = (last block_number ?? 0) + 1` and runs
 on every "Rebuild this block" and every goal / level / days / equipment change,
@@ -370,6 +390,11 @@ of training.
 SPEC §6 increments the block at the end of four weeks. A rebuild is a
 re-plan of the current block, not a new one.
 
+**Fixed.** `createBlockForUser` takes a `mode`: a rollover starts a new block
+and a rebuild keeps the active block's number and `started_on`. Since the
+generator is seeded on `${userId}:${blockNumber}`, rebuilding with unchanged
+answers now returns the same plan rather than reshuffling it.
+
 ---
 
 ## Low
@@ -380,29 +405,40 @@ re-plan of the current block, not a new one.
   entries for 1 and 2, so the template fallback showed through. Added both.
 - **"Best streak · 1 sessions"** *(fixed)* — Progress pluralised the current
   streak correctly and hard-coded `sub="sessions"` for the best one.
-- **Progression messages say "weight" for bodyweight work** — "Staying at this
-  weight until every set reaches the top of the range" appeared for Single Leg
-  Butt Kick and for Plank, neither of which has a weight.
-- **Injury severity toggles have no `aria-pressed`** — every other toggle in
-  `settings-form.tsx` has one. The Current/Past pair is styled-only, so a
-  screen reader cannot tell which is selected.
+- **Progression messages say "weight" for bodyweight work** *(fixed)* — "Staying
+  at this weight until every set reaches the top of the range" appeared for
+  Single Leg Butt Kick and for Plank, neither of which has a weight. A hold is
+  now told about its hold length, unloaded work is told "staying here", and the
+  deload message no longer tells someone with no weights that their weights are
+  held.
+- **Injury severity toggles have no `aria-pressed`** *(fixed)* — every other
+  toggle in `settings-form.tsx` has one. The Current/Past pair was styled-only,
+  so a screen reader could not tell which was selected.
 - **The weight field leaked between exercises** *(fixed)* — `SetEntry` was
   keyed on the set number alone, so moving from one exercise to the next at the
   same set number reused the component and kept its state: the 60 kg typed for
   the bench press was still in the box on the lat pulldown, one tap from being
   logged against it and fed to progression. Found while verifying the new hold
   UI, where a stale weight appeared on a plank.
-- **Undoing a set leaves the rest timer running** — arguably it should stop,
-  since the set it was resting from no longer exists. (The panel no longer
-  freezes after H1, but it does keep counting.)
-- **Today still lists the original plan after a session** — after completing a
-  session in which I swapped Double Leg Butt Kick for Bodyweight Squat, Today
-  showed "Session complete. Well done." above the *unmodified* original five
-  exercises, including the one I swapped away.
-- **A progression banner persists onto later exercises** — "Bodyweight Squat:
-  Every set at the top of the range…" was still on screen two exercises later.
-- **No way to see any day but today** — Today lists the week as labels only.
-  A new user who lands on a rest day cannot look at what the week holds.
+- **Undoing a set leaves the rest timer running** *(fixed by H1)* — `onUndoSet`
+  already cleared `restEndsAt`; the panel kept counting only because it rendered
+  off the derived number. Rendering on `restEndsAt` closed both. Re-checked
+  rather than assumed.
+- **Today still lists the original plan after a session** *(fixed)* — after
+  completing a session in which I swapped Double Leg Butt Kick for Bodyweight
+  Squat, Today showed "Session complete. Well done." above the *unmodified*
+  original five exercises, including the one I swapped away. Once a session has
+  been started, Today now lists that session's own exercises under "What you
+  did", marking what was swapped in and striking through what was skipped.
+- **A progression banner persists onto later exercises** *(fixed)* —
+  "Bodyweight Squat: Every set at the top of the range…" was still on screen two
+  exercises later. The note now appears on exactly the screen following the
+  exercise it describes.
+- **No way to see any day but today** *(partly addressed)* — Today lists the
+  week as labels only, so a new user who lands on a rest day cannot look at what
+  the week holds. The week list now at least shows one-day overrides on the days
+  they apply to, marked "your choice", so a decision made last night is visible
+  this morning. Seeing another day's *exercises* still is not possible.
 - **Cold loads are slow** — a warm Today renders in ~370 ms and all six routes
   answered in 115–200 ms when measured directly, but the first load after a
   cold function sat on "Loading today's plan…" for well over ten seconds. The
@@ -442,6 +478,20 @@ none of which any amount of local testing would have shown:
   identical and the fifth not. **The generator tests were passing against an
   ordering production did not share** — which is the strongest argument in this
   document for testing against the real thing.
+
+---
+
+## Found while clearing the tail (2026-09-13)
+
+One more, found by driving the real `SessionRunner` locally rather than by
+reading it:
+
+- **The rest panel flashed `0:00` before its first tick.** The H1 fix moved the
+  panel onto `restEndsAt !== null`, which is correct, but React effects run
+  after paint — so the frame between logging a set and the effect's first tick
+  rendered a rest timer that had apparently already finished. Seeded at the
+  moment the rest starts, where the remaining time is known exactly. A one-frame
+  bug is still a bug on the control a person touches most in a workout.
 
 ---
 

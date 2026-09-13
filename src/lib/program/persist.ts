@@ -25,18 +25,41 @@ export type BuildResult =
   | { ok: false; error: string };
 
 /**
- * Generate and persist a fresh 4-week block for the user.
+ * Generate and persist a 4-week block for the user.
  *
  * Any existing active program is marked completed first, so the partial unique
  * index (one active program per user) always holds.
+ *
+ * `mode` is the difference between the two reasons to run this, and SPEC
+ * section 6 spells it out:
+ *
+ * - `"new"` — the four weeks ran out, or this is the user's first block. The
+ *   block number increments and the start date is today.
+ * - `"rebuild"` — an answer the plan depends on changed, so the block the user
+ *   is IN is re-planned. Its number and start date are kept, which leaves the
+ *   deload week where it was going to land and the week-in-block arithmetic
+ *   intact. Without this, three settings changes took a new account to
+ *   "Block 3" and one real account was displaying "Block 23 · Week 1 of 4",
+ *   implying 92 weeks of training that had not happened; each change also
+ *   reset `started_on` to today and dragged the deload week along with it.
+ *
+ * A rebuild is also idempotent, because the generator is seeded on the block
+ * number: same answers in, same plan out.
  */
 export async function createBlockForUser(
   supabase: Client,
   userId: string,
-  options: { carryOver?: Record<string, string> } = {},
+  options: { carryOver?: Record<string, string>; mode?: "new" | "rebuild" } = {},
 ): Promise<BuildResult> {
-  const [profileRes, weightRes, equipmentRes, injuriesRes, catalogueRes, lastBlockRes] =
-    await Promise.all([
+  const [
+    profileRes,
+    weightRes,
+    equipmentRes,
+    injuriesRes,
+    catalogueRes,
+    lastBlockRes,
+    activeRes,
+  ] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", userId).single(),
       supabase
         .from("body_metrics")
@@ -63,7 +86,17 @@ export async function createBlockForUser(
         .order("block_number", { ascending: false })
         .limit(1)
         .maybeSingle(),
+      // The block being replaced, whose identity a rebuild keeps.
+      supabase
+        .from("programs")
+        .select("block_number, started_on")
+        .eq("status", "active")
+        .maybeSingle(),
     ]);
+
+  // A rebuild with no active block to rebuild is a first build, so it falls
+  // through to the new-block numbering below rather than failing.
+  const rebuildOf = options.mode === "rebuild" ? activeRes.data : null;
 
   const profile = profileRes.data;
   if (!profile) return { ok: false, error: profileRes.error?.message ?? "Profile not found" };
@@ -88,7 +121,7 @@ export async function createBlockForUser(
 
   const input: GeneratorInput = {
     userId,
-    blockNumber: (lastBlockRes.data?.block_number ?? 0) + 1,
+    blockNumber: rebuildOf?.block_number ?? (lastBlockRes.data?.block_number ?? 0) + 1,
     goal: profile.goal!,
     level: profile.level!,
     primaryTrack: profile.primary_track!,
@@ -127,7 +160,9 @@ export async function createBlockForUser(
     .eq("user_id", userId)
     .eq("status", "active");
 
-  const startedOn = localDateString(profile.timezone || "Asia/Kolkata");
+  // A rebuild keeps the block's start date, so the user stays in the week they
+  // were in and the deload week does not move.
+  const startedOn = rebuildOf?.started_on ?? localDateString(profile.timezone || "Asia/Kolkata");
   const endsOn = addDays(startedOn, 27); // four weeks inclusive
 
   const { data: program, error: programError } = await supabase

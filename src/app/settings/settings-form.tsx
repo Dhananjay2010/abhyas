@@ -305,6 +305,10 @@ export function SettingsForm({
                   {(["current", "past"] as InjurySeverity[]).map((sev) => (
                     <button
                       key={sev}
+                      // Every other toggle in this form has one. Without it a
+                      // screen reader cannot tell which of Current / Past is
+                      // selected, because the distinction is colour alone.
+                      aria-pressed={inj.severity === sev}
                       onClick={() => {
                         const next = s.injuries.map((i) =>
                           i.bodyRegion === inj.bodyRegion ? { ...i, severity: sev } : i,

@@ -136,6 +136,24 @@ Yoga days **count as training days** and are placed to avoid sitting next to the
 - At block end, main compound lifts **carry over** (that's where progress lives); roughly 30–40% of accessories rotate for variety.
 - Block number increments; history is never discarded.
 
+**Rolling over and rebuilding are different things** *(specified 2026-09-13)*:
+
+| | Block number | Start date | When |
+|---|---|---|---|
+| **Rollover** | increments | today | the four weeks have run out |
+| **Rebuild** | unchanged | unchanged | the user changed an answer the plan depends on |
+
+A rebuild is a **re-plan of the block you are in**, not a new one. Changing
+equipment in week 2 should give you exercises you can actually do, without
+claiming you have finished a block you are halfway through and without moving
+the deload week away from the week it was going to land on. Rebuilding is
+therefore idempotent: rebuild twice with the same answers and you get the same
+plan, because the generator is seeded on the block number and that number no
+longer moves.
+
+Because a rebuild is consequential — it discards the current exercise selection
+— every button that triggers one asks first.
+
 ### Progression — double progression
 - Stay at a weight until you hit the **top of the rep range on every set**, then add the smallest sensible increment.
 - Increments: isolation +1.25 kg · upper compound +2.5 kg · lower compound +5 kg
@@ -168,7 +186,7 @@ Screen-by-screen, timer-driven. One exercise on screen at a time — big text, t
 - Rest timer **auto-starts** when a set is logged; sound + vibration on completion
 - **Swap button** on every exercise → 2–3 alternatives hitting the same muscles with your available equipment (machine busy, or something hurts)
 - **Screen wake-lock** held for the whole session
-- **Resume** — if the phone locks or the app is closed mid-session, offer to pick up exactly where you left off. Controlled by a setting (`resume_session`), since not everyone wants it.
+- **Resume** — if the phone locks or the app is closed mid-session, offer to pick up exactly where you left off. Controlled by a setting (`resume_session`), since not everyone wants it. Leaving deliberately ("End session early") is the same case: the day keeps one session row, and starting again resumes it.
 - **Per-set logging** is a setting. On (default) = reps + weight per set. Off = tick the exercise as done.
 
 ### Timed exercises *(specified 2026-09-13)*
@@ -198,6 +216,13 @@ progression.
 
 ### End of session
 - Summary: duration, total volume, PRs hit
+
+**What counts as a PR** *(specified 2026-09-13)*: a best that was **beaten**,
+not a best that was set. The first time an exercise is performed there is
+nothing to beat, so the session that establishes a baseline claims no records.
+After that: a heavier working set, a longer hold, more reps on an unloaded
+movement, or a higher estimated one-rep max at the same weight. One line per
+exercise — the strongest framing of what improved, not every number that moved.
 - **"What about tomorrow?"** prompt: *keep the plan · swap the day · rest*. This is what makes the plan feel like yours.
 - If a day is missed, the same prompt appears on next open.
 
@@ -221,6 +246,20 @@ arithmetic honest.
 The same prompt appears on Today when the previous day was a training day with
 no completed session — the "day missed" case above — asking about *today*
 rather than tomorrow.
+
+### What Today shows *(specified 2026-09-13)*
+
+- **One session row per day.** Starting a workout, leaving it, and starting
+  again resumes the same session rather than opening a second one. A day that
+  was abandoned and then picked up again is one entry in History, not two, and
+  the sets logged before walking away are still there.
+- **After a session, Today lists what was actually trained** — the swaps that
+  were made and the exercises that were skipped — not the plan the day started
+  with. The plan is what you intended; History and Today both owe you what
+  happened.
+- **"Your week" reflects your choices.** A one-day override shows on the day it
+  applies to, marked as yours, so a decision made last night is visible this
+  morning instead of only taking effect silently.
 
 ---
 

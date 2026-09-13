@@ -14,10 +14,29 @@ const STUB: SessionActions = {
   markWarmupDone: ok,
   logSet: ok,
   deleteSet: ok,
-  finishExercise: async () => ({
-    ok: true as const,
-    data: { outcome: "progressed", message: "All sets at the top of the range — up to 62.5 kg." },
-  }),
+  /*
+    A PR on the first exercise and none on the rest, which is what the summary
+    has to cope with: a "Personal bests" section listing only the exercises that
+    beat something, and a progression note for every one of them.
+  */
+  finishExercise: (() => {
+    let n = 0;
+    return async () => ({
+      ok: true as const,
+      data:
+        n++ === 0
+          ? {
+              outcome: "progressed",
+              message: "All sets at the top of the range — up to 62.5 kg.",
+              personalBest: "Heaviest set yet — 60 kg",
+            }
+          : {
+              outcome: "hold",
+              message: "Staying here until every set reaches the top of the range.",
+              personalBest: null,
+            },
+    });
+  })(),
   finishSession: ok,
   abandonSession: ok,
   refreshAfterSession: ok,

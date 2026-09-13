@@ -133,3 +133,4 @@ for a harder variation.
 
 - Initial engine, wiring, deload application and 30 tests.
 - **2026-09-13.** Double progression on time for timed exercises: +5s a step, a harder variation at 120s or a prompt to add weight where there is no chain, and no estimated one-rep max from a hold. See [18](18-timed-exercises-and-tomorrow.md).
+- **2026-09-13.** `Decision` reports a `personalBest` — a best that was **beaten**, never one merely set, so a first session claims no record. Longest hold for timed work, most reps for unloaded work, heaviest set or best estimated 1RM for loaded work. The deload message no longer tells someone with no weights that their weights are held. See [19](19-qa-pass-2-remainder.md).
