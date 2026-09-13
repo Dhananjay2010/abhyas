@@ -68,10 +68,18 @@ export default async function TodayPage() {
     programRes.data,
   );
 
-  // Monday of the user's current week, and the day before today. Both are pure
-  // arithmetic on the local date, so they are available before any query.
+  /*
+    The days "Your week" can be about, plus yesterday.
+
+    Deliberately the seven days STARTING today rather than Monday to Sunday of
+    the calendar week. "Your week" is a weekday template, and mapping it onto
+    the calendar week meant that on a Sunday every row was a day that had
+    already happened and tomorrow -- the one day a choice had just been made
+    about -- fell outside the window entirely. Each weekday row now means its
+    next occurrence, which is today for today.
+  */
   const yesterday = addDays(localToday, -1);
-  const weekStart = addDays(localToday, -(isoWeekday(localToday) - 1));
+  const weekAheadEnd = addDays(localToday, 6);
 
   // A rollover replaced the active block, so the row read above is stale.
   // This happens on one day in twenty-eight.
@@ -127,20 +135,19 @@ export default async function TodayPage() {
     // day nobody finished. One extra date in an `in` filter is free; a second
     // query would not be.
     /*
-      The whole of this week, plus yesterday -- which is in LAST week when today
-      is a Monday. One range filter rather than a list of dates, and the same
-      single round trip either way.
+      Yesterday through to a week today. One range filter rather than a list of
+      dates, and the same single round trip either way.
 
-      The week is needed because "Your week" used to render the block's template
-      labels only, so a choice made last night about today or tomorrow was
-      invisible there: the user picked Rest for tomorrow and the week still
+      The week ahead is needed because "Your week" used to render the block's
+      template labels only, so a choice made last night about today or tomorrow
+      was invisible there: the user picked Rest for tomorrow and the week still
       said Push.
     */
     supabase
       .from("sessions")
       .select("id, status, actual_type, local_date, program_day_id, started_at")
-      .gte("local_date", weekStart < yesterday ? weekStart : yesterday)
-      .lte("local_date", addDays(weekStart, 6)),
+      .gte("local_date", yesterday)
+      .lte("local_date", weekAheadEnd),
   ]);
 
   const days = daysRes.data;
@@ -200,11 +207,17 @@ export default async function TodayPage() {
     A day merely planned through "what about tomorrow?" has no session exercises
     of its own yet, so it keeps the template.
   */
-  const performed = todaySessions.find(
-    (s) =>
-      isStrength(s.actual_type) &&
-      (s.status === "completed" || s.started_at !== null),
+  const strengthToday = todaySessions.filter(
+    (s) => isStrength(s.actual_type) && (s.status === "completed" || s.started_at !== null),
   );
+  /*
+    The completed one first. A day can carry several strength rows -- data from
+    before a restart reused the abandoned row, or a session abandoned and then
+    done properly afterwards -- and taking whichever came back first put an
+    ABANDONED session's exercises under "Session complete. Well done."
+  */
+  const performed =
+    strengthToday.find((s) => s.status === "completed") ?? strengthToday[0];
 
   /*
     Yesterday was a training day and nothing was completed on it. SPEC section 7
@@ -319,20 +332,22 @@ export default async function TodayPage() {
     recorded -- "keep the plan" writes no row, and a swap that happens to match
     the template is not news.
   */
-  const weekEnd = addDays(weekStart, 6);
   const chosenByDayIndex = new Map<number, string>();
-  for (const sess of allSessions) {
-    if (sess.status !== "planned" && sess.status !== "in_progress") continue;
-    if (!sess.actual_type) continue;
-    if (sess.local_date < weekStart || sess.local_date > weekEnd) continue;
-    const idx = isoWeekday(sess.local_date);
+  for (const d of days ?? []) {
+    // The next time this weekday comes round, which is today for today.
+    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
+    const sess = allSessions.find(
+      (x) =>
+        x.local_date === date &&
+        (x.status === "planned" || x.status === "in_progress") &&
+        x.actual_type !== null,
+    );
+    if (!sess?.actual_type) continue;
     const chosenDay = sess.program_day_id
-      ? days?.find((d) => d.id === sess.program_day_id)
+      ? days?.find((pd) => pd.id === sess.program_day_id)
       : undefined;
     const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
-    if (label !== days?.find((d) => d.day_index === idx)?.label) {
-      chosenByDayIndex.set(idx, label);
-    }
+    if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
   }
 
   return (
