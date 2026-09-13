@@ -10,6 +10,7 @@ import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
+import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,11 @@ export default async function TodayPage() {
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
   const [profileRes, programRes, equipmentRes, openRes] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    // `maybeSingle`, not `single`: a missing row is a state to handle, not an
+    // exception. With `single` PostgREST answers "Cannot coerce the result to a
+    // single JSON object", which threw during the server render and reached the
+    // user as a blank page reading "Minified React error #441".
+    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase
       .from("programs")
       .select("id, block_number, split_type, started_on, ends_on, deload_week")
@@ -45,8 +50,43 @@ export default async function TodayPage() {
       .limit(20),
   ]);
 
-  const profile = profileRes.data;
-  if (!profile) throw new Error(profileRes.error?.message ?? "Profile not found");
+  /*
+    A signed-in user with no profile row. This should be impossible -- the
+    signup trigger creates it -- and for three days it was the norm, because
+    that trigger was lost when the database moved region. Rather than throw,
+    create the row and carry on: the user is signed in, we know who they are,
+    and the next thing that happens is onboarding asking them everything anyway.
+  */
+  let profile = profileRes.data;
+  if (!profile) {
+    await ensureProfileRows(supabase, user);
+    const { data: healed } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+    profile = healed;
+  }
+  if (!profile) {
+    // Still nothing: the insert was refused. Say so on the screen rather than
+    // throwing, because a server render that throws shows a blank page in
+    // production and the person who can see it has no way to tell us what it
+    // said.
+    return (
+      <main className="mx-auto w-full max-w-md px-6 py-12">
+        <h1 className="text-2xl font-bold tracking-tight">We could not set up your account</h1>
+        <p className="mt-3 text-muted">
+          You are signed in, but your profile could not be created. This is our
+          problem, not yours.
+        </p>
+        <form action="/auth/signout" method="post" className="mt-8">
+          <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
+            Sign out and try again
+          </button>
+        </form>
+      </main>
+    );
+  }
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
   const timezone = profile.timezone || "Asia/Kolkata";

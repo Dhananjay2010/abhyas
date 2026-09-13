@@ -370,6 +370,33 @@ Media lives in a **separate `exercise_media` table** keyed to the exercise, carr
 
 ## 12. Database schema (Supabase Postgres)
 
+### Every signed-in user has a `profiles` and a `user_settings` row
+
+*(specified 2026-09-13, after a new signup could not use the app at all.)*
+
+Roughly thirty queries across the app read `profiles` with `.single()` and treat
+a missing row as impossible. That assumption is fine; what is not fine is
+resting it on a single trigger in a schema the platform owns.
+
+**Two mechanisms, deliberately:**
+
+1. `on_auth_user_created` on `auth.users` creates both rows at signup. This is
+   the primary, and it covers users created by any route, including the Supabase
+   dashboard.
+2. **The auth callback creates them too**, immediately after a successful code
+   exchange. Redundant on a healthy database and the only thing standing between
+   a new user and a blank screen when mechanism 1 is missing.
+
+Mechanism 2 exists because mechanism 1 was silently lost. Moving the database to
+Mumbai (§14 of the context notes) restored the `public` schema from a dump —
+which carried `handle_new_user()`, a public function — while Supabase rebuilt
+the `auth` schema from its own baseline, taking the trigger *on `auth.users`*
+with it. The function survived; the wiring did not. Nothing detected it because
+the only account in the database already had its rows.
+
+Anything the app installs into the `auth` schema should be treated as
+**erasable by the platform**, and backed by something in our own code.
+
 ### User tables — all RLS-protected, `auth.uid() = user_id`
 
 **`profiles`** — `id` (FK auth.users), display_name, date_of_birth, sex, height_cm, level, goal, units, timezone (default `Asia/Kolkata`), days_per_week, yoga_days_per_week, preferred_session_minutes, has_all_equipment, onboarding_completed_at, disclaimer_accepted_at
