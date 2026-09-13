@@ -207,7 +207,7 @@ Not fixed: this is a data-curation pass over 604 rows, not a code change.
 
 ## Medium
 
-### M1 — Isometric exercises are prescribed and logged in reps
+### M1 — Isometric exercises are prescribed and logged in reps  *(fixed)*
 
 Today's plan contained **Plank — 2 sets × 8–12 reps**, with a Reps field, a
 Weight (kg) field and the prompt "Enter the reps you did." There is no way to
@@ -219,9 +219,13 @@ rest, and nothing else. At least sixteen catalogue entries are holds or carries
 by name (Plank, Side Bridge, Isometric Chest Squeezes, Isometric Wipers, the
 neck isometrics, the glute bridges), and every one of them gets a rep target.
 
-Needs a `metric` column (`reps` | `seconds`) on `exercises`, a seconds input in
-the runner, and `session_sets` to carry duration. Not a small change, so not
-attempted here.
+**Fixed.** `exercises.metric` (`reps` | `seconds`) now says which unit an
+exercise is measured in, curated per row rather than guessed from the name. A
+hold is prescribed as a time range by goal, run as an on-screen countdown that
+beeps and vibrates like the rest timer, and logged in
+`session_sets.duration_seconds`. Progression became double progression on time,
++5 s a step, moving to a harder variation at 120 s. See
+[context/18](context/18-timed-exercises-and-tomorrow.md).
 
 ### M2 — The warm-up ignored the equipment list  *(fixed)*
 
@@ -277,7 +281,7 @@ Your pre-reset History had exactly this: **four identical "Push · Thu 10 Sept �
 Skipped" rows**, which is what led me to the code path. I could not re-trigger
 it after the reset because a completed session for today blocks a restart.
 
-### M5 — The session summary is missing what the spec promises
+### M5 — The session summary is missing what the spec promises  *(partly fixed)*
 
 SPEC §7 says the summary shows "duration, total volume, PRs hit". It shows
 Time, Sets logged, Exercises, and Total volume **only when volume > 0** (so a
@@ -285,11 +289,17 @@ bodyweight session correctly hides it — that part is right). **PRs are not
 shown at all**, even though `exercise_progress.best_weight_kg` and `best_e1rm`
 are maintained on every set.
 
-The **"What about tomorrow?" prompt is absent entirely** — *keep the plan ·
+The **"What about tomorrow?" prompt was absent entirely** — *keep the plan ·
 swap the day · rest*, which SPEC §7 calls "what makes the plan feel like
 yours", along with its "if a day is missed, the same prompt appears on next
-open". Searching the whole app for it finds hits only inside Breathe. The
-session ends at "Back to Today".
+open". Searching the whole app for it found hits only inside Breathe, and the
+session ended at "Back to Today".
+
+**Fixed.** Both now exist: the prompt closes every session, and Today asks the
+same question about today when yesterday was a training day nobody finished. A
+choice is a one-day override that Today honours; nothing about the block
+shifts. **PRs in the summary are still missing** — that part of M5 stands. See
+[context/18](context/18-timed-exercises-and-tomorrow.md).
 
 ### M6 — Rest days offer nothing, and cannot be overridden
 
@@ -376,6 +386,12 @@ re-plan of the current block, not a new one.
 - **Injury severity toggles have no `aria-pressed`** — every other toggle in
   `settings-form.tsx` has one. The Current/Past pair is styled-only, so a
   screen reader cannot tell which is selected.
+- **The weight field leaked between exercises** *(fixed)* — `SetEntry` was
+  keyed on the set number alone, so moving from one exercise to the next at the
+  same set number reused the component and kept its state: the 60 kg typed for
+  the bench press was still in the box on the lat pulldown, one tap from being
+  logged against it and fed to progression. Found while verifying the new hold
+  UI, where a stale weight appeared on a plank.
 - **Undoing a set leaves the rest timer running** — arguably it should stop,
   since the set it was resting from no longer exists. (The panel no longer
   freezes after H1, but it does keep counting.)
