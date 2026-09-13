@@ -254,3 +254,25 @@ The new range has to reach the runner without a refetch (it is mid-session), so
 three. Verified in `/dev/session`, whose alternatives now include a hold for
 exactly this: swapping a bench press at 4 × 8–12 reps for a Weighted Plank gives
 **4 sets × 20–40s** and a **"Hold for 40s"** button.
+
+### Verified on production
+
+Migration applied, then deployed. The backfill separated the two metrics on the
+one row where they genuinely differ:
+
+```
+session=reps  catalogue=seconds  Plank
+session=reps  catalogue=reps     Bodyweight Squat, Flutter Kicks, ...
+```
+
+Today's list changed from `Plank 2 × 8–12s` to `Plank 2 × 8–12`, which is what
+that session was actually prescribed as, and History detail still reads
+`Set 1 · 10 reps` for it.
+
+**The write path is not yet exercised on production.** Stamping happens when a
+session is built, and the account's day already carries a completed session, so
+the first real test is the next session start. The read path and the backfill
+are confirmed; the embed the write depends on
+(`exercises!program_day_exercises_exercise_id_fkey(metric)`) names the only
+foreign key between those two tables, and Today already resolves the same
+relationship as a nested embed, so the risk is low rather than zero.
