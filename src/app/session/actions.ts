@@ -4,7 +4,7 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
-import { isEligible, type CandidateExercise } from "@/lib/program/generate";
+import { isEligible, score, type CandidateExercise } from "@/lib/program/generate";
 import {
   evaluateProgression,
   type ExerciseMeta,
@@ -471,13 +471,16 @@ export async function findAlternatives(
 
   const { data: current } = await supabase
     .from("session_exercises")
-    .select("session_id, exercise_id, exercises!session_exercises_exercise_id_fkey(movement_pattern)")
+    .select("session_id, exercise_id, exercises!session_exercises_exercise_id_fkey(movement_pattern, mechanic)")
     .eq("id", sessionExerciseId)
     .maybeSingle();
   if (!current) return { ok: false, error: "Exercise not found" };
 
-  const pattern = (current.exercises as unknown as { movement_pattern: MovementPattern })
-    ?.movement_pattern;
+  const replacing = current.exercises as unknown as {
+    movement_pattern: MovementPattern;
+    mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
+  } | null;
+  const pattern = replacing?.movement_pattern;
   if (!pattern) return { ok: false, error: "This exercise has no movement pattern" };
 
   const [profileRes, weightRes, equipmentRes, injuriesRes, siblingsRes, poolRes] =
@@ -526,11 +529,28 @@ export async function findAlternatives(
     catalogue: [] as CandidateExercise[],
   };
 
+  /*
+    Ranked, not simply the first six rows the database happened to return.
+
+    This used to `.slice(0, 6)` an unordered query, so the same handful came
+    back every time — and because that order is effectively the order the
+    catalogue was seeded in, it was alphabetical: a core slot with 57 eligible
+    exercises offered the same six names beginning with A and B, and nothing
+    else in the catalogue was reachable from the swap list at all.
+
+    Ranking by the generator's own `score`, with the mechanic of the exercise
+    being replaced, means a swap offers what the planner itself would have
+    considered for that slot: a compound for a compound, and the simplest setup
+    that does the job. `slug` breaks ties so the list is stable between taps.
+  */
+  const wantCompound = replacing?.mechanic !== "isolation";
   const alternatives = ((poolRes.data ?? []) as unknown as CandidateExercise[])
     .filter((e) => !alreadyInSession.has(e.id))
     .filter((e) => isEligible(e, { ...input, catalogue: [] }))
+    .map((e) => ({ e, k: score(e, wantCompound, input.level) }))
+    .sort((a, b) => b.k - a.k || a.e.slug.localeCompare(b.e.slug))
     .slice(0, 6)
-    .map((e) => ({
+    .map(({ e }) => ({
       exerciseId: e.id,
       name: e.name,
       cue: (e as unknown as { cue: string | null }).cue ?? null,
