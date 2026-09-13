@@ -281,7 +281,13 @@ Your pre-reset History had exactly this: **four identical "Push · Thu 10 Sept �
 Skipped" rows**, which is what led me to the code path. I could not re-trigger
 it after the reset because a completed session for today blocks a restart.
 
-**Fixed.** `startSession` now reuses an abandoned strength session for today
+**Fixed and verified on production.** With four abandoned rows on one date,
+pressing "Start session" left the count at four and flipped the newest from
+`skipped` to `in_progress`, restamping `started_at` from 06:30 to 10:42 — and
+brought back the three sets logged in it. Before the fix that tap made a fifth
+row.
+
+`startSession` now reuses an abandoned strength session for today
 instead of inserting a second row, so the day keeps one entry and the sets
 logged before walking away come back with it. The session clock is restamped on
 a deliberate restart — carrying the original stamp across a quit at 7am and a
