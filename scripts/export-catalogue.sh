@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 supabase db query --linked "
 select json_agg(row_to_json(t))::text as catalogue from (
-  select id, slug, name, movement_pattern, mechanic, primary_muscles, equipment_ids,
+  select id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids,
          level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds
   from exercises where is_active order by slug) t;" \
 | python3 -c "

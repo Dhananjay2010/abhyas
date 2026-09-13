@@ -5,6 +5,7 @@
 "name": "3/4 Sit-Up",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -27,6 +28,7 @@
 "name": "Ab Crunch Machine",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -48,6 +50,7 @@
 "name": "Advanced Kettlebell Windmill",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -70,6 +73,7 @@
 "name": "Air Bike",
 "movement_pattern": "cardio",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -90,6 +94,7 @@
 "name": "Alternate Hammer Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -114,6 +119,7 @@
 "name": "Alternate Heel Touchers",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -134,6 +140,7 @@
 "name": "Alternate Incline Dumbbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -159,6 +166,7 @@
 "name": "Alternating Cable Shoulder Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -183,6 +191,7 @@
 "name": "Alternating Deltoid Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -206,6 +215,7 @@
 "name": "Alternating Floor Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -228,6 +238,7 @@
 "name": "Alternating Hang Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -253,6 +264,7 @@
 "name": "Alternating Kettlebell Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -276,6 +288,7 @@
 "name": "Alternating Kettlebell Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -298,6 +311,7 @@
 "name": "Alternating Renegade Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -320,6 +334,7 @@
 "name": "Anti-Gravity Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -342,6 +357,7 @@
 "name": "Arnold Dumbbell Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -365,6 +381,7 @@
 "name": "Around The Worlds",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -387,6 +404,7 @@
 "name": "Back Flyes - With Bands",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -412,6 +430,7 @@
 "name": "Backward Medicine Ball Throw",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -435,6 +454,7 @@
 "name": "Ball Leg Curl",
 "movement_pattern": "hinge",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -457,6 +477,7 @@
 "name": "Band Good Morning",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -481,6 +502,7 @@
 "name": "Band Good Morning (Pull Through)",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -505,6 +527,7 @@
 "name": "Band Hip Adductions",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "adductors"
 ],
@@ -529,6 +552,7 @@
 "name": "Band Pull Apart",
 "movement_pattern": "rear_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -551,6 +575,7 @@
 "name": "Band Skull Crusher",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -575,6 +600,7 @@
 "name": "Barbell Ab Rollout",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -596,6 +622,7 @@
 "name": "Barbell Ab Rollout - On Knees",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -617,6 +644,7 @@
 "name": "Barbell Bench Press - Medium Grip",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -641,6 +669,7 @@
 "name": "Barbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -664,6 +693,7 @@
 "name": "Barbell Curls Lying Against An Incline",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -689,6 +719,7 @@
 "name": "Barbell Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -712,6 +743,7 @@
 "name": "Barbell Full Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -736,6 +768,7 @@
 "name": "Barbell Glute Bridge",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -757,6 +790,7 @@
 "name": "Barbell Guillotine Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -781,6 +815,7 @@
 "name": "Barbell Hack Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -805,6 +840,7 @@
 "name": "Barbell Hip Thrust",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -828,6 +864,7 @@
 "name": "Barbell Incline Bench Press - Medium Grip",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -853,6 +890,7 @@
 "name": "Barbell Incline Shoulder Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -876,6 +914,7 @@
 "name": "Barbell Lunge",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -900,6 +939,7 @@
 "name": "Barbell Rear Delt Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -921,6 +961,7 @@
 "name": "Barbell Rollout from Bench",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -943,6 +984,7 @@
 "name": "Barbell Seated Calf Raise",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -966,6 +1008,7 @@
 "name": "Barbell Shoulder Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -990,6 +1033,7 @@
 "name": "Barbell Shrug",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -1013,6 +1057,7 @@
 "name": "Barbell Shrug Behind The Back",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -1036,6 +1081,7 @@
 "name": "Barbell Side Bend",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -1057,6 +1103,7 @@
 "name": "Barbell Side Split Squat",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1082,6 +1129,7 @@
 "name": "Barbell Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1106,6 +1154,7 @@
 "name": "Barbell Squat To A Bench",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1129,8 +1178,9 @@
 "id": "7ea71b6a-0408-47bc-956e-1a9403e082b0",
 "slug": "barbell-step-ups",
 "name": "Barbell Step Ups",
-"movement_pattern": "squat",
+"movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1138,9 +1188,11 @@
 "barbell"
 ],
 "level_min": "intermediate",
-"contraindicated_regions": [],
+"contraindicated_regions": [
+"knee"
+],
 "impact": "low",
-"spinal_load": "high",
+"spinal_load": "low",
 "tracks": [
 "weights"
 ],
@@ -1152,6 +1204,7 @@
 "name": "Barbell Walking Lunge",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1176,6 +1229,7 @@
 "name": "Bench Dips",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -1202,6 +1256,7 @@
 "name": "Bench Jump",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1227,6 +1282,7 @@
 "name": "Bench Press - Powerlifting",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -1251,6 +1307,7 @@
 "name": "Bench Press - With Bands",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -1276,6 +1333,7 @@
 "name": "Bench Press with Chains",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -1300,6 +1358,7 @@
 "name": "Bent-Arm Barbell Pullover",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -1321,6 +1380,7 @@
 "name": "Bent-Arm Dumbbell Pullover",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -1343,6 +1403,7 @@
 "name": "Bent-Knee Hip Raise",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -1363,6 +1424,7 @@
 "name": "Bent Over Barbell Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -1386,6 +1448,7 @@
 "name": "Bent Over Dumbbell Rear Delt Raise With Head On Bench",
 "movement_pattern": "rear_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -1394,7 +1457,9 @@
 "flat_bench"
 ],
 "level_min": "beginner",
-"contraindicated_regions": [],
+"contraindicated_regions": [
+"lower_back"
+],
 "impact": "low",
 "spinal_load": "none",
 "tracks": [
@@ -1409,6 +1474,7 @@
 "name": "Bent Over Low-Pulley Side Lateral",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -1416,7 +1482,9 @@
 "cable_machine"
 ],
 "level_min": "beginner",
-"contraindicated_regions": [],
+"contraindicated_regions": [
+"lower_back"
+],
 "impact": "low",
 "spinal_load": "none",
 "tracks": [
@@ -1430,6 +1498,7 @@
 "name": "Bent Over One-Arm Long Bar Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -1437,7 +1506,9 @@
 "barbell"
 ],
 "level_min": "beginner",
-"contraindicated_regions": [],
+"contraindicated_regions": [
+"lower_back"
+],
 "impact": "low",
 "spinal_load": "low",
 "tracks": [
@@ -1451,6 +1522,7 @@
 "name": "Bent Over Two-Arm Long Bar Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -1458,7 +1530,9 @@
 "barbell"
 ],
 "level_min": "intermediate",
-"contraindicated_regions": [],
+"contraindicated_regions": [
+"lower_back"
+],
 "impact": "low",
 "spinal_load": "low",
 "tracks": [
@@ -1472,6 +1546,7 @@
 "name": "Bent Over Two-Dumbbell Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -1479,7 +1554,9 @@
 "dumbbell"
 ],
 "level_min": "beginner",
-"contraindicated_regions": [],
+"contraindicated_regions": [
+"lower_back"
+],
 "impact": "low",
 "spinal_load": "none",
 "tracks": [
@@ -1494,6 +1571,7 @@
 "name": "Bent Over Two-Dumbbell Row With Palms In",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -1501,7 +1579,9 @@
 "dumbbell"
 ],
 "level_min": "beginner",
-"contraindicated_regions": [],
+"contraindicated_regions": [
+"lower_back"
+],
 "impact": "low",
 "spinal_load": "none",
 "tracks": [
@@ -1516,6 +1596,7 @@
 "name": "Bent Press",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -1538,6 +1619,7 @@
 "name": "Bicycling, Stationary",
 "movement_pattern": "cardio",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1559,6 +1641,7 @@
 "name": "Board Press",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -1580,6 +1663,7 @@
 "name": "Body Tricep Press",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -1600,6 +1684,7 @@
 "name": "Body-Up",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -1620,6 +1705,7 @@
 "name": "Bodyweight Flyes",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -1643,6 +1729,7 @@
 "name": "Bodyweight Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1665,6 +1752,7 @@
 "name": "Bosu Ball Cable Crunch With Side Bends",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -1686,6 +1774,7 @@
 "name": "Bottoms Up",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -1706,6 +1795,7 @@
 "name": "Bottoms-Up Clean From The Hang Position",
 "movement_pattern": "forearm",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -1731,6 +1821,7 @@
 "name": "Box Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1755,6 +1846,7 @@
 "name": "Box Squat with Bands",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1779,6 +1871,7 @@
 "name": "Box Squat with Chains",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1803,6 +1896,7 @@
 "name": "Bradford/Rocky Presses",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -1825,6 +1919,7 @@
 "name": "Butt Lift (Bridge)",
 "movement_pattern": "hinge",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -1845,6 +1940,7 @@
 "name": "Butt-Ups",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -1865,6 +1961,7 @@
 "name": "Butterfly",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -1886,6 +1983,7 @@
 "name": "Cable Chest Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -1907,6 +2005,7 @@
 "name": "Cable Crossover",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -1928,6 +2027,7 @@
 "name": "Cable Crunch",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -1949,6 +2049,7 @@
 "name": "Cable Deadlifts",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -1972,6 +2073,7 @@
 "name": "Cable Hammer Curls - Rope Attachment",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -1995,6 +2097,7 @@
 "name": "Cable Hip Adduction",
 "movement_pattern": "squat",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -2018,6 +2121,7 @@
 "name": "Cable Incline Pushdown",
 "movement_pattern": "vertical_pull",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -2042,6 +2146,7 @@
 "name": "Cable Incline Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -2066,6 +2171,7 @@
 "name": "Cable Internal Rotation",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -2088,6 +2194,7 @@
 "name": "Cable Iron Cross",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -2109,6 +2216,7 @@
 "name": "Cable Judo Flip",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -2130,6 +2238,7 @@
 "name": "Cable Lying Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -2154,6 +2263,7 @@
 "name": "Cable One Arm Tricep Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -2177,6 +2287,7 @@
 "name": "Cable Preacher Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -2200,6 +2311,7 @@
 "name": "Cable Rear Delt Fly",
 "movement_pattern": "rear_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -2223,6 +2335,7 @@
 "name": "Cable Reverse Crunch",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -2244,6 +2357,7 @@
 "name": "Cable Rope Overhead Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -2267,6 +2381,7 @@
 "name": "Cable Rope Rear-Delt Rows",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -2289,6 +2404,7 @@
 "name": "Cable Russian Twists",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -2310,6 +2426,7 @@
 "name": "Cable Seated Crunch",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -2331,6 +2448,7 @@
 "name": "Cable Seated Lateral Raise",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -2354,6 +2472,7 @@
 "name": "Cable Shoulder Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -2378,6 +2497,7 @@
 "name": "Cable Shrugs",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -2401,6 +2521,7 @@
 "name": "Cable Wrist Curl",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -2425,6 +2546,7 @@
 "name": "Calf-Machine Shoulder Shrug",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -2448,6 +2570,7 @@
 "name": "Calf Press",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -2469,6 +2592,7 @@
 "name": "Calf Press On The Leg Press Machine",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -2492,6 +2616,7 @@
 "name": "Calf Raise On A Dumbbell",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -2516,6 +2641,7 @@
 "name": "Calf Raises - With Bands",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -2540,6 +2666,7 @@
 "name": "Car Drivers",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -2562,6 +2689,7 @@
 "name": "Catch and Overhead Throw",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -2584,6 +2712,7 @@
 "name": "Chair Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -2607,6 +2736,7 @@
 "name": "Chest Push from 3 point stance",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -2629,6 +2759,7 @@
 "name": "Chest Push (multiple response)",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -2651,6 +2782,7 @@
 "name": "Chest Push (single response)",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -2673,6 +2805,7 @@
 "name": "Chest Push with Run Release",
 "movement_pattern": "cardio",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -2695,6 +2828,7 @@
 "name": "Chin-Up",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -2719,6 +2853,7 @@
 "name": "Clean and Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -2744,6 +2879,7 @@
 "name": "Clock Push-Up",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -2766,6 +2902,7 @@
 "name": "Close-Grip Barbell Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -2791,6 +2928,7 @@
 "name": "Close-Grip Dumbbell Press",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -2815,6 +2953,7 @@
 "name": "Close-Grip EZ Bar Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -2838,6 +2977,7 @@
 "name": "Close-Grip EZ-Bar Curl with Band",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -2861,6 +3001,7 @@
 "name": "Close-Grip EZ-Bar Press",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -2884,6 +3025,7 @@
 "name": "Close-Grip Front Lat Pulldown",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -2907,6 +3049,7 @@
 "name": "Close-Grip Push-Up off of a Dumbbell",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -2930,6 +3073,7 @@
 "name": "Close-Grip Standing Barbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -2953,6 +3097,7 @@
 "name": "Cocoons",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -2973,6 +3118,7 @@
 "name": "Concentration Curls",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -2997,6 +3143,7 @@
 "name": "Cross-Body Crunch",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -3017,6 +3164,7 @@
 "name": "Cross Body Hammer Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -3041,6 +3189,7 @@
 "name": "Cross Over - With Bands",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -3063,6 +3212,7 @@
 "name": "Crunch - Hands Overhead",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -3083,6 +3233,7 @@
 "name": "Crunch - Legs On Exercise Ball",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -3103,6 +3254,7 @@
 "name": "Crunches",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -3123,6 +3275,7 @@
 "name": "Cuban Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -3146,6 +3299,7 @@
 "name": "Dead Bug",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -3166,6 +3320,7 @@
 "name": "Deadlift with Bands",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -3189,6 +3344,7 @@
 "name": "Deadlift with Chains",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -3212,6 +3368,7 @@
 "name": "Decline Barbell Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -3237,6 +3394,7 @@
 "name": "Decline Close-Grip Bench To Skull Crusher",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -3262,6 +3420,7 @@
 "name": "Decline Crunch",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -3284,6 +3443,7 @@
 "name": "Decline Dumbbell Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -3310,6 +3470,7 @@
 "name": "Decline Dumbbell Flyes",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -3335,6 +3496,7 @@
 "name": "Decline Dumbbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -3360,6 +3522,7 @@
 "name": "Decline EZ Bar Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -3384,6 +3547,7 @@
 "name": "Decline Oblique Crunch",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -3406,6 +3570,7 @@
 "name": "Decline Reverse Crunch",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -3428,6 +3593,7 @@
 "name": "Decline Smith Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -3450,6 +3616,7 @@
 "name": "Deficit Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -3473,6 +3640,7 @@
 "name": "Dip Machine",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -3498,6 +3666,7 @@
 "name": "Dips - Triceps Version",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -3523,6 +3692,7 @@
 "name": "Double Kettlebell Alternating Hang Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -3548,6 +3718,7 @@
 "name": "Double Kettlebell Jerk",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -3571,6 +3742,7 @@
 "name": "Double Kettlebell Push Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -3594,6 +3766,7 @@
 "name": "Double Kettlebell Snatch",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -3621,6 +3794,7 @@
 "name": "Double Kettlebell Windmill",
 "movement_pattern": "core",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -3643,6 +3817,7 @@
 "name": "Double Leg Butt Kick",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -3663,6 +3838,7 @@
 "name": "Downward Facing Balance",
 "movement_pattern": "hinge",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -3685,6 +3861,7 @@
 "name": "Drag Curl",
 "movement_pattern": "biceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -3708,6 +3885,7 @@
 "name": "Dumbbell Alternate Bicep Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -3732,6 +3910,7 @@
 "name": "Dumbbell Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -3757,6 +3936,7 @@
 "name": "Dumbbell Bench Press with Neutral Grip",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -3782,6 +3962,7 @@
 "name": "Dumbbell Bicep Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -3806,6 +3987,7 @@
 "name": "Dumbbell Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -3831,6 +4013,7 @@
 "name": "Dumbbell Floor Press",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -3853,6 +4036,7 @@
 "name": "Dumbbell Flyes",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -3877,6 +4061,7 @@
 "name": "Dumbbell Incline Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -3900,6 +4085,7 @@
 "name": "Dumbbell Incline Shoulder Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -3924,6 +4110,7 @@
 "name": "Dumbbell Lunges",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -3949,6 +4136,7 @@
 "name": "Dumbbell Lying One-Arm Rear Lateral Raise",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -3974,6 +4162,7 @@
 "name": "Dumbbell Lying Pronation",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -3997,6 +4186,7 @@
 "name": "Dumbbell Lying Rear Lateral Raise",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -4022,6 +4212,7 @@
 "name": "Dumbbell Lying Supination",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -4045,6 +4236,7 @@
 "name": "Dumbbell One-Arm Shoulder Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -4070,6 +4262,7 @@
 "name": "Dumbbell One-Arm Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -4094,6 +4287,7 @@
 "name": "Dumbbell One-Arm Upright Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "side_delts",
 "traps"
@@ -4119,6 +4313,7 @@
 "name": "Dumbbell Prone Incline Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -4144,6 +4339,7 @@
 "name": "Dumbbell Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -4167,6 +4363,7 @@
 "name": "Dumbbell Rear Lunge",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4192,6 +4389,7 @@
 "name": "Dumbbell Scaption",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -4215,6 +4413,7 @@
 "name": "Dumbbell Seated Box Jump",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4240,6 +4439,7 @@
 "name": "Dumbbell Seated One-Leg Calf Raise",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -4264,6 +4464,7 @@
 "name": "Dumbbell Shoulder Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -4289,6 +4490,7 @@
 "name": "Dumbbell Shrug",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -4313,6 +4515,7 @@
 "name": "Dumbbell Side Bend",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -4335,6 +4538,7 @@
 "name": "Dumbbell Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4359,6 +4563,7 @@
 "name": "Dumbbell Squat To A Bench",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4382,8 +4587,9 @@
 "id": "2bea6fe9-c630-479c-b8e1-ebed1a39722a",
 "slug": "dumbbell-step-ups",
 "name": "Dumbbell Step Ups",
-"movement_pattern": "squat",
+"movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4391,9 +4597,11 @@
 "dumbbell"
 ],
 "level_min": "intermediate",
-"contraindicated_regions": [],
+"contraindicated_regions": [
+"knee"
+],
 "impact": "low",
-"spinal_load": "none",
+"spinal_load": "low",
 "tracks": [
 "weights",
 "bodyweight"
@@ -4406,6 +4614,7 @@
 "name": "Dumbbell Tricep Extension -Pronated Grip",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -4430,6 +4639,7 @@
 "name": "Elbow to Knee",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -4450,6 +4660,7 @@
 "name": "Elevated Back Lunge",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4474,6 +4685,7 @@
 "name": "Elevated Cable Rows",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -4495,6 +4707,7 @@
 "name": "Elliptical Trainer",
 "movement_pattern": "cardio",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4516,6 +4729,7 @@
 "name": "Exercise Ball Crunch",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -4538,6 +4752,7 @@
 "name": "Exercise Ball Pull-In",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -4560,6 +4775,7 @@
 "name": "Extended Range One-Arm Kettlebell Floor Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -4582,6 +4798,7 @@
 "name": "External Rotation",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -4605,6 +4822,7 @@
 "name": "External Rotation with Band",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -4628,6 +4846,7 @@
 "name": "External Rotation with Cable",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -4650,6 +4869,7 @@
 "name": "EZ-Bar Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -4673,6 +4893,7 @@
 "name": "EZ-Bar Skullcrusher",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -4696,6 +4917,7 @@
 "name": "Face Pull",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -4717,6 +4939,7 @@
 "name": "Fast Skipping",
 "movement_pattern": "cardio",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4741,6 +4964,7 @@
 "name": "Finger Curls",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -4764,6 +4988,7 @@
 "name": "Flat Bench Cable Flyes",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -4788,6 +5013,7 @@
 "name": "Flat Bench Leg Pull-In",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -4810,6 +5036,7 @@
 "name": "Flat Bench Lying Leg Raise",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -4832,6 +5059,7 @@
 "name": "Flexor Incline Dumbbell Curls",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -4857,6 +5085,7 @@
 "name": "Floor Press",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -4878,6 +5107,7 @@
 "name": "Floor Press with Chains",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -4899,6 +5129,7 @@
 "name": "Flutter Kicks",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -4919,6 +5150,7 @@
 "name": "Freehand Jump Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4942,6 +5174,7 @@
 "name": "Frog Sit-Ups",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -4964,6 +5197,7 @@
 "name": "Front Barbell Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -4988,6 +5222,7 @@
 "name": "Front Barbell Squat To A Bench",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -5013,6 +5248,7 @@
 "name": "Front Cable Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -5035,6 +5271,7 @@
 "name": "Front Dumbbell Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -5058,6 +5295,7 @@
 "name": "Front Incline Dumbbell Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -5082,6 +5320,7 @@
 "name": "Front Raise And Pullover",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5103,6 +5342,7 @@
 "name": "Front Squat (Clean Grip)",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -5129,6 +5369,7 @@
 "name": "Front Squats With Two Kettlebells",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -5154,6 +5395,7 @@
 "name": "Front Two-Dumbbell Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -5177,6 +5419,7 @@
 "name": "Full Range-Of-Motion Lat Pulldown",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -5198,6 +5441,7 @@
 "name": "Glute Ham Raise",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -5219,6 +5463,7 @@
 "name": "Glute Kickback",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -5239,6 +5484,7 @@
 "name": "Goblet Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -5263,6 +5509,7 @@
 "name": "Good Morning",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -5287,6 +5534,7 @@
 "name": "Good Morning off Pins",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -5311,6 +5559,7 @@
 "name": "Gorilla Chin/Crunch",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -5331,6 +5580,7 @@
 "name": "Hack Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -5354,6 +5604,7 @@
 "name": "Hammer Curls",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -5378,6 +5629,7 @@
 "name": "Hammer Grip Incline DB Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5404,6 +5656,7 @@
 "name": "Handstand Push-Ups",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -5428,6 +5681,7 @@
 "name": "Hanging Bar Good Morning",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -5453,6 +5707,7 @@
 "name": "Hanging Leg Raise",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -5475,6 +5730,7 @@
 "name": "Hanging Pike",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -5497,6 +5753,7 @@
 "name": "High Cable Curls",
 "movement_pattern": "biceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -5520,6 +5777,7 @@
 "name": "Hip Extension with Bands",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -5542,6 +5800,7 @@
 "name": "Hip Flexion with Band",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -5564,6 +5823,7 @@
 "name": "Hip Lift with Band",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -5586,6 +5846,7 @@
 "name": "Hyperextensions With No Hyperextension Bench",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -5610,6 +5871,7 @@
 "name": "Incline Barbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -5634,6 +5896,7 @@
 "name": "Incline Bench Pull",
 "movement_pattern": "horizontal_pull",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -5657,6 +5920,7 @@
 "name": "Incline Cable Chest Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5679,6 +5943,7 @@
 "name": "Incline Cable Flye",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5701,6 +5966,7 @@
 "name": "Incline Dumbbell Bench With Palms Facing In",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5725,6 +5991,7 @@
 "name": "Incline Dumbbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -5750,6 +6017,7 @@
 "name": "Incline Dumbbell Flyes",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5775,6 +6043,7 @@
 "name": "Incline Dumbbell Flyes - With A Twist",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5800,6 +6069,7 @@
 "name": "Incline Dumbbell Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5823,6 +6093,7 @@
 "name": "Incline Hammer Curls",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -5848,6 +6119,7 @@
 "name": "Incline Inner Biceps Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -5873,6 +6145,7 @@
 "name": "Incline Push-Up",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5897,6 +6170,7 @@
 "name": "Incline Push-Up Close-Grip",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -5922,6 +6196,7 @@
 "name": "Incline Push-Up Medium",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5946,6 +6221,7 @@
 "name": "Incline Push-Up Reverse Grip",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5970,6 +6246,7 @@
 "name": "Incline Push-Up Wide",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -5994,6 +6271,7 @@
 "name": "Internal Rotation with Band",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6017,6 +6295,7 @@
 "name": "Iron Cross",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6040,6 +6319,7 @@
 "name": "Isometric Chest Squeezes",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "seconds",
 "primary_muscles": [
 "chest"
 ],
@@ -6060,6 +6340,7 @@
 "name": "Isometric Neck Exercise - Front And Back",
 "movement_pattern": "neck",
 "mechanic": "isolation",
+"metric": "seconds",
 "primary_muscles": [
 "neck"
 ],
@@ -6082,6 +6363,7 @@
 "name": "Isometric Neck Exercise - Sides",
 "movement_pattern": "neck",
 "mechanic": "isolation",
+"metric": "seconds",
 "primary_muscles": [
 "neck"
 ],
@@ -6104,6 +6386,7 @@
 "name": "Isometric Wipers",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "seconds",
 "primary_muscles": [
 "chest"
 ],
@@ -6124,6 +6407,7 @@
 "name": "Jackknife Sit-Up",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -6146,6 +6430,7 @@
 "name": "Janda Sit-Up",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -6168,6 +6453,7 @@
 "name": "Jefferson Squats",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -6191,6 +6477,7 @@
 "name": "JM Press",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -6212,6 +6499,7 @@
 "name": "Jogging, Treadmill",
 "movement_pattern": "cardio",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -6233,6 +6521,7 @@
 "name": "Kettlebell Arnold Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6256,6 +6545,7 @@
 "name": "Kettlebell Dead Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -6281,6 +6571,7 @@
 "name": "Kettlebell Figure 8",
 "movement_pattern": "core",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -6303,6 +6594,7 @@
 "name": "Kettlebell Halo",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6326,6 +6618,7 @@
 "name": "Kettlebell Halo with Overhead Extension",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts",
@@ -6350,6 +6643,7 @@
 "name": "Kettlebell Hang Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -6375,6 +6669,7 @@
 "name": "Kettlebell One-Legged Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -6399,6 +6694,7 @@
 "name": "Kettlebell Overhead Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -6423,6 +6719,7 @@
 "name": "Kettlebell Pass Between The Legs",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -6445,6 +6742,7 @@
 "name": "Kettlebell Pirate Ships",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6468,6 +6766,7 @@
 "name": "Kettlebell Pistol Squat",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -6492,6 +6791,7 @@
 "name": "Kettlebell Seated Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6515,6 +6815,7 @@
 "name": "Kettlebell Seesaw Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6538,6 +6839,7 @@
 "name": "Kettlebell Sumo High Pull",
 "movement_pattern": "other",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -6560,6 +6862,7 @@
 "name": "Kettlebell Thruster",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6583,6 +6886,7 @@
 "name": "Kettlebell Turkish Get-Up (Lunge style)",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6609,6 +6913,7 @@
 "name": "Kettlebell Turkish Get-Up (Squat style)",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6634,6 +6939,7 @@
 "name": "Kettlebell Windmill",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -6656,6 +6962,7 @@
 "name": "Knee Tuck Jump",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -6679,6 +6986,7 @@
 "name": "Kneeling Cable Crunch With Alternating Oblique Twists",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -6700,6 +7008,7 @@
 "name": "Kneeling Cable Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -6723,6 +7032,7 @@
 "name": "Kneeling High Pulley Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -6744,6 +7054,7 @@
 "name": "Kneeling Single-Arm High Pulley Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -6765,6 +7076,7 @@
 "name": "Kneeling Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -6789,6 +7101,7 @@
 "name": "Landmine 180's",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -6810,6 +7123,7 @@
 "name": "Landmine Linear Jammer",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -6832,6 +7146,7 @@
 "name": "Lateral Bound",
 "movement_pattern": "other",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "adductors"
 ],
@@ -6854,6 +7169,7 @@
 "name": "Lateral Raise - With Bands",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -6878,6 +7194,7 @@
 "name": "Leg Extensions",
 "movement_pattern": "squat",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -6901,6 +7218,7 @@
 "name": "Leg Lift",
 "movement_pattern": "hinge",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -6921,6 +7239,7 @@
 "name": "Leg-Over Floor Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -6943,6 +7262,7 @@
 "name": "Leg Press",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -6966,6 +7286,7 @@
 "name": "Leg Pull-In",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -6986,6 +7307,7 @@
 "name": "Leverage Chest Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -7007,6 +7329,7 @@
 "name": "Leverage Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -7030,6 +7353,7 @@
 "name": "Leverage Decline Chest Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -7052,6 +7376,7 @@
 "name": "Leverage High Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -7073,6 +7398,7 @@
 "name": "Leverage Incline Chest Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -7095,6 +7421,7 @@
 "name": "Leverage Iso Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -7116,6 +7443,7 @@
 "name": "Leverage Shoulder Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -7140,6 +7468,7 @@
 "name": "Leverage Shrug",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -7163,6 +7492,7 @@
 "name": "Low Cable Crossover",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -7184,6 +7514,7 @@
 "name": "Low Cable Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -7207,6 +7538,7 @@
 "name": "Low Pulley Row To Neck",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -7231,6 +7563,7 @@
 "name": "Lunge Pass Through",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -7256,6 +7589,7 @@
 "name": "Lunge Sprint",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -7281,6 +7615,7 @@
 "name": "Lying Cable Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -7305,6 +7640,7 @@
 "name": "Lying Cambered Barbell Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -7329,6 +7665,7 @@
 "name": "Lying Close-Grip Bar Curl On High Pulley",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -7353,6 +7690,7 @@
 "name": "Lying Close-Grip Barbell Triceps Extension Behind The Head",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -7377,6 +7715,7 @@
 "name": "Lying Close-Grip Barbell Triceps Press To Chin",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -7401,6 +7740,7 @@
 "name": "Lying Dumbbell Tricep Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -7426,6 +7766,7 @@
 "name": "Lying High Bench Barbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -7450,6 +7791,7 @@
 "name": "Lying Leg Curls",
 "movement_pattern": "hinge",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -7472,6 +7814,7 @@
 "name": "Lying Machine Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -7496,6 +7839,7 @@
 "name": "Lying One-Arm Lateral Raise",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -7521,6 +7865,7 @@
 "name": "Lying Rear Delt Raise",
 "movement_pattern": "rear_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -7544,6 +7889,7 @@
 "name": "Lying Supine Dumbbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -7569,6 +7915,7 @@
 "name": "Lying T-Bar Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -7591,6 +7938,7 @@
 "name": "Lying Triceps Press",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -7613,6 +7961,7 @@
 "name": "Machine Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -7637,6 +7986,7 @@
 "name": "Machine Bicep Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -7660,6 +8010,7 @@
 "name": "Machine Preacher Curls",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -7683,6 +8034,7 @@
 "name": "Machine Shoulder (Military) Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -7705,6 +8057,7 @@
 "name": "Machine Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -7728,6 +8081,7 @@
 "name": "Medicine Ball Chest Pass",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -7750,6 +8104,7 @@
 "name": "Medicine Ball Full Twist",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -7772,6 +8127,7 @@
 "name": "Medicine Ball Scoop Throw",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -7795,6 +8151,7 @@
 "name": "Middle Back Shrug",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -7819,6 +8176,7 @@
 "name": "Monster Walk",
 "movement_pattern": "other",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abductors"
 ],
@@ -7841,6 +8199,7 @@
 "name": "Narrow Stance Hack Squats",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -7864,6 +8223,7 @@
 "name": "Narrow Stance Leg Press",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -7887,6 +8247,7 @@
 "name": "Narrow Stance Squats",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -7910,6 +8271,7 @@
 "name": "Natural Glute Ham Raise",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -7930,6 +8292,7 @@
 "name": "Neck Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -7953,6 +8316,7 @@
 "name": "Oblique Crunches",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -7973,6 +8337,7 @@
 "name": "Oblique Crunches - On The Floor",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -7993,6 +8358,7 @@
 "name": "One Arm Dumbbell Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -8018,6 +8384,7 @@
 "name": "One Arm Dumbbell Preacher Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -8042,6 +8409,7 @@
 "name": "One-Arm Dumbbell Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -8064,6 +8432,7 @@
 "name": "One-Arm Flat Bench Dumbbell Flye",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -8087,6 +8456,7 @@
 "name": "One Arm Floor Press",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -8108,6 +8478,7 @@
 "name": "One-Arm High-Pulley Cable Side Bends",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -8129,6 +8500,7 @@
 "name": "One-Arm Incline Lateral Raise",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -8154,6 +8526,7 @@
 "name": "One-Arm Kettlebell Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -8179,6 +8552,7 @@
 "name": "One-Arm Kettlebell Clean and Jerk",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -8205,6 +8579,7 @@
 "name": "One-Arm Kettlebell Floor Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -8227,6 +8602,7 @@
 "name": "One-Arm Kettlebell Jerk",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -8250,6 +8626,7 @@
 "name": "One-Arm Kettlebell Military Press To The Side",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -8275,6 +8652,7 @@
 "name": "One-Arm Kettlebell Para Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -8298,6 +8676,7 @@
 "name": "One-Arm Kettlebell Push Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -8321,6 +8700,7 @@
 "name": "One-Arm Kettlebell Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -8343,6 +8723,7 @@
 "name": "One-Arm Kettlebell Snatch",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -8370,6 +8751,7 @@
 "name": "One-Arm Kettlebell Split Jerk",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -8393,6 +8775,7 @@
 "name": "One-Arm Kettlebell Split Snatch",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -8420,6 +8803,7 @@
 "name": "One-Arm Kettlebell Swings",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -8442,6 +8826,7 @@
 "name": "One Arm Lat Pulldown",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -8463,6 +8848,7 @@
 "name": "One-Arm Long Bar Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -8484,6 +8870,7 @@
 "name": "One-Arm Medicine Ball Slam",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -8506,6 +8893,7 @@
 "name": "One-Arm Open Palm Kettlebell Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -8531,6 +8919,7 @@
 "name": "One-Arm Overhead Kettlebell Squats",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -8555,6 +8944,7 @@
 "name": "One Arm Pronated Dumbbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -8579,6 +8969,7 @@
 "name": "One-Arm Side Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -8602,6 +8993,7 @@
 "name": "One-Arm Side Laterals",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -8624,6 +9016,7 @@
 "name": "One Arm Supinated Dumbbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -8648,6 +9041,7 @@
 "name": "One Leg Barbell Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -8672,6 +9066,7 @@
 "name": "One-Legged Cable Kickback",
 "movement_pattern": "hinge",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -8693,6 +9088,7 @@
 "name": "Open Palm Kettlebell Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -8718,6 +9114,7 @@
 "name": "Overhead Cable Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -8741,6 +9138,7 @@
 "name": "Overhead Slam",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -8763,6 +9161,7 @@
 "name": "Pallof Press",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -8784,6 +9183,7 @@
 "name": "Pallof Press With Rotation",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -8805,6 +9205,7 @@
 "name": "Palms-Down Dumbbell Wrist Curl Over A Bench",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -8831,6 +9232,7 @@
 "name": "Palms-Down Wrist Curl Over A Bench",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -8856,6 +9258,7 @@
 "name": "Palms-Up Barbell Wrist Curl Over A Bench",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -8881,6 +9284,7 @@
 "name": "Palms-Up Dumbbell Wrist Curl Over A Bench",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -8907,6 +9311,7 @@
 "name": "Physioball Hip Bridge",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -8929,6 +9334,7 @@
 "name": "Pin Presses",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -8950,6 +9356,7 @@
 "name": "Plank",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "seconds",
 "primary_muscles": [
 "abs"
 ],
@@ -8972,6 +9379,7 @@
 "name": "Plie Dumbbell Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -8996,6 +9404,7 @@
 "name": "Plyo Kettlebell Pushups",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -9020,6 +9429,7 @@
 "name": "Plyo Push-up",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -9042,6 +9452,7 @@
 "name": "Power Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -9066,6 +9477,7 @@
 "name": "Power Partials",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -9089,6 +9501,7 @@
 "name": "Preacher Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -9112,6 +9525,7 @@
 "name": "Preacher Hammer Dumbbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -9136,6 +9550,7 @@
 "name": "Press Sit-Up",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -9159,6 +9574,7 @@
 "name": "Pull Through",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -9180,6 +9596,7 @@
 "name": "Pullups",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -9204,6 +9621,7 @@
 "name": "Push Up to Side Plank",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -9226,6 +9644,7 @@
 "name": "Push-Up Wide",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -9248,6 +9667,7 @@
 "name": "Push-Ups - Close Triceps Position",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -9270,6 +9690,7 @@
 "name": "Push-Ups With Feet Elevated",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -9292,6 +9713,7 @@
 "name": "Push-Ups With Feet On An Exercise Ball",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -9316,6 +9738,7 @@
 "name": "Pushups",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -9338,6 +9761,7 @@
 "name": "Pushups (Close and Wide Hand Positions)",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -9360,6 +9784,7 @@
 "name": "Rack Pull with Bands",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -9383,6 +9808,7 @@
 "name": "Rack Pulls",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -9406,6 +9832,7 @@
 "name": "Recumbent Bike",
 "movement_pattern": "cardio",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -9427,6 +9854,7 @@
 "name": "Return Push from Stance",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -9450,6 +9878,7 @@
 "name": "Reverse Band Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -9474,6 +9903,7 @@
 "name": "Reverse Band Box Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -9498,6 +9928,7 @@
 "name": "Reverse Band Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -9521,6 +9952,7 @@
 "name": "Reverse Band Power Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -9545,6 +9977,7 @@
 "name": "Reverse Band Sumo Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -9568,6 +10001,7 @@
 "name": "Reverse Barbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -9591,6 +10025,7 @@
 "name": "Reverse Barbell Preacher Curls",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -9614,6 +10049,7 @@
 "name": "Reverse Cable Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -9637,6 +10073,7 @@
 "name": "Reverse Crunch",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -9657,6 +10094,7 @@
 "name": "Reverse Flyes",
 "movement_pattern": "rear_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -9681,6 +10119,7 @@
 "name": "Reverse Flyes With External Rotation",
 "movement_pattern": "rear_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -9705,6 +10144,7 @@
 "name": "Reverse Grip Bent-Over Rows",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -9728,6 +10168,7 @@
 "name": "Reverse Grip Triceps Pushdown",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -9751,6 +10192,7 @@
 "name": "Reverse Hyperextension",
 "movement_pattern": "hinge",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -9774,6 +10216,7 @@
 "name": "Reverse Machine Flyes",
 "movement_pattern": "rear_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -9797,6 +10240,7 @@
 "name": "Reverse Triceps Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -9821,6 +10265,7 @@
 "name": "Rocket Jump",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -9844,6 +10289,7 @@
 "name": "Rocking Standing Calf Raise",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -9867,6 +10313,7 @@
 "name": "Romanian Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -9890,6 +10337,7 @@
 "name": "Rope Crunch",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -9911,6 +10359,7 @@
 "name": "Rope Straight-Arm Pulldown",
 "movement_pattern": "vertical_pull",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -9932,6 +10381,7 @@
 "name": "Rowing, Stationary",
 "movement_pattern": "cardio",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -9953,6 +10403,7 @@
 "name": "Running, Treadmill",
 "movement_pattern": "cardio",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -9974,6 +10425,7 @@
 "name": "Russian Twist",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -9994,6 +10446,7 @@
 "name": "Scissors Jump",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -10017,6 +10470,7 @@
 "name": "Seated Barbell Military Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -10041,6 +10495,7 @@
 "name": "Seated Barbell Twist",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -10062,6 +10517,7 @@
 "name": "Seated Bent-Over One-Arm Dumbbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -10087,6 +10543,7 @@
 "name": "Seated Bent-Over Rear Delt Raise",
 "movement_pattern": "rear_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "rear_delts"
 ],
@@ -10111,6 +10568,7 @@
 "name": "Seated Bent-Over Two-Arm Dumbbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -10136,6 +10594,7 @@
 "name": "Seated Cable Rows",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -10157,6 +10616,7 @@
 "name": "Seated Cable Shoulder Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -10181,6 +10641,7 @@
 "name": "Seated Calf Raise",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -10204,6 +10665,7 @@
 "name": "Seated Close-Grip Concentration Barbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -10227,6 +10689,7 @@
 "name": "Seated Dumbbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -10251,6 +10714,7 @@
 "name": "Seated Dumbbell Inner Biceps Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -10275,6 +10739,7 @@
 "name": "Seated Dumbbell Palms-Down Wrist Curl",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -10300,6 +10765,7 @@
 "name": "Seated Dumbbell Palms-Up Wrist Curl",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -10325,6 +10791,7 @@
 "name": "Seated Dumbbell Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -10348,6 +10815,7 @@
 "name": "Seated Flat Bench Leg Pull-In",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -10370,6 +10838,7 @@
 "name": "Seated Good Mornings",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -10393,6 +10862,7 @@
 "name": "Seated Leg Curl",
 "movement_pattern": "hinge",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -10414,6 +10884,7 @@
 "name": "Seated Leg Tucks",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -10434,6 +10905,7 @@
 "name": "Seated One-arm Cable Pulley Rows",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -10455,6 +10927,7 @@
 "name": "Seated One-Arm Dumbbell Palms-Down Wrist Curl",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -10480,6 +10953,7 @@
 "name": "Seated One-Arm Dumbbell Palms-Up Wrist Curl",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -10505,6 +10979,7 @@
 "name": "Seated Palm-Up Barbell Wrist Curl",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -10529,6 +11004,7 @@
 "name": "Seated Palms-Down Barbell Wrist Curl",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -10553,6 +11029,7 @@
 "name": "Seated Side Lateral Raise",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -10577,6 +11054,7 @@
 "name": "Seated Triceps Press",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -10599,6 +11077,7 @@
 "name": "Seated Two-Arm Palms-Up Low-Pulley Wrist Curl",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -10623,6 +11102,7 @@
 "name": "See-Saw Press (Alternating Side Press)",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -10646,6 +11126,7 @@
 "name": "Shotgun Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -10667,6 +11148,7 @@
 "name": "Shoulder Press - With Bands",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -10692,6 +11174,7 @@
 "name": "Side Bridge",
 "movement_pattern": "core",
 "mechanic": null,
+"metric": "seconds",
 "primary_muscles": [
 "abs"
 ],
@@ -10712,6 +11195,7 @@
 "name": "Side Jackknife",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -10732,6 +11216,7 @@
 "name": "Side Lateral Raise",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -10756,6 +11241,7 @@
 "name": "Side Laterals to Front Raise",
 "movement_pattern": "lateral_delt",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "side_delts"
 ],
@@ -10778,6 +11264,7 @@
 "name": "Single-Arm Cable Crossover",
 "movement_pattern": "horizontal_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -10799,6 +11286,7 @@
 "name": "Single-Arm Linear Jammer",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -10821,6 +11309,7 @@
 "name": "Single-Arm Push-Up",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -10843,6 +11332,7 @@
 "name": "Single Dumbbell Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -10866,6 +11356,7 @@
 "name": "Single Leg Butt Kick",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -10886,6 +11377,7 @@
 "name": "Single Leg Glute Bridge",
 "movement_pattern": "hinge",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -10906,6 +11398,7 @@
 "name": "Single-Leg Leg Extension",
 "movement_pattern": "squat",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -10929,6 +11422,7 @@
 "name": "Sit-Up",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -10951,6 +11445,7 @@
 "name": "Smith Incline Shoulder Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -10974,6 +11469,7 @@
 "name": "Smith Machine Behind the Back Shrug",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -10997,6 +11493,7 @@
 "name": "Smith Machine Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -11021,6 +11518,7 @@
 "name": "Smith Machine Bent Over Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -11028,9 +11526,11 @@
 "smith_machine"
 ],
 "level_min": "beginner",
-"contraindicated_regions": [],
+"contraindicated_regions": [
+"lower_back"
+],
 "impact": "low",
-"spinal_load": "none",
+"spinal_load": "high",
 "tracks": [
 "weights"
 ],
@@ -11042,6 +11542,7 @@
 "name": "Smith Machine Calf Raise",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -11065,6 +11566,7 @@
 "name": "Smith Machine Close-Grip Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -11090,6 +11592,7 @@
 "name": "Smith Machine Decline Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -11112,6 +11615,7 @@
 "name": "Smith Machine Hang Power Clean",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -11136,6 +11640,7 @@
 "name": "Smith Machine Hip Raise",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -11157,6 +11662,7 @@
 "name": "Smith Machine Incline Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -11182,6 +11688,7 @@
 "name": "Smith Machine Leg Press",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11205,6 +11712,7 @@
 "name": "Smith Machine One-Arm Upright Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "side_delts",
 "traps"
@@ -11229,6 +11737,7 @@
 "name": "Smith Machine Overhead Shoulder Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -11253,6 +11762,7 @@
 "name": "Smith Machine Pistol Squat",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11276,6 +11786,7 @@
 "name": "Smith Machine Reverse Calf Raises",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -11299,6 +11810,7 @@
 "name": "Smith Machine Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11322,6 +11834,7 @@
 "name": "Smith Machine Stiff-Legged Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -11345,6 +11858,7 @@
 "name": "Smith Machine Upright Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -11368,6 +11882,7 @@
 "name": "Smith Single-Leg Split Squat",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11392,6 +11907,7 @@
 "name": "Snatch Pull",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -11417,6 +11933,7 @@
 "name": "Speed Band Overhead Triceps",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -11439,6 +11956,7 @@
 "name": "Speed Box Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11463,6 +11981,7 @@
 "name": "Speed Squats",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11486,6 +12005,7 @@
 "name": "Spell Caster",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -11508,6 +12028,7 @@
 "name": "Spider Crawl",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -11528,6 +12049,7 @@
 "name": "Spider Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -11551,6 +12073,7 @@
 "name": "Split Jump",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11574,6 +12097,7 @@
 "name": "Split Squat with Dumbbells",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11599,6 +12123,7 @@
 "name": "Squat Jerk",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11623,6 +12148,7 @@
 "name": "Squat with Bands",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11647,6 +12173,7 @@
 "name": "Squat with Chains",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11671,6 +12198,7 @@
 "name": "Squat with Plate Movers",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11695,6 +12223,7 @@
 "name": "Squats - With Bands",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11719,6 +12248,7 @@
 "name": "Stairmaster",
 "movement_pattern": "cardio",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -11740,6 +12270,7 @@
 "name": "Standing Alternating Dumbbell Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -11763,6 +12294,7 @@
 "name": "Standing Barbell Calf Raise",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -11786,6 +12318,7 @@
 "name": "Standing Barbell Press Behind Neck",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -11811,6 +12344,7 @@
 "name": "Standing Bent-Over One-Arm Dumbbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -11836,6 +12370,7 @@
 "name": "Standing Bent-Over Two-Arm Dumbbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -11861,6 +12396,7 @@
 "name": "Standing Biceps Cable Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -11884,6 +12420,7 @@
 "name": "Standing Bradford Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -11906,6 +12443,7 @@
 "name": "Standing Cable Chest Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -11927,6 +12465,7 @@
 "name": "Standing Cable Lift",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -11948,6 +12487,7 @@
 "name": "Standing Cable Wood Chop",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -11969,6 +12509,7 @@
 "name": "Standing Calf Raises",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -11992,6 +12533,7 @@
 "name": "Standing Concentration Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -12016,6 +12558,7 @@
 "name": "Standing Dumbbell Calf Raise",
 "movement_pattern": "calf",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "calves"
 ],
@@ -12040,6 +12583,7 @@
 "name": "Standing Dumbbell Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -12063,6 +12607,7 @@
 "name": "Standing Dumbbell Reverse Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -12087,6 +12632,7 @@
 "name": "Standing Dumbbell Straight-Arm Front Delt Raise Above Head",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -12110,6 +12656,7 @@
 "name": "Standing Dumbbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -12134,6 +12681,7 @@
 "name": "Standing Dumbbell Upright Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -12158,6 +12706,7 @@
 "name": "Standing Front Barbell Raise Over Head",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -12180,6 +12729,7 @@
 "name": "Standing Inner-Biceps Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -12204,6 +12754,7 @@
 "name": "Standing Leg Curl",
 "movement_pattern": "hinge",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -12225,6 +12776,7 @@
 "name": "Standing Long Jump",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -12248,6 +12800,7 @@
 "name": "Standing Low-Pulley Deltoid Raise",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -12270,6 +12823,7 @@
 "name": "Standing Low-Pulley One-Arm Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -12293,6 +12847,7 @@
 "name": "Standing Military Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -12317,6 +12872,7 @@
 "name": "Standing One-Arm Cable Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -12340,6 +12896,7 @@
 "name": "Standing One-Arm Dumbbell Curl Over Incline Bench",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -12366,6 +12923,7 @@
 "name": "Standing One-Arm Dumbbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -12390,6 +12948,7 @@
 "name": "Standing Overhead Barbell Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -12413,6 +12972,7 @@
 "name": "Standing Palm-In One-Arm Dumbbell Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -12436,6 +12996,7 @@
 "name": "Standing Palms-In Dumbbell Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -12459,6 +13020,7 @@
 "name": "Standing Palms-Up Barbell Behind The Back Wrist Curl",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -12483,6 +13045,7 @@
 "name": "Standing Rope Crunch",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -12504,6 +13067,7 @@
 "name": "Standing Towel Triceps Extension",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -12526,6 +13090,7 @@
 "name": "Standing Two-Arm Overhead Throw",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -12549,6 +13114,7 @@
 "name": "Star Jump",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -12572,6 +13138,7 @@
 "name": "Step Mill",
 "movement_pattern": "cardio",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -12593,6 +13160,7 @@
 "name": "Step-up with Knee Raise",
 "movement_pattern": "lunge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "glutes"
 ],
@@ -12615,6 +13183,7 @@
 "name": "Stiff Leg Barbell Good Morning",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -12639,6 +13208,7 @@
 "name": "Stiff-Legged Barbell Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -12662,6 +13232,7 @@
 "name": "Stiff-Legged Dumbbell Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -12686,6 +13257,7 @@
 "name": "Straight-Arm Dumbbell Pullover",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -12708,6 +13280,7 @@
 "name": "Straight-Arm Pulldown",
 "movement_pattern": "vertical_pull",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -12729,6 +13302,7 @@
 "name": "Straight Bar Bench Mid Rows",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -12751,6 +13325,7 @@
 "name": "Straight Raises on Incline Bench",
 "movement_pattern": "vertical_press",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -12775,6 +13350,7 @@
 "name": "Sumo Deadlift",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -12798,6 +13374,7 @@
 "name": "Sumo Deadlift with Bands",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -12821,6 +13398,7 @@
 "name": "Sumo Deadlift with Chains",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -12844,6 +13422,7 @@
 "name": "Supine Chest Throw",
 "movement_pattern": "triceps",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -12866,6 +13445,7 @@
 "name": "Supine One-Arm Overhead Throw",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -12888,6 +13468,7 @@
 "name": "Supine Two-Arm Overhead Throw",
 "movement_pattern": "core",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -12910,6 +13491,7 @@
 "name": "T-Bar Row with Handle",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -12931,6 +13513,7 @@
 "name": "Tate Press",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -12953,6 +13536,7 @@
 "name": "Thigh Abductor",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abductors"
 ],
@@ -12974,6 +13558,7 @@
 "name": "Thigh Adductor",
 "movement_pattern": "other",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "adductors"
 ],
@@ -12995,6 +13580,7 @@
 "name": "Tricep Dumbbell Kickback",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -13019,6 +13605,7 @@
 "name": "Triceps Overhead Extension with Rope",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -13040,6 +13627,7 @@
 "name": "Triceps Pushdown",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -13063,6 +13651,7 @@
 "name": "Triceps Pushdown - Rope Attachment",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -13086,6 +13675,7 @@
 "name": "Triceps Pushdown - V-Bar Attachment",
 "movement_pattern": "triceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "triceps"
 ],
@@ -13109,6 +13699,7 @@
 "name": "Tuck Crunch",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -13129,6 +13720,7 @@
 "name": "Two-Arm Dumbbell Preacher Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -13153,6 +13745,7 @@
 "name": "Two-Arm Kettlebell Clean",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -13179,6 +13772,7 @@
 "name": "Two-Arm Kettlebell Jerk",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -13202,6 +13796,7 @@
 "name": "Two-Arm Kettlebell Military Press",
 "movement_pattern": "vertical_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -13227,6 +13822,7 @@
 "name": "Two-Arm Kettlebell Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "upper_back"
 ],
@@ -13249,6 +13845,7 @@
 "name": "Underhand Cable Pulldowns",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -13270,6 +13867,7 @@
 "name": "Upright Barbell Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "front_delts",
 "side_delts"
@@ -13294,6 +13892,7 @@
 "name": "Upright Cable Row",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -13315,6 +13914,7 @@
 "name": "Upright Row - With Bands",
 "movement_pattern": "horizontal_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "traps"
 ],
@@ -13339,6 +13939,7 @@
 "name": "V-Bar Pulldown",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -13360,6 +13961,7 @@
 "name": "V-Bar Pullup",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -13384,6 +13986,7 @@
 "name": "Vertical Swing",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "hamstrings"
 ],
@@ -13406,6 +14009,7 @@
 "name": "Walking, Treadmill",
 "movement_pattern": "cardio",
 "mechanic": null,
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -13427,6 +14031,7 @@
 "name": "Weighted Ball Hyperextension",
 "movement_pattern": "hinge",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lower_back"
 ],
@@ -13451,6 +14056,7 @@
 "name": "Weighted Ball Side Bend",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -13473,6 +14079,7 @@
 "name": "Weighted Crunches",
 "movement_pattern": "core",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -13495,6 +14102,7 @@
 "name": "Weighted Jump Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -13520,6 +14128,7 @@
 "name": "Weighted Sissy Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -13544,6 +14153,7 @@
 "name": "Wide-Grip Barbell Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -13568,6 +14178,7 @@
 "name": "Wide-Grip Decline Barbell Bench Press",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -13593,6 +14204,7 @@
 "name": "Wide-Grip Decline Barbell Pullover",
 "movement_pattern": "horizontal_press",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "chest"
 ],
@@ -13615,6 +14227,7 @@
 "name": "Wide-Grip Lat Pulldown",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -13636,6 +14249,7 @@
 "name": "Wide-Grip Pulldown Behind The Neck",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -13660,6 +14274,7 @@
 "name": "Wide-Grip Rear Pull-Up",
 "movement_pattern": "vertical_pull",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "lats"
 ],
@@ -13684,6 +14299,7 @@
 "name": "Wide-Grip Standing Barbell Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -13707,6 +14323,7 @@
 "name": "Wide Stance Barbell Squat",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -13731,6 +14348,7 @@
 "name": "Wind Sprints",
 "movement_pattern": "cardio",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "abs"
 ],
@@ -13753,6 +14371,7 @@
 "name": "Wrist Rotations with Straight Bar",
 "movement_pattern": "forearm",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "forearms"
 ],
@@ -13776,6 +14395,7 @@
 "name": "Zercher Squats",
 "movement_pattern": "squat",
 "mechanic": "compound",
+"metric": "reps",
 "primary_muscles": [
 "quads"
 ],
@@ -13799,6 +14419,7 @@
 "name": "Zottman Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],
@@ -13823,6 +14444,7 @@
 "name": "Zottman Preacher Curl",
 "movement_pattern": "biceps",
 "mechanic": "isolation",
+"metric": "reps",
 "primary_muscles": [
 "biceps"
 ],

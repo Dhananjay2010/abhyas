@@ -46,7 +46,17 @@ export async function createBlockForUser(
         .maybeSingle(),
       supabase.from("user_equipment").select("equipment_id"),
       supabase.from("user_injuries").select("body_region, severity"),
-      supabase.from("exercises").select(CATALOGUE_COLUMNS).eq("is_active", true),
+      // Ordered, because the generator's determinism depends on it.
+      //
+      // `pickForSlot` draws one `rng()` per candidate in pool order, so the
+      // random component attaches to whichever exercise happens to be at that
+      // position. Without an ORDER BY the database is free to return rows in
+      // any order — physical order, which changes as rows are updated — and
+      // the same user with the same block number can then be handed a
+      // different plan. It also made the committed fixture, which is exported
+      // `order by slug`, disagree with production: the generator tests passed
+      // locally while production picked something else for the same slot.
+      supabase.from("exercises").select(CATALOGUE_COLUMNS).eq("is_active", true).order("slug"),
       supabase
         .from("programs")
         .select("block_number")
