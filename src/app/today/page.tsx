@@ -123,7 +123,7 @@ export default async function TodayPage() {
     // query would not be.
     supabase
       .from("sessions")
-      .select("id, status, actual_type, local_date, program_day_id")
+      .select("id, status, actual_type, local_date, program_day_id, started_at")
       .in("local_date", [addDays(localToday, -1), localToday]),
   ]);
 
@@ -141,7 +141,15 @@ export default async function TodayPage() {
     today, and it wins over the weekday template. Without this the choice would
     be written and then quietly ignored, which is worse than not offering it.
   */
-  const override = todaySessions.find((s) => s.status === "planned" && s.actual_type);
+  /*
+    An in-progress session counts as much as a planned one. Reading only
+    `planned` meant that starting a swapped day and leaving it part-way flipped
+    Today back to the block's label while "Resume session" still resumed the
+    swapped one: the screen said Legs and the button gave you Pull.
+  */
+  const override = todaySessions.find(
+    (s) => (s.status === "planned" || s.status === "in_progress") && s.actual_type,
+  );
   const overrideDay = override?.program_day_id
     ? days?.find((d) => d.id === override.program_day_id)
     : undefined;
@@ -149,6 +157,10 @@ export default async function TodayPage() {
   const today = overrideDay ?? scheduled;
   const dayType = override?.actual_type ?? scheduled?.day_type ?? null;
   const dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
+  // Only worth explaining when it actually differs from what the block said.
+  const overrideDiffers =
+    override !== undefined &&
+    (overrideDay?.id ?? null) !== (scheduled?.id ?? null);
   const week = weekInBlock(program.started_on, localToday);
   const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";
@@ -241,7 +253,7 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {override && (
+      {overrideDiffers && (
         <p className="mt-4 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
           You chose this for today, so it replaces the{" "}
           {labelForDayType(scheduled?.day_type ?? "rest", scheduled?.label ?? null)} your
@@ -310,8 +322,14 @@ export default async function TodayPage() {
               Session complete. Well done.
             </p>
           ) : (
+            /*
+              "Resume" only once something has actually been started. A day
+              planned through "what about tomorrow?" is a session row that was
+              never begun, and calling that a resume told the user they had left
+              a workout half-done when they had not.
+            */
             <StartSessionButton
-              label={strengthOpen ? "Resume session" : "Start session"}
+              label={strengthOpen?.started_at ? "Resume session" : "Start session"}
             />
           )}
         </div>
