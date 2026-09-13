@@ -155,8 +155,28 @@ export function SessionRunner({
     0,
     exercises.findIndex((e) => e.status === "pending"),
   );
+
+  /*
+    Every exercise already finished, and the session still open.
+
+    That happens when someone finishes their last lift and then leaves before
+    walking through the cool-down -- the session stays `in_progress` with
+    nothing pending in it. Resuming used to drop them back on exercise ONE with
+    its sets already logged and `allSetsDone` true, so the screen offered "How
+    did that feel?" for a lift they had finished an hour earlier. Tapping it ran
+    `finishExercise` a second time and applied progression twice: a double
+    weight increment for work done once.
+
+    So a session with nothing left to do resumes at its end, which is one tap
+    from being properly completed. The cool-down screen is used even when the
+    setting is off, because both of its buttons call `finishSession` and showing
+    an unwanted screen once is a far smaller wrong than inflating a weight.
+  */
+  const nothingPending =
+    exercises.length > 0 && !exercises.some((e) => e.status === "pending");
+
   const [phase, setPhase] = useState<Phase>(
-    warmupAlreadyDone || warmup.length === 0 ? "work" : "warmup",
+    nothingPending ? "cooldown" : warmupAlreadyDone || warmup.length === 0 ? "work" : "warmup",
   );
   const [warmupIndex, setWarmupIndex] = useState(0);
   const [exerciseIndex, setExerciseIndex] = useState(

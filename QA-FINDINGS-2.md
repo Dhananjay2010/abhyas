@@ -483,10 +483,19 @@ none of which any amount of local testing would have shown:
 
 ## Found while clearing the tail (2026-09-13)
 
-Four more. One came from driving the real `SessionRunner` locally; the other
-three only appeared once the work was on production with real data behind it —
-including two in the fix written an hour earlier.
+Five more. One came from driving the real `SessionRunner` locally, three only
+appeared once the work was on production with real data behind it — including
+two in the fix written an hour earlier — and one fell out of asking which
+states the M4 fix newly makes reachable.
 
+- **Resuming a finished session could apply progression twice.** Finish the last
+  lift, leave before the cool-down, and the session stays `in_progress` with
+  nothing pending. Resuming dropped the user back on exercise **one**, whose
+  sets were all logged, so the screen offered "How did that feel?" for a lift
+  finished an hour earlier — and tapping it ran `finishExercise` again, adding
+  the weight increment a second time for work done once. A session with nothing
+  left to do now resumes at its end. This one predates today's work; it surfaced
+  while reasoning about which states the M4 fix makes reachable.
 - **History listed tomorrow.** A "what about tomorrow?" choice is a `sessions`
   row dated tomorrow, and History has no date filter — so the top of "your last
   6 sessions" read "Rest · Mon 14 Sept · Not started", a thing that has not
