@@ -18,17 +18,39 @@ export const MAX_REPS = 100;
 export const MAX_WEIGHT_KG = 500;
 
 /**
+ * A hold is measured in seconds, and the generous bound is an hour.
+ *
+ * The column allows a day (86400) because it is also the session duration's
+ * unit; nobody planks for an hour, but rejecting at an hour still only
+ * excludes what cannot be a set.
+ */
+export const MAX_HOLD_SECONDS = 3600;
+
+/**
  * Returns a message explaining what is wrong, or null when the set is fine.
  *
- * Both fields may be null together: with per-set logging switched off the
- * runner records that a set happened without asking for numbers.
+ * All three fields may be null together: with per-set logging switched off the
+ * runner records that a set happened without asking for numbers. A timed
+ * exercise sends `durationSeconds` and leaves `reps` null; everything else
+ * does the opposite.
  *
  * Zero reps is rejected rather than stored. It is not a set, and storing it did
  * real harm: `evaluateProgression` counts only sets with reps > 0, so a stray
  * zero made a completed exercise look like a missed one, and two of those in a
  * row drop the working weight by ten percent.
  */
-export function validateSet(reps: number | null, weightKg: number | null): string | null {
+export function validateSet(
+  reps: number | null,
+  weightKg: number | null,
+  durationSeconds: number | null = null,
+): string | null {
+  if (durationSeconds !== null) {
+    if (!Number.isInteger(durationSeconds)) return "Seconds must be a whole number.";
+    if (durationSeconds < 1) return "A hold needs at least one second. Skip the set instead.";
+    if (durationSeconds > MAX_HOLD_SECONDS) {
+      return `That is more than ${MAX_HOLD_SECONDS / 60} minutes — please check.`;
+    }
+  }
   if (reps !== null) {
     if (!Number.isInteger(reps)) return "Reps must be a whole number.";
     if (reps < 1) return "A set needs at least one rep. Skip the set instead.";

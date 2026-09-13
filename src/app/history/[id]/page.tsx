@@ -4,6 +4,7 @@ import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
+import type { Database } from "@/lib/database.types";
 
 export const dynamic = "force-dynamic";
 
@@ -65,14 +66,14 @@ export default async function SessionDetailPage({
 
   const { data: exercises, error: exercisesError } = await supabase
     .from("session_exercises")
-    .select("id, order_index, status, feel, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(name), swapped_from_exercise_id")
+    .select("id, order_index, status, feel, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(name, metric), swapped_from_exercise_id")
     .eq("session_id", id)
     .order("order_index");
 
   const ids = (exercises ?? []).map((e) => e.id);
   const { data: sets } = await supabase
     .from("session_sets")
-    .select("session_exercise_id, set_number, reps, weight_kg")
+    .select("session_exercise_id, set_number, reps, weight_kg, duration_seconds")
     .in("session_exercise_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"])
     .eq("is_warmup_set", false)
     .order("set_number");
@@ -112,7 +113,12 @@ export default async function SessionDetailPage({
 
       <ol className="mt-8 space-y-3">
         {(exercises ?? []).map((e) => {
-          const name = (e.exercises as unknown as { name: string } | null)?.name ?? "Exercise";
+          const ex = e.exercises as unknown as {
+            name: string;
+            metric: Database["public"]["Enums"]["exercise_metric"] | null;
+          } | null;
+          const name = ex?.name ?? "Exercise";
+          const isTimed = ex?.metric === "seconds";
           const mine = (sets ?? []).filter((s) => s.session_exercise_id === e.id);
           return (
             <li key={e.id} className="rounded-xl border border-border bg-surface px-4 py-3.5">
@@ -134,7 +140,7 @@ export default async function SessionDetailPage({
                     >
                       <span className="text-muted">Set {s.set_number}</span>
                       <span>
-                        {s.reps ?? "—"} reps
+                        {isTimed ? `${s.duration_seconds ?? "—"}s` : `${s.reps ?? "—"} reps`}
                         {s.weight_kg ? ` · ${Number(s.weight_kg)} kg` : ""}
                       </span>
                     </li>

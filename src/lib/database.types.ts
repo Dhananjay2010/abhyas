@@ -483,6 +483,7 @@ export type Database = {
           is_unilateral: boolean
           level_min: Database["public"]["Enums"]["fitness_level"]
           mechanic: Database["public"]["Enums"]["mechanic_type"] | null
+          metric: Database["public"]["Enums"]["exercise_metric"]
           movement_pattern: Database["public"]["Enums"]["movement_pattern"]
           name: string
           primary_muscles: Database["public"]["Enums"]["muscle"][]
@@ -512,6 +513,7 @@ export type Database = {
           is_unilateral?: boolean
           level_min?: Database["public"]["Enums"]["fitness_level"]
           mechanic?: Database["public"]["Enums"]["mechanic_type"] | null
+          metric?: Database["public"]["Enums"]["exercise_metric"]
           movement_pattern?: Database["public"]["Enums"]["movement_pattern"]
           name: string
           primary_muscles: Database["public"]["Enums"]["muscle"][]
@@ -541,6 +543,7 @@ export type Database = {
           is_unilateral?: boolean
           level_min?: Database["public"]["Enums"]["fitness_level"]
           mechanic?: Database["public"]["Enums"]["mechanic_type"] | null
+          metric?: Database["public"]["Enums"]["exercise_metric"]
           movement_pattern?: Database["public"]["Enums"]["movement_pattern"]
           name?: string
           primary_muscles?: Database["public"]["Enums"]["muscle"][]
@@ -1442,6 +1445,7 @@ export type Database = {
         | "mobility"
         | "stretch"
         | "plyometric"
+      exercise_metric: "reps" | "seconds"
       exercise_status: "pending" | "completed" | "skipped" | "swapped_out"
       fitness_goal:
         | "fat_loss"
@@ -1677,6 +1681,7 @@ export const Constants = {
         "stretch",
         "plyometric",
       ],
+      exercise_metric: ["reps", "seconds"],
       exercise_status: ["pending", "completed", "skipped", "swapped_out"],
       fitness_goal: [
         "fat_loss",

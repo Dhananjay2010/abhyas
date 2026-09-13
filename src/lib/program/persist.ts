@@ -11,7 +11,7 @@ import {
 type Client = SupabaseClient<Database>;
 
 const CATALOGUE_COLUMNS =
-  "id, slug, name, movement_pattern, mechanic, primary_muscles, equipment_ids, " +
+  "id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, " +
   "level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds";
 
 export type BuildResult =

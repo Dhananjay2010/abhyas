@@ -6,6 +6,7 @@ import { StartSessionButton } from "./start-session-button";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { isoWeekday, localDateString } from "@/lib/dates";
+import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { weekInBlock } from "@/lib/program/prescription";
 
@@ -106,7 +107,7 @@ export default async function TodayPage() {
       .from("program_days")
       // One string literal: Supabase infers the row type from it, and a
       // concatenation degrades the result to GenericStringError.
-      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern))")
+      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
       .eq("program_id", program.id)
       .order("day_index")
       .order("order_index", { referencedTable: "program_day_exercises" }),
@@ -135,7 +136,11 @@ export default async function TodayPage() {
     target_reps_min: number | null;
     target_reps_max: number | null;
     rest_seconds: number | null;
-    exercises: { name: string; cue: string | null } | null;
+    exercises: {
+      name: string;
+      cue: string | null;
+      metric: Database["public"]["Enums"]["exercise_metric"] | null;
+    } | null;
   }>;
 
   const todaySessions = sessionsRes.data;
@@ -258,6 +263,7 @@ export default async function TodayPage() {
                     <span className="font-semibold">{ex?.name}</span>
                     <span className="shrink-0 text-sm tabular-nums text-accent">
                       {row.target_sets} × {row.target_reps_min}–{row.target_reps_max}
+                      {ex?.metric === "seconds" ? "s" : ""}
                     </span>
                   </div>
                   {ex?.cue && <p className="mt-1 text-sm text-muted">{ex.cue}</p>}

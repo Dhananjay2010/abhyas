@@ -16,6 +16,8 @@ export type CandidateExercise = {
   name: string;
   movement_pattern: Pattern;
   mechanic: Enums["mechanic_type"] | null;
+  /** `seconds` for a hold, which is prescribed as a time range, not reps. */
+  metric: Enums["exercise_metric"];
   primary_muscles: Enums["muscle"][];
   equipment_ids: string[];
   level_min: Level;
@@ -277,7 +279,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       used.add(picked.id);
 
       const isolation = picked.mechanic === "isolation";
-      const p: Prescription = prescribe(input.goal, input.level, isolation);
+      const p: Prescription = prescribe(
+        input.goal,
+        input.level,
+        isolation,
+        picked.metric ?? "reps",
+      );
       exercises.push({
         exerciseId: picked.id,
         name: picked.name,
@@ -312,7 +319,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
 
       backfill.forEach((picked) => {
         used.add(picked.id);
-        const p = prescribe(input.goal, input.level, picked.mechanic === "isolation");
+        const p = prescribe(
+          input.goal,
+          input.level,
+          picked.mechanic === "isolation",
+          picked.metric ?? "reps",
+        );
         exercises.push({
           exerciseId: picked.id,
           name: picked.name,

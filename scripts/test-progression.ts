@@ -10,6 +10,7 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "../src/lib/program/progression";
+import { prescribe } from "../src/lib/program/prescription";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -19,6 +20,7 @@ function check(label: string, ok: boolean, detail = "") {
 
 const BENCH: ExerciseMeta = {
   mechanic: "compound",
+  metric: "reps",
   movementPattern: "horizontal_press",
   isBodyweight: false,
   progressionChain: null,
@@ -28,6 +30,7 @@ const SQUAT: ExerciseMeta = { ...BENCH, movementPattern: "squat" };
 const CURL: ExerciseMeta = { ...BENCH, mechanic: "isolation", movementPattern: "biceps" };
 const PUSHUP: ExerciseMeta = {
   mechanic: "compound",
+  metric: "reps",
   movementPattern: "horizontal_press",
   isBodyweight: true,
   progressionChain: "push",
@@ -212,6 +215,103 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
   });
   check("equipment exercise with no weight does not ask for a variation",
     !noLoad.wantsHarderVariation, `${noLoad.outcome}`);
+}
+
+// ---------------------------------------------------------------------------
+// Timed exercises. A hold is measured in seconds, and those seconds travel in
+// `durationSeconds`; `reps` stays null. The target range is in the exercise's
+// own metric, so repsMin/repsMax here are seconds. See SPEC.md section 7.
+// ---------------------------------------------------------------------------
+{
+  console.log("\nTimed exercises (metric: seconds)");
+
+  const PLANK: ExerciseMeta = {
+    mechanic: "isolation",
+    metric: "seconds",
+    movementPattern: "core",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  const PLANK_CHAINED: ExerciseMeta = { ...PLANK, progressionChain: "plank" };
+
+  const holds = (n: number, seconds: number, w: number | null = null) =>
+    Array.from({ length: n }, () => ({ reps: null, weightKg: w, durationSeconds: seconds }));
+
+  const hold = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
+    evaluateProgression({
+      sets: holds(2, 45),
+      plannedSets: 2,
+      repsMin: 20,
+      repsMax: 45,
+      feel: "right",
+      meta: PLANK,
+      state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45 }),
+      isDeload: false,
+      ...over,
+    });
+
+  const up = hold();
+  check("every set held to the top adds five seconds", up.nextTargetReps === 50,
+    `${up.nextTargetReps}`);
+  check("and says so in seconds", up.message.includes("50s"), up.message);
+  check("and invents no weight", up.nextWorkingWeightKg === null);
+
+  const short = hold({ sets: holds(2, 30) });
+  check("short of the top holds the length", short.outcome === "hold", short.outcome);
+  check("and does not talk about weight",
+    !short.message.toLowerCase().includes("weight"), short.message);
+
+  // Reps are not what a hold is measured in: a set carrying only `reps` is not
+  // a hold at all, and must not be read as one.
+  const repsOnly = hold({ sets: [{ reps: 45, weightKg: null }, { reps: 45, weightKg: null }] });
+  check("reps on a timed exercise count for nothing", repsOnly.outcome === "no_data",
+    repsOnly.outcome);
+
+  // The ceiling: past two minutes, more time stops being the answer.
+  const atCeiling = hold({
+    sets: holds(2, 120),
+    repsMax: 120,
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 120 }),
+  });
+  check("an unchained hold stops at the ceiling", atCeiling.nextTargetReps === 120,
+    `${atCeiling.nextTargetReps}`);
+  check("and suggests loading it instead",
+    atCeiling.message.includes("add weight"), atCeiling.message);
+
+  const chainedAtCeiling = hold({
+    meta: PLANK_CHAINED,
+    sets: holds(2, 120),
+    repsMax: 120,
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 120 }),
+  });
+  check("a chained hold moves to a harder variation instead",
+    chainedAtCeiling.wantsHarderVariation && chainedAtCeiling.outcome === "variation_up",
+    chainedAtCeiling.outcome);
+
+  // Epley over seconds would be nonsense, so a weighted hold records no e1RM.
+  const weighted = hold({
+    sets: holds(2, 45, 20),
+    state: fresh({ currentWorkingWeightKg: 20, currentTargetReps: 45, bestE1rm: null }),
+  });
+  check("a weighted hold records no estimated one-rep max", weighted.bestE1rm === null,
+    `${weighted.bestE1rm}`);
+  check("but does record the longest hold", weighted.bestReps === 45, `${weighted.bestReps}`);
+}
+
+{
+  console.log("\nPrescribing a hold");
+  const plank = prescribe("muscle_gain", "intermediate", true, "seconds");
+  check("a hold is prescribed in seconds, not 8-12 reps",
+    plank.repsMin === 20 && plank.repsMax === 40, `${plank.repsMin}-${plank.repsMax}`);
+  check("and never gets a heavy-single rest",
+    prescribe("strength", "intermediate", false, "seconds").restSeconds <= 75,
+    `${prescribe("strength", "intermediate", false, "seconds").restSeconds}s`);
+  check("strength holds are shorter than fat-loss holds",
+    prescribe("strength", "intermediate", true, "seconds").repsMax <
+      prescribe("fat_loss", "intermediate", true, "seconds").repsMax);
+  check("a rep exercise is untouched by the new argument",
+    prescribe("muscle_gain", "intermediate", false).repsMax === 12);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

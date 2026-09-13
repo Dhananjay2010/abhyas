@@ -197,8 +197,11 @@ export async function logSet(input: {
   setNumber: number;
   reps: number | null;
   weightKg: number | null;
+  /** Seconds held, for a `seconds` exercise. Its `reps` stays null. */
+  durationSeconds?: number | null;
 }): Promise<Result> {
-  const invalid = validateSet(input.reps, input.weightKg);
+  const durationSeconds = input.durationSeconds ?? null;
+  const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
 
   const { supabase, user } = await requireUser();
@@ -209,6 +212,7 @@ export async function logSet(input: {
       set_number: input.setNumber,
       reps: input.reps,
       weight_kg: input.weightKg,
+      duration_seconds: durationSeconds,
       is_warmup_set: false,
       completed_at: new Date().toISOString(),
     },
@@ -282,7 +286,7 @@ async function applyProgression(
 
   const { data: se } = await supabase
     .from("session_exercises")
-    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(mechanic, movement_pattern, equipment_ids, progression_chain, progression_rank)")
+    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(mechanic, movement_pattern, metric, equipment_ids, progression_chain, progression_rank)")
     .eq("id", sessionExerciseId)
     .maybeSingle();
   if (!se) return null;
@@ -290,6 +294,7 @@ async function applyProgression(
   const ex = se.exercises as unknown as {
     mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
     movement_pattern: MovementPattern;
+    metric: Database["public"]["Enums"]["exercise_metric"];
     equipment_ids: string[];
     progression_chain: string | null;
     progression_rank: number | null;
@@ -300,7 +305,7 @@ async function applyProgression(
     supabase.from("sessions").select("is_deload, local_date, program_id").eq("id", se.session_id).maybeSingle(),
     supabase
       .from("session_sets")
-      .select("reps, weight_kg")
+      .select("reps, weight_kg, duration_seconds")
       .eq("session_exercise_id", sessionExerciseId)
       .eq("is_warmup_set", false)
       .order("set_number"),
@@ -315,6 +320,7 @@ async function applyProgression(
   const meta: ExerciseMeta = {
     mechanic: ex.mechanic,
     movementPattern: ex.movement_pattern,
+    metric: ex.metric ?? "reps",
     isBodyweight: (ex.equipment_ids ?? []).length === 0,
     progressionChain: ex.progression_chain,
     progressionRank: ex.progression_rank,
@@ -337,6 +343,7 @@ async function applyProgression(
     sets: (setsRes.data ?? []).map((s) => ({
       reps: s.reps,
       weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
+      durationSeconds: s.duration_seconds,
     })),
     plannedSets: se.planned_sets ?? 3,
     repsMin: se.planned_reps_min ?? 8,
