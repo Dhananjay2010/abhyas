@@ -578,6 +578,30 @@ Two more came out of it, both reachable today rather than historical:
   4 × 8–12 reps for a Weighted Plank gives 4 × 20–40s and a "Hold for 40s"
   button.
 
+## Daily menu kept the memory it promises not to  *(partly fixed)*
+
+`planning_mode = 'daily_menu'` had exactly **one** effect in the whole
+application: `applyProgression` returned early, so no progression ran. SPEC §6
+and the Settings copy both promise more than that — "A sensible session each
+day, with **no weight memory**. Your history is kept either way."
+
+The weight memory was still there. `session/[id]/page.tsx` read
+`exercise_progress.current_working_weight_kg` regardless of the mode, printed it
+as "Working weight 60 kg" above the exercise, and prefilled it into the box.
+
+**Fixed:** in daily-menu mode the working weight is not read, so it is neither
+shown nor prefilled. The rows are not deleted, which is the other half of the
+promise — switching back to progression resumes from the last known weights.
+
+**Still open, and a feature rather than a bug:** "a fresh sensible session each
+day". The generator does not consult `planning_mode` at all, so a daily-menu
+user gets the block's plan for that weekday like everyone else. That is the
+larger half of the mode and it has never been built.
+
+Found by reading the code rather than by running it — the mode could not be
+exercised on the account, which is what put it on the "could not test" list in
+the first place.
+
 ## Checked and healthy
 
 - **Access control.** `/history/<someone-else's-uuid>`, `/session/<unknown>`
