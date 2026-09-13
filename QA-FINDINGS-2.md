@@ -483,11 +483,18 @@ none of which any amount of local testing would have shown:
 
 ## Found while clearing the tail (2026-09-13)
 
-Six more. One came from driving the real `SessionRunner` locally, three only
+Seven more. One came from driving the real `SessionRunner` locally, four only
 appeared once the work was on production with real data behind it — including
-two in the fix written an hour earlier — and two fell out of asking which states
+three in fixes written the same hour — and two fell out of asking which states
 the M4 fix newly makes reachable.
 
+- **"You chose this for today, so it replaces the Legs your block had
+  scheduled" — on a Legs day.** A rebuild replaces `program_days`, so every
+  session recorded before it points at a day of the retired block. The
+  "is this an override?" test compared program-day ids alone, an unresolvable id
+  read as "differs", and Today explained a choice nobody had made. Now the day
+  *type* is checked first and the ids only when the override's day is one the
+  current block still has.
 - **A day loses its name once its session is abandoned or finished.** Today
   resolved the day from a `planned` or `in_progress` row only. Finish a swapped
   Pull session and the header reverted to the block's "Legs" — above, after
