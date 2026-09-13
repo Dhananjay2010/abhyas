@@ -647,6 +647,40 @@ the first place.
 
 ---
 
+## To run on the next training day
+
+Everything below needs a **training day with no completed session on it**. Both
+halves matter: a rest day has no "Start session" button at all, and a day whose
+session is finished offers no way back in. Monday is Push in the current block,
+and the planned rest override on it has to go first (`free-tomorrow-for-testing.sql`).
+
+Run these **before** the day's real workout, and leave the session resumable
+rather than finishing it — the checks below cost one start and one abandon, and
+the session they leave behind is the one to actually train.
+
+1. **The metric write path.** Start the session, then check the database:
+   `select se.metric, e.metric, e.name from session_exercises se join exercises e
+   on e.id = se.exercise_id where se.session_id = '<id>'`. Every row should carry
+   a metric. This is the half of the session-metric change that could not be
+   exercised on 13 Sept, because stamping only happens when a session is built.
+2. **Abandon then restart, in one pass.** Start → "End session early" → Start
+   again. Count `sessions` rows for the date before and after: it must not grow,
+   and the second start must return the same session id. Verified once on
+   13 Sept against rows that were already abandoned; never as a continuous loop.
+3. **Daily menu, seen rather than read.** Settings → Daily menu, start the
+   session, confirm no "Working weight" line above the exercise and an empty
+   weight box, finish one exercise and confirm no progression note. Then switch
+   back to Progression and confirm the weights return.
+4. **Per-set logging off, on the server.** Driven in `/dev/session` on 13 Sept
+   but never against the real `logSet`: confirm a set with every value null is
+   accepted, and that no "No reps recorded" note appears.
+5. **The swap list, live.** Open Swap on a core slot and check the six
+   alternatives are not all A-and-B names — and if a hold is among them, that
+   taking it switches the screen to a hold with a sensible range.
+6. **A personal best.** Needs a second session of the same exercises, so
+   realistically week 2: beat a logged weight or hold and confirm the summary
+   names it.
+
 ## What I could not test
 
 - **Real iOS Safari** — wake lock, vibration, audio unlock and PWA install.
