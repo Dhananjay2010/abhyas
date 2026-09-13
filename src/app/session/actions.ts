@@ -677,14 +677,24 @@ export async function planDay(input: {
     return { ok: false, error: "That day has already been and gone." };
   }
 
-  // Anything already under way or finished is not ours to rewrite.
+  // Anything already under way or finished is not ours to rewrite -- but only
+  // the day's WORKOUT owns the day. Yoga and breathing are offered on every
+  // screen as "anytime" activities, so a six-minute breathing session in the
+  // morning must not make the day unplannable. Today already judges its own
+  // state per training type for exactly this reason; this used to say "that day
+  // is already done" to anyone who had breathed.
   const { data: existing } = await supabase
     .from("sessions")
-    .select("id, status")
+    .select("id, status, actual_type")
     .eq("local_date", input.localDate);
 
+  const ownsTheDay = (t: Database["public"]["Enums"]["day_type"] | null) =>
+    t === "weights" || t === "bodyweight";
+
   const settled = (existing ?? []).find(
-    (s) => s.status === "completed" || s.status === "in_progress",
+    (s) =>
+      ownsTheDay(s.actual_type) &&
+      (s.status === "completed" || s.status === "in_progress"),
   );
   if (settled) {
     return {
