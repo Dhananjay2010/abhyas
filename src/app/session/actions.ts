@@ -72,6 +72,11 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .select("id, status, local_date, actual_type, started_at")
       .in("status", ["planned", "in_progress", "skipped"])
       .order("local_date", { ascending: false })
+      // Newest first within a date, so that where an account carries more than
+      // one abandoned row for today -- which only pre-fix data can -- the most
+      // recent attempt is the one resumed, rather than whichever row the
+      // database happened to hand back first.
+      .order("created_at", { ascending: false })
       .limit(10),
     supabase
       .from("programs")
