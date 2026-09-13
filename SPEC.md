@@ -171,10 +171,56 @@ Screen-by-screen, timer-driven. One exercise on screen at a time — big text, t
 - **Resume** — if the phone locks or the app is closed mid-session, offer to pick up exactly where you left off. Controlled by a setting (`resume_session`), since not everyone wants it.
 - **Per-set logging** is a setting. On (default) = reps + weight per set. Off = tick the exercise as done.
 
+### Timed exercises *(specified 2026-09-13)*
+
+Not everything is counted in reps. A plank, a wall sit, a dead hang and a
+weighted carry are held for time, and prescribing "2 × 8–12 reps" of a plank —
+which is what the app did — leaves the user inventing a number that then drives
+progression.
+
+- `exercises.metric` is `reps` or `seconds`. It is curated per exercise, not
+  guessed from the name.
+- A `seconds` exercise keeps using `target_reps_min` / `target_reps_max`, which
+  are a **target range in the exercise's own metric** rather than always reps.
+  The column names are historical; `metric` says what they mean.
+- Goal sets the range the same way it sets rep ranges: strength holds are
+  shorter and heavier, endurance holds longer. Rest is unchanged.
+- The session screen shows **"Hold for 30s"** and a Start button. The hold runs
+  as a countdown on screen, and ends with the same beep and vibration as the
+  rest timer. What was actually held lands in the seconds field, and can be
+  typed over if the hold was dropped early.
+- A hold is stored in `session_sets.duration_seconds`, which already exists.
+  `reps` stays null. Weight stays optional, so a weighted plank still records.
+- **Progression is double progression on time**: hold the current time until
+  every set reaches the top of the range, then add 5 seconds. Above 120 seconds
+  more time stops being useful, so the chain moves to a harder variation
+  instead, exactly as bodyweight rep progression does.
+
 ### End of session
 - Summary: duration, total volume, PRs hit
 - **"What about tomorrow?"** prompt: *keep the plan · swap the day · rest*. This is what makes the plan feel like yours.
 - If a day is missed, the same prompt appears on next open.
+
+**How that prompt behaves** *(specified 2026-09-13)*:
+
+- **Keep the plan** — do nothing. Tomorrow is whatever the block says.
+- **Swap the day** — choose what tomorrow should be from your own block: the
+  other day types in your program, plus Yoga, Breathing and Rest.
+- **Rest** — tomorrow becomes a rest day.
+
+A choice is stored as a **one-day override**: a `sessions` row for tomorrow's
+date with `status = 'planned'` and `actual_type` (and `program_day_id` when a
+real training day was chosen) set to what was picked. Today prefers that row
+over the weekday default when one exists.
+
+**Nothing shifts.** Choosing rest does not push the rest of the block forward;
+the missed workout is simply missed, and shows in History as skipped. Block
+dates and the deload week are unaffected, which keeps the week-in-block
+arithmetic honest.
+
+The same prompt appears on Today when the previous day was a training day with
+no completed session — the "day missed" case above — asking about *today*
+rather than tomorrow.
 
 ---
 
@@ -300,7 +346,7 @@ Media lives in a **separate `exercise_media` table** keyed to the exercise, carr
 ### Reference tables — public read, no user write
 
 **`equipment`** — slug, name, category
-**`exercises`** — slug, name, aliases, tracks, category, mechanic, force, primary_muscles, secondary_muscles, equipment_ids, level_min, instructions, contraindicated_regions, impact, spinal_load, default_rest_seconds, progression_chain_id, progression_rank, source, source_licence
+**`exercises`** — slug, name, aliases, tracks, category, mechanic, force, primary_muscles, secondary_muscles, equipment_ids, level_min, instructions, contraindicated_regions, impact, spinal_load, default_rest_seconds, progression_chain_id, progression_rank, source, source_licence, **`metric`** (`reps`|`seconds`, default `reps` — see §7 *Timed exercises*)
 **`exercise_media`** — exercise_id, type (`photo`|`gif`|`video_youtube`), url / youtube_id, position, attribution, licence
 **`exercise_substitutions`** — exercise_id, substitute_exercise_id, rank *(manual overrides; the default substitution list is computed from matching muscles + available equipment)*
 **`warmup_exercises`** — slug, name, target_regions, type (`cardio`|`mobility`|`prehab`), duration_seconds, media
