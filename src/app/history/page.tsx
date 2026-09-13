@@ -45,7 +45,15 @@ export default async function HistoryPage() {
   }
 
   const today = localDateString(profile.timezone || "Asia/Kolkata");
-  const sessions = sessionsRes.data ?? [];
+  /*
+    Nothing in the future. A "what about tomorrow?" choice is a `sessions` row
+    dated tomorrow, so History -- which has no date filter, because the user's
+    timezone arrives with the profile in the same wave as the query -- listed
+    "Rest · Mon 14 Sept · Not started" at the top of a list of things that had
+    already happened. Filtered here rather than in SQL so the profile and the
+    sessions still go out together; at most a handful of rows are dropped.
+  */
+  const sessions = (sessionsRes.data ?? []).filter((s) => s.local_date <= today);
   const volumeById = new Map(
     (volumeRes.data ?? []).map((v) => [v.session_id, v]),
   );

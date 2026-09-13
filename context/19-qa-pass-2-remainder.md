@@ -166,6 +166,44 @@ against the real database. Verified on production — see the change log.
 
 ---
 
+## What the live pass found
+
+Three of the changes above were wrong in ways local verification could not show,
+and all three were caught within minutes of opening the deployed app:
+
+- **"Your week" was keyed to the calendar week.** Today was a Sunday, so every
+  row in the list was a day that had already happened and tomorrow — the one day
+  a choice had just been made about — was outside the window entirely. Each row
+  now means that weekday's **next** occurrence, which is today for today. The
+  bug needed a Sunday to appear; any other day of the week would have hidden it.
+- **The wrong session's exercises.** The account carried four strength rows for
+  the day (one completed, three abandoned — the very junk M4 describes), and
+  `find` returned an abandoned one, so an abandoned session's exercises rendered
+  under "Session complete. Well done." The completed session is now preferred.
+  A tidy account would never have shown this.
+- **History listed tomorrow.** "Rest · Mon 14 Sept · Not started" sat at the top
+  of "your last 6 sessions". The tomorrow prompt writes a `sessions` row dated
+  tomorrow, and History has no date filter — the user's timezone arrives with
+  the profile in the same wave as the query, so the filter is applied in code
+  rather than serialising the two.
+
+## Verified on production
+
+- `Block 12 · Week 1 of 4`, rebuilt through the guarded button on Today: the
+  confirmation appeared, and afterwards the block was **still 12**, still
+  `started_on 2026-09-13 → ends_on 2026-10-10`, and the Legs day came back
+  exercise-for-exercise identical — `squats-with-bands`,
+  `smith-machine-stiff-legged-deadlift`, `barbell-walking-lunge`,
+  `rocking-standing-calf-raise`, `plank`. Before this change the same tap would
+  have produced block 13 starting today.
+- Today's list read "What you did", with `Squats - With Bands`,
+  `Hip Extension with Bands`, `Barbell Walking Lunge` and
+  `Rocking Standing Calf Raise` struck through and marked SKIPPED, and
+  `Plank 3 × 20–40s` left standing — which is exactly the session that was run.
+- "Your week" showed **Monday · Rest · your choice**, the override written by
+  the tomorrow prompt the evening before.
+- `aria-pressed` on the injury severity pair reads `true` / `false`.
+
 ## Known gaps
 
 - **Session duration after an abandon is the second attempt only.** The first

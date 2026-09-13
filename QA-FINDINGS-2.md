@@ -483,9 +483,22 @@ none of which any amount of local testing would have shown:
 
 ## Found while clearing the tail (2026-09-13)
 
-One more, found by driving the real `SessionRunner` locally rather than by
-reading it:
+Four more. One came from driving the real `SessionRunner` locally; the other
+three only appeared once the work was on production with real data behind it —
+including two in the fix written an hour earlier.
 
+- **History listed tomorrow.** A "what about tomorrow?" choice is a `sessions`
+  row dated tomorrow, and History has no date filter — so the top of "your last
+  6 sessions" read "Rest · Mon 14 Sept · Not started", a thing that has not
+  happened, above things that had. Found by opening History on production after
+  using the prompt, which is the only way it shows up.
+- **"Your week" could not show tomorrow on a Sunday.** The override map was
+  keyed to the Monday-to-Sunday calendar week, so on a Sunday every row was a
+  day already gone and the one day a choice had just been made about fell
+  outside the window. Each row now means that weekday's next occurrence.
+- **An abandoned session's exercises appeared under "Session complete".** With
+  several strength rows on one day, Today took whichever came back first. The
+  completed one is the day's workout.
 - **The rest panel flashed `0:00` before its first tick.** The H1 fix moved the
   panel onto `restEndsAt !== null`, which is correct, but React effects run
   after paint — so the frame between logging a set and the effect's first tick
