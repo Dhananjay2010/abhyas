@@ -510,7 +510,12 @@ export default async function TodayPage() {
             not deliver is worse than naming none.
           */}
           <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
-            {actual && actual.length > 0 ? "What you did" : "Warm-up, then"}
+            {!(actual && actual.length > 0)
+              ? "Warm-up, then"
+              : strengthDone
+                ? "What you did"
+                : /* Started and left: the list is real, but it is not finished. */
+                  "Where you got to"}
           </h2>
           <ol className="space-y-2">
             {todayExercises.map((row) => (
