@@ -489,11 +489,22 @@ none of which any amount of local testing would have shown:
 
 ## Found while clearing the tail (2026-09-13)
 
-Seven more. One came from driving the real `SessionRunner` locally, four only
+Nine more. Two came from driving the real `SessionRunner` locally, five only
 appeared once the work was on production with real data behind it — including
-three in fixes written the same hour — and two fell out of asking which states
+four in fixes written the same hour — and two fell out of asking which states
 the M4 fix newly makes reachable.
 
+- **Per-set logging off would nag you about the setting you chose.** In
+  tick-off mode a set is stored with `reps`, `weight_kg` and `duration_seconds`
+  all null — which is the point of the mode, and which `validateSet` allows.
+  Progression then has no working sets, returns `no_data`, and every exercise of
+  every session raised "No reps recorded, so nothing changed". The progress row
+  is still written, so switching back resumes from the right place; only the
+  banner is suppressed. Found by building a switch into `/dev/session` for a
+  mode that had never been run — it was on QA pass 2's "could not test" list.
+- **Today and Start could name different days.** With several abandoned rows on
+  one date, Today sorted by status and took whatever came back first while
+  `startSession` took the newest. Both now rank, then break ties by recency.
 - **"You chose this for today, so it replaces the Legs your block had
   scheduled" — on a Legs day.** A rebuild replaces `program_days`, so every
   session recorded before it points at a day of the retired block. The
@@ -537,6 +548,19 @@ the M4 fix newly makes reachable.
   bug is still a bug on the control a person touches most in a workout.
 
 ---
+
+## Still open, and found late
+
+- **A timed exercise's unit is read from the catalogue, not from the session.**
+  Today renders the range with an "s" whenever the exercise's *current* metric
+  is `seconds`, so this morning's pre-migration Plank reads "2 × 8–12s" — a
+  range that was prescribed in reps. It is cosmetic and confined to rows written
+  before the metric existed, but it is not only a migration artefact: re-tagging
+  any exercise would rewrite the unit on every past session of it. The durable
+  fix is to stamp the metric on `session_exercises` when the session is built,
+  so history describes itself. Not done: it is a migration, and the session's
+  own History detail page already reads the unit from the logged sets and gets
+  it right.
 
 ## Checked and healthy
 

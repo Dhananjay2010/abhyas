@@ -316,6 +316,23 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
 }
 
 {
+  console.log("\nPer-set logging off: a set with no numbers in it");
+  // The mode records that a set happened and nothing else, so every field is
+  // null. Progression must treat that as "no data", not as a failed session --
+  // two failed sessions in a row drop the working weight ten percent.
+  const ticked = run({
+    sets: Array.from({ length: 4 }, () => ({ reps: null, weightKg: null })),
+  });
+  check("ticking sets off is not a missed session", ticked.outcome === "no_data",
+    ticked.outcome);
+  check("the working weight is untouched", ticked.nextWorkingWeightKg === 60,
+    `${ticked.nextWorkingWeightKg}`);
+  check("and the failure count does not climb", ticked.consecutiveFailures === 0,
+    `${ticked.consecutiveFailures}`);
+  check("no best is claimed from nothing", ticked.personalBest === null);
+}
+
+{
   console.log("\nPersonal bests (SPEC section 7: a best BEATEN, not a best set)");
 
   const PLANK: ExerciseMeta = {

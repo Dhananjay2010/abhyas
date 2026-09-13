@@ -328,7 +328,7 @@ async function applyProgression(
 ): Promise<ProgressionFeedback | null> {
   const { data: settings } = await supabase
     .from("user_settings")
-    .select("planning_mode")
+    .select("planning_mode, per_set_logging")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -427,6 +427,22 @@ async function applyProgression(
   if (decision.wantsHarderVariation && ex.progression_chain) {
     await upgradeVariation(supabase, userId, se.exercise_id, ex.progression_chain, ex.progression_rank ?? 0);
   }
+
+  /*
+    Nothing to say when the user has chosen not to give us numbers.
+
+    With per-set logging off, a set is recorded with `reps`, `weight_kg` and
+    `duration_seconds` all null -- that is the whole point of the mode, and
+    `validateSet` allows it. `evaluateProgression` then has no working sets and
+    returns `no_data`, so every exercise of every session would raise a banner
+    reading "No reps recorded, so nothing changed": nagging someone about a
+    setting they chose on purpose, three or five times a workout.
+
+    The progress row above is still written. "You did this today" is worth
+    recording whether or not it came with numbers, and it is what makes
+    switching back to per-set logging resume from the right place.
+  */
+  if (settings?.per_set_logging === false && decision.outcome === "no_data") return null;
 
   return {
     outcome: decision.outcome,

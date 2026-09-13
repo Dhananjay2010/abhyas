@@ -256,11 +256,36 @@ visit. The tomorrow prompt read "Tomorrow is **Rest**" — the override already
 written, not the block's Push. Back on Today the heading had changed from
 "Where you got to" to "What you did".
 
+### Modes nothing had ever run
+
+`/dev/session` gained three switches — per-set logging, cool-down, and "start
+finished" — because the modes behind them change the session flow and none of
+them could be reached on the account: exercising them on production needs a day
+with no completed session on it. They are client settings, so the harness can
+reach what the account cannot.
+
+Driving per-set logging off found the one real problem: the fields disappear and
+the button becomes "Set 1 done", which is right, but a set is then stored with
+every value null. Progression reads that as `no_data` and says "No reps
+recorded, so nothing changed" — on every exercise, of every session, to someone
+who turned the numbers off deliberately. `applyProgression` now returns no
+feedback for that exact combination, while still writing the progress row.
+
+What it did **not** find, which is worth stating because it is the failure that
+would have mattered: ticking sets off is not read as a missed session.
+`consecutiveFailures` stays where it was, so two tick-off sessions in a row do
+not drop the working weight by ten percent. There is now a test for that.
+
+"Start finished" reproduces the resume state locally: it opens on the cool-down
+and skips the warm-up, which is right — nobody should be asked to warm up for a
+session they have finished — and completing from there reports "2 of 3
+exercises", no progression notes and no personal bests.
+
 ## Still not verified on production
 
-Per-set-logging off, daily-menu mode, and the abandon-then-restart loop in one
-continuous pass. All three need a day carrying no completed session, and
-restoring this morning's real session puts one back. Tomorrow resolves it.
+Daily-menu mode, and the abandon-then-restart loop in one continuous pass. Both
+need a day carrying no completed session. Tomorrow is planned as Rest and has
+none, so it is the day to do it on.
 
 ## Known gaps
 

@@ -115,9 +115,42 @@ const TOMORROW = {
   ],
 };
 
+/**
+ * The same exercises, but already finished.
+ *
+ * Reproduces the state a session is in when someone completes their last lift
+ * and leaves before the cool-down: open, with nothing pending. Resuming that
+ * used to drop the user back on exercise one and offer "How did that feel?" for
+ * a lift finished an hour earlier, applying progression twice.
+ */
+const FINISHED: RunnerExercise[] = EXERCISES.map((e, i) => ({
+  ...e,
+  status: i === 1 ? ("skipped" as const) : ("completed" as const),
+  feel: i === 1 ? null : ("right" as const),
+  sets:
+    i === 1
+      ? []
+      : Array.from({ length: e.plannedSets }, (_, n) => ({
+          setNumber: n + 1,
+          reps: e.metric === "seconds" ? null : e.repsMax,
+          weightKg: e.workingWeightKg,
+          durationSeconds: e.metric === "seconds" ? e.repsMax : null,
+        })),
+}));
+
 export function SessionPreview() {
   const [runId, setRunId] = useState(0);
   const [exited, setExited] = useState(false);
+  /*
+    Modes the app ships but nothing had ever driven. Per-set logging off and
+    the cool-down toggle both change the session flow, and both were listed as
+    untested in QA pass 2 because exercising them on production needs a day
+    with no completed session on it. They are client settings, so the harness
+    can reach them even when the account cannot.
+  */
+  const [perSetLogging, setPerSetLogging] = useState(true);
+  const [cooldownEnabled, setCooldownEnabled] = useState(true);
+  const [startFinished, setStartFinished] = useState(false);
 
   if (exited) {
     return (
@@ -140,26 +173,55 @@ export function SessionPreview() {
   }
 
   return (
-    <SessionRunner
-      key={runId}
-      sessionId="00000000-0000-0000-0000-000000000000"
-      isDeload={false}
-      week={2}
-      warmupAlreadyDone={false}
-      startedAt={null}
-      warmup={WARMUP}
-      exercises={EXERCISES}
-      tomorrow={TOMORROW}
-      settings={{
-        perSetLogging: true,
-        restAutostart: true,
-        restSound: true,
-        restVibrate: true,
-        restOverrideSeconds: null,
-        cooldownEnabled: true,
-      }}
-      actions={STUB}
-      onExit={() => setExited(true)}
-    />
+    <>
+      <div className="fixed top-2 right-2 z-50 flex flex-col gap-1 rounded-lg border border-border bg-surface-2/95 p-2 text-xs">
+        <Mode on={perSetLogging} set={setPerSetLogging} label="Per-set logging" />
+        <Mode on={cooldownEnabled} set={setCooldownEnabled} label="Cool-down" />
+        <Mode on={startFinished} set={setStartFinished} label="Start finished" />
+      </div>
+      <SessionRunner
+        // The settings are in the key so that flipping one restarts the flow
+        // rather than changing the rules half way through it.
+        key={`${runId}:${perSetLogging}:${cooldownEnabled}:${startFinished}`}
+        sessionId="00000000-0000-0000-0000-000000000000"
+        isDeload={false}
+        week={2}
+        warmupAlreadyDone={false}
+        startedAt={null}
+        warmup={WARMUP}
+        exercises={startFinished ? FINISHED : EXERCISES}
+        tomorrow={TOMORROW}
+        settings={{
+          perSetLogging,
+          restAutostart: true,
+          restSound: true,
+          restVibrate: true,
+          restOverrideSeconds: null,
+          cooldownEnabled,
+        }}
+        actions={STUB}
+        onExit={() => setExited(true)}
+      />
+    </>
+  );
+}
+
+function Mode({
+  on,
+  set,
+  label,
+}: {
+  on: boolean;
+  set: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={() => set(!on)}
+      aria-pressed={on}
+      className={`rounded px-2 py-1 text-left ${on ? "bg-accent text-accent-fg" : "text-muted"}`}
+    >
+      {label}: {on ? "on" : "off"}
+    </button>
   );
 }
