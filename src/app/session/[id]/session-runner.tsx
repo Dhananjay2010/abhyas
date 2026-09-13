@@ -13,6 +13,8 @@ import {
   vibrationSupported,
 } from "@/lib/session/device";
 import { validateSet } from "@/lib/session/validation";
+import { DayPlanPrompt } from "@/components/day-plan-prompt";
+import type { NextDayPlan } from "@/lib/program/day-plan";
 import {
   abandonSession,
   deleteSet,
@@ -21,6 +23,7 @@ import {
   findAlternatives,
   logSet,
   markWarmupDone,
+  planDay,
   refreshAfterSession,
   swapExercise,
   type Alternative,
@@ -37,6 +40,7 @@ export type SessionActions = {
   findAlternatives: typeof findAlternatives;
   swapExercise: typeof swapExercise;
   refreshAfterSession: typeof refreshAfterSession;
+  planDay: typeof planDay;
 };
 
 const REAL_ACTIONS: SessionActions = {
@@ -49,18 +53,27 @@ const REAL_ACTIONS: SessionActions = {
   findAlternatives,
   swapExercise,
   refreshAfterSession,
+  planDay,
 };
 
 type Feel = Database["public"]["Enums"]["set_feel"];
 type Muscle = Database["public"]["Enums"]["muscle"];
 
-export type LoggedSet = { setNumber: number; reps: number | null; weightKg: number | null };
+export type LoggedSet = {
+  setNumber: number;
+  reps: number | null;
+  weightKg: number | null;
+  /** Seconds held, for an exercise whose metric is `seconds`. */
+  durationSeconds: number | null;
+};
 
 export type RunnerExercise = {
   id: string;
   exerciseId: string;
   name: string;
   cue: string | null;
+  /** `seconds` turns the set entry into a hold: a countdown, not a rep count. */
+  metric: Database["public"]["Enums"]["exercise_metric"];
   primaryMuscles: Muscle[];
   plannedSets: number;
   repsMin: number;
@@ -99,6 +112,7 @@ export function SessionRunner({
   warmup,
   exercises: initialExercises,
   settings,
+  tomorrow,
   actions = REAL_ACTIONS,
   onExit,
 }: {
@@ -110,6 +124,8 @@ export function SessionRunner({
   warmup: WarmupItem[];
   exercises: RunnerExercise[];
   settings: RunnerSettings;
+  /** What tomorrow is, so the summary can ask about it. Null with no block. */
+  tomorrow?: NextDayPlan | null;
   actions?: SessionActions;
   onExit?: () => void;
 }) {
@@ -388,6 +404,22 @@ export function SessionRunner({
           </section>
         )}
 
+        {/*
+          SPEC.md section 7: "what makes the plan feel like yours". Asked here,
+          once the work is done and the user knows how it went, rather than as
+          an abstract question on a screen they have not earned yet.
+        */}
+        {tomorrow && (
+          <DayPlanPrompt
+            localDate={tomorrow.localDate}
+            dayLabel="Tomorrow"
+            plannedLabel={tomorrow.plannedLabel}
+            days={tomorrow.days}
+            heading="What about tomorrow?"
+            onPlan={actions.planDay}
+          />
+        )}
+
         <div className="mt-10">
           <BigButton
             disabled={busy}
@@ -466,23 +498,34 @@ export function SessionRunner({
    * entered, and it saves the typing on the sets that match — which is most of
    * them.
    */
-  const defaultReps =
-    [...current.sets].reverse().find((s) => s.reps !== null)?.reps ?? null;
+  const isTimed = current?.metric === "seconds";
+  const defaultReps = isTimed
+    ? ([...current.sets].reverse().find((s) => s.durationSeconds !== null)?.durationSeconds ??
+      null)
+    : ([...current.sets].reverse().find((s) => s.reps !== null)?.reps ?? null);
 
-  async function onLogSet(reps: number | null, weightKg: number | null) {
+  async function onLogSet(
+    reps: number | null,
+    weightKg: number | null,
+    durationSeconds: number | null = null,
+  ) {
     const ok = await run(() =>
       actions.logSet({
         sessionExerciseId: current.id,
         setNumber: nextSetNumber,
         reps,
         weightKg,
+        durationSeconds,
       }),
     );
     if (!ok) return;
     setExercises((prev) =>
       prev.map((e) =>
         e.id === current.id
-          ? { ...e, sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg }] }
+          ? {
+              ...e,
+              sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
+            }
           : e,
       ),
     );
@@ -569,7 +612,8 @@ export function SessionRunner({
         )}
         <h2 className="text-3xl font-bold tracking-tight">{current.name}</h2>
         <p className="mt-2 text-accent">
-          {current.plannedSets} sets × {current.repsMin}–{current.repsMax} reps
+          {current.plannedSets} sets × {current.repsMin}–{current.repsMax}
+          {isTimed ? "s" : " reps"}
         </p>
         {current.cue && <p className="mt-2 text-sm text-muted">{current.cue}</p>}
         {current.workingWeightKg !== null && (
@@ -586,7 +630,16 @@ export function SessionRunner({
           </p>
         )}
 
-        {restRemaining > 0 && (
+        {/*
+          Shown while a rest is actually running, which is what `restEndsAt`
+          means. This used to key off `restRemaining > 0`, a number the effect
+          leaves untouched whenever the end time is cleared with time still on
+          the clock — so the panel stayed on screen with the countdown frozen
+          at whatever second it had reached, and nothing would clear it until
+          the next set was logged. That happened on the rest timer's own
+          "Skip" button, on Undo, and at every exercise transition.
+        */}
+        {restEndsAt !== null && (
           <div className="mt-6 flex items-center justify-between rounded-xl border border-accent/40 bg-accent/10 px-5 py-4">
             <span className="text-sm text-accent">Rest</span>
             <span className="text-3xl font-bold tabular-nums text-accent">
@@ -620,7 +673,11 @@ export function SessionRunner({
                   <span className="text-sm tabular-nums">
                     {logged
                       ? settings.perSetLogging
-                        ? `${logged.reps ?? "—"} reps${logged.weightKg ? ` · ${logged.weightKg} kg` : ""}`
+                        ? `${
+                            isTimed
+                              ? `${logged.durationSeconds ?? "—"}s`
+                              : `${logged.reps ?? "—"} reps`
+                          }${logged.weightKg ? ` · ${logged.weightKg} kg` : ""}`
                         : "done"
                       : "—"}
                   </span>
@@ -650,12 +707,27 @@ export function SessionRunner({
 
         {!allSetsDone && (
           <SetEntry
-            key={nextSetNumber}
+            /*
+              Keyed by exercise AND set, so the fields reset on both.
+              With only the set number, moving from one exercise to the next
+              at the same set number reused the component instance, and
+              `useState` keeps its first value: the weight typed for the bench
+              press was still sitting in the box on the lat pulldown, ready to
+              be logged against it and fed to progression. It also left a stale
+              number in a hold's seconds field.
+            */
+            key={`${current.id}:${nextSetNumber}`}
             perSetLogging={settings.perSetLogging}
+            metric={current.metric}
+            targetSeconds={current.repsMax}
             defaultWeight={lastWeight}
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             onLog={onLogSet}
+            onHoldComplete={() => {
+              if (settings.restSound) beeper.beep();
+              if (settings.restVibrate) vibrate([180, 90, 180]);
+            }}
             disabled={busy}
           />
         )}
@@ -802,33 +874,93 @@ export function SessionRunner({
 
 function SetEntry({
   perSetLogging,
+  metric,
+  targetSeconds,
   defaultWeight,
   defaultReps,
   setNumber,
   onLog,
+  onHoldComplete,
   disabled = false,
 }: {
   perSetLogging: boolean;
+  /** `seconds` turns this into a hold: a countdown rather than a rep count. */
+  metric: Database["public"]["Enums"]["exercise_metric"];
+  /** Top of the target range, which is what the hold counts down from. */
+  targetSeconds: number;
   defaultWeight: number | null;
   /** Null on the first set of an exercise, so it has to be entered. */
   defaultReps: number | null;
   setNumber: number;
-  onLog: (reps: number | null, weightKg: number | null) => void;
+  onLog: (
+    reps: number | null,
+    weightKg: number | null,
+    durationSeconds?: number | null,
+  ) => void;
+  /** Beep and buzz when a hold reaches zero, as the rest timer does. */
+  onHoldComplete: () => void;
   disabled?: boolean;
 }) {
+  const isTimed = metric === "seconds";
+
   // Remounted per set via a key at the call site, so the fields reset naturally
   // rather than being reset from an effect.
   const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
   const [weight, setWeight] = useState(defaultWeight !== null ? String(defaultWeight) : "");
 
+  /**
+   * The hold timer.
+   *
+   * An absolute end timestamp rather than a decrementing counter, so a phone
+   * that locks or backgrounds the tab does not lose seconds — the same reason
+   * the rest timer works this way. Visibility is derived from `endsAt`, never
+   * from the remaining count, so clearing it always clears the panel.
+   *
+   * Whatever was actually held lands in the seconds field: the full target when
+   * the countdown reaches zero, or the elapsed time when it is stopped early.
+   * Nothing is prefilled before that, so a set nobody performed cannot be
+   * logged by tapping through — the same rule the reps field follows.
+   */
+  const [holdEndsAt, setHoldEndsAt] = useState<number | null>(null);
+  const [holdLeft, setHoldLeft] = useState(targetSeconds);
+  const holdFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (holdEndsAt === null) return;
+    holdFiredRef.current = false;
+    const tick = () => {
+      const left = Math.max(0, Math.round((holdEndsAt - Date.now()) / 1000));
+      setHoldLeft(left);
+      if (left === 0 && !holdFiredRef.current) {
+        holdFiredRef.current = true;
+        setReps(String(targetSeconds));
+        onHoldComplete();
+        setHoldEndsAt(null);
+      }
+    };
+    tick();
+    const t = setInterval(tick, 250);
+    return () => clearInterval(t);
+  }, [holdEndsAt, targetSeconds, onHoldComplete]);
+
+  function stopHoldEarly() {
+    const held = Math.max(1, targetSeconds - holdLeft);
+    setReps(String(held));
+    setHoldEndsAt(null);
+  }
+
   // The same rules the server enforces, so the button explains itself before a
-  // round trip rather than after one. An empty reps field is only meaningful
-  // when per-set logging is off, where the runner records that a set happened
+  // round trip rather than after one. An empty field is only meaningful when
+  // per-set logging is off, where the runner records that a set happened
   // without asking for numbers; here it means the user has not said yet.
   const invalid =
     reps === ""
-      ? "Enter the reps you did."
-      : validateSet(Number(reps), weight === "" ? null : Number(weight));
+      ? isTimed
+        ? "Hold it, or enter the seconds you held."
+        : "Enter the reps you did."
+      : isTimed
+        ? validateSet(null, weight === "" ? null : Number(weight), Number(reps))
+        : validateSet(Number(reps), weight === "" ? null : Number(weight));
 
   if (!perSetLogging) {
     return (
@@ -842,9 +974,36 @@ function SetEntry({
 
   return (
     <div className="mt-6">
+      {isTimed &&
+        (holdEndsAt !== null ? (
+          <div className="mb-4 rounded-xl border border-accent/40 bg-accent/10 px-5 py-5 text-center">
+            <p className="text-sm text-accent">Hold</p>
+            <p className="mt-1 text-5xl font-bold tabular-nums text-accent">
+              {formatClock(holdLeft)}
+            </p>
+            <button
+              onClick={stopHoldEarly}
+              className="mt-3 rounded-lg px-3 py-1.5 text-sm text-accent underline underline-offset-2"
+            >
+              Stop early
+            </button>
+          </div>
+        ) : (
+          <div className="mb-4">
+            <BigButton
+              disabled={disabled}
+              onClick={() => {
+                setHoldLeft(targetSeconds);
+                setHoldEndsAt(Date.now() + targetSeconds * 1000);
+              }}
+            >
+              Hold for {targetSeconds}s
+            </BigButton>
+          </div>
+        ))}
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="text-sm text-muted">Reps</span>
+          <span className="text-sm text-muted">{isTimed ? "Seconds held" : "Reps"}</span>
           <input
             type="number"
             inputMode="numeric"
@@ -880,9 +1039,14 @@ function SetEntry({
       )}
       <div className="mt-3">
         <BigButton
-          disabled={disabled || invalid !== null}
+          disabled={disabled || invalid !== null || holdEndsAt !== null}
           onClick={() =>
-            onLog(reps === "" ? null : Number(reps), weight === "" ? null : Number(weight))
+            isTimed
+              ? onLog(null, weight === "" ? null : Number(weight), Number(reps))
+              : onLog(
+                  reps === "" ? null : Number(reps),
+                  weight === "" ? null : Number(weight),
+                )
           }
         >
           Log set {setNumber}

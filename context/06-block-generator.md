@@ -179,3 +179,5 @@ Covered by regression tests 12 and 13 in `scripts/test-generator.ts`.
 - Fixed yoga/breathing tracks being given a strength split, and empty training days.
 - Added `buildPlan()` and a Today button, for users who onboarded before block
   generation existed.
+- **2026-09-13.** QA pass 2: a day filled by the empty-day backfill is now labelled "Full body" rather than keeping its template name, which had produced a "Pull" day of four core exercises for a bodyweight user. The deeper findings on the pattern data and on `score()` penalising equipment are open — see [17](17-qa-pass-2.md) and [QA-FINDINGS-2.md](../QA-FINDINGS-2.md).
+- **2026-09-13.** `prescribe()` returns a seconds range for an exercise whose metric is `seconds`, so a plank is no longer prescribed as 8–12 reps. See [18](18-timed-exercises-and-tomorrow.md).

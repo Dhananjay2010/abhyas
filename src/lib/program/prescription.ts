@@ -3,6 +3,7 @@ import { daysBetween } from "@/lib/dates";
 
 type Goal = Database["public"]["Enums"]["fitness_goal"];
 type Level = Database["public"]["Enums"]["fitness_level"];
+type Metric = Database["public"]["Enums"]["exercise_metric"];
 
 export type Prescription = {
   sets: number;
@@ -30,13 +31,46 @@ const SET_ADJUSTMENT: Record<Level, number> = {
   expert: 0,
 };
 
+/**
+ * Hold lengths in seconds, by goal, for exercises whose metric is `seconds`.
+ *
+ * A plank prescribed as "8-12 reps" is meaningless, which is what the app did
+ * before `exercises.metric` existed. These mirror the rep table above: the
+ * strength end is short and heavy, the fat-loss end is long and dense.
+ *
+ * They are a range in the exercise's own metric, so they travel through
+ * `target_reps_min` / `target_reps_max` like any other range -- see SPEC.md
+ * section 7, "Timed exercises".
+ */
+const HOLD_SECONDS_BY_GOAL: Record<Goal, { min: number; max: number }> = {
+  strength: { min: 15, max: 30 },
+  muscle_gain: { min: 20, max: 40 },
+  fat_loss: { min: 30, max: 60 },
+  general_fitness: { min: 20, max: 45 },
+  flexibility_stress: { min: 30, max: 60 },
+};
+
+/** A hold never needs a heavy-single rest, however the goal is set. */
+const MAX_HOLD_REST_SECONDS = 75;
+
 export function prescribe(
   goal: Goal,
   level: Level,
   isolation: boolean,
+  metric: Metric = "reps",
 ): Prescription {
   const base = BY_GOAL[goal];
   const sets = Math.max(2, base.sets + SET_ADJUSTMENT[level]);
+
+  if (metric === "seconds") {
+    const hold = HOLD_SECONDS_BY_GOAL[goal];
+    return {
+      sets,
+      repsMin: hold.min,
+      repsMax: hold.max,
+      restSeconds: Math.min(base.restSeconds, MAX_HOLD_REST_SECONDS),
+    };
+  }
 
   // Isolation work does not need heavy-single rest periods, and strength rep
   // ranges make no sense on a lateral raise.

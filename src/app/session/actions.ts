@@ -197,8 +197,11 @@ export async function logSet(input: {
   setNumber: number;
   reps: number | null;
   weightKg: number | null;
+  /** Seconds held, for a `seconds` exercise. Its `reps` stays null. */
+  durationSeconds?: number | null;
 }): Promise<Result> {
-  const invalid = validateSet(input.reps, input.weightKg);
+  const durationSeconds = input.durationSeconds ?? null;
+  const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
 
   const { supabase, user } = await requireUser();
@@ -209,6 +212,7 @@ export async function logSet(input: {
       set_number: input.setNumber,
       reps: input.reps,
       weight_kg: input.weightKg,
+      duration_seconds: durationSeconds,
       is_warmup_set: false,
       completed_at: new Date().toISOString(),
     },
@@ -282,7 +286,7 @@ async function applyProgression(
 
   const { data: se } = await supabase
     .from("session_exercises")
-    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(mechanic, movement_pattern, equipment_ids, progression_chain, progression_rank)")
+    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(mechanic, movement_pattern, metric, equipment_ids, progression_chain, progression_rank)")
     .eq("id", sessionExerciseId)
     .maybeSingle();
   if (!se) return null;
@@ -290,6 +294,7 @@ async function applyProgression(
   const ex = se.exercises as unknown as {
     mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
     movement_pattern: MovementPattern;
+    metric: Database["public"]["Enums"]["exercise_metric"];
     equipment_ids: string[];
     progression_chain: string | null;
     progression_rank: number | null;
@@ -300,7 +305,7 @@ async function applyProgression(
     supabase.from("sessions").select("is_deload, local_date, program_id").eq("id", se.session_id).maybeSingle(),
     supabase
       .from("session_sets")
-      .select("reps, weight_kg")
+      .select("reps, weight_kg, duration_seconds")
       .eq("session_exercise_id", sessionExerciseId)
       .eq("is_warmup_set", false)
       .order("set_number"),
@@ -315,6 +320,7 @@ async function applyProgression(
   const meta: ExerciseMeta = {
     mechanic: ex.mechanic,
     movementPattern: ex.movement_pattern,
+    metric: ex.metric ?? "reps",
     isBodyweight: (ex.equipment_ids ?? []).length === 0,
     progressionChain: ex.progression_chain,
     progressionRank: ex.progression_rank,
@@ -337,6 +343,7 @@ async function applyProgression(
     sets: (setsRes.data ?? []).map((s) => ({
       reps: s.reps,
       weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
+      durationSeconds: s.duration_seconds,
     })),
     plannedSets: se.planned_sets ?? 3,
     repsMin: se.planned_reps_min ?? 8,
@@ -603,4 +610,172 @@ async function ensureSessionExercises(
       rest_seconds: p.rest_seconds,
     })),
   );
+}
+
+// ---------------------------------------------------------------------------
+// "What about tomorrow?"
+//
+// SPEC.md section 7 asks for this at the end of every session, and again on
+// Today when a day was missed: keep the plan, swap the day, or rest. It is
+// what stops the block feeling like something the app imposes.
+//
+// A choice is a ONE-DAY OVERRIDE, stored as a planned `sessions` row for that
+// date. Nothing about the block moves: the dates, the deload week and the
+// week-in-block arithmetic are all untouched, and a workout declined is simply
+// not done. Today prefers the override when one exists for the day it renders.
+// ---------------------------------------------------------------------------
+
+/** The choices the prompt can offer, resolved on the server into a session row. */
+export type DayPlan =
+  | { kind: "keep" }
+  | { kind: "rest" }
+  | { kind: "yoga" }
+  | { kind: "breathing" }
+  | { kind: "training"; programDayId: string };
+
+/** A day the user can move to, as offered by the prompt. */
+export type PlannableDay = {
+  programDayId: string;
+  label: string;
+  dayType: Database["public"]["Enums"]["day_type"];
+};
+
+const OVERRIDE_TYPE: Record<
+  Exclude<DayPlan["kind"], "keep" | "training">,
+  Database["public"]["Enums"]["day_type"]
+> = {
+  rest: "rest",
+  yoga: "yoga",
+  breathing: "meditation",
+};
+
+/**
+ * Plan one day.
+ *
+ * Refuses to touch a day that has already been trained or started, so this can
+ * never rewrite history or pull the plan out from under a session in progress.
+ * "Keep" removes any override rather than writing one, which is what makes the
+ * prompt safe to change your mind with.
+ */
+export async function planDay(input: {
+  localDate: string;
+  plan: DayPlan;
+}): Promise<Result> {
+  const { supabase, user } = await requireUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .single();
+  const today = localDateString(profile?.timezone || "Asia/Kolkata");
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
+    return { ok: false, error: "That is not a date." };
+  }
+  if (input.localDate < today) {
+    return { ok: false, error: "That day has already been and gone." };
+  }
+
+  // Anything already under way or finished is not ours to rewrite.
+  const { data: existing } = await supabase
+    .from("sessions")
+    .select("id, status")
+    .eq("local_date", input.localDate);
+
+  const settled = (existing ?? []).find(
+    (s) => s.status === "completed" || s.status === "in_progress",
+  );
+  if (settled) {
+    return {
+      ok: false,
+      error:
+        settled.status === "completed"
+          ? "That day is already done."
+          : "That session has already started.",
+    };
+  }
+
+  const planned = (existing ?? []).filter((s) => s.status === "planned");
+
+  if (input.plan.kind === "keep") {
+    if (planned.length > 0) {
+      const { error } = await supabase
+        .from("sessions")
+        .delete()
+        .in(
+          "id",
+          planned.map((s) => s.id),
+        );
+      if (error) return { ok: false, error: error.message };
+    }
+    revalidateTrainingData();
+    return { ok: true };
+  }
+
+  const { data: program } = await supabase
+    .from("programs")
+    .select("id, started_on, deload_week")
+    .eq("status", "active")
+    .maybeSingle();
+
+  let actualType: Database["public"]["Enums"]["day_type"];
+  let programDayId: string | null = null;
+
+  if (input.plan.kind === "training") {
+    // Read the day rather than trusting the id: RLS already scopes it to this
+    // user, and this also gets the type right without the client naming it.
+    const { data: day } = await supabase
+      .from("program_days")
+      .select("id, day_type")
+      .eq("id", input.plan.programDayId)
+      .maybeSingle();
+    if (!day) return { ok: false, error: "That day is not in your block." };
+    actualType = day.day_type;
+    programDayId = day.id;
+  } else {
+    actualType = OVERRIDE_TYPE[input.plan.kind];
+  }
+
+  // Stamped now rather than left null. `startSession` fills these in only on
+  // the path that creates a session itself; resuming a planned row keeps
+  // whatever it was written with, and a null week would have shown "Week 1" on
+  // an override day and silently skipped the deload.
+  const week = program ? weekInBlock(program.started_on, input.localDate) : null;
+
+  const row = {
+    user_id: user.id,
+    program_id: program?.id ?? null,
+    program_day_id: programDayId,
+    local_date: input.localDate,
+    week_in_block: week,
+    is_deload: week !== null && week === program?.deload_week,
+    planned_type: actualType,
+    actual_type: actualType,
+    status: "planned" as const,
+  };
+
+  // One planned row per day: replace whatever was there rather than stacking
+  // overrides, which is how the four duplicate "Skipped" rows in History
+  // happened elsewhere.
+  if (planned.length > 0) {
+    const [first, ...rest] = planned;
+    if (rest.length > 0) {
+      await supabase
+        .from("sessions")
+        .delete()
+        .in(
+          "id",
+          rest.map((s) => s.id),
+        );
+    }
+    const { error } = await supabase.from("sessions").update(row).eq("id", first.id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from("sessions").insert(row);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidateTrainingData();
+  return { ok: true };
 }

@@ -5,7 +5,10 @@ import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { isoWeekday, localDateString } from "@/lib/dates";
+import { addDays, isoWeekday, localDateString } from "@/lib/dates";
+import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
+import { DayPlanPrompt } from "@/components/day-plan-prompt";
+import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { weekInBlock } from "@/lib/program/prescription";
 
@@ -106,7 +109,7 @@ export default async function TodayPage() {
       .from("program_days")
       // One string literal: Supabase infers the row type from it, and a
       // concatenation degrades the result to GenericStringError.
-      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern))")
+      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
       .eq("program_id", program.id)
       .order("day_index")
       .order("order_index", { referencedTable: "program_day_exercises" }),
@@ -114,38 +117,81 @@ export default async function TodayPage() {
     // one-minute breathing session used to be the newest row and made Today
     // announce "Session complete", hiding the Start button and locking the user
     // out of their actual workout for the rest of the day.
+    // Yesterday comes along for the ride, because SPEC section 7 asks the same
+    // "what about tomorrow?" question about today when yesterday was a training
+    // day nobody finished. One extra date in an `in` filter is free; a second
+    // query would not be.
     supabase
       .from("sessions")
-      .select("id, status, actual_type")
-      .eq("local_date", localToday),
+      .select("id, status, actual_type, local_date, program_day_id")
+      .in("local_date", [addDays(localToday, -1), localToday]),
   ]);
 
   const days = daysRes.data;
   // Derived from the user's own local date rather than re-reading the clock,
   // so the weekday and the date can never disagree at a midnight boundary.
   const todayIndex = isoWeekday(localToday);
-  const today = days?.find((d) => d.day_index === todayIndex);
+  const scheduled = days?.find((d) => d.day_index === todayIndex);
+
+  const allSessions = sessionsRes.data ?? [];
+  const todaySessions = allSessions.filter((s) => s.local_date === localToday);
+
+  /*
+    A "what about tomorrow?" choice made yesterday is a planned session row for
+    today, and it wins over the weekday template. Without this the choice would
+    be written and then quietly ignored, which is worse than not offering it.
+  */
+  const override = todaySessions.find((s) => s.status === "planned" && s.actual_type);
+  const overrideDay = override?.program_day_id
+    ? days?.find((d) => d.id === override.program_day_id)
+    : undefined;
+
+  const today = overrideDay ?? scheduled;
+  const dayType = override?.actual_type ?? scheduled?.day_type ?? null;
+  const dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
   const week = weekInBlock(program.started_on, localToday);
   const isDeload = week === program.deload_week;
-  const isTraining = today?.day_type === "weights" || today?.day_type === "bodyweight";
+  const isTraining = dayType === "weights" || dayType === "bodyweight";
 
-  const todayExercises = (today?.program_day_exercises ?? []) as Array<{
+  // An override to rest, yoga or breathing has no program day, so the block's
+  // own exercises for this weekday must not leak through underneath it.
+  const todayExercises = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
     order_index: number;
     target_sets: number | null;
     target_reps_min: number | null;
     target_reps_max: number | null;
     rest_seconds: number | null;
-    exercises: { name: string; cue: string | null } | null;
+    exercises: {
+      name: string;
+      cue: string | null;
+      metric: Database["public"]["Enums"]["exercise_metric"] | null;
+    } | null;
   }>;
 
-  const todaySessions = sessionsRes.data;
   const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
-  const strengthDone = (todaySessions ?? []).some(
+  const strengthDone = todaySessions.some(
     (s) => s.status === "completed" && isStrength(s.actual_type),
   );
-  const strengthOpen = (todaySessions ?? []).find(
+  const strengthOpen = todaySessions.find(
     (s) => (s.status === "in_progress" || s.status === "planned") && isStrength(s.actual_type),
   );
+
+  /*
+    Yesterday was a training day and nothing was completed on it. SPEC section 7
+    asks the same question in that case, about today rather than tomorrow --
+    the point being that a missed day should prompt a decision rather than
+    quietly becoming a hole in the week.
+  */
+  const yesterday = addDays(localToday, -1);
+  const yesterdayIndex = isoWeekday(yesterday);
+  const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
+  const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
+  const missedYesterday =
+    (yesterdayDay?.day_type === "weights" || yesterdayDay?.day_type === "bodyweight") &&
+    !yesterdaySessions.some((s) => s.status === "completed" && isStrength(s.actual_type));
+  // Only worth asking while today is still open to being changed.
+  const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
+  const plannable = askAboutToday ? await plannableDays(supabase, program.id) : [];
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
@@ -154,11 +200,7 @@ export default async function TodayPage() {
           {DAY_NAMES[todayIndex - 1]} · Block {program.block_number} · Week {week} of 4
         </p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">
-          {today?.day_type === "rest"
-            ? "Rest day"
-            : today?.day_type === "yoga"
-              ? "Yoga"
-              : (today?.label ?? "Today")}
+          {dayType === "rest" ? "Rest day" : dayLabel}
         </h1>
         {isDeload && isTraining && (
           <p className="mt-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
@@ -199,7 +241,29 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {today?.day_type === "rest" && (
+      {override && (
+        <p className="mt-4 rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
+          You chose this for today, so it replaces the{" "}
+          {labelForDayType(scheduled?.day_type ?? "rest", scheduled?.label ?? null)} your
+          block had scheduled. The rest of the week is unchanged.
+        </p>
+      )}
+
+      {askAboutToday && (
+        <DayPlanPrompt
+          localDate={localToday}
+          dayLabel="Today"
+          plannedLabel={dayLabel}
+          days={plannable}
+          heading="You missed yesterday"
+          intro={`${labelForDayType(
+            yesterdayDay?.day_type ?? "rest",
+            yesterdayDay?.label ?? null,
+          )} did not happen.`}
+        />
+      )}
+
+      {dayType === "rest" && (
         <>
           <p className="mt-6 text-muted">
             Nothing scheduled. Rest properly, or do something light.
@@ -207,7 +271,19 @@ export default async function TodayPage() {
         </>
       )}
 
-      {today?.day_type === "yoga" && (
+      {dayType === "meditation" && (
+        <div className="mt-6">
+          <p className="text-muted">A breathing day. Pick a practice and sit with it.</p>
+          <Link
+            href="/breathe"
+            className="mt-5 block rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            Start breathing
+          </Link>
+        </div>
+      )}
+
+      {dayType === "yoga" && (
         <div className="mt-6">
           <p className="text-muted">
             A yoga day. Pick up your series where you left off.
@@ -258,6 +334,7 @@ export default async function TodayPage() {
                     <span className="font-semibold">{ex?.name}</span>
                     <span className="shrink-0 text-sm tabular-nums text-accent">
                       {row.target_sets} × {row.target_reps_min}–{row.target_reps_max}
+                      {ex?.metric === "seconds" ? "s" : ""}
                     </span>
                   </div>
                   {ex?.cue && <p className="mt-1 text-sm text-muted">{ex.cue}</p>}

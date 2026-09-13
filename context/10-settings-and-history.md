@@ -113,3 +113,5 @@ Through the development harnesses at 375px:
 - 2026-09-12 (step 16): a fifth tab, Breathe. Breathing session length moved
   out of Settings. History names breathing practices and has a breathing
   detail page.
+- **2026-09-13.** QA pass 2: `updateSessionSettings` upserts instead of updating — a plain update against a missing `user_settings` row changed nothing and reported success, so every toggle appeared to save and then reverted. See [17](17-qa-pass-2.md).
+- **2026-09-13.** A session's history shows a hold in seconds rather than reps. See [18](18-timed-exercises-and-tomorrow.md).

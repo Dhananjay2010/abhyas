@@ -21,6 +21,7 @@ const STUB: SessionActions = {
   finishSession: ok,
   abandonSession: ok,
   refreshAfterSession: ok,
+  planDay: ok,
   swapExercise: ok,
   findAlternatives: async () => ({
     ok: true as const,
@@ -56,6 +57,7 @@ const EXERCISES: RunnerExercise[] = [
   {
     id: "e1", exerciseId: "x1", name: "Barbell Bench Press",
     cue: "Compound push movement targeting chest, front delts, triceps. Barbell, Bench.",
+    metric: "reps",
     primaryMuscles: ["chest"], plannedSets: 4, repsMin: 8, repsMax: 12,
     restSeconds: 8, workingWeightKg: 60, suggestedWeightKg: 60,
     status: "pending", feel: null, sets: [],
@@ -63,11 +65,36 @@ const EXERCISES: RunnerExercise[] = [
   {
     id: "e2", exerciseId: "x2", name: "Wide-Grip Lat Pulldown",
     cue: "Compound pull movement targeting lats. Lat pulldown.",
+    metric: "reps",
     primaryMuscles: ["lats"], plannedSets: 3, repsMin: 8, repsMax: 12,
     restSeconds: 8, workingWeightKg: null, suggestedWeightKg: null,
     status: "pending", feel: null, sets: [],
   },
+  // A hold, so the countdown and the seconds field can be exercised here. The
+  // target is short on purpose: the harness is for driving the UI, not waiting.
+  {
+    id: "e3", exerciseId: "x3", name: "Plank",
+    cue: "Isolation targeting abs.",
+    metric: "seconds",
+    primaryMuscles: ["abs"], plannedSets: 2, repsMin: 6, repsMax: 10,
+    restSeconds: 8, workingWeightKg: null, suggestedWeightKg: null,
+    status: "pending", feel: null, sets: [],
+  },
 ];
+
+/**
+ * Tomorrow, for the end-of-session prompt. The planner is stubbed like every
+ * other server action here, so the choices can be driven without a session.
+ */
+const TOMORROW = {
+  localDate: "2999-01-02",
+  plannedLabel: "Legs",
+  days: [
+    { programDayId: "d1", label: "Push", dayType: "weights" as const },
+    { programDayId: "d2", label: "Pull", dayType: "weights" as const },
+    { programDayId: "d3", label: "Legs", dayType: "weights" as const },
+  ],
+};
 
 export function SessionPreview() {
   const [runId, setRunId] = useState(0);
@@ -103,6 +130,7 @@ export function SessionPreview() {
       startedAt={null}
       warmup={WARMUP}
       exercises={EXERCISES}
+      tomorrow={TOMORROW}
       settings={{
         perSetLogging: true,
         restAutostart: true,

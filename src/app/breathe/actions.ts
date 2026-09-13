@@ -300,7 +300,12 @@ export async function updateBreathingPrefs(patch: PrefsPatch): Promise<Result> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  const { error } = await supabase.from("user_settings").update(update).eq("user_id", user.id);
+  // Upsert for the same reason as updateSessionSettings: an UPDATE against a
+  // missing user_settings row changes nothing and reports success, so every
+  // Breathe preference would appear to save and then revert.
+  const { error } = await supabase
+    .from("user_settings")
+    .upsert({ ...update, user_id: user.id }, { onConflict: "user_id" });
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/breathe", "layout");

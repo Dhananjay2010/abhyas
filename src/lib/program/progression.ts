@@ -4,7 +4,19 @@ type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
 type Feel = Enums["set_feel"];
 
-export type LoggedSet = { reps: number | null; weightKg: number | null };
+/**
+ * One logged set.
+ *
+ * `durationSeconds` is what was held, for an exercise whose metric is
+ * `seconds`. It is kept separate from `reps` rather than folded into it so the
+ * caller cannot accidentally pass a hold length where a rep count is meant --
+ * `valueOf` below is the only place the two are treated alike.
+ */
+export type LoggedSet = {
+  reps: number | null;
+  weightKg: number | null;
+  durationSeconds?: number | null;
+};
 
 export type ProgressState = {
   currentWorkingWeightKg: number | null;
@@ -19,6 +31,8 @@ export type ProgressState = {
 export type ExerciseMeta = {
   mechanic: Enums["mechanic_type"] | null;
   movementPattern: Pattern;
+  /** `seconds` for a hold: the target range and every logged set are times. */
+  metric: Enums["exercise_metric"];
   /** No external load: progression moves through reps and harder variations. */
   isBodyweight: boolean;
   progressionChain: string | null;
@@ -45,6 +59,18 @@ export type Decision = {
   bestE1rm: number | null;
   message: string;
 };
+
+/** How much longer to hold once the top of the range is reached every set. */
+export const HOLD_STEP_SECONDS = 5;
+
+/**
+ * Past this, a longer hold stops buying anything.
+ *
+ * Two minutes of plank is an endurance stunt rather than training, so the
+ * chain moves to a harder variation instead -- the same shape as bodyweight
+ * rep progression, which stops adding reps and changes the movement.
+ */
+export const HOLD_CEILING_SECONDS = 120;
 
 /** Patterns driven by the legs and hips, where jumps can be larger. */
 const LOWER_BODY: ReadonlySet<Pattern> = new Set<Pattern>([
@@ -105,7 +131,13 @@ export function evaluateProgression(input: {
     bestE1rm: state.bestE1rm,
   };
 
-  const working = sets.filter((s) => s.reps !== null && s.reps > 0);
+  const isTimed = meta.metric === "seconds";
+  /** What this set is measured in: seconds held for a hold, reps otherwise. */
+  const valueOf = (set: LoggedSet) => (isTimed ? (set.durationSeconds ?? null) : set.reps);
+  const working = sets.filter((set) => {
+    const v = valueOf(set);
+    return v !== null && v > 0;
+  });
 
   // A deload week is deliberately not a test of progress.
   if (isDeload) {
@@ -120,7 +152,9 @@ export function evaluateProgression(input: {
     return {
       ...base,
       outcome: "no_data",
-      message: "No reps recorded, so nothing changed.",
+      message: isTimed
+        ? "No hold recorded, so nothing changed."
+        : "No reps recorded, so nothing changed.",
     };
   }
 
@@ -130,13 +164,18 @@ export function evaluateProgression(input: {
   let bestReps = state.bestReps;
   let bestE1rm = state.bestE1rm;
 
-  for (const s of working) {
-    const w = s.weightKg ?? 0;
-    const r = s.reps ?? 0;
+  for (const set of working) {
+    const w = set.weightKg ?? 0;
+    const v = valueOf(set) ?? 0;
     if (bestWeightKg === null || w > bestWeightKg) bestWeightKg = w;
-    if (bestReps === null || r > bestReps) bestReps = r;
-    if (w > 0) {
-      const e1rm = estimateOneRepMax(w, r);
+    // For a hold this is the longest hold, not a rep count. Same column, same
+    // "best so far" meaning, read through `metric`.
+    if (bestReps === null || v > bestReps) bestReps = v;
+    // An estimated one-rep max from a hold length is nonsense -- Epley over
+    // seconds would make a 60 s weighted plank look like a triple bodyweight
+    // lift -- so timed work never contributes one.
+    if (w > 0 && !isTimed) {
+      const e1rm = estimateOneRepMax(w, v);
       if (bestE1rm === null || e1rm > bestE1rm) bestE1rm = e1rm;
     }
   }
@@ -145,7 +184,7 @@ export function evaluateProgression(input: {
 
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
-  const hitTopOfRange = working.every((s) => (s.reps ?? 0) >= repsMax);
+  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= repsMax);
   const succeeded = completedAllSets && hitTopOfRange;
 
   if (succeeded) {
@@ -154,9 +193,13 @@ export function evaluateProgression(input: {
     // reps and never stored the load the user had used.
     if (heaviest === 0) {
       const canProgressVariation = meta.isBodyweight && meta.progressionChain !== null;
-      const nextReps = (state.currentTargetReps ?? repsMax) + 2;
+      const step = isTimed ? HOLD_STEP_SECONDS : 2;
+      const nextTarget = (state.currentTargetReps ?? repsMax) + step;
+      // Reps run out of usefulness relative to the range they started in; a
+      // hold runs out at an absolute length, whatever it was prescribed at.
+      const ceiling = isTimed ? HOLD_CEILING_SECONDS : repsMax + 4;
 
-      if (canProgressVariation && nextReps > repsMax + 4) {
+      if (canProgressVariation && nextTarget > ceiling) {
         return {
           ...carried,
           outcome: "variation_up",
@@ -166,12 +209,27 @@ export function evaluateProgression(input: {
           message: "You have outgrown this variation — moving to a harder one.",
         };
       }
+
+      // A hold with nowhere harder to go stops growing rather than marching on
+      // to five-minute planks. Loading it is the honest next step.
+      if (isTimed && nextTarget > ceiling) {
+        return {
+          ...carried,
+          outcome: "hold",
+          nextTargetReps: HOLD_CEILING_SECONDS,
+          consecutiveFailures: 0,
+          message: `Holding at ${HOLD_CEILING_SECONDS}s — longer stops adding much, so add weight instead.`,
+        };
+      }
+
       return {
         ...carried,
         outcome: "progressed",
-        nextTargetReps: nextReps,
+        nextTargetReps: nextTarget,
         consecutiveFailures: 0,
-        message: `Every set at the top of the range — target goes up to ${nextReps} reps.`,
+        message: isTimed
+          ? `Every set held to the top of the range — target goes up to ${nextTarget}s.`
+          : `Every set at the top of the range — target goes up to ${nextTarget} reps.`,
       };
     }
 
@@ -217,7 +275,13 @@ export function evaluateProgression(input: {
     nextWorkingWeightKg: currentWeight,
     nextTargetReps: state.currentTargetReps ?? repsMax,
     consecutiveFailures: failures,
-    message: "Staying at this weight until every set reaches the top of the range.",
+    // "this weight" is meaningless for a hold, and for any unloaded bodyweight
+    // movement -- both were being told to stay at a weight they never had.
+    message: isTimed
+      ? "Staying at this hold length until every set reaches the top of the range."
+      : currentWeight === null
+        ? "Staying here until every set reaches the top of the range."
+        : "Staying at this weight until every set reaches the top of the range.",
   };
 }
 

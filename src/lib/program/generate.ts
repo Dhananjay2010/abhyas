@@ -16,6 +16,8 @@ export type CandidateExercise = {
   name: string;
   movement_pattern: Pattern;
   mechanic: Enums["mechanic_type"] | null;
+  /** `seconds` for a hold, which is prescribed as a time range, not reps. */
+  metric: Enums["exercise_metric"];
   primary_muscles: Enums["muscle"][];
   equipment_ids: string[];
   level_min: Level;
@@ -277,7 +279,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       used.add(picked.id);
 
       const isolation = picked.mechanic === "isolation";
-      const p: Prescription = prescribe(input.goal, input.level, isolation);
+      const p: Prescription = prescribe(
+        input.goal,
+        input.level,
+        isolation,
+        picked.metric ?? "reps",
+      );
       exercises.push({
         exerciseId: picked.id,
         name: picked.name,
@@ -293,6 +300,13 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // the eligible pool has nothing for any of the day's patterns -- a
     // bodyweight user with no pull-up bar has no pulling movement at all. Fall
     // back to whatever is eligible rather than shipping an empty day.
+    //
+    // The day is relabelled when that happens. It used to keep its template
+    // name, so a bodyweight-at-home beginner was shown a day headed "Pull"
+    // whose five exercises were sit-ups and crunches: not one pulling
+    // movement, because the catalogue has no equipment-free horizontal pull.
+    // Calling it what it is beats naming a muscle group it does not train.
+    const backfilled = exercises.length === 0;
     if (exercises.length === 0) {
       const backfill = pool
         .filter((e) => !used.has(e.id))
@@ -305,7 +319,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
 
       backfill.forEach((picked) => {
         used.add(picked.id);
-        const p = prescribe(input.goal, input.level, picked.mechanic === "isolation");
+        const p = prescribe(
+          input.goal,
+          input.level,
+          picked.mechanic === "isolation",
+          picked.metric ?? "reps",
+        );
         exercises.push({
           exerciseId: picked.id,
           name: picked.name,
@@ -322,7 +341,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       dayIndex,
       dayType: input.primaryTrack === "bodyweight" ? "bodyweight" : "weights",
       focus: entry.focus,
-      label: entry.label,
+      label: backfilled ? "Full body" : entry.label,
       exercises,
     });
   }

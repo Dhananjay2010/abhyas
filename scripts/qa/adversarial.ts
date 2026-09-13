@@ -1,7 +1,7 @@
 import { evaluateProgression, estimateOneRepMax, type ExerciseMeta, type ProgressState } from "../../src/lib/program/progression";
 
 const meta: ExerciseMeta = {
-  mechanic: "compound", movementPattern: "horizontal_press",
+  mechanic: "compound", movementPattern: "horizontal_press", metric: "reps",
   isBodyweight: false, progressionChain: null, progressionRank: null,
 };
 const state = (o: Partial<ProgressState> = {}): ProgressState => ({

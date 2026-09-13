@@ -36,6 +36,8 @@ pick the project up.
 | [14](14-database-region-migration.md) | Moving the database to Mumbai | Done |
 | [15](15-qa-fixes.md) | QA fixes: session logging, validation, stale sessions, dates | Done |
 | [16](16-breathe-tab.md) | The Breathe tab: the practice, sound, your own practices, routines, Kapalabhati, the shapes and the seven-day course ([BREATHE-SPEC.md](../BREATHE-SPEC.md)) | Phases 1, 2 and 3 all done |
+| [17](17-qa-pass-2.md) | QA pass 2: the whole app as a new user against production ([QA-FINDINGS-2.md](../QA-FINDINGS-2.md)) | Done |
+| [18](18-timed-exercises-and-tomorrow.md) | Timed exercises, and the "what about tomorrow?" prompt | Done |
 
 ## Live references
 

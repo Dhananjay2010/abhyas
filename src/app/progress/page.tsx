@@ -149,7 +149,11 @@ export default async function ProgressPage() {
           value={`${streaks.current}`}
           sub={streaks.current === 1 ? "session" : "sessions in a row"}
         />
-        <StatTile label="Best streak" value={`${streaks.longest}`} sub="sessions" />
+        <StatTile
+          label="Best streak"
+          value={`${streaks.longest}`}
+          sub={streaks.longest === 1 ? "session" : "sessions"}
+        />
         <StatTile label="Days trained" value={`${streaks.totalSessions}`} sub="all time" />
         <StatTile
           label="Volume lifted"
