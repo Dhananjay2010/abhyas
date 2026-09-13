@@ -483,11 +483,19 @@ none of which any amount of local testing would have shown:
 
 ## Found while clearing the tail (2026-09-13)
 
-Five more. One came from driving the real `SessionRunner` locally, three only
+Six more. One came from driving the real `SessionRunner` locally, three only
 appeared once the work was on production with real data behind it — including
-two in the fix written an hour earlier — and one fell out of asking which
-states the M4 fix newly makes reachable.
+two in the fix written an hour earlier — and two fell out of asking which states
+the M4 fix newly makes reachable.
 
+- **A day loses its name once its session is abandoned or finished.** Today
+  resolved the day from a `planned` or `in_progress` row only. Finish a swapped
+  Pull session and the header reverted to the block's "Legs" — above, after
+  today's change, a list of the Pull exercises actually performed. Abandon one
+  and it was worse, because a restart now resumes it: the screen said Legs and
+  Start handed back Pull. One session row owns the day through every state it
+  passes — planned, started, abandoned, finished — with yoga and breathing
+  excluded in every state but `planned`, since they are anytime activities.
 - **Resuming a finished session could apply progression twice.** Finish the last
   lift, leave before the cool-down, and the session stays `in_progress` with
   nothing pending. Resuming dropped the user back on exercise **one**, whose

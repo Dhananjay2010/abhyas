@@ -187,6 +187,17 @@ and all three were caught within minutes of opening the deployed app:
   the profile in the same wave as the query, so the filter is applied in code
   rather than serialising the two.
 
+- **A day stopped being named once its session ended.** Today resolved the day
+  from a `planned` or `in_progress` row only, which was fine while an abandoned
+  session was never resumed and a finished one was never listed. Both changed
+  today: finishing a swapped Pull day reverted the header to the block's "Legs"
+  above a list of the Pull exercises actually done, and abandoning one left
+  "Legs" on screen while Start resumed Pull. `ownsToday` now covers planned,
+  in-progress, completed and abandoned rows — yoga and breathing excluded in
+  every state but `planned` — and a rank picks between them: finished beats
+  under way beats intended beats abandoned. `performed` is derived from the same
+  row, so the header and the list can no longer disagree.
+
 ## Verified on production
 
 - `Block 12 · Week 1 of 4`, rebuilt through the guarded button on Today: the
