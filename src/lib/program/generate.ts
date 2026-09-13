@@ -119,7 +119,8 @@ function mulberry32(seed: number) {
   };
 }
 
-function hashString(s: string): number {
+/** Stable, seedless string hash. Exported so the swap list can vary its ties. */
+export function hashString(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);

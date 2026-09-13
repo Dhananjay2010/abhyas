@@ -4,7 +4,7 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
-import { isEligible, score, type CandidateExercise } from "@/lib/program/generate";
+import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
 import {
   evaluateProgression,
   type ExerciseMeta,
@@ -541,14 +541,23 @@ export async function findAlternatives(
     Ranking by the generator's own `score`, with the mechanic of the exercise
     being replaced, means a swap offers what the planner itself would have
     considered for that slot: a compound for a compound, and the simplest setup
-    that does the job. `slug` breaks ties so the list is stable between taps.
+    that does the job.
+
+    Ties are broken by a hash of the slug against this session exercise rather
+    than alphabetically. Scores bunch up hard — every equipment-free isolation
+    core movement scores identically — so an alphabetical tie-break just moved
+    the same problem one step along: the list became the first six A-to-C names
+    instead of the first six overall, and a plank was still unreachable. The
+    hash keeps the list stable for a given exercise, so it does not reshuffle
+    under the user between taps, while different slots surface different work.
   */
   const wantCompound = replacing?.mechanic !== "isolation";
+  const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
   const alternatives = ((poolRes.data ?? []) as unknown as CandidateExercise[])
     .filter((e) => !alreadyInSession.has(e.id))
     .filter((e) => isEligible(e, { ...input, catalogue: [] }))
     .map((e) => ({ e, k: score(e, wantCompound, input.level) }))
-    .sort((a, b) => b.k - a.k || a.e.slug.localeCompare(b.e.slug))
+    .sort((a, b) => b.k - a.k || tieBreak(a.e.slug) - tieBreak(b.e.slug))
     .slice(0, 6)
     .map(({ e }) => ({
       exerciseId: e.id,
