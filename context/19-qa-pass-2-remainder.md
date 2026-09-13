@@ -227,13 +227,40 @@ and all three were caught within minutes of opening the deployed app:
   in. Worth stating because those harnesses ship in the bundle.
 - `/onboarding` with a finished profile redirects to Today.
 
+### M4 and the resume, on production
+
+Both needed a day with no completed session on it, so Dhananjay marked the
+day's session abandoned and the account was left carrying **four** abandoned
+strength rows for one date — exactly the mess M4 describes, which made it a
+better test than a clean account would have been.
+
+Today read `Legs`, `Start session` (not "Resume" — nothing was under way) and
+`Where you got to` above the five exercises of the newest abandoned attempt.
+Pressing Start:
+
+```
+before:  4 rows   5c2b65d9  skipped      started_at 06:30:22
+after:   4 rows   5c2b65d9  in_progress  started_at 10:42:04
+```
+
+No fifth row — before the fix that tap inserted one and stranded the three
+Plank sets in the row it walked away from. `started_at` restamped rather than
+carried, so the session clock started at zero instead of claiming four hours.
+
+And it opened on the **cool-down**, not on exercise one offering "How did that
+feel?" for a lift finished that morning — the double-progression fix, on the
+only account that could reach that state. Finishing from there recorded
+`completed`, `duration 34s`, three sets, "1 of 5 exercises", no progression
+notes and no personal bests, which is right: nothing was finished on that
+visit. The tomorrow prompt read "Tomorrow is **Rest**" — the override already
+written, not the block's Push. Back on Today the heading had changed from
+"Where you got to" to "What you did".
+
 ## Still not verified on production
 
-`startSession` reusing an abandoned row (M4) and the resume-at-the-end fix both
-need a day with no completed session, and today already carries one. The same
-constraint stopped the original QA pass testing resume, "End session early",
-per-set-logging off and daily-menu mode. It is one SQL statement away — see
-`verify-m4-step1.sql` — or it resolves itself tomorrow.
+Per-set-logging off, daily-menu mode, and the abandon-then-restart loop in one
+continuous pass. All three need a day carrying no completed session, and
+restoring this morning's real session puts one back. Tomorrow resolves it.
 
 ## Known gaps
 
