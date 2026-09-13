@@ -656,6 +656,72 @@ the first query was tested thoroughly; the first query was never tested at all.
 The wider lesson is in SPEC §12: anything the app installs into the `auth`
 schema is **erasable by the platform**, and needs backing from our own code.
 
+## The first plan a real beginner gets
+
+Run on 2026-09-13 on a genuinely new account — the first time in this project
+that onboarding has been completed by a user who did not already have a profile
+row. Answers: general fitness, beginner, at home, bodyweight, 3 days a week with
+1 yoga day, yoga mat + pull-up bar + bodyweight, no injuries.
+
+**What the generator produced:**
+
+```
+Wed  Full Body A   Star Jump                 (squat)             2 x 8-12
+                   Isometric Wipers          (horizontal_press)  2 x 20-45s
+                   Pullups                   (vertical_pull)     2 x 8-12
+                   Oblique Crunches          (core)              2 x 8-12
+Fri  Full Body B   Flutter Kicks             (hinge)             2 x 8-12
+                   Isometric Chest Squeezes  (horizontal_press)  2 x 20-45s
+                   V-Bar Pullup              (vertical_pull)     2 x 8-12
+                   Oblique Crunches          (core)              2 x 8-12
+```
+
+**There is no push-up in it.** Both chest slots went to isometric holds. This is
+not a catalogue gap — `Pushups`, `Push-Up Wide`, `Push Up to Side Plank` and
+`Push-Ups With Feet Elevated` are all `horizontal_press`, `compound`,
+`level_min = beginner`, and need no equipment. Twelve such exercises were
+eligible and the plain push-up lost to `Isometric Chest Squeezes` twice.
+
+It lost because it is not favoured. `score()` separates exercises by pattern,
+mechanic, level and equipment count, and every equipment-free beginner compound
+press ties on all four — so the winner is whichever the seeded RNG lands on. The
+generator has no notion of a **staple**: nothing in it can say that a push-up is
+the movement and an isometric chest squeeze is a variation for people who cannot
+do one yet.
+
+The rest of the day is the same story wearing different clothes: `Star Jump`, a
+plyometric, is the squat; `Flutter Kicks` is the hinge, which is [H4](#h4--catalogue-movement-patterns-and-mechanics-are-wrong-often-enough-to-matter)'s
+mis-tagging reaching a real user's real plan. A beginner's first week contains a
+jump, two isometric holds, two pull-up variants and two sets of oblique
+crunches, at two sets each.
+
+This is [H3](#h3--the-main-lifts-are-chosen-by-a-rule-that-penalises-having-a-gym)
+and H4 restated with a face on it, and it is **not fixed**, because changing
+`score()` changes every plan the app generates and that is Dhananjay's call. But
+it is worth saying plainly: the plan is the product, and for the most common
+profile the product currently ships a plan a trainer would not recognise.
+
+**And the first screen after all nine steps was "Rest day. Nothing scheduled."**
+— [M6](#m6--rest-days-offer-nothing-and-cannot-be-overridden) exactly as
+predicted, now confirmed on a genuine signup rather than inferred. Four of the
+seven days in this plan are rest days, so a new user has a better than even
+chance of finishing onboarding and being told there is nothing to do.
+
+**What this run did confirm as healthy**, all of it on a real first block:
+
+- `block_number` is **1**. The rebuild-versus-rollover change did not break
+  first-block numbering.
+- Age computed to 31 from a date of birth of 15/06/1995.
+- "Full body, **twice** a week" and "**once** a week" — the `1 times a week`
+  pluralisation bug, fixed and confirmed.
+- **Timed exercises are prescribed in seconds by the generator on a first
+  block**: `2 x 20-45s`, which is the general-fitness hold range. The feature
+  works end to end from a standing start, not just on a rebuilt block.
+- "At home" expands into Bodyweight / Yoga / Breathing rather than making the
+  user guess; Continue stays disabled until each step is answered; the last
+  button reads "Nothing hurts, finish" when nothing is selected.
+- Onboarding → block generation → Today, with no server errors in the logs.
+
 ## Checked and healthy
 
 - **Access control.** `/history/<someone-else's-uuid>`, `/session/<unknown>`

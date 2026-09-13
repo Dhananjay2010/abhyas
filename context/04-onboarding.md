@@ -113,3 +113,4 @@ a finished profile and no plan.
 - Added an explanatory note when the equipment catalogue fails to load.
 - Wired first-block generation into `completeOnboarding`.
 - **2026-09-13.** QA pass 2: `SPLIT_BY_DAYS` gained entries for 1 and 2 training days — the fallback had been rendering "Full body, 1 times a week" on the yoga-days step. See [17](17-qa-pass-2.md).
+- **2026-09-13.** Walked end to end on a genuinely new account for the first time — all nine steps, from a user with no profile row rather than a reset one. No errors; the block generated and Today rendered. Confirmed live: the age calculation, the `Full body, twice/once a week` pluralisation, the At home → Bodyweight/Yoga/Breathing sub-choice, Continue disabled until each step is answered, and "Nothing hurts, finish". See [QA-FINDINGS-2.md](../QA-FINDINGS-2.md), "The first plan a real beginner gets".
