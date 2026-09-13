@@ -158,7 +158,11 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   return true;
 }
 
-function score(ex: CandidateExercise, wantCompound: boolean, level: Level): number {
+/**
+ * How well an exercise suits a slot. Exported so the swap list can rank by the
+ * same rule the plan was built with, rather than offering an arbitrary handful.
+ */
+export function score(ex: CandidateExercise, wantCompound: boolean, level: Level): number {
   let s = 0;
   if (wantCompound && ex.mechanic === "compound") s += 4;
   if (!wantCompound && ex.mechanic === "isolation") s += 3;
