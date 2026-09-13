@@ -159,20 +159,47 @@ export default async function TodayPage() {
   const allSessions = sessionsRes.data ?? [];
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
 
+  const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
+
   /*
-    A "what about tomorrow?" choice made yesterday is a planned session row for
-    today, and it wins over the weekday template. Without this the choice would
-    be written and then quietly ignored, which is worse than not offering it.
+    Which of today's session rows speaks for the day.
+
+    A "what about tomorrow?" choice made yesterday is a planned row for today,
+    and it wins over the weekday template -- without that the choice would be
+    written and then quietly ignored, which is worse than not offering it. But
+    the state of that row is not the point. Whatever the user actually did today
+    keeps the day's identity through every state it passes: planned, started,
+    abandoned, finished.
+
+    Reading only `planned` meant that starting a swapped day and leaving it
+    part-way flipped Today back to the block's label while "Resume session"
+    still resumed the swapped one -- the screen said Legs and the button gave
+    you Pull. Adding `in_progress` fixed that case and left two more: a session
+    ABANDONED (which is resumable now, so Start hands back a day the screen has
+    stopped naming) and a session FINISHED (where the header reverted to the
+    block's label above a list of the exercises that were actually done).
+
+    Yoga and breathing are the exception in every state but `planned`: they are
+    anytime activities and a six-minute breathing session does not rename the
+    day.
   */
-  /*
-    An in-progress session counts as much as a planned one. Reading only
-    `planned` meant that starting a swapped day and leaving it part-way flipped
-    Today back to the block's label while "Resume session" still resumed the
-    swapped one: the screen said Legs and the button gave you Pull.
-  */
-  const override = todaySessions.find(
-    (s) => (s.status === "planned" || s.status === "in_progress") && s.actual_type,
-  );
+  const ownsToday = (s: (typeof todaySessions)[number]) =>
+    s.actual_type !== null &&
+    (s.status === "planned" ||
+      (isStrength(s.actual_type) &&
+        (s.status === "in_progress" || s.status === "completed" || s.status === "skipped")));
+
+  // Finished beats under way beats intended beats abandoned. Only the last two
+  // can genuinely coexist -- abandon a day, then choose something else for it.
+  const OWNER_RANK: Record<string, number> = {
+    completed: 0,
+    in_progress: 1,
+    planned: 2,
+    skipped: 3,
+  };
+  const override = todaySessions
+    .filter(ownsToday)
+    .sort((a, b) => (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9))[0];
   const overrideDay = override?.program_day_id
     ? days?.find((d) => d.id === override.program_day_id)
     : undefined;
@@ -188,7 +215,6 @@ export default async function TodayPage() {
   const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
-  const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
   const strengthDone = todaySessions.some(
     (s) => s.status === "completed" && isStrength(s.actual_type),
   );
@@ -207,17 +233,12 @@ export default async function TodayPage() {
     A day merely planned through "what about tomorrow?" has no session exercises
     of its own yet, so it keeps the template.
   */
-  const strengthToday = todaySessions.filter(
-    (s) => isStrength(s.actual_type) && (s.status === "completed" || s.started_at !== null),
-  );
-  /*
-    The completed one first. A day can carry several strength rows -- data from
-    before a restart reused the abandoned row, or a session abandoned and then
-    done properly afterwards -- and taking whichever came back first put an
-    ABANDONED session's exercises under "Session complete. Well done."
-  */
   const performed =
-    strengthToday.find((s) => s.status === "completed") ?? strengthToday[0];
+    override &&
+    isStrength(override.actual_type) &&
+    (override.status === "completed" || override.started_at !== null)
+      ? override
+      : undefined;
 
   /*
     Yesterday was a training day and nothing was completed on it. SPEC section 7
