@@ -4,6 +4,7 @@
  *   npx tsx scripts/test-progression.ts
  */
 import {
+  describePersonalBest,
   evaluateProgression,
   incrementFor,
   suggestedWeight,
@@ -312,6 +313,92 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
       prescribe("fat_loss", "intermediate", true, "seconds").repsMax);
   check("a rep exercise is untouched by the new argument",
     prescribe("muscle_gain", "intermediate", false).repsMax === 12);
+}
+
+{
+  console.log("\nPersonal bests (SPEC section 7: a best BEATEN, not a best set)");
+
+  const PLANK: ExerciseMeta = {
+    mechanic: "isolation",
+    metric: "seconds",
+    movementPattern: "core",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  const PUSHUP_BW: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "horizontal_press",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+
+  const heavier = run({ sets: sets(4, 12, 65) });
+  check("a heavier set is a personal best", heavier.personalBest?.kind === "weight",
+    `${heavier.personalBest?.kind}`);
+  check("and reads as one",
+    heavier.personalBest !== null &&
+      describePersonalBest(heavier.personalBest) === "Heaviest set yet — 65 kg",
+    heavier.personalBest ? describePersonalBest(heavier.personalBest) : "none");
+
+  const same = run({ sets: sets(4, 12, 60) });
+  check("repeating your best is not a best", same.personalBest === null,
+    `${same.personalBest?.kind}`);
+
+  const first = run({
+    sets: sets(4, 12, 60),
+    state: fresh({ bestWeightKg: null, bestReps: null, bestE1rm: null }),
+  });
+  check("a first session sets a baseline and claims no record", first.personalBest === null,
+    `${first.personalBest?.kind}`);
+  check("but does record the bests themselves",
+    first.bestWeightKg === 60 && first.bestReps === 12, `${first.bestWeightKg}/${first.bestReps}`);
+
+  // The case a weight comparison alone misses: same load, more reps.
+  const moreReps = run({ sets: sets(4, 14, 60) });
+  check("more reps at a weight already lifted is an estimated-1RM best",
+    moreReps.personalBest?.kind === "e1rm", `${moreReps.personalBest?.kind}`);
+
+  const bodyweight = run({
+    meta: PUSHUP_BW,
+    sets: sets(4, 15, 0),
+    state: fresh({ currentWorkingWeightKg: null }),
+  });
+  check("unloaded work reports reps, not a weight of zero",
+    bodyweight.personalBest?.kind === "reps", `${bodyweight.personalBest?.kind}`);
+
+  const longer = evaluateProgression({
+    sets: Array.from({ length: 2 }, () => ({ reps: null, weightKg: null, durationSeconds: 50 })),
+    plannedSets: 2,
+    repsMin: 20,
+    repsMax: 45,
+    feel: "right",
+    meta: PLANK,
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45, bestReps: 45 }),
+    isDeload: false,
+  });
+  check("a longer hold is a hold best, not a rep count",
+    longer.personalBest?.kind === "hold", `${longer.personalBest?.kind}`);
+  check("and reads in seconds",
+    longer.personalBest !== null &&
+      describePersonalBest(longer.personalBest) === "Longest hold yet — 50s",
+    longer.personalBest ? describePersonalBest(longer.personalBest) : "none");
+
+  const deload = run({ sets: sets(4, 12, 65), isDeload: true });
+  check("a deload week claims nothing, however it went", deload.personalBest === null,
+    `${deload.personalBest?.kind}`);
+  check("and tells a lifter their weights are held",
+    deload.message.includes("weights held"), deload.message);
+  const deloadBw = run({
+    meta: PUSHUP_BW,
+    sets: sets(4, 12, 0),
+    state: fresh({ currentWorkingWeightKg: null }),
+    isDeload: true,
+  });
+  check("while someone with no weight is not told about weights",
+    !deloadBw.message.includes("weight"), deloadBw.message);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

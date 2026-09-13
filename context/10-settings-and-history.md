@@ -115,3 +115,4 @@ Through the development harnesses at 375px:
   detail page.
 - **2026-09-13.** QA pass 2: `updateSessionSettings` upserts instead of updating — a plain update against a missing `user_settings` row changed nothing and reported success, so every toggle appeared to save and then reverted. See [17](17-qa-pass-2.md).
 - **2026-09-13.** A session's history shows a hold in seconds rather than reps. See [18](18-timed-exercises-and-tomorrow.md).
+- **2026-09-13.** The injury severity pair (Current / Past) carries `aria-pressed`, like every other toggle in the form; the distinction had been colour alone. Both "Rebuild my block" buttons now say what a rebuild does and ask before doing it. See [19](19-qa-pass-2-remainder.md).

@@ -68,6 +68,11 @@ export default async function TodayPage() {
     programRes.data,
   );
 
+  // Monday of the user's current week, and the day before today. Both are pure
+  // arithmetic on the local date, so they are available before any query.
+  const yesterday = addDays(localToday, -1);
+  const weekStart = addDays(localToday, -(isoWeekday(localToday) - 1));
+
   // A rollover replaced the active block, so the row read above is stale.
   // This happens on one day in twenty-eight.
   let program = programRes.data;
@@ -94,7 +99,7 @@ export default async function TodayPage() {
           second and uses your goal, level, equipment and injuries.
         </p>
         <div className="mt-8">
-          <BuildPlanButton label="Build my first block" />
+          <BuildPlanButton label="Build my first block" confirm={false} />
         </div>
       </main>
     );
@@ -121,10 +126,21 @@ export default async function TodayPage() {
     // "what about tomorrow?" question about today when yesterday was a training
     // day nobody finished. One extra date in an `in` filter is free; a second
     // query would not be.
+    /*
+      The whole of this week, plus yesterday -- which is in LAST week when today
+      is a Monday. One range filter rather than a list of dates, and the same
+      single round trip either way.
+
+      The week is needed because "Your week" used to render the block's template
+      labels only, so a choice made last night about today or tomorrow was
+      invisible there: the user picked Rest for tomorrow and the week still
+      said Push.
+    */
     supabase
       .from("sessions")
       .select("id, status, actual_type, local_date, program_day_id, started_at")
-      .in("local_date", [addDays(localToday, -1), localToday]),
+      .gte("local_date", weekStart < yesterday ? weekStart : yesterday)
+      .lte("local_date", addDays(weekStart, 6)),
   ]);
 
   const days = daysRes.data;
@@ -165,9 +181,82 @@ export default async function TodayPage() {
   const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
-  // An override to rest, yoga or breathing has no program day, so the block's
-  // own exercises for this weekday must not leak through underneath it.
-  const todayExercises = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
+  const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
+  const strengthDone = todaySessions.some(
+    (s) => s.status === "completed" && isStrength(s.actual_type),
+  );
+  const strengthOpen = todaySessions.find(
+    (s) => (s.status === "in_progress" || s.status === "planned") && isStrength(s.actual_type),
+  );
+
+  /*
+    The day's workout, once it is a thing that happened rather than a thing that
+    was planned: started, or finished. Today used to list the block's template
+    for the rest of the day regardless, so after a session in which an exercise
+    was swapped, "Session complete. Well done." sat above the five exercises the
+    day STARTED with -- including the one swapped away and never performed. The
+    plan is what you intended; the screen should show what you did.
+
+    A day merely planned through "what about tomorrow?" has no session exercises
+    of its own yet, so it keeps the template.
+  */
+  const performed = todaySessions.find(
+    (s) =>
+      isStrength(s.actual_type) &&
+      (s.status === "completed" || s.started_at !== null),
+  );
+
+  /*
+    Yesterday was a training day and nothing was completed on it. SPEC section 7
+    asks the same question in that case, about today rather than tomorrow --
+    the point being that a missed day should prompt a decision rather than
+    quietly becoming a hole in the week.
+  */
+  const yesterdayIndex = isoWeekday(yesterday);
+  const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
+  const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
+  const missedYesterday =
+    (yesterdayDay?.day_type === "weights" || yesterdayDay?.day_type === "bodyweight") &&
+    !yesterdaySessions.some((s) => s.status === "completed" && isStrength(s.actual_type));
+  // Only worth asking while today is still open to being changed.
+  const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
+
+  // ---- wave 3 -------------------------------------------------------------
+  // Both of these are conditional, and on most loads neither runs: the prompt
+  // only on a day following a missed one, the session's own exercises only once
+  // a workout has been started. Run together so the uncommon day that needs
+  // both still costs one round trip.
+  const [plannable, performedRows] = await Promise.all([
+    askAboutToday ? plannableDays(supabase, program.id) : Promise.resolve([]),
+    performed
+      ? supabase
+          .from("session_exercises")
+          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, exercises!session_exercises_exercise_id_fkey(name, cue, metric)")
+          .eq("session_id", performed.id)
+          .order("order_index")
+      : Promise.resolve(null),
+  ]);
+
+  /*
+    One shape for the list, whichever source it came from, so the markup below
+    does not have to know. An override to rest, yoga or breathing has no program
+    day, so the block's own exercises for this weekday must not leak through
+    underneath it.
+  */
+  type TodayRow = {
+    key: string;
+    name: string;
+    cue: string | null;
+    metric: Database["public"]["Enums"]["exercise_metric"] | null;
+    sets: number | null;
+    repsMin: number | null;
+    repsMax: number | null;
+    restSeconds: number | null;
+    skipped: boolean;
+    swappedIn: boolean;
+  };
+
+  const template = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
     order_index: number;
     target_sets: number | null;
     target_reps_min: number | null;
@@ -180,30 +269,71 @@ export default async function TodayPage() {
     } | null;
   }>;
 
-  const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
-  const strengthDone = todaySessions.some(
-    (s) => s.status === "completed" && isStrength(s.actual_type),
-  );
-  const strengthOpen = todaySessions.find(
-    (s) => (s.status === "in_progress" || s.status === "planned") && isStrength(s.actual_type),
-  );
+  const actual = (performedRows?.data ?? null) as Array<{
+    order_index: number;
+    planned_sets: number | null;
+    planned_reps_min: number | null;
+    planned_reps_max: number | null;
+    rest_seconds: number | null;
+    status: string | null;
+    swapped_from_exercise_id: string | null;
+    exercises: {
+      name: string;
+      cue: string | null;
+      metric: Database["public"]["Enums"]["exercise_metric"] | null;
+    } | null;
+  }> | null;
+
+  const todayExercises: TodayRow[] =
+    actual && actual.length > 0
+      ? actual.map((r) => ({
+          key: `s${r.order_index}`,
+          name: r.exercises?.name ?? "",
+          cue: r.exercises?.cue ?? null,
+          metric: r.exercises?.metric ?? null,
+          sets: r.planned_sets,
+          repsMin: r.planned_reps_min,
+          repsMax: r.planned_reps_max,
+          restSeconds: r.rest_seconds,
+          skipped: r.status === "skipped",
+          swappedIn: r.swapped_from_exercise_id !== null,
+        }))
+      : template.map((r) => ({
+          key: `p${r.order_index}`,
+          name: r.exercises?.name ?? "",
+          cue: r.exercises?.cue ?? null,
+          metric: r.exercises?.metric ?? null,
+          sets: r.target_sets,
+          repsMin: r.target_reps_min,
+          repsMax: r.target_reps_max,
+          restSeconds: r.rest_seconds,
+          skipped: false,
+          swappedIn: false,
+        }));
 
   /*
-    Yesterday was a training day and nothing was completed on it. SPEC section 7
-    asks the same question in that case, about today rather than tomorrow --
-    the point being that a missed day should prompt a decision rather than
-    quietly becoming a hole in the week.
+    One-day overrides across this week, keyed by weekday so "Your week" can show
+    them. Without this the list rendered the block's template labels only, so a
+    choice made last night was invisible until the day arrived: the user picked
+    Rest for tomorrow and the week still said Push. Only a difference is
+    recorded -- "keep the plan" writes no row, and a swap that happens to match
+    the template is not news.
   */
-  const yesterday = addDays(localToday, -1);
-  const yesterdayIndex = isoWeekday(yesterday);
-  const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
-  const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
-  const missedYesterday =
-    (yesterdayDay?.day_type === "weights" || yesterdayDay?.day_type === "bodyweight") &&
-    !yesterdaySessions.some((s) => s.status === "completed" && isStrength(s.actual_type));
-  // Only worth asking while today is still open to being changed.
-  const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
-  const plannable = askAboutToday ? await plannableDays(supabase, program.id) : [];
+  const weekEnd = addDays(weekStart, 6);
+  const chosenByDayIndex = new Map<number, string>();
+  for (const sess of allSessions) {
+    if (sess.status !== "planned" && sess.status !== "in_progress") continue;
+    if (!sess.actual_type) continue;
+    if (sess.local_date < weekStart || sess.local_date > weekEnd) continue;
+    const idx = isoWeekday(sess.local_date);
+    const chosenDay = sess.program_day_id
+      ? days?.find((d) => d.id === sess.program_day_id)
+      : undefined;
+    const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
+    if (label !== days?.find((d) => d.day_index === idx)?.label) {
+      chosenByDayIndex.set(idx, label);
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
@@ -337,33 +467,45 @@ export default async function TodayPage() {
 
       {isTraining && (
         <section className="mt-7">
+          {/*
+            The heading said "15 min warm-up", which is what SPEC section 7 asks
+            for and not what the session builds: five items totalling nine
+            minutes, with no ramp-up-sets phase. Naming a duration the app does
+            not deliver is worse than naming none.
+          */}
           <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
-            15 min warm-up, then
+            {actual && actual.length > 0 ? "What you did" : "Warm-up, then"}
           </h2>
           <ol className="space-y-2">
-            {todayExercises.map((row) => {
-              const ex = row.exercises;
-              return (
-                <li
-                  key={row.order_index}
-                  className="rounded-xl border border-border bg-surface px-4 py-3.5"
-                >
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="font-semibold">{ex?.name}</span>
-                    <span className="shrink-0 text-sm tabular-nums text-accent">
-                      {row.target_sets} × {row.target_reps_min}–{row.target_reps_max}
-                      {ex?.metric === "seconds" ? "s" : ""}
-                    </span>
-                  </div>
-                  {ex?.cue && <p className="mt-1 text-sm text-muted">{ex.cue}</p>}
-                  <p className="mt-1 text-xs text-muted">{row.rest_seconds}s rest</p>
-                </li>
-              );
-            })}
+            {todayExercises.map((row) => (
+              <li
+                key={row.key}
+                className="rounded-xl border border-border bg-surface px-4 py-3.5"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
+                    {row.name}
+                  </span>
+                  <span className="shrink-0 text-sm tabular-nums text-accent">
+                    {row.sets} × {row.repsMin}–{row.repsMax}
+                    {row.metric === "seconds" ? "s" : ""}
+                  </span>
+                </div>
+                {(row.swappedIn || row.skipped) && (
+                  <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
+                    {row.skipped ? "Skipped" : "Swapped in"}
+                  </p>
+                )}
+                {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}
+                <p className="mt-1 text-xs text-muted">{row.restSeconds}s rest</p>
+              </li>
+            ))}
           </ol>
-          <p className="mt-4 text-center text-xs text-muted">
-            Warm-up is built from today&apos;s muscles and any joint you flagged.
-          </p>
+          {!(actual && actual.length > 0) && (
+            <p className="mt-4 text-center text-xs text-muted">
+              Warm-up is built from today&apos;s muscles and any joint you flagged.
+            </p>
+          )}
         </section>
       )}
 
@@ -397,21 +539,31 @@ export default async function TodayPage() {
           Your week
         </h2>
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface text-sm">
-          {(days ?? []).map((d) => (
-            <li
-              key={d.day_index}
-              className={`flex justify-between gap-4 px-4 py-3 ${
-                d.day_index === todayIndex ? "bg-surface-2" : ""
-              }`}
-            >
-              <span className={d.day_index === todayIndex ? "font-semibold" : "text-muted"}>
-                {DAY_NAMES[d.day_index - 1]}
-              </span>
-              <span className={d.day_type === "rest" ? "text-muted" : "font-medium"}>
-                {d.label}
-              </span>
-            </li>
-          ))}
+          {(days ?? []).map((d) => {
+            const chosen = chosenByDayIndex.get(d.day_index);
+            return (
+              <li
+                key={d.day_index}
+                className={`flex justify-between gap-4 px-4 py-3 ${
+                  d.day_index === todayIndex ? "bg-surface-2" : ""
+                }`}
+              >
+                <span className={d.day_index === todayIndex ? "font-semibold" : "text-muted"}>
+                  {DAY_NAMES[d.day_index - 1]}
+                </span>
+                {chosen ? (
+                  <span className="text-right">
+                    <span className="font-medium text-accent">{chosen}</span>
+                    <span className="block text-xs text-muted">your choice</span>
+                  </span>
+                ) : (
+                  <span className={d.day_type === "rest" ? "text-muted" : "font-medium"}>
+                    {d.label}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </section>
 

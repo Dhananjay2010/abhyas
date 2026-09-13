@@ -135,7 +135,19 @@ export function SessionRunner({
   const [exercises, setExercises] = useState(initialExercises);
   const [error, setError] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
-  const [progressNotes, setProgressNotes] = useState<{ name: string; message: string }[]>([]);
+  const [progressNotes, setProgressNotes] = useState<
+    { name: string; message: string; personalBest: string | null }[]
+  >([]);
+  /*
+    Which exercise screen the "what just changed" banner belongs on.
+
+    It used to render `progressNotes[last]` unconditionally, so the note from
+    exercise one stayed on screen through exercises two, three and four -- by
+    the end of a session the banner was describing a lift two exercises ago.
+    The note is about the exercise just finished, so it belongs on exactly the
+    one screen that follows it.
+  */
+  const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
 
   // Resume where the session actually stopped rather than at the top.
@@ -176,10 +188,17 @@ export function SessionRunner({
     return () => clearInterval(t);
   }, [restEndsAt, beeper, settings.restSound, settings.restVibrate]);
 
-  const startRest = useCallback(
-    (seconds: number) => setRestEndsAt(Date.now() + seconds * 1000),
-    [],
-  );
+  const startRest = useCallback((seconds: number) => {
+    setRestEndsAt(Date.now() + seconds * 1000);
+    /*
+      Seeded here rather than left to the effect's first tick. The panel renders
+      on `restEndsAt`, and effects run after paint, so the frame between logging
+      a set and the effect firing showed the rest panel reading 0:00 before it
+      jumped to the full rest -- a timer that appears to have already finished.
+      The remaining time at the moment a rest starts is exactly `seconds`.
+    */
+    setRestRemaining(seconds);
+  }, []);
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
@@ -365,6 +384,9 @@ export function SessionRunner({
 
   // ---- summary ----------------------------------------------------------
   if (phase === "done") {
+    const personalBests = progressNotes.filter(
+      (n): n is typeof n & { personalBest: string } => n.personalBest !== null,
+    );
     const volume = exercises.reduce(
       (n, e) => n + e.sets.reduce((m, s) => m + (s.reps ?? 0) * (s.weightKg ?? 0), 0),
       0,
@@ -388,6 +410,31 @@ export function SessionRunner({
             value={`${exercises.filter((e) => e.status === "completed").length} of ${exercises.length}`}
           />
         </div>
+        {/*
+          SPEC section 7 asks the summary for "PRs hit". A best that was beaten,
+          not a best that was set -- a first session has nothing to beat, so it
+          claims nothing. Above "what changed for next time" because it is the
+          part a person actually wants to see.
+        */}
+        {personalBests.length > 0 && (
+          <section className="mt-8">
+            <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
+              {personalBests.length === 1 ? "Personal best" : "Personal bests"}
+            </h2>
+            <ul className="space-y-2">
+              {personalBests.map((n, i) => (
+                <li
+                  key={i}
+                  className="rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm"
+                >
+                  <span className="font-semibold text-accent">{n.name}</span>
+                  <p className="mt-1 text-accent">{n.personalBest}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {progressNotes.length > 0 && (
           <section className="mt-8">
             <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
@@ -571,7 +618,14 @@ export function SessionRunner({
     }
     setError(null);
     if (result.data?.message) {
-      setProgressNotes((prev) => [...prev, { name: current.name, message: result.data!.message }]);
+      setProgressNotes((prev) => [
+        ...prev,
+        {
+          name: current.name,
+          message: result.data!.message,
+          personalBest: result.data!.personalBest,
+        },
+      ]);
     }
     setExercises((prev) =>
       prev.map((e) =>
@@ -581,6 +635,7 @@ export function SessionRunner({
     setRestEndsAt(null);
 
     const next = exercises.findIndex((e, i) => i > exerciseIndex && e.status === "pending");
+    setBannerFor(next === -1 ? null : next);
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
@@ -604,7 +659,7 @@ export function SessionRunner({
       error={error}
     >
       <div onPointerDown={onAnyTap}>
-        {progressNotes.length > 0 && (
+        {bannerFor === exerciseIndex && progressNotes.length > 0 && (
           <p className="mb-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
             <span className="font-semibold">{progressNotes[progressNotes.length - 1].name}:</span>{" "}
             {progressNotes[progressNotes.length - 1].message}

@@ -11,12 +11,17 @@ export type BuildPlanResult = { ok: true } | { ok: false; error: string };
  *
  * Needed both for users who finished onboarding before block generation
  * existed, and whenever goal, level, equipment or injuries change.
+ *
+ * `mode: "rebuild"` because every caller of this is a user saying "my answers
+ * changed, re-plan what I am doing" -- not "I have finished four weeks". It
+ * keeps the block number and the start date; see `createBlockForUser`. When
+ * there is no block yet (the "Build my first block" path) it builds block 1.
  */
 export async function buildPlan(): Promise<BuildPlanResult> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  const result = await createBlockForUser(supabase, user.id);
+  const result = await createBlockForUser(supabase, user.id, { mode: "rebuild" });
   if (!result.ok) return { ok: false, error: result.error };
 
   revalidateTrainingData();

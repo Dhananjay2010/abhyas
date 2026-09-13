@@ -47,6 +47,33 @@ export type Outcome =
   | "deload_week"
   | "no_data";
 
+/**
+ * A best that was BEATEN in this session, per SPEC section 7.
+ *
+ * Setting a baseline is not a record: the first time an exercise is performed
+ * there is nothing to beat, so `evaluateProgression` reports one of these only
+ * when the user had a previous best to improve on.
+ */
+export type PersonalBest =
+  | { kind: "weight"; value: number }
+  | { kind: "hold"; value: number }
+  | { kind: "reps"; value: number }
+  | { kind: "e1rm"; value: number };
+
+/** One line, for the session summary. */
+export function describePersonalBest(pb: PersonalBest): string {
+  switch (pb.kind) {
+    case "weight":
+      return `Heaviest set yet — ${pb.value} kg`;
+    case "hold":
+      return `Longest hold yet — ${pb.value}s`;
+    case "reps":
+      return `Most reps yet — ${pb.value}`;
+    case "e1rm":
+      return `Best estimated one-rep max yet — ${Math.round(pb.value)} kg`;
+  }
+}
+
 export type Decision = {
   outcome: Outcome;
   nextWorkingWeightKg: number | null;
@@ -57,6 +84,8 @@ export type Decision = {
   bestWeightKg: number | null;
   bestReps: number | null;
   bestE1rm: number | null;
+  /** Null unless a previous best was beaten. At most one, per SPEC section 7. */
+  personalBest: PersonalBest | null;
   message: string;
 };
 
@@ -129,6 +158,7 @@ export function evaluateProgression(input: {
     bestWeightKg: state.bestWeightKg,
     bestReps: state.bestReps,
     bestE1rm: state.bestE1rm,
+    personalBest: null as PersonalBest | null,
   };
 
   const isTimed = meta.metric === "seconds";
@@ -144,7 +174,12 @@ export function evaluateProgression(input: {
     return {
       ...base,
       outcome: "deload_week",
-      message: "Deload week — weights held where they were.",
+      // "Weights held where they were" is meaningless to someone doing planks
+      // or press-ups, which is most of the bodyweight track.
+      message:
+        isTimed || state.currentWorkingWeightKg === null
+          ? "Deload week — nothing moves this week."
+          : "Deload week — weights held where they were.",
     };
   }
 
@@ -180,7 +215,32 @@ export function evaluateProgression(input: {
     }
   }
 
-  const carried = { ...base, bestWeightKg, bestReps, bestE1rm };
+  /*
+    What improved, if anything. Only one line is reported, because "heaviest set
+    yet" and "best estimated 1RM yet" are usually the same event described twice
+    and the summary should read like a person wrote it. Weight wins when both
+    moved; the e1rm is what catches the real case the weight misses -- more reps
+    at a weight already lifted.
+  */
+  let personalBest: PersonalBest | null = null;
+  const beat = (now: number | null, before: number | null) =>
+    now !== null && before !== null && now > before;
+
+  if (isTimed) {
+    if (beat(bestReps, state.bestReps)) {
+      personalBest = { kind: "hold", value: bestReps! };
+    }
+  } else if (heaviest === 0) {
+    if (beat(bestReps, state.bestReps)) {
+      personalBest = { kind: "reps", value: bestReps! };
+    }
+  } else if (beat(bestWeightKg, state.bestWeightKg)) {
+    personalBest = { kind: "weight", value: bestWeightKg! };
+  } else if (beat(bestE1rm, state.bestE1rm)) {
+    personalBest = { kind: "e1rm", value: bestE1rm! };
+  }
+
+  const carried = { ...base, bestWeightKg, bestReps, bestE1rm, personalBest };
 
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
