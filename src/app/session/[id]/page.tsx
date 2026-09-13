@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
+import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
@@ -46,7 +47,11 @@ export default async function SessionPage({
         .order("order_index", { referencedTable: "session_exercises" })
         .maybeSingle(),
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
-      supabase.from("profiles").select("primary_track, has_all_equipment").eq("id", user.id).single(),
+      supabase
+        .from("profiles")
+        .select("primary_track, has_all_equipment, timezone")
+        .eq("id", user.id)
+        .single(),
       supabase.from("user_injuries").select("body_region"),
       supabase.from("warmup_exercises").select("*").eq("is_active", true),
       supabase.from("user_equipment").select("equipment_id"),
@@ -159,6 +164,11 @@ export default async function SessionPage({
     cooldownEnabled: s?.cooldown_enabled ?? true,
   };
 
+  // "What about tomorrow?" needs the block's own days to offer as alternatives,
+  // and what tomorrow already is. Read after the session itself so a slow
+  // answer here can never delay the screen the user is waiting on.
+  const tomorrow = await nextDayPlan(supabase, profileRes.data?.timezone ?? "Asia/Kolkata");
+
   return (
     <SessionRunner
       sessionId={session.id}
@@ -169,6 +179,7 @@ export default async function SessionPage({
       warmup={warmup}
       exercises={exercises}
       settings={settings}
+      tomorrow={tomorrow}
     />
   );
 }

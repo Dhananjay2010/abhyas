@@ -13,6 +13,8 @@ import {
   vibrationSupported,
 } from "@/lib/session/device";
 import { validateSet } from "@/lib/session/validation";
+import { DayPlanPrompt } from "@/components/day-plan-prompt";
+import type { NextDayPlan } from "@/lib/program/day-plan";
 import {
   abandonSession,
   deleteSet,
@@ -21,6 +23,7 @@ import {
   findAlternatives,
   logSet,
   markWarmupDone,
+  planDay,
   refreshAfterSession,
   swapExercise,
   type Alternative,
@@ -37,6 +40,7 @@ export type SessionActions = {
   findAlternatives: typeof findAlternatives;
   swapExercise: typeof swapExercise;
   refreshAfterSession: typeof refreshAfterSession;
+  planDay: typeof planDay;
 };
 
 const REAL_ACTIONS: SessionActions = {
@@ -49,6 +53,7 @@ const REAL_ACTIONS: SessionActions = {
   findAlternatives,
   swapExercise,
   refreshAfterSession,
+  planDay,
 };
 
 type Feel = Database["public"]["Enums"]["set_feel"];
@@ -107,6 +112,7 @@ export function SessionRunner({
   warmup,
   exercises: initialExercises,
   settings,
+  tomorrow,
   actions = REAL_ACTIONS,
   onExit,
 }: {
@@ -118,6 +124,8 @@ export function SessionRunner({
   warmup: WarmupItem[];
   exercises: RunnerExercise[];
   settings: RunnerSettings;
+  /** What tomorrow is, so the summary can ask about it. Null with no block. */
+  tomorrow?: NextDayPlan | null;
   actions?: SessionActions;
   onExit?: () => void;
 }) {
@@ -394,6 +402,22 @@ export function SessionRunner({
               ))}
             </ul>
           </section>
+        )}
+
+        {/*
+          SPEC.md section 7: "what makes the plan feel like yours". Asked here,
+          once the work is done and the user knows how it went, rather than as
+          an abstract question on a screen they have not earned yet.
+        */}
+        {tomorrow && (
+          <DayPlanPrompt
+            localDate={tomorrow.localDate}
+            dayLabel="Tomorrow"
+            plannedLabel={tomorrow.plannedLabel}
+            days={tomorrow.days}
+            heading="What about tomorrow?"
+            onPlan={actions.planDay}
+          />
         )}
 
         <div className="mt-10">

@@ -21,6 +21,7 @@ const STUB: SessionActions = {
   finishSession: ok,
   abandonSession: ok,
   refreshAfterSession: ok,
+  planDay: ok,
   swapExercise: ok,
   findAlternatives: async () => ({
     ok: true as const,
@@ -81,6 +82,20 @@ const EXERCISES: RunnerExercise[] = [
   },
 ];
 
+/**
+ * Tomorrow, for the end-of-session prompt. The planner is stubbed like every
+ * other server action here, so the choices can be driven without a session.
+ */
+const TOMORROW = {
+  localDate: "2999-01-02",
+  plannedLabel: "Legs",
+  days: [
+    { programDayId: "d1", label: "Push", dayType: "weights" as const },
+    { programDayId: "d2", label: "Pull", dayType: "weights" as const },
+    { programDayId: "d3", label: "Legs", dayType: "weights" as const },
+  ],
+};
+
 export function SessionPreview() {
   const [runId, setRunId] = useState(0);
   const [exited, setExited] = useState(false);
@@ -115,6 +130,7 @@ export function SessionPreview() {
       startedAt={null}
       warmup={WARMUP}
       exercises={EXERCISES}
+      tomorrow={TOMORROW}
       settings={{
         perSetLogging: true,
         restAutostart: true,
