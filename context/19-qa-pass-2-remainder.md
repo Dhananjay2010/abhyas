@@ -214,6 +214,26 @@ and all three were caught within minutes of opening the deployed app:
 - "Your week" showed **Monday · Rest · your choice**, the override written by
   the tomorrow prompt the evening before.
 - `aria-pressed` on the injury severity pair reads `true` / `false`.
+- History stopped listing tomorrow: "your last **6** sessions", headed by
+  "Rest · Mon 14 Sept · Not started", became "your last **5**" with nothing in
+  it that had not happened.
+- A settings write survives a reload — "Log every set" off, reload, still off,
+  `per_set_logging = false` in the database, then back on. That is [M3](../QA-FINDINGS-2.md)'s
+  silent-no-op fix confirmed on the deployed app rather than in review.
+- At 390 × 844: no horizontal overflow, the struck-through SKIPPED rows read
+  clearly, and "Rest / your choice" sits right-aligned on two lines without
+  crowding the weekday.
+- `/dev/*` is not reachable in production — 307 to `/` signed out, 404 signed
+  in. Worth stating because those harnesses ship in the bundle.
+- `/onboarding` with a finished profile redirects to Today.
+
+## Still not verified on production
+
+`startSession` reusing an abandoned row (M4) and the resume-at-the-end fix both
+need a day with no completed session, and today already carries one. The same
+constraint stopped the original QA pass testing resume, "End session early",
+per-set-logging off and daily-menu mode. It is one SQL statement away — see
+`verify-m4-step1.sql` — or it resolves itself tomorrow.
 
 ## Known gaps
 
