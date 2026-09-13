@@ -82,6 +82,22 @@ export default async function SessionPage({
     (progressRes.data ?? []).map((p) => [p.exercise_id, p]),
   );
 
+  /*
+    Daily menu means no working-weight memory.
+
+    SPEC section 6 says so, and Settings says it to the user's face -- "A
+    sensible session each day, with no weight memory" -- but the only thing the
+    mode actually did was stop `applyProgression` running. The weights it had
+    already remembered were still read here, still printed as "Working weight
+    60 kg" above the exercise, and still prefilled into the box. The mode kept
+    the memory it promises not to.
+
+    History is untouched, which is the other half of the promise: switching back
+    to progression resumes from the last known weights, because they were never
+    deleted -- only ignored while the user asked for them to be.
+  */
+  const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
+
   const exercises: RunnerExercise[] = rows.map((r) => {
     const ex = r.exercises as unknown as {
       id: string;
@@ -91,7 +107,7 @@ export default async function SessionPage({
       primary_muscles: Muscle[];
       equipment_ids: string[];
     };
-    const progress = progressByExercise.get(ex?.id ?? "");
+    const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
     const working =
       progress?.current_working_weight_kg === null || progress === undefined
         ? null
