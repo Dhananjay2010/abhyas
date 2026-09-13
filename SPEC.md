@@ -214,6 +214,22 @@ progression.
   more time stops being useful, so the chain moves to a harder variation
   instead, exactly as bodyweight rep progression does.
 
+**A session records the unit it was run in** *(specified 2026-09-13)*.
+`session_exercises.metric` is stamped when the session is built and carried
+through a swap. The catalogue's `exercises.metric` says what an exercise is
+*today*; a finished session has to say what it was *then*, because the two can
+differ:
+
+- Every session logged before `metric` existed was prescribed in reps, so a
+  plank from last week reads "2 × 8–12" and not "2 × 8–12s".
+- Re-tagging an exercise — deciding a glute bridge is a hold after all — must
+  not rewrite the unit on every session of it already in History.
+- Swapping mid-session can change the unit, because an alternative for a core
+  slot may be a hold. The session row moves with the swap; the plan does not.
+
+Reading the unit from the session rather than the catalogue is what makes
+History an honest record rather than a re-interpretation.
+
 ### End of session
 - Summary: duration, total volume, PRs hit
 
@@ -372,7 +388,7 @@ Media lives in a **separate `exercise_media` table** keyed to the exercise, carr
 
 **`sessions`** — user_id, program_id, program_day_id, **`local_date`** (the day-wise key, computed in the user's timezone), planned_type, actual_type, status (`planned`|`in_progress`|`completed`|`skipped`|`rest`), started_at, completed_at, duration_seconds, warmup_completed, cooldown_completed, energy_rating, notes
 
-**`session_exercises`** — session_id, exercise_id, order_index, planned sets/reps, status, swapped_from_exercise_id, feel (`easy`|`right`|`hard`)
+**`session_exercises`** — session_id, exercise_id, order_index, planned sets/reps, **metric** (`reps`|`seconds`, what this session was run in), status, swapped_from_exercise_id, feel (`easy`|`right`|`hard`)
 
 **`session_sets`** — session_exercise_id, set_number, reps, weight_kg, is_warmup_set, completed_at
 

@@ -771,6 +771,7 @@ export type Database = {
           exercise_id: string
           feel: Database["public"]["Enums"]["set_feel"] | null
           id: string
+          metric: Database["public"]["Enums"]["exercise_metric"]
           notes: string | null
           order_index: number
           planned_reps_max: number | null
@@ -787,6 +788,7 @@ export type Database = {
           exercise_id: string
           feel?: Database["public"]["Enums"]["set_feel"] | null
           id?: string
+          metric?: Database["public"]["Enums"]["exercise_metric"]
           notes?: string | null
           order_index: number
           planned_reps_max?: number | null
@@ -803,6 +805,7 @@ export type Database = {
           exercise_id?: string
           feel?: Database["public"]["Enums"]["set_feel"] | null
           id?: string
+          metric?: Database["public"]["Enums"]["exercise_metric"]
           notes?: string | null
           order_index?: number
           planned_reps_max?: number | null

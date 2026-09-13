@@ -4,7 +4,6 @@ import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
-import type { Database } from "@/lib/database.types";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +65,7 @@ export default async function SessionDetailPage({
 
   const { data: exercises, error: exercisesError } = await supabase
     .from("session_exercises")
-    .select("id, order_index, status, feel, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(name, metric), swapped_from_exercise_id")
+    .select("id, order_index, status, feel, planned_sets, planned_reps_min, planned_reps_max, metric, exercises!session_exercises_exercise_id_fkey(name), swapped_from_exercise_id")
     .eq("session_id", id)
     .order("order_index");
 
@@ -113,12 +112,17 @@ export default async function SessionDetailPage({
 
       <ol className="mt-8 space-y-3">
         {(exercises ?? []).map((e) => {
-          const ex = e.exercises as unknown as {
-            name: string;
-            metric: Database["public"]["Enums"]["exercise_metric"] | null;
-          } | null;
+          const ex = e.exercises as unknown as { name: string } | null;
           const name = ex?.name ?? "Exercise";
-          const isTimed = ex?.metric === "seconds";
+          /*
+            The unit this session was run in, recorded on the session row.
+            Reading `exercises.metric` here re-interpreted history: a plank
+            logged in reps before the metric existed came back as a hold, and
+            re-tagging any exercise would do the same to every past session of
+            it. The sets-based fallback below stays as a belt-and-braces for a
+            row whose stamp and contents somehow disagree.
+          */
+          const isTimed = e.metric === "seconds";
           const mine = (sets ?? []).filter((s) => s.session_exercise_id === e.id);
           return (
             <li key={e.id} className="rounded-xl border border-border bg-surface px-4 py-3.5">
@@ -141,12 +145,9 @@ export default async function SessionDetailPage({
                       <span className="text-muted">Set {s.set_number}</span>
                       <span>
                         {/*
-                          An exercise can become timed after sets were already
-                          logged against it in reps — the plank did, the day
-                          `exercises.metric` was introduced — and those rows
-                          have no duration. Showing "—s" hid work that was
-                          genuinely recorded, so fall back to whatever the row
-                          actually holds.
+                          Fall back to whatever the row actually holds: showing
+                          "—s" for a set logged in reps hid work that was
+                          genuinely recorded.
                         */}
                         {isTimed && s.duration_seconds !== null
                           ? `${s.duration_seconds}s`

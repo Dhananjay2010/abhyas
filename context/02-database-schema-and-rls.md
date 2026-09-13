@@ -217,3 +217,4 @@ insert them after switching back.
   checks, including that a second user's practice cannot count your day and
   that direct writes and inserts to the progress table are both refused.
 - **2026-09-13.** `exercises.metric` (`reps` | `seconds`) added by `20260920090000_timed_exercises.sql`, with comments on `program_day_exercises.target_reps_min`/`max` recording that they are a range in the exercise's own metric. See [18](18-timed-exercises-and-tomorrow.md).
+- **2026-09-13.** `session_exercises.metric` (`reps` | `seconds`, not null, default `reps`) records the unit a session was RUN in, as distinct from `exercises.metric`, which is what the exercise is now. Backfilled from the logged sets. Read it anywhere a past session is displayed or scored. See [18](18-timed-exercises-and-tomorrow.md).

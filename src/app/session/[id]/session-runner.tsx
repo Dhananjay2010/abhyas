@@ -27,6 +27,7 @@ import {
   refreshAfterSession,
   swapExercise,
   type Alternative,
+  type SwapResult,
 } from "../actions";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -839,17 +840,38 @@ export function SessionRunner({
                     <button
                       disabled={busy}
                       onClick={async () => {
-                        const ok = await run(() =>
-                          actions.swapExercise({
+                        /*
+                          `run` reports success as a boolean, so the payload is
+                          carried out in a box. It is needed: a swap can change
+                          the UNIT -- the alternatives for a core slot include
+                          holds on purpose -- and the server re-prescribes the
+                          range when it does. Without applying both, swapping a
+                          set of 8-12 reps for a plank left the screen asking
+                          for reps, or for an eight-second hold.
+                        */
+                        const box: { value?: SwapResult } = {};
+                        const ok = await run(async () => {
+                          const r = await actions.swapExercise({
                             sessionExerciseId: current.id,
                             newExerciseId: a.exerciseId,
-                          }),
-                        );
-                        if (!ok) return;
+                          });
+                          if (r.ok) box.value = r.data;
+                          return r;
+                        });
+                        if (!ok || !box.value) return;
+                        const swapped = box.value;
                         setExercises((prev) =>
                           prev.map((e) =>
                             e.id === current.id
-                              ? { ...e, name: a.name, cue: a.cue, exerciseId: a.exerciseId }
+                              ? {
+                                  ...e,
+                                  name: a.name,
+                                  cue: a.cue,
+                                  exerciseId: a.exerciseId,
+                                  metric: swapped.metric,
+                                  repsMin: swapped.repsMin ?? e.repsMin,
+                                  repsMax: swapped.repsMax ?? e.repsMax,
+                                }
                               : e,
                           ),
                         );

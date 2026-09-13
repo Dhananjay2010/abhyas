@@ -206,3 +206,51 @@ tests were passing against an ordering production did not share.
 |---|---|
 | 2026-09-13 | Created. Timed exercises and the "what about tomorrow?" prompt, both specified in SPEC.md §7 before being built. |
 | 2026-09-13 | Verified end to end on production. Five bugs found and fixed while doing so: planDay blocked by a completed yoga session, a started override no longer owning the day, "Resume" on a day never started, the swap list being alphabetical, and the generator's catalogue query having no ORDER BY. |
+| 2026-09-13 | **A session now records the unit it was run in.** `session_exercises.metric` is stamped when the session is built and carried through a swap; Today, History detail, the runner and `applyProgression` all read it instead of `exercises.metric`. See below. |
+
+## The unit belongs to the session, not to the catalogue
+
+*Added 2026-09-13, migration `20260921090000_session_exercise_metric.sql`.*
+
+`exercises.metric` says what an exercise is **today**. Everywhere a past session
+is displayed or scored, the question is what it was **then**, and the two
+diverge in three ways:
+
+1. Every session logged before this feature existed was prescribed in reps.
+   Today rendered such a plank as "2 × 8–12s" — a range set in reps, relabelled
+   by a column that did not exist when it was written.
+2. Re-tagging any exercise later would rewrite the unit on every session of it
+   already in History. That is not a migration artefact; it is permanent.
+3. A mid-session swap can change the unit, because the alternatives offered for
+   a core slot include holds — deliberately, since making a plank reachable from
+   the swap list was the point of ranking that list.
+
+So `session_exercises.metric` is written at session build time — in both
+`startSession` and `ensureSessionExercises`, from the plan's own exercise — and
+updated by `swapExercise`. The read sites are `today/page.tsx` (the "what you
+did" list), `history/[id]/page.tsx`, `session/[id]/page.tsx` (the runner's
+exercises) and `applyProgression`. Scoring from the session's own metric matters
+as much as displaying from it: reading a finished set of twelve reps through a
+catalogue that has since been re-tagged would evaluate it as a twelve-second
+hold.
+
+**The backfill reads the sets, not the catalogue**, because the sets are the
+only honest record of what a past session was: a row with any
+`duration_seconds` was run in seconds, a row with no sets at all (a skipped
+exercise) falls back to the exercise's current metric, and everything else keeps
+the `reps` default it was logged in.
+
+### A changed unit needs a changed range
+
+`planned_reps_min/max` are the range *in the exercise's own metric*, so carrying
+only the metric through a swap would have asked for an **eight-second plank**.
+`swapExercise` re-prescribes the range from the goal's hold table — the same
+`prescribe()` the generator uses — when and only when the metric changes. Sets
+are left alone, including a deload week's reduction, because a swap is a
+substitution inside the session rather than a re-planning of it.
+
+The new range has to reach the runner without a refetch (it is mid-session), so
+`swapExercise` returns `{ metric, repsMin, repsMax }` and the runner applies all
+three. Verified in `/dev/session`, whose alternatives now include a hold for
+exactly this: swapping a bench press at 4 × 8–12 reps for a Weighted Plank gives
+**4 sets × 20–40s** and a **"Hold for 40s"** button.
