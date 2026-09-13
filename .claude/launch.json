@@ -4,8 +4,12 @@
     {
       "name": "abhyas",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:nvm"],
-      "port": 3000
+      "runtimeArgs": [
+        "run",
+        "dev:nvm"
+      ],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }

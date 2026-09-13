@@ -683,7 +683,16 @@ export function SessionRunner({
 
         {!allSetsDone && (
           <SetEntry
-            key={nextSetNumber}
+            /*
+              Keyed by exercise AND set, so the fields reset on both.
+              With only the set number, moving from one exercise to the next
+              at the same set number reused the component instance, and
+              `useState` keeps its first value: the weight typed for the bench
+              press was still sitting in the box on the lat pulldown, ready to
+              be logged against it and fed to progression. It also left a stale
+              number in a hold's seconds field.
+            */
+            key={`${current.id}:${nextSetNumber}`}
             perSetLogging={settings.perSetLogging}
             metric={current.metric}
             targetSeconds={current.repsMax}
