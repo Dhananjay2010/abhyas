@@ -602,6 +602,60 @@ Found by reading the code rather than by running it — the mode could not be
 exercised on the account, which is what put it on the "could not test" list in
 the first place.
 
+## Critical — a new account could not use the app at all  *(fixed)*
+
+Reported by Dhananjay on 2026-09-13, signing in with a second Google account:
+
+```
+Uncaught Error: Minified React error #441
+```
+
+React 441 is "an error occurred in the Server Components render", with the real
+message stripped in production. Vercel's logs had it:
+
+```
+Error: Cannot coerce the result to a single JSON object
+  digest: '352489934'   requestPath: /today
+```
+
+That is PostgREST's answer when `.single()` matches no rows — **the new account
+had no `profiles` row**. The database agreed: `auth.users` 2, `profiles` 1,
+`user_settings` 1.
+
+**Why.** `on_auth_user_created` on `auth.users` was gone. `handle_new_user()`
+was still there. The function lives in `public` and came across in the schema
+dump when the database moved to Mumbai on 10 September; the trigger lives on
+`auth.users`, and Supabase rebuilt the `auth` schema from its own baseline. The
+function survived, the wiring did not, and **every signup for the next three
+days got an auth user and no profile** — which is to say, nobody could sign up.
+
+**Why nothing caught it.** The only account in the database already had its
+rows. The QA pass in this document opens by saying the account "was wiped in
+Supabase (all rows in every user table, `profiles` reset to a blank onboarding),
+so onboarding ran from the first screen exactly as a new signup would." It did
+not. **Resetting a profile row is not the same as not having one**, and the
+difference is precisely the code path that was broken. Everything downstream of
+the first query was tested thoroughly; the first query was never tested at all.
+
+**Fixed, in three layers:**
+
+1. `20260922090000_restore_signup_trigger.sql` recreates the function and the
+   trigger, and backfills every `auth.users` row that is missing its rows — so
+   the broken account is healed without signing up again.
+2. **The auth callback creates the rows too**, on every sign-in. Redundant when
+   the trigger is healthy, which is the point: the app should not be the only
+   thing that fails to notice when the trigger is not. This needed a new INSERT
+   policy on `profiles`, which had SELECT and UPDATE only — the original comment
+   reads "cannot be inserted by the client (the auth trigger creates it)", and
+   that single point of failure is exactly what failed.
+3. **Today no longer throws on a missing profile.** It creates the row and
+   carries on, and if even that fails it renders a sentence the user can read
+   instead of a blank page. A server render that throws shows nothing at all in
+   production, so the one person who can see the bug has no way to describe it.
+
+The wider lesson is in SPEC §12: anything the app installs into the `auth`
+schema is **erasable by the platform**, and needs backing from our own code.
+
 ## Checked and healthy
 
 - **Access control.** `/history/<someone-else's-uuid>`, `/session/<unknown>`

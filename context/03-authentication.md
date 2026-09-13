@@ -94,3 +94,4 @@ call is what refreshes the token.
   the Supabase redirect allowlist and moving that config into `config.toml`.
 - Temporarily allowed a LAN origin for on-device testing; removed once Vercel
   deployments were working again.
+- **2026-09-13.** The auth callback now calls `ensureProfileRows()` after a successful code exchange, creating `profiles` and `user_settings` if they are missing. The `on_auth_user_created` trigger remains the primary mechanism; this is the backstop, added after that trigger was lost in the region move and every new signup for three days landed on a blank page. Today self-heals the same way and renders a readable message rather than throwing. See [QA-FINDINGS-2.md](../QA-FINDINGS-2.md).
