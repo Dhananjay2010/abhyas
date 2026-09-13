@@ -673,11 +673,9 @@ export function SessionRunner({
                   <span className="text-sm tabular-nums">
                     {logged
                       ? settings.perSetLogging
-                        ? `${
-                            isTimed
-                              ? `${logged.durationSeconds ?? "—"}s`
-                              : `${logged.reps ?? "—"} reps`
-                          }${logged.weightKg ? ` · ${logged.weightKg} kg` : ""}`
+                        ? `${describeSet(logged, isTimed)}${
+                            logged.weightKg ? ` · ${logged.weightKg} kg` : ""
+                          }`
                         : "done"
                       : "—"}
                   </span>
@@ -871,6 +869,22 @@ export function SessionRunner({
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * What a logged set reads as.
+ *
+ * A set logged before its exercise became timed carries reps and no duration,
+ * so a timed exercise cannot simply read `durationSeconds` — that showed "—s"
+ * against work the user really did. Show whichever the row actually holds.
+ */
+function describeSet(
+  set: { reps: number | null; durationSeconds: number | null },
+  isTimed: boolean,
+): string {
+  if (isTimed && set.durationSeconds !== null) return `${set.durationSeconds}s`;
+  if (set.reps !== null) return `${set.reps} reps`;
+  return isTimed ? "—s" : "— reps";
+}
 
 function SetEntry({
   perSetLogging,

@@ -140,7 +140,21 @@ export default async function SessionDetailPage({
                     >
                       <span className="text-muted">Set {s.set_number}</span>
                       <span>
-                        {isTimed ? `${s.duration_seconds ?? "—"}s` : `${s.reps ?? "—"} reps`}
+                        {/*
+                          An exercise can become timed after sets were already
+                          logged against it in reps — the plank did, the day
+                          `exercises.metric` was introduced — and those rows
+                          have no duration. Showing "—s" hid work that was
+                          genuinely recorded, so fall back to whatever the row
+                          actually holds.
+                        */}
+                        {isTimed && s.duration_seconds !== null
+                          ? `${s.duration_seconds}s`
+                          : s.reps !== null
+                            ? `${s.reps} reps`
+                            : isTimed
+                              ? "—s"
+                              : "— reps"}
                         {s.weight_kg ? ` · ${Number(s.weight_kg)} kg` : ""}
                       </span>
                     </li>
