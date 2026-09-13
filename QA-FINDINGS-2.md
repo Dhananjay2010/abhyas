@@ -207,7 +207,7 @@ Not fixed: this is a data-curation pass over 604 rows, not a code change.
 
 ## Medium
 
-### M1 — Isometric exercises are prescribed and logged in reps  *(fixed)*
+### M1 — Isometric exercises are prescribed and logged in reps  *(fixed and verified live)*
 
 Today's plan contained **Plank — 2 sets × 8–12 reps**, with a Reps field, a
 Weight (kg) field and the prompt "Enter the reps you did." There is no way to
@@ -408,6 +408,40 @@ re-plan of the current block, not a new one.
   cold function sat on "Loading today's plan…" for well over ten seconds. The
   bottom nav prefetches all five tabs on every page, so each visit fans out
   into four extra RSC renders, each re-running that route's queries.
+
+---
+
+## Found while verifying the fixes on production (2026-09-13, all fixed)
+
+Deploying the two new features and driving them for real turned up five more,
+none of which any amount of local testing would have shown:
+
+- **A completed yoga session made the whole day unplannable.** `planDay`
+  refused any date carrying a completed session, so a six-minute breathing
+  session in the morning answered "That day is already done" to every attempt
+  to plan or swap that day. Only a `weights` or `bodyweight` session owns a
+  day — which `today/page.tsx` already knew, with a comment about a breathing
+  session hiding the Start button for the rest of the day. The new action
+  repeated the same mistake in a new place.
+- **A started override stopped owning the day.** Starting a swapped day and
+  leaving it part-way flipped Today back to the block's label while "Resume
+  session" still resumed the swapped one: the screen said Legs and the button
+  gave you Pull.
+- **"Resume session" on a day that was never started**, because a day planned
+  through the prompt is a session row with no `started_at`.
+- **The swap list was, in effect, the alphabet.** `findAlternatives` sliced six
+  rows off a query with no ordering, so a core slot with 57 eligible exercises
+  offered the same six names beginning with A and B — every time, for every
+  user, and nothing later in the alphabet was reachable at all. This is also
+  why the yoga-mat account earlier in this pass was offered six jump variants.
+- **The generator was not deterministic, despite saying so.** `pickForSlot`
+  draws one `rng()` per candidate in pool order and the catalogue query had no
+  `ORDER BY`, so the same user and block number could produce different plans,
+  and the committed fixture disagreed with production. Caught by generating the
+  same block locally and on production and finding four of five exercises
+  identical and the fifth not. **The generator tests were passing against an
+  ordering production did not share** — which is the strongest argument in this
+  document for testing against the real thing.
 
 ---
 

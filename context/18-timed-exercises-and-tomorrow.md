@@ -138,19 +138,65 @@ other actions, so it can be driven in `/dev/session`.
   choosing Pull settles to "Tomorrow is Pull" with a "Change it" link.
 - The `SetEntry` key fix, by watching a stale 60 kg disappear from a plank.
 
+## Verified on production
+
+Deployed and driven through the real app, signed in, against the real database.
+Five bugs were found in the process; each is described below and was fixed and
+redeployed before carrying on.
+
+**Timed exercises.** Block 12's Sunday Legs day ends with **Plank, 3 × 20–40s**
+on Today — a time range, not 8–12 reps. In the session it shows a **"Hold for
+40s"** button; the countdown ran, and all three ways of recording a hold were
+exercised: stopped early at **19s**, run to zero for the full **40s**, and
+typed by hand as **35s**. The set list read `19s`, `40s`, `35s`, and the
+database holds exactly that:
+
+```
+set 1: reps=NULL weight=NULL duration_seconds=19
+set 2: reps=NULL weight=NULL duration_seconds=40
+set 3: reps=NULL weight=NULL duration_seconds=35
+```
+
+Progression then said **"Staying at this hold length until every set reaches
+the top of the range"** — correct, since 19 and 35 are short of 40, and worded
+for a hold rather than a weight.
+
+**The prompt.** Today offered *"You missed yesterday — Pull did not happen.
+Today is Legs"*; swapping to Pull rewrote the day to Pull with the Pull day's
+exercises, showed the explanatory note, and left "Your week" untouched. At the
+end of the session the summary asked *"What about tomorrow? Tomorrow is Push"*,
+and choosing Rest wrote exactly one row:
+
+```
+local_date 2026-09-14  status planned  planned_type rest  actual_type rest
+program_day_id NULL  week_in_block 1  is_deload false
+```
+
+## What the live pass found
+
+| | |
+|---|---|
+| **A completed yoga session made the day unplannable** | `planDay` refused any date with a completed session, so a six-minute breathing or yoga session in the morning meant "That day is already done" for the whole day. Only a `weights` or `bodyweight` session owns a day — which Today already knew, and this repeated the mistake in a new place. |
+| **A started override stopped owning the day** | Reading only `planned` rows meant starting a swapped day and leaving it part-way flipped Today back to the block's label while the button still resumed the swapped session: the screen said Legs and gave you Pull. `resolveDay` and Today now treat `in_progress` the same as `planned`. |
+| **"Resume session" for a day never started** | A day planned through the prompt is a session row with no `started_at`, and calling that a resume told the user they had left a workout half-done. The label now keys off `started_at`. |
+| **The swap list was the alphabet** | `findAlternatives` sliced six rows off an unordered query, so a core slot with 57 eligible exercises offered the same six names beginning with A and B, every time, for everyone. Now ranked by the generator's own `score` with the mechanic of the exercise being replaced, and ties broken by a hash rather than the alphabet — because ranking alone just made it the first six A-to-C names instead. |
+| **The generator was not actually deterministic** | `pickForSlot` draws one `rng()` per candidate in pool order, and the catalogue query had no `ORDER BY`. The same user and block number could be handed different plans, and the committed fixture (exported `order by slug`) disagreed with production. Caught by generating block 8 both ways for the same profile: the first four exercises of Sunday matched exactly and the fifth did not. Now ordered by slug, and local and production agree. |
+
+That last one is the reason this pass was worth running at all: the generator
+tests were passing against an ordering production did not share.
+
 ## Known gaps
 
-- **The migration has not been applied.** `supabase db push` is blocked from
-  this environment. Until it runs, `exercises.metric` does not exist, and the
-  code now selects it — so **the migration must be pushed before this is
-  deployed**, or every session, Today and History page will fail.
-- **`planDay` itself has not been exercised against the database.** The prompt
-  was driven with the planner stubbed, which proves the component and not the
-  action. It needs one real session after the deploy: choose "rest" for
-  tomorrow, then check Today tomorrow.
-- The catalogue fixture (`scripts/fixtures/catalogue.json`) predates `metric`,
-  so the generator tests take the `?? "reps"` fallback. Refresh it with
-  `scripts/export-catalogue.sh` once the migration is live.
+- **Today rendering an override on the following day has not been watched.**
+  Tomorrow was set to rest and the row is correct, but nobody has yet seen
+  Today render it on the day itself — that needs a calendar day to pass.
+- **Changing a choice from Today is not possible.** Once a day is planned, the
+  prompt is replaced by the explanatory note, and the "Change it" link only
+  lives in the client state of the render that made the choice. Reload and
+  there is no way back to the three buttons.
+- A hold that reaches the top of its range on every set was not seen
+  progressing on production — the three sets were 19, 40 and 35, so it held.
+  The `+5s` path is covered by `npm run test:progression`.
 - Only six exercises are holds, because that is all this catalogue has. Wall
   sits, dead hangs, L-sits and carries are absent and would need seeding.
 
@@ -159,3 +205,4 @@ other actions, so it can be driven in `/dev/session`.
 | Date | Change |
 |---|---|
 | 2026-09-13 | Created. Timed exercises and the "what about tomorrow?" prompt, both specified in SPEC.md §7 before being built. |
+| 2026-09-13 | Verified end to end on production. Five bugs found and fixed while doing so: planDay blocked by a completed yoga session, a started override no longer owning the day, "Resume" on a day never started, the swap list being alphabetical, and the generator's catalogue query having no ORDER BY. |
