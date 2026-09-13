@@ -145,9 +145,11 @@ export default async function TodayPage() {
     */
     supabase
       .from("sessions")
-      .select("id, status, actual_type, local_date, program_day_id, started_at")
+      .select("id, status, actual_type, local_date, program_day_id, started_at, created_at")
       .gte("local_date", yesterday)
-      .lte("local_date", weekAheadEnd),
+      .lte("local_date", weekAheadEnd)
+      // Newest first, which is how `startSession` breaks the same tie.
+      .order("created_at", { ascending: false }),
   ]);
 
   const days = daysRes.data;
@@ -197,9 +199,20 @@ export default async function TodayPage() {
     planned: 2,
     skipped: 3,
   };
+  /*
+    Rank first, then newest. The tie is real: an account can carry several
+    abandoned rows for one day -- anything written before a restart began
+    reusing them does -- and `startSession` resumes the most recent of those.
+    Deciding it differently here would put Today's label and the Start button
+    back out of step, which is the bug this whole block exists to prevent.
+  */
   const override = todaySessions
     .filter(ownsToday)
-    .sort((a, b) => (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9))[0];
+    .sort(
+      (a, b) =>
+        (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9) ||
+        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+    )[0];
   const overrideDay = override?.program_day_id
     ? days?.find((d) => d.id === override.program_day_id)
     : undefined;
