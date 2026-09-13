@@ -207,10 +207,25 @@ export default async function TodayPage() {
   const today = overrideDay ?? scheduled;
   const dayType = override?.actual_type ?? scheduled?.day_type ?? null;
   const dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
-  // Only worth explaining when it actually differs from what the block said.
+  /*
+    Only worth explaining when it actually differs from what the block said.
+
+    This compared program-day ids alone, which is wrong in the one case where
+    the id cannot be resolved: a rebuild replaces `program_days`, so every
+    session from before it points at a day of the retired block. `overrideDay`
+    is then undefined, the id comparison says "differs", and Today announced
+    "You chose this for today, so it replaces the Legs your block had
+    scheduled" -- on a Legs day, about a session nobody had chosen anything for.
+
+    So the type is checked first, which is what a rest, yoga or breathing
+    override changes, and the day ids only when the override's day is one this
+    block still has. An unresolvable id says nothing either way, and the label
+    on screen is the block's own in that case anyway.
+  */
   const overrideDiffers =
     override !== undefined &&
-    (overrideDay?.id ?? null) !== (scheduled?.id ?? null);
+    (override.actual_type !== (scheduled?.day_type ?? null) ||
+      (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
   const week = weekInBlock(program.started_on, localToday);
   const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";
