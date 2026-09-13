@@ -132,3 +132,4 @@ for a harder variation.
 ## Change log
 
 - Initial engine, wiring, deload application and 30 tests.
+- **2026-09-13.** Double progression on time for timed exercises: +5s a step, a harder variation at 120s or a prompt to add weight where there is no chain, and no estimated one-rep max from a hold. See [18](18-timed-exercises-and-tomorrow.md).

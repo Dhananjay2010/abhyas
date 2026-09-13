@@ -216,3 +216,4 @@ insert them after switching back.
   Verified as the real user under RLS in rolled-back transactions: twelve
   checks, including that a second user's practice cannot count your day and
   that direct writes and inserts to the progress table are both refused.
+- **2026-09-13.** `exercises.metric` (`reps` | `seconds`) added by `20260920090000_timed_exercises.sql`, with comments on `program_day_exercises.target_reps_min`/`max` recording that they are a range in the exercise's own metric. See [18](18-timed-exercises-and-tomorrow.md).
