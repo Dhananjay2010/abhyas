@@ -11,7 +11,7 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
-import { applyDeload, weekInBlock } from "@/lib/program/prescription";
+import { applyDeload, prescribe, weekInBlock } from "@/lib/program/prescription";
 import { validateSet } from "@/lib/session/validation";
 import { isoWeekday, localDateString } from "@/lib/dates";
 
@@ -39,6 +39,20 @@ async function requireUser() {
  */
 function ownsTheDay(t: Database["public"]["Enums"]["day_type"] | null): boolean {
   return t === "weights" || t === "bodyweight";
+}
+
+/**
+ * The metric to stamp on a session exercise, from an embedded `exercises` row.
+ *
+ * PostgREST types a to-one embed as either an object or an array depending on
+ * how it infers the relationship, and the shape is not worth arguing with at
+ * four call sites. `reps` is the safe default: it is the column default too,
+ * and it is what every exercise was before `metric` existed.
+ */
+function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metric"] {
+  const row = Array.isArray(embedded) ? embedded[0] : embedded;
+  const m = (row as { metric?: string } | null | undefined)?.metric;
+  return m === "seconds" ? "seconds" : "reps";
 }
 
 /**
@@ -170,7 +184,9 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .single(),
     supabase
       .from("program_day_exercises")
-      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds")
+      // The exercise's metric comes along so the session can record the unit it
+      // was run in -- see `session_exercises.metric` and SPEC section 7.
+      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
       .eq("program_day_id", day.id)
       .order("order_index"),
   ]);
@@ -208,6 +224,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
           planned_reps_min: dose.repsMin,
           planned_reps_max: dose.repsMax,
           rest_seconds: dose.restSeconds,
+          metric: metricOf(p.exercises),
         };
       }),
     );
@@ -338,7 +355,7 @@ async function applyProgression(
 
   const { data: se } = await supabase
     .from("session_exercises")
-    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, exercises!session_exercises_exercise_id_fkey(mechanic, movement_pattern, metric, equipment_ids, progression_chain, progression_rank)")
+    .select("id, session_id, exercise_id, planned_sets, planned_reps_min, planned_reps_max, metric, exercises!session_exercises_exercise_id_fkey(mechanic, movement_pattern, equipment_ids, progression_chain, progression_rank)")
     .eq("id", sessionExerciseId)
     .maybeSingle();
   if (!se) return null;
@@ -346,7 +363,6 @@ async function applyProgression(
   const ex = se.exercises as unknown as {
     mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
     movement_pattern: MovementPattern;
-    metric: Database["public"]["Enums"]["exercise_metric"];
     equipment_ids: string[];
     progression_chain: string | null;
     progression_rank: number | null;
@@ -372,7 +388,10 @@ async function applyProgression(
   const meta: ExerciseMeta = {
     mechanic: ex.mechanic,
     movementPattern: ex.movement_pattern,
-    metric: ex.metric ?? "reps",
+    // The session's own unit, not the catalogue's. Scoring a finished session
+    // by what the exercise has since been re-tagged as would read a set of
+    // twelve reps as a twelve-second hold.
+    metric: se.metric ?? "reps",
     isBodyweight: (ex.equipment_ids ?? []).length === 0,
     progressionChain: ex.progression_chain,
     progressionRank: ex.progression_rank,
@@ -529,7 +548,13 @@ export async function refreshAfterSession(): Promise<Result> {
   return { ok: true };
 }
 
-export type Alternative = { exerciseId: string; name: string; cue: string | null };
+export type Alternative = {
+  exerciseId: string;
+  name: string;
+  cue: string | null;
+  /** So the runner can switch to a hold when the swap is one. */
+  metric: Database["public"]["Enums"]["exercise_metric"];
+};
 
 /**
  * Alternatives for an exercise the user cannot do right now -- a busy machine,
@@ -567,7 +592,7 @@ export async function findAlternatives(
       supabase.from("session_exercises").select("exercise_id").eq("session_id", current.session_id),
       supabase
         .from("exercises")
-        .select("id, slug, name, cue, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
+        .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
         .eq("movement_pattern", pattern)
         .eq("is_active", true),
     ]);
@@ -637,33 +662,93 @@ export async function findAlternatives(
       exerciseId: e.id,
       name: e.name,
       cue: (e as unknown as { cue: string | null }).cue ?? null,
+      metric: e.metric ?? ("reps" as const),
     }));
 
   return { ok: true, data: alternatives };
 }
 
+/** What the runner needs to redraw the exercise after a swap. */
+export type SwapResult = {
+  metric: Database["public"]["Enums"]["exercise_metric"];
+  repsMin: number | null;
+  repsMax: number | null;
+};
+
 export async function swapExercise(input: {
   sessionExerciseId: string;
   newExerciseId: string;
-}): Promise<Result> {
-  const { supabase } = await requireUser();
+}): Promise<Result<SwapResult>> {
+  const { supabase, user } = await requireUser();
 
-  const { data: current } = await supabase
-    .from("session_exercises")
-    .select("exercise_id")
-    .eq("id", input.sessionExerciseId)
-    .maybeSingle();
+  const [currentRes, replacementRes, profileRes] = await Promise.all([
+    supabase
+      .from("session_exercises")
+      .select("exercise_id, metric, planned_reps_min, planned_reps_max")
+      .eq("id", input.sessionExerciseId)
+      .maybeSingle(),
+    /*
+      The unit can change with the swap: the alternatives for a core slot
+      include holds, deliberately -- making a plank reachable from the swap list
+      was the point of ranking that list. Without carrying the metric the
+      session went on asking for reps while the screen named a plank.
+    */
+    supabase
+      .from("exercises")
+      .select("metric, mechanic")
+      .eq("id", input.newExerciseId)
+      .maybeSingle(),
+    supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
+  ]);
+
+  const current = currentRes.data;
   if (!current) return { ok: false, error: "Exercise not found" };
+
+  const metric = metricOf(replacementRes.data);
+  const profile = profileRes.data;
+
+  /*
+    A changed unit needs a changed range. `planned_reps_min/max` are the range
+    in the exercise's own metric, so swapping eight-to-twelve reps for a hold
+    without re-prescribing would ask for an eight-second plank. The goal's hold
+    table is the same one the generator uses, so a swap lands on what the
+    planner would have prescribed for that slot.
+
+    Only the range is re-derived. Sets stay as the day dosed them -- including a
+    deload week's reduction, which `applyDeload` applies to sets and not to the
+    range -- because the swap is a substitution within the session, not a
+    re-planning of it.
+  */
+  const reranged =
+    metric !== current.metric && profile?.goal && profile?.level
+      ? prescribe(
+          profile.goal,
+          profile.level,
+          replacementRes.data?.mechanic === "isolation",
+          metric,
+        )
+      : null;
+
+  const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
+  const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
 
   const { error } = await supabase
     .from("session_exercises")
     .update({
       exercise_id: input.newExerciseId,
       swapped_from_exercise_id: current.exercise_id,
+      metric,
+      planned_reps_min: repsMin,
+      planned_reps_max: repsMax,
     })
     .eq("id", input.sessionExerciseId);
 
-  return error ? { ok: false, error: error.message } : { ok: true };
+  // Returned rather than left for the client to guess: the runner is mid-session
+  // and must not re-fetch, but it does have to redraw the target and the
+  // hold button with the range that was just written.
+  return error
+    ? { ok: false, error: error.message }
+    : { ok: true, data: { metric, repsMin, repsMax } };
 }
 
 
@@ -696,7 +781,7 @@ async function ensureSessionExercises(
 
   const { data: planned } = await supabase
     .from("program_day_exercises")
-    .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds")
+    .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
     .eq("program_day_id", session.program_day_id)
     .order("order_index");
   if (!planned || planned.length === 0) return;
@@ -711,6 +796,7 @@ async function ensureSessionExercises(
       planned_reps_min: p.target_reps_min,
       planned_reps_max: p.target_reps_max,
       rest_seconds: p.rest_seconds,
+      metric: metricOf(p.exercises),
     })),
   );
 }

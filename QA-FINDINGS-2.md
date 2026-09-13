@@ -549,18 +549,34 @@ the M4 fix newly makes reachable.
 
 ---
 
-## Still open, and found late
+## A session now records the unit it was run in  *(fixed)*
 
-- **A timed exercise's unit is read from the catalogue, not from the session.**
-  Today renders the range with an "s" whenever the exercise's *current* metric
-  is `seconds`, so this morning's pre-migration Plank reads "2 × 8–12s" — a
-  range that was prescribed in reps. It is cosmetic and confined to rows written
-  before the metric existed, but it is not only a migration artefact: re-tagging
-  any exercise would rewrite the unit on every past session of it. The durable
-  fix is to stamp the metric on `session_exercises` when the session is built,
-  so history describes itself. Not done: it is a migration, and the session's
-  own History detail page already reads the unit from the logged sets and gets
-  it right.
+**A timed exercise's unit was read from the catalogue, not from the session.**
+Today rendered the range with an "s" whenever the exercise's *current* metric
+was `seconds`, so this morning's pre-migration Plank read "2 × 8–12s" — a range
+that was prescribed in reps. Cosmetic on its own, but not only a migration
+artefact: re-tagging any exercise would have rewritten the unit on every past
+session of it.
+
+**Fixed.** `session_exercises.metric` is stamped when the session is built and
+carried through a swap, and every place that displays or scores a past session
+reads it instead of the catalogue — Today, History detail, the runner, and
+`applyProgression`. The migration backfills from what was actually logged: a
+recorded hold means seconds, a row with no sets falls back to the exercise's
+current metric, everything else stays reps.
+
+Two more came out of it, both reachable today rather than historical:
+
+- **A swap into a hold kept asking for reps.** `findAlternatives` deliberately
+  offers holds for a core slot — making a plank reachable was the point of
+  ranking that list — but nothing carried the new unit, so the screen named a
+  plank and showed a Reps box.
+- **And it would have asked for an eight-second plank.** `planned_reps_min/max`
+  are the range *in the exercise's own metric*, so a unit change needs a range
+  change. A swap that flips the metric now re-prescribes from the goal's hold
+  table — the same one the generator uses. Verified: swapping a bench press at
+  4 × 8–12 reps for a Weighted Plank gives 4 × 20–40s and a "Hold for 40s"
+  button.
 
 ## Checked and healthy
 

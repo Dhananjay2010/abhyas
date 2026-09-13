@@ -293,7 +293,10 @@ export default async function TodayPage() {
     performed
       ? supabase
           .from("session_exercises")
-          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, exercises!session_exercises_exercise_id_fkey(name, cue, metric)")
+          // `metric` from the session row, not from `exercises`: it records the
+          // unit the session was RUN in. Reading the catalogue's current metric
+          // rendered a plank prescribed in reps last week as "2 x 8-12s".
+          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue)")
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
@@ -339,10 +342,10 @@ export default async function TodayPage() {
     rest_seconds: number | null;
     status: string | null;
     swapped_from_exercise_id: string | null;
+    metric: Database["public"]["Enums"]["exercise_metric"] | null;
     exercises: {
       name: string;
       cue: string | null;
-      metric: Database["public"]["Enums"]["exercise_metric"] | null;
     } | null;
   }> | null;
 
@@ -352,7 +355,7 @@ export default async function TodayPage() {
           key: `s${r.order_index}`,
           name: r.exercises?.name ?? "",
           cue: r.exercises?.cue ?? null,
-          metric: r.exercises?.metric ?? null,
+          metric: r.metric ?? null,
           sets: r.planned_sets,
           repsMin: r.planned_reps_min,
           repsMax: r.planned_reps_max,

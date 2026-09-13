@@ -41,12 +41,23 @@ const STUB: SessionActions = {
   abandonSession: ok,
   refreshAfterSession: ok,
   planDay: ok,
-  swapExercise: ok,
+  /*
+    Mirrors the server: a swap into a hold changes the unit AND the range, so
+    the harness hands back the goal's hold range rather than the rep range the
+    slot was carrying. Alternative three below is the hold.
+  */
+  swapExercise: async (input: { newExerciseId: string }) =>
+    input.newExerciseId === "alt3"
+      ? ({ ok: true as const, data: { metric: "seconds" as const, repsMin: 20, repsMax: 40 } })
+      : ({ ok: true as const, data: { metric: "reps" as const, repsMin: 8, repsMax: 12 } }),
   findAlternatives: async () => ({
     ok: true as const,
     data: [
-      { exerciseId: "alt1", name: "Dumbbell Bench Press", cue: "Compound push movement targeting chest. Dumbbells, Bench." },
-      { exerciseId: "alt2", name: "Machine Chest Press", cue: "Compound push movement targeting chest. Chest press." },
+      { exerciseId: "alt1", name: "Dumbbell Bench Press", cue: "Compound push movement targeting chest. Dumbbells, Bench.", metric: "reps" as const },
+      { exerciseId: "alt2", name: "Machine Chest Press", cue: "Compound push movement targeting chest. Chest press.", metric: "reps" as const },
+      // A hold among the alternatives, so swapping INTO a timed exercise can be
+      // driven here. The session used to keep asking for reps after that swap.
+      { exerciseId: "alt3", name: "Weighted Plank", cue: "Isolation targeting abs.", metric: "seconds" as const },
     ],
   }),
 };
