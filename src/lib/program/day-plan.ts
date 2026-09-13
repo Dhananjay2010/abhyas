@@ -77,11 +77,15 @@ export async function resolveDay(
       .from("program_days")
       .select("id, day_index, day_type, label")
       .eq("program_id", programId),
+    // Planned or already under way: both mean "this is what the day is", and
+    // only reading `planned` made a started override invisible to Today.
     supabase
       .from("sessions")
       .select("actual_type, program_day_id, status")
       .eq("local_date", localDate)
-      .eq("status", "planned")
+      .in("status", ["planned", "in_progress"])
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
   ]);
 
