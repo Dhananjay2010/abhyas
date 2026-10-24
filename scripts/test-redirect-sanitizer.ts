@@ -350,6 +350,118 @@ console.log("\n11. Origin validation via new URL()");
   );
 }
 
+console.log("\n12. Legitimate query strings (should be allowed)");
+{
+  // + in query (common in search params)
+  const plusQuery = sanitizeRedirectPath("/search?q=hello+world", ORIGIN);
+  check(
+    "allows + in query string",
+    plusQuery === "/search?q=hello+world",
+    `got: ${plusQuery}`,
+  );
+  
+  // %20 (space) in query
+  const spaceQuery = sanitizeRedirectPath("/search?q=hello%20world", ORIGIN);
+  check(
+    "allows %20 in query string",
+    spaceQuery === "/search?q=hello%20world",
+    `got: ${spaceQuery}`,
+  );
+  
+  // Encoded slash in query value (like dates)
+  const dateQuery = sanitizeRedirectPath("/cal?date=2026%2F10%2F24", ORIGIN);
+  check(
+    "allows encoded slash (%2F) in query value",
+    dateQuery === "/cal?date=2026%2F10%2F24",
+    `got: ${dateQuery}`,
+  );
+  
+  // Multiple query params with encoding
+  const multiQuery = sanitizeRedirectPath("/page?name=John+Doe&date=2026%2F10", ORIGIN);
+  check(
+    "allows multiple query params with + and %2F",
+    multiQuery === "/page?name=John+Doe&date=2026%2F10",
+    `got: ${multiQuery}`,
+  );
+  
+  // URL-encoded special chars in query (but not control chars)
+  const encodedQuery = sanitizeRedirectPath("/api?key=abc%3Ddef%26ghi", ORIGIN);
+  check(
+    "allows encoded = (%3D) and & (%26) in query",
+    encodedQuery === "/api?key=abc%3Ddef%26ghi",
+    `got: ${encodedQuery}`,
+  );
+}
+
+console.log("\n13. Malicious query strings (should be rejected)");
+{
+  // // in query
+  const slashQuery = sanitizeRedirectPath("/page?redir=//evil.example", ORIGIN);
+  check(
+    "rejects // in query value",
+    slashQuery === "/today",
+    `got: ${slashQuery}`,
+  );
+  
+  // @ in query
+  const atQuery = sanitizeRedirectPath("/page?user=admin@evil.example", ORIGIN);
+  check(
+    "rejects @ in query value",
+    atQuery === "/today",
+    `got: ${atQuery}`,
+  );
+  
+  // Backslash in query
+  const backslashQuery = sanitizeRedirectPath("/page?path=C:\\Windows", ORIGIN);
+  check(
+    "rejects \\ in query value",
+    backslashQuery === "/today",
+    `got: ${backslashQuery}`,
+  );
+  
+  // Control character (tab) in query
+  const tabQuery = sanitizeRedirectPath("/page?val=%09evil", ORIGIN);
+  check(
+    "rejects encoded tab (%09) in query",
+    tabQuery === "/today",
+    `got: ${tabQuery}`,
+  );
+  
+  // Control character (newline) in query
+  const nlQuery = sanitizeRedirectPath("/page?val=%0Aevil", ORIGIN);
+  check(
+    "rejects encoded newline (%0A) in query",
+    nlQuery === "/today",
+    `got: ${nlQuery}`,
+  );
+}
+
+console.log("\n14. Path restrictions (still apply)");
+{
+  // + and %20 in path (not query) should still be rejected
+  const plusPath = sanitizeRedirectPath("/hello+world", ORIGIN);
+  check(
+    "rejects + in path",
+    plusPath === "/today",
+    `got: ${plusPath}`,
+  );
+  
+  const spacePath = sanitizeRedirectPath("/hello%20world", ORIGIN);
+  check(
+    "rejects %20 in path",
+    spacePath === "/today",
+    `got: ${spacePath}`,
+  );
+  
+  // Encoded slash in path (not query) should still be rejected
+  const slashPath = sanitizeRedirectPath("/path%2Fwith%2Fslash", ORIGIN);
+  check(
+    "rejects %2F in path",
+    slashPath === "/today",
+    `got: ${slashPath}`,
+  );
+}
+
 console.log(
   `\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`,
 );

@@ -10,32 +10,8 @@
  * Run: npx tsx scripts/test-session-cookies.ts
  */
 
-// We need to test the real copyCookies function, but it's not exported.
-// Instead, we'll test the behavior by importing and exercising updateSession.
-// For a more focused unit test, we'll extract the logic here for verification.
-
 import { NextRequest, NextResponse } from "next/server";
-
-/**
- * Duplicate of copyCookies from session.ts for testing.
- * In a real scenario, you'd export this from session.ts or test through integration.
- */
-function copyCookies(from: NextResponse, to: NextResponse): void {
-  from.cookies.getAll().forEach(({ name, value }) => {
-    const cookie = from.cookies.get(name);
-    if (cookie) {
-      to.cookies.set(name, value, {
-        path: cookie.path,
-        domain: cookie.domain,
-        maxAge: cookie.maxAge,
-        expires: cookie.expires,
-        httpOnly: cookie.httpOnly,
-        secure: cookie.secure,
-        sameSite: cookie.sameSite,
-      });
-    }
-  });
-}
+import { copyCookies, buildRedirectQuery } from "../src/lib/auth/redirect";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -45,7 +21,7 @@ function check(label: string, ok: boolean, detail = "") {
   );
 }
 
-console.log("\n1. Basic cookie copying");
+console.log("\n1. Basic cookie copying with real NextResponse");
 {
   const req = new NextRequest("https://example.com/test");
   const source = NextResponse.next({ request: req });
@@ -56,9 +32,10 @@ console.log("\n1. Basic cookie copying");
 
   const copied = dest.cookies.get("test-cookie");
   check("copies cookie name and value", copied?.value === "value123");
+  check("preserves path", copied?.path === "/");
 }
 
-console.log("\n2. Cookie with options");
+console.log("\n2. Cookie with all attributes");
 {
   const req = new NextRequest("https://example.com/test");
   const source = NextResponse.next({ request: req });
@@ -74,7 +51,7 @@ console.log("\n2. Cookie with options");
   copyCookies(source, dest);
 
   const copied = dest.cookies.get("auth-token");
-  check("copies cookie with httpOnly", copied?.value === "abc123");
+  check("copies cookie value", copied?.value === "abc123");
   check("preserves path", copied?.path === "/");
   check("preserves httpOnly", copied?.httpOnly === true);
   check("preserves secure", copied?.secure === true);
@@ -98,19 +75,20 @@ console.log("\n3. Multiple cookies");
   check("copies cookie3", dest.cookies.get("cookie3")?.value === "val3");
 }
 
-console.log("\n4. Expired/cleared cookies");
+console.log("\n4. Deletion cookie with maxAge=0");
 {
   const req = new NextRequest("https://example.com/test");
   const source = NextResponse.next({ request: req });
   const dest = NextResponse.redirect("https://example.com/");
 
-  // Clearing a cookie sets MaxAge=0
-  source.cookies.set("old-token", "", { maxAge: 0 });
+  // Clearing a cookie sets maxAge=0
+  source.cookies.set("old-token", "", { maxAge: 0, path: "/" });
   copyCookies(source, dest);
 
   const cleared = dest.cookies.get("old-token");
   check("copies cleared cookie", cleared?.value === "");
-  check("preserves MaxAge=0", cleared?.maxAge === 0);
+  check("preserves maxAge=0", cleared?.maxAge === 0);
+  check("preserves path on deletion", cleared?.path === "/");
 }
 
 console.log("\n5. Chunked cookies (Supabase pattern)");
@@ -124,8 +102,34 @@ console.log("\n5. Chunked cookies (Supabase pattern)");
   source.cookies.set("sb-token.1", "part2", { path: "/", sameSite: "lax" });
   copyCookies(source, dest);
 
-  check("copies first chunk", dest.cookies.get("sb-token.0")?.value === "part1");
-  check("copies second chunk", dest.cookies.get("sb-token.1")?.value === "part2");
+  const chunk0 = dest.cookies.get("sb-token.0");
+  const chunk1 = dest.cookies.get("sb-token.1");
+  check("copies first chunk", chunk0?.value === "part1");
+  check("preserves sameSite on chunk0", chunk0?.sameSite === "lax");
+  check("copies second chunk", chunk1?.value === "part2");
+  check("preserves sameSite on chunk1", chunk1?.sameSite === "lax");
+}
+
+console.log("\n6. buildRedirectQuery tests");
+{
+  const origin = "https://abhyas-indol.vercel.app";
+  
+  // Valid path with query
+  const q1 = buildRedirectQuery("/session/abc", "?x=1", origin);
+  check("keeps path and query", q1 === "?next=%2Fsession%2Fabc%3Fx%3D1", `got: ${q1}`);
+  
+  // Protocol-relative URL
+  const q2 = buildRedirectQuery("//evil.example", "", origin);
+  check("rejects // (falls back to /today)", q2 === "?next=%2Ftoday", `got: ${q2}`);
+  
+  // Backslash
+  const q3 = buildRedirectQuery("/\\evil", "", origin);
+  check("rejects /\\ (falls back to /today)", q3 === "?next=%2Ftoday", `got: ${q3}`);
+  
+  // Encoding round-trip
+  const q4 = buildRedirectQuery("/today", "", origin);
+  const decoded = decodeURIComponent(q4.replace("?next=", ""));
+  check("encoding round-trip preserves /today", decoded === "/today", `got: ${decoded}`);
 }
 
 console.log(
