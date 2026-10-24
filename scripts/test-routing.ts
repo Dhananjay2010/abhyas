@@ -114,39 +114,76 @@ console.log("\n4. Middleware matcher pattern");
 
 console.log("\n5. Route decision logic (deny-by-default)");
 {
+  // Mock request for testing redirect URLs
+  const mockRequest = (pathname: string) => ({
+    nextUrl: {
+      clone: () => ({
+        pathname,
+        search: "?foo=bar",
+        toString: () => `http://localhost:3000${pathname}?foo=bar`,
+      }),
+    },
+  }) as any;
+
   // Test all public paths pass through for signed-out users
-  check("public / passes", routeDecision("/", false) === "pass");
-  check("public /auth/callback passes", routeDecision("/auth/callback", false) === "pass");
-  check("public /legal passes", routeDecision("/legal", false) === "pass");
-  check("public /terms passes", routeDecision("/terms", false) === "pass");
-  check("public /privacy passes", routeDecision("/privacy", false) === "pass");
-  check("public /offline passes", routeDecision("/offline", false) === "pass");
-  check("public /sw.js passes", routeDecision("/sw.js", false) === "pass");
-  check("public /robots.txt passes", routeDecision("/robots.txt", false) === "pass");
-  check("public /sitemap.xml passes", routeDecision("/sitemap.xml", false) === "pass");
+  check("public / passes", routeDecision("/", false, mockRequest("/")).kind === "pass");
+  check("public /auth/callback passes", routeDecision("/auth/callback", false, mockRequest("/auth/callback")).kind === "pass");
+  check("public /legal passes", routeDecision("/legal", false, mockRequest("/legal")).kind === "pass");
+  check("public /terms passes", routeDecision("/terms", false, mockRequest("/terms")).kind === "pass");
+  check("public /privacy passes", routeDecision("/privacy", false, mockRequest("/privacy")).kind === "pass");
+  check("public /offline passes", routeDecision("/offline", false, mockRequest("/offline")).kind === "pass");
+  check("public /sw.js passes", routeDecision("/sw.js", false, mockRequest("/sw.js")).kind === "pass");
+  check("public /robots.txt passes", routeDecision("/robots.txt", false, mockRequest("/robots.txt")).kind === "pass");
+  check("public /sitemap.xml passes", routeDecision("/sitemap.xml", false, mockRequest("/sitemap.xml")).kind === "pass");
 
   // Test protected routes redirect
   for (const prefix of PROTECTED_PREFIXES) {
-    check(`protected ${prefix} redirects`, routeDecision(prefix, false) === "redirect");
-    check(`protected ${prefix}/sub redirects`, routeDecision(`${prefix}/sub`, false) === "redirect");
+    const decision1 = routeDecision(prefix, false, mockRequest(prefix));
+    check(`protected ${prefix} redirects`, decision1.kind === "redirect");
+    if (decision1.kind === "redirect") {
+      check(`${prefix} redirects to /`, decision1.to.pathname === "/");
+      check(`${prefix} redirect has no query`, decision1.to.search === "");
+    }
+
+    const decision2 = routeDecision(`${prefix}/sub`, false, mockRequest(`${prefix}/sub`));
+    check(`protected ${prefix}/sub redirects`, decision2.kind === "redirect");
   }
 
   // Test unknown paths return 404
-  check("unknown /xyz returns notFound", routeDecision("/xyz", false) === "notFound");
-  check("unknown /fake-page returns notFound", routeDecision("/fake-page", false) === "notFound");
+  check("unknown /xyz returns notFound", routeDecision("/xyz", false, mockRequest("/xyz")).kind === "notFound");
+  check("unknown /fake-page returns notFound", routeDecision("/fake-page", false, mockRequest("/fake-page")).kind === "notFound");
 
   // Test signed-in users always pass
-  check("signed-in /today passes", routeDecision("/today", true) === "pass");
-  check("signed-in /xyz passes", routeDecision("/xyz", true) === "pass");
+  check("signed-in /today passes", routeDecision("/today", true, mockRequest("/today")).kind === "pass");
+  check("signed-in /xyz passes", routeDecision("/xyz", true, mockRequest("/xyz")).kind === "pass");
 }
 
-console.log("\n6. 404 HTML response");
+console.log("\n6. 404 HTML response and redirect URL structure");
 {
-  // Test by calling updateSession with a mock request for an unknown path
-  // We can't easily test the actual response here without complex mocking,
-  // but we can verify the route decision returns 'notFound' for unknown paths
-  check("unknown path triggers notFound decision", routeDecision("/unknown-path", false) === "notFound");
+  const mockRequest = (pathname: string) => ({
+    nextUrl: {
+      clone: () => ({
+        pathname,
+        search: "?foo=bar",
+        toString: () => `http://localhost:3000${pathname}?foo=bar`,
+      }),
+    },
+  }) as any;
+
+  // Test notFound decision
+  const notFoundDecision = routeDecision("/unknown-path", false, mockRequest("/unknown-path"));
+  check("unknown path triggers notFound decision", notFoundDecision.kind === "notFound");
   check("notFound paths get HTML response", true, "HTML generation tested manually via curl");
+
+  // Test redirect URL structure
+  const redirectDecision = routeDecision("/today", false, mockRequest("/today"));
+  check("redirect decision returns structured result", redirectDecision.kind === "redirect");
+  if (redirectDecision.kind === "redirect") {
+    const isURLLike = redirectDecision.to && typeof redirectDecision.to.pathname === "string" && typeof redirectDecision.to.search === "string";
+    check("redirect.to is URL-like object", isURLLike);
+    check("redirect.to.pathname is /", redirectDecision.to.pathname === "/");
+    check("redirect.to has no query string", redirectDecision.to.search === "");
+  }
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

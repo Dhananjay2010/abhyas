@@ -20,26 +20,48 @@ export const PROTECTED_PREFIXES = [
   "/api",
 ];
 
-export type RouteDecision = "pass" | "redirect" | "notFound";
+export type RouteDecision =
+  | { kind: "pass" }
+  | { kind: "redirect"; to: URL }
+  | { kind: "notFound" };
+
+/**
+ * Build the redirect URL for signed-out users accessing protected routes.
+ * Returns a URL object with pathname '/'.
+ * 
+ * Dev 1 will extend this to append a sanitized `next` param for return-after-login.
+ */
+export function signedOutRedirectUrl(request: NextRequest): URL {
+  const url = request.nextUrl.clone();
+  url.pathname = "/";
+  url.search = "";
+  return url;
+}
 
 /**
  * Decide what to do with a request based on authentication and route.
  * 
- * - Signed in: always "pass"
- * - Public path: "pass"
- * - Protected route: "redirect" to /
- * - Unknown path: "notFound" (404 from proxy)
+ * - Signed in: always { kind: 'pass' }
+ * - Public path: { kind: 'pass' }
+ * - Protected route: { kind: 'redirect', to: URL }
+ * - Unknown path: { kind: 'notFound' }
  */
-export function routeDecision(pathname: string, signedIn: boolean): RouteDecision {
+export function routeDecision(
+  pathname: string,
+  signedIn: boolean,
+  request: NextRequest
+): RouteDecision {
   if (signedIn || isPublicPath(pathname)) {
-    return "pass";
+    return { kind: "pass" };
   }
 
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 
-  return isProtected ? "redirect" : "notFound";
+  return isProtected
+    ? { kind: "redirect", to: signedOutRedirectUrl(request) }
+    : { kind: "notFound" };
 }
 
 /**
@@ -158,15 +180,18 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getClaims();
   const signedIn = !error && Boolean(claims?.claims?.sub);
 
-  const decision = routeDecision(pathname, signedIn);
+  const decision = routeDecision(pathname, signedIn, request);
 
-  if (decision === "redirect") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return finish(NextResponse.redirect(url), started, pathname, signedIn);
+  if (decision.kind === "redirect") {
+    return finish(
+      NextResponse.redirect(decision.to),
+      started,
+      pathname,
+      signedIn
+    );
   }
 
-  if (decision === "notFound") {
+  if (decision.kind === "notFound") {
     return finish(
       new NextResponse(generate404Html(), {
         status: 404,
