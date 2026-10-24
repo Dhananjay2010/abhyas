@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { buildOAuthRedirectUrl } from "@/lib/auth/sign-in-redirect";
+import { safeNextPath } from "@/lib/safe-next-path";
 
-export function SignInButton() {
+export function SignInButton({ next }: { next?: string }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,9 +17,13 @@ export function SignInButton() {
     // is already in its pending state by the time this resolves.
     const { createClient } = await import("@/lib/supabase/client");
     const supabase = createClient();
+    
+    // Build redirect URL with validated next parameter (client-side validation)
+    const callbackUrl = buildOAuthRedirectUrl(window.location.origin, next, safeNextPath);
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl },
     });
     if (error) {
       // Surface the real reason on screen rather than hiding it in the console.
