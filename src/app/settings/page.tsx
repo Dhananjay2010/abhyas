@@ -111,8 +111,8 @@ export default async function SettingsPage() {
 
       <footer className="mt-8 pb-4 text-center text-xs text-muted">
         Version {process.env.NEXT_PUBLIC_BUILD_SHA || "dev"}
-        {process.env.NEXT_PUBLIC_BUILD_ID && process.env.NEXT_PUBLIC_BUILD_ID !== process.env.NEXT_PUBLIC_BUILD_SHA && (
-          <> • Built {new Date(parseInt(process.env.NEXT_PUBLIC_BUILD_ID)).toLocaleDateString()}</>
+        {process.env.NEXT_PUBLIC_BUILD_TIME && (
+          <> • Built {process.env.NEXT_PUBLIC_BUILD_TIME.slice(0, 10)}</>
         )}
       </footer>
     </main>

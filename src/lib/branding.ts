@@ -41,6 +41,8 @@ export type BrandColors = {
   success: string;
   /** Warning color (version updates, non-critical alerts) */
   warning: string;
+  /** Foreground color on warning background (for contrast) */
+  warningFg: string;
   /** Danger/error color */
   danger: string;
   /** Chart data color (validated for contrast against surface) */
@@ -145,6 +147,7 @@ const abhyas: Brand = {
     muted: "#93a1ae",
     success: "#4ade80",
     warning: "#fbbf24",
+    warningFg: "#1a1000",
     danger: "#f87171",
     chart: "#d95926",
   },
@@ -184,6 +187,7 @@ const example: Brand = {
     muted: "#a3a3a3",
     success: "#22c55e",
     warning: "#f59e0b",
+    warningFg: "#1a1000",
     danger: "#ef4444",
     chart: "#f97316", // orange for charts
   },
@@ -291,6 +295,7 @@ function validateBrand(brand: Brand): void {
     "muted",
     "success",
     "warning",
+    "warningFg",
     "danger",
     "chart",
   ];
@@ -390,6 +395,7 @@ export function getBrandCssVariables(brand: Brand = branding): string {
     `--color-muted: ${brand.colors.muted};`,
     `--color-success: ${brand.colors.success};`,
     `--color-warning: ${brand.colors.warning};`,
+    `--color-warning-fg: ${brand.colors.warningFg};`,
     `--color-danger: ${brand.colors.danger};`,
     `--color-chart: ${brand.colors.chart};`,
   ].join(" ");

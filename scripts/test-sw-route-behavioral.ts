@@ -1,39 +1,23 @@
+#!/usr/bin/env tsx
 /**
- * Test: Service worker behavioral test
+ * Test: Service worker behavioral test (#47 LOW-4)
  *
- * Loads the actual SW script in a fake ServiceWorker scope, dispatches
- * a navigation fetch event while offline, and asserts that the response
- * body is the cached /offline body served under the original URL.
+ * Loads the actual SW script and executes it in a node vm with fake
+ * ServiceWorkerGlobalScope, dispatches a navigation fetch event while
+ * fetch rejects, and asserts that the response body is the cached
+ * /offline body served under the original URL.
  *
- * This is a true behavioral test, not just string matching.
+ * This is a true behavioral test using vm.runInContext, not just string matching.
+ *
+ * This test fails on the old code (pre-fix).
  */
 
+import { strict as assert } from "assert";
+import { createContext, runInContext } from "vm";
 import { GET } from "../src/app/sw.js/route";
 
-function assert(condition: boolean, message: string): void {
-  if (!condition) {
-    throw new Error(`❌ ${message}`);
-  }
-}
-
 /**
- * Fake fetch event for testing
- */
-interface FetchEvent {
-  type: string;
-  request: {
-    method: string;
-    url: string;
-    mode: string;
-    headers: {
-      get: (name: string) => string | null;
-    };
-  };
-  respondWith?: (response: Promise<Response>) => void;
-}
-
-/**
- * Mock offline page HTML
+ * Mock offline page HTML (minimal, just needs a marker)
  */
 const MOCK_OFFLINE_HTML = `<!DOCTYPE html>
 <html>
@@ -42,195 +26,328 @@ const MOCK_OFFLINE_HTML = `<!DOCTYPE html>
 </html>`;
 
 /**
- * Fake ServiceWorker global scope for testing.
+ * Fake Request class for vm context
  */
-class FakeServiceWorkerGlobalScope {
-  private _caches: Map<string, Map<string, Response>> = new Map();
-  private listeners: Map<string, Array<(event: FetchEvent) => void>> = new Map();
+class FakeRequest {
+  url: string;
+  method: string;
+  mode: string;
+  headers: Map<string, string>;
 
-  addEventListener(type: string, handler: (event: FetchEvent) => void) {
-    if (!this.listeners.has(type)) {
-      this.listeners.set(type, []);
-    }
-    this.listeners.get(type)!.push(handler);
-  }
-
-  dispatchEvent(event: FetchEvent): void {
-    const handlers = this.listeners.get(event.type) || [];
-    for (const handler of handlers) {
-      handler(event);
-    }
-  }
-
-  get caches() {
-    const _caches = this._caches;
-    return {
-      open: async (cacheName: string) => {
-        if (!_caches.has(cacheName)) {
-          _caches.set(cacheName, new Map());
-        }
-        const cache = _caches.get(cacheName)!;
-        return {
-          addAll: async (requests: Array<{ url: string }>) => {
-            for (const request of requests) {
-              const url = request.url;
-              // Simulate caching the offline page and icon
-              if (url.includes("/offline")) {
-                cache.set("/offline", new Response(MOCK_OFFLINE_HTML, {
-                  status: 200,
-                  headers: { "Content-Type": "text/html" },
-                }));
-              } else if (url.includes("icon")) {
-                cache.set(url, new Response("icon", { status: 200 }));
-              }
-            }
-          },
-          match: async (request: Request | string) => {
-            const url = typeof request === "string" ? request : (request as Request).url;
-            const key = url.includes("/offline") ? "/offline" : url;
-            return cache.get(key) || null;
-          },
-          put: async (request: Request, response: Response) => {
-            const url = (request as Request).url;
-            cache.set(url, response);
-          },
-        };
-      },
-      keys: async () => {
-        return Array.from(_caches.keys());
-      },
-      delete: async (cacheName: string) => {
-        return _caches.delete(cacheName);
-      },
-    };
-  }
-
-  async skipWaiting() {
-    // No-op in test
-  }
-
-  get clients() {
-    return {
-      claim: async () => {
-        // No-op in test
-      },
-    };
+  constructor(url: string, init?: { method?: string; mode?: string; headers?: Record<string, string> }) {
+    this.url = url;
+    this.method = init?.method || "GET";
+    this.mode = init?.mode || "navigate";
+    this.headers = new Map(Object.entries(init?.headers || {}));
   }
 }
 
+/**
+ * Fake Response class for vm context
+ */
+class FakeResponse {
+  body: string | null;
+  status: number;
+  statusText: string;
+  headers: Map<string, string>;
+  ok: boolean;
+
+  constructor(body?: string | null, init?: { status?: number; statusText?: string; headers?: Record<string, string> }) {
+    this.body = body || null;
+    this.status = init?.status || 200;
+    this.statusText = init?.statusText || "OK";
+    this.headers = new Map(Object.entries(init?.headers || {}));
+    this.ok = this.status >= 200 && this.status < 300;
+  }
+
+  async text(): Promise<string> {
+    return this.body || "";
+  }
+
+  clone(): FakeResponse {
+    return new FakeResponse(this.body, {
+      status: this.status,
+      statusText: this.statusText,
+      headers: Object.fromEntries(this.headers),
+    });
+  }
+}
+
+/**
+ * Fake Cache for vm context
+ */
+class FakeCache {
+  private store = new Map<string, FakeResponse>();
+
+  async addAll(urls: string[]): Promise<void> {
+    for (const url of urls) {
+      if (url.includes("/offline")) {
+        this.store.set("/offline", new FakeResponse(MOCK_OFFLINE_HTML, {
+          status: 200,
+          headers: { "Content-Type": "text/html" },
+        }));
+      } else {
+        this.store.set(url, new FakeResponse("cached", { status: 200 }));
+      }
+    }
+  }
+
+  async match(request: FakeRequest | string): Promise<FakeResponse | undefined> {
+    const url = typeof request === "string" ? request : request.url;
+    const normalizedUrl = url.includes("/offline") ? "/offline" : url;
+    return this.store.get(normalizedUrl);
+  }
+
+  async put(request: FakeRequest, response: FakeResponse): Promise<void> {
+    this.store.set(request.url, response);
+  }
+}
+
+/**
+ * Fake caches API for vm context
+ */
+class FakeCaches {
+  private stores = new Map<string, FakeCache>();
+
+  async open(cacheName: string): Promise<FakeCache> {
+    if (!this.stores.has(cacheName)) {
+      this.stores.set(cacheName, new FakeCache());
+    }
+    return this.stores.get(cacheName)!;
+  }
+
+  async keys(): Promise<string[]> {
+    return Array.from(this.stores.keys());
+  }
+
+  async delete(cacheName: string): Promise<boolean> {
+    return this.stores.delete(cacheName);
+  }
+}
+
+/**
+ * Fake clients API for vm context
+ */
+const fakeClients = {
+  claim: async () => {
+    // No-op in test
+  },
+};
+
 async function testServiceWorkerBehavior() {
-  console.log("\n▶ Testing service worker behavioral flow...");
+  console.log("\n▶ Testing service worker behavioral flow with vm execution...");
 
   // Get the actual SW script
   const swResponse = await GET();
   const swScript = await swResponse.text();
 
-  // Create fake SW scope
-  const fakeScope = new FakeServiceWorkerGlobalScope();
+  console.log("  ✓ Loaded sw.js script");
 
-  // Evaluate the SW script in the fake scope context
-  // We'll manually simulate the key behaviors instead of eval for safety
-  console.log("\n▶ Simulating SW install (precaching /offline)...");
+  // Create fake ServiceWorkerGlobalScope
+  const fakeCaches = new FakeCaches();
+  const listeners = new Map<string, Array<(event: any) => void>>();
+
+  let capturedResponse: FakeResponse | null = null;
+
+  const globalScope = {
+    // ServiceWorkerGlobalScope properties
+    self: null as any,
+    caches: fakeCaches,
+    clients: fakeClients,
+    addEventListener: (type: string, handler: (event: any) => void) => {
+      if (!listeners.has(type)) {
+        listeners.set(type, []);
+      }
+      listeners.get(type)!.push(handler);
+    },
+    skipWaiting: async () => {
+      // No-op
+    },
+    // Global constructors
+    Request: FakeRequest,
+    Response: FakeResponse,
+    // Fake fetch that always rejects (offline)
+    fetch: async (url: string | FakeRequest) => {
+      throw new Error("Network request failed (simulated offline)");
+    },
+    // Console for debugging
+    console,
+  };
+
+  // Self-reference for ServiceWorkerGlobalScope
+  globalScope.self = globalScope;
+
+  console.log("\n▶ Executing sw.js in vm context...");
+
+  // Create vm context and execute the SW script
+  const context = createContext(globalScope);
+
+  try {
+    runInContext(swScript, context, {
+      filename: "sw.js",
+      displayErrors: true,
+    });
+  } catch (error) {
+    throw new Error(`Failed to execute sw.js in vm: ${error}`);
+  }
+
+  console.log("  ✓ sw.js executed successfully");
+
+  // Verify install listener was registered
+  assert(
+    listeners.has("install"),
+    "SW must register an 'install' event listener"
+  );
+
+  console.log("  ✓ install event listener registered");
 
   // Simulate install event
-  const CACHE_NAME = "default-offline-test";
+  console.log("\n▶ Simulating install event (precaching /offline)...");
 
-  // Manually execute install logic (precache /offline and icon)
-  const cache = await fakeScope.caches.open(CACHE_NAME);
-  await cache.addAll([
-    { url: "http://localhost/offline" },
-    { url: "http://localhost/icon.png" },
-  ]);
+  const installEvent = {
+    type: "install",
+    waitUntil: (promise: Promise<void>) => promise,
+  };
 
-  console.log("  ✓ Precached /offline and icon");
+  const installHandlers = listeners.get("install") || [];
+  for (const handler of installHandlers) {
+    await handler(installEvent);
+  }
 
-  // Simulate fetch event for navigation request while offline
-  console.log("\n▶ Simulating navigation fetch while offline...");
+  // Verify /offline was cached
+  const defaultCache = await fakeCaches.open("default-offline");
+  const cachedOffline = await defaultCache.match("/offline");
+
+  assert(
+    cachedOffline !== undefined,
+    "SW install must cache /offline page"
+  );
+
+  console.log("  ✓ /offline page cached during install");
+
+  // Verify fetch listener was registered
+  assert(
+    listeners.has("fetch"),
+    "SW must register a 'fetch' event listener"
+  );
+
+  console.log("  ✓ fetch event listener registered");
+
+  // Simulate navigate fetch for /session/abc123 while offline
+  console.log("\n▶ Simulating navigation fetch for /session/abc123 while offline...");
 
   const originalUrl = "http://localhost/session/abc123";
-  let fetchResponse: Response | null = null;
-
   const fetchEvent = {
     type: "fetch",
-    request: {
+    request: new FakeRequest(originalUrl, {
       method: "GET",
-      url: originalUrl,
       mode: "navigate",
-      headers: {
-        get: (name: string) => null,
-      },
-    },
-    respondWith: (response: Promise<Response>) => {
-      response.then((r) => {
-        fetchResponse = r;
+    }),
+    respondWith: (responsePromise: Promise<FakeResponse>) => {
+      responsePromise.then((response) => {
+        capturedResponse = response;
       });
     },
   };
 
-  // Manually execute fetch logic:
-  // 1. Try to fetch (will fail - simulated offline)
-  // 2. Fall back to cached /offline
-  try {
-    // Simulate network failure
-    throw new Error("Network request failed");
-  } catch {
-    const cachedOffline = await cache.match("/offline");
-    if (cachedOffline) {
-      // Return offline page under original URL (this is the key behavior)
-      fetchResponse = new Response(cachedOffline.body, {
-        status: cachedOffline.status,
-        statusText: cachedOffline.statusText,
-        headers: cachedOffline.headers,
-      });
-    }
+  const fetchHandlers = listeners.get("fetch") || [];
+  for (const handler of fetchHandlers) {
+    await handler(fetchEvent);
   }
 
+  // Give time for async respondWith
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
   assert(
-    fetchResponse !== null,
-    "Fetch event must return a response (offline fallback)"
+    capturedResponse !== null,
+    "Fetch event must call respondWith with a response"
   );
 
-  console.log("  ✓ Fetch handler returned offline fallback");
+  console.log("  ✓ Fetch handler returned a response");
 
   // Verify the response body is the offline page
-  const responseText = await fetchResponse!.text();
+  const responseText = await capturedResponse!.text();
+
   assert(
     responseText.includes("You're offline") || responseText.includes("You&apos;re offline"),
-    "Response body must contain offline page content"
+    `Response body must contain offline page content, got: ${responseText.slice(0, 100)}`
   );
 
   console.log("  ✓ Response body is the cached /offline page");
 
-  // Verify it's served under the original URL (not /offline)
-  // In a real SW, this would be verified by checking window.location in the browser
-  // Here we verify that the SW doesn't modify the request URL
+  // Verify request URL remains unchanged (served under original URL)
   assert(
     fetchEvent.request.url === originalUrl,
-    "Request URL must remain unchanged (original URL, not /offline)"
+    "Request URL must remain the original URL (not rewritten to /offline)"
   );
 
-  console.log("  ✓ Served under original URL (not /offline)");
+  console.log("  ✓ Served under original URL (/session/abc123, not /offline)");
 
-  // Test shouldInterceptForOffline logic through the script
-  console.log("\n▶ Testing request interception rules...");
+  // Test that non-navigate requests are not intercepted
+  console.log("\n▶ Testing non-navigate request is not intercepted...");
 
-  // Verify the script checks method !== "GET"
+  capturedResponse = null;
+
+  const nonNavigateFetchEvent = {
+    type: "fetch",
+    request: new FakeRequest("http://localhost/api/data", {
+      method: "GET",
+      mode: "cors",
+    }),
+    respondWith: (responsePromise: Promise<FakeResponse>) => {
+      responsePromise.then((response) => {
+        capturedResponse = response;
+      });
+    },
+  };
+
+  for (const handler of fetchHandlers) {
+    await handler(nonNavigateFetchEvent);
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
   assert(
-    swScript.includes('request.method !== "GET"') || swScript.includes("request.method !== 'GET'"),
-    "SW must check request.method !== 'GET'"
+    capturedResponse === null,
+    "Non-navigate requests must not be intercepted"
   );
 
-  // Verify it checks for navigation mode
+  console.log("  ✓ Non-navigate request not intercepted (correct)");
+
+  // Verify POST requests are not intercepted
+  console.log("\n▶ Testing POST request is not intercepted...");
+
+  capturedResponse = null;
+
+  const postFetchEvent = {
+    type: "fetch",
+    request: new FakeRequest("http://localhost/today", {
+      method: "POST",
+      mode: "navigate",
+    }),
+    respondWith: (responsePromise: Promise<FakeResponse>) => {
+      responsePromise.then((response) => {
+        capturedResponse = response;
+      });
+    },
+  };
+
+  for (const handler of fetchHandlers) {
+    await handler(postFetchEvent);
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
   assert(
-    swScript.includes('mode === "navigate"') || swScript.includes("mode === 'navigate'"),
-    "SW must check mode === 'navigate'"
+    capturedResponse === null,
+    "POST requests must not be intercepted"
   );
 
-  console.log("  ✓ SW correctly filters requests (method, mode)");
+  console.log("  ✓ POST request not intercepted (correct)");
 }
 
 console.log("Testing Service Worker Behavioral Flow");
-console.log("=====================================");
+console.log("======================================");
 
 testServiceWorkerBehavior().then(
   () => {

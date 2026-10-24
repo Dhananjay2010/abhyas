@@ -68,18 +68,11 @@ async function testVersionEndpoint() {
   console.log("\n▶ Testing cache headers...");
 
   assert(
-    source.includes("Cache-Control") && source.includes("must-revalidate"),
-    "Route must set Cache-Control: must-revalidate"
+    source.includes("Cache-Control") && source.includes("no-store"),
+    "Route must set Cache-Control: no-store"
   );
 
-  assert(
-    source.includes("max-age=0"),
-    "Route must set max-age=0 for immediate revalidation"
-  );
-
-  console.log("  ✓ Sets Cache-Control header");
-  console.log("  ✓ Sets max-age=0");
-  console.log("  ✓ Sets must-revalidate");
+  console.log("  ✓ Sets Cache-Control: no-store");
 
   console.log("\n▶ Testing public paths includes /api/version...");
 

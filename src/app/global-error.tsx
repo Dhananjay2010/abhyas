@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, startTransition } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { isOfflineError } from "@/lib/offline-error";
+import { isChunkLoadError } from "@/lib/chunk-load-error";
 import { branding } from "@/lib/branding";
 import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY, OFFLINE_SCREEN_BUTTON_LABEL } from "@/lib/offline-copy";
 import { determineRetryAction } from "@/lib/offline-retry-logic";
@@ -61,6 +62,7 @@ export default function GlobalError({
   }, []);
 
   const offline = isOfflineError(error, online);
+  const isChunkError = isChunkLoadError(error);
 
   async function handleRetry(e: React.MouseEvent<HTMLAnchorElement>) {
     if (!mountedRef.current) return;
@@ -121,6 +123,12 @@ export default function GlobalError({
     });
   }
 
+  function handleReload() {
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  }
+
   return (
     <html lang="en">
       <head>
@@ -152,6 +160,13 @@ export default function GlobalError({
             margin: 0 auto 2rem;
             opacity: 0.8;
             display: block;
+          }
+          .warning-icon {
+            width: fit-content;
+            margin: 0 auto 1rem;
+            padding: 1rem;
+            border-radius: 50%;
+            background: ${branding.colors.warning};
           }
           h1 {
             font-size: 1.5rem;
@@ -221,7 +236,29 @@ export default function GlobalError({
       </head>
       <body>
         <main>
-          {offline ? (
+          {isChunkError ? (
+            <>
+              <div className="warning-icon">
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="${branding.colors.warningFg}"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 16h.01" />
+                  <path d="M12 8v4" />
+                </svg>
+              </div>
+              <h1>A new version is available</h1>
+              <p>This page needs to reload to get the latest version.</p>
+              <button onClick={handleReload}>Reload</button>
+            </>
+          ) : offline ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

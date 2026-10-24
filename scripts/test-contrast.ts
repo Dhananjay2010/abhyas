@@ -243,6 +243,7 @@ function testAllBrandsContrastRequirements() {
     // Warning requirements: at least 4.5:1 against bg and surface
     const warningVsBg = contrastRatio(warning, bg);
     const warningVsSurface = contrastRatio(warning, surface);
+    const warningFg = brand.colors.warningFg;
 
     assert(
       warningVsBg >= 4.5,
@@ -251,6 +252,14 @@ function testAllBrandsContrastRequirements() {
     assert(
       warningVsSurface >= 4.5,
       `Brand ${brand.id}: warning vs surface must be >= 4.5:1 (got ${warningVsSurface.toFixed(2)}:1)`
+    );
+
+    // WarningFg requirements: at least 4.5:1 against warning background
+    const warningFgVsWarning = contrastRatio(warningFg, warning);
+
+    assert(
+      warningFgVsWarning >= 4.5,
+      `Brand ${brand.id}: warningFg vs warning must be >= 4.5:1 (got ${warningFgVsWarning.toFixed(2)}:1)`
     );
 
     console.log(`  ✓ Brand ${brand.id}: border ${border}`);
@@ -264,6 +273,8 @@ function testAllBrandsContrastRequirements() {
     console.log(`  ✓ Brand ${brand.id}: warning ${warning}`);
     console.log(`    - vs bg (${bg}): ${warningVsBg.toFixed(2)}:1 (>= 4.5:1)`);
     console.log(`    - vs surface (${surface}): ${warningVsSurface.toFixed(2)}:1 (>= 4.5:1)`);
+    console.log(`  ✓ Brand ${brand.id}: warningFg ${warningFg}`);
+    console.log(`    - vs warning (${warning}): ${warningFgVsWarning.toFixed(2)}:1 (>= 4.5:1)`);
   }
 
   console.log(`  ✓ All ${allBrands.length} brand(s) meet contrast requirements`);

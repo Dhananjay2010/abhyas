@@ -52,8 +52,15 @@ export function getRedirectOrigin(request: Request): string {
   const brandSiteHost = brandSiteUrl.hostname; // hostname without port
   
   // Parse forwarded host (may include port)
-  const forwardedUrl = new URL(`http://${forwardedHost}`);
-  const forwardedHostname = forwardedUrl.hostname;
+  // Malformed x-forwarded-host can crash with TypeError, so fall back to requestOrigin
+  let forwardedHostname: string;
+  try {
+    const forwardedUrl = new URL(`http://${forwardedHost}`);
+    forwardedHostname = forwardedUrl.hostname;
+  } catch {
+    // Malformed x-forwarded-host: fall back to request origin
+    return requestOrigin;
+  }
   
   // ONLY trust x-forwarded headers when the forwarded hostname matches the brand hostname (case-insensitive)
   // Port mismatch is tolerated: default port (80/443) vs explicit port, or http vs https default.

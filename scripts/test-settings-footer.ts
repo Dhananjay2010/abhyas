@@ -72,15 +72,26 @@ async function testSettingsFooter() {
   console.log("  ✓ Uses text-xs (small text)");
   console.log("  ✓ Centered alignment");
 
-  console.log("\n▶ Verifying optional build date...");
+  console.log("\n▶ Verifying build date formatting...");
 
   assert(
-    source.includes("NEXT_PUBLIC_BUILD_ID"),
-    "Footer checks NEXT_PUBLIC_BUILD_ID for build date"
+    source.includes("NEXT_PUBLIC_BUILD_TIME"),
+    "Footer must use NEXT_PUBLIC_BUILD_TIME for build date"
   );
 
-  console.log("  ✓ Shows build date when NEXT_PUBLIC_BUILD_ID available");
-  console.log("  ✓ Build date conditional on timestamp");
+  assert(
+    !source.includes("parseInt") || !source.includes("NEXT_PUBLIC_BUILD_ID"),
+    "Footer must NOT use parseInt on build ID"
+  );
+
+  assert(
+    source.includes(".slice(0, 10)") || source.includes("slice(0, 10)"),
+    "Footer must format build time as UTC YYYY-MM-DD (ISO string slice)"
+  );
+
+  console.log("  ✓ Uses NEXT_PUBLIC_BUILD_TIME (ISO string)");
+  console.log("  ✓ Does not use parseInt on build ID");
+  console.log("  ✓ Formats as UTC YYYY-MM-DD (.slice(0, 10))");
 }
 
 console.log("Testing Settings Footer");

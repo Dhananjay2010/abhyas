@@ -191,6 +191,29 @@ async function testVersionCheck() {
   console.log("  ✓ Has Reload button");
   console.log("  ✓ Has Dismiss button");
   console.log("  ✓ Dismissible (not auto-hide)");
+
+  console.log("\n▶ Verifying interval cleanup (no leaks)...");
+
+  assert(
+    source.includes("swUpdateInterval") && source.includes("versionCheckInterval"),
+    "Component must use separate interval handles (swUpdateInterval, versionCheckInterval)"
+  );
+
+  assert(
+    source.includes("clearInterval(swUpdateInterval)") && 
+    source.includes("clearInterval(versionCheckInterval)"),
+    "Component must clear both intervals on unmount"
+  );
+
+  assert(
+    source.includes('removeEventListener("controllerchange"'),
+    "Component must remove controllerchange listener on unmount"
+  );
+
+  console.log("  ✓ Uses separate interval handles (swUpdateInterval, versionCheckInterval)");
+  console.log("  ✓ Clears both intervals on unmount");
+  console.log("  ✓ Removes controllerchange listener on unmount");
+  console.log("  ✓ No interval leaks");
 }
 
 console.log("Testing Version Check and Deploy Mismatch Detection");

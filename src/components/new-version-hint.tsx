@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { branding } from "@/lib/branding";
+import { isChunkLoadError } from "@/lib/chunk-load-error";
+import { activeTab } from "@/lib/nav";
 
 /**
  * Determine if the new version hint should be shown on this route.
@@ -55,7 +57,32 @@ export function shouldShowUpdateHint(pathname: string): boolean {
  */
 export function NewVersionHint() {
   const [showHint, setShowHint] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
   const pathname = usePathname();
+
+  // Watch for yoga video playing state
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const observer = new MutationObserver(() => {
+      const isPlaying = document.documentElement.hasAttribute("data-video-playing");
+      setVideoPlaying(isPlaying);
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-video-playing"],
+    });
+
+    // Check initial state
+    setVideoPlaying(document.documentElement.hasAttribute("data-video-playing"));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -65,6 +92,7 @@ export function NewVersionHint() {
     const hadController = "serviceWorker" in navigator && !!navigator.serviceWorker.controller;
     const clientVersion = process.env.NEXT_PUBLIC_BUILD_SHA || "dev";
 
+    let swUpdateInterval: number | null = null;
     let versionCheckInterval: number | null = null;
     let visibilityCheckTimeout: number | null = null;
 
@@ -106,6 +134,13 @@ export function NewVersionHint() {
       }, 1000);
     }
 
+    function handleControllerChange() {
+      const win = window as Window & { __reloadingForNewVersion?: boolean };
+      if (hadController && !win.__reloadingForNewVersion) {
+        setShowHint(true);
+      }
+    }
+
     if ("serviceWorker" in navigator && hadController) {
       async function checkForUpdates() {
         const registration = await navigator.serviceWorker.ready;
@@ -121,12 +156,7 @@ export function NewVersionHint() {
           });
         });
 
-        navigator.serviceWorker.addEventListener("controllerchange", () => {
-          const win = window as Window & { __reloadingForNewVersion?: boolean };
-          if (hadController && !win.__reloadingForNewVersion) {
-            setShowHint(true);
-          }
-        });
+        navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
 
         registration.update().catch(() => {
           // Ignore update check errors
@@ -135,7 +165,7 @@ export function NewVersionHint() {
 
       checkForUpdates();
 
-      versionCheckInterval = window.setInterval(() => {
+      swUpdateInterval = window.setInterval(() => {
         navigator.serviceWorker.ready.then((registration) => {
           registration.update().catch(() => {
             // Ignore update check errors
@@ -148,12 +178,25 @@ export function NewVersionHint() {
       checkVersion();
     }, 5 * 60 * 1000);
 
+    // Listen for unhandled rejections that are chunk load errors
+    function handleUnhandledRejection(event: PromiseRejectionEvent) {
+      const error = event.reason;
+      if (error instanceof Error && isChunkLoadError(error)) {
+        setShowHint(true);
+        event.preventDefault(); // Prevent console error
+      }
+    }
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("unhandledrejection", handleUnhandledRejection);
 
     checkVersion();
 
     return () => {
+      if (swUpdateInterval !== null) {
+        window.clearInterval(swUpdateInterval);
+      }
       if (versionCheckInterval !== null) {
         window.clearInterval(versionCheckInterval);
       }
@@ -162,6 +205,10 @@ export function NewVersionHint() {
       }
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+      }
     };
   }, []);
 
@@ -172,11 +219,11 @@ export function NewVersionHint() {
     window.location.reload();
   }
 
-  const shouldShow = showHint && shouldShowUpdateHint(pathname);
+  const shouldShow = showHint && shouldShowUpdateHint(pathname) && !videoPlaying;
 
   if (!shouldShow) return null;
 
-  const hasBottomNav = typeof document !== "undefined" && !!document.querySelector("[data-bottom-nav]");
+  const hasBottomNav = !!activeTab(pathname);
   const bottomOffset = hasBottomNav 
     ? "calc(4rem + env(safe-area-inset-bottom))"
     : "env(safe-area-inset-bottom)";
@@ -191,7 +238,7 @@ export function NewVersionHint() {
         right: 0,
         padding: "0.75rem 1rem",
         background: branding.colors.warning,
-        color: "#000000",
+        color: branding.colors.warningFg,
         fontSize: "0.875rem",
         fontWeight: 500,
         textAlign: "center",
@@ -209,7 +256,7 @@ export function NewVersionHint() {
         style={{
           padding: "0.5rem 1rem",
           minHeight: "44px",
-          background: "#000000",
+          background: branding.colors.warningFg,
           color: branding.colors.warning,
           border: "none",
           borderRadius: "0.25rem",
@@ -228,7 +275,7 @@ export function NewVersionHint() {
           minHeight: "44px",
           minWidth: "44px",
           background: "transparent",
-          color: "#000000",
+          color: branding.colors.warningFg,
           border: "none",
           fontSize: "1.25rem",
           lineHeight: 1,

@@ -139,6 +139,23 @@ function testNewVersionHintComponent() {
     "Dismiss button must use × character"
   );
 
+  // Must use activeTab(pathname) to compute hasBottomNav (no document.querySelector during render)
+  assert(
+    source.includes("import") && source.includes("activeTab") && source.includes("from") && source.includes("@/lib/nav"),
+    "Component must import activeTab from @/lib/nav"
+  );
+
+  assert(
+    source.includes("activeTab(pathname)"),
+    "Component must call activeTab(pathname) to compute hasBottomNav"
+  );
+
+  assert(
+    !source.includes('document.querySelector("[data-bottom-nav]")') &&
+    !source.includes("document.querySelector('[data-bottom-nav]')"),
+    "Component must NOT use document.querySelector during render (causes hydration mismatch)"
+  );
+
   console.log("  ✓ Tracks hadController at mount");
   console.log("  ✓ Checks hadController in controllerchange listener");
   console.log("  ✓ Only shows SW update hint when hadController is true");
@@ -153,6 +170,9 @@ function testNewVersionHintComponent() {
   console.log('  ✓ Dismiss button has aria-label="Dismiss"');
   console.log("  ✓ Refresh button has minHeight: 44px tap target");
   console.log("  ✓ Dismiss button uses × character");
+  console.log("  ✓ Uses activeTab(pathname) to compute hasBottomNav");
+  console.log("  ✓ Does not use document.querySelector during render");
+  console.log("  ✓ No hydration mismatch risk");
 }
 
 console.log("Testing New Version Hint Component");

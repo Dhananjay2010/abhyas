@@ -28,7 +28,7 @@ export async function GET() {
     { version },
     {
       headers: {
-        "Cache-Control": "public, max-age=0, must-revalidate",
+        "Cache-Control": "no-store",
       },
     }
   );
