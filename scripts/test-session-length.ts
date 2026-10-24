@@ -22,7 +22,10 @@ import {
 import { readFile } from "fs/promises";
 
 let failures = 0;
+let checksRan = 0;
+
 function check(label: string, ok: boolean, detail = "") {
+  checksRan++;
   if (!ok) failures++;
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
@@ -61,7 +64,8 @@ console.log("\n3. isAllowedSessionLength rejects invalid inputs");
 }
 
 console.log("\n4. persistSessionLength with recording writer");
-{
+
+async function runTests() {
   type Call = 30 | 45 | 60 | 75;
   const calls: Call[] = [];
 
@@ -100,62 +104,70 @@ console.log("\n4. persistSessionLength with recording writer");
     const writer = createWriter("boom");
     const result = await persistSessionLength(writer, 45);
     check("writer error: writer was called", calls.length === 1, `got ${calls.length} calls`);
+    if (calls.length === 1) {
+      check("writer error: writer called with 45", calls[0] === 45, `got ${calls[0]}`);
+    }
     check("writer error: result not ok", !result.ok);
     if (!result.ok) {
       check("writer error: error is boom", result.error === "boom", `got error: ${result.error}`);
     }
   }
 
-  async function runTests() {
-    await testInvalidInput(40, "invalid input (40)");
-    await testInvalidInput("45", 'invalid input ("45")');
-    await testInvalidInput(NaN, "invalid input (NaN)");
-    await testInvalidInput(45.5, "invalid input (45.5)");
-    await testValidInput();
-    await testWriterError();
-  }
-
-  runTests();
+  await testInvalidInput(40, "invalid input (40)");
+  await testInvalidInput("45", 'invalid input ("45")');
+  await testInvalidInput(NaN, "invalid input (NaN)");
+  await testInvalidInput(45.5, "invalid input (45.5)");
+  await testValidInput();
+  await testWriterError();
 }
 
 console.log("\n5. Source check: saveSessionLength calls persistSessionLength and has no type bypasses");
-{
-  async function checkSourceFile() {
-    try {
-      const source = await readFile("src/app/onboarding/actions.ts", "utf-8");
-      
-      check("actions.ts imports persistSessionLength", source.includes("persistSessionLength"));
-      
-      const saveSessionLengthMatch = source.match(
-        /export async function saveSessionLength[\s\S]*?\n\}/
-      );
-      
-      if (saveSessionLengthMatch) {
-        const saveSessionLengthCode = saveSessionLengthMatch[0];
-        check("saveSessionLength calls persistSessionLength", 
-          saveSessionLengthCode.includes("persistSessionLength("));
-        check("saveSessionLength has no @ts-expect-error", 
-          !saveSessionLengthCode.includes("@ts-expect-error"));
-        check("saveSessionLength has no @ts-ignore", 
-          !saveSessionLengthCode.includes("@ts-ignore"));
-        check("saveSessionLength has no ' as ' cast", 
-          !saveSessionLengthCode.includes(" as "));
-      } else {
-        check("found saveSessionLength function", false, "could not extract function");
-      }
-    } catch (error) {
-      check(
-        "source check failed",
-        false,
-        error instanceof Error ? error.message : String(error)
-      );
-    }
-  }
 
-  checkSourceFile();
+async function checkSourceFile() {
+  try {
+    const source = await readFile("src/app/onboarding/actions.ts", "utf-8");
+    
+    check("actions.ts imports persistSessionLength", source.includes("persistSessionLength"));
+    
+    const saveSessionLengthMatch = source.match(
+      /export async function saveSessionLength[\s\S]*?\n\}/
+    );
+    
+    if (saveSessionLengthMatch) {
+      const saveSessionLengthCode = saveSessionLengthMatch[0];
+      check("saveSessionLength calls persistSessionLength", 
+        saveSessionLengthCode.includes("persistSessionLength("));
+      check("saveSessionLength has no @ts-expect-error", 
+        !saveSessionLengthCode.includes("@ts-expect-error"));
+      check("saveSessionLength has no @ts-ignore", 
+        !saveSessionLengthCode.includes("@ts-ignore"));
+      check("saveSessionLength has no ' as ' cast", 
+        !saveSessionLengthCode.includes(" as "));
+    } else {
+      check("found saveSessionLength function", false, "could not extract function");
+    }
+  } catch (error) {
+    check(
+      "source check failed",
+      false,
+      error instanceof Error ? error.message : String(error)
+    );
+  }
 }
 
-setTimeout(() => {
+async function main() {
+  await runTests();
+  await checkSourceFile();
+
+  const expectedChecks = 41;
+  check(`ran expected number of checks (${expectedChecks})`, checksRan === expectedChecks, 
+    `ran ${checksRan} checks`);
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
   process.exit(failures === 0 ? 0 : 1);
-}, 100);
+}
+
+main().catch((e) => {
+  console.error("\nTest script error:", e);
+  process.exit(1);
+});
