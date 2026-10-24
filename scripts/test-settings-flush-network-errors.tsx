@@ -278,10 +278,8 @@ async function test5a() {
   const pushCalls: string[] = [];
   const replaceCalls: string[] = [];
   
-  const originalPush = mockNextRouter.push;
-  const originalReplace = mockNextRouter.replace;
-  mockNextRouter.push = (...args: any[]) => { if (args[0]) pushCalls.push(args[0]); };
-  mockNextRouter.replace = (...args: any[]) => { if (args[0]) replaceCalls.push(args[0]); };
+  mockNextRouter.push = (...args: unknown[]) => { if (args[0]) pushCalls.push(String(args[0])); };
+  mockNextRouter.replace = (...args: unknown[]) => { if (args[0]) replaceCalls.push(String(args[0])); };
   
   const actions: SettingsActions = {
     updateProfileSettings: async () => {
@@ -320,10 +318,8 @@ async function test5b() {
   const pushCalls: string[] = [];
   const replaceCalls: string[] = [];
   
-  const originalPush = mockNextRouter.push;
-  const originalReplace = mockNextRouter.replace;
-  mockNextRouter.push = (...args: any[]) => { if (args[0]) pushCalls.push(args[0]); };
-  mockNextRouter.replace = (...args: any[]) => { if (args[0]) replaceCalls.push(args[0]); };
+  mockNextRouter.push = (...args: unknown[]) => { if (args[0]) pushCalls.push(String(args[0])); };
+  mockNextRouter.replace = (...args: unknown[]) => { if (args[0]) replaceCalls.push(String(args[0])); };
   
   const actions: SettingsActions = {
     updateProfileSettings: async () => {
@@ -345,7 +341,7 @@ async function test5b() {
   const originalError = console.error;
   const originalExit = process.exit;
   console.error = () => {};
-  // @ts-ignore
+  // @ts-expect-error - mocking process.exit for test
   process.exit = () => {};
   
   // Handle unhandled rejection

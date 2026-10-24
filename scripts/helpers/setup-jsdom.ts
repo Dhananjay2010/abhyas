@@ -35,7 +35,7 @@ export const mockNextRouter = {
 };
 
 // Mock next/navigation module before any imports
-// @ts-ignore
+// @ts-expect-error - global augmentation for testing
 global.mockNextNavigation = {
   useRouter: () => ({
     refresh: () => {
