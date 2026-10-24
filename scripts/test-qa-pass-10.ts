@@ -489,12 +489,7 @@ testSeeds("Gym advanced 6d strength",
   }
 );
 
-// Summary
-console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);
-process.exit(failures > 0 ? 1 : 0);
-
 // QA Pass 10 (h): Warmup/cooldown equipment filtering test
-
 testSeeds('(h) Bodyweight-only user gets no equipment warmups/cooldowns',
   { primaryTrack: 'bodyweight', hasAllEquipment: false, equipmentIds: [], daysPerWeek: 3 },
   (plan, picked, seed) => {
@@ -525,7 +520,6 @@ testSeeds('(h) Bodyweight-only user gets no equipment warmups/cooldowns',
   }
 );
 
-
 // QA Pass 10 (i): M3 female beginner fat loss bodyweight-only 3d 45min
 testSeeds('(i) M3: Female beginner fat loss bodyweight 3d 45min within ±5min',
   { 
@@ -550,4 +544,8 @@ testSeeds('(i) M3: Female beginner fat loss bodyweight 3d 45min within ±5min',
       `got ${picked.length} exercises`);
   }
 );
+
+// Summary
+console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);
+process.exit(failures > 0 ? 1 : 0);
 
