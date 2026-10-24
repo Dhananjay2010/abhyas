@@ -15,6 +15,7 @@ declare const jest: {
 
 // Set up jsdom before importing RTL
 import { JSDOM } from "jsdom";
+import * as React from "react";
 const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
   url: "http://localhost/",
   pretendToBeVisual: true,
