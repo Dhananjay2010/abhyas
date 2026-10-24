@@ -11,7 +11,7 @@
 import { NextResponse } from "next/server";
 
 import { branding } from "@/lib/branding";
-import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY, OFFLINE_SCREEN_BUTTON_LABEL } from "@/components/offline-screen";
+import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY, OFFLINE_SCREEN_BUTTON_LABEL } from "@/lib/offline-copy";
 
 /**
  * Get the current build version for cache naming.
@@ -59,12 +59,60 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
+      
       // Precache the offline page (rendered by Next.js with inline styles)
       // and the app icon it displays (so it shows offline)
       await cache.addAll([
         new Request(OFFLINE_URL, { cache: "reload" }),
         new Request(ICON_URL, { cache: "reload" }),
       ]);
+
+      // Best-effort precache of the offline page's JS chunks
+      // Read the cached /offline HTML and extract /_next/static/* URLs
+      try {
+        const offlineResponse = await cache.match(OFFLINE_URL);
+        if (offlineResponse) {
+          const offlineHtml = await offlineResponse.text();
+          const chunkUrls = [];
+
+          // Extract <script src="/_next/static/...">
+          const scriptRegex = /<script[^>]+src="(\\/_next\\/static\\/[^"]+)"/g;
+          let match;
+          while ((match = scriptRegex.exec(offlineHtml)) !== null) {
+            chunkUrls.push(match[1]);
+          }
+
+          // Extract <link href="/_next/static/..." rel="stylesheet">
+          const linkRegex = /<link[^>]+href="(\\/_next\\/static\\/[^"]+)"[^>]*rel="stylesheet"/g;
+          while ((match = linkRegex.exec(offlineHtml)) !== null) {
+            chunkUrls.push(match[1]);
+          }
+
+          // Extract <link rel="stylesheet" href="/_next/static/...">
+          const linkRegex2 = /<link[^>]+rel="stylesheet"[^>]+href="(\\/_next\\/static\\/[^"]+)"/g;
+          while ((match = linkRegex2.exec(offlineHtml)) !== null) {
+            chunkUrls.push(match[1]);
+          }
+
+          // Deduplicate and cache same-origin chunks
+          const uniqueUrls = [...new Set(chunkUrls)];
+          const sameOriginUrls = uniqueUrls.filter(url => url.startsWith('/_next/static/'));
+          
+          if (sameOriginUrls.length > 0) {
+            // Best effort: cache all chunks together, but don't fail install if one fails
+            try {
+              await cache.addAll(sameOriginUrls.map(url => new Request(url, { cache: "reload" })));
+            } catch {
+              // One or more chunks failed to load, but continue with install
+              // Runtime caching will pick them up on first navigation
+            }
+          }
+        }
+      } catch {
+        // Failed to read offline HTML or extract chunks, but continue with install
+        // Runtime caching will pick up chunks on first navigation
+      }
+
       await self.skipWaiting();
     })()
   );

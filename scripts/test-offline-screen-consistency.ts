@@ -10,7 +10,7 @@
 
 import { readFile } from "fs/promises";
 import { join } from "path";
-import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY, OFFLINE_SCREEN_BUTTON_LABEL } from "../src/components/offline-screen";
+import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY, OFFLINE_SCREEN_BUTTON_LABEL } from "../src/lib/offline-copy";
 import { branding } from "../src/lib/branding";
 
 function assert(condition: boolean, message: string): void {
@@ -22,30 +22,34 @@ function assert(condition: boolean, message: string): void {
 async function testOfflineScreenConsistency() {
   console.log("\n▶ Testing offline screen consistency...");
 
+  // Read offline-copy module source
+  const offlineCopyPath = join(__dirname, "..", "src", "lib", "offline-copy.ts");
+  const offlineCopySource = await readFile(offlineCopyPath, "utf-8");
+
   // Read OfflineScreen component source
   const componentPath = join(__dirname, "..", "src", "components", "offline-screen.tsx");
   const componentSource = await readFile(componentPath, "utf-8");
 
-  console.log("\n▶ Verifying shared constants are exported...");
+  console.log("\n▶ Verifying shared constants are exported from offline-copy module...");
 
   assert(
-    componentSource.includes("export const OFFLINE_SCREEN_HEADING"),
-    "Component must export OFFLINE_SCREEN_HEADING constant"
+    offlineCopySource.includes("export const OFFLINE_SCREEN_HEADING"),
+    "offline-copy.ts must export OFFLINE_SCREEN_HEADING constant"
   );
 
   assert(
-    componentSource.includes("export const OFFLINE_SCREEN_BODY"),
-    "Component must export OFFLINE_SCREEN_BODY constant"
+    offlineCopySource.includes("export const OFFLINE_SCREEN_BODY"),
+    "offline-copy.ts must export OFFLINE_SCREEN_BODY constant"
   );
 
   assert(
-    componentSource.includes("export const OFFLINE_SCREEN_BUTTON_LABEL"),
-    "Component must export OFFLINE_SCREEN_BUTTON_LABEL constant"
+    offlineCopySource.includes("export const OFFLINE_SCREEN_BUTTON_LABEL"),
+    "offline-copy.ts must export OFFLINE_SCREEN_BUTTON_LABEL constant"
   );
 
-  console.log("  ✓ OFFLINE_SCREEN_HEADING exported");
-  console.log("  ✓ OFFLINE_SCREEN_BODY exported");
-  console.log("  ✓ OFFLINE_SCREEN_BUTTON_LABEL exported");
+  console.log("  ✓ OFFLINE_SCREEN_HEADING exported from offline-copy.ts");
+  console.log("  ✓ OFFLINE_SCREEN_BODY exported from offline-copy.ts");
+  console.log("  ✓ OFFLINE_SCREEN_BUTTON_LABEL exported from offline-copy.ts");
 
   console.log("\n▶ Verifying shared constants have correct values...");
 
@@ -69,7 +73,12 @@ async function testOfflineScreenConsistency() {
   console.log(`  ✓ OFFLINE_SCREEN_BODY: "${OFFLINE_SCREEN_BODY}"`);
   console.log(`  ✓ OFFLINE_SCREEN_BUTTON_LABEL: "${OFFLINE_SCREEN_BUTTON_LABEL}"`);
 
-  console.log("\n▶ Verifying OfflineScreen uses shared constants...");
+  console.log("\n▶ Verifying OfflineScreen imports and uses shared constants...");
+
+  assert(
+    componentSource.includes('from "@/lib/offline-copy"'),
+    "Component must import from @/lib/offline-copy"
+  );
 
   assert(
     componentSource.includes("{OFFLINE_SCREEN_HEADING}"),
@@ -86,6 +95,7 @@ async function testOfflineScreenConsistency() {
     "Component must use branding.icons.icon192 for app icon"
   );
 
+  console.log("  ✓ Component imports from @/lib/offline-copy");
   console.log("  ✓ Component uses {OFFLINE_SCREEN_HEADING}");
   console.log("  ✓ Component uses {OFFLINE_SCREEN_BODY}");
   console.log("  ✓ Component uses branding.icons.icon192");
@@ -139,16 +149,15 @@ async function testOfflineScreenConsistency() {
   const globalErrorSource = await readFile(globalErrorPath, "utf-8");
 
   assert(
-    globalErrorSource.includes("OFFLINE_SCREEN_HEADING") ||
-      globalErrorSource.includes("You're offline"),
-    "global-error.tsx must use OFFLINE_SCREEN_HEADING or consistent heading"
+    globalErrorSource.includes('from "@/lib/offline-copy"'),
+    "global-error.tsx must import from @/lib/offline-copy"
   );
 
   assert(
-    globalErrorSource.includes("OFFLINE_SCREEN_BODY") ||
-      (globalErrorSource.includes("needs an internet connection") && 
-       globalErrorSource.includes(branding.name)),
-    "global-error.tsx must use OFFLINE_SCREEN_BODY or consistent body copy"
+    globalErrorSource.includes("OFFLINE_SCREEN_HEADING") &&
+      globalErrorSource.includes("OFFLINE_SCREEN_BODY") &&
+      globalErrorSource.includes("OFFLINE_SCREEN_BUTTON_LABEL"),
+    "global-error.tsx must use all three constants"
   );
 
   assert(
@@ -156,23 +165,35 @@ async function testOfflineScreenConsistency() {
     "global-error.tsx must use branding.icons.icon192 for offline icon"
   );
 
-  console.log("  ✓ global-error.tsx uses consistent heading");
-  console.log("  ✓ global-error.tsx uses consistent body copy");
-  console.log("  ✓ global-error.tsx uses branding.icons.icon192");
+  assert(
+    globalErrorSource.includes('<a href="">'),
+    "global-error.tsx must use <a href=\"\"> for offline retry (reloads current URL)"
+  );
 
-  console.log("\n▶ Verifying SW route documents shared constants...");
+  console.log("  ✓ global-error.tsx imports from @/lib/offline-copy");
+  console.log("  ✓ global-error.tsx uses all three constants");
+  console.log("  ✓ global-error.tsx uses branding.icons.icon192");
+  console.log('  ✓ global-error.tsx uses <a href=""> for offline retry');
+
+  console.log("\n▶ Verifying SW route imports shared constants from offline-copy module...");
 
   const swRoutePath = join(__dirname, "..", "src", "app", "sw.js", "route.ts");
   const swRouteSource = await readFile(swRoutePath, "utf-8");
 
   assert(
-    swRouteSource.includes("OFFLINE_SCREEN_HEADING") ||
-      swRouteSource.includes("shared constants") ||
-      swRouteSource.includes("consistency"),
-    "SW route must document or import shared constants for consistency"
+    swRouteSource.includes('from "@/lib/offline-copy"'),
+    "SW route must import from @/lib/offline-copy (plain module, not component)"
   );
 
-  console.log("  ✓ SW route documents/imports shared constants");
+  assert(
+    swRouteSource.includes("OFFLINE_SCREEN_HEADING") &&
+      swRouteSource.includes("OFFLINE_SCREEN_BODY") &&
+      swRouteSource.includes("OFFLINE_SCREEN_BUTTON_LABEL"),
+    "SW route must import all three constants"
+  );
+
+  console.log("  ✓ SW route imports from @/lib/offline-copy (plain module)");
+  console.log("  ✓ SW route imports all three constants");
 
   console.log("\n▶ Verifying data-offline attribute is set...");
 

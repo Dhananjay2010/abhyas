@@ -53,12 +53,16 @@ export function OfflineRetry() {
   const [stillOffline, setStillOffline] = useState(false);
   const timeoutRef = useRef<number | null>(null);
   const mountedRef = useRef(true);
-  
-  // Compute retry href once on mount (client-side only)
-  const retryHref = useMemo(() => getRetryHref(), []);
+  const linkRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Set the href after mount (client-side only)
+    // On server, href="" reloads the current URL, which is correct for SW-served /offline
+    if (linkRef.current) {
+      linkRef.current.href = getRetryHref();
+    }
     
     return () => {
       mountedRef.current = false;
@@ -166,7 +170,8 @@ export function OfflineRetry() {
   return (
     <>
       <a
-        href={retryHref}
+        ref={linkRef}
+        href=""
         onClick={handleRetry}
         style={{
           ...linkStyle,

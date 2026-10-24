@@ -248,10 +248,141 @@ async function testStaticAssetCaching() {
   console.log("  ✓ SW uses cache-first pattern (cache.match, fetch, cache.put)");
 }
 
+async function testPrecachingAtInstall() {
+  console.log("\n▶ Testing precaching of chunks at install...");
+
+  // Get the actual SW script
+  const swResponse = await GET();
+  const swScript = await swResponse.text();
+
+  console.log("\n▶ Verifying SW reads cached /offline HTML...");
+
+  assert(
+    swScript.includes("cache.match(OFFLINE_URL)") || swScript.includes("cache.match(\"/offline\")"),
+    "SW install must read cached /offline HTML"
+  );
+
+  assert(
+    swScript.includes("offlineHtml") || swScript.includes(".text()"),
+    "SW install must read offline HTML as text"
+  );
+
+  console.log("  ✓ SW reads cached /offline HTML");
+
+  console.log("\n▶ Verifying SW extracts /_next/static/* URLs from HTML...");
+
+  assert(
+    swScript.includes("/_next/static/") || swScript.includes("/_next\\\\/static\\\\/"),
+    "SW must extract /_next/static/* URLs from HTML"
+  );
+
+  assert(
+    swScript.includes("<script") || swScript.includes("scriptRegex"),
+    "SW must extract URLs from <script src> tags"
+  );
+
+  assert(
+    swScript.includes("<link") || swScript.includes("linkRegex"),
+    "SW must extract URLs from <link href> tags"
+  );
+
+  console.log("  ✓ SW extracts URLs from <script src> tags");
+  console.log("  ✓ SW extracts URLs from <link href> tags");
+
+  console.log("\n▶ Verifying SW caches extracted chunks with cache.addAll...");
+
+  assert(
+    swScript.includes("cache.addAll"),
+    "SW must use cache.addAll to precache chunks"
+  );
+
+  console.log("  ✓ SW uses cache.addAll to precache chunks");
+
+  console.log("\n▶ Verifying precaching is best-effort (doesn't fail install)...");
+
+  // The install handler should have try-catch around chunk caching
+  // Count try-catch blocks in the install handler area
+  const tryCount = (swScript.match(/try\s*\{/g) || []).length;
+  const catchCount = (swScript.match(/catch/g) || []).length;
+  
+  assert(
+    tryCount >= 2 && catchCount >= 2,
+    `Install handler must have multiple try-catch blocks for best-effort caching (found ${tryCount} try, ${catchCount} catch)`
+  );
+
+  console.log("  ✓ Chunk caching is wrapped in try-catch (best-effort)");
+  console.log("  ✓ Install continues even if chunk caching fails");
+
+  console.log("\n▶ Simulating precaching behavior with mocked /offline HTML...");
+
+  // Mock offline HTML with some chunks
+  const mockOfflineHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <link rel="stylesheet" href="/_next/static/css/app.css" />
+      <script src="/_next/static/chunks/main.js"></script>
+      <script src="/_next/static/chunks/30p9q9z-n8uw9.js"></script>
+    </head>
+    <body>
+      <h1>You're offline</h1>
+    </body>
+    </html>
+  `;
+
+  // Extract URLs using regex (same as SW)
+  const chunkUrls: string[] = [];
+
+  const scriptRegex = /<script[^>]+src="(\/_next\/static\/[^"]+)"/g;
+  let match;
+  while ((match = scriptRegex.exec(mockOfflineHtml)) !== null) {
+    chunkUrls.push(match[1]);
+  }
+
+  const linkRegex = /<link[^>]+href="(\/_next\/static\/[^"]+)"[^>]*rel="stylesheet"/g;
+  while ((match = linkRegex.exec(mockOfflineHtml)) !== null) {
+    chunkUrls.push(match[1]);
+  }
+
+  const linkRegex2 = /<link[^>]+rel="stylesheet"[^>]+href="(\/_next\/static\/[^"]+)"/g;
+  while ((match = linkRegex2.exec(mockOfflineHtml)) !== null) {
+    chunkUrls.push(match[1]);
+  }
+
+  const uniqueUrls = [...new Set(chunkUrls)];
+
+  assert(
+    uniqueUrls.length === 3,
+    `Should extract 3 unique chunk URLs, got ${uniqueUrls.length}`
+  );
+
+  assert(
+    uniqueUrls.includes("/_next/static/css/app.css"),
+    "Should extract CSS URL"
+  );
+
+  assert(
+    uniqueUrls.includes("/_next/static/chunks/main.js"),
+    "Should extract main.js URL"
+  );
+
+  assert(
+    uniqueUrls.includes("/_next/static/chunks/30p9q9z-n8uw9.js"),
+    "Should extract chunk URL"
+  );
+
+  console.log("  ✓ Extracted 3 chunk URLs from mock HTML");
+  console.log("  ✓ CSS URL extracted");
+  console.log("  ✓ JS chunk URLs extracted");
+}
+
 console.log("Testing Service Worker Static Asset Caching");
 console.log("==========================================");
 
-testStaticAssetCaching().then(
+(async () => {
+  await testStaticAssetCaching();
+  await testPrecachingAtInstall();
+})().then(
   () => {
     console.log("\n✅ All static asset caching tests passed\n");
     process.exit(0);

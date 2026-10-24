@@ -26,13 +26,23 @@ function testOfflinePageMarker() {
 
   const source = fs.readFileSync(offlinePagePath, "utf-8");
 
-  // Must have data-offline="true" attribute
+  // Must use OfflineScreen component which includes data-offline="true"
   assert(
-    source.includes('data-offline="true"'),
-    'Offline page must have data-offline="true" attribute'
+    source.includes('OfflineScreen'),
+    'Offline page must use OfflineScreen component (which sets data-offline="true")'
   );
 
-  console.log('  ✓ Offline page has data-offline="true" marker');
+  // Verify OfflineScreen component has data-offline="true"
+  const offlineScreenPath = path.join(__dirname, "..", "src", "components", "offline-screen.tsx");
+  const offlineScreenSource = fs.readFileSync(offlineScreenPath, "utf-8");
+  
+  assert(
+    offlineScreenSource.includes('data-offline="true"'),
+    'OfflineScreen component must have data-offline="true" attribute'
+  );
+
+  console.log('  ✓ Offline page uses OfflineScreen component');
+  console.log('  ✓ OfflineScreen has data-offline="true" marker');
 }
 
 function testBottomNavHiding() {

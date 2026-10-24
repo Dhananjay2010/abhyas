@@ -140,6 +140,30 @@ async function testOfflineRetryLink() {
   );
 
   console.log("  ✓ No <noscript> tag (link works without JS)");
+
+  console.log("\n▶ Verifying server-rendered markup has href=\"\"...");
+
+  // Verify that href is set to empty string in JSX (to avoid hydration mismatch)
+  assert(
+    componentSource.includes('href=""') || componentSource.includes("href=''"),
+    'Component must render href="" in JSX (empty href reloads current URL)'
+  );
+
+  // Verify that href is updated in useEffect using ref (after mount, client-side only)
+  assert(
+    componentSource.includes("linkRef.current.href") && componentSource.includes("getRetryHref()"),
+    "Component must update href via ref in useEffect (client-side only)"
+  );
+
+  // Verify useRef is used for the link
+  assert(
+    componentSource.includes("useRef<HTMLAnchorElement>") || componentSource.includes("linkRef"),
+    "Component must use useRef for the link element"
+  );
+
+  console.log('  ✓ href="" in JSX for SSR');
+  console.log("  ✓ href updated via ref in useEffect after mount");
+  console.log("  ✓ useRef used for link element");
 }
 
 async function testSanitizationLogic() {
