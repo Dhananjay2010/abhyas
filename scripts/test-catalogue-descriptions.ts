@@ -133,7 +133,14 @@ async function main() {
   
   const catCowBefore = warmupBefore.rows[0];
   const warmupTypeBefore = catCowBefore?.type || 'not found';
-  console.log(`  cat-cow-stretch type before: ${warmupTypeBefore}\n`);
+  console.log(`  cat-cow-stretch type before: ${warmupTypeBefore}`);
+  
+  const allWarmupBeforeFirst = await db.query<{slug: string; type: string}>(
+    `SELECT slug, type FROM warmup_exercises ORDER BY slug`
+  );
+  
+  const warmupBeforeMap = new Map(allWarmupBeforeFirst.rows.map(r => [r.slug, r.type]));
+  console.log(`  Captured ${warmupBeforeMap.size} warmup exercises\n`);
   
   console.log('Test 6: Running migration (first pass)...\n');
   
@@ -160,12 +167,6 @@ async function main() {
   }
   
   console.log(`  ✅ Exactly ${changedOnFirstRun} exercise rows changed on first run`);
-  
-  const allWarmupBeforeFirst = await db.query<{slug: string; type: string}>(
-    `SELECT slug, type FROM warmup_exercises ORDER BY slug`
-  );
-  
-  const warmupBeforeMap = new Map(allWarmupBeforeFirst.rows.map(r => [r.slug, r.type]));
   
   const allWarmupAfterFirst = await db.query<{slug: string; type: string}>(
     `SELECT slug, type FROM warmup_exercises ORDER BY slug`

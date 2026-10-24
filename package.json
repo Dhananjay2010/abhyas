@@ -139,14 +139,15 @@
     "test:rebuild-history": "tsx scripts/test-rebuild-history.ts",
     "test:block-range-db": "tsx scripts/test-block-range-db.ts",
     "test:session-targets": "tsx scripts/test-session-targets.ts",
-    "test:load-grid": "tsx scripts/test-load-grid.ts",
     "test:deload-trim": "tsx scripts/test-deload-trim.ts",
     "test:deload-best": "tsx scripts/test-deload-best.ts",
     "test:deload-best-cases": "tsx scripts/test-deload-best-cases.ts",
     "test:write-progress": "tsx scripts/test-write-progress.ts",
     "test:cue-parity": "tsx scripts/test-cue-parity.ts",
     "test:catalogue-descriptions": "tsx scripts/test-catalogue-descriptions.ts",
-    "test:progression-chains": "tsx scripts/test-progression-chains.ts"
+    "test:progression-chains": "tsx scripts/test-progression-chains.ts",
+    "test:save-queue": "tsx scripts/test-save-queue.ts",
+    "test:settings-server-order": "tsx scripts/test-settings-server-order.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
