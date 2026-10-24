@@ -55,8 +55,7 @@ async function runTests() {
 
     // Mock RPC to simulate what rebuild_block does: returns the programId
     // The actual program was already created in the fake store above
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (fake as any).rpc = (name: string, args: Record<string, unknown>) => {
+    (fake as unknown as { rpc: () => Promise<{ data: string; error: null }> }).rpc = () => {
       return Promise.resolve({
         data: "new-program",
         error: null,
@@ -89,9 +88,10 @@ async function runTests() {
       yogaDaysPerWeek: 0,
       age: 30,
       bmi: 22,
-      injuries: [],
-      equipment: [],
-      availableExercises: [],
+      hasAllEquipment: true,
+      equipmentIds: [],
+      currentInjuryRegions: [],
+      catalogue: [],
     };
 
     const result = await rebuildBlockCore(fake as never, "user1", "2026-10-24", mockPlan, input);
