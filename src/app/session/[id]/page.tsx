@@ -219,6 +219,7 @@ export default async function SessionPage({
   return (
     <SessionRunner
       sessionId={session.id}
+      userId={user.id}
       isDeload={session.is_deload}
       week={session.week_in_block ?? 1}
       warmupAlreadyDone={session.warmup_completed}
