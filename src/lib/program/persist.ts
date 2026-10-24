@@ -120,6 +120,11 @@ export async function createBlockForUser(
       ? Number(weightKg) / (Number(profile.height_cm) / 100) ** 2
       : null;
 
+  const equipmentIds = (equipmentRes.data ?? []).map((r) => r.equipment_id);
+  const currentInjuryRegions = (injuriesRes.data ?? [])
+    .filter((i) => i.severity === "current")
+    .map((i) => i.body_region);
+
   const input: GeneratorInput = {
     userId,
     blockNumber: rebuildOf?.block_number ?? (lastBlockRes.data?.block_number ?? 0) + 1,
@@ -131,13 +136,24 @@ export async function createBlockForUser(
     age: profile.date_of_birth ? ageOn(profile.date_of_birth) : null,
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
-    equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: (injuriesRes.data ?? [])
-      .filter((i) => i.severity === "current")
-      .map((i) => i.body_region),
+    equipmentIds,
+    currentInjuryRegions,
     preferredSessionMinutes: profile.preferred_session_minutes ?? 60,
     catalogue,
     carryOver: options.carryOver,
+  };
+
+  // Snapshot the inputs that affect plan generation, for staleness detection
+  const generationInputs = {
+    goal: profile.goal!,
+    level: profile.level!,
+    primary_track: profile.primary_track!,
+    days_per_week: profile.days_per_week!,
+    yoga_days_per_week: profile.yoga_days_per_week ?? 0,
+    preferred_session_minutes: profile.preferred_session_minutes ?? 60,
+    has_all_equipment: profile.has_all_equipment ?? false,
+    equipment_ids: equipmentIds.slice().sort(),
+    current_injury_regions: currentInjuryRegions.slice().sort(),
   };
 
   const plan = generateProgram(input);
@@ -156,9 +172,11 @@ export async function createBlockForUser(
   }
 
   // Retire any previous active block before inserting the new one.
+  // Rebuilds mark the old plan as "superseded" (replaced by changed settings),
+  // while rollovers mark it "completed" (ran its four weeks).
   await supabase
     .from("programs")
-    .update({ status: "completed" })
+    .update({ status: options.mode === "rebuild" ? "superseded" : "completed" })
     .eq("user_id", userId)
     .eq("status", "active");
 
@@ -182,6 +200,7 @@ export async function createBlockForUser(
       ends_on: endsOn,
       deload_week: plan.deloadWeek,
       status: "active",
+      generation_inputs: generationInputs,
     })
     .select("id")
     .single();

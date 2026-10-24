@@ -80,11 +80,15 @@ export function SettingsForm({
   initial,
   equipment,
   timezones,
+  initialPlanStale = false,
+  currentWeek = null,
   actions = REAL_ACTIONS,
 }: {
   initial: SettingsState;
   equipment: EquipmentRow[];
   timezones: string[];
+  initialPlanStale?: boolean;
+  currentWeek?: number | null;
   actions?: SettingsActions;
 }) {
   const [pending, startTransition] = useTransition();
@@ -107,7 +111,11 @@ export function SettingsForm({
   /** QA Issue #7: Confirmation shown when timezone is saved */
   const [timezoneConfirmation, setTimezoneConfirmation] = useState<string | null>(null);
   /** Set when a change alters what the generator would produce. */
-  const [planStale, setPlanStale] = useState(false);
+  const [planStale, setPlanStale] = useState(initialPlanStale);
+  /** Success message shown after rebuild */
+  const [rebuildSuccess, setRebuildSuccess] = useState(false);
+  /** Undo toast for level/track changes that affect the plan */
+  const [undoToast, setUndoToast] = useState<{ field: 'level' | 'track'; oldValue: Level | Track } | null>(null);
   /** L4 QA fix: Request sequence to ignore stale equipment save responses */
   const [equipmentSequence] = useState(() => createRequestSequence());
   /** F2: Browser timezone detected on client after mount */
@@ -127,6 +135,30 @@ export function SettingsForm({
       return () => clearTimeout(timer);
     }
   }, [timezoneConfirmation]);
+
+  useEffect(() => {
+    // Auto-hide rebuild success message after 4s
+    if (rebuildSuccess) {
+      const timer = setTimeout(() => setRebuildSuccess(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [rebuildSuccess]);
+
+  useEffect(() => {
+    // Auto-commit undo toast after 5s
+    if (undoToast) {
+      const timer = setTimeout(() => {
+        // Commit the change
+        if (undoToast.field === 'level') {
+          save(() => actions.updateProfileSettings({ level: s.level! }), true);
+        } else if (undoToast.field === 'track') {
+          save(() => actions.updateProfileSettings({ primary_track: s.primaryTrack! }), true);
+        }
+        setUndoToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [undoToast, s.level, s.primaryTrack, actions]);
 
   useEffect(() => {
     // F2: Detect browser timezone on client after mount, canonicalized
@@ -200,20 +232,66 @@ export function SettingsForm({
     );
   }
 
+  /** Undo a level or track change before the toast times out */
+  function handleUndo() {
+    if (!undoToast) return;
+    if (undoToast.field === 'level') {
+      setS({ ...s, level: undoToast.oldValue as Level });
+    } else if (undoToast.field === 'track') {
+      setS({ ...s, primaryTrack: undoToast.oldValue as Track });
+    }
+    setUndoToast(null);
+  }
+
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
 
   return (
     <div className="space-y-12">
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      {planStale && (
+      {rebuildSuccess && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
+        >
+          Plan rebuilt
+        </div>
+      )}
+
+      {undoToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 flex items-center justify-between gap-3"
+        >
+          <span className="text-sm text-accent">
+            {undoToast.field === 'level' ? 'Level' : 'Training type'} changed. This will mark your plan as stale.
+          </span>
+          <button
+            onClick={handleUndo}
+            className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      {planStale && !rebuildSuccess && (
         <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
           <p className="text-sm text-accent">
             Your plan no longer matches these answers. Rebuilding keeps every session
             you have already logged.
           </p>
           <div className="mt-3">
-            <BuildPlanButton label="Rebuild my block" />
+            <BuildPlanButton 
+              label="Rebuild my block" 
+              currentWeek={currentWeek}
+              onSuccess={() => {
+                setPlanStale(false);
+                setRebuildSuccess(true);
+              }}
+            />
           </div>
         </div>
       )}
@@ -246,8 +324,10 @@ export function SettingsForm({
                 label={o.label}
                 selected={s.level === o.value}
                 onClick={() => {
+                  const oldLevel = s.level;
                   setS({ ...s, level: o.value });
-                  save(() => actions.updateProfileSettings({ level: o.value }), true);
+                  // Show undo toast instead of saving immediately
+                  setUndoToast({ field: 'level', oldValue: oldLevel! });
                 }}
               />
             ))}
@@ -263,8 +343,10 @@ export function SettingsForm({
                 label={o.label}
                 selected={s.primaryTrack === o.value}
                 onClick={() => {
+                  const oldTrack = s.primaryTrack;
                   setS({ ...s, primaryTrack: o.value });
-                  save(() => actions.updateProfileSettings({ primary_track: o.value }), true);
+                  // Show undo toast instead of saving immediately
+                  setUndoToast({ field: 'track', oldValue: oldTrack! });
                 }}
               />
             ))}
@@ -600,7 +682,7 @@ export function SettingsForm({
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS({ ...s, preferredSessionMinutes: n });
-              save(() => actions.updateProfileSettings({ preferred_session_minutes: n }));
+              save(() => actions.updateProfileSettings({ preferred_session_minutes: n }), true);
             }}
           />
         </Field>

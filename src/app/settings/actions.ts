@@ -60,12 +60,27 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
   ) {
     return { ok: false, error: "At least one day a week has to be training." };
   }
+  if (patch.preferred_session_minutes != null) {
+    const allowed = [30, 45, 60, 75];
+    if (!allowed.includes(patch.preferred_session_minutes)) {
+      return { ok: false, error: "Session length must be 30, 45, 60 or 75 minutes." };
+    }
+  }
 
   // Validate and update with testable logic
   const result = await validateAndUpdateProfile(patch, {
     updateProfile: async (validatedPatch) => {
       const { error } = await supabase.from("profiles").update(validatedPatch).eq("id", user.id);
-      if (error) return { ok: false, error: error.message };
+      if (error) {
+        // Map database errors to friendly messages
+        let message = error.message;
+        if (message.includes("null value") && message.includes("preferred_session_minutes")) {
+          message = "Session length is required.";
+        } else if (message.includes("invalid input syntax for type integer")) {
+          message = "Please enter valid numbers.";
+        }
+        return { ok: false, error: message };
+      }
       return { ok: true };
     },
   });

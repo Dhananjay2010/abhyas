@@ -724,6 +724,7 @@ export type Database = {
           days_per_week: number
           deload_week: number
           ends_on: string
+          generation_inputs: Json | null
           goal: Database["public"]["Enums"]["fitness_goal"]
           id: string
           level: Database["public"]["Enums"]["fitness_level"]
@@ -739,6 +740,7 @@ export type Database = {
           days_per_week: number
           deload_week?: number
           ends_on: string
+          generation_inputs?: Json | null
           goal: Database["public"]["Enums"]["fitness_goal"]
           id?: string
           level: Database["public"]["Enums"]["fitness_level"]
@@ -754,6 +756,7 @@ export type Database = {
           days_per_week?: number
           deload_week?: number
           ends_on?: string
+          generation_inputs?: Json | null
           goal?: Database["public"]["Enums"]["fitness_goal"]
           id?: string
           level?: Database["public"]["Enums"]["fitness_level"]
@@ -1509,7 +1512,7 @@ export type Database = {
         | "full_body"
         | "cardio"
       planning_mode: "progression" | "daily_menu"
-      program_status: "active" | "completed" | "abandoned"
+      program_status: "active" | "completed" | "abandoned" | "superseded"
       session_status:
         | "planned"
         | "in_progress"
@@ -1748,7 +1751,7 @@ export const Constants = {
         "cardio",
       ],
       planning_mode: ["progression", "daily_menu"],
-      program_status: ["active", "completed", "abandoned"],
+      program_status: ["active", "completed", "abandoned", "superseded"],
       session_status: [
         "planned",
         "in_progress",

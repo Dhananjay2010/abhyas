@@ -59,9 +59,12 @@ export default async function ProgressPage() {
       .limit(600),
     // Ordered oldest-first with created_at breaking same-day ties, so
     // buildDayRecords can treat the last match as the newest block.
+    // Excludes superseded plans (replaced by rebuilds) — only count actual
+    // training blocks for streaks, not intermediate discarded versions.
     supabase
       .from("programs")
       .select("id, started_on, ends_on, created_at")
+      .neq("status", "superseded")
       .order("started_on")
       .order("created_at"),
     supabase

@@ -15,13 +15,19 @@ import { buildPlan } from "./actions";
  *
  * `confirm={false}` is for the first build, where there is no plan to replace
  * and so nothing to warn about.
+ * `onSuccess` is called after a successful rebuild.
+ * `currentWeek` customizes the confirmation text to say "Week N" instead of generic text.
  */
 export function BuildPlanButton({
   label,
   confirm = true,
+  onSuccess,
+  currentWeek,
 }: {
   label: string;
   confirm?: boolean;
+  onSuccess?: () => void;
+  currentWeek?: number | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -35,16 +41,21 @@ export function BuildPlanButton({
       setAsking(false);
       // buildPlan revalidates "/today"; the fresh tree arrives with the
       // action's response.
+      if (onSuccess) onSuccess();
     });
   }
 
   if (asking) {
+    const weekText = currentWeek !== null && currentWeek !== undefined
+      ? `You stay in Week ${currentWeek} of this block`
+      : "Your week stays where it is";
+    
     return (
       <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
         <p className="text-sm text-accent">
           Rebuild your plan? Your exercises for the rest of this block are chosen
           again from your current answers. Every session you have logged is kept,
-          and your week stays where it is.
+          and {weekText.toLowerCase()}.
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <button
