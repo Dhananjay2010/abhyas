@@ -165,7 +165,8 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const program = (
     await supabase
       .from("programs")
-      .select("id, started_on, deload_week, week_offset, program_days(id, day_index, day_type, focus, label)")
+      .select("id, started_on, deload_week, week_offset, program_days!inner(id, day_index, day_type, focus, label)")
+      .eq("program_days.status", "active")
       .eq("id", rolloverResult.programId)
       .maybeSingle()
   ).data;
@@ -1020,6 +1021,7 @@ export async function planDay(input: {
       .from("program_days")
       .select("id, day_type")
       .eq("id", input.plan.programDayId)
+      .eq("status", "active")
       .maybeSingle();
     if (!day) return { ok: false, error: "That day is not in your block." };
     actualType = day.day_type;
