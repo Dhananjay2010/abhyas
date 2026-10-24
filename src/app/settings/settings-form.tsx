@@ -29,6 +29,7 @@ import {
 import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
+import { SESSION_LENGTH_OPTIONS } from "@/lib/session-length-options";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -682,7 +683,7 @@ export function SettingsForm({
 
         <Field label="Session length">
           <Segmented
-            options={[30, 45, 60, 75].map((n) => ({ value: n, label: `${n}m` }))}
+            options={SESSION_LENGTH_OPTIONS.map((n) => ({ value: n, label: `${n}m` }))}
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS({ ...s, preferredSessionMinutes: n });

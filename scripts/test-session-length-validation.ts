@@ -5,6 +5,8 @@
  * Run: npm run test:session-length-validation
  */
 
+import { SESSION_LENGTH_OPTIONS, isValidSessionLength } from "../src/lib/session-length-options";
+
 // Test cases
 const tests: Array<{
   name: string;
@@ -23,7 +25,7 @@ const tests: Array<{
   { name: "90 is invalid", input: 90, shouldPass: false, expectedError: "Session length must be 30, 45, 60 or 75 minutes." },
 ];
 
-// Inline validation logic (mirroring the actions.ts implementation)
+// Validation logic using shared constant
 function validateSessionLength(value: number | null | string | undefined): { ok: true } | { ok: false; error: string } {
   if (value === null || value === undefined) {
     return { ok: true }; // null/undefined means the field isn't being updated
@@ -33,12 +35,18 @@ function validateSessionLength(value: number | null | string | undefined): { ok:
     return { ok: false, error: "Please enter valid numbers." };
   }
 
-  const allowed = [30, 45, 60, 75];
-  if (!allowed.includes(value)) {
+  if (!isValidSessionLength(value)) {
     return { ok: false, error: "Session length must be 30, 45, 60 or 75 minutes." };
   }
 
   return { ok: true };
+}
+
+// Test the shared constant matches expectations
+console.log(`Session length options: ${SESSION_LENGTH_OPTIONS.join(", ")}`);
+if (SESSION_LENGTH_OPTIONS.length !== 4 || !SESSION_LENGTH_OPTIONS.includes(30)) {
+  console.error("✗ SESSION_LENGTH_OPTIONS constant is incorrect");
+  process.exit(1);
 }
 
 let passed = 0;
