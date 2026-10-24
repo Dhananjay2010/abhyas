@@ -73,7 +73,7 @@ const mutants: Mutant[] = [
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ 4b\. PR #73: Knee injuries exclude high-impact lower-body moves\n\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.impact === "high"\) {/,
     mutate: '// 4b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (!(ctx.anyKneeInjury ?? false) && candidate.impact === "high") {',
-    tests: ["test:knee-swaps", "test:catalogue-knee-jumps"],
+    tests: ["test:swap-mutations"],
   },
 
   // 5b. Drop past-knee 4-list restriction in swaps (alternatives.ts)
@@ -91,7 +91,7 @@ const mutants: Mutant[] = [
     file: "src/lib/program/swap-patterns.ts",
     pattern: /const hasKneeInjury = input\.anyKneeInjury \?\? false;/,
     mutate: 'const hasKneeInjury = false;',
-    tests: ["test:knee-swaps"],
+    tests: ["test:swap-mutations"],
   },
 
   // 5f. hasCurrentKnee forced to false
@@ -109,7 +109,7 @@ const mutants: Mutant[] = [
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ Fallback for past-knee lunge swaps: if empty, add bodyweight options from the 4-list\n\s+if \(deduplicated\.length === 0 && hasPastKnee && current\.movement_pattern === "lunge"\) {/,
     mutate: '// Fallback for past-knee lunge swaps: if empty, add bodyweight options from the 4-list\n  if (deduplicated.length === 0 && !hasPastKnee && current.movement_pattern === "lunge") {',
-    tests: ["test:knee-swaps"],
+    tests: ["test:swap-mutations"],
   },
 
   // 5d. Unsafe-lunge list check (checking if truly equivalent to contraindication check)
@@ -118,7 +118,7 @@ const mutants: Mutant[] = [
     file: "src/lib/program/generate.ts",
     pattern: /\/\/ PR #73 coordinator: ANY knee injury \(current or past\) excludes unsafe lunges\n\s+\/\/ \(deficit lunges, pistol squats, side split squat\)\n\s+if \(input\.anyKneeInjury && UNSAFE_KNEE_LUNGES\.has\(ex\.slug\)\) {/,
     mutate: '// PR #73 coordinator: ANY knee injury (current or past) excludes unsafe lunges\n  // (deficit lunges, pistol squats, side split squat)\n  if (!input.anyKneeInjury && UNSAFE_KNEE_LUNGES.has(ex.slug)) {',
-    tests: ["test:knee-safety-matrix"],
+    tests: ["test:swap-mutations"],
     notes: "UNSAFE_KNEE_LUNGES is NOT redundant with contraindication tags - these exercises are not explicitly tagged as contraindicated in the catalogue, so this filter is necessary."
   },
 

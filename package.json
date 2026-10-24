@@ -179,7 +179,8 @@
     "test:past-knee-coordinator": "tsx scripts/test-past-knee-coordinator.ts",
     "test:session-label-matrix": "tsx scripts/test-session-label-matrix.ts",
     "test:chart-format-value": "tsx scripts/test-chart-format-value.ts",
-    "test:progression-grid": "tsx scripts/test-progression-grid.ts"
+    "test:progression-grid": "tsx scripts/test-progression-grid.ts",
+    "test:swap-mutations": "tsx scripts/test-swap-mutations.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
