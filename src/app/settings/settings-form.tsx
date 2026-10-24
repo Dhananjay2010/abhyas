@@ -23,6 +23,7 @@ import {
   updateSessionSettings,
   type Result,
 } from "./actions";
+import { decideClientEquipmentUpdate } from "./equipment-logic";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -87,6 +88,13 @@ export function SettingsForm({
     hasAll: initial.hasAllEquipment,
     ids: initial.equipmentIds,
   });
+  /** Track saved equipment for rollback on error */
+  const [savedEquipment, setSavedEquipment] = useState({
+    hasAll: initial.hasAllEquipment,
+    ids: initial.equipmentIds,
+  });
+  /** Equipment hint shown when user tries an unsaveable state */
+  const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
 
@@ -100,6 +108,25 @@ export function SettingsForm({
       // "/settings", and Next.js returns the re-rendered tree with the action's
       // own response — refreshing on top of that fetched this five-query screen
       // a second time, on every single toggle.
+    });
+  }
+
+  /** Save equipment with rollback on error */
+  function saveEquipment(hasAll: boolean, equipmentIds: string[]) {
+    const changed = equipmentChanged(hasAll, equipmentIds);
+    startTransition(async () => {
+      const r = await actions.updateEquipment({ hasAll, equipmentIds });
+      if (!r.ok) {
+        // Rollback to last saved state
+        setS({ ...s, hasAllEquipment: savedEquipment.hasAll, equipmentIds: savedEquipment.ids });
+        setEquipmentHint(null);
+        return setError(r.error);
+      }
+      // Success: update saved state
+      setSavedEquipment({ hasAll, ids: equipmentIds });
+      setEquipmentHint(null);
+      setError(null);
+      if (changed) setPlanStale(true);
     });
   }
 
@@ -219,13 +246,22 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            const nextHasAll = !s.hasAllEquipment;
-            setS({ ...s, hasAllEquipment: nextHasAll });
-            const changed = equipmentChanged(nextHasAll, s.equipmentIds);
-            save(
-              () => actions.updateEquipment({ hasAll: nextHasAll, equipmentIds: s.equipmentIds }),
-              changed,
-            );
+            const decision = decideClientEquipmentUpdate({
+              currentHasAll: s.hasAllEquipment,
+              currentEquipmentIds: s.equipmentIds,
+              action: "toggle",
+            });
+            
+            if (!decision.allow) {
+              // Don't save, just show picker with hint
+              setS({ ...s, hasAllEquipment: false });
+              setEquipmentHint(decision.hint);
+              return;
+            }
+            
+            // Allow the toggle and save
+            setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
+            saveEquipment(decision.newHasAll, decision.newEquipmentIds);
           }}
           aria-pressed={s.hasAllEquipment}
           className={`w-full rounded-xl border px-5 py-3 text-left text-sm font-semibold ${
@@ -239,6 +275,9 @@ export function SettingsForm({
 
         {!s.hasAllEquipment && (
           <div className="mt-5">
+            {equipmentHint && (
+              <p className="mb-4 text-sm text-muted">{equipmentHint}</p>
+            )}
             {Object.entries(
               equipment.reduce<Record<string, EquipmentRow[]>>((acc, e) => {
                 (acc[e.category] ??= []).push(e);
@@ -257,15 +296,22 @@ export function SettingsForm({
                         key={e.id}
                         aria-pressed={on}
                         onClick={() => {
-                          const next = on
-                            ? s.equipmentIds.filter((x) => x !== e.id)
-                            : [...s.equipmentIds, e.id];
-                          setS({ ...s, hasAllEquipment: false, equipmentIds: next });
-                          const changed = equipmentChanged(false, next);
-                          save(
-                            () => actions.updateEquipment({ hasAll: false, equipmentIds: next }),
-                            changed,
-                          );
+                          const decision = decideClientEquipmentUpdate({
+                            currentHasAll: s.hasAllEquipment,
+                            currentEquipmentIds: s.equipmentIds,
+                            action: "chip-click",
+                            chipId: e.id,
+                          });
+                          
+                          if (!decision.allow) {
+                            // Don't save, show hint
+                            setEquipmentHint(decision.hint);
+                            return;
+                          }
+                          
+                          // Allow the change and save
+                          setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
+                          saveEquipment(decision.newHasAll, decision.newEquipmentIds);
                         }}
                         className={`rounded-full border px-4 py-2 text-sm ${
                           on
