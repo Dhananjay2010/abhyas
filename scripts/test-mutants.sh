@@ -109,17 +109,17 @@ run_tests() {
 
 verify_mutation() {
   local file="$1"
-  local pattern="$2"
-  local description="$3"
-  local backup="/tmp/$(basename "$file").backup"
+  local backup="$2"
+  local pattern="$3"
+  local description="$4"
 
   if cmp -s "$file" "$backup"; then
     echo "  ✗ FATAL: Mutation did not change the file ($description)"
-    exit 2
+    exit 1
   fi
   if ! grep -qF -- "$pattern" "$file"; then
     echo "  ✗ FATAL: Mutation marker not found ($description)"
-    exit 2
+    exit 1
   fi
 }
 
@@ -128,7 +128,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/"standing-barbell-press-behind-neck",/\/\/ MUTANT: removed/' "$EXCLUSIONS_FILE"
-verify_mutation "$EXCLUSIONS_FILE" "// MUTANT: removed" "standing-barbell-press-behind-neck removal marker"
+verify_mutation "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP "// MUTANT: removed" "standing-barbell-press-behind-neck removal marker"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove standing-barbell-press-behind-neck"; then
   caught_mutations=$((caught_mutations + 1))
@@ -145,7 +145,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/"wide-grip-pulldown-behind-the-neck",/\/\/ MUTANT: removed/' "$EXCLUSIONS_FILE"
-verify_mutation "$EXCLUSIONS_FILE" "// MUTANT: removed" "wide-grip-pulldown-behind-the-neck removal marker"
+verify_mutation "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP "// MUTANT: removed" "wide-grip-pulldown-behind-the-neck removal marker"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove wide-grip-pulldown-behind-the-neck"; then
   caught_mutations=$((caught_mutations + 1))
@@ -162,7 +162,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/"wide-grip-rear-pull-up",/\/\/ MUTANT: removed/' "$EXCLUSIONS_FILE"
-verify_mutation "$EXCLUSIONS_FILE" "// MUTANT: removed" "wide-grip-rear-pull-up removal marker"
+verify_mutation "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP "// MUTANT: removed" "wide-grip-rear-pull-up removal marker"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove wide-grip-rear-pull-up"; then
   caught_mutations=$((caught_mutations + 1))
@@ -179,7 +179,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/"barbell-guillotine-bench-press",/\/\/ MUTANT: removed/' "$EXCLUSIONS_FILE"
-verify_mutation "$EXCLUSIONS_FILE" "// MUTANT: removed" "barbell-guillotine-bench-press removal marker"
+verify_mutation "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP "// MUTANT: removed" "barbell-guillotine-bench-press removal marker"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove barbell-guillotine-bench-press"; then
   caught_mutations=$((caught_mutations + 1))
@@ -196,7 +196,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/"neck-press",/\/\/ MUTANT: removed/' "$EXCLUSIONS_FILE"
-verify_mutation "$EXCLUSIONS_FILE" "// MUTANT: removed" "neck-press removal marker"
+verify_mutation "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP "// MUTANT: removed" "neck-press removal marker"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove neck-press"; then
   caught_mutations=$((caught_mutations + 1))
@@ -213,7 +213,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/"low-pulley-row-to-neck",/\/\/ MUTANT: removed/' "$EXCLUSIONS_FILE"
-verify_mutation "$EXCLUSIONS_FILE" "// MUTANT: removed" "low-pulley-row-to-neck removal marker"
+verify_mutation "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP "// MUTANT: removed" "low-pulley-row-to-neck removal marker"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove low-pulley-row-to-neck"; then
   caught_mutations=$((caught_mutations + 1))
@@ -231,7 +231,7 @@ cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 # Delete from the if line through the matching closing brace and continue
 sed -i '/if (isCompoundPull && !isPulloverOriginal) {/,/^    }$/{/^    }$/d; /if (isCompoundPull && !isPulloverOriginal) {/d; d}' "$ALTERNATIVES_FILE"
-verify_mutation "$ALTERNATIVES_FILE" "// 4. Pattern priority" "next section after deleted pullover filter"
+verify_mutation "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP "// 4. Pattern priority" "next section after deleted pullover filter"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove pullover filter"; then
   caught_mutations=$((caught_mutations + 1))
@@ -248,7 +248,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/if (isCompoundPull && !isPulloverOriginal)/if (isCompoundPull)/' "$ALTERNATIVES_FILE"
-verify_mutation "$ALTERNATIVES_FILE" "if (isCompoundPull)" "mutated condition without isPulloverOriginal"
+verify_mutation "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP "if (isCompoundPull)" "mutated condition without isPulloverOriginal"
 total_mutations=$((total_mutations + 1))
 if run_tests "Apply pullover filter to every original"; then
   caught_mutations=$((caught_mutations + 1))
@@ -265,7 +265,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/current.movement_pattern === "horizontal_pull" || //' "$ALTERNATIVES_FILE"
-verify_mutation "$ALTERNATIVES_FILE" 'current.movement_pattern === "vertical_pull"' "vertical_pull without horizontal_pull"
+verify_mutation "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP 'current.movement_pattern === "vertical_pull"' "vertical_pull without horizontal_pull"
 total_mutations=$((total_mutations + 1))
 if run_tests "Vertical pulls only"; then
   caught_mutations=$((caught_mutations + 1))
@@ -282,7 +282,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/if (isCompoundPull && !isPulloverOriginal)/if (!isPulloverOriginal)/' "$ALTERNATIVES_FILE"
-verify_mutation "$ALTERNATIVES_FILE" "if (!isPulloverOriginal)" "condition without isCompoundPull"
+verify_mutation "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP "if (!isPulloverOriginal)" "condition without isCompoundPull"
 total_mutations=$((total_mutations + 1))
 if run_tests "Drop compound requirement"; then
   caught_mutations=$((caught_mutations + 1))
@@ -299,7 +299,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/if (a.patternRank !== b.patternRank) return a.patternRank - b.patternRank;/if (a.equipmentScore !== b.equipmentScore) return b.equipmentScore - a.equipmentScore;/' "$ALTERNATIVES_FILE"
-verify_mutation "$ALTERNATIVES_FILE" "if (a.equipmentScore !== b.equipmentScore) return b.equipmentScore - a.equipmentScore;" "equipment before pattern"
+verify_mutation "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP "if (a.equipmentScore !== b.equipmentScore) return b.equipmentScore - a.equipmentScore;" "equipment before pattern"
 total_mutations=$((total_mutations + 1))
 if run_tests "Rank equipment before pattern"; then
   caught_mutations=$((caught_mutations + 1))
@@ -316,7 +316,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/const impactPenalty =/const impactPenalty = 0; \/\/ MUTANT: was/' "$ALTERNATIVES_FILE"
-verify_mutation "$ALTERNATIVES_FILE" "const impactPenalty = 0; // MUTANT: was" "impact penalty zeroed"
+verify_mutation "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP "const impactPenalty = 0; // MUTANT: was" "impact penalty zeroed"
 total_mutations=$((total_mutations + 1))
 if run_tests "Drop impact penalty"; then
   caught_mutations=$((caught_mutations + 1))
@@ -333,7 +333,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i '/if (a.impactPenalty !== b.impactPenalty) return a.impactPenalty - b.impactPenalty;/d' "$ALTERNATIVES_FILE"
-verify_mutation "$ALTERNATIVES_FILE" "// 5. Generator score" "next line after removed comparator"
+verify_mutation "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP "// 5. Generator score" "next line after removed comparator"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove impact penalty comparator"; then
   caught_mutations=$((caught_mutations + 1))
@@ -367,13 +367,14 @@ cp $EXCLUSIONS_BACKUP "$EXCLUSIONS_FILE"
 cp $GENERATE_BACKUP "$GENERATE_FILE"
 echo ""
 
-echo "15. Mutation: Remove Strategy 3 accessory exclusion filter"
+echo "15. Mutation: Remove Strategy 3 accessory exclusion filter (only :1266)"
 cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
-sed -i '/!EXCLUDED_EXERCISE_SLUGS\.has(e\.slug)/d' "$GENERATE_FILE"
-sed -i 's/isEligible(e, input) &&$/isEligible(e, input)/' "$GENERATE_FILE"
-verify_mutation "$GENERATE_FILE" "Strategy 3: Add another accessory exercise" "Strategy 3 comment still present"
+# Remove only the Strategy 3 filter at :1265-1266
+sed -i '1265s/ &&$//' "$GENERATE_FILE"
+sed -i '1266d' "$GENERATE_FILE"
+verify_mutation "$GENERATE_FILE" $GENERATE_BACKUP "e.movement_pattern === pattern" "Strategy 3 pattern check still present"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove Strategy 3 filter"; then
   caught_mutations=$((caught_mutations + 1))
@@ -390,7 +391,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i '/if (EXCLUDED_EXERCISE_SLUGS\.has(e\.slug)) return false;/d' "$GENERATE_FILE"
-verify_mutation "$GENERATE_FILE" "Force-add a bodyweight pull exercise" "BW force-add comment still present"
+verify_mutation "$GENERATE_FILE" $GENERATE_BACKUP "Force-add a bodyweight pull exercise" "BW force-add comment still present"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove BW force-add filter"; then
   caught_mutations=$((caught_mutations + 1))
@@ -410,7 +411,7 @@ cp "$GENERATE_FILE" $GENERATE_BACKUP
 # Use line number 1321-1322 (isEligible line and exclusion check line)
 sed -i '1321s/ &&$//' "$GENERATE_FILE"
 sed -i '1322d' "$GENERATE_FILE"
-verify_mutation "$GENERATE_FILE" "!usedInBlock.has(e.id)" "post-pacing context still present"
+verify_mutation "$GENERATE_FILE" $GENERATE_BACKUP "!usedInBlock.has(e.id)" "post-pacing context still present"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove post-pacing BW filter"; then
   caught_mutations=$((caught_mutations + 1))
@@ -427,7 +428,7 @@ cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
 cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
 cp "$GENERATE_FILE" $GENERATE_BACKUP
 sed -i 's/if (match && !EXCLUDED_EXERCISE_SLUGS\.has(match\.slug)) return match;/if (match) return match;/' "$GENERATE_FILE"
-verify_mutation "$GENERATE_FILE" "if (match) return match;" "carry-over guard removed"
+verify_mutation "$GENERATE_FILE" $GENERATE_BACKUP "if (match) return match;" "carry-over guard removed"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove carry-over guard"; then
   caught_mutations=$((caught_mutations + 1))
@@ -473,10 +474,23 @@ cp $EXCLUSIONS_BACKUP "$EXCLUSIONS_FILE"
 cp $GENERATE_BACKUP "$GENERATE_FILE"
 echo ""
 
-# Note: Mutant 20 (empty-day backfill at :1087) dropped.
-# The backfill path (exercises.length === 0) is unreachable with excluded-only catalogues
-# because the generator's slot-filling logic filters excluded exercises before reaching
-# the backfill code. The guard at :1087 is defense-in-depth but cannot be tested via mutation.
+echo "20. Mutation: Remove empty-day backfill exclusion filter"
+cp "$ALTERNATIVES_FILE" $ALTERNATIVES_BACKUP
+cp "$EXCLUSIONS_FILE" $EXCLUSIONS_BACKUP
+cp "$GENERATE_FILE" $GENERATE_BACKUP
+# Remove the exclusion check from the backfill candidates filter at :1087
+sed -i 's/!usedInBlock\.has(e\.id) && !EXCLUDED_EXERCISE_SLUGS\.has(e\.slug)/!usedInBlock.has(e.id)/' "$GENERATE_FILE"
+verify_mutation "$GENERATE_FILE" $GENERATE_BACKUP "The day is relabelled when backfilled" "backfill comment still present"
+total_mutations=$((total_mutations + 1))
+if run_tests "Remove backfill filter"; then
+  caught_mutations=$((caught_mutations + 1))
+else
+  survived_mutations=$((survived_mutations + 1))
+fi
+cp $ALTERNATIVES_BACKUP "$ALTERNATIVES_FILE"
+cp $EXCLUSIONS_BACKUP "$EXCLUSIONS_FILE"
+cp $GENERATE_BACKUP "$GENERATE_FILE"
+echo ""
 
 echo "=== Mutation Testing Results ==="
 echo "Total mutations: $total_mutations"

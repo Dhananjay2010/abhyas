@@ -9,15 +9,6 @@ import { readFileSync } from "fs";
 
 const baseCatalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf-8"));
 
-const EXCLUDED = [
-  "standing-barbell-press-behind-neck",
-  "wide-grip-pulldown-behind-the-neck",
-  "wide-grip-rear-pull-up",
-  "barbell-guillotine-bench-press",
-  "neck-press",
-  "low-pulley-row-to-neck",
-];
-
 const idToSlug = new Map(baseCatalogue.map(e => [e.id, e.slug]));
 
 let passCount = 0;
@@ -35,34 +26,28 @@ function check(name: string, condition: boolean) {
 
 console.log("1. Strategy 3 accessory top-up guard (mutant 15)");
 {
-  // Use real profiles that leaked before the guard (pull-up bar and cable-only, 90 min)
-  // These profiles hit the Strategy 3 pacing path and leaked wide-grip-rear-pull-up and low-pulley-row-to-neck
-  const testProfiles = [
+  // Profiles that leak when ONLY :1266 is removed (Strategy 3 pacing path)
+  const testProfiles: Array<{
+    name: string;
+    equipmentIds: string[];
+    level: "beginner" | "intermediate" | "expert";
+    daysPerWeek: number;
+    expectedSlug: string;
+  }> = [
     {
-      name: "pull-up-bar-intermediate-2d-90min",
+      name: "pull-up-bar-intermediate-2d",
       equipmentIds: ["pull_up_bar"],
-      hasAllEquipment: false,
-      level: "intermediate" as const,
+      level: "intermediate",
       daysPerWeek: 2,
-      seed: 1111,
+      expectedSlug: "wide-grip-rear-pull-up",
     },
     {
-      name: "cable-intermediate-3d-90min",
+      name: "cable-beginner-3d",
       equipmentIds: ["cable_machine"],
-      hasAllEquipment: false,
-      level: "intermediate" as const,
+      level: "beginner",
       daysPerWeek: 3,
-      seed: 2222,
+      expectedSlug: "low-pulley-row-to-neck",
     },
-  ];
-  
-  const EXCLUDED = [
-    "standing-barbell-press-behind-neck",
-    "wide-grip-pulldown-behind-the-neck",
-    "wide-grip-rear-pull-up",
-    "barbell-guillotine-bench-press",
-    "neck-press",
-    "low-pulley-row-to-neck",
   ];
   
   let s3Checks = 0;
@@ -70,15 +55,15 @@ console.log("1. Strategy 3 accessory top-up guard (mutant 15)");
   
   for (const profile of testProfiles) {
     const input: GeneratorInput = {
-      userId: profile.seed.toString(),
+      userId: "11111111-1111-1111-1111-111111111111",
       blockNumber: 1,
       level: profile.level,
       equipmentIds: profile.equipmentIds,
-      hasAllEquipment: profile.hasAllEquipment,
-      goal: "muscle_gain",
+      hasAllEquipment: false,
+      goal: "general_fitness",
       currentInjuryRegions: [],
-      age: 30,
-      bmi: null,
+      age: 35,
+      bmi: 24,
       daysPerWeek: profile.daysPerWeek,
       yogaDaysPerWeek: 0,
       primaryTrack: "weights",
@@ -91,9 +76,8 @@ console.log("1. Strategy 3 accessory top-up guard (mutant 15)");
       day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
     );
     
-    const foundExcluded = allSlugs.filter(slug => EXCLUDED.includes(slug));
-    if (foundExcluded.length > 0) {
-      console.log(`  ✗ ${profile.name}: found ${foundExcluded.join(", ")}`);
+    if (allSlugs.includes(profile.expectedSlug)) {
+      console.log(`  ✗ ${profile.name}: found ${profile.expectedSlug}`);
       s3Fails++;
     }
     s3Checks++;
@@ -129,7 +113,7 @@ console.log("\n2. Bodyweight-pull force-add guard (mutant 16)");
     const modifiedExcluded = { ...excludedEx, equipment_ids: [] };
     const finalCatalogue = injectedCatalogue.map(e => e.slug === excludedSlug ? modifiedExcluded : e);
     
-    // Generate a plan with only pull-up bar (to trigger BW pull logic)
+    // Generate a BODYWEIGHT plan to trigger BW pull force-add logic at :905
     const input: GeneratorInput = {
       userId: "guard-bw-force-test",
       blockNumber: 1,
@@ -142,7 +126,7 @@ console.log("\n2. Bodyweight-pull force-add guard (mutant 16)");
       bmi: null,
       daysPerWeek: 3,
       yogaDaysPerWeek: 0,
-      primaryTrack: "weights",
+      primaryTrack: "bodyweight",
       preferredSessionMinutes: 60,
       catalogue: finalCatalogue,
     };
@@ -297,10 +281,78 @@ console.log("\n4. Carry-over guard (mutant 18)");
   }
 }
 
-// Note: Empty-day backfill guard (generate.ts :1087) cannot be tested via mutation.
-// The backfill path (exercises.length === 0) is unreachable with excluded-only catalogues
-// because the generator's slot-filling logic filters excluded exercises before reaching
-// the backfill code. The guard at :1087 is defense-in-depth but not testable.
+console.log("\n5. Empty-day backfill guard (mutant 20)");
+{
+  // Filter catalogue to only pull exercises to trigger empty-day backfill
+  const pullOnlyCatalogue = baseCatalogue.filter(e => 
+    e.movement_pattern === "vertical_pull" || e.movement_pattern === "horizontal_pull"
+  );
+  
+  // Test with pull-up bar (weights + bodyweight)
+  const profile1: GeneratorInput = {
+    userId: "33333333-3333-3333-3333-333333333333",
+    blockNumber: 1,
+    level: "intermediate",
+    equipmentIds: ["pull_up_bar"],
+    hasAllEquipment: false,
+    goal: "muscle_gain",
+    currentInjuryRegions: [],
+    age: 35,
+    bmi: 24,
+    daysPerWeek: 5,
+    yogaDaysPerWeek: 0,
+    primaryTrack: "weights",
+    preferredSessionMinutes: 60,
+    catalogue: pullOnlyCatalogue,
+  };
+  
+  // Test with cable machine (weights)
+  const profile2: GeneratorInput = {
+    ...profile1,
+    equipmentIds: ["cable_machine"],
+    primaryTrack: "weights",
+  };
+  
+  let backfillChecks = 0;
+  let backfillFails = 0;
+  
+  for (const input of [profile1, profile2]) {
+    const program = generateProgram(input);
+    
+    // Check if at least one day is labeled "Full body" (backfill ran)
+    const hasFullBody = program.days.some(d => d.label && d.label.includes("Full"));
+    
+    if (hasFullBody) {
+      const allSlugs = program.days.flatMap(day => 
+        day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+      );
+      
+      const excludedSlugs = [
+        "wide-grip-pulldown-behind-the-neck",
+        "wide-grip-rear-pull-up",
+        "low-pulley-row-to-neck",
+      ];
+      
+      const foundExcluded = allSlugs.filter(slug => excludedSlugs.includes(slug));
+      if (foundExcluded.length > 0) {
+        backfillFails++;
+      }
+      backfillChecks++;
+    }
+  }
+  
+  if (backfillChecks > 0) {
+    if (backfillFails === 0) {
+      passCount += backfillChecks;
+      console.log(`  ✓ Backfill guard blocks excluded slugs (${backfillChecks} profiles with Full body days)`);
+    } else {
+      failCount += backfillFails;
+      passCount += backfillChecks - backfillFails;
+    }
+  } else {
+    console.log(`  ⚠ No Full body days found (backfill not triggered)`);
+  }
+}
 
 console.log(`\n${failCount === 0 ? "✓" : "✗"} ${passCount}/${passCount + failCount} guard tests passed`);
 

@@ -43,7 +43,7 @@ const results: Array<{
   minutes: number;
   age: number;
   sha256: string;
-  slugs: string[];
+  slugs?: string[];
   hadExcluded: boolean;
 }> = [];
 
@@ -85,18 +85,33 @@ for (const [equipmentName, { ids, hasAll, track }] of Object.entries(EQUIPMENT_P
           const sha256 = createHash("sha256").update(canonical).digest("hex");
           
           const slugs = exercises.map((id) => idToSlug.get(id) ?? id);
+          const hadExcluded = slugs.some((slug) => EXCLUDED.has(slug));
           
-          results.push({
-            userId,
-            level,
-            equipment: equipmentName,
-            days,
-            minutes,
-            age,
-            sha256,
-            slugs,
-            hadExcluded: slugs.some((slug) => EXCLUDED.has(slug)),
-          });
+          // Only include slugs for entries that had excluded exercises
+          if (hadExcluded) {
+            results.push({
+              userId,
+              level,
+              equipment: equipmentName,
+              days,
+              minutes,
+              age,
+              sha256,
+              slugs,
+              hadExcluded,
+            });
+          } else {
+            results.push({
+              userId,
+              level,
+              equipment: equipmentName,
+              days,
+              minutes,
+              age,
+              sha256,
+              hadExcluded,
+            });
+          }
         }
       }
     }
