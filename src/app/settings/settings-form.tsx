@@ -506,8 +506,9 @@ export function SettingsForm({
           }));
           setEquipmentHint(null);
           setEquipmentOffConfirmation(null);
-          setFieldErrors(prev => new Map(prev).set("equipment", result.error));
-          setError(result.error);
+          const friendlyError = getFriendlyError("equipment", result.error);
+          setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+          setError(friendlyError);
         } else {
           // Success: update saved state and clear errors (LOW-c)
           setSavedEquipment({ hasAll, ids: equipmentIds });
@@ -529,9 +530,10 @@ export function SettingsForm({
           }
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        setFieldErrors(prev => new Map(prev).set("equipment", message));
-        setError(message);
+        const rawMessage = err instanceof Error ? err.message : "Unknown error";
+        const friendlyError = getFriendlyError("equipment", rawMessage);
+        setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+        setError(friendlyError);
       }
     });
   }

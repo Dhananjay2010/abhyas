@@ -111,18 +111,8 @@ async function runTest() {
     failed++;
   }
 
-  // Click barbell chip again (will succeed, toggling it off then on)
-  const barbellChip = Array.from(container.querySelectorAll('button[aria-pressed]'))
-    .find(b => b.textContent === "Barbell") as HTMLButtonElement | undefined;
-  
-  if (!barbellChip) {
-    console.error("  ❌ Barbell chip not found");
-    failed++;
-    cleanup();
-    return;
-  }
-
-  await act(async () => { await user.click(barbellChip); });
+  // Click dumbbell chip again to deselect it (will succeed)
+  await act(async () => { await user.click(dumbbellChip); });
 
   // Wait for save to complete
   await new Promise(resolve => setTimeout(resolve, 100));
