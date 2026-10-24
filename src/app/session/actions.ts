@@ -77,7 +77,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // code, of which there is at most a handful. And the day lookup needed the
   // active program's id, so the program is fetched with all seven of its days
   // embedded and the right one is picked once the timezone is known.
-  const [profileRes, openRes, programRes] = await Promise.all([
+  const [profileRes, openRes, programRes, settingsRes] = await Promise.all([
     supabase.from("profiles").select("timezone, primary_track").eq("id", user.id).single(),
     supabase
       .from("sessions")
@@ -98,26 +98,31 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .select("id, started_on, deload_week, program_days(id, day_index, day_type, focus, label)")
       .eq("status", "active")
       .maybeSingle(),
+    supabase.from("user_settings").select("resume_session").eq("user_id", user.id).maybeSingle(),
   ]);
 
   const timezone = profileRes.data?.timezone || "Asia/Kolkata";
   const today = localDateString(timezone);
+  const resumeEnabled = settingsRes.data?.resume_session ?? true;
 
   const todayRows = (openRes.data ?? []).filter((s) => s.local_date === today);
-  const existing =
-    todayRows.find((s) => s.status === "planned" || s.status === "in_progress") ??
-    /*
-      An attempt that was ended early. `abandonSession` writes `skipped`, which
-      used to be in neither of the statuses this looked for, so pressing Start
-      again inserted a SECOND row for the same day: start, quit, start, quit
-      left four identical "Skipped" entries in History and stranded the sets
-      logged in each of them. Reusing the row means one entry per day and the
-      earlier sets come back with it.
+  const existing = resumeEnabled
+    ? todayRows.find((s) => s.status === "planned" || s.status === "in_progress") ??
+      /*
+        An attempt that was ended early. `abandonSession` writes `skipped`, which
+        used to be in neither of the statuses this looked for, so pressing Start
+        again inserted a SECOND row for the same day: start, quit, start, quit
+        left four identical "Skipped" entries in History and stranded the sets
+        logged in each of them. Reusing the row means one entry per day and the
+        earlier sets come back with it.
 
-      Only the day's own workout qualifies. A skipped yoga or breathing row must
-      not be turned into a strength session.
-    */
-    todayRows.find((s) => s.status === "skipped" && ownsTheDay(s.actual_type));
+        Only the day's own workout qualifies. A skipped yoga or breathing row must
+        not be turned into a strength session.
+      */
+      todayRows.find((s) => s.status === "skipped" && ownsTheDay(s.actual_type))
+    : // When resume is disabled, only reuse a planned session (from the "what
+      // about tomorrow?" prompt), never one that was started and abandoned.
+      todayRows.find((s) => s.status === "planned");
 
   if (existing) {
     // A session row can exist with no exercises attached -- an abandoned first
@@ -655,7 +660,7 @@ export async function findAlternatives(
   const alternatives = ((poolRes.data ?? []) as unknown as CandidateExercise[])
     .filter((e) => !alreadyInSession.has(e.id))
     .filter((e) => isEligible(e, { ...input, catalogue: [] }))
-    .map((e) => ({ e, k: score(e, wantCompound, input.level) }))
+    .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack) }))
     .sort((a, b) => b.k - a.k || tieBreak(a.e.slug) - tieBreak(b.e.slug))
     .slice(0, 6)
     .map(({ e }) => ({

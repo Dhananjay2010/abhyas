@@ -190,6 +190,12 @@ def map_equipment(raw: str | None, name: str) -> list[str]:
 PATTERN_RULES: list[tuple[str, str]] = [
     (r"\bcalf\b|\bcalves\b", "calf"),
     (r"\bshrugs?\b", "other"),
+    # Specific fixes for mis-tagged exercises - must come before general rules.
+    (r"\bflutter kicks?\b", "core"),
+    (r"\bbutt ?kicks?\b|\bleg butt ?kicks?\b", "cardio"),
+    (r"\boverhead slams?\b|\bball slams?\b|\bmedicine ball throws?\b|"
+     r"\bbackward.*throws?\b", "other"),
+    (r"\bback fl(y|ies)\b.*bands?\b", "rear_delt"),
     # Hinge must precede biceps so "leg curl" is not read as an arm curl.
     (r"\bleg curls?\b|\bnordic\b|\bgood mornings?\b|\bromanian\b|"
      r"\bdeadlifts?\b|\bhip thrusts?\b|\bglute bridges?\b|"
