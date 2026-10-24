@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useRef } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -19,6 +19,7 @@ import { ErrorNote, OptionCard } from "@/components/ui";
 import { BuildPlanButton } from "@/app/today/build-plan-button";
 import { branding } from "@/lib/branding";
 import { resolveTimezoneWithProfile, FALLBACK_TIMEZONE } from "@/lib/timezone";
+import { getTodayIsoInTimezone } from "@/lib/dates/today-iso";
 import {
   updateEquipment,
   updateInjuries,
@@ -120,6 +121,8 @@ export function SettingsForm({
   const [dobError, setDobError] = useState<string | null>(null);
   /** DOB touched state */
   const [dobTouched, setDobTouched] = useState(false);
+  /** Last successfully saved DOB (baseline to prevent re-saves) */
+  const lastSavedDob = useRef<string | null>(initial.dateOfBirth);
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -649,25 +652,37 @@ export function SettingsForm({
             onChange={(iso) => {
               setS({ ...s, dateOfBirth: iso });
               if (dobTouched) {
-                const todayIso = new Date().toISOString().slice(0, 10);
+                const todayIso = getTodayIsoInTimezone(s.timezone ?? null);
                 const err = iso ? validateDob(iso, todayIso) : null;
                 setDobError(err ? getDobErrorMessage(err) : null);
               }
             }}
             onBlur={() => {
               setDobTouched(true);
-              const todayIso = new Date().toISOString().slice(0, 10);
+              const todayIso = getTodayIsoInTimezone(s.timezone ?? null);
+              
+              // Incomplete DOB (null from partial input) - don't save, show error
+              if (s.dateOfBirth === null && lastSavedDob.current !== null) {
+                setDobError("Enter your full date of birth");
+                return;
+              }
+              
               const err = s.dateOfBirth ? validateDob(s.dateOfBirth, todayIso) : null;
               if (err) {
                 setDobError(getDobErrorMessage(err));
               } else {
                 setDobError(null);
-                if (s.dateOfBirth !== initial.dateOfBirth) {
+                // Only save if changed from last saved and not null
+                if (s.dateOfBirth !== lastSavedDob.current && s.dateOfBirth !== null) {
                   startTransition(async () => {
                     const r = await actions.updateProfileSettings({ date_of_birth: s.dateOfBirth });
                     if (!r.ok) {
-                      setError(r.error);
+                      // On failed save, revert to last saved value and show error
+                      setS({ ...s, dateOfBirth: lastSavedDob.current });
+                      setDobError(r.error);
                     } else {
+                      // On successful save, update baseline
+                      lastSavedDob.current = s.dateOfBirth;
                       setError(null);
                     }
                   });
