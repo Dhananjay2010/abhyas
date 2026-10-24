@@ -1,10 +1,10 @@
 #!/usr/bin/env tsx
 /**
  * Generate correct exercise cues (descriptions) based on movement pattern and mechanic.
+ * This script was used to generate cue-fixes.json and the migration SQL.
  */
 
-import auditResults from "./audit-results.json" assert { type: "json" };
-import type { DescriptionMismatch } from "./audit-catalogue-descriptions";
+import { auditCatalogueDescriptions, type DescriptionMismatch } from "./audit-catalogue-descriptions";
 
 type MovementPattern =
   | "horizontal_press"
@@ -124,10 +124,25 @@ function generateCorrectCue(
   return `${mechanicStr} ${forceDesc} movement targeting ${target}.${equipment}`;
 }
 
+// Generate audit results
+const auditResults = auditCatalogueDescriptions();
+
+// Exclude exercises with special handling:
+// - back-flyes-with-bands: pattern tag appears wrong, needs retag
+// - box-squat, leg-extensions, single-leg-leg-extension: have knee-safe cues from 140600
+const exclude = new Set([
+  'back-flyes-with-bands',
+  'box-squat',
+  'leg-extensions',
+  'single-leg-leg-extension'
+]);
+
 // Process all mismatches
 const fixes: CueFix[] = [];
 
-for (const mismatch of auditResults as DescriptionMismatch[]) {
+for (const mismatch of auditResults) {
+  if (exclude.has(mismatch.slug)) continue;
+  
   const newCue = generateCorrectCue(
     mismatch.movement_pattern,
     mismatch.mechanic,

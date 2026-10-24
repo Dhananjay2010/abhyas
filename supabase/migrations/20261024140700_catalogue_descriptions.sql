@@ -1,6 +1,10 @@
 -- Catalogue Descriptions (Cues) Correctness Fixes
 -- This migration is idempotent (safe to re-run)
 -- Fixes exercises where the cue contradicts the movement pattern or mechanic
+--
+-- Note: Excludes exercises that have special knee-safe cues from 140600:
+--   - box-squat, leg-extensions, single-leg-leg-extension
+-- Note: Excludes back-flyes-with-bands (pattern tag appears wrong, needs retag)
 
 -- 3/4 Sit-Up (3-4-sit-up): core pattern, compound mechanic
 UPDATE exercises SET cue = 'Compound core movement targeting abs.'
@@ -25,10 +29,6 @@ WHERE slug = 'alternate-heel-touchers' AND cue = 'Isolation pull movement target
 -- Alternating Hang Clean (alternating-hang-clean): hinge pattern, compound mechanic
 UPDATE exercises SET cue = 'Compound hinge movement targeting hamstrings. Kettlebell.'
 WHERE slug = 'alternating-hang-clean' AND cue = 'Compound pull movement targeting hamstrings. Kettlebell.';
-
--- Back Flyes - With Bands (back-flyes-with-bands): horizontal_press pattern, compound mechanic
-UPDATE exercises SET cue = 'Compound push movement targeting front delts, side delts. Bands.'
-WHERE slug = 'back-flyes-with-bands' AND cue = 'Compound pull movement targeting front delts, side delts. Bands.';
 
 -- Ball Leg Curl (ball-leg-curl): hinge pattern, isolation mechanic
 UPDATE exercises SET cue = 'Isolation hinge movement targeting hamstrings. Stability ball.'
@@ -169,10 +169,6 @@ WHERE slug = 'bosu-ball-cable-crunch-with-side-bends' AND cue = 'Isolation pull 
 -- Bottoms Up (bottoms-up): core pattern, compound mechanic
 UPDATE exercises SET cue = 'Compound core movement targeting abs.'
 WHERE slug = 'bottoms-up' AND cue = 'Compound pull movement targeting abs.';
-
--- Box Squat (box-squat): squat pattern, compound mechanic
-UPDATE exercises SET cue = 'Compound squat movement targeting quads. Barbell, Rack.'
-WHERE slug = 'box-squat' AND cue = 'Compound push movement targeting quads. Barbell, Rack.';
 
 -- Box Squat with Bands (box-squat-with-bands): squat pattern, compound mechanic
 UPDATE exercises SET cue = 'Compound squat movement targeting quads. Barbell, Rack.'
@@ -662,10 +658,6 @@ WHERE slug = 'lateral-bound' AND cue = 'Compound push movement targeting adducto
 UPDATE exercises SET cue = 'Isolation lateral raise movement targeting side delts. Bands.'
 WHERE slug = 'lateral-raise-with-bands' AND cue = 'Isolation push movement targeting side delts. Bands.';
 
--- Leg Extensions (leg-extensions): squat pattern, isolation mechanic
-UPDATE exercises SET cue = 'Isolation squat movement targeting quads. Leg extension.'
-WHERE slug = 'leg-extensions' AND cue = 'Isolation push movement targeting quads. Leg extension.';
-
 -- Leg Lift (leg-lift): hinge pattern, isolation mechanic
 UPDATE exercises SET cue = 'Isolation hinge movement targeting glutes.'
 WHERE slug = 'leg-lift' AND cue = 'Isolation push movement targeting glutes.';
@@ -994,10 +986,6 @@ WHERE slug = 'side-lateral-raise' AND cue = 'Isolation push movement targeting s
 UPDATE exercises SET cue = 'Isolation lateral raise movement targeting side delts. Dumbbells.'
 WHERE slug = 'side-laterals-to-front-raise' AND cue = 'Isolation push movement targeting side delts. Dumbbells.';
 
--- Single-Leg Leg Extension (single-leg-leg-extension): squat pattern, isolation mechanic
-UPDATE exercises SET cue = 'Isolation squat movement targeting quads. Leg extension.'
-WHERE slug = 'single-leg-leg-extension' AND cue = 'Isolation push movement targeting quads. Leg extension.';
-
 -- Single Leg Butt Kick (single-leg-butt-kick): squat pattern, compound mechanic
 UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
 WHERE slug = 'single-leg-butt-kick' AND cue = 'Compound push movement targeting quads.';
@@ -1293,7 +1281,6 @@ WHERE slug = 'wind-sprints' AND cue = 'Compound pull movement targeting abs.';
 -- Zercher Squats (zercher-squats): squat pattern, compound mechanic
 UPDATE exercises SET cue = 'Compound squat movement targeting quads. Barbell.'
 WHERE slug = 'zercher-squats' AND cue = 'Compound push movement targeting quads. Barbell.';
-
 
 -- ============================================================================
 -- Part 2: Warmup Exercises - Fix dynamic moves mislabeled as stretches

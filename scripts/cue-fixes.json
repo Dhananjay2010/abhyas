@@ -48,14 +48,6 @@
     "mechanic": "compound"
   },
   {
-    "slug": "back-flyes-with-bands",
-    "name": "Back Flyes - With Bands",
-    "oldCue": "Compound pull movement targeting front delts, side delts. Bands.",
-    "newCue": "Compound push movement targeting front delts, side delts. Bands.",
-    "pattern": "horizontal_press",
-    "mechanic": "compound"
-  },
-  {
     "slug": "ball-leg-curl",
     "name": "Ball Leg Curl",
     "oldCue": "Isolation pull movement targeting hamstrings. Stability ball.",
@@ -333,14 +325,6 @@
     "oldCue": "Compound pull movement targeting abs.",
     "newCue": "Compound core movement targeting abs.",
     "pattern": "core",
-    "mechanic": "compound"
-  },
-  {
-    "slug": "box-squat",
-    "name": "Box Squat",
-    "oldCue": "Compound push movement targeting quads. Barbell, Rack.",
-    "newCue": "Compound squat movement targeting quads. Barbell, Rack.",
-    "pattern": "squat",
     "mechanic": "compound"
   },
   {
@@ -1320,14 +1304,6 @@
     "mechanic": "isolation"
   },
   {
-    "slug": "leg-extensions",
-    "name": "Leg Extensions",
-    "oldCue": "Isolation push movement targeting quads. Leg extension.",
-    "newCue": "Isolation squat movement targeting quads. Leg extension.",
-    "pattern": "squat",
-    "mechanic": "isolation"
-  },
-  {
     "slug": "leg-lift",
     "name": "Leg Lift",
     "oldCue": "Isolation push movement targeting glutes.",
@@ -1981,14 +1957,6 @@
     "oldCue": "Isolation push movement targeting side delts. Dumbbells.",
     "newCue": "Isolation lateral raise movement targeting side delts. Dumbbells.",
     "pattern": "lateral_delt",
-    "mechanic": "isolation"
-  },
-  {
-    "slug": "single-leg-leg-extension",
-    "name": "Single-Leg Leg Extension",
-    "oldCue": "Isolation push movement targeting quads. Leg extension.",
-    "newCue": "Isolation squat movement targeting quads. Leg extension.",
-    "pattern": "squat",
     "mechanic": "isolation"
   },
   {
