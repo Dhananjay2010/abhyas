@@ -26,7 +26,7 @@ This document explains how to customize Abhyas for per-gym white-label deploymen
        bg: "#0a0a0a",           // Page background
        surface: "#1a1a1a",      // Cards, panels
        surface2: "#262626",     // Secondary surfaces
-       border: "#404040",       // Border color
+       border: "#607280",       // Border color
        fg: "#fafafa",           // Primary text
        muted: "#a3a3a3",        // Secondary text
        success: "#22c55e",      // Success states
@@ -91,7 +91,7 @@ All colors must be **6-digit hex codes** (`#RRGGBB`):
 | `bg` | Page background | `#0a0c0e` |
 | `surface` | Elevated surfaces (cards, modals) | `#151a1f` |
 | `surface2` | Secondary surfaces (inputs, nested cards) | `#1d242b` |
-| `border` | Border color | `#2a333c` |
+| `border` | Border color | `#607280` |
 | `fg` | Primary text color | `#ecf1f6` |
 | `muted` | Secondary/muted text | `#93a1ae` |
 | `success` | Success messages, confirmations | `#4ade80` |
