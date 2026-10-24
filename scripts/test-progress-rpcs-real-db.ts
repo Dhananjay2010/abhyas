@@ -16,7 +16,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
-type HistoryPageRow = { session_id: string; total_count: number };
+type HistoryPageRow = { session_id: string | null; total_count: number };
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
@@ -504,6 +504,34 @@ async function runTests() {
         actual_type: "weights",
       });
 
+      // Session 5: completed with empty-string actual_type and working sets (should appear under lifts)
+      const sess5Id = randomUUID();
+      const se5Id = randomUUID();
+      await adminClient.from("sessions").insert({
+        id: sess5Id,
+        user_id: userIdA,
+        local_date: "2026-10-20",
+        status: "completed",
+        actual_type: "",
+        completed_at: "2026-10-20T10:00:00Z",
+      });
+      await adminClient.from("session_exercises").insert({
+        id: se5Id,
+        user_id: userIdA,
+        session_id: sess5Id,
+        exercise_id: exerciseA,
+        metric: "reps",
+        status: "completed",
+      });
+      await adminClient.from("session_sets").insert({
+        id: randomUUID(),
+        user_id: userIdA,
+        session_exercise_id: se5Id,
+        weight_kg: 80,
+        reps: 8,
+        is_warmup_set: false,
+      });
+
       // Fetch page 1 (first 20)
       const { data: page1, error: page1Error } = await supabaseA.rpc("get_history_page", {
         p_user: userIdA,
@@ -541,6 +569,11 @@ async function runTests() {
       check("skipped session excluded", 
         !page1Ids.includes(sess4Id),
         `sess4Id ${sess4Id.slice(0, 8)} NOT in page: ${!page1Ids.includes(sess4Id)}`);
+
+      // Verify empty-string actual_type session appears (normalized to 'weights')
+      check("empty-string actual_type completed session appears under lifts", 
+        page1Ids.includes(sess5Id),
+        `sess5Id ${sess5Id.slice(0, 8)} in page: ${page1Ids.includes(sess5Id)}`);
 
       // Test pagination: fetch page 2, page 3
       const { data: page2 } = await supabaseA.rpc("get_history_page", {
@@ -614,6 +647,34 @@ async function runTests() {
         check("sessions ordered by local_date DESC, coalesce(completed_at, started_at) DESC", 
           isOrdered,
           `checked ${orderedSessions.length} sessions`);
+      }
+    }
+
+    console.log("\n8. get_history_page: total_count when offset past end");
+    {
+      // Fetch page 99 (way past the end)
+      const { data: emptyPage } = await supabaseA.rpc("get_history_page", {
+        p_user: userIdA,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 20,
+        p_offset: 99999,
+      });
+
+      const emptyPageData = emptyPage as HistoryPageRow[];
+      check("empty page returns at least one row", 
+        emptyPageData.length > 0,
+        `got ${emptyPageData.length} rows`);
+
+      if (emptyPageData.length > 0) {
+        const firstRow = emptyPageData[0];
+        check("empty page has null session_id", 
+          firstRow.session_id === null,
+          `got ${firstRow.session_id}`);
+        
+        check("empty page has total_count > 0", 
+          firstRow.total_count > 0,
+          `got ${firstRow.total_count}`);
       }
     }
 

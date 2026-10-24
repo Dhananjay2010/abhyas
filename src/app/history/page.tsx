@@ -54,9 +54,9 @@ export default async function HistoryPage({
     throw new Error(`Could not load your history: ${pageError.message}`);
   }
 
-  type PageRow = { session_id: string; total_count: number };
+  type PageRow = { session_id: string | null; total_count: number };
   const pageRows = (pageData ?? []) as unknown as PageRow[];
-  const sessionIds = pageRows.map((r) => r.session_id);
+  const sessionIds = pageRows.map((r) => r.session_id).filter((id): id is string => id !== null);
   const count = pageRows.length > 0 ? Number(pageRows[0].total_count) : 0;
 
   // Fetch session details for the IDs returned by RPC
@@ -156,6 +156,7 @@ export default async function HistoryPage({
 
   // Get exercise history helpers
   const { findTopSet } = await import("@/lib/exercise-history/calculations");
+  const { pickTopSet } = await import("@/lib/history/pick-top-set");
 
   const items: SessionListItem[] = (orderedSessions ?? [])
     .map((s) => {
@@ -167,20 +168,13 @@ export default async function HistoryPage({
       const workingSetCount = setCountsBySession.get(s.id) ?? 0;
 
       // Calculate top set weight for strength sessions
+    // Use pickTopSet to find the heaviest working set across all exercises
     let topSetWeight: number | null = null;
 
     if (!isBreathing && exercises.length > 0) {
-      const topSets = exercises.map((ex) => {
-        const sets = setsByExercise.get(ex.id) ?? [];
-        if (sets.length === 0) return null;
-        const metric = (ex.metric || "reps") as "reps" | "seconds";
-        return findTopSet(sets, metric);
-      }).filter(Boolean);
-
-      if (topSets.length > 0) {
-        topSetWeight = Math.max(...topSets.map((s) => s?.weight_kg ?? 0).filter((w) => w > 0));
-        if (topSetWeight === 0) topSetWeight = null;
-      }
+      // Collect all working sets from all exercises in this session
+      const allSets = exercises.flatMap((ex) => setsByExercise.get(ex.id) ?? []);
+      topSetWeight = pickTopSet(allSets);
     }
 
     // Check if this session had any PRs at the time

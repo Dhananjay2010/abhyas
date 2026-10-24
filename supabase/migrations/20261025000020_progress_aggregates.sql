@@ -106,10 +106,10 @@ revoke execute on function get_session_set_counts(uuid, uuid[]) from public, ano
 grant execute on function get_session_set_counts(uuid, uuid[]) to authenticated;
 
 
--- Fix actual_type filter: use coalesce(s.actual_type, '') instead of IN checks
--- to ensure NULL actual_type sessions aren't silently dropped.
+-- Fix actual_type filter: normalize NULL and '' to 'weights' everywhere.
+-- Use coalesce(nullif(s.actual_type,''),'weights') to treat NULL and '' as strength.
 --
--- This recreates session_volume and exercise_strength_history to handle NULL actual_type correctly.
+-- This recreates session_volume and exercise_strength_history to handle NULL and '' consistently.
 
 drop view if exists session_volume;
 
@@ -136,8 +136,8 @@ having count(case when ss.is_warmup_set = false
                     and (ss.reps is not null and ss.reps > 0
                          or ss.duration_seconds is not null and ss.duration_seconds > 0)
                   then 1 end) > 0
-    -- Include non-strength sessions (NULL actual_type is treated as strength)
-    or (s.actual_type is not null and s.actual_type not in ('weights', 'bodyweight'));
+    -- Include non-strength sessions (normalize NULL and '' to 'weights')
+    or coalesce(nullif(s.actual_type,''),'weights') not in ('weights', 'bodyweight');
 
 grant select on session_volume to authenticated;
 
@@ -171,8 +171,8 @@ where ss.is_warmup_set = false
       and (ss2.reps is not null and ss2.reps > 0
            or ss2.duration_seconds is not null and ss2.duration_seconds > 0)
   )
-  -- Include all strength sessions (NULL actual_type is treated as strength)
-  and (s.actual_type is null or s.actual_type in ('weights', 'bodyweight'))
+  -- Include all strength sessions (normalize NULL and '' to 'weights')
+  and coalesce(nullif(s.actual_type,''),'weights') in ('weights', 'bodyweight')
 group by ss.user_id, se.exercise_id, e.name, e.movement_pattern, s.local_date;
 
 grant select on exercise_strength_history to authenticated;
@@ -203,19 +203,13 @@ begin
   end if;
 
   -- Single predicate CTE for consistent filtering across page and count
+  -- Normalize NULL and '' actual_type to 'weights'
   -- Includes: completed (strength only if working sets ≥1), any in_progress, abandoned (today only)
   -- Excludes: skipped
   -- Order: local_date desc, coalesce(completed_at, started_at) desc nulls last, id desc
   return query
-  with filtered_sessions as (
-    select
-      s.id,
-      s.local_date,
-      s.status,
-      s.actual_type,
-      s.completed_at,
-      s.started_at,
-      count(*) over () as total_count
+  with all_matching as (
+    select s.id
     from sessions s
     left join session_volume sv on sv.session_id = s.id
     where s.user_id = p_user
@@ -224,8 +218,8 @@ begin
       and (
         -- Include completed sessions
         (s.status = 'completed' and (
-          -- Strength: must have working sets
-          ((s.actual_type is null or s.actual_type in ('weights', 'bodyweight')) and sv.session_id is not null)
+          -- Strength: must have working sets (normalize NULL and '' to 'weights')
+          (coalesce(nullif(s.actual_type,''),'weights') in ('weights', 'bodyweight') and sv.session_id is not null)
           -- Yoga/breathing: always included
           or s.actual_type in ('yoga', 'meditation')
         ))
@@ -234,12 +228,24 @@ begin
         -- Include abandoned only if today
         or (s.status = 'abandoned' and s.local_date = p_today)
       )
-      -- Apply type filter
+      -- Apply type filter (normalize NULL and '' to 'weights')
       and (
-        (p_filter = 'lifts' and (s.actual_type is null or s.actual_type in ('weights', 'bodyweight')))
+        (p_filter = 'lifts' and coalesce(nullif(s.actual_type,''),'weights') in ('weights', 'bodyweight'))
         or (p_filter = 'yoga' and s.actual_type = 'yoga')
         or (p_filter = 'breathing' and s.actual_type = 'meditation')
       )
+  ),
+  total_count_cte as (
+    select count(*)::bigint as total_count from all_matching
+  ),
+  page_sessions as (
+    select
+      s.id,
+      s.local_date,
+      s.completed_at,
+      s.started_at
+    from sessions s
+    where s.id in (select id from all_matching)
     order by
       s.local_date desc,
       coalesce(s.completed_at, s.started_at) desc nulls last,
@@ -247,8 +253,14 @@ begin
     limit p_limit
     offset p_offset
   )
-  select fs.id, fs.total_count
-  from filtered_sessions fs;
+  select ps.id, tc.total_count
+  from page_sessions ps
+  cross join total_count_cte tc
+  union all
+  -- If page is empty, return one row with null session_id and the total_count
+  select null::uuid, tc.total_count
+  from total_count_cte tc
+  where not exists (select 1 from page_sessions);
 end;
 $$;
 
