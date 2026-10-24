@@ -425,7 +425,7 @@ console.log("\n18. L2: Bodyweight (null weight) handling");
   ];
   const prsMixedWeighted = detectPersonalRecords(mixedWeighted, "reps");
   const mostRepsMixedWeighted = prsMixedWeighted.find(pr => pr.type === "most_reps");
-  check("Bodyweight sets don't interfere with weighted rep PR at 100×8",
+  check("Bodyweight 15 reps is most_reps PR (bodyweight sets tracked independently)",
     mostRepsMixedWeighted?.value === 15 && mostRepsMixedWeighted?.set.weight_kg === null,
     `got ${mostRepsMixedWeighted ? (mostRepsMixedWeighted.set.weight_kg ?? 'bodyweight') + '×' + mostRepsMixedWeighted.value : 'none'}`);
 }
