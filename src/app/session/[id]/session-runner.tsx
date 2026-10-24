@@ -460,6 +460,13 @@ export function SessionRunner({
         error={error}
         confirmExit={false}
       >
+        {totalSetsDone === 0 && (
+          <div className="mb-6 rounded-xl border border-border bg-surface-2 px-4 py-3">
+            <p className="text-sm text-muted">
+              No sets logged, so this won&apos;t count as a workout.
+            </p>
+          </div>
+        )}
         <div className="space-y-3">
           <Stat label="Time" value={formatClock(elapsed)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />

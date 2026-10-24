@@ -27,7 +27,7 @@ async function testRunFinishConcurrency() {
       await new Promise((resolve) => setTimeout(resolve, 10));
       return { ok: true, data: { status: "completed" as const } };
     },
-    abandonSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true, data: { status: "completed" as const } }),
     refreshAfterSession: async () => ({ ok: true }),
     stopElapsed: () => 100,
     resumeElapsed: () => {},
@@ -150,29 +150,25 @@ async function testRunFinishNotOk() {
 
 async function testRunFinishSuccessSkipped() {
   const calls: {
-    refreshAfterSession?: boolean;
-    navigate?: string;
+    setPhase?: "done";
     setError?: string | null;
   } = {};
   const inFlight = { current: false };
 
   const deps: FinishFlowDeps = {
     finishSession: async () => ({ ok: true, data: { status: "skipped" as const } }),
-    abandonSession: async () => ({ ok: true }),
-    refreshAfterSession: async () => {
-      calls.refreshAfterSession = true;
-      return { ok: true };
-    },
+    abandonSession: async () => ({ ok: true, data: { status: "skipped" as const } }),
+    refreshAfterSession: async () => ({ ok: true }),
     stopElapsed: () => 100,
     resumeElapsed: () => {},
     setError: (msg) => {
       calls.setError = msg;
     },
-    setPhase: () => {},
-    setEndedEarly: () => {},
-    navigate: (path) => {
-      calls.navigate = path;
+    setPhase: (phase) => {
+      calls.setPhase = phase;
     },
+    setEndedEarly: () => {},
+    navigate: () => {},
     onExit: null,
     inFlight,
   };
@@ -180,8 +176,7 @@ async function testRunFinishSuccessSkipped() {
   await runFinish(deps, { sessionId: "s1", cooldownCompleted: true });
 
   assertEquals(calls.setError, null, "runFinish success (skipped): clears error");
-  assertEquals(calls.refreshAfterSession, true, "runFinish success (skipped): refreshAfterSession called");
-  assertEquals(calls.navigate, "/today", "runFinish success (skipped): navigates to /today");
+  assertEquals(calls.setPhase, "done", "runFinish success (skipped): setPhase('done')");
 }
 
 async function testRunFinishSuccessCompleted() {
@@ -213,30 +208,30 @@ async function testRunFinishSuccessCompleted() {
 }
 
 async function testRunFinishRefreshThrowsStillNavigates() {
-  const calls: { navigate?: string } = {};
+  const calls: { setPhase?: "done" } = {};
   const inFlight = { current: false };
 
   const deps: FinishFlowDeps = {
     finishSession: async () => ({ ok: true, data: { status: "skipped" as const } }),
-    abandonSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true, data: { status: "skipped" as const } }),
     refreshAfterSession: async () => {
       throw new Error("Offline");
     },
     stopElapsed: () => 100,
     resumeElapsed: () => {},
     setError: () => {},
-    setPhase: () => {},
-    setEndedEarly: () => {},
-    navigate: (path) => {
-      calls.navigate = path;
+    setPhase: (phase) => {
+      calls.setPhase = phase;
     },
+    setEndedEarly: () => {},
+    navigate: () => {},
     onExit: null,
     inFlight,
   };
 
   await runFinish(deps, { sessionId: "s1", cooldownCompleted: true });
 
-  assertEquals(calls.navigate, "/today", "runFinish refreshAfterSession throw: still navigates");
+  assertEquals(calls.setPhase, "done", "runFinish skipped: setPhase('done')");
 }
 
 // --- runEndEarly tests ---
@@ -393,26 +388,25 @@ async function testRunEndEarlyNotOk() {
 
 async function testRunEndEarlySuccessZeroSets() {
   const calls: {
-    refreshAfterSession?: boolean;
-    navigate?: string;
+    setEndedEarly?: boolean;
+    setPhase?: "done";
     setConfirming?: null;
   } = {};
   const endingRef = { current: false };
 
   const deps: Omit<FinishFlowDeps, "finishSession"> = {
-    abandonSession: async () => ({ ok: true }),
-    refreshAfterSession: async () => {
-      calls.refreshAfterSession = true;
-      return { ok: true };
-    },
+    abandonSession: async () => ({ ok: true, data: { status: "skipped" as const } }),
+    refreshAfterSession: async () => ({ ok: true }),
     stopElapsed: () => 100,
     resumeElapsed: () => {},
     setError: () => {},
-    setPhase: () => {},
-    setEndedEarly: () => {},
-    navigate: (path) => {
-      calls.navigate = path;
+    setPhase: (phase) => {
+      calls.setPhase = phase;
     },
+    setEndedEarly: (val) => {
+      calls.setEndedEarly = val;
+    },
+    navigate: () => {},
     onExit: null,
     inFlight: { current: false },
   };
@@ -429,8 +423,8 @@ async function testRunEndEarlySuccessZeroSets() {
   });
 
   assertEquals(calls.setConfirming, null, "runEndEarly success (0 sets): setConfirming(null)");
-  assertEquals(calls.refreshAfterSession, true, "runEndEarly success (0 sets): refreshAfterSession called");
-  assertEquals(calls.navigate, "/today", "runEndEarly success (0 sets): navigates to /today");
+  assertEquals(calls.setEndedEarly, true, "runEndEarly success (0 sets): setEndedEarly(true)");
+  assertEquals(calls.setPhase, "done", "runEndEarly success (0 sets): setPhase('done')");
 }
 
 async function testRunEndEarlySuccessWithSets() {
@@ -442,7 +436,7 @@ async function testRunEndEarlySuccessWithSets() {
   const endingRef = { current: false };
 
   const deps: Omit<FinishFlowDeps, "finishSession"> = {
-    abandonSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true, data: { status: "completed" as const } }),
     refreshAfterSession: async () => ({ ok: true }),
     stopElapsed: () => 100,
     resumeElapsed: () => {},
@@ -475,22 +469,24 @@ async function testRunEndEarlySuccessWithSets() {
 }
 
 async function testRunEndEarlyRefreshThrowsStillNavigates() {
-  const calls: { navigate?: string } = {};
+  const calls: { setPhase?: "done"; setEndedEarly?: boolean } = {};
   const endingRef = { current: false };
 
   const deps: Omit<FinishFlowDeps, "finishSession"> = {
-    abandonSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true, data: { status: "skipped" as const } }),
     refreshAfterSession: async () => {
       throw new Error("Offline");
     },
     stopElapsed: () => 100,
     resumeElapsed: () => {},
     setError: () => {},
-    setPhase: () => {},
-    setEndedEarly: () => {},
-    navigate: (path) => {
-      calls.navigate = path;
+    setPhase: (phase) => {
+      calls.setPhase = phase;
     },
+    setEndedEarly: (val) => {
+      calls.setEndedEarly = val;
+    },
+    navigate: () => {},
     onExit: null,
     inFlight: { current: false },
   };
@@ -504,7 +500,8 @@ async function testRunEndEarlyRefreshThrowsStillNavigates() {
     setEnding: () => {},
   });
 
-  assertEquals(calls.navigate, "/today", "runEndEarly refreshAfterSession throw: still navigates");
+  assertEquals(calls.setEndedEarly, true, "runEndEarly 0 sets: setEndedEarly(true)");
+  assertEquals(calls.setPhase, "done", "runEndEarly 0 sets: setPhase('done')");
 }
 
 // --- Run all tests ---

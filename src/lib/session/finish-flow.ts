@@ -58,21 +58,9 @@ export async function runFinish(
 
     deps.setError(null);
 
-    if (result.data.status === "skipped") {
-      // 0 working sets: navigate to Today with no summary
-      try {
-        await deps.refreshAfterSession();
-      } catch {
-        // Still navigate even if refresh fails (offline)
-      }
-      deps.inFlight.current = false;
-      if (deps.onExit) deps.onExit();
-      else deps.navigate("/today");
-    } else {
-      // Completed: show summary
-      deps.inFlight.current = false;
-      deps.setPhase("done");
-    }
+    // Always show summary, even for skipped sessions
+    deps.inFlight.current = false;
+    deps.setPhase("done");
   } catch (err) {
     deps.resumeElapsed();
     if (isNetworkError(err)) {
@@ -121,24 +109,11 @@ export async function runEndEarly(
     params.setConfirming(null);
     params.setOfflineError(false);
 
-    if (params.setsDone === 0) {
-      // 0 sets: navigate to Today
-      try {
-        await deps.refreshAfterSession();
-      } catch {
-        // Still navigate even if refresh fails (offline)
-      }
-      params.endingRef.current = false;
-      params.setEnding(false);
-      if (deps.onExit) deps.onExit();
-      else deps.navigate("/today");
-    } else {
-      // With sets: show summary
-      deps.setEndedEarly(true);
-      params.endingRef.current = false;
-      params.setEnding(false);
-      deps.setPhase("done");
-    }
+    // Always show summary, even for 0 sets
+    deps.setEndedEarly(true);
+    params.endingRef.current = false;
+    params.setEnding(false);
+    deps.setPhase("done");
   } catch (err) {
     deps.resumeElapsed();
     if (isNetworkError(err)) {

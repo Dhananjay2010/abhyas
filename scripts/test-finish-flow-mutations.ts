@@ -415,6 +415,35 @@ async function testAbandonSessionCoreReadError(): Promise<boolean> {
   return !result.ok && result.error === "Read failed";
 }
 
+// Mutant 14: Ignore decideAbandonStatus in abandonSessionCore (always save 'completed')
+async function testAbandonSessionCoreRespectsZeroSets(): Promise<boolean> {
+  let savedStatus: string | null = null;
+
+  const fake = {
+    from: () => ({
+      select: () => ({
+        eq: async () => ({
+          data: [{ session_sets: [{ id: "1", is_warmup_set: true }] }], // Only warmup
+          error: null,
+        }),
+      }),
+      update: (payload: Record<string, unknown>) => {
+        savedStatus = payload.status as string;
+        return {
+          eq: () => ({
+            eq: async () => ({ error: null, count: 1 }),
+          }),
+        };
+      },
+    }),
+  };
+
+  const result = await abandonSessionCore(fake as unknown as import("../src/lib/session/abandon-session").SupabaseClient, "s1", 100);
+
+  // Must save 'skipped' for 0 working sets
+  return savedStatus === "skipped" && result.ok && result.data.status === "skipped";
+}
+
 // --- Run all tests ---
 
 (async () => {
@@ -496,6 +525,12 @@ async function testAbandonSessionCoreReadError(): Promise<boolean> {
     "Ignore readError in abandonSessionCore",
     "test:finish-session-core (abandon read error)",
     testAbandonSessionCoreReadError,
+  );
+
+  await testMutant(
+    "Ignore decideAbandonStatus in abandonSessionCore (0 sets)",
+    "test:0-working-set-rule (end early 0 sets)",
+    testAbandonSessionCoreRespectsZeroSets,
   );
 
   // Print table

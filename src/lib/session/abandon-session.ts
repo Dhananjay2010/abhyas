@@ -58,7 +58,7 @@ export async function abandonSessionCore(
   supabase: SupabaseClient,
   sessionId: string,
   elapsedSeconds: number,
-): Promise<Result> {
+): Promise<Result<{ status: "completed" | "skipped" }>> {
   // Check if any working sets were logged
   const { data: exercises, error: readError } = await supabase
     .from("session_exercises")
@@ -85,5 +85,5 @@ export async function abandonSessionCore(
     .eq("status", "in_progress"); // Only abandon once
 
   if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  return { ok: true, data: { status } };
 }
