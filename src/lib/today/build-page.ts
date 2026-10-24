@@ -25,8 +25,8 @@ export type BuildPageInput = {
   // Profile data
   profile: {
     id: string;
-    created_at: string;
-    timezone: string;
+    created_at: string | null;
+    timezone: string | null;
   };
 
   // Program data
