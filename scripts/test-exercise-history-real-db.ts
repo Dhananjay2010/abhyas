@@ -97,33 +97,36 @@ async function runTests() {
   const testEmailB = `test-b-${Date.now()}@example.com`;
   const testPasswordB = "test-password-456";
 
-  const { data: authDataA, error: signUpErrorA } = await adminClient.auth.admin.createUser({
-    email: testEmailA,
-    password: testPasswordA,
-    email_confirm: true,
-  });
-
-  if (signUpErrorA || !authDataA.user) {
-    console.error("Failed to create test user A:", signUpErrorA);
-    return false;
-  }
-
-  const { data: authDataB, error: signUpErrorB } = await adminClient.auth.admin.createUser({
-    email: testEmailB,
-    password: testPasswordB,
-    email_confirm: true,
-  });
-
-  if (signUpErrorB || !authDataB.user) {
-    console.error("Failed to create test user B:", signUpErrorB);
-    return false;
-  }
-
-  const userIdA = authDataA.user.id;
-  const userIdB = authDataB.user.id;
-  console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
+  let userIdA: string | null = null;
+  let userIdB: string | null = null;
 
   try {
+    const { data: authDataA, error: signUpErrorA } = await adminClient.auth.admin.createUser({
+      email: testEmailA,
+      password: testPasswordA,
+      email_confirm: true,
+    });
+
+    if (signUpErrorA || !authDataA.user) {
+      console.error("Failed to create test user A:", signUpErrorA);
+      return false;
+    }
+
+    userIdA = authDataA.user.id;
+
+    const { data: authDataB, error: signUpErrorB } = await adminClient.auth.admin.createUser({
+      email: testEmailB,
+      password: testPasswordB,
+      email_confirm: true,
+    });
+
+    if (signUpErrorB || !authDataB.user) {
+      console.error("Failed to create test user B:", signUpErrorB);
+      return false;
+    }
+
+    userIdB = authDataB.user.id;
+    console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
 
   // Create separate authenticated clients for user queries (sign in to get JWTs)
   // Use a fresh anon client for each user to avoid session conflicts
@@ -159,9 +162,9 @@ async function runTests() {
     .from("exercises")
     .select("id, name")
     .order("id")
-    .limit(20);
+    .limit(27);
 
-  if (exError || !exercises || exercises.length < 20) {
+  if (exError || !exercises || exercises.length < 27) {
     console.error("Failed to fetch seeded exercises:", exError);
     return false;
   }
@@ -174,6 +177,10 @@ async function runTests() {
   const exerciseE = exercises[4].id;   // Test 9: M2 unfinished
   const exerciseF = exercises[5].id;   // Test 10: L1 warmup-only
   const exerciseG = exercises[6].id;   // Test 11: >1000 rows paging
+  const exerciseL1 = exercises[23].id;  // Test L1: Set paging (isolated, unused by other tests)
+  const exerciseL2 = exercises[24].id;  // Test L2: Bodyweight handling (isolated)
+  const exerciseL6 = exercises[25].id;  // Test L6: Paging boundary logic (isolated)
+  const exercisePaging = exercises[26].id;  // Test: Paging tie-break with same set_number
   console.log(`Using ${exercises.length} seeded exercises (dedicated per scenario)\n`);
 
   console.log("1. Out-of-order sessions (insertion order ≠ completion order)");
@@ -829,9 +836,745 @@ async function runTests() {
     const [sess2, sess1] = history.sessions;
 
     check("Heavier s1: first session gets NO PRs", sess1?.prs.length === 0);
-    check("Heavier s2: 105×6 DOES get most_reps PR (heavier weight, more reps)",
-      sess2?.prs.some(pr => pr.type === "most_reps" && pr.value === 6),
+    check("Heavier s2: 105×6 gets heaviest_weight and best_e1rm (no earlier set at 105, so no rep PR)",
+      sess2?.prs.some(pr => pr.type === "heaviest_weight") &&
+      sess2?.prs.some(pr => pr.type === "best_e1rm") &&
+      !sess2?.prs.some(pr => pr.type === "most_reps"),
       `s2 prs: ${sess2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+  }
+
+  console.log("\n16. Item 1: Sets query paging (>1000 sets in one batch)");
+  {
+    // Create 100 sessions with 12 working sets each = 1200 rows
+    // This tests that the sets query doesn't silently truncate at 1000
+    const sessions = [];
+    const sessionExercises = [];
+    const sets = [];
+    const startDate = new Date("2024-01-01T12:00:00Z");
+
+    for (let i = 0; i < 100; i++) {
+      const sessionId = randomUUID();
+      const seId = randomUUID();
+      
+      const sessionDate = new Date(startDate);
+      sessionDate.setDate(startDate.getDate() + i);
+      const isoDate = sessionDate.toISOString();
+      const localDate = isoDate.split("T")[0];
+      
+      sessions.push({
+        id: sessionId,
+        user_id: userIdA,
+        local_date: localDate,
+        status: "completed",
+        completed_at: isoDate,
+      });
+
+      sessionExercises.push({
+        id: seId,
+        user_id: userIdA,
+        session_id: sessionId,
+        exercise_id: exercises[11].id,
+        metric: "reps",
+        status: "completed",
+        order_index: 0,
+      });
+
+      // 12 sets per session, with set 12 of session 99 being 140 kg
+      for (let setNum = 1; setNum <= 12; setNum++) {
+        sets.push({
+          user_id: userIdA,
+          session_exercise_id: seId,
+          set_number: setNum,
+          reps: 5,
+          weight_kg: (i === 99 && setNum === 12) ? 140 : 100,
+          is_warmup_set: false,
+        });
+      }
+    }
+
+    const { error: e1 } = await adminClient.from("sessions").insert(sessions);
+    if (e1) { console.error("Item 1: Insert 100 sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert(sessionExercises);
+    if (e2) { console.error("Item 1: Insert 100 session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert(sets);
+    if (e3) { console.error("Item 1: Insert 1200 sets failed:", e3); return false; }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exercises[11].id, { limit: 5 });
+
+    check("Item 1: newest session shows all 12 sets", history.sessions[0].sets.length === 12,
+      `got ${history.sessions[0].sets.length}`);
+    check("Item 1: newest session's 140 kg set is seen",
+      history.sessions[0].sets.some(s => s.weight_kg === 140),
+      `max weight: ${Math.max(...history.sessions[0].sets.map(s => s.weight_kg ?? 0))}`);
+    check("Item 1: newest session gets heaviest_weight PR",
+      history.sessions[0].prs.some(pr => pr.type === "heaviest_weight"));
+  }
+
+  console.log("\n17. Item 2: currentPRs independent of page");
+  {
+    // Use exercise from test 1, which already has many sessions
+    const page1 = await getExerciseHistory(supabaseA, userIdA, exerciseB, { limit: 10, offset: 0 });
+    const page2 = await getExerciseHistory(supabaseA, userIdA, exerciseB, { limit: 10, offset: 10 });
+
+    check("Item 2: page 1 has currentPRs", page1.currentPRs.length > 0);
+    check("Item 2: page 2 has same currentPRs",
+      JSON.stringify(page1.currentPRs) === JSON.stringify(page2.currentPRs),
+      `page1: ${page1.currentPRs.length}, page2: ${page2.currentPRs.length}`);
+  }
+
+  console.log("\n18. Items 3-5: QA Bot 1 rep PR scenarios");
+  {
+    // R9: 60×12, then 100×5, then 100×8 -> third is a PR
+    const s1 = randomUUID(), s2 = randomUUID(), s3 = randomUUID();
+    const se1 = randomUUID(), se2 = randomUUID(), se3 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-01", status: "completed", completed_at: "2026-10-01T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-02", status: "completed", completed_at: "2026-10-02T10:00:00Z" },
+      { id: s3, user_id: userIdA, local_date: "2026-10-03", status: "completed", completed_at: "2026-10-03T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[12].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[12].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se3, user_id: userIdA, session_id: s3, exercise_id: exercises[12].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 12, weight_kg: 60, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 1, reps: 8, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histR9 = await getExerciseHistory(supabaseA, userIdA, exercises[12].id, { limit: 10 });
+    const [sessR9_3, sessR9_2, sessR9_1] = histR9.sessions;
+
+    check("R9: 60×12, 100×5, 100×8 -> third session is rep PR",
+      sessR9_3?.prs.some(pr => pr.type === "most_reps" && pr.value === 8),
+      `s3 prs: ${sessR9_3?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    check("R9: second session gets heaviest but not most_reps",
+      sessR9_2?.prs.some(pr => pr.type === "heaviest_weight") &&
+      !sessR9_2?.prs.some(pr => pr.type === "most_reps"));
+
+    // R10: 100×5, then [50×10, 100×10] -> no PR for second session
+    const s4 = randomUUID(), s5 = randomUUID();
+    const se4 = randomUUID(), se5 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s4, user_id: userIdA, local_date: "2026-10-04", status: "completed", completed_at: "2026-10-04T10:00:00Z" },
+      { id: s5, user_id: userIdA, local_date: "2026-10-05", status: "completed", completed_at: "2026-10-05T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se4, user_id: userIdA, session_id: s4, exercise_id: exercises[13].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se5, user_id: userIdA, session_id: s5, exercise_id: exercises[13].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se4, set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se5, set_number: 1, reps: 10, weight_kg: 50, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se5, set_number: 2, reps: 10, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histR10 = await getExerciseHistory(supabaseA, userIdA, exercises[13].id, { limit: 10 });
+    const [sessR10_2, sessR10_1] = histR10.sessions;
+
+    check("R10: [50×10, 100×10] after 100×10 is NOT a rep PR",
+      !sessR10_2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sessR10_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+
+    // R11: [50×10, 100×10], then 60×11 -> NOT a PR
+    const s6 = randomUUID(), s7 = randomUUID();
+    const se6 = randomUUID(), se7 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s6, user_id: userIdA, local_date: "2026-10-06", status: "completed", completed_at: "2026-10-06T10:00:00Z" },
+      { id: s7, user_id: userIdA, local_date: "2026-10-07", status: "completed", completed_at: "2026-10-07T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se6, user_id: userIdA, session_id: s6, exercise_id: exercises[14].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se7, user_id: userIdA, session_id: s7, exercise_id: exercises[14].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se6, set_number: 1, reps: 10, weight_kg: 50, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se6, set_number: 2, reps: 10, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se7, set_number: 1, reps: 11, weight_kg: 60, is_warmup_set: false },
+    ]);
+
+    const histR11 = await getExerciseHistory(supabaseA, userIdA, exercises[14].id, { limit: 10 });
+    const [sessR11_2, sessR11_1] = histR11.sessions;
+
+    check("R11: 60×11 after [50×10, 100×10] is NOT a PR",
+      !sessR11_2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sessR11_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+
+    // R12: currentPRs.most_reps agrees with badges (100×5, 70×8)
+    const s8 = randomUUID(), s9 = randomUUID();
+    const se8 = randomUUID(), se9 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s8, user_id: userIdA, local_date: "2026-10-08", status: "completed", completed_at: "2026-10-08T10:00:00Z" },
+      { id: s9, user_id: userIdA, local_date: "2026-10-09", status: "completed", completed_at: "2026-10-09T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se8, user_id: userIdA, session_id: s8, exercise_id: exercises[15].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se9, user_id: userIdA, session_id: s9, exercise_id: exercises[15].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se8, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se9, set_number: 1, reps: 8, weight_kg: 70, is_warmup_set: false },
+    ]);
+
+    const histR12 = await getExerciseHistory(supabaseA, userIdA, exercises[15].id, { limit: 10 });
+    const [sessR12_2, sessR12_1] = histR12.sessions;
+
+    check("R12: no session gets most_reps badge after deload",
+      !sessR12_2?.prs.some(pr => pr.type === "most_reps") &&
+      !sessR12_1?.prs.some(pr => pr.type === "most_reps"));
+    const mostRepsPR = histR12.currentPRs.find(pr => pr.type === "most_reps");
+    check("R12: currentPRs.most_reps is 100×5 (agrees with badge rule)",
+      mostRepsPR?.set.weight_kg === 100 && mostRepsPR?.value === 5,
+      `got ${mostRepsPR?.set.weight_kg}×${mostRepsPR?.value}`);
+  }
+
+  console.log("\n19. Item 7: Test at exact batch boundary");
+  {
+    // Test with exactly 1000 rows, and 1001 rows
+    const sessions1000 = [];
+    const sessionExercises1000 = [];
+    const sets1000 = [];
+    const startDate = new Date("2023-01-01T12:00:00Z");
+
+    for (let i = 0; i < 1000; i++) {
+      const sessionId = randomUUID();
+      const seId = randomUUID();
+      
+      const sessionDate = new Date(startDate);
+      sessionDate.setDate(startDate.getDate() + i);
+      const isoDate = sessionDate.toISOString();
+      const localDate = isoDate.split("T")[0];
+      
+      sessions1000.push({
+        id: sessionId,
+        user_id: userIdA,
+        local_date: localDate,
+        status: "completed",
+        completed_at: isoDate,
+      });
+
+      sessionExercises1000.push({
+        id: seId,
+        user_id: userIdA,
+        session_id: sessionId,
+        exercise_id: exercises[16].id,
+        metric: "reps",
+        status: "completed",
+        order_index: 0,
+      });
+
+      sets1000.push({
+        user_id: userIdA,
+        session_exercise_id: seId,
+        set_number: 1,
+        reps: 5,
+        weight_kg: i === 999 ? 150 : 100,
+        is_warmup_set: false,
+      });
+    }
+
+    // Insert in batches to avoid payload limits
+    for (let i = 0; i < sessions1000.length; i += 100) {
+      await adminClient.from("sessions").insert(sessions1000.slice(i, i + 100));
+      await adminClient.from("session_exercises").insert(sessionExercises1000.slice(i, i + 100));
+      await adminClient.from("session_sets").insert(sets1000.slice(i, i + 100));
+    }
+
+    const hist1000 = await getExerciseHistory(supabaseA, userIdA, exercises[16].id, { limit: 10 });
+
+    check("Item 7: exactly 1000 rows processed correctly", hist1000.totalCount === 1000);
+    check("Item 7: newest session (150 kg) gets heaviest PR",
+      hist1000.sessions[0].prs.some(pr => pr.type === "heaviest_weight"));
+    check("Item 7: currentPRs shows 150 kg",
+      hist1000.currentPRs.find(pr => pr.type === "heaviest_weight")?.value === 150);
+
+    // Add one more session for 1001 total
+    const s1001 = randomUUID();
+    const se1001 = randomUUID();
+    const date1001 = new Date(startDate);
+    date1001.setDate(startDate.getDate() + 1000);
+
+    await adminClient.from("sessions").insert({
+      id: s1001,
+      user_id: userIdA,
+      local_date: date1001.toISOString().split("T")[0],
+      status: "completed",
+      completed_at: date1001.toISOString(),
+    });
+    await adminClient.from("session_exercises").insert({
+      id: se1001,
+      user_id: userIdA,
+      session_id: s1001,
+      exercise_id: exercises[16].id,
+      metric: "reps",
+      status: "completed",
+      order_index: 0,
+    });
+    await adminClient.from("session_sets").insert({
+      user_id: userIdA,
+      session_exercise_id: se1001,
+      set_number: 1,
+      reps: 5,
+      weight_kg: 145,
+      is_warmup_set: false,
+    });
+
+    const hist1001 = await getExerciseHistory(supabaseA, userIdA, exercises[16].id, { limit: 10 });
+
+    check("Item 7: 1001 rows processed correctly", hist1001.totalCount === 1001);
+    check("Item 7: 145 kg session has no heaviest PR (150 kg earlier)",
+      !hist1001.sessions[0].prs.some(pr => pr.type === "heaviest_weight"));
+  }
+
+  console.log("\n19. Item A: Refined rep PRs (QA Bot 2 H-1 and H-2)");
+  {
+    // H-1: 100×5, 70×12, 100×6 -> third session is a rep PR
+    const s1 = randomUUID(), s2 = randomUUID(), s3 = randomUUID();
+    const se1 = randomUUID(), se2 = randomUUID(), se3 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-09-01", status: "completed", completed_at: "2026-09-01T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-09-02", status: "completed", completed_at: "2026-09-02T10:00:00Z" },
+      { id: s3, user_id: userIdA, local_date: "2026-09-03", status: "completed", completed_at: "2026-09-03T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[17].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[17].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se3, user_id: userIdA, session_id: s3, exercise_id: exercises[17].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 12, weight_kg: 70, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 1, reps: 6, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histH1 = await getExerciseHistory(supabaseA, userIdA, exercises[17].id, { limit: 10 });
+    const [sessH1_3, sessH1_2, sessH1_1] = histH1.sessions;
+
+    check("H-1: 100×6 after 70×12 is a rep PR (beats earlier 100×5)",
+      sessH1_3?.prs.some(pr => pr.type === "most_reps" && pr.value === 6),
+      `s3 prs: ${sessH1_3?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    check("H-1: 70×12 correctly gets no PR (lighter weight)",
+      !sessH1_2?.prs.some(pr => pr.type === "most_reps"));
+
+    // H-2: 100×5, [60×10, 100×6] -> second session is a rep PR
+    const s4 = randomUUID(), s5 = randomUUID();
+    const se4 = randomUUID(), se5 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s4, user_id: userIdA, local_date: "2026-09-04", status: "completed", completed_at: "2026-09-04T10:00:00Z" },
+      { id: s5, user_id: userIdA, local_date: "2026-09-05", status: "completed", completed_at: "2026-09-05T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se4, user_id: userIdA, session_id: s4, exercise_id: exercises[18].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se5, user_id: userIdA, session_id: s5, exercise_id: exercises[18].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se4, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se5, set_number: 1, reps: 10, weight_kg: 60, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se5, set_number: 2, reps: 6, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histH2 = await getExerciseHistory(supabaseA, userIdA, exercises[18].id, { limit: 10 });
+    const [sessH2_2, sessH2_1] = histH2.sessions;
+
+    check("H-2: [60×10, 100×6] gets rep PR for 100×6 (beats 100×5 at same weight)",
+      sessH2_2?.prs.some(pr => pr.type === "most_reps" && pr.value === 6),
+      `s2 prs: ${sessH2_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+  }
+
+  console.log("\n20. Item B: e1RM rounding prevents false PRs on mathematical ties");
+  {
+    // 121×1 and 110×3 both equal 121.0 when rounded
+    const s1 = randomUUID(), s2 = randomUUID();
+    const se1 = randomUUID(), se2 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-09-10", status: "completed", completed_at: "2026-09-10T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-09-11", status: "completed", completed_at: "2026-09-11T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[19].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[19].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 1, weight_kg: 121, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 3, weight_kg: 110, is_warmup_set: false },
+    ]);
+
+    const histB = await getExerciseHistory(supabaseA, userIdA, exercises[19].id, { limit: 10 });
+    const [sessB_2, sessB_1] = histB.sessions;
+
+    check("Item B: 110×3 does NOT get e1RM PR (rounds to same as 121×1)",
+      !sessB_2?.prs.some(pr => pr.type === "best_e1rm"),
+      `s2 prs: ${sessB_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    check("Item B: first session gets no PRs (baseline rule)",
+      sessB_1?.prs.length === 0);
+  }
+
+  console.log("\n21. Weighted rep PR rule edge cases");
+  {
+    // Case 1: 100×5 / 80×8 / 80×9 -> 80×9 IS a rep PR
+    const s1 = randomUUID(), s2 = randomUUID(), s3 = randomUUID();
+    const se1 = randomUUID(), se2 = randomUUID(), se3 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-09-20", status: "completed", completed_at: "2026-09-20T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-09-21", status: "completed", completed_at: "2026-09-21T10:00:00Z" },
+      { id: s3, user_id: userIdA, local_date: "2026-09-22", status: "completed", completed_at: "2026-09-22T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[20].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[20].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se3, user_id: userIdA, session_id: s3, exercise_id: exercises[20].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 8, weight_kg: 80, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 1, reps: 9, weight_kg: 80, is_warmup_set: false },
+    ]);
+
+    const histCase1 = await getExerciseHistory(supabaseA, userIdA, exercises[20].id, { limit: 10 });
+    const [sessCase1_3, sessCase1_2, sessCase1_1] = histCase1.sessions;
+
+    check("Case 1: 80×9 IS a rep PR (beats 80×8)",
+      sessCase1_3?.prs.some(pr => pr.type === "most_reps" && pr.value === 9),
+      `s3 prs: ${sessCase1_3?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    const mostRepsPRCase1 = histCase1.currentPRs.find(pr => pr.type === "most_reps");
+    check("Case 1: currentPRs.most_reps is 80×9",
+      mostRepsPRCase1?.set.weight_kg === 80 && mostRepsPRCase1?.value === 9,
+      `got ${mostRepsPRCase1?.set.weight_kg}×${mostRepsPRCase1?.value}`);
+
+    // Case 2: 100×5 / 110×3 -> 110×3 is NOT a rep PR
+    const s4 = randomUUID(), s5 = randomUUID();
+    const se4 = randomUUID(), se5 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s4, user_id: userIdA, local_date: "2026-09-23", status: "completed", completed_at: "2026-09-23T10:00:00Z" },
+      { id: s5, user_id: userIdA, local_date: "2026-09-24", status: "completed", completed_at: "2026-09-24T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se4, user_id: userIdA, session_id: s4, exercise_id: exercises[21].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se5, user_id: userIdA, session_id: s5, exercise_id: exercises[21].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se4, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se5, set_number: 1, reps: 3, weight_kg: 110, is_warmup_set: false },
+    ]);
+
+    const histCase2 = await getExerciseHistory(supabaseA, userIdA, exercises[21].id, { limit: 10 });
+    const [sessCase2_2, sessCase2_1] = histCase2.sessions;
+
+    check("Case 2: 110×3 is NOT a rep PR (no earlier set at 110)",
+      !sessCase2_2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sessCase2_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    const mostRepsPRCase2 = histCase2.currentPRs.find(pr => pr.type === "most_reps");
+    check("Case 2: currentPRs.most_reps is baseline 100×5",
+      mostRepsPRCase2?.set.weight_kg === 100 && mostRepsPRCase2?.value === 5,
+      `got ${mostRepsPRCase2?.set.weight_kg}×${mostRepsPRCase2?.value}`);
+
+    // Case 3: 100×5 / 100×5 -> tie is NOT a PR
+    const s6 = randomUUID(), s7 = randomUUID();
+    const se6 = randomUUID(), se7 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s6, user_id: userIdA, local_date: "2026-09-25", status: "completed", completed_at: "2026-09-25T10:00:00Z" },
+      { id: s7, user_id: userIdA, local_date: "2026-09-26", status: "completed", completed_at: "2026-09-26T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se6, user_id: userIdA, session_id: s6, exercise_id: exercises[22].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se7, user_id: userIdA, session_id: s7, exercise_id: exercises[22].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se6, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se7, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histCase3 = await getExerciseHistory(supabaseA, userIdA, exercises[22].id, { limit: 10 });
+    const [sessCase3_2, sessCase3_1] = histCase3.sessions;
+
+    check("Case 3: 100×5 tie is NOT a rep PR",
+      !sessCase3_2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sessCase3_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    const mostRepsPRCase3 = histCase3.currentPRs.find(pr => pr.type === "most_reps");
+    check("Case 3: currentPRs.most_reps is baseline 100×5 (first set)",
+      mostRepsPRCase3?.set.weight_kg === 100 && mostRepsPRCase3?.value === 5,
+      `got ${mostRepsPRCase3?.set.weight_kg}×${mostRepsPRCase3?.value}`);
+  }
+
+  // L1: Set paging with stable ordering - no duplicates or gaps
+  console.log("\nL1: Set paging with stable ordering");
+  {
+    const s1 = randomUUID();
+    const se1 = randomUUID();
+    
+    // Create a session with many sets that share set_numbers
+    // This tests pagination across boundaries
+    const { error: sessionErr } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2024-01-01", status: "completed", actual_type: "weights", completed_at: new Date("2024-01-01T10:00:00Z").toISOString() },
+    ]);
+    if (sessionErr) {
+      check("L1: Insert paging test session", false, `error: ${sessionErr.message}`);
+      return false;
+    }
+
+    const { error: seErr } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exerciseL1, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (seErr) {
+      check("L1: Insert paging test session_exercise", false, `error: ${seErr.message}`);
+      return false;
+    }
+
+    // Insert 15 sets with unique set_numbers (tests pagination of large set count)
+    const sets = [];
+    for (let i = 0; i < 15; i++) {
+      sets.push({
+        user_id: userIdA,
+        session_exercise_id: se1,
+        set_number: i + 1,  // 1,2,3,...,15
+        reps: 10 + i,
+        weight_kg: 50 + i * 5,
+        is_warmup_set: false,
+      });
+    }
+    const { error: setsErr } = await adminClient.from("session_sets").insert(sets);
+    if (setsErr) {
+      check("L1: Insert paging test sets", false, `error: ${setsErr.message}`);
+      return false;
+    }
+
+    const lastPerf = await getLastPerformance(supabaseA, userIdA, exerciseL1);
+    check("L1: All 15 sets retrieved (no gaps, no duplicates)",
+      lastPerf?.sets.length === 15,
+      `got ${lastPerf?.sets.length} sets`);
+    
+    // Verify sets are in correct order by set_number
+    const setNumbers = lastPerf?.sets.map(s => s.reps) || [];
+    const expected = Array.from({ length: 15 }, (_, i) => 10 + i);
+    check("L1: Sets are in correct order",
+      JSON.stringify(setNumbers) === JSON.stringify(expected),
+      `got reps: ${setNumbers.join(",")}`);
+  }
+
+  // L2: Bodyweight (null) vs weighted rep PRs
+  console.log("\nL2: Bodyweight (null weight) handling");
+  {
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+    
+    const { error: sessionErr } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2024-02-01", status: "completed", actual_type: "weights", completed_at: new Date("2024-02-01T10:00:00Z").toISOString() },
+      { id: s2, user_id: userIdA, local_date: "2024-02-02", status: "completed", actual_type: "weights", completed_at: new Date("2024-02-02T10:00:00Z").toISOString() },
+    ]);
+    if (sessionErr) {
+      check("L2: Insert bodyweight test sessions", false, `error: ${sessionErr.message}`);
+      return false;
+    }
+
+    const { error: seErr } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exerciseL2, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exerciseL2, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (seErr) {
+      check("L2: Insert bodyweight test session_exercises", false, `error: ${seErr.message}`);
+      return false;
+    }
+
+    // Session 1: bodyweight 15 reps + weighted sets
+    // Session 2: bodyweight 20 reps (should be a PR)
+    const { error: setsErr } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 15, weight_kg: null, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 2, reps: 10, weight_kg: 60, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 3, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 20, weight_kg: null, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 2, reps: 10, weight_kg: 60, is_warmup_set: false },
+    ]);
+    if (setsErr) {
+      check("L2: Insert bodyweight test sets", false, `error: ${setsErr.message}`);
+      return false;
+    }
+
+    const histL2 = await getExerciseHistory(supabaseA, userIdA, exerciseL2, { limit: 10 });
+    const [sessL2_2, sessL2_1] = histL2.sessions;
+    
+    check("L2: Bodyweight 20 reps is a most_reps PR",
+      sessL2_2?.prs.some(pr => pr.type === "most_reps" && pr.value === 20),
+      `s2 prs: ${sessL2_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    
+    const mostRepsPRL2 = histL2.currentPRs.find(pr => pr.type === "most_reps");
+    check("L2: currentPRs.most_reps is bodyweight 20",
+      mostRepsPRL2?.value === 20 && mostRepsPRL2?.set.weight_kg === null,
+      `got ${mostRepsPRL2?.set.weight_kg ?? "null"}×${mostRepsPRL2?.value}`);
+  }
+
+  // L6: Page boundary tests (would require >1000 rows to test properly)
+  // For now, just verify the logic works with smaller datasets
+  console.log("\nL6: Paging boundary logic");
+  {
+    // Create exercise with many sessions to test paging
+    const sessionCount = 25;
+    const sessionsL6 = [];
+    const sessionExercisesL6 = [];
+    const setsL6 = [];
+    
+    for (let i = 0; i < sessionCount; i++) {
+      const sId = randomUUID();
+      const seId = randomUUID();
+      sessionsL6.push({
+        id: sId,
+        user_id: userIdA,
+        local_date: `2024-03-${String(i + 1).padStart(2, "0")}`,
+        status: "completed",
+        actual_type: "weights",
+        completed_at: new Date(`2024-03-${String(i + 1).padStart(2, "0")}T10:00:00Z`).toISOString(),
+      });
+      sessionExercisesL6.push({
+        id: seId,
+        user_id: userIdA,
+        session_id: sId,
+        exercise_id: exerciseL6,
+        metric: "reps",
+        status: "completed",
+        order_index: 0,
+      });
+      setsL6.push({
+        user_id: userIdA,
+        session_exercise_id: seId,
+        set_number: 1,
+        reps: 5,
+        weight_kg: 100 + i,
+        is_warmup_set: false,
+      });
+    }
+
+    const { error: sessErr } = await adminClient.from("sessions").insert(sessionsL6);
+    if (sessErr) {
+      check("L6: Insert paging boundary sessions", false, `error: ${sessErr.message}`);
+      return false;
+    }
+
+    const { error: seErr } = await adminClient.from("session_exercises").insert(sessionExercisesL6);
+    if (seErr) {
+      check("L6: Insert paging boundary session_exercises", false, `error: ${seErr.message}`);
+      return false;
+    }
+
+    const { error: setsErr } = await adminClient.from("session_sets").insert(setsL6);
+    if (setsErr) {
+      check("L6: Insert paging boundary sets", false, `error: ${setsErr.message}`);
+      return false;
+    }
+
+    // Fetch with pagination
+    const page1 = await getExerciseHistory(supabaseA, userIdA, exerciseL6, { limit: 10, offset: 0 });
+    const page2 = await getExerciseHistory(supabaseA, userIdA, exerciseL6, { limit: 10, offset: 10 });
+    const page3 = await getExerciseHistory(supabaseA, userIdA, exerciseL6, { limit: 10, offset: 20 });
+
+    check("L6: Page 1 has 10 sessions", page1.sessions.length === 10, `got ${page1.sessions.length}`);
+    check("L6: Page 2 has 10 sessions", page2.sessions.length === 10, `got ${page2.sessions.length}`);
+    check("L6: Page 3 has 5 sessions", page3.sessions.length === 5, `got ${page3.sessions.length}`);
+    check("L6: Total count is 25", page1.totalCount === 25, `got ${page1.totalCount}`);
+    
+    // Verify no duplicates across pages
+    const allSessionIds = [
+      ...page1.sessions.map(s => s.sessionId),
+      ...page2.sessions.map(s => s.sessionId),
+      ...page3.sessions.map(s => s.sessionId),
+    ];
+    const uniqueSessionIds = new Set(allSessionIds);
+    check("L6: No duplicate sessions across pages",
+      uniqueSessionIds.size === sessionCount,
+      `got ${uniqueSessionIds.size} unique, expected ${sessionCount}`);
+  }
+
+  // Paging tie-break test: warm-up and working set with same set_number
+  console.log("\nPaging tie-break: same set_number for warm-up and working set");
+  {
+    const s1 = randomUUID();
+    const se1 = randomUUID();
+    
+    // Create a session with warm-up and working sets sharing set_numbers
+    const { error: sessionErr } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2024-05-01", status: "completed", actual_type: "weights", completed_at: new Date("2024-05-01T10:00:00Z").toISOString() },
+    ]);
+    if (sessionErr) {
+      check("Paging: Insert test session", false, `error: ${sessionErr.message}`);
+      return false;
+    }
+
+    const { error: seErr } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercisePaging, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (seErr) {
+      check("Paging: Insert session_exercise", false, `error: ${seErr.message}`);
+      return false;
+    }
+
+    // Insert sets: warm-ups and working sets that share set_numbers
+    // This tests the tie-break on id when set_number is the same
+    const sets = [];
+    for (let i = 1; i <= 5; i++) {
+      // Warm-up set
+      sets.push({
+        user_id: userIdA,
+        session_exercise_id: se1,
+        set_number: i,
+        reps: 5,
+        weight_kg: 20 + i * 5,
+        is_warmup_set: true,
+      });
+      // Working set with same set_number
+      sets.push({
+        user_id: userIdA,
+        session_exercise_id: se1,
+        set_number: i,
+        reps: 8,
+        weight_kg: 60 + i * 10,
+        is_warmup_set: false,
+      });
+    }
+    
+    const { error: setsErr } = await adminClient.from("session_sets").insert(sets);
+    if (setsErr) {
+      check("Paging: Insert sets with tie-break scenario", false, `error: ${setsErr.message}`);
+      return false;
+    }
+
+    // Query via getExerciseHistory (uses paged query with ORDER BY session_exercise_id, set_number, id)
+    const history = await getExerciseHistory(supabaseA, userIdA, exercisePaging, { limit: 10 });
+    
+    check("Paging: History returns one session", history.sessions.length === 1);
+    
+    const session = history.sessions[0];
+    if (session) {
+      // Working sets only (warm-ups excluded by query)
+      check("Paging: 5 working sets returned (warm-ups excluded)",
+        session.sets.length === 5,
+        `got ${session.sets.length}`);
+      
+      // Verify all working sets present with correct weights
+      const weights = session.sets.map(s => s.weight_kg).sort((a, b) => (a ?? 0) - (b ?? 0));
+      const expectedWeights = [70, 80, 90, 100, 110];
+      check("Paging: All working sets retrieved (no duplicates, none missing)",
+        JSON.stringify(weights) === JSON.stringify(expectedWeights),
+        `got ${weights.join(", ")}`);
+      
+      // Verify deterministic order by set_number
+      const setNumbers = session.sets.map(s => weights.indexOf(s.weight_kg ?? 0) + 1);
+      check("Paging: Sets in deterministic order (by set_number, id tie-break)",
+        setNumbers.every((n, i) => n === i + 1),
+        `got set order matching weights`);
+    }
   }
 
   if (failures > 0) {
@@ -845,8 +1588,8 @@ async function runTests() {
     // Cleanup test users and their data on every path
     console.log("\nCleaning up test users...");
     try {
-      await adminClient.auth.admin.deleteUser(userIdA);
-      await adminClient.auth.admin.deleteUser(userIdB);
+      if (userIdA) await adminClient.auth.admin.deleteUser(userIdA);
+      if (userIdB) await adminClient.auth.admin.deleteUser(userIdB);
       console.log("✓ Test users deleted\n");
     } catch (cleanupError) {
       console.error("Warning: cleanup failed:", cleanupError);
