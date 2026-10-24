@@ -25,6 +25,17 @@ export function shouldRefreshOnEvent(
   return false;
 }
 
+export type DocumentLike = {
+  visibilityState: string;
+  addEventListener(type: "visibilitychange", listener: () => void): void;
+  removeEventListener(type: "visibilitychange", listener: () => void): void;
+};
+
+export type WindowLike = {
+  addEventListener(type: "pageshow", listener: (event: PageTransitionEvent) => void): void;
+  removeEventListener(type: "pageshow", listener: (event: PageTransitionEvent) => void): void;
+};
+
 /**
  * Injectable seam for attaching resume refresh listeners.
  * Allows testing without DOM.
@@ -36,8 +47,8 @@ export function shouldRefreshOnEvent(
  */
 export function attachResumeRefresh(
   targets: {
-    doc: Document;
-    win: Window;
+    doc: DocumentLike;
+    win: WindowLike;
   },
   refresh: () => void,
 ): () => void {

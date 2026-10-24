@@ -11,6 +11,8 @@
 import {
   shouldRefreshOnEvent,
   attachResumeRefresh,
+  type DocumentLike,
+  type WindowLike,
 } from "../src/lib/session/use-resume-refresh";
 
 export {}; // Make this a module
@@ -75,8 +77,15 @@ async function main() {
   // Test 2: attachResumeRefresh calls refresh on mount
   await test("attachResumeRefresh calls refresh immediately on mount", () => {
     let refreshCount = 0;
-    const mockDoc = { addEventListener: () => {}, visibilityState: "visible" } as any;
-    const mockWin = { addEventListener: () => {} } as any;
+    const mockDoc: DocumentLike = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      visibilityState: "visible",
+    };
+    const mockWin: WindowLike = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
 
     attachResumeRefresh({ doc: mockDoc, win: mockWin }, () => {
       refreshCount++;
@@ -88,15 +97,17 @@ async function main() {
   // Test 3: attachResumeRefresh sets up visibilitychange listener
   await test("attachResumeRefresh sets up visibilitychange listener", () => {
     let visibilityListenerAdded = false;
-    const mockDoc = {
-      addEventListener(event: string, handler: any) {
-        if (event === "visibilitychange") {
-          visibilityListenerAdded = true;
-        }
+    const mockDoc: DocumentLike = {
+      addEventListener(event: "visibilitychange", handler: () => void) {
+        visibilityListenerAdded = true;
       },
+      removeEventListener: () => {},
       visibilityState: "visible",
-    } as any;
-    const mockWin = { addEventListener: () => {} } as any;
+    };
+    const mockWin: WindowLike = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
 
     attachResumeRefresh({ doc: mockDoc, win: mockWin }, () => {});
 
@@ -106,17 +117,17 @@ async function main() {
   // Test 4: attachResumeRefresh sets up pageshow listener
   await test("attachResumeRefresh sets up pageshow listener", () => {
     let pageshowListenerAdded = false;
-    const mockDoc = {
+    const mockDoc: DocumentLike = {
       addEventListener: () => {},
+      removeEventListener: () => {},
       visibilityState: "visible",
-    } as any;
-    const mockWin = {
-      addEventListener(event: string, handler: any) {
-        if (event === "pageshow") {
-          pageshowListenerAdded = true;
-        }
+    };
+    const mockWin: WindowLike = {
+      addEventListener(event: "pageshow", handler: (event: PageTransitionEvent) => void) {
+        pageshowListenerAdded = true;
       },
-    } as any;
+      removeEventListener: () => {},
+    };
 
     attachResumeRefresh({ doc: mockDoc, win: mockWin }, () => {});
 
@@ -126,17 +137,19 @@ async function main() {
   // Test 5: visibilitychange handler calls refresh when becoming visible
   await test("visibilitychange handler calls refresh when becoming visible", () => {
     let refreshCount = 0;
-    let visibilityHandler: any = null;
+    let visibilityHandler: (() => void) | null = null;
 
-    const mockDoc = {
-      addEventListener(event: string, handler: any) {
-        if (event === "visibilitychange") {
-          visibilityHandler = handler;
-        }
+    const mockDoc: DocumentLike = {
+      addEventListener(event: "visibilitychange", handler: () => void) {
+        visibilityHandler = handler;
       },
+      removeEventListener: () => {},
       visibilityState: "visible",
-    } as any;
-    const mockWin = { addEventListener: () => {} } as any;
+    };
+    const mockWin: WindowLike = {
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
 
     attachResumeRefresh({ doc: mockDoc, win: mockWin }, () => {
       refreshCount++;
@@ -147,7 +160,7 @@ async function main() {
 
     // Simulate visibilitychange event
     mockDoc.visibilityState = "visible";
-    visibilityHandler();
+    if (visibilityHandler) visibilityHandler();
 
     assert(refreshCount === 2, `Expected 2 refreshes after visibilitychange, got ${refreshCount}`);
   });
@@ -155,19 +168,19 @@ async function main() {
   // Test 6: pageshow handler calls refresh when persisted=true
   await test("pageshow handler calls refresh when persisted=true", () => {
     let refreshCount = 0;
-    let pageshowHandler: any = null;
+    let pageshowHandler: ((event: PageTransitionEvent) => void) | null = null;
 
-    const mockDoc = {
+    const mockDoc: DocumentLike = {
       addEventListener: () => {},
+      removeEventListener: () => {},
       visibilityState: "visible",
-    } as any;
-    const mockWin = {
-      addEventListener(event: string, handler: any) {
-        if (event === "pageshow") {
-          pageshowHandler = handler;
-        }
+    };
+    const mockWin: WindowLike = {
+      addEventListener(event: "pageshow", handler: (event: PageTransitionEvent) => void) {
+        pageshowHandler = handler;
       },
-    } as any;
+      removeEventListener: () => {},
+    };
 
     attachResumeRefresh({ doc: mockDoc, win: mockWin }, () => {
       refreshCount++;
@@ -177,7 +190,7 @@ async function main() {
     assert(refreshCount === 1, "Should have 1 refresh from mount");
 
     // Simulate pageshow event with persisted=true (bfcache restore)
-    pageshowHandler({ persisted: true });
+    if (pageshowHandler) pageshowHandler({ persisted: true } as PageTransitionEvent);
 
     assert(refreshCount === 2, `Expected 2 refreshes after bfcache pageshow, got ${refreshCount}`);
   });
@@ -185,19 +198,19 @@ async function main() {
   // Test 7: pageshow handler does NOT call refresh when persisted=false
   await test("pageshow handler does not call refresh when persisted=false", () => {
     let refreshCount = 0;
-    let pageshowHandler: any = null;
+    let pageshowHandler: ((event: PageTransitionEvent) => void) | null = null;
 
-    const mockDoc = {
+    const mockDoc: DocumentLike = {
       addEventListener: () => {},
+      removeEventListener: () => {},
       visibilityState: "visible",
-    } as any;
-    const mockWin = {
-      addEventListener(event: string, handler: any) {
-        if (event === "pageshow") {
-          pageshowHandler = handler;
-        }
+    };
+    const mockWin: WindowLike = {
+      addEventListener(event: "pageshow", handler: (event: PageTransitionEvent) => void) {
+        pageshowHandler = handler;
       },
-    } as any;
+      removeEventListener: () => {},
+    };
 
     attachResumeRefresh({ doc: mockDoc, win: mockWin }, () => {
       refreshCount++;
@@ -207,7 +220,7 @@ async function main() {
     assert(refreshCount === 1, "Should have 1 refresh from mount");
 
     // Simulate pageshow event with persisted=false (normal page load)
-    pageshowHandler({ persisted: false });
+    if (pageshowHandler) pageshowHandler({ persisted: false } as PageTransitionEvent);
 
     assert(refreshCount === 1, `Expected 1 refresh (no new refresh), got ${refreshCount}`);
   });
@@ -217,23 +230,19 @@ async function main() {
     let visibilityListenerRemoved = false;
     let pageshowListenerRemoved = false;
 
-    const mockDoc = {
+    const mockDoc: DocumentLike = {
       addEventListener: () => {},
-      removeEventListener(event: string, handler: any) {
-        if (event === "visibilitychange") {
-          visibilityListenerRemoved = true;
-        }
+      removeEventListener(event: "visibilitychange", handler: () => void) {
+        visibilityListenerRemoved = true;
       },
       visibilityState: "visible",
-    } as any;
-    const mockWin = {
+    };
+    const mockWin: WindowLike = {
       addEventListener: () => {},
-      removeEventListener(event: string, handler: any) {
-        if (event === "pageshow") {
-          pageshowListenerRemoved = true;
-        }
+      removeEventListener(event: "pageshow", handler: (event: PageTransitionEvent) => void) {
+        pageshowListenerRemoved = true;
       },
-    } as any;
+    };
 
     const cleanup = attachResumeRefresh({ doc: mockDoc, win: mockWin }, () => {});
     cleanup();
