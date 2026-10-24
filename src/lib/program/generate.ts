@@ -1720,79 +1720,83 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     }
     
     // Final sort to ensure compound-before-isolation order after M3/H8 splices
-    // Preserve: knee-safe first pick at position 0, core at end
-    const kneeSafeIndex = kneeSafeFirstPickExerciseId !== null
-      ? exercises.findIndex(ex => ex.exerciseId === kneeSafeFirstPickExerciseId)
-      : -1;
-    
-    // Build lookup map for O(1) access instead of pool.find() in comparator
-    const byId = new Map(pool.map(e => [e.id, e]));
-    
-    exercises.sort((a, b) => {
-      const aEx = byId.get(a.exerciseId);
-      const bEx = byId.get(b.exerciseId);
-      if (!aEx || !bEx) return 0;
+    // Only apply when there were backfills or knee-specific manipulations that might have disrupted order
+    // For no-injury users with no backfills, preserve the original sort from line 1336
+    if (backfilled || kneeSafeFirstPickExerciseId !== null || hasKneeInjury) {
+      // Preserve: knee-safe first pick at position 0, core at end
+      const kneeSafeIndex = kneeSafeFirstPickExerciseId !== null
+        ? exercises.findIndex(ex => ex.exerciseId === kneeSafeFirstPickExerciseId)
+        : -1;
       
-      // Knee-safe first pick always stays first
-      if (kneeSafeIndex === a.orderIndex && kneeSafeIndex === 0) return -1;
-      if (kneeSafeIndex === b.orderIndex && kneeSafeIndex === 0) return 1;
+      // Build lookup map for O(1) access instead of pool.find() in comparator
+      const byId = new Map(pool.map(e => [e.id, e]));
       
-      const aCore = aEx.movement_pattern === "core";
-      const bCore = bEx.movement_pattern === "core";
-      if (aCore && !bCore) return 1;  // Core goes last
-      if (!aCore && bCore) return -1;
-      
-      const aCompound = aEx.mechanic === "compound";
-      const bCompound = bEx.mechanic === "compound";
-      if (aCompound && !bCompound) return -1;  // Compounds before isolations
-      if (!aCompound && bCompound) return 1;
-      
-      // Preserve current order within same category
-      return a.orderIndex - b.orderIndex;
-    });
-    
-    // Rebuild orderIndex after sort
-    exercises.forEach((ex, idx) => {
-      ex.orderIndex = idx;
-    });
-    
-    // Ensure no timed holds (metric="seconds") landed in main slots (0-3) after sort
-    // This can happen when force-adding wall-sit or similar accessories
-    // Reuse the byId map from final sort above
-    const timedHoldInMain = exercises.findIndex((ex, idx) => {
-      if (idx >= 4) return false; // Only check main slots
-      const e = byId.get(ex.exerciseId);
-      return e?.metric === "seconds";
-    });
-    
-    if (timedHoldInMain !== -1) {
-      // Find first accessory slot (position 4+) that is NOT a timed hold
-      const firstNonTimedAccessory = exercises.findIndex((ex, idx) => {
-        if (idx < 4) return false; // Only check accessory slots
-        const e = byId.get(ex.exerciseId);
-        return e?.metric !== "seconds";
+      exercises.sort((a, b) => {
+        const aEx = byId.get(a.exerciseId);
+        const bEx = byId.get(b.exerciseId);
+        if (!aEx || !bEx) return 0;
+        
+        // Knee-safe first pick always stays first
+        if (kneeSafeIndex === a.orderIndex && kneeSafeIndex === 0) return -1;
+        if (kneeSafeIndex === b.orderIndex && kneeSafeIndex === 0) return 1;
+        
+        const aCore = aEx.movement_pattern === "core";
+        const bCore = bEx.movement_pattern === "core";
+        if (aCore && !bCore) return 1;  // Core goes last
+        if (!aCore && bCore) return -1;
+        
+        const aCompound = aEx.mechanic === "compound";
+        const bCompound = bEx.mechanic === "compound";
+        if (aCompound && !bCompound) return -1;  // Compounds before isolations
+        if (!aCompound && bCompound) return 1;
+        
+        // Preserve current order within same category
+        return a.orderIndex - b.orderIndex;
       });
       
-      if (firstNonTimedAccessory !== -1) {
-        // Swap timed hold with non-timed accessory
-        const temp = exercises[timedHoldInMain];
-        exercises[timedHoldInMain] = exercises[firstNonTimedAccessory];
-        exercises[firstNonTimedAccessory] = temp;
-        
-        // Rebuild orderIndex after swap
-        exercises.forEach((ex, idx) => {
-          ex.orderIndex = idx;
+      // Rebuild orderIndex after sort
+      exercises.forEach((ex, idx) => {
+        ex.orderIndex = idx;
+      });
+      
+      // Ensure no timed holds (metric="seconds") landed in main slots (0-3) after sort
+      // This can happen when force-adding wall-sit or similar accessories
+      // Reuse the byId map from final sort above
+      const timedHoldInMain = exercises.findIndex((ex, idx) => {
+        if (idx >= 4) return false; // Only check main slots
+        const e = byId.get(ex.exerciseId);
+        return e?.metric === "seconds";
+      });
+      
+      if (timedHoldInMain !== -1) {
+        // Find first accessory slot (position 4+) that is NOT a timed hold
+        const firstNonTimedAccessory = exercises.findIndex((ex, idx) => {
+          if (idx < 4) return false; // Only check accessory slots
+          const e = byId.get(ex.exerciseId);
+          return e?.metric !== "seconds";
         });
-      } else {
-        // No non-timed accessory to swap with - remove the timed hold from main slot
-        // and append to end
-        const [removed] = exercises.splice(timedHoldInMain, 1);
-        exercises.push(removed);
         
-        // Rebuild orderIndex
-        exercises.forEach((ex, idx) => {
-          ex.orderIndex = idx;
-        });
+        if (firstNonTimedAccessory !== -1) {
+          // Swap timed hold with non-timed accessory
+          const temp = exercises[timedHoldInMain];
+          exercises[timedHoldInMain] = exercises[firstNonTimedAccessory];
+          exercises[firstNonTimedAccessory] = temp;
+          
+          // Rebuild orderIndex after swap
+          exercises.forEach((ex, idx) => {
+            ex.orderIndex = idx;
+          });
+        } else {
+          // No non-timed accessory to swap with - remove the timed hold from main slot
+          // and append to end
+          const [removed] = exercises.splice(timedHoldInMain, 1);
+          exercises.push(removed);
+          
+          // Rebuild orderIndex
+          exercises.forEach((ex, idx) => {
+            ex.orderIndex = idx;
+          });
+        }
       }
     }
     
