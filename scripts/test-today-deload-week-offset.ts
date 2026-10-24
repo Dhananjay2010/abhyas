@@ -2,7 +2,7 @@
 /**
  * Test: Today page deload detection must respect week_offset.
  * 
- * Mutant killer: Verifies that cycleWeekFor in today/page.tsx correctly
+ * Verifies that cycleWeekFor in today/page.tsx correctly
  * uses week_offset when determining if current week is a deload week.
  */
 
