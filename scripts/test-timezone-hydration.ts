@@ -8,6 +8,7 @@
  * - Server-computed list prevents hydration mismatches
  */
 
+(function() {
 let failures = 0;
 
 function testTimezoneList(
@@ -143,3 +144,4 @@ console.log(
   `\n${failures === 0 ? "✓" : "✗"} ${failures === 0 ? "All tests passed" : `${failures} test(s) failed`}`
 );
 process.exit(failures === 0 ? 0 : 1);
+})();

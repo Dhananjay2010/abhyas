@@ -25,7 +25,7 @@ import {
   updateSessionSettings,
   type Result,
 } from "./actions";
-import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
+import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -104,6 +104,8 @@ export function SettingsForm({
   const [equipmentOffConfirmation, setEquipmentOffConfirmation] = useState<string | null>(null);
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
+  /** L4 QA fix: Request sequence to ignore stale equipment save responses */
+  const [equipmentSequence] = useState(() => createRequestSequence());
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -128,8 +130,17 @@ export function SettingsForm({
   /** Save equipment with rollback on error */
   function saveEquipment(hasAll: boolean, equipmentIds: string[]) {
     const changed = equipmentChanged(hasAll, equipmentIds);
+    // L4 QA fix: Track request sequence to ignore stale responses
+    const requestSeq = equipmentSequence.next();
+    
     startTransition(async () => {
       const r = await actions.updateEquipment({ hasAll, equipmentIds });
+      
+      // L4 QA fix: Ignore stale responses from overlapping saves
+      if (!equipmentSequence.isCurrent(requestSeq)) {
+        return;
+      }
+      
       if (!r.ok) {
         // Rollback to last saved state
         setS({ ...s, hasAllEquipment: savedEquipment.hasAll, equipmentIds: savedEquipment.ids });

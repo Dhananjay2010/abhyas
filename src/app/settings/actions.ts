@@ -107,27 +107,70 @@ export async function updateEquipment(input: {
     return { ok: true };
   }
 
-  // Write changes
-  const { error: flagError } = await supabase
-    .from("profiles")
-    .update({ has_all_equipment: input.hasAll })
-    .eq("id", user.id);
-  if (flagError) return { ok: false, error: flagError.message };
+  // L2 QA fix: Validate equipment IDs exist before writing anything
+  if (!input.hasAll && input.equipmentIds.length > 0) {
+    // Dedupe the IDs
+    const uniqueIds = Array.from(new Set(input.equipmentIds));
+    
+    // Check all IDs exist in equipment catalogue
+    const { data: validEquipment, error: catalogueError } = await supabase
+      .from("equipment")
+      .select("id")
+      .in("id", uniqueIds);
+    
+    if (catalogueError) {
+      return { ok: false, error: catalogueError.message };
+    }
+    
+    const validIds = new Set(validEquipment?.map(e => e.id) ?? []);
+    const invalidIds = uniqueIds.filter(id => !validIds.has(id));
+    
+    if (invalidIds.length > 0) {
+      return { 
+        ok: false, 
+        error: `Invalid equipment: ${invalidIds.join(", ")}` 
+      };
+    }
+  }
 
-  if (!input.hasAll) {
+  // L2 QA fix: Insert/upsert new rows before deleting removed ones
+  if (!input.hasAll && input.equipmentIds.length > 0) {
+    const uniqueIds = Array.from(new Set(input.equipmentIds));
+    
+    // Upsert new equipment rows
+    const { error: upsertError } = await supabase
+      .from("user_equipment")
+      .upsert(
+        uniqueIds.map((id) => ({ user_id: user.id, equipment_id: id })),
+        { onConflict: "user_id,equipment_id" }
+      );
+    if (upsertError) return { ok: false, error: upsertError.message };
+
+    // Delete rows that were removed (not in new list)
+    const toDelete = currentEquipmentIds.filter(id => !uniqueIds.includes(id));
+    if (toDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("user_equipment")
+        .delete()
+        .eq("user_id", user.id)
+        .in("equipment_id", toDelete);
+      if (deleteError) return { ok: false, error: deleteError.message };
+    }
+  } else if (!input.hasAll && input.equipmentIds.length === 0) {
+    // Clear all equipment when switching to empty list
     const { error: clearError } = await supabase
       .from("user_equipment")
       .delete()
       .eq("user_id", user.id);
     if (clearError) return { ok: false, error: clearError.message };
-
-    if (input.equipmentIds.length > 0) {
-      const { error } = await supabase
-        .from("user_equipment")
-        .insert(input.equipmentIds.map((id) => ({ user_id: user.id, equipment_id: id })));
-      if (error) return { ok: false, error: error.message };
-    }
   }
+
+  // L2 QA fix: Update has_all flag AFTER row writes succeed
+  const { error: flagError } = await supabase
+    .from("profiles")
+    .update({ has_all_equipment: input.hasAll })
+    .eq("id", user.id);
+  if (flagError) return { ok: false, error: flagError.message };
 
   revalidatePath("/settings");
   return { ok: true };

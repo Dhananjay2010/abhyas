@@ -124,18 +124,27 @@ export async function saveEquipment(input: {
     .eq("id", user.id);
   if (flagError) return { ok: false, error: flagError.message };
 
-  // Replace rather than merge: the checklist is the complete picture each time.
-  const { error: clearError } = await supabase
-    .from("user_equipment")
-    .delete()
-    .eq("user_id", user.id);
-  if (clearError) return { ok: false, error: clearError.message };
+  // L3 QA fix: Keep the rows when hasAll is true, like decideEquipmentUpdate does.
+  // This way, switching 'everything' OFF later has rows to restore.
+  if (input.equipmentIds.length > 0) {
+    // Replace rather than merge: the checklist is the complete picture each time.
+    const { error: clearError } = await supabase
+      .from("user_equipment")
+      .delete()
+      .eq("user_id", user.id);
+    if (clearError) return { ok: false, error: clearError.message };
 
-  if (!input.hasAll && input.equipmentIds.length > 0) {
     const { error } = await supabase
       .from("user_equipment")
       .insert(input.equipmentIds.map((id) => ({ user_id: user.id, equipment_id: id })));
     if (error) return { ok: false, error: error.message };
+  } else if (!input.hasAll) {
+    // Only clear when hasAll is false and no equipment is selected
+    const { error: clearError } = await supabase
+      .from("user_equipment")
+      .delete()
+      .eq("user_id", user.id);
+    if (clearError) return { ok: false, error: clearError.message };
   }
 
   return { ok: true };

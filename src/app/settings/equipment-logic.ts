@@ -104,3 +104,17 @@ export function getEquipmentOffMessage(wasSaved: boolean): string {
     ? "Saved. Your plan will use only the equipment you pick."
     : "Showing your saved equipment. Pick what you have.";
 }
+
+/**
+ * L4 QA fix: Request sequence tracker to ignore stale save responses.
+ * Prevents overlapping saves where the first fails from rolling back the screen
+ * while the DB keeps the second save's result.
+ */
+export function createRequestSequence() {
+  let counter = 0;
+  
+  return {
+    next: () => ++counter,
+    isCurrent: (seq: number) => seq === counter,
+  };
+}
