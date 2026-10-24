@@ -8,11 +8,8 @@
  * - The state reflects successful replay
  */
 
-import {
-  createPendingSetController,
-  type LogSetFunction,
-  type PendingSetState,
-} from "../src/lib/session/pending-set-controller";
+import { createPendingSetController, type PendingSetState } from "../src/lib/session/pending-set-controller";
+import type { Result } from "../src/app/session/actions";
 import { savePendingSet, loadPendingSets, storageKey, type Storage } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
@@ -76,13 +73,12 @@ async function main() {
   assertEqual(beforeReplay.length, 1, "Pending set exists before replay");
 
   // Replay with set_exists response (server says "already exists")
-  const logSet: LogSetFunction = async () => {
-    const result: Result & { reason?: string } = {
+  const logSet = async (): Promise<Result & { reason?: string }> => {
+    return {
       ok: false,
       error: "Set already exists",
       reason: "set_exists",
     };
-    return result;
   };
 
   const states: PendingSetState[] = [];
