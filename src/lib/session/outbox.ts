@@ -149,11 +149,12 @@ export function mergePendingSets<
 
 /**
  * Result of a send attempt: success, permanent error (validation), or transient error.
+ * Network flag indicates if transient error was network-related (doesn't count toward retry budget).
  */
 export type SendResult =
   | { ok: true }
   | { ok: false; permanent: true; error: string }
-  | { ok: false; permanent: false; error: string };
+  | { ok: false; permanent: false; error: string; network?: boolean };
 
 /**
  * Storage interface - injectable for testing.
@@ -404,9 +405,10 @@ export class Outbox {
           finalState.pending = finalState.pending.filter(
             (s) => !sentClientIds.includes(s.clientId) && !failedClientIds.includes(s.clientId),
           );
-          // Increment retries on the transient-failed set
+          // S8: Only increment retries on non-network failures
+          // Network failures don't use up the retry budget
           const failedSet = finalState.pending.find((s) => s.clientId === set.clientId);
-          if (failedSet) {
+          if (failedSet && !result.network) {
             failedSet.retries++;
           }
           this.storage.set(finalState);

@@ -200,6 +200,7 @@ export function useSetOutbox<
             ok: false,
             permanent: false,
             error: classification.error ?? "Network error",
+            network: classification.isNetwork,
           };
         }
       },
