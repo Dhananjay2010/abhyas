@@ -25,6 +25,7 @@ import {
 } from "@/lib/breathing/routine";
 import { calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import {
   getCachedBreathingPatterns,
   getCachedBreathingRoutines,
@@ -216,7 +217,7 @@ export async function loadJourney(
     .map(userPatternFromRow)
     .filter((p): p is UserPattern => p !== null);
 
-  const today = localDateString(profileRes.data?.timezone || "Asia/Kolkata");
+  const today = localDateString(resolveTimezoneWithProfile(profileRes.data?.timezone));
   const shifts = calmShifts(
     (logsRes.data ?? []).map(
       (l): MoodLog => ({

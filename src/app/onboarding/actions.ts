@@ -67,12 +67,13 @@ export async function saveAboutYou(input: {
     height_cm: input.heightCm,
   };
 
-  // Record browser timezone if provided (replaces NULL or existing value)
-  // (No longer has a database default, so NULL means "not set yet")
+  // Record browser timezone only if profile.timezone is currently NULL
+  // (don't overwrite an explicitly set timezone with browser detection)
   if (input.browserTimezone) {
     const { validateTimezone } = await import("@/lib/branding");
+    const { shouldWriteTimezone } = await import("@/lib/timezone-write");
     const validated = validateTimezone(input.browserTimezone);
-    if (validated) {
+    if (validated && shouldWriteTimezone(profile?.timezone, validated, false)) {
       profileUpdate.timezone = validated;
     }
   }
