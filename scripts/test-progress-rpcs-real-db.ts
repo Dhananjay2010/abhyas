@@ -218,18 +218,6 @@ async function runTests() {
         await adminClient.from("session_sets").insert(sets.slice(i * 3, (i + 100) * 3));
       }
 
-      // Debug: check if sessions appear in session_volume
-      const { count: svCount, error: svCountError } = await adminClient
-        .from("session_volume")
-        .select("session_id", { count: "exact", head: true })
-        .eq("user_id", userIdA);
-      
-      if (svCountError) {
-        console.log(`  Warning: session_volume count query failed: ${svCountError.message}`);
-      } else {
-        console.log(`  Debug: session_volume contains ${svCount} sessions for user A`);
-      }
-
       // Call progress_summary RPC
       const { data: progressData, error: progressError } = await supabaseA.rpc("progress_summary", {
         p_user: userIdA,
@@ -690,15 +678,6 @@ async function runTests() {
         reps: 5,
         is_warmup_set: false,
       });
-
-      // Debug: Check if future session is in session_volume
-      const { data: futureInSV } = await adminClient
-        .from("session_volume")
-        .select("session_id")
-        .eq("session_id", futureSessionId)
-        .maybeSingle();
-      
-      console.log(`  Debug: future session ${futureSessionId.slice(0, 8)} in session_volume: ${futureInSV ? 'yes' : 'no'}`);
 
       // Fetch history with p_today = 2026-10-24
       const { data: futurePage } = await supabaseA.rpc("get_history_page", {
