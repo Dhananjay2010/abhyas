@@ -478,13 +478,6 @@ export function SettingsForm({
         </p>
       </Section>
 
-      <Section title="Not built yet">
-        <p className="text-sm text-muted">
-          Light theme and imperial units are in the plan but not implemented, so
-          there is nothing to switch here yet. Abhyas is dark, kilograms and
-          centimetres for now.
-        </p>
-      </Section>
     </div>
   );
 }

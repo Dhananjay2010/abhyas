@@ -78,3 +78,5 @@ console.log(
   `\n${failures === 0 ? "✓" : "✗"} ${failures === 0 ? "All tests passed" : `${failures} test(s) failed`}`
 );
 process.exit(failures === 0 ? 0 : 1);
+
+export {};
