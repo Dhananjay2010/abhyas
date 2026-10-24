@@ -767,7 +767,7 @@ export function SettingsForm({
             {planStale && !rebuildSuccess && (
               <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
                 <p className="text-sm text-accent">
-                  Your plan doesn't include this change yet.
+                  Your plan doesn&apos;t include this change yet.
                 </p>
                 <div className="mt-3">
                   <BuildPlanButton 
