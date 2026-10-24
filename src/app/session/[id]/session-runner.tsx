@@ -15,6 +15,7 @@ import {
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
+import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import {
   abandonSession,
   deleteSet,
@@ -281,8 +282,7 @@ export function SessionRunner({
       return r.ok;
     } catch (err) {
       // h2: Catch network errors (offline, timeout, etc)
-      const message = err instanceof Error ? err.message : "Network error. Check your connection.";
-      setError(message);
+      setError(runnerErrorMessage(err));
       return false;
     } finally {
       busyRef.current = false;
