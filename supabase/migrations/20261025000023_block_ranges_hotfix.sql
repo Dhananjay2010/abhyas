@@ -94,64 +94,45 @@ begin
     return v_old_block.id;
   end if;
 
-  -- L4: If started_on = p_today but DIFFERENT payload id, update in place instead of creating empty superseded row
+  -- Compute new week_offset
+  v_new_week_offset := (
+    v_old_block.week_offset +
+    floor((p_today - v_old_block.started_on) / 7)
+  );
+
+  -- L4: If started_on = p_today but DIFFERENT payload id, delete old block instead of superseding with empty range
   if v_old_block.started_on = p_today then
-    -- Update the existing block with new payload data
-    update public.programs
-    set
-      id = (p_payload->>'id')::uuid,
-      block_number = (p_payload->>'block_number')::int,
-      split_type = (p_payload->>'split_type')::public.split_type,
-      days_per_week = (p_payload->>'days_per_week')::int,
-      primary_track = (p_payload->>'primary_track')::public.track_type,
-      goal = (p_payload->>'goal')::public.fitness_goal,
-      level = (p_payload->>'level')::public.fitness_level,
-      ends_on = (p_payload->>'ends_on')::date,
-      deload_week = (p_payload->>'deload_week')::int
-    where id = v_old_block.id;
-
-    -- Delete old program_days and their exercises
-    delete from public.program_day_exercises where program_day_id in (
-      select id from public.program_days where program_id = v_old_block.id
-    );
-    delete from public.program_days where program_id = v_old_block.id;
-
-    v_new_program_id := (p_payload->>'id')::uuid;
+    -- Delete old block and its children (CASCADE handles days and exercises)
+    delete from public.programs where id = v_old_block.id;
   else
-    -- Different day: compute new week_offset and supersede old block
-    v_new_week_offset := (
-      v_old_block.week_offset +
-      floor((p_today - v_old_block.started_on) / 7)
-    );
-
-    -- Retire the old block as 'superseded'
+    -- Different day: retire the old block as 'superseded'
     update public.programs
     set
       status = 'superseded',
       ended_on = p_today - 1
     where id = v_old_block.id;
-
-    -- Insert new program
-    insert into public.programs (
-      id, user_id, block_number, split_type, days_per_week,
-      primary_track, goal, level, started_on, ends_on,
-      deload_week, week_offset, status
-    ) values (
-      (p_payload->>'id')::uuid,
-      v_user_id,
-      (p_payload->>'block_number')::int,
-      (p_payload->>'split_type')::public.split_type,
-      (p_payload->>'days_per_week')::int,
-      (p_payload->>'primary_track')::public.track_type,
-      (p_payload->>'goal')::public.fitness_goal,
-      (p_payload->>'level')::public.fitness_level,
-      p_today,
-      (p_payload->>'ends_on')::date,
-      (p_payload->>'deload_week')::int,
-      v_new_week_offset,
-      'active'
-    ) returning id into v_new_program_id;
   end if;
+
+  -- Insert new program
+  insert into public.programs (
+    id, user_id, block_number, split_type, days_per_week,
+    primary_track, goal, level, started_on, ends_on,
+    deload_week, week_offset, status
+  ) values (
+    (p_payload->>'id')::uuid,
+    v_user_id,
+    (p_payload->>'block_number')::int,
+    (p_payload->>'split_type')::public.split_type,
+    (p_payload->>'days_per_week')::int,
+    (p_payload->>'primary_track')::public.track_type,
+    (p_payload->>'goal')::public.fitness_goal,
+    (p_payload->>'level')::public.fitness_level,
+    p_today,
+    (p_payload->>'ends_on')::date,
+    (p_payload->>'deload_week')::int,
+    v_new_week_offset,
+    'active'
+  ) returning id into v_new_program_id;
 
   -- Insert program_days
   for v_day in select * from jsonb_array_elements(p_payload->'days')
