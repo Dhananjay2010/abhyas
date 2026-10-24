@@ -96,7 +96,7 @@ async function runTests() {
       timezone: "Asia/Kolkata",
     };
     
-    const trackUpdates = {};
+    const trackUpdates: { duration?: number } = {};
     const deps = makeFakeDeps(session, trackUpdates);
     const result = await finishSessionCore(deps, {
       sessionId: "s1",
@@ -139,7 +139,7 @@ async function runTests() {
       timezone: "Asia/Kolkata",
     };
     
-    const trackUpdates = {};
+    const trackUpdates: { duration?: number } = {};
     const deps = makeFakeDeps(session, trackUpdates);
     const result = await finishSessionCore(deps, {
       sessionId: "s1",
@@ -166,7 +166,7 @@ async function runTests() {
       timezone: "America/New_York",
     };
     
-    const trackUpdates = {};
+    const trackUpdates: { duration?: number } = {};
     const deps = makeFakeDeps(session, trackUpdates);
     const result = await finishSessionCore(deps, {
       sessionId: "s1",
@@ -190,7 +190,7 @@ async function runTests() {
       timezone: "Europe/London",
     };
     
-    const trackUpdates = {};
+    const trackUpdates: { duration?: number } = {};
     const deps = makeFakeDeps(session, trackUpdates);
     const result = await finishSessionCore(deps, {
       sessionId: "s1",

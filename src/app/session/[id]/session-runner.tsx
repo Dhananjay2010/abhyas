@@ -319,7 +319,7 @@ export function SessionRunner({
     setSaveError(null);
     setBusy(true);
     setNeedsFinishRetry(false);
-    await runFinish(
+    const succeeded = await runFinish(
       {
         finishSession: actions.finishSession,
         abandonSession: actions.abandonSession,
@@ -335,7 +335,7 @@ export function SessionRunner({
       },
       { sessionId, cooldownCompleted },
     );
-    if (busyRef.current === false && error !== null && !cooldownCompleted) {
+    if (!succeeded && !cooldownCompleted) {
       setNeedsFinishRetry(true);
     }
     setBusy(false);

@@ -29,6 +29,8 @@ export interface FinishFlowDeps {
 /**
  * Run the finish flow (Done / Skip cool-down / last exercise with no cool-down).
  * Pure function with dependency injection for testability.
+ * 
+ * @returns Promise<boolean> - true if finish succeeded, false if it failed
  */
 export async function runFinish(
   deps: FinishFlowDeps,
@@ -36,8 +38,8 @@ export async function runFinish(
     sessionId: string;
     cooldownCompleted: boolean;
   },
-): Promise<void> {
-  if (deps.inFlight.current) return;
+): Promise<boolean> {
+  if (deps.inFlight.current) return false;
   deps.inFlight.current = true;
 
   const durationSeconds = deps.stopElapsed();
@@ -53,7 +55,7 @@ export async function runFinish(
       deps.resumeElapsed();
       deps.setError("Couldn't finish the session. Try again.");
       deps.inFlight.current = false;
-      return;
+      return false;
     }
 
     deps.setError(null);
@@ -61,6 +63,7 @@ export async function runFinish(
     // Always show summary, even for skipped sessions
     deps.inFlight.current = false;
     deps.setPhase("done");
+    return true;
   } catch (err) {
     deps.resumeElapsed();
     if (isNetworkError(err)) {
@@ -69,6 +72,7 @@ export async function runFinish(
       deps.setError("Couldn't finish the session. Try again.");
     }
     deps.inFlight.current = false;
+    return false;
   }
 }
 
