@@ -11,6 +11,29 @@ export const dynamic = "force-dynamic";
 
 type Muscle = Database["public"]["Enums"]["muscle"];
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  
+  if (!isUuid(id)) notFound();
+  
+  const { supabase, user } = await getAuthedClient();
+  if (!user) return {};
+  
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  
+  if (!session) notFound();
+  
+  return {};
+}
+
 export default async function SessionPage({
   params,
 }: {
