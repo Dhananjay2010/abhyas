@@ -119,5 +119,3 @@ function check(condition: boolean, message: string) {
   console.error("FATAL:", err);
   process.exit(1);
 });
-
-export {};

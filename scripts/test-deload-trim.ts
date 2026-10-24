@@ -243,7 +243,7 @@ console.log("\n5. Rep trim: minimum of 1 preserved");
     `${result.repsMin} > ${result.repsMax}`
   );
 
-  // Critical: 0-rep case
+  // Critical: 0-rep case to catch floor mutant
   const plannedZero: PlannedExercise = {
     target_sets: 2,
     target_reps_min: 0,
@@ -260,7 +260,7 @@ console.log("\n5. Rep trim: minimum of 1 preserved");
   // 0 * 2/3 = 0 → must become 1 (minimum)
   // 1 * 2/3 = 0.67 → must become 1 (minimum)
   check(
-    "Rep trim: 0 becomes 1 (floor case)",
+    "Rep trim: 0 becomes 1 (floor mutant killer)",
     resultZero.repsMin === 1,
     `got ${resultZero.repsMin}`
   );
@@ -274,6 +274,7 @@ console.log("\n5. Rep trim: minimum of 1 preserved");
 console.log("\n6. Known-weight rows get no trim (loadReducible undefined)");
 {
   // Critical: loadReducible undefined WITH metric provided must skip trim
+  // This catches the mutant that trims when loadReducible is undefined
   const plannedReps: PlannedExercise = {
     target_sets: 2,
     target_reps_min: 8,
@@ -485,7 +486,7 @@ console.log("\n11. Hold trim: various hold durations");
     );
   }
 
-  // Critical: Hold under 15s
+  // Critical: Hold under 15s to catch cap mutant
   const planned5: PlannedExercise = {
     target_sets: 2,
     target_reps_min: 5,
@@ -501,7 +502,7 @@ console.log("\n11. Hold trim: various hold durations");
 
   // 5 * 2/3 = 3.33 → 5 (nearest 5), min 10 → 10, capped at planned 5 → 5
   check(
-    "Hold trim: 5s stays 5s (cap case)",
+    "Hold trim: 5s stays 5s (cap mutant killer)",
     result5.repsMin === 5 && result5.repsMax === 5,
     `got ${result5.repsMin}s, expected 5s not 10s`
   );
@@ -557,7 +558,7 @@ console.log("\n12. Edge case: min > max after trim is corrected");
     `got ${result.repsMin}-${result.repsMax}`
   );
 
-  // Critical case: edge rounding with range
+  // Critical case to catch min>max mutant: edge rounding with range
   // This targets the Math.max(trimmedMinBeforeCap, trimmedMaxBeforeCap) logic
   const planned11_13: PlannedExercise = {
     target_sets: 2,
