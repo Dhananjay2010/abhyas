@@ -52,12 +52,16 @@ const EMPTY_MESSAGES: Record<SessionType, { title: string; message: string }> = 
   },
 };
 
-function longDate(iso: string): string {
+function longDate(iso: string, today: string): string {
   const [y, m, d] = iso.split("-").map(Number);
+  const [todayY] = today.split("-").map(Number);
+  const includeYear = y !== todayY;
+  
   return new Intl.DateTimeFormat("en-GB", {
     weekday: "short",
     day: "numeric",
     month: "short",
+    year: includeYear ? "numeric" : undefined,
     timeZone: "UTC",
   }).format(new Date(Date.UTC(y, m - 1, d)));
 }
@@ -147,9 +151,9 @@ export function HistoryClient({
                 timeLabel = "Today";
               } else if (item.completedAt) {
                 // For older sessions, show date + time
-                timeLabel = `${longDate(item.localDate)} · ${formatTime(item.completedAt, timezone)}`;
+                timeLabel = `${longDate(item.localDate, today)} · ${formatTime(item.completedAt, timezone)}`;
               } else {
-                timeLabel = longDate(item.localDate);
+                timeLabel = longDate(item.localDate, today);
               }
 
               const durationLabel = formatMinutes(item.durationSeconds);
@@ -176,9 +180,12 @@ export function HistoryClient({
               } else {
                 // Product rule (2026-10-24): zero-set strength sessions show as 'Skipped'
                 const isZeroSetStrength = item.setCount === 0 || item.status === "skipped";
+                const isInProgress = item.status === "in_progress" && item.localDate === today;
                 
                 if (isZeroSetStrength) {
                   details.push("Skipped");
+                } else if (isInProgress) {
+                  details.push("In progress");
                 } else if (item.endedEarly && item.plannedSets) {
                   // Show completion status or "Ended early" if applicable
                   details.push(`Ended early · ${item.setCount} of ${item.plannedSets} ${item.plannedSets === 1 ? "set" : "sets"}`);
@@ -194,7 +201,10 @@ export function HistoryClient({
                 if (item.topSetWeight) {
                   details.push(formatTopSet(item.topSetWeight, units));
                 }
-                if (item.volumeKg > 0) details.push(`${formatVolume(item.volumeKg, units)} total`);
+                if (item.volumeKg > 0) {
+                  // Wrap in span to prevent 'kg total' from breaking across lines
+                  details.push(`${formatVolume(item.volumeKg, units)} total`);
+                }
               }
 
               // Yoga rows are non-interactive (yoga detail view is owned by PR #19)
@@ -208,8 +218,13 @@ export function HistoryClient({
                     <span className="font-semibold">{label}</span>
                     <span className="shrink-0 text-xs text-muted">{timeLabel}</span>
                   </div>
-                  <div className="mt-1 flex items-center gap-2">
-                    <p className="text-xs text-muted">{details.join(" · ")}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {details.map((detail, idx) => (
+                      <span key={idx} className="whitespace-nowrap text-xs text-muted">
+                        {detail}
+                        {idx < details.length - 1 && <span className="ml-2">·</span>}
+                      </span>
+                    ))}
                     {item.hasPR && (
                       <span className="rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent">
                         PR

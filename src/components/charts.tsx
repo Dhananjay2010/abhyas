@@ -118,8 +118,16 @@ export function LineChart({
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value)}`).join(" ");
   const first = points[0];
   const last = points[points.length - 1];
-  const shown = active === null ? points.length - 1 : active;
+  // Default to last non-deload point for headline and aria-label; fall back to last point if all are deloads
+  const lastNonDeloadIndex = (() => {
+    for (let i = points.length - 1; i >= 0; i--) {
+      if (!points[i].isDeload) return i;
+    }
+    return points.length - 1;
+  })();
+  const shown = active === null ? lastNonDeloadIndex : active;
   const deloadCount = points.filter(p => p.isDeload).length;
+  const lastNonDeload = points[lastNonDeloadIndex];
 
   return (
     <div>
@@ -127,7 +135,7 @@ export function LineChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full touch-none"
         role="img"
-        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, ending at ${formatValue(last.value, unit)}${deloadCount > 0 ? `. ${deloadCount} deload ${deloadCount === 1 ? 'week' : 'weeks'} marked` : ''}.`}
+        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, latest value ${formatValue(lastNonDeload.value, unit)} on ${lastNonDeload.label}${deloadCount > 0 ? `. ${deloadCount} deload ${deloadCount === 1 ? 'week' : 'weeks'} marked` : ''}.`}
         onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - rect.left) / rect.width) * width;

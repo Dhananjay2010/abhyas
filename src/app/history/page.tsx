@@ -39,7 +39,20 @@ export default async function HistoryPage({
   const today = localDateString(timezone);
   const units = getUnitsPreference(profile.units);
 
+  // Get the correct count using RPC (excludes zero-set strength and skipped sessions)
+  // @ts-expect-error - RPC function not in generated types yet
+  const { data: countData } = await supabase.rpc("get_history_count", {
+    p_user: user.id,
+    p_filter: filter,
+    p_today: today,
+  });
+  const count = Number(countData ?? 0);
+
   // Build the query based on filter
+  // For strength sessions, fetch extra rows then filter zero-set client-side
+  // (proper SQL-level filtering would require complex joins that PostgREST doesn't handle well)
+  const fetchLimit = filter === "lifts" ? limit * 3 : limit; // Over-fetch for strength to account for zero-set filtering
+  
   let query = supabase
     .from("sessions")
     .select(
@@ -56,11 +69,12 @@ export default async function HistoryPage({
       program_days(label),
       breathing_patterns!sessions_breathing_pattern_id_fkey(name, phases),
       breathing_logs(breaths, routine_name)
-    `,
-      { count: "exact" }
+    `
     )
     .eq("user_id", user.id)
-    .lte("local_date", today);
+    .lte("local_date", today)
+    .neq("status", "skipped") // Exclude skipped sessions
+    .or(`status.eq.completed,and(status.eq.in_progress,local_date.eq.${today})`); // Include completed + in_progress today only
 
   // Apply filter
   if (filter === "lifts") {
@@ -79,9 +93,9 @@ export default async function HistoryPage({
     .order("completed_at", { ascending: false, nullsFirst: false })
     .order("started_at", { ascending: false, nullsFirst: false })
     .order("id", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .range(offset, offset + fetchLimit - 1);
 
-  const { data: sessions, error: sessionsError, count } = await query;
+  const { data: sessions, error: sessionsError } = await query;
 
   if (sessionsError) {
     throw new Error(`Could not load your history: ${sessionsError.message}`);
@@ -157,7 +171,7 @@ export default async function HistoryPage({
   // Get exercise history helpers
   const { findTopSet } = await import("@/lib/exercise-history/calculations");
 
-  const items: SessionListItem[] = (sessions ?? [])
+  const allItems: SessionListItem[] = (sessions ?? [])
     .map((s) => {
       const vol = volumeById.get(s.id);
       const isBreathing = s.actual_type === "meditation";
@@ -241,12 +255,15 @@ export default async function HistoryPage({
     return true;
   });
 
+  // Slice to page size after filtering (we over-fetched to account for zero-set filtering)
+  const items = allItems.slice(0, limit);
+
   return (
     <HistoryClient
       items={items}
       filter={filter}
       page={page}
-      totalCount={count ?? 0}
+      totalCount={count}
       today={today}
       timezone={timezone}
       units={units}
