@@ -178,7 +178,7 @@ console.log("\n10. Deterministic matching: first day of matching type wins");
     day("new-upper-2", "weights", "Upper"),
     day("new-lower-2", "weights", "Lower"),
   ];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toUpdate } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
   check("re-pointed to first Upper", toUpdate.length === 1 && toUpdate[0]?.newProgramDayId === "new-upper-1");
 }
