@@ -2228,6 +2228,191 @@ async function testM13_UserIdInKey() {
   console.log("✓ M13: Hook key format includes userId for isolation");
 }
 
+// ---- M7: Online Listener Calls Flush ------------------------------------
+async function testM7_OnlineListenerFlush() {
+  const { registerOnlineFlush } = await import("../src/lib/session/online-flush");
+  
+  // Create fake EventTarget
+  const listeners = new Map<string, (() => void)[]>();
+  const fakeTarget: EventTarget = {
+    addEventListener(type: string, listener: () => void) {
+      if (!listeners.has(type)) listeners.set(type, []);
+      listeners.get(type)!.push(listener);
+    },
+    removeEventListener(type: string, listener: () => void) {
+      const list = listeners.get(type);
+      if (list) {
+        const idx = list.indexOf(listener);
+        if (idx >= 0) list.splice(idx, 1);
+      }
+    },
+    dispatchEvent: () => false,
+  };
+
+  let flushCount = 0;
+  const flush = () => { flushCount++; };
+
+  // Register
+  const cleanup = registerOnlineFlush(fakeTarget, flush);
+
+  // Dispatch 'online' event
+  const onlineListeners = listeners.get("online");
+  if (!onlineListeners || onlineListeners.length !== 1) {
+    throw new Error(`M7: Expected 1 online listener, got ${onlineListeners?.length ?? 0}`);
+  }
+  
+  onlineListeners[0]();
+  
+  if (flushCount !== 1) {
+    throw new Error(`M7: Expected flush to be called once, got ${flushCount}`);
+  }
+
+  // Cleanup should unsubscribe
+  cleanup();
+  const afterCleanup = listeners.get("online");
+  if (afterCleanup && afterCleanup.length > 0) {
+    throw new Error(`M7: Cleanup should remove listener, but ${afterCleanup.length} remain`);
+  }
+
+  console.log("✓ M7: Online listener triggers flush exactly once and cleanup unsubscribes");
+}
+
+// ---- M9 & M12: Outbox Banner Derivation ---------------------------------
+function testM9M12_OutboxBannerDerivation() {
+  const { deriveOutboxBanner } = require("../src/lib/session/outbox-banner");
+
+  // Test 1: offline + pending -> offline banner
+  const offline = deriveOutboxBanner({ online: false, pending: 3, failed: 1 });
+  if (offline.kind !== "offline") {
+    throw new Error(`M12: offline+pending should show offline banner, got ${offline.kind}`);
+  }
+  if (!offline.message || !offline.message.includes("offline")) {
+    throw new Error(`M12: offline banner should mention offline, got: ${offline.message}`);
+  }
+  if (offline.failedCount !== 1) {
+    throw new Error(`M9: failedCount should be 1, got ${offline.failedCount}`);
+  }
+
+  // Test 2: online + failed -> failed banner
+  const failed = deriveOutboxBanner({ online: true, pending: 0, failed: 2 });
+  if (failed.kind !== "failed") {
+    throw new Error(`M12: online+failed should show failed banner, got ${failed.kind}`);
+  }
+  if (!failed.message || !failed.message.includes("2")) {
+    throw new Error(`M9: failed banner should show count 2, got: ${failed.message}`);
+  }
+  if (failed.failedCount !== 2) {
+    throw new Error(`M9: failedCount should be 2, got ${failed.failedCount}`);
+  }
+
+  // Test 3: online + no pending/failed -> null
+  const clear = deriveOutboxBanner({ online: true, pending: 0, failed: 0 });
+  if (clear.kind !== null) {
+    throw new Error(`M12: online with no issues should show no banner, got ${clear.kind}`);
+  }
+  if (clear.message !== null) {
+    throw new Error(`M12: clear state should have null message, got: ${clear.message}`);
+  }
+  if (clear.failedCount !== 0) {
+    throw new Error(`M9: clear state failedCount should be 0, got ${clear.failedCount}`);
+  }
+
+  console.log("✓ M9 & M12: Banner derivation logic works for offline+pending, online+failed, all clear");
+}
+
+// ---- NEW2: End Early Flush Sequence --------------------------------------
+async function testNEW2_EndEarlyFlushSequence() {
+  const { endEarlyWithFlush } = await import("../src/lib/session/end-early");
+
+  // Test 1: flush runs, canEnd true, end succeeds
+  let flushCalled = false;
+  let canEndCalled = false;
+  let endCalled = false;
+  let callOrder: string[] = [];
+
+  const result1 = await endEarlyWithFlush({
+    flush: async () => {
+      flushCalled = true;
+      callOrder.push("flush");
+    },
+    canEnd: () => {
+      canEndCalled = true;
+      callOrder.push("canEnd");
+      return true;
+    },
+    end: async () => {
+      endCalled = true;
+      callOrder.push("end");
+      return true;
+    },
+    onBlockReason: () => {
+      callOrder.push("onBlockReason");
+    },
+  });
+
+  if (!flushCalled || !canEndCalled || !endCalled) {
+    throw new Error(`NEW2: All functions should be called (flush: ${flushCalled}, canEnd: ${canEndCalled}, end: ${endCalled})`);
+  }
+
+  if (callOrder[0] !== "flush" || callOrder[1] !== "canEnd" || callOrder[2] !== "end") {
+    throw new Error(`NEW2: Order should be flush, canEnd, end; got: ${callOrder.join(", ")}`);
+  }
+
+  if (!result1) {
+    throw new Error("NEW2: Should return true when end succeeds");
+  }
+
+  // Test 2: flush runs, canEnd false (failed sets remain), end NOT called
+  flushCalled = false;
+  canEndCalled = false;
+  endCalled = false;
+  let blockReason = "";
+  callOrder = [];
+
+  const result2 = await endEarlyWithFlush({
+    flush: async () => {
+      flushCalled = true;
+      callOrder.push("flush");
+    },
+    canEnd: () => {
+      canEndCalled = true;
+      callOrder.push("canEnd");
+      return false; // Blocked
+    },
+    end: async () => {
+      endCalled = true;
+      callOrder.push("end");
+      return true;
+    },
+    onBlockReason: (reason) => {
+      blockReason = reason;
+      callOrder.push("onBlockReason");
+    },
+  });
+
+  if (!flushCalled || !canEndCalled) {
+    throw new Error(`NEW2: flush and canEnd should be called (flush: ${flushCalled}, canEnd: ${canEndCalled})`);
+  }
+
+  if (endCalled) {
+    throw new Error("NEW2: end should NOT be called when canEnd returns false (failed sets remain)");
+  }
+
+  if (callOrder[0] !== "flush" || callOrder[1] !== "canEnd" || callOrder[2] !== "onBlockReason") {
+    throw new Error(`NEW2: When blocked, order should be flush, canEnd, onBlockReason; got: ${callOrder.join(", ")}`);
+  }
+
+  if (!blockReason.includes("synced")) {
+    throw new Error(`NEW2: Block reason should mention sync, got: ${blockReason}`);
+  }
+
+  if (result2) {
+    throw new Error("NEW2: Should return false when blocked");
+  }
+
+  console.log("✓ NEW2: End-early sequence: flush before canEnd before end, end skipped when failed sets remain");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -2277,6 +2462,9 @@ async function main() {
   await testM6_NetworkErrorRetryBudget();
   await testM8_CountSetsWithFlagUsed();
   await testM13_UserIdInKey();
+  await testM7_OnlineListenerFlush();
+  testM9M12_OutboxBannerDerivation();
+  await testNEW2_EndEarlyFlushSequence();
 
   console.log("\n✓ All offline set logging tests passed");
 }

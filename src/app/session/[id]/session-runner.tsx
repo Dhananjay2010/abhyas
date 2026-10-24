@@ -33,6 +33,7 @@ import { classifyLogSetOutcome, nextSetNumberFor } from "@/lib/session/outbox";
 import { isQuotaError } from "@/lib/session/quota-error";
 import { mapErrorToUserMessage, countLoggedSets } from "@/lib/session/error-messages";
 import { finishBlockReason, canClearOutbox, canEndSession, undoTargetSetNumber, countSetsWithFlag } from "@/lib/session/sync-helpers";
+import { endEarlyWithFlush } from "@/lib/session/end-early";
 import { useSetOutbox, type SyncState } from "./use-set-outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -1413,21 +1414,22 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              // Flush first
-              await flushOutbox();
-
-              // Check if we can end (no unsynced sets left)
-              if (!canEndSession(pendingCount, lostCount, failedCount)) {
-                const total = pendingCount + lostCount + failedCount;
-                setError(`${total} set${total > 1 ? "s haven't" : " hasn't"} synced yet. Wait for them, or remove them first.`);
-                return;
-              }
-
-              // End session
-              if (await run(() => actions.abandonSession(sessionId, elapsed))) {
-                if (onExit) onExit();
-                else router.push("/today");
-              }
+              await endEarlyWithFlush({
+                flush: flushOutbox,
+                canEnd: () => canEndSession(pendingCount, lostCount, failedCount),
+                end: async () => {
+                  return await run(() => actions.abandonSession(sessionId, elapsed));
+                },
+                onBlockReason: (reason) => {
+                  const total = pendingCount + lostCount + failedCount;
+                  setError(`${total} set${total > 1 ? "s haven't" : " hasn't"} synced yet. Wait for them, or remove them first.`);
+                },
+              }).then((succeeded) => {
+                if (succeeded) {
+                  if (onExit) onExit();
+                  else router.push("/today");
+                }
+              });
             }}
           >
             End session early

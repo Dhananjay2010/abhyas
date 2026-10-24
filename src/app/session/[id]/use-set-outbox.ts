@@ -7,6 +7,7 @@ import {
 } from "@/lib/session/outbox";
 import { mapErrorToUserMessage } from "@/lib/session/error-messages";
 import { shouldAttemptFlush, nextRetryDelay, buildSendResult } from "@/lib/session/sync-helpers";
+import { registerOnlineFlush } from "@/lib/session/online-flush";
 import * as actions from "../actions";
 
 export type SyncState =
@@ -296,9 +297,10 @@ export function useSetOutbox<
       setSyncState({ type: "idle" });
       void flush();
     };
-    window.addEventListener("online", onOnline);
+    const cleanupOnline = registerOnlineFlush(window, onOnline);
+
     return () => {
-      window.removeEventListener("online", onOnline);
+      cleanupOnline();
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
       }
