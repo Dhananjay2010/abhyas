@@ -2,8 +2,8 @@
  * Validate a `next` parameter for safe same-origin redirects.
  * 
  * Accepts only relative paths starting with a single '/', not '//' and not '/\\'.
- * Rejects paths with backslashes, control characters, and URLs that resolve to
- * a different origin.
+ * Rejects paths with backslashes, control characters, paths longer than 512 characters,
+ * and URLs that resolve to a different origin.
  * 
  * @param next - The next path from query params
  * @param fallback - The fallback path if validation fails (defaults to '/today')
@@ -11,6 +11,11 @@
  */
 export function safeNextPath(next: string | null | undefined, fallback = '/today'): string {
   if (!next || typeof next !== 'string') {
+    return fallback;
+  }
+
+  // Reject paths longer than 512 characters to avoid oversized headers
+  if (next.length > 512) {
     return fallback;
   }
 
