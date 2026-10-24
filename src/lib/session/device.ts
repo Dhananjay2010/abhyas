@@ -163,7 +163,10 @@ export function useElapsed(startedAtIso: string | null): number {
       const interval = setInterval(onStoreChange, 1000);
       return () => clearInterval(interval);
     }, []),
-    () => Date.now(), // getSnapshot (client)
+    // Whole seconds, so consecutive reads within a second are equal: React
+    // requires getSnapshot to return the same value until the store changes,
+    // and a raw Date.now() would differ on every read.
+    () => Math.floor(Date.now() / 1000) * 1000, // getSnapshot (client)
     () => 0, // getServerSnapshot (SSR) - returns 0 so elapsed will be 0
   );
 

@@ -32,6 +32,8 @@ import {
 import { resolveSetConflict } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
+import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
+import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -90,6 +92,8 @@ export type RunnerExercise = {
   sets: LoggedSet[];
   /** No external load: used for UI labeling of weight input. */
   isBodyweight: boolean;
+  /** completed_at of the latest working set, so a resume lands on this exercise. */
+  lastLoggedAt?: string | null;
 };
 
 export type RunnerSettings = {
@@ -147,10 +151,16 @@ export function SessionRunner({
     initialExercises
   );
   
+  // Functional updates go through the reducer so they apply to the state at
+  // dispatch time (which may already include a resume merge), not to the
+  // `exercises` this render closed over.
   const setExercises = useCallback((update: typeof initialExercises | ((prev: typeof initialExercises) => typeof initialExercises)) => {
-    const newExercises = typeof update === 'function' ? update(exercises) : update;
-    dispatch({ type: 'set', exercises: newExercises });
-  }, [exercises]);
+    dispatch(
+      typeof update === "function"
+        ? { type: "update", update }
+        : { type: "set", exercises: update },
+    );
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
@@ -168,12 +178,6 @@ export function SessionRunner({
   */
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
-
-  // Resume where the session actually stopped rather than at the top.
-  const firstUnfinished = Math.max(
-    0,
-    exercises.findIndex((e) => e.status === "pending"),
-  );
 
   /*
     Every exercise already finished, and the session still open.
@@ -198,8 +202,10 @@ export function SessionRunner({
     nothingPending ? "cooldown" : warmupAlreadyDone || warmup.length === 0 ? "work" : "warmup",
   );
   const [warmupIndex, setWarmupIndex] = useState(0);
+  // B1: the exercise the latest logged set belongs to, not simply the first
+  // pending one, so a resume lands where the user left off.
   const [exerciseIndex, setExerciseIndex] = useState(
-    exercises.findIndex((e) => e.status === "pending") === -1 ? 0 : firstUnfinished,
+    exercises.findIndex((e) => e.status === "pending") === -1 ? 0 : pickCurrentExerciseIndex(exercises),
   );
 
   const wakeLock = useWakeLock(phase !== "done");
@@ -242,12 +248,33 @@ export function SessionRunner({
   // Fresh data on resume: refresh when resuming or navigating back
   useResumeRefresh();
 
-  // Case B: Merge server data with local state when initialExercises changes
-  // (e.g., after router.refresh from useResumeRefresh). This prevents dropping
-  // confirmed local saves that haven't landed on the server yet.
+  /*
+    B1: the props this runner mounted with may be a stale RSC payload from the
+    client router cache (a soft navigation back in within `staleTimes.dynamic`
+    reuses the first load's payload: old sets, the pre-swap exercise, exercise
+    one current). useResumeRefresh asks the server for fresh props on mount,
+    and until they arrive no set can be logged, so nothing is saved under an
+    exercise the database has moved past. When they arrive the server's list
+    wins, confirmed local sets are kept, and the current exercise is re-derived
+    from the database's latest logged set. If the refresh never lands (offline),
+    logging opens after a few seconds on what the runner has.
+  */
+  const [synced, markSynced] = useReducer(() => true, false);
+  // Adjusted during render when the props change (React's pattern for state
+  // derived from props), rather than in an effect a frame later.
+  const [seenExercises, setSeenExercises] = useState(initialExercises);
+  if (initialExercises !== seenExercises) {
+    setSeenExercises(initialExercises);
+    dispatch({ type: "merge", serverData: initialExercises });
+    if (initialExercises.some((e) => e.status === "pending")) {
+      setExerciseIndex(pickCurrentExerciseIndex(initialExercises));
+    }
+    markSynced();
+  }
   useEffect(() => {
-    dispatch({ type: 'merge', serverData: initialExercises });
-  }, [initialExercises]);
+    const t = setTimeout(markSynced, 4000);
+    return () => clearTimeout(t);
+  }, []);
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
@@ -608,57 +635,65 @@ export function SessionRunner({
     : ([...current.sets].reverse().find((s) => s.reps !== null)?.reps ?? null);
 
   async function onLogSet(
+    displayedExerciseId: string,
     reps: number | null,
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    setBusy(true);
-    try {
-      const result = await actions.logSet({
-        sessionExerciseId: current.id,
-        setNumber: nextSetNumber,
-        reps,
-        weightKg,
-        durationSeconds,
-      });
+    // B1: the set goes under the exercise that was on screen when it was
+    // submitted, numbered from that exercise's own sets.
+    const target = nextSetTarget(exercises, displayedExerciseId);
+    if (!target) return;
+    // createConcurrentGuard holds busyRef for the whole save, so a double tap
+    // logs the set once.
+    await createConcurrentGuard(async () => {
+      setBusy(true);
+      try {
+        const result = await actions.logSet({
+          sessionExerciseId: target.sessionExerciseId,
+          setNumber: target.setNumber,
+          reps,
+          weightKg,
+          durationSeconds,
+        });
 
-      if (!result.ok) {
-        if ("reason" in result && result.reason === "set_exists") {
-          const resolution = resolveSetConflict(exercises, current.id, exerciseIndex, result);
-          setExercises(resolution.exercises);
-          setExerciseIndex(resolution.nextExerciseIndex);
-          setMessage(resolution.message);
-          setError(null);
+        if (!result.ok) {
+          if ("reason" in result && result.reason === "set_exists") {
+            const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, result);
+            // The index and message come from this render; the sets are applied
+            // to the state at dispatch time so a resume merge is not undone.
+            setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, result).exercises);
+            setExerciseIndex(resolution.nextExerciseIndex);
+            setMessage(resolution.message);
+            setError(null);
+            return;
+          }
+          setError("error" in result ? (result.error ?? "Something went wrong") : "Failed");
           return;
         }
-        setError("error" in result ? (result.error ?? "Something went wrong") : "Failed");
-        return;
-      }
 
-      setError(null);
-      setMessage(null);
-      setExercises((prev) =>
-        prev.map((e) =>
-          e.id === current.id
-            ? {
-                ...e,
-                sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
-              }
-            : e,
-        ),
-      );
-      if (settings.restAutostart && nextSetNumber < current.plannedSets) {
-        startRest(restSeconds);
+        setError(null);
+        setMessage(null);
+        setExercises((prev) =>
+          prev.map((e) =>
+            e.id === target.sessionExerciseId
+              ? {
+                  ...e,
+                  sets: [...e.sets, { setNumber: target.setNumber, reps, weightKg, durationSeconds }],
+                }
+              : e,
+          ),
+        );
+        if (settings.restAutostart && target.setNumber < current.plannedSets) {
+          startRest(restSeconds);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Network error. Check your connection.";
+        setError(errorMessage);
+      } finally {
+        setBusy(false);
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Network error. Check your connection.";
-      setError(errorMessage);
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
+    }, busyRef)();
   }
 
   /** Remove the most recently logged set, so a mistyped one can be corrected. */
@@ -858,12 +893,14 @@ export function SessionRunner({
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}
-            onLog={onLogSet}
+            onLog={(reps, weightKg, durationSeconds) =>
+              onLogSet(current.id, reps, weightKg, durationSeconds)
+            }
             onHoldComplete={() => {
               if (settings.restSound) beeper.beep();
               if (settings.restVibrate) vibrate([180, 90, 180]);
             }}
-            disabled={busy}
+            disabled={busy || !synced}
           />
         )}
 

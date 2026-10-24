@@ -9,7 +9,7 @@
  */
 
 import { exercisesReducer } from "../src/lib/session/exercises-reducer";
-import type { ExerciseWithSets } from "../src/lib/session/merge-sets";
+import type { ResumeExercise } from "../src/lib/session/resume-state";
 
 export {}; // Make this a module
 
@@ -38,7 +38,7 @@ function assertEqual<T>(actual: T, expected: T, msg: string = "") {
   }
 }
 
-type TestExercise = ExerciseWithSets & { name: string; status: string };
+type TestExercise = ResumeExercise & { name: string };
 
 async function main() {
   console.log("Testing exercises reducer (resume/merge integration)\n");
@@ -50,6 +50,7 @@ async function main() {
         id: "ex-1",
         name: "Bench",
         status: "pending",
+        plannedSets: 4,
         sets: [{ setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null }],
       },
     ];
@@ -59,6 +60,7 @@ async function main() {
         id: "ex-2",
         name: "Squat",
         status: "pending",
+        plannedSets: 4,
         sets: [{ setNumber: 1, reps: 12, weightKg: 80, durationSeconds: null }],
       },
     ];
@@ -67,7 +69,7 @@ async function main() {
 
     assertEqual(result.length, 1, "Should have one exercise");
     assertEqual(result[0].id, "ex-2", "Should have new exercise");
-    assertEqual((result[0] as TestExercise).name, "Squat", "Should be Squat");
+    assertEqual(result[0].name, "Squat", "Should be Squat");
   });
 
   // Test 2: 'merge' action calls mergeSets (Case B: resume after local save)
@@ -77,7 +79,8 @@ async function main() {
       {
         id: "ex-1",
         name: "Bench",
-        status: "in-progress",
+        status: "pending",
+        plannedSets: 4,
         sets: [
           { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
           { setNumber: 2, reps: 10, weightKg: 60, durationSeconds: null },
@@ -90,7 +93,8 @@ async function main() {
       {
         id: "ex-1",
         name: "Bench",
-        status: "in-progress",
+        status: "pending",
+        plannedSets: 4,
         sets: [
           // Server is stale, only has 2 sets (before set 3 landed)
           { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
@@ -114,7 +118,8 @@ async function main() {
       {
         id: "ex-1",
         name: "Bench",
-        status: "in-progress",
+        status: "pending",
+        plannedSets: 4,
         sets: [
           { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
           { setNumber: 2, reps: 10, weightKg: 60, durationSeconds: null },
@@ -126,7 +131,8 @@ async function main() {
       {
         id: "ex-1",
         name: "Bench",
-        status: "in-progress",
+        status: "pending",
+        plannedSets: 4,
         sets: [
           { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
           { setNumber: 2, reps: 10, weightKg: 60, durationSeconds: null },
@@ -150,7 +156,8 @@ async function main() {
       {
         id: "ex-1",
         name: "Deadlift",
-        status: "in-progress",
+        status: "pending",
+        plannedSets: 4,
         sets: [
           { setNumber: 1, reps: 8, weightKg: 100, durationSeconds: null },
           { setNumber: 2, reps: 8, weightKg: 105, durationSeconds: null },
@@ -163,7 +170,8 @@ async function main() {
       {
         id: "ex-1",
         name: "Deadlift",
-        status: "in-progress",
+        status: "pending",
+        plannedSets: 4,
         sets: [
           { setNumber: 1, reps: 8, weightKg: 100, durationSeconds: null },
           { setNumber: 2, reps: 8, weightKg: 105, durationSeconds: null },
@@ -178,6 +186,29 @@ async function main() {
     // With mergeSets called (correct), result keeps local set 3
     assertEqual(result[0].sets.length, 3, "mergeSets must be called to keep local set 3");
     assertEqual(result[0].sets[2].weightKg, 110, "Local set 3's weight must be preserved");
+  });
+
+  // Test: 'update' applies to the state at dispatch time, like functional setState
+  await testReducer("'update' applies to the merged state, not a stale copy", () => {
+    const before: TestExercise[] = [
+      { id: "ex-1", name: "Bench", status: "pending", plannedSets: 4, sets: [{ setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null }] },
+    ];
+    // A resume merge lands while a save is in flight and brings set 2.
+    const merged = exercisesReducer(before, {
+      type: "merge",
+      serverData: [
+        { id: "ex-1", name: "Bench", status: "pending", plannedSets: 4, sets: [
+          { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
+          { setNumber: 2, reps: 9, weightKg: 60, durationSeconds: null },
+        ] },
+      ],
+    });
+    // Then the save resolves and appends set 3.
+    const after = exercisesReducer(merged, {
+      type: "update",
+      update: (prev) => prev.map((e) => ({ ...e, sets: [...e.sets, { setNumber: 3, reps: 8, weightKg: 60, durationSeconds: null }] })),
+    });
+    assertEqual(after[0].sets.map((s) => s.setNumber).join(","), "1,2,3", "set 2 from the merge is kept");
   });
 
   // Summary
