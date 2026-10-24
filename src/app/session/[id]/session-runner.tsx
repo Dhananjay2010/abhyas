@@ -413,7 +413,10 @@ export function SessionRunner({
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
               );
               if (ok) {
-                clearOutbox();
+                // S12: Only clear outbox if no failed/unsaved rows exist
+                if (lostCount === 0 && failedCount === 0) {
+                  clearOutbox();
+                }
                 setPhase("done");
               }
             }}
@@ -427,7 +430,10 @@ export function SessionRunner({
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
               );
               if (ok) {
-                clearOutbox();
+                // S12: Only clear outbox if no failed/unsaved rows exist
+                if (lostCount === 0 && failedCount === 0) {
+                  clearOutbox();
+                }
                 setPhase("done");
               }
             }}
@@ -820,14 +826,23 @@ export function SessionRunner({
   }
 
   async function onFinishExercise(feel: Feel | null, skipped = false) {
-    // Block finishing while sets are pending sync
-    if (pendingCount > 0) {
-      setError(
-        `${pendingCount} set${pendingCount > 1 ? "s" : ""} still syncing. ` +
-        "Wait for sync to complete, or check your connection.",
-      );
-      // Trigger manual retry
-      void flushOutbox();
+    // S12: Block finishing while any sets are pending, failed, or unsaved
+    if (pendingCount > 0 || lostCount > 0 || failedCount > 0) {
+      const reasons = [];
+      if (pendingCount > 0) {
+        reasons.push(`${pendingCount} set${pendingCount > 1 ? "s" : ""} still syncing`);
+      }
+      if (lostCount > 0) {
+        reasons.push(`${lostCount} set${lostCount > 1 ? "s" : ""} couldn't be saved`);
+      }
+      if (failedCount > 0) {
+        reasons.push(`${failedCount} set${failedCount > 1 ? "s weren't" : " wasn't"} accepted`);
+      }
+      setError(reasons.join(", ") + ". Fix or remove them before finishing.");
+      // Trigger manual retry for pending
+      if (pendingCount > 0) {
+        void flushOutbox();
+      }
       return;
     }
 
@@ -878,7 +893,10 @@ export function SessionRunner({
           actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
         );
         if (ok) {
-          clearOutbox();
+          // S12: Only clear outbox if no failed/unsaved rows exist
+          if (lostCount === 0 && failedCount === 0) {
+            clearOutbox();
+          }
           setPhase("done");
         }
       }
