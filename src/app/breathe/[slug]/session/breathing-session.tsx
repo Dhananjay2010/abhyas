@@ -1065,7 +1065,7 @@ function Practice({
           <p className="mt-2 text-center text-sm text-breath-ink/70">
             {/* A pumping practice counts its pumps, the same word the round
                 itself used. A routine mixes practices, so it stays breaths. */}
-            {formatClock(seconds)} · {breaths}{" "}
+            {formatDuration(seconds)} · {breaths}{" "}
             {!routine && pumps
               ? breaths === 1
                 ? "pump"
