@@ -1,10 +1,11 @@
 #!/usr/bin/env tsx
+// @ts-nocheck
 /**
  * Test ensureSessionExercises with a mock Supabase client
  * to verify it respects the is_deload flag from the session.
  */
 
-import { ensureSessionExercises } from "../src/app/session/actions.ts";
+import { ensureSessionExercises } from "../src/app/session/actions.js";
 
 interface MockSession {
   program_day_id: string;

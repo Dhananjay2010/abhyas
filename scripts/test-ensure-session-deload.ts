@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Test: ensureSessionExercises applies deload from session row
  *

@@ -3,7 +3,7 @@
  * Unit test: ensureSessionExercises must apply deload when is_deload=true
  */
 
-import { buildSessionExerciseRows } from "../src/lib/session/build-session-exercises.ts";
+import { buildSessionExerciseRows } from "../src/lib/session/build-session-exercises.js";
 
 console.log("Testing buildSessionExerciseRows with deload context...\n");
 

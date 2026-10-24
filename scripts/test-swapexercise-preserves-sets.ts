@@ -25,7 +25,7 @@ const swapExerciseBody = swapExerciseMatch[1];
 
 // Find the update statement
 const updateMatch = swapExerciseBody.match(
-  /\.update\(\s*{([^}]*)}\s*\)/s,
+  /\.update\(\s*\{([\s\S]*?)\}\s*\)/,
 );
 
 if (!updateMatch) {
