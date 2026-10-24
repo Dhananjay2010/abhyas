@@ -27,10 +27,13 @@ One hour a day. No guesswork.
 
 ## Prerequisites
 
-- **Node.js 22 or later** (pinned in `.nvmrc`)
+- **Node.js 22 or later** (required, pinned in `.nvmrc` and `package.json` engines field)
 - **npm** (comes with Node)
 - **Supabase CLI** (for running migrations): `npm install -g supabase`
+- **Docker Desktop** (for local Supabase stack)
 - **nvm** (recommended, for managing Node versions): https://github.com/nvm-sh/nvm
+
+**Note:** Node.js 22+ is required. The project will not run on Node 20 or earlier. Use `nvm use` to switch to the correct version automatically from `.nvmrc`.
 
 ---
 
@@ -97,6 +100,46 @@ npm run dev:nvm
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 **Why not `npm run dev`?** Next.js 16 with Turbopack spawns child processes that resolve `node` from `PATH`, so the Node version must be set in the shell's `PATH` itself, not just the parent process. `dev:nvm` handles this automatically.
+
+---
+
+## Important: `supabase/config.toml` Auth Settings
+
+**⚠️ The committed `config.toml` uses production-safe auth settings to prevent accidental misconfiguration:**
+
+```toml
+[auth]
+site_url = "https://abhyas-indol.vercel.app"
+
+[auth.email]
+enable_signup = false
+enable_confirmations = true
+max_frequency = "1m0s"
+```
+
+**These settings protect production.** Running `supabase config push` with relaxed local dev settings would disable signups and break email confirmations in production.
+
+**For local development with magic links or email signup:**
+
+Apply the same sed overrides CI uses, start Supabase, then restore the original config:
+
+```bash
+# Step 1: Apply local auth overrides (same as CI)
+sed -i 's|site_url = "https://abhyas-indol.vercel.app"|site_url = "http://localhost:3000"|' supabase/config.toml
+sed -i 's/enable_signup = false/enable_signup = true/' supabase/config.toml
+sed -i 's/enable_confirmations = true/enable_confirmations = false/' supabase/config.toml
+sed -i 's/max_frequency = "1m0s"/max_frequency = "1s"/' supabase/config.toml
+
+# Step 2: Start Supabase with the modified config
+npm run supabase:start
+
+# Your local Supabase is now running with email auth enabled
+
+# Step 3: When done, restore the original production-safe config
+git restore supabase/config.toml
+```
+
+**⚠️ Never commit local auth overrides.** Always run `git restore supabase/config.toml` after local testing. Do not run `supabase config push` with local settings; it would break production auth.
 
 ---
 
@@ -310,42 +353,85 @@ The local database is seeded with deterministic test data from `supabase/seed.sq
 **Using the test data:**
 
 1. Start local Supabase: `npm run supabase:start`
-2. The seed runs automatically and creates a test user in the local database
-   - Email: `test@example.com`
-   - Password: `testpass123`
-   - UUID: `00000000-0000-0000-0000-000000000001`
+2. The seed runs automatically and creates a test user in the local database:
+   - **Email:** `test@example.com`
+   - **Password:** `testpass123`
+   - **UUID:** `00000000-0000-0000-0000-000000000001`
+   - Email is pre-confirmed, so the user can sign in immediately
 
-**⚠️ Important:** The app's UI only offers **Google OAuth sign-in** (no email/password form). The seeded user **cannot sign in through the app UI as-is**. To use the seeded test data locally:
+### Local QA Sign-In Options
 
-**Option 1: Sign in programmatically with the seeded user (for testing without Google)**
+**⚠️ Important:** The app's UI only offers **Google OAuth sign-in** (no email/password form). The seeded test user can sign in locally via magic link (requires local auth config override) or an admin-created session.
 
-The email provider is enabled in local Supabase, but there's no password form in the app UI. You can get a session programmatically using supabase-js:
+#### Option 1: Magic link via Mailpit (recommended for local testing)
 
-```typescript
-import { createClient } from '@supabase/supabase-js'
+The local Supabase stack includes **Mailpit** (formerly Inbucket), a test email server at [http://localhost:54324](http://localhost:54324).
 
-const supabase = createClient(
-  'http://127.0.0.1:54321',
-  'your-local-anon-key'  // From `npm run supabase:start` output
-)
+**Prerequisites:** Follow the local auth config override steps above to enable email signup and disable confirmations for local development.
 
-const { data, error } = await supabase.auth.signInWithPassword({
-  email: 'test@example.com',
-  password: 'testpass123'
-})
+**Sign in with the seeded test user:**
+
+1. Start local Supabase with your local config override (see auth settings section above)
+2. Request a magic link via the Supabase CLI:
+   ```bash
+   # Send a magic link email to the test user
+   curl -X POST 'http://127.0.0.1:54321/auth/v1/magiclink' \
+     -H 'apikey: YOUR_LOCAL_ANON_KEY' \
+     -H 'Content-Type: application/json' \
+     -d '{"email": "test@example.com"}'
+   ```
+   Replace `YOUR_LOCAL_ANON_KEY` with the anon key from `npm run supabase:start` output.
+
+3. Open Mailpit at [http://localhost:54324](http://localhost:54324)
+4. Click the `test@example.com` inbox (or the latest email)
+5. Click the "Confirm your email" or "Log in" link in the email
+6. You'll be redirected to the app and signed in
+
+**Note:** The app UI has no "Send magic link" form, so you must trigger the email via the CLI or API.
+
+#### Option 2: Admin-created session via service role key
+
+Use the service role key to create a session directly without email:
+
+```bash
+# Get the service role key from `npm run supabase:start` output
+# It's the long JWT starting with eyJhbG...
+
+# Create a session for the test user
+curl -X POST 'http://127.0.0.1:54321/auth/v1/admin/generate_link' \
+  -H 'apikey: YOUR_LOCAL_SERVICE_ROLE_KEY' \
+  -H 'Authorization: Bearer YOUR_LOCAL_SERVICE_ROLE_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "magiclink",
+    "email": "test@example.com"
+  }'
+
+# Output includes action_link — open it in your browser:
+# http://127.0.0.1:54321/auth/v1/verify?token=...&type=magiclink&redirect_to=http://localhost:3000
 ```
 
-This gives you a valid session for the seeded user without adding login UI to the app.
+**Alternative: Use the Supabase CLI**
 
-**Option 2: Sign in with Google and create your own data**
+```bash
+supabase auth admin generate-link \
+  --type magiclink \
+  --email test@example.com
+```
 
-Configure Google OAuth in `supabase/config.toml` under `[auth.external.google]` with local redirect URLs, then sign in through the app's Google sign-in button. Use your own account and create data through the app's normal onboarding and workout flows. The seeded test user is for programmatic and server-side testing (Options 1 and 3).
+This prints a link you can open in your browser.
 
-**Option 3: Use the seeded user programmatically**
+#### Option 3: Sign in with Google and create your own data
 
-Access the local database directly (via Studio SQL Editor at http://127.0.0.1:54323 or psql) to query/modify the seeded user's data for testing server-side logic, migrations, or database queries without needing to sign in.
+Configure Google OAuth in `supabase/config.toml` under `[auth.external.google]` with local redirect URLs, then sign in through the app's Google sign-in button. Use your own account and create data through the app's normal onboarding and workout flows. The seeded test user is for programmatic testing.
 
-The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, test@example.com) and safe to commit. The password `testpass123` is a local-only test credential.
+#### Option 4: Direct database access (for backend testing)
+
+Access the local database directly via Supabase Studio SQL Editor at [http://127.0.0.1:54323](http://127.0.0.1:54323) or `psql` to query/modify the seeded user's data without signing in. Useful for testing server-side logic, migrations, or database queries.
+
+---
+
+The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, test@example.com) and safe to commit. The password `testpass123` is a local-only test credential (only used if you manually enable password auth).
 
 ---
 
