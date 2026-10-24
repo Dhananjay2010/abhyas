@@ -318,11 +318,14 @@ export function score(
   if (!wantCompound && ex.mechanic === "isolation") s += 3;
   
   // Level match: prefer exercises at or below user's level, with a slight bonus
-  // for exercises tagged for beginners (these are usually staple movements).
+  // for beginner-tagged exercises for bodyweight users only (where these are the
+  // core staples). For gym users with equipment, loaded exercises (barbell,
+  // dumbbell) are the true staples, so the beginner tag doesn't indicate which
+  // is more foundational. The tiering system handles equipment preference.
   // REMOVED: the old "+1 for exact level match" which favored exotic intermediate
   // exercises over beginner staples for intermediate users.
-  if (ex.level_min === "beginner") {
-    s += 0.5; // Slight preference for foundational movements
+  if (ex.level_min === "beginner" && primaryTrack === "bodyweight") {
+    s += 0.5; // Slight preference for foundational bodyweight movements
   }
 
   // Prefer the simplest setup that does the job — but only for bodyweight/home
@@ -336,26 +339,55 @@ export function score(
 }
 
 /**
+ * Helper to detect if an exercise requires equipment (loaded) vs bodyweight-only.
+ * For gym users with equipment, loaded exercises should be preferred in main slots
+ * over bodyweight novelty variants (clock push-up, archer push-up, etc.).
+ */
+function isLoadedExercise(ex: CandidateExercise): boolean {
+  return ex.equipment_ids.length > 0;
+}
+
+/**
  * Lexicographic sort key for deterministic staple preference.
  * 
- * Returns "0:<index>" for a staple (lower sorts first), "1:slug" for non-staples.
- * This guarantees that staples are picked before non-staples when scores tie,
- * and that the same staple wins every time.
+ * For gym users with equipment, loaded staples (barbell bench, dumbbell press)
+ * are preferred over bodyweight staples (push-ups) in main slots. Bodyweight
+ * variants remain available for bodyweight-track users and as fallbacks.
  * 
- * Now applies to ALL levels, not just beginners, so intermediates get bench press
- * instead of decline kettlebell variations.
+ * Sorting tiers:
+ * - 0: Loaded staple (for equipped users)
+ * - 1: Bodyweight staple (for bodyweight-track or as fallback)
+ * - 2: Loaded non-staple
+ * - 3: Bodyweight non-staple (novelty variants like clock push-up go here)
  */
-function stapleSortKey(ex: CandidateExercise, pattern: Pattern): string {
+function stapleSortKey(
+  ex: CandidateExercise,
+  pattern: Pattern,
+  hasEquipment: boolean,
+  primaryTrack: Track,
+): string {
   const staples = STAPLE_MOVEMENTS[pattern] ?? [];
   const index = staples.indexOf(ex.slug);
+  const isStaple = index >= 0;
+  const isLoaded = isLoadedExercise(ex);
   
-  if (index >= 0) {
-    // Staple: sort by priority (index) within the staple list
-    return `0:${String(index).padStart(3, "0")}`;
+  // For bodyweight-track users, don't penalize bodyweight exercises
+  const preferLoaded = hasEquipment && primaryTrack !== "bodyweight";
+  
+  let tier: number;
+  if (isStaple && isLoaded && preferLoaded) {
+    tier = 0; // Loaded staple for equipped gym users
+  } else if (isStaple) {
+    tier = 1; // Bodyweight staple or any staple for bodyweight users
+  } else if (isLoaded && preferLoaded) {
+    tier = 2; // Loaded non-staple
+  } else {
+    tier = 3; // Bodyweight non-staple (novelty variants go here)
   }
   
-  // Non-staple: sort after all staples, then alphabetically
-  return `1:${ex.slug}`;
+  // Within tier, sort staples by priority, non-staples alphabetically
+  const priority = isStaple ? String(index).padStart(3, "0") : ex.slug;
+  return `${tier}:${priority}`;
 }
 
 /**
@@ -420,7 +452,9 @@ function pickForSlot(
       .map((e) => ({
         e,
         score: score(e, wantCompound, input.level, input.primaryTrack),
-        stapleKey: isMainSlot ? stapleSortKey(e, p) : `1:${e.slug}`, // Non-main slots: no staple bonus
+        stapleKey: isMainSlot
+          ? stapleSortKey(e, p, input.hasAllEquipment, input.primaryTrack)
+          : `1:${e.slug}`, // Non-main slots: no staple bonus
         rng: rng(),
       }))
       .sort((a, b) => {
@@ -459,7 +493,7 @@ function pickForSlot(
       .map((e) => ({
         e,
         score: score(e, slotIndex < 4, input.level, input.primaryTrack),
-        stapleKey: stapleSortKey(e, altPattern),
+        stapleKey: stapleSortKey(e, altPattern, input.hasAllEquipment, input.primaryTrack),
         rng: rng(),
       }))
       .sort((a, b) => {

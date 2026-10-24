@@ -79,18 +79,24 @@ export function selectWarmup(input: {
 
   // 2. Five minutes of mobility for what is about to be trained. Exercises that
   //    hit more of today's muscles come first; a general spine drill backfills.
-  const mobility = byType("mobility")
+  //    QA: Always include at least one dynamic mobility drill, not just cardio.
+  const mobilityPool = byType("mobility");
+  const mobilityRanked = mobilityPool
     .map((w) => ({
       w,
       overlap: w.target_muscles.filter((m) => muscles.has(m)).length,
     }))
-    .filter((x) => x.overlap > 0)
     .sort((a, b) => {
       if (b.overlap !== a.overlap) return b.overlap - a.overlap;
       return a.w.slug < b.w.slug ? -1 : a.w.slug > b.w.slug ? 1 : 0;
-    })
-    .slice(0, 4)
-    .map((x) => x.w);
+    });
+  
+  // Take top 4 with muscle overlap, or at minimum take top 2 mobility drills
+  // even if overlap is zero, to ensure activation work is included.
+  const withOverlap = mobilityRanked.filter((x) => x.overlap > 0).slice(0, 4);
+  const mobility = withOverlap.length >= 2
+    ? withOverlap.map((x) => x.w)
+    : mobilityRanked.slice(0, Math.max(2, withOverlap.length)).map((x) => x.w);
 
   if (mobility.length < 3) {
     // Fallback drills, filtered by contraindications. Never suggest a squat for
