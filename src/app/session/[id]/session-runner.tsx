@@ -158,16 +158,15 @@ export function SessionRunner({
     error: null,
   });
 
-  const controllerRef = useRef<ReturnType<typeof createPendingSetController> | null>(null);
-
-  if (!controllerRef.current && typeof window !== "undefined") {
-    controllerRef.current = createPendingSetController({
+  const [controller] = useState(() => {
+    if (typeof window === "undefined") return null;
+    return createPendingSetController({
       storage: window.localStorage,
       logSet: actions.logSet,
       sessionId,
       onChange: setPendingSetState,
     });
-  }
+  });
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -217,16 +216,15 @@ export function SessionRunner({
 
   // ---- pending set replay -----------------------------------------------
   useEffect(() => {
-    const controller = controllerRef.current;
     if (!controller) return;
 
     function handleFocus() {
-      controllerRef.current?.onFocus();
+      controller.onFocus();
     }
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
-        controllerRef.current?.onFocus();
+        controller.onFocus();
       }
     }
 
@@ -237,7 +235,7 @@ export function SessionRunner({
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [controller]);
 
   // ---- rest timer -------------------------------------------------------
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
@@ -637,7 +635,6 @@ export function SessionRunner({
     busyRef.current = true;
     setBusy(true);
 
-    const controller = controllerRef.current;
     if (!controller) {
       busyRef.current = false;
       setBusy(false);
@@ -771,11 +768,11 @@ export function SessionRunner({
               {pendingSetState.pending.length}{" "}
               {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
             </p>
-            {!pendingSetState.retrying && controllerRef.current && (
+            {!pendingSetState.retrying && controller && (
               <div className="mt-3">
                 <button
                   onClick={() => {
-                    controllerRef.current?.replay();
+                    controller.replay();
                   }}
                   disabled={pendingSetState.retrying}
                   className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"

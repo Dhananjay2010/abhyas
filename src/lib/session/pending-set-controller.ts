@@ -166,7 +166,6 @@ export function createPendingSetController(config: {
 
       setState({ retrying: true, error: null });
 
-      let replayed = 0;
       let firstError: string | null = null;
 
       for (const set of toReplay) {
@@ -181,7 +180,6 @@ export function createPendingSetController(config: {
 
           if (result.ok || isDuplicateError(result)) {
             clearPendingSet(storage, sessionId, set.clientId);
-            replayed++;
           } else if (isSessionExpired(result)) {
             if (!firstError) firstError = "Session still expired";
           } else {
@@ -190,7 +188,6 @@ export function createPendingSetController(config: {
         } catch (err) {
           if (isDuplicateError(err)) {
             clearPendingSet(storage, sessionId, set.clientId);
-            replayed++;
           } else if (!firstError) {
             firstError = err instanceof Error ? err.message : "Network error";
           }
