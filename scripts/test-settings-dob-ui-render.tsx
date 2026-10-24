@@ -143,8 +143,9 @@ async function main() {
   // Test 4: Verify DobInput is properly wired in settings-form.tsx
   console.log("\n4. Verify DobInput is properly wired in settings-form.tsx");
   {
-    const settingsFormPath = "/workspace/src/app/settings/settings-form.tsx";
+    const path = await import("path");
     const fs = await import("fs/promises");
+    const settingsFormPath = path.resolve(__dirname, "../src/app/settings/settings-form.tsx");
     const content = await fs.readFile(settingsFormPath, "utf-8");
     
     // Check import
