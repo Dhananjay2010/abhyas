@@ -33,10 +33,12 @@ const mockState = {
 const mockUsePathname = () => {
   return mockState.pathname;
 };
-const mockUseRouter = () => ({
+// Stable router object to prevent effect re-runs on every render
+const stableRouter = {
   push: () => {},
   refresh: () => {},
-});
+};
+const mockUseRouter = () => stableRouter;
 
 // Mock Link component
 function MockLink({ children, href }: { children: React.ReactNode; href: string }) {
@@ -621,7 +623,7 @@ async function runTests(): Promise<TestResult[]> {
     clearPendingChanges();
     
     // Seed the stash with toggle + equipment changes
-    // Note: usePathname() returns null in test environment, so we stash with null
+    // Match mockState.pathname ('/settings') for restoration to work
     stashPendingChanges([
       {
         key: 'cooldown_enabled',
@@ -635,7 +637,7 @@ async function runTests(): Promise<TestResult[]> {
         patch: { hasAll: false, equipmentIds: ['barbell'] },
         timestamp: Date.now()
       }
-    ], null as unknown as string);
+    ], '/settings');
     
     const testState: SettingsState = {
       ...initialState,
@@ -721,7 +723,7 @@ async function runTests(): Promise<TestResult[]> {
     clearPendingChanges();
     
     // Seed the stash with a toggle change
-    // Note: usePathname() returns null in test environment, so we stash with null
+    // Match mockState.pathname ('/settings') for restoration to work
     stashPendingChanges([
       {
         key: 'cooldown_enabled',
@@ -729,7 +731,7 @@ async function runTests(): Promise<TestResult[]> {
         patch: { cooldown_enabled: false },
         timestamp: Date.now()
       }
-    ], null as unknown as string);
+    ], '/settings');
     
     const testState: SettingsState = {
       ...initialState,
