@@ -13,7 +13,7 @@
  * - nextWeight from any grid value stays on-grid
  */
 
-import { roundToEquipmentGrid, gridStepFor, KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB, kettlebellBounds } from '../src/lib/session/equipment-grid';
+import { roundToEquipmentGrid, gridStepFor, KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB } from '../src/lib/session/equipment-grid';
 import { nextWeight } from '../src/lib/session/input-step';
 
 let failures = 0;
@@ -168,6 +168,8 @@ console.log('\n6c. roundToEquipmentGrid - weight_plate and dip_belt (2.5 kg / 5 
   check('dip_belt 12 lb → 10 lb', roundToEquipmentGrid(12, ['dip_belt'], 'lb') === 10);
   check('dip_belt 12.5 lb tie → 10 lb', roundToEquipmentGrid(12.5, ['dip_belt'], 'lb') === 10);
 }
+
+console.log('\n7. roundToEquipmentGrid - kettlebell kg');
 {
   check('8 kg on-grid', roundToEquipmentGrid(8, ['kettlebell'], 'kg') === 8);
   check('16 kg on-grid', roundToEquipmentGrid(16, ['kettlebell'], 'kg') === 16);
@@ -286,6 +288,10 @@ console.log('\n11. roundToEquipmentGrid - multi-equipment precedence');
   check('bodyweight + dumbbell uses dumbbell grid', roundToEquipmentGrid(21, ['bodyweight', 'dumbbell'], 'kg') === 20);
   check('dip_bars + machine_generic uses machine grid', roundToEquipmentGrid(52, ['dip_bars', 'machine_generic'], 'kg') === 50);
   check('kettlebell + dumbbell: kettlebell takes precedence', roundToEquipmentGrid(7, ['kettlebell', 'dumbbell'], 'kg') === 6);
+  
+  // Non-loadable + loadable: loadable takes precedence
+  check('dip_bars + dip_belt uses dip_belt grid (2.5 kg)', roundToEquipmentGrid(21, ['dip_bars', 'dip_belt'], 'kg') === 20);
+  check('medicine_ball + dumbbell uses max step (2.5 kg > 1 kg)', roundToEquipmentGrid(21, ['medicine_ball', 'dumbbell'], 'kg') === 20);
 }
 
 console.log('\n12. Sweep test: all outputs 0..200 in 0.25 steps are EXACTLY on-grid');
@@ -302,18 +308,13 @@ console.log('\n12. Sweep test: all outputs 0..200 in 0.25 steps are EXACTLY on-g
   for (const { equipmentIds, unit, step } of testCases) {
     for (let i = 0; i <= 200; i += 0.25) {
       const rounded = roundToEquipmentGrid(i, equipmentIds, unit);
-      // Use exact integer-scaled arithmetic without rounding first
-      // Scale to thousandths to avoid float precision issues
-      const scaledRounded = rounded * 1000;
-      const scaledStep = step * 1000;
-      // Check if scaledRounded is an exact integer multiple of scaledStep
-      const remainder = scaledRounded % scaledStep;
-      const isExact = Math.abs(remainder) < 0.1 || Math.abs(remainder - scaledStep) < 0.1;
+      // Exact check: every multiple of 1, 2, 2.5, 5, 10 up to 200 is exact in floating point
+      const isExact = rounded === Math.round(rounded / step) * step;
       
       if (!isExact) {
         offGridCount++;
         if (offGridCount <= 3) {
-          console.log(`    FAIL: ${i} ${unit} on ${equipmentIds[0]} → ${rounded} (scaled: ${scaledRounded}, step: ${scaledStep}, remainder: ${remainder})`);
+          console.log(`    FAIL: ${i} ${unit} on ${equipmentIds[0]} → ${rounded} (not exact multiple of ${step})`);
         }
       }
     }
@@ -374,11 +375,8 @@ console.log('\n14. nextWeight from any grid value stays EXACTLY on-grid');
     // Start from each grid value and step up
     for (let value = 0; value <= max; value += step) {
       const next = nextWeight(value, 1, equipmentIds, unit);
-      // Use exact integer-scaled arithmetic without rounding first
-      const scaledNext = next * 1000;
-      const scaledStep = step * 1000;
-      const remainder = scaledNext % scaledStep;
-      const isExact = Math.abs(remainder) < 0.1 || Math.abs(remainder - scaledStep) < 0.1;
+      // Exact check: every multiple of 1, 2, 2.5, 5, 10 up to 200 is exact in floating point
+      const isExact = next === Math.round(next / step) * step;
       
       if (!isExact) {
         offGridCount++;
@@ -391,10 +389,8 @@ console.log('\n14. nextWeight from any grid value stays EXACTLY on-grid');
     // Start from each grid value and step down
     for (let value = max; value >= 0; value -= step) {
       const next = nextWeight(value, -1, equipmentIds, unit);
-      const scaledNext = next * 1000;
-      const scaledStep = step * 1000;
-      const remainder = scaledNext % scaledStep;
-      const isExact = Math.abs(remainder) < 0.1 || Math.abs(remainder - scaledStep) < 0.1;
+      // Exact check: every multiple of 1, 2, 2.5, 5, 10 up to 200 is exact in floating point
+      const isExact = next === Math.round(next / step) * step;
       
       if (!isExact) {
         offGridCount++;

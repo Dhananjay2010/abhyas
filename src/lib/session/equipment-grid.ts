@@ -8,18 +8,18 @@ export type WeightUnit = 'kg' | 'lb';
 /**
  * Pin-stack/selectorised machine IDs: fixed weight stacks with selector pin.
  */
-const PIN_STACK_MACHINE_IDS = [
+const PIN_STACK_MACHINE_IDS: readonly string[] = [
   'leg_curl', 'leg_extension',
   'chest_press_machine', 'pec_deck', 'lat_pulldown',
   'seated_row_machine', 'shoulder_press_machine', 'machine_generic',
-] as const;
+];
 
 /**
  * Plate-loaded machine IDs: use standard plates like barbells.
  */
-const PLATE_LOADED_MACHINE_IDS = [
+const PLATE_LOADED_MACHINE_IDS: readonly string[] = [
   'smith_machine', 'leg_press', 'hack_squat',
-] as const;
+];
 
 /**
  * Equipment IDs that can carry external weight load.
@@ -104,10 +104,10 @@ export function gridStepFor(equipmentIds: string[], unit: WeightUnit): number {
   const steps: number[] = [];
 
   for (const id of equipmentIds) {
-    if (PIN_STACK_MACHINE_IDS.includes(id as typeof PIN_STACK_MACHINE_IDS[number])) {
+    if (PIN_STACK_MACHINE_IDS.includes(id)) {
       // Pin-stack machines: 5 kg / 10 lb (selector pin increments)
       steps.push(unit === 'kg' ? 5 : 10);
-    } else if (PLATE_LOADED_MACHINE_IDS.includes(id as typeof PLATE_LOADED_MACHINE_IDS[number])) {
+    } else if (PLATE_LOADED_MACHINE_IDS.includes(id)) {
       // Plate-loaded machines: 2.5 kg / 5 lb (use plates)
       steps.push(unit === 'kg' ? 2.5 : 5);
     } else if (id === 'medicine_ball') {
