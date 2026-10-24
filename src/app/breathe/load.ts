@@ -1,12 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import {
-  PATTERN_COLUMNS,
   PREFS_COLUMNS,
   USER_PATTERN_COLUMNS,
   isMineSlug,
   mineId,
-  patternFromRow,
   patternFromUser,
   prefsFromRow,
   userPatternFromRow,
@@ -16,21 +14,23 @@ import {
   type UserPattern,
 } from "@/lib/breathing/pattern";
 import {
-  JOURNEY_COLUMNS,
   PROGRESS_COLUMNS,
-  journeyFromRow,
   progressFromRow,
   resolveJourney,
   type ResolvedJourney,
 } from "@/lib/breathing/journey";
 import {
-  ROUTINE_COLUMNS,
   resolveRoutine,
-  routineFromRow,
   type ResolvedRoutine,
 } from "@/lib/breathing/routine";
 import { calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { localDateString } from "@/lib/dates";
+import {
+  getCachedBreathingPatterns,
+  getCachedBreathingRoutines,
+  getCachedBreathingJourneys,
+} from "@/lib/supabase/cached-queries";
+import { getCachedUserTimezone } from "@/lib/supabase/cached-profile";
 
 type Client = SupabaseClient<Database>;
 
@@ -70,10 +70,8 @@ export async function loadPractice(
 ): Promise<LoadedPractice | null> {
   const mine = isMineSlug(slug);
 
-  const [builtinRes, mineRes, settingsRes, logsRes, countRes] = await Promise.all([
-    mine
-      ? Promise.resolve(null)
-      : supabase.from("breathing_patterns").select(PATTERN_COLUMNS).eq("slug", slug).maybeSingle(),
+  const [builtins, mineRes, settingsRes, logsRes, countRes] = await Promise.all([
+    mine ? Promise.resolve([]) : getCachedBreathingPatterns(),
     supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS),
     supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", userId).maybeSingle(),
     supabase
@@ -93,7 +91,7 @@ export async function loadPractice(
     const own = owned.find((p) => p.id === mineId(slug) && p.basePatternId === null);
     pattern = own ? patternFromUser(own) : null;
   } else {
-    const builtin = builtinRes?.data ? patternFromRow(builtinRes.data) : null;
+    const builtin = builtins.find((p) => p.slug === slug);
     pattern = builtin ? withUserPatterns([builtin], owned)[0] : null;
   }
   if (!pattern) return null;
@@ -133,20 +131,17 @@ export async function loadRoutine(
   userId: string,
   slug: string,
 ): Promise<LoadedRoutine | null> {
-  const [routineRes, patternsRes, mineRes, settingsRes, countRes] = await Promise.all([
-    supabase.from("breathing_routines").select(ROUTINE_COLUMNS).eq("slug", slug).maybeSingle(),
-    supabase.from("breathing_patterns").select(PATTERN_COLUMNS).order("sort_order"),
+  const [routines, builtins, mineRes, settingsRes, countRes] = await Promise.all([
+    getCachedBreathingRoutines(),
+    getCachedBreathingPatterns(),
     supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS),
     supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", userId).maybeSingle(),
     supabase.from("breathing_logs").select("id", { count: "exact", head: true }),
   ]);
 
-  const routine = routineRes.data ? routineFromRow(routineRes.data) : null;
+  const routine = routines.find((r) => r.slug === slug);
   if (!routine) return null;
 
-  const builtins = (patternsRes.data ?? [])
-    .map((row) => patternFromRow(row))
-    .filter((p): p is Pattern => p !== null);
   const owned = (mineRes.data ?? [])
     .map(userPatternFromRow)
     .filter((p): p is UserPattern => p !== null);
@@ -183,13 +178,14 @@ export async function loadJourney(
   userId: string,
   slug: string,
 ): Promise<LoadedJourney | null> {
-  const [journeyRes, patternsRes, mineRes, settingsRes, profileRes, logsRes, countRes] =
+  const [journeys, builtins, timezone, mineRes, progressRes, settingsRes, logsRes, countRes] =
     await Promise.all([
-      supabase.from("breathing_journeys").select(JOURNEY_COLUMNS).eq("slug", slug).maybeSingle(),
-      supabase.from("breathing_patterns").select(PATTERN_COLUMNS).order("sort_order"),
+      getCachedBreathingJourneys(),
+      getCachedBreathingPatterns(),
+      getCachedUserTimezone(),
       supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS),
+      supabase.from("user_journey_progress").select(PROGRESS_COLUMNS),
       supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", userId).maybeSingle(),
-      supabase.from("profiles").select("timezone").eq("id", userId).single(),
       supabase
         .from("breathing_logs")
         .select("pattern_name, routine_name, mood_before, mood_after")
@@ -198,25 +194,14 @@ export async function loadJourney(
       supabase.from("breathing_logs").select("id", { count: "exact", head: true }),
     ]);
 
-  const journey = journeyRes.data ? journeyFromRow(journeyRes.data) : null;
+  const journey = journeys.find((j) => j.slug === slug);
   if (!journey) return null;
 
-  // A second round trip, because it needs the journey's id. Nothing above
-  // depends on it, so it is the only thing serialised here.
-  const progressRes = await supabase
-    .from("user_journey_progress")
-    .select(PROGRESS_COLUMNS)
-    .eq("journey_id", journey.id)
-    .maybeSingle();
-
-  const builtins = (patternsRes.data ?? [])
-    .map((row) => patternFromRow(row))
-    .filter((p): p is Pattern => p !== null);
   const owned = (mineRes.data ?? [])
     .map(userPatternFromRow)
     .filter((p): p is UserPattern => p !== null);
 
-  const today = localDateString(profileRes.data?.timezone || "Asia/Kolkata");
+  const today = localDateString(timezone);
   const shifts = calmShifts(
     (logsRes.data ?? []).map(
       (l): MoodLog => ({
@@ -227,10 +212,14 @@ export async function loadJourney(
     ),
   );
 
+  const progressByJourney = new Map(
+    (progressRes.data ?? []).map((row) => [row.journey_id, row]),
+  );
+
   const resolved = resolveJourney({
     journey,
     patterns: withUserPatterns(builtins, owned),
-    progress: progressFromRow(progressRes.data),
+    progress: progressFromRow(progressByJourney.get(journey.id) ?? null),
     today,
     shifts,
   });

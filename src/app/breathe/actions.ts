@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/database.types";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { getCachedUserTimezone } from "@/lib/supabase/cached-profile";
 import { localDateString } from "@/lib/dates";
 import { MAX_DAYS } from "@/lib/breathing/journey";
 import { parsePhases } from "@/lib/breathing/pattern";
@@ -47,12 +48,8 @@ export async function recordBreathingPractice(
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", user.id)
-    .single();
-  const today = localDateString(profile?.timezone || "Asia/Kolkata");
+  const timezone = await getCachedUserTimezone();
+  const today = localDateString(timezone);
 
   const { data, error } = await supabase.rpc("record_breathing_practice", {
     p_log_id: input.logId,
@@ -112,17 +109,12 @@ export async function recordJourneyDay(input: {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", user.id)
-    .single();
+  const timezone = await getCachedUserTimezone();
 
   const { data, error } = await supabase.rpc("advance_journey_day", {
     p_journey_id: input.journeyId,
     p_day: input.day,
-    // The day this counts towards is the user's own date, never the browser's.
-    p_local_date: localDateString(profile?.timezone || "Asia/Kolkata"),
+    p_local_date: localDateString(timezone),
     p_log_id: input.logId,
   });
   if (error) return { ok: false, error: error.message };
