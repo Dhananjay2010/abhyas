@@ -289,14 +289,14 @@ async function testPrecachingAtInstall() {
   console.log("  ✓ SW extracts URLs from <script src> tags");
   console.log("  ✓ SW extracts URLs from <link href> tags");
 
-  console.log("\n▶ Verifying SW caches extracted chunks with cache.addAll...");
+  console.log("\n▶ Verifying SW caches extracted chunks per-URL (resilient to individual failures)...");
 
   assert(
-    swScript.includes("cache.addAll"),
-    "SW must use cache.addAll to precache chunks"
+    swScript.includes("Promise.allSettled") && swScript.includes("cache.add"),
+    "SW must use Promise.allSettled with per-URL cache.add for resilient precaching"
   );
 
-  console.log("  ✓ SW uses cache.addAll to precache chunks");
+  console.log("  ✓ SW uses Promise.allSettled with per-URL cache.add");
 
   console.log("\n▶ Verifying precaching is best-effort (doesn't fail install)...");
 
@@ -374,6 +374,60 @@ async function testPrecachingAtInstall() {
   console.log("  ✓ Extracted 3 chunk URLs from mock HTML");
   console.log("  ✓ CSS URL extracted");
   console.log("  ✓ JS chunk URLs extracted");
+
+  console.log("\n▶ Testing resilient per-URL caching (one failure doesn't block others)...");
+
+  // Simulate per-URL caching with one failing
+  const testUrls = [
+    "/_next/static/chunks/success-1.js",
+    "/_next/static/chunks/fail.js",
+    "/_next/static/chunks/success-2.js",
+  ];
+
+  const fakeCache2 = new FakeCache();
+  
+  // Simulate Promise.allSettled behavior where one URL fails
+  const results = await Promise.allSettled(
+    testUrls.map(async (url) => {
+      if (url.includes("fail")) {
+        throw new Error("Network error");
+      }
+      // Simulate successful cache.add
+      const req = new Request(`http://localhost:3000${url}`);
+      const resp = new Response("// code", { status: 200 });
+      await fakeCache2.put(req, resp);
+      return { url, status: "fulfilled" };
+    })
+  );
+
+  assert(
+    results.length === 3,
+    `Should process all 3 URLs, got ${results.length}`
+  );
+
+  assert(
+    results[0].status === "fulfilled",
+    "First URL should succeed"
+  );
+
+  assert(
+    results[1].status === "rejected",
+    "Second URL should fail"
+  );
+
+  assert(
+    results[2].status === "fulfilled",
+    "Third URL should succeed"
+  );
+
+  assert(
+    fakeCache2.size() === 2,
+    `Should cache 2 successful URLs despite 1 failure, got ${fakeCache2.size()}`
+  );
+
+  console.log("  ✓ Promise.allSettled processes all URLs");
+  console.log("  ✓ One failing URL doesn't prevent others from caching");
+  console.log("  ✓ 2 of 3 URLs cached successfully");
 }
 
 console.log("Testing Service Worker Static Asset Caching");

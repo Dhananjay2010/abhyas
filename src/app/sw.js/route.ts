@@ -99,13 +99,10 @@ self.addEventListener("install", (event) => {
           const sameOriginUrls = uniqueUrls.filter(url => url.startsWith('/_next/static/'));
           
           if (sameOriginUrls.length > 0) {
-            // Best effort: cache all chunks together, but don't fail install if one fails
-            try {
-              await cache.addAll(sameOriginUrls.map(url => new Request(url, { cache: "reload" })));
-            } catch {
-              // One or more chunks failed to load, but continue with install
-              // Runtime caching will pick them up on first navigation
-            }
+            // Best effort per-URL caching: one failing chunk doesn't prevent others
+            await Promise.allSettled(
+              sameOriginUrls.map(url => cache.add(new Request(url, { cache: "reload" })))
+            );
           }
         }
       } catch {
@@ -283,7 +280,7 @@ self.addEventListener("fetch", (event) => {
           return networkResponse;
         } catch {
           // Network failed and not in cache
-          return new Response("Asset not available", { status: 404 });
+          return Response.error();
         }
       })()
     );
