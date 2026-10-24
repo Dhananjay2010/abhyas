@@ -368,8 +368,11 @@ export async function deleteSet(
   // If this was the last working set and deleteSessionIfEmpty is true, delete the session
   if (totalWorkingSets === 1 && deleteSessionIfEmpty) {
     const deleteResult = await deleteSession(sessionExercise.session_id);
+    if ("error" in deleteResult) {
+      return { success: false, error: deleteResult.error };
+    }
     if (!deleteResult.success) {
-      return deleteResult;
+      return { success: false, error: "Failed to delete session." };
     }
     return { success: true, sessionDeleted: true, redirect: "/history" };
   }
