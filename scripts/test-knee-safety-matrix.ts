@@ -60,6 +60,31 @@ const EXPECTED_LOADED_WINDMILL_SIDE_BEND = new Set([
   "kettlebell-windmill",
 ]);
 
+// Hard-coded UNSAFE_KNEE_LUNGES for ANY knee (independent test oracle)
+const EXPECTED_UNSAFE_KNEE_LUNGES = new Set([
+  "elevated-back-lunge",
+  "barbell-side-split-squat",
+  "kettlebell-pistol-squat",
+  "smith-machine-pistol-squat",
+]);
+
+// Hard-coded PAST_KNEE_LUNGE_EXERCISES (4-list, independent test oracle)
+const EXPECTED_PAST_KNEE_LUNGE_EXERCISES = new Set([
+  "leg-extensions",
+  "single-leg-leg-extension",
+  "wall-sit",
+  "spanish-squat",
+]);
+
+// Hard-coded KNEE_SAFE_LUNGE_EXERCISES for CURRENT knee (independent test oracle)
+const EXPECTED_KNEE_SAFE_LUNGE_EXERCISES = new Set([
+  "step-up-with-knee-raise",
+  "barbell-step-ups",
+  "dumbbell-step-ups",
+  "split-squat-with-dumbbells",
+  "smith-single-leg-split-squat",
+]);
+
 // Load real catalogue
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
@@ -100,11 +125,31 @@ console.log("Expected floor-pull deadlifts (independent oracle):", Array.from(EX
 console.log("Expected loaded windmill/side-bend (independent oracle):", Array.from(EXPECTED_LOADED_WINDMILL_SIDE_BEND).join(", "));
 console.log();
 
-// Test: Every slug in EXPECTED_FLOOR_PULL_DEADLIFTS must exist in the catalogue
-console.log("Catalogue validation: Floor-pull deadlift slugs");
+// Catalogue validation: all slug lists must exist in catalogue
+console.log("Catalogue validation: Hard-coded slug lists");
+for (const slug of EXPECTED_KNEE_SAFE_QUAD_EXERCISES) {
+  const exists = catalogue.some(e => e.slug === slug);
+  check(`  Knee-safe quad: ${slug} exists in catalogue`, exists);
+}
 for (const slug of EXPECTED_FLOOR_PULL_DEADLIFTS) {
   const exists = catalogue.some(e => e.slug === slug);
-  check(`  ${slug} exists in catalogue`, exists);
+  check(`  Floor-pull deadlift: ${slug} exists in catalogue`, exists);
+}
+for (const slug of EXPECTED_LOADED_WINDMILL_SIDE_BEND) {
+  const exists = catalogue.some(e => e.slug === slug);
+  check(`  Loaded windmill/side-bend: ${slug} exists in catalogue`, exists);
+}
+for (const slug of EXPECTED_UNSAFE_KNEE_LUNGES) {
+  const exists = catalogue.some(e => e.slug === slug);
+  check(`  Unsafe knee lunge: ${slug} exists in catalogue`, exists);
+}
+for (const slug of EXPECTED_PAST_KNEE_LUNGE_EXERCISES) {
+  const exists = catalogue.some(e => e.slug === slug);
+  check(`  Past-knee lunge: ${slug} exists in catalogue`, exists);
+}
+for (const slug of EXPECTED_KNEE_SAFE_LUNGE_EXERCISES) {
+  const exists = catalogue.some(e => e.slug === slug);
+  check(`  Current-knee safe lunge: ${slug} exists in catalogue`, exists);
 }
 console.log();
 
@@ -250,7 +295,8 @@ for (const seed of testSeeds) {
             }
             
             // Rule 1: First LOWER BODY exercise on Lower/Full days is non-timed knee-safe quad when available,
-            // otherwise knee-safe hip-dominant compound
+            // otherwise knee-safe hip-dominant compound (CURRENT KNEE ONLY)
+            if (severity.label === "current-knee") {
             for (const day of lowerDays) {
               if (day.exercises.length === 0) continue;
               
@@ -315,8 +361,10 @@ for (const seed of testSeeds) {
                 }
               }
             }
+            }
             
-            // Rule 2: If first LOWER BODY exercise is not a hinge/bridge, then knee-safe must come before any hinge
+            // Rule 2: If first LOWER BODY exercise is not a hinge/bridge, then knee-safe must come before any hinge (CURRENT KNEE ONLY)
+            if (severity.label === "current-knee") {
             for (const day of lowerDays) {
               if (day.exercises.length === 0) continue;
               
@@ -356,6 +404,7 @@ for (const seed of testSeeds) {
                 }
               }
             }
+            }
             
             // Rule 3: No adjacent LOADED hinges (spinal_load !== "none")
             // Unloaded hinges (glute-bridge, butt-lift-bridge, etc.) can be stacked
@@ -378,7 +427,8 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 4: All exercises respect contraindicated_regions
+            // Rule 4: All exercises respect contraindicated_regions (CURRENT KNEE ONLY - past knee is in anyKneeInjury not currentInjuryRegions)
+            if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               for (const ex of day.exercises) {
                 const exercise = byId.get(ex.exerciseId);
@@ -391,6 +441,7 @@ for (const seed of testSeeds) {
                   profileFailed = true;
                 }
               }
+            }
             }
             
             // Rule 5 (Safety from PR #53): Beginners get no high-impact exercises
@@ -409,17 +460,21 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 6 (PR #73 follow-up): All squat/lunge pattern exercises must be in EXPECTED_KNEE_SAFE_QUAD_EXERCISES
-            for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
-              for (const ex of day.exercises) {
-                const exercise = byId.get(ex.exerciseId);
-                if (!exercise) continue;
-                
-                if (exercise.movement_pattern === "squat" || exercise.movement_pattern === "lunge") {
-                  if (!EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug)) {
-                    check(`${profileId} ${day.label}: squat/lunge in allowlist`, false,
-                      `${exercise.name} [${exercise.slug}] is ${exercise.movement_pattern} but not in allowlist`);
-                    profileFailed = true;
+            // Rule 6 (PR #73 follow-up): Squat/lunge pattern restrictions
+            // CURRENT knee: All squat/lunge must be in EXPECTED_KNEE_SAFE_QUAD_EXERCISES
+            // PAST knee: Lunge must be in EXPECTED_PAST_KNEE_LUNGE_EXERCISES, but squats are allowed
+            if (severity.label === "current-knee") {
+              for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+                for (const ex of day.exercises) {
+                  const exercise = byId.get(ex.exerciseId);
+                  if (!exercise) continue;
+                  
+                  if (exercise.movement_pattern === "squat" || exercise.movement_pattern === "lunge") {
+                    if (!EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug)) {
+                      check(`${profileId} ${day.label}: squat/lunge in allowlist`, false,
+                        `${exercise.name} [${exercise.slug}] is ${exercise.movement_pattern} but not in allowlist`);
+                      profileFailed = true;
+                    }
                   }
                 }
               }
@@ -477,6 +532,35 @@ for (const seed of testSeeds) {
               }
             }
             
+            // Rule 9b (PR #73 quality fix): Wall Sit not in main slots (0-3) or after core
+            for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+              const wallSitIndex = day.exercises.findIndex(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e?.slug === "wall-sit";
+              });
+              
+              if (wallSitIndex !== -1) {
+                // Wall Sit found - check it's not in main slots
+                if (wallSitIndex < 4) {
+                  check(`${profileId} ${day.label}: Wall Sit not in main slot`, false,
+                    `Wall Sit at position ${wallSitIndex + 1}`);
+                  profileFailed = true;
+                }
+                
+                // Check it's not after core
+                const lastCoreIndex = day.exercises.map((ex, idx) => {
+                  const e = byId.get(ex.exerciseId);
+                  return e?.movement_pattern === "core" ? idx : -1;
+                }).reduce((max, idx) => Math.max(max, idx), -1);
+                
+                if (lastCoreIndex >= 0 && wallSitIndex > lastCoreIndex) {
+                  check(`${profileId} ${day.label}: Wall Sit not after core`, false,
+                    `Wall Sit at position ${wallSitIndex + 1}, after core at ${lastCoreIndex + 1}`);
+                  profileFailed = true;
+                }
+              }
+            }
+            
             // Rule 10: No isolation before compound in final order (except core, which goes last)
             // EXCEPTION: For knee-injured users on Lower/Legs days, a knee-safe quad isolation
             // at position 0 is allowed (Rule 1 takes precedence)
@@ -522,6 +606,40 @@ for (const seed of testSeeds) {
                 if (lastEx && lastEx.movement_pattern !== "core") {
                   check(`${profileId} ${day.label}: core exercises are last`, false,
                     `${coreEx?.name || "core"} at ${lastCoreIndex + 1}, but ${lastEx.name} (${lastEx.movement_pattern}) is last`);
+                  profileFailed = true;
+                }
+              }
+            }
+            
+            // Rule 11b (PR #73): Past-knee lunge slots only use PAST_KNEE_LUNGE_EXERCISES (4-list)
+            if (severity.label === "past-knee") {
+              for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+                for (const ex of day.exercises) {
+                  const exercise = byId.get(ex.exerciseId);
+                  if (!exercise) continue;
+                  
+                  // Check lunge pattern exercises
+                  if (exercise.movement_pattern === "lunge") {
+                    if (!EXPECTED_PAST_KNEE_LUNGE_EXERCISES.has(exercise.slug)) {
+                      check(`${profileId} ${day.label}: past-knee lunge in 4-list`, false,
+                        `${exercise.name} [${exercise.slug}] is lunge but not in PAST_KNEE_LUNGE_EXERCISES`);
+                      profileFailed = true;
+                    }
+                  }
+                }
+              }
+              
+              // Check that lunge slots are not empty on lower/legs days
+              for (const day of plan.days.filter(d => d.focus === "lower" || d.focus === "legs" || d.focus === "full_body")) {
+                const hasLowerBodyNonCore = day.exercises.some(ex => {
+                  const e = byId.get(ex.exerciseId);
+                  if (!e || e.movement_pattern === "core") return false;
+                  return e.primary_muscles.some(m => ["quads", "glutes", "hamstrings"].includes(m));
+                });
+                
+                if (!hasLowerBodyNonCore) {
+                  check(`${profileId} ${day.label}: past-knee lower day not empty`, false,
+                    "No lower-body exercises found");
                   profileFailed = true;
                 }
               }
