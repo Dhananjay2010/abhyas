@@ -1312,11 +1312,12 @@ function Practice({
             </button>
             <button
               type="button"
+              aria-label="End practice"
               onClick={(e) => {
                 e.stopPropagation();
                 requestPause();
               }}
-              className={`h-12 w-12 text-sm text-breath-ink/80 ${fade}`}
+              className={`h-12 w-12 rounded-full flex items-center justify-center text-sm text-breath-ink/80 ${fade} focus:opacity-100`}
             >
               End
             </button>

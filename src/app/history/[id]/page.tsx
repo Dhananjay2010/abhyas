@@ -79,7 +79,7 @@ export default async function SessionDetailPage({
 
     return (
       <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
-        <Link href="/history" className="text-sm text-muted underline underline-offset-2">
+        <Link href="/history" className="inline-flex items-center min-h-[44px] text-sm text-muted underline underline-offset-2">
           ← History
         </Link>
 
@@ -157,7 +157,7 @@ export default async function SessionDetailPage({
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
-      <Link href="/history" className="text-sm text-muted underline underline-offset-2">
+      <Link href="/history" className="inline-flex items-center min-h-[44px] text-sm text-muted underline underline-offset-2">
         ← History
       </Link>
 

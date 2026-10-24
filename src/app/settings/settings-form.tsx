@@ -226,6 +226,7 @@ export function SettingsForm({
           <Segmented
             options={[3, 4, 5, 6].map((n) => ({ value: n, label: `${n}` }))}
             value={s.daysPerWeek}
+            ariaLabel="Days per week"
             onChange={(n) => {
               const yoga = Math.min(s.yogaDaysPerWeek, n - 1);
               setS({ ...s, daysPerWeek: n, yogaDaysPerWeek: yoga });
@@ -244,6 +245,7 @@ export function SettingsForm({
               label: `${n}`,
             }))}
             value={s.yogaDaysPerWeek}
+            ariaLabel="Yoga days"
             onChange={(n) => {
               setS({ ...s, yogaDaysPerWeek: n });
               save(() => actions.updateProfileSettings({ yoga_days_per_week: n }), true);
@@ -619,18 +621,21 @@ function Segmented<T extends string | number>({
   options,
   value,
   onChange,
+  ariaLabel,
 }: {
   options: { value: T; label: string }[];
   value: T | null;
   onChange: (v: T) => void;
+  ariaLabel?: string;
 }) {
   return (
-    <div className="flex flex-wrap gap-1 rounded-xl bg-surface-2 p-1">
+    <div className="flex flex-wrap gap-1 rounded-xl bg-surface-2 p-1" role="group" aria-label={ariaLabel}>
       {options.map((o) => (
         <button
           key={String(o.value)}
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
+          aria-label={ariaLabel ? `${ariaLabel} ${o.label}` : undefined}
           className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
             value === o.value ? "bg-accent text-accent-fg" : "text-muted"
           }`}
