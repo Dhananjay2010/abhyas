@@ -149,7 +149,7 @@
     "test:log-set-core": "tsx scripts/test-log-set-core.ts",
     "test:client-conflict-resync": "tsx scripts/test-client-conflict-resync.ts",
     "test:resume-refresh": "tsx scripts/test-resume-refresh.ts",
-    "test:shell-message": "tsx scripts/test-shell-message.ts",
+    "test:shell-message": "tsx scripts/test-shell-message.tsx",
     "test:merge-sets": "tsx scripts/test-merge-sets.ts",
     "test:today-refetch": "tsx scripts/test-today-refetch.ts",
     "test:elapsed-hydration": "tsx scripts/test-elapsed-hydration.ts",
