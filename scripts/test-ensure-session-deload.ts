@@ -109,9 +109,9 @@ function createFakeSupabaseClient() {
     from(table: string) {
       if (table === "sessions") {
         return {
-          select(fields: string) {
+          select(fieldList: string) {
             return {
-              eq(field: string, value: string) {
+              eq(_field: string, value: string) {
                 return {
                   maybeSingle() {
                     const session = sessions[value];
@@ -120,7 +120,7 @@ function createFakeSupabaseClient() {
                     }
                     // Simulate what PostgREST returns
                     const result = { ...session };
-                    if (fields.includes("session_exercises")) {
+                    if (fieldList.includes("session_exercises")) {
                       result.session_exercises = sessionExercises.filter(
                         (se) => se.session_id === value,
                       );
@@ -136,11 +136,11 @@ function createFakeSupabaseClient() {
 
       if (table === "program_day_exercises") {
         return {
-          select(fields: string) {
+          select(_fields: string) {
             return {
-              eq(field: string, value: string) {
+              eq(_field: string, value: string) {
                 return {
-                  order(orderField: string) {
+                  order(_orderField: string) {
                     const exercises = programDayExercises.filter(
                       (pde) => pde.program_day_id === value,
                     );
@@ -230,7 +230,7 @@ async function ensureSessionExercises(
 
 console.log("\n1. Direct start in deload week (always worked)");
 {
-  const { client, sessions, sessionExercises } = createFakeSupabaseClient();
+  const { sessions, sessionExercises } = createFakeSupabaseClient();
 
   // Simulate startSession creating a session with is_deload=true
   sessions["sess1"] = {
