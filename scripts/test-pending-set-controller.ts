@@ -481,6 +481,53 @@ async function testThrownSessionExpiredInReplay() {
   );
 }
 
+async function testReplayedSetsReported() {
+  console.log("\n--- Replayed sets reported in state ---");
+
+  const storage = createStorage();
+  const sessionId = "session-replayed";
+
+  storage.setItem(
+    "pending-sets",
+    JSON.stringify({
+      [sessionId]: [
+        {
+          sessionExerciseId: "ex-10",
+          setNumber: 1,
+          reps: 10,
+          weightKg: 50,
+          durationSeconds: null,
+          clientId: "client-11",
+        },
+        {
+          sessionExerciseId: "ex-10",
+          setNumber: 2,
+          reps: 12,
+          weightKg: 50,
+          durationSeconds: null,
+          clientId: "client-12",
+        },
+      ],
+    })
+  );
+
+  const logSet: LogSetFunction = async () => ({ ok: true });
+
+  const states: PendingSetState[] = [];
+  const controller = createPendingSetController({
+    storage,
+    logSet,
+    sessionId,
+    onChange: (state) => states.push(state),
+  });
+
+  await controller.replay();
+
+  const finalState = states[states.length - 1];
+  assertEqual(finalState.replayed.length, 2, "Replayed sets reported in state");
+  assert(finalState.pending.length === 0, "Pending sets cleared");
+}
+
 async function main() {
   console.log("Testing pending-set controller\n");
 
@@ -494,6 +541,7 @@ async function main() {
   await testNetworkErrorKeepsPending();
   await testThrownSessionExpired();
   await testThrownSessionExpiredInReplay();
+  await testReplayedSetsReported();
 
   console.log(
     exitCode === 0 ? "\n✅ All tests passed" : "\n❌ Some tests failed"

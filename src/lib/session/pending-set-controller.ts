@@ -30,6 +30,7 @@ export type PendingSetState = {
   expired: boolean;
   retrying: boolean;
   error: string | null;
+  replayed: PendingSet[];
 };
 
 export type SubmitResult =
@@ -67,6 +68,7 @@ export function createPendingSetController(config: {
     expired: false,
     retrying: false,
     error: null,
+    replayed: [],
   };
 
   let replayPromise: Promise<void> | null = null;
@@ -188,6 +190,7 @@ export function createPendingSetController(config: {
       setState({ retrying: true, error: null });
 
       let firstError: string | null = null;
+      const successfullyReplayed: PendingSet[] = [];
 
       for (const set of toReplay) {
         try {
@@ -201,6 +204,7 @@ export function createPendingSetController(config: {
 
           if (result.ok || isDuplicateError(result)) {
             clearPendingSet(storage, sessionId, set.clientId);
+            successfullyReplayed.push(set);
           } else if (isSessionExpired(result)) {
             if (!firstError) firstError = "Session still expired";
           } else {
@@ -209,6 +213,7 @@ export function createPendingSetController(config: {
         } catch (err) {
           if (isDuplicateError(err)) {
             clearPendingSet(storage, sessionId, set.clientId);
+            successfullyReplayed.push(set);
           } else if (err instanceof Error && err.message.startsWith("SESSION_EXPIRED:")) {
             if (!firstError) firstError = "Session still expired";
           } else if (!firstError) {
@@ -223,6 +228,7 @@ export function createPendingSetController(config: {
         expired: remaining.length > 0,
         retrying: false,
         error: firstError,
+        replayed: successfullyReplayed,
       });
     })();
 

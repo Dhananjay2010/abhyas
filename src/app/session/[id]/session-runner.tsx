@@ -156,6 +156,7 @@ export function SessionRunner({
     expired: false,
     retrying: false,
     error: null,
+    replayed: [],
   });
 
   const [controller] = useState(() => {
@@ -236,6 +237,34 @@ export function SessionRunner({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [controller]);
+
+  // ---- process replayed sets -----------------------------------------------
+  useEffect(() => {
+    if (pendingSetState.replayed.length === 0) return;
+
+    setExercises((prev) => {
+      let updated = prev;
+      for (const set of pendingSetState.replayed) {
+        updated = updated.map((e) =>
+          e.id === set.sessionExerciseId
+            ? {
+                ...e,
+                sets: [
+                  ...e.sets.filter((s) => s.setNumber !== set.setNumber),
+                  {
+                    setNumber: set.setNumber,
+                    reps: set.reps,
+                    weightKg: set.weightKg,
+                    durationSeconds: set.durationSeconds,
+                  },
+                ].sort((a, b) => a.setNumber - b.setNumber),
+              }
+            : e
+        );
+      }
+      return updated;
+    });
+  }, [pendingSetState.replayed]);
 
   // ---- rest timer -------------------------------------------------------
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
