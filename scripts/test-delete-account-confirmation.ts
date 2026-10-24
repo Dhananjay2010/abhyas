@@ -5,6 +5,8 @@
  * - Exact "DELETE" string is accepted (case-sensitive, no whitespace tolerance)
  * - Any variation (whitespace, different case, extra chars) is rejected
  * - Server-side validation prevents deletion when confirmation is wrong
+ * 
+ * Uses real code with injectable dependencies (no simulation or mocking).
  */
 
 import { isDeleteConfirmed } from "../src/app/settings/delete-account/form-logic";
