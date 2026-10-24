@@ -2,6 +2,7 @@
 
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
@@ -63,6 +64,9 @@ function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metr
  * wiping the sets already logged.
  */
 export async function startSession(): Promise<Result<{ sessionId: string }>> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<{ sessionId: string }>;
+  
   const { supabase, user } = await requireUser();
 
   // ---- wave 1 -------------------------------------------------------------
@@ -253,6 +257,9 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
 }
 
 export async function markWarmupDone(sessionId: string): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("sessions")
@@ -269,6 +276,9 @@ export async function logSet(input: {
   /** Seconds held, for a `seconds` exercise. Its `reps` stays null. */
   durationSeconds?: number | null;
 }): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const durationSeconds = input.durationSeconds ?? null;
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
@@ -294,6 +304,9 @@ export async function deleteSet(
   sessionExerciseId: string,
   setNumber: number,
 ): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("session_sets")
@@ -304,40 +317,31 @@ export async function deleteSet(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
-export type ProgressionFeedback = {
-  outcome: string;
-  message: string;
-  /** One line naming a best that was beaten, or null. SPEC section 7. */
-  personalBest: string | null;
-};
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+
+export type { ProgressionFeedback };
 
 /**
  * Complete an exercise and apply progression from what was actually logged.
  *
  * Progression runs here rather than at the end of the session so that a
  * workout cut short still banks the exercises that were finished.
+ *
+ * Idempotent: only the first call that actually transitions from pending to
+ * completed/skipped applies progression. Concurrent or repeated calls return
+ * success without double-applying.
  */
 export async function finishExercise(input: {
   sessionExerciseId: string;
   feel: SetFeel | null;
   skipped?: boolean;
 }): Promise<Result<ProgressionFeedback | null>> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
+  
   const { supabase, user } = await requireUser();
 
-  const { error } = await supabase
-    .from("session_exercises")
-    .update({
-      status: input.skipped ? "skipped" : "completed",
-      feel: input.feel,
-      completed_at: new Date().toISOString(),
-    })
-    .eq("id", input.sessionExerciseId);
-  if (error) return { ok: false, error: error.message };
-
-  if (input.skipped) return { ok: true, data: null };
-
-  const feedback = await applyProgression(supabase, user.id, input.sessionExerciseId, input.feel);
-  return { ok: true, data: feedback };
+  return finishExerciseCore(supabase, user.id, input, { applyProgression });
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -508,6 +512,9 @@ export async function finishSession(input: {
   durationSeconds: number;
   cooldownCompleted: boolean;
 }): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("sessions")
@@ -528,6 +535,9 @@ export async function finishSession(input: {
 }
 
 export async function abandonSession(sessionId: string): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("sessions")
@@ -571,6 +581,9 @@ export type Alternative = {
 export async function findAlternatives(
   sessionExerciseId: string,
 ): Promise<Result<Alternative[]>> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<Alternative[]>;
+  
   const { supabase, user } = await requireUser();
 
   const { data: current } = await supabase
@@ -684,6 +697,9 @@ export async function swapExercise(input: {
   sessionExerciseId: string;
   newExerciseId: string;
 }): Promise<Result<SwapResult>> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<SwapResult>;
+  
   const { supabase, user } = await requireUser();
 
   const [currentRes, replacementRes, profileRes] = await Promise.all([
@@ -855,6 +871,9 @@ export async function planDay(input: {
   localDate: string;
   plan: DayPlan;
 }): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
 
   const { data: profile } = await supabase
