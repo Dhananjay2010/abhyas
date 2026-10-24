@@ -19,6 +19,11 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
+/** Demonstration check - doesn't count as a failure */
+function demo(label: string, ok: boolean, detail = "") {
+  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+}
+
 async function runTest() {
   console.log("\n=== M2 BUG: WITHOUT migration 000021 ===");
   {
@@ -47,7 +52,7 @@ async function runTest() {
     
     console.log(`   Got: ${value}`);
     check("BUG: New profile gets 60 (should be NULL)", value === 60, `got ${value}`);
-    check("Expected NULL for M2 fix", value === null, `got ${value} (THIS SHOULD FAIL)`);
+    demo("Expected NULL for M2 fix", value === null, `got ${value} (THIS SHOULD FAIL)`);
     
     await dbBefore.close();
   }
