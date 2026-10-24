@@ -147,7 +147,6 @@ export default async function SessionDetailPage({
     (session.program_days as unknown as { label: string } | null)?.label ?? null,
     session.actual_type,
   );
-  const minutes = session.duration_seconds ? Math.round(session.duration_seconds / 60) : null;
   const volume = (sets ?? []).reduce(
     (n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0),
     0,
@@ -167,7 +166,7 @@ export default async function SessionDetailPage({
       </p>
 
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">
-        <Stat label="Time" value={minutes !== null ? `${minutes}m` : "—"} />
+        <Stat label="Time" value={session.duration_seconds !== null ? formatDuration(session.duration_seconds) : "—"} />
         <Stat label="Sets" value={`${(sets ?? []).length}`} />
         <Stat label="Volume" value={volume > 0 ? `${Math.round(volume)}kg` : "—"} />
       </dl>

@@ -5,17 +5,6 @@
  */
 
 /**
- * Format seconds as "m:ss" (for countdowns and timers).
- * Examples: "0:38", "1:05", "12:30"
- */
-export function formatClock(totalSeconds: number): string {
-  const seconds = Math.max(0, Math.floor(totalSeconds));
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-/**
  * Format seconds as human-readable duration text.
  * Examples: "Under a minute", "1 min", "2 min"
  * 

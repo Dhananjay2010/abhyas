@@ -272,7 +272,7 @@ console.log("\n10. Where the length starts, and how it reads");
     initialCycles({ cycle: box, maxCycles: null, defaultCycles: 10, preferredMinutes: 5, lastCycles: null }) === 19);
   check("box, 19 cycles reads 5 min", lengthLabel(box, 19, null) === "5 min", lengthLabel(box, 19, null));
   check("4-7-8, 4 cycles reads 4 breaths", lengthLabel(fse, 4, 8) === "4 breaths");
-  check("under a minute reads in seconds", lengthLabel(buildCycle(SIGH), 2, null) === "18 sec");
+  check("under a minute reads in seconds", lengthLabel(buildCycle(SIGH), 2, null) === "Under a minute");
   check("one breath is singular", lengthPlan(fse, 1).options[0].label === "1 breath", lengthPlan(fse, 1).options[0].label);
 }
 

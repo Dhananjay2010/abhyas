@@ -7,7 +7,8 @@
  *
  *   npx tsx scripts/test-format-duration.ts
  */
-import { formatDuration, formatWeekDuration, formatClock } from "../src/lib/format-duration";
+import { formatDuration, formatWeekDuration } from "../src/lib/format-duration";
+import { formatClock } from "../src/lib/session/device";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {

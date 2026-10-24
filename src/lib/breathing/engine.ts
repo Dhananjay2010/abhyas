@@ -11,6 +11,8 @@
  * or a tab that slept for a minute all fall out of the arithmetic.
  */
 
+import { formatDuration } from "../format-duration";
+
 /**
  * `pump` and `rest` exist for Kapalabhati, which the other three cannot
  * express. Thirty rapid pumps would be sixty phases, past the twenty-four a
@@ -370,7 +372,7 @@ export function lengthLabel(cycle: Cycle, cycles: number, maxCycles: number | nu
   if (unit === "rounds") return plural(cycles, "round");
   if (unit === "breaths") return plural(cycles * cycle.breaths, "breath");
   const seconds = Math.round(cycle.seconds * cycles);
-  return seconds < 60 ? `${seconds} sec` : `${Math.round(seconds / 60)} min`;
+  return formatDuration(seconds);
 }
 
 /**

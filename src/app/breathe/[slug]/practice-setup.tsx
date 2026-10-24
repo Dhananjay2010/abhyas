@@ -19,6 +19,7 @@ import {
 import { warmUpSpeech } from "@/lib/breathing/speech";
 import { validatePatternDraft, type PrefsPatch } from "@/lib/breathing/validation";
 import { formatClock } from "@/lib/session/device";
+import { formatDuration } from "@/lib/format-duration";
 import {
   resetPatternTiming,
   savePatternTiming,
@@ -287,7 +288,7 @@ export function PracticeSetup({
               −
             </button>
             <span aria-live="polite" className="text-lg font-semibold tabular-nums">
-              {minutes} min
+              {formatDuration(seconds)}
             </span>
             <button
               type="button"

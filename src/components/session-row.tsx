@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDuration } from "@/lib/format-duration";
 
 export type SessionSummary = {
   id: string;
@@ -71,7 +72,6 @@ const breathCount = (n: number, pumps?: boolean) =>
   `${n} ${pumps ? (n === 1 ? "pump" : "pumps") : n === 1 ? "breath" : "breaths"}`;
 
 export function SessionRow({ s, today }: { s: SessionSummary; today: string }) {
-  const minutes = s.durationSeconds ? Math.round(s.durationSeconds / 60) : null;
   const details = s.breathing
     ? [
         "Breathing",
@@ -81,7 +81,7 @@ export function SessionRow({ s, today }: { s: SessionSummary; today: string }) {
     : [
         STATUS_LABEL[s.status] ?? s.status,
         s.isDeload ? "deload" : null,
-        minutes !== null ? `${minutes} min` : null,
+        s.durationSeconds !== null ? formatDuration(s.durationSeconds) : null,
         s.setCount > 0 ? `${s.setCount} sets` : null,
         s.volumeKg > 0 ? `${Math.round(s.volumeKg)} kg` : null,
       ].filter(Boolean);
