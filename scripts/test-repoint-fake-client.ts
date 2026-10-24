@@ -36,20 +36,25 @@ function createFakeClient(
   deleteError: SupabaseError | null = null,
 ): {
   from: (table: string) => {
-    select?: (query: string) => {
+    select: (query: string) => {
       eq: (column: string, value: unknown) => {
-        eq?: (column2: string, value2: unknown) => {
-          gte?: (column3: string, value3: unknown) => Promise<SupabaseResponse<unknown>>;
+        eq: (column2: string, value2: unknown) => {
+          gte: (column3: string, value3: unknown) => Promise<SupabaseResponse<unknown>>;
         };
-        order?: (column: string) => Promise<SupabaseResponse<unknown>>;
+        in: (column2: string, values: unknown[]) => {
+          gte: (column3: string, value3: unknown) => Promise<SupabaseResponse<unknown>>;
+        };
+        single: () => Promise<SupabaseResponse<unknown>>;
       };
     };
-    update?: (data: unknown) => {
+    update: (data: unknown) => {
       eq: (column: string, value: unknown) => Promise<SupabaseResponse<unknown>>;
     };
-    delete?: () => {
+    delete: () => {
       in: (column: string, values: unknown[]) => Promise<SupabaseResponse<unknown>>;
+      eq: (column: string, value: unknown) => Promise<SupabaseResponse<unknown>>;
     };
+    insert: (data: unknown) => Promise<SupabaseResponse<unknown>>;
   };
 } {
   let updateCallCount = 0;
@@ -109,7 +114,15 @@ function createFakeClient(
                 void column; void values;
                 return Promise.resolve({ data: null, error: deleteError });
               },
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: deleteError });
+              },
             };
+          },
+          insert(data: unknown) {
+            void data;
+            return Promise.resolve({ data: null, error: null });
           },
         };
       } else if (table === "program_days") {
@@ -120,13 +133,55 @@ function createFakeClient(
               eq(column: string, value: unknown) {
                 void column; void value;
                 return {
-                  order(column: string) {
-                    void column;
+                  eq(column2: string, value2: unknown) {
+                    void column2; void value2;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve(newDaysResponse);
+                      },
+                    };
+                  },
+                  in(column2: string, values: unknown[]) {
+                    void column2; void values;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve(newDaysResponse);
+                      },
+                    };
+                  },
+                  single() {
                     return Promise.resolve(newDaysResponse);
                   },
                 };
               },
             };
+          },
+          update(data: unknown) {
+            void data;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          delete() {
+            return {
+              in(column: string, values: unknown[]) {
+                void column; void values;
+                return Promise.resolve({ data: null, error: null });
+              },
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          insert(data: unknown) {
+            void data;
+            return Promise.resolve({ data: null, error: null });
           },
         };
       } else if (table === "program_day_exercises") {
@@ -137,19 +192,105 @@ function createFakeClient(
               eq(column: string, value: unknown) {
                 void column; void value;
                 return {
-                  order(column: string) {
-                    void column;
+                  eq(column2: string, value2: unknown) {
+                    void column2; void value2;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve({ data: [], error: null });
+                      },
+                    };
+                  },
+                  in(column2: string, values: unknown[]) {
+                    void column2; void values;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve({ data: [], error: null });
+                      },
+                    };
+                  },
+                  single() {
                     return Promise.resolve({ data: [], error: null });
                   },
                 };
               },
             };
           },
+          update(data: unknown) {
+            void data;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          delete() {
+            return {
+              in(column: string, values: unknown[]) {
+                void column; void values;
+                return Promise.resolve({ data: null, error: null });
+              },
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          insert(data: unknown) {
+            void data;
+            return Promise.resolve({ data: null, error: null });
+          },
         };
       } else if (table === "session_exercises") {
         return {
+          select(query: string) {
+            void query;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return {
+                  eq(column2: string, value2: unknown) {
+                    void column2; void value2;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve({ data: null, error: null });
+                      },
+                    };
+                  },
+                  in(column2: string, values: unknown[]) {
+                    void column2; void values;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve({ data: null, error: null });
+                      },
+                    };
+                  },
+                  single() {
+                    return Promise.resolve({ data: null, error: null });
+                  },
+                };
+              },
+            };
+          },
+          update(data: unknown) {
+            void data;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
           delete() {
             return {
+              in(column: string, values: unknown[]) {
+                void column; void values;
+                return Promise.resolve({ data: null, error: null });
+              },
               eq(column: string, value: unknown) {
                 void column; void value;
                 return Promise.resolve({ data: null, error: null });
