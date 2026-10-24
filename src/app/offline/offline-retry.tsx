@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { branding } from "@/lib/branding";
 import { determineRetryAction } from "@/lib/offline-retry-logic";
 import { safeNextPath } from "@/lib/safe-next-path";

@@ -5,6 +5,7 @@ import { SettingsForm, type SettingsState } from "./settings-form";
 import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
 import { buildTimezoneOptions } from "@/lib/timezone-options";
+import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function SettingsPage() {
     primaryTrack: profile.primary_track,
     daysPerWeek: profile.days_per_week,
     yogaDaysPerWeek: profile.yoga_days_per_week ?? 0,
-    preferredSessionMinutes: profile.preferred_session_minutes ?? 60,
+    preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (userEquipmentRes.data ?? []).map((r) => r.equipment_id),
     injuries: (injuriesRes.data ?? []).map((r) => ({
@@ -109,6 +110,12 @@ export default async function SettingsPage() {
         </section>
       </div>
 
+      <footer className="mt-8 pb-4 text-center text-xs text-muted">
+        Version {process.env.NEXT_PUBLIC_BUILD_SHA || "dev"}
+        {process.env.NEXT_PUBLIC_BUILD_TIME && (
+          <> • Built {process.env.NEXT_PUBLIC_BUILD_TIME.slice(0, 10)}</>
+        )}
+      </footer>
     </main>
   );
 }

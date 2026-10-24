@@ -14,6 +14,7 @@ import {
   type Level,
   type Track,
 } from "@/lib/onboarding/options";
+import { SESSION_LENGTH_OPTIONS } from "@/lib/onboarding/session-length";
 import { ErrorNote, OptionCard } from "@/components/ui";
 import { BuildPlanButton } from "@/app/today/build-plan-button";
 import { branding } from "@/lib/branding";
@@ -596,7 +597,7 @@ export function SettingsForm({
 
         <Field label="Session length">
           <Segmented
-            options={[30, 45, 60, 75].map((n) => ({ value: n, label: `${n}m` }))}
+            options={SESSION_LENGTH_OPTIONS.map((n) => ({ value: n, label: `${n}m` }))}
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS({ ...s, preferredSessionMinutes: n });
