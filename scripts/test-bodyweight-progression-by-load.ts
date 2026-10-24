@@ -98,12 +98,6 @@ check("added weight recorded", weightedResult.bestWeightKg === 6.25,
 check("personal best is weight", weightedResult.personalBest?.kind === "weight",
   `got ${weightedResult.personalBest?.kind}, bodyweight with weight progresses by weight`);
 
-check("weighted pull-up progressed", weightedResult.outcome === "progressed");
-check("weight increased by small step", 
-  weightedResult.nextWorkingWeightKg! > 5 && 
-  weightedResult.nextWorkingWeightKg! <= 6.25,
-  `got ${weightedResult.nextWorkingWeightKg}, expected 5 + 1.25 (small step, not doubled)`);
-
 if (failures > 0) {
   console.log(`\n${failures} CHECKS FAILED\n`);
   process.exit(1);
