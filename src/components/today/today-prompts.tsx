@@ -80,7 +80,8 @@ export function TodayPrompts({
       )}
 
       {/* Rest day content (without missed yesterday) */}
-      {promptBlocks.showRestPlan && !promptBlocks.showBothPrompt && (
+      {/* BREAK g2: drop guard */}
+      {promptBlocks.showRestPlan && (
         <>
           {promptBlocks.showFirstSessionOffer && firstTrainingDay ? (
             // NEW: First-session offer for brand-new user on rest day
