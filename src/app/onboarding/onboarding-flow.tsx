@@ -224,6 +224,27 @@ export function OnboardingFlow({
             You must be at least {MIN_AGE_YEARS} years old to use Abhyas. You train at your
             own risk.
           </p>
+          <p className="pt-2 border-t border-border">
+            By continuing, you agree to our{" "}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              Privacy Policy
+            </a>
+            .
+          </p>
         </div>
       </StepShell>
     );
