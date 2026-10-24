@@ -124,15 +124,8 @@ export function buildTemplateRows(
         ? null
         : Number(progress.current_working_weight_kg);
     
-    // Use progressed target for unloaded bodyweight exercises
-    const effectiveMax = r.target_reps_max !== null
-      ? effectiveRepsMax({
-          plannedMax: r.target_reps_max,
-          progressedTarget: progress?.current_target_reps,
-          isBodyweight,
-          usedWeight: workingWeightKg,
-        })
-      : null;
+    // MUTANT D
+    const effectiveMax = r.target_reps_max;
     
     return {
       key: `p${r.order_index}`,
