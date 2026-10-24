@@ -23,12 +23,6 @@ Object.defineProperty(global, "self", { value: dom.window, writable: true, confi
 // Set React act environment flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-// Mock next/navigation for tests
-import { createRequire } from "module";
-const testRequire = createRequire(import.meta.url);
-const Module = testRequire("module") as typeof import("module") & { _load: any };
-const originalLoad = Module._load;
-
 // Track router.refresh calls for tests
 export const mockNextRouter = {
   refresh: () => {},
@@ -40,24 +34,35 @@ export const mockNextRouter = {
   refreshCalls: [] as number[],
 };
 
-Module._load = function (request: string, parent: NodeModule, isMain: boolean) {
+// Mock next/navigation module before any imports
+// @ts-ignore
+global.mockNextNavigation = {
+  useRouter: () => ({
+    refresh: () => {
+      mockNextRouter.refreshCalls.push(Date.now());
+      mockNextRouter.refresh();
+    },
+    push: mockNextRouter.push,
+    replace: mockNextRouter.replace,
+    prefetch: mockNextRouter.prefetch,
+    back: mockNextRouter.back,
+    forward: mockNextRouter.forward,
+  }),
+  usePathname: () => "/settings",
+  useSearchParams: () => new URLSearchParams(),
+  useParams: () => ({}),
+};
+
+// Override module resolution for next/navigation
+import { createRequire } from "module";
+const testRequire = createRequire(import.meta.url);
+const Module = testRequire("module") as typeof import("module") & { _load: any };
+const originalLoad = Module._load;
+
+Module._load = function (request: string, parent: any, isMain: boolean) {
   if (request === "next/navigation") {
-    return {
-      useRouter: () => ({
-        refresh: () => {
-          mockNextRouter.refreshCalls.push(Date.now());
-          mockNextRouter.refresh();
-        },
-        push: mockNextRouter.push,
-        replace: mockNextRouter.replace,
-        prefetch: mockNextRouter.prefetch,
-        back: mockNextRouter.back,
-        forward: mockNextRouter.forward,
-      }),
-      usePathname: () => "/settings",
-      useSearchParams: () => new URLSearchParams(),
-      useParams: () => ({}),
-    };
+    // @ts-ignore
+    return global.mockNextNavigation;
   }
   return originalLoad.call(this, request, parent, isMain);
 };
