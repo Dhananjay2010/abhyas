@@ -213,6 +213,33 @@ console.log("\n9. blockForDate: endedOn-null fallback to endsOn");
   check("date after endsOn still covered when ended_on is null", afterPlannedEnd?.id === "2");
 }
 
+console.log("\nH1: cycleWeekFor with week_offset grid test (parity with SQL)");
+{
+  // Test grid: offsets 0-3, dates spanning 0-40 days from start
+  const startDate = "2026-10-01";
+  const offsets = [0, 1, 2, 3];
+  const daysToTest = [0, 1, 6, 7, 8, 13, 14, 20, 21, 27, 28, 35, 40];
+  
+  for (const offset of offsets) {
+    for (const days of daysToTest) {
+      const testDate = new Date(new Date(startDate + "T00:00:00Z").getTime() + days * 24 * 60 * 60 * 1000)
+        .toISOString().split("T")[0];
+      
+      const block = { started_on: startDate, week_offset: offset };
+      const tsWeek = cycleWeekFor(block, testDate);
+      
+      // SQL formula: week_offset + floor((date - started_on) / 7) + 1
+      const expectedWeek = offset + Math.floor(days / 7) + 1;
+      
+      check(
+        `offset=${offset}, day=${days}: TS week ${tsWeek} = SQL week ${expectedWeek}`,
+        tsWeek === expectedWeek,
+        `got ${tsWeek}`
+      );
+    }
+  }
+}
+
 if (failures === 0) {
   console.log("\nALL CHECKS PASSED");
   process.exit(0);

@@ -46,6 +46,7 @@ const INITIAL: SettingsState = {
   restOverrideSeconds: null,
   bodyweightPrompt: "weekly",
   timezone: null,
+  dateOfBirth: null,
   units: "metric",
 };
 

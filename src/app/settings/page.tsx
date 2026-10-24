@@ -50,6 +50,7 @@ export default async function SettingsPage() {
     restOverrideSeconds: st?.rest_seconds_override ?? null,
     bodyweightPrompt: st?.bodyweight_prompt ?? "weekly",
     timezone: profile.timezone,
+    dateOfBirth: profile.date_of_birth,
     units: (profile.units === "imperial" || profile.units === "metric") ? profile.units : "metric",
   };
 
