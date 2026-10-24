@@ -27,17 +27,21 @@ console.log('\n1. stepFor returns correct increments by equipment type (MEDIUM 2
   check('dumbbell kg is 2.5 (FIXED from 2)', stepFor(['dumbbell'], 'kg') === 2.5);
   check('dumbbell lb is 5', stepFor(['dumbbell'], 'lb') === 5);
   
-  check('leg_press kg is 2.5 (FIXED from 5)', stepFor(['leg_press'], 'kg') === 2.5);
-  check('leg_press lb is 5 (FIXED from 10)', stepFor(['leg_press'], 'lb') === 5);
+  check('leg_curl kg is 5 (pin-stack machines)', stepFor(['leg_curl'], 'kg') === 5);
+  check('leg_curl lb is 10 (pin-stack machines)', stepFor(['leg_curl'], 'lb') === 10);
   
-  check('cable_machine kg is 2.5 (FIXED from 5)', stepFor(['cable_machine'], 'kg') === 2.5);
-  check('cable_machine lb is 5 (FIXED from 10)', stepFor(['cable_machine'], 'lb') === 5);
+  check('machine_generic kg is 5 (pin-stack machines)', stepFor(['machine_generic'], 'kg') === 5);
+  check('machine_generic lb is 10 (pin-stack machines)', stepFor(['machine_generic'], 'lb') === 10);
+  
+  check('cable_machine kg is 2.5', stepFor(['cable_machine'], 'kg') === 2.5);
+  check('cable_machine lb is 5', stepFor(['cable_machine'], 'lb') === 5);
   
   check('ez_bar kg is 2.5', stepFor(['ez_bar'], 'kg') === 2.5);
   check('trap_bar lb is 5', stepFor(['trap_bar'], 'lb') === 5);
   
-  check('smith_machine kg is 2.5 (FIXED from 5)', stepFor(['smith_machine'], 'kg') === 2.5);
-  check('lat_pulldown lb is 5 (FIXED from 10)', stepFor(['lat_pulldown'], 'lb') === 5);
+  check('smith_machine kg is 2.5 (plate-loaded machines)', stepFor(['smith_machine'], 'kg') === 2.5);
+  check('leg_press kg is 2.5 (plate-loaded machines)', stepFor(['leg_press'], 'kg') === 2.5);
+  check('lat_pulldown lb is 10 (pin-stack machines)', stepFor(['lat_pulldown'], 'lb') === 10);
   
   check('unknown equipment defaults to 2.5 kg', stepFor(['bodyweight'], 'kg') === 2.5);
   check('unknown equipment defaults to 5 lb', stepFor(['resistance_band'], 'lb') === 5);
@@ -48,8 +52,11 @@ console.log('\n2. Multi-equipment: largest increment wins (MEDIUM 2)');
   check('barbell + dumbbell uses 2.5 kg (both same now)', 
     stepFor(['barbell', 'dumbbell'], 'kg') === 2.5);
   
-  check('dumbbell + machine uses 2.5 kg (both same now)',
-    stepFor(['dumbbell', 'leg_press'], 'kg') === 2.5);
+  check('dumbbell + pin-stack machine uses 5 kg (machine is larger)',
+    stepFor(['dumbbell', 'leg_curl'], 'kg') === 5);
+  
+  check('dumbbell + plate-loaded machine uses 2.5 kg (both same)',
+    stepFor(['dumbbell', 'smith_machine'], 'kg') === 2.5);
   
   check('barbell + cable uses 2.5 kg (both same now)',
     stepFor(['barbell', 'cable_machine'], 'kg') === 2.5);
@@ -63,8 +70,8 @@ console.log('\n3. nextWeight with standard equipment (step-based)');
   check('dumbbell increase from 10 lb', nextWeight(10, 1, ['dumbbell'], 'lb') === 15);
   check('dumbbell decrease from 10 lb', nextWeight(10, -1, ['dumbbell'], 'lb') === 5);
   
-  check('machine increase from 50 kg (now 2.5 step)', nextWeight(50, 1, ['leg_press'], 'kg') === 52.5);
-  check('machine decrease from 50 kg (now 2.5 step)', nextWeight(50, -1, ['leg_press'], 'kg') === 47.5);
+  check('pin-stack machine increase from 50 kg (now 5 step)', nextWeight(50, 1, ['leg_curl'], 'kg') === 55);
+  check('pin-stack machine decrease from 50 kg (now 5 step)', nextWeight(50, -1, ['leg_curl'], 'kg') === 45);
   
   check('clamps at 0', nextWeight(2, -1, ['barbell'], 'kg') === 0);
   check('zero stays at zero on decrease', nextWeight(0, -1, ['barbell'], 'kg') === 0);
