@@ -11,7 +11,7 @@
  *   npm run test:session-length-step-done
  */
 
-import { initialStepIndex, type InitialState } from "../src/app/onboarding/onboarding-flow";
+import { initialStepIndex, type SessionLengthInitialState } from "@/lib/onboarding/session-length";
 
 let failures = 0;
 
@@ -24,7 +24,7 @@ console.log("\n1. DB default value without explicit save means NOT done");
 {
   // Before the migration: DB has default 60, but user never saved explicitly
   // After the migration: DB has NULL (no default)
-  const profileWithNull: InitialState = {
+  const profileWithNull: SessionLengthInitialState = {
     displayName: "Test User",
     dateOfBirth: "1990-01-01",
     sex: "male",
