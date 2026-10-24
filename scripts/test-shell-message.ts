@@ -30,7 +30,7 @@ function Shell({
   wakeLock: { active: boolean };
   error: string | null;
   message?: string | null;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   const formatClock = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
