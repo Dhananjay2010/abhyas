@@ -31,10 +31,14 @@ import {
  */
 export const getCachedBreathingPatterns = cache(async (): Promise<Pattern[]> => {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("breathing_patterns")
     .select(PATTERN_COLUMNS)
     .order("sort_order");
+
+  if (error) {
+    throw new Error(`Could not load breathing patterns: ${error.message}`);
+  }
 
   return (data ?? [])
     .map((row) => patternFromRow(row))
@@ -46,10 +50,14 @@ export const getCachedBreathingPatterns = cache(async (): Promise<Pattern[]> => 
  */
 export const getCachedBreathingRoutines = cache(async (): Promise<Routine[]> => {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("breathing_routines")
     .select(ROUTINE_COLUMNS)
     .order("sort_order");
+
+  if (error) {
+    throw new Error(`Could not load breathing routines: ${error.message}`);
+  }
 
   return (data ?? [])
     .map((row) => routineFromRow(row))
@@ -61,10 +69,14 @@ export const getCachedBreathingRoutines = cache(async (): Promise<Routine[]> => 
  */
 export const getCachedBreathingJourneys = cache(async (): Promise<Journey[]> => {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("breathing_journeys")
     .select(JOURNEY_COLUMNS)
     .order("sort_order");
+
+  if (error) {
+    throw new Error(`Could not load breathing journeys: ${error.message}`);
+  }
 
   return (data ?? [])
     .map((row) => journeyFromRow(row))
@@ -77,10 +89,14 @@ export const getCachedBreathingJourneys = cache(async (): Promise<Journey[]> => 
 export const getCachedEquipment = cache(
   async (): Promise<Array<{ id: string; name: string; category: string }>> => {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("equipment")
       .select("id, name, category")
       .order("sort_order");
+
+    if (error) {
+      throw new Error(`Could not load equipment: ${error.message}`);
+    }
 
     return data ?? [];
   },
@@ -133,6 +149,13 @@ export const getCachedYogaData = cache(
         )
         .order("sort_order"),
     ]);
+
+    if (playlistsRes.error) {
+      throw new Error(`Could not load yoga playlists: ${playlistsRes.error.message}`);
+    }
+    if (videosRes.error) {
+      throw new Error(`Could not load yoga videos: ${videosRes.error.message}`);
+    }
 
     return {
       playlists: playlistsRes.data ?? [],

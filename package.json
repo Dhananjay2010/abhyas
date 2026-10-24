@@ -42,6 +42,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@eslint-community/eslint-utils": "^4.10.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
