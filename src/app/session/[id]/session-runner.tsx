@@ -31,7 +31,7 @@ import {
 } from "../actions";
 import { resolveSetConflict } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
-import { mergeSets } from "@/lib/session/merge-sets";
+import { exercisesReducer } from "@/lib/session/exercises-reducer";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -143,14 +143,7 @@ export function SessionRunner({
   
   // Use reducer to manage exercises with server data merging
   const [exercises, dispatch] = useReducer(
-    (state: typeof initialExercises, action: { type: 'set'; exercises: typeof initialExercises } | { type: 'merge'; serverData: typeof initialExercises }) => {
-      if (action.type === 'set') {
-        return action.exercises;
-      } else {
-        // Merge server data with current local state
-        return mergeSets(state, action.serverData);
-      }
-    },
+    exercisesReducer,
     initialExercises
   );
   
