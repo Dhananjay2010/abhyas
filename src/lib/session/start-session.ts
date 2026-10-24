@@ -1,4 +1,3 @@
-import type { Database } from "@/lib/database.types";
 import { buildSessionExerciseRows } from "@/lib/session/build-session-exercises";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { weekInBlock } from "@/lib/program/prescription";

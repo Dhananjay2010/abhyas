@@ -19,9 +19,6 @@ import { prescribe, weekInBlock } from "@/lib/program/prescription";
 import { buildSessionExerciseRows } from "@/lib/session/build-session-exercises";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
-import { pickReusableSession } from "@/lib/session/reusable-session";
-import { isoWeekday, localDateString } from "@/lib/dates";
-import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { startSessionCore } from "@/lib/session/start-session";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
