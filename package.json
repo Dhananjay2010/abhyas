@@ -136,6 +136,7 @@
     "test:session-length-validation": "tsx scripts/test-session-length-validation.ts",
     "test:session-length-migration": "tsx scripts/test-session-length-migration.ts",
     "test:robots-sitemap": "tsx scripts/test-robots-sitemap.ts",
+    "test:sitemap-route": "tsx scripts/test-sitemap-route.ts",
     "test:proxy-routes": "tsx scripts/test-proxy-routes.ts",
     "test:node-version": "tsx scripts/test-node-version.ts",
     "test:block-range": "tsx scripts/test-block-range.ts",
