@@ -40,6 +40,9 @@ function makeFakeDeps(session: SessionRow, trackUpdates: { duration?: number } =
     async loadSession() {
       return { data: session, error: null };
     },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
+    },
     async loadExercises() {
       return {
         data: [
@@ -92,7 +95,7 @@ async function runTests() {
     const session: SessionRow = {
       started_at: started.toISOString(),
       local_date: "2026-10-25", // When started in Asia/Kolkata timezone
-      timezone: "Asia/Kolkata",
+      user_id: "user-123",
     };
     
     const trackUpdates: { duration?: number } = {};
@@ -134,7 +137,7 @@ async function runTests() {
     const session: SessionRow = {
       started_at: started.toISOString(),
       local_date: "2026-10-24", // When started in Asia/Kolkata timezone
-      timezone: "Asia/Kolkata",
+      user_id: "user-123",
     };
     
     const trackUpdates: { duration?: number } = {};

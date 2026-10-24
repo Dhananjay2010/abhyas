@@ -48,7 +48,7 @@ function makeStaleFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionD
   const sessionMetadata: SessionRow = {
     started_at: "2026-10-23T10:00:00Z",
     local_date: "2026-10-23",
-    timezone: "UTC",
+    user_id: "user-123",
   };
 
   const exercisesForUpdate: ExerciseForUpdate[] = exercises.map((ex, i) => ({
@@ -66,6 +66,9 @@ function makeStaleFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionD
     async loadSession() {
       return { data: sessionMetadata, error: null };
     },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
+    },
     async loadExercises() {
       return { data: exercises, error: null };
     },
@@ -75,6 +78,9 @@ function makeStaleFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionD
     },
     async loadSessionStatus() {
       return { data: { status: "completed" as const }, error: null };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercisesForUpdate() {
       return { data: exercisesForUpdate, error: null };

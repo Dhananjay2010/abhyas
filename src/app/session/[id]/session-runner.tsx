@@ -13,6 +13,7 @@ import {
   vibrate,
   vibrationSupported,
 } from "@/lib/session/device";
+import { withBusyGuard } from "@/lib/session/busy-guard";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
@@ -289,24 +290,32 @@ export function SessionRunner({
    */
   const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
 
-  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>) {
-    if (busyRef.current) return false;
-    busyRef.current = true;
-    setBusy(true);
-    try {
-      const r = await fn();
-      if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
-      else setError(null);
-      return r.ok;
-    } catch (err) {
-      // h2: Catch network errors (offline, timeout, etc)
-      const message = err instanceof Error ? err.message : "Network error. Check your connection.";
-      setError(message);
-      return false;
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
+  async function run<T extends { ok: boolean; error?: string }>(
+    fn: () => Promise<T>
+  ): Promise<"busy" | boolean> {
+    const result = await withBusyGuard(
+      () => busyRef.current,
+      (busy) => {
+        busyRef.current = busy;
+        setBusy(busy);
+      },
+      async () => {
+        try {
+          const r = await fn();
+          if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
+          else setError(null);
+          return r.ok;
+        } catch (err) {
+          // h2: Catch network errors (offline, timeout, etc)
+          const message = err instanceof Error ? err.message : "Network error. Check your connection.";
+          setError(message);
+          return false;
+        }
+      }
+    );
+
+    if (result.busy) return "busy";
+    return result.result;
   }
 
   async function finish(cooldownCompleted: boolean) {
@@ -635,7 +644,7 @@ export function SessionRunner({
   ) {
     setSavePending(true);
     setSaveError(null);
-    const logSetPromise = run(() =>
+    const logSetResult = await run(() =>
       actions.logSet({
         sessionExerciseId: current.id,
         setNumber: nextSetNumber,
@@ -646,14 +655,14 @@ export function SessionRunner({
     );
     
     // Don't track busy-guard rejections as failures
-    if ((logSetPromise as false | Promise<boolean>) === false) {
+    if (logSetResult === "busy") {
       setSavePending(false);
       return;
     }
     
     const trackedPromise = pendingTracker.track(
       "logSet",
-      logSetPromise.then((ok) => ({ ok: ok ?? false })),
+      Promise.resolve({ ok: logSetResult }),
     );
     const ok = await trackedPromise.then((r) => r.ok);
     setSavePending(pendingTracker.hasPending());

@@ -27,7 +27,7 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
 type SessionRow = {
   started_at: string;
   local_date: string;
-  timezone: string;
+  user_id: string;
 };
 
 type ExerciseRow = {
@@ -49,6 +49,9 @@ function makeFakeFinishSessionDeps(
     exerciseUpdates,
     async loadSession() {
       return { data: sessionData, error: null };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercises() {
       return { data: exercisesData.map(ex => ({
@@ -106,7 +109,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
+      user_id: "user-123",
     };
     const exercises = [
       {
@@ -139,7 +142,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
+      user_id: "user-123",
     };
     const exercises = [
       {
@@ -170,7 +173,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
+      user_id: "user-123",
     };
     const exercises = [
       {
@@ -226,7 +229,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
+      user_id: "user-123",
     };
     const exercises = [
       {
@@ -276,7 +279,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
+      user_id: "user-123",
     };
     const exercises = [
       {

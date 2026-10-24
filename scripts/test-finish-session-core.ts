@@ -39,7 +39,7 @@ function makeFakeFinishSessionDeps(
   const sessionMetadata: SessionRow = {
     started_at: "2026-10-24T14:00:00Z",
     local_date: "2026-10-24",
-    timezone: "UTC",
+    user_id: "user-123",
   };
 
   return {
@@ -47,6 +47,9 @@ function makeFakeFinishSessionDeps(
     async loadSession() {
       if (readError) return { data: null, error: readError };
       return { data: sessionMetadata, error: null };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercises() {
       if (readError) return { data: null, error: readError };

@@ -33,8 +33,11 @@ function makeFakeDeps(config: {
         data: {
           started_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
           local_date: new Date().toISOString().split("T")[0],
-          timezone: "UTC",
+          user_id: "user-123",
         },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
+    },
         error: null,
       };
     },
@@ -59,6 +62,9 @@ function makeFakeDeps(config: {
         data: config.storedStatus ? { status: config.storedStatus } : null,
         error: null,
       };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercisesForUpdate() {
       return { data: [], error: null };

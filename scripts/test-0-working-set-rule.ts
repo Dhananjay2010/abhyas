@@ -45,7 +45,7 @@ function makeFakeFinishSessionDeps(
   const session: SessionRow = {
     started_at: new Date(Date.now() - 1800000).toISOString(),
     local_date: new Date().toISOString().slice(0, 10),
-    timezone: "UTC",
+    user_id: "user-123",
   };
 
   return {
@@ -54,6 +54,9 @@ function makeFakeFinishSessionDeps(
       calls.push({ method: "loadSession", table: "sessions", filters: { id } });
       if (readError) return { data: null, error: readError };
       return { data: session, error: null };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercises(sessionId) {
       calls.push({ method: "loadExercises", table: "session_exercises", filters: { sessionId } });

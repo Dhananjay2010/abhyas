@@ -50,7 +50,7 @@ function makeFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionDeps &
   const sessionMetadata: SessionRow = {
     started_at: fiveMinutesAgo.toISOString(),
     local_date: fiveMinutesAgo.toISOString().split('T')[0],
-    timezone: "UTC",
+    user_id: "user-123",
   };
 
   const exercisesForUpdate: ExerciseForUpdate[] = exercises.map((ex, i) => ({
@@ -67,6 +67,9 @@ function makeFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionDeps &
     updateCalls,
     async loadSession() {
       return { data: sessionMetadata, error: null };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercises() {
       return { data: exercises, error: null };
