@@ -653,19 +653,22 @@ async function runTests() {
       const paginationEmail = `test-pagination-${Date.now()}@example.com`;
       const paginationPassword = "test-password-pagination";
       
-      const { data: paginationAuthData, error: paginationSignUpError } = await adminClient.auth.admin.createUser({
-        email: paginationEmail,
-        password: paginationPassword,
-        email_confirm: true,
-      });
+      let paginationUserId: string | null = null;
+      
+      try {
+        const { data: paginationAuthData, error: paginationSignUpError } = await adminClient.auth.admin.createUser({
+          email: paginationEmail,
+          password: paginationPassword,
+          email_confirm: true,
+        });
 
-      if (paginationSignUpError || !paginationAuthData.user) {
-        console.error("Failed to create pagination test user:", paginationSignUpError);
-        check("pagination user created", false, paginationSignUpError?.message);
-        return;
-      }
+        if (paginationSignUpError || !paginationAuthData.user) {
+          console.error("Failed to create pagination test user:", paginationSignUpError);
+          check("pagination user created", false, paginationSignUpError?.message);
+          return;
+        }
 
-      const paginationUserId = paginationAuthData.user.id;
+        paginationUserId = paginationAuthData.user.id;
 
       // Ensure profile exists (trigger may have created it, but set required fields)
       const { error: profileError } = await adminClient
@@ -860,8 +863,13 @@ async function runTests() {
 
       check("page 4 clamps to page 3", page4Result.page === 3,
         `got page ${page4Result.page}`);
-      check("page 4 returns same as page 3", page4Result.sessionIds.length === 8,
-        `got ${page4Result.sessionIds.length}`);
+      
+      // Compare ids, not just count
+      const page4Set = new Set(page4Result.sessionIds);
+      const page4MatchesPage3 = page3Result.sessionIds.every(id => page4Set.has(id)) &&
+        page4Result.sessionIds.every(id => page3Set.has(id));
+      check("page 4 returns same ids as page 3", page4MatchesPage3,
+        `page 3 ids: ${page3Result.sessionIds.length}, page 4 ids: ${page4Result.sessionIds.length}`);
 
       // 'abc' should give page 1
       const abcResult = await loadHistoryPage(paginationClient, {
@@ -877,8 +885,12 @@ async function runTests() {
       check("'abc' returns 20 rows", abcResult.sessionIds.length === 20,
         `got ${abcResult.sessionIds.length}`);
 
-      // Clean up pagination test user
-      await adminClient.auth.admin.deleteUser(paginationUserId);
+      } finally {
+        // Clean up pagination test user
+        if (paginationUserId) {
+          await adminClient.auth.admin.deleteUser(paginationUserId);
+        }
+      }
     }
 
     console.log("\n9. QA TZ-1: completed session with local_date > p_today appears");
