@@ -14,10 +14,7 @@
  * This test uses a spy to inject a fixed instant and timezone.
  */
 
-import { validateAndUpdateProfile, type Result } from "@/app/settings/profile-update-logic";
-import type { Database } from "@/lib/database.types";
-
-type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
+import { validateAndUpdateProfile } from "@/app/settings/profile-update-logic";
 
 async function main() {
   console.log("\n=== Settings DOB Timezone-Aware Validation Test ===\n");

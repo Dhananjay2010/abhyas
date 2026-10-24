@@ -20,6 +20,7 @@ const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
   pretendToBeVisual: true,
 });
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 global.document = dom.window.document;
 global.window = dom.window as any;
 global.HTMLElement = dom.window.HTMLElement;
@@ -32,6 +33,7 @@ global.cancelIdleCallback = ((id: any) => clearTimeout(id)) as any;
   unobserve() {}
   disconnect() {}
 };
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 async function main() {
   console.log("\n=== Settings DOB UI Render Test ===\n");
