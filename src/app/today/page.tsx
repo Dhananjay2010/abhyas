@@ -11,7 +11,7 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
-import { weekInBlock } from "@/lib/program/prescription";
+import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
@@ -281,7 +281,7 @@ export default async function TodayPage() {
     override !== undefined &&
     (override.actual_type !== (scheduled?.day_type ?? null) ||
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
-  const week = weekInBlock(program.started_on, localToday);
+  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
   const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
