@@ -295,7 +295,8 @@ export function SessionRunner({
    */
   const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
 
-    if (busyRef.current) return false;
+  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>): Promise<"busy" | boolean> {
+    if (busyRef.current) return "busy";
     busyRef.current = true;
     setBusy(true);
     try {
@@ -310,6 +311,14 @@ export function SessionRunner({
     } finally {
       busyRef.current = false;
       setBusy(false);
+    }
+  }
+
+  async function finish(cooldownCompleted: boolean) {
+    await pendingTracker.waitForAll();
+    if (pendingTracker.hasRecentFailures()) {
+      setSaveError("Couldn't save your last set. Please retry.");
+      return;
     }
     setSavePending(false);
     setSaveError(null);
@@ -326,6 +335,7 @@ export function SessionRunner({
         setPhase,
         setEndedEarly,
         navigate: (path: string) => router.push(path),
+        onExit,
         inFlight: busyRef,
       },
       { sessionId, cooldownCompleted },
@@ -342,6 +352,7 @@ export function SessionRunner({
       <Shell
         title="Warm-up"
         subtitle={`${warmupIndex + 1} of ${warmup.length}`}
+        elapsed={elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}

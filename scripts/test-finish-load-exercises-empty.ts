@@ -9,7 +9,7 @@
  */
 
 import { finishSessionCore } from "../src/lib/session/finish-session";
-import type { SessionRow } from "../src/lib/session/finish-session-deps";
+import type { SessionRow, FinishSessionDeps, SessionExerciseWithSets } from "../src/lib/session/finish-session-deps";
 
 let passed = 0;
 let failed = 0;
@@ -24,7 +24,7 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-function makeFakeDeps(exercises: unknown) {
+function makeFakeDeps(exercises: SessionExerciseWithSets[] | null): FinishSessionDeps {
   const sessionMetadata: SessionRow = {
     started_at: "2026-10-24T14:00:00Z",
     local_date: "2026-10-24",

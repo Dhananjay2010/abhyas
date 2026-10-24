@@ -25,7 +25,7 @@ function assertTrue(condition: boolean, message: string, detail?: string) {
   }
 }
 
-function makeFakeClient(restSeconds: number | null): SupabaseClient<Database> {
+function makeFakeClient(restSeconds: number | null) {
   return {
     from: (table: string) => {
       if (table === "sessions") {
@@ -96,7 +96,7 @@ function makeFakeClient(restSeconds: number | null): SupabaseClient<Database> {
     rpc: () => ({
       throwOnError: () => ({ data: null, error: null }),
     }),
-  };
+  } as unknown as SupabaseClient<Database>;
 }
 
 async function runTests() {
