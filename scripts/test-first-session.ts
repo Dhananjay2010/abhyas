@@ -73,20 +73,22 @@ assert(noOfferBlocks.showFirstSessionOffer === false, "Does not show first-sessi
 console.log("\n=== Test 4: Day-1 guard - Signup today (Saturday) ===\n");
 
 // User signs up Saturday 2026-10-24, today is Saturday
+// Block started earlier (e.g., 2026-10-20)
 // Yesterday Friday was a training day
-// Guard must suppress missed message
+// Guard must use max(signup, block start) = Saturday signup
+// So Friday should NOT be missed (before signup)
 assert(
   !isMissedTrainingDay({
     date: "2026-10-23", // Friday (yesterday, training day)
-    programStartedOn: "2026-10-24", // Saturday (signup day)
-    profileCreatedAt: "2026-10-24T10:00:00Z", // Saturday signup
+    programStartedOn: "2026-10-20", // Block started Monday (before signup)
+    profileCreatedAt: "2026-10-24T10:00:00Z", // Saturday signup (today)
     timezone: "UTC",
     programId: "test-program",
     templateDayType: "weights",
     sessions: [],
     hasStartedAny: false,
   }),
-  "Signup today: yesterday training day NOT missed"
+  "Signup today with old block: yesterday training day NOT missed"
 );
 
 console.log("\n=== Test 5: Day-1 guard - Signup yesterday evening, nothing missed ===\n");
