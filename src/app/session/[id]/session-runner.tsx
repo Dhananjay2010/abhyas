@@ -884,7 +884,11 @@ export function SessionRunner({
                           });
                           if (!ok || !box.value) return;
                           const swapped = box.value;
-                          const swappedFields = swappedEntryFields({ equipmentIds: swapped.equipmentIds });
+                          const swappedFields = swappedEntryFields({
+                            equipmentIds: swapped.equipmentIds,
+                            workingWeightKg: swapped.workingWeightKg,
+                            suggestedWeightKg: swapped.suggestedWeightKg,
+                          });
                           setExercises((prev) =>
                             prev.map((e) =>
                               e.id === current.id
@@ -897,6 +901,8 @@ export function SessionRunner({
                                     repsMin: swapped.repsMin ?? e.repsMin,
                                     repsMax: swapped.repsMax ?? e.repsMax,
                                     isBodyweight: swappedFields.isBodyweight,
+                                    workingWeightKg: swappedFields.workingWeightKg,
+                                    suggestedWeightKg: swappedFields.suggestedWeightKg,
                                   }
                                 : e,
                             ),

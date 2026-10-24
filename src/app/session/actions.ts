@@ -12,6 +12,7 @@ import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
   evaluateProgression,
+  suggestedWeight,
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
@@ -728,6 +729,8 @@ export type SwapResult = {
   repsMin: number | null;
   repsMax: number | null;
   equipmentIds: string[];
+  workingWeightKg: number | null;
+  suggestedWeightKg: number | null;
 };
 
 export async function swapExercise(input: {
@@ -739,10 +742,10 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, sessionRes, settingsRes] = await Promise.all([
     supabase
       .from("session_exercises")
-      .select("exercise_id, metric, planned_reps_min, planned_reps_max")
+      .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
       .eq("id", input.sessionExerciseId)
       .maybeSingle(),
     /*
@@ -757,10 +760,16 @@ export async function swapExercise(input: {
     */
     supabase
       .from("exercises")
-      .select("metric, mechanic, equipment_ids")
+      .select("metric, mechanic, movement_pattern, equipment_ids")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
+    supabase
+      .from("session_exercises")
+      .select("sessions!inner(is_deload)")
+      .eq("id", input.sessionExerciseId)
+      .maybeSingle(),
+    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
   ]);
 
   const current = currentRes.data;
@@ -796,6 +805,44 @@ export async function swapExercise(input: {
   const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
   const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
 
+  /*
+    Fetch the new exercise's progress to populate working and suggested weights.
+    If the user's settings ignore progression, or the new exercise has no recorded
+    progress, both weights will be null.
+  */
+  const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
+  const progressRes = remembersWeights
+    ? await supabase
+        .from("exercise_progress")
+        .select("current_working_weight_kg")
+        .eq("user_id", user.id)
+        .eq("exercise_id", input.newExerciseId)
+        .maybeSingle()
+    : { data: null };
+
+  const workingWeightKg =
+    progressRes.data?.current_working_weight_kg === null || !progressRes.data
+      ? null
+      : Number(progressRes.data.current_working_weight_kg);
+
+  const isBodyweight = isBodyweightEquipment(equipmentIds);
+  const isDeload = !!(sessionRes.data as unknown as { sessions?: { is_deload: boolean } })
+    ?.sessions?.is_deload;
+
+  const suggestedWeightKg = suggestedWeight(
+    { currentWorkingWeightKg: workingWeightKg },
+    isDeload,
+    {
+      mechanic: replacement?.mechanic ?? null,
+      movementPattern: replacement?.movement_pattern ?? "other",
+      metric,
+      isBodyweight,
+      progressionChain: null,
+      progressionRank: null,
+      equipmentIds,
+    },
+  );
+
   const { error } = await supabase
     .from("session_exercises")
     .update({
@@ -812,7 +859,17 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds } };
+    : {
+        ok: true,
+        data: {
+          metric,
+          repsMin,
+          repsMax,
+          equipmentIds,
+          workingWeightKg,
+          suggestedWeightKg,
+        },
+      };
 }
 
 

@@ -1047,6 +1047,26 @@ console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,18,20,24,28,32");
   check("kettlebell 17 kg (non-standard, upper) uses normal step 2.5 kg → 19.5 kg",
     kb17.nextWorkingWeightKg === 19.5, `${kb17.nextWorkingWeightKg}`);
 
+  // Non-standard weight (17 kg upper) with easy feel: uses ONE normal step (not doubled)
+  const kb17Easy = run({
+    meta: KB_UPPER,
+    sets: sets(4, 12, 17),
+    state: fresh({ currentWorkingWeightKg: 17 }),
+    feel: "easy",
+  });
+  check("kettlebell 17 kg (non-standard, upper) easy uses ONE step 2.5 kg → 19.5 kg",
+    kb17Easy.nextWorkingWeightKg === 19.5, `${kb17Easy.nextWorkingWeightKg}`);
+
+  // Non-standard weight (40 kg lower) with easy feel: uses ONE normal step (not doubled)
+  const kb40Easy = run({
+    meta: KETTLEBELL,
+    sets: sets(4, 12, 40),
+    state: fresh({ currentWorkingWeightKg: 40 }),
+    feel: "easy",
+  });
+  check("kettlebell 40 kg (non-standard, lower) easy uses ONE step 5 kg → 45 kg",
+    kb40Easy.nextWorkingWeightKg === 45, `${kb40Easy.nextWorkingWeightKg}`);
+
   // Isolation mechanic with kettlebell: tests that step doesn't matter for bells
   const KB_ISO: ExerciseMeta = { ...KETTLEBELL, mechanic: "isolation" };
 
