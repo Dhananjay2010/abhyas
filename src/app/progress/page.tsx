@@ -37,21 +37,24 @@ export default async function ProgressPage() {
       .select("timezone, onboarding_completed_at")
       .eq("id", user.id)
       .single(),
+    // Fetch recent data descending, reverse for processing. NEVER order
+    // ascending with a limit: caps at oldest rows, so after 2-3 months the
+    // streak drops to 0 and charts stop updating (h1).
     supabase
       .from("body_metrics")
       .select("recorded_on, weight_kg")
-      .order("recorded_on")
-      .limit(120),
+      .order("recorded_on", { ascending: false })
+      .limit(200),
     supabase
       .from("session_volume")
       .select("local_date, volume_kg, set_count, duration_seconds")
-      .order("local_date")
-      .limit(60),
+      .order("local_date", { ascending: false })
+      .limit(200),
     supabase
       .from("exercise_strength_history")
       .select("exercise_id, exercise_name, local_date, best_e1rm, top_weight_kg")
-      .order("local_date")
-      .limit(400),
+      .order("local_date", { ascending: false })
+      .limit(600),
     // Ordered oldest-first with created_at breaking same-day ties, so
     // buildDayRecords can treat the last match as the newest block.
     supabase
@@ -62,8 +65,8 @@ export default async function ProgressPage() {
     supabase
       .from("sessions")
       .select("local_date, status, actual_type")
-      .order("local_date")
-      .limit(200),
+      .order("local_date", { ascending: false })
+      .limit(500),
     supabase.from("program_days").select("program_id, day_index, day_type"),
   ]);
 
@@ -103,7 +106,8 @@ export default async function ProgressPage() {
   const streaks = computeStreaks(dayRecords, today);
 
   // ---- charts ------------------------------------------------------------
-  const weights = weightsRes.data ?? [];
+  // Reverse data since it was fetched newest-first for h1 fix
+  const weights = [...(weightsRes.data ?? [])].reverse();
   const weightPoints: Point[] = weights.map((w) => ({
     label: shortDate(w.recorded_on),
     value: Number(w.weight_kg),
@@ -111,7 +115,7 @@ export default async function ProgressPage() {
   const latestWeight = weights.length ? Number(weights[weights.length - 1].weight_kg) : null;
 
   // View columns are typed nullable by Supabase's generator, so narrow first.
-  const volumeRows = (volumeRes.data ?? []).filter(
+  const volumeRows = [...(volumeRes.data ?? [])].reverse().filter(
     (v): v is typeof v & { local_date: string; volume_kg: number } =>
       v.local_date !== null && v.volume_kg !== null && Number(v.volume_kg) > 0,
   );
