@@ -200,6 +200,18 @@ export function SessionRunner({
 
   const wakeLock = useWakeLock(phase !== "done");
 
+  /**
+   * Clear the outbox after finishing the session.
+   * Only clears if there are no lost or failed sets.
+   * TODO(#37): coordinate with onSessionFinished() so the session end
+   * doesn't race with an in-flight flush.
+   */
+  function onSessionFinished() {
+    if (canClearOutbox(pendingCount, lostCount, failedCount)) {
+      clearOutbox();
+    }
+  }
+
   // ---- rest timer -------------------------------------------------------
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
   const [restRemaining, setRestRemaining] = useState(0);
@@ -446,9 +458,7 @@ export function SessionRunner({
               );
               if (ok) {
                 // S12: Only clear outbox if no failed/unsaved rows exist
-                if (canClearOutbox(pendingCount, lostCount, failedCount)) {
-                  clearOutbox();
-                }
+                onSessionFinished();
                 setPhase("done");
               }
             }}
@@ -463,9 +473,7 @@ export function SessionRunner({
               );
               if (ok) {
                 // S12: Only clear outbox if no failed/unsaved rows exist
-                if (canClearOutbox(pendingCount, lostCount, failedCount)) {
-                  clearOutbox();
-                }
+                onSessionFinished();
                 setPhase("done");
               }
             }}
@@ -853,12 +861,25 @@ export function SessionRunner({
   }
 
   async function onFinishExercise(feel: Feel | null, skipped = false) {
-    // S12: Block finishing while any sets are pending, failed, or unsaved
-    const blockReason = finishBlockReason(pendingCount, lostCount, failedCount);
+    // S12: Block finishing while any sets for THIS exercise are pending, failed, or unsaved
+    const currentExerciseLostCount = current.sets.filter((s) => {
+      const meta = s as unknown as { unsaved?: boolean };
+      return meta.unsaved;
+    }).length;
+    const currentExerciseFailedCount = current.sets.filter((s) => {
+      const meta = s as unknown as { failed?: boolean };
+      return meta.failed;
+    }).length;
+    const currentExercisePendingCount = current.sets.filter((s) => {
+      const meta = s as unknown as { pending?: boolean };
+      return meta.pending;
+    }).length;
+
+    const blockReason = finishBlockReason(currentExercisePendingCount, currentExerciseLostCount, currentExerciseFailedCount);
     if (blockReason) {
       setError(blockReason);
       // Trigger manual retry for pending
-      if (pendingCount > 0) {
+      if (currentExercisePendingCount > 0) {
         void flushOutbox();
       }
       return;
@@ -912,9 +933,7 @@ export function SessionRunner({
         );
         if (ok) {
           // S12: Only clear outbox if no failed/unsaved rows exist
-          if (canClearOutbox(pendingCount, lostCount, failedCount)) {
-            clearOutbox();
-          }
+          onSessionFinished();
           setPhase("done");
         }
       }

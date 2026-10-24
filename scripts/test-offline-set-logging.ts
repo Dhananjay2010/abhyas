@@ -1520,9 +1520,12 @@ function testKeyMigration() {
         if (oldState.pending && Array.isArray(oldState.pending)) {
           for (const p of oldState.pending) {
             const exists = currentState.pending.some(
-              (s: { sessionExerciseId?: string; setNumber?: number }) =>
-                s.sessionExerciseId === (p as { sessionExerciseId?: string }).sessionExerciseId &&
-                s.setNumber === (p as { setNumber?: number }).setNumber
+              (s) => {
+                const typed = s as { sessionExerciseId?: string; setNumber?: number };
+                const pTyped = p as { sessionExerciseId?: string; setNumber?: number };
+                return typed.sessionExerciseId === pTyped.sessionExerciseId &&
+                       typed.setNumber === pTyped.setNumber;
+              }
             );
             if (!exists) {
               currentState.pending.push(p);
@@ -1533,9 +1536,12 @@ function testKeyMigration() {
         if (oldState.failed && Array.isArray(oldState.failed)) {
           for (const f of oldState.failed) {
             const exists = currentState.failed.some(
-              (s: { set?: { sessionExerciseId?: string; setNumber?: number } }) =>
-                s.set?.sessionExerciseId === (f as { set?: { sessionExerciseId?: string } }).set?.sessionExerciseId &&
-                s.set?.setNumber === (f as { set?: { setNumber?: number } }).set?.setNumber
+              (s) => {
+                const typed = s as { set?: { sessionExerciseId?: string; setNumber?: number } };
+                const fTyped = f as { set?: { sessionExerciseId?: string; setNumber?: number } };
+                return typed.set?.sessionExerciseId === fTyped.set?.sessionExerciseId &&
+                       typed.set?.setNumber === fTyped.set?.setNumber;
+              }
             );
             if (!exists) {
               currentState.failed.push(f);
