@@ -142,7 +142,7 @@ Each gym can set its local timezone, which is used as the default for session sc
 
 The `profiles.timezone` column is nullable. NULL means "not set yet", and the application falls back through the priority order above. Any stored value (including `'Asia/Kolkata'`) is treated as an explicit user preference and used directly.
 
-During onboarding, the browser-detected timezone is recorded to the profile, overwriting NULL. Users can change their timezone preference at any time in Settings.
+During onboarding, the browser-detected timezone is recorded to the profile only if `profiles.timezone` is currently NULL (first-time setup). This prevents overwriting an explicitly set timezone if the user later edits their profile. Users can change their timezone preference in Settings, which provides a dropdown of all IANA timezones plus a "Use gym default" option that stores NULL.
 
 ### Setting a Gym's Timezone
 
@@ -182,20 +182,18 @@ Import from `src/lib/timezone.ts`:
 
 ```typescript
 import {
-  resolveTimezone,
   resolveTimezoneWithProfile,
   getDefaultTimezone,
   detectBrowserTimezone,
   formatInTimezone,
+  FALLBACK_TIMEZONE,
 } from "@/lib/timezone";
 
-// Get effective timezone (gym > browser > fallback)
-const tz = resolveTimezone();
-
-// Get timezone with user profile priority
+// Get timezone with user profile priority (profile > gym > fallback)
+// This is the main helper used throughout the app
 const tz = resolveTimezoneWithProfile(profile.timezone);
 
-// Get gym's default timezone
+// Get gym's default timezone (gym > fallback)
 const defaultTz = getDefaultTimezone();
 
 // Detect browser timezone (client-side only)
@@ -207,6 +205,9 @@ const formatted = formatInTimezone(
   "America/New_York",
   { dateStyle: "medium", timeStyle: "short" }
 );
+
+// Access the fallback timezone constant
+console.log(FALLBACK_TIMEZONE); // "Asia/Kolkata"
 ```
 
 ## How Theming Works
@@ -448,29 +449,16 @@ The current approach keeps deployments isolated, performant, and secure.
 - `scripts/test-branding.ts` — Brand and timezone tests
 - `scripts/test-icons.ts` — Icon dimension tests
 
-**Timezone adoption complete**: All server actions and pages that handle user data now use `resolveTimezoneWithProfile()`.
+**Timezone adoption complete**: All server components and actions that handle user data now use `resolveTimezoneWithProfile()`.
 
 ### Remaining Hard-Coded Timezone References
 
 Current `rg -n "Asia/Kolkata"` output shows:
 - **FALLBACK_TIMEZONE constant** (src/lib/timezone.ts:25) - Expected, documented fallback
-- **Timezone list** (src/lib/branding.ts:224) - Expected, valid timezone list
-- **Dev harnesses** - Test fixtures that intentionally use hardcoded timezone:
-  - src/app/dev/breathe/journey/[slug]/page.tsx:47
-  - src/app/dev/breathe/journey/[slug]/session/page.tsx:36
-  - src/app/dev/breathe/page.tsx:38
-  - src/app/dev/breathe/[slug]/session/page.tsx:57
-  - src/app/dev/breathe/routine/[slug]/session/page.tsx:53
-- **Server pages with inline fallback** - These use `profile?.timezone || "Asia/Kolkata"` pattern:
-  - src/app/breathe/load.ts:219
-  - src/app/breathe/page.tsx:132
-  - src/app/breathe/[slug]/session/page.tsx:58
-  - src/app/breathe/routine/[slug]/session/page.tsx:56
-  - src/app/progress/page.tsx:74
-  - src/app/history/page.tsx:47
-  - src/app/session/[id]/page.tsx:191
+- **Timezone list** (src/lib/branding.ts:230) - Expected, valid timezone in the VALID_TIMEZONES set
+- **Dev harnesses** (src/app/dev/) - Development-only pages that intentionally use hardcoded timezone for testing
 
-**Note**: The inline fallback pattern (`profile?.timezone || "Asia/Kolkata"`) in server pages could be replaced with `resolveTimezoneWithProfile(profile?.timezone)` to add gym timezone priority. Currently these pages fall back directly to `"Asia/Kolkata"` if the profile timezone is missing, which works but doesn't consider the gym's configured timezone.
+All production app pages now use `resolveTimezoneWithProfile()` to respect the priority order: user profile > gym brand > fallback.
 
 ## Troubleshooting
 
