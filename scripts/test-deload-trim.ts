@@ -246,14 +246,39 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
         : "threw but not RangeError"
       : "did not throw (but validation is BEFORE rounding, so 5.4 > 5 should be rejected)"
   );
+  
+  // Test 6-10 all throw
+  for (let sets = 6; sets <= 10; sets++) {
+    const p: Prescription = {
+      sets,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+    };
+    
+    let threw = false;
+    let threwRangeError = false;
+    try {
+      applyDeload(p);
+    } catch (e) {
+      threw = true;
+      threwRangeError = e instanceof RangeError;
+    }
+    
+    check(
+      `applyDeload(${sets}) throws RangeError (exceeds MAX_PLANNER_SETS)`,
+      threw && threwRangeError,
+      threw ? (threwRangeError ? "" : "threw but not RangeError") : "did not throw"
+    );
+  }
 }
 
 console.log("\n2b. Mutant: upper bound removed");
 {
   // If upper bound is removed, 1e308 would not throw
   // This is already tested above, just documenting expected fail count
-  console.log("    Expected fail count for mutant (upper bound removed): 3");
-  console.log("    (tests for MAX+1, 1e308, and MAX+0.4 would fail)");
+  console.log("    Expected fail count for mutant (upper bound removed): 3+");
+  console.log("    (tests for MAX+1, 1e308, MAX+0.4, and 6-10 would fail)");
 }
 
 console.log("\n3. Rep trim: 2-set bodyweight reps 8-12 becomes 5-8");

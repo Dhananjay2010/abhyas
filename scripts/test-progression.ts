@@ -84,9 +84,8 @@ console.log("\n2. Every set at the top of the range progresses the weight");
   check("squat 100 -> 105 kg", d.nextWorkingWeightKg === 105, `${d.nextWorkingWeightKg}`);
 }
 {
-  const d = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 15 }), sets: sets(4, 12, 15), equipmentIds: ["dumbbell"] });
-  // 15 + 1.25 = 16.25, which is the midpoint between 15 and 17.5 on a 2.5 kg grid, rounds down to 15
-  check("curl 15 -> 15 kg (grid tie rounds down)", d.nextWorkingWeightKg === 15, `${d.nextWorkingWeightKg}`);
+  const d = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 15 }), sets: sets(4, 12, 15), equipmentIds: ["dumbbell"], unit: "kg" });
+  check("curl 15 -> 16.25 kg", d.nextWorkingWeightKg === 16.25, `${d.nextWorkingWeightKg}`);
 }
 
 console.log("\n3. 'Easy' earns a double jump; Hard holds weight (U1 fix)");
@@ -200,9 +199,9 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     feel: "right",
     state: fresh({ currentWorkingWeightKg: 25, currentTargetReps: 12 }),
     equipmentIds: ["dip_belt"],
+    unit: "kg",
   });
-  // 25 + 1.25 = 26.25, which is the midpoint between 25 and 27.5 on a 2.5 kg grid, rounds down to 25
-  check("load progresses when a weight was used (25 -> 25 kg due to grid tie)", weighted.nextWorkingWeightKg === 25,
+  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 26.25,
     `${weighted.nextWorkingWeightKg}`);
   check("outcome is progressed", weighted.outcome === "progressed", weighted.outcome);
 
@@ -479,11 +478,10 @@ console.log("\nBodyweight exercises with added weight");
     sets: sets(4, 12, 5),
     state: fresh({ currentWorkingWeightKg: 5, currentTargetReps: 12 }),
     equipmentIds: ["dip_belt"],
+    unit: "kg",
   });
-  // 5 + 1.25 = 6.25, which is the midpoint between 5 and 7.5 on a 2.5 kg grid, rounds down to 5
-  // This is a known interaction between addedWeightStep (1.25 kg) and dip_belt grid (2.5 kg)
-  check("upper-body bodyweight with 5 kg added stays at 5 kg (grid tie rounds down)",
-    upper.nextWorkingWeightKg === 5, `${upper.nextWorkingWeightKg}`);
+  check("upper-body bodyweight with 5 kg added goes to 6.25 kg",
+    upper.nextWorkingWeightKg === 6.25, `${upper.nextWorkingWeightKg}`);
 
   // Back-off: two misses drop added weight to 0.
   const backoff = run({

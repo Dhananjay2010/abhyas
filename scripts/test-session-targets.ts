@@ -30,7 +30,7 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-console.log("\n1. Direct applyDeload tests: exhaustive for sets 0-10");
+console.log("\n1. Direct applyDeload tests: exhaustive for sets 0-5 (MAX_PLANNER_SETS)");
 {
   const cases = [
     { sets: 0, expected: 0 },
@@ -39,11 +39,6 @@ console.log("\n1. Direct applyDeload tests: exhaustive for sets 0-10");
     { sets: 3, expected: 2 },
     { sets: 4, expected: 2 },
     { sets: 5, expected: 3 },
-    { sets: 6, expected: 4 },
-    { sets: 7, expected: 4 },
-    { sets: 8, expected: 5 },
-    { sets: 9, expected: 5 },
-    { sets: 10, expected: 6 },
   ];
 
   for (const { sets, expected } of cases) {
@@ -55,6 +50,24 @@ console.log("\n1. Direct applyDeload tests: exhaustive for sets 0-10");
       `got ${result.sets}`,
     );
     check(`applyDeload: ${sets} sets never exceeds planned`, result.sets <= sets, `${result.sets} > ${sets}`);
+  }
+  
+  // Test that 6-10 throw RangeError (exceeds MAX_PLANNER_SETS)
+  for (let sets = 6; sets <= 10; sets++) {
+    const p: Prescription = { sets, repsMin: 8, repsMax: 12, restSeconds: 90 };
+    let threw = false;
+    let threwRangeError = false;
+    try {
+      applyDeload(p);
+    } catch (e) {
+      threw = true;
+      threwRangeError = e instanceof RangeError;
+    }
+    check(
+      `applyDeload: ${sets} sets throws RangeError (exceeds MAX_PLANNER_SETS)`,
+      threw && threwRangeError,
+      threw ? (threwRangeError ? "" : "threw but not RangeError") : "did not throw"
+    );
   }
 }
 
@@ -102,7 +115,6 @@ console.log("\n3. resolveSessionTargets with no deload returns planned values ex
     { sets: 3, repsMin: 8, repsMax: 12, rest: 90 },
     { sets: 4, repsMin: 8, repsMax: 12, rest: 90 },
     { sets: 5, repsMin: 8, repsMax: 12, rest: 90 },
-    { sets: 10, repsMin: 8, repsMax: 12, rest: 90 },
     { sets: 4, repsMin: 3, repsMax: 6, rest: 180 },
     { sets: 3, repsMin: 12, repsMax: 15, rest: 50 },
   ];
@@ -133,9 +145,9 @@ console.log("\n3. resolveSessionTargets with no deload returns planned values ex
   }
 }
 
-console.log("\n4. resolveSessionTargets with deload: output ≤ planned for all inputs");
+console.log("\n4. resolveSessionTargets with deload: output ≤ planned for all valid inputs (0-5)");
 {
-  for (let sets = 0; sets <= 10; sets++) {
+  for (let sets = 0; sets <= 5; sets++) {
     const planned: PlannedExercise = {
       target_sets: sets,
       target_reps_min: 8,
@@ -170,9 +182,9 @@ console.log("\n4. resolveSessionTargets with deload: output ≤ planned for all 
   check("deload: 5 sets becomes 3", five.sets === 3, `got ${five.sets}`);
 }
 
-console.log("\n5. Helper equals applyDeload for every case");
+console.log("\n5. Helper equals applyDeload for every valid case (0-5)");
 {
-  for (let sets = 0; sets <= 10; sets++) {
+  for (let sets = 0; sets <= 5; sets++) {
     const planned: PlannedExercise = {
       target_sets: sets,
       target_reps_min: 8,

@@ -394,21 +394,126 @@ console.log("\n11. Backed-off weights are rounded to grid");
   check("lat pulldown 50 kg -> 45 kg", d.nextWorkingWeightKg === 45, `${d.nextWorkingWeightKg}`);
 }
 
-console.log("\n12. Kettlebell 'right' feel uses normal progression (not one-bell special case)");
+console.log("\n12. Kettlebell normal progression moves exactly one bell");
 {
-  // 16 kg with 'right' feel should use normal increment, then round to grid
-  // Normal: 16 + step (5 for lower-body) = 21, rounds to 20 kg
+  // Kettlebell: normal successful session moves exactly one bell, never more than Easy
   const d = run({
     meta: KETTLEBELL_SWING,
     sets: sets(4, 12, 16),
     state: fresh({ currentWorkingWeightKg: 16 }),
     equipmentIds: ["kettlebell"],
+    unit: "kg",
     feel: "right",
   });
-  check("16 kg with 'right' feel -> 20 kg", d.nextWorkingWeightKg === 20, `${d.nextWorkingWeightKg}`);
+  check("16 kg with 'right' feel -> 18 kg (one bell)", d.nextWorkingWeightKg === 18, `${d.nextWorkingWeightKg}`);
 }
 
-console.log("\n13. MUTANT TESTS");
+console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight for every equipment type");
+{
+  const equipmentTypes = [
+    { ids: ["barbell"], unit: "kg" as const, name: "barbell" },
+    { ids: ["dumbbell"], unit: "kg" as const, name: "dumbbell" },
+    { ids: ["lat_pulldown"], unit: "kg" as const, name: "pin-stack machine" },
+    { ids: ["cable_machine"], unit: "kg" as const, name: "cable" },
+    { ids: ["kettlebell"], unit: "kg" as const, name: "kettlebell" },
+    { ids: ["pull_up_bar"], unit: "kg" as const, name: "pull_up_bar (non-loadable fallback)" },
+    { ids: ["dip_bars"], unit: "kg" as const, name: "dip_bars (non-loadable fallback)" },
+    { ids: ["dip_belt"], unit: "kg" as const, name: "dip_belt (added weight)" },
+  ];
+  
+  const liftTypes = [
+    { meta: { ...BENCH, movementPattern: "squat" as const }, name: "lower compound" },
+    { meta: BENCH, name: "upper compound" },
+    { meta: { ...BENCH, mechanic: "isolation" as const }, name: "isolation" },
+    { meta: { ...PUSHUP, isBodyweight: true }, name: "added-weight bodyweight" },
+  ];
+  
+  const feels: Array<"easy" | "right" | "hard"> = ["easy", "right", "hard"];
+  
+  for (const equipment of equipmentTypes) {
+    for (const liftType of liftTypes) {
+      for (const feel of feels) {
+        let weight = 20; // Starting weight
+        const weights: number[] = [weight];
+        
+        for (let session = 0; session < 10; session++) {
+          const d = run({
+            meta: liftType.meta,
+            sets: sets(4, 12, weight),
+            state: fresh({ currentWorkingWeightKg: weight }),
+            equipmentIds: equipment.ids,
+            unit: equipment.unit,
+            feel,
+          });
+          
+          if (d.outcome === "progressed") {
+            weight = d.nextWorkingWeightKg ?? weight;
+            weights.push(weight);
+          } else if (d.outcome === "hold") {
+            // Hard feel holds, which is expected
+            weight = d.nextWorkingWeightKg ?? weight;
+            weights.push(weight);
+          }
+        }
+        
+        // Check strictly increasing (or flat for Hard)
+        let increasing = true;
+        for (let i = 1; i < weights.length; i++) {
+          if (feel === "hard") {
+            // Hard should hold
+            if (weights[i] !== weights[0]) {
+              increasing = false;
+              break;
+            }
+          } else {
+            // Easy and Right should strictly increase
+            if (weights[i] <= weights[i - 1]) {
+              increasing = false;
+              break;
+            }
+          }
+        }
+        
+        const label = `${equipment.name} × ${liftType.name} × ${feel}: ${feel === "hard" ? "holds" : "strictly increases"}`;
+        check(
+          label,
+          increasing,
+          `weights: [${weights.join(", ")}]`
+        );
+        
+        // Easy >= Right >= Hard (Hard holds)
+        if (feel === "easy" && weights.length >= 2) {
+          const easyGain = weights[weights.length - 1] - weights[0];
+          
+          // Run Right for comparison
+          let rightWeight = 20;
+          for (let session = 0; session < 10; session++) {
+            const d = run({
+              meta: liftType.meta,
+              sets: sets(4, 12, rightWeight),
+              state: fresh({ currentWorkingWeightKg: rightWeight }),
+              equipmentIds: equipment.ids,
+              unit: equipment.unit,
+              feel: "right",
+            });
+            if (d.nextWorkingWeightKg) {
+              rightWeight = d.nextWorkingWeightKg;
+            }
+          }
+          const rightGain = rightWeight - 20;
+          
+          check(
+            `${equipment.name} × ${liftType.name}: Easy gain (${easyGain}) >= Right gain (${rightGain})`,
+            easyGain >= rightGain,
+            `Easy: ${easyGain}, Right: ${rightGain}`
+          );
+        }
+      }
+    }
+  }
+}
+
+console.log("\n14. MUTANT TESTS");
 
 console.log("\n  (a) Mutant: Rounding removed");
 {
