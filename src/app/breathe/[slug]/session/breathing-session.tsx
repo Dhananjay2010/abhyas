@@ -590,7 +590,8 @@ function Practice({
     const trap = focusTrap({
       element: pauseDialogRef.current,
       onEscape: () => {
-        resume();
+        setPaused(false);
+        setControls(true);
       },
       returnFocusTo: pauseTriggerRef.current,
       initialFocus: true,

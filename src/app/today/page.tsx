@@ -516,8 +516,38 @@ export default async function TodayPage() {
       {dayType === "rest" && (
         <>
           <p className="mt-6 text-muted">
-            Nothing scheduled. Rest properly, or do something light.
+            Rest is part of the training. Your body builds strength while recovering.
           </p>
+          <div className="mt-6 space-y-3">
+            <div className="rounded-xl border border-border bg-surface-2 p-5">
+              <h3 className="font-semibold">Active recovery</h3>
+              <p className="mt-1 text-sm text-muted">
+                Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Link
+                  href="/yoga"
+                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                >
+                  Yoga
+                </Link>
+                <Link
+                  href="/breathe"
+                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                >
+                  Breathe
+                </Link>
+              </div>
+            </div>
+            <DayPlanPrompt
+              localDate={localToday}
+              dayLabel="Today"
+              plannedLabel="Rest"
+              days={plannable}
+              heading="Or train today anyway"
+              intro="Pick what you'd like to do instead."
+            />
+          </div>
         </>
       )}
 

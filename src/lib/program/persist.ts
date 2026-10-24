@@ -134,6 +134,7 @@ export async function createBlockForUser(
     currentInjuryRegions: (injuriesRes.data ?? [])
       .filter((i) => i.severity === "current")
       .map((i) => i.body_region),
+    preferredSessionMinutes: profile.preferred_session_minutes ?? 60,
     catalogue,
     carryOver: options.carryOver,
   };
