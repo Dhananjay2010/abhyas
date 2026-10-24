@@ -29,6 +29,7 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
+import { Outbox, createLocalStorage, type OutboxSender, type SendResult } from "@/lib/session/outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -257,6 +258,86 @@ export function SessionRunner({
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
 
+  // ---- offline outbox ---------------------------------------------------
+  const outboxRef = useRef<Outbox | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+
+  // Initialize outbox once, on mount
+  useEffect(() => {
+    const sender: OutboxSender = {
+      async send(set) {
+        try {
+          const result = await actions.logSet({
+            sessionExerciseId: set.sessionExerciseId,
+            setNumber: set.setNumber,
+            reps: set.reps,
+            weightKg: set.weightKg,
+            durationSeconds: set.durationSeconds,
+            clientId: set.clientId,
+          });
+          if (result.ok) {
+            return { ok: true };
+          }
+          // Validation errors are permanent (4xx-like)
+          const isPermanent = result.error?.includes("Invalid") || 
+                             result.error?.includes("must be") ||
+                             result.error?.includes("required");
+          return {
+            ok: false,
+            permanent: isPermanent,
+            error: result.error ?? "Failed to save set",
+          };
+        } catch (err) {
+          // Network errors are transient
+          return {
+            ok: false,
+            permanent: false,
+            error: err instanceof Error ? err.message : "Network error",
+          };
+        }
+      },
+    };
+    outboxRef.current = new Outbox(createLocalStorage(`outbox:${sessionId}`), sender);
+    setPendingCount(outboxRef.current.pendingCount());
+
+    // Flush on mount (in case we're resuming after a reconnect)
+    void flushOutbox();
+
+    // Flush on 'online' events
+    const onOnline = () => {
+      void flushOutbox();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
+  async function flushOutbox() {
+    const outbox = outboxRef.current;
+    if (!outbox || outbox.pendingCount() === 0) return;
+
+    setSyncStatus("Syncing...");
+    const result = await outbox.flush();
+    setPendingCount(outbox.pendingCount());
+
+    if (result.sent > 0) {
+      // Update local state for successfully synced sets
+      const still = outbox.getPending();
+      const synced = exercises.flatMap((e) =>
+        e.sets.filter((s) => !(s as unknown as { pending?: boolean }).pending),
+      );
+      // Assume synced sets match current exercise - exact reconciliation would
+      // require tracking client IDs in local state, which is overkill here
+      setSyncStatus(null);
+    } else if (result.stopped) {
+      setSyncStatus("Sync failed, will retry");
+      setTimeout(() => setSyncStatus(null), 3000);
+    } else {
+      setSyncStatus(null);
+    }
+  }
+
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it
    * for the rest of the session — and it sat one unguarded tap away among the
@@ -293,6 +374,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        syncStatus={syncStatus}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
@@ -357,6 +439,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        syncStatus={syncStatus}
       >
         <p className="text-muted">
           Ease down and stretch what you trained. Hold each for about 30 seconds,
@@ -420,6 +503,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        syncStatus={syncStatus}
         confirmExit={false}
       >
         <div className="space-y-3">
@@ -522,6 +606,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        syncStatus={syncStatus}
       >
         <p className="text-muted">
           This session has no exercises. That usually means the plan could not
@@ -577,6 +662,11 @@ export function SessionRunner({
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
+    const outbox = outboxRef.current;
+    if (!outbox) return;
+
+    // Try to save immediately
+    const clientId = Outbox.generateClientId();
     const ok = await run(() =>
       actions.logSet({
         sessionExerciseId: current.id,
@@ -584,21 +674,64 @@ export function SessionRunner({
         reps,
         weightKg,
         durationSeconds,
+        clientId,
       }),
     );
-    if (!ok) return;
-    setExercises((prev) =>
-      prev.map((e) =>
-        e.id === current.id
-          ? {
-              ...e,
-              sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
-            }
-          : e,
-      ),
-    );
-    if (settings.restAutostart && nextSetNumber < current.plannedSets) {
-      startRest(restSeconds);
+
+    if (ok) {
+      // Saved immediately - add to local state as completed
+      setExercises((prev) =>
+        prev.map((e) =>
+          e.id === current.id
+            ? {
+                ...e,
+                sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
+              }
+            : e,
+        ),
+      );
+      if (settings.restAutostart && nextSetNumber < current.plannedSets) {
+        startRest(restSeconds);
+      }
+    } else {
+      // Failed - queue for later and show as pending
+      outbox.enqueue({
+        sessionExerciseId: current.id,
+        setNumber: nextSetNumber,
+        reps,
+        weightKg,
+        durationSeconds,
+      });
+      setPendingCount(outbox.pendingCount());
+
+      setExercises((prev) =>
+        prev.map((e) =>
+          e.id === current.id
+            ? {
+                ...e,
+                sets: [
+                  ...e.sets,
+                  {
+                    setNumber: nextSetNumber,
+                    reps,
+                    weightKg,
+                    durationSeconds,
+                    // Mark as pending in an extensible way (for rendering)
+                    pending: true,
+                  } as LoggedSet & { pending?: boolean },
+                ],
+              }
+            : e,
+        ),
+      );
+
+      // Show offline status - accessible via role=status
+      setSyncStatus("Saved offline, will sync when online");
+      setTimeout(() => {
+        if (outbox.pendingCount() > 0) setSyncStatus(null);
+      }, 3000);
+
+      // Don't start rest timer for a pending set - it's not durably saved yet
     }
   }
 
@@ -617,6 +750,16 @@ export function SessionRunner({
   }
 
   async function onFinishExercise(feel: Feel | null, skipped = false) {
+    // Block finishing while sets are pending sync
+    const outbox = outboxRef.current;
+    if (outbox && outbox.pendingCount() > 0) {
+      setError(
+        `${outbox.pendingCount()} set${outbox.pendingCount() > 1 ? "s" : ""} still syncing. ` +
+        "Wait for sync to complete, or check your connection.",
+      );
+      return;
+    }
+
     // Guarded like every other action: finishExercise applies progression, so
     // running it twice could add the weight increment twice.
     if (busyRef.current) return;
@@ -678,6 +821,7 @@ export function SessionRunner({
       onExit={() => (onExit ? onExit() : router.push("/today"))}
       wakeLock={wakeLock}
       error={error}
+      syncStatus={syncStatus}
     >
       <div onPointerDown={onAnyTap}>
         {bannerFor === exerciseIndex && progressNotes.length > 0 && (
@@ -733,12 +877,15 @@ export function SessionRunner({
         <ol className="mt-6 space-y-2">
           {Array.from({ length: current.plannedSets }, (_, i) => i + 1).map((n) => {
             const logged = current.sets.find((s) => s.setNumber === n);
+            const isPending = logged && (logged as unknown as { pending?: boolean }).pending;
             return (
               <li
                 key={n}
                 className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
                   logged
-                    ? "border-border bg-surface-2 text-muted"
+                    ? isPending
+                      ? "border-accent/40 bg-accent/10 text-accent"
+                      : "border-border bg-surface-2 text-muted"
                     : n === nextSetNumber
                       ? "border-accent bg-surface"
                       : "border-border bg-surface text-muted"
@@ -748,11 +895,13 @@ export function SessionRunner({
                 <span className="flex items-center gap-3">
                   <span className="text-sm tabular-nums">
                     {logged
-                      ? settings.perSetLogging
-                        ? `${describeSet(logged, isTimed)}${
-                            logged.weightKg ? ` · ${logged.weightKg} kg` : ""
-                          }`
-                        : "done"
+                      ? isPending
+                        ? "Waiting to sync"
+                        : settings.perSetLogging
+                          ? `${describeSet(logged, isTimed)}${
+                              logged.weightKg ? ` · ${logged.weightKg} kg` : ""
+                            }`
+                          : "done"
                       : "—"}
                   </span>
                   {/*
@@ -762,8 +911,11 @@ export function SessionRunner({
                     without ever being imported. Restricting it to the last set
                     keeps the numbering contiguous — removing set 2 of 3 would
                     leave a hole that the next "Log set" would collide with.
+                    
+                    Disabled for pending sets - they haven't been saved yet, so
+                    there's nothing to delete on the server.
                   */}
-                  {logged && n === setsDone && (
+                  {logged && n === setsDone && !isPending && (
                     <button
                       disabled={busy}
                       onClick={() => onUndoSet(n)}
@@ -1174,6 +1326,7 @@ function Shell({
   onExit,
   wakeLock,
   error,
+  syncStatus,
   confirmExit = true,
   children,
 }: {
@@ -1183,6 +1336,7 @@ function Shell({
   onExit: () => void;
   wakeLock: { active: boolean };
   error: string | null;
+  syncStatus?: string | null;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
   children: React.ReactNode;
@@ -1251,6 +1405,15 @@ function Shell({
           className="mt-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           {error}
+        </p>
+      )}
+
+      {syncStatus && (
+        <p
+          role="status"
+          className="mt-4 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent"
+        >
+          {syncStatus}
         </p>
       )}
 

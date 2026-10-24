@@ -53,7 +53,9 @@ function createFakeSupabase(
               // Apply the conditional filter unless explicitly disabled
               // (for guard test showing the test can fail)
               const shouldUpdate = options.skipConditionalFilter ||
-                (row.status !== "completed" && row.status !== "skipped");
+                (row.status !== "completed" && 
+                 row.status !== "skipped" && 
+                 row.status !== "swapped_out");
 
               if (!shouldUpdate) {
                 return { data: [], error: null };
@@ -292,6 +294,29 @@ async function main() {
     assertEqual(result.ok, true, "Skip should succeed");
     assertEqual(spy.getCallCount(), 0, "Progression should not be called for skip");
     assertEqual(fake.getRow("ex-7")?.status, "skipped", "Status should be skipped");
+  });
+
+  // Test 8: Swapped-out exercise: no progression
+  await test("Swapped-out exercise: no progression", async () => {
+    const fake = createFakeSupabase([{ 
+      id: "ex-8", 
+      status: "swapped_out", 
+      feel: null, 
+      completed_at: "2026-10-24T00:00:00Z" 
+    }]);
+    const spy = createProgressionSpy();
+
+    const result = await finishExerciseCore(fake.client, "user-1", {
+      sessionExerciseId: "ex-8",
+      feel: "right",
+      skipped: false,
+    }, { applyProgression: spy.fn });
+
+    assertEqual(result.ok, true, "Should succeed idempotently");
+    assertEqual(spy.getCallCount(), 0, "Progression should not be called for swapped-out exercise");
+    
+    const row = fake.getRow("ex-8");
+    assertEqual(row?.status, "swapped_out", "Status should remain swapped_out");
   });
 
   // Summary

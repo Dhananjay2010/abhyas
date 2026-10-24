@@ -11,7 +11,7 @@
     "generate-icons": "node scripts/generate-icons.js",
     "test:generator": "tsx scripts/test-generator.ts",
     "test:progression": "tsx scripts/test-progression.ts",
-    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:delete-account && npm run test:delete-form && npm run test:migration-versions && npm run test:public-paths && npm run test:rate-limit && npm run test:rate-limit-endpoint && npm run test:signout && npm run test:finish-exercise-idempotency",
+    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:delete-account && npm run test:delete-form && npm run test:migration-versions && npm run test:public-paths && npm run test:rate-limit && npm run test:rate-limit-endpoint && npm run test:signout && npm run test:finish-exercise-idempotency && npm run test:offline-set-logging",
     "test:streaks": "tsx scripts/test-streaks.ts",
     "test:dates": "tsx scripts/test-dates.ts",
     "test:breathing": "tsx scripts/test-breathing.ts",
@@ -23,7 +23,8 @@
     "test:rate-limit": "tsx scripts/test-rate-limit.ts",
     "test:rate-limit-endpoint": "tsx scripts/test-rate-limit-endpoint.ts",
     "test:signout": "tsx scripts/test-signout.ts",
-    "test:finish-exercise-idempotency": "tsx scripts/test-finish-exercise-idempotency.ts"
+    "test:finish-exercise-idempotency": "tsx scripts/test-finish-exercise-idempotency.ts",
+    "test:offline-set-logging": "tsx scripts/test-offline-set-logging.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

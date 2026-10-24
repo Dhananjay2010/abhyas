@@ -275,6 +275,8 @@ export async function logSet(input: {
   weightKg: number | null;
   /** Seconds held, for a `seconds` exercise. Its `reps` stays null. */
   durationSeconds?: number | null;
+  /** Client-generated idempotency key for offline-safe logging. */
+  clientId?: string | null;
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
@@ -284,20 +286,36 @@ export async function logSet(input: {
   if (invalid) return { ok: false, error: invalid };
 
   const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("session_sets").upsert(
-    {
-      session_exercise_id: input.sessionExerciseId,
-      user_id: user.id,
-      set_number: input.setNumber,
-      reps: input.reps,
-      weight_kg: input.weightKg,
-      duration_seconds: durationSeconds,
-      is_warmup_set: false,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "session_exercise_id,set_number,is_warmup_set" },
-  );
-  return error ? { ok: false, error: error.message } : { ok: true };
+
+  // When a client_id is provided, use it for idempotent deduplication.
+  // The unique index on (user_id, client_id) ensures replays are no-ops.
+  const payload = {
+    session_exercise_id: input.sessionExerciseId,
+    user_id: user.id,
+    set_number: input.setNumber,
+    reps: input.reps,
+    weight_kg: input.weightKg,
+    duration_seconds: durationSeconds,
+    is_warmup_set: false,
+    completed_at: new Date().toISOString(),
+    ...(input.clientId ? { client_id: input.clientId } : {}),
+  };
+
+  // When client_id is present, prefer it for conflict resolution (client-based
+  // deduplication). Otherwise fall back to the set-number-based conflict
+  // (legacy behavior for non-idempotent calls).
+  const { error } = input.clientId
+    ? await supabase.from("session_sets").insert(payload).select().maybeSingle()
+    : await supabase.from("session_sets").upsert(
+        payload,
+        { onConflict: "session_exercise_id,set_number,is_warmup_set" },
+      );
+
+  return error
+    ? error.code === "23505" // unique_violation - duplicate client_id
+      ? { ok: true } // Already inserted, idempotency worked
+      : { ok: false, error: error.message }
+    : { ok: true };
 }
 
 export async function deleteSet(
