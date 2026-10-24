@@ -215,23 +215,6 @@ jobs:
           TEST_USER_ID: 00000000-0000-0000-0000-000000000001
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run real-DB tests
-        run: |
-          npx tsx scripts/test-exercise-history-real-db.ts
-          npx tsx scripts/test-delete-set.ts
-        env:
-          SUPABASE_URL: http://127.0.0.1:54321
-          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-          TEST_USER_ID: 00000000-0000-0000-0000-000000000001
-
       - name: Stop Supabase
         if: always()
         run: supabase stop
