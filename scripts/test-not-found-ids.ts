@@ -281,6 +281,43 @@ async function runTests() {
     }
   }
 
+  console.log("\n9. Not-found pages render exactly one nav");
+  {
+    const fs = await import("fs/promises");
+    
+    const notFoundPaths = [
+      "src/app/not-found.tsx",
+      "src/app/session/not-found.tsx",
+    ];
+    
+    for (const nfPath of notFoundPaths) {
+      try {
+        const content = await fs.readFile(nfPath, "utf-8");
+        const navCount = (content.match(/<BottomNav/g) || []).length;
+        check(
+          `${nfPath} doesn't render BottomNav`,
+          navCount === 0,
+          navCount > 0 ? `found ${navCount} BottomNav renders, should rely on root layout` : "",
+        );
+      } catch (err) {
+        check(`${nfPath} exists`, false, `${err}`);
+      }
+    }
+    
+    // Check that root layout renders exactly one BottomNav
+    try {
+      const layoutContent = await fs.readFile("src/app/layout.tsx", "utf-8");
+      const navCount = (layoutContent.match(/<BottomNav/g) || []).length;
+      check(
+        "Root layout renders exactly one BottomNav",
+        navCount === 1,
+        navCount !== 1 ? `found ${navCount}` : "",
+      );
+    } catch (err) {
+      check("Root layout exists", false, `${err}`);
+    }
+  }
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
   process.exit(failures === 0 ? 0 : 1);
 }

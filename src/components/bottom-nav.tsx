@@ -98,7 +98,23 @@ function getLastPracticeServerSnapshot(): PracticeType | null {
   return null;
 }
 
-export function BottomNav({ forceVisible = false }: { forceVisible?: boolean } = {}) {
+/**
+ * Check if pathname is in a signed-in user area where we should show nav
+ * even on 404 pages (so users can navigate away).
+ */
+function isUserAreaPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/session/") ||
+    pathname.startsWith("/history/") ||
+    pathname.startsWith("/breathe/") ||
+    pathname.startsWith("/yoga/") ||
+    pathname === "/today" ||
+    pathname === "/progress" ||
+    pathname === "/settings"
+  );
+}
+
+export function BottomNav() {
   const pathname = usePathname();
   const active = activeTab(pathname);
   
@@ -108,7 +124,9 @@ export function BottomNav({ forceVisible = false }: { forceVisible?: boolean } =
     getLastPracticeServerSnapshot
   );
 
-  if (!forceVisible && !active) return null;
+  // Show nav on pages where a tab is active, OR on potential 404s in signed-in areas
+  const shouldShow = active !== null || isUserAreaPath(pathname);
+  if (!shouldShow) return null;
 
   // Map /practice to the appropriate destination using choice logic
   const getHref = (tabHref: string) => {
@@ -124,7 +142,8 @@ export function BottomNav({ forceVisible = false }: { forceVisible?: boolean } =
       <ul className="mx-auto flex max-w-md">
         {TABS.map((t) => {
           const href = getHref(t.href);
-          const isActive = active === t.href;
+          // Only highlight tab if we have a valid active route (not on 404 pages)
+          const isActive = active !== null && active === t.href;
           const Icon = t.Icon;
           return (
             <li key={t.href} className="flex-1">
