@@ -689,6 +689,243 @@ async function runTests() {
       }
     }
 
+    console.log("\n10. History pagination fix: page 2 shows rows 21-40 (not 1-20)");
+    {
+      // This test proves the bug exists on main and is fixed by loadHistoryPage
+      // Seed exactly 48 completed sessions for a test user
+      
+      // Create auth user FIRST (like userA/userB pattern)
+      const paginationEmail = `test-pagination-${Date.now()}@example.com`;
+      const paginationPassword = "test-password-pagination";
+      
+      const { data: paginationAuthData, error: paginationSignUpError } = await adminClient.auth.admin.createUser({
+        email: paginationEmail,
+        password: paginationPassword,
+        email_confirm: true,
+      });
+
+      if (paginationSignUpError || !paginationAuthData.user) {
+        console.error("Failed to create pagination test user:", paginationSignUpError);
+        check("pagination user created", false, paginationSignUpError?.message);
+        return;
+      }
+
+      const paginationUserId = paginationAuthData.user.id;
+
+      // Ensure profile exists (trigger may have created it, but set required fields)
+      const { error: profileError } = await adminClient
+        .from("profiles")
+        .upsert({
+          id: paginationUserId,
+          timezone: "UTC",
+          onboarding_completed_at: "2026-01-01T00:00:00Z",
+        });
+
+      if (profileError) {
+        console.error("Failed to create pagination user profile:", profileError);
+        check("pagination profile created", false, profileError.message);
+        await adminClient.auth.admin.deleteUser(paginationUserId);
+        return;
+      }
+
+      const sessions = [];
+      const sessionExercises = [];
+      const sets = [];
+
+      // Create 48 sessions with unique completion timestamps
+      for (let i = 0; i < 48; i++) {
+        const sessionId = randomUUID();
+        const seId = randomUUID();
+        
+        // Date descending: most recent first
+        const daysAgo = i;
+        const sessionDate = new Date("2026-10-24T12:00:00Z");
+        sessionDate.setDate(sessionDate.getDate() - daysAgo);
+        const localDate = sessionDate.toISOString().split("T")[0];
+        const completedAt = sessionDate.toISOString();
+
+        sessions.push({
+          id: sessionId,
+          user_id: paginationUserId,
+          local_date: localDate,
+          status: "completed",
+          actual_type: "weights",
+          completed_at: completedAt,
+        });
+
+        sessionExercises.push({
+          id: seId,
+          user_id: paginationUserId,
+          session_id: sessionId,
+          exercise_id: exerciseA,
+          metric: "reps",
+          status: "completed",
+          order_index: 0,
+        });
+
+        // 1 set per session
+        sets.push({
+          user_id: paginationUserId,
+          session_exercise_id: seId,
+          set_number: 1,
+          reps: 5,
+          weight_kg: 100,
+          is_warmup_set: false,
+        });
+      }
+
+      // Insert in chunks
+      for (let i = 0; i < sessions.length; i += 100) {
+        const { error: sessError } = await adminClient.from("sessions").insert(sessions.slice(i, i + 100));
+        if (sessError) {
+          console.error("Failed to insert pagination sessions:", sessError);
+          check("pagination sessions inserted", false, sessError.message);
+          await adminClient.auth.admin.deleteUser(paginationUserId);
+          return;
+        }
+
+        const { error: seError } = await adminClient.from("session_exercises").insert(sessionExercises.slice(i, i + 100));
+        if (seError) {
+          console.error("Failed to insert pagination session_exercises:", seError);
+          check("pagination session_exercises inserted", false, seError.message);
+          await adminClient.auth.admin.deleteUser(paginationUserId);
+          return;
+        }
+
+        // Each batch of 100 sessions has 100 sets (1 per session)
+        const { error: setsError } = await adminClient.from("session_sets").insert(sets.slice(i, i + 100));
+        if (setsError) {
+          console.error("Failed to insert pagination sets:", setsError);
+          check("pagination sets inserted", false, setsError.message);
+          await adminClient.auth.admin.deleteUser(paginationUserId);
+          return;
+        }
+      }
+
+      // Create authenticated client for pagination user
+      const paginationClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { error: signInError } = await paginationClient.auth.signInWithPassword({
+        email: paginationEmail,
+        password: paginationPassword,
+      });
+
+      if (signInError) {
+        console.error("Failed to sign in pagination user:", signInError);
+        check("pagination user signed in", false, signInError.message);
+        await adminClient.auth.admin.deleteUser(paginationUserId);
+        return;
+      }
+
+      // Import and test the REAL loadHistoryPage function
+      const { loadHistoryPage } = await import("../src/lib/history/load-history-page.js");
+
+      // Expected ordering: local_date desc, completed_at desc, id desc
+      // We seeded in order, so session 0 = newest (2026-10-24), session 47 = oldest
+      const expectedOrder = sessions.map(s => s.id); // Already in correct order
+
+      // Page 1: rows 1-20
+      const page1Result = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "1",
+      });
+
+      check("page 1 loaded successfully", !page1Result.error, page1Result.error);
+      check("page 1 returns 20 rows", page1Result.sessionIds.length === 20,
+        `got ${page1Result.sessionIds.length}`);
+
+      // Page 2: rows 21-40
+      const page2Result = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "2",
+      });
+
+      check("page 2 loaded successfully", !page2Result.error, page2Result.error);
+      check("page 2 returns 20 rows", page2Result.sessionIds.length === 20,
+        `got ${page2Result.sessionIds.length}`);
+
+      // Page 3: rows 41-48
+      const page3Result = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "3",
+      });
+
+      check("page 3 loaded successfully", !page3Result.error, page3Result.error);
+      check("page 3 returns 8 rows", page3Result.sessionIds.length === 8,
+        `got ${page3Result.sessionIds.length}`);
+
+      // CRITICAL: page 1 and page 2 must NOT overlap
+      const page1Set = new Set(page1Result.sessionIds);
+      const page2Set = new Set(page2Result.sessionIds);
+      const page3Set = new Set(page3Result.sessionIds);
+
+      const overlap1_2 = page1Result.sessionIds.filter(id => page2Set.has(id));
+      const overlap2_3 = page2Result.sessionIds.filter(id => page3Set.has(id));
+      const overlap1_3 = page1Result.sessionIds.filter(id => page3Set.has(id));
+
+      check("page 1 and page 2 have NO overlap", overlap1_2.length === 0,
+        `found ${overlap1_2.length} duplicates`);
+      check("page 2 and page 3 have NO overlap", overlap2_3.length === 0,
+        `found ${overlap2_3.length} duplicates`);
+      check("page 1 and page 3 have NO overlap", overlap1_3.length === 0,
+        `found ${overlap1_3.length} duplicates`);
+
+      // Verify correct rows
+      const expectedPage1 = expectedOrder.slice(0, 20);
+      const expectedPage2 = expectedOrder.slice(20, 40);
+      const expectedPage3 = expectedOrder.slice(40, 48);
+
+      const page1Matches = expectedPage1.every(id => page1Set.has(id));
+      const page2Matches = expectedPage2.every(id => page2Set.has(id));
+      const page3Matches = expectedPage3.every(id => page3Set.has(id));
+
+      check("page 1 contains correct rows 1-20", page1Matches,
+        `expected all ${expectedPage1.length} to match`);
+      check("page 2 contains correct rows 21-40", page2Matches,
+        `expected all ${expectedPage2.length} to match`);
+      check("page 3 contains correct rows 41-48", page3Matches,
+        `expected all ${expectedPage3.length} to match`);
+
+      // Page 4 should clamp to page 3
+      const page4Result = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "4",
+      });
+
+      check("page 4 clamps to page 3", page4Result.page === 3,
+        `got page ${page4Result.page}`);
+      check("page 4 returns same as page 3", page4Result.sessionIds.length === 8,
+        `got ${page4Result.sessionIds.length}`);
+
+      // 'abc' should give page 1
+      const abcResult = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "abc",
+      });
+
+      check("'abc' gives page 1", abcResult.page === 1,
+        `got page ${abcResult.page}`);
+      check("'abc' returns 20 rows", abcResult.sessionIds.length === 20,
+        `got ${abcResult.sessionIds.length}`);
+
+      // Clean up pagination test user
+      await adminClient.auth.admin.deleteUser(paginationUserId);
+    }
+
     console.log("\n9. QA TZ-1: completed session with local_date > p_today appears");
     {
       // After a timezone change, a completed session can have local_date = tomorrow

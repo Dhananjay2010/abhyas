@@ -224,19 +224,25 @@ export default async function ProgressPage() {
   // For yoga and breathing members, compute stats from completed sessions
   const isYogaOrBreathing = primaryTrack === "yoga" || primaryTrack === "meditation";
   let yogaStats = null;
+  let yogaStatsError = false;
   if (isYogaOrBreathing) {
-    const { computeYogaStats } = await import("@/lib/progress/yoga-stats");
-    // Filter to completed yoga or breathing sessions
-    const yogaBreathingSessions = (sessionsRes.data ?? [])
-      .filter((s) => 
-        s.status === "completed" && 
-        (s.actual_type === "yoga" || s.actual_type === "meditation")
-      )
-      .map((s) => ({
-        local_date: s.local_date,
-        duration_seconds: s.duration_seconds,
-      }));
-    yogaStats = computeYogaStats(yogaBreathingSessions, today);
+    try {
+      const { computeYogaStats } = await import("@/lib/progress/yoga-stats");
+      // Filter to completed yoga or breathing sessions
+      const yogaBreathingSessions = (sessionsRes.data ?? [])
+        .filter((s) => 
+          s.status === "completed" && 
+          (s.actual_type === "yoga" || s.actual_type === "meditation")
+        )
+        .map((s) => ({
+          local_date: s.local_date,
+          duration_seconds: s.duration_seconds,
+        }));
+      yogaStats = computeYogaStats(yogaBreathingSessions, today);
+    } catch (error) {
+      console.error("Failed to compute yoga stats:", error);
+      yogaStatsError = true;
+    }
   }
 
   // Check if member has any strength data (to decide whether to show volume/strength sections)
@@ -251,22 +257,45 @@ export default async function ProgressPage() {
           <>
             <StatTile
               label="Sessions this week"
-              value={`${yogaStats.sessionsThisWeek}`}
+              value={yogaStatsError ? "—" : `${yogaStats.sessionsThisWeek}`}
               sub="Mon to today"
             />
             <StatTile
               label="Minutes this week"
-              value={`${yogaStats.minutesThisWeek}`}
+              value={yogaStatsError ? "—" : `${yogaStats.minutesThisWeek}`}
               sub="Mon to today"
             />
             <StatTile
               label="Minutes this month"
-              value={`${yogaStats.minutesThisMonth}`}
-              sub={today.slice(0, 7).replace(/-/, " ")}
+              value={yogaStatsError ? "—" : `${yogaStats.minutesThisMonth}`}
+              sub={new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(today + "T00:00:00Z"))}
             />
             <StatTile
               label="Sessions all time"
-              value={`${yogaStats.sessionsAllTime}`}
+              value={yogaStatsError ? "—" : `${yogaStats.sessionsAllTime}`}
+              sub="total completed"
+            />
+          </>
+        ) : isYogaOrBreathing ? (
+          <>
+            <StatTile
+              label="Sessions this week"
+              value="—"
+              sub="Mon to today"
+            />
+            <StatTile
+              label="Minutes this week"
+              value="—"
+              sub="Mon to today"
+            />
+            <StatTile
+              label="Minutes this month"
+              value="—"
+              sub={new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(today + "T00:00:00Z"))}
+            />
+            <StatTile
+              label="Sessions all time"
+              value="—"
               sub="total completed"
             />
           </>
@@ -304,8 +333,8 @@ export default async function ProgressPage() {
         )}
       </section>
       
-      {(progressQueryFailed || setCountsError) && (
-        <p className="mt-3 rounded-lg border-[var(--color-destructive)]/50 bg-[var(--color-destructive)]/10 px-4 py-2 text-sm text-[var(--color-destructive)]">
+      {(progressQueryFailed || setCountsError || yogaStatsError) && (
+        <p className="mt-3 rounded-lg border border-[var(--color-destructive)]/50 bg-[var(--color-destructive)]/10 px-4 py-2 text-sm text-[var(--color-destructive)]">
           Couldn&apos;t load some stats
         </p>
       )}
