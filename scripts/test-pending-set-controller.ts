@@ -58,7 +58,7 @@ async function testRapidFocusAndReplay() {
   const sessionId = "session-123";
 
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
@@ -90,6 +90,7 @@ async function testRapidFocusAndReplay() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -123,7 +124,7 @@ async function testPrefilledStorageLoadsAndReplays() {
   const sessionId = "session-456";
 
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
@@ -146,6 +147,7 @@ async function testPrefilledStorageLoadsAndReplays() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -180,6 +182,7 @@ async function testUnresolvedPromiseNotMarkedSaved() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -248,7 +251,7 @@ async function testSingleFlightReplayGuard() {
   const sessionId = "session-999";
 
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
@@ -271,6 +274,7 @@ async function testSingleFlightReplayGuard() {
   };
 
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -309,6 +313,7 @@ async function testSessionExpiredHandling() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -337,7 +342,7 @@ async function testDuplicate23505() {
   const sessionId = "session-dup";
 
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
@@ -359,6 +364,7 @@ async function testDuplicate23505() {
   });
 
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -368,7 +374,7 @@ async function testDuplicate23505() {
 
   await controller.replay();
 
-  const remaining = storage.getItem("pending-sets");
+  const remaining = storage.getItem(storageKey("test-user-id"));
   assert(
     !remaining || !JSON.parse(remaining)[sessionId],
     "Pending set cleared on 23505"
@@ -388,6 +394,7 @@ async function testNetworkErrorKeepsPending() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -426,6 +433,7 @@ async function testThrownSessionExpired() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -454,7 +462,7 @@ async function testThrownSessionExpiredInReplay() {
   const sessionId = "session-thrown-replay";
 
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
@@ -474,6 +482,7 @@ async function testThrownSessionExpiredInReplay() {
   };
 
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -483,7 +492,7 @@ async function testThrownSessionExpiredInReplay() {
 
   await controller.replay();
 
-  const remaining = storage.getItem("pending-sets");
+  const remaining = storage.getItem(storageKey("test-user-id"));
   const parsed = remaining ? JSON.parse(remaining) : {};
   assert(
     parsed[sessionId] && 
@@ -500,7 +509,7 @@ async function testReplayedSetsReported() {
   const sessionId = "session-replayed";
 
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
@@ -527,6 +536,7 @@ async function testReplayedSetsReported() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,

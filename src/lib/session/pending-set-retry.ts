@@ -47,10 +47,10 @@ export type Storage = {
 };
 
 /**
- * Generate a storage key for all pending sets.
+ * Generate a storage key for pending sets keyed by user ID.
  */
-export function storageKey(): string {
-  return `pending-sets`;
+export function storageKey(userId: string): string {
+  return `pending-sets:${userId}`;
 }
 
 /**
@@ -135,18 +135,18 @@ function pruneStaleEntries(data: PendingSetsWithTimestamp, now: number): Pending
 /**
  * Load all pending sets from storage with pruning.
  */
-function loadAllPendingSetsWithTimestamp(storage: Storage, deps: PendingSetDeps): PendingSetsWithTimestamp {
+function loadAllPendingSetsWithTimestamp(storage: Storage, userId: string, deps: PendingSetDeps): PendingSetsWithTimestamp {
   try {
-    const raw = storage.getItem(storageKey());
+    const raw = storage.getItem(storageKey(userId));
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     
     if (isValidTimestampedSets(parsed)) {
       const pruned = pruneStaleEntries(parsed, deps.now());
       if (Object.keys(pruned).length === 0) {
-        storage.removeItem(storageKey());
+        storage.removeItem(storageKey(userId));
       } else if (Object.keys(pruned).length < Object.keys(parsed).length) {
-        storage.setItem(storageKey(), JSON.stringify(pruned));
+        storage.setItem(storageKey(userId), JSON.stringify(pruned));
       }
       return pruned;
     }
@@ -160,14 +160,14 @@ function loadAllPendingSetsWithTimestamp(storage: Storage, deps: PendingSetDeps)
           timestamp: now,
         };
       }
-      storage.setItem(storageKey(), JSON.stringify(timestamped));
+      storage.setItem(storageKey(userId), JSON.stringify(timestamped));
       return timestamped;
     }
     
-    storage.removeItem(storageKey());
+    storage.removeItem(storageKey(userId));
     return {};
   } catch {
-    storage.removeItem(storageKey());
+    storage.removeItem(storageKey(userId));
     return {};
   }
 }
@@ -175,8 +175,8 @@ function loadAllPendingSetsWithTimestamp(storage: Storage, deps: PendingSetDeps)
 /**
  * Load all pending sets from storage.
  */
-export function loadAllPendingSets(storage: Storage, deps: PendingSetDeps): PendingSets {
-  const timestamped = loadAllPendingSetsWithTimestamp(storage, deps);
+export function loadAllPendingSets(storage: Storage, userId: string, deps: PendingSetDeps): PendingSets {
+  const timestamped = loadAllPendingSetsWithTimestamp(storage, userId, deps);
   const result: PendingSets = {};
   
   for (const sessionId in timestamped) {
@@ -191,10 +191,11 @@ export function loadAllPendingSets(storage: Storage, deps: PendingSetDeps): Pend
  */
 export function loadPendingSets(
   storage: Storage,
+  userId: string,
   sessionId: string,
   deps: PendingSetDeps
 ): PendingSet[] {
-  const all = loadAllPendingSets(storage, deps);
+  const all = loadAllPendingSets(storage, userId, deps);
   return all[sessionId] ?? [];
 }
 
@@ -203,11 +204,12 @@ export function loadPendingSets(
  */
 export function savePendingSet(
   storage: Storage,
+  userId: string,
   sessionId: string,
   pending: PendingSet,
   deps: PendingSetDeps
 ): void {
-  const all = loadAllPendingSetsWithTimestamp(storage, deps);
+  const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
   const existing = all[sessionId]?.sets ?? [];
   
   const alreadySaved = existing.some(
@@ -222,20 +224,20 @@ export function savePendingSet(
       sets: [...existing, pending],
       timestamp: deps.now(),
     };
-    storage.setItem(storageKey(), JSON.stringify(all));
+    storage.setItem(storageKey(userId), JSON.stringify(all));
   }
 }
 
 /**
  * Clear all pending sets for a session.
  */
-export function clearPendingSets(storage: Storage, sessionId: string, deps: PendingSetDeps): void {
-  const all = loadAllPendingSetsWithTimestamp(storage, deps);
+export function clearPendingSets(storage: Storage, userId: string, sessionId: string, deps: PendingSetDeps): void {
+  const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
   delete all[sessionId];
   if (Object.keys(all).length === 0) {
-    storage.removeItem(storageKey());
+    storage.removeItem(storageKey(userId));
   } else {
-    storage.setItem(storageKey(), JSON.stringify(all));
+    storage.setItem(storageKey(userId), JSON.stringify(all));
   }
 }
 
@@ -244,27 +246,28 @@ export function clearPendingSets(storage: Storage, sessionId: string, deps: Pend
  */
 export function clearPendingSet(
   storage: Storage,
+  userId: string,
   sessionId: string,
   clientId: string,
   deps: PendingSetDeps
 ): void {
-  const all = loadAllPendingSetsWithTimestamp(storage, deps);
+  const all = loadAllPendingSetsWithTimestamp(storage, userId, deps);
   const existing = all[sessionId]?.sets ?? [];
   const filtered = existing.filter((s) => s.clientId !== clientId);
   
   if (filtered.length === 0) {
     delete all[sessionId];
     if (Object.keys(all).length === 0) {
-      storage.removeItem(storageKey());
+      storage.removeItem(storageKey(userId));
     } else {
-      storage.setItem(storageKey(), JSON.stringify(all));
+      storage.setItem(storageKey(userId), JSON.stringify(all));
     }
   } else {
     all[sessionId] = {
       sets: filtered,
       timestamp: all[sessionId].timestamp,
     };
-    storage.setItem(storageKey(), JSON.stringify(all));
+    storage.setItem(storageKey(userId), JSON.stringify(all));
   }
 }
 

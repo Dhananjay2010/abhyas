@@ -80,6 +80,7 @@ async function testReplayPlusNextSetNoCollision() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -160,6 +161,7 @@ async function testPendingSetCountPerExercise() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -212,7 +214,7 @@ async function testReplayedSetsUpdateUI() {
 
   // Pre-fill storage with pending sets
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
@@ -239,6 +241,7 @@ async function testReplayedSetsUpdateUI() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,

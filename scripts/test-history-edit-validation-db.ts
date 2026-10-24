@@ -73,7 +73,7 @@ async function runTests() {
   const testEmail = `test-validation-${Date.now()}@example.com`;
   const testPassword = "test-password-123";
 
-  let userId: string | null = null;
+  let userId: string = "test-user-id" | null = null;
 
   try {
     const { data: authData, error: signUpError } = await adminClient.auth.admin.createUser({

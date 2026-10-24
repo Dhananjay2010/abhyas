@@ -82,24 +82,24 @@ async function testStorageOperations() {
     clientId: "client-790",
   };
   
-  savePendingSet(storage, sessionId, pending1, deps);
-  savePendingSet(storage, sessionId, pending2, deps);
+  savePendingSet(storage, "test-user-id", sessionId, pending1, deps);
+  savePendingSet(storage, "test-user-id", sessionId, pending2, deps);
   
-  const loaded = loadPendingSets(storage, sessionId, deps);
+  const loaded = loadPendingSets(storage, "test-user-id", sessionId, deps);
   assertEqual(loaded.length, 2, "Storage stores multiple pending sets");
   assertEqual(loaded[0], pending1, "First set preserved");
   assertEqual(loaded[1], pending2, "Second set preserved");
   
-  clearPendingSet(storage, sessionId, "client-789", deps);
-  const afterClear = loadPendingSets(storage, sessionId, deps);
+  clearPendingSet(storage, "test-user-id", sessionId, "client-789", deps);
+  const afterClear = loadPendingSets(storage, "test-user-id", sessionId, deps);
   assertEqual(afterClear.length, 1, "Clearing one set leaves others");
   assertEqual(afterClear[0], pending2, "Correct set remains");
   
-  clearPendingSets(storage, sessionId, deps);
-  const afterClearAll = loadPendingSets(storage, sessionId, deps);
+  clearPendingSets(storage, "test-user-id", sessionId, deps);
+  const afterClearAll = loadPendingSets(storage, "test-user-id", sessionId, deps);
   assertEqual(afterClearAll, [], "Clear all removes all sets");
   
-  const empty = loadPendingSets(storage, "nonexistent", deps);
+  const empty = loadPendingSets(storage, "test-user-id", "nonexistent", deps);
   assertEqual(empty, [], "Load from empty storage returns empty array");
 }
 

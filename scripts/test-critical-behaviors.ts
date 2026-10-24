@@ -76,6 +76,7 @@ async function test23505InSubmitCountsAsSaved() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -95,7 +96,7 @@ async function test23505InSubmitCountsAsSaved() {
   assertEqual(result.status, "saved", "23505 in submit returns 'saved' status");
   
   // Check storage directly - should be empty (not saved as pending)
-  const pending = loadPendingSets(storage, sessionId, createPendingSetDeps());
+  const pending = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps());
   assertEqual(pending.length, 0, "23505 set not saved to storage (already exists on server)");
 }
 
@@ -106,7 +107,7 @@ async function testReplayDoesntClearBeforeConfirm() {
   const sessionId = "session-456";
 
   storage.setItem(
-    storageKey(),
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: {
         sets: [
@@ -132,6 +133,7 @@ async function testReplayDoesntClearBeforeConfirm() {
   };
 
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -146,7 +148,7 @@ async function testReplayDoesntClearBeforeConfirm() {
   await new Promise((resolve) => setTimeout(resolve, 10));
 
   // Check storage immediately - set should still be there
-  const remaining = loadPendingSets(storage, sessionId, createPendingSetDeps());
+  const remaining = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps());
   assertEqual(remaining.length, 1, "Set still in storage while request pending");
   assertEqual(callCount, 1, "Server was called once");
 }
@@ -158,7 +160,7 @@ async function testReplayKeepsStillExpiredSetPending() {
   const sessionId = "session-789";
 
   storage.setItem(
-    storageKey(),
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: {
         sets: [
@@ -184,6 +186,7 @@ async function testReplayKeepsStillExpiredSetPending() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    userId: "test-user-id",
     deps: createPendingSetDeps(),
     storage,
     logSet,
@@ -197,7 +200,7 @@ async function testReplayKeepsStillExpiredSetPending() {
   assertEqual(finalState.pending.length, 1, "Set still pending after failed replay");
   assert(finalState.expired, "Still marked as expired");
   
-  const remaining = loadPendingSets(storage, sessionId, createPendingSetDeps());
+  const remaining = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps());
   assertEqual(remaining.length, 1, "Set remains in storage");
 }
 
@@ -217,18 +220,18 @@ async function testSavePendingSetDedupes() {
   };
 
   // Save the same set twice
-  savePendingSet(storage, sessionId, set, createPendingSetDeps());
-  savePendingSet(storage, sessionId, set, createPendingSetDeps());
+  savePendingSet(storage, "test-user-id", sessionId, set, createPendingSetDeps());
+  savePendingSet(storage, "test-user-id", sessionId, set, createPendingSetDeps());
 
-  const loaded = loadPendingSets(storage, sessionId, createPendingSetDeps());
+  const loaded = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps());
   assertEqual(loaded.length, 1, "Duplicate clientId not saved twice");
 
-  savePendingSet(storage, sessionId, {
+  savePendingSet(storage, "test-user-id", sessionId, {
     ...set,
     clientId: "client-2",
   }, createPendingSetDeps());
 
-  const loaded2 = loadPendingSets(storage, sessionId, createPendingSetDeps());
+  const loaded2 = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps());
   assertEqual(loaded2.length, 2, "Different clientId is saved");
 }
 
@@ -239,15 +242,15 @@ async function testBadJsonFallback() {
   const sessionId = "session-xyz";
 
   // Put invalid JSON in storage
-  storage.setItem(storageKey(), "{invalid json}");
+  storage.setItem(storageKey("test-user-id"), "{invalid json}");
 
-  const loaded = loadPendingSets(storage, sessionId, createPendingSetDeps());
+  const loaded = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps());
 
   assertEqual(loaded, [], "Returns empty array for bad JSON");
-  assertEqual(storage.getItem(storageKey()), null, "Bad JSON cleared from storage");
+  assertEqual(storage.getItem(storageKey("test-user-id")), null, "Bad JSON cleared from storage");
 
   // Verify we can save after bad JSON
-  savePendingSet(storage, sessionId, {
+  savePendingSet(storage, "test-user-id", sessionId, {
     sessionExerciseId: "ex-1",
     setNumber: 1,
     reps: 10,
@@ -256,7 +259,7 @@ async function testBadJsonFallback() {
     clientId: "client-1",
   }, createPendingSetDeps());
 
-  const loaded2 = loadPendingSets(storage, sessionId, createPendingSetDeps());
+  const loaded2 = loadPendingSets(storage, "test-user-id", sessionId, createPendingSetDeps());
   assertEqual(loaded2.length, 1, "Can save after bad JSON recovery");
 }
 

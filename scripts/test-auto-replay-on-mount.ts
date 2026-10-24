@@ -63,7 +63,7 @@ async function testOnFocusReplaysOnFirstCall() {
 
   // Pre-populate storage with pending sets
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
@@ -111,7 +111,7 @@ async function testOnFocusDoesNotReplayTwice() {
   const sessionId = "session-456";
 
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
@@ -161,7 +161,7 @@ async function testOnFocusRetriesAfterFailure() {
   const sessionId = "session-789";
 
   storage.setItem(
-    "pending-sets",
+    storageKey("test-user-id"),
     JSON.stringify({
       [sessionId]: [
         {
