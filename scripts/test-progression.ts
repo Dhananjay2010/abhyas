@@ -952,15 +952,15 @@ console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,18,20,24,28,32");
     kb18.nextWorkingWeightKg === 20 && kb18.outcome === "progressed",
     `${kb18.nextWorkingWeightKg}, ${kb18.outcome}`);
 
-  // Success with 'easy': two bells up (16→20)
+  // Success with 'easy': one bell up (same as success, 16→18)
   const kb16easy = run({
     meta: KETTLEBELL,
     sets: sets(4, 12, 16),
     state: fresh({ currentWorkingWeightKg: 16 }),
     feel: "easy",
   });
-  check("kettlebell 16 kg easy goes two bells up to 20 kg",
-    kb16easy.nextWorkingWeightKg === 20 && kb16easy.outcome === "progressed",
+  check("kettlebell 16 kg easy goes one bell up to 18 kg (same as success)",
+    kb16easy.nextWorkingWeightKg === 18 && kb16easy.outcome === "progressed",
     `${kb16easy.nextWorkingWeightKg}, ${kb16easy.outcome}`);
 
   // At 32 kg (top): success holds at 32
@@ -973,6 +973,16 @@ console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,18,20,24,28,32");
   check("kettlebell 32 kg (top) success holds at 32 kg",
     kb32.nextWorkingWeightKg === 32 && kb32.outcome === "hold",
     `${kb32.nextWorkingWeightKg}, ${kb32.outcome}`);
+
+  const kb32easy = run({
+    meta: KETTLEBELL,
+    sets: sets(4, 12, 32),
+    state: fresh({ currentWorkingWeightKg: 32 }),
+    feel: "easy",
+  });
+  check("kettlebell 32 kg (top) easy also holds at 32 kg",
+    kb32easy.nextWorkingWeightKg === 32 && kb32easy.outcome === "hold",
+    `${kb32easy.nextWorkingWeightKg}, ${kb32easy.outcome}`);
 
   // Deload: largest bell ≤ 80% of current weight
   const kbDeload20 = suggestedWeight({ currentWorkingWeightKg: 20 }, true, KETTLEBELL);

@@ -403,15 +403,13 @@ export function evaluateProgression(input: {
       // Bodyweight: snap to grid, smallest multiple above from
       next = Math.floor(from / step) * step + step;
     } else if (hasKettlebell && KETTLEBELL_SIZES.includes(from) && from <= 32) {
-      // Kettlebell: go to next bell above (or two above if easy)
-      const stepsUp = feel === "easy" ? 2 : 1;
-      let targetWeight = from;
-      for (let i = 0; i < stepsUp; i++) {
-        const nextBell = nextKettlebellAbove(targetWeight);
-        if (nextBell === null || nextBell === targetWeight) break; // At top or can't progress
-        targetWeight = nextBell;
+      // Kettlebell: go to next bell above (one bell up for both success and easy)
+      const nextBell = nextKettlebellAbove(from);
+      if (nextBell === null || nextBell === from) {
+        next = from; // At top or can't progress
+      } else {
+        next = nextBell;
       }
-      next = targetWeight;
     } else if (hasKettlebell && !KETTLEBELL_SIZES.includes(from)) {
       // Non-standard kettlebell weight: add step without rounding to avoid huge jumps
       next = from + (feel === "easy" ? step * 2 : step);
