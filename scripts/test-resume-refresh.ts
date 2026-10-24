@@ -240,7 +240,7 @@ async function main() {
     // Simulate pageshow with persisted on win
     if (winListeners.pageshow) {
       const event = { persisted: true } as PageTransitionEvent;
-      winListeners.pageshow[0](event as unknown as Event);
+      winListeners.pageshow[0](event);
     }
 
     assertEqualRefresh(refreshCalled, 2, "Should call refresh on mount + pageshow");
@@ -285,7 +285,7 @@ async function main() {
     // Simulate pageshow on doc (wrong target - should not trigger)
     if (docListeners.pageshow) {
       const event = { persisted: true } as PageTransitionEvent;
-      docListeners.pageshow[0](event as unknown as Event);
+      docListeners.pageshow[0](event);
     }
 
     assertEqualRefresh(refreshCalled, 1, "Should only call refresh on mount, not on pageshow on doc");
