@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   experimental: {
@@ -22,4 +23,36 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/**
+ * Sentry build-time configuration.
+ * 
+ * Source maps are uploaded only when SENTRY_AUTH_TOKEN is set.
+ * Without it, the build proceeds normally but source maps stay local.
+ */
+const sentryConfig = {
+  // Organization and project for source map upload
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Suppress source map upload logs unless there's an error
+  silent: true,
+
+  // Source maps configuration
+  sourcemaps: {
+    // Disable source map generation and upload when auth token not present
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+
+  // For better error reporting
+  widenClientFileUpload: true,
+  
+  // Disable automatic instrumentation of Vercel Cron Jobs (not used in this app)
+  automaticVercelMonitors: false,
+
+  // Don't warn about missing onRouterTransitionStart (we have it)
+  suppressOnRouterTransitionStartWarning: true,
+};
+
+export default process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
+  ? withSentryConfig(nextConfig, sentryConfig)
+  : nextConfig;
