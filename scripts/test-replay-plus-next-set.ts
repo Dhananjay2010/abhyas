@@ -13,7 +13,9 @@ import {
 } from "../src/lib/session/pending-set-controller";
 import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
 import type { Storage } from "../src/lib/session/pending-set-retry";
+import { storageKey } from "../src/lib/session/pending-set-retry";
 import { nextSetNumberFor } from "../src/lib/session/next-set-number";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();

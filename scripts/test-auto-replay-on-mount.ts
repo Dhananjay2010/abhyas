@@ -14,6 +14,7 @@ import {
 } from "../src/lib/session/pending-set-controller";
 import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
 import type { Storage } from "../src/lib/session/pending-set-retry";
+import { storageKey } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {
@@ -96,10 +97,10 @@ async function testOnFocusReplaysOnFirstCall() {
   // Simulate mount: call onFocus once
   controller.onFocus();
 
-  // Wait for async replay
   await new Promise((resolve) => setTimeout(resolve, 50));
 
   assert(replayCalled, "Replay was triggered by onFocus");
+  assert(states.length > 0, "onChange was called");
   assertEqual(states[states.length - 1].pending.length, 0, "Pending sets cleared after replay");
   assert(!states[states.length - 1].expired, "Expired flag cleared after replay");
 }

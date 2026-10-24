@@ -209,7 +209,7 @@ async function testSavePendingSetValidation() {
     clientId: "client-1",
   }, createPendingSetDeps());
 
-  const loaded = loadPendingSets(storage, "session-1", createPendingSetDeps());
+  const loaded = loadPendingSets(storage, "test-user-id", "session-1", createPendingSetDeps());
   assertEqual(loaded.length, 1, "Set saved despite invalid prior storage");
   assertEqual(loaded[0]?.setNumber, 1, "Correct set loaded");
 }
