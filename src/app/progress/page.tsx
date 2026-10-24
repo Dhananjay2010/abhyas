@@ -66,7 +66,7 @@ export default async function ProgressPage() {
       .order("created_at"),
     supabase
       .from("sessions")
-      .select("local_date, status, actual_type")
+      .select("id, local_date, status, actual_type")
       .order("local_date", { ascending: false })
       .limit(500),
     supabase.from("program_days").select("program_id, day_index, day_type"),
@@ -96,12 +96,31 @@ export default async function ProgressPage() {
     (dayTypesByProgram[d.program_id] ??= {})[d.day_index] = d.day_type;
   }
 
+  // Fetch session_volume to get working set counts for strength sessions
+  // Product rule (2026-10-24): strength sessions count toward streaks/days trained
+  // ONLY when status = 'completed' AND working_sets >= 1
+  const sessionIds = (sessionsRes.data ?? []).map((s) => s.id);
+
+  const { data: volumeData } = await supabase
+    .from("session_volume")
+    .select("session_id, set_count")
+    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  const workingSetsBySession = new Map((volumeData ?? []).map((v) => [v.session_id, v.set_count || 0]));
+
+  // Map all sessions with their working set counts
+  // countsTowardStreak will enforce the rules (completed + working sets for strength)
+  const completedSessions = (sessionsRes.data ?? []).map((s) => ({
+    local_date: s.local_date,
+    actual_type: s.actual_type,
+    status: s.status,
+    working_set_count: workingSetsBySession.get(s.id),
+  }));
+
   const dayRecords = buildDayRecords({
     programs,
     dayTypesByProgram,
-    completedSessions: (sessionsRes.data ?? [])
-      .filter((s) => s.status === "completed")
-      .map((s) => ({ local_date: s.local_date, actual_type: s.actual_type })),
+    completedSessions,
     today,
   });
 
@@ -144,12 +163,12 @@ export default async function ProgressPage() {
         <StatTile
           label="Streak"
           value={`${streaks.current}`}
-          sub={streaks.current === 1 ? "session" : "sessions in a row"}
+          sub={streaks.current === 1 ? "day in a row" : "days in a row"}
         />
         <StatTile
           label="Best streak"
           value={`${streaks.longest}`}
-          sub={streaks.longest === 1 ? "session" : "sessions"}
+          sub={streaks.longest === 1 ? "day" : "days"}
         />
         <StatTile label="Days trained" value={`${streaks.totalSessions}`} sub="all time" />
         <StatTile
@@ -164,6 +183,10 @@ export default async function ProgressPage() {
           sub="all time"
         />
       </section>
+      
+      <p className="mt-3 text-xs text-muted">
+        Your streak counts scheduled training days you trained. Missing one resets it. Breathe sessions don&apos;t count.
+      </p>
 
       {!hasAnything && (
         <p className="mt-8 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
