@@ -47,12 +47,6 @@ export function TodayPromptsBothUI({ yesterdayDay, renderDayPlanPrompt }: Props)
         </div>
       </div>
       <div className="mt-6">
-        <h3 className="font-semibold">
-          You missed yesterday: {labelForDayType(
-            yesterdayDay?.day_type ?? "rest",
-            yesterdayDay?.label ?? null,
-          )} did not happen.
-        </h3>
         {renderDayPlanPrompt && renderDayPlanPrompt()}
       </div>
     </>
