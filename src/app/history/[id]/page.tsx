@@ -169,7 +169,7 @@ export default async function SessionDetailPage({
                         {isTimed && s.duration_seconds !== null
                           ? `${s.duration_seconds}s`
                           : s.reps !== null
-                            ? `${s.reps} reps`
+                            ? `${s.reps} ${s.reps === 1 ? "rep" : "reps"}`
                             : isTimed
                               ? "—s"
                               : "— reps"}

@@ -6,6 +6,20 @@ import type { SessionListItem, SessionType } from "./types";
 import { formatInTimezone } from "@/lib/timezone";
 import { sessionCompletion } from "./session-completion";
 
+// Helper for proper pluralization
+function pluralize(count: number, singular: string, plural?: string): string {
+  if (count === 1) return `${count} ${singular}`;
+  return `${count} ${plural || singular + "s"}`;
+}
+
+// Helper for duration display - shows "<1 min" for very short sessions
+function formatMinutes(seconds: number | null): string | null {
+  if (seconds === null) return null;
+  const minutes = Math.round(seconds / 60);
+  if (minutes === 0 && seconds > 0) return "<1 min";
+  return `${minutes} min`;
+}
+
 interface HistoryClientProps {
   items: SessionListItem[];
   filter: SessionType;
@@ -127,7 +141,7 @@ export function HistoryClient({
                     ? "Today"
                     : longDate(item.localDate);
 
-              const minutes = item.durationSeconds ? Math.round(item.durationSeconds / 60) : null;
+              const durationLabel = formatMinutes(item.durationSeconds);
 
               // Build label for the session
               let label = "";
@@ -144,18 +158,17 @@ export function HistoryClient({
               
               if (item.breathing) {
                 details.push("Breathing");
-                if (minutes !== null) details.push(`${minutes}m`);
+                if (durationLabel) details.push(durationLabel);
                 if (item.breathing.breaths) {
-                  const word = item.breathing.pumps ? "pumps" : "breaths";
-                  details.push(`${item.breathing.breaths} ${word}`);
+                  details.push(pluralize(item.breathing.breaths, item.breathing.pumps ? "pump" : "breath"));
                 }
               } else {
                 // Use sessionCompletion to show "Completed" or "Ended early · X/Y sets"
                 const completionLabel = sessionCompletion(item.status, item.setCount, undefined);
                 details.push(completionLabel);
                 if (item.isDeload) details.push("deload");
-                if (minutes !== null) details.push(`${minutes}m`);
-                if (item.setCount > 0 && completionLabel === "Completed") details.push(`${item.setCount} sets`);
+                if (durationLabel) details.push(durationLabel);
+                if (item.setCount > 0 && completionLabel === "Completed") details.push(pluralize(item.setCount, "set"));
                 if (item.topSetWeight) details.push(`${Math.round(item.topSetWeight)}kg top`);
                 if (item.volumeKg > 0) details.push(`${Math.round(item.volumeKg)}kg total`);
               }

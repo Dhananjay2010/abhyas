@@ -25,7 +25,8 @@ export function sessionCompletion(
     plannedSets > 0 &&
     completedSets < plannedSets
   ) {
-    return `Ended early · ${completedSets}/${plannedSets} sets`;
+    const word = plannedSets === 1 ? "set" : "sets";
+    return `Ended early · ${completedSets}/${plannedSets} ${word}`;
   }
 
   return "Completed";
