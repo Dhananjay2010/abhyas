@@ -1309,3 +1309,17 @@ UPDATE warmup_exercises
 SET type = 'mobility'
 WHERE slug = 'cat-cow-stretch' AND type = 'stretch';
 
+
+-- ============================================================================
+-- Part 3: Spanish Squat - Fix cue to mention band anchoring
+-- ============================================================================
+--
+-- The spanish-squat exercise (added in 20261024140600_plan_quality_followup.sql)
+-- mentions putting a band behind the knees but doesn't say how to anchor it.
+-- This UPDATE adds the anchoring instruction.
+
+UPDATE exercises 
+SET cue = 'Anchor band to sturdy post or rack at knee height. Band behind knees creates forward resistance - controlled squat motion'
+WHERE slug = 'spanish-squat' 
+  AND cue = 'Band behind knees creates forward resistance - controlled squat motion';
+

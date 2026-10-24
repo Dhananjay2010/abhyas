@@ -80,8 +80,8 @@ function parseExercisesFromBaseMigration(): Map<string, ExerciseFromSeed> {
       slug,
       name,
       cue,
-      movement_pattern: movement_pattern as any,
-      mechanic: mechanic as any,
+      movement_pattern: movement_pattern as ExerciseFromSeed["movement_pattern"],
+      mechanic: mechanic as ExerciseFromSeed["mechanic"],
     });
   }
   
@@ -92,7 +92,8 @@ function parseExercisesFromBaseMigration(): Map<string, ExerciseFromSeed> {
 const baseExercises = parseExercisesFromBaseMigration();
 
 // Apply our fixes
-for (const fix of cueFixes as Array<{ slug: string; oldCue: string; newCue: string }>) {
+type CueFix = { slug: string; oldCue: string; newCue: string };
+for (const fix of cueFixes as CueFix[]) {
   const exercise = baseExercises.get(fix.slug);
   if (exercise && exercise.cue === fix.oldCue) {
     exercise.cue = fix.newCue;
