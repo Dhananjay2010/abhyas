@@ -13,10 +13,34 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { resolveSessionTargets } from "@/lib/program/session-targets";
 
 export const dynamic = "force-dynamic";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/**
+ * Equipment that supports bodyweight exercises but doesn't add external load.
+ */
+const BODYWEIGHT_ONLY_EQUIPMENT = new Set([
+  "pull_up_bar",
+  "dip_bars",
+  "bench",
+  "flat_bench",
+  "incline_bench",
+  "decline_bench",
+  "stability_ball",
+  "mat",
+  "none",
+]);
+
+/**
+ * Check if exercise is bodyweight-only (not progressively loadable).
+ */
+function isBodyweightOnly(equipmentIds: string[]): boolean {
+  if (equipmentIds.length === 0) return true;
+  return equipmentIds.every(id => BODYWEIGHT_ONLY_EQUIPMENT.has(id));
+}
 
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
@@ -164,7 +188,7 @@ export default async function TodayPage() {
       .from("program_days")
       // One string literal: Supabase infers the row type from it, and a
       // concatenation degrades the result to GenericStringError.
-      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
+      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric, equipment_ids))")
       .eq("program_id", program.id)
       .order("day_index")
       .order("order_index", { referencedTable: "program_day_exercises" }),
@@ -373,6 +397,7 @@ export default async function TodayPage() {
       name: string;
       cue: string | null;
       metric: Database["public"]["Enums"]["exercise_metric"] | null;
+      equipment_ids: string[] | null;
     } | null;
   }>;
 
@@ -405,18 +430,42 @@ export default async function TodayPage() {
           skipped: r.status === "skipped",
           swappedIn: r.swapped_from_exercise_id !== null,
         }))
-      : template.map((r) => ({
-          key: `p${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.exercises?.metric ?? null,
-          sets: r.target_sets,
-          repsMin: r.target_reps_min,
-          repsMax: r.target_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: false,
-          swappedIn: false,
-        }));
+      : template.map((r) => {
+          const metric = r.exercises?.metric ?? "reps";
+          const equipmentIds = r.exercises?.equipment_ids ?? [];
+          const loadReducible = !isBodyweightOnly(equipmentIds) && metric === "reps";
+          
+          // Apply deload transformation if needed
+          const dose = isDeload && r.target_sets != null && r.target_reps_min != null && r.target_reps_max != null && r.rest_seconds != null
+            ? resolveSessionTargets(
+                {
+                  target_sets: r.target_sets,
+                  target_reps_min: r.target_reps_min,
+                  target_reps_max: r.target_reps_max,
+                  rest_seconds: r.rest_seconds,
+                },
+                { isDeload, loadReducible, metric },
+              )
+            : {
+                sets: r.target_sets,
+                repsMin: r.target_reps_min,
+                repsMax: r.target_reps_max,
+                restSeconds: r.rest_seconds,
+              };
+          
+          return {
+            key: `p${r.order_index}`,
+            name: r.exercises?.name ?? "",
+            cue: r.exercises?.cue ?? null,
+            metric,
+            sets: dose.sets,
+            repsMin: dose.repsMin,
+            repsMax: dose.repsMax,
+            restSeconds: dose.restSeconds,
+            skipped: false,
+            swappedIn: false,
+          };
+        });
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show

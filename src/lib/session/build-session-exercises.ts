@@ -2,6 +2,31 @@ import type { Database } from "@/lib/database.types";
 import { resolveSessionTargets } from "@/lib/program/session-targets";
 
 /**
+ * Equipment that supports bodyweight exercises but doesn't add external load.
+ * Exercises using ONLY these items have loadReducible=false (rep/hold trim applies).
+ */
+const BODYWEIGHT_ONLY_EQUIPMENT = new Set([
+  "pull_up_bar",
+  "dip_bars", 
+  "bench",
+  "flat_bench",
+  "incline_bench",
+  "decline_bench",
+  "stability_ball",
+  "mat",
+  "none",
+]);
+
+/**
+ * Check if exercise is bodyweight-only (not progressively loadable).
+ * True when: no equipment OR all equipment is bodyweight-only.
+ */
+function isBodyweightOnly(equipmentIds: string[]): boolean {
+  if (equipmentIds.length === 0) return true;
+  return equipmentIds.every(id => BODYWEIGHT_ONLY_EQUIPMENT.has(id));
+}
+
+/**
  * The metric to stamp on a session exercise, from an embedded `exercises` row.
  *
  * PostgREST types a to-one embed as either an object or an array depending on
@@ -52,9 +77,11 @@ export function buildSessionExerciseRows<
     const embedded = Array.isArray(p.exercises) ? p.exercises[0] : p.exercises;
     const equipmentIds = (embedded as { equipment_ids?: string[] } | null | undefined)?.equipment_ids ?? [];
     
-    // loadReducible is false for bodyweight (no equipment), holds, or no-weight exercises
-    // It's true for exercises with equipment (can add weight progressively)
-    const loadReducible = equipmentIds.length > 0 && metric === "reps";
+    // loadReducible is false for:
+    // - bodyweight-only exercises (no equipment or only bodyweight equipment like pull-up bars)
+    // - holds (metric === "seconds")
+    // It's true for exercises with loaded equipment (barbell, dumbbells, etc.) and reps metric
+    const loadReducible = !isBodyweightOnly(equipmentIds) && metric === "reps";
 
     const dose = resolveSessionTargets(
       {

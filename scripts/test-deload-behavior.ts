@@ -45,7 +45,7 @@ console.log("\n2. Deload week: bodyweight exercises get rep trim (no set cut)");
     { exercise_id: "pushup", order_index: 0, target_sets: 2, target_reps_min: 8, target_reps_max: 12, rest_seconds: 60,
       exercises: { metric: "reps", equipment_ids: [] } },
     { exercise_id: "pullup", order_index: 1, target_sets: 2, target_reps_min: 6, target_reps_max: 10, rest_seconds: 90,
-      exercises: { metric: "reps", equipment_ids: [] } },
+      exercises: { metric: "reps", equipment_ids: ["pull_up_bar"] } }, // pull-up bar = bodyweight equipment
   ];
 
   const deloadRows = buildSessionExerciseRows(bodyweightExercises, { isDeload: true });
@@ -56,7 +56,7 @@ console.log("\n2. Deload week: bodyweight exercises get rep trim (no set cut)");
   check("bodyweight deload: reps trimmed 8-12 -> 5-8", 
     deloadRows[0].planned_reps_min === 5 && deloadRows[0].planned_reps_max === 8,
     `got ${deloadRows[0].planned_reps_min}-${deloadRows[0].planned_reps_max}`);
-  check("bodyweight deload: reps trimmed 6-10 -> 4-7",
+  check("bodyweight deload: pull-ups on bar reps trimmed 6-10 -> 4-7",
     deloadRows[1].planned_reps_min === 4 && deloadRows[1].planned_reps_max === 7,
     `got ${deloadRows[1].planned_reps_min}-${deloadRows[1].planned_reps_max}`);
 }
@@ -96,7 +96,36 @@ console.log("\n4. Non-deload week: all exercises unchanged");
     `got ${normalRows[0].planned_reps_min}-${normalRows[0].planned_reps_max}`);
 }
 
-console.log("\n5. Validation: negative/NaN sets throw RangeError");
+console.log("\n5. Pull-ups on bar (bodyweight) vs barbell rows (loaded)");
+{
+  // Pull-ups with 2 sets: bodyweight equipment, sets NOT cut, reps trimmed
+  const pullUpRow = { 
+    exercise_id: "pullup", order_index: 0, target_sets: 2, target_reps_min: 6, target_reps_max: 10, rest_seconds: 90,
+    exercises: { metric: "reps", equipment_ids: ["pull_up_bar"] } // bodyweight equipment
+  };
+  // Barbell row with 4 sets: loaded equipment, sets cut, reps NOT trimmed
+  const barbellRow = { 
+    exercise_id: "row", order_index: 1, target_sets: 4, target_reps_min: 8, target_reps_max: 12, rest_seconds: 120,
+    exercises: { metric: "reps", equipment_ids: ["barbell"] } // loaded equipment
+  };
+
+  const deloadRows = buildSessionExerciseRows([pullUpRow, barbellRow], { isDeload: true });
+  
+  check("pull-ups on bar: sets unchanged (2->2, no cut)", 
+    deloadRows[0].planned_sets === 2,
+    `got ${deloadRows[0].planned_sets}`);
+  check("pull-ups on bar: reps trimmed (6-10 -> 4-7)",
+    deloadRows[0].planned_reps_min === 4 && deloadRows[0].planned_reps_max === 7,
+    `got ${deloadRows[0].planned_reps_min}-${deloadRows[0].planned_reps_max}`);
+  check("barbell row: sets cut (4->2)", 
+    deloadRows[1].planned_sets === 2,
+    `got ${deloadRows[1].planned_sets}`);
+  check("barbell row: reps unchanged (8-12)",
+    deloadRows[1].planned_reps_min === 8 && deloadRows[1].planned_reps_max === 12,
+    `got ${deloadRows[1].planned_reps_min}-${deloadRows[1].planned_reps_max}`);
+}
+
+console.log("\n6. Validation: negative/NaN sets throw RangeError");
 {
   try {
     const badRow = [
