@@ -123,8 +123,6 @@ async function runTests() {
   const userIdB = authDataB.user.id;
   console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
 
-  // L3 fix: cleanup in finally block
-  let cleanupNeeded = true;
   try {
 
   // Create separate authenticated clients for user queries (sign in to get JWTs)
@@ -156,21 +154,27 @@ async function runTests() {
   const supabaseB = anonClientB;
 
   // Use seeded exercises (from seed.sql) instead of inserting
+  // Fetch enough for all scenarios, with deterministic ordering
   const { data: exercises, error: exError } = await adminClient
     .from("exercises")
     .select("id, name")
-    .limit(4);
+    .order("id")
+    .limit(20);
 
-  if (exError || !exercises || exercises.length < 4) {
+  if (exError || !exercises || exercises.length < 20) {
     console.error("Failed to fetch seeded exercises:", exError);
     return false;
   }
 
-  const exerciseA = exercises[0].id;
-  const exerciseB = exercises[1].id;
-  const exerciseC = exercises[2].id;
-  const exerciseD = exercises[3].id;
-  console.log(`Using seeded exercises: ${exercises[0].name}, ${exercises[1].name}, ${exercises[2].name}, ${exercises[3].name}\n`);
+  // Dedicate one exercise per scenario to avoid collisions
+  const exerciseA = exercises[0].id;   // Test 1: out-of-order
+  const exerciseB = exercises[1].id;   // Test 2: >100 sessions ago
+  const exerciseC = exercises[2].id;   // Test 3: >1000 sets
+  const exerciseD = exercises[3].id;   // Test 8: M1 PR detection
+  const exerciseE = exercises[4].id;   // Test 9: M2 unfinished
+  const exerciseF = exercises[5].id;   // Test 10: L1 warmup-only
+  const exerciseG = exercises[6].id;   // Test 11: >1000 rows paging
+  console.log(`Using ${exercises.length} seeded exercises (dedicated per scenario)\n`);
 
   console.log("1. Out-of-order sessions (insertion order ≠ completion order)");
   {
@@ -485,7 +489,7 @@ async function runTests() {
     check("M1: returns 3 sessions", history.sessions.length === 3, `got ${history.sessions.length}`);
     const [sess3, sess2, sess1] = history.sessions;
 
-    check("M1 s1: first session gets PRs", sess1?.prs.length === 3, `got ${sess1?.prs.length}`);
+    check("M1 s1: first session gets NO PRs (baseline rule)", sess1?.prs.length === 0, `got ${sess1?.prs.length} PRs`);
     check("M1 s2: beats s1 (62.5 > 60)", 
       sess2?.prs.some(pr => pr.type === "heaviest_weight") && sess2?.prs.some(pr => pr.type === "best_e1rm"),
       `s2 prs: ${sess2?.prs.map(p => p.type).join(", ")}`);
@@ -513,7 +517,7 @@ async function runTests() {
       id: seId,
       user_id: userIdA,
       session_id: sessionId,
-      exercise_id: exerciseB,
+      exercise_id: exerciseE,
       metric: "reps",
       status: "pending",
       order_index: 0,
@@ -527,7 +531,7 @@ async function runTests() {
     ]);
     if (e3) { console.error("M2 insert sets failed:", e3); return false; }
 
-    const lastPerf = await getLastPerformance(supabaseA, userIdA, exerciseB);
+    const lastPerf = await getLastPerformance(supabaseA, userIdA, exerciseE);
 
     check("M2: unfinished exercise appears in history", lastPerf !== null);
     check("M2: has correct date", lastPerf?.date === "2026-10-26");
@@ -548,8 +552,8 @@ async function runTests() {
     if (e1) { console.error("L1 insert sessions failed:", e1); return false; }
 
     const { error: e2 } = await adminClient.from("session_exercises").insert([
-      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exerciseC, metric: "reps", status: "completed", order_index: 0 },
-      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exerciseC, metric: "reps", status: "completed", order_index: 0 },
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exerciseF, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exerciseF, metric: "reps", status: "completed", order_index: 0 },
     ]);
     if (e2) { console.error("L1 insert session_exercises failed:", e2); return false; }
 
@@ -560,7 +564,7 @@ async function runTests() {
     if (e3) { console.error("L1 insert sets failed:", e3); return false; }
 
     // The view should exclude se2 (warm-up-only row)
-    const lastPerf = await getLastPerformance(supabaseA, userIdA, exerciseC);
+    const lastPerf = await getLastPerformance(supabaseA, userIdA, exerciseF);
 
     check("L1: returns older row with working sets", lastPerf !== null);
     check("L1: returns the 2026-10-27 row (not warm-up-only 2026-10-28)", 
@@ -569,25 +573,283 @@ async function runTests() {
     check("L1: has 100kg working set", lastPerf?.sets[0]?.weight_kg === 100);
   }
 
+  console.log("\n11. Paging: PR detection with >1000 rows (batched fetch)");
+  {
+    // Create 1100 sessions; session 500 has the heaviest weight (150 kg)
+    // Session 1100 has 145 kg, which should NOT be a PR since 150 kg is in row 500
+    const sessions = [];
+    const sessionExercises = [];
+    const sets = [];
+    const startDate = new Date("2020-01-01T12:00:00Z");
+
+    for (let i = 1; i <= 1100; i++) {
+      const sessionId = randomUUID();
+      const seId = randomUUID();
+      
+      const sessionDate = new Date(startDate);
+      sessionDate.setDate(startDate.getDate() + i);
+      const isoDate = sessionDate.toISOString();
+      const localDate = isoDate.split("T")[0];
+      
+      sessions.push({
+        id: sessionId,
+        user_id: userIdA,
+        local_date: localDate,
+        status: "completed",
+        completed_at: isoDate,
+      });
+
+      sessionExercises.push({
+        id: seId,
+        user_id: userIdA,
+        session_id: sessionId,
+        exercise_id: exerciseG,
+        metric: "reps",
+        status: "completed",
+        order_index: 0,
+      });
+
+      // Session 500 has the heaviest weight (150 kg), session 1100 has 145 kg
+      const weight = (i === 500) ? 150 : (i === 1100) ? 145 : 100 + (i % 30);
+      sets.push({
+        user_id: userIdA,
+        session_exercise_id: seId,
+        set_number: 1,
+        reps: 5,
+        weight_kg: weight,
+        is_warmup_set: false,
+      });
+    }
+
+    // Insert in batches to avoid payload limits
+    for (let i = 0; i < sessions.length; i += 100) {
+      const { error: e1 } = await adminClient.from("sessions").insert(sessions.slice(i, i + 100));
+      if (e1) { console.error(`Insert sessions batch ${i} failed:`, e1); return false; }
+
+      const { error: e2 } = await adminClient.from("session_exercises").insert(sessionExercises.slice(i, i + 100));
+      if (e2) { console.error(`Insert session_exercises batch ${i} failed:`, e2); return false; }
+
+      const { error: e3 } = await adminClient.from("session_sets").insert(sets.slice(i, i + 100));
+      if (e3) { console.error(`Insert sets batch ${i} failed:`, e3); return false; }
+    }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exerciseG, { limit: 10, offset: 0 });
+
+    check("Paging: returns correct totalCount", history.totalCount === 1100, `got ${history.totalCount}`);
+    check("Paging: returns paginated results", history.sessions.length === 10);
+    
+    // Check session 1100 (newest, should be first in results)
+    const session1100 = history.sessions[0];
+    check("Paging: session 1100 has 145 kg", session1100?.sets[0]?.weight_kg === 145);
+    check("Paging: session 1100 has NO heaviest_weight PR (150 kg is at row 500)",
+      !session1100?.prs.some(pr => pr.type === "heaviest_weight"),
+      `session 1100 prs: ${session1100?.prs.map(p => p.type).join(", ")}`);
+    
+    // Current PRs should include the 150 kg from session 500
+    const heaviestPR = history.currentPRs.find(pr => pr.type === "heaviest_weight");
+    check("Paging: currentPRs includes 150 kg", heaviestPR?.value === 150, `got ${heaviestPR?.value}`);
+  }
+
+  console.log("\n12. Ordering: equal completed_at across page boundary");
+  {
+    // Create 12 sessions all with the same completed_at, but different session_exercise_ids
+    const sharedTime = "2026-11-01T12:00:00Z";
+    const sessions = [];
+    const sessionExercises = [];
+    const sets = [];
+    const seIds: string[] = [];
+
+    for (let i = 1; i <= 12; i++) {
+      const sessionId = randomUUID();
+      const seId = randomUUID();
+      seIds.push(seId);
+      
+      sessions.push({
+        id: sessionId,
+        user_id: userIdA,
+        local_date: "2026-11-01",
+        status: "completed",
+        completed_at: sharedTime,
+      });
+
+      sessionExercises.push({
+        id: seId,
+        user_id: userIdA,
+        session_id: sessionId,
+        exercise_id: exercises[7].id,
+        metric: "reps",
+        status: "completed",
+        order_index: 0,
+      });
+
+      sets.push({
+        user_id: userIdA,
+        session_exercise_id: seId,
+        set_number: 1,
+        reps: 5,
+        weight_kg: 100,
+        is_warmup_set: false,
+      });
+    }
+
+    const { error: e1 } = await adminClient.from("sessions").insert(sessions);
+    if (e1) { console.error("Ordering insert sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert(sessionExercises);
+    if (e2) { console.error("Ordering insert session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert(sets);
+    if (e3) { console.error("Ordering insert sets failed:", e3); return false; }
+
+    // Fetch first page (limit 10, offset 0)
+    const page1 = await getExerciseHistory(supabaseA, userIdA, exercises[7].id, { limit: 10, offset: 0 });
+    check("Ordering: page1 has 10 sessions", page1.sessions.length === 10);
+    const page1SeIds = page1.sessions.map(s => s.sessionId);
+
+    // Fetch second page (limit 10, offset 10)
+    const page2 = await getExerciseHistory(supabaseA, userIdA, exercises[7].id, { limit: 10, offset: 10 });
+    check("Ordering: page2 has 2 sessions", page2.sessions.length === 2);
+    const page2SeIds = page2.sessions.map(s => s.sessionId);
+
+    // No session should appear in both pages
+    const intersection = page1SeIds.filter(id => page2SeIds.includes(id));
+    check("Ordering: no duplicate sessions across pages", intersection.length === 0,
+      `found ${intersection.length} duplicates`);
+    
+    // All 12 sessions should be present
+    const allFetched = [...page1SeIds, ...page2SeIds];
+    check("Ordering: all 12 sessions fetched", allFetched.length === 12, `got ${allFetched.length}`);
+  }
+
+  console.log("\n13. PR rule: deload most-reps (100×5 then 70×8 is NOT a PR)");
+  {
+    // QA scenario: squat s1 100kg x5, s2 70kg x8
+    // Expected: s2 should NOT get most_reps PR (lighter weight)
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+
+    const { error: e1 } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-01", status: "completed", completed_at: "2026-10-01T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-08", status: "completed", completed_at: "2026-10-08T10:00:00Z" },
+    ]);
+    if (e1) { console.error("Deload insert sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[8].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[8].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (e2) { console.error("Deload insert session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 8, weight_kg: 70, is_warmup_set: false },
+    ]);
+    if (e3) { console.error("Deload insert sets failed:", e3); return false; }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exercises[8].id, { limit: 10 });
+
+    check("Deload: returns 2 sessions", history.sessions.length === 2);
+    const [sess2, sess1] = history.sessions; // Newest first
+
+    check("Deload s1: first session gets NO PRs", sess1?.prs.length === 0);
+    check("Deload s2: 70×8 does NOT get most_reps PR (lighter than 100×5)",
+      !sess2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sess2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    check("Deload s2: no PRs at all (lighter weight, fewer reps)",
+      sess2?.prs.length === 0,
+      `expected 0 PRs, got ${sess2?.prs.length}`);
+  }
+
+  console.log("\n14. PR rule: weighted most-reps at heavier weight (100×5 then 100×8 IS a PR)");
+  {
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+
+    const { error: e1 } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-02", status: "completed", completed_at: "2026-10-02T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-09", status: "completed", completed_at: "2026-10-09T10:00:00Z" },
+    ]);
+    if (e1) { console.error("Same-weight insert sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[9].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[9].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (e2) { console.error("Same-weight insert session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 8, weight_kg: 100, is_warmup_set: false },
+    ]);
+    if (e3) { console.error("Same-weight insert sets failed:", e3); return false; }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exercises[9].id, { limit: 10 });
+
+    check("Same-weight: returns 2 sessions", history.sessions.length === 2);
+    const [sess2, sess1] = history.sessions;
+
+    check("Same-weight s1: first session gets NO PRs", sess1?.prs.length === 0);
+    check("Same-weight s2: 100×8 DOES get most_reps PR (same weight, more reps)",
+      sess2?.prs.some(pr => pr.type === "most_reps" && pr.value === 8),
+      `s2 prs: ${sess2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+  }
+
+  console.log("\n15. PR rule: weighted most-reps at heavier weight (100×5 then 105×6 IS a PR)");
+  {
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+
+    const { error: e1 } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-03", status: "completed", completed_at: "2026-10-03T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-10", status: "completed", completed_at: "2026-10-10T10:00:00Z" },
+    ]);
+    if (e1) { console.error("Heavier insert sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[10].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[10].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (e2) { console.error("Heavier insert session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 6, weight_kg: 105, is_warmup_set: false },
+    ]);
+    if (e3) { console.error("Heavier insert sets failed:", e3); return false; }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exercises[10].id, { limit: 10 });
+
+    check("Heavier: returns 2 sessions", history.sessions.length === 2);
+    const [sess2, sess1] = history.sessions;
+
+    check("Heavier s1: first session gets NO PRs", sess1?.prs.length === 0);
+    check("Heavier s2: 105×6 DOES get most_reps PR (heavier weight, more reps)",
+      sess2?.prs.some(pr => pr.type === "most_reps" && pr.value === 6),
+      `s2 prs: ${sess2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+  }
+
   if (failures > 0) {
     console.log(`\n❌ ${failures} FAILURES\n`);
     return false;
   }
 
   console.log("\n✅ All real DB tests passed\n");
-  cleanupNeeded = false;
   return true;
   } finally {
-    // L3 fix: cleanup test users and their data
-    if (cleanupNeeded) {
-      console.log("\nCleaning up test users...");
-      try {
-        await adminClient.auth.admin.deleteUser(userIdA);
-        await adminClient.auth.admin.deleteUser(userIdB);
-        console.log("✓ Test users deleted\n");
-      } catch (cleanupError) {
-        console.error("Warning: cleanup failed:", cleanupError);
-      }
+    // Cleanup test users and their data on every path
+    console.log("\nCleaning up test users...");
+    try {
+      await adminClient.auth.admin.deleteUser(userIdA);
+      await adminClient.auth.admin.deleteUser(userIdB);
+      console.log("✓ Test users deleted\n");
+    } catch (cleanupError) {
+      console.error("Warning: cleanup failed:", cleanupError);
     }
   }
 }
