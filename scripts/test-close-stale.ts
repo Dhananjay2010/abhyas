@@ -104,8 +104,10 @@ async function runTests() {
     assertEquals(completed, 1, "One session completed");
     assertEquals(fake.sessionUpdates.length, 1, "One update");
     assertEquals(fake.sessionUpdates[0].status, "completed", "Status is completed");
-    assertEquals(fake.sessionUpdates[0].completed_at, lastSetAt, "completed_at is last set time");
-    assertEquals(fake.sessionUpdates[0].duration_seconds, 2700, "duration is 45 minutes (2700s)");
+    // ended_at = last_set + rest interval (300s default)
+    const expectedEndedAt = new Date(new Date(lastSetAt).getTime() + 300 * 1000).toISOString();
+    assertEquals(fake.sessionUpdates[0].completed_at, expectedEndedAt, "completed_at is last set + 5min rest");
+    assertEquals(fake.sessionUpdates[0].duration_seconds, 3000, "duration is 50 minutes (45m + 5m rest)");
   }
 
   console.log("\n2. Session with no sets: skipped with 0 duration");
@@ -220,7 +222,7 @@ async function runTests() {
     assertTrue(!!s5bUpdate, "s5b updated");
     assertEquals(s5aUpdate!.status, "completed", "s5a completed");
     assertEquals(s5bUpdate!.status, "skipped", "s5b skipped");
-    assertEquals(s5aUpdate!.duration_seconds, 1800, "s5a duration is 30 min (1800s)");
+    assertEquals(s5aUpdate!.duration_seconds, 2100, "s5a duration is 35 min (30m + 5m rest)");
   }
 
   console.log(`\n✅ Passed: ${passed}`);
