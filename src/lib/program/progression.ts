@@ -299,6 +299,7 @@ export function evaluateProgression(input: {
   }
 
   const heaviest = Math.max(...working.map((s) => s.weightKg ?? 0));
+  const carried = { ...base };
 
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
