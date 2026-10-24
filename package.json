@@ -156,7 +156,14 @@
     "test:settings-retry": "tsx scripts/test-settings-retry.tsx",
     "test:settings-equipment-error-clear": "tsx scripts/test-settings-equipment-error-clear.tsx",
     "test:settings-two-fields-fail": "tsx scripts/test-settings-two-fields-fail.tsx",
-    "test:settings-no-revert-over-newer": "tsx scripts/test-settings-no-revert-over-newer.tsx"
+    "test:settings-no-revert-over-newer": "tsx scripts/test-settings-no-revert-over-newer.tsx",
+    "test:history-edit-validation": "tsx scripts/test-history-edit-validation.ts",
+    "test:history-edit-validation-db": "tsx scripts/test-history-edit-validation-db.ts",
+    "test:rollover-session-length": "tsx scripts/test-rollover-session-length.ts",
+    "test:session-length-step-done": "tsx scripts/test-session-length-step-done.ts",
+    "test:session-length-ui": "tsx scripts/test-session-length-ui.tsx",
+    "test:session-length-explicit-save-migration": "tsx scripts/test-session-length-explicit-save-migration.ts",
+    "test:session-length-plan-stale": "tsx scripts/test-session-length-plan-stale.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
