@@ -183,13 +183,13 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
   }
   
   check(
-    `applyDeload(${MAX_PLANNER_SETS + 1}) throws RangeError`,
-    overMaxThrew && overMaxThrewRangeError,
+    `applyDeload(${MAX_PLANNER_SETS + 1}) clamps to ${MAX_PLANNER_SETS} then deloads to 3`,
+    !overMaxThrew && applyDeload(overMaxP).sets === 3,
     overMaxThrew
-      ? overMaxThrewRangeError
+      ? "threw (should clamp instead)"
+      : applyDeload(overMaxP).sets === 3
         ? ""
-        : "threw but not RangeError"
-      : "did not throw"
+        : `got ${applyDeload(overMaxP).sets}`
   );
   
   // 1e308 throws
@@ -210,13 +210,13 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
   }
   
   check(
-    "applyDeload(1e308) throws RangeError",
-    hugeThrew && hugeThrewRangeError,
+    "applyDeload(1e308) clamps to MAX_PLANNER_SETS then deloads to 3",
+    !hugeThrew && applyDeload(hugeP).sets === 3,
     hugeThrew
-      ? hugeThrewRangeError
+      ? "threw (should clamp instead)"
+      : applyDeload(hugeP).sets === 3
         ? ""
-        : "threw but not RangeError"
-      : "did not throw"
+        : `got ${applyDeload(hugeP).sets}`
   );
   
   // Maximum + 0.4: rounds to 5, which is at the boundary
@@ -238,16 +238,16 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
   }
   
   check(
-    `applyDeload(${MAX_PLANNER_SETS + 0.4}) throws (validation before rounding)`,
-    nearMaxThrew && nearMaxThrewRangeError,
+    `applyDeload(${MAX_PLANNER_SETS + 0.4}) clamps to ${MAX_PLANNER_SETS} before rounding, then deloads to 3`,
+    !nearMaxThrew && applyDeload(nearMaxP).sets === 3,
     nearMaxThrew
-      ? nearMaxThrewRangeError
+      ? "threw (should clamp instead)"
+      : applyDeload(nearMaxP).sets === 3
         ? ""
-        : "threw but not RangeError"
-      : "did not throw (but validation is BEFORE rounding, so 5.4 > 5 should be rejected)"
+        : `got ${applyDeload(nearMaxP).sets}`
   );
   
-  // Test 6-10 all throw
+  // Test 6-10 all clamp to MAX_PLANNER_SETS
   for (let sets = 6; sets <= 10; sets++) {
     const p: Prescription = {
       sets,
@@ -257,18 +257,17 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
     };
     
     let threw = false;
-    let threwRangeError = false;
+    let result;
     try {
-      applyDeload(p);
+      result = applyDeload(p);
     } catch (e) {
       threw = true;
-      threwRangeError = e instanceof RangeError;
     }
     
     check(
-      `applyDeload(${sets}) throws RangeError (exceeds MAX_PLANNER_SETS)`,
-      threw && threwRangeError,
-      threw ? (threwRangeError ? "" : "threw but not RangeError") : "did not throw"
+      `applyDeload(${sets}) clamps to ${MAX_PLANNER_SETS} then deloads to 3`,
+      !threw && !!result && result.sets === 3,
+      threw ? "threw (should clamp instead)" : (result ? (result.sets === 3 ? "" : `got ${result.sets}`) : "no result")
     );
   }
 }

@@ -118,8 +118,8 @@ test_mutant \
 # PR2: Back-off bypasses grid
 test_mutant \
   "Back-off bypasses grid" \
-  "const reduced = roundToGrid(rawReduced, equipmentIds, unit, step, 'down');" \
-  "const reduced = rawReduced;"
+  "      const snapped = roundToGrid(rawReduced, equipmentIds, unit, gridStep, 'down');" \
+  "      const snapped = rawReduced;"
 
 # PR3: Non-loadable equipment resets to 0
 test_mutant \
@@ -127,17 +127,23 @@ test_mutant \
   "const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));" \
   "const hasLoadable = false;"
 
-# PR4: lb bells on kg state
+# PR4: lb grid step on roundToGrid
 test_mutant \
-  "lb kettlebell bells on kg state" \
-  "const bells = KETTLEBELL_WEIGHTS_KG;" \
-  "const bells = KETTLEBELL_WEIGHTS_LB;"
-
-# PR5: lb grid step on kg
-test_mutant \
-  "lb grid step on kg values" \
+  "lb grid step in roundToGrid" \
   "const gridStep = equipmentGridStep(effectiveEquipmentIds, 'kg');" \
   "const gridStep = equipmentGridStep(effectiveEquipmentIds, 'lb');"
+
+# PR5: lb bells in first miss
+test_mutant \
+  "lb kettlebell bells in first miss" \
+  "      const bells = KETTLEBELL_WEIGHTS_KG;" \
+  "      const bells = KETTLEBELL_WEIGHTS_LB;"
+
+# M1: lb grid step in first miss
+test_mutant \
+  "lb grid step in first miss" \
+  "      const gridStep = equipmentGridStep(equipmentIds, 'kg');" \
+  "      const gridStep = equipmentGridStep(equipmentIds, 'lb');"
 
 # PR6: No-equipment minimum floor → 0
 test_mutant \
@@ -160,8 +166,8 @@ test_mutant \
 # PR9: Deload bypasses grid
 test_mutant \
   "Deload suggestion bypasses grid" \
-  "return roundToGrid(rawDeload, equipmentIds, unit, step, 'down');" \
-  "return rawDeload;"
+  "  const snapped = roundToGrid(rawDeload, equipmentIds, unit, step, 'down');" \
+  "  const snapped = rawDeload;"
 
 # N1: No-equipment first miss floor removed (allows negatives)
 test_mutant \
@@ -179,11 +185,32 @@ test_mutant \
   let nextWeight = currentWeight !== null && currentWeight > 0 ? currentWeight - incrementFor(meta) : currentWeight;
   if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {"
 
-# N6: noData snap removed
+# M3: Success can decrease weight
 test_mutant \
-  "noData snap removed" \
-  "noDataWeight = snapped > noDataWeight ? noDataWeight : snapped;" \
-  "noDataWeight = noDataWeight;"
+  "Success can decrease weight" \
+  "    // Never decrease weight on success (can happen at max bell or with off-grid stored weights)
+    if (next <= from) {" \
+  "    // Allow weight to decrease on success
+    if (false && next <= from) {"
+
+# I4b: Hard hold snaps down
+test_mutant \
+  "Hard hold snaps down" \
+  "      return {
+        ...carried,
+        outcome: \"hold\",
+        nextWorkingWeightKg: currentWeight," \
+  "      const snapped = roundToGrid(currentWeight, equipmentIds, unit, incrementFor(meta), 'down');
+      return {
+        ...carried,
+        outcome: \"hold\",
+        nextWorkingWeightKg: snapped,"
+
+# I4c: Suggestion can raise weight
+test_mutant \
+  "Suggestion can raise weight" \
+  "      return Math.min(w, snapped);" \
+  "      return snapped;"
 
 echo "==================================="
 echo "Total mutants: $MUTANT_COUNT"

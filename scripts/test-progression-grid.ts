@@ -44,6 +44,15 @@ const BENCH: ExerciseMeta = {
   progressionRank: null,
 };
 
+const CURL: ExerciseMeta = {
+  mechanic: "isolation",
+  metric: "reps",
+  movementPattern: "biceps",
+  isBodyweight: false,
+  progressionChain: null,
+  progressionRank: null,
+};
+
 const KETTLEBELL_SWING: ExerciseMeta = {
   mechanic: "compound",
   metric: "reps",
@@ -241,15 +250,15 @@ console.log("\n6. Kettlebell Easy can move up one or two bells (never more than 
   check("24 kg -> 28-32 kg (Easy, 1-2 bells)", d.nextWorkingWeightKg !== null && d.nextWorkingWeightKg >= 28 && d.nextWorkingWeightKg <= 32, `${d.nextWorkingWeightKg}`);
 }
 {
-  // 32 kg -> 32 kg (at top bell)
+  // 48 kg -> 48 kg (at top bell, cannot go higher)
   const d = run({
     meta: KETTLEBELL_SWING,
-    sets: sets(4, 12, 32),
-    state: fresh({ currentWorkingWeightKg: 32 }),
+    sets: sets(4, 12, 48),
+    state: fresh({ currentWorkingWeightKg: 48 }),
     equipmentIds: ["kettlebell"],
     feel: "easy",
   });
-  check("32 kg -> 32 kg (at top bell, cannot go higher)", d.nextWorkingWeightKg === 32, `${d.nextWorkingWeightKg}`);
+  check("48 kg -> hold (at top bell, cannot go higher)", d.nextWorkingWeightKg === 48 && d.outcome === "hold", `${d.outcome}, ${d.nextWorkingWeightKg}`);
 }
 
 console.log("\n7. Kettlebell deload rounds to grid bell at or below 70%");
@@ -547,8 +556,10 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
         });
         
         // Should drop exactly one equipment grid step
-        const expectedDrop = equipment.name === "kettlebell" 
-          ? (equipment.unit === "kg" ? 4 : 5) // One bell back (varies by position)
+        // For kettlebells, bell spacing varies, so we just check that we dropped and didn't go to zero
+        const isKb = equipment.name === "kettlebell";
+        const expectedDrop = isKb
+          ? null // Variable bell spacing, so we don't check exact drop
           : equipment.name === "pin-stack machine" 
             ? (equipment.unit === "kg" ? 5 : 10)
             : equipment.name === "medicine_ball"
@@ -560,8 +571,9 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
           `${equipment.name} × ${liftType.name}: first miss drops one grid step`,
           missDecision.nextWorkingWeightKg !== null && 
           missDecision.nextWorkingWeightKg < progressedWeight &&
-          Math.abs(dropped - expectedDrop) < tolerance,
-          `progressed: ${progressedWeight}, after miss: ${missDecision.nextWorkingWeightKg}, dropped: ${dropped.toFixed(1)}, expected: ${expectedDrop}`
+          missDecision.nextWorkingWeightKg > 0 &&
+          (expectedDrop === null || Math.abs(dropped - expectedDrop) < tolerance),
+          `progressed: ${progressedWeight}, after miss: ${missDecision.nextWorkingWeightKg}, dropped: ${dropped.toFixed(1)}${expectedDrop !== null ? `, expected: ${expectedDrop}` : ''}`
         );
       }
       
@@ -717,7 +729,7 @@ console.log("\n16. HARD-HOLD SNAP TEST");
     equipmentIds: ["barbell"],
     feel: "hard",
   });
-  check("Hard hold snaps off-grid 61 kg to 60 kg", hardDecision.outcome === "hold" && hardDecision.nextWorkingWeightKg === 60, `${hardDecision.outcome}, ${hardDecision.nextWorkingWeightKg}`);
+  check("Hard hold keeps off-grid 61 kg (no snap down)", hardDecision.outcome === "hold" && hardDecision.nextWorkingWeightKg === 61, `${hardDecision.outcome}, ${hardDecision.nextWorkingWeightKg}`);
 }
 
 console.log("\n17. MUTANT TESTS");
@@ -844,18 +856,18 @@ console.log("\n19. Units: kg storage with lb display");
   check("kettlebell 16 kg Hard with lb display: holds at 16 kg (not 15)", kbHardLb.nextWorkingWeightKg === 16, `${kbHardLb.nextWorkingWeightKg}`);
 }
 
-console.log("\n20. noData snaps off-grid stored weight to grid (down)");
+console.log("\n20. noData keeps off-grid stored weight (no snap down)");
 {
-  // Off-grid stored weight with no data: snaps down to grid
+  // Off-grid stored weight with no data: keeps current weight
   const noDataOffGrid = run({
     sets: [],
     state: fresh({ currentWorkingWeightKg: 57.3 }),
     equipmentIds: ["barbell"],
     unit: "kg",
   });
-  check("noData with off-grid 57.3 kg: snaps down to 55 kg", noDataOffGrid.nextWorkingWeightKg === 55, `${noDataOffGrid.nextWorkingWeightKg}`);
+  check("noData with off-grid 57.3 kg: keeps 57.3 kg", noDataOffGrid.nextWorkingWeightKg === 57.3, `${noDataOffGrid.nextWorkingWeightKg}`);
   
-  // Off-grid kettlebell weight with no data: snaps to previous bell
+  // Off-grid kettlebell weight with no data: keeps current weight
   const noDataKbOffGrid = run({
     meta: KETTLEBELL_SWING,
     sets: [],
@@ -863,7 +875,119 @@ console.log("\n20. noData snaps off-grid stored weight to grid (down)");
     equipmentIds: ["kettlebell"],
     unit: "kg",
   });
-  check("noData with off-grid 17 kg KB: snaps down to 16 kg", noDataKbOffGrid.nextWorkingWeightKg === 16, `${noDataKbOffGrid.nextWorkingWeightKg}`);
+  check("noData with off-grid 17 kg KB: keeps 17 kg", noDataKbOffGrid.nextWorkingWeightKg === 17, `${noDataKbOffGrid.nextWorkingWeightKg}`);
+}
+
+console.log("\n21. Imperial first miss uses kg grid/bells (not lb)");
+{
+  // Barbell first miss with lb display: should use kg grid (2.5 kg step)
+  const barbellLbMiss = run({
+    sets: sets(4, 10, 60),
+    state: fresh({ currentWorkingWeightKg: 60 }),
+    equipmentIds: ["barbell"],
+    unit: "lb",
+  });
+  check("barbell 60 kg first miss with lb display: 60 -> 57.5 kg (not 55)", barbellLbMiss.nextWorkingWeightKg === 57.5, `${barbellLbMiss.nextWorkingWeightKg}`);
+  
+  // Pin-stack first miss with lb display: should use kg grid (5 kg step)
+  const pinStackLbMiss = run({
+    meta: BENCH,
+    sets: sets(4, 10, 40),
+    state: fresh({ currentWorkingWeightKg: 40 }),
+    equipmentIds: ["lat_pulldown"],
+    unit: "lb",
+  });
+  check("pin-stack 40 kg first miss with lb display: 40 -> 35 kg (not 30)", pinStackLbMiss.nextWorkingWeightKg === 35, `${pinStackLbMiss.nextWorkingWeightKg}`);
+  
+  // Kettlebell first miss with lb display: should use kg bell list
+  const kbLbMiss = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 10, 20),
+    state: fresh({ currentWorkingWeightKg: 20 }),
+    equipmentIds: ["kettlebell"],
+    unit: "lb",
+  });
+  check("kettlebell 20 kg first miss with lb display: 20 -> 18 kg (not 15)", kbLbMiss.nextWorkingWeightKg === 18, `${kbLbMiss.nextWorkingWeightKg}`);
+}
+
+console.log("\n22. Kettlebell 36, 40, 48 kg bells and success never decreases");
+{
+  // 32 kg -> 36 kg (next bell)
+  const kb32 = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 12, 32),
+    state: fresh({ currentWorkingWeightKg: 32 }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("kettlebell 32 kg -> 36 kg (next bell)", kb32.nextWorkingWeightKg === 36, `${kb32.nextWorkingWeightKg}`);
+  
+  // 36 kg -> 40 kg (next bell)
+  const kb36 = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 12, 36),
+    state: fresh({ currentWorkingWeightKg: 36 }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("kettlebell 36 kg -> 40 kg (next bell)", kb36.nextWorkingWeightKg === 40, `${kb36.nextWorkingWeightKg}`);
+  
+  // 40 kg -> 48 kg (next bell)
+  const kb40 = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 12, 40),
+    state: fresh({ currentWorkingWeightKg: 40 }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("kettlebell 40 kg -> 48 kg (next bell)", kb40.nextWorkingWeightKg === 48, `${kb40.nextWorkingWeightKg}`);
+  
+  // Off-grid 41 kg -> 48 kg (success never decreases, rounds up to next bell)
+  const kb41 = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 12, 41),
+    state: fresh({ currentWorkingWeightKg: 41 }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("kettlebell 41 kg (off-grid) -> 48 kg (next bell, not down to 40)", kb41.nextWorkingWeightKg === 48 && kb41.outcome === "progressed", `${kb41.outcome}, ${kb41.nextWorkingWeightKg}`);
+}
+
+console.log("\n23. Back-off never drops more than one grid step below computed value");
+{
+  // Barbell 10 kg * 0.9 = 9 kg, grid step 2.5 kg, one step below 9 is 6.5, rounds to 7.5 kg
+  const backOff10 = run({
+    sets: sets(4, 10, 10),
+    state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  check("barbell 10 kg back-off: 10 -> 7.5 kg (not 5)", backOff10.nextWorkingWeightKg === 7.5, `${backOff10.nextWorkingWeightKg}`);
+  
+  // Isolation 2.5 kg * 0.9 = 2.25 kg, grid step 2.5 kg, minimum is 2.5, so stays at 2.5
+  const backOffIso = run({
+    meta: CURL,
+    sets: sets(4, 10, 2.5),
+    state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 1 }),
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+  });
+  check("isolation 2.5 kg back-off: 2.5 -> 2.5 kg (not 1.25)", backOffIso.nextWorkingWeightKg === 2.5, `${backOffIso.nextWorkingWeightKg}`);
+}
+
+console.log("\n24. Suggestion never raises weight");
+{
+  // Deload suggestion for 1 kg: 1 * 0.7 = 0.7, should not raise to 2.5
+  const deloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, true, CURL, ["dumbbell"], "kg");
+  check("deload suggestion for 1 kg: stays <= 1 kg (not 2.5)", deloadSugg1 !== null && deloadSugg1 <= 1, `${deloadSugg1}`);
+  
+  // Non-deload suggestion for 1 kg: should not raise to 2.5
+  const nonDeloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, false, CURL, ["dumbbell"], "kg");
+  check("non-deload suggestion for 1 kg: stays <= 1 kg (not 2.5)", nonDeloadSugg1 !== null && nonDeloadSugg1 <= 1, `${nonDeloadSugg1}`);
+  
+  // Kettlebell deload suggestion for 2 kg: 2 * 0.7 = 1.4, should not raise to 4
+  const kbDeloadSugg2 = suggestedWeight({ currentWorkingWeightKg: 2 }, true, KETTLEBELL_SWING, ["kettlebell"], "kg");
+  check("KB deload suggestion for 2 kg: stays <= 2 kg (not 4)", kbDeloadSugg2 !== null && kbDeloadSugg2 <= 2, `${kbDeloadSugg2}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

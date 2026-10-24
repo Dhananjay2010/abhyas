@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+// KETTLEBELL_WEIGHTS_LB imported for mutation testing only
 import { KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, type WeightUnit } from "@/lib/session/equipment-grid";
 
 type Enums = Database["public"]["Enums"];
@@ -127,6 +128,16 @@ export function incrementFor(meta: ExerciseMeta): number {
 export function addedWeightStep(meta: ExerciseMeta): number {
   if (meta.mechanic === "isolation") return 1.25;
   return LOWER_BODY.has(meta.movementPattern) ? 2.5 : 1.25;
+}
+
+/**
+ * Convert kg weight to user's display unit.
+ */
+function displayWeight(kgValue: number, unit: WeightUnit | undefined): number {
+  if (unit === 'lb') {
+    return Math.round(kgValue * 2.20462 * 4) / 4; // Round to nearest 0.25 lb
+  }
+  return kgValue;
 }
 
 function roundTo(value: number, step: number): number {
@@ -383,17 +394,10 @@ export function evaluateProgression(input: {
 
   // A deload week is deliberately not a test of progress.
   if (isDeload) {
-    // Snap deload week weight to grid, but don't raise below-minimum weights
-    let deloadWeight = state.currentWorkingWeightKg;
-    if (deloadWeight !== null && deloadWeight > 0 && equipmentIds && unit) {
-      const step = meta.isBodyweight && deloadWeight > 0 ? addedWeightStep(meta) : incrementFor(meta);
-      const snapped = roundToGrid(deloadWeight, equipmentIds, unit, step, 'down');
-      // Don't raise weight if it's already below minimum
-      deloadWeight = snapped > deloadWeight ? deloadWeight : snapped;
-    }
+    // Deload week: keep current weight (hold, don't lower)
     return {
       ...base,
-      nextWorkingWeightKg: deloadWeight,
+      nextWorkingWeightKg: state.currentWorkingWeightKg,
       outcome: "deload_week",
       // "Weights held where they were" is meaningless to someone doing planks
       // or press-ups, which is most of the bodyweight track.
@@ -405,17 +409,10 @@ export function evaluateProgression(input: {
   }
 
   if (working.length === 0) {
-    // Snap no-data weight to grid, but don't raise below-minimum weights
-    let noDataWeight = state.currentWorkingWeightKg;
-    if (noDataWeight !== null && noDataWeight > 0 && equipmentIds && unit) {
-      const step = meta.isBodyweight && noDataWeight > 0 ? addedWeightStep(meta) : incrementFor(meta);
-      const snapped = roundToGrid(noDataWeight, equipmentIds, unit, step, 'down');
-      // Don't raise weight if it's already below minimum
-      noDataWeight = snapped > noDataWeight ? noDataWeight : snapped;
-    }
+    // No data: keep current weight (hold, don't lower)
     return {
       ...base,
-      nextWorkingWeightKg: noDataWeight,
+      nextWorkingWeightKg: state.currentWorkingWeightKg,
       outcome: "no_data",
       message: isTimed
         ? "No hold recorded, so nothing changed."
@@ -435,12 +432,11 @@ export function evaluateProgression(input: {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
     const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
-      // Snap held weight to grid
-      const held = roundToGrid(currentWeight, equipmentIds, unit, incrementFor(meta), 'down');
+      // Hold at current weight (don't snap down)
       return {
         ...carried,
         outcome: "hold",
-        nextWorkingWeightKg: held,
+        nextWorkingWeightKg: currentWeight,
         nextTargetReps: repsMax,
         consecutiveFailures: 0,
         message: isTimed
@@ -516,6 +512,21 @@ export function evaluateProgression(input: {
       next = roundToGrid(rawNext, equipmentIds, unit, step, 'up');
     }
 
+    // Never decrease weight on success (can happen at max bell or with off-grid stored weights)
+    if (next <= from) {
+      return {
+        ...carried,
+        outcome: "hold",
+        nextWorkingWeightKg: from,
+        nextTargetReps: repsMax,
+        consecutiveFailures: 0,
+        message: isTimed
+          ? "Held to the top of the range — no heavier load available."
+          : "All sets at the top of the range — no heavier load available.",
+      };
+    }
+
+    const displayNext = displayWeight(next, unit);
     return {
       ...carried,
       outcome: "progressed",
@@ -524,8 +535,8 @@ export function evaluateProgression(input: {
       consecutiveFailures: 0,
       message:
         feel === "easy" && !isBodyweightWithAddedWeight
-          ? `All sets at the top and it felt easy — up to ${next} ${unit || 'kg'}.`
-          : `All sets at the top of the range — up to ${next} ${unit || 'kg'}.`,
+          ? `All sets at the top and it felt easy — up to ${displayNext} ${unit || 'kg'}.`
+          : `All sets at the top of the range — up to ${displayNext} ${unit || 'kg'}.`,
     };
   }
 
@@ -546,18 +557,29 @@ export function evaluateProgression(input: {
         message: "Missed twice in a row — back to bodyweight to build up again.",
       };
     }
-    const step = incrementFor(meta);
-    // Back-off: floor to avoid raising off-grid weights (e.g. 9.75 -> 10)
-    const rawReduced = Math.floor((currentWeight * 0.9) / step) * step;
-    // Apply grid rounding DOWN to the reduced weight, floored at minimum
-    const reduced = roundToGrid(rawReduced, equipmentIds, unit, step, 'down');
+    // Back-off: 90% of current, but never drop more than one grid step below that
+    const rawReduced = currentWeight * 0.9;
+    let reduced: number;
+    
+    if (equipmentIds && unit) {
+      // With equipment: use equipment grid step, ensure we don't drop more than one step below computed
+      const gridStep = equipmentGridStep(equipmentIds, 'kg');
+      const snapped = roundToGrid(rawReduced, equipmentIds, unit, gridStep, 'down');
+      // Never go below (computed - one grid step), and never below the grid minimum
+      const minAllowed = Math.max(gridStep, rawReduced - gridStep);
+      reduced = Math.max(minAllowed, snapped);
+    } else {
+      // Without equipment: use lift increment, floor to step but keep minimum
+      const step = incrementFor(meta);
+      reduced = Math.max(step, Math.floor(rawReduced / step) * step);
+    }
     return {
       ...carried,
       outcome: "backed_off",
       nextWorkingWeightKg: reduced,
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
-      message: `Missed twice in a row — dropping to ${reduced} ${unit || 'kg'} to build back.`,
+      message: `Missed twice in a row — dropping to ${displayWeight(reduced, unit)} ${unit || 'kg'} to build back.`,
     };
   }
 
@@ -566,8 +588,8 @@ export function evaluateProgression(input: {
   if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
     const isKettlebell = equipmentIds.includes('kettlebell');
     if (isKettlebell) {
-      // Kettlebell: drop exactly one bell
-      const bells = unit === 'kg' ? KETTLEBELL_WEIGHTS_KG : KETTLEBELL_WEIGHTS_LB;
+      // Kettlebell: drop exactly one bell (always kg list, state is kg)
+      const bells = KETTLEBELL_WEIGHTS_KG;
       const currentIndex = bells.indexOf(currentWeight);
       if (currentIndex > 0) {
         nextWeight = bells[currentIndex - 1];
@@ -576,28 +598,28 @@ export function evaluateProgression(input: {
         nextWeight = roundToGrid(currentWeight - 0.1, equipmentIds, unit, incrementFor(meta), 'down');
       }
     } else {
-      // Standard equipment: drop by one grid step
-      const gridStep = equipmentGridStep(equipmentIds, unit);
+      // Standard equipment: drop by one grid step (always kg grid, state is kg)
+      const gridStep = equipmentGridStep(equipmentIds, 'kg');
       const rawDrop = currentWeight - gridStep;
       nextWeight = roundToGrid(rawDrop, equipmentIds, unit, gridStep, 'down');
     }
   }
 
+  const message = isTimed
+    ? "Staying at this hold length until every set reaches the top of the range."
+    : currentWeight === null
+      ? "Staying here until every set reaches the top of the range."
+      : nextWeight !== null && nextWeight !== currentWeight
+        ? `Missed the target — dropping to ${displayWeight(nextWeight, unit)} ${unit || 'kg'}.`
+        : "Staying at this weight until every set reaches the top of the range.";
+  
   return {
     ...carried,
     outcome: "hold",
     nextWorkingWeightKg: nextWeight,
     nextTargetReps: state.currentTargetReps ?? repsMax,
     consecutiveFailures: failures,
-    // "this weight" is meaningless for a hold, and for any unloaded bodyweight
-    // movement -- both were being told to stay at a weight they never had.
-    message: isTimed
-      ? "Staying at this hold length until every set reaches the top of the range."
-      : currentWeight === null
-        ? "Staying here until every set reaches the top of the range."
-        : nextWeight !== currentWeight
-          ? `Missed the target — dropping to ${nextWeight} ${unit || 'kg'}.`
-          : "Staying at this weight until every set reaches the top of the range.",
+    message,
   };
 }
 
@@ -616,11 +638,12 @@ export function suggestedWeight(
   const w = state.currentWorkingWeightKg;
   if (w === null || w <= 0) return null;
   
-  // Non-deload: snap current weight to grid if equipment info available
+  // Non-deload: snap current weight to grid if equipment info available, but never raise
   if (!isDeload) {
     if (equipmentIds && unit) {
       const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta) : incrementFor(meta);
-      return roundToGrid(w, equipmentIds, unit, step, 'down');
+      const snapped = roundToGrid(w, equipmentIds, unit, step, 'down');
+      return Math.min(w, snapped);
     }
     return w;
   }
@@ -633,6 +656,7 @@ export function suggestedWeight(
   const isKettlebell = equipmentIds?.includes('kettlebell');
   const rawDeload = isKettlebell ? w * 0.7 : roundTo(w * 0.7, step);
   
-  // Apply grid rounding DOWN, floored at minimum
-  return roundToGrid(rawDeload, equipmentIds, unit, step, 'down');
+  // Apply grid rounding DOWN, but never raise above current weight
+  const snapped = roundToGrid(rawDeload, equipmentIds, unit, step, 'down');
+  return Math.min(w, snapped);
 }

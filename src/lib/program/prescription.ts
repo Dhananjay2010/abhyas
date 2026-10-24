@@ -139,13 +139,9 @@ export function applyDeload(p: Prescription): Prescription {
     );
   }
   
-  if (sets > MAX_PLANNER_SETS) {
-    throw new RangeError(
-      `applyDeload: sets must be <= ${MAX_PLANNER_SETS}, got ${p.sets}`
-    );
-  }
-
-  const rounded = Math.round(sets);
+  // Clamp to max instead of throwing (safety for legacy or edited rows)
+  const clamped = Math.min(sets, MAX_PLANNER_SETS);
+  const rounded = Math.round(clamped);
 
   return {
     sets: Math.min(rounded, Math.max(2, Math.round(rounded * 0.6))),
