@@ -620,6 +620,50 @@ console.log("\nIssue 2: Two misses subtract two steps, not straight to 0");
     light.nextWorkingWeightKg === 0, `${light.nextWorkingWeightKg}`);
   check("message says 'back to bodyweight'",
     light.message.includes("back to bodyweight"), light.message);
+
+  // Upper-body: 1.25 kg goes to 0 (1.25 - 1.25*2 = -1.25, floored at 0).
+  const veryLight = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 10, 1.25),
+    state: fresh({ currentWorkingWeightKg: 1.25, consecutiveFailures: 1 }),
+  });
+  check("upper-body 1.25 kg goes to 0 after two misses",
+    veryLight.nextWorkingWeightKg === 0, `${veryLight.nextWorkingWeightKg}`);
+  check("message says 'back to bodyweight'",
+    veryLight.message.includes("back to bodyweight"), veryLight.message);
+
+  // Off-grid: 10.2 upper goes to 7.5 (roundTo(10.2 - 1.25*2, 1.25)).
+  const offGrid = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 10, 10.2),
+    state: fresh({ currentWorkingWeightKg: 10.2, consecutiveFailures: 1 }),
+  });
+  check("upper-body 10.2 kg goes to 7.5 kg after two misses",
+    offGrid.nextWorkingWeightKg === 7.5, `${offGrid.nextWorkingWeightKg}`);
+  check("message says 'down to 7.5 kg' without float residue",
+    offGrid.message.includes("down to 7.5 kg"), offGrid.message);
+
+  // Off-grid: 2.51 upper goes to 0 (roundTo(2.51 - 1.25*2, 1.25) = 0).
+  const offGridLight = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 10, 2.51),
+    state: fresh({ currentWorkingWeightKg: 2.51, consecutiveFailures: 1 }),
+  });
+  check("upper-body 2.51 kg goes to 0 after two misses",
+    offGridLight.nextWorkingWeightKg === 0, `${offGridLight.nextWorkingWeightKg}`);
+  check("message says 'back to bodyweight' without float residue",
+    offGridLight.message.includes("back to bodyweight"), offGridLight.message);
+
+  // Second miss path: stored 0, lifted 5 upper, second miss gives backed_off to 2.5.
+  const secondMissFromZero = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 10, 5),
+    state: fresh({ currentWorkingWeightKg: 0, consecutiveFailures: 1 }),
+  });
+  check("stored 0, lifted 5 upper, second miss gives 2.5 kg",
+    secondMissFromZero.nextWorkingWeightKg === 2.5, `${secondMissFromZero.nextWorkingWeightKg}`);
+  check("outcome is backed_off",
+    secondMissFromZero.outcome === "backed_off", secondMissFromZero.outcome);
 }
 
 console.log("\nIssue 3: Off-grid weights snap to grid on success");
@@ -671,20 +715,30 @@ console.log("\nIssue 4: Deload reduces small added weights, can reach 0");
     progressionRank: null,
   };
 
-  // 1.25 kg upper deload: floor(1.25 * 0.7 / 1.25) * 1.25 = 0.
+  // 1.25 kg upper deload: roundTo(1.25 * 0.7, 1.25) = 1.25, >= 1.25 so w-step = 0.
   const tiny = suggestedWeight({ currentWorkingWeightKg: 1.25 }, true, PUSHUP_LOADED);
   check("1.25 kg upper deload goes to 0",
     tiny === 0, `${tiny}`);
 
-  // 10 kg lower deload: floor(10 * 0.7 / 2.5) * 2.5 = 7.5 kg.
-  const lower = suggestedWeight({ currentWorkingWeightKg: 10 }, true, SQUAT_BW);
-  check("10 kg lower deload goes to 7.5 kg",
-    lower === 7.5, `${lower}`);
+  // 2.5 kg upper deload: roundTo(2.5 * 0.7, 1.25) = 1.25, not 0.
+  const twoStep = suggestedWeight({ currentWorkingWeightKg: 2.5 }, true, PUSHUP_LOADED);
+  check("2.5 kg upper deload goes to 1.25 kg",
+    twoStep === 1.25, `${twoStep}`);
 
-  // 5 kg upper deload: floor(5 * 0.7 / 1.25) * 1.25 = 3.75 kg.
+  // 5 kg lower deload: roundTo(5 * 0.7, 2.5) = 2.5, not 0.
+  const lowerTwoStep = suggestedWeight({ currentWorkingWeightKg: 5 }, true, SQUAT_BW);
+  check("5 kg lower deload goes to 2.5 kg",
+    lowerTwoStep === 2.5, `${lowerTwoStep}`);
+
+  // 5 kg upper deload: roundTo(5 * 0.7, 1.25) = 3.75 kg.
   const upper = suggestedWeight({ currentWorkingWeightKg: 5 }, true, PUSHUP_LOADED);
   check("5 kg upper deload goes to 3.75 kg",
     upper === 3.75, `${upper}`);
+
+  // 10 kg lower deload: roundTo(10 * 0.7, 2.5) = 7.5 kg.
+  const lower = suggestedWeight({ currentWorkingWeightKg: 10 }, true, SQUAT_BW);
+  check("10 kg lower deload goes to 7.5 kg",
+    lower === 7.5, `${lower}`);
 }
 
 console.log("\nGuard checks: loaded squats and unloaded bodyweight unchanged");
@@ -731,6 +785,20 @@ console.log("\nGuard checks: loaded squats and unloaded bodyweight unchanged");
     unloaded.nextTargetReps === 14, `${unloaded.nextTargetReps}`);
   check("and still invents no weight",
     unloaded.nextWorkingWeightKg === null);
+
+  // Guard: loaded bench stored 60, lifted 62.5, success gives 62.5 not 65.
+  const loadedFromStored = run({
+    meta: BENCH,
+    sets: sets(4, 12, 62.5),
+    state: fresh({ currentWorkingWeightKg: 60 }),
+  });
+  check("loaded bench stored 60, lifted 62.5, success gives 65 kg (60+2.5 rounded)",
+    loadedFromStored.nextWorkingWeightKg === 62.5, `${loadedFromStored.nextWorkingWeightKg}`);
+
+  // Guard: loaded bench 2.5 kg deload stays at 2.5 (floor at one step).
+  const loadedDeloadFloor = suggestedWeight({ currentWorkingWeightKg: 2.5 }, true, BENCH);
+  check("loaded bench 2.5 kg deload stays at 2.5 kg",
+    loadedDeloadFloor === 2.5, `${loadedDeloadFloor}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
