@@ -16,6 +16,7 @@ export type StaleFinish = {
 /**
  * Finish values for a session closed after the fact (stale or past-day).
  * Ends at the last logged set, never "now". No working sets: skipped, 0 s.
+ * Caps duration at 4 hours to prevent unrealistic times from long-idle sessions.
  */
 export function resolveStaleFinish(input: StaleFinishInput): StaleFinish {
   const start = Date.parse(input.startedAt);
@@ -23,10 +24,18 @@ export function resolveStaleFinish(input: StaleFinishInput): StaleFinish {
     return { durationSeconds: 0, endedAt: input.startedAt, status: "skipped" };
   }
   const last = input.lastSetCompletedAt === null ? start : Date.parse(input.lastSetCompletedAt);
-  const end = Math.max(start, last);
+  const rawDurationMs = Math.max(0, last - start);
+  
+  // Cap at 4 hours
+  const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+  const cappedDurationMs = Math.min(rawDurationMs, FOUR_HOURS_MS);
+  const durationSeconds = Math.floor(cappedDurationMs / 1000);
+  
+  const endedAt = new Date(start + cappedDurationMs).toISOString();
+  
   return {
-    durationSeconds: Math.floor((end - start) / 1000),
-    endedAt: new Date(end).toISOString(),
+    durationSeconds,
+    endedAt,
     status: "completed",
   };
 }

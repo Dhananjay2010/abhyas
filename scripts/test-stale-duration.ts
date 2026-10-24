@@ -176,6 +176,89 @@ console.log("\n7. No working sets and null last set");
   assertEquals(result.endedAt, startedAt, "Ended at start time");
 }
 
+// Test 8: 10-hour gap caps at 4 hours
+console.log("\n8. 10-hour gap caps at 4 hours");
+{
+  const startedAt = "2026-10-23T08:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T18:00:00Z"; // 10 hours later
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 5,
+  });
+
+  assertEquals(result.status, "completed", "Status is completed");
+  assertEquals(result.durationSeconds, 14400, "Duration is 4 hours (14400s), not 10");
+  
+  // endedAt should be startedAt + 4 hours
+  const expectedEndMs = new Date(startedAt).getTime() + 4 * 60 * 60 * 1000;
+  assertEquals(
+    new Date(result.endedAt).getTime(),
+    expectedEndMs,
+    "Ended at start + 4 hours (capped)"
+  );
+}
+
+// Test 9: 30-minute session unchanged by cap
+console.log("\n9. 30-minute session unchanged by cap");
+{
+  const startedAt = "2026-10-23T14:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T14:30:00Z"; // 30 minutes
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 3,
+  });
+
+  assertEquals(result.status, "completed", "Status is completed");
+  assertEquals(result.durationSeconds, 1800, "Duration is 30 minutes (1800s), unchanged");
+  assertEquals(
+    new Date(result.endedAt).getTime(),
+    new Date(lastSetCompletedAt).getTime(),
+    "Ended at last set time (not capped)"
+  );
+}
+
+// Test 10: Exactly 4 hours is not capped
+console.log("\n10. Exactly 4 hours is not capped");
+{
+  const startedAt = "2026-10-23T10:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T14:00:00Z"; // Exactly 4 hours
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 10,
+  });
+
+  assertEquals(result.status, "completed", "Status is completed");
+  assertEquals(result.durationSeconds, 14400, "Duration is exactly 4 hours (14400s)");
+  assertEquals(
+    new Date(result.endedAt).getTime(),
+    new Date(lastSetCompletedAt).getTime(),
+    "Ended at last set time (4 hours exactly)"
+  );
+}
+
+// Test 11: No sets keeps current behavior (0 duration, skipped)
+console.log("\n11. No sets keeps current behavior");
+{
+  const startedAt = "2026-10-23T08:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T18:00:00Z"; // Would be 10 hours but no working sets
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 0,
+  });
+
+  assertEquals(result.status, "skipped", "Status is skipped");
+  assertEquals(result.durationSeconds, 0, "Duration is 0 (no working sets)");
+  assertEquals(result.endedAt, startedAt, "Ended at start time (skipped)");
+}
+
 console.log(`\n✅ Passed: ${passed}`);
 if (failed > 0) {
   console.log(`❌ Failed: ${failed}`);
