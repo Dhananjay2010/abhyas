@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { localDateString } from "@/lib/dates";
 
 type DbClient = SupabaseClient<Database>;
 
@@ -11,25 +13,42 @@ export type InProgressSession = {
 };
 
 /**
- * Get the user's most recent in-progress session, if one exists.
+ * Get the user's in-progress session for today, if one exists.
  * 
  * Returns the session's id, title (exercise label), count of working sets
  * logged (warm-ups are excluded), and when it was started (ISO timestamp).
  * 
- * Returns null if the user has no in-progress session.
+ * Returns null if the user has no in-progress session today.
+ * 
+ * M2: Only today's in-progress session is returned. Past-day in-progress
+ * sessions are not resumable and are displayed in History with a "Close out"
+ * action.
  * 
  * Read-only: this query does not modify any data.
  */
 export async function getInProgressSession(
   supabase: DbClient,
-  userId: string
+  userId: string,
+  timezone: string
 ): Promise<InProgressSession | null> {
-  // Find the user's most recent in_progress session
+  // M2: Fetch profile to get saved timezone, resolve it, then compute today
+  // Profile timezone wins, browser timezone (param) is fallback, system default is final fallback
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", userId)
+    .single();
+
+  const tz = resolveTimezoneWithProfile(profile?.timezone || timezone);
+  const today = localDateString(tz);
+
+  // Find the user's in_progress session for today
   const { data: sessions, error: sessionError } = await supabase
     .from("sessions")
-    .select("id, started_at, program_days(label)")
+    .select("id, started_at, local_date, program_days(label)")
     .eq("user_id", userId)
     .eq("status", "in_progress")
+    .eq("local_date", today)
     .order("started_at", { ascending: false })
     .limit(1);
 
