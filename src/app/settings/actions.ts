@@ -61,8 +61,10 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
   ) {
     return { ok: false, error: "At least one day a week has to be training." };
   }
-  if (patch.preferred_session_minutes != null && !isAllowedSessionLength(patch.preferred_session_minutes)) {
-    return { ok: false, error: "Pick 30, 45, 60 or 75 minutes." };
+  if (patch.preferred_session_minutes != null) {
+    if (!isAllowedSessionLength(patch.preferred_session_minutes)) {
+      return { ok: false, error: "Pick 30, 45, 60 or 75 minutes." };
+    }
   }
 
   // Validate and update with testable logic

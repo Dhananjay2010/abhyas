@@ -114,9 +114,10 @@ console.log("\n7. Single source validation");
 {
   // Verify that SESSION_LENGTH_OPTIONS is the single source
   const optionsSet = new Set(SESSION_LENGTH_OPTIONS);
+  const expectedValues: (30 | 45 | 60 | 75)[] = [30, 45, 60, 75];
   
   check("All valid values are in SESSION_LENGTH_OPTIONS", 
-    [30, 45, 60, 75].every(v => optionsSet.has(v)));
+    expectedValues.every(v => optionsSet.has(v)));
   
   check("SESSION_LENGTH_OPTIONS has no extra values",
     SESSION_LENGTH_OPTIONS.length === 4);

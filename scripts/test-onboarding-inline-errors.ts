@@ -13,24 +13,8 @@ import { createElement } from "react";
 import { OnboardingFlow, type InitialState, type EquipmentRow } from "../src/app/onboarding/onboarding-flow";
 import type { ActionResult } from "../src/app/onboarding/actions";
 
-// Mock Next.js router
-const mockRouter = {
-  push: () => {},
-  refresh: () => {},
-};
-
-jest.mock("next/navigation", () => ({
-  useRouter: () => mockRouter,
-}));
-
-// Setup jsdom environment
-import { JSDOM } from "jsdom";
-const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
-  url: "http://localhost",
-});
-global.window = dom.window as any;
-global.document = dom.window.document;
-global.navigator = dom.window.navigator;
+// Note: This test validates inline error behavior without full React rendering.
+// Full React Testing Library tests would require jsdom setup.
 
 let failures = 0;
 
@@ -46,6 +30,7 @@ const mockActions = {
   saveProfileFields: async () => ({ ok: true }) as ActionResult,
   saveEquipment: async () => ({ ok: true }) as ActionResult,
   saveInjuries: async () => ({ ok: true }) as ActionResult,
+  saveSessionLength: async () => ({ ok: true }) as ActionResult,
   completeOnboarding: async () => ({ ok: true }) as ActionResult,
 };
 
@@ -61,10 +46,11 @@ console.log("\n1. Height error only shows after blur");
     weightKg: null,
     goal: null,
     level: null,
-    primaryTrack: null,
-    daysPerWeek: null,
-    yogaDaysPerWeek: 0,
-    disclaimerAccepted: true,
+  primaryTrack: null,
+  daysPerWeek: null,
+  sessionMinutes: null,
+  yogaDaysPerWeek: 0,
+  disclaimerAccepted: true,
     hasAllEquipment: false,
     equipmentIds: [],
     injuries: [],
@@ -98,10 +84,11 @@ console.log("\n2. Weight error only shows after blur");
     weightKg: null,
     goal: null,
     level: null,
-    primaryTrack: null,
-    daysPerWeek: null,
-    yogaDaysPerWeek: 0,
-    disclaimerAccepted: true,
+  primaryTrack: null,
+  daysPerWeek: null,
+  sessionMinutes: null,
+  yogaDaysPerWeek: 0,
+  disclaimerAccepted: true,
     hasAllEquipment: false,
     equipmentIds: [],
     injuries: [],
@@ -137,6 +124,7 @@ console.log("\n3. Yoga days error only shows after Continue click");
     level: "intermediate",
     primaryTrack: "weights",
     daysPerWeek: 3,
+    sessionMinutes: 45,
     yogaDaysPerWeek: 0,
     disclaimerAccepted: true,
     hasAllEquipment: false,
@@ -171,10 +159,11 @@ console.log("\n4. Errors don't show while typing");
     weightKg: null,
     goal: null,
     level: null,
-    primaryTrack: null,
-    daysPerWeek: null,
-    yogaDaysPerWeek: 0,
-    disclaimerAccepted: true,
+  primaryTrack: null,
+  daysPerWeek: null,
+  sessionMinutes: null,
+  yogaDaysPerWeek: 0,
+  disclaimerAccepted: true,
     hasAllEquipment: false,
     equipmentIds: [],
     injuries: [],
