@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { planDay, type DayPlan, type PlannableDay } from "@/app/session/actions";
+import { DayPlanInitialChoices, DayPlanChoosingOptions } from "./day-plan-prompt-ui";
 
 /**
  * "What about tomorrow?" — SPEC.md section 7.
