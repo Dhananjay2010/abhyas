@@ -14,7 +14,7 @@ import {
   type LogSetFunction,
   type Storage,
 } from "../src/lib/session/pending-set-retry";
-import { SESSION_EXPIRED_CODE, isSessionExpired } from "../src/lib/session/session-expired-shim.js";
+import { SESSION_EXPIRED_CODE, isSessionExpired } from "../src/lib/session/session-expired-shim";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();

@@ -7,7 +7,7 @@
  * double-saves.
  */
 
-import { isSessionExpired } from "./session-expired-shim.js";
+import { isSessionExpired } from "./session-expired-shim";
 
 export type PendingSet = {
   sessionExerciseId: string;

@@ -32,7 +32,7 @@ import {
 import {
   signInAgainHref,
   SessionExpiredPrompt,
-} from "@/lib/session/session-expired-shim.js";
+} from "@/lib/session/session-expired-shim";
 import {
   logSetWithRetry,
   replayPendingSets,
