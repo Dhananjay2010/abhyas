@@ -1305,6 +1305,194 @@ async function runTests() {
       `got ${mostRepsPRCase3?.set.weight_kg}×${mostRepsPRCase3?.value}`);
   }
 
+  // L1: Set paging with stable ordering - no duplicates or gaps
+  console.log("\nL1: Set paging with stable ordering");
+  {
+    const s1 = randomUUID();
+    const se1 = randomUUID();
+    
+    // Create a session with many sets that share set_numbers
+    // This tests pagination across boundaries
+    const { error: sessionErr } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2024-01-01", status: "completed", actual_type: "weights", completed_at: new Date("2024-01-01T10:00:00Z").toISOString() },
+    ]);
+    if (sessionErr) {
+      check("L1: Insert paging test session", false, `error: ${sessionErr.message}`);
+      return false;
+    }
+
+    const { error: seErr } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[23].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (seErr) {
+      check("L1: Insert paging test session_exercise", false, `error: ${seErr.message}`);
+      return false;
+    }
+
+    // Insert 15 sets, many with same set_number (simulates pagination edge case)
+    const sets = [];
+    for (let i = 0; i < 15; i++) {
+      sets.push({
+        user_id: userIdA,
+        session_exercise_id: se1,
+        set_number: Math.floor(i / 3) + 1,  // 1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+        reps: 10 + i,
+        weight_kg: 50 + i * 5,
+        is_warmup_set: false,
+      });
+    }
+    const { error: setsErr } = await adminClient.from("session_sets").insert(sets);
+    if (setsErr) {
+      check("L1: Insert paging test sets", false, `error: ${setsErr.message}`);
+      return false;
+    }
+
+    const lastPerf = await getLastPerformance(supabaseA, userIdA, exercises[23].id);
+    check("L1: All 15 sets retrieved (no gaps, no duplicates)",
+      lastPerf?.sets.length === 15,
+      `got ${lastPerf?.sets.length} sets`);
+    
+    // Verify sets are in correct order by set_number
+    const setNumbers = lastPerf?.sets.map(s => s.reps) || [];
+    const expected = Array.from({ length: 15 }, (_, i) => 10 + i);
+    check("L1: Sets are in correct order",
+      JSON.stringify(setNumbers) === JSON.stringify(expected),
+      `got reps: ${setNumbers.join(",")}`);
+  }
+
+  // L2: Bodyweight (null) vs weighted rep PRs
+  console.log("\nL2: Bodyweight (null weight) handling");
+  {
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+    
+    const { error: sessionErr } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2024-02-01", status: "completed", actual_type: "weights", completed_at: new Date("2024-02-01T10:00:00Z").toISOString() },
+      { id: s2, user_id: userIdA, local_date: "2024-02-02", status: "completed", actual_type: "weights", completed_at: new Date("2024-02-02T10:00:00Z").toISOString() },
+    ]);
+    if (sessionErr) {
+      check("L2: Insert bodyweight test sessions", false, `error: ${sessionErr.message}`);
+      return false;
+    }
+
+    const { error: seErr } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[24].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[24].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (seErr) {
+      check("L2: Insert bodyweight test session_exercises", false, `error: ${seErr.message}`);
+      return false;
+    }
+
+    // Session 1: bodyweight 15 reps + weighted sets
+    // Session 2: bodyweight 20 reps (should be a PR)
+    const { error: setsErr } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 15, weight_kg: null, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 2, reps: 10, weight_kg: 60, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 3, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 20, weight_kg: null, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 2, reps: 10, weight_kg: 60, is_warmup_set: false },
+    ]);
+    if (setsErr) {
+      check("L2: Insert bodyweight test sets", false, `error: ${setsErr.message}`);
+      return false;
+    }
+
+    const histL2 = await getExerciseHistory(supabaseA, userIdA, exercises[24].id, { limit: 10 });
+    const [sessL2_2, sessL2_1] = histL2.sessions;
+    
+    check("L2: Bodyweight 20 reps is a most_reps PR",
+      sessL2_2?.prs.some(pr => pr.type === "most_reps" && pr.value === 20),
+      `s2 prs: ${sessL2_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    
+    const mostRepsPRL2 = histL2.currentPRs.find(pr => pr.type === "most_reps");
+    check("L2: currentPRs.most_reps is bodyweight 20",
+      mostRepsPRL2?.value === 20 && mostRepsPRL2?.set.weight_kg === null,
+      `got ${mostRepsPRL2?.set.weight_kg ?? "null"}×${mostRepsPRL2?.value}`);
+  }
+
+  // L6: Page boundary tests (would require >1000 rows to test properly)
+  // For now, just verify the logic works with smaller datasets
+  console.log("\nL6: Paging boundary logic");
+  {
+    // Create exercise with many sessions to test paging
+    const sessionCount = 25;
+    const sessionsL6 = [];
+    const sessionExercisesL6 = [];
+    const setsL6 = [];
+    
+    for (let i = 0; i < sessionCount; i++) {
+      const sId = randomUUID();
+      const seId = randomUUID();
+      sessionsL6.push({
+        id: sId,
+        user_id: userIdA,
+        local_date: `2024-03-${String(i + 1).padStart(2, "0")}`,
+        status: "completed",
+        actual_type: "weights",
+        completed_at: new Date(`2024-03-${String(i + 1).padStart(2, "0")}T10:00:00Z`).toISOString(),
+      });
+      sessionExercisesL6.push({
+        id: seId,
+        user_id: userIdA,
+        session_id: sId,
+        exercise_id: exercises[25].id,
+        metric: "reps",
+        status: "completed",
+        order_index: 0,
+      });
+      setsL6.push({
+        user_id: userIdA,
+        session_exercise_id: seId,
+        set_number: 1,
+        reps: 5,
+        weight_kg: 100 + i,
+        is_warmup_set: false,
+      });
+    }
+
+    const { error: sessErr } = await adminClient.from("sessions").insert(sessionsL6);
+    if (sessErr) {
+      check("L6: Insert paging boundary sessions", false, `error: ${sessErr.message}`);
+      return false;
+    }
+
+    const { error: seErr } = await adminClient.from("session_exercises").insert(sessionExercisesL6);
+    if (seErr) {
+      check("L6: Insert paging boundary session_exercises", false, `error: ${seErr.message}`);
+      return false;
+    }
+
+    const { error: setsErr } = await adminClient.from("session_sets").insert(setsL6);
+    if (setsErr) {
+      check("L6: Insert paging boundary sets", false, `error: ${setsErr.message}`);
+      return false;
+    }
+
+    // Fetch with pagination
+    const page1 = await getExerciseHistory(supabaseA, userIdA, exercises[25].id, { limit: 10, offset: 0 });
+    const page2 = await getExerciseHistory(supabaseA, userIdA, exercises[25].id, { limit: 10, offset: 10 });
+    const page3 = await getExerciseHistory(supabaseA, userIdA, exercises[25].id, { limit: 10, offset: 20 });
+
+    check("L6: Page 1 has 10 sessions", page1.sessions.length === 10, `got ${page1.sessions.length}`);
+    check("L6: Page 2 has 10 sessions", page2.sessions.length === 10, `got ${page2.sessions.length}`);
+    check("L6: Page 3 has 5 sessions", page3.sessions.length === 5, `got ${page3.sessions.length}`);
+    check("L6: Total count is 25", page1.totalCount === 25, `got ${page1.totalCount}`);
+    
+    // Verify no duplicates across pages
+    const allSessionIds = [
+      ...page1.sessions.map(s => s.sessionId),
+      ...page2.sessions.map(s => s.sessionId),
+      ...page3.sessions.map(s => s.sessionId),
+    ];
+    const uniqueSessionIds = new Set(allSessionIds);
+    check("L6: No duplicate sessions across pages",
+      uniqueSessionIds.size === sessionCount,
+      `got ${uniqueSessionIds.size} unique, expected ${sessionCount}`);
+  }
+
   if (failures > 0) {
     console.log(`\n❌ ${failures} FAILURES\n`);
     return false;
