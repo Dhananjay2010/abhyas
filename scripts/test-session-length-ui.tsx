@@ -17,7 +17,7 @@ const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
   pretendToBeVisual: true,
 });
 
-const g: any = globalThis;
+const g = globalThis as Record<string, unknown>;
 for (const k of [
   "window",
   "document",
@@ -32,7 +32,7 @@ for (const k of [
   "getComputedStyle",
 ]) {
   Object.defineProperty(g, k, {
-    value: (dom.window as any)[k] ?? dom.window,
+    value: (dom.window as Record<string, unknown>)[k] ?? dom.window,
     writable: true,
     configurable: true,
   });
@@ -55,9 +55,10 @@ const mockRouter = {
 };
 
 // Set up module mock registry
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const Module = require("module");
 const originalRequire = Module.prototype.require;
-Module.prototype.require = function (id: string) {
+Module.prototype.require = function (id: string): unknown {
   if (id === "next/navigation") {
     return {
       useRouter: () => mockRouter,
@@ -65,7 +66,8 @@ Module.prototype.require = function (id: string) {
       useSearchParams: () => new URLSearchParams(),
     };
   }
-  return originalRequire.apply(this, arguments as any);
+  // eslint-disable-next-line prefer-rest-params
+  return originalRequire.apply(this, arguments);
 };
 
 let failures = 0;
@@ -85,7 +87,7 @@ function check(label: string, ok: boolean, detail = "") {
 
   console.log("\n1. M2: Onboarding preselects 45 when stored value is null");
   {
-    const initialState: any = {
+    const initialState = {
       displayName: "Test User",
       dateOfBirth: "1990-01-01",
       sex: "male",
@@ -141,7 +143,7 @@ function check(label: string, ok: boolean, detail = "") {
 
   console.log("\n2. L2: Settings reverts to saved value on validation error");
   {
-    const initialSettings: any = {
+    const initialSettings = {
       goal: "muscle_gain",
       level: "intermediate",
       primaryTrack: "weights",
@@ -167,7 +169,7 @@ function check(label: string, ok: boolean, detail = "") {
 
     const stubActions = {
       updateSessionSettings: async () => ({ ok: true as const }),
-      updateProfileSettings: async (patch: any) => {
+      updateProfileSettings: async (patch: { preferred_session_minutes?: number }) => {
         updateCalls++;
         // First call (trying to change to 60) fails
         if (updateCalls === 1 && patch.preferred_session_minutes === 60) {
@@ -179,7 +181,7 @@ function check(label: string, ok: boolean, detail = "") {
       updateInjuries: async () => ({ ok: true as const }),
     };
 
-    const equipment: any[] = [];
+    const equipment: unknown[] = [];
     const timezones: string[] = ["America/New_York"];
 
     render(
