@@ -8,11 +8,11 @@
  * - Pure helper function for runner to use
  */
 
-(function() {
-const fs = require('fs');
+import { readFileSync } from 'fs';
 
+(function() {
 // First check that session-runner.tsx disables finish button when pending sets exist
-const runnerCode = fs.readFileSync("src/app/session/[id]/session-runner.tsx", "utf-8");
+const runnerCode = readFileSync("src/app/session/[id]/session-runner.tsx", "utf-8");
 const disabledLineFound = runnerCode.split('\n').some((line: string) =>
   line.includes('disabled=') &&
   line.includes('pendingSetState.pending.length') &&
