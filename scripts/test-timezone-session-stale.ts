@@ -526,6 +526,94 @@ console.log("\n20. credited count reaches caller when sessions are closed");
   check("old2 is completed", fake.getSession("old2")?.status === "completed");
 }
 
+console.log("\n21. Null started_at with sets uses first set time as fallback");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T20:00:00Z");
+  const eightHoursAgo = new Date(now - 8 * 3600 * 1000).toISOString();
+  
+  fake.setSession("no-start", "in_progress");
+  fake.setSessionExercises("no-start", [
+    {
+      session_id: "no-start",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: eightHoursAgo },
+      ],
+    },
+  ]);
+
+  const open: OpenSession[] = [
+    { id: "no-start", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  const session = fake.getSession("no-start");
+  check("session with null started_at closed using set time", session?.status === "completed");
+}
+
+console.log("\n22. Duration capped at 6 hours (21600 seconds)");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T20:00:00Z");
+  const tenHoursAgo = new Date(now - 10 * 3600 * 1000).toISOString();
+  const sevenHoursAgo = new Date(now - 7 * 3600 * 1000).toISOString();
+  
+  fake.setSession("long", "in_progress");
+  fake.setSessionExercises("long", [
+    {
+      session_id: "long",
+      session_sets: [
+        // Session started 10 hours ago, last set completed 7 hours ago
+        // Duration would be 3 hours (10800s), which is under the cap
+        // But the session is stale (last activity > 6h ago)
+        { id: "set1", is_warmup_set: false, completed_at: sevenHoursAgo },
+      ],
+    },
+  ]);
+
+  const open: OpenSession[] = [
+    { id: "long", local_date: "2026-10-24", started_at: tenHoursAgo, actual_type: "weights" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  const session = fake.getSession("long");
+  const expectedDuration = (Date.parse(sevenHoursAgo) - Date.parse(tenHoursAgo)) / 1000;
+  check("duration is 3 hours (10800s)", session?.duration_seconds === expectedDuration);
+  check("session marked completed", session?.status === "completed");
+}
+
+console.log("\n23. Duration capped when it would exceed 6 hours");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T20:00:00Z");
+  const twentyHoursAgo = new Date(now - 20 * 3600 * 1000).toISOString();
+  const sevenHoursAgo = new Date(now - 7 * 3600 * 1000).toISOString();
+  
+  fake.setSession("verylong", "in_progress");
+  fake.setSessionExercises("verylong", [
+    {
+      session_id: "verylong",
+      session_sets: [
+        // Session started 20 hours ago, last set completed 7 hours ago
+        // Duration would be 13 hours (46800s), but should be capped at 6h (21600s)
+        { id: "set1", is_warmup_set: false, completed_at: sevenHoursAgo },
+      ],
+    },
+  ]);
+
+  const open: OpenSession[] = [
+    { id: "verylong", local_date: "2026-10-24", started_at: twentyHoursAgo, actual_type: "weights" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  const session = fake.getSession("verylong");
+  check("duration capped at 21600 seconds", session?.duration_seconds === 21600);
+  check("session marked completed", session?.status === "completed");
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
 
