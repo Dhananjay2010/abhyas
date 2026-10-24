@@ -84,6 +84,6 @@ BEGIN
   END LOOP;
   
   IF array_length(missing, 1) > 0 THEN
-    RAISE EXCEPTION 'Migration 20261025000026: Missing exercises: %', array_to_string(missing, ', ');
+    RAISE EXCEPTION 'Migration 20261025000028: Missing exercises: %', array_to_string(missing, ', ');
   END IF;
 END $$;

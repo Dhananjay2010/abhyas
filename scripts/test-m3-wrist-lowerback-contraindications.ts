@@ -1,5 +1,5 @@
 /**
- * M-3 contraindications test with PGlite. Validates migration 20261025000026.
+ * M-3 contraindications test with PGlite. Validates migration 20261025000028.
  * npm run test:m3-wrist
  */
 
@@ -107,7 +107,7 @@ async function runTest() {
   }
   
   console.log("\n2. Apply migration");
-  const migPath = join(process.cwd(), "supabase/migrations/20261025000026_m3_wrist_lowerback_contraindications.sql");
+  const migPath = join(process.cwd(), "supabase/migrations/20261025000028_m3_wrist_lowerback_contraindications.sql");
   await db.exec(readFileSync(migPath, "utf-8"));
   check("Migration applied", true);
   
