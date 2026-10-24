@@ -7,6 +7,7 @@ import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
 import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { branding } from "@/lib/branding";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
@@ -45,7 +46,7 @@ export async function saveAboutYou(input: {
   const age = ageOn(input.dateOfBirth);
   if (Number.isNaN(age)) return { ok: false, error: "That date does not look right." };
   if (age < MIN_AGE_YEARS)
-    return { ok: false, error: `You need to be at least ${MIN_AGE_YEARS} to use Abhyas.` };
+    return { ok: false, error: `You need to be at least ${MIN_AGE_YEARS} to use ${branding.name}.` };
   if (age > 100) return { ok: false, error: "Please check your date of birth." };
   if (input.heightCm < 100 || input.heightCm > 250)
     return { ok: false, error: "Height should be between 100 and 250 cm." };
@@ -67,12 +68,13 @@ export async function saveAboutYou(input: {
     height_cm: input.heightCm,
   };
 
-  // Record browser timezone if provided (replaces NULL or existing value)
-  // (No longer has a database default, so NULL means "not set yet")
+  // Record browser timezone only if profile.timezone is currently NULL
+  // (don't overwrite an explicitly set timezone with browser detection)
   if (input.browserTimezone) {
     const { validateTimezone } = await import("@/lib/branding");
+    const { shouldWriteTimezone } = await import("@/lib/timezone-write");
     const validated = validateTimezone(input.browserTimezone);
-    if (validated) {
+    if (validated && shouldWriteTimezone(profile?.timezone, validated, false)) {
       profileUpdate.timezone = validated;
     }
   }
@@ -123,18 +125,27 @@ export async function saveEquipment(input: {
     .eq("id", user.id);
   if (flagError) return { ok: false, error: flagError.message };
 
-  // Replace rather than merge: the checklist is the complete picture each time.
-  const { error: clearError } = await supabase
-    .from("user_equipment")
-    .delete()
-    .eq("user_id", user.id);
-  if (clearError) return { ok: false, error: clearError.message };
+  // L3 QA fix: Keep the rows when hasAll is true, like decideEquipmentUpdate does.
+  // This way, switching 'everything' OFF later has rows to restore.
+  if (input.equipmentIds.length > 0) {
+    // Replace rather than merge: the checklist is the complete picture each time.
+    const { error: clearError } = await supabase
+      .from("user_equipment")
+      .delete()
+      .eq("user_id", user.id);
+    if (clearError) return { ok: false, error: clearError.message };
 
-  if (!input.hasAll && input.equipmentIds.length > 0) {
     const { error } = await supabase
       .from("user_equipment")
       .insert(input.equipmentIds.map((id) => ({ user_id: user.id, equipment_id: id })));
     if (error) return { ok: false, error: error.message };
+  } else if (!input.hasAll) {
+    // Only clear when hasAll is false and no equipment is selected
+    const { error: clearError } = await supabase
+      .from("user_equipment")
+      .delete()
+      .eq("user_id", user.id);
+    if (clearError) return { ok: false, error: clearError.message };
   }
 
   return { ok: true };

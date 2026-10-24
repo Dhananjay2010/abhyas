@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -16,6 +16,8 @@ import {
 } from "@/lib/onboarding/options";
 import { ErrorNote, OptionCard } from "@/components/ui";
 import { BuildPlanButton } from "@/app/today/build-plan-button";
+import { branding } from "@/lib/branding";
+import { resolveTimezoneWithProfile, FALLBACK_TIMEZONE } from "@/lib/timezone";
 import {
   updateEquipment,
   updateInjuries,
@@ -23,6 +25,9 @@ import {
   updateSessionSettings,
   type Result,
 } from "./actions";
+import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
+import { TimezonePicker } from "./timezone-picker";
+import { canonicalizeTimezone } from "@/lib/timezone-canonical";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -60,6 +65,7 @@ export type SettingsState = {
   restVibrate: boolean;
   restOverrideSeconds: number | null;
   bodyweightPrompt: "daily" | "weekly" | "never";
+  timezone: string | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -73,17 +79,68 @@ const CATEGORY_LABELS: Record<string, string> = {
 export function SettingsForm({
   initial,
   equipment,
+  timezones,
   actions = REAL_ACTIONS,
 }: {
   initial: SettingsState;
   equipment: EquipmentRow[];
+  timezones: string[];
   actions?: SettingsActions;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
+  /** Track initial equipment to detect real changes */
+  const [initialEquipment] = useState({
+    hasAll: initial.hasAllEquipment,
+    ids: initial.equipmentIds,
+  });
+  /** Track saved equipment for rollback on error */
+  const [savedEquipment, setSavedEquipment] = useState({
+    hasAll: initial.hasAllEquipment,
+    ids: initial.equipmentIds,
+  });
+  /** Equipment hint shown when user tries an unsaveable state */
+  const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
+  /** Confirmation message shown when turning off "I have access to everything" */
+  const [equipmentOffConfirmation, setEquipmentOffConfirmation] = useState<string | null>(null);
+  /** QA Issue #7: Confirmation shown when timezone is saved */
+  const [timezoneConfirmation, setTimezoneConfirmation] = useState<string | null>(null);
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
+  /** L4 QA fix: Request sequence to ignore stale equipment save responses */
+  const [equipmentSequence] = useState(() => createRequestSequence());
+  /** F2: Browser timezone detected on client after mount */
+  const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (equipmentOffConfirmation) {
+      const timer = setTimeout(() => setEquipmentOffConfirmation(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [equipmentOffConfirmation]);
+
+  useEffect(() => {
+    // QA Issue #7: Auto-hide timezone confirmation after 4s
+    if (timezoneConfirmation) {
+      const timer = setTimeout(() => setTimezoneConfirmation(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [timezoneConfirmation]);
+
+  useEffect(() => {
+    // F2: Detect browser timezone on client after mount, canonicalized
+    // (older Chrome reports Asia/Calcutta instead of Asia/Kolkata)
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const canonical = canonicalizeTimezone(detected);
+      // This is a valid use of setState in effect - runs once after mount
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBrowserTimezone(canonical);
+    } catch {
+      // Ignore errors in browsers that don't support timeZone
+    }
+  }, []);
 
   function save(run: () => Promise<Result>, affectsPlan = false) {
     startTransition(async () => {
@@ -96,6 +153,51 @@ export function SettingsForm({
       // own response — refreshing on top of that fetched this five-query screen
       // a second time, on every single toggle.
     });
+  }
+
+  /** Save equipment with rollback on error */
+  function saveEquipment(hasAll: boolean, equipmentIds: string[], showConfirmation = false) {
+    const changed = equipmentChanged(hasAll, equipmentIds);
+    // L4 QA fix: Track request sequence to ignore stale responses
+    const requestSeq = equipmentSequence.next();
+    
+    startTransition(async () => {
+      const r = await actions.updateEquipment({ hasAll, equipmentIds });
+      
+      // L4 QA fix: Ignore stale responses from overlapping saves
+      if (!equipmentSequence.isCurrent(requestSeq)) {
+        return;
+      }
+      
+      if (!r.ok) {
+        // Rollback to last saved state
+        setS({ ...s, hasAllEquipment: savedEquipment.hasAll, equipmentIds: savedEquipment.ids });
+        setEquipmentHint(null);
+        setEquipmentOffConfirmation(null);
+        return setError(r.error);
+      }
+      // Success: update saved state
+      setSavedEquipment({ hasAll, ids: equipmentIds });
+      setEquipmentHint(null);
+      setError(null);
+      if (changed) setPlanStale(true);
+      
+      // Show confirmation toast only after save succeeds and response is current
+      if (showConfirmation) {
+        setEquipmentOffConfirmation(getEquipmentOffMessage(hasAll === false && equipmentIds.length > 0));
+      }
+    });
+  }
+
+  /** Check if equipment actually changed from initial state */
+  function equipmentChanged(hasAll: boolean, equipmentIds: string[]): boolean {
+    if (hasAll !== initialEquipment.hasAll) return true;
+    const sortedInitial = [...initialEquipment.ids].sort();
+    const sortedNew = [...equipmentIds].sort();
+    return (
+      sortedInitial.length !== sortedNew.length ||
+      sortedInitial.some((id, i) => id !== sortedNew[i])
+    );
   }
 
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
@@ -203,12 +305,44 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            const nextHasAll = !s.hasAllEquipment;
-            setS({ ...s, hasAllEquipment: nextHasAll });
-            save(
-              () => actions.updateEquipment({ hasAll: nextHasAll, equipmentIds: s.equipmentIds }),
-              true,
-            );
+            // E2: When turning OFF, pre-select the user's saved equipment rows
+            const turningOff = s.hasAllEquipment;
+            
+            if (turningOff) {
+              // Pre-select saved equipment when turning OFF
+              const restoredIds = savedEquipment.ids.length > 0 
+                ? savedEquipment.ids 
+                : s.equipmentIds;
+              
+              if (restoredIds.length === 0) {
+                // E2: Turning OFF with no saved equipment - show picker with clear message
+                setS({ ...s, hasAllEquipment: false, equipmentIds: [] });
+                setEquipmentHint("Pick at least one item; nothing changes until you do");
+                setEquipmentOffConfirmation(null);
+                return;
+              }
+              
+              // Has saved equipment to restore - turn OFF and save
+              setS({ ...s, hasAllEquipment: false, equipmentIds: restoredIds });
+              // Show confirmation toast after save succeeds
+              saveEquipment(false, restoredIds, true);
+            } else {
+              // Turning ON - validate first
+              const decision = decideClientEquipmentUpdate({
+                currentHasAll: s.hasAllEquipment,
+                currentEquipmentIds: s.equipmentIds,
+                action: "toggle",
+              });
+              
+              if (!decision.allow) {
+                setEquipmentHint(decision.hint);
+                return;
+              }
+              
+              // Turn ON and save
+              setS({ ...s, hasAllEquipment: true });
+              saveEquipment(true, s.equipmentIds);
+            }
           }}
           aria-pressed={s.hasAllEquipment}
           className={`w-full rounded-xl border px-5 py-3 text-left text-sm font-semibold ${
@@ -220,8 +354,21 @@ export function SettingsForm({
           I have access to everything
         </button>
 
+        {equipmentOffConfirmation && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-lg bg-accent/10 px-4 py-2 text-sm text-accent"
+          >
+            {equipmentOffConfirmation}
+          </div>
+        )}
+
         {!s.hasAllEquipment && (
           <div className="mt-5">
+            {equipmentHint && (
+              <p className="mb-4 text-sm text-muted">{equipmentHint}</p>
+            )}
             {Object.entries(
               equipment.reduce<Record<string, EquipmentRow[]>>((acc, e) => {
                 (acc[e.category] ??= []).push(e);
@@ -240,14 +387,22 @@ export function SettingsForm({
                         key={e.id}
                         aria-pressed={on}
                         onClick={() => {
-                          const next = on
-                            ? s.equipmentIds.filter((x) => x !== e.id)
-                            : [...s.equipmentIds, e.id];
-                          setS({ ...s, hasAllEquipment: false, equipmentIds: next });
-                          save(
-                            () => actions.updateEquipment({ hasAll: false, equipmentIds: next }),
-                            true,
-                          );
+                          const decision = decideClientEquipmentUpdate({
+                            currentHasAll: s.hasAllEquipment,
+                            currentEquipmentIds: s.equipmentIds,
+                            action: "chip-click",
+                            chipId: e.id,
+                          });
+                          
+                          if (!decision.allow) {
+                            // Don't save, show hint
+                            setEquipmentHint(decision.hint);
+                            return;
+                          }
+                          
+                          // Allow the change and save
+                          setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
+                          saveEquipment(decision.newHasAll, decision.newEquipmentIds);
                         }}
                         className={`rounded-full border px-4 py-2 text-sm ${
                           on
@@ -478,10 +633,53 @@ export function SettingsForm({
         </p>
       </Section>
 
+      {/* ---------------- timezone ---------------- */}
+      <Section 
+        title="Timezone" 
+        note="Your local time for day boundaries and workout scheduling."
+      >
+        <Field 
+          label="Your timezone" 
+          hint={`Currently using: ${resolveTimezoneWithProfile(s.timezone)}`}
+        >
+          <TimezonePicker
+            value={s.timezone}
+            timezones={timezones}
+            deviceZone={browserTimezone}
+            gymDefault={branding.timezone || FALLBACK_TIMEZONE}
+            onChange={(v) => {
+              setS({ ...s, timezone: v });
+              // QA Issue #7: Show confirmation only after save succeeds
+              startTransition(async () => {
+                const r = await actions.updateProfileSettings({ timezone: v });
+                if (!r.ok) {
+                  setError(r.error);
+                  setTimezoneConfirmation(null);
+                } else {
+                  setError(null);
+                  setTimezoneConfirmation("Timezone saved");
+                }
+              });
+            }}
+            disabled={pending}
+          />
+        </Field>
+
+        {timezoneConfirmation && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-lg bg-accent/10 px-4 py-2 text-sm text-accent"
+          >
+            {timezoneConfirmation}
+          </div>
+        )}
+      </Section>
+
       <Section title="Not built yet">
         <p className="text-sm text-muted">
           Light theme and imperial units are in the plan but not implemented, so
-          there is nothing to switch here yet. Abhyas is dark, kilograms and
+          there is nothing to switch here yet. {branding.name} is dark, kilograms and
           centimetres for now.
         </p>
       </Section>

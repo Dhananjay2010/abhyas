@@ -12,6 +12,8 @@
  * See docs/white-label.md for deployment and customization guide.
  */
 
+import { canonicalizeTimezone } from "./timezone-canonical";
+
 /**
  * Brand color configuration.
  * All colors must be valid 6-digit hex codes (#RRGGBB).
@@ -136,7 +138,7 @@ const abhyas: Brand = {
     bg: "#0a0c0e",
     surface: "#151a1f",
     surface2: "#1d242b",
-    border: "#2a333c",
+    border: "#607280",
     fg: "#ecf1f6",
     muted: "#93a1ae",
     success: "#4ade80",
@@ -174,7 +176,7 @@ const example: Brand = {
     bg: "#0a0a0a",
     surface: "#1a1a1a",
     surface2: "#262626",
-    border: "#404040",
+    border: "#707070",
     fg: "#fafafa",
     muted: "#a3a3a3",
     success: "#22c55e",
@@ -201,65 +203,29 @@ const brands: Record<string, Brand> = {
   example,
 };
 
+/**
+ * Get all registered brands for testing and validation.
+ * Returns a read-only array of all brand configurations.
+ */
+export function getAllBrands(): readonly Brand[] {
+  return Object.values(brands);
+}
+
 // ---------------------------------------------------------------------------
 // Brand selection and validation
 // ---------------------------------------------------------------------------
 
 /**
- * Valid IANA timezone names.
- * A subset of commonly used timezones. Add more as needed.
- * Full list: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
- */
-const VALID_TIMEZONES = new Set([
-  "UTC",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Toronto",
-  "America/Vancouver",
-  "America/Mexico_City",
-  "America/Sao_Paulo",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Europe/Madrid",
-  "Europe/Rome",
-  "Europe/Amsterdam",
-  "Asia/Dubai",
-  "Asia/Kolkata",
-  "Asia/Bangkok",
-  "Asia/Singapore",
-  "Asia/Hong_Kong",
-  "Asia/Shanghai",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Australia/Sydney",
-  "Australia/Melbourne",
-  "Pacific/Auckland",
-]);
-
-/**
- * Validate a timezone string.
- * Returns the timezone if valid, null otherwise.
- * Only accepts full IANA timezone names (e.g., "America/New_York"),
- * not abbreviations (e.g., "EST").
+ * Validate and canonicalize a timezone string.
+ * Delegates to canonicalizeTimezone for validation and normalization.
+ * Returns the canonical IANA timezone name if valid, null otherwise.
+ * 
+ * Legacy aliases (Asia/Calcutta, Europe/Kiev) are mapped to canonical names
+ * (Asia/Kolkata, Europe/Kyiv). This ensures stored values are always canonical.
  */
 export function validateTimezone(tz: string | null | undefined): string | null {
   if (!tz) return null;
-  // Check against our known-good list first (fast path)
-  if (VALID_TIMEZONES.has(tz)) return tz;
-  // Fall back to Intl validation (catches valid zones we haven't listed)
-  // Reject abbreviations and non-standard names by requiring format: Region/City or UTC
-  if (!/^(UTC|[A-Z][a-z]+\/[A-Za-z_]+(?:\/[A-Za-z_]+)?)$/.test(tz)) {
-    return null;
-  }
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-    return tz;
-  } catch {
-    return null;
-  }
+  return canonicalizeTimezone(tz);
 }
 
 /**
@@ -353,7 +319,7 @@ function validateBrand(brand: Brand): void {
 
 /**
  * Select the active brand based on NEXT_PUBLIC_BRAND environment variable.
- * Falls back to 'default' if not set or invalid.
+ * Throws if the brand is not found (fails the build).
  * Validates the selected brand on first access.
  */
 function selectBrand(): Brand {
@@ -361,12 +327,10 @@ function selectBrand(): Brand {
   const brand = brands[brandId];
 
   if (!brand) {
-    console.warn(
-      `NEXT_PUBLIC_BRAND="${brandId}" not found in brand registry. Falling back to default.`
+    const validIds = Object.keys(brands).join(", ");
+    throw new Error(
+      `NEXT_PUBLIC_BRAND="${brandId}" not found in brand registry. Valid brand ids: ${validIds}`
     );
-    const fallback = brands.default;
-    validateBrand(fallback);
-    return fallback;
   }
 
   try {

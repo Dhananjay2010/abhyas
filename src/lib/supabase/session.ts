@@ -2,67 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { PERF_ENABLED } from "@/lib/perf";
 import { isPublicPath } from "./public-paths";
-
-/**
- * Known protected route prefixes that require authentication.
- * Signed-out users accessing these are redirected to /.
- * /api is included to preserve its pre-existing signed-out behavior.
- */
-export const PROTECTED_PREFIXES = [
-  "/today",
-  "/breathe",
-  "/history",
-  "/progress",
-  "/settings",
-  "/onboarding",
-  "/session",
-  "/yoga",
-  "/api",
-];
-
-export type RouteDecision =
-  | { kind: "pass" }
-  | { kind: "redirect"; to: URL }
-  | { kind: "notFound" };
-
-/**
- * Build the redirect URL for signed-out users accessing protected routes.
- * Returns a URL object with pathname '/'.
- * 
- * Dev 1 will extend this to append a sanitized `next` param for return-after-login.
- */
-export function signedOutRedirectUrl(request: NextRequest): URL {
-  const url = request.nextUrl.clone();
-  url.pathname = "/";
-  url.search = "";
-  return url;
-}
-
-/**
- * Decide what to do with a request based on authentication and route.
- * 
- * - Signed in: always { kind: 'pass' }
- * - Public path: { kind: 'pass' }
- * - Protected route: { kind: 'redirect', to: URL }
- * - Unknown path: { kind: 'notFound' }
- */
-export function routeDecision(
-  pathname: string,
-  signedIn: boolean,
-  request: NextRequest
-): RouteDecision {
-  if (signedIn || isPublicPath(pathname)) {
-    return { kind: "pass" };
-  }
-
-  const isProtected = PROTECTED_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
-  );
-
-  return isProtected
-    ? { kind: "redirect", to: signedOutRedirectUrl(request) }
-    : { kind: "notFound" };
-}
+import { buildSignInRedirectSearch } from "@/lib/auth/sign-in-redirect";
 
 export async function updateSession(request: NextRequest) {
   const started = performance.now();
@@ -106,20 +46,11 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getClaims();
   const signedIn = !error && Boolean(claims?.claims?.sub);
 
-  const decision = routeDecision(pathname, signedIn, request);
-
-  if (decision.kind === "redirect") {
-    return finish(
-      NextResponse.redirect(decision.to),
-      started,
-      pathname,
-      signedIn
-    );
-  }
-
-  if (decision.kind === "notFound") {
-    // Let Next.js render app/not-found.tsx with proper layout and status 404
-    return finish(response, started, pathname, signedIn);
+  if (!signedIn && !isPublicPath(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    url.search = buildSignInRedirectSearch(pathname, request.nextUrl.search, request.method);
+    return finish(NextResponse.redirect(url), started, pathname, signedIn);
   }
 
   return finish(response, started, pathname, signedIn);

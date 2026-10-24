@@ -45,8 +45,21 @@ const INITIAL: SettingsState = {
   restVibrate: true,
   restOverrideSeconds: null,
   bodyweightPrompt: "weekly",
+  timezone: null,
 };
 
+const TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "Europe/London",
+  "Europe/Paris",
+  "Asia/Tokyo",
+  "Asia/Kolkata",
+  "Australia/Sydney",
+];
+
 export function SettingsPreview() {
-  return <SettingsForm initial={INITIAL} equipment={EQUIPMENT} actions={STUB} />;
+  return <SettingsForm initial={INITIAL} equipment={EQUIPMENT} timezones={TIMEZONES} actions={STUB} />;
 }

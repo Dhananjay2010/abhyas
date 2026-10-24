@@ -4,6 +4,7 @@ import { getCachedEquipment } from "@/lib/supabase/cached-queries";
 import { SettingsForm, type SettingsState } from "./settings-form";
 import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
+import { buildTimezoneOptions } from "@/lib/timezone-options";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,12 @@ export default async function SettingsPage() {
     restVibrate: st?.rest_timer_vibrate ?? true,
     restOverrideSeconds: st?.rest_seconds_override ?? null,
     bodyweightPrompt: st?.bodyweight_prompt ?? "weekly",
+    timezone: profile.timezone,
   };
+
+  // F1: Build timezone list with canonical aliases (FALLBACK_TIMEZONE, Europe/Kyiv, UTC, etc.)
+  // Always includes the user's stored timezone.
+  const timezones = buildTimezoneOptions(profile.timezone);
 
   const { supportEmail } = getSiteInfo();
 
@@ -58,7 +64,7 @@ export default async function SettingsPage() {
         Signed in as {user.email}. Changes save as you make them.
       </p>
 
-      <SettingsForm initial={initial} equipment={equipment} />
+      <SettingsForm initial={initial} equipment={equipment} timezones={timezones} />
 
       <div className="mt-12 space-y-8 border-t border-border pt-8">
         <section>

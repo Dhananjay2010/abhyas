@@ -179,6 +179,9 @@ BEGIN
     block_number,
     split_type,
     days_per_week,
+    primary_track,
+    goal,
+    level,
     started_on,
     ends_on,
     deload_week,
@@ -189,6 +192,9 @@ BEGIN
     1,
     'upper_lower',
     4,
+    'weights',
+    'muscle_gain',
+    'intermediate',
     current_date - interval '20 days',
     current_date + interval '8 days',
     4,
@@ -200,6 +206,7 @@ BEGIN
   INSERT INTO program_days (
     id,
     program_id,
+    user_id,
     day_index,
     day_type,
     focus,
@@ -207,6 +214,7 @@ BEGIN
   ) VALUES (
     gen_random_uuid(),
     test_program_id,
+    test_user_id,
     1,
     'weights',
     'Chest, shoulders, triceps',
@@ -214,9 +222,11 @@ BEGIN
   ) RETURNING id INTO test_program_day_id;
 
   -- Add exercises for Upper A day
-  -- (In production these come from the generator; here we hardcode a few)
+  -- Chest, shoulders, triceps focus
+  -- (In production these come from the generator; here we hardcode coach-recognisable staples)
   INSERT INTO program_day_exercises (
     program_day_id,
+    user_id,
     exercise_id,
     order_index,
     target_sets,
@@ -226,62 +236,326 @@ BEGIN
   )
   SELECT
     test_program_day_id,
+    test_user_id,
     e.id,
-    row_number() OVER (ORDER BY e.slug),
-    CASE 
-      WHEN e.mechanic = 'compound' THEN 4
-      ELSE 3
+    ROW_NUMBER() OVER (ORDER BY 
+      CASE 
+        -- Compound lifts first (0), isolation exercises second (1)
+        WHEN e.slug IN ('barbell-bench-press-medium-grip', 'barbell-shoulder-press', 'dips-triceps-version') THEN 0
+        ELSE 1
+      END,
+      e.slug  -- Stable tiebreaker within each category
+    ),
+    CASE e.slug
+      WHEN 'barbell-bench-press-medium-grip' THEN 4
+      WHEN 'barbell-shoulder-press' THEN 4
+      WHEN 'dips-triceps-version' THEN 3
+      WHEN 'cable-seated-lateral-raise' THEN 3
+      WHEN 'cable-rope-overhead-triceps-extension' THEN 3
     END,
-    8,
-    12,
-    90
+    CASE e.slug
+      WHEN 'barbell-bench-press-medium-grip' THEN 6
+      WHEN 'barbell-shoulder-press' THEN 6
+      WHEN 'dips-triceps-version' THEN 8
+      WHEN 'cable-seated-lateral-raise' THEN 10
+      WHEN 'cable-rope-overhead-triceps-extension' THEN 10
+    END,
+    CASE e.slug
+      WHEN 'barbell-bench-press-medium-grip' THEN 8
+      WHEN 'barbell-shoulder-press' THEN 8
+      WHEN 'dips-triceps-version' THEN 12
+      WHEN 'cable-seated-lateral-raise' THEN 15
+      WHEN 'cable-rope-overhead-triceps-extension' THEN 15
+    END,
+    CASE e.slug
+      WHEN 'barbell-bench-press-medium-grip' THEN 180
+      WHEN 'barbell-shoulder-press' THEN 120
+      WHEN 'dips-triceps-version' THEN 90
+      WHEN 'cable-seated-lateral-raise' THEN 60
+      WHEN 'cable-rope-overhead-triceps-extension' THEN 60
+    END
   FROM exercises e
   WHERE e.slug IN (
-    'barbell-bench-press',
-    'overhead-press',
-    'dumbbell-row',
-    'tricep-dips',
-    'lateral-raise'
-  )
-  LIMIT 5;
+    'barbell-bench-press-medium-grip',
+    'barbell-shoulder-press',
+    'dips-triceps-version',
+    'cable-seated-lateral-raise',
+    'cable-rope-overhead-triceps-extension'
+  );
+  
+  -- Fail loudly if any Upper A exercise slug is missing
+  IF (SELECT COUNT(*) FROM program_day_exercises WHERE program_day_id = test_program_day_id) < 5 THEN
+    RAISE EXCEPTION 'Upper A: Expected 5 exercises but found %. Check exercise slugs in seed.sql', 
+      (SELECT COUNT(*) FROM program_day_exercises WHERE program_day_id = test_program_day_id);
+  END IF;
 
-  -- Day 2 (Tuesday): Lower
+  -- Day 2 (Tuesday): Lower A
   INSERT INTO program_days (
+    id,
     program_id,
+    user_id,
     day_index,
     day_type,
     focus,
     label
   ) VALUES (
+    gen_random_uuid(),
     test_program_id,
+    test_user_id,
     2,
     'weights',
     'Quads, glutes, hamstrings',
     'Lower A'
+  ) RETURNING id INTO test_program_day_id;
+  
+  -- Add exercises for Lower A day
+  -- Quads, glutes, hamstrings focus
+  INSERT INTO program_day_exercises (
+    program_day_id,
+    user_id,
+    exercise_id,
+    order_index,
+    target_sets,
+    target_reps_min,
+    target_reps_max,
+    rest_seconds
+  )
+  SELECT
+    test_program_day_id,
+    test_user_id,
+    e.id,
+    ROW_NUMBER() OVER (ORDER BY 
+      CASE 
+        -- Compound lifts first (0), isolation exercises second (1)
+        WHEN e.slug IN ('barbell-squat', 'romanian-deadlift', 'leg-press') THEN 0
+        ELSE 1
+      END,
+      e.slug  -- Stable tiebreaker within each category
+    ),
+    CASE e.slug
+      WHEN 'barbell-squat' THEN 4
+      WHEN 'romanian-deadlift' THEN 4
+      WHEN 'leg-press' THEN 3
+      WHEN 'lying-leg-curls' THEN 3
+      WHEN 'standing-calf-raises' THEN 3
+    END,
+    CASE e.slug
+      WHEN 'barbell-squat' THEN 6
+      WHEN 'romanian-deadlift' THEN 6
+      WHEN 'leg-press' THEN 8
+      WHEN 'lying-leg-curls' THEN 10
+      WHEN 'standing-calf-raises' THEN 12
+    END,
+    CASE e.slug
+      WHEN 'barbell-squat' THEN 8
+      WHEN 'romanian-deadlift' THEN 8
+      WHEN 'leg-press' THEN 12
+      WHEN 'lying-leg-curls' THEN 15
+      WHEN 'standing-calf-raises' THEN 15
+    END,
+    CASE e.slug
+      WHEN 'barbell-squat' THEN 180
+      WHEN 'romanian-deadlift' THEN 120
+      WHEN 'leg-press' THEN 120
+      WHEN 'lying-leg-curls' THEN 60
+      WHEN 'standing-calf-raises' THEN 60
+    END
+  FROM exercises e
+  WHERE e.slug IN (
+    'barbell-squat',
+    'romanian-deadlift',
+    'leg-press',
+    'lying-leg-curls',
+    'standing-calf-raises'
   );
+  
+  -- Fail loudly if any Lower A exercise slug is missing
+  IF (SELECT COUNT(*) FROM program_day_exercises WHERE program_day_id = test_program_day_id) < 5 THEN
+    RAISE EXCEPTION 'Lower A: Expected 5 exercises but found %. Check exercise slugs in seed.sql', 
+      (SELECT COUNT(*) FROM program_day_exercises WHERE program_day_id = test_program_day_id);
+  END IF;
 
-  -- Days 3, 5, 6, 7: Rest or active recovery
-  INSERT INTO program_days (program_id, day_index, day_type, label)
-  VALUES
-    (test_program_id, 3, 'rest', 'Rest'),
-    (test_program_id, 5, 'rest', 'Rest'),
-    (test_program_id, 6, 'rest', 'Rest'),
-    (test_program_id, 7, 'rest', 'Rest');
-
-  -- Day 4 (Thursday): Upper B
+  -- Day 3: Rest
+  INSERT INTO program_days (program_id, user_id, day_index, day_type, label)
+  VALUES (test_program_id, test_user_id, 3, 'rest', 'Rest');
+  
+  -- Day 5 (Friday): Lower B
   INSERT INTO program_days (
+    id,
     program_id,
+    user_id,
     day_index,
     day_type,
     focus,
     label
   ) VALUES (
+    gen_random_uuid(),
     test_program_id,
+    test_user_id,
+    5,
+    'weights',
+    'Posterior chain, quads',
+    'Lower B'
+  ) RETURNING id INTO test_program_day_id;
+  
+  -- Add exercises for Lower B day
+  -- Posterior chain, quads focus
+  INSERT INTO program_day_exercises (
+    program_day_id,
+    user_id,
+    exercise_id,
+    order_index,
+    target_sets,
+    target_reps_min,
+    target_reps_max,
+    rest_seconds
+  )
+  SELECT
+    test_program_day_id,
+    test_user_id,
+    e.id,
+    ROW_NUMBER() OVER (ORDER BY 
+      CASE 
+        -- Compound lifts first (0), isolation exercises second (1)
+        WHEN e.slug IN ('barbell-deadlift', 'front-barbell-squat', 'dumbbell-lunges') THEN 0
+        ELSE 1
+      END,
+      e.slug  -- Stable tiebreaker within each category
+    ),
+    CASE e.slug
+      WHEN 'barbell-deadlift' THEN 4
+      WHEN 'front-barbell-squat' THEN 4
+      WHEN 'dumbbell-lunges' THEN 3
+      WHEN 'leg-extensions' THEN 3
+      WHEN 'seated-calf-raise' THEN 3
+    END,
+    CASE e.slug
+      WHEN 'barbell-deadlift' THEN 4
+      WHEN 'front-barbell-squat' THEN 6
+      WHEN 'dumbbell-lunges' THEN 8
+      WHEN 'leg-extensions' THEN 10
+      WHEN 'seated-calf-raise' THEN 12
+    END,
+    CASE e.slug
+      WHEN 'barbell-deadlift' THEN 6
+      WHEN 'front-barbell-squat' THEN 8
+      WHEN 'dumbbell-lunges' THEN 12
+      WHEN 'leg-extensions' THEN 15
+      WHEN 'seated-calf-raise' THEN 15
+    END,
+    CASE e.slug
+      WHEN 'barbell-deadlift' THEN 180
+      WHEN 'front-barbell-squat' THEN 180
+      WHEN 'dumbbell-lunges' THEN 90
+      WHEN 'leg-extensions' THEN 60
+      WHEN 'seated-calf-raise' THEN 60
+    END
+  FROM exercises e
+  WHERE e.slug IN (
+    'barbell-deadlift',
+    'front-barbell-squat',
+    'dumbbell-lunges',
+    'leg-extensions',
+    'seated-calf-raise'
+  );
+  
+  -- Fail loudly if any Lower B exercise slug is missing
+  IF (SELECT COUNT(*) FROM program_day_exercises WHERE program_day_id = test_program_day_id) < 5 THEN
+    RAISE EXCEPTION 'Lower B: Expected 5 exercises but found %. Check exercise slugs in seed.sql', 
+      (SELECT COUNT(*) FROM program_day_exercises WHERE program_day_id = test_program_day_id);
+  END IF;
+  
+  -- Days 6, 7: Rest
+  INSERT INTO program_days (program_id, user_id, day_index, day_type, label)
+  VALUES
+    (test_program_id, test_user_id, 6, 'rest', 'Rest'),
+    (test_program_id, test_user_id, 7, 'rest', 'Rest');
+
+  -- Day 4 (Thursday): Upper B
+  INSERT INTO program_days (
+    id,
+    program_id,
+    user_id,
+    day_index,
+    day_type,
+    focus,
+    label
+  ) VALUES (
+    gen_random_uuid(),
+    test_program_id,
+    test_user_id,
     4,
     'weights',
     'Back, biceps, rear delts',
     'Upper B'
+  ) RETURNING id INTO test_program_day_id;
+  
+  -- Add exercises for Upper B day
+  -- Back, biceps, rear delts focus
+  INSERT INTO program_day_exercises (
+    program_day_id,
+    user_id,
+    exercise_id,
+    order_index,
+    target_sets,
+    target_reps_min,
+    target_reps_max,
+    rest_seconds
+  )
+  SELECT
+    test_program_day_id,
+    test_user_id,
+    e.id,
+    ROW_NUMBER() OVER (ORDER BY 
+      CASE 
+        -- Compound lifts first (0), isolation exercises second (1)
+        WHEN e.slug IN ('bent-over-barbell-row', 'pullups') THEN 0
+        ELSE 1
+      END,
+      e.slug  -- Stable tiebreaker within each category
+    ),
+    CASE e.slug
+      WHEN 'bent-over-barbell-row' THEN 4
+      WHEN 'pullups' THEN 4
+      WHEN 'dumbbell-lying-rear-lateral-raise' THEN 3
+      WHEN 'barbell-curl' THEN 3
+      WHEN 'face-pull' THEN 3
+    END,
+    CASE e.slug
+      WHEN 'bent-over-barbell-row' THEN 6
+      WHEN 'pullups' THEN 6
+      WHEN 'dumbbell-lying-rear-lateral-raise' THEN 10
+      WHEN 'barbell-curl' THEN 8
+      WHEN 'face-pull' THEN 10
+    END,
+    CASE e.slug
+      WHEN 'bent-over-barbell-row' THEN 8
+      WHEN 'pullups' THEN 8
+      WHEN 'dumbbell-lying-rear-lateral-raise' THEN 15
+      WHEN 'barbell-curl' THEN 12
+      WHEN 'face-pull' THEN 15
+    END,
+    CASE e.slug
+      WHEN 'bent-over-barbell-row' THEN 120
+      WHEN 'pullups' THEN 180
+      WHEN 'dumbbell-lying-rear-lateral-raise' THEN 60
+      WHEN 'barbell-curl' THEN 90
+      WHEN 'face-pull' THEN 60
+    END
+  FROM exercises e
+  WHERE e.slug IN (
+    'bent-over-barbell-row',
+    'pullups',
+    'dumbbell-lying-rear-lateral-raise',
+    'barbell-curl',
+    'face-pull'
   );
+  
+  -- Fail loudly if any Upper B exercise slug is missing
+  IF (SELECT COUNT(*) FROM program_day_exercises WHERE program_day_id = test_program_day_id) < 5 THEN
+    RAISE EXCEPTION 'Upper B: Expected 5 exercises but found %. Check exercise slugs in seed.sql', 
+      (SELECT COUNT(*) FROM program_day_exercises WHERE program_day_id = test_program_day_id);
+  END IF;
 
   -- Session: completed workout from 2 days ago
   INSERT INTO sessions (
@@ -343,9 +617,14 @@ BEGIN
     'completed',
     'right'
   FROM exercises e
-  WHERE e.slug = 'barbell-bench-press'
+  WHERE e.slug = 'barbell-bench-press-medium-grip'
   LIMIT 1
   RETURNING id INTO test_session_exercise_id;
+  
+  -- Fail loudly if bench press slug not found
+  IF test_session_exercise_id IS NULL THEN
+    RAISE EXCEPTION 'Session exercise not created: barbell-bench-press-medium-grip slug not found in exercises table';
+  END IF;
 
   -- Session sets: 4 sets of bench press with progression
   INSERT INTO session_sets (
@@ -375,31 +654,39 @@ BEGIN
     test_user_id,
     e.id,
     CASE e.slug
-      WHEN 'barbell-bench-press' THEN 60.0
+      WHEN 'barbell-bench-press-medium-grip' THEN 60.0
       WHEN 'barbell-squat' THEN 80.0
       WHEN 'barbell-deadlift' THEN 100.0
-      WHEN 'pull-up' THEN 0.0  -- bodyweight
-      ELSE 20.0
+      WHEN 'pullups' THEN 0.0  -- bodyweight
+      WHEN 'barbell-shoulder-press' THEN 40.0
+      WHEN 'bent-over-barbell-row' THEN 65.0
     END,
     12,
     0,
     current_date - interval '2 days',
     CASE e.slug
-      WHEN 'barbell-bench-press' THEN 65.0
+      WHEN 'barbell-bench-press-medium-grip' THEN 65.0
       WHEN 'barbell-squat' THEN 85.0
       WHEN 'barbell-deadlift' THEN 105.0
-      WHEN 'pull-up' THEN 0.0
-      ELSE 22.5
+      WHEN 'pullups' THEN 0.0
+      WHEN 'barbell-shoulder-press' THEN 42.5
+      WHEN 'bent-over-barbell-row' THEN 70.0
     END
   FROM exercises e
   WHERE e.slug IN (
-    'barbell-bench-press',
+    'barbell-bench-press-medium-grip',
     'barbell-squat',
     'barbell-deadlift',
-    'pull-up',
-    'overhead-press',
-    'barbell-row'
+    'pullups',
+    'barbell-shoulder-press',
+    'bent-over-barbell-row'
   );
+  
+  -- Fail loudly if any exercise_progress slug is missing
+  IF (SELECT COUNT(*) FROM exercise_progress WHERE user_id = test_user_id) < 6 THEN
+    RAISE EXCEPTION 'Exercise progress: Expected 6 exercises but found %. Check exercise slugs in seed.sql', 
+      (SELECT COUNT(*) FROM exercise_progress WHERE user_id = test_user_id);
+  END IF;
 
   -- Body metrics: weekly weigh-ins
   INSERT INTO body_metrics (user_id, recorded_on, weight_kg)
