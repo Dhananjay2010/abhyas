@@ -122,6 +122,10 @@ export function createSaveQueue<T>() {
       }
     })();
 
+    // Attach a catch handler to prevent unhandled rejection (L2)
+    // The caller's promise (via item.reject) still receives the error
+    promise.catch(() => {});
+    
     inFlight.set(key, promise);
   }
 
