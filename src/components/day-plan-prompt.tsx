@@ -23,6 +23,7 @@ export function DayPlanPrompt({
   heading,
   intro,
   isRestDay = false,
+  hideKeepAndRest = false,
   onPlan = planDay,
 }: {
   /** The day being planned, as a local `YYYY-MM-DD`. */
@@ -37,6 +38,8 @@ export function DayPlanPrompt({
   intro?: string;
   /** If true, show only "Pick a workout" button (rest day already settled). */
   isRestDay?: boolean;
+  /** If true (when today is already rest + yesterday missed), hide Keep it and Rest buttons. */
+  hideKeepAndRest?: boolean;
   /** Injected so the prompt can be driven without a signed-in session. */
   onPlan?: typeof planDay;
 }) {
@@ -98,6 +101,17 @@ export function DayPlanPrompt({
           >
             {intro === "Start your first session now." ? "Start your first session now" : "Pick a workout"}
           </button>
+          </div>
+        ) : hideKeepAndRest ? (
+          // When today is already Rest and yesterday was missed, don't show Keep it / Rest
+          <div className="mt-4">
+            <button
+              disabled={pending}
+              onClick={() => setChoosing(true)}
+              className="w-full min-h-[44px] rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface"
+            >
+              Pick a workout
+            </button>
           </div>
         ) : (
           <div className="mt-4 grid grid-cols-3 gap-2">

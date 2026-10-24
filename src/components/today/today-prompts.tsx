@@ -13,6 +13,7 @@ type Props = {
   localToday: string;
   dayLabel: string;
   plannable: PlannableDay[];
+  trainAnywayDays: PlannableDay[];
   yesterdayDay: { day_type: DayType; label: string | null } | null;
   nextTraining: { dayName: string; dayIndex: number } | null;
   isTraining: boolean;
@@ -37,6 +38,7 @@ export function TodayPrompts({
   localToday,
   dayLabel,
   plannable,
+  trainAnywayDays,
   yesterdayDay,
   nextTraining,
   isTraining,
@@ -117,12 +119,12 @@ export function TodayPrompts({
             localDate={localToday}
             dayLabel="Today"
             plannedLabel="Rest"
-            days={plannable}
+            days={trainAnywayDays}
             heading={`You missed yesterday: ${labelForDayType(
               yesterdayDay?.day_type ?? "rest",
               yesterdayDay?.label ?? null,
             )} did not happen.`}
-            isRestDay={true}
+            hideKeepAndRest={true}
           />
         </>
       )}
@@ -151,7 +153,7 @@ export function TodayPrompts({
                 localDate={localToday}
                 dayLabel="Today"
                 plannedLabel="Rest"
-                days={plannable}
+                days={trainAnywayDays}
                 heading="Start one now"
                 intro="Start your first session now."
                 isRestDay={true}
@@ -187,7 +189,7 @@ export function TodayPrompts({
                 localDate={localToday}
                 dayLabel="Today"
                 plannedLabel="Rest"
-                days={plannable}
+                days={trainAnywayDays}
                 heading="Or train today anyway"
                 intro="Pick a workout."
                 isRestDay={true}

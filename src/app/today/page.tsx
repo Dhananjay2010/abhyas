@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { addDays, daysBetween, isoWeekday, localDateString } from "@/lib/dates";
 import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
+import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
@@ -389,11 +390,27 @@ export default async function TodayPage() {
   // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
   // The prompt offers "Swap the day", which needs the strength/bodyweight options.
   // The session's own exercises are loaded only when a workout has been started.
+  // 
+  // H2: Always load plannable days for rest days (not just when yesterday was missed)
+  // so "Or train today anyway" can offer workout options even when yesterday was done.
   const needsPlannableDays =
     (dayType === "rest" || missedYesterday) && !strengthDone && !inProgressSession && !strengthPlanned;
 
-  const [plannable, performedRows] = await Promise.all([
+  const [plannable, daysForTrainAnyway, performedRows] = await Promise.all([
     needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
+    // H2: For "Or train today anyway" on rest days, compute which workout to offer
+    dayType === "rest" && days
+      ? Promise.resolve(buildTrainAnywayDays({
+          allDays: days.map((d) => ({
+            id: d.id,
+            day_index: d.day_index,
+            day_type: d.day_type,
+            label: d.label,
+          })),
+          localToday,
+          missedYesterday,
+        }))
+      : Promise.resolve([]),
     performed
       ? supabase
           .from("session_exercises")
@@ -567,6 +584,7 @@ export default async function TodayPage() {
         localToday={localToday}
         dayLabel={dayLabel}
         plannable={plannable}
+        trainAnywayDays={daysForTrainAnyway}
         yesterdayDay={yesterdayDay ? { day_type: yesterdayDay.day_type, label: yesterdayDay.label } : null}
         nextTraining={nextTraining}
         isTraining={isTraining}
@@ -620,7 +638,7 @@ export default async function TodayPage() {
         </div>
       )}
 
-      {isTraining && (
+      {isTraining && todayExercises.length > 0 && (
         <section className="mt-7">
           {/*
             The heading said "15 min warm-up", which is what SPEC section 7 asks
