@@ -149,16 +149,25 @@ async function testServiceWorkerBehavior() {
 
   let capturedResponse: FakeResponse | null = null;
 
+  type EventHandler = (event: {
+    type: string;
+    request?: FakeRequest;
+    respondWith?: (response: Promise<FakeResponse>) => void;
+    waitUntil?: (promise: Promise<void>) => void;
+  }) => void;
+
   const globalScope = {
     // ServiceWorkerGlobalScope properties
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     self: null as any,
     caches: fakeCaches,
     clients: fakeClients,
-    addEventListener: (type: string, handler: (event: any) => void) => {
+    addEventListener: (type: string, handler: EventHandler) => {
       if (!listeners.has(type)) {
         listeners.set(type, []);
       }
-      listeners.get(type)!.push(handler);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      listeners.get(type)!.push(handler as any);
     },
     skipWaiting: async () => {
       // No-op
@@ -167,7 +176,7 @@ async function testServiceWorkerBehavior() {
     Request: FakeRequest,
     Response: FakeResponse,
     // Fake fetch that always rejects (offline)
-    fetch: async (url: string | FakeRequest) => {
+    fetch: async (_url: string | FakeRequest) => {
       throw new Error("Network request failed (simulated offline)");
     },
     // Console for debugging
@@ -266,7 +275,7 @@ async function testServiceWorkerBehavior() {
   console.log("  ✓ Fetch handler returned a response");
 
   // Verify the response body is the offline page
-  const responseText = await capturedResponse!.text();
+  const responseText = await (capturedResponse as FakeResponse).text();
 
   assert(
     responseText.includes("You're offline") || responseText.includes("You&apos;re offline"),

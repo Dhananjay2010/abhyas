@@ -34,7 +34,7 @@ assert(
 );
 
 assert(
-  redirectOriginSource.match(/catch[^{]*{[^}]*return\s+requestOrigin/s) !== null,
+  redirectOriginSource.match(/catch[^{]*\{[^}]*return\s+requestOrigin/) !== null,
   "catch block must fall back to requestOrigin"
 );
 
@@ -42,37 +42,41 @@ console.log("  ✓ Uses try/catch around URL parsing");
 console.log("  ✓ Wraps new URL() for forwardedHost");
 console.log("  ✓ Falls back to requestOrigin on error");
 
-console.log("\n▶ Testing with malformed header...");
+async function testMalformedHeader() {
+  console.log("\n▶ Testing with malformed header...");
 
-// Import the function dynamically
-const { getRedirectOrigin } = await import("../src/lib/auth/redirect-origin.js");
+  // Import the function dynamically
+  const { getRedirectOrigin } = await import("../src/lib/auth/redirect-origin.js");
 
-// Create a request with malformed x-forwarded-host
-const request = new Request("http://localhost:3000/api/auth/callback", {
-  headers: {
-    "x-forwarded-host": "not a valid host:9999:extra:garbage",
-    "x-forwarded-proto": "https",
-  },
-});
+  // Create a request with malformed x-forwarded-host
+  const request = new Request("http://localhost:3000/api/auth/callback", {
+    headers: {
+      "x-forwarded-host": "not a valid host:9999:extra:garbage",
+      "x-forwarded-proto": "https",
+    },
+  });
 
-let result: string;
-let crashed = false;
+  let result: string = "";
+  let crashed = false;
 
-try {
-  result = getRedirectOrigin(request);
-} catch (error) {
-  crashed = true;
-  console.error("  ✗ Function crashed with malformed header:", error);
+  try {
+    result = getRedirectOrigin(request);
+  } catch (error) {
+    crashed = true;
+    console.error("  ✗ Function crashed with malformed header:", error);
+  }
+
+  assert(!crashed, "getRedirectOrigin must not crash on malformed x-forwarded-host");
+
+  assert(
+    result === "http://localhost:3000",
+    `getRedirectOrigin must fall back to requestOrigin, got ${result}`
+  );
+
+  console.log("  ✓ Does not crash on malformed x-forwarded-host");
+  console.log("  ✓ Falls back to requestOrigin (http://localhost:3000)");
+
+  console.log("\n✅ All redirect-origin malformed header tests passed");
 }
 
-assert(!crashed, "getRedirectOrigin must not crash on malformed x-forwarded-host");
-
-assert(
-  result === "http://localhost:3000",
-  `getRedirectOrigin must fall back to requestOrigin, got ${result}`
-);
-
-console.log("  ✓ Does not crash on malformed x-forwarded-host");
-console.log("  ✓ Falls back to requestOrigin (http://localhost:3000)");
-
-console.log("\n✅ All redirect-origin malformed header tests passed");
+testMalformedHeader();
