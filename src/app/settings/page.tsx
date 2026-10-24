@@ -5,6 +5,10 @@ import { SettingsForm, type SettingsState } from "./settings-form";
 import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
 import { buildTimezoneOptions } from "@/lib/timezone-options";
+import { isPlanStale, buildCurrentGenerationInputs, type GenerationInputsSnapshot } from "./plan-staleness";
+import { weekInBlock } from "@/lib/program/prescription";
+import { localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -12,19 +16,53 @@ export default async function SettingsPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  const [profileRes, settingsRes, equipment, userEquipmentRes, injuriesRes] =
+  const [profileRes, settingsRes, equipment, userEquipmentRes, injuriesRes, activeBlockRes] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       getCachedEquipment(),
       supabase.from("user_equipment").select("equipment_id"),
       supabase.from("user_injuries").select("body_region, severity"),
+      supabase
+        .from("programs")
+        .select("generation_inputs, days_per_week, started_on")
+        .eq("status", "active")
+        .maybeSingle(),
     ]);
 
   const profile = profileRes.data;
   if (!profile) redirect("/");
   if (!profile.onboarding_completed_at) redirect("/onboarding");
   const st = settingsRes.data;
+  const activeBlock = activeBlockRes.data;
+
+  // Compute plan staleness on the server
+  const equipmentIds = (userEquipmentRes.data ?? []).map((r) => r.equipment_id);
+  const currentInjuryRegions = (injuriesRes.data ?? [])
+    .filter((i) => i.severity === "current")
+    .map((i) => i.body_region);
+
+  const currentInputs = buildCurrentGenerationInputs(
+    profile,
+    equipmentIds,
+    currentInjuryRegions,
+  );
+
+  const staleness = isPlanStale(
+    currentInputs,
+    activeBlock
+      ? {
+          generation_inputs: activeBlock.generation_inputs as GenerationInputsSnapshot | null,
+          days_per_week: activeBlock.days_per_week,
+        }
+      : null,
+  );
+
+  // Current week for the rebuild confirmation text
+  const timezone = resolveTimezoneWithProfile(profile.timezone);
+  const currentWeek = activeBlock?.started_on
+    ? weekInBlock(activeBlock.started_on, localDateString(timezone))
+    : null;
 
   const initial: SettingsState = {
     goal: profile.goal,
@@ -64,7 +102,13 @@ export default async function SettingsPage() {
         Signed in as {user.email}. Changes save as you make them.
       </p>
 
-      <SettingsForm initial={initial} equipment={equipment} timezones={timezones} />
+      <SettingsForm 
+        initial={initial} 
+        equipment={equipment} 
+        timezones={timezones}
+        initialPlanStale={staleness.stale}
+        currentWeek={currentWeek}
+      />
 
       <div className="mt-12 space-y-8 border-t border-border pt-8">
         <section>

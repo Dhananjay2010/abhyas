@@ -10,7 +10,7 @@
 const fs = require("fs");
 const path = require("path");
 
-function assert(condition: boolean, message: string): void {
+function check(condition: boolean, message: string): void {
   if (!condition) {
     throw new Error(`❌ ${message}`);
   }
@@ -26,7 +26,7 @@ function readPngDimensions(filePath: string): { width: number; height: number } 
   // Check PNG signature
   const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const fileSignature = buffer.slice(0, 8);
-  assert(
+  check(
     fileSignature.equals(pngSignature),
     `${filePath} is not a valid PNG file`
   );
@@ -54,10 +54,10 @@ function testIconDimensions() {
 
   for (const { file, width: expectedWidth, height: expectedHeight } of expectedSizes) {
     const filePath = path.join(iconsDir, file);
-    assert(fs.existsSync(filePath), `Icon ${file} must exist`);
+    check(fs.existsSync(filePath), `Icon ${file} must exist`);
 
     const { width, height } = readPngDimensions(filePath);
-    assert(
+    check(
       width === expectedWidth && height === expectedHeight,
       `${file} must be ${expectedWidth}×${expectedHeight} (got: ${width}×${height})`
     );
@@ -79,10 +79,10 @@ function testScreenshotDimensions() {
 
   for (const { file, width: expectedWidth, height: expectedHeight, formFactor } of expectedSizes) {
     const filePath = path.join(screenshotsDir, file);
-    assert(fs.existsSync(filePath), `Screenshot ${file} must exist`);
+    check(fs.existsSync(filePath), `Screenshot ${file} must exist`);
 
     const { width, height } = readPngDimensions(filePath);
-    assert(
+    check(
       width === expectedWidth && height === expectedHeight,
       `${file} (${formFactor}) must be ${expectedWidth}×${expectedHeight} (got: ${width}×${height})`
     );
@@ -107,7 +107,7 @@ function testManifestIconReferences() {
   ];
 
   for (const ref of iconReferences) {
-    assert(
+    check(
       manifestContent.includes(ref),
       `Manifest must reference ${ref}`
     );
@@ -120,20 +120,20 @@ function testManifestIconReferences() {
   ];
 
   for (const screenshotPath of screenshotPaths) {
-    assert(
+    check(
       manifestContent.includes(screenshotPath),
       `Manifest must reference ${screenshotPath}`
     );
   }
 
   // Check that manifest has a stable ID
-  assert(
+  check(
     manifestContent.includes("id:") && manifestContent.includes("branding.id"),
     "Manifest must have a stable id derived from branding.id"
   );
 
   // Check that manifest has screenshots with form_factor
-  assert(
+  check(
     manifestContent.includes("screenshots:") && 
     manifestContent.includes("form_factor") &&
     manifestContent.includes('"narrow"') &&

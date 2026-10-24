@@ -29,7 +29,7 @@ async function main() {
     .sort();
   
   const preMigrations = allMigrations.filter(f => f < '20261024140000');
-  const prMigrations = allMigrations.filter(f => f >= '20261024140000' && f < '20261024150000');
+  const prMigrations = allMigrations.filter(f => f >= '20261024140000' && f < '20261025000009');
   
   console.log(`Running ${preMigrations.length} migrations before 140000...`);
   

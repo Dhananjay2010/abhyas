@@ -8,6 +8,7 @@ import {
   type GeneratorInput,
 } from "./generate";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { buildCurrentGenerationInputs } from "./generation-inputs";
 
 type Client = SupabaseClient<Database>;
 
@@ -120,6 +121,11 @@ export async function createBlockForUser(
       ? Number(weightKg) / (Number(profile.height_cm) / 100) ** 2
       : null;
 
+  const equipmentIds = (equipmentRes.data ?? []).map((r) => r.equipment_id);
+  const currentInjuryRegions = (injuriesRes.data ?? [])
+    .filter((i) => i.severity === "current")
+    .map((i) => i.body_region);
+
   const input: GeneratorInput = {
     userId,
     blockNumber: rebuildOf?.block_number ?? (lastBlockRes.data?.block_number ?? 0) + 1,
@@ -131,14 +137,19 @@ export async function createBlockForUser(
     age: profile.date_of_birth ? ageOn(profile.date_of_birth) : null,
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
-    equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: (injuriesRes.data ?? [])
-      .filter((i) => i.severity === "current")
-      .map((i) => i.body_region),
+    equipmentIds,
+    currentInjuryRegions,
     preferredSessionMinutes: profile.preferred_session_minutes ?? 60,
     catalogue,
     carryOver: options.carryOver,
   };
+
+  // Snapshot the inputs that affect plan generation, for staleness detection
+  const generationInputs = buildCurrentGenerationInputs(
+    profile,
+    equipmentIds,
+    currentInjuryRegions,
+  );
 
   const plan = generateProgram(input);
 
@@ -156,6 +167,8 @@ export async function createBlockForUser(
   }
 
   // Retire any previous active block before inserting the new one.
+  // Mark the old plan as "completed" regardless of whether it's a rebuild
+  // (replaced by changed settings) or rollover (ran its four weeks).
   await supabase
     .from("programs")
     .update({ status: "completed" })
@@ -182,6 +195,7 @@ export async function createBlockForUser(
       ends_on: endsOn,
       deload_week: plan.deloadWeek,
       status: "active",
+      generation_inputs: generationInputs,
     })
     .select("id")
     .single();

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   BODY_REGIONS,
   GOALS,
@@ -28,6 +29,7 @@ import {
 import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
+import { SESSION_LENGTH_OPTIONS } from "@/lib/onboarding/session-length";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -80,15 +82,22 @@ export function SettingsForm({
   initial,
   equipment,
   timezones,
+  initialPlanStale = false,
+  currentWeek = null,
   actions = REAL_ACTIONS,
 }: {
   initial: SettingsState;
   equipment: EquipmentRow[];
   timezones: string[];
+  initialPlanStale?: boolean;
+  currentWeek?: number | null;
   actions?: SettingsActions;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /** Track whether plan is stale (starts from server, updates on rebuild) */
+  const [planStale, setPlanStale] = useState(initialPlanStale);
   const [s, setS] = useState(initial);
   /** Track initial equipment to detect real changes */
   const [initialEquipment] = useState({
@@ -106,12 +115,16 @@ export function SettingsForm({
   const [equipmentOffConfirmation, setEquipmentOffConfirmation] = useState<string | null>(null);
   /** QA Issue #7: Confirmation shown when timezone is saved */
   const [timezoneConfirmation, setTimezoneConfirmation] = useState<string | null>(null);
-  /** Set when a change alters what the generator would produce. */
-  const [planStale, setPlanStale] = useState(false);
+  /** Success message shown after rebuild */
+  const [rebuildSuccess, setRebuildSuccess] = useState(false);
+  /** Undo toast for level/track changes that affect the plan */
+  const [undoToast, setUndoToast] = useState<{ field: 'level' | 'track'; oldValue: Level | Track } | null>(null);
   /** L4 QA fix: Request sequence to ignore stale equipment save responses */
   const [equipmentSequence] = useState(() => createRequestSequence());
   /** F2: Browser timezone detected on client after mount */
   const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
+  /** L3: Per-field saved status */
+  const [savedField, setSavedField] = useState<string | null>(null);
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -129,6 +142,24 @@ export function SettingsForm({
   }, [timezoneConfirmation]);
 
   useEffect(() => {
+    // Auto-hide rebuild success message after 4s
+    if (rebuildSuccess) {
+      const timer = setTimeout(() => setRebuildSuccess(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [rebuildSuccess]);
+
+  useEffect(() => {
+    // Auto-hide undo toast after 5s
+    if (undoToast) {
+      const timer = setTimeout(() => {
+        setUndoToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [undoToast]);
+
+  useEffect(() => {
     // F2: Detect browser timezone on client after mount, canonicalized
     // (older Chrome reports Asia/Calcutta instead of Asia/Kolkata)
     try {
@@ -142,12 +173,12 @@ export function SettingsForm({
     }
   }, []);
 
-  function save(run: () => Promise<Result>, affectsPlan = false) {
+  function save(run: () => Promise<Result>, affectsPlan = false, fieldName?: string) {
     startTransition(async () => {
       const r = await run();
       if (!r.ok) return setError(r.error);
       setError(null);
-      if (affectsPlan) setPlanStale(true);
+      if (fieldName) setSavedField(fieldName);
       // No router.refresh() here. updateSettings and friends revalidate
       // "/settings", and Next.js returns the re-rendered tree with the action's
       // own response — refreshing on top of that fetched this five-query screen
@@ -180,7 +211,7 @@ export function SettingsForm({
       setSavedEquipment({ hasAll, ids: equipmentIds });
       setEquipmentHint(null);
       setError(null);
-      if (changed) setPlanStale(true);
+      // Equipment changes affect plan generation, server will detect staleness on next render
       
       // Show confirmation toast only after save succeeds and response is current
       if (showConfirmation) {
@@ -200,27 +231,30 @@ export function SettingsForm({
     );
   }
 
+  /** Undo a level or track change by saving the old value back */
+  function handleUndo() {
+    if (!undoToast) return;
+    if (undoToast.field === 'level') {
+      const oldLevel = undoToast.oldValue as Level;
+      setS({ ...s, level: oldLevel });
+      save(() => actions.updateProfileSettings({ level: oldLevel }), true);
+    } else if (undoToast.field === 'track') {
+      const oldTrack = undoToast.oldValue as Track;
+      setS({ ...s, primaryTrack: oldTrack });
+      save(() => actions.updateProfileSettings({ primary_track: oldTrack }), true);
+    }
+    setUndoToast(null);
+  }
+
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 pb-32">
       {error && <ErrorNote>{error}</ErrorNote>}
 
-      {planStale && (
-        <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
-          <p className="text-sm text-accent">
-            Your plan no longer matches these answers. Rebuilding keeps every session
-            you have already logged.
-          </p>
-          <div className="mt-3">
-            <BuildPlanButton label="Rebuild my block" />
-          </div>
-        </div>
-      )}
-
       {/* ---------------- training ---------------- */}
-      <Section title="Your training" note="Changing these needs a rebuilt block.">
-        <Field label="Goal">
+      <Section title="Your training" note="Changes here apply when you update your plan.">
+        <Field label="Goal" saved={savedField === "goal"}>
           <div className="space-y-2">
             {GOALS.map((o) => (
               <OptionCard
@@ -230,14 +264,14 @@ export function SettingsForm({
                 selected={s.goal === o.value}
                 onClick={() => {
                   setS({ ...s, goal: o.value });
-                  save(() => actions.updateProfileSettings({ goal: o.value }), true);
+                  save(() => actions.updateProfileSettings({ goal: o.value }), true, "goal");
                 }}
               />
             ))}
           </div>
         </Field>
 
-        <Field label="Level">
+        <Field label="Level" saved={savedField === "level"}>
           <div className="space-y-2">
             {LEVELS.map((o) => (
               <OptionCard
@@ -246,15 +280,18 @@ export function SettingsForm({
                 label={o.label}
                 selected={s.level === o.value}
                 onClick={() => {
+                  const oldLevel = s.level;
                   setS({ ...s, level: o.value });
-                  save(() => actions.updateProfileSettings({ level: o.value }), true);
+                  // Save immediately and show undo toast
+                  setUndoToast({ field: 'level', oldValue: oldLevel! });
+                  save(() => actions.updateProfileSettings({ level: o.value }), true, "level");
                 }}
               />
             ))}
           </div>
         </Field>
 
-        <Field label="Where you train">
+        <Field label="Where you train" saved={savedField === "track"}>
           <div className="space-y-2">
             {[{ value: "weights" as Track, label: "At a gym" }, ...HOME_TRACKS].map((o) => (
               <OptionCard
@@ -263,8 +300,11 @@ export function SettingsForm({
                 label={o.label}
                 selected={s.primaryTrack === o.value}
                 onClick={() => {
+                  const oldTrack = s.primaryTrack;
                   setS({ ...s, primaryTrack: o.value });
-                  save(() => actions.updateProfileSettings({ primary_track: o.value }), true);
+                  // Save immediately and show undo toast
+                  setUndoToast({ field: 'track', oldValue: oldTrack! });
+                  save(() => actions.updateProfileSettings({ primary_track: o.value }), true, "track");
                 }}
               />
             ))}
@@ -286,7 +326,7 @@ export function SettingsForm({
           />
         </Field>
 
-        <Field label="Yoga days" hint="Counted inside your days per week">
+        <Field label="Yoga days" hint="Counted inside your days per week" saved={savedField === "yogaDays"}>
           <Segmented
             options={Array.from({ length: maxYoga + 1 }, (_, n) => ({
               value: n,
@@ -295,7 +335,7 @@ export function SettingsForm({
             value={s.yogaDaysPerWeek}
             onChange={(n) => {
               setS({ ...s, yogaDaysPerWeek: n });
-              save(() => actions.updateProfileSettings({ yoga_days_per_week: n }), true);
+              save(() => actions.updateProfileSettings({ yoga_days_per_week: n }), true, "yogaDays");
             }}
           />
         </Field>
@@ -594,13 +634,13 @@ export function SettingsForm({
           />
         </Field>
 
-        <Field label="Session length">
+        <Field label="Session length" saved={savedField === "sessionLength"}>
           <Segmented
-            options={[30, 45, 60, 75].map((n) => ({ value: n, label: `${n}m` }))}
+            options={SESSION_LENGTH_OPTIONS.map((n) => ({ value: n, label: `${n}m` }))}
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS({ ...s, preferredSessionMinutes: n });
-              save(() => actions.updateProfileSettings({ preferred_session_minutes: n }));
+              save(() => actions.updateProfileSettings({ preferred_session_minutes: n }), true, "sessionLength");
             }}
           />
         </Field>
@@ -676,13 +716,79 @@ export function SettingsForm({
         )}
       </Section>
 
-      <Section title="Not built yet">
-        <p className="text-sm text-muted">
-          Light theme and imperial units are in the plan but not implemented, so
-          there is nothing to switch here yet. {branding.name} is dark, kilograms and
-          centimetres for now.
-        </p>
-      </Section>
+      {process.env.NODE_ENV !== "production" && (
+        <Section title="Not built yet">
+          <p className="text-sm text-muted">
+            Light theme and imperial units are in the plan but not implemented, so
+            there is nothing to switch here yet. {branding.name} is dark, kilograms and
+            centimetres for now.
+          </p>
+        </Section>
+      )}
+
+      {/* M2: Fixed bottom bar for all status messages - out of flow, no layout shift */}
+      {(planStale || rebuildSuccess || undoToast) && (
+        <div 
+          className="fixed left-0 right-0 mx-auto w-full max-w-md px-6 bg-surface border-t border-border z-40"
+          style={{
+            bottom: "calc(4rem + env(safe-area-inset-bottom))"
+          }}
+        >
+          <div className="py-4 space-y-3">
+            {rebuildSuccess && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
+              >
+                Plan rebuilt
+              </div>
+            )}
+
+            {undoToast && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 flex items-center justify-between gap-3"
+              >
+                <span className="text-sm text-accent">
+                  {undoToast.field === 'level' ? 'Level' : 'Training type'} updated. Your plan will update when you apply the change.
+                </span>
+                <button
+                  onClick={handleUndo}
+                  disabled={pending}
+                  className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Undo
+                </button>
+              </div>
+            )}
+
+            {planStale && !rebuildSuccess && (
+              <div 
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-accent/40 bg-accent/10 p-4"
+              >
+                <p className="text-sm text-accent">
+                  Your plan doesn&apos;t include this change yet.
+                </p>
+                <div className="mt-3">
+                  <BuildPlanButton 
+                    label="Update my plan to apply this" 
+                    currentWeek={currentWeek}
+                    showSuccessState={true}
+                    onSuccess={() => {
+                      setPlanStale(false);
+                      setRebuildSuccess(true);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -711,14 +817,36 @@ function Field({
   label,
   hint,
   children,
+  saved,
 }: {
   label: string;
   hint?: string;
   children: React.ReactNode;
+  saved?: boolean;
 }) {
   return (
     <div>
-      <p className="text-sm font-medium">{label}</p>
+      <p className="text-sm font-medium">
+        {label}
+        {saved && (
+          <span
+            role="status"
+            aria-live="polite"
+            className="inline-flex items-center gap-1 text-xs text-success ml-2"
+          >
+            <svg 
+              className="w-3.5 h-3.5" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Saved
+          </span>
+        )}
+      </p>
       {hint && <p className="mt-0.5 mb-2 text-xs text-muted">{hint}</p>}
       <div className={hint ? "" : "mt-2"}>{children}</div>
     </div>

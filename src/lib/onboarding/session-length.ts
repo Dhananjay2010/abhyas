@@ -26,3 +26,5 @@ export async function persistSessionLength(
 
   return error ? { ok: false, error: error.message } : { ok: true };
 }
+
+export const isValidSessionLength = isAllowedSessionLength;
