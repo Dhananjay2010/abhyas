@@ -327,6 +327,20 @@ assert(
   "Day 1 yesterday check (Sun before Mon start): should NOT be missed"
 );
 
+// Saturday signup (program starts Saturday), yesterday Friday is training day in 3-day plan
+// This is the prod bug: fresh Saturday signup shows 'missed yesterday' even though yesterday was before signup
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-24", // Fri (yesterday, before program start Sat)
+    programStartedOn: "2026-10-25", // Sat
+    onboardingCompletedAt: "2026-10-25T10:00:00Z", // Sat morning
+    timezone: "UTC",
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-24")], // Fri = 5, training day
+    sessions: [],
+  }),
+  "Saturday signup: yesterday (Fri training day) should NOT be missed (before signup)"
+);
+
 console.log("\n==================================================");
 console.log(`📊 Test Results: ${passedTests}/${totalTests} passed`);
 

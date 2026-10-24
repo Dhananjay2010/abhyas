@@ -600,6 +600,7 @@ export default async function TodayPage() {
             days={plannable}
             heading="Or train today anyway"
             intro="Pick what you'd like to do instead."
+            isRestDay={true}
           />
         </>
       )}

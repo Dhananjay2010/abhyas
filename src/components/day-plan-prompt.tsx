@@ -22,6 +22,7 @@ export function DayPlanPrompt({
   days,
   heading,
   intro,
+  isRestDay = false,
   onPlan = planDay,
 }: {
   /** The day being planned, as a local `YYYY-MM-DD`. */
@@ -34,6 +35,8 @@ export function DayPlanPrompt({
   days: PlannableDay[];
   heading: string;
   intro?: string;
+  /** If true, show only "Pick a workout" button (rest day already settled). */
+  isRestDay?: boolean;
   /** Injected so the prompt can be driven without a signed-in session. */
   onPlan?: typeof planDay;
 }) {
@@ -86,17 +89,29 @@ export function DayPlanPrompt({
       </p>
 
       {!choosing ? (
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          <Choice disabled={pending} onClick={() => choose({ kind: "keep" }, plannedLabel)}>
-            Keep it
-          </Choice>
-          <Choice disabled={pending} onClick={() => setChoosing(true)}>
-            Swap the day
-          </Choice>
-          <Choice disabled={pending} onClick={() => choose({ kind: "rest" }, "a rest day")}>
-            Rest
-          </Choice>
-        </div>
+        isRestDay ? (
+          <div className="mt-4">
+            <button
+              disabled={pending}
+              onClick={() => setChoosing(true)}
+              className="w-full min-h-[44px] rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface"
+            >
+              Pick a workout
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <Choice disabled={pending} onClick={() => choose({ kind: "keep" }, plannedLabel)}>
+              Keep it
+            </Choice>
+            <Choice disabled={pending} onClick={() => setChoosing(true)}>
+              Swap the day
+            </Choice>
+            <Choice disabled={pending} onClick={() => choose({ kind: "rest" }, "a rest day")}>
+              Rest
+            </Choice>
+          </div>
+        )
       ) : (
         <div className="mt-4 space-y-2">
           {days.map((d) => (
