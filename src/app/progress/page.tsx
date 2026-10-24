@@ -37,7 +37,7 @@ export default async function ProgressPage() {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("timezone, onboarding_completed_at, units_preference")
+      .select("timezone, onboarding_completed_at, units")
       .eq("id", user.id)
       .single(),
     // Fetch recent data descending, reverse for processing. NEVER order
@@ -79,7 +79,7 @@ export default async function ProgressPage() {
 
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const today = localDateString(timezone);
-  const units = getUnitsPreference(profile.units_preference);
+  const units = getUnitsPreference(profile.units);
 
   // ---- streaks -----------------------------------------------------------
   // Across every block, not just the active one: a streak that reset because a

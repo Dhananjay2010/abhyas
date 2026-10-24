@@ -37,11 +37,11 @@ export default async function SessionDetailPage({
   // Fetch profile for units preference
   const { data: profile } = await supabase
     .from("profiles")
-    .select("units_preference")
+    .select("units")
     .eq("id", user.id)
     .single();
   
-  const units = getUnitsPreference(profile?.units_preference);
+  const units = getUnitsPreference(profile?.units);
 
   const { data: session, error: sessionError } = await supabase
     .from("sessions")

@@ -16,7 +16,7 @@ export default async function HistoryPage() {
   const [profileRes, sessionsRes, volumeRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("timezone, onboarding_completed_at, units_preference")
+      .select("timezone, onboarding_completed_at, units")
       .eq("id", user.id)
       .single(),
     supabase
@@ -47,7 +47,7 @@ export default async function HistoryPage() {
   }
 
   const today = localDateString(resolveTimezoneWithProfile(profile.timezone));
-  const units = getUnitsPreference(profile.units_preference);
+  const units = getUnitsPreference(profile.units);
   /*
     Nothing in the future. A "what about tomorrow?" choice is a `sessions` row
     dated tomorrow, so History -- which has no date filter, because the user's
