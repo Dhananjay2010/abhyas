@@ -33,7 +33,8 @@ function niceBounds(values: number[]): [number, number] {
 
 function formatValue(v: number, unit: string): string {
   const rounded = Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10;
-  return `${rounded}${unit ? ` ${unit}` : ""}`;
+  const formatted = rounded.toLocaleString("en-US");
+  return `${formatted}${unit ? ` ${unit}` : ""}`;
 }
 
 /** Toggleable table so the numbers are never available only as pixels. */

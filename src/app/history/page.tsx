@@ -104,9 +104,8 @@ export default async function HistoryPage({
   // Get session exercises to find top sets and PRs, and to calculate planned sets (QA Bot 3 M3: handle errors silently)
   const { data: sessionExercises, error: exercisesError } = await supabase
     .from("session_exercises")
-    .select("id, session_id, exercise_id, metric, planned_sets")
-    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"])
-    .eq("status", "completed");
+    .select("id, session_id, exercise_id, metric, planned_sets, status")
+    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
 
   if (exercisesError) {
     console.error("Failed to load session exercises:", exercisesError);
@@ -116,11 +115,14 @@ export default async function HistoryPage({
   const plannedSetsBySession = new Map<string, number>();
   
   for (const ex of sessionExercises ?? []) {
-    const list = exercisesBySession.get(ex.session_id) ?? [];
-    list.push({ id: ex.id, exercise_id: ex.exercise_id, metric: ex.metric ?? "reps" });
-    exercisesBySession.set(ex.session_id, list);
+    // Only add completed exercises for top set calculation
+    if (ex.status === "completed") {
+      const list = exercisesBySession.get(ex.session_id) ?? [];
+      list.push({ id: ex.id, exercise_id: ex.exercise_id, metric: ex.metric ?? "reps" });
+      exercisesBySession.set(ex.session_id, list);
+    }
     
-    // Sum planned_sets to get total planned sets for this session
+    // Sum planned_sets across ALL session_exercises for endedEarly detection
     if (ex.planned_sets && ex.planned_sets > 0) {
       plannedSetsBySession.set(
         ex.session_id,
@@ -211,10 +213,15 @@ export default async function HistoryPage({
       );
 
     const plannedSets = plannedSetsBySession.get(s.id);
+    // A completed strength session counts as ended early when:
+    // 1. It has fewer working sets than planned, OR
+    // 2. It has 0 working sets (regardless of planned count)
+    const isStrength = !isBreathing && s.actual_type !== "yoga";
     const endedEarly = 
-      plannedSets !== undefined && 
-      plannedSets > 0 && 
-      workingSetCount < plannedSets;
+      (plannedSets !== undefined && 
+       plannedSets > 0 && 
+       workingSetCount < plannedSets) ||
+      (isStrength && s.status === "completed" && workingSetCount === 0);
 
     return {
       id: s.id,

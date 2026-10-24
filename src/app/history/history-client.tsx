@@ -120,7 +120,7 @@ export function HistoryClient({
 
       {/* Error banner (QA Bot 3 M3) */}
       {hasErrors && (
-        <p className="mt-4 rounded-lg border-[var(--color-destructive)]/50 bg-[var(--color-destructive)]/10 px-4 py-2 text-sm text-[var(--color-destructive)]">
+        <p className="mt-4 rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-4 py-2 text-sm text-[var(--color-danger)]">
           Couldn&apos;t load some stats
         </p>
       )}
@@ -155,7 +155,7 @@ export function HistoryClient({
                 timeLabel = "Today";
               } else {
                 // Use TZ-2 formatter: date and time both from started_at in current zone
-                timeLabel = formatSessionDateTime(item.startedAt, item.localDate, timezone);
+                timeLabel = formatSessionDateTime(item.startedAt, item.localDate, timezone, today);
               }
 
               // Item 9: Duration - never show "0 min" for NULL duration

@@ -57,6 +57,11 @@ export function getSessionLabel(input: SessionLabelInput): string {
   if (endedEarly && plannedSets && plannedSets > 0) {
     return `Ended early · ${setCount} of ${plannedSets} ${plannedSets === 1 ? "set" : "sets"}`;
   }
+  
+  // Special case: 0 working sets = ended early (no plan shown)
+  if (setCount === 0 && (actualType === "weights" || actualType === "bodyweight" || actualType === null)) {
+    return "Ended early";
+  }
 
   return "Completed";
 }

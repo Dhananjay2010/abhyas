@@ -73,5 +73,14 @@ test("float string → truncated integer", () => {
   assertEqual(parsePageParam("3.7", 10), 3);
 });
 
+test("huge overflow → capped to safe max and then to totalPages", () => {
+  assertEqual(parsePageParam("999999999999", 5), 5);
+});
+
+test("huge overflow with no totalPages → capped to safe max", () => {
+  const MAX_SAFE_PAGE = 1_000_000;
+  assertEqual(parsePageParam("999999999999", 0), MAX_SAFE_PAGE);
+});
+
 console.log("\nparsePageParam tests complete");
 process.exit(exitCode);
