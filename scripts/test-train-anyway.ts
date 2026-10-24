@@ -205,10 +205,10 @@ assert(result8[1]?.label === "Push", "Second option label is Push");
 assert(result8[2]?.day_index === 1, "Third option is Monday bodyweight");
 assert(result8[2]?.label === "Bodyweight B", "Third option label is Bodyweight B");
 
-console.log("\n=== Test 9: Rest day after a missed training day ===\n");
+console.log("\n=== Test 9: Rest day, yesterday missed, today is rest (no workout to catch up) ===\n");
 
 const result9 = trainAnywayOptions({
-  yesterdayDay: null,
+  yesterdayDay: day(5, "weights", "Legs"),
   todayDay: day(6, "rest"),
   upcomingDays: [
     day(7, "rest"),
@@ -216,42 +216,42 @@ const result9 = trainAnywayOptions({
     day(2, "rest"),
     day(3, "weights", "Pull"),
     day(4, "rest"),
-    day(5, "weights", "Legs"),
+    day(5, "rest"),
   ],
   missedYesterday: true,
 });
 
-// Should offer: yesterday's missed workout (if today's template had one, but it doesn't - today is rest)
-// So should offer the next 2 training days: Monday Push, Wednesday Pull
-assert(result9.length === 2, "Returns 2 options (next 2 training days)");
-assert(result9[0]?.day_index === 1, "First option is Monday");
-assert(result9[0]?.label === "Push", "First option is Push");
-assert(result9[1]?.day_index === 3, "Second option is Wednesday");
-assert(result9[1]?.label === "Pull", "Second option is Pull");
+assert(result9.length === 3, "Returns 3 options (missed Legs + next 2)");
+assert(result9[0]?.day_index === 5, "First option is yesterday's Legs");
+assert(result9[0]?.label === "Legs", "First option is Legs");
+assert(result9[1]?.day_index === 1, "Second option is Monday");
+assert(result9[1]?.label === "Push", "Second option is Push");
+assert(result9[2]?.day_index === 3, "Third option is Wednesday");
+assert(result9[2]?.label === "Pull", "Third option is Pull");
 
-console.log("\n=== Test 10: Rest day after missed day, today IS training in template ===\n");
+console.log("\n=== Test 10: Yesterday missed (Legs), today is rest, upcoming has duplicate Legs ===\n");
 
 const result10 = trainAnywayOptions({
-  yesterdayDay: null,
-  todayDay: day(6, "weights", "Legs"),  // Today (Sat) IS a training day in template, but user chose rest
+  yesterdayDay: day(5, "weights", "Legs"),  // Yesterday was Legs
+  todayDay: day(6, "rest"),  // Today is rest
   upcomingDays: [
     day(7, "rest"),
     day(1, "weights", "Push"),
     day(2, "rest"),
     day(3, "weights", "Pull"),
     day(4, "rest"),
-    day(5, "weights", "Legs"),
+    day(5, "weights", "Legs"),  // Duplicate label
   ],
-  missedYesterday: true,  // AND yesterday (Fri) was missed
+  missedYesterday: true,
 });
 
-// Should offer: yesterday's missed workout (today's Legs) PLUS next 2 training days
-assert(result10.length === 3, "Returns 3 options (missed workout + next 2)");
-assert(result10[0]?.day_index === 6, "First option is today's template workout (Legs)");
+// Offer yesterday's Legs + next 2 distinct (Push, Pull) - duplicate Legs label filtered
+assert(result10.length === 3, "Returns 3 options (missed Legs + Push + Pull, no duplicate)");
+assert(result10[0]?.day_index === 5, "First option is yesterday's Legs");
 assert(result10[0]?.label === "Legs", "First option label is Legs");
-assert(result10[1]?.day_index === 1, "Second option is Monday");
+assert(result10[1]?.day_index === 1, "Second option is Monday Push");
 assert(result10[1]?.label === "Push", "Second option is Push");
-assert(result10[2]?.day_index === 3, "Third option is Wednesday");
+assert(result10[2]?.day_index === 3, "Third option is Wednesday Pull");
 assert(result10[2]?.label === "Pull", "Third option is Pull");
 
 console.log("\n✅ All train-anyway tests passed\n");
