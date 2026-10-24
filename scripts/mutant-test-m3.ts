@@ -86,6 +86,14 @@ const mutants: Mutant[] = [
     mutated: 'candidate.contraindicated_regions.some((region) =>\n        region !== "lower_back" && ctx.injuryRegions.includes(region)\n      )',
     description: 'Swap filter ignores lower_back',
   },
+  
+  {
+    name: 'baseline-drop-key-exercises',
+    file: 'scripts/gen-m3-baseline.ts',
+    original: 'const snapshots: ProfileSnapshot[] = [];',
+    mutated: 'const snapshots: ProfileSnapshot[] = [];\n\n  // MUTANT: Drop key exercises from baseline\n  for (const ex of mainCatalogue) {\n    if (["barbell-squat", "goblet-squat", "pushups"].includes(ex.slug)) {\n      mainCatalogue.splice(mainCatalogue.indexOf(ex), 1);\n    }\n  }',
+    description: 'Baseline generator drops barbell-squat, goblet-squat, pushups from no-injury plans',
+  },
 ];
 
 let killed = 0;
