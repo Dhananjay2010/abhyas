@@ -34,7 +34,8 @@ export async function GET() {
  * default "no internet" page.
  *
  * This is intentionally conservative:
- * - Only caches the offline page itself and its app icon
+ * - Caches the offline page itself and its app icon
+ * - Caches /_next/static/* (JS chunks, CSS) cache-first (immutable hashed filenames)
  * - Does NOT cache authenticated API responses (Supabase, user data)
  * - Does NOT cache app pages (they depend on user state and database calls)
  * - Does NOT cache RSC payloads (they're tied to specific builds)
@@ -82,6 +83,33 @@ self.addEventListener("activate", (event) => {
     })()
   );
 });
+
+/**
+ * Check if a request is for a static asset that should be cached.
+ * 
+ * Cache /_next/static/* (JS chunks, CSS, etc.) - these have hashed filenames
+ * and are immutable, so they're safe to cache indefinitely.
+ */
+function shouldCacheStatic(request) {
+  // Only cache same-origin GET requests
+  if (request.method !== "GET") {
+    return false;
+  }
+
+  const url = new URL(request.url);
+  
+  // Only cache same-origin requests
+  if (url.origin !== self.location.origin) {
+    return false;
+  }
+
+  // Cache /_next/static/* (JS chunks, CSS, fonts, etc.)
+  if (url.pathname.startsWith("/_next/static/")) {
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Check if a request should be intercepted for offline fallback.
@@ -147,7 +175,7 @@ function shouldInterceptForOffline(request) {
 }
 
 // Fetch: serve the offline page when a GET navigation request fails,
-// and serve precached icons cache-first
+// serve precached icons cache-first, and cache /_next/static/* assets
 self.addEventListener("fetch", (event) => {
   // Ignore all non-GET requests entirely (no respondWith).
   // POSTs and server actions go straight to the network and fail visibly.
@@ -177,6 +205,32 @@ self.addEventListener("fetch", (event) => {
         } catch {
           // Both cache and network failed
           return new Response("Icon not available", { status: 404 });
+        }
+      })()
+    );
+    return;
+  }
+
+  // Cache /_next/static/* assets (JS chunks, CSS) cache-first
+  if (shouldCacheStatic(event.request)) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const cachedResponse = await cache.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        // Not in cache, fetch from network and cache for next time
+        try {
+          const networkResponse = await fetch(event.request);
+          if (networkResponse.ok) {
+            // Clone the response before caching (response can only be read once)
+            cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        } catch {
+          // Network failed and not in cache
+          return new Response("Asset not available", { status: 404 });
         }
       })()
     );
