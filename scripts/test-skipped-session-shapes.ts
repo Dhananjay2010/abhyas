@@ -55,17 +55,17 @@ async function runTests() {
   const userId = authData.user.id;
   console.log(`Created test user: ${userId}\n`);
 
-  // Create profile
-  const { error: profileError } = await adminClient
+  // Create profile (no explicit insert needed - trigger creates it on auth.users insert)
+  // Just verify it exists
+  await new Promise((resolve) => setTimeout(resolve, 100)); // Let trigger run
+  const { data: profile } = await adminClient
     .from("profiles")
-    .insert({
-      id: userId,
-      timezone: "America/New_York",
-      onboarding_completed_at: new Date().toISOString(),
-    });
+    .select("id")
+    .eq("id", userId)
+    .single();
 
-  if (profileError) {
-    console.error("Profile creation failed:", profileError);
+  if (!profile) {
+    console.error("Profile was not automatically created");
     return false;
   }
 
