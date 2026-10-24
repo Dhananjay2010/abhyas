@@ -372,9 +372,8 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
         selectCols = [columns];
         return builder;
       },
-      order: (column: string, _opts?: { ascending?: boolean }) => {
-        // @ts-expect-error - _opts is unused but part of Supabase API signature
-        void _opts;
+      order: (column: string, opts?: { ascending?: boolean }) => {
+        void opts; // Unused but part of Supabase API signature
         orderCol = column;
         return builder;
       },

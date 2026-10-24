@@ -131,7 +131,25 @@ npm run test:bottom-nav-offline-fallback
 npm run test:error-sentry-once
 npm run test:in-progress-session
 npm run test:in-progress-bar
+npm run test:rebuild-repoint
+npm run test:prepare-session-exercises
+npm run test:repoint-matching
+npm run test:repoint-db-writes
+npm run test:load-retired-days
+npm run test:persist-block
+npm run test:block-start-date-tz
+npm run test:resolve-today-days
+npm run test:block-start-date-timezone
+npm run test:repoint-fake-client
+npm run test:deload-paths
+npm run test:detect-override
+npm run test:repoint-writes
+npm run test:persist-repoint
+npm run test:old-block-days
+npm run test:block-start-date
+npm run test:rebuild-repoint-db
 npm run test:robots-sitemap
+npm run test:history-timezone-conversion
 npm run test:node-version
 
 echo ""
