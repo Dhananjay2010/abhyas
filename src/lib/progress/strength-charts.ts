@@ -60,8 +60,10 @@ function buildStrengthCharts(
       unitLabel: unitLabelText,
     };
     
+    // B: PostgREST returns numeric columns as strings, so convert first
     // C1: Convert e1RM to user's units
-    const value = units === "imperial" ? kgToLb(row.best_e1rm) : row.best_e1rm;
+    const e1rmNum = Number(row.best_e1rm);
+    const value = units === "imperial" ? kgToLb(e1rmNum) : e1rmNum;
     
     // C2: Keep all points (including deloads), flag deload points
     const isDeload = deloadDates.has(row.local_date);
