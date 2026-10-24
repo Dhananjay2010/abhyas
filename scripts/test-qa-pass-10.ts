@@ -525,3 +525,29 @@ testSeeds('(h) Bodyweight-only user gets no equipment warmups/cooldowns',
   }
 );
 
+
+// QA Pass 10 (i): M3 female beginner fat loss bodyweight-only 3d 45min
+testSeeds('(i) M3: Female beginner fat loss bodyweight 3d 45min within ±5min',
+  { 
+    primaryTrack: 'bodyweight',
+    level: 'beginner',
+    goal: 'fat_loss',
+    hasAllEquipment: false,
+    equipmentIds: [],
+    daysPerWeek: 3,
+    preferredSessionMinutes: 45,
+    age: 36,
+    bmi: 32, // fat_loss goal
+  },
+  (plan, picked, seed) => {
+    const estimated = estimateSessionMinutes(plan);
+    const withinRange = estimated >= 40 && estimated <= 50;
+    check(`Seed ${seed}: Female beginner 45-min session within range`, withinRange,
+      `estimated ${estimated.toFixed(0)} min`);
+    
+    // Also check that plan has variety
+    check(`Seed ${seed}: Has at least 10 exercises`, picked.length >= 10,
+      `got ${picked.length} exercises`);
+  }
+);
+
