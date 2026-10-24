@@ -8,7 +8,11 @@ export type EndEarlyOutcome = "navigate_today" | "show_summary" | "show_offline"
 /**
  * Outcome of attempting to finish a session normally.
  */
-export type FinishOutcome = "done" | "resume";
+export type FinishOutcome =
+  | { action: "navigate_today" }
+  | { action: "show_summary" }
+  | { action: "show_offline_error" }
+  | { action: "show_error" };
 
 /**
  * Determine what to do after attempting to abandon a session.
@@ -36,9 +40,27 @@ export function endEarlyOutcome(
 /**
  * Determine what to do after attempting to finish a session normally.
  *
- * @param ok - Whether finishSession succeeded
+ * @param result - The result from finishSession: {ok:true, data}, {ok:false}, or {thrown:unknown}
  * @returns The outcome action to take
  */
-export function finishOutcome(ok: boolean): FinishOutcome {
-  return ok ? "done" : "resume";
+export function finishOutcome(
+  result:
+    | { ok: true; data: { status: "completed" | "skipped" } }
+    | { ok: false; error?: string }
+    | { thrown: unknown },
+): FinishOutcome {
+  // Error cases
+  if ("thrown" in result) {
+    return isNetworkError(result.thrown)
+      ? { action: "show_offline_error" }
+      : { action: "show_error" };
+  }
+  if ("ok" in result && !result.ok) {
+    return { action: "show_error" };
+  }
+
+  // Success: navigate if skipped, otherwise show summary
+  return result.data.status === "skipped"
+    ? { action: "navigate_today" }
+    : { action: "show_summary" };
 }

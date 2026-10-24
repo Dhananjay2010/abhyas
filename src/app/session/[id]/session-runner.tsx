@@ -17,7 +17,8 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { sessionCompletion } from "@/lib/session/completion";
-import { endEarlyOutcome, type EndEarlyOutcome } from "@/lib/session/end-early";
+import { endEarlyOutcome, finishOutcome, type EndEarlyOutcome, type FinishOutcome } from "@/lib/session/end-early";
+import { focusTrap } from "@/lib/focus-trap";
 import {
   abandonSession,
   deleteSet,
@@ -159,6 +160,7 @@ export function SessionRunner({
   const endEarlyTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
   const [ending, setEnding] = useState(false);
+  const endingRef = useRef(false);
   const hydrated = useHydrated();
 
   // Resume where the session actually stopped rather than at the top.
@@ -299,6 +301,47 @@ export function SessionRunner({
     }
   }
 
+  async function finish(cooldownCompleted: boolean) {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    const secs = stopElapsed();
+    let outcome: FinishOutcome;
+    try {
+      const result = await actions.finishSession({
+        sessionId,
+        durationSeconds: secs,
+        cooldownCompleted,
+      });
+      outcome = finishOutcome(result);
+    } catch (err) {
+      outcome = finishOutcome({ thrown: err });
+    }
+    busyRef.current = false;
+    setBusy(false);
+
+    switch (outcome.action) {
+      case "navigate_today":
+        setError(null);
+        await actions.refreshAfterSession();
+        if (onExit) onExit();
+        else router.push("/today");
+        break;
+      case "show_summary":
+        setError(null);
+        setPhase("done");
+        break;
+      case "show_offline_error":
+        resumeElapsed();
+        setError("You're offline. Your session wasn't finished – try again when you're back online.");
+        break;
+      case "show_error":
+        resumeElapsed();
+        setError("Couldn't finish the session. Try again.");
+        break;
+    }
+  }
+
   // ---- warm-up ----------------------------------------------------------
   if (phase === "warmup") {
     const item = warmup[warmupIndex];
@@ -394,48 +437,10 @@ export function SessionRunner({
             ))}
         </ul>
         <div className="mt-10 space-y-3">
-          <BigButton
-            disabled={busy}
-            onClick={async () => {
-              const secs = stopElapsed();
-              const result = await actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: true });
-              if (!result.ok) {
-                resumeElapsed();
-                setError(result.error ?? "Something went wrong");
-                return;
-              }
-              setError(null);
-              if (result.data.status === "skipped") {
-                await actions.refreshAfterSession();
-                if (onExit) onExit();
-                else router.push("/today");
-              } else {
-                setPhase("done");
-              }
-            }}
-          >
+          <BigButton disabled={busy} onClick={() => finish(true)}>
             Done
           </BigButton>
-          <GhostButton
-            disabled={busy}
-            onClick={async () => {
-              const secs = stopElapsed();
-              const result = await actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: false });
-              if (!result.ok) {
-                resumeElapsed();
-                setError(result.error ?? "Something went wrong");
-                return;
-              }
-              setError(null);
-              if (result.data.status === "skipped") {
-                await actions.refreshAfterSession();
-                if (onExit) onExit();
-                else router.push("/today");
-              } else {
-                setPhase("done");
-              }
-            }}
-          >
+          <GhostButton disabled={busy} onClick={() => finish(false)}>
             Skip cool-down
           </GhostButton>
         </div>
@@ -711,23 +716,7 @@ export function SessionRunner({
     setBannerFor(next === -1 ? null : next);
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
-      else {
-        const secs = stopElapsed();
-        const result = await actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: false });
-        if (!result.ok) {
-          resumeElapsed();
-          setError(result.error ?? "Something went wrong");
-        } else {
-          setError(null);
-          if (result.data.status === "skipped") {
-            await actions.refreshAfterSession();
-            if (onExit) onExit();
-            else router.push("/today");
-          } else {
-            setPhase("done");
-          }
-        }
-      }
+      else await finish(false);
     } else {
       setExerciseIndex(next);
     }
@@ -1020,6 +1009,8 @@ export function SessionRunner({
                 setEndEarlyOfflineError(false);
               }}
               onConfirm={async () => {
+                if (endingRef.current) return;
+                endingRef.current = true;
                 const secs = stopElapsed();
                 setEnding(true);
                 let outcome: EndEarlyOutcome;
@@ -1029,6 +1020,7 @@ export function SessionRunner({
                 } catch (err) {
                   outcome = endEarlyOutcome({ thrown: err }, totalSetsDone);
                 }
+                endingRef.current = false;
                 setEnding(false);
 
                 switch (outcome) {
@@ -1514,58 +1506,28 @@ function EndEarlyConfirm({
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    const returnFocus = triggerRef.current;
     if (!dialog) return;
 
     dialog.showModal();
-    keepGoingRef.current?.focus();
+
+    const trap = focusTrap({
+      element: dialog,
+      onEscape: () => onCancelRef.current(),
+      returnFocusTo: triggerRef.current,
+      initialFocus: true,
+    });
 
     const handleCancel = (e: Event) => {
       e.preventDefault();
       onCancelRef.current();
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-
-      const focusableButtons = [keepGoingRef.current, endSessionRef.current].filter(
-        (btn): btn is HTMLButtonElement => btn !== null && !btn.disabled,
-      );
-
-      if (focusableButtons.length === 0) return;
-
-      const activeElement = document.activeElement;
-      const currentIndex = focusableButtons.findIndex((btn) => btn === activeElement);
-
-      if (
-        currentIndex === -1 ||
-        !dialog.contains(activeElement) ||
-        activeElement === document.body
-      ) {
-        e.preventDefault();
-        focusableButtons[0].focus();
-        return;
-      }
-
-      if (e.shiftKey) {
-        e.preventDefault();
-        const prevIndex = (currentIndex - 1 + focusableButtons.length) % focusableButtons.length;
-        focusableButtons[prevIndex].focus();
-      } else {
-        e.preventDefault();
-        const nextIndex = (currentIndex + 1) % focusableButtons.length;
-        focusableButtons[nextIndex].focus();
-      }
-    };
-
     dialog.addEventListener("cancel", handleCancel);
-    dialog.addEventListener("keydown", handleKeyDown);
 
     return () => {
       dialog.removeEventListener("cancel", handleCancel);
-      dialog.removeEventListener("keydown", handleKeyDown);
+      trap.release();
       dialog.close();
-      returnFocus?.focus();
     };
   }, [triggerRef]);
 
