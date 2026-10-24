@@ -100,33 +100,57 @@ export async function detectSessionPRs(
   }
 
   // Step 2: Fetch all sets for these sessions
-  // Order by completed_at ASC on session_sets table (chronological for PR detection)
-  const { data: allSets, error: setsError } = await supabase
-    .from("session_sets")
-    .select(
-      `
-      session_exercise_id,
-      set_number,
-      reps,
-      weight_kg,
-      duration_seconds,
-      completed_at,
-      session_exercises!inner(
-        session_id,
-        exercise_id,
-        metric
-      )
-    `
-    )
-    .in("session_exercises.session_id", historicalSessionIds)
-    .eq("session_exercises.user_id", userId)
-    .eq("session_exercises.status", "completed")
-    .eq("is_warmup_set", false)
-    .order("completed_at", { ascending: true });
+  // Handle PostgREST max-rows limit (typically 1000) by paging with .range()
+  // Chunk session IDs to avoid URL length limits (~100 IDs per request)
+  const allSets: SetRow[] = [];
+  const chunkSize = 100;
+  
+  for (let i = 0; i < historicalSessionIds.length; i += chunkSize) {
+    const chunk = historicalSessionIds.slice(i, i + chunkSize);
+    
+    // Fetch sets for this chunk, paging through results
+    let offset = 0;
+    const pageSize = 1000; // PostgREST default max
+    let hasMore = true;
+    
+    while (hasMore) {
+      const { data: pageSets, error: setsError } = await supabase
+        .from("session_sets")
+        .select(
+          `
+          session_exercise_id,
+          set_number,
+          reps,
+          weight_kg,
+          duration_seconds,
+          completed_at,
+          session_exercises!inner(
+            session_id,
+            exercise_id,
+            metric
+          )
+        `
+        )
+        .in("session_exercises.session_id", chunk)
+        .eq("session_exercises.user_id", userId)
+        .eq("session_exercises.status", "completed")
+        .eq("is_warmup_set", false)
+        .order("completed_at", { ascending: true })
+        .range(offset, offset + pageSize - 1);
 
-  if (setsError || !allSets) {
-    console.error("Failed to fetch sets for PR detection:", setsError);
-    return new Set();
+      if (setsError) {
+        console.error("Failed to fetch sets for PR detection:", setsError);
+        break;
+      }
+
+      if (!pageSets || pageSets.length === 0) {
+        hasMore = false;
+      } else {
+        allSets.push(...(pageSets as unknown as SetRow[]));
+        hasMore = pageSets.length === pageSize;
+        offset += pageSize;
+      }
+    }
   }
 
   // Group sets by exercise, maintaining chronological order
