@@ -125,8 +125,8 @@ async function main() {
     cue: string;
     mechanic: string | null;
     movement_pattern: string | null;
-    primary_muscles: string;
-    equipment_ids: string;
+    primary_muscles: string | string[];
+    equipment_ids: string | string[];
   }>(
     `SELECT slug, cue, mechanic, movement_pattern, primary_muscles, equipment_ids FROM exercises 
      WHERE movement_pattern IN ('squat', 'hinge', 'lunge', 'calf', 'core', 'cardio', 'other', 'carry')`
@@ -155,11 +155,16 @@ async function main() {
       .split(',')
       .filter(m => m.length > 0);
     
+    const equipmentArray = ex.equipment_ids
+      .replace(/[{}]/g, '')
+      .split(',')
+      .filter(e => e.length > 0);
+    
     const expectedCue = buildCue({
       mechanic: ex.mechanic,
       pattern: ex.movement_pattern,
       primaryMuscles: primaryMusclesArray,
-      equipment: ex.equipment,
+      equipment: equipmentArray[0] || null,
     });
     
     if (ex.cue !== expectedCue) {
