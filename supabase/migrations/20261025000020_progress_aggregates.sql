@@ -202,17 +202,21 @@ begin
     raise exception 'User not authenticated';
   end if;
 
-  -- Count sessions based on filter, excluding zero-set strength and skipped
-  -- Status filter: completed OR (in_progress AND today only)
+  -- Count sessions based on filter, matching History page query exactly
+  -- Excludes: skipped, abandoned, past in_progress
+  -- Includes: completed, today's in_progress
+  -- For lifts: also excludes zero-set strength via session_volume join
   -- NULL actual_type is treated as strength
   if p_filter = 'lifts' then
     -- For strength sessions, only count those with working sets (in session_volume)
+    -- Matches the page query's session_volume join
     select count(distinct s.id)
     into v_count
     from sessions s
     inner join session_volume sv on sv.session_id = s.id
     where s.user_id = p_user
       and s.local_date <= p_today
+      and s.status != 'skipped'
       and (s.status = 'completed' or (s.status = 'in_progress' and s.local_date = p_today))
       and (s.actual_type is null or s.actual_type in ('weights', 'bodyweight'));
   elsif p_filter = 'yoga' then
@@ -221,6 +225,7 @@ begin
     from sessions s
     where s.user_id = p_user
       and s.local_date <= p_today
+      and s.status != 'skipped'
       and (s.status = 'completed' or (s.status = 'in_progress' and s.local_date = p_today))
       and s.actual_type = 'yoga';
   elsif p_filter = 'breathing' then
@@ -229,6 +234,7 @@ begin
     from sessions s
     where s.user_id = p_user
       and s.local_date <= p_today
+      and s.status != 'skipped'
       and (s.status = 'completed' or (s.status = 'in_progress' and s.local_date = p_today))
       and s.actual_type = 'meditation';
   else

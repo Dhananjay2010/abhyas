@@ -1,14 +1,16 @@
 /**
  * Session label logic for History display.
  * 
- * Precedence:
+ * Precedence (trusts status field):
  * 1. status='in_progress' + today → "In progress" (even with 0 sets)
  * 2. status='in_progress' + past date → "Unfinished from <date>"
- * 3. status='completed' → "Completed" (never "Skipped" for 0 sets/NULL started_at for yoga/breathing)
+ * 3. status='completed' → "Completed" or "Ended early" (never "Skipped")
  * 4. status='skipped' → "Skipped"
  * 5. status='abandoned' → "Abandoned"
  * 
- * For strength sessions only: completed with 0 working sets shows as "Skipped".
+ * Note: Zero-set strength sessions are excluded by the History page query,
+ * so this function never sees them. All completed sessions that reach here
+ * show "Completed" or "Ended early", never "Skipped".
  */
 
 export type SessionStatus = "completed" | "in_progress" | "skipped" | "abandoned";
@@ -56,15 +58,8 @@ export function getSessionLabel(input: SessionLabelInput): string {
   }
 
   // Priority 5: completed sessions
-  // For strength (weights/bodyweight/null), zero sets → "Skipped"
-  // For yoga/breathing, zero sets → "Completed" (trust the status)
-  const isStrength = actualType === "weights" || actualType === "bodyweight" || actualType === null;
-  const isZeroSetStrength = isStrength && setCount === 0;
-
-  if (isZeroSetStrength) {
-    return "Skipped";
-  }
-
+  // Trust the status - completed shows "Completed" or "Ended early"
+  // (Zero-set strength sessions are excluded by the History page query)
   if (endedEarly && plannedSets && plannedSets > 0) {
     return `Ended early · ${setCount} of ${plannedSets} ${plannedSets === 1 ? "set" : "sets"}`;
   }

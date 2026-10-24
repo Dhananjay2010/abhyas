@@ -254,8 +254,8 @@ async function runTests() {
         setCountsError ? `error: ${setCountsError.message}` : "");
       check("returns 5 rows", setCountsData?.length === 5,
         `got ${setCountsData?.length}`);
-      check("each session has 3 sets", setCountsData?.every((r: any) => Number(r.set_count) === 3),
-        `got ${setCountsData?.map((r: any) => r.set_count).join(", ")}`);
+      check("each session has 3 sets", setCountsData?.every((r: { session_id: string; set_count: number }) => Number(r.set_count) === 3),
+        `got ${setCountsData?.map((r: { session_id: string; set_count: number }) => r.set_count).join(", ")}`);
     }
 
     console.log("\n3. get_history_count with date filtering and yoga sessions");
@@ -324,7 +324,8 @@ async function runTests() {
       check("fetched 2 yoga sessions", yogaSessions?.length === 2,
         `got ${yogaSessions?.length}`);
       
-      const zeroSetYoga = yogaSessions?.find((s: any) => s.id === yogaSessionId2);
+      type SessionRecord = { id: string; status: string; local_date: string; actual_type: string | null; duration_seconds: number | null };
+      const zeroSetYoga = yogaSessions?.find((s: SessionRecord) => s.id === yogaSessionId2);
       check("0-set completed yoga session is in results", 
         zeroSetYoga?.status === "completed",
         `found session with status=${zeroSetYoga?.status}`);

@@ -6,6 +6,7 @@ import { getUnitsPreference } from "@/lib/units";
 import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -52,8 +53,8 @@ export default async function HistoryPage({
   // Build the query based on filter
   // For lifts, we need to join with session_volume to exclude zero-set sessions at SQL level
   // For other filters, we can query sessions directly
-  let sessions: any[] | null = null;
-  let sessionsError: any = null;
+  let sessions: unknown[] | null = null;
+  let sessionsError: PostgrestError | null = null;
 
   if (filter === "lifts") {
     // For strength: use session_volume which already excludes zero-set sessions
@@ -89,7 +90,7 @@ export default async function HistoryPage({
 
     sessionsError = error;
     // Extract the nested sessions data
-    sessions = volumeSessions?.map((v: any) => v.sessions) ?? null;
+    sessions = volumeSessions?.map((v: { sessions: unknown }) => v.sessions) ?? null;
   } else {
     // For yoga/breathing: query sessions directly (no zero-set filtering needed)
     let query = supabase

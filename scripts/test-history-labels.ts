@@ -71,7 +71,7 @@ console.log("\n2. Past-day in_progress sessions");
   check("in_progress yesterday shows 'Unfinished from <date>'", label.startsWith("Unfinished from"), label);
 }
 
-console.log("\n3. Completed sessions - strength");
+console.log("\n3. Completed sessions - trusts status");
 {
   const input: SessionLabelInput = {
     status: "completed",
@@ -87,7 +87,8 @@ console.log("\n3. Completed sessions - strength");
 }
 
 {
-  // Zero-set strength shows as "Skipped"
+  // Zero-set strength sessions are filtered out at query level (M4),
+  // so if they reach the label function, they show "Completed"
   const input: SessionLabelInput = {
     status: "completed",
     actualType: "weights",
@@ -98,27 +99,11 @@ console.log("\n3. Completed sessions - strength");
     plannedSets: null,
   };
   const label = getSessionLabel(input);
-  check("completed strength with 0 sets shows 'Skipped'", label === "Skipped", label);
+  check("completed with 0 sets trusts status, shows 'Completed'", label === "Completed", label);
 }
 
 {
-  // NULL actual_type is treated as strength
-  const input: SessionLabelInput = {
-    status: "completed",
-    actualType: null,
-    setCount: 0,
-    localDate: yesterday,
-    today,
-    endedEarly: false,
-    plannedSets: null,
-  };
-  const label = getSessionLabel(input);
-  check("completed NULL actual_type with 0 sets shows 'Skipped'", label === "Skipped", label);
-}
-
-console.log("\n4. Completed sessions - yoga (non-strength)");
-{
-  // QA requirement: completed yoga with 0 sets shows "Completed", not "Skipped"
+  // Yoga/breathing completed sessions always show "Completed"
   const input: SessionLabelInput = {
     status: "completed",
     actualType: "yoga",
@@ -132,7 +117,7 @@ console.log("\n4. Completed sessions - yoga (non-strength)");
   check("completed yoga with 0 sets shows 'Completed'", label === "Completed", label);
 }
 
-console.log("\n5. Completed sessions - breathing (non-strength)");
+console.log("\n4. Completed sessions - breathing");
 {
   const input: SessionLabelInput = {
     status: "completed",
@@ -147,7 +132,7 @@ console.log("\n5. Completed sessions - breathing (non-strength)");
   check("completed breathing with 0 sets shows 'Completed'", label === "Completed", label);
 }
 
-console.log("\n6. Skipped sessions");
+console.log("\n5. Skipped sessions");
 {
   const input: SessionLabelInput = {
     status: "skipped",
@@ -176,7 +161,7 @@ console.log("\n6. Skipped sessions");
   check("skipped yoga shows 'Skipped'", label === "Skipped", label);
 }
 
-console.log("\n7. Abandoned sessions");
+console.log("\n6. Abandoned sessions");
 {
   const input: SessionLabelInput = {
     status: "abandoned",
@@ -191,7 +176,7 @@ console.log("\n7. Abandoned sessions");
   check("abandoned shows 'Abandoned'", label === "Abandoned", label);
 }
 
-console.log("\n8. Ended early sessions");
+console.log("\n7. Ended early sessions");
 {
   const input: SessionLabelInput = {
     status: "completed",
