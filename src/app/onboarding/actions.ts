@@ -233,9 +233,16 @@ export async function saveSessionLength(minutes: number): Promise<ActionResult> 
 
   const { supabase, user } = await requireUser();
 
-  // TODO: switch to isValidSessionLength from src/lib/session-length-options.ts once PR #54 merges.
-  return persistSessionLength(
+  const result = await persistSessionLength(
     (m) => supabase.from("profiles").update({ preferred_session_minutes: m }).eq("id", user.id),
     minutes
   );
+  
+  if (result.ok) {
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/today");
+    revalidatePath("/settings");
+  }
+  
+  return result;
 }

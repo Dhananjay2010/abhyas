@@ -18,6 +18,10 @@ import {
   type Track,
 } from "@/lib/onboarding/options";
 import {
+  SESSION_LENGTH_OPTIONS,
+  DEFAULT_SESSION_LENGTH,
+} from "@/lib/onboarding/session-length";
+import {
   ErrorNote,
   Field,
   GhostButton,
@@ -33,6 +37,7 @@ import {
   saveEquipment,
   saveInjuries,
   saveProfileFields,
+  saveSessionLength,
   type ActionResult,
 } from "./actions";
 import { branding } from "@/lib/branding";
@@ -44,6 +49,7 @@ type StepId =
   | "level"
   | "track"
   | "days"
+  | "session-length"
   | "mix"
   | "equipment"
   | "injuries";
@@ -60,6 +66,7 @@ export type InitialState = {
   level: Level | null;
   primaryTrack: Track | null;
   daysPerWeek: number | null;
+  sessionMinutes: number | null;
   yogaDaysPerWeek: number;
   disclaimerAccepted: boolean;
   hasAllEquipment: boolean;
@@ -81,6 +88,7 @@ export type OnboardingActions = {
   saveProfileFields: typeof saveProfileFields;
   saveEquipment: typeof saveEquipment;
   saveInjuries: typeof saveInjuries;
+  saveSessionLength: typeof saveSessionLength;
   completeOnboarding: typeof completeOnboarding;
 };
 
@@ -90,6 +98,7 @@ const REAL_ACTIONS: OnboardingActions = {
   saveProfileFields,
   saveEquipment,
   saveInjuries,
+  saveSessionLength,
   completeOnboarding,
 };
 
@@ -125,6 +134,9 @@ export function OnboardingFlow({
     initial.primaryTrack && initial.primaryTrack !== "weights" ? initial.primaryTrack : null,
   );
   const [daysPerWeek, setDaysPerWeek] = useState<number | null>(initial.daysPerWeek);
+  const [sessionLength, setSessionLength] = useState<number>(
+    initial.sessionMinutes ?? DEFAULT_SESSION_LENGTH
+  );
   const [yogaDays, setYogaDays] = useState<number | null>(
     initial.yogaDaysPerWeek > 0 ? initial.yogaDaysPerWeek : null
   );
@@ -144,7 +156,7 @@ export function OnboardingFlow({
 
   // Equipment and the yoga mix are meaningless for a yoga- or breathing-led plan.
   const steps = useMemo<StepId[]>(() => {
-    const base: StepId[] = ["disclaimer", "about", "goal", "level", "track", "days"];
+    const base: StepId[] = ["disclaimer", "about", "goal", "level", "track", "days", "session-length"];
     if (trainsPhysically) base.push("mix", "equipment");
     base.push("injuries");
     return base;
@@ -593,6 +605,52 @@ export function OnboardingFlow({
                 if (yogaDays !== null && yogaDays > d - 1) setYogaDays(d - 1);
               }}
             />
+          ))}
+        </div>
+      </StepShell>
+    );
+  }
+
+  if (current === "session-length") {
+    return (
+      <StepShell
+        {...shell}
+        title="How long are your sessions?"
+        subtitle="Shorter sessions mean fewer exercises per day. You can change this later."
+        footer={
+          <>
+            {error && <ErrorNote>{error}</ErrorNote>}
+            <PrimaryButton
+              disabled={pending}
+              onClick={() =>
+                advance(() => actions.saveSessionLength(sessionLength))
+              }
+            >
+              {pending ? "Saving…" : "Continue"}
+            </PrimaryButton>
+          </>
+        }
+      >
+        <div
+          role="radiogroup"
+          aria-label="Session length"
+          className="flex flex-wrap gap-3"
+        >
+          {SESSION_LENGTH_OPTIONS.map((minutes) => (
+            <button
+              key={minutes}
+              type="button"
+              role="radio"
+              aria-checked={sessionLength === minutes}
+              onClick={() => setSessionLength(minutes)}
+              className={`min-h-[44px] min-w-[44px] rounded-xl border px-6 py-3 text-base font-semibold transition-colors ${
+                sessionLength === minutes
+                  ? "border-accent bg-accent/10 text-accent"
+                  : "border-border bg-surface text-fg hover:border-muted/50"
+              }`}
+            >
+              {minutes}m
+            </button>
           ))}
         </div>
       </StepShell>
