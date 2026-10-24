@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { buildCycle, initialCycles } from "@/lib/breathing/engine";
@@ -39,7 +39,9 @@ export default async function PracticeSessionPage({
       .eq("status", "completed")
       .gte("local_date", since),
   ]);
-  if (!loaded) notFound();
+  if (!loaded) {
+    throw new Error("Practice not found");
+  }
 
   const { pattern, prefs } = loaded;
   const cycle = buildCycle(pattern.phases);

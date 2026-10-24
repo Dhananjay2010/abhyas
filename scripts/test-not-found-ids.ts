@@ -1,10 +1,14 @@
 /**
- * Test that invalid or nonexistent session/history IDs return 404, not 200.
+ * Test that invalid or nonexistent route parameters return 404, not 200.
  *
  * The bug (QA Bot 2): routes with loading.tsx were returning HTTP 200 for
  * nonexistent or malformed IDs because notFound() was called after streaming
  * started. The fix moves validation to layout.tsx, which runs OUTSIDE the
  * loading.tsx Suspense boundary.
+ *
+ * Note: checkBreatheRoute tests are skipped because loadPractice requires
+ * Next.js request context (getCachedBreathingPatterns). These routes are
+ * tested via curl integration tests instead.
  *
  *   npx tsx scripts/test-not-found-ids.ts
  */
@@ -18,7 +22,7 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ` -- ${detail}` : ""}`);
 }
 
-function createFakeClient(shouldExist: boolean) {
+function createFakeSessionClient(shouldExist: boolean) {
   return {
     from: () => ({
       select: () => ({
@@ -54,8 +58,8 @@ async function runTests() {
 
   console.log("\n2. checkSessionRoute validates and queries");
   {
-    const existingClient = createFakeClient(true) as unknown as SupabaseClient;
-    const missingClient = createFakeClient(false) as unknown as SupabaseClient;
+    const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
+    const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
     
     check(
       "valid UUID that exists returns 'ok'",
@@ -80,8 +84,8 @@ async function runTests() {
 
   console.log("\n3. checkHistoryRoute validates and queries");
   {
-    const existingClient = createFakeClient(true) as unknown as SupabaseClient;
-    const missingClient = createFakeClient(false) as unknown as SupabaseClient;
+    const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
+    const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
     
     check(
       "valid UUID that exists returns 'ok'",
@@ -99,7 +103,13 @@ async function runTests() {
     );
   }
 
-  console.log("\n4. Edge cases that should fail validation");
+  console.log("\n4. checkBreatheRoute validates slugs (skipped in unit tests)");
+  {
+    console.log("  SKIP checkBreatheRoute requires Next.js request context (getCachedBreathingPatterns)");
+    console.log("  SKIP Validation tested via curl integration tests instead");
+  }
+
+  console.log("\n5. Edge cases that should fail validation");
   {
     check("UUID with uppercase and invalid char", !isUuid("C56A4180-65AA-42EC-A945-5FD21DEC053Z"));
     check("UUID with spaces", !isUuid("550e8400 e29b 41d4 a716 446655440000"));

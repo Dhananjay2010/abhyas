@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { loadPractice } from "../load";
 import { PracticeSetup } from "./practice-setup";
@@ -11,7 +11,9 @@ export default async function PracticePage({ params }: { params: Promise<{ slug:
   if (!user) redirect("/");
 
   const loaded = await loadPractice(supabase, user.id, slug);
-  if (!loaded) notFound();
+  if (!loaded) {
+    throw new Error("Practice not found");
+  }
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
