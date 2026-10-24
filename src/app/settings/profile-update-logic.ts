@@ -1,11 +1,12 @@
 /**
  * Pure profile update logic extracted for testing.
  *
- * Extracted timezone validation and update logic with injected dependencies,
+ * Extracted timezone and date_of_birth validation and update logic with injected dependencies,
  * making it testable without mocking Supabase.
  */
 
 import { sanitizeTimezonePatch } from "@/lib/timezone-patch";
+import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
 import type { Database } from "@/lib/database.types";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -13,10 +14,11 @@ export type Result = { ok: true } | { ok: false; error: string };
 
 export interface ProfileUpdateDeps {
   updateProfile: (patch: ProfileUpdate) => Promise<Result>;
+  getTodayIso: () => string;
 }
 
 /**
- * Validate and update profile timezone with injected dependencies.
+ * Validate and update profile timezone and date_of_birth with injected dependencies.
  *
  * This is the core update logic separated from Supabase specifics.
  * Testable by injecting spy dependencies.
@@ -24,8 +26,9 @@ export interface ProfileUpdateDeps {
  * Flow:
  * 1. If timezone is undefined, skip validation (preserves current value)
  * 2. Validate and canonicalize timezone
- * 3. On invalid: return error WITHOUT calling updateProfile
- * 4. On valid: call updateProfile with canonical value
+ * 3. If date_of_birth is explicitly set, validate age bounds
+ * 4. On invalid: return error WITHOUT calling updateProfile
+ * 5. On valid: call updateProfile with validated values
  */
 export async function validateAndUpdateProfile(
   patch: ProfileUpdate,
@@ -41,6 +44,21 @@ export async function validateAndUpdateProfile(
     }
     // Replace raw input with canonical value
     patch.timezone = sanitized.timezone;
+  }
+
+  // Validate date_of_birth when explicitly set
+  if (patch.date_of_birth !== undefined) {
+    if (patch.date_of_birth === null) {
+      // Allow clearing DOB (null)
+      // No validation needed
+    } else {
+      const todayIso = deps.getTodayIso();
+      const error = validateDob(patch.date_of_birth, todayIso);
+      if (error) {
+        const message = getDobErrorMessage(error);
+        return { ok: false, error: message };
+      }
+    }
   }
 
   // Call the injected update function with the validated patch

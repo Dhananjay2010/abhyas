@@ -74,6 +74,10 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
       if (error) return { ok: false, error: error.message };
       return { ok: true };
     },
+    getTodayIso: () => {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    },
   });
 
   if (!result.ok) return result;
