@@ -109,6 +109,12 @@ export default async function SettingsPage() {
         </section>
       </div>
 
+      <footer className="mt-8 pb-4 text-center text-xs text-muted">
+        Version {process.env.NEXT_PUBLIC_BUILD_SHA || "dev"}
+        {process.env.NEXT_PUBLIC_BUILD_ID && process.env.NEXT_PUBLIC_BUILD_ID !== process.env.NEXT_PUBLIC_BUILD_SHA && (
+          <> • Built {new Date(parseInt(process.env.NEXT_PUBLIC_BUILD_ID)).toLocaleDateString()}</>
+        )}
+      </footer>
     </main>
   );
 }

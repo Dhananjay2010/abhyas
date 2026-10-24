@@ -61,6 +61,20 @@ export function OfflineScreen({ fullPage = false }: OfflineScreenProps) {
       maxWidth: "28rem",
     };
 
+    const noscriptLinkStyle = {
+      display: "inline-block",
+      padding: "0.875rem 2rem",
+      fontSize: "1rem",
+      fontWeight: 500,
+      borderRadius: "0.5rem",
+      backgroundColor: branding.colors.accent,
+      color: branding.colors.accentFg,
+      textDecoration: "none",
+      minHeight: "44px",
+      minWidth: "44px",
+      textAlign: "center" as const,
+    };
+
     return (
       <>
         {/* Inline styles for html and body to prevent white frame when CSS isn't cached */}
@@ -93,6 +107,13 @@ export function OfflineScreen({ fullPage = false }: OfflineScreenProps) {
 
             {/* Retry button with client-side feedback (shows "Still offline" when offline) */}
             <OfflineRetry />
+
+            {/* Fallback link for users without JavaScript */}
+            <noscript>
+              <a href="/" style={noscriptLinkStyle}>
+                Go home
+              </a>
+            </noscript>
           </div>
         </div>
       </>

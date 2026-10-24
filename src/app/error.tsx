@@ -22,15 +22,6 @@ export default function Error({
 
   useEffect(() => {
     console.error("Page error:", error);
-    
-    const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
-    const offline = isOfflineError(error, isOnline);
-    
-    setIsOfflineError(offline);
-    
-    if (!offline) {
-      Sentry.captureException(error);
-    }
 
     return () => {
       setIsOfflineError(false);
@@ -54,7 +45,17 @@ export default function Error({
     };
   }, []);
 
+  // Derive offline state from live online state consistently
   const offline = isOfflineError(error, online);
+
+  // Update context and Sentry when offline status changes
+  useEffect(() => {
+    setIsOfflineError(offline);
+    
+    if (!offline) {
+      Sentry.captureException(error);
+    }
+  }, [offline, error, setIsOfflineError]);
 
   function handleReset() {
     setIsOfflineError(false);

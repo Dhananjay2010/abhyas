@@ -417,9 +417,10 @@ TRUST_PROXY=1
 
 **How it works:**
 - When `TRUST_PROXY=1`, the app trusts `x-forwarded-host` and `x-forwarded-proto` headers
-- The forwarded host MUST match your brand's `siteUrl` host (e.g., `yourgym.com`)
+- The forwarded hostname MUST match your brand's `siteUrl` hostname (case-insensitive, e.g., `yourgym.com` or `YourGym.com`)
+- Port mismatch is tolerated: the check compares hostnames only, ignoring explicit vs. default ports (80/443)
 - The forwarded protocol must be `http` or `https`
-- Requests with a non-matching forwarded host are rejected (uses request's own host/protocol)
+- Requests with a non-matching forwarded hostname are rejected (uses request's own host/protocol)
 
 **Security:**
 - The app ONLY trusts forwarded headers when the forwarded host matches the brand host
@@ -450,14 +451,15 @@ server {
 
 ```ini
 [Unit]
-Description=Abhyas Yoga App
+Description=Fitness App
 After=network.target
 
 [Service]
 Type=simple
-User=abhyas
-WorkingDirectory=/opt/abhyas
+User=app
+WorkingDirectory=/opt/app
 Environment="NODE_ENV=production"
+Environment="PORT=3000"
 Environment="NEXT_PUBLIC_BRAND=your-gym-id"
 Environment="TRUST_PROXY=1"
 ExecStart=/usr/bin/npm start
