@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { resolveStaleFinish } from "./stale-duration";
 
 type Client = SupabaseClient<Database>;
 
+export type { Client };
 export type OpenSession = { id: string; local_date: string };
 
 /**
@@ -44,33 +46,85 @@ export async function closeStaleSessions(
 
   const ids = stale.map((s) => s.id);
 
-  // Warm-up sets do not count as having trained; they are logged against the
-  // same exercises, so they have to be filtered out rather than counted.
+  // Fetch session data (started_at) and exercise/set data
+  const { data: sessions } = await supabase
+    .from("sessions")
+    .select("id, started_at")
+    .in("id", ids);
+
   const { data: rows } = await supabase
     .from("session_exercises")
-    .select("session_id, session_sets(id, is_warmup_set)")
+    .select("session_id, session_sets(id, is_warmup_set, completed_at)")
     .in("session_id", ids);
 
-  const trained = new Set<string>();
-  for (const row of rows ?? []) {
-    const sets = (row.session_sets ?? []) as { is_warmup_set: boolean }[];
-    if (sets.some((x) => !x.is_warmup_set)) trained.add(row.session_id);
+  // Build map of session_id -> { workingSetCount, lastSetCompletedAt, startedAt }
+  type SessionData = {
+    startedAt: string;
+    workingSetCount: number;
+    lastSetCompletedAt: string | null;
+  };
+
+  const sessionMap = new Map<string, SessionData>();
+
+  // Initialize with session started_at
+  for (const session of sessions ?? []) {
+    if (!session.started_at) continue; // Skip sessions without started_at
+    sessionMap.set(session.id, {
+      startedAt: session.started_at,
+      workingSetCount: 0,
+      lastSetCompletedAt: null,
+    });
   }
 
-  const completed = ids.filter((id) => trained.has(id));
-  const abandoned = ids.filter((id) => !trained.has(id));
+  // Count working sets and track last set timestamp
+  for (const row of rows ?? []) {
+    const data = sessionMap.get(row.session_id);
+    if (!data) continue;
 
-  await Promise.all([
-    completed.length > 0
-      ? supabase
-          .from("sessions")
-          .update({ status: "completed", completed_at: new Date().toISOString() })
-          .in("id", completed)
-      : Promise.resolve(),
-    abandoned.length > 0
-      ? supabase.from("sessions").update({ status: "skipped" }).in("id", abandoned)
-      : Promise.resolve(),
-  ]);
+    const sets = (row.session_sets ?? []) as Array<{
+      is_warmup_set: boolean;
+      completed_at: string | null;
+    }>;
 
-  return completed.length;
+    for (const set of sets) {
+      if (!set.is_warmup_set) {
+        data.workingSetCount++;
+      }
+      if (set.completed_at) {
+        if (!data.lastSetCompletedAt || set.completed_at > data.lastSetCompletedAt) {
+          data.lastSetCompletedAt = set.completed_at;
+        }
+      }
+    }
+  }
+
+  // Update each stale session using resolveStaleFinish
+  const updates = [];
+  for (const [sessionId, data] of sessionMap.entries()) {
+    const result = resolveStaleFinish({
+      startedAt: data.startedAt,
+      lastSetCompletedAt: data.lastSetCompletedAt,
+      workingSetCount: data.workingSetCount,
+    });
+
+    updates.push(
+      supabase
+        .from("sessions")
+        .update({
+          status: result.status,
+          completed_at: result.status === "completed" ? result.endedAt : null,
+          duration_seconds: result.durationSeconds,
+        })
+        .eq("id", sessionId)
+    );
+  }
+
+  await Promise.all(updates);
+
+  // Count how many were completed
+  const completedCount = Array.from(sessionMap.values()).filter(
+    (data) => data.workingSetCount > 0
+  ).length;
+
+  return completedCount;
 }
