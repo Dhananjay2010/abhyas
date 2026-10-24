@@ -286,7 +286,6 @@ const equipmentProfiles: Array<{ name: string; hasAll: boolean; ids: string[] }>
 const sessionLengths = [30, 45, 60, 75];
 const frequencies = [2, 3, 4, 5];
 const goals: GeneratorInput["goal"][] = ["general_fitness", "muscle_gain"];
-type BodyRegion = "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
 const injurySeverities: Array<{ label: string; currentRegions: BodyRegion[]; anyKnee: boolean }> = [
   { label: "current-knee", currentRegions: ["knee"], anyKnee: true },
   { label: "past-knee", currentRegions: [], anyKnee: true },
