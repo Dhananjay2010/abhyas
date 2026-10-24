@@ -32,7 +32,7 @@ import { loadStartProgram, type ProgramWithDays } from "../src/lib/session/load-
     requiredFilters: string[]
   ) {
     return {
-      async fetchProgram(programId: string) {
+      async fetchProgram() {
         capturedFilters = requiredFilters;
         return { data: program, error };
       },
