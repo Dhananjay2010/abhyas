@@ -120,7 +120,7 @@ console.log("1. Non-stale session saves client-provided duration");
     assertEquals(deps.updateCalls.length, 1, "updateSession called once");
     
     const update = deps.updateCalls[0];
-    assertTrue(update.patch.duration_seconds > 0, "duration_seconds is not 0");
+    assertTrue(update.patch.duration_seconds !== null && update.patch.duration_seconds > 0, "duration_seconds is not 0");
     assertEquals(update.patch.duration_seconds, 1234, "duration_seconds is the client-provided value");
     assertEquals(update.patch.status, "completed", "status is completed");
   })();
@@ -152,7 +152,7 @@ console.log("\n2. Non-stale skipped session saves client-provided duration");
     assertEquals(deps.updateCalls.length, 1, "updateSession called once");
     
     const update = deps.updateCalls[0];
-    assertTrue(update.patch.duration_seconds > 0, "duration_seconds is not 0");
+    assertTrue(update.patch.duration_seconds !== null && update.patch.duration_seconds > 0, "duration_seconds is not 0");
     assertEquals(update.patch.duration_seconds, 456, "duration_seconds is the client-provided value");
     assertEquals(update.patch.status, "skipped", "status is skipped");
   })();
