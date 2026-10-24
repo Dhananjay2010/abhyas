@@ -177,4 +177,53 @@ assert(
   "Timezone: yesterday local before signup local is NOT missed"
 );
 
+console.log("\n=== Test 7: Existing user, created_at after program start (test created_at guard) ===\n");
+
+// Scenario: User signed up Oct 24, but program started Oct 20
+// Yesterday (Oct 23) falls between program start and signup
+// Expected: NOT missed (yesterday is on/before signup day)
+// This tests the created_at guard when hasStartedAny=true
+
+const result7 = isMissedTrainingDay({
+  date: "2026-10-23", // Yesterday (between program start and signup)
+  programStartedOn: "2026-10-20", // Program started 4 days ago
+  profileCreatedAt: "2026-10-24T10:00:00Z", // Signed up today
+  timezone: "UTC",
+  templateDayType: "weights",
+  programId: "program-1",
+  sessions: [],
+  hasStartedAny: true, // User has started sessions before (from another context)
+});
+
+assert(
+  !result7,
+  "Existing user: yesterday between program start and signup is NOT missed (created_at guard)"
+);
+
+console.log("\n=== Test 8: Timezone UTC vs local date for created_at ===\n");
+
+// Scenario: User in Asia/Kolkata (UTC+5:30) signed up Oct 24 00:30 local time
+// That's Oct 23 19:00 UTC
+// Local signup date is Oct 24, but UTC date is Oct 23
+// Yesterday (Oct 23) should NOT be missed (signup day in local timezone)
+// This tests that we use local date for created_at, not UTC
+
+const kolkataSignup = "2026-10-23T19:00:00Z"; // Oct 24 00:30 in Kolkata
+
+const result8 = isMissedTrainingDay({
+  date: "2026-10-24", // Date to check (signup day local)
+  programStartedOn: "2026-10-20", // Program started days ago
+  profileCreatedAt: kolkataSignup,
+  timezone: "Asia/Kolkata",
+  templateDayType: "weights",
+  programId: "program-1",
+  sessions: [],
+  hasStartedAny: true,
+});
+
+assert(
+  !result8,
+  "Timezone: created_at 2026-10-23T19:00Z in Asia/Kolkata (local 2026-10-24) is NOT missed (local date used)"
+);
+
 console.log(`\n✅ All ${passedTests}/${totalTests} new user tests passed!\n`);

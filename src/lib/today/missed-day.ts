@@ -79,22 +79,23 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
   }
 
   // Guard: "too new to have missed anything"
-  // Defense-in-depth: earliestCountableDate = max(profile created_at as local date, program started_on)
-  // Any date before this can never be missed, even if the template scheduled training.
-  // The signup day itself is never missed (this matches the comment at the top of this file).
-  // This prevents "missed yesterday" on signup day, after block rebuilds, and for any date
-  // before the member started (e.g. a plan that began 3 days before signup).
-  const earliestCountableDate = (() => {
-    if (!profileCreatedAt) {
-      return programStartedOn;
-    }
+  // Two separate guards with different semantics:
+  // 1. Signup day (profile.created_at local) can NEVER be missed: use <= (lenient on first day)
+  // 2. Program start day CAN be missed: use strict < (block day 1 can count as missed)
+  //
+  // This prevents "missed yesterday" on signup day, but allows it after block rebuilds
+  // when the user actually skips day 1 of a new block.
+  
+  // Signup day guard: date <= createdAtLocal (signup day never counts as missed)
+  if (profileCreatedAt) {
     const createdAtLocal = localDateString(timezone, new Date(profileCreatedAt));
-    // Return the LATER of the two dates (max)
-    return createdAtLocal > programStartedOn ? createdAtLocal : programStartedOn;
-  })();
-
-  // The signup day itself is never missed. Skip any day <= earliestCountableDate.
-  if (date <= earliestCountableDate) {
+    if (date <= createdAtLocal) {
+      return false;
+    }
+  }
+  
+  // Program start guard: date < programStartedOn (strict - day 1 CAN be missed)
+  if (date < programStartedOn) {
     return false;
   }
 
