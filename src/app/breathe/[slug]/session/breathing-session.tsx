@@ -49,6 +49,7 @@ import type { ResolvedStep, Routine } from "@/lib/breathing/routine";
 import { GLOW_BG, HALO_BG, ORB_BG, SESSION_BG } from "@/lib/breathing/theme";
 import { formatClock, useWakeLock, vibrate } from "@/lib/session/device";
 import { formatDuration } from "@/lib/format-duration";
+import { focusTrap } from "@/lib/focus-trap";
 import {
   rateBreathingPractice,
   recordBreathingPractice,
@@ -480,6 +481,8 @@ function Practice({
   const haloRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLButtonElement>(null);
+  const pauseDialogRef = useRef<HTMLDivElement>(null);
+  const pauseTriggerRef = useRef<HTMLElement | null>(null);
 
   const keyRef = useRef("");
   const countRef = useRef<number | null>(null);
@@ -595,6 +598,8 @@ function Practice({
 
   const requestPause = useCallback(() => {
     if (stageRef.current !== "running") return;
+    // Store what triggered the pause so we can return focus to it
+    pauseTriggerRef.current = document.activeElement as HTMLElement;
     const t = clock.elapsed() - settle;
     setPauseAt({
       t: Math.max(0, Math.min(t, total)),
@@ -614,6 +619,21 @@ function Practice({
   useEffect(() => {
     registerPause(requestPause);
   }, [registerPause, requestPause]);
+
+  // Focus trap for pause dialog
+  useEffect(() => {
+    if (!paused || !pauseDialogRef.current) return;
+    const trap = focusTrap({
+      element: pauseDialogRef.current,
+      onEscape: () => {
+        setPaused(false);
+        setControls(true);
+      },
+      returnFocusTo: pauseTriggerRef.current,
+      initialFocus: true,
+    });
+    return () => trap.release();
+  }, [paused]);
 
   // Leaving the app pauses the practice. iOS stops the audio at that point
   // anyway, and coming back to a practice that raced on without you is worse.
@@ -1401,6 +1421,7 @@ function Practice({
           }}
         >
           <div
+            ref={pauseDialogRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="pause-title"

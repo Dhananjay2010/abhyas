@@ -3,31 +3,29 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import {
   INTENTS,
-  PATTERN_COLUMNS,
   PREFS_COLUMNS,
   USER_PATTERN_COLUMNS,
-  patternFromRow,
   prefsFromRow,
   userPatternFromRow,
   withUserPatterns,
   type Intent,
-  type Pattern,
   type UserPattern,
 } from "@/lib/breathing/pattern";
 import {
-  JOURNEY_COLUMNS,
   PROGRESS_COLUMNS,
-  journeyFromRow,
   progressFromRow,
   resolveJourney,
   type ResolvedJourney,
 } from "@/lib/breathing/journey";
 import {
-  ROUTINE_COLUMNS,
   resolveRoutine,
-  routineFromRow,
   type ResolvedRoutine,
 } from "@/lib/breathing/routine";
+import {
+  getCachedBreathingPatterns,
+  getCachedBreathingRoutines,
+  getCachedBreathingJourneys,
+} from "@/lib/supabase/cached-queries";
 import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { suggestPractice } from "@/lib/breathing/suggest";
 import { BreatheHome, type LastPractice } from "./breathe-home";
@@ -61,73 +59,54 @@ export default async function BreathePage({
   const since = addDays(utcToday, -370);
 
   const [
-    patternsRes,
+    builtinPatterns,
+    routinesData,
+    journeysData,
     mineRes,
-    routinesRes,
-    journeysRes,
     progressRes,
     settingsRes,
     profileRes,
     practicesRes,
     logsRes,
     trainingRes,
-  ] =
-    await Promise.all([
-      supabase.from("breathing_patterns").select(PATTERN_COLUMNS).order("sort_order"),
-      supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS).order("created_at"),
-      supabase.from("breathing_routines").select(ROUTINE_COLUMNS).order("sort_order"),
-      supabase.from("breathing_journeys").select(JOURNEY_COLUMNS).order("sort_order"),
-      // Every journey's progress at once: there is one course today, and a
-      // second round trip per course would be a query for nothing.
-      supabase.from("user_journey_progress").select(PROGRESS_COLUMNS),
-      supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", user.id).maybeSingle(),
-      supabase.from("profiles").select("timezone").eq("id", user.id).single(),
-      // Sessions rather than logs: practices recorded before breathing_logs
-      // existed still count towards the week and the streak.
-      supabase
-        .from("sessions")
-        .select("local_date, duration_seconds")
-        .eq("actual_type", "meditation")
-        .eq("status", "completed")
-        .gte("local_date", since)
-        .limit(2000),
-      supabase
-        .from("breathing_logs")
-        .select(
-          "pattern_id, user_pattern_id, planned_cycles, pattern_name, routine_id, routine_name, mood_before, mood_after",
-        )
-        .order("created_at", { ascending: false })
-        .limit(200),
-      // Did you train today? Two days of workouts is enough to answer it once
-      // the timezone arrives.
-      supabase
-        .from("sessions")
-        .select("local_date, actual_type")
-        .eq("status", "completed")
-        .in("actual_type", ["weights", "bodyweight"])
-        .gte("local_date", addDays(utcToday, -1))
-        .limit(10),
-    ]);
+  ] = await Promise.all([
+    getCachedBreathingPatterns(),
+    getCachedBreathingRoutines(),
+    getCachedBreathingJourneys(),
+    supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS).order("created_at"),
+    supabase.from("user_journey_progress").select(PROGRESS_COLUMNS),
+    supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select("timezone").eq("id", user.id).single(),
+    supabase
+      .from("sessions")
+      .select("local_date, duration_seconds")
+      .eq("actual_type", "meditation")
+      .eq("status", "completed")
+      .gte("local_date", since)
+      .limit(2000),
+    supabase
+      .from("breathing_logs")
+      .select(
+        "pattern_id, user_pattern_id, planned_cycles, pattern_name, routine_id, routine_name, mood_before, mood_after",
+      )
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("sessions")
+      .select("local_date, actual_type")
+      .eq("status", "completed")
+      .in("actual_type", ["weights", "bodyweight"])
+      .gte("local_date", addDays(utcToday, -1))
+      .limit(10),
+  ]);
 
-  if (patternsRes.error) {
-    throw new Error(`Could not load the breathing practices: ${patternsRes.error.message}`);
-  }
-
-  const builtins = (patternsRes.data ?? [])
-    .map((row) => patternFromRow(row))
-    .filter((p): p is Pattern => p !== null);
   const owned = (mineRes.data ?? [])
     .map(userPatternFromRow)
     .filter((p): p is UserPattern => p !== null);
-  const patterns = withUserPatterns(builtins, owned);
+  const patterns = withUserPatterns(builtinPatterns, owned);
 
-  // A routine whose practices are not all there is not offered at all: a
-  // "Downshift" missing its first step is not Downshift.
-  const routines = (routinesRes.data ?? [])
-    .map((row) => {
-      const routine = routineFromRow(row);
-      return routine ? resolveRoutine(routine, patterns) : null;
-    })
+  const routines = routinesData
+    .map((routine) => resolveRoutine(routine, patterns))
     .filter((r): r is ResolvedRoutine => r !== null);
 
   const timezone = profileRes.data?.timezone || "Asia/Kolkata";
@@ -186,18 +165,16 @@ export default async function BreathePage({
   const progressByJourney = new Map(
     (progressRes.data ?? []).map((row) => [row.journey_id, row]),
   );
-  const journeys = (journeysRes.data ?? [])
-    .map((row) => {
-      const journey = journeyFromRow(row);
-      if (!journey) return null;
-      return resolveJourney({
+  const journeys = journeysData
+    .map((journey) =>
+      resolveJourney({
         journey,
         patterns,
         progress: progressFromRow(progressByJourney.get(journey.id) ?? null),
         today,
         shifts,
-      });
-    })
+      }),
+    )
     .filter((j): j is ResolvedJourney => j !== null);
 
   const asked = typeof search.intent === "string" ? search.intent : null;

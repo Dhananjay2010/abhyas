@@ -118,25 +118,26 @@ export function PracticeSetup({
 
   const start = () => {
     if (starting) return;
-    setStarting(true);
-    // This tap is the gesture iOS needs before any sound is allowed -- Web
-    // Audio and speech are granted separately -- and what it unlocks survives
-    // the navigation to the practice screen.
+    // Unlock audio immediately before any async work.
     if (sound.guidance !== "off") {
       unlockBreathAudio();
       if (sound.guidance === "voice") warmUpSpeech(sound.voiceLang);
     }
     noteInAppStart();
-    router.push(
-      `${basePath}/${pattern.slug}/session${sessionSearch({
-        cycles,
-        ...sound,
-        showCount,
-        vibrate: prefs.vibrate,
-        settleIn: prefs.settleIn,
-        checkIn: prefs.checkIn,
-      })}`,
-    );
+
+    setStarting(true);
+    startTransition(() => {
+      router.push(
+        `${basePath}/${pattern.slug}/session${sessionSearch({
+          cycles,
+          ...sound,
+          showCount,
+          vibrate: prefs.vibrate,
+          settleIn: prefs.settleIn,
+          checkIn: prefs.checkIn,
+        })}`,
+      );
+    });
   };
 
   if (!confirmed) {

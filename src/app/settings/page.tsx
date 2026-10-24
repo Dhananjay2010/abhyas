@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { getCachedEquipment } from "@/lib/supabase/cached-queries";
 import { SettingsForm, type SettingsState } from "./settings-form";
 import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
@@ -10,16 +11,11 @@ export default async function SettingsPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  // All 5 queries run in parallel. The RLS filters on user_id need indexes
-  // (see P3-L4: user_equipment, user_injuries lack indexes on their FKs).
-  // Combining these into fewer queries with joins would complicate the RLS
-  // policies without measurably improving performance, since they already
-  // run concurrently.
-  const [profileRes, settingsRes, equipmentRes, userEquipmentRes, injuriesRes] =
+  const [profileRes, settingsRes, equipment, userEquipmentRes, injuriesRes] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
-      supabase.from("equipment").select("id, name, category").order("sort_order"),
+      getCachedEquipment(),
       supabase.from("user_equipment").select("equipment_id"),
       supabase.from("user_injuries").select("body_region, severity"),
     ]);
@@ -62,7 +58,7 @@ export default async function SettingsPage() {
         Signed in as {user.email}. Changes save as you make them.
       </p>
 
-      <SettingsForm initial={initial} equipment={equipmentRes.data ?? []} />
+      <SettingsForm initial={initial} equipment={equipment} />
 
       <div className="mt-12 space-y-8 border-t border-border pt-8">
         <section>

@@ -122,7 +122,9 @@ Deterministic rule engine. **No LLM calls.** Repeatable, free, testable.
 | 5 | Push / Pull / Legs / Upper / Lower |
 | 6 | Push / Pull / Legs ×2 |
 
-Yoga days **count as training days** and are placed to avoid sitting next to the heaviest leg day. Rest days are suggested by the engine but the user can always override (see §8).
+**Training days for streaks** (decision 2026-10-24): Yoga days **count as training days** and count toward streaks and "days trained" statistics, along with strength sessions (weights and bodyweight). Breathing practices (meditation type) do NOT count toward streaks — they appear in History and have their own tracking on the Breathe tab, but they don't extend or break the training streak. This means a completed breathing session in the morning still leaves the day available for a strength or yoga session.
+
+Yoga days are placed to avoid sitting next to the heaviest leg day. Rest days are suggested by the engine but the user can always override (see §8).
 
 ### Exercise selection per day
 1. Filter the catalogue by track, available equipment, and level

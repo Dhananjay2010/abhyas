@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { DEFAULT_MINUTE_CHOICES, type BreathingPrefs } from "@/lib/breathing/pattern";
 import type { PrefsPatch } from "@/lib/breathing/validation";
 import { vibrationSupported } from "@/lib/session/device";
+import { focusTrap } from "@/lib/focus-trap";
 import type { Result } from "./actions";
 import { Choice, Field } from "./controls";
 import { SoundControls } from "./sound-controls";
@@ -30,15 +31,24 @@ export function PrefsSheet({
   });
   const [, startTransition] = useTransition();
   const canVibrate = useClientValue(vibrationSupported, false);
-  const headingRef = useRef<HTMLHeadingElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
+  // Store the element that opened this sheet
   useEffect(() => {
-    headingRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    triggerRef.current = document.activeElement as HTMLElement;
+  }, []);
+
+  // Set up focus trap
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const trap = focusTrap({
+      element: containerRef.current,
+      onEscape: onClose,
+      returnFocusTo: triggerRef.current,
+      initialFocus: true,
+    });
+    return () => trap.release();
   }, [onClose]);
 
   const set = (patch: PrefsPatch) => {
@@ -53,6 +63,7 @@ export function PrefsSheet({
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60" onClick={onClose}>
       <div
+        ref={containerRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="breathing-prefs-title"
@@ -63,7 +74,6 @@ export function PrefsSheet({
         <div aria-hidden="true" className="mx-auto mb-5 h-1 w-10 rounded-full bg-border" />
         <h2
           id="breathing-prefs-title"
-          ref={headingRef}
           tabIndex={-1}
           className="text-xl font-bold tracking-tight outline-none"
         >
