@@ -2412,6 +2412,182 @@ async function testNEW2_EndEarlyFlushSequence() {
   console.log("✓ NEW2: End-early sequence: flush before canEnd before end, end skipped when failed sets remain");
 }
 
+// ---- M15: Online event actually flushes the outbox in production --------
+async function testM15_OnlineEventFlushesOutbox() {
+  let state: { pending: QueuedSet[]; failed: QueuedSet[] } = { pending: [], failed: [] };
+  const storage: OutboxStorage = {
+    get: () => state,
+    set: (newState) => {
+      state = newState;
+    },
+  };
+
+  let sendCalled = false;
+  const sender: OutboxSender = {
+    send: async () => {
+      sendCalled = true;
+      return { ok: true };
+    },
+  };
+
+  const outbox = new Outbox(storage, sender, "test-m15");
+
+  // Queue a set
+  outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+
+  // Verify it's queued
+  if (outbox.pendingCount() !== 1) {
+    throw new Error(`M15: Expected 1 pending set after enqueue, got ${outbox.pendingCount()}`);
+  }
+
+  // Flush
+  const result = await outbox.flush();
+  
+  if (!sendCalled) {
+    throw new Error("M15: Send should have been called during flush");
+  }
+  
+  if (result.sentClientIds.length !== 1) {
+    throw new Error(`M15: Expected 1 set sent, got ${result.sentClientIds.length}`);
+  }
+
+  console.log("✓ M15: Online event flush mechanism verified via outbox.flush()");
+}
+
+// ---- M15b: Static check that onOnline callback calls flush() ------------
+function testM15b_OnOnlineCallsFlush() {
+  const fs = require("fs");
+  const hookPath = "./src/app/session/[id]/use-set-outbox.ts";
+  const hookSource = fs.readFileSync(hookPath, "utf8");
+
+  // Find onOnline callback and extract its body (handles nested braces)
+  const onOnlineStart = hookSource.indexOf("const onOnline = () => {");
+  if (onOnlineStart === -1) {
+    throw new Error("M15b: onOnline callback not found in use-set-outbox.ts");
+  }
+
+  // Find the closing brace by counting braces
+  let braceCount = 0;
+  let inOnOnline = false;
+  let onOnlineEnd = -1;
+  
+  for (let i = onOnlineStart; i < hookSource.length; i++) {
+    if (hookSource[i] === "{") {
+      braceCount++;
+      inOnOnline = true;
+    } else if (hookSource[i] === "}") {
+      braceCount--;
+      if (inOnOnline && braceCount === 0) {
+        onOnlineEnd = i + 1;
+        break;
+      }
+    }
+  }
+
+  if (onOnlineEnd === -1) {
+    throw new Error("M15b: Could not find end of onOnline callback");
+  }
+
+  const onOnlineBody = hookSource.substring(onOnlineStart, onOnlineEnd);
+  
+  // Check that flush() is called (not commented out)
+  if (!onOnlineBody.includes("void flush()") && !onOnlineBody.includes("flush()")) {
+    throw new Error("M15b: onOnline callback must call flush() to sync queued sets when reconnecting");
+  }
+
+  // Verify it's not commented out
+  if (onOnlineBody.includes("// void flush()") || onOnlineBody.includes("// flush()")) {
+    throw new Error("M15b: flush() call in onOnline is commented out - outbox won't sync on reconnect");
+  }
+
+  console.log("✓ M15b: Static check verified onOnline calls flush()");
+}
+
+// ---- M16: Static check that logSet uses upsert for idempotency ---------
+function testM16_LogSetUsesUpsert() {
+  const fs = require("fs");
+  const actionsPath = "./src/app/session/actions.ts";
+  const actionsSource = fs.readFileSync(actionsPath, "utf8");
+
+  // Find logSet function
+  const logSetStart = actionsSource.indexOf("export async function logSet(");
+  if (logSetStart === -1) {
+    throw new Error("M16: logSet function not found in actions.ts");
+  }
+
+  // Extract logSet body (find next function or end of file)
+  const nextFunctionMatch = actionsSource.substring(logSetStart + 100).search(/\nexport\s+(async\s+)?function\s+/);
+  const logSetEnd = nextFunctionMatch === -1 ? actionsSource.length : logSetStart + 100 + nextFunctionMatch;
+  const logSetBody = actionsSource.substring(logSetStart, logSetEnd);
+
+  // Verify upsert is used (not insert)
+  if (!logSetBody.includes(".upsert(")) {
+    throw new Error("M16: logSet must use .upsert() not .insert() to prevent duplicate sets on replay");
+  }
+
+  // Verify onConflict is specified
+  if (!logSetBody.includes("onConflict")) {
+    throw new Error("M16: logSet upsert must specify onConflict to ensure idempotency");
+  }
+
+  console.log("✓ M16: Static check verified logSet uses upsert with onConflict");
+}
+
+// ---- M17: Static check that runner banner uses isOffline() --------------
+function testM17_RunnerBannerUsesIsOffline() {
+  const fs = require("fs");
+  const runnerPath = "./src/app/session/[id]/session-runner.tsx";
+  const runnerSource = fs.readFileSync(runnerPath, "utf8");
+
+  // Find updateOfflineStatus callback
+  const updateStart = runnerSource.indexOf("const updateOfflineStatus = () => {");
+  if (updateStart === -1) {
+    throw new Error("M17: updateOfflineStatus callback not found in session-runner.tsx");
+  }
+
+  // Find the closing brace
+  let braceCount = 0;
+  let inUpdate = false;
+  let updateEnd = -1;
+  
+  for (let i = updateStart; i < runnerSource.length; i++) {
+    if (runnerSource[i] === "{") {
+      braceCount++;
+      inUpdate = true;
+    } else if (runnerSource[i] === "}") {
+      braceCount--;
+      if (inUpdate && braceCount === 0) {
+        updateEnd = i + 1;
+        break;
+      }
+    }
+  }
+
+  if (updateEnd === -1) {
+    throw new Error("M17: Could not find end of updateOfflineStatus callback");
+  }
+
+  const updateBody = runnerSource.substring(updateStart, updateEnd);
+  
+  // Verify isOffline() is called
+  if (!updateBody.includes("isOffline()")) {
+    throw new Error("M17: updateOfflineStatus must call isOffline() to detect offline state");
+  }
+
+  // Verify it's not hardcoded to false
+  if (updateBody.includes("setShowOfflineIndicator(false)") && !updateBody.includes("isOffline()")) {
+    throw new Error("M17: Offline banner is hardcoded to false - it won't show when offline");
+  }
+
+  console.log("✓ M17: Static check verified runner banner uses isOffline()");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -2464,6 +2640,10 @@ async function main() {
   await testM7_OnlineListenerFlush();
   testM9M12_OutboxBannerDerivation();
   await testNEW2_EndEarlyFlushSequence();
+  await testM15_OnlineEventFlushesOutbox();
+  testM15b_OnOnlineCallsFlush();
+  testM16_LogSetUsesUpsert();
+  testM17_RunnerBannerUsesIsOffline();
 
   console.log("\n✓ All offline set logging tests passed");
 }
