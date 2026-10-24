@@ -92,71 +92,24 @@ export function DayPlanPrompt({
       </p>
 
       {!choosing ? (
-        isRestDay ? (
-          <div className="mt-4">
-            <button
-            disabled={pending}
-            onClick={() => setChoosing(true)}
-            className="w-full min-h-[44px] rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface"
-          >
-            {intro === "Start your first session now." ? "Start your first session now" : "Pick a workout"}
-          </button>
-          </div>
-        ) : hideKeepAndRest ? (
-          // When today is already Rest and yesterday was missed, don't show Keep it / Rest
-          <div className="mt-4">
-            <button
-              disabled={pending}
-              onClick={() => setChoosing(true)}
-              className="w-full min-h-[44px] rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface"
-            >
-              Pick a workout
-            </button>
-          </div>
-        ) : (
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            <Choice disabled={pending} onClick={() => choose({ kind: "keep" }, plannedLabel)}>
-              Keep it
-            </Choice>
-            <Choice disabled={pending} onClick={() => setChoosing(true)}>
-              Swap the day
-            </Choice>
-            <Choice disabled={pending} onClick={() => choose({ kind: "rest" }, "a rest day")}>
-              Rest
-            </Choice>
-          </div>
-        )
+        <DayPlanInitialChoices
+          isRestDay={isRestDay}
+          hideKeepAndRest={hideKeepAndRest}
+          intro={intro}
+          onChoosing={() => setChoosing(true)}
+          onKeep={() => choose({ kind: "keep" }, plannedLabel)}
+          onRest={() => choose({ kind: "rest" }, "a rest day")}
+          disabled={pending}
+        />
       ) : (
-        <div className="mt-4 space-y-2">
-          {days.map((d) => (
-            <Choice
-              key={d.programDayId}
-              wide
-              disabled={pending}
-              onClick={() =>
-                choose({ kind: "training", programDayId: d.programDayId }, d.label)
-              }
-            >
-              {d.label}
-            </Choice>
-          ))}
-          <Choice wide disabled={pending} onClick={() => choose({ kind: "yoga" }, "yoga")}>
-            Yoga
-          </Choice>
-          <Choice
-            wide
-            disabled={pending}
-            onClick={() => choose({ kind: "breathing" }, "breathing")}
-          >
-            Breathing
-          </Choice>
-          <button
-            onClick={() => setChoosing(false)}
-            className="w-full min-h-[44px] py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface"
-          >
-            Never mind
-          </button>
-        </div>
+        <DayPlanChoosingOptions
+          days={days}
+          onChooseDay={(programDayId, label) => choose({ kind: "training", programDayId }, label)}
+          onChooseYoga={() => choose({ kind: "yoga" }, "yoga")}
+          onChooseBreathing={() => choose({ kind: "breathing" }, "breathing")}
+          onCancel={() => setChoosing(false)}
+          disabled={pending}
+        />
       )}
 
       {error && (

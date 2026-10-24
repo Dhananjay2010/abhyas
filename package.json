@@ -131,7 +131,7 @@
     "test:proxy-routes": "tsx scripts/test-proxy-routes.ts",
     "test:node-version": "tsx scripts/test-node-version.ts",
     "test:train-anyway": "tsx scripts/test-train-anyway.ts",
-    "test:today-render": "tsx scripts/test-today-render.ts"
+    "test:today-render": "tsx scripts/test-today-render-real.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

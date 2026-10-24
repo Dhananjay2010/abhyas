@@ -22,6 +22,9 @@ import { todayPromptBlocks } from "@/lib/today/prompt-blocks";
 import { hasStartedAnySession } from "@/lib/today/has-started-any";
 import { TodayPrompts } from "@/components/today/today-prompts";
 import { getInProgressSession } from "@/lib/session/in-progress";
+import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
+import { getWeekRowLabel } from "@/lib/today/week-display";
+import { WarmupSection } from "@/components/today/warmup-section";
 
 export const dynamic = "force-dynamic";
 
@@ -718,7 +721,7 @@ export default async function TodayPage() {
         </h2>
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface text-sm">
           {(days ?? []).map((d) => {
-            const chosen = chosenByDayIndex.get(d.day_index);
+            const { label, isChoice } = getWeekRowLabel(d, chosenByDayIndex);
             return (
               <li
                 key={d.day_index}
@@ -729,14 +732,14 @@ export default async function TodayPage() {
                 <span className={d.day_index === todayIndex ? "font-semibold" : "text-muted"}>
                   {DAY_NAMES[d.day_index - 1]}
                 </span>
-                {chosen ? (
+                {isChoice ? (
                   <span className="text-right">
-                    <span className="font-medium text-accent">{chosen}</span>
+                    <span className="font-medium text-accent">{label}</span>
                     <span className="block text-xs text-muted">your choice</span>
                   </span>
                 ) : (
                   <span className={d.day_type === "rest" ? "text-muted" : "font-medium"}>
-                    {d.label}
+                    {label}
                   </span>
                 )}
               </li>
