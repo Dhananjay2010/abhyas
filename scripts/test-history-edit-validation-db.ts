@@ -547,7 +547,7 @@ async function runTests() {
       );
       
       check("Update matching 0 rows fails", !result.success);
-      check("Error message asks to sign in again", result.error === "Couldn't save — please sign in again");
+      check("Error message asks to sign in again", result.error === "Couldn't save — please sign in again", `got: ${result.error}`);
     }
 
     console.log("\n6. Validation: Pre-signup date rejected");
