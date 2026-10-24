@@ -50,6 +50,14 @@ export default async function SettingsPage() {
     timezone: profile.timezone,
   };
 
+  // Compute timezone list on server to avoid hydration mismatches.
+  // Ensure user's current timezone is in the list even if missing from Intl.
+  let timezones = [...Intl.supportedValuesOf("timeZone")];
+  if (profile.timezone && !timezones.includes(profile.timezone)) {
+    timezones.push(profile.timezone);
+    timezones.sort();
+  }
+
   const { supportEmail } = getSiteInfo();
 
   return (
@@ -59,7 +67,7 @@ export default async function SettingsPage() {
         Signed in as {user.email}. Changes save as you make them.
       </p>
 
-      <SettingsForm initial={initial} equipment={equipment} />
+      <SettingsForm initial={initial} equipment={equipment} timezones={timezones} />
 
       <div className="mt-12 space-y-8 border-t border-border pt-8">
         <section>

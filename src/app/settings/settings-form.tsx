@@ -77,10 +77,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 export function SettingsForm({
   initial,
   equipment,
+  timezones,
   actions = REAL_ACTIONS,
 }: {
   initial: SettingsState;
   equipment: EquipmentRow[];
+  timezones: string[];
   actions?: SettingsActions;
 }) {
   const [pending, startTransition] = useTransition();
@@ -594,7 +596,7 @@ export function SettingsForm({
               Use gym default
               {branding.timezone ? ` (${branding.timezone})` : " (browser detected)"}
             </option>
-            {Intl.supportedValuesOf("timeZone").map((tz) => (
+            {timezones.map((tz) => (
               <option key={tz} value={tz}>
                 {tz}
               </option>
