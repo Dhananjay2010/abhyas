@@ -42,6 +42,13 @@ interface FakeSupabase {
 function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?: string): FakeSupabase {
   const calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> = [];
 
+  // Session metadata for stale detection
+  const session = {
+    started_at: new Date(Date.now() - 1800000).toISOString(), // 30 min ago
+    local_date: new Date().toISOString().slice(0, 10),
+    timezone: "UTC",
+  };
+
   return {
     calls,
     from: (table: string) => {
@@ -55,6 +62,10 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
             filters[column] = value;
             calls.push({ method: "select", table: currentTable, filters: { ...filters } });
             if (readError) return { data: null, error: { message: readError } };
+            // Return session data for sessions table, exercises for session_exercises
+            if (currentTable === "sessions") {
+              return { data: [session], error: null };
+            }
             return { data: exercises, error: null };
           },
         }),
