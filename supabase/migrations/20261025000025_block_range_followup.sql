@@ -27,6 +27,47 @@ $$;
 COMMENT ON FUNCTION cycle_week_for IS 'Compute cycle week for a date within a block. Week 1 starts on started_on. Clamps to week 1 for dates before start.';
 
 -- ============================================================
+-- M2: Add status column to program_days for superseded days
+-- ============================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' 
+    AND table_name = 'program_days'
+    AND column_name = 'status'
+  ) THEN
+    ALTER TABLE public.program_days 
+    ADD COLUMN status text DEFAULT 'active' NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS program_days_status_idx 
+    ON public.program_days(status) 
+    WHERE status = 'active';
+  END IF;
+END$$;
+
+-- ============================================================
+-- M2: Make unique constraint partial WHERE status = 'active'
+-- ============================================================
+DO $$
+BEGIN
+  -- Drop old unique constraint if it exists
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint 
+    WHERE conname = 'program_days_program_id_day_index_key'
+    AND contype = 'u'
+  ) THEN
+    ALTER TABLE public.program_days 
+    DROP CONSTRAINT program_days_program_id_day_index_key;
+  END IF;
+  
+  -- Create partial unique index
+  CREATE UNIQUE INDEX IF NOT EXISTS program_days_program_id_day_index_active_key
+  ON public.program_days(program_id, day_index)
+  WHERE status = 'active';
+END$$;
+
+-- ============================================================
 -- M1: Mid-block rebuild PRESERVES original started_on, ends_on, week_offset
 -- M2: Same-day rebuild PRESERVES program_days for completed sessions
 -- 
@@ -34,7 +75,7 @@ COMMENT ON FUNCTION cycle_week_for IS 'Compute cycle week for a date within a bl
 -- 
 -- CHANGES FROM 000023:
 -- + M1: If p_today <= v_old_block.ends_on (mid-block), keep started_on, ends_on, week_offset unchanged
--- + M2: Mark old program_days as 'superseded' and create new ones (preserves History labels)
+-- + M2: Mark old program_days as 'superseded', delete unreferenced ones, create new active ones
 -- 
 -- PRESERVED FROM 000023:
 -- - pg_advisory_xact_lock (unified lock)
@@ -124,11 +165,28 @@ BEGIN
       week_offset = v_new_week_offset
     WHERE id = v_old_block.id;
     
-    -- M2 FIX: Mark old program_days as superseded (preserves History labels)
-    -- Don't delete rows that completed sessions reference
+    -- M2 FIX: Handle old program_days
+    -- Mark those referenced by sessions as superseded, delete unreferenced ones
     UPDATE public.program_days
     SET status = 'superseded'
-    WHERE program_id = v_old_block.id;
+    WHERE program_id = v_old_block.id
+    AND id IN (
+      SELECT DISTINCT program_day_id 
+      FROM public.sessions 
+      WHERE program_id = v_old_block.id
+      AND program_day_id IS NOT NULL
+    );
+    
+    -- Delete unreferenced old program_days
+    DELETE FROM public.program_days
+    WHERE program_id = v_old_block.id
+    AND status = 'active'
+    AND id NOT IN (
+      SELECT DISTINCT program_day_id 
+      FROM public.sessions 
+      WHERE program_id = v_old_block.id
+      AND program_day_id IS NOT NULL
+    );
     
     -- Insert NEW program_days for the rebuilt block
     FOR v_day IN SELECT * FROM jsonb_array_elements(p_payload->'days')
@@ -242,26 +300,6 @@ $$;
 COMMENT ON FUNCTION rebuild_block IS 'Rebuild the active block. Mid-block rebuilds (p_today <= ends_on) preserve started_on, ends_on, and week_offset. Same-day rebuilds mark old program_days as superseded and create new ones (preserves History labels). Idempotent.';
 
 -- ============================================================
--- M2: Add status column to program_days for superseded days
--- ============================================================
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' 
-    AND table_name = 'program_days'
-    AND column_name = 'status'
-  ) THEN
-    ALTER TABLE public.program_days 
-    ADD COLUMN status text DEFAULT 'active' NOT NULL;
-    
-    CREATE INDEX IF NOT EXISTS program_days_status_idx 
-    ON public.program_days(status) 
-    WHERE status = 'active';
-  END IF;
-END$$;
-
--- ============================================================
 -- Rows #1: Repair historical invalid completed programs
 -- 
 -- ROOT CAUSE: Pre-hotfix rebuild logic in src/lib/program/persist.ts
@@ -276,6 +314,9 @@ END$$;
 -- ended_on = started_on - 1 means they are superseded empty ranges that
 -- blockForDate will ignore (ended_on < date for all dates >= started_on).
 -- No overlaps created because ended_on < started_on means no date is covered.
+--
+-- This PR eliminates the root cause: src/lib/program/persist.ts now uses
+-- rebuild_block RPC for all rebuilds, and rebuild_block always sets ended_on.
 -- ============================================================
 
 -- Count affected rows for logging

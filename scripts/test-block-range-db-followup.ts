@@ -132,7 +132,7 @@ async function testM1_MidBlockRebuildPreservesDates() {
 }
 
 async function testM2_HistoryLabelsPreserved() {
-  console.log("\n━━━ TEST M2: History labels preserved after same-day rebuild ━━━\n");
+  console.log("\n━━━ TEST M2: History labels preserved + current plan shows only new labels ━━━\n");
   
   const pool = new Pool({ connectionString: DATABASE_URL });
   
@@ -148,25 +148,33 @@ async function testM2_HistoryLabelsPreserved() {
       VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-10-24', '2026-11-20', 4, 0, 'active')
     `, [blockId, userId]);
     
-    const programDayId = randomUUID();
+    // Create 3 days: day_index 1, 2, 3
+    const day1Id = randomUUID();
+    const day2Id = randomUUID();
+    const day3Id = randomUUID();
     await pool.query(`
-      INSERT INTO program_days (id, program_id, user_id, day_index, day_type, label)
-      VALUES ($1, $2, $3, 1, 'weights', 'Lower')
-    `, [programDayId, blockId, userId]);
+      INSERT INTO program_days (id, program_id, user_id, day_index, day_type, label, status)
+      VALUES 
+        ($1, $2, $3, 1, 'weights', 'Lower', 'active'),
+        ($4, $2, $3, 2, 'weights', 'Upper', 'active'),
+        ($5, $2, $3, 3, 'rest', NULL, 'active')
+    `, [day1Id, blockId, userId, day2Id, day3Id]);
     
+    // Complete a session on day 1
     const sessionId = randomUUID();
     await pool.query(`
       INSERT INTO sessions (id, user_id, program_id, program_day_id, local_date, status, week_in_block, is_deload, planned_type, actual_type)
       VALUES ($1, $2, $3, $4, '2026-10-24', 'completed', 1, false, 'weights', 'weights')
-    `, [sessionId, userId, blockId, programDayId]);
+    `, [sessionId, userId, blockId, day1Id]);
     
-    console.log(`  Created completed session with label 'Lower'\n`);
+    console.log(`  Created completed session on day 1 with label 'Lower'\n`);
     
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       await client.query(`SET LOCAL request.jwt.claim.sub = '${userId}'`);
       
+      // Rebuild same day with different labels
       await client.query(`
         SELECT rebuild_block($1, $2)
       `, ["2026-10-24", JSON.stringify({
@@ -179,33 +187,74 @@ async function testM2_HistoryLabelsPreserved() {
         level: "intermediate",
         ends_on: "2026-11-20",
         deload_week: 4,
-        days: [{
-          day_index: 1,
-          day_type: "weights",
-          focus: null,
-          label: "Workout",
-          exercises: [{
-            exercise_id: exerciseId,
-            order_index: 0,
-            target_sets: 3,
-            target_reps_min: 8,
-            target_reps_max: 12,
-            rest_seconds: 90
-          }]
-        }]
+        days: [
+          {
+            day_index: 1,
+            day_type: "weights",
+            focus: null,
+            label: "FullBody-A",  // Changed from "Lower"
+            exercises: [{
+              exercise_id: exerciseId,
+              order_index: 0,
+              target_sets: 3,
+              target_reps_min: 8,
+              target_reps_max: 12,
+              rest_seconds: 90
+            }]
+          },
+          {
+            day_index: 2,
+            day_type: "weights",
+            focus: null,
+            label: "FullBody-B",  // Changed from "Upper"
+            exercises: [{
+              exercise_id: exerciseId,
+              order_index: 0,
+              target_sets: 3,
+              target_reps_min: 8,
+              target_reps_max: 12,
+              rest_seconds: 90
+            }]
+          },
+          {
+            day_index: 3,
+            day_type: "rest",
+            focus: null,
+            label: null,
+            exercises: []
+          }
+        ]
       })]);
       await client.query("COMMIT");
       
-      // Check History label (JOIN to program_days like History does)
-      const { rows } = await pool.query(`
+      // Check current plan (with status = 'active' filter) returns exactly one row per day_index
+      const { rows: activeDays } = await pool.query(`
+        SELECT day_index, label, status
+        FROM program_days
+        WHERE program_id = $1 AND status = 'active'
+        ORDER BY day_index
+      `, [blockId]);
+      
+      console.log(`  Current plan (status='active'):`);
+      for (const d of activeDays) {
+        console.log(`    day_index=${d.day_index}, label='${d.label}', status=${d.status}`);
+      }
+      console.log();
+      
+      assert(activeDays.length === 3, `exactly 3 active days, got ${activeDays.length}`);
+      assert(activeDays[0].label === 'FullBody-A', `day 1 new label is 'FullBody-A', got '${activeDays[0].label}'`);
+      assert(activeDays[1].label === 'FullBody-B', `day 2 new label is 'FullBody-B', got '${activeDays[1].label}'`);
+      
+      // Check History label (JOIN to program_days like History does, no status filter)
+      const { rows: histRows } = await pool.query(`
         SELECT s.id, s.program_day_id, pd.label, pd.status as day_status
         FROM sessions s
         LEFT JOIN program_days pd ON s.program_day_id = pd.id
         WHERE s.id = $1
       `, [sessionId]);
       
-      const sess = rows[0];
-      console.log(`  After rebuild:`);
+      const sess = histRows[0];
+      console.log(`  History (no status filter):`);
       console.log(`    session.program_day_id: ${sess.program_day_id?.substring(0, 8) ?? 'NULL'}...`);
       console.log(`    History label: ${sess.label ?? 'NULL'}`);
       console.log(`    program_day.status: ${sess.day_status ?? 'NULL'}\n`);
@@ -213,6 +262,19 @@ async function testM2_HistoryLabelsPreserved() {
       assert(sess.program_day_id !== null, "session.program_day_id is not NULL");
       assert(sess.label === "Lower", `History label unchanged ('Lower'), got '${sess.label}'`);
       assert(sess.day_status === 'superseded', `old program_day marked superseded, got '${sess.day_status}'`);
+      
+      // Check total program_days count (should have 3 active + 1 superseded for referenced day 1)
+      const { rows: allDays } = await pool.query(`
+        SELECT COUNT(*) as total, 
+               COUNT(*) FILTER (WHERE status = 'active') as active_count,
+               COUNT(*) FILTER (WHERE status = 'superseded') as superseded_count
+        FROM program_days
+        WHERE program_id = $1
+      `, [blockId]);
+      
+      console.log(`  Total program_days: ${allDays[0].total} (${allDays[0].active_count} active, ${allDays[0].superseded_count} superseded)\n`);
+      assert(allDays[0].active_count === '3', `3 active days, got ${allDays[0].active_count}`);
+      assert(allDays[0].superseded_count === '1', `1 superseded day (referenced by session), got ${allDays[0].superseded_count}`);
       
     } finally {
       client.release();

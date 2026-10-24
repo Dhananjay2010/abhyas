@@ -45,6 +45,7 @@ export async function plannableDays(
     .from("program_days")
     .select("id, day_index, day_type, label")
     .eq("program_id", programId)
+    .eq("status", "active")
     .order("day_index");
 
   const seen = new Set<string>();
@@ -76,7 +77,8 @@ export async function resolveDay(
     supabase
       .from("program_days")
       .select("id, day_index, day_type, label")
-      .eq("program_id", programId),
+      .eq("program_id", programId)
+      .eq("status", "active"),
     // Planned or already under way: both mean "this is what the day is", and
     // only reading `planned` made a started override invisible to Today.
     supabase
