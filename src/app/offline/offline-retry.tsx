@@ -8,6 +8,7 @@ import { branding } from "@/lib/branding";
  *
  * Shows "Still offline" feedback when retry is attempted while still offline.
  * Only reloads when the network is back (navigator.onLine and test fetch succeed).
+ * Reloads the original URL the user was navigating to (from ?url= query param).
  *
  * Falls back to a plain link for no-JS scenarios.
  */
@@ -33,9 +34,10 @@ export function OfflineRetry() {
         cache: "no-store",
       });
       if (response.ok) {
-        // Back online: reload
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-        window.location.href = "/";
+        // Back online: reload the original URL (from query param)
+        const params = new URLSearchParams(window.location.search);
+        const targetUrl = params.get("url") || "/";
+        window.location.href = targetUrl;
       } else {
         // Fetch succeeded but returned error (unlikely, but handle it)
         setChecking(false);

@@ -67,14 +67,16 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// Activate: clean up old caches
+// Activate: clean up old caches for this brand only
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const cacheNames = await caches.keys();
+      const brandPrefix = "${brandId}-offline-";
       await Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          // Only delete caches with this brand's prefix that aren't the current one
+          if (cacheName.startsWith(brandPrefix) && cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
@@ -166,9 +168,25 @@ self.addEventListener("fetch", (event) => {
         const response = await fetch(event.request);
         return response;
       } catch {
+        // Failed to fetch: serve offline page with original URL as query param
+        // so the retry button can reload the correct page
+        const requestUrl = new URL(event.request.url);
+        const offlineUrl = new URL(OFFLINE_URL, self.registration.scope);
+        offlineUrl.searchParams.set("url", requestUrl.pathname + requestUrl.search);
+        
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(OFFLINE_URL);
-        return cachedResponse || new Response("Offline", { status: 503 });
+        
+        if (cachedResponse) {
+          // Return offline page with the correct URL in the address bar
+          return new Response(cachedResponse.body, {
+            status: cachedResponse.status,
+            statusText: cachedResponse.statusText,
+            headers: cachedResponse.headers,
+          });
+        }
+        
+        return new Response("Offline", { status: 503 });
       }
     })()
   );

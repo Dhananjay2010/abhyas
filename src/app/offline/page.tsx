@@ -7,6 +7,7 @@
  *
  * Enhanced with client-side retry feedback: shows "Still offline" message
  * when retry is attempted while still offline, and only reloads when back online.
+ * Reloads the original URL the user was navigating to (from ?url= query param).
  */
 
 import { branding } from "@/lib/branding";
@@ -52,27 +53,40 @@ export default function OfflinePage() {
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={contentStyle}>
-        {/* App icon: real 192x192 icon from branding, precached by service worker */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={branding.icons.icon192}
-          alt=""
-          width={96}
-          height={96}
-          style={iconStyle}
-        />
+    <>
+      {/* Inline styles for html and body to prevent white frame when CSS isn't cached */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: ${branding.colors.bg};
+          }
+        `
+      }} />
+      
+      <div style={containerStyle}>
+        <div style={contentStyle}>
+          {/* App icon: real 192x192 icon from branding, precached by service worker */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={branding.icons.icon192}
+            alt=""
+            width={96}
+            height={96}
+            style={iconStyle}
+          />
 
-        <h1 style={headingStyle}>You&apos;re offline</h1>
-        <p style={paragraphStyle}>
-          {branding.name} needs an internet connection to load new content.
-          Check your connection and try again.
-        </p>
+          <h1 style={headingStyle}>You&apos;re offline</h1>
+          <p style={paragraphStyle}>
+            {branding.name} needs an internet connection to load new content.
+            Check your connection and try again.
+          </p>
 
-        {/* Retry button with client-side feedback (shows "Still offline" when offline) */}
-        <OfflineRetry />
+          {/* Retry button with client-side feedback (shows "Still offline" when offline) */}
+          <OfflineRetry />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
