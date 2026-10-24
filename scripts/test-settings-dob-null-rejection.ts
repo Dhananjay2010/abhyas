@@ -8,7 +8,7 @@
  * This test validates the server action layer, not the pure logic.
  */
 
-async function main() {
+(async function runTest() {
   console.log("\n=== Settings DOB null rejection test ===\n");
 
   // We can't easily test the server action directly without Supabase,
@@ -62,9 +62,7 @@ async function main() {
   console.log("   This layering ensures DOB is required after onboarding\n");
 
   console.log("✅ Settings null DOB rejection verified\n");
-}
-
-main().catch((err) => {
+})().catch((err) => {
   console.error("FATAL:", err);
   process.exit(1);
 });
