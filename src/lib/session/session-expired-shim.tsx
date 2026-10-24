@@ -57,10 +57,24 @@ export function isSessionExpired(errOrResponse: unknown): boolean {
 }
 
 /**
- * Safe next path validation (minimal shim).
+ * Safe next path validation - checks for open redirects.
  */
-function safeNextPath(path: string): string {
-  return path.startsWith('/') ? path : '/today';
+function safeNextPath(path: string, fallback = '/today'): string {
+  if (!path || typeof path !== 'string') return fallback;
+  if (path.length > 512) return fallback;
+  if (path.startsWith('//')) return fallback;
+  if (path.startsWith('/\\')) return fallback;
+  if (path.startsWith('\\')) return fallback;
+  if (path.includes('://')) return fallback;
+  
+  // Reject encoded slashes/backslashes in path (before ? or #)
+  const pathPart = path.split(/[?#]/)[0];
+  if (pathPart.match(/%2[fF]/)) return fallback;
+  if (pathPart.match(/%5[cC]/)) return fallback;
+  if (pathPart.includes('\x00') || /[\x00-\x1F]/.test(pathPart)) return fallback;
+  if (pathPart.includes('\\')) return fallback;
+  
+  return path.startsWith('/') ? path : fallback;
 }
 
 /**

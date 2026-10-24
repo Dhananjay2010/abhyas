@@ -516,7 +516,7 @@ export function SessionRunner({
         </ul>
         <div className="mt-10 space-y-3">
           <BigButton
-            disabled={busy}
+            disabled={busy || pendingSetState.pending.length > 0}
             onClick={async () => {
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
@@ -524,10 +524,12 @@ export function SessionRunner({
               setPhase("done");
             }}
           >
-            Done
+            {pendingSetState.pending.length > 0 
+              ? `Saving ${pendingSetState.pending.length} ${pendingSetState.pending.length === 1 ? "set" : "sets"}…`
+              : "Done"}
           </BigButton>
           <GhostButton
-            disabled={busy}
+            disabled={busy || pendingSetState.pending.length > 0}
             onClick={async () => {
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
