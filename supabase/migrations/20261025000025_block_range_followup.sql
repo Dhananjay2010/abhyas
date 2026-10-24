@@ -88,21 +88,21 @@ BEGIN
   -- M1: Check if this is a mid-block rebuild (p_today <= old block's ends_on)
   v_is_mid_block := (p_today <= v_old_block.ends_on);
 
-  -- Compute current week offset (always, for both mid-block and post-block)
-  v_new_week_offset := (
-    v_old_block.week_offset +
-    FLOOR((p_today - v_old_block.started_on) / 7)
-  );
-
   IF v_is_mid_block THEN
     -- M1 FIX: Mid-block rebuild preserves original dates and week boundaries
-    -- Keep started_on, ends_on (preserves deload date and week boundaries)
-    -- Update week_offset to reflect current week (prevents "Week N > cycle_length")
+    -- Keep started_on, ends_on, week_offset (preserves deload date, week boundaries, and cycleWeekFor calculations)
     v_new_started_on := v_old_block.started_on;
     v_new_ends_on := v_old_block.ends_on;
+    v_new_week_offset := v_old_block.week_offset;
   ELSE
     -- Post-block rebuild: new block starts today
     v_new_started_on := p_today;
+    
+    -- Calculate new week_offset: carry over the current cycle week
+    v_new_week_offset := (
+      v_old_block.week_offset +
+      FLOOR((p_today - v_old_block.started_on) / 7)
+    );
     
     -- Calculate ends_on from payload (TypeScript determines the length)
     v_new_ends_on := (p_payload->>'ends_on')::date;
