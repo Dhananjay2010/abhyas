@@ -30,12 +30,14 @@ export function shouldRefreshOnEvent(
  * Allows testing without DOM.
  * 
  * Calls refresh once on mount, then attaches listeners for visibilitychange and pageshow.
+ * 
+ * @param targets - { doc, win } because visibilitychange fires on document but pageshow fires on window
+ * @param refresh - Callback to invoke when refresh is needed
  */
 export function attachResumeRefresh(
-  target: {
-    addEventListener: (event: string, handler: EventListener) => void;
-    removeEventListener: (event: string, handler: EventListener) => void;
-    visibilityState?: string;
+  targets: {
+    doc: Document;
+    win: Window;
   },
   refresh: () => void,
 ): () => void {
@@ -45,24 +47,24 @@ export function attachResumeRefresh(
   }
 
   const handleVisibilityChange = () => {
-    if (shouldRefreshOnEvent("visibilitychange", target.visibilityState as "visible" | "hidden")) {
+    const state = targets.doc.visibilityState as "visible" | "hidden";
+    if (shouldRefreshOnEvent("visibilitychange", state)) {
       refresh();
     }
   };
 
-  const handlePageShow = (event: Event) => {
-    const persisted = (event as PageTransitionEvent).persisted;
-    if (shouldRefreshOnEvent("pageshow", undefined, persisted)) {
+  const handlePageShow = (event: PageTransitionEvent) => {
+    if (shouldRefreshOnEvent("pageshow", undefined, event.persisted)) {
       refresh();
     }
   };
 
-  target.addEventListener("visibilitychange", handleVisibilityChange);
-  (target as Window).addEventListener("pageshow", handlePageShow as EventListener);
+  targets.doc.addEventListener("visibilitychange", handleVisibilityChange);
+  targets.win.addEventListener("pageshow", handlePageShow);
 
   return () => {
-    target.removeEventListener("visibilitychange", handleVisibilityChange);
-    (target as Window).removeEventListener("pageshow", handlePageShow as EventListener);
+    targets.doc.removeEventListener("visibilitychange", handleVisibilityChange);
+    targets.win.removeEventListener("pageshow", handlePageShow);
   };
 }
 
@@ -79,6 +81,6 @@ export function useResumeRefresh() {
   const router = useRouter();
 
   useEffect(() => {
-    return attachResumeRefresh(document, () => router.refresh());
+    return attachResumeRefresh({ doc: document, win: window }, () => router.refresh());
   }, [router]);
 }

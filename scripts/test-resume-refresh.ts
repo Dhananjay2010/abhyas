@@ -71,148 +71,305 @@ async function main() {
     assertEqualRefresh(should, true, "Should refresh to get fresh data on resume");
   });
 
-  // Test 7: attachResumeRefresh calls refresh on visibility visible
-  await testResumeRefresh("attachResumeRefresh: visibilitychange visible calls refresh", () => {
-    let refreshCalled = 0;
-    const listeners: Record<string, EventListener[]> = {};
-    
-    const fakeTarget = {
-      visibilityState: "visible",
-      addEventListener: (event: string, handler: EventListener) => {
-        if (!listeners[event]) listeners[event] = [];
-        listeners[event].push(handler);
-      },
-      removeEventListener: (event: string, handler: EventListener) => {
-        if (listeners[event]) {
-          listeners[event] = listeners[event].filter((h) => h !== handler);
-        }
-      },
-    };
-
-    const cleanup = attachResumeRefresh(fakeTarget, () => {
-      refreshCalled++;
-    });
-
-    // Simulate visibilitychange
-    if (listeners.visibilitychange) {
-      listeners.visibilitychange[0](new Event("visibilitychange"));
-    }
-
-    assertEqualRefresh(refreshCalled, 2, "Should call refresh on mount + visibilitychange");
-    cleanup();
-  });
-
-  // Test 8: attachResumeRefresh does not call refresh on visibility hidden (only mount)
-  await testResumeRefresh("attachResumeRefresh: visibilitychange hidden does not call refresh", () => {
-    let refreshCalled = 0;
-    const listeners: Record<string, EventListener[]> = {};
-    
-    const fakeTarget = {
-      visibilityState: "hidden",
-      addEventListener: (event: string, handler: EventListener) => {
-        if (!listeners[event]) listeners[event] = [];
-        listeners[event].push(handler);
-      },
-      removeEventListener: (event: string, handler: EventListener) => {
-        if (listeners[event]) {
-          listeners[event] = listeners[event].filter((h) => h !== handler);
-        }
-      },
-    };
-
-    const cleanup = attachResumeRefresh(fakeTarget, () => {
-      refreshCalled++;
-    });
-
-    // Simulate visibilitychange to hidden
-    if (listeners.visibilitychange) {
-      listeners.visibilitychange[0](new Event("visibilitychange"));
-    }
-
-    assertEqualRefresh(refreshCalled, 1, "Should call refresh only on mount, not on visibilitychange hidden");
-    cleanup();
-  });
-
-  // Test 9: attachResumeRefresh calls refresh on pageshow with persisted
-  await testResumeRefresh("attachResumeRefresh: pageshow persisted calls refresh", () => {
-    let refreshCalled = 0;
-    const listeners: Record<string, EventListener[]> = {};
-    
-    const fakeTarget = {
-      addEventListener: (event: string, handler: EventListener) => {
-        if (!listeners[event]) listeners[event] = [];
-        listeners[event].push(handler);
-      },
-      removeEventListener: (event: string, handler: EventListener) => {
-        if (listeners[event]) {
-          listeners[event] = listeners[event].filter((h) => h !== handler);
-        }
-      },
-    } as unknown as Window;
-
-    const cleanup = attachResumeRefresh(fakeTarget, () => {
-      refreshCalled++;
-    });
-
-    // Simulate pageshow with persisted
-    if (listeners.pageshow) {
-      const event = { persisted: true } as PageTransitionEvent;
-      listeners.pageshow[0](event as unknown as Event);
-    }
-
-    assertEqualRefresh(refreshCalled, 2, "Should call refresh once on mount + once on pageshow");
-    cleanup();
-  });
-
-  // Test 10: attachResumeRefresh calls refresh exactly once on mount
+  // Test 7: attachResumeRefresh calls refresh on mount
   await testResumeRefresh("attachResumeRefresh: calls refresh exactly once on mount", () => {
     let refreshCalled = 0;
-    const listeners: Record<string, EventListener[]> = {};
+    const docListeners: Record<string, EventListener[]> = {};
+    const winListeners: Record<string, EventListener[]> = {};
     
-    const fakeTarget = {
+    const fakeDoc = {
+      visibilityState: "visible",
       addEventListener: (event: string, handler: EventListener) => {
-        if (!listeners[event]) listeners[event] = [];
-        listeners[event].push(handler);
+        if (!docListeners[event]) docListeners[event] = [];
+        docListeners[event].push(handler);
       },
       removeEventListener: (event: string, handler: EventListener) => {
-        if (listeners[event]) {
-          listeners[event] = listeners[event].filter((h) => h !== handler);
+        if (docListeners[event]) {
+          docListeners[event] = docListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Document;
+
+    const fakeWin = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!winListeners[event]) winListeners[event] = [];
+        winListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (winListeners[event]) {
+          winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
     } as unknown as Window;
 
-    attachResumeRefresh(fakeTarget, () => {
+    attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
     });
 
     assertEqualRefresh(refreshCalled, 1, "Should call refresh exactly once on mount");
   });
 
-  // Test 11: cleanup removes both listeners
-  await testResumeRefresh("attachResumeRefresh: cleanup removes both listeners", () => {
-    const listeners: Record<string, EventListener[]> = {};
+  // Test 8: attachResumeRefresh calls refresh on visibilitychange to visible (on doc)
+  await testResumeRefresh("attachResumeRefresh: visibilitychange on doc (visible) calls refresh", () => {
+    let refreshCalled = 0;
+    const docListeners: Record<string, EventListener[]> = {};
+    const winListeners: Record<string, EventListener[]> = {};
     
-    const fakeTarget = {
+    const fakeDoc = {
+      visibilityState: "visible",
       addEventListener: (event: string, handler: EventListener) => {
-        if (!listeners[event]) listeners[event] = [];
-        listeners[event].push(handler);
+        if (!docListeners[event]) docListeners[event] = [];
+        docListeners[event].push(handler);
       },
       removeEventListener: (event: string, handler: EventListener) => {
-        if (listeners[event]) {
-          listeners[event] = listeners[event].filter((h) => h !== handler);
+        if (docListeners[event]) {
+          docListeners[event] = docListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Document;
+
+    const fakeWin = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!winListeners[event]) winListeners[event] = [];
+        winListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (winListeners[event]) {
+          winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
     } as unknown as Window;
 
-    const cleanup = attachResumeRefresh(fakeTarget, () => {});
+    const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
+      refreshCalled++;
+    });
 
-    assertEqualRefresh(listeners.visibilitychange?.length, 1, "Should have 1 visibilitychange listener");
-    assertEqualRefresh(listeners.pageshow?.length, 1, "Should have 1 pageshow listener");
+    // Simulate visibilitychange on doc
+    if (docListeners.visibilitychange) {
+      docListeners.visibilitychange[0](new Event("visibilitychange"));
+    }
+
+    assertEqualRefresh(refreshCalled, 2, "Should call refresh on mount + visibilitychange");
+    cleanup();
+  });
+
+  // Test 9: attachResumeRefresh does not call refresh on visibilitychange to hidden
+  await testResumeRefresh("attachResumeRefresh: visibilitychange on doc (hidden) does not call refresh", () => {
+    let refreshCalled = 0;
+    const docListeners: Record<string, EventListener[]> = {};
+    const winListeners: Record<string, EventListener[]> = {};
+    
+    const fakeDoc = {
+      visibilityState: "hidden",
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!docListeners[event]) docListeners[event] = [];
+        docListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (docListeners[event]) {
+          docListeners[event] = docListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Document;
+
+    const fakeWin = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!winListeners[event]) winListeners[event] = [];
+        winListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (winListeners[event]) {
+          winListeners[event] = winListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Window;
+
+    const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
+      refreshCalled++;
+    });
+
+    // Simulate visibilitychange to hidden on doc
+    if (docListeners.visibilitychange) {
+      docListeners.visibilitychange[0](new Event("visibilitychange"));
+    }
+
+    assertEqualRefresh(refreshCalled, 1, "Should call refresh only on mount, not on visibilitychange hidden");
+    cleanup();
+  });
+
+  // Test 10: attachResumeRefresh calls refresh on pageshow with persisted (on win)
+  await testResumeRefresh("attachResumeRefresh: pageshow on win (persisted=true) calls refresh", () => {
+    let refreshCalled = 0;
+    const docListeners: Record<string, EventListener[]> = {};
+    const winListeners: Record<string, EventListener[]> = {};
+    
+    const fakeDoc = {
+      visibilityState: "visible",
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!docListeners[event]) docListeners[event] = [];
+        docListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (docListeners[event]) {
+          docListeners[event] = docListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Document;
+
+    const fakeWin = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!winListeners[event]) winListeners[event] = [];
+        winListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (winListeners[event]) {
+          winListeners[event] = winListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Window;
+
+    const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
+      refreshCalled++;
+    });
+
+    // Simulate pageshow with persisted on win
+    if (winListeners.pageshow) {
+      const event = { persisted: true } as PageTransitionEvent;
+      winListeners.pageshow[0](event as unknown as Event);
+    }
+
+    assertEqualRefresh(refreshCalled, 2, "Should call refresh on mount + pageshow");
+    cleanup();
+  });
+
+  // Test 11: BUG - pageshow dispatched on doc does NOT refresh (pageshow doesn't bubble)
+  await testResumeRefresh("BUG: pageshow on doc (persisted=true) does NOT call refresh", () => {
+    let refreshCalled = 0;
+    const docListeners: Record<string, EventListener[]> = {};
+    const winListeners: Record<string, EventListener[]> = {};
+    
+    const fakeDoc = {
+      visibilityState: "visible",
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!docListeners[event]) docListeners[event] = [];
+        docListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (docListeners[event]) {
+          docListeners[event] = docListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Document;
+
+    const fakeWin = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!winListeners[event]) winListeners[event] = [];
+        winListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (winListeners[event]) {
+          winListeners[event] = winListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Window;
+
+    const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
+      refreshCalled++;
+    });
+
+    // Simulate pageshow on doc (wrong target - should not trigger)
+    if (docListeners.pageshow) {
+      const event = { persisted: true } as PageTransitionEvent;
+      docListeners.pageshow[0](event as unknown as Event);
+    }
+
+    assertEqualRefresh(refreshCalled, 1, "Should only call refresh on mount, not on pageshow on doc");
+    cleanup();
+  });
+
+  // Test 12: visibilitychange on win does nothing (visibilitychange is on document)
+  await testResumeRefresh("BUG: visibilitychange on win does NOT call refresh", () => {
+    let refreshCalled = 0;
+    const docListeners: Record<string, EventListener[]> = {};
+    const winListeners: Record<string, EventListener[]> = {};
+    
+    const fakeDoc = {
+      visibilityState: "visible",
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!docListeners[event]) docListeners[event] = [];
+        docListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (docListeners[event]) {
+          docListeners[event] = docListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Document;
+
+    const fakeWin = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!winListeners[event]) winListeners[event] = [];
+        winListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (winListeners[event]) {
+          winListeners[event] = winListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Window;
+
+    const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
+      refreshCalled++;
+    });
+
+    // Simulate visibilitychange on win (wrong target - should not trigger)
+    if (winListeners.visibilitychange) {
+      winListeners.visibilitychange[0](new Event("visibilitychange"));
+    }
+
+    assertEqualRefresh(refreshCalled, 1, "Should only call refresh on mount, not on visibilitychange on win");
+    cleanup();
+  });
+
+  // Test 13: cleanup removes both listeners from their respective targets
+  await testResumeRefresh("attachResumeRefresh: cleanup removes both listeners from correct targets", () => {
+    const docListeners: Record<string, EventListener[]> = {};
+    const winListeners: Record<string, EventListener[]> = {};
+    
+    const fakeDoc = {
+      visibilityState: "visible",
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!docListeners[event]) docListeners[event] = [];
+        docListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (docListeners[event]) {
+          docListeners[event] = docListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Document;
+
+    const fakeWin = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!winListeners[event]) winListeners[event] = [];
+        winListeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (winListeners[event]) {
+          winListeners[event] = winListeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Window;
+
+    const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {});
+
+    assertEqualRefresh(docListeners.visibilitychange?.length, 1, "Should have 1 visibilitychange listener on doc");
+    assertEqualRefresh(winListeners.pageshow?.length, 1, "Should have 1 pageshow listener on win");
 
     cleanup();
 
-    assertEqualRefresh(listeners.visibilitychange?.length, 0, "Should remove visibilitychange listener");
-    assertEqualRefresh(listeners.pageshow?.length, 0, "Should remove pageshow listener");
+    assertEqualRefresh(docListeners.visibilitychange?.length, 0, "Should remove visibilitychange listener from doc");
+    assertEqualRefresh(winListeners.pageshow?.length, 0, "Should remove pageshow listener from win");
   });
 
   // Summary
