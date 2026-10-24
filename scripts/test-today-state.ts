@@ -218,6 +218,38 @@ assert(
   "Saturday signup: Friday before signup should NOT be missed"
 );
 
+console.log("\n=== Test 8: Rebuilt block (new started_on) ===\n");
+
+// User rebuilt their block on 2026-10-22 (Wed)
+// Old block was 2026-10-01 to 2026-10-21, new block starts 2026-10-22
+// Check 2026-10-20 (Mon, training day in OLD block but before NEW block)
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-20", // Mon (2 days before new block started)
+    programStartedOn: "2026-10-22", // Wed (new block start, rebuild date)
+    onboardingCompletedAt: "2026-10-01T10:00:00Z", // Original signup
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: "weights", // Mon is training in 3-day plan
+    sessions: [],
+  }),
+  "Rebuilt block: dates before new block's started_on are NOT missed"
+);
+
+// Check day after rebuild is correctly evaluated
+assert(
+  isMissedTrainingDay({
+    date: "2026-10-23", // Thu (day after new block started)
+    programStartedOn: "2026-10-22", // Wed (new block start)
+    onboardingCompletedAt: "2026-10-01T10:00:00Z",
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: "weights", // Thu is training in 4-day plan
+    sessions: [],
+  }),
+  "Rebuilt block: training day after new block's started_on CAN be missed"
+);
+
 console.log("\n==================================================");
 console.log(`📊 Test Results: ${passedTests}/${totalTests} passed`);
 
