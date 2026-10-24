@@ -61,7 +61,7 @@ console.log("\n2. Multiple exercises sorted by point count descending");
   check("Bench last point is newest", charts[0].points[2].value === 75, `${charts[0].points[2].value}`);
 }
 
-console.log("\n3. Filters exercises with fewer than 2 points");
+console.log("\n3. Includes exercises with 1 or more points (single-point support)");
 {
   const rowsNewestFirst: StrengthHistoryRow[] = [
     { exercise_id: "ex1", exercise_name: "Squat", local_date: "2026-09-05", best_e1rm: 95, top_weight_kg: 85 },
@@ -71,8 +71,8 @@ console.log("\n3. Filters exercises with fewer than 2 points");
   
   const charts = buildStrengthChartsFromDescendingRows(rowsNewestFirst, shortDate);
   
-  check("only exercise with 2+ points included", charts.length === 1);
-  check("exercise with 1 point is filtered out", charts[0].name === "Squat");
+  check("two exercises included (Squat with 2 points, Single with 1)", charts.length === 2);
+  check("exercise with 1 point is included", charts.some((c) => c.name === "Single" && c.points.length === 1));
 }
 
 console.log("\n4. Handles null and missing data");

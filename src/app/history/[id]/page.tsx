@@ -5,6 +5,13 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
 import { isUuid } from "@/lib/ids";
+import { EditSession } from "./edit-session";
+import { EditSets } from "./edit-sets";
+import { SessionActions } from "./session-actions";
+import { exerciseCompletion } from "@/lib/session/completion";
+import { countWorkingSets } from "@/lib/session/count-sets";
+import { formatVolume, getUnitsPreference } from "@/lib/units";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -33,11 +40,20 @@ export default async function SessionDetailPage({
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
+  // Fetch profile for units and timezone
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("units, timezone")
+    .eq("id", user.id)
+    .single();
+  
+  const units = getUnitsPreference(profile?.units);
+
   const { data: session, error: sessionError } = await supabase
     .from("sessions")
     // The pattern is named through its foreign key, so a second link between
     // the two tables (breathing_logs is one) can never make it ambiguous.
-    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance, routine_name, routine_step)")
+    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, started_at, completed_at, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance, routine_name, routine_step)")
     .eq("id", id)
     .maybeSingle();
   
@@ -80,9 +96,8 @@ export default async function SessionDetailPage({
   const ids = (exercises ?? []).map((e) => e.id);
   const { data: sets } = await supabase
     .from("session_sets")
-    .select("session_exercise_id, set_number, reps, weight_kg, duration_seconds")
+    .select("session_exercise_id, set_number, reps, weight_kg, duration_seconds, is_warmup_set")
     .in("session_exercise_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"])
-    .eq("is_warmup_set", false)
     .order("set_number");
 
   if (exercisesError) {
@@ -112,10 +127,18 @@ export default async function SessionDetailPage({
         {session.is_deload && " · deload"}
       </p>
 
+      <EditSession
+        sessionId={session.id}
+        localDate={session.local_date}
+        startedAt={session.started_at}
+        completedAt={session.completed_at}
+        timezone={resolveTimezoneWithProfile(profile?.timezone)}
+      />
+
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">
         <Stat label="Time" value={minutes !== null ? `${minutes}m` : "—"} />
-        <Stat label="Sets" value={`${(sets ?? []).length}`} />
-        <Stat label="Volume" value={volume > 0 ? `${Math.round(volume)}kg` : "—"} />
+        <Stat label="Sets" value={`${countWorkingSets(sets ?? [])}`} />
+        <Stat label="Volume" value={volume > 0 ? formatVolume(volume, units) : "—"} />
       </dl>
 
       <ol className="mt-8 space-y-3">
@@ -131,13 +154,19 @@ export default async function SessionDetailPage({
             row whose stamp and contents somehow disagree.
           */
           const isTimed = e.metric === "seconds";
-          const mine = (sets ?? []).filter((s) => s.session_exercise_id === e.id);
+          const mine = (sets ?? []).filter((s) => s.session_exercise_id === e.id && !s.is_warmup_set);
+          const completion = exerciseCompletion(mine.length, e.planned_sets ?? 0);
           return (
             <li key={e.id} className="rounded-xl border border-border bg-surface px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-semibold">{name}</span>
-                {e.status === "skipped" && (
+                {completion === "skipped" && (
                   <span className="shrink-0 text-xs text-muted">skipped</span>
+                )}
+                {completion === "partial" && (
+                  <span className="shrink-0 text-xs text-muted">
+                    {mine.length} of {e.planned_sets} {e.planned_sets === 1 ? "set" : "sets"}
+                  </span>
                 )}
               </div>
               {e.swapped_from_exercise_id && (
@@ -160,7 +189,7 @@ export default async function SessionDetailPage({
                         {isTimed && s.duration_seconds !== null
                           ? `${s.duration_seconds}s`
                           : s.reps !== null
-                            ? `${s.reps} reps`
+                            ? `${s.reps} ${s.reps === 1 ? "rep" : "reps"}`
                             : isTimed
                               ? "—s"
                               : "— reps"}
@@ -179,6 +208,25 @@ export default async function SessionDetailPage({
           );
         })}
       </ol>
+
+      <EditSets
+        sessionId={session.id}
+        exercises={(exercises ?? []).map((e) => ({
+          id: e.id,
+          name: (e.exercises as unknown as { name: string } | null)?.name ?? "Exercise",
+          metric: e.metric || "reps",
+          sets: (sets ?? []).filter((s) => s.session_exercise_id === e.id).map((s) => ({
+            session_exercise_id: s.session_exercise_id,
+            set_number: s.set_number,
+            reps: s.reps,
+            weight_kg: s.weight_kg,
+            duration_seconds: s.duration_seconds,
+            is_warmup_set: s.is_warmup_set,
+          })),
+        }))}
+      />
+
+      <SessionActions sessionId={session.id} />
     </main>
   );
 }
