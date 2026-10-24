@@ -572,6 +572,18 @@ export default async function TodayPage() {
         firstTrainingDay={firstTrainingDay}
       />
 
+      {dayType === "meditation" && (
+        <div className="mt-6">
+          <p className="text-muted">A breathing day. Pick a practice and sit with it.</p>
+          <Link
+            href="/breathe"
+            className="mt-5 block rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            Start breathing
+          </Link>
+        </div>
+      )}
+
       {dayType === "yoga" && (
         <div className="mt-6">
           <p className="text-muted">
