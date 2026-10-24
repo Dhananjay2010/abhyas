@@ -6,6 +6,16 @@
 export type DeletionResult = { ok: true } | { ok: false; error: string };
 
 /**
+ * Check if the user typed the exact confirmation word.
+ * 
+ * @param input - The raw user input
+ * @returns true only when input is exactly "DELETE" (case-sensitive, no whitespace tolerance)
+ */
+export function isDeleteConfirmed(input: string): boolean {
+  return input === "DELETE";
+}
+
+/**
  * Convert a deletion result or thrown error into a user-friendly error message.
  * 
  * - If result is success, returns null (no error)
