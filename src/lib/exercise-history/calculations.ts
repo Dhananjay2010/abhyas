@@ -46,6 +46,18 @@ export function calculateEpley1RM(
 }
 
 /**
+ * Round e1RM value to 0.1 kg to avoid float precision issues in comparisons.
+ * Used for tie detection: 121×1 and 110×3 both round to 121.0, so no PR.
+ * 
+ * @param e1rm - Estimated 1RM or null
+ * @returns Rounded e1RM or 0 if null
+ */
+export function roundE1RM(e1rm: number | null): number {
+  if (e1rm === null) return 0;
+  return Math.round(e1rm * 10) / 10;
+}
+
+/**
  * Calculate total volume for a set (reps × weight).
  * Returns 0 for bodyweight or time-based exercises.
  */
@@ -191,8 +203,8 @@ export function detectPersonalRecords(
 
     // 2. Best estimated 1RM
     const bestE1rmSet = allSets.reduce((best, current) => {
-      const bestE1rm = calculateEpley1RM(best.reps, best.weight_kg) ?? 0;
-      const currentE1rm = calculateEpley1RM(current.reps, current.weight_kg) ?? 0;
+      const bestE1rm = roundE1RM(calculateEpley1RM(best.reps, best.weight_kg));
+      const currentE1rm = roundE1RM(calculateEpley1RM(current.reps, current.weight_kg));
       return currentE1rm > bestE1rm ? current : best;
     });
     

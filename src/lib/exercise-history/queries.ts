@@ -14,6 +14,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import {
   calculateEpley1RM,
+  roundE1RM,
   calculateSetVolume,
   findTopSet,
   detectPersonalRecords,
@@ -495,18 +496,19 @@ export async function getExerciseHistory(
           });
         }
 
-        // 2. Best e1RM
-        const bestE1rmInSession = Math.max(...sets.map(s => calculateEpley1RM(s.reps, s.weight_kg) ?? 0));
+        // 2. Best e1RM (rounded to 0.1 kg for comparison to avoid float noise)
+        const bestE1rmInSession = Math.max(...sets.map(s => roundE1RM(calculateEpley1RM(s.reps, s.weight_kg))));
         const prevBestE1rm = prsBefore.find(pr => pr.type === "best_e1rm");
-        const prevE1rmValue = prevBestE1rm?.value ?? 0;
+        const prevE1rmValue = roundE1RM(prevBestE1rm?.value ?? null);
 
         if (bestE1rmInSession > prevE1rmValue) {
-          const prSet = sets.find(s => (calculateEpley1RM(s.reps, s.weight_kg) ?? 0) === bestE1rmInSession) ?? sets[0];
+          const prSet = sets.find(s => roundE1RM(calculateEpley1RM(s.reps, s.weight_kg)) === bestE1rmInSession) ?? sets[0];
+          const actualE1rm = calculateEpley1RM(prSet.reps, prSet.weight_kg) ?? 0;
           sessionPRs.push({
             type: "best_e1rm",
             set: prSet,
-            value: bestE1rmInSession,
-            e1rm: bestE1rmInSession,
+            value: actualE1rm,
+            e1rm: actualE1rm,
           });
         }
       }
