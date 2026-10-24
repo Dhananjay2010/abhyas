@@ -85,21 +85,23 @@ async function runTests() {
           local_date: "2026-10-25",
           actual_type: "weights",
           planned_type: "weights",
-          program_day_id: "old-day",
+          program_day_id: "old-lower-day",
           program_id: "old-program",
           status: "planned",
-          program_days: { label: "Upper", day_index: 1 },
+          program_days: { label: "Lower", day_index: 2 },
           session_exercises: [],
         },
       ],
-      program_days: [],
+      program_days: [
+        { id: "old-lower-day", program_id: "old-program", user_id: "user1", day_index: 2, day_type: "weights", label: "Lower", focus: "Legs" },
+      ],
       program_day_exercises: [],
     });
 
     const mockPlan = {
       splitType: "push_pull_legs" as const,
       daysPerWeek: 4,
-      blockNumber: 1,
+      blockNumber: 2,
       deloadWeek: 4,
       days: [
         {
@@ -109,13 +111,20 @@ async function runTests() {
           focus: "Chest, Back",
           exercises: [],
         },
+        {
+          dayIndex: 2,
+          dayType: "weights" as const,
+          label: "Lower",
+          focus: "Legs, Glutes",
+          exercises: [],
+        },
       ],
     };
 
     const result = await persistBlock(fake as never, "user1", mockPlan, {
       startedOn: "2026-10-24",
       endsOn: "2026-11-20",
-      rebuildOf: { block_number: 1, started_on: "2026-10-24" }, // Rebuild!
+      rebuildOf: { block_number: 1, started_on: "2026-10-24" },
       timezone: "UTC",
       primaryTrack: "strength",
       goal: "general_fitness",
@@ -124,16 +133,23 @@ async function runTests() {
 
     check("persistBlock succeeded", result.ok);
 
-    // The fake doesn't have the full repoint implementation,
-    // so we just verify that the rebuild path was triggered.
-    // In real tests with the full DB, sessions would be updated.
+    // Find the new program and new Lower day
+    const newProgram = fake.store.programs?.[0];
+    const newLowerDay = fake.store.program_days?.find((d) => d.label === "Lower" && d.program_id === newProgram?.id);
     
-    // For the in-memory fake, we verify that:
-    // 1. The program was created
-    check("program created", fake.store.programs?.length === 1);
-    
-    // 2. Program days were created
-    check("program days created", fake.store.program_days?.length === 1);
+    check("new program created", !!newProgram);
+    check("new Lower day created", !!newLowerDay);
+
+    // CRITICAL: Assert session was repointed to new program and day
+    const session = fake.store.sessions[0];
+    check("session program_id points to NEW program (repoint called)", 
+      session.program_id === newProgram?.id,
+      `expected ${newProgram?.id}, got ${session.program_id}`
+    );
+    check("session program_day_id points to NEW Lower day (repoint called)", 
+      session.program_day_id === newLowerDay?.id,
+      `expected ${newLowerDay?.id}, got ${session.program_day_id}`
+    );
   }
 
   console.log("\nX1/X2: 0-set in_progress session rebuilt on rebuild");
