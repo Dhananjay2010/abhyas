@@ -243,7 +243,6 @@ export function SettingsForm({
   }, []);
 
   const restorePendingChanges = useEffectEvent(() => {
-    // Re-apply each stashed save through the real restore helper
     const pending = getPendingChanges(userId);
     if (!pending || pending.returnPath !== pathname) {
       return;
