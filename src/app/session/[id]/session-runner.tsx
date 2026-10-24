@@ -16,7 +16,6 @@ import {
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { sessionCompletion } from "@/lib/session/completion";
 import { runFinish, runEndEarly } from "@/lib/session/finish-flow";
 import { endEarlyConfirmTitle, sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { focusTrap } from "@/lib/focus-trap";

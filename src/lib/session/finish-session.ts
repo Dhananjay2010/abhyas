@@ -71,12 +71,23 @@ export async function finishSessionCore(
 
   if (readError) return { ok: false, error: readError.message };
 
+  // Cast to our extended type that includes completed_at
+  type SessionSetWithTimestamp = {
+    id: string;
+    is_warmup_set: boolean;
+    completed_at: string | null;
+  };
+
+  type SessionExerciseWithTimestamp = {
+    session_sets: SessionSetWithTimestamp[] | null;
+  };
+
   // Determine if this should be completed or skipped based on working sets
   const status = decideAbandonStatus((exercises ?? []) as SessionExercise[]);
 
   // Find the last logged set (warmup or working)
   let lastSetCompletedAt: string | null = null;
-  for (const exercise of (exercises ?? []) as SessionExercise[]) {
+  for (const exercise of (exercises ?? []) as SessionExerciseWithTimestamp[]) {
     for (const set of exercise.session_sets ?? []) {
       if (set.completed_at && (!lastSetCompletedAt || set.completed_at > lastSetCompletedAt)) {
         lastSetCompletedAt = set.completed_at;

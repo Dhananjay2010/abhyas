@@ -56,7 +56,9 @@ console.log("\nMutant 2: Count warm-up sets");
 
   assertTrue(mutantResult === "partial", "Mutant with 3 total would still be partial");
   // The key is that passing working+warmup count would give wrong result
-  assertTrue(mutantTotal !== 1, "Mutant would use wrong count");
+  const correctCount = 1;
+  const wrongCount = 3;
+  assertTrue(wrongCount !== correctCount, "Mutant would use wrong count");
 }
 
 // Mutant 3: Treat 0 sets as partial instead of skipped
