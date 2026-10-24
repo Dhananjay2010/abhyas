@@ -361,6 +361,7 @@ export default async function TodayPage() {
     restSeconds: number | null;
     skipped: boolean;
     swappedIn: boolean;
+    completed: boolean;
   };
 
   const template = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
@@ -404,6 +405,7 @@ export default async function TodayPage() {
           restSeconds: r.rest_seconds,
           skipped: r.status === "skipped",
           swappedIn: r.swapped_from_exercise_id !== null,
+          completed: r.status === "completed",
         }))
       : template.map((r) => ({
           key: `p${r.order_index}`,
@@ -416,6 +418,7 @@ export default async function TodayPage() {
           restSeconds: r.rest_seconds,
           skipped: false,
           swappedIn: false,
+          completed: false,
         }));
 
   /*
@@ -627,7 +630,8 @@ export default async function TodayPage() {
                 className="rounded-xl border border-border bg-surface px-4 py-3.5"
               >
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
+                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : row.completed ? "text-success" : ""}`}>
+                    {row.completed && "✓ "}
                     {row.name}
                   </span>
                   <span className="shrink-0 text-sm tabular-nums text-accent">

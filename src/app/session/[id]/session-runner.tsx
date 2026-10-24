@@ -35,6 +35,7 @@ import { mapErrorToUserMessage, countLoggedSets } from "@/lib/session/error-mess
 import { finishBlockReason, canClearOutbox, canEndSession, undoTargetSetNumber, countSetsWithFlag } from "@/lib/session/sync-helpers";
 import { endEarlyWithFlush } from "@/lib/session/end-early";
 import { useSetOutbox, type SyncState } from "./use-set-outbox";
+import { writeSessionSnapshot, type SessionCacheStorage } from "@/lib/session/session-cache";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -200,6 +201,49 @@ export function SessionRunner({
   );
 
   const wakeLock = useWakeLock(phase !== "done");
+
+  /**
+   * Write a session snapshot to localStorage for offline resilience.
+   * Called on mount and after each logged or queued set.
+   */
+  const writeSnapshot = useCallback(() => {
+    if (typeof window === "undefined") return;
+    
+    const storage: SessionCacheStorage = {
+      getItem: (key) => window.localStorage.getItem(key),
+      setItem: (key, value) => window.localStorage.setItem(key, value),
+    };
+
+    writeSessionSnapshot(storage, {
+      sessionId,
+      userId,
+      exercises: exercises.map((e) => ({
+        id: e.id,
+        exerciseId: e.exerciseId,
+        name: e.name,
+        plannedSets: e.plannedSets,
+        sets: e.sets.map((s) => {
+          const meta = s as unknown as { pending?: boolean; failed?: boolean; unsaved?: boolean; clientId?: string };
+          return {
+            setNumber: s.setNumber,
+            reps: s.reps,
+            weightKg: s.weightKg,
+            durationSeconds: s.durationSeconds,
+            ...(meta.pending && { pending: true }),
+            ...(meta.failed && { failed: true }),
+            ...(meta.unsaved && { unsaved: true }),
+            ...(meta.clientId && { clientId: meta.clientId }),
+          };
+        }),
+      })),
+      elapsed,
+    });
+  }, [sessionId, userId, exercises, elapsed]);
+
+  // Write snapshot on mount and when exercises or elapsed change
+  useEffect(() => {
+    writeSnapshot();
+  }, [writeSnapshot]);
 
   /**
    * Clear the outbox after finishing the session.
