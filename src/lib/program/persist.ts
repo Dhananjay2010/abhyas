@@ -25,6 +25,85 @@ export type BuildResult =
     }
   | { ok: false; error: string };
 
+type ProgramPayload = {
+  id: string;
+  block_number: number;
+  split_type: string;
+  days_per_week: number;
+  primary_track: string;
+  goal: string;
+  level: string;
+  ends_on: string;
+  deload_week: number;
+  days: Array<{
+    day_index: number;
+    day_type: string;
+    focus: string | null;
+    label: string | null;
+    exercises: Array<{
+      exercise_id: string;
+      order_index: number;
+      target_sets: number;
+      target_reps_min: number;
+      target_reps_max: number;
+      rest_seconds: number;
+    }>;
+  }>;
+};
+
+/**
+ * Call rebuild_block or rollover_block RPC with the generated plan.
+ * Returns the program ID from the RPC (idempotent: may be from a concurrent call).
+ */
+async function callBlockRPC(
+  supabase: Client,
+  mode: "rebuild" | "rollover",
+  today: string,
+  plan: ReturnType<typeof generateProgram>,
+  input: GeneratorInput,
+): Promise<{ ok: true; programId: string } | { ok: false; error: string }> {
+  const programId = crypto.randomUUID();
+  const endsOn = addDays(today, 27); // four weeks inclusive
+
+  const payload: ProgramPayload = {
+    id: programId,
+    block_number: plan.blockNumber,
+    split_type: plan.splitType,
+    days_per_week: plan.daysPerWeek,
+    primary_track: input.primaryTrack,
+    goal: input.goal,
+    level: input.level,
+    ends_on: endsOn,
+    deload_week: plan.deloadWeek,
+    days: plan.days.map((d) => ({
+      day_index: d.dayIndex,
+      day_type: d.dayType,
+      focus: d.focus ?? null,
+      label: d.label ?? null,
+      exercises: d.exercises.map((e) => ({
+        exercise_id: e.exerciseId,
+        order_index: e.orderIndex,
+        target_sets: e.targetSets,
+        target_reps_min: e.targetRepsMin,
+        target_reps_max: e.targetRepsMax,
+        rest_seconds: e.restSeconds,
+      })),
+    })),
+  };
+
+  const rpcName = mode === "rebuild" ? "rebuild_block" : "rollover_block";
+  const { data, error } = await supabase.rpc(rpcName, {
+    p_today: today,
+    p_payload: payload as unknown as Record<string, unknown>,
+  });
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, programId: data as string };
+}
+
 /**
  * Generate and persist a 4-week block for the user.
  *
@@ -155,6 +234,24 @@ export async function createBlockForUser(
     };
   }
 
+  const timezone = resolveTimezoneWithProfile(profile.timezone);
+  const today = localDateString(timezone);
+
+  // For rebuild mode, use the rebuild_block RPC
+  if (rebuildOf) {
+    const result = await callBlockRPC(supabase, "rebuild", today, plan, input);
+    if (!result.ok) return result;
+
+    return {
+      ok: true,
+      programId: result.programId,
+      blockNumber: plan.blockNumber,
+      trainingDays: trainingDays.length,
+      totalExercises: plan.days.flatMap((d) => d.exercises).length,
+    };
+  }
+
+  // For first builds, use the legacy insert path
   // Retire any previous active block before inserting the new one.
   await supabase
     .from("programs")
@@ -162,10 +259,7 @@ export async function createBlockForUser(
     .eq("user_id", userId)
     .eq("status", "active");
 
-  // A rebuild keeps the block's start date, so the user stays in the week they
-  // were in and the deload week does not move.
-  const timezone = resolveTimezoneWithProfile(profile.timezone);
-  const startedOn = rebuildOf?.started_on ?? localDateString(timezone);
+  const startedOn = today;
   const endsOn = addDays(startedOn, 27); // four weeks inclusive
 
   const { data: program, error: programError } = await supabase

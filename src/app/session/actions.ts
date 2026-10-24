@@ -20,6 +20,7 @@ import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
+import { ensureCurrentBlock } from "@/lib/program/rollover";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -133,8 +134,25 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     return { ok: true, data: { sessionId: existing.id } };
   }
 
-  const program = programRes.data;
-  if (!program) return { ok: false, error: "You have no active training block." };
+  // Ensure we have a current block before creating a session (fixes E-5: stale tab bug)
+  const rolloverResult = await ensureCurrentBlock(supabase, user.id, today);
+  if (rolloverResult.status === "none") {
+    return { ok: false, error: "You have no active training block." };
+  }
+  if (rolloverResult.status === "error") {
+    return { ok: false, error: rolloverResult.error };
+  }
+
+  // Re-read the program after rollover to get the fresh block
+  const program = (
+    await supabase
+      .from("programs")
+      .select("id, started_on, deload_week, program_days(id, day_index, day_type, focus, label)")
+      .eq("id", rolloverResult.programId)
+      .maybeSingle()
+  ).data;
+
+  if (!program) return { ok: false, error: "Could not load the training block." };
 
   // From the local date already computed above, not a second read of the clock:
   // deriving them separately let the weekday and the date disagree across a
