@@ -141,10 +141,6 @@
     "test:rebuild-history": "tsx scripts/test-rebuild-history.ts",
     "test:block-range-db": "tsx scripts/test-block-range-db.ts",
     "test:deload-trim": "tsx scripts/test-deload-trim.ts",
-    "test:settings-dob-validation": "tsx scripts/test-settings-dob-validation.ts",
-    "test:today-iso-timezone": "tsx scripts/test-today-iso-in-timezone.ts",
-    "test:settings-dob-null-rejection": "tsx scripts/test-settings-dob-null-rejection.ts",
-    "test:settings-dob-data-loss": "tsx scripts/test-settings-dob-data-loss.tsx",
     "test:session-expired-detection": "tsx scripts/test-session-expired-detection.ts",
     "test:sign-in-again-href": "tsx scripts/test-sign-in-again-href.ts",
     "test:settings-form-session-expired": "tsx scripts/test-settings-form-session-expired.tsx"

@@ -97,6 +97,7 @@ const initialState: SettingsState = {
   restOverrideSeconds: null,
   bodyweightPrompt: 'weekly',
   timezone: null,
+  dateOfBirth: null,
 };
 
 const equipment = [
