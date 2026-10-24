@@ -9,6 +9,11 @@
 --
 -- security_invoker = on means the view runs with the caller's RLS context,
 -- so users only see their own exercise history.
+--
+-- This view is essential for the exercise history API to work correctly with:
+-- - Out-of-order sessions (insertion order ≠ completion order)
+-- - Heavy users with >1000 sessions
+-- - Exercise performance lookups spanning >100 sessions back
 
 create view exercise_history with (security_invoker = on) as
 select
