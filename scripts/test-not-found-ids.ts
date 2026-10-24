@@ -24,17 +24,25 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ` -- ${detail}` : ""}`);
 }
 
-function createFakeSessionClient(shouldExist: boolean) {
+function createFakeSessionClient(shouldExist: boolean, shouldThrow = false) {
   return {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: async () => ({
-            data: shouldExist ? { id: "550e8400-e29b-41d4-a716-446655440000" } : null,
+    from: () => {
+      if (shouldThrow) {
+        throw new Error("Unexpected query: .from() should not be called for malformed IDs");
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: shouldExist ? { id: "550e8400-e29b-41d4-a716-446655440000" } : null,
+                error: null,
+              }),
+            }),
           }),
         }),
-      }),
-    }),
+      };
+    },
   };
 }
 
@@ -60,48 +68,47 @@ async function runTests() {
 
   console.log("\n2. checkSessionRoute validates and queries");
   {
+    const userId = "550e8400-e29b-41d4-a716-446655440000";
     const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
     const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
+    const noQueryClient = createFakeSessionClient(false, true) as unknown as SupabaseClient;
     
     check(
       "valid UUID that exists returns 'ok'",
-      (await checkSessionRoute(existingClient, "550e8400-e29b-41d4-a716-446655440000")) === "ok",
+      (await checkSessionRoute(existingClient, userId, "550e8400-e29b-41d4-a716-446655440000")) === "ok",
     );
     
     check(
       "valid UUID that doesn't exist returns 'not_found'",
-      (await checkSessionRoute(missingClient, "550e8400-e29b-41d4-a716-446655440000")) === "not_found",
+      (await checkSessionRoute(missingClient, userId, "550e8400-e29b-41d4-a716-446655440000")) === "not_found",
     );
     
     check(
       "malformed ID returns 'not_found' without query",
-      (await checkSessionRoute(missingClient, "not-a-uuid")) === "not_found",
+      (await checkSessionRoute(noQueryClient, userId, "not-a-uuid")) === "not_found",
     );
     
     check(
       "empty string returns 'not_found' without query",
-      (await checkSessionRoute(missingClient, "")) === "not_found",
+      (await checkSessionRoute(noQueryClient, userId, "")) === "not_found",
     );
   }
 
-  console.log("\n3. checkHistoryRoute validates and queries");
+  console.log("\n3. checkHistoryRoute is an alias for checkSessionRoute");
   {
+    const userId = "550e8400-e29b-41d4-a716-446655440000";
     const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
     const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
+    const noQueryClient = createFakeSessionClient(false, true) as unknown as SupabaseClient;
     
     check(
       "valid UUID that exists returns 'ok'",
-      (await checkHistoryRoute(existingClient, "550e8400-e29b-41d4-a716-446655440000")) === "ok",
-    );
-    
-    check(
-      "valid UUID that doesn't exist returns 'not_found'",
-      (await checkHistoryRoute(missingClient, "550e8400-e29b-41d4-a716-446655440000")) === "not_found",
+      (await guardHistoryRoute(existingClient, userId, "550e8400-e29b-41d4-a716-446655440000")) === undefined,
     );
     
     check(
       "malformed ID returns 'not_found' without query",
-      (await checkHistoryRoute(missingClient, "not-a-uuid")) === "not_found",
+      (await checkSessionRoute(noQueryClient, userId, "not-a-uuid")) === "not_found",
     );
   }
 
@@ -184,12 +191,13 @@ async function runTests() {
 
   console.log("\n6. guardSessionRoute throws notFound() for invalid input");
   {
+    const userId = "550e8400-e29b-41d4-a716-446655440000";
     const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
     const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
 
     // Test that it throws for bad UUID
     try {
-      await guardSessionRoute(missingClient, "not-a-uuid");
+      await guardSessionRoute(missingClient, userId, "not-a-uuid");
       check("guardSessionRoute throws for bad UUID", false, "did not throw");
     } catch (err: unknown) {
       const digest = (err as { digest?: string }).digest;
@@ -198,7 +206,7 @@ async function runTests() {
 
     // Test that it throws for missing session
     try {
-      await guardSessionRoute(missingClient, "550e8400-e29b-41d4-a716-446655440000");
+      await guardSessionRoute(missingClient, userId, "550e8400-e29b-41d4-a716-446655440000");
       check("guardSessionRoute throws for missing session", false, "did not throw");
     } catch (err: unknown) {
       const digest = (err as { digest?: string }).digest;
@@ -207,53 +215,71 @@ async function runTests() {
 
     // Test that it returns children for valid session
     try {
-      const result = await guardSessionRoute(existingClient, "550e8400-e29b-41d4-a716-446655440000");
+      const result = await guardSessionRoute(existingClient, userId, "550e8400-e29b-41d4-a716-446655440000");
       check("guardSessionRoute completes for valid session", result === undefined);
     } catch (err: unknown) {
       check("guardSessionRoute completes for valid session", false, `threw: ${err}`);
     }
   }
 
-  console.log("\n7. guardHistoryRoute throws notFound() for invalid input");
+  console.log("\n7. guardHistoryRoute is an alias");
   {
+    const userId = "550e8400-e29b-41d4-a716-446655440000";
     const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
     const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
 
     // Test that it throws for bad UUID
     try {
-      await guardHistoryRoute(missingClient, "not-a-uuid");
+      await guardHistoryRoute(missingClient, userId, "not-a-uuid");
       check("guardHistoryRoute throws for bad UUID", false, "did not throw");
     } catch (err: unknown) {
       const digest = (err as { digest?: string }).digest;
       check("guardHistoryRoute throws for bad UUID", digest === "NEXT_HTTP_ERROR_FALLBACK;404");
     }
 
-    // Test that it throws for missing history
-    try {
-      await guardHistoryRoute(missingClient, "550e8400-e29b-41d4-a716-446655440000");
-      check("guardHistoryRoute throws for missing history", false, "did not throw");
-    } catch (err: unknown) {
-      const digest = (err as { digest?: string }).digest;
-      check("guardHistoryRoute throws for missing history", digest === "NEXT_HTTP_ERROR_FALLBACK;404");
-    }
-
     // Test that it returns for valid history
     try {
-      const result = await guardHistoryRoute(existingClient, "550e8400-e29b-41d4-a716-446655440000");
+      const result = await guardHistoryRoute(existingClient, userId, "550e8400-e29b-41d4-a716-446655440000");
       check("guardHistoryRoute completes for valid history", result === undefined);
     } catch (err: unknown) {
       check("guardHistoryRoute completes for valid history", false, `threw: ${err}`);
     }
   }
 
-  console.log("\n8. guardBreatheRoute validates and throws (via checkBreatheRoute)");
+  console.log("\n8. Layout structure prevents streaming before guard runs");
   {
-    // guardBreatheRoute calls checkBreatheRoute, which was tested in section 4.
-    // Testing guardBreatheRoute directly requires a real Supabase client since
-    // it uses the default loadPractice loader, so we rely on the check tests
-    // plus the session/history guard tests proving the guard pattern works.
-    check("checkBreatheRoute with junk slug returns 'not_found'", true, "covered in section 4");
-    check("guardSessionRoute and guardHistoryRoute prove guard pattern", true, "covered in sections 6-7");
+    const fs = await import("fs/promises");
+    const path = await import("path");
+    
+    const layoutPaths = [
+      "src/app/session/[id]/layout.tsx",
+      "src/app/history/[id]/layout.tsx",
+      "src/app/breathe/[slug]/layout.tsx",
+    ];
+    
+    for (const layoutPath of layoutPaths) {
+      const dir = path.dirname(layoutPath);
+      const segments = dir.split(path.sep).filter(Boolean);
+      
+      // Check each ancestor directory (excluding src/app itself)
+      for (let i = 2; i < segments.length; i++) {
+        const ancestorPath = segments.slice(0, i + 1).join(path.sep);
+        const loadingPath = path.join(ancestorPath, "loading.tsx");
+        
+        try {
+          await fs.access(loadingPath);
+          check(
+            `No loading.tsx in ancestor of ${layoutPath}`,
+            false,
+            `found ${loadingPath} which would wrap the layout`,
+          );
+        } catch {
+          // File doesn't exist, which is what we want
+        }
+      }
+      
+      check(`No loading.tsx wraps ${layoutPath}`, true);
+    }
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

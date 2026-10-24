@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
@@ -71,7 +71,7 @@ export default async function SessionPage({
 
   const session = sessionRes.data;
   if (!session) {
-    throw new Error("Session not found");
+    notFound();
   }
   if (session.status === "completed") redirect("/today");
 

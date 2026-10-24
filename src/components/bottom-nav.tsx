@@ -111,7 +111,7 @@ export function BottomNav({ forceVisible = false }: { forceVisible?: boolean } =
   };
 
   return (
-    <nav 
+    <nav
       className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur"
       aria-label="Main navigation"
     >

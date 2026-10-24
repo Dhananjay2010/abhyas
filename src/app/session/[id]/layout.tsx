@@ -14,7 +14,7 @@ export default async function SessionLayout({
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  await guardSessionRoute(supabase, id);
+  await guardSessionRoute(supabase, user.id, id);
 
   return <>{children}</>;
 }

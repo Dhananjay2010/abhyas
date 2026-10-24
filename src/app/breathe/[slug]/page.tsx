@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { loadPractice } from "../load";
 import { PracticeSetup } from "./practice-setup";
@@ -12,7 +12,7 @@ export default async function PracticePage({ params }: { params: Promise<{ slug:
 
   const loaded = await loadPractice(supabase, user.id, slug);
   if (!loaded) {
-    throw new Error("Practice not found");
+    notFound();
   }
 
   return (

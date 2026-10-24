@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
@@ -42,7 +42,7 @@ export default async function SessionDetailPage({
     throw new Error(`Could not load this session: ${sessionError.message}`);
   }
   if (!session) {
-    throw new Error("Session not found");
+    notFound();
   }
 
   if (session.actual_type === "meditation") {

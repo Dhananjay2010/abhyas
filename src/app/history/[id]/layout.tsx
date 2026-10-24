@@ -14,7 +14,7 @@ export default async function HistoryDetailLayout({
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  await guardHistoryRoute(supabase, id);
+  await guardHistoryRoute(supabase, user.id, id);
 
   return <>{children}</>;
 }
