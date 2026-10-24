@@ -228,12 +228,55 @@ export function useSetOutbox<
     const storage = createLocalStorage(storageKey);
     outboxRef.current = new Outbox(storage, sender, storageKey);
 
-    // Clean up old key formats if they exist
+    // Migrate old key formats if they exist
     try {
       const oldKey1 = `outbox:${sessionId}`;
       const oldKey2 = `abhyas:outbox:${sessionId}`;
-      if (localStorage.getItem(oldKey1)) localStorage.removeItem(oldKey1);
-      if (localStorage.getItem(oldKey2)) localStorage.removeItem(oldKey2);
+
+      for (const oldKey of [oldKey1, oldKey2]) {
+        const oldData = localStorage.getItem(oldKey);
+        if (oldData) {
+          try {
+            const oldState = JSON.parse(oldData) as { pending?: unknown[]; failed?: unknown[] };
+            const currentState = storage.get() ?? { pending: [], failed: [] };
+
+            // Merge pending sets
+            if (oldState.pending && Array.isArray(oldState.pending)) {
+              for (const p of oldState.pending) {
+                // Only add if not already in new key (avoid duplicates)
+                const exists = currentState.pending.some(
+                  (s) => s.sessionExerciseId === (p as { sessionExerciseId?: string }).sessionExerciseId &&
+                         s.setNumber === (p as { setNumber?: number }).setNumber
+                );
+                if (!exists) {
+                  currentState.pending.push(p as never);
+                }
+              }
+            }
+
+            // Merge failed sets
+            if (oldState.failed && Array.isArray(oldState.failed)) {
+              for (const f of oldState.failed) {
+                // Only add if not already in new key (avoid duplicates)
+                const exists = currentState.failed.some(
+                  (s) => s.set.sessionExerciseId === (f as { set?: { sessionExerciseId?: string } }).set?.sessionExerciseId &&
+                         s.set.setNumber === (f as { set?: { setNumber?: number } }).set?.setNumber
+                );
+                if (!exists) {
+                  currentState.failed.push(f as never);
+                }
+              }
+            }
+
+            // Save merged state and delete old key
+            storage.set(currentState);
+            localStorage.removeItem(oldKey);
+          } catch {
+            // Invalid JSON in old key, just delete it
+            localStorage.removeItem(oldKey);
+          }
+        }
+      }
     } catch {
       // Ignore storage errors
     }

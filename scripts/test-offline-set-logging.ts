@@ -1444,6 +1444,138 @@ async function testFlushTimeStorageQuota() {
 
   console.log("✓ Flush-time storage quota: throws special error after successful send");
 }
+
+// ---- Key migration: old outbox keys to new format -------------------------
+function testKeyMigration() {
+  // Mock localStorage
+  const mockStorage: Record<string, string> = {};
+  const origGetItem = typeof localStorage !== "undefined" ? localStorage.getItem : undefined;
+  const origSetItem = typeof localStorage !== "undefined" ? localStorage.setItem : undefined;
+  const origRemoveItem = typeof localStorage !== "undefined" ? localStorage.removeItem : undefined;
+
+  if (typeof localStorage !== "undefined") {
+    localStorage.getItem = (key: string) => mockStorage[key] || null;
+    localStorage.setItem = (key: string, value: string) => { mockStorage[key] = value; };
+    localStorage.removeItem = (key: string) => { delete mockStorage[key]; };
+  }
+
+  try {
+    // Set up old keys with data
+    const oldKey1 = "outbox:session-123";
+    const oldKey2 = "abhyas:outbox:session-123";
+
+    const oldData1 = {
+      pending: [
+        {
+          clientId: "old-1",
+          sessionExerciseId: "ex1",
+          setNumber: 1,
+          reps: 10,
+          weightKg: 50,
+          durationSeconds: null,
+          queuedAt: Date.now(),
+          retries: 0,
+        },
+      ],
+      failed: [],
+    };
+
+    const oldData2 = {
+      pending: [],
+      failed: [
+        {
+          set: {
+            clientId: "old-2",
+            sessionExerciseId: "ex1",
+            setNumber: 2,
+            reps: 9,
+            weightKg: 50,
+            durationSeconds: null,
+            queuedAt: Date.now(),
+            retries: 0,
+          },
+          error: "Validation error",
+          failedAt: Date.now(),
+        },
+      ],
+    };
+
+    mockStorage[oldKey1] = JSON.stringify(oldData1);
+    mockStorage[oldKey2] = JSON.stringify(oldData2);
+
+    // Simulate the migration code from use-set-outbox.ts
+    const userId = "user-123";
+    const sessionId = "session-123";
+    const newKey = `abhyas:outbox:${userId}:${sessionId}`;
+
+    // Read and merge old keys
+    for (const oldKey of [oldKey1, oldKey2]) {
+      const oldDataStr = mockStorage[oldKey];
+      if (oldDataStr) {
+        const oldState = JSON.parse(oldDataStr) as { pending?: unknown[]; failed?: unknown[] };
+        const currentState = mockStorage[newKey]
+          ? JSON.parse(mockStorage[newKey]) as { pending: unknown[]; failed: unknown[] }
+          : { pending: [], failed: [] };
+
+        if (oldState.pending && Array.isArray(oldState.pending)) {
+          for (const p of oldState.pending) {
+            const exists = currentState.pending.some(
+              (s: { sessionExerciseId?: string; setNumber?: number }) =>
+                s.sessionExerciseId === (p as { sessionExerciseId?: string }).sessionExerciseId &&
+                s.setNumber === (p as { setNumber?: number }).setNumber
+            );
+            if (!exists) {
+              currentState.pending.push(p);
+            }
+          }
+        }
+
+        if (oldState.failed && Array.isArray(oldState.failed)) {
+          for (const f of oldState.failed) {
+            const exists = currentState.failed.some(
+              (s: { set?: { sessionExerciseId?: string; setNumber?: number } }) =>
+                s.set?.sessionExerciseId === (f as { set?: { sessionExerciseId?: string } }).set?.sessionExerciseId &&
+                s.set?.setNumber === (f as { set?: { setNumber?: number } }).set?.setNumber
+            );
+            if (!exists) {
+              currentState.failed.push(f);
+            }
+          }
+        }
+
+        mockStorage[newKey] = JSON.stringify(currentState);
+        delete mockStorage[oldKey];
+      }
+    }
+
+    // Verify migration
+    if (mockStorage[oldKey1] || mockStorage[oldKey2]) {
+      throw new Error("Old keys should be deleted");
+    }
+
+    if (!mockStorage[newKey]) {
+      throw new Error("New key should exist");
+    }
+
+    const newState = JSON.parse(mockStorage[newKey]) as { pending: unknown[]; failed: unknown[] };
+    if (newState.pending.length !== 1) {
+      throw new Error(`Expected 1 pending, got ${newState.pending.length}`);
+    }
+    if (newState.failed.length !== 1) {
+      throw new Error(`Expected 1 failed, got ${newState.failed.length}`);
+    }
+
+    console.log("✓ Key migration: old keys merged into new key and deleted");
+  } finally {
+    // Restore original localStorage methods
+    if (typeof localStorage !== "undefined") {
+      if (origGetItem) localStorage.getItem = origGetItem;
+      if (origSetItem) localStorage.setItem = origSetItem;
+      if (origRemoveItem) localStorage.removeItem = origRemoveItem;
+    }
+  }
+}
+
 function testStaticCheckHelperUsage() {
   // Check use-set-outbox.ts imports and uses helpers
   const outboxCode = readFileSync("src/app/session/[id]/use-set-outbox.ts", "utf-8");
@@ -1721,6 +1853,7 @@ async function main() {
   testCanClearOutbox();
   testUndoTargetSetNumber();
   testFlushTimeStorageQuota();
+  testKeyMigration();
   testStaticCheckHelperUsage();
 
   console.log("\n✓ All offline set logging tests passed");

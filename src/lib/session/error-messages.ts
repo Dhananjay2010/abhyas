@@ -1,9 +1,9 @@
 /**
  * Count logged sets that are saved or pending (exclude failed/unsaved).
  *
- * Pure function for testability. Handles:
- * - Doesn't count failed or unsaved rows
- * - Doesn't double-count (deduplicates by setNumber)
+ * Pure function for testability.
+ * - Counts saved and pending rows
+ * - Excludes failed and unsaved rows
  * - Stable during flush (pending rows are counted)
  */
 export function countLoggedSets(
