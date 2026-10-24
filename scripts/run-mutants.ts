@@ -154,8 +154,10 @@ for (const mutant of mutants) {
         status: "SURVIVED",
         firstFailure: "",
       });
-    } catch (error: any) {
-      const output = error.stdout + error.stderr;
+    } catch (error: unknown) {
+      const output = error && typeof error === "object" && "stdout" in error && "stderr" in error
+        ? String(error.stdout) + String(error.stderr)
+        : "";
       const failMatch = output.match(/✗ FAIL: ([^\n]+)/);
       results.push({
         id: mutant.id,
