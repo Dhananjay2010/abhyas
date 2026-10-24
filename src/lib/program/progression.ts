@@ -329,9 +329,9 @@ export function evaluateProgression(input: {
   const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
   if (failures >= 2 && currentWeight !== null && currentWeight > 0) {
-    // Bodyweight with added weight: drop added weight entirely to rebuild.
+    // Bodyweight with any stored or used added weight: drop to bodyweight entirely.
     // Loaded exercises: reduce by ~10%.
-    if (meta.isBodyweight && heaviest > 0) {
+    if (meta.isBodyweight) {
       return {
         ...carried,
         outcome: "backed_off",

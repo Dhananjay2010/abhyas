@@ -481,6 +481,20 @@ console.log("\nBodyweight exercises with added weight");
   check("message says back to bodyweight",
     backoff.message.includes("back to bodyweight"), backoff.message);
 
+  // Back-off edge case: stored added weight but this session logged without weight.
+  // Regression: if heaviest=0, the old `isBodyweight && heaviest>0` check failed
+  // and fell through to loaded-exercise logic with incrementFor, so a lower-body
+  // move with currentWeight=10 gave max(5, roundTo(9, 5))=10 and didn't drop at all.
+  const backoffNoWeight = run({
+    meta: SQUAT_BW,
+    sets: sets(4, 10, null),
+    state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
+  });
+  check("stored weight but logged without: still drops to 0",
+    backoffNoWeight.nextWorkingWeightKg === 0, `${backoffNoWeight.nextWorkingWeightKg}`);
+  check("outcome is backed_off", backoffNoWeight.outcome === "backed_off",
+    backoffNoWeight.outcome);
+
   // Unloaded bodyweight: unchanged behavior (reps progression).
   const unloaded = run({
     meta: PUSHUP,
