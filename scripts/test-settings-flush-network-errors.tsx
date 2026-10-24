@@ -11,39 +11,10 @@
 // Setup jsdom BEFORE importing React
 import "../scripts/helpers/setup-jsdom";
 
-// Mock next/navigation BEFORE importing components
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-
-let mockRefreshCalled = false;
-const mockRouter = {
-  refresh: () => { mockRefreshCalled = true; },
-  push: () => {},
-  replace: () => {},
-  prefetch: () => {},
-  back: () => {},
-  forward: () => {},
-};
-
-// @ts-ignore
-global.require = require;
-require.cache[require.resolve("next/navigation")] = {
-  exports: {
-    useRouter: () => mockRouter,
-    usePathname: () => "/settings",
-    useSearchParams: () => new URLSearchParams(),
-  },
-  id: require.resolve("next/navigation"),
-  filename: require.resolve("next/navigation"),
-  loaded: true,
-  children: [],
-  paths: [],
-};
-
-import { render, cleanup, act, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { SettingsForm, type SettingsActions, type SettingsState } from "../src/app/settings/settings-form";
+import { render, cleanup, act } from "@testing-library/react";
+import type { SettingsState } from "../src/app/settings/settings-form";
 import type { Result } from "../src/app/settings/actions";
+import type { SettingsActions } from "../src/app/settings/settings-form";
 
 let passed = 0;
 let failed = 0;
@@ -59,7 +30,6 @@ function assert(condition: boolean, message: string) {
 
 async function test(name: string, fn: () => Promise<void>) {
   console.log(`\n▶ ${name}`);
-  mockRefreshCalled = false; // Reset before each test
   try {
     await fn();
   } catch (err) {
