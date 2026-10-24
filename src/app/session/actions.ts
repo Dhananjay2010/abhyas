@@ -316,6 +316,10 @@ export type ProgressionFeedback = {
  *
  * Progression runs here rather than at the end of the session so that a
  * workout cut short still banks the exercises that were finished.
+ *
+ * Idempotent: only the first call that actually transitions from pending to
+ * completed/skipped applies progression. Concurrent or repeated calls return
+ * success without double-applying.
  */
 export async function finishExercise(input: {
   sessionExerciseId: string;
@@ -324,15 +328,36 @@ export async function finishExercise(input: {
 }): Promise<Result<ProgressionFeedback | null>> {
   const { supabase, user } = await requireUser();
 
-  const { error } = await supabase
+  /*
+    Conditional update: only transition rows that are not already finished.
+    
+    `status` cannot be NULL (it has a DEFAULT), so a simple `NOT IN` is safe.
+    If the exercise was already completed or skipped, zero rows are updated and
+    the RETURNING clause gives back an empty array. That's the idempotency
+    check: the first call wins the transition and runs progression; every
+    subsequent call sees no row and skips it.
+    
+    Using `.single()` here would throw on the second call, which is exactly the
+    wrong behavior for an idempotent action — a retry or double-tap would fail
+    rather than succeed quietly. So we use the array form and check its length.
+  */
+  const { data, error } = await supabase
     .from("session_exercises")
     .update({
       status: input.skipped ? "skipped" : "completed",
       feel: input.feel,
       completed_at: new Date().toISOString(),
     })
-    .eq("id", input.sessionExerciseId);
+    .eq("id", input.sessionExerciseId)
+    .not("status", "in", "(completed,skipped)")
+    .select("id");
+
   if (error) return { ok: false, error: error.message };
+
+  // No row returned: the exercise was already finished by a prior call.
+  if (!data || data.length === 0) {
+    return { ok: true, data: null };
+  }
 
   if (input.skipped) return { ok: true, data: null };
 
