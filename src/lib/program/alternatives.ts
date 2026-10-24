@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/database.types";
-import type { CandidateExercise } from "@/lib/program/generate";
+import type { CandidateExercise, getAllContraindications } from "@/lib/program/generate";
+import { getAllContraindications as getContraindications } from "@/lib/program/generate";
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -193,12 +194,9 @@ export function rankAlternatives<T extends ExerciseRow>(
       if (candidate.impact === "high") continue;
     }
     
-    // 6. Injury filtering: exclude if any contraindicated region intersects
-    if (
-      candidate.contraindicated_regions.some((region) =>
-        ctx.injuryRegions.includes(region)
-      )
-    ) {
+    // 6. Injury filtering: M3 - use shared getAllContraindications for consistency with generation
+    const allContraindications = getContraindications(candidate);
+    if (allContraindications.some((region) => ctx.injuryRegions.includes(region))) {
       continue;
     }
     
