@@ -353,7 +353,7 @@ function validateBrand(brand: Brand): void {
 
 /**
  * Select the active brand based on NEXT_PUBLIC_BRAND environment variable.
- * Falls back to 'default' if not set or invalid.
+ * Throws if the brand is not found (fails the build).
  * Validates the selected brand on first access.
  */
 function selectBrand(): Brand {
@@ -361,12 +361,10 @@ function selectBrand(): Brand {
   const brand = brands[brandId];
 
   if (!brand) {
-    console.warn(
-      `NEXT_PUBLIC_BRAND="${brandId}" not found in brand registry. Falling back to default.`
+    const validIds = Object.keys(brands).join(", ");
+    throw new Error(
+      `NEXT_PUBLIC_BRAND="${brandId}" not found in brand registry. Valid brand ids: ${validIds}`
     );
-    const fallback = brands.default;
-    validateBrand(fallback);
-    return fallback;
   }
 
   try {
