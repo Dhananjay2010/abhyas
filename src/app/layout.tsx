@@ -4,6 +4,7 @@ import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { NewVersionHint } from "@/components/new-version-hint";
+import { OnlineRefresh } from "@/components/online-refresh";
 import { branding, getBrandCssVariables } from "@/lib/branding";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
@@ -70,6 +71,7 @@ export default function RootLayout({
         <OfflineErrorProvider>
           <ServiceWorkerRegistration />
           <NewVersionHint />
+          <OnlineRefresh />
           {children}
           {/*
             L1: Client-side in-progress session indicator that fetches on mount
