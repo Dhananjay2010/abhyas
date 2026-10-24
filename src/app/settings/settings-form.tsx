@@ -253,7 +253,7 @@ export function SettingsForm({
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {/* ---------------- training ---------------- */}
-      <Section title="Your training" note="Changing these needs a rebuilt block.">
+      <Section title="Your training" note="Changes here update your plan.">
         <Field label="Goal" saved={savedField === "goal"}>
           <div className="space-y-2">
             {GOALS.map((o) => (
@@ -716,13 +716,15 @@ export function SettingsForm({
         )}
       </Section>
 
-      <Section title="Not built yet">
-        <p className="text-sm text-muted">
-          Light theme and imperial units are in the plan but not implemented, so
-          there is nothing to switch here yet. {branding.name} is dark, kilograms and
-          centimetres for now.
-        </p>
-      </Section>
+      {process.env.NODE_ENV !== "production" && (
+        <Section title="Not built yet">
+          <p className="text-sm text-muted">
+            Light theme and imperial units are in the plan but not implemented, so
+            there is nothing to switch here yet. {branding.name} is dark, kilograms and
+            centimetres for now.
+          </p>
+        </Section>
+      )}
 
       {/* M2: Fixed bottom bar for all status messages - out of flow, no layout shift */}
       {(planStale || rebuildSuccess || undoToast) && (
@@ -750,7 +752,7 @@ export function SettingsForm({
                 className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 flex items-center justify-between gap-3"
               >
                 <span className="text-sm text-accent">
-                  {undoToast.field === 'level' ? 'Level' : 'Training type'} updated. Your plan will be rebuilt for this when you choose Rebuild.
+                  {undoToast.field === 'level' ? 'Level' : 'Training type'} updated. Your plan will update when you apply the change.
                 </span>
                 <button
                   onClick={handleUndo}
@@ -765,12 +767,11 @@ export function SettingsForm({
             {planStale && !rebuildSuccess && (
               <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
                 <p className="text-sm text-accent">
-                  Your plan no longer matches these answers. Rebuilding keeps every session
-                  you have already logged.
+                  Your plan doesn't include this change yet.
                 </p>
                 <div className="mt-3">
                   <BuildPlanButton 
-                    label="Rebuild my block" 
+                    label="Update my plan to apply this" 
                     currentWeek={currentWeek}
                     showSuccessState={true}
                     onSuccess={() => {
