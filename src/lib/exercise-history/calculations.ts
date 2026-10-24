@@ -46,6 +46,47 @@ export function calculateEpley1RM(
 }
 
 /**
+ * Check if a set achieves a rep PR for weighted exercises.
+ * 
+ * Rules:
+ * 1. Current weight must be >= max earlier weight (no deloads)
+ * 2. Must have an earlier set at EXACTLY the same weight
+ * 3. Current reps > best earlier reps at that weight
+ * 
+ * @param currentSet - The set to check
+ * @param earlierSets - All sets that came before chronologically
+ * @returns true if this set is a rep PR, false otherwise
+ */
+export function checkWeightedRepPR(
+  currentSet: SetData,
+  earlierSets: SetData[]
+): boolean {
+  const currentReps = currentSet.reps ?? 0;
+  const currentWeight = currentSet.weight_kg ?? 0;
+  
+  if (currentReps === 0) return false;
+
+  // Find max weight among earlier sets
+  const maxEarlierWeight = Math.max(...earlierSets.map(s => s.weight_kg ?? 0), 0);
+  
+  // Skip if current weight is less than max earlier weight (deload)
+  if (currentWeight < maxEarlierWeight) return false;
+
+  // Find the best reps at EXACTLY this weight in earlier sets
+  let bestEarlierRepsAtWeight = 0;
+  let hasEarlierSetAtWeight = false;
+  for (const earlierSet of earlierSets) {
+    if (earlierSet.weight_kg === currentWeight) {
+      hasEarlierSetAtWeight = true;
+      bestEarlierRepsAtWeight = Math.max(bestEarlierRepsAtWeight, earlierSet.reps ?? 0);
+    }
+  }
+
+  // PR only if there was an earlier set at this weight AND current beats it
+  return hasEarlierSetAtWeight && currentReps > bestEarlierRepsAtWeight;
+}
+
+/**
  * Round e1RM value to 0.1 kg to avoid float precision issues in comparisons.
  * Used for tie detection: 121×1 and 110×3 both round to 121.0, so no PR.
  * 
@@ -221,40 +262,17 @@ export function detectPersonalRecords(
 
   // Most reps: same-weight comparison for weighted, plain for bodyweight
   if (hasWeight) {
-    // Weighted: rep PR requires weight >= max earlier weight, and more reps at same weight
-    const maxWeight = Math.max(...allSets.map(s => s.weight_kg ?? 0));
+    // Weighted: use checkWeightedRepPR helper
     let bestRepPRSet: SetData | null = null;
     let bestRepPRValue = 0;
 
     // Process sets chronologically
     for (let i = 0; i < allSets.length; i++) {
       const currentSet = allSets[i];
-      const currentReps = currentSet.reps ?? 0;
-      const currentWeight = currentSet.weight_kg ?? 0;
+      const earlierSets = allSets.slice(0, i);
       
-      if (currentReps === 0) continue;
-
-      // Find max weight among earlier sets
-      let maxEarlierWeight = 0;
-      for (let j = 0; j < i; j++) {
-        maxEarlierWeight = Math.max(maxEarlierWeight, allSets[j].weight_kg ?? 0);
-      }
-
-      // Skip if current weight is less than max earlier weight (deload)
-      if (currentWeight < maxEarlierWeight) continue;
-
-      // Find the best reps at EXACTLY this weight in earlier sets
-      let bestEarlierRepsAtWeight = 0;
-      let hasEarlierSetAtWeight = false;
-      for (let j = 0; j < i; j++) {
-        if (allSets[j].weight_kg === currentWeight) {
-          hasEarlierSetAtWeight = true;
-          bestEarlierRepsAtWeight = Math.max(bestEarlierRepsAtWeight, allSets[j].reps ?? 0);
-        }
-      }
-
-      // PR only if there was an earlier set at this weight AND current beats it
-      if (hasEarlierSetAtWeight && currentReps > bestEarlierRepsAtWeight) {
+      if (checkWeightedRepPR(currentSet, earlierSets)) {
+        const currentReps = currentSet.reps ?? 0;
         if (bestRepPRSet === null || currentReps > bestRepPRValue) {
           bestRepPRSet = currentSet;
           bestRepPRValue = currentReps;

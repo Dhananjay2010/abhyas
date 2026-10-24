@@ -18,6 +18,7 @@ import {
   calculateSetVolume,
   findTopSet,
   detectPersonalRecords,
+  checkWeightedRepPR,
   type SetData,
   type PersonalRecord,
 } from "./calculations";
@@ -516,31 +517,14 @@ export async function getExerciseHistory(
       // 3. Most reps for weighted lifts: same-weight comparison with deload guard
       // For bodyweight (no weight), use plain most-reps
       if (hasWeight) {
-        // Weighted: rep PR requires current weight >= max earlier weight, and more reps at same weight
-        const maxEarlierWeight = Math.max(...setsBeforeThisSession.map(s => s.weight_kg ?? 0), 0);
-        
+        // Weighted: use checkWeightedRepPR helper
         let hasRepPR = false;
         let repPRSet: SetData | null = null;
         let repPRValue = 0;
 
         for (const currentSet of sets) {
-          const currentReps = currentSet.reps ?? 0;
-          const currentWeight = currentSet.weight_kg ?? 0;
-          
-          if (currentReps === 0 || currentWeight < maxEarlierWeight) continue;
-
-          // Find the best reps at EXACTLY this weight in earlier sessions
-          let bestEarlierRepsAtWeight = 0;
-          let hasEarlierSetAtWeight = false;
-          for (const earlierSet of setsBeforeThisSession) {
-            if (earlierSet.weight_kg === currentWeight) {
-              hasEarlierSetAtWeight = true;
-              bestEarlierRepsAtWeight = Math.max(bestEarlierRepsAtWeight, earlierSet.reps ?? 0);
-            }
-          }
-
-          // PR only if there was an earlier set at this weight AND current beats it
-          if (hasEarlierSetAtWeight && currentReps > bestEarlierRepsAtWeight) {
+          if (checkWeightedRepPR(currentSet, setsBeforeThisSession)) {
+            const currentReps = currentSet.reps ?? 0;
             if (!hasRepPR || currentReps > repPRValue) {
               hasRepPR = true;
               repPRSet = currentSet;
