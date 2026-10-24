@@ -1,5 +1,4 @@
 import type { Database } from "@/lib/database.types";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { effectiveRepsMax } from "./effective-target";
 
 type Enums = Database["public"]["Enums"];
@@ -39,7 +38,6 @@ export type ExerciseMeta = {
   isBodyweight: boolean;
   progressionChain: string | null;
   progressionRank: number | null;
-  equipmentIds: string[];
 };
 
 export type Outcome =
@@ -321,22 +319,9 @@ export function evaluateProgression(input: {
     // Loaded exercises: standard increment, doubled when easy.
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
     const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta);
-    // For bodyweight moves, use max(stored, heaviest) so a 0 back-off doesn't
-    // ignore the weight actually lifted. Loaded lifts keep their stored weight.
-    const from = isBodyweightWithAddedWeight
-      ? Math.max(state.currentWorkingWeightKg ?? 0, heaviest)
-      : state.currentWorkingWeightKg ?? heaviest;
-
-    // Calculate next weight
-    let next: number;
-
-    if (isBodyweightWithAddedWeight) {
-      // Bodyweight: snap to grid, smallest multiple above from
-      next = Math.floor(from / step) * step + step;
-    } else {
-      // Standard loaded exercise: use step (doubled if easy), rounded to grid
-      next = roundTo(from + (feel === "easy" ? step * 2 : step), step);
-    }
+    const jump = isBodyweightWithAddedWeight || feel !== "easy" ? step : step * 2;
+    const from = state.currentWorkingWeightKg ?? heaviest;
+    const next = roundTo(from + jump, step);
 
     return {
       ...carried,
@@ -353,33 +338,23 @@ export function evaluateProgression(input: {
 
   // Missed the target.
   const failures = state.consecutiveFailures + 1;
-  const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
-  const currentWeight = isBodyweightWithAddedWeight
-    ? Math.max(state.currentWorkingWeightKg ?? 0, heaviest)
-    : state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+  const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
   if (failures >= 2 && currentWeight !== null && currentWeight > 0) {
-    // Bodyweight with added weight: drop two steps, floor at 0.
+    // Bodyweight with any stored or used added weight: drop to bodyweight entirely.
     // Loaded exercises: reduce by ~10%.
     if (meta.isBodyweight) {
-      const step = addedWeightStep(meta);
-      const reduced = Math.max(0, roundTo(currentWeight - step * 2, step));
       return {
         ...carried,
         outcome: "backed_off",
-        nextWorkingWeightKg: reduced,
+        nextWorkingWeightKg: 0,
         nextTargetReps: repsMax,
         consecutiveFailures: 0,
-        message:
-          reduced === 0
-            ? "Missed twice in a row — back to bodyweight to build up again."
-            : `Missed twice in a row — down to ${reduced} kg to build back.`,
+        message: "Missed twice in a row — back to bodyweight to build up again.",
       };
     }
-
     const step = incrementFor(meta);
     const reduced = Math.max(step, roundTo(currentWeight * 0.9, step));
-
     return {
       ...carried,
       outcome: "backed_off",
@@ -415,20 +390,8 @@ export function suggestedWeight(
   const w = state.currentWorkingWeightKg;
   if (w === null || w <= 0) return null;
   if (!isDeload) return w;
-
   // Deload: about 70% of working weight, on a loadable increment.
-  // Bodyweight exercises with added weight use their own smaller steps. Tiny
-  // added weights (70% rounds up to or above the original) drop one step. If
-  // that reaches 0, return null (no added weight).
-  const step = meta.isBodyweight ? addedWeightStep(meta) : incrementFor(meta);
-
-  if (meta.isBodyweight) {
-    const deloaded = roundTo(w * 0.7, step);
-    const result = deloaded >= w ? roundTo(w - step, step) : deloaded;
-    return result <= 0 ? null : result;
-  }
-
-  // Loaded exercises: ~70% of working weight, floor at one step
-  const deloaded = roundTo(w * 0.7, step);
-  return Math.max(step, deloaded);
+  // Bodyweight exercises with added weight use their own smaller steps.
+  const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta) : incrementFor(meta);
+  return Math.max(step, roundTo(w * 0.7, step));
 }
