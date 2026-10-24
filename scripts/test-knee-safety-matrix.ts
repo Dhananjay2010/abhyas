@@ -202,7 +202,8 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 1: First LOWER BODY exercise on Lower/Full days is non-timed knee-safe quad OR knee-safe hip-dominant
+            // Rule 1: First LOWER BODY exercise on Lower/Full days is non-timed knee-safe quad when available,
+            // otherwise knee-safe hip-dominant compound
             for (const day of lowerDays) {
               if (day.exercises.length === 0) continue;
               
@@ -224,6 +225,26 @@ for (const seed of testSeeds) {
                 continue;
               }
               
+              // Check if non-timed knee-safe quads are available for this profile
+              const availableKneeSafeQuads = catalogue.filter(e => {
+                if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+                if (e.metric === "seconds") return false;
+                if (!e.primary_muscles.includes("quads")) return false;
+                if (!e.tracks.includes(input.primaryTrack)) return false;
+                
+                // Level check
+                if (e.level_min === "expert" && level === "beginner") return false;
+                if (e.level_min === "intermediate" && level === "beginner") return false;
+                
+                // Equipment check
+                if (!equipment.hasAll && e.equipment_ids.length > 0) {
+                  const hasAll = e.equipment_ids.every((eid: string) => equipment.ids.includes(eid));
+                  if (!hasAll) return false;
+                }
+                
+                return true;
+              });
+              
               const isKneeSafeQuad = KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug) && exercise.metric !== "seconds";
               const isKneeSafeHipDominant = (exercise.movement_pattern === "hinge" || 
                                             exercise.slug.includes("bridge") || 
@@ -231,12 +252,20 @@ for (const seed of testSeeds) {
                                            exercise.mechanic === "compound" &&
                                            exercise.metric !== "seconds";
               
-              const isAcceptable = isKneeSafeQuad || isKneeSafeHipDominant;
-              
-              if (!isAcceptable) {
-                check(`${profileId} ${day.label}: first lower is knee-safe`, false, 
-                  `Got ${exercise.name} [${exercise.slug}] - expected non-timed knee-safe quad or knee-safe hip-dominant`);
-                profileFailed = true;
+              // If knee-safe quads are available, first lower MUST be a knee-safe quad
+              if (availableKneeSafeQuads.length > 0) {
+                if (!isKneeSafeQuad) {
+                  check(`${profileId} ${day.label}: first lower is knee-safe quad when available`, false, 
+                    `Got ${exercise.name} [${exercise.slug}] but ${availableKneeSafeQuads.length} knee-safe quad(s) available`);
+                  profileFailed = true;
+                }
+              } else {
+                // No knee-safe quads available, must be hip-dominant
+                if (!isKneeSafeHipDominant) {
+                  check(`${profileId} ${day.label}: first lower is hip-dominant when no quads available`, false, 
+                    `Got ${exercise.name} [${exercise.slug}] - expected hip-dominant compound`);
+                  profileFailed = true;
+                }
               }
             }
             

@@ -852,9 +852,9 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     entry.slots.slice(0, templateCount).forEach((pattern, i) => {
       const usedSet = i <= 3 ? usedToday : usedInBlock;
       
-      // H6: For knee injuries on Lower/Full days, reserve first squat/quad slot for knee-safe moves
-      const isQuadPattern = pattern === "squat" || pattern === "lunge";
-      if (hasKneeInjury && isLowerOrFullDay && isQuadPattern && !firstQuadSlotHandled) {
+      // H6: For knee injuries on Lower/Full days, reserve first lower-body slot for knee-safe moves
+      const isLowerBodyPattern = pattern === "squat" || pattern === "lunge" || pattern === "hinge";
+      if (hasKneeInjury && isLowerOrFullDay && isLowerBodyPattern && !firstQuadSlotHandled) {
         firstQuadSlotHandled = true;
         
         // Find knee-safe quad exercises (non-timed holds only) - bypass normal contraindication checks for these
@@ -910,6 +910,10 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         }
         
         // Fallback: If no non-timed knee-safe quad exists (e.g., bodyweight), use knee-safe hip-dominant move
+        // Apply same constraints as pickForSlot: no adjacent hinges, safety filters, etc.
+        const prevEx = pickedExercises.length > 0 ? pickedExercises[pickedExercises.length - 1].ex : null;
+        const prevIsHinge = prevEx?.movement_pattern === "hinge";
+        
         const kneeSafeHipDominant = pool
           .filter(e => {
             // Glute bridge, hip thrust, single-leg bridge, bodyweight RDL
@@ -920,6 +924,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             if (e.metric === "seconds") return false; // Exclude timed holds
             if (e.mechanic !== "compound") return false;
             if (usedSet.has(e.id)) return false;
+            
+            // Prevent adjacent hinges
+            if (prevIsHinge && e.movement_pattern === "hinge") return false;
+            
+            // Apply safety filter (same as pickForSlot)
+            if (shouldExcludeForSafety(e, input, i)) return false;
             
             // Check basic eligibility
             if (e.level_min === "expert" && input.level === "beginner") return false;
@@ -1169,6 +1179,27 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }
       return true;
     });
+    
+    // Fix adjacent hinges that may have been created by sorting (e.g., core moved after hinge)
+    if (hasKneeInjury) {
+      for (let idx = 0; idx < filteredOrdered.length - 1; idx++) {
+        const curr = filteredOrdered[idx];
+        const next = filteredOrdered[idx + 1];
+        
+        if (curr.ex.movement_pattern === "hinge" && next.ex.movement_pattern === "hinge") {
+          // Find a non-hinge to swap with next
+          for (let swapIdx = idx + 2; swapIdx < filteredOrdered.length; swapIdx++) {
+            const candidate = filteredOrdered[swapIdx];
+            if (candidate.ex.movement_pattern !== "hinge") {
+              // Swap next with candidate
+              filteredOrdered[idx + 1] = candidate;
+              filteredOrdered[swapIdx] = next;
+              break;
+            }
+          }
+        }
+      }
+    }
 
     // Convert sorted picks to GeneratedExercise with correct orderIndex.
     // Apply volume floor: ensure each pattern gets minimum working sets (at least 2)
