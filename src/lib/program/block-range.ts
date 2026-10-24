@@ -77,13 +77,15 @@ export function blockNumberFor(
  * Used by generator/deload logic. Week 1 starts on the block's started_on.
  *
  * Formula: (week_offset ?? 0) + floor(daysBetween(started_on, date) / 7) + 1
+ * Clamps to week 1 minimum for dates before started_on.
  */
 export function cycleWeekFor(
   b: { started_on: string; week_offset?: number },
   date: string
 ): number {
+  // Clamp to week 1 for dates before block start
   if (date < b.started_on) {
-    throw new Error(`Date ${date} is before block start ${b.started_on}`);
+    return 1;
   }
 
   const startMs = new Date(b.started_on + "T00:00:00Z").getTime();

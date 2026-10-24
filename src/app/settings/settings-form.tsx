@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import {
   BODY_REGIONS,
@@ -194,6 +195,10 @@ export function SettingsForm({
   
   /** Track if we need beforeunload prompt */
   const needsUnloadPrompt = useRef(false);
+  
+  /** Router for refresh on tab focus */
+  const router = useRouter();
+  const lastRefreshTimestamp = useRef(0);
 
   const pathname = usePathname();
   const [sessionExpiredUI] = useSessionExpiredPrompt();
@@ -278,16 +283,38 @@ export function SettingsForm({
       if (document.visibilityState === "hidden" && saveQueue.hasPending()) {
         saveQueue.flush();
       }
+      
+      // QA#3: Refresh when tab becomes visible (unless saves are pending), throttled to 10s
+      if (document.visibilityState === "visible" && !saveQueue.hasPending()) {
+        const now = Date.now();
+        if (now - lastRefreshTimestamp.current >= 10000) {
+          lastRefreshTimestamp.current = now;
+          router.refresh();
+        }
+      }
+    };
+    
+    const handleFocus = () => {
+      // Also refresh on window focus, with same throttle and idle check
+      if (!saveQueue.hasPending()) {
+        const now = Date.now();
+        if (now - lastRefreshTimestamp.current >= 10000) {
+          lastRefreshTimestamp.current = now;
+          router.refresh();
+        }
+      }
     };
 
     window.addEventListener("pagehide", handlePageHide);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       window.removeEventListener("pagehide", handlePageHide);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
     };
-  }, [saveQueue]);
+  }, [saveQueue, router]);
 
   // Subscribe to queue status changes for needsUnloadPrompt (LOW-d: use events instead of polling)
   useEffect(() => {

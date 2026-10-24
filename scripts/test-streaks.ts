@@ -90,8 +90,12 @@ console.log("\n5. Edges");
   check("no history is zero", computeStreaks([], "2026-09-05").current === 0);
   const allRest = [d("2026-09-01", "rest", false, null), d("2026-09-02", "rest", false, null)];
   check("only rest days is zero, not a break", computeStreaks(allRest, "2026-09-02").current === 0);
+  
+  // TZ-1: Completed sessions always count, even if dated beyond today
   const future = [d("2026-09-10", "weights", true, "weights"), d("2026-09-01", "weights", true, "weights")];
-  check("future days are ignored", computeStreaks([future[1], future[0]], "2026-09-05").current === 1);
+  check("completed sessions count even when dated beyond today (TZ-1)", 
+    computeStreaks([future[1], future[0]], "2026-09-05").current === 2,
+    `got ${computeStreaks([future[1], future[0]], "2026-09-05").current}`);
   const longestPast = [
     d("2026-09-01", "weights", true, "weights"), d("2026-09-02", "weights", true, "weights"),
     d("2026-09-03", "weights", true, "weights"), d("2026-09-04", "weights", false, null),
@@ -294,6 +298,163 @@ console.log("\n14. Breathe-only on scheduled training day breaks streak");
   check("breathe-only on training day breaks streak", s.current === 1, `${s.current}`);
   check("breathe-only on training day: days trained is 2", s.totalSessions === 2, `${s.totalSessions}`);
   check("longest streak before break was 1", s.longest === 1, `${s.longest}`);
+}
+
+console.log("\n15. TZ-1: Completed session after timezone change");
+{
+  // After a timezone change, a completed session can have local_date > today.
+  // Example: yesterday's session at 11pm PST becomes "tomorrow" at 4pm JST (+17 hours).
+  // RULE: Completed sessions ALWAYS count, even if dated beyond today.
+  const records = buildDayRecords({
+    programs: [{ id: "p1", startedOn: "2026-09-08", endsOn: "2026-10-05" }],
+    dayTypesByProgram: {
+      p1: { 1: "weights", 2: "weights", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" },
+    },
+    completedSessions: [
+      { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 }, // Mon
+      { local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 }, // Tue
+      { local_date: "2026-09-11", actual_type: "weights", status: "completed", working_set_count: 3 }, // "Tomorrow" after TZ change
+    ],
+    today: "2026-09-10",
+  });
+  
+  console.log(`  buildDayRecords generated ${records.length} days from ${records[0]?.localDate} to ${records[records.length - 1]?.localDate}`);
+  console.log(`  Future session (2026-09-11) included: ${records.some(r => r.localDate === "2026-09-11" && r.completed)}`);
+  
+  const s = computeStreaks(records, "2026-09-10");
+  console.log(`  Streak: ${s.current}, Days trained: ${s.totalSessions}`);
+  
+  check("buildDayRecords includes the future-dated completed session", 
+    records.some(r => r.localDate === "2026-09-11" && r.completed),
+    `found: ${records.filter(r => r.localDate === "2026-09-11").map(r => `${r.localDate} completed=${r.completed}`)}`
+  );
+  
+  check("TZ-1: streak includes future-dated completed session", s.current === 3, `got ${s.current}, expected 3`);
+  check("TZ-1: days trained includes future-dated completed session", s.totalSessions === 3, `got ${s.totalSessions}, expected 3`);
+  check("TZ-1: streak and days trained agree", s.current === s.totalSessions);
+}
+
+console.log("\n16. M3: Gap days between blocks count as missed");
+{
+  // After block ends, if user returns late, gap days should break streak
+  // Mon-Fri plan, 20 sessions, block ends 10-25, return 11-10
+  const records = buildDayRecords({
+    programs: [
+      { id: "p1", startedOn: "2026-09-08", endsOn: "2026-09-28", endedOn: "2026-10-05" }, // Block 1: ended
+      { id: "p2", startedOn: "2026-11-10", endsOn: "2026-12-07" }, // Block 2: starts 11-10 (15 day gap)
+    ],
+    dayTypesByProgram: {
+      p1: { 1: "weights", 2: "weights", 3: "weights", 4: "weights", 5: "weights", 6: "rest", 7: "rest" }, // Mon-Fri
+      p2: { 1: "weights", 2: "weights", 3: "weights", 4: "weights", 5: "weights", 6: "rest", 7: "rest" },
+    },
+    completedSessions: [
+      // 20 sessions in block 1
+      { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-10", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-11", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-12", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-15", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-16", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-17", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-18", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-19", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-22", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-23", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-24", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-25", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-26", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-29", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-30", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-10-01", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-10-02", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-10-03", actual_type: "weights", status: "completed", working_set_count: 3 },
+      // Now return on 11-10 after 15 day gap
+      { local_date: "2026-11-10", actual_type: "weights", status: "completed", working_set_count: 3 },
+    ],
+    today: "2026-11-10",
+  });
+  
+  // Gap is 10-06 to 11-09 (35 days)
+  // Weekdays in gap that were training days: 10-06 Mon, 10-07 Tue, 10-08 Wed, 10-09 Thu, 10-10 Fri (first miss)
+  // 10-06 Mon is the first training day after block 1 ended, and it was missed
+  const s = computeStreaks(records, "2026-11-10");
+  
+  check("M3: gap breaks streak (not preserved)", s.current === 1, `got ${s.current}, expected 1 (just today's session)`);
+  check("M3: days trained still 21", s.totalSessions === 21, `got ${s.totalSessions}`);
+  // Longest is 5 because those are Mon-Fri consecutive training days (first week)
+  // Then there's a weekend (rest days don't break) + second week, but let's just check it's > 1
+  check("M3: longest remembers the block 1 streak", s.longest >= 5, `got ${s.longest}`);
+}
+
+console.log("\n17. M3: Streak consistent before/after rollover");
+{
+  // Real QA case: streak showed 0 before Today opened (no rollover) and 16 after (rollover created next block)
+  // The streak must be identical whether or not the next block exists
+  
+  const programs = [
+    { id: "p1", startedOn: "2026-09-01", endsOn: "2026-09-28", endedOn: "2026-09-28" },
+  ];
+  
+  const dayTypes = {
+    p1: { 1: "weights" as const, 2: "weights" as const, 3: "weights" as const, 4: "rest" as const, 5: "rest" as const, 6: "rest" as const, 7: "rest" as const }, // Mon-Wed
+  };
+  
+  const sessions = [
+    // 16 sessions in block 1
+    { local_date: "2026-09-01", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Mon
+    { local_date: "2026-09-02", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Tue
+    { local_date: "2026-09-03", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Wed
+    { local_date: "2026-09-08", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-09", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-10", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-15", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-16", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-17", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-22", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-23", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-24", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-29", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Last week
+    { local_date: "2026-09-30", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-10-01", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-10-06", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // After block ended
+  ];
+  
+  // BEFORE rollover: no block 2 exists yet, today is 10-13 (Mon, training day that was missed)
+  const recordsBefore = buildDayRecords({
+    programs,
+    dayTypesByProgram: dayTypes,
+    completedSessions: sessions,
+    today: "2026-10-13",
+  });
+  
+  const streakBefore = computeStreaks(recordsBefore, "2026-10-13");
+  
+  // AFTER rollover: block 2 created starting 10-14
+  const recordsAfter = buildDayRecords({
+    programs: [
+      ...programs,
+      { id: "p2", startedOn: "2026-10-14", endsOn: "2026-11-10" },
+    ],
+    dayTypesByProgram: {
+      ...dayTypes,
+      p2: { 1: "weights" as const, 2: "weights" as const, 3: "weights" as const, 4: "rest" as const, 5: "rest" as const, 6: "rest" as const, 7: "rest" as const },
+    },
+    completedSessions: sessions,
+    today: "2026-10-13",
+  });
+  
+  const streakAfter = computeStreaks(recordsAfter, "2026-10-13");
+  
+  console.log(`  Before rollover: streak=${streakBefore.current}, trained=${streakBefore.totalSessions}`);
+  console.log(`  After rollover: streak=${streakAfter.current}, trained=${streakAfter.totalSessions}`);
+  
+  check("M3: streak same before rollover", streakBefore.current === streakAfter.current, 
+    `before=${streakBefore.current}, after=${streakAfter.current}`);
+  check("M3: days trained same", streakBefore.totalSessions === streakAfter.totalSessions,
+    `before=${streakBefore.totalSessions}, after=${streakAfter.totalSessions}`);
+  check("M3: streak broken by missed day after ended_on", streakBefore.current === 0 || streakBefore.current === 1,
+    `got ${streakBefore.current}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
