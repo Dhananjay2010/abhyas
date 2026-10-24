@@ -15,7 +15,7 @@ import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { buildTodayState } from "@/lib/today/build-state";
 import { todayStateInputFromRows } from "@/lib/today/page-input";
 import { todayPromptBlocks } from "@/lib/today/prompt-blocks";
-import { hasStartedAnySession } from "@/lib/today/has-started-any";
+import { hasStartedAnyOrNull } from "@/lib/today/load-failure-guard";
 import { TodayPrompts } from "@/components/today/today-prompts";
 import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
 import { WarmupSection } from "@/components/today/warmup-section";
@@ -376,9 +376,7 @@ export default async function TodayPage() {
 
   // Check if user has started any strength or yoga session (for welcome card and first-day logic)
   // If the query failed, use null (unknown state) - hide first-session offer and show normal Today
-  const hasStartedAny: boolean | null = allSessionsRes.error
-    ? null
-    : hasStartedAnySession({ sessions: allSessionsRes.data ?? [] });
+  const hasStartedAny: boolean | null = hasStartedAnyOrNull(allSessionsRes);
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
@@ -415,7 +413,7 @@ export default async function TodayPage() {
     },
     localToday,
     days: days ?? [],
-    hasStartedAny: hasStartedAny ?? false, // Treat null (error) as false for view building
+    hasStartedAny, // null, true, or false - helper handles all cases
     chosenByDayIndex,
   });
   const { week, isDeload, firstTrainingDay, weekRowsWithChoices } = todayView;
@@ -448,17 +446,13 @@ export default async function TodayPage() {
   const todayState = buildTodayState(stateInput);
   const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
 
-  // Override firstTrainingDay from todayView when hasStartedAny is null (error state)
-  // In error state, hide first-session offer (firstTrainingDay = null)
-  const firstTrainingDayForPrompt = hasStartedAny === null ? null : firstTrainingDay;
-
   const promptBlocks = todayPromptBlocks({
     promptType,
     missedYesterday,
     hasStartedAny,
     nextTrainingDay: nextTraining,
     isTraining,
-    firstTrainingDay: firstTrainingDayForPrompt,
+    firstTrainingDay, // Already null when hasStartedAny is null (buildTodayView handles it)
   });
 
   // ---- wave 3 -------------------------------------------------------------

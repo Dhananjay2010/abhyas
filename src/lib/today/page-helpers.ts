@@ -23,7 +23,7 @@ export type TodayPageInputs = {
     day_type: DayType;
     label: string | null;
   }>;
-  hasStartedAny: boolean;
+  hasStartedAny: boolean | null;
   chosenByDayIndex: Map<number, string>;
 };
 
@@ -53,7 +53,8 @@ export function buildTodayView(inputs: TodayPageInputs): TodayPageView {
   const isDeload = week === program.deload_week;
 
   // m2: First training day must be plan day 1 (lowest day_index), not next calendar day
-  const firstTrainingDay = hasStartedAny ? null : findFirstTrainingDay(days);
+  // When hasStartedAny is null (query error), hide first-session offer
+  const firstTrainingDay = hasStartedAny === false ? findFirstTrainingDay(days) : null;
 
   // m6b: Week rows must use chosen labels when choices exist
   const weekRowsWithChoices = days.map((d) => {
