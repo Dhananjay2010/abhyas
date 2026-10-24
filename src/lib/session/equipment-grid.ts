@@ -42,8 +42,12 @@ export function kettlebellBounds(unit: WeightUnit): { min: number; max: number }
  * - dumbbell: 2.5 kg / 5 lb (standard gym increments)
  * - cable: 2.5 kg / 5 lb (aligned with barbell)
  * - kettlebell: uses kettlebell ladder, not a fixed step
- * - machine/pin-stack: 5 kg / 10 lb (pin-stack selector plates)
+ * - pin-stack/selectorised machines: 5 kg / 10 lb (weight stack selector)
+ * - plate-loaded machines: 2.5 kg / 5 lb (use plates like barbells)
  * - bodyweight added load: 2.5 kg / 5 lb (dip belt / weighted vest)
+ * 
+ * Pin-stack machines have a selector pin and fixed weight increments (typically 5 kg / 10 lb).
+ * Plate-loaded machines (smith machine, leg press, hack squat) use standard plates (2.5 kg / 5 lb).
  * 
  * Multi-equipment exercises: uses the largest increment (most conservative choice).
  * Unknown equipment: defaults to 2.5 kg / 5 lb (same as barbell).
@@ -53,18 +57,27 @@ export function kettlebellBounds(unit: WeightUnit): { min: number; max: number }
  * @returns The step increment in the given unit
  */
 export function gridStepFor(equipmentIds: string[], unit: WeightUnit): number {
-  const machineIds = [
-    'leg_press', 'hack_squat', 'leg_curl', 'leg_extension',
+  // Pin-stack/selectorised machines: fixed weight stacks with selector pin
+  const pinStackMachineIds = [
+    'leg_curl', 'leg_extension',
     'chest_press_machine', 'pec_deck', 'lat_pulldown',
-    'seated_row_machine', 'shoulder_press_machine', 'smith_machine'
+    'seated_row_machine', 'shoulder_press_machine', 'machine_generic'
+  ];
+
+  // Plate-loaded machines: use standard plates like barbells
+  const plateLoadedMachineIds = [
+    'smith_machine', 'leg_press', 'hack_squat'
   ];
 
   const steps: number[] = [];
 
   for (const id of equipmentIds) {
-    if (machineIds.includes(id)) {
-      // Pin-stack machines: 5 kg / 10 lb
+    if (pinStackMachineIds.includes(id)) {
+      // Pin-stack machines: 5 kg / 10 lb (selector pin increments)
       steps.push(unit === 'kg' ? 5 : 10);
+    } else if (plateLoadedMachineIds.includes(id)) {
+      // Plate-loaded machines: 2.5 kg / 5 lb (use plates)
+      steps.push(unit === 'kg' ? 2.5 : 5);
     } else if (id === 'cable_machine') {
       // Cable machines: 2.5 kg / 5 lb
       steps.push(unit === 'kg' ? 2.5 : 5);
@@ -107,6 +120,15 @@ export function roundToEquipmentGrid(
   equipmentIds: string[],
   unit: WeightUnit
 ): number {
+  // Bodyweight-only equipment: no external load
+  const bodyweightCategoryIds = ['bodyweight', 'yoga_mat', 'pull_up_bar', 'dip_bars'];
+  const hasOnlyBodyweight = equipmentIds.length === 0 || 
+    equipmentIds.every(id => bodyweightCategoryIds.includes(id));
+  
+  if (hasOnlyBodyweight) {
+    return 0;
+  }
+
   // Handle non-finite or negative values
   if (!isFinite(value) || value < 0) {
     // For kettlebells, return the minimum bell
@@ -145,31 +167,31 @@ export function roundToEquipmentGrid(
 
   // Standard equipment: grid-based rounding
   const step = gridStepFor(equipmentIds, unit);
+  const halfStep = step / 2;
+  const epsilon = 1e-9;
 
-  // Use integer arithmetic to avoid float drift
-  // Multiply by 100 to handle 0.5 precision, then work in cents
-  const stepCents = Math.round(step * 100);
-  const valueCents = Math.round(value * 100);
+  // Find the two nearest grid points
+  const lowerMultiple = Math.floor(value / step);
+  const lowerValue = lowerMultiple * step;
+  const upperValue = (lowerMultiple + 1) * step;
 
-  // Compute how many steps fit into the value
-  // Round to nearest, but ties go DOWN (safer load)
-  const remainder = valueCents % stepCents;
-  const halfStep = stepCents / 2;
-  
-  let steps: number;
-  if (remainder < halfStep) {
-    // Below halfway: round down
-    steps = Math.floor(valueCents / stepCents);
-  } else if (remainder > halfStep) {
-    // Above halfway: round up
-    steps = Math.ceil(valueCents / stepCents);
+  // Calculate distance to midpoint
+  const midpoint = lowerValue + halfStep;
+  const distanceToMidpoint = value - midpoint;
+
+  // Determine rounding direction
+  let result: number;
+  if (distanceToMidpoint < -epsilon) {
+    // Below midpoint (not a tie): round down
+    result = lowerValue;
+  } else if (distanceToMidpoint > epsilon) {
+    // Above midpoint (not a tie): round up
+    result = upperValue;
   } else {
-    // Exactly halfway: round down (ties go down)
-    steps = Math.floor(valueCents / stepCents);
+    // At midpoint or within epsilon (tie): round down for safety
+    result = lowerValue;
   }
-  
+
   // Ensure result is non-negative
-  const resultCents = Math.max(0, steps * stepCents);
-  
-  return resultCents / 100;
+  return Math.max(0, result);
 }

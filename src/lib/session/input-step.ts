@@ -3,27 +3,9 @@
  * Pure, deterministic functions with no React dependencies.
  */
 
-import {
-  gridStepFor,
-  KETTLEBELL_WEIGHTS_KG as KETTLEBELL_WEIGHTS_KG_IMPL,
-  KETTLEBELL_WEIGHTS_LB as KETTLEBELL_WEIGHTS_LB_IMPL,
-  kettlebellBounds as kettlebellBoundsImpl,
-  type WeightUnit,
-} from './equipment-grid';
+import { gridStepFor, KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB, type WeightUnit } from './equipment-grid';
 
-export type { WeightUnit };
-
-/**
- * Re-exported from equipment-grid.ts for backwards compatibility.
- * Standard kettlebell weights in kg.
- */
-export const KETTLEBELL_WEIGHTS_KG = KETTLEBELL_WEIGHTS_KG_IMPL;
-
-/**
- * Re-exported from equipment-grid.ts for backwards compatibility.
- * Standard kettlebell weights in lb.
- */
-export const KETTLEBELL_WEIGHTS_LB = KETTLEBELL_WEIGHTS_LB_IMPL;
+export { KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB, kettlebellBounds, type WeightUnit } from './equipment-grid';
 
 /**
  * Returns the weight step increment for given equipment.
@@ -34,7 +16,7 @@ export const KETTLEBELL_WEIGHTS_LB = KETTLEBELL_WEIGHTS_LB_IMPL;
  * @param unit - Weight unit ('kg' or 'lb')
  * @returns The step increment in the given unit
  */
-export function stepFor(equipmentIds: string[], unit: WeightUnit): number {
+export function stepFor(equipmentIds: string[], unit: 'kg' | 'lb'): number {
   return gridStepFor(equipmentIds, unit);
 }
 
@@ -134,9 +116,3 @@ export function nextReps(
   const result = current + (direction * REPS_STEP);
   return Math.max(options.min, Math.min(options.max, result));
 }
-
-/**
- * Re-exported from equipment-grid.ts for backwards compatibility.
- * Returns the kettlebell weight bounds for a given unit.
- */
-export const kettlebellBounds = kettlebellBoundsImpl;
