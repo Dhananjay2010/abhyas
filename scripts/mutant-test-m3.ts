@@ -110,7 +110,7 @@ const mutants: Mutant[] = [
   },
   {
     name: 'migration-drop-thruster-update-only',
-    file: 'supabase/migrations/20261025000026_m3_wrist_lowerback_contraindications.sql',
+    file: 'supabase/migrations/20261025000028_m3_wrist_lowerback_contraindications.sql',
     original: "'two-arm-kettlebell-jerk', 'kettlebell-thruster',",
     mutated: "'two-arm-kettlebell-jerk',",
     description: 'Migration drops kettlebell-thruster from UPDATE list',
