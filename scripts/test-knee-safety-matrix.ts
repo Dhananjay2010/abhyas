@@ -203,42 +203,82 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 1: First exercise on Lower/Full days is knee-safe quad
+            // Rule 1: First LOWER BODY exercise on Lower/Full days is non-timed knee-safe quad OR knee-safe hip-dominant
+            // Timed knee-safe quad (e.g., wall-sit) if it exists AND is non-timed, otherwise glute bridge/hip thrust/RDL
             for (const day of lowerDays) {
               if (day.exercises.length === 0) continue;
               
-              const firstEx = byId.get(day.exercises[0].exerciseId);
-              if (!firstEx) {
-                check(`${profileId} ${day.label}: first exercise exists`, false, "exercise not found in catalogue");
+              // Find the first lower body exercise (targeting quads/glutes/hamstrings)
+              const firstLowerEx = day.exercises.find(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e && e.primary_muscles.some(m => ["quads", "glutes", "hamstrings"].includes(m));
+              });
+              
+              if (!firstLowerEx) {
+                // No lower body exercises on this day - skip this check
+                continue;
+              }
+              
+              const exercise = byId.get(firstLowerEx.exerciseId);
+              if (!exercise) {
+                check(`${profileId} ${day.label}: first lower exercise exists`, false, "exercise not found in catalogue");
                 profileFailed = true;
                 continue;
               }
               
-              const isKneeSafe = KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug);
-              if (!isKneeSafe) {
-                check(`${profileId} ${day.label}: first exercise is knee-safe`, false, 
-                  `Got ${firstEx.name} [${firstEx.slug}]`);
+              const isKneeSafeQuad = KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug) && exercise.metric !== "seconds";
+              const isKneeSafeHipDominant = (exercise.movement_pattern === "hinge" || 
+                                            exercise.slug.includes("bridge") || 
+                                            exercise.slug.includes("hip-thrust")) && 
+                                           exercise.mechanic === "compound" &&
+                                           exercise.metric !== "seconds";
+              
+              const isAcceptable = isKneeSafeQuad || isKneeSafeHipDominant;
+              
+              if (!isAcceptable) {
+                check(`${profileId} ${day.label}: first lower exercise is knee-safe`, false, 
+                  `Got ${exercise.name} [${exercise.slug}] - expected non-timed knee-safe quad or knee-safe hip-dominant`);
                 profileFailed = true;
               }
             }
             
-            // Rule 2: Knee-safe quad comes before any hinge
+            // Rule 2: If first LOWER BODY exercise is not a hinge/bridge, then knee-safe must come before any hinge
             for (const day of lowerDays) {
-              const firstHingeIndex = day.exercises.findIndex(e => {
-                const ex = byId.get(e.exerciseId);
-                return ex && ex.movement_pattern === "hinge";
+              if (day.exercises.length === 0) continue;
+              
+              const firstLowerEx = day.exercises.find(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e && e.primary_muscles.some(m => ["quads", "glutes", "hamstrings"].includes(m));
               });
               
-              if (firstHingeIndex !== -1) {
-                const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
+              if (!firstLowerEx) continue;
+              
+              const firstEx = byId.get(firstLowerEx.exerciseId);
+              if (!firstEx) continue;
+              
+              const firstIsHingeBridge = firstEx.movement_pattern === "hinge" || 
+                                        firstEx.slug.includes("bridge") || 
+                                        firstEx.slug.includes("hip-thrust");
+              
+              if (!firstIsHingeBridge) {
+                // First lower exercise is not a hinge/bridge, so check if any hinges appear later
+                const firstHingeIndex = day.exercises.findIndex(e => {
                   const ex = byId.get(e.exerciseId);
-                  return ex && KNEE_SAFE_QUAD_EXERCISES.has(ex.slug);
+                  return ex && ex.movement_pattern === "hinge";
                 });
                 
-                if (!kneeSafeBeforeHinge) {
-                  check(`${profileId} ${day.label}: knee-safe quad before hinge`, false,
-                    `First hinge at position ${firstHingeIndex + 1}, no knee-safe before it`);
-                  profileFailed = true;
+                if (firstHingeIndex !== -1) {
+                  const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
+                    const ex = byId.get(e.exerciseId);
+                    if (!ex) return false;
+                    return KNEE_SAFE_QUAD_EXERCISES.has(ex.slug) && ex.metric !== "seconds";
+                  });
+                  
+                  if (!kneeSafeBeforeHinge) {
+                    check(`${profileId} ${day.label}: knee-safe quad before hinge`, false,
+                      `First hinge at position ${firstHingeIndex + 1}, no knee-safe quad before it`);
+                    profileFailed = true;
+                  }
                 }
               }
             }
@@ -455,10 +495,26 @@ for (const level of levels) {
         for (const day of lowerDays) {
           if (day.exercises.length === 0) continue;
           
-          const firstEx = byId.get(day.exercises[0].exerciseId);
-          if (firstEx && !KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug)) {
-            check(`${profileId} ${day.label}: first is knee-safe`, false, `Got ${firstEx.name}`);
-            profileFailed = true;
+          const firstLowerEx = day.exercises.find(ex => {
+            const e = byId.get(ex.exerciseId);
+            return e && e.primary_muscles.some(m => ["quads", "glutes", "hamstrings"].includes(m));
+          });
+          
+          if (!firstLowerEx) continue;
+          
+          const firstEx = byId.get(firstLowerEx.exerciseId);
+          if (firstEx) {
+            const isKneeSafeQuad = KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug) && firstEx.metric !== "seconds";
+            const isKneeSafeHipDominant = (firstEx.movement_pattern === "hinge" || 
+                                          firstEx.slug.includes("bridge") || 
+                                          firstEx.slug.includes("hip-thrust")) && 
+                                         firstEx.mechanic === "compound" &&
+                                         firstEx.metric !== "seconds";
+            
+            if (!isKneeSafeQuad && !isKneeSafeHipDominant) {
+              check(`${profileId} ${day.label}: first lower is knee-safe`, false, `Got ${firstEx.name}`);
+              profileFailed = true;
+            }
           }
         }
         

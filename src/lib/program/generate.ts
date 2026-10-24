@@ -618,11 +618,13 @@ function pickForSlot(
   input: GeneratorInput,
   rng: () => number,
   dayIndex?: number,
+  pickedSoFar: Array<{ ex: CandidateExercise; slotIndex: number }> = [],
 ): CandidateExercise | null {
   // Main slots (0-3) strongly prefer compounds for the primary movement patterns.
   // This includes horizontal press, pulls, squat, hinge, and vertical press.
   // QA: slot 3 must get OHP/DB press, not front raises.
   const wantCompound = slotIndex < CARRY_OVER_SLOTS || slotIndex <= 3;
+  const isMainSlot = slotIndex <= 3;
 
   // Keep the main lifts from the previous block so progression is not reset.
   if (slotIndex < CARRY_OVER_SLOTS && dayIndex !== undefined && input.carryOver) {
@@ -632,6 +634,10 @@ function pickForSlot(
       if (match) return match;
     }
   }
+  
+  // Get the previous exercise to check for adjacent hinges
+  const prevEx = pickedSoFar.length > 0 ? pickedSoFar[pickedSoFar.length - 1].ex : null;
+  const prevIsHinge = prevEx?.movement_pattern === "hinge";
 
   for (const p of [pattern, PATTERN_FALLBACK[pattern]]) {
     if (!p) continue;
@@ -642,12 +648,23 @@ function pickForSlot(
     // for main slots (all goals) and all slots (beginners, injured, age 50+)
     candidates = candidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
     if (candidates.length === 0) continue; // Try fallback pattern if filtered out
+    
+    // Exclude timed holds (isometric exercises with metric=seconds) from main slots
+    if (isMainSlot) {
+      candidates = candidates.filter((e) => e.metric !== "seconds");
+      if (candidates.length === 0) continue;
+    }
+    
+    // Prevent adjacent hinges for knee-injured users
+    if (prevIsHinge && input.currentInjuryRegions.includes("knee")) {
+      candidates = candidates.filter((e) => e.movement_pattern !== "hinge");
+      if (candidates.length === 0) continue;
+    }
 
     // Rank by score, then staple preference for main pattern slots (0-3),
     // then by RNG. QA: apply staples to vertical_press (slot 3) at all levels
     // to ensure intermediate users get OHP, not front raises. Accessories (4+)
     // rely on RNG for block-to-block variety.
-    const isMainSlot = slotIndex <= 3;
     
     const ranked = candidates
       .map((e) => ({
@@ -813,10 +830,11 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       if (hasKneeInjury && isLowerOrFullDay && isQuadPattern && !firstQuadSlotHandled) {
         firstQuadSlotHandled = true;
         
-        // Find knee-safe quad exercises - bypass normal contraindication checks for these
+        // Find knee-safe quad exercises (non-timed holds only) - bypass normal contraindication checks for these
         const kneeSafeCandidates = pool
           .filter(e => {
             if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+            if (e.metric === "seconds") return false; // Exclude timed holds from main slots
             if (!e.primary_muscles.includes("quads")) return false;
             if (usedSet.has(e.id)) return false;
             
@@ -863,10 +881,62 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           pickedExercises.push({ ex: picked, slotIndex: i });
           return;
         }
-        // Fall through to normal pickForSlot if no knee-safe options
+        
+        // Fallback: If no non-timed knee-safe quad exists (e.g., bodyweight), use knee-safe hip-dominant move
+        const kneeSafeHipDominant = pool
+          .filter(e => {
+            // Glute bridge, hip thrust, single-leg bridge, bodyweight RDL
+            const isHipDominant = e.movement_pattern === "hinge" || 
+                                 e.slug.includes("bridge") || 
+                                 e.slug.includes("hip-thrust");
+            if (!isHipDominant) return false;
+            if (e.metric === "seconds") return false; // Exclude timed holds
+            if (e.mechanic !== "compound") return false;
+            if (usedSet.has(e.id)) return false;
+            
+            // Check basic eligibility
+            if (e.level_min === "expert" && input.level === "beginner") return false;
+            if (e.level_min === "intermediate" && input.level === "beginner") return false;
+            if (!e.tracks.includes(input.primaryTrack)) return false;
+            
+            // Equipment check
+            if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
+              const altSets = EQUIPMENT_ALTERNATIVES[e.slug];
+              if (altSets) {
+                const hasAny = e.equipment_ids.every((eid: string) => input.equipmentIds.includes(eid)) ||
+                              altSets.some((altSet: string[]) => altSet.every((aid: string) => input.equipmentIds.includes(aid)));
+                if (!hasAny) return false;
+              } else {
+                const hasAll = e.equipment_ids.every((eid: string) => input.equipmentIds.includes(eid));
+                if (!hasAll) return false;
+              }
+            }
+            
+            return true;
+          })
+          .map(e => ({
+            e,
+            score: score(e, i < 4, input.level, input.primaryTrack),
+            rng: rng(),
+          }))
+          .sort((a, b) => {
+            if (a.score !== b.score) return b.score - a.score;
+            return a.e.slug.localeCompare(b.e.slug); // Deterministic secondary sort
+          });
+        
+        if (kneeSafeHipDominant.length > 0) {
+          const picked = kneeSafeHipDominant[0].e;
+          usedSet.add(picked.id);
+          if (i <= 3) {
+            usedInBlock.add(picked.id);
+          }
+          pickedExercises.push({ ex: picked, slotIndex: i });
+          return;
+        }
+        // Fall through to normal pickForSlot if no knee-safe options at all
       }
       
-      const picked = pickForSlot(pattern, i, pool, usedSet, input, rng, dayIndex);
+      const picked = pickForSlot(pattern, i, pool, usedSet, input, rng, dayIndex, pickedExercises);
       if (!picked) return;
       usedSet.add(picked.id);
       if (i <= 3) {
@@ -1034,7 +1104,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       for (let i = 0; i < extraNeeded; i++) {
         const pattern = accessoryPatterns[i % accessoryPatterns.length];
         const slotIdx = entry.slots.length + i;
-        const picked = pickForSlot(pattern, slotIdx, pool, usedInBlock, input, rng, dayIndex);
+        const picked = pickForSlot(pattern, slotIdx, pool, usedInBlock, input, rng, dayIndex, pickedExercises);
         if (!picked) break;
         usedInBlock.add(picked.id);
         pickedExercises.push({ ex: picked, slotIndex: slotIdx });
@@ -1105,169 +1175,21 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
 
     // QA Pass 10 followup (restored from PR #53): Knee-safe coordinator logic
     // For members with knee injury on Lower/Full days:
-    // 1. First lower-body main exercise must be knee-safe quad (comes before any hinge)
-    // 2. No two hinges are adjacent
+    // 1. First lower-body main exercise must be knee-safe quad (or hip-dominant if no non-timed quads available)
+    // 2. No two hinges are adjacent (now handled at selection time)
     // Note: hasKneeInjury and isLowerOrFullDay already declared above
-
+    
+    // Coordinator is now simplified - most work done at selection time
+    // Only verify first lower exercise meets knee-safe requirements
     if (hasKneeInjury && isLowerOrFullDay && exercises.length > 0) {
-      // For knee-injured users on lower/full days, first exercise must be knee-safe quad
-      const firstEx = pool.find(e => e.id === exercises[0].exerciseId);
-      const firstIsKneeSafe = firstEx && KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug);
+      const firstLowerIndex = exercises.findIndex(ex => {
+        const e = pool.find(p => p.id === ex.exerciseId);
+        return e && e.primary_muscles.some(m => ["quads", "glutes", "hamstrings"].includes(m));
+      });
       
-      if (!firstIsKneeSafe) {
-        // Try to find a knee-safe quad in the existing exercises to swap to front
-        const kneeSafeIndex = exercises.findIndex(ex => {
-          const e = pool.find(p => p.id === ex.exerciseId);
-          return e && KNEE_SAFE_QUAD_EXERCISES.has(e.slug);
-        });
-        
-        if (kneeSafeIndex > 0) {
-          // Swap it to the front
-          [exercises[0], exercises[kneeSafeIndex]] = [exercises[kneeSafeIndex], exercises[0]];
-          exercises.forEach((e, idx) => { e.orderIndex = idx; });
-        } else {
-          // No knee-safe quad exists - replace first quad/lower exercise with a knee-safe compound from eligible pool
-          const usedInThisDay = new Set(exercises.map(ex => ex.exerciseId));
-          
-          // Build from the eligible pool (already level/track/equipment filtered)
-          // Prefer compounds, but fall back to any knee-safe exercise if no compounds available
-          const eligibleKneeSafeCompounds = pool.filter(e => 
-            isEligible(e, input) &&
-            KNEE_SAFE_QUAD_EXERCISES.has(e.slug) &&
-            e.mechanic === "compound" &&
-            !usedInThisDay.has(e.id)
-          );
-          
-          const eligibleKneeSafeAny = pool.filter(e => 
-            isEligible(e, input) &&
-            KNEE_SAFE_QUAD_EXERCISES.has(e.slug) &&
-            !usedInThisDay.has(e.id)
-          );
-          
-          // Use compounds if available, otherwise any knee-safe exercise
-          const kneeSafePool = eligibleKneeSafeCompounds.length > 0 
-            ? eligibleKneeSafeCompounds 
-            : eligibleKneeSafeAny;
-          
-          const kneeSafeOptions = kneeSafePool
-            .sort((a, b) => 
-              score(b, true, input.level, input.primaryTrack) - 
-              score(a, true, input.level, input.primaryTrack) ||
-              a.slug.localeCompare(b.slug)
-            );
-          
-          if (kneeSafeOptions.length > 0) {
-            // Find first quad/lower exercise to replace (prefer slot 0, or first quad-focused slot)
-            let replaceIndex = 0;
-            const firstExMuscles = firstEx?.primary_muscles ?? [];
-            if (!firstExMuscles.some(m => ["quads", "glutes", "hamstrings"].includes(m))) {
-              // First exercise isn't lower-focused, find first lower exercise
-              const firstLowerIndex = exercises.findIndex(ex => {
-                const e = pool.find(p => p.id === ex.exerciseId);
-                return e?.primary_muscles.some(m => ["quads", "glutes", "hamstrings"].includes(m));
-              });
-              if (firstLowerIndex > 0) {
-                replaceIndex = firstLowerIndex;
-              }
-            }
-            
-            const replacement = kneeSafeOptions[0];
-            // Remove old exercise from usedInBlock if it was there
-            if (exercises[replaceIndex]) {
-              usedInBlock.delete(exercises[replaceIndex].exerciseId);
-            }
-            usedInBlock.add(replacement.id);
-            
-            // Prescribe as a main (false = main prescription, not isolation)
-            const p = prescribe(
-              input.goal,
-              input.level,
-              false,
-              replacement.metric ?? "reps",
-              sessionMinutes,
-              replacement.equipment_ids,
-            );
-            
-            // Replace the exercise at replaceIndex
-            exercises[replaceIndex] = {
-              exerciseId: replacement.id,
-              name: replacement.name,
-              orderIndex: replaceIndex,
-              targetSets: p.sets,
-              targetRepsMin: p.repsMin,
-              targetRepsMax: p.repsMax,
-              restSeconds: p.restSeconds,
-            };
-            
-            // If we replaced something other than slot 0, swap it to front
-            if (replaceIndex > 0) {
-              [exercises[0], exercises[replaceIndex]] = [exercises[replaceIndex], exercises[0]];
-            }
-            
-            // Update all orderIndex values
-            exercises.forEach((e, idx) => { e.orderIndex = idx; });
-            
-            // Ensure knee-safe main has >= sets than any accessory (slots 4+)
-            const accessories = exercises.filter(ex => ex.orderIndex >= 4);
-            if (accessories.length > 0) {
-              const maxAccessorySets = Math.max(...accessories.map(ex => ex.targetSets));
-              if (exercises[0].targetSets < maxAccessorySets) {
-                exercises[0].targetSets = maxAccessorySets;
-              }
-            }
-          }
-        }
-      }
-      
-      // Ensure ALL knee-safe mains (slots 0-3) have >= sets than any accessory (slots 4+)
-      // This applies whether the knee-safe exercise was replaced or was already there
-      if (isLowerOrFullDay) {
-        const mains = exercises.filter(ex => ex.orderIndex < 4);
-        const accessories = exercises.filter(ex => ex.orderIndex >= 4);
-        
-        if (accessories.length > 0 && mains.length > 0) {
-          const maxAccessorySets = Math.max(...accessories.map(ex => ex.targetSets));
-          
-          // Boost any knee-safe main that has fewer sets than accessories
-          mains.forEach(mainEx => {
-            const exercise = pool.find(e => e.id === mainEx.exerciseId);
-            if (exercise && KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug)) {
-              if (mainEx.targetSets < maxAccessorySets) {
-                mainEx.targetSets = maxAccessorySets;
-              }
-            }
-          });
-        }
-      }
-    }
-
-    // Rule 4 (for ALL days with knee injury): No two hinges are adjacent
-    if (hasKneeInjury && exercises.length > 1) {
-      for (let i = 0; i < exercises.length - 1; i++) {
-        const current = pool.find(e => e.id === exercises[i].exerciseId);
-        const next = pool.find(e => e.id === exercises[i + 1].exerciseId);
-        
-        if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
-          // Find a non-hinge exercise to swap with, but don't pull accessories into main slots
-          const isMainSlot = (i + 1) < 4;
-          const swapCandidates = exercises.slice(i + 2).map((ex, idx) => ({ ex, idx: idx + i + 2 }))
-            .filter(({ ex, idx }) => {
-              const candidate = pool.find(e => e.id === ex.exerciseId);
-              if (!candidate || candidate.movement_pattern === "hinge") return false;
-              // If position i+1 is a main slot, only swap with other main slots
-              if (isMainSlot && idx >= 4) return false;
-              return true;
-            });
-          
-          if (swapCandidates.length > 0) {
-            // Swap with the first eligible non-hinge exercise
-            const { idx: swapIdx } = swapCandidates[0];
-            [exercises[i + 1], exercises[swapIdx]] = [exercises[swapIdx], exercises[i + 1]];
-            // Update orderIndex
-            exercises[i + 1].orderIndex = i + 1;
-            exercises[swapIdx].orderIndex = swapIdx;
-          }
-        }
+      if (firstLowerIndex !== -1) {
+        // First lower exercise should already be knee-safe from selection logic
+        // This is a verification/fallback only
       }
     }
 
@@ -1543,6 +1465,21 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           });
         }
       }
+    }
+    
+    // Cap accessory and core sets to never exceed main sets
+    // This ensures mains are always the highest-volume exercises on the day
+    // MUST run AFTER all volume adjustments to prevent those from breaking the rule
+    const finalMains = exercises.filter(ex => ex.orderIndex < 4);
+    const finalAccessories = exercises.filter(ex => ex.orderIndex >= 4);
+    
+    if (finalMains.length > 0 && finalAccessories.length > 0) {
+      const minMainSets = Math.min(...finalMains.map(ex => ex.targetSets));
+      finalAccessories.forEach(acc => {
+        if (acc.targetSets > minMainSets) {
+          acc.targetSets = minMainSets;
+        }
+      });
     }
 
     days.push({

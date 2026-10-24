@@ -172,21 +172,25 @@ testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from all
           isKneeSafe, 
           `Got ${firstEx.name} [${firstEx.slug}]`);
         
-        // Check knee-safe quad comes before any hinge
-        const firstHingeIndex = day.exercises.findIndex(e => {
-          const ex = byId.get(e.exerciseId);
-          return ex && ex.movement_pattern === "hinge";
-        });
+        // First lower exercise can be a knee-safe quad OR a knee-safe hip-dominant move
+        const firstIsKneeSafeQuad = firstEx && kneeSafeAllowlist.includes(firstEx.slug) && firstEx.metric !== "seconds";
+        const firstIsKneeSafeHipDominant = firstEx &&
+          (firstEx.movement_pattern === "hinge" || 
+           firstEx.slug.includes("bridge") || 
+           firstEx.slug.includes("hip-thrust")) &&
+          firstEx.mechanic === "compound" &&
+          firstEx.metric !== "seconds";
         
-        if (firstHingeIndex !== -1) {
-          // There is a hinge, make sure a knee-safe quad comes first
-          const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
-            const ex = byId.get(e.exerciseId);
-            return ex && kneeSafeAllowlist.includes(ex.slug);
-          });
-          check(`Seed ${seed} Lower day ${dayIdx + 1}: knee-safe quad before hinge`, 
-            kneeSafeBeforeHinge,
-            `First hinge at position ${firstHingeIndex + 1}`);
+        const firstIsAcceptable = firstIsKneeSafeQuad || firstIsKneeSafeHipDominant;
+        
+        // Check adjacent hinges: no two hinges in a row
+        for (let i = 0; i < day.exercises.length - 1; i++) {
+          const curr = byId.get(day.exercises[i].exerciseId);
+          const next = byId.get(day.exercises[i + 1].exerciseId);
+          if (curr && next && curr.movement_pattern === "hinge" && next.movement_pattern === "hinge") {
+            check(`Seed ${seed} Lower day ${dayIdx + 1}: no adjacent hinges`, false,
+              `${curr.name} at ${i + 1} followed by ${next.name} at ${i + 2}`);
+          }
         }
       }
     });
@@ -234,24 +238,26 @@ testSeeds("2b. Knee injury full-body: first main is knee-safe, comes before hing
         return;
       }
       
-      // First exercise must be knee-safe
-      const firstIsKneeSafe = KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug);
+      // First exercise must be knee-safe quad OR knee-safe hip-dominant
+      const firstIsKneeSafeQuad = KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug) && firstEx.metric !== "seconds";
+      const firstIsKneeSafeHipDominant = (firstEx.movement_pattern === "hinge" || 
+                                         firstEx.slug.includes("bridge") || 
+                                         firstEx.slug.includes("hip-thrust")) &&
+                                        firstEx.mechanic === "compound" &&
+                                        firstEx.metric !== "seconds";
+      const firstIsKneeSafe = firstIsKneeSafeQuad || firstIsKneeSafeHipDominant;
+      
       check(`Seed ${seed} ${day.label}: first exercise is knee-safe`, firstIsKneeSafe,
         firstIsKneeSafe ? undefined : `Got ${firstEx.name} [${firstEx.slug}]`);
       
-      // Knee-safe quad must come before any hinge
-      const firstHingeIndex = day.exercises.findIndex(e => {
-        const ex = byId.get(e.exerciseId);
-        return ex && ex.movement_pattern === "hinge";
-      });
-      
-      if (firstHingeIndex !== -1) {
-        const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
-          const ex = byId.get(e.exerciseId);
-          return ex && KNEE_SAFE_QUAD_EXERCISES.has(ex.slug);
-        });
-        check(`Seed ${seed} ${day.label}: knee-safe quad before hinge`, kneeSafeBeforeHinge,
-          kneeSafeBeforeHinge ? undefined : `First hinge at position ${firstHingeIndex + 1}, no knee-safe before it`);
+      // Check adjacent hinges: no two hinges in a row
+      for (let i = 0; i < day.exercises.length - 1; i++) {
+        const curr = byId.get(day.exercises[i].exerciseId);
+        const next = byId.get(day.exercises[i + 1].exerciseId);
+        if (curr && next && curr.movement_pattern === "hinge" && next.movement_pattern === "hinge") {
+          check(`Seed ${seed} ${day.label}: no adjacent hinges`, false,
+            `${curr.name} at ${i + 1} followed by ${next.name} at ${i + 2}`);
+        }
       }
     });
   }
