@@ -219,7 +219,7 @@ console.log('\n13. Imperial unit stepping (MEDIUM 2, with src/lib/units.ts)');
   check('103 lb (off-grid) down → 100 lb', nextWeight(103, -1, ['barbell'], 'lb') === 100);
   
   // Reversibility check
-  let weight = 100;
+  const weight = 100;
   const up = nextWeight(weight, 1, ['barbell'], 'lb');
   const down = nextWeight(up, -1, ['barbell'], 'lb');
   check('imperial reversibility: 100 lb → 105 lb → 100 lb', down === weight);
