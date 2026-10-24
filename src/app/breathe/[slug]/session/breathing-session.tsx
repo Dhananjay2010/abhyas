@@ -1209,7 +1209,7 @@ function Practice({
       </p>
 
       {/* Main session content - inert when pause dialog is open */}
-      <div inert={paused && !backPressed ? (true as any) : undefined}>
+      <div inert={(paused && !backPressed || undefined) as boolean | undefined}>
       <header
         className="relative mx-auto w-full max-w-md shrink-0 px-6"
         style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
