@@ -199,8 +199,7 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-xl font-semibold">9. International Data Transfers</h2>
           <p>
             Your data is stored in Supabase&apos;s data centers. The specific location depends on
-            your instance configuration (e.g., Mumbai region for the default deployment). By using
-            {appName}, you consent to the transfer of your information to these locations.
+            your instance configuration (e.g., Mumbai region for the default deployment). By using {appName}, you consent to the transfer of your information to these locations.
           </p>
         </section>
 
