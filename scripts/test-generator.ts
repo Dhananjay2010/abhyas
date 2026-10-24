@@ -506,8 +506,7 @@ console.log("\n22. Intermediate 4-day 45-min gym: QA production review test");
     }))
   );
 
-  // Build slug set for quick checking
-  const allSlugs = new Set(allExercises.map((e) => e.ex.slug));
+  // All exercises collected for testing
 
   // CRITICAL checks per QA review
 
@@ -574,7 +573,7 @@ console.log("\n22. Intermediate 4-day 45-min gym: QA production review test");
     e.ex.primary_muscles.some((m: string) => ["biceps", "triceps"].includes(m))
   );
   const deltWork = allExercises.filter((e) =>
-    e.ex.primary_muscles.includes("delts" as any) || e.ex.movement_pattern === "vertical_press"
+    (e.ex.primary_muscles as string[]).includes("delts") || e.ex.movement_pattern === "vertical_press"
   );
   const coreWork = allExercises.filter((e) => e.ex.movement_pattern === "core");
 
@@ -727,7 +726,7 @@ console.log("\n24. P2 regression: advanced gym user, 6 days, no injuries");
 
   // Should have arm and core work even at 45 min (coverage requirement)
   const armWork = allExercises.filter((e) =>
-    e.ex.primary_muscles.some((m) => ["biceps", "triceps"].includes(m as string))
+    e.ex.primary_muscles.some((m: string) => ["biceps", "triceps"].includes(m))
   );
   const coreWork = allExercises.filter((e) => e.ex.movement_pattern === "core");
   check(
@@ -769,7 +768,7 @@ console.log("\n25. P3 regression: intermediate dumbbells with shoulder injury");
 
   // CRITICAL: No shoulder-contraindicated exercises
   const shoulderContra = allExercises.filter((e) =>
-    e.ex.contraindicated_regions.includes("shoulder" as any)
+    (e.ex.contraindicated_regions as string[]).includes("shoulder")
   );
   check(
     "P3: no shoulder-contraindicated exercises",
