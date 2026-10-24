@@ -93,6 +93,8 @@ export type RunnerExercise = {
   status: Database["public"]["Enums"]["exercise_status"];
   feel: Feel | null;
   sets: LoggedSet[];
+  /** No external load: used for UI labeling of weight input. */
+  isBodyweight: boolean;
 };
 
 export type RunnerSettings = {
@@ -1189,6 +1191,7 @@ export function SessionRunner({
             defaultWeight={lastWeight}
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
+            isBodyweight={current.isBodyweight}
             onLog={onLogSet}
             onHoldComplete={() => {
               if (settings.restSound) beeper.beep();
@@ -1382,6 +1385,7 @@ function SetEntry({
   defaultWeight,
   defaultReps,
   setNumber,
+  isBodyweight,
   onLog,
   onHoldComplete,
   disabled = false,
@@ -1395,6 +1399,8 @@ function SetEntry({
   /** Null on the first set of an exercise, so it has to be entered. */
   defaultReps: number | null;
   setNumber: number;
+  /** True for bodyweight exercises: changes weight label and default. */
+  isBodyweight: boolean;
   onLog: (
     reps: number | null,
     weightKg: number | null,
@@ -1409,7 +1415,11 @@ function SetEntry({
   // Remounted per set via a key at the call site, so the fields reset naturally
   // rather than being reset from an effect.
   const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
-  const [weight, setWeight] = useState(defaultWeight !== null ? String(defaultWeight) : "");
+  // For bodyweight exercises, only prefill if the last set actually used added weight.
+  const shouldPrefillWeight = !isBodyweight || (defaultWeight !== null && defaultWeight > 0);
+  const [weight, setWeight] = useState(
+    shouldPrefillWeight && defaultWeight !== null ? String(defaultWeight) : "",
+  );
 
   /**
    * The hold timer.
@@ -1518,7 +1528,7 @@ function SetEntry({
           />
         </label>
         <label className="block">
-          <span className="text-sm text-muted">Weight (kg)</span>
+          <span className="text-sm text-muted">{isBodyweight ? "Added weight (kg)" : "Weight (kg)"}</span>
           <input
             type="number"
             inputMode="decimal"
