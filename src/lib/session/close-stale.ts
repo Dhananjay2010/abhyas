@@ -57,6 +57,22 @@ export async function closeStaleSessions(
     if (sets.some((x) => !x.is_warmup_set)) trained.add(row.session_id);
   }
 
+  // Yoga and breathing sessions have no session_exercises, so the query above
+  // returns no rows for them. Check actual_type and video completion to credit
+  // them properly. yoga_video_id is set when the user clicks "I did this".
+  const { data: staleTypes } = await supabase
+    .from("sessions")
+    .select("id, actual_type, yoga_video_id")
+    .in("id", ids);
+
+  for (const s of staleTypes ?? []) {
+    // Yoga sessions count as training (SPEC.md §6, training-days.ts) when
+    // a video was actually completed. Breathing practices never count.
+    if (s.actual_type === "yoga" && s.yoga_video_id) {
+      trained.add(s.id);
+    }
+  }
+
   const completed = ids.filter((id) => trained.has(id));
   const abandoned = ids.filter((id) => !trained.has(id));
 
