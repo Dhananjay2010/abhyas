@@ -256,37 +256,6 @@ export function SessionRunner({
 
   const wakeLock = useWakeLock(phase !== "done");
 
-  // ---- pending set replay -----------------------------------------------
-  // Auto-replay on mount if pending sets exist
-  useEffect(() => {
-    if (!controller) return;
-    // Trigger replay on mount if there are pending sets
-    controller.onFocus();
-  }, [controller]);
-
-  // Retry on window focus and visibility change
-  useEffect(() => {
-    if (!controller) return;
-
-    function handleFocus() {
-      if (controller) controller.onFocus();
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === "visible" && controller) {
-        controller.onFocus();
-      }
-    }
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [controller]);
-
   // ---- process replayed sets -----------------------------------------------
   // Track which sets have been processed to avoid re-processing
   const processedReplayedRef = useRef(new Set<string>());

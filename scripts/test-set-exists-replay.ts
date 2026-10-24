@@ -77,12 +77,12 @@ async function main() {
 
   // Replay with set_exists response (server says "already exists")
   const logSet: LogSetFunction = async () => {
-    const result: { ok: false; error: string; reason: string } = {
+    const result: Result & { reason?: string } = {
       ok: false,
       error: "Set already exists",
       reason: "set_exists",
     };
-    return result as unknown as Awaited<ReturnType<LogSetFunction>>;
+    return result;
   };
 
   const states: PendingSetState[] = [];
