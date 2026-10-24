@@ -185,20 +185,31 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     );
 
     const openButton1 = container1.querySelector("button");
-    if (openButton1) {
+    check("Open button exists (test 3.1)", !!openButton1);
+    if (!openButton1) {
+      failures++;
+      console.log("  ABORT: Cannot continue without open button");
+    } else {
       await userEvent.click(openButton1);
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const input1 = container1.querySelector('input[type="number"]');
-      if (input1) {
+      check("Input field rendered (test 3.1)", !!input1);
+      if (!input1) {
+        failures++;
+        console.log("  ABORT: Cannot continue without input field");
+      } else {
         await userEvent.clear(input1);
         await userEvent.type(input1, "176");
 
         const saveButton = Array.from(container1.querySelectorAll("button")).find(
           (btn) => btn.textContent === "Save"
         );
-
-        if (saveButton) {
+        check("Save button exists (test 3.1)", !!saveButton);
+        if (!saveButton) {
+          failures++;
+          console.log("  ABORT: Cannot continue without save button");
+        } else {
           await userEvent.click(saveButton);
           await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -223,20 +234,31 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     );
 
     const openButton2 = container2.querySelector("button");
-    if (openButton2) {
+    check("Open button exists (test 3.2)", !!openButton2);
+    if (!openButton2) {
+      failures++;
+      console.log("  ABORT: Cannot continue without open button");
+    } else {
       await userEvent.click(openButton2);
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const input2 = container2.querySelector('input[type="number"]');
-      if (input2) {
+      check("Input field rendered (test 3.2)", !!input2);
+      if (!input2) {
+        failures++;
+        console.log("  ABORT: Cannot continue without input field");
+      } else {
         await userEvent.clear(input2);
         await userEvent.type(input2, "50");
 
         const saveButton = Array.from(container2.querySelectorAll("button")).find(
           (btn) => btn.textContent === "Save"
         );
-
-        if (saveButton) {
+        check("Save button exists (test 3.2)", !!saveButton);
+        if (!saveButton) {
+          failures++;
+          console.log("  ABORT: Cannot continue without save button");
+        } else {
           await userEvent.click(saveButton);
           await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -344,87 +366,105 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
       (el) => el.getAttribute("aria-label") === "Year"
     ) as HTMLInputElement | undefined;
 
-    if (dayInput && monthInput && yearInput) {
+    check("DOB inputs exist", !!(dayInput && monthInput && yearInput));
+    if (!dayInput || !monthInput || !yearInput) {
+      failures++;
+      console.log("  ABORT: Missing DOB inputs");
+      unmount();
+    } else {
       await userEvent.type(dayInput, "12");
       await userEvent.type(monthInput, "05");
       await userEvent.type(yearInput, "1990");
-    }
 
-    // Find and click Male sex option (it's an OptionCard button, not a radio)
-    const maleButton = Array.from(container.querySelectorAll('button')).find(
-      (btn) => btn.textContent === "Male"
-    );
-    if (maleButton) {
-      await userEvent.click(maleButton);
-    }
-
-    // Find height and weight inputs by placeholder
-    const allInputs = Array.from(container.querySelectorAll('input'));
-    const heightInput = allInputs.find(
-      (el) => (el as HTMLInputElement).placeholder.includes("5'9")
-    ) as HTMLInputElement | undefined;
-    const weightInput = allInputs.find(
-      (el) => (el as HTMLInputElement).placeholder.includes("154")
-    ) as HTMLInputElement | undefined;
-
-    if (heightInput) {
-      await userEvent.clear(heightInput);
-      await userEvent.type(heightInput, "5'9\"");
-    }
-
-    if (weightInput) {
-      await userEvent.clear(weightInput);
-      await userEvent.type(weightInput, "176");
-    }
-
-    // Find Continue button and click
-    const continueButton = Array.from(container.querySelectorAll("button")).find(
-      (btn) => btn.textContent?.includes("Continue")
-    );
-    if (continueButton) {
-      await userEvent.click(continueButton);
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      check(
-        "saveAboutYou called once",
-        spy.callCount === 1,
-        `called ${spy.callCount} times`
+      // Find and click Male sex option (it's an OptionCard button, not a radio)
+      const maleButton = Array.from(container.querySelectorAll('button')).find(
+        (btn) => btn.textContent === "Male"
       );
+      check("Male button exists", !!maleButton);
+      if (!maleButton) {
+        failures++;
+        console.log("  ABORT: Missing Male button");
+        unmount();
+      } else {
+        await userEvent.click(maleButton);
 
-      if (spy.savedAboutYou) {
-        check(
-          "saveAboutYou received dateOfBirth 1990-05-12",
-          spy.savedAboutYou.dateOfBirth === "1990-05-12",
-          `got '${spy.savedAboutYou.dateOfBirth}'`
-        );
+        // Find height and weight inputs by placeholder
+        const allInputs = Array.from(container.querySelectorAll('input'));
+        const heightInput = allInputs.find(
+          (el) => (el as HTMLInputElement).placeholder.includes("5'9")
+        ) as HTMLInputElement | undefined;
+        const weightInput = allInputs.find(
+          (el) => (el as HTMLInputElement).placeholder.includes("154")
+        ) as HTMLInputElement | undefined;
 
-        check(
-          "saveAboutYou received sex 'male'",
-          spy.savedAboutYou.sex === "male",
-          `got '${spy.savedAboutYou.sex}'`
-        );
+        check("Height input exists", !!heightInput);
+        check("Weight input exists", !!weightInput);
+        if (!heightInput || !weightInput) {
+          failures++;
+          console.log("  ABORT: Missing height/weight inputs");
+          unmount();
+        } else {
+          await userEvent.clear(heightInput);
+          await userEvent.type(heightInput, "5'9\"");
+          await userEvent.clear(weightInput);
+          await userEvent.type(weightInput, "176");
 
-        check(
-          "saveAboutYou received heightCm ~175 (174-176)",
-          spy.savedAboutYou.heightCm !== null &&
-            spy.savedAboutYou.heightCm >= 174 &&
-            spy.savedAboutYou.heightCm <= 176,
-          `got ${spy.savedAboutYou.heightCm}`
-        );
+          // Find Continue button and click
+          const continueButton = Array.from(container.querySelectorAll("button")).find(
+            (btn) => btn.textContent?.includes("Continue")
+          );
+          check("Continue button exists", !!continueButton);
+          if (!continueButton) {
+            failures++;
+            console.log("  ABORT: Missing Continue button");
+            unmount();
+          } else {
+            await userEvent.click(continueButton);
+            await new Promise((resolve) => setTimeout(resolve, 200));
 
-        check(
-          "saveAboutYou received weightKg ~79.8 (79.5-80.1)",
-          spy.savedAboutYou.weightKg !== null &&
-            spy.savedAboutYou.weightKg >= 79.5 &&
-            spy.savedAboutYou.weightKg <= 80.1,
-          spy.savedAboutYou.weightKg !== null
-            ? `got ${spy.savedAboutYou.weightKg.toFixed(2)}`
-            : `got ${spy.savedAboutYou.weightKg}`
-        );
+            check(
+              "saveAboutYou called once",
+              spy.callCount === 1,
+              `called ${spy.callCount} times`
+            );
+
+            if (spy.savedAboutYou) {
+              check(
+                "saveAboutYou received dateOfBirth 1990-05-12",
+                spy.savedAboutYou.dateOfBirth === "1990-05-12",
+                `got '${spy.savedAboutYou.dateOfBirth}'`
+              );
+
+              check(
+                "saveAboutYou received sex 'male'",
+                spy.savedAboutYou.sex === "male",
+                `got '${spy.savedAboutYou.sex}'`
+              );
+
+              check(
+                "saveAboutYou received heightCm ~175 (174-176)",
+                spy.savedAboutYou.heightCm !== null &&
+                  spy.savedAboutYou.heightCm >= 174 &&
+                  spy.savedAboutYou.heightCm <= 176,
+                `got ${spy.savedAboutYou.heightCm}`
+              );
+
+              check(
+                "saveAboutYou received weightKg ~79.8 (79.5-80.1)",
+                spy.savedAboutYou.weightKg !== null &&
+                  spy.savedAboutYou.weightKg >= 79.5 &&
+                  spy.savedAboutYou.weightKg <= 80.1,
+                spy.savedAboutYou.weightKg !== null
+                  ? `got ${spy.savedAboutYou.weightKg.toFixed(2)}`
+                  : `got ${spy.savedAboutYou.weightKg}`
+              );
+            }
+
+            unmount();
+          }
+        }
       }
     }
-
-    unmount();
 
     // Test 2: Out-of-range height/weight show errors, no save
     console.log("\n4b. OnboardingFlow: Out-of-range height/weight show errors, no save");
@@ -459,65 +499,83 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
       (el) => el.getAttribute("aria-label") === "Year"
     ) as HTMLInputElement | undefined;
 
-    if (dayInput2 && monthInput2 && yearInput2) {
+    check("DOB inputs exist (test 4b)", !!(dayInput2 && monthInput2 && yearInput2));
+    if (!dayInput2 || !monthInput2 || !yearInput2) {
+      failures++;
+      console.log("  ABORT: Missing DOB inputs");
+      unmount2();
+    } else {
       await userEvent.type(dayInput2, "12");
       await userEvent.type(monthInput2, "05");
       await userEvent.type(yearInput2, "1990");
-    }
 
-    const maleButton2 = Array.from(container2.querySelectorAll('button')).find(
-      (btn) => btn.textContent === "Male"
-    );
-    if (maleButton2) {
-      await userEvent.click(maleButton2);
-    }
-
-    // Type 3'0" (out of range height)
-    const allInputs2 = Array.from(container2.querySelectorAll('input'));
-    const heightInput2 = allInputs2.find(
-      (el) => (el as HTMLInputElement).placeholder.includes("5'9")
-    ) as HTMLInputElement | undefined;
-    const weightInput2 = allInputs2.find(
-      (el) => (el as HTMLInputElement).placeholder.includes("154")
-    ) as HTMLInputElement | undefined;
-
-    if (heightInput2) {
-      await userEvent.clear(heightInput2);
-      await userEvent.type(heightInput2, "3'0\"");
-    }
-
-    if (weightInput2) {
-      await userEvent.clear(weightInput2);
-      await userEvent.type(weightInput2, "50");
-    }
-
-    // Try to click Continue
-    const continueButton2 = Array.from(container2.querySelectorAll("button")).find(
-      (btn) => btn.textContent?.includes("Continue")
-    );
-    if (continueButton2) {
-      await userEvent.click(continueButton2);
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      const bodyText2 = container2.textContent || "";
-      check(
-        "Out-of-range height shows error message",
-        bodyText2.includes("between 3'3\"") || bodyText2.includes("100 cm")
+      const maleButton2 = Array.from(container2.querySelectorAll('button')).find(
+        (btn) => btn.textContent === "Male"
       );
+      check("Male button exists (test 4b)", !!maleButton2);
+      if (!maleButton2) {
+        failures++;
+        console.log("  ABORT: Missing Male button");
+        unmount2();
+      } else {
+        await userEvent.click(maleButton2);
 
-      check(
-        "Out-of-range weight shows error message",
-        bodyText2.includes("between 55 and 661 lb") || bodyText2.includes("25 and 300 kg")
-      );
+        // Type 3'0" (out of range height)
+        const allInputs2 = Array.from(container2.querySelectorAll('input'));
+        const heightInput2 = allInputs2.find(
+          (el) => (el as HTMLInputElement).placeholder.includes("5'9")
+        ) as HTMLInputElement | undefined;
+        const weightInput2 = allInputs2.find(
+          (el) => (el as HTMLInputElement).placeholder.includes("154")
+        ) as HTMLInputElement | undefined;
 
-      check(
-        "saveAboutYou NOT called for out-of-range values",
-        spy2.callCount === 0,
-        `called ${spy2.callCount} times`
-      );
+        check("Height input exists (test 4b)", !!heightInput2);
+        check("Weight input exists (test 4b)", !!weightInput2);
+        if (!heightInput2 || !weightInput2) {
+          failures++;
+          console.log("  ABORT: Missing height/weight inputs");
+          unmount2();
+        } else {
+          await userEvent.clear(heightInput2);
+          await userEvent.type(heightInput2, "3'0\"");
+          await userEvent.clear(weightInput2);
+          await userEvent.type(weightInput2, "50");
+
+          // Try to click Continue
+          const continueButton2 = Array.from(container2.querySelectorAll("button")).find(
+            (btn) => btn.textContent?.includes("Continue")
+          );
+          check("Continue button exists (test 4b)", !!continueButton2);
+          if (!continueButton2) {
+            failures++;
+            console.log("  ABORT: Missing Continue button");
+            unmount2();
+          } else {
+            await userEvent.click(continueButton2);
+            await new Promise((resolve) => setTimeout(resolve, 200));
+
+            const bodyText2 = container2.textContent || "";
+            check(
+              "Out-of-range height shows error message",
+              bodyText2.includes("between 3'3\"") || bodyText2.includes("100 cm")
+            );
+
+            check(
+              "Out-of-range weight shows error message",
+              bodyText2.includes("between 55 and 661 lb") || bodyText2.includes("25 and 300 kg")
+            );
+
+            check(
+              "saveAboutYou NOT called for out-of-range values",
+              spy2.callCount === 0,
+              `called ${spy2.callCount} times`
+            );
+
+            unmount2();
+          }
+        }
+      }
     }
-
-    unmount2();
   }
 
   console.log("\n6. Validation: parseWeight/parseHeight return null outside valid ranges");
