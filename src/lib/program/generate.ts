@@ -1305,8 +1305,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // EXCEPTION: For knee-injured users on Lower/Full days, the knee-safe first pick
     // must stay first even if it's an isolation (to satisfy Rule 1).
     const ordered = pickedExercises.sort((a, b) => {
-      // Knee-safe first pick always stays first
-      if (kneeSafeFirstPickSlot !== null) {
+      // Knee-safe first pick always stays first (only for knee-injured users)
+      if (hasKneeInjury && kneeSafeFirstPickSlot !== null) {
         if (a.slotIndex === kneeSafeFirstPickSlot && b.slotIndex !== kneeSafeFirstPickSlot) {
           return -1;
         }
@@ -1690,10 +1690,10 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }
     }
     
-    // Final sort to ensure compound-before-isolation order after M3/H8 splices
-    // Only apply when there were backfills or knee-specific manipulations that might have disrupted order
-    // For no-injury users with no backfills, preserve the original sort from line 1336
-    if (backfilled || kneeSafeFirstPickExerciseId !== null || hasKneeInjury) {
+    // Final sort to ensure compound-before-isolation order after knee-specific manipulations
+    // ONLY for knee-injured users (kneeSafeFirstPick or hasKneeInjury)
+    // No-injury users keep original sort from line 1336 regardless of backfills
+    if (kneeSafeFirstPickExerciseId !== null || hasKneeInjury) {
       // Preserve: knee-safe first pick at position 0, core at end
       const kneeSafeIndex = kneeSafeFirstPickExerciseId !== null
         ? exercises.findIndex(ex => ex.exerciseId === kneeSafeFirstPickExerciseId)
