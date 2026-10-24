@@ -180,13 +180,12 @@ test_mutant \
   "progressionInputsFromExercise(ex ?? { equipment_ids: [] }, profileRes.data?.units)" \
   "progressionInputsFromExercise(ex ?? { equipment_ids: [] }, undefined)" || true
 
-# M7: page.tsx doesn't pass equipmentIds
+# M7: page.tsx doesn't pass equipmentIds (replace with undefined so it compiles)
 test_mutant \
   "page.tsx: remove equipmentIds from suggestedWeight" \
   "$PAGE_FILE" \
-  "        progInputs.equipmentIds,
-        progInputs.unit," \
-  "        progInputs.unit," || true
+  "progInputs.equipmentIds," \
+  "undefined," || true
 
 # M8: page.tsx doesn't pass unit
 test_mutant \
@@ -203,8 +202,11 @@ echo "Survived: $SURVIVED_COUNT"
 echo "Skipped: $SKIPPED_COUNT"
 echo
 
-if [ "$SURVIVED_COUNT" -gt 0 ] || [ "$SKIPPED_COUNT" -gt 0 ]; then
-  echo "❌ MUTATION TEST FAILED"
+if [ "$SURVIVED_COUNT" -gt 0 ]; then
+  echo "❌ MUTATION TEST FAILED: $SURVIVED_COUNT mutants survived"
+  exit 1
+elif [ "$SKIPPED_COUNT" -gt 0 ]; then
+  echo "❌ MUTATION TEST FAILED: $SKIPPED_COUNT mutants skipped"
   exit 1
 else
   echo "✅ MUTATION TEST PASSED: All mutants killed"
