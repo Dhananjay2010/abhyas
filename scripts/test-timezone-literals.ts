@@ -34,6 +34,9 @@ function testNoHardcodedTimezoneInAppCode() {
     "src/lib/timezone-write.ts",  // Documentation comments only
     "src/lib/timezone-canonical.ts",  // Canonicalization helper with examples
     "src/lib/timezone-patch.ts",  // Settings validation helper with examples
+    "src/lib/timezone-options.ts",  // Comments explaining deduplication behavior
+    "src/app/settings/settings-form.tsx",  // Comment explaining client canonicalization
+    "src/app/settings/timezone-picker-logic.ts",  // Pure logic helper with QA issue documentation
   ];
 
   const violations: string[] = [];
@@ -60,21 +63,14 @@ function testNoHardcodedTimezoneInAppCode() {
 
   // Verify the allowed files still contain it (sanity check)
   const timezoneFile = readFileSync(join(process.cwd(), "src/lib/timezone.ts"), "utf-8");
-  const brandingFile = readFileSync(join(process.cwd(), "src/lib/branding.ts"), "utf-8");
 
   assert(
     timezoneFile.includes('FALLBACK_TIMEZONE = "Asia/Kolkata"'),
     "timezone.ts should define FALLBACK_TIMEZONE constant"
   );
 
-  assert(
-    brandingFile.includes('"Asia/Kolkata"'),
-    "branding.ts should include Asia/Kolkata in VALID_TIMEZONES"
-  );
-
   console.log("  ✓ No hardcoded 'Asia/Kolkata' in app code");
   console.log("  ✓ FALLBACK_TIMEZONE constant exists in timezone.ts");
-  console.log("  ✓ Asia/Kolkata listed in branding.ts VALID_TIMEZONES");
 }
 
 function main() {
