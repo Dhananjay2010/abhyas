@@ -136,6 +136,7 @@
     "test:block-range": "tsx scripts/test-block-range.ts",
     "test:rebuild-history": "tsx scripts/test-rebuild-history.ts",
     "test:block-range-db": "tsx scripts/test-block-range-db.ts",
+    "test:deload-trim": "tsx scripts/test-deload-trim.ts",
     "test:session-expired-detection": "tsx scripts/test-session-expired-detection.ts",
     "test:sign-in-again-href": "tsx scripts/test-sign-in-again-href.ts",
     "test:settings-form-session-expired": "tsx scripts/test-settings-form-session-expired.tsx"
