@@ -1,10 +1,6 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
 import { resolveStaleFinish } from "./stale-duration";
+import type { CloseStaleSessionsDeps } from "./close-stale-deps";
 
-type Client = SupabaseClient<Database>;
-
-export type { Client };
 export type OpenSession = { id: string; local_date: string };
 
 /**
@@ -28,15 +24,9 @@ export type OpenSession = { id: string; local_date: string };
  *
  * `completed_at` is set so the row looks like any other finished session.
  * `duration_seconds` is calculated based on the logged sets and rest intervals.
- *
- * Safe to call on every load of Today. With nothing stale it makes no database
- * call at all.
- *
- * Returns how many sessions were credited as completed, so the caller can say
- * so rather than changing the numbers silently.
  */
 export async function closeStaleSessions(
-  supabase: Client,
+  deps: CloseStaleSessionsDeps,
   open: OpenSession[],
   today: string,
 ): Promise<number> {
@@ -46,15 +36,8 @@ export async function closeStaleSessions(
   const ids = stale.map((s) => s.id);
 
   // Fetch session data (started_at) and exercise/set data
-  const { data: sessions } = await supabase
-    .from("sessions")
-    .select("id, started_at")
-    .in("id", ids);
-
-  const { data: rows } = await supabase
-    .from("session_exercises")
-    .select("session_id, rest_seconds, session_sets(id, is_warmup_set, completed_at)")
-    .in("session_id", ids);
+  const sessions = await deps.loadSessions(ids);
+  const rows = await deps.loadExercisesWithSets(ids);
 
   // Build map of session_id -> { workingSetCount, lastSetCompletedAt, lastSetRestSeconds, startedAt }
   type SessionData = {
@@ -67,7 +50,7 @@ export async function closeStaleSessions(
   const sessionMap = new Map<string, SessionData>();
 
   // Initialize with session started_at
-  for (const session of sessions ?? []) {
+  for (const session of sessions) {
     sessionMap.set(session.id, {
       startedAt: session.started_at ?? new Date(0).toISOString(),
       workingSetCount: 0,
@@ -77,14 +60,11 @@ export async function closeStaleSessions(
   }
 
   // Count working sets and track last set timestamp + rest seconds
-  for (const row of rows ?? []) {
+  for (const row of rows) {
     const data = sessionMap.get(row.session_id);
     if (!data) continue;
 
-    const sets = (row.session_sets ?? []) as Array<{
-      is_warmup_set: boolean;
-      completed_at: string | null;
-    }>;
+    const sets = row.session_sets ?? [];
 
     for (const set of sets) {
       if (!set.is_warmup_set) {
@@ -94,7 +74,7 @@ export async function closeStaleSessions(
         if (!data.lastSetCompletedAt || set.completed_at > data.lastSetCompletedAt) {
           data.lastSetCompletedAt = set.completed_at;
           // Track the rest_seconds for the exercise that had this last set
-          data.lastSetRestSeconds = (row as { rest_seconds: number | null }).rest_seconds;
+          data.lastSetRestSeconds = row.rest_seconds;
         }
       }
     }
@@ -111,23 +91,16 @@ export async function closeStaleSessions(
     });
 
     updates.push(
-      supabase
-        .from("sessions")
-        .update({
-          status: result.status,
-          completed_at: result.status === "completed" ? result.endedAt : null,
-          duration_seconds: result.durationSeconds,
-        })
-        .eq("id", sessionId)
+      deps.updateSession(sessionId, {
+        status: result.status,
+        completed_at: result.status === "completed" ? result.endedAt : null,
+        duration_seconds: result.durationSeconds,
+      })
     );
   }
 
   await Promise.all(updates);
 
-  // Count how many were completed
-  const completedCount = Array.from(sessionMap.values()).filter(
-    (data) => data.workingSetCount > 0
-  ).length;
-
-  return completedCount;
+  // Count how many completed (i.e. had at least one working set)
+  return Array.from(sessionMap.values()).filter((d) => d.workingSetCount > 0).length;
 }
