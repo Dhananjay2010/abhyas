@@ -64,7 +64,12 @@ async function runTests() {
   console.log("✓ Connected to Supabase\n");
 
   // Service role client for fixture setup (bypasses RLS)
-  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 
   // Create test users
   const testEmailA = `test-a-${Date.now()}@example.com`;
