@@ -84,13 +84,24 @@ async function main() {
       throw new Error(`Failed to create session: ${sessionError?.message}`);
     }
 
+    // Get a real exercise ID from the seeded exercises
+    const { data: exerciseRecord } = await supabase
+      .from("exercises")
+      .select("id")
+      .limit(1)
+      .single();
+
+    if (!exerciseRecord) {
+      throw new Error("No exercises found in database - check seed data");
+    }
+
     // Create an exercise
     const { data: exercise, error: exerciseError } = await supabase
       .from("session_exercises")
       .insert({
         user_id: userId,
         session_id: session.id,
-        exercise_id: "ex_bench_press",
+        exercise_id: exerciseRecord.id,
         order_index: 0,
         status: "completed",
         planned_sets: 3,
