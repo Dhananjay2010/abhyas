@@ -1225,7 +1225,7 @@ function SetEntry({
   );
 }
 
-function Shell({
+export function Shell({
   title,
   subtitle,
   elapsed,

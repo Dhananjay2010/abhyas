@@ -7,96 +7,9 @@
 
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
+import { Shell } from "../src/app/session/[id]/session-runner";
 
 export {}; // Make this a module
-
-// Extract Shell component for testing
-// We'll import it directly from the session-runner file
-// For now, let's define a minimal version that matches the Shell signature
-function Shell({
-  title,
-  subtitle,
-  elapsed,
-  onExit,
-  wakeLock,
-  error,
-  message,
-  children,
-}: {
-  title: string;
-  subtitle: string | null;
-  elapsed: number;
-  onExit: () => void;
-  wakeLock: { active: boolean };
-  error: string | null;
-  message?: string | null;
-  children?: React.ReactNode;
-}) {
-  const formatClock = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    if (hours > 0) {
-      return `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
-    }
-    return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
-  };
-
-  return React.createElement(
-    "main",
-    { className: "mx-auto min-h-dvh w-full max-w-md px-6 pt-6 pb-16" },
-    React.createElement(
-      "header",
-      { className: "flex items-center justify-between gap-4" },
-      React.createElement(
-        "div",
-        null,
-        React.createElement("p", { className: "text-xs tracking-wider text-muted uppercase" }, title),
-        subtitle && React.createElement("p", { className: "text-sm text-muted" }, subtitle),
-      ),
-      React.createElement(
-        "div",
-        { className: "flex items-center gap-3" },
-        wakeLock.active &&
-          React.createElement("span", {
-            title: "Screen kept awake",
-            "aria-label": "Screen kept awake",
-            className: "h-2 w-2 rounded-full bg-success",
-          }),
-        React.createElement(
-          "span",
-          { className: "text-sm tabular-nums text-muted" },
-          formatClock(elapsed),
-        ),
-        React.createElement(
-          "button",
-          {
-            onClick: onExit,
-            "aria-label": "Leave session",
-            className: "rounded-lg border border-border px-3 py-1.5 text-xs text-muted",
-          },
-          "Exit",
-        ),
-      ),
-    ),
-    error &&
-      React.createElement(
-        "p",
-        {
-          role: "alert",
-          className: "mt-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger",
-        },
-        error,
-      ),
-    message &&
-      React.createElement(
-        "p",
-        { className: "mt-4 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-fg" },
-        message,
-      ),
-    React.createElement("div", { className: "mt-8" }, children),
-  );
-}
 
 let passed = 0;
 let failed = 0;

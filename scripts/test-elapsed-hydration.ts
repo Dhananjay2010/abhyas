@@ -11,6 +11,7 @@
 
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { useElapsed, formatClock } from "../src/lib/session/device";
 
 export {}; // Make this a module
 
@@ -39,23 +40,9 @@ function assertEqual<T>(actual: T, expected: T, msg: string = "") {
   }
 }
 
-// Mock implementation of useElapsed with hydration fix
-function useElapsedMock(startedAtIso: string | null): number {
-  // Simulate server render: no effects run, now is null
-  // This is what the fixed version returns during SSR
-  return 0;
-}
-
-// Mock implementation of formatClock
-function formatClock(totalSeconds: number): string {
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
 // Component that uses elapsed timer
 function ElapsedDisplay({ startedAt }: { startedAt: string | null }) {
-  const elapsed = useElapsedMock(startedAt);
+  const elapsed = useElapsed(startedAt);
   return React.createElement("div", { className: "elapsed" }, formatClock(elapsed));
 }
 
