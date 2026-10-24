@@ -19,6 +19,7 @@ export type OpenSession = {
   id: string; 
   local_date: string;
   started_at: string | null;
+  actual_type: string | null;
 };
 
 /**
@@ -105,12 +106,17 @@ export async function closeStaleSessionsCore(
   const stale: string[] = [];
   const byId = new Map(open.map((s) => [s.id, s]));
 
-  // Find the newest session (latest started_at)
-  let newestStartedAt: string | null = null;
+  // Helper to check if a session type is strength (weights or bodyweight)
+  const isStrength = (actualType: string | null): boolean => {
+    return actualType === "weights" || actualType === "bodyweight";
+  };
+
+  // Find the newest strength session (latest started_at among strength sessions only)
+  let newestStrengthStartedAt: string | null = null;
   for (const session of open) {
-    if (session.started_at) {
-      if (!newestStartedAt || session.started_at > newestStartedAt) {
-        newestStartedAt = session.started_at;
+    if (session.started_at && isStrength(session.actual_type)) {
+      if (!newestStrengthStartedAt || session.started_at > newestStrengthStartedAt) {
+        newestStrengthStartedAt = session.started_at;
       }
     }
   }
@@ -131,11 +137,15 @@ export async function closeStaleSessionsCore(
 
     // A session is stale if:
     // 1. It has been inactive for more than 6 hours, OR
-    // 2. A newer session exists (newer started_at)
-    const hasNewerSession = newestStartedAt && session.started_at < newestStartedAt;
+    // 2. For strength sessions: a newer strength session exists (newer started_at)
+    //    Non-strength sessions (Breathe, yoga) don't trigger closure of strength sessions
+    const hasNewerStrengthSession = 
+      isStrength(session.actual_type) &&
+      newestStrengthStartedAt && 
+      session.started_at < newestStrengthStartedAt;
     const isInactive = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
 
-    if (isInactive || hasNewerSession) {
+    if (isInactive || hasNewerStrengthSession) {
       stale.push(id);
     }
   }

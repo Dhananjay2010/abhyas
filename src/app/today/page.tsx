@@ -45,7 +45,7 @@ export default async function TodayPage() {
     // because the local date is not known until the profile arrives.
     supabase
       .from("sessions")
-      .select("id, local_date, started_at")
+      .select("id, local_date, started_at, actual_type")
       .in("status", ["planned", "in_progress"])
       .order("local_date", { ascending: false })
       .limit(20),
