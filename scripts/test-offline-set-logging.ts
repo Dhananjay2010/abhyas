@@ -2515,9 +2515,9 @@ async function testMutantA_OnlineEventTriggersFlush() {
 }
 
 // ---- Mutant (d): Banner visibility based on isOffline() -----------------
-function testMutantD_BannerVisibility() {
+async function testMutantD_BannerVisibility() {
   // Test the production isOffline helper
-  const { isOffline } = require("../src/lib/session/is-offline");
+  const { isOffline } = await import("../src/lib/session/is-offline");
 
   // Test 1: SSR (no navigator) - should return false
   const originalNavigator = global.navigator;
