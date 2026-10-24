@@ -129,6 +129,7 @@ export function SessionRunner({
   onExit,
 }: {
   sessionId: string;
+  sessionStatus: Database["public"]["Enums"]["session_status"];
   isDeload: boolean;
   week: number;
   warmupAlreadyDone: boolean;
