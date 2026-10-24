@@ -1307,7 +1307,7 @@ function Shell({
       )}
 
       {message && (
-        <p className="mt-4 rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-sm text-info">
+        <p className="mt-4 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-fg">
           {message}
         </p>
       )}

@@ -28,6 +28,8 @@ export function shouldRefreshOnEvent(
 /**
  * Injectable seam for attaching resume refresh listeners.
  * Allows testing without DOM.
+ * 
+ * Calls refresh once on mount, then attaches listeners for visibilitychange and pageshow.
  */
 export function attachResumeRefresh(
   target: {
@@ -37,6 +39,11 @@ export function attachResumeRefresh(
   },
   refresh: () => void,
 ): () => void {
+  // Refresh on mount
+  if (shouldRefreshOnEvent("mount")) {
+    refresh();
+  }
+
   const handleVisibilityChange = () => {
     if (shouldRefreshOnEvent("visibilitychange", target.visibilityState as "visible" | "hidden")) {
       refresh();
@@ -72,14 +79,6 @@ export function useResumeRefresh() {
   const router = useRouter();
 
   useEffect(() => {
-    // Refresh on mount
-    if (shouldRefreshOnEvent("mount")) {
-      router.refresh();
-    }
-
-    // Attach listeners for visibilitychange and pageshow
-    const cleanup = attachResumeRefresh(document, () => router.refresh());
-
-    return cleanup;
+    return attachResumeRefresh(document, () => router.refresh());
   }, [router]);
 }

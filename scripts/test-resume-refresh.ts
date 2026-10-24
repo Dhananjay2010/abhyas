@@ -98,11 +98,11 @@ async function main() {
       listeners.visibilitychange[0](new Event("visibilitychange"));
     }
 
-    assertEqualRefresh(refreshCalled, 1, "Should call refresh once");
+    assertEqualRefresh(refreshCalled, 2, "Should call refresh on mount + visibilitychange");
     cleanup();
   });
 
-  // Test 8: attachResumeRefresh does not call refresh on visibility hidden
+  // Test 8: attachResumeRefresh does not call refresh on visibility hidden (only mount)
   await testResumeRefresh("attachResumeRefresh: visibilitychange hidden does not call refresh", () => {
     let refreshCalled = 0;
     const listeners: Record<string, EventListener[]> = {};
@@ -129,7 +129,7 @@ async function main() {
       listeners.visibilitychange[0](new Event("visibilitychange"));
     }
 
-    assertEqualRefresh(refreshCalled, 0, "Should not call refresh");
+    assertEqualRefresh(refreshCalled, 1, "Should call refresh only on mount, not on visibilitychange hidden");
     cleanup();
   });
 
@@ -160,8 +160,59 @@ async function main() {
       listeners.pageshow[0](event as unknown as Event);
     }
 
-    assertEqualRefresh(refreshCalled, 1, "Should call refresh once");
+    assertEqualRefresh(refreshCalled, 2, "Should call refresh once on mount + once on pageshow");
     cleanup();
+  });
+
+  // Test 10: attachResumeRefresh calls refresh exactly once on mount
+  await testResumeRefresh("attachResumeRefresh: calls refresh exactly once on mount", () => {
+    let refreshCalled = 0;
+    const listeners: Record<string, EventListener[]> = {};
+    
+    const fakeTarget = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!listeners[event]) listeners[event] = [];
+        listeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (listeners[event]) {
+          listeners[event] = listeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Window;
+
+    attachResumeRefresh(fakeTarget, () => {
+      refreshCalled++;
+    });
+
+    assertEqualRefresh(refreshCalled, 1, "Should call refresh exactly once on mount");
+  });
+
+  // Test 11: cleanup removes both listeners
+  await testResumeRefresh("attachResumeRefresh: cleanup removes both listeners", () => {
+    const listeners: Record<string, EventListener[]> = {};
+    
+    const fakeTarget = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!listeners[event]) listeners[event] = [];
+        listeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (listeners[event]) {
+          listeners[event] = listeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Window;
+
+    const cleanup = attachResumeRefresh(fakeTarget, () => {});
+
+    assertEqualRefresh(listeners.visibilitychange?.length, 1, "Should have 1 visibilitychange listener");
+    assertEqualRefresh(listeners.pageshow?.length, 1, "Should have 1 pageshow listener");
+
+    cleanup();
+
+    assertEqualRefresh(listeners.visibilitychange?.length, 0, "Should remove visibilitychange listener");
+    assertEqualRefresh(listeners.pageshow?.length, 0, "Should remove pageshow listener");
   });
 
   // Summary
