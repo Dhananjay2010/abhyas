@@ -71,29 +71,11 @@ const depsAlmost7Days = createPendingSetDeps({ nowMs: () => realNow + almostSeve
 const loadedAlmost7Days = loadPendingSets(storage, userId, sessionId, depsAlmost7Days);
 check("Set 6 days 23 hours old is kept", loadedAlmost7Days.length === 1);
 
-// Test 3: Set saved 6 days 23 hours ago should be kept
-storage.removeItem(`pending-sets:${userId}`);
-const deps6Days = createPendingSetDeps({ nowMs: () => realNow });
-savePendingSet(storage, userId, sessionId, {
-  sessionExerciseId: "ex-3",
-  setNumber: 1,
-  reps: 10,
-  weightKg: 50,
-  durationSeconds: null,
-  clientId: "client-6days",
-}, deps6Days);
-
-// Move clock forward 6 days 23 hours
-const almostSevenDays = sevenDaysMs - (60 * 60 * 1000); // 6 days 23 hours
-const depsAlmost7Days = createPendingSetDeps({ nowMs: () => realNow + almostSevenDays });
-const loadedAlmost7Days = loadPendingSets(storage, userId, sessionId, depsAlmost7Days);
-check("Set 6 days 23 hours old is kept", loadedAlmost7Days.length === 1);
-
-// Test 4: Set saved 8 days ago should be pruned
+// Test 2: Set saved 8 days ago should be pruned (well over 7 days)
 storage.removeItem(`pending-sets:${userId}`);
 const deps8Days = createPendingSetDeps({ nowMs: () => realNow });
 savePendingSet(storage, userId, sessionId, {
-  sessionExerciseId: "ex-4",
+  sessionExerciseId: "ex-2",
   setNumber: 1,
   reps: 10,
   weightKg: 50,
@@ -101,17 +83,16 @@ savePendingSet(storage, userId, sessionId, {
   clientId: "client-8days",
 }, deps8Days);
 
-// Move clock forward 8 days
 const eightDaysMs = 8 * 24 * 60 * 60 * 1000;
 const deps8DaysLater = createPendingSetDeps({ nowMs: () => realNow + eightDaysMs });
 const loaded8Days = loadPendingSets(storage, userId, sessionId, deps8DaysLater);
 check("Set 8 days old is pruned", loaded8Days.length === 0);
 
-// Test 5: Recent set (1 hour old) should be kept
+// Test 3: Recent set (1 hour old) should be kept
 storage.removeItem(`pending-sets:${userId}`);
 const depsRecent = createPendingSetDeps({ nowMs: () => realNow });
 savePendingSet(storage, userId, sessionId, {
-  sessionExerciseId: "ex-5",
+  sessionExerciseId: "ex-3",
   setNumber: 1,
   reps: 10,
   weightKg: 50,
@@ -119,7 +100,6 @@ savePendingSet(storage, userId, sessionId, {
   clientId: "client-recent",
 }, depsRecent);
 
-// Move clock forward 1 hour
 const oneHourMs = 60 * 60 * 1000;
 const depsOneHour = createPendingSetDeps({ nowMs: () => realNow + oneHourMs });
 const loadedRecent = loadPendingSets(storage, userId, sessionId, depsOneHour);
