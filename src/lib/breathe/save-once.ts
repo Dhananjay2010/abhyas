@@ -5,10 +5,12 @@
  * call is a no-op.
  *
  * @param fn The save function to guard
+ * @param isSuccess Function to determine if result represents success
  * @returns A wrapped function with the same signature
  */
 export function createSaveOnce<T extends (...args: never[]) => Promise<unknown>>(
-  fn: T
+  fn: T,
+  isSuccess: (result: unknown) => boolean
 ): T {
   let inFlightPromise: Promise<unknown> | null = null;
   let succeeded = false;
@@ -28,7 +30,9 @@ export function createSaveOnce<T extends (...args: never[]) => Promise<unknown>>
     inFlightPromise = fn(...args)
       .then(
         (result) => {
-          succeeded = true;
+          if (isSuccess(result)) {
+            succeeded = true;
+          }
           inFlightPromise = null;
           return result;
         },

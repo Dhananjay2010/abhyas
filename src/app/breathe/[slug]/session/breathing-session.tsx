@@ -526,13 +526,22 @@ function Practice({
             guidance,
             routineId: routine?.id ?? null,
             routineStep: routine ? stepIndex + 1 : null,
-          })
+          }),
+        (result: unknown) => {
+          // Only mark as success if result has ok: true
+          return typeof result === "object" && result !== null && "ok" in result && (result as { ok: boolean }).ok === true;
+        }
       ),
     [actions, logId, pattern.kind, pattern.id, pattern.userPatternId, options.cycles, moodBefore, routine, stepIndex],
   );
 
   const doSave = useCallback(
     (o: Outcome) => {
+      // Don't save again if already saved successfully
+      if (savedOkRef.current) {
+        return;
+      }
+
       setSave({ state: "saving" });
       const guidance = soundOnRef.current ? modeRef.current : "off";
       guardedSave(o, guidance).then(

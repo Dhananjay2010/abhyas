@@ -23,11 +23,14 @@ async function runTests() {
   console.log("\n1. Two concurrent calls run fn once");
   {
     let callCount = 0;
-    const save = createSaveOnce(async (logId: string) => {
-      callCount++;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      return { ok: true, logId };
-    });
+    const save = createSaveOnce(
+      async (logId: string) => {
+        callCount++;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return { ok: true, logId };
+      },
+      (result: unknown) => typeof result === "object" && result !== null && "ok" in result && (result as { ok: boolean }).ok === true
+    );
 
     const promise1 = save("log-123");
     const promise2 = save("log-123");
@@ -42,20 +45,48 @@ async function runTests() {
     check("second call got same result", result2.ok && result2.logId === "log-123");
   }
 
-  console.log("\n2. After failure, a new call runs again");
+  console.log("\n2. After {ok: false}, a new call runs again and returns second result");
   {
     let callCount = 0;
-    const save = createSaveOnce(async (logId: string) => {
-      callCount++;
-      if (callCount === 1) {
-        throw new Error("Network error");
-      }
-      return { ok: true, logId };
-    });
+    const save = createSaveOnce(
+      async (logId: string) => {
+        callCount++;
+        if (callCount === 1) {
+          return { ok: false, error: "Rate limit exceeded" };
+        }
+        return { ok: true, logId };
+      },
+      (result: unknown) => typeof result === "object" && result !== null && "ok" in result && (result as { ok: boolean }).ok === true
+    );
+
+    const firstResult = await save("log-456");
+    check("first call returned {ok: false}", !firstResult.ok && firstResult.error === "Rate limit exceeded");
+    check("fn was called once", callCount === 1);
+
+    // Retry after {ok: false}
+    const retryResult = await save("log-456");
+
+    check("fn called again after {ok: false}", callCount === 2, `callCount=${callCount}`);
+    check("retry succeeded and returned second result", retryResult.ok && retryResult.logId === "log-456");
+  }
+
+  console.log("\n3. After thrown error, a new call runs again");
+  {
+    let callCount = 0;
+    const save = createSaveOnce(
+      async (logId: string) => {
+        callCount++;
+        if (callCount === 1) {
+          throw new Error("Network error");
+        }
+        return { ok: true, logId };
+      },
+      (result: unknown) => typeof result === "object" && result !== null && "ok" in result && (result as { ok: boolean }).ok === true
+    );
 
     let firstError: Error | null = null;
     try {
-      await save("log-456");
+      await save("log-789");
     } catch (e) {
       firstError = e as Error;
     }
@@ -63,42 +94,48 @@ async function runTests() {
     check("first call threw error", firstError?.message === "Network error");
     check("fn was called once", callCount === 1);
 
-    // Retry after failure
-    const retryResult = await save("log-456");
+    // Retry after error
+    const retryResult = await save("log-789");
 
-    check("fn called again after failure", callCount === 2, `callCount=${callCount}`);
-    check("retry succeeded", retryResult.ok && retryResult.logId === "log-456");
+    check("fn called again after error", callCount === 2, `callCount=${callCount}`);
+    check("retry succeeded", retryResult.ok && retryResult.logId === "log-789");
   }
 
-  console.log("\n3. After success, a call is a no-op");
+  console.log("\n4. After success, a call is a no-op");
   {
     let callCount = 0;
-    const save = createSaveOnce(async (logId: string) => {
-      callCount++;
-      return { ok: true, logId };
-    });
+    const save = createSaveOnce(
+      async (logId: string) => {
+        callCount++;
+        return { ok: true, logId };
+      },
+      (result: unknown) => typeof result === "object" && result !== null && "ok" in result && (result as { ok: boolean }).ok === true
+    );
 
-    const firstResult = await save("log-789");
-    check("first call succeeded", firstResult.ok && firstResult.logId === "log-789");
+    const firstResult = await save("log-abc");
+    check("first call succeeded", firstResult.ok && firstResult.logId === "log-abc");
     check("fn called once", callCount === 1);
 
-    const secondResult = await save("log-789");
+    const secondResult = await save("log-abc");
     check("second call after success is a no-op", secondResult === undefined);
     check("fn NOT called again", callCount === 1, `callCount=${callCount}`);
   }
 
-  console.log("\n4. Concurrent calls during failure clear in-flight state");
+  console.log("\n5. Concurrent calls during failure clear in-flight state");
   {
     let callCount = 0;
     let shouldFail = true;
-    const save = createSaveOnce(async (logId: string) => {
-      callCount++;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      if (shouldFail) {
-        throw new Error("Temporary failure");
-      }
-      return { ok: true, logId };
-    });
+    const save = createSaveOnce(
+      async (logId: string) => {
+        callCount++;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        if (shouldFail) {
+          throw new Error("Temporary failure");
+        }
+        return { ok: true, logId };
+      },
+      (result: unknown) => typeof result === "object" && result !== null && "ok" in result && (result as { ok: boolean }).ok === true
+    );
 
     const promise1 = save("log-concurrent");
     const promise2 = save("log-concurrent");
