@@ -166,6 +166,41 @@ export function findTopSet(
 }
 
 /**
+ * Find the baseline set for rep PR comparison.
+ * 
+ * For weighted exercises, the baseline is the first session's set with:
+ * 1. Highest weight
+ * 2. Then most reps (if weights are equal)
+ * 3. Then earliest in chronological order
+ * 
+ * This is NOT the highest e1RM. Example: [100×3, 90×10] baseline is 100×3,
+ * even though 90×10 has higher e1RM (120 vs 110).
+ * 
+ * @param sets - Array of sets from the first session
+ * @returns The baseline set, or null if empty
+ */
+function findBaselineSet(sets: SetData[]): SetData | null {
+  if (sets.length === 0) return null;
+  
+  return sets.reduce((best, current) => {
+    const bestWeight = best.weight_kg ?? 0;
+    const currentWeight = current.weight_kg ?? 0;
+    
+    // Highest weight wins
+    if (currentWeight > bestWeight) return current;
+    if (currentWeight < bestWeight) return best;
+    
+    // Weights equal: most reps wins
+    const bestReps = best.reps ?? 0;
+    const currentReps = current.reps ?? 0;
+    if (currentReps > bestReps) return current;
+    
+    // If equal on both, keep the first (earliest)
+    return best;
+  });
+}
+
+/**
  * Personal record types that can be tracked.
  */
 export type PRType = 
@@ -272,38 +307,78 @@ export function detectPersonalRecords(
   }
 
   // Most reps: same-weight comparison for weighted, plain for bodyweight
-  if (hasWeight) {
-    // Weighted: use checkWeightedRepPR helper
-    // Start with first set as baseline, then replace when sets qualify as rep PRs
-    let bestRepPRSet: SetData | null = allSets[0] ?? null;
-    let bestRepPRValue = bestRepPRSet?.reps ?? 0;
-
-    // Process sets chronologically
-    for (let i = 1; i < allSets.length; i++) {
-      const currentSet = allSets[i];
-      const earlierSets = allSets.slice(0, i);
-      
-      if (checkWeightedRepPR(currentSet, earlierSets)) {
-        const currentReps = currentSet.reps ?? 0;
-        if (currentReps > bestRepPRValue) {
-          bestRepPRSet = currentSet;
-          bestRepPRValue = currentReps;
-        }
+  // For mixed histories (bodyweight then weighted), track both separately
+  const weightedSets = allSets.filter(s => (s.weight_kg ?? 0) > 0);
+  const bodyweightSets = allSets.filter(s => (s.weight_kg ?? 0) === 0);
+  
+  if (hasWeight && weightedSets.length > 0) {
+    // Weighted rep PR logic
+    // Find all weighted sets before the first weighted rep PR
+    let firstWeightedRepPRIndex = -1;
+    for (let i = 1; i < weightedSets.length; i++) {
+      const currentSet = weightedSets[i];
+      const earlierWeightedSets = weightedSets.slice(0, i);
+      if (checkWeightedRepPR(currentSet, earlierWeightedSets)) {
+        firstWeightedRepPRIndex = i;
+        break;
       }
     }
 
-    if (bestRepPRSet && bestRepPRValue > 0) {
+    // Baseline: set from before any weighted rep PRs occurred
+    // Order: highest weight, then most reps, then earliest
+    let bestRepPRSet: SetData | null;
+    if (firstWeightedRepPRIndex === -1) {
+      // No weighted rep PRs found - use first weighted set as baseline
+      bestRepPRSet = weightedSets[0] ?? null;
+    } else if (firstWeightedRepPRIndex === 1) {
+      // First weighted rep PR is at index 1, so only weightedSets[0] is baseline
+      bestRepPRSet = weightedSets[0] ?? null;
+    } else {
+      // Multiple weighted sets before first rep PR - find baseline
+      // Order: highest weight, then most reps, then earliest
+      const baselineSets = weightedSets.slice(0, firstWeightedRepPRIndex);
+      bestRepPRSet = findBaselineSet(baselineSets);
+    }
+
+    // Process remaining weighted sets to find rep PRs (last one wins)
+    for (let i = Math.max(1, firstWeightedRepPRIndex); i < weightedSets.length; i++) {
+      const currentSet = weightedSets[i];
+      const earlierWeightedSets = weightedSets.slice(0, i);
+      
+      if (checkWeightedRepPR(currentSet, earlierWeightedSets)) {
+        bestRepPRSet = currentSet;
+      }
+    }
+
+    // If there are also bodyweight sets, check if they have a higher rep count
+    // Bodyweight records are kept if they beat weighted records on reps alone
+    if (bodyweightSets.length > 0) {
+      const bodyweightBest = bodyweightSets.reduce((best, current) => {
+        const bestReps = best.reps ?? 0;
+        const currentReps = current.reps ?? 0;
+        return currentReps > bestReps ? current : best;
+      });
+      const bodyweightBestReps = bodyweightBest.reps ?? 0;
+      const weightedBestReps = bestRepPRSet?.reps ?? 0;
+      
+      // Bodyweight wins if it has more reps
+      if (bodyweightBestReps > weightedBestReps) {
+        bestRepPRSet = bodyweightBest;
+      }
+    }
+
+    if (bestRepPRSet && (bestRepPRSet.reps ?? 0) > 0) {
       const e1rm = calculateEpley1RM(bestRepPRSet.reps, bestRepPRSet.weight_kg) ?? undefined;
       records.push({
         type: "most_reps",
         set: bestRepPRSet,
-        value: bestRepPRValue,
+        value: bestRepPRSet.reps!,
         e1rm,
       });
     }
-  } else {
-    // Bodyweight: plain most-reps
-    const mostRepsSet = allSets.reduce((best, current) => {
+  } else if (bodyweightSets.length > 0) {
+    // Pure bodyweight: plain most-reps
+    const mostRepsSet = bodyweightSets.reduce((best, current) => {
       const bestReps = best.reps ?? 0;
       const currentReps = current.reps ?? 0;
       return currentReps > bestReps ? current : best;
