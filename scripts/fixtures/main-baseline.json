@@ -4164,11 +4164,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
       "pallof-press",
-      "smith-machine-hip-raise",
-      "exercise-ball-pull-in"
+      "smith-machine-hip-raise"
     ]
   },
   {
@@ -4181,8 +4181,8 @@
       "pallof-press",
       "seated-barbell-twist",
       "flat-bench-lying-leg-raise",
-      "smith-machine-hip-raise",
-      "standing-cable-wood-chop"
+      "advanced-kettlebell-windmill",
+      "smith-machine-hip-raise"
     ]
   },
   {
@@ -4194,219 +4194,219 @@
     "alternatives": [
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press",
-      "seated-barbell-twist",
-      "spell-caster"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-1",
-    "alternatives": [
       "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend",
-      "dumbbell-side-bend"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-3",
-    "alternatives": [
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise",
-      "smith-machine-hip-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-1",
-    "alternatives": [
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-2",
-    "alternatives": [
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend",
-      "dumbbell-side-bend"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-3",
-    "alternatives": [
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise",
-      "smith-machine-hip-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-1",
-    "alternatives": [
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-2",
-    "alternatives": [
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend",
-      "dumbbell-side-bend"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-3",
-    "alternatives": [
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise",
-      "smith-machine-hip-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-1",
-    "alternatives": [
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend",
-      "dumbbell-side-bend"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise",
-      "smith-machine-hip-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "flat-bench-lying-leg-raise",
-      "seated-barbell-twist",
-      "hanging-leg-raise",
-      "pallof-press",
-      "smith-machine-hip-raise"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "pallof-press",
-      "seated-barbell-twist",
-      "flat-bench-lying-leg-raise",
-      "hanging-leg-raise",
-      "smith-machine-hip-raise"
-    ]
-  },
-  {
-    "exercise": "ab-crunch-machine",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-3",
-    "alternatives": [
-      "hanging-leg-raise",
-      "smith-machine-hip-raise",
-      "flat-bench-lying-leg-raise",
       "pallof-press",
       "seated-barbell-twist"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend",
+      "dumbbell-side-bend"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-3",
+    "alternatives": [
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise",
+      "smith-machine-hip-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-2",
+    "alternatives": [
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend",
+      "dumbbell-side-bend"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-3",
+    "alternatives": [
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise",
+      "smith-machine-hip-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-2",
+    "alternatives": [
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend",
+      "dumbbell-side-bend"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-3",
+    "alternatives": [
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise",
+      "smith-machine-hip-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend",
+      "dumbbell-side-bend"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-3",
+    "alternatives": [
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise",
+      "smith-machine-hip-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "flat-bench-lying-leg-raise",
+      "seated-barbell-twist",
+      "hanging-leg-raise",
+      "pallof-press"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "pallof-press",
+      "seated-barbell-twist",
+      "flat-bench-lying-leg-raise",
+      "hanging-leg-raise",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "ab-crunch-machine",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "hanging-leg-raise",
+      "smith-machine-hip-raise",
+      "flat-bench-lying-leg-raise",
+      "advanced-kettlebell-windmill",
+      "pallof-press"
     ]
   },
   {
@@ -7944,24 +7944,10 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "kettlebell-figure-8",
+      "double-kettlebell-windmill",
       "kettlebell-pass-between-the-legs",
-      "flat-bench-lying-leg-raise",
-      "seated-barbell-twist",
-      "pallof-press"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "intermediate",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-figure-8",
-      "pallof-press",
-      "seated-barbell-twist",
       "flat-bench-lying-leg-raise"
     ]
   },
@@ -7970,223 +7956,237 @@
     "level": "intermediate",
     "equipment": "full-gym",
     "injuries": "lower_back",
-    "seed": "seed-3",
+    "seed": "seed-2",
     "alternatives": [
-      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
       "kettlebell-pass-between-the-legs",
-      "smith-machine-hip-raise",
-      "flat-bench-lying-leg-raise",
+      "kettlebell-windmill",
+      "kettlebell-figure-8",
       "pallof-press"
     ]
   },
   {
     "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-1",
-    "alternatives": [
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill",
-      "kettlebell-pass-between-the-legs"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "double-kettlebell-windmill",
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-windmill",
-      "kettlebell-figure-8"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-figure-8",
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-windmill",
-      "double-kettlebell-windmill",
-      "bent-press"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-1",
-    "alternatives": [
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill",
-      "kettlebell-pass-between-the-legs"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-2",
-    "alternatives": [
-      "double-kettlebell-windmill",
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-windmill",
-      "kettlebell-figure-8"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-figure-8",
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-windmill",
-      "double-kettlebell-windmill",
-      "bent-press"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-1",
-    "alternatives": [
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill",
-      "kettlebell-pass-between-the-legs"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-2",
-    "alternatives": [
-      "double-kettlebell-windmill",
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-windmill",
-      "kettlebell-figure-8"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-figure-8",
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-windmill",
-      "double-kettlebell-windmill",
-      "bent-press"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-1",
-    "alternatives": [
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill",
-      "kettlebell-pass-between-the-legs"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "double-kettlebell-windmill",
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-windmill",
-      "kettlebell-figure-8"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-figure-8",
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-windmill",
-      "double-kettlebell-windmill",
-      "bent-press"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "bent-press",
-      "kettlebell-figure-8",
-      "kettlebell-pass-between-the-legs",
-      "flat-bench-lying-leg-raise",
-      "seated-barbell-twist"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-figure-8",
-      "pallof-press",
-      "seated-barbell-twist"
-    ]
-  },
-  {
-    "exercise": "advanced-kettlebell-windmill",
-    "level": "expert",
+    "level": "intermediate",
     "equipment": "full-gym",
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
       "kettlebell-figure-8",
       "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "hanging-leg-raise",
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
       "smith-machine-hip-raise"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-figure-8",
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
+      "bent-press"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-2",
+    "alternatives": [
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-figure-8",
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
+      "bent-press"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-2",
+    "alternatives": [
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-figure-8",
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
+      "bent-press"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-figure-8",
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
+      "bent-press"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "double-kettlebell-windmill",
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "advanced-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-figure-8",
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
+      "bent-press"
     ]
   },
   {
@@ -87303,8 +87303,8 @@
       "landmine-180-s",
       "barbell-rollout-from-bench",
       "seated-barbell-twist",
-      "exercise-ball-pull-in",
-      "seated-flat-bench-leg-pull-in"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -87514,7 +87514,7 @@
       "barbell-ab-rollout-on-knees",
       "barbell-rollout-from-bench",
       "seated-barbell-twist",
-      "exercise-ball-pull-in"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -91084,7 +91084,7 @@
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
       "seated-barbell-twist",
-      "exercise-ball-pull-in"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -91294,7 +91294,7 @@
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
       "seated-barbell-twist",
-      "exercise-ball-pull-in"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -157687,7 +157687,7 @@
       "landmine-180-s",
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
-      "flat-bench-lying-leg-raise"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -157897,7 +157897,7 @@
       "landmine-180-s",
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
-      "flat-bench-lying-leg-raise"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -231474,11 +231474,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
       "kettlebell-figure-8",
-      "exercise-ball-pull-in",
-      "landmine-180-s",
-      "seated-flat-bench-leg-pull-in"
+      "double-kettlebell-windmill"
     ]
   },
   {
@@ -231489,10 +231489,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
       "kettlebell-figure-8",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam",
-      "seated-flat-bench-leg-pull-in"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -231503,10 +231503,10 @@
     "seed": "seed-3",
     "alternatives": [
       "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
       "kettlebell-figure-8",
-      "spell-caster",
-      "exercise-ball-pull-in",
-      "standing-cable-lift"
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -231684,11 +231684,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
       "kettlebell-figure-8",
-      "exercise-ball-pull-in",
-      "landmine-180-s",
-      "seated-flat-bench-leg-pull-in"
+      "double-kettlebell-windmill"
     ]
   },
   {
@@ -231699,10 +231699,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
       "kettlebell-figure-8",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam",
-      "seated-flat-bench-leg-pull-in"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -231713,10 +231713,10 @@
     "seed": "seed-3",
     "alternatives": [
       "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
       "kettlebell-figure-8",
-      "spell-caster",
-      "exercise-ball-pull-in",
-      "standing-cable-lift"
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -473437,10 +473437,10 @@
     "seed": "seed-1",
     "alternatives": [
       "exercise-ball-pull-in",
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
-      "pallof-press",
-      "smith-machine-hip-raise"
+      "pallof-press"
     ]
   },
   {
@@ -473454,7 +473454,7 @@
       "pallof-press",
       "seated-barbell-twist",
       "flat-bench-lying-leg-raise",
-      "smith-machine-hip-raise"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -473467,8 +473467,8 @@
       "exercise-ball-pull-in",
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press",
-      "seated-barbell-twist"
+      "advanced-kettlebell-windmill",
+      "pallof-press"
     ]
   },
   {
@@ -473647,10 +473647,10 @@
     "seed": "seed-1",
     "alternatives": [
       "exercise-ball-pull-in",
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
-      "hanging-leg-raise",
-      "pallof-press"
+      "hanging-leg-raise"
     ]
   },
   {
@@ -473678,7 +473678,7 @@
       "hanging-leg-raise",
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -502956,11 +502956,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
       "pallof-press",
-      "smith-machine-hip-raise",
-      "exercise-ball-pull-in"
+      "smith-machine-hip-raise"
     ]
   },
   {
@@ -502973,8 +502973,8 @@
       "pallof-press",
       "seated-barbell-twist",
       "flat-bench-lying-leg-raise",
-      "smith-machine-hip-raise",
-      "standing-cable-wood-chop"
+      "advanced-kettlebell-windmill",
+      "smith-machine-hip-raise"
     ]
   },
   {
@@ -502986,219 +502986,219 @@
     "alternatives": [
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press",
-      "seated-barbell-twist",
-      "spell-caster"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-1",
-    "alternatives": [
-      "decline-oblique-crunch",
-      "decline-reverse-crunch",
       "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "decline-reverse-crunch",
-      "decline-oblique-crunch",
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-3",
-    "alternatives": [
-      "decline-reverse-crunch",
-      "decline-oblique-crunch",
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-1",
-    "alternatives": [
-      "decline-oblique-crunch",
-      "decline-reverse-crunch",
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-2",
-    "alternatives": [
-      "decline-reverse-crunch",
-      "decline-oblique-crunch",
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-3",
-    "alternatives": [
-      "decline-reverse-crunch",
-      "decline-oblique-crunch",
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-1",
-    "alternatives": [
-      "decline-oblique-crunch",
-      "decline-reverse-crunch",
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-2",
-    "alternatives": [
-      "decline-reverse-crunch",
-      "decline-oblique-crunch",
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-3",
-    "alternatives": [
-      "decline-reverse-crunch",
-      "decline-oblique-crunch",
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-1",
-    "alternatives": [
-      "decline-oblique-crunch",
-      "decline-reverse-crunch",
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "decline-reverse-crunch",
-      "decline-oblique-crunch",
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "decline-reverse-crunch",
-      "decline-oblique-crunch",
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "flat-bench-lying-leg-raise",
-      "seated-barbell-twist",
-      "hanging-leg-raise",
-      "pallof-press",
-      "smith-machine-hip-raise"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "pallof-press",
-      "seated-barbell-twist",
-      "flat-bench-lying-leg-raise",
-      "hanging-leg-raise",
-      "smith-machine-hip-raise"
-    ]
-  },
-  {
-    "exercise": "decline-crunch",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-3",
-    "alternatives": [
-      "hanging-leg-raise",
-      "smith-machine-hip-raise",
-      "flat-bench-lying-leg-raise",
       "pallof-press",
       "seated-barbell-twist"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-1",
+    "alternatives": [
+      "decline-oblique-crunch",
+      "decline-reverse-crunch",
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "decline-reverse-crunch",
+      "decline-oblique-crunch",
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-3",
+    "alternatives": [
+      "decline-reverse-crunch",
+      "decline-oblique-crunch",
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-1",
+    "alternatives": [
+      "decline-oblique-crunch",
+      "decline-reverse-crunch",
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-2",
+    "alternatives": [
+      "decline-reverse-crunch",
+      "decline-oblique-crunch",
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-3",
+    "alternatives": [
+      "decline-reverse-crunch",
+      "decline-oblique-crunch",
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-1",
+    "alternatives": [
+      "decline-oblique-crunch",
+      "decline-reverse-crunch",
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-2",
+    "alternatives": [
+      "decline-reverse-crunch",
+      "decline-oblique-crunch",
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-3",
+    "alternatives": [
+      "decline-reverse-crunch",
+      "decline-oblique-crunch",
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-1",
+    "alternatives": [
+      "decline-oblique-crunch",
+      "decline-reverse-crunch",
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "decline-reverse-crunch",
+      "decline-oblique-crunch",
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-3",
+    "alternatives": [
+      "decline-reverse-crunch",
+      "decline-oblique-crunch",
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "flat-bench-lying-leg-raise",
+      "seated-barbell-twist",
+      "hanging-leg-raise",
+      "pallof-press"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "pallof-press",
+      "seated-barbell-twist",
+      "flat-bench-lying-leg-raise",
+      "hanging-leg-raise",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "decline-crunch",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "hanging-leg-raise",
+      "smith-machine-hip-raise",
+      "flat-bench-lying-leg-raise",
+      "advanced-kettlebell-windmill",
+      "pallof-press"
     ]
   },
   {
@@ -521274,11 +521274,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "exercise-ball-pull-in",
       "landmine-180-s",
       "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout",
-      "pallof-press-with-rotation"
+      "barbell-ab-rollout"
     ]
   },
   {
@@ -521292,7 +521292,7 @@
       "kettlebell-pass-between-the-legs",
       "one-arm-medicine-ball-slam",
       "seated-flat-bench-leg-pull-in",
-      "cable-judo-flip"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -521484,11 +521484,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "exercise-ball-pull-in",
       "landmine-180-s",
       "bent-press",
-      "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout"
+      "seated-flat-bench-leg-pull-in"
     ]
   },
   {
@@ -525054,11 +525054,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "exercise-ball-pull-in",
       "landmine-180-s",
       "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout",
-      "pallof-press-with-rotation"
+      "barbell-ab-rollout"
     ]
   },
   {
@@ -525072,7 +525072,7 @@
       "kettlebell-pass-between-the-legs",
       "one-arm-medicine-ball-slam",
       "seated-flat-bench-leg-pull-in",
-      "cable-judo-flip"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -525264,11 +525264,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "exercise-ball-pull-in",
       "landmine-180-s",
       "bent-press",
-      "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout"
+      "seated-flat-bench-leg-pull-in"
     ]
   },
   {
@@ -561456,249 +561456,249 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-figure-8",
-      "exercise-ball-pull-in",
-      "landmine-180-s",
-      "seated-flat-bench-leg-pull-in"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "intermediate",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-figure-8",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam",
-      "seated-flat-bench-leg-pull-in"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "intermediate",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-figure-8",
-      "spell-caster",
-      "exercise-ball-pull-in",
-      "standing-cable-lift"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-1",
-    "alternatives": [
       "kettlebell-windmill",
-      "bent-press",
       "kettlebell-pass-between-the-legs",
       "advanced-kettlebell-windmill",
-      "kettlebell-figure-8"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-windmill",
       "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-1",
-    "alternatives": [
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-pass-between-the-legs",
-      "advanced-kettlebell-windmill",
-      "kettlebell-figure-8"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-windmill",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-1",
-    "alternatives": [
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-pass-between-the-legs",
-      "advanced-kettlebell-windmill",
-      "kettlebell-figure-8"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-windmill",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-1",
-    "alternatives": [
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-pass-between-the-legs",
-      "advanced-kettlebell-windmill",
-      "kettlebell-figure-8"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-windmill",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-windmill",
-      "bent-press",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "bent-press",
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-figure-8",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-figure-8",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam"
-    ]
-  },
-  {
-    "exercise": "double-kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-figure-8",
-      "spell-caster",
       "exercise-ball-pull-in"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "intermediate",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill",
+      "standing-cable-wood-chop"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "intermediate",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill",
+      "spell-caster"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "double-kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
+      "bent-press",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -659578,10 +659578,10 @@
     "seed": "seed-1",
     "alternatives": [
       "spell-caster",
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
-      "pallof-press",
-      "smith-machine-hip-raise"
+      "pallof-press"
     ]
   },
   {
@@ -659595,7 +659595,7 @@
       "pallof-press",
       "seated-barbell-twist",
       "flat-bench-lying-leg-raise",
-      "smith-machine-hip-raise"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -659608,8 +659608,8 @@
       "spell-caster",
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press",
-      "seated-barbell-twist"
+      "advanced-kettlebell-windmill",
+      "pallof-press"
     ]
   },
   {
@@ -659788,10 +659788,10 @@
     "seed": "seed-1",
     "alternatives": [
       "spell-caster",
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
-      "hanging-leg-raise",
-      "pallof-press"
+      "hanging-leg-raise"
     ]
   },
   {
@@ -659819,7 +659819,7 @@
       "hanging-leg-raise",
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -695176,10 +695176,10 @@
     "seed": "seed-1",
     "alternatives": [
       "exercise-ball-pull-in",
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
-      "pallof-press",
-      "smith-machine-hip-raise"
+      "pallof-press"
     ]
   },
   {
@@ -695193,7 +695193,7 @@
       "pallof-press",
       "seated-barbell-twist",
       "flat-bench-lying-leg-raise",
-      "smith-machine-hip-raise"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -695206,8 +695206,8 @@
       "exercise-ball-pull-in",
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press",
-      "seated-barbell-twist"
+      "advanced-kettlebell-windmill",
+      "pallof-press"
     ]
   },
   {
@@ -695386,10 +695386,10 @@
     "seed": "seed-1",
     "alternatives": [
       "exercise-ball-pull-in",
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
-      "hanging-leg-raise",
-      "pallof-press"
+      "hanging-leg-raise"
     ]
   },
   {
@@ -695417,7 +695417,7 @@
       "hanging-leg-raise",
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -698955,11 +698955,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "landmine-180-s",
       "seated-flat-bench-leg-pull-in",
       "barbell-ab-rollout",
-      "pallof-press-with-rotation",
-      "spell-caster"
+      "pallof-press-with-rotation"
     ]
   },
   {
@@ -698973,7 +698973,7 @@
       "kettlebell-pass-between-the-legs",
       "one-arm-medicine-ball-slam",
       "seated-flat-bench-leg-pull-in",
-      "cable-judo-flip"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -699165,11 +699165,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "landmine-180-s",
       "bent-press",
       "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout",
-      "pallof-press-with-rotation"
+      "barbell-ab-rollout"
     ]
   },
   {
@@ -736815,8 +736815,8 @@
       "seated-flat-bench-leg-pull-in",
       "barbell-rollout-from-bench",
       "flat-bench-lying-leg-raise",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -737025,8 +737025,8 @@
       "seated-flat-bench-leg-pull-in",
       "barbell-rollout-from-bench",
       "flat-bench-lying-leg-raise",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -740595,8 +740595,8 @@
       "seated-flat-bench-leg-pull-in",
       "flat-bench-leg-pull-in",
       "barbell-rollout-from-bench",
-      "seated-barbell-twist",
-      "pallof-press"
+      "advanced-kettlebell-windmill",
+      "seated-barbell-twist"
     ]
   },
   {
@@ -740624,7 +740624,7 @@
       "barbell-rollout-from-bench",
       "seated-flat-bench-leg-pull-in",
       "smith-machine-hip-raise",
-      "pallof-press"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -740805,8 +740805,8 @@
       "seated-flat-bench-leg-pull-in",
       "flat-bench-leg-pull-in",
       "barbell-rollout-from-bench",
-      "seated-barbell-twist",
-      "hanging-leg-raise"
+      "advanced-kettlebell-windmill",
+      "seated-barbell-twist"
     ]
   },
   {
@@ -843462,11 +843462,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
       "pallof-press",
-      "smith-machine-hip-raise",
-      "exercise-ball-pull-in"
+      "smith-machine-hip-raise"
     ]
   },
   {
@@ -843479,8 +843479,8 @@
       "pallof-press",
       "seated-barbell-twist",
       "flat-bench-lying-leg-raise",
-      "smith-machine-hip-raise",
-      "standing-cable-wood-chop"
+      "advanced-kettlebell-windmill",
+      "smith-machine-hip-raise"
     ]
   },
   {
@@ -843492,223 +843492,223 @@
     "alternatives": [
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press",
-      "seated-barbell-twist",
-      "spell-caster"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-1",
-    "alternatives": [
-      "hanging-pike",
       "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "hanging-pike",
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-3",
-    "alternatives": [
-      "hanging-pike",
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "smith-machine-hip-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-1",
-    "alternatives": [
-      "hanging-pike",
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-2",
-    "alternatives": [
-      "hanging-pike",
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-3",
-    "alternatives": [
-      "hanging-pike",
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "smith-machine-hip-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-1",
-    "alternatives": [
-      "hanging-pike",
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-2",
-    "alternatives": [
-      "hanging-pike",
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-3",
-    "alternatives": [
-      "hanging-pike",
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "smith-machine-hip-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-1",
-    "alternatives": [
-      "hanging-pike",
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "hanging-pike",
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "hanging-pike",
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "smith-machine-hip-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "hanging-pike",
-      "flat-bench-lying-leg-raise",
-      "seated-barbell-twist",
-      "pallof-press",
-      "smith-machine-hip-raise"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "hanging-pike",
-      "pallof-press",
-      "seated-barbell-twist",
-      "flat-bench-lying-leg-raise",
-      "smith-machine-hip-raise"
-    ]
-  },
-  {
-    "exercise": "hanging-leg-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-3",
-    "alternatives": [
-      "hanging-pike",
-      "smith-machine-hip-raise",
-      "flat-bench-lying-leg-raise",
       "pallof-press",
       "seated-barbell-twist"
     ]
   },
   {
     "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-1",
+    "alternatives": [
+      "hanging-pike",
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "hanging-pike",
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-3",
+    "alternatives": [
+      "hanging-pike",
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "smith-machine-hip-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-1",
+    "alternatives": [
+      "hanging-pike",
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-2",
+    "alternatives": [
+      "hanging-pike",
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-3",
+    "alternatives": [
+      "hanging-pike",
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "smith-machine-hip-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-1",
+    "alternatives": [
+      "hanging-pike",
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-2",
+    "alternatives": [
+      "hanging-pike",
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-3",
+    "alternatives": [
+      "hanging-pike",
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "smith-machine-hip-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-1",
+    "alternatives": [
+      "hanging-pike",
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "hanging-pike",
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-3",
+    "alternatives": [
+      "hanging-pike",
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "smith-machine-hip-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "hanging-pike",
+      "advanced-kettlebell-windmill",
+      "flat-bench-lying-leg-raise",
+      "seated-barbell-twist",
+      "pallof-press"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "hanging-pike",
+      "pallof-press",
+      "seated-barbell-twist",
+      "flat-bench-lying-leg-raise",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "hanging-pike",
+      "smith-machine-hip-raise",
+      "flat-bench-lying-leg-raise",
+      "advanced-kettlebell-windmill",
+      "pallof-press"
+    ]
+  },
+  {
+    "exercise": "hanging-leg-raise",
     "level": "beginner",
     "equipment": "home-dumbbell-bands",
     "injuries": "none",
@@ -847242,11 +847242,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "exercise-ball-pull-in",
       "landmine-180-s",
       "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout",
-      "pallof-press-with-rotation"
+      "barbell-ab-rollout"
     ]
   },
   {
@@ -847260,7 +847260,7 @@
       "kettlebell-pass-between-the-legs",
       "one-arm-medicine-ball-slam",
       "seated-flat-bench-leg-pull-in",
-      "cable-judo-flip"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -847453,10 +847453,10 @@
     "seed": "seed-1",
     "alternatives": [
       "hanging-leg-raise",
+      "kettlebell-windmill",
       "exercise-ball-pull-in",
       "landmine-180-s",
-      "bent-press",
-      "seated-flat-bench-leg-pull-in"
+      "bent-press"
     ]
   },
   {
@@ -974553,11 +974553,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "kettlebell-pass-between-the-legs",
-      "exercise-ball-pull-in",
-      "landmine-180-s",
-      "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout"
+      "advanced-kettlebell-windmill",
+      "double-kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -974568,10 +974568,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kettlebell-pass-between-the-legs",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam",
-      "seated-flat-bench-leg-pull-in",
-      "cable-judo-flip"
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill",
+      "standing-cable-wood-chop"
     ]
   },
   {
@@ -974582,10 +974582,10 @@
     "seed": "seed-3",
     "alternatives": [
       "kettlebell-pass-between-the-legs",
-      "spell-caster",
-      "exercise-ball-pull-in",
-      "standing-cable-lift",
-      "one-arm-medicine-ball-slam"
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill",
+      "spell-caster"
     ]
   },
   {
@@ -974763,11 +974763,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "bent-press",
       "kettlebell-pass-between-the-legs",
-      "exercise-ball-pull-in",
-      "landmine-180-s",
-      "seated-flat-bench-leg-pull-in"
+      "advanced-kettlebell-windmill",
+      "double-kettlebell-windmill"
     ]
   },
   {
@@ -974779,9 +974779,9 @@
     "alternatives": [
       "kettlebell-pass-between-the-legs",
       "bent-press",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam",
-      "seated-flat-bench-leg-pull-in"
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -974792,10 +974792,10 @@
     "seed": "seed-3",
     "alternatives": [
       "kettlebell-pass-between-the-legs",
+      "kettlebell-windmill",
       "bent-press",
-      "spell-caster",
-      "exercise-ball-pull-in",
-      "standing-cable-lift"
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -996354,11 +996354,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
+      "advanced-kettlebell-windmill",
       "kettlebell-figure-8",
-      "exercise-ball-pull-in",
-      "landmine-180-s",
-      "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout"
+      "double-kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -996368,11 +996368,11 @@
     "injuries": "lower_back",
     "seed": "seed-2",
     "alternatives": [
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
       "kettlebell-figure-8",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam",
-      "seated-flat-bench-leg-pull-in",
-      "cable-judo-flip"
+      "advanced-kettlebell-windmill",
+      "standing-cable-wood-chop"
     ]
   },
   {
@@ -996382,11 +996382,11 @@
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
+      "kettlebell-windmill",
       "kettlebell-figure-8",
-      "spell-caster",
-      "exercise-ball-pull-in",
-      "standing-cable-lift",
-      "one-arm-medicine-ball-slam"
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill",
+      "spell-caster"
     ]
   },
   {
@@ -996564,11 +996564,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "bent-press",
+      "advanced-kettlebell-windmill",
       "kettlebell-figure-8",
-      "exercise-ball-pull-in",
-      "landmine-180-s",
-      "seated-flat-bench-leg-pull-in"
+      "double-kettlebell-windmill"
     ]
   },
   {
@@ -996579,10 +996579,10 @@
     "seed": "seed-2",
     "alternatives": [
       "bent-press",
+      "kettlebell-windmill",
+      "double-kettlebell-windmill",
       "kettlebell-figure-8",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam",
-      "seated-flat-bench-leg-pull-in"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -996592,11 +996592,11 @@
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
+      "kettlebell-windmill",
       "bent-press",
       "kettlebell-figure-8",
-      "spell-caster",
-      "exercise-ball-pull-in",
-      "standing-cable-lift"
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -1027546,248 +1027546,248 @@
     "seed": "seed-1",
     "alternatives": [
       "kettlebell-pass-between-the-legs",
-      "kettlebell-figure-8",
-      "exercise-ball-pull-in",
-      "landmine-180-s",
-      "seated-flat-bench-leg-pull-in"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "intermediate",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-figure-8",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam",
-      "seated-flat-bench-leg-pull-in"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "intermediate",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-figure-8",
-      "spell-caster",
-      "exercise-ball-pull-in",
-      "standing-cable-lift"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-1",
-    "alternatives": [
-      "bent-press",
-      "kettlebell-pass-between-the-legs",
       "advanced-kettlebell-windmill",
       "kettlebell-figure-8",
-      "double-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
       "double-kettlebell-windmill",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-1",
-    "alternatives": [
-      "bent-press",
-      "kettlebell-pass-between-the-legs",
-      "advanced-kettlebell-windmill",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "double-kettlebell-windmill",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-1",
-    "alternatives": [
-      "bent-press",
-      "kettlebell-pass-between-the-legs",
-      "advanced-kettlebell-windmill",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "double-kettlebell-windmill",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-1",
-    "alternatives": [
-      "bent-press",
-      "kettlebell-pass-between-the-legs",
-      "advanced-kettlebell-windmill",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "double-kettlebell-windmill",
-      "kettlebell-figure-8",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-figure-8",
-      "double-kettlebell-windmill",
-      "advanced-kettlebell-windmill"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "bent-press",
-      "kettlebell-pass-between-the-legs",
-      "kettlebell-figure-8",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-figure-8",
-      "standing-cable-wood-chop",
-      "one-arm-medicine-ball-slam"
-    ]
-  },
-  {
-    "exercise": "kettlebell-windmill",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-3",
-    "alternatives": [
-      "kettlebell-pass-between-the-legs",
-      "bent-press",
-      "kettlebell-figure-8",
-      "spell-caster",
       "exercise-ball-pull-in"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "intermediate",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "double-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill",
+      "standing-cable-wood-chop"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "intermediate",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill",
+      "spell-caster"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-1",
+    "alternatives": [
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "double-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-1",
+    "alternatives": [
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "double-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-1",
+    "alternatives": [
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "double-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-1",
+    "alternatives": [
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "double-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "bent-press",
+      "kettlebell-pass-between-the-legs",
+      "advanced-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "double-kettlebell-windmill",
+      "kettlebell-figure-8",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "kettlebell-windmill",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "kettlebell-pass-between-the-legs",
+      "bent-press",
+      "kettlebell-figure-8",
+      "double-kettlebell-windmill",
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -1052853,8 +1052853,8 @@
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
       "seated-barbell-twist",
-      "exercise-ball-pull-in",
-      "seated-flat-bench-leg-pull-in"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1053063,8 +1053063,8 @@
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
       "seated-barbell-twist",
-      "exercise-ball-pull-in",
-      "bent-press"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1199475,8 +1199475,8 @@
       "one-arm-medicine-ball-slam",
       "supine-one-arm-overhead-throw",
       "supine-two-arm-overhead-throw",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1199685,8 +1199685,8 @@
       "one-arm-medicine-ball-slam",
       "supine-one-arm-overhead-throw",
       "supine-two-arm-overhead-throw",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1312731,8 +1312731,8 @@
       "medicine-ball-full-twist",
       "supine-one-arm-overhead-throw",
       "supine-two-arm-overhead-throw",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1312941,8 +1312941,8 @@
       "medicine-ball-full-twist",
       "supine-one-arm-overhead-throw",
       "supine-two-arm-overhead-throw",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1414702,7 +1414702,7 @@
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
       "seated-barbell-twist",
-      "exercise-ball-pull-in"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -1414912,7 +1414912,7 @@
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
       "seated-barbell-twist",
-      "exercise-ball-pull-in"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -1550643,8 +1550643,8 @@
       "landmine-180-s",
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
-      "flat-bench-lying-leg-raise",
-      "pallof-press"
+      "advanced-kettlebell-windmill",
+      "flat-bench-lying-leg-raise"
     ]
   },
   {
@@ -1550853,8 +1550853,8 @@
       "landmine-180-s",
       "barbell-ab-rollout",
       "barbell-rollout-from-bench",
-      "flat-bench-lying-leg-raise",
-      "hanging-leg-raise"
+      "advanced-kettlebell-windmill",
+      "flat-bench-lying-leg-raise"
     ]
   },
   {
@@ -1593576,8 +1593576,8 @@
       "flat-bench-leg-pull-in",
       "barbell-rollout-from-bench",
       "flat-bench-lying-leg-raise",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1593786,8 +1593786,8 @@
       "flat-bench-leg-pull-in",
       "barbell-rollout-from-bench",
       "flat-bench-lying-leg-raise",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1714998,11 +1714998,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
       "pallof-press",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -1715015,222 +1715015,222 @@
       "pallof-press",
       "seated-barbell-twist",
       "flat-bench-lying-leg-raise",
-      "standing-cable-wood-chop",
-      "kettlebell-pass-between-the-legs"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "intermediate",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-3",
-    "alternatives": [
-      "flat-bench-lying-leg-raise",
-      "pallof-press",
-      "seated-barbell-twist",
-      "spell-caster",
-      "exercise-ball-pull-in"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-1",
-    "alternatives": [
       "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend",
-      "dumbbell-side-bend"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "none",
-    "seed": "seed-3",
-    "alternatives": [
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "cable-seated-crunch"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-1",
-    "alternatives": [
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-2",
-    "alternatives": [
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend",
-      "dumbbell-side-bend"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "shoulder",
-    "seed": "seed-3",
-    "alternatives": [
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "cable-seated-crunch"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-1",
-    "alternatives": [
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-2",
-    "alternatives": [
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend",
-      "dumbbell-side-bend"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "neck",
-    "seed": "seed-3",
-    "alternatives": [
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "cable-seated-crunch"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-1",
-    "alternatives": [
-      "advanced-kettlebell-windmill",
-      "kneeling-cable-crunch-with-alternating-oblique-twists",
-      "standing-rope-crunch",
-      "flat-bench-lying-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "crunch-legs-on-exercise-ball",
-      "barbell-side-bend",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "weighted-ball-side-bend",
-      "dumbbell-side-bend"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "one-arm-high-pulley-cable-side-bends",
-      "rope-crunch",
-      "hanging-leg-raise",
-      "bosu-ball-cable-crunch-with-side-bends",
-      "cable-seated-crunch"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "flat-bench-lying-leg-raise",
-      "seated-barbell-twist",
-      "hanging-leg-raise",
-      "pallof-press",
-      "exercise-ball-pull-in"
-    ]
-  },
-  {
-    "exercise": "smith-machine-hip-raise",
-    "level": "expert",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "pallof-press",
-      "seated-barbell-twist",
-      "flat-bench-lying-leg-raise",
-      "hanging-leg-raise",
       "standing-cable-wood-chop"
     ]
   },
   {
     "exercise": "smith-machine-hip-raise",
+    "level": "intermediate",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "flat-bench-lying-leg-raise",
+      "advanced-kettlebell-windmill",
+      "pallof-press",
+      "seated-barbell-twist",
+      "spell-caster"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend",
+      "dumbbell-side-bend"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-3",
+    "alternatives": [
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "cable-seated-crunch"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-2",
+    "alternatives": [
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend",
+      "dumbbell-side-bend"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "shoulder",
+    "seed": "seed-3",
+    "alternatives": [
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "cable-seated-crunch"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-2",
+    "alternatives": [
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend",
+      "dumbbell-side-bend"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "neck",
+    "seed": "seed-3",
+    "alternatives": [
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "cable-seated-crunch"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "kneeling-cable-crunch-with-alternating-oblique-twists",
+      "standing-rope-crunch",
+      "flat-bench-lying-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "crunch-legs-on-exercise-ball",
+      "barbell-side-bend",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "weighted-ball-side-bend",
+      "dumbbell-side-bend"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "knee",
+    "seed": "seed-3",
+    "alternatives": [
+      "one-arm-high-pulley-cable-side-bends",
+      "rope-crunch",
+      "hanging-leg-raise",
+      "bosu-ball-cable-crunch-with-side-bends",
+      "cable-seated-crunch"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "advanced-kettlebell-windmill",
+      "flat-bench-lying-leg-raise",
+      "seated-barbell-twist",
+      "hanging-leg-raise",
+      "pallof-press"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
+    "level": "expert",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "pallof-press",
+      "seated-barbell-twist",
+      "flat-bench-lying-leg-raise",
+      "hanging-leg-raise",
+      "advanced-kettlebell-windmill"
+    ]
+  },
+  {
+    "exercise": "smith-machine-hip-raise",
     "level": "expert",
     "equipment": "full-gym",
     "injuries": "lower_back",
@@ -1715238,9 +1715238,9 @@
     "alternatives": [
       "hanging-leg-raise",
       "flat-bench-lying-leg-raise",
+      "advanced-kettlebell-windmill",
       "pallof-press",
-      "seated-barbell-twist",
-      "spell-caster"
+      "seated-barbell-twist"
     ]
   },
   {
@@ -1767399,11 +1767399,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "exercise-ball-pull-in",
       "landmine-180-s",
       "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout",
-      "pallof-press-with-rotation"
+      "barbell-ab-rollout"
     ]
   },
   {
@@ -1767417,7 +1767417,7 @@
       "kettlebell-pass-between-the-legs",
       "one-arm-medicine-ball-slam",
       "seated-flat-bench-leg-pull-in",
-      "cable-judo-flip"
+      "kettlebell-windmill"
     ]
   },
   {
@@ -1767609,11 +1767609,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
+      "kettlebell-windmill",
       "exercise-ball-pull-in",
       "landmine-180-s",
       "bent-press",
-      "seated-flat-bench-leg-pull-in",
-      "barbell-ab-rollout"
+      "seated-flat-bench-leg-pull-in"
     ]
   },
   {
@@ -1975596,8 +1975596,8 @@
       "one-arm-medicine-ball-slam",
       "medicine-ball-full-twist",
       "supine-two-arm-overhead-throw",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1975806,8 +1975806,8 @@
       "one-arm-medicine-ball-slam",
       "medicine-ball-full-twist",
       "supine-two-arm-overhead-throw",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1979376,8 +1979376,8 @@
       "one-arm-medicine-ball-slam",
       "medicine-ball-full-twist",
       "supine-one-arm-overhead-throw",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -1979586,8 +1979586,8 @@
       "one-arm-medicine-ball-slam",
       "medicine-ball-full-twist",
       "supine-one-arm-overhead-throw",
-      "exercise-ball-pull-in",
-      "landmine-180-s"
+      "kettlebell-windmill",
+      "exercise-ball-pull-in"
     ]
   },
   {
@@ -2067202,10 +2067202,10 @@
     "seed": "seed-1",
     "alternatives": [
       "exercise-ball-pull-in",
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
-      "pallof-press",
-      "smith-machine-hip-raise"
+      "pallof-press"
     ]
   },
   {
@@ -2067219,7 +2067219,7 @@
       "pallof-press",
       "seated-barbell-twist",
       "flat-bench-lying-leg-raise",
-      "smith-machine-hip-raise"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -2067232,8 +2067232,8 @@
       "exercise-ball-pull-in",
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press",
-      "seated-barbell-twist"
+      "advanced-kettlebell-windmill",
+      "pallof-press"
     ]
   },
   {
@@ -2067412,10 +2067412,10 @@
     "seed": "seed-1",
     "alternatives": [
       "exercise-ball-pull-in",
+      "advanced-kettlebell-windmill",
       "flat-bench-lying-leg-raise",
       "seated-barbell-twist",
-      "hanging-leg-raise",
-      "pallof-press"
+      "hanging-leg-raise"
     ]
   },
   {
@@ -2067443,7 +2067443,7 @@
       "hanging-leg-raise",
       "smith-machine-hip-raise",
       "flat-bench-lying-leg-raise",
-      "pallof-press"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -2070985,7 +2070985,7 @@
       "medicine-ball-full-twist",
       "supine-one-arm-overhead-throw",
       "supine-two-arm-overhead-throw",
-      "flat-bench-lying-leg-raise"
+      "advanced-kettlebell-windmill"
     ]
   },
   {
@@ -2071195,7 +2071195,7 @@
       "medicine-ball-full-twist",
       "supine-one-arm-overhead-throw",
       "supine-two-arm-overhead-throw",
-      "flat-bench-lying-leg-raise"
+      "advanced-kettlebell-windmill"
     ]
   },
   {

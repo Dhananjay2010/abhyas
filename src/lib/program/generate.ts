@@ -409,9 +409,6 @@ const EQUIPMENT_ALTERNATIVES: Record<string, string[][]> = {
 };
 
 export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolean {
-  // Safety: exclude dangerous exercises (behind-the-neck variants, guillotine press, neck press)
-  if (EXCLUDED_EXERCISE_SLUGS.has(ex.slug)) return false;
-  
   // Track: a bodyweight-at-home user must never be shown gym-only work.
   if (input.primaryTrack === "bodyweight" && !ex.tracks.includes("bodyweight")) {
     return false;
@@ -635,9 +632,12 @@ function pickForSlot(
         }
         // 3. RNG breaks ties (provides variety for accessories across blocks)
         return b.rng - a.rng;
-      });
+      })
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
 
-    return ranked[0].e;
+    if (ranked.length > 0) {
+      return ranked[0].e;
+    }
   }
   
   // If no exercise found for this pattern or its fallback, try safe alternatives
@@ -668,9 +668,12 @@ function pickForSlot(
           return a.stapleKey < b.stapleKey ? -1 : a.stapleKey > b.stapleKey ? 1 : 0;
         }
         return b.rng - a.rng;
-      });
+      })
+      .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
     
-    return ranked[0].e;
+    if (ranked.length > 0) {
+      return ranked[0].e;
+    }
   }
   
   return null;
@@ -819,7 +822,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               return a.stapleKey < b.stapleKey ? -1 : a.stapleKey > b.stapleKey ? 1 : 0;
             }
             return b.rng - a.rng;
-          });
+          })
+          .filter((item) => !EXCLUDED_EXERCISE_SLUGS.has(item.e.slug));
         
         if (kneeSafeCandidates.length > 0) {
           const picked = kneeSafeCandidates[0].e;

@@ -232,11 +232,35 @@ else
 fi
 echo ""
 
+echo "12. Mutation: Remove exclusion filter from pickForSlot"
+cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"
+cp "$BACKUP_EXC_FILE" "$EXCLUSIONS_FILE"
+GENERATE_FILE="src/lib/program/generate.ts"
+cp "$GENERATE_FILE" /tmp/generate-backup.ts
+sed -i 's/\.filter((item) => !EXCLUDED_EXERCISE_SLUGS\.has(item\.e\.slug))//g' "$GENERATE_FILE"
+if grep -q "EXCLUDED_EXERCISE_SLUGS" "$GENERATE_FILE"; then
+  echo "  Mutation applied (filter removed)"
+  total_mutations=$((total_mutations + 1))
+  if npx tsx scripts/test-plan-exclusions.ts >/dev/null 2>&1; then
+    echo "  ✗ test-plan-exclusions passed (mutation survived)"
+    survived_mutations=$((survived_mutations + 1))
+  else
+    echo "  ✓ test-plan-exclusions failed (caught)"
+    caught_mutations=$((caught_mutations + 1))
+  fi
+else
+  echo "  ✗ FATAL: Mutation did not apply"
+  cp /tmp/generate-backup.ts "$GENERATE_FILE"
+  exit 2
+fi
+cp /tmp/generate-backup.ts "$GENERATE_FILE"
+echo ""
+
 cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"
 cp "$BACKUP_EXC_FILE" "$EXCLUSIONS_FILE"
 
 echo "=== Mutation Testing Results ==="
-echo "Total mutations: 12"
+echo "Total mutations: 13"
 echo "Caught: $caught_mutations"
 echo "Survived: $survived_mutations"
 echo ""

@@ -70,9 +70,7 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [
-      "lower_back"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -4634,9 +4632,7 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [
-      "lower_back"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -8484,9 +8480,7 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [
-      "lower_back"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [

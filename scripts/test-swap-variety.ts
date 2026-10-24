@@ -233,8 +233,6 @@ console.log("\n6. Lat Pulldown swap test: no behind-the-neck variants offered");
     };
     
     const alternatives = rankAlternatives(current, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    const names = alternatives.map(e => e.name);
     
     const behindTheNeckPattern = /behind.{0,1}the.{0,1}neck|behind.{0,1}neck/i;
     const hasBehindTheNeck = alternatives.some(e => 
@@ -424,6 +422,30 @@ console.log("\n8. Direct unit tests: each excluded slug");
     
     check("neck-press excluded", !slugs.includes("neck-press"));
     check("barbell-incline-bench-press-medium-grip present (neck-press test)", slugs.includes("barbell-incline-bench-press-medium-grip"));
+  }
+  
+  // Test low-pulley-row-to-neck
+  const seatedRow = catalogue.find(e => e.slug === "seated-cable-rows");
+  const lowPulleyRowToNeck = catalogue.find(e => e.slug === "low-pulley-row-to-neck");
+  const shotgunRow = catalogue.find(e => e.slug === "shotgun-row");
+  
+  if (seatedRow && lowPulleyRowToNeck && shotgunRow) {
+    const pool = [seatedRow, lowPulleyRowToNeck, shotgunRow];
+    const wantCompound = seatedRow.mechanic !== "isolation";
+    const ctx: AlternativesContext = {
+      level: "intermediate",
+      availableEquipment: null,
+      injuryRegions: [],
+      limit: 5,
+      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+      tieBreakFn: (slug) => hashString(`test:${slug}`),
+    };
+    
+    const alternatives = rankAlternatives(seatedRow, pool, ctx);
+    const slugs = alternatives.map(e => e.slug);
+    
+    check("low-pulley-row-to-neck excluded", !slugs.includes("low-pulley-row-to-neck"));
+    check("shotgun-row present", slugs.includes("shotgun-row"));
   }
 }
 
