@@ -331,6 +331,10 @@ export default async function TodayPage() {
     override changes, and the day ids only when the override's day is one this
     block still has. An unresolvable id says nothing either way, and the label
     on screen is the block's own in that case anyway.
+
+    After a rebuild + repoint, both overrideDay and scheduled resolve from the
+    new block. The comparison is correct: if the repointed session's day_index
+    matches today's weekday, overrideDiffers stays false (no "You chose" shown).
   */
   const overrideDiffers =
     override !== undefined &&
