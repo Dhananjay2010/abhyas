@@ -8,6 +8,11 @@ export default async function SettingsPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
+  // All 5 queries run in parallel. The RLS filters on user_id need indexes
+  // (see P3-L4: user_equipment, user_injuries lack indexes on their FKs).
+  // Combining these into fewer queries with joins would complicate the RLS
+  // policies without measurably improving performance, since they already
+  // run concurrently.
   const [profileRes, settingsRes, equipmentRes, userEquipmentRes, injuriesRes] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
