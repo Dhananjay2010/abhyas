@@ -37,9 +37,13 @@ export default async function SessionDetailPage({
   // Fetch profile for units and timezone
   const { data: profile } = await supabase
     .from("profiles")
-    .select("units, timezone")
+    .select("units, timezone, created_at")
     .eq("id", user.id)
     .single();
+  
+  // Get auth user created_at as fallback
+  const { data: authUser } = await supabase.auth.getUser();
+  const signupDate = profile?.created_at || authUser?.user?.created_at || new Date().toISOString();
   
   const units = getUnitsPreference(profile?.units);
 
@@ -134,6 +138,7 @@ export default async function SessionDetailPage({
         startedAt={session.started_at}
         completedAt={session.completed_at}
         timezone={resolveTimezoneWithProfile(profile?.timezone)}
+        signupDate={signupDate}
       />
 
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">

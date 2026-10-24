@@ -4,8 +4,6 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { SessionListItem, SessionType } from "./types";
-import { formatInTimezone } from "@/lib/timezone";
-import { sessionCompletion } from "@/lib/session/session-completion";
 import { formatVolume, formatTopSet, type UnitsPreference } from "@/lib/units";
 import { closeOutSession } from "./actions";
 import { getSessionLabel, type SessionStatus, type ActualType } from "@/lib/history/session-label";
@@ -65,16 +63,6 @@ function longDate(iso: string): string {
     month: "short",
     timeZone: "UTC",
   }).format(new Date(Date.UTC(y, m - 1, d)));
-}
-
-function formatTime(isoTimestamp: string, timezone: string): string {
-  const formatted = formatInTimezone(new Date(isoTimestamp), timezone, {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  // Convert AM/PM to lowercase am/pm
-  return formatted.replace(/\sAM$/, " am").replace(/\sPM$/, " pm");
 }
 
 export function HistoryClient({
