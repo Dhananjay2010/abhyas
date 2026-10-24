@@ -126,10 +126,10 @@ async function main() {
     mechanic: string | null;
     movement_pattern: string | null;
     primary_muscles: string;
-    equipment: string | null;
+    equipment_ids: string;
   }>(
-    `SELECT slug, cue, mechanic, movement_pattern, primary_muscles, equipment FROM exercises 
-     WHERE movement_pattern NOT IN ('push', 'pull')`
+    `SELECT slug, cue, mechanic, movement_pattern, primary_muscles, equipment_ids FROM exercises 
+     WHERE movement_pattern IN ('squat', 'hinge', 'lunge', 'calf', 'core', 'cardio', 'other', 'carry')`
   );
   
   const ALL_EQUIPMENT_IDS = Object.keys(EQUIPMENT_LABEL);
