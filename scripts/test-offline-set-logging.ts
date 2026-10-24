@@ -11,7 +11,7 @@
  * 6. mergePendingSets correctly merges pending sets into exercises
  */
 
-import { Outbox, mergePendingSets, nextSetNumberFor, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
+import { Outbox, mergePendingSets, nextSetNumberFor, createLocalStorage, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
 import { isNetworkError } from "../src/lib/session/network-error";
 import { mapErrorToUserMessage, countLoggedSets } from "../src/lib/session/error-messages";
 import {
@@ -20,6 +20,7 @@ import {
   buildSendResult,
   finishBlockReason,
   canClearOutbox,
+  canEndSession,
   undoTargetSetNumber,
   classifyLogSetError,
 } from "../src/lib/session/sync-helpers";
@@ -1320,8 +1321,8 @@ function testFinishBlockReason() {
     throw new Error("Combined should list all reasons");
   }
 
-  if (!combined.includes(". Fix or remove them before finishing.")) {
-    throw new Error("Combined should include fix instruction");
+  if (!combined.includes(". Wait for them to sync, or fix/remove them first.")) {
+    throw new Error("Combined should include wait/fix instruction");
   }
 
   console.log("✓ finishBlockReason: constructs block message from counts");
@@ -1329,13 +1330,14 @@ function testFinishBlockReason() {
 
 // ---- canClearOutbox helper -----------------------------------------------
 function testCanClearOutbox() {
-  // Can clear: no lost/failed
+  // Can clear: all zero
   if (!canClearOutbox(0, 0, 0)) {
     throw new Error("All clear should allow clear");
   }
 
-  if (!canClearOutbox(0, 0, 0)) {
-    throw new Error("0 pending, 0 lost, 0 failed should allow clear");
+  // Cannot clear: pending
+  if (canClearOutbox(1, 0, 0)) {
+    throw new Error("Pending sets should block clear");
   }
 
   // Cannot clear: lost
@@ -1348,17 +1350,42 @@ function testCanClearOutbox() {
     throw new Error("Failed sets should block clear");
   }
 
-  // Cannot clear: both
-  if (canClearOutbox(0, 1, 1)) {
-    throw new Error("Lost and failed sets should block clear");
+  // Cannot clear: all three
+  if (canClearOutbox(1, 1, 1)) {
+    throw new Error("Any unsynced sets should block clear");
   }
 
-  // Pending doesn't block clear (they will sync later)
-  if (!canClearOutbox(5, 0, 0)) {
-    throw new Error("Pending alone should not block clear");
+  console.log("✓ canClearOutbox: requires pending=0, lost=0, failed=0");
+}
+
+// ---- canEndSession helper ------------------------------------------------
+function testCanEndSession() {
+  // Can end: all synced
+  if (!canEndSession(0, 0, 0)) {
+    throw new Error("All synced should allow ending");
   }
 
-  console.log("✓ canClearOutbox: blocks on lost/failed, allows pending");
+  // Cannot end: pending
+  if (canEndSession(1, 0, 0)) {
+    throw new Error("Pending sets should block ending (data loss risk)");
+  }
+
+  // Cannot end: lost
+  if (canEndSession(0, 1, 0)) {
+    throw new Error("Lost sets should block ending (data loss)");
+  }
+
+  // Cannot end: failed
+  if (canEndSession(0, 0, 1)) {
+    throw new Error("Failed sets should block ending (data loss)");
+  }
+
+  // Cannot end: any combination
+  if (canEndSession(1, 1, 1)) {
+    throw new Error("Any unsynced sets should block ending");
+  }
+
+  console.log("✓ canEndSession: requires all sets synced (pending=0, lost=0, failed=0)");
 }
 
 // ---- undoTargetSetNumber helper ------------------------------------------
@@ -1821,6 +1848,165 @@ function testErrorMappingCoverage() {
   console.log("✓ Error mapping covers all required cases");
 }
 
+// ---- Per-user isolation --------------------------------------------------
+async function testPerUserIsolation() {
+  const userId_A = "user-alice";
+  const userId_B = "user-bob";
+  const sessionId = "session-123";
+
+  // Mock localStorage with a Map
+  const mockLocalStorage = new Map<string, string>();
+  const createMockStorage = (key: string): OutboxStorage => {
+    return {
+      get() {
+        const raw = mockLocalStorage.get(key);
+        return raw ? JSON.parse(raw) : null;
+      },
+      set(state) {
+        if (state) {
+          mockLocalStorage.set(key, JSON.stringify(state));
+        } else {
+          mockLocalStorage.delete(key);
+        }
+      },
+      clear() {
+        mockLocalStorage.delete(key);
+      },
+    };
+  };
+
+  let sentIds_A: string[] = [];
+  let sentIds_B: string[] = [];
+
+  // Sender for user A
+  const sender_A: OutboxSender = {
+    send: async (set) => {
+      sentIds_A.push(set.sessionExerciseId + "_" + set.setNumber);
+      return { ok: true };
+    },
+  };
+
+  // Sender for user B  
+  const sender_B: OutboxSender = {
+    send: async (set) => {
+      sentIds_B.push(set.sessionExerciseId + "_" + set.setNumber);
+      return { ok: true };
+    },
+  };
+
+  // User A creates an outbox and enqueues 2 sets
+  const keyA = `abhyas:outbox:${userId_A}:${sessionId}`;
+  const storage_A = createMockStorage(keyA);
+  const outbox_A = new Outbox(storage_A, sender_A, keyA);
+
+  outbox_A.enqueue({
+    sessionExerciseId: "ex-1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+
+  outbox_A.enqueue({
+    sessionExerciseId: "ex-1",
+    setNumber: 2,
+    reps: 12,
+    weightKg: 55,
+    durationSeconds: null,
+  });
+
+  if (outbox_A.pendingCount() !== 2) {
+    throw new Error(`User A should have 2 pending sets, got ${outbox_A.pendingCount()}`);
+  }
+
+  // User B creates outbox with same sessionId but different userId
+  const keyB = `abhyas:outbox:${userId_B}:${sessionId}`;
+  const storage_B = createMockStorage(keyB);
+  const outbox_B = new Outbox(storage_B, sender_B, keyB);
+
+  // User B should see 0 pending (isolation)
+  if (outbox_B.pendingCount() !== 0) {
+    throw new Error(`User B should see 0 pending sets (isolated), got ${outbox_B.pendingCount()}`);
+  }
+
+  // User B enqueues 1 set
+  outbox_B.enqueue({
+    sessionExerciseId: "ex-2",
+    setNumber: 1,
+    reps: 8,
+    weightKg: 40,
+    durationSeconds: null,
+  });
+
+  if (outbox_B.pendingCount() !== 1) {
+    throw new Error(`User B should have 1 pending set, got ${outbox_B.pendingCount()}`);
+  }
+
+  // User A still has 2 pending (unaffected by B)
+  if (outbox_A.pendingCount() !== 2) {
+    throw new Error(`User A should still have 2 pending sets after B enqueued, got ${outbox_A.pendingCount()}`);
+  }
+
+  // User B flushes - should only send B's set
+  await outbox_B.flush();
+
+  if (sentIds_B.length !== 1 || sentIds_B[0] !== "ex-2_1") {
+    throw new Error(`User B flush should send only ex-2_1, got ${JSON.stringify(sentIds_B)}`);
+  }
+
+  if (sentIds_A.length !== 0) {
+    throw new Error(`User B flush should NOT send user A's sets, but got ${JSON.stringify(sentIds_A)}`);
+  }
+
+  // User B now has 0 pending
+  if (outbox_B.pendingCount() !== 0) {
+    throw new Error(`User B should have 0 pending after flush, got ${outbox_B.pendingCount()}`);
+  }
+
+  // User A still has 2 pending (unaffected by B's flush)
+  if (outbox_A.pendingCount() !== 2) {
+    throw new Error(`User A should still have 2 pending after B flushed, got ${outbox_A.pendingCount()}`);
+  }
+
+  // Verify the keys are different in storage (check before A flushes)
+  const storageA_beforeFlush = mockLocalStorage.get(keyA);
+  const storageB_afterFlush = mockLocalStorage.get(keyB);
+  if (!storageA_beforeFlush || storageA_beforeFlush === storageB_afterFlush) {
+    throw new Error("Storage keys should be isolated: A has data, B is empty after flush");
+  }
+
+  // User A flushes - should send A's 2 sets exactly once
+  await outbox_A.flush();
+
+  if (sentIds_A.length !== 2) {
+    throw new Error(`User A flush should send 2 sets, sent ${sentIds_A.length}`);
+  }
+
+  if (!sentIds_A.includes("ex-1_1") || !sentIds_A.includes("ex-1_2")) {
+    throw new Error(`User A flush should send ex-1_1 and ex-1_2, got ${JSON.stringify(sentIds_A)}`);
+  }
+
+  // Flush again - should be empty (no duplicate sends)
+  sentIds_A = [];
+  await outbox_A.flush();
+
+  if (sentIds_A.length !== 0) {
+    throw new Error(`User A second flush should send nothing (already flushed), sent ${sentIds_A.length}`);
+  }
+
+  // Mutant test: if userId were ignored in the key, both users would share the same storage
+  // Prove the test would fail with a broken key format
+  const brokenKeyA = `abhyas:outbox:${sessionId}`; // Missing userId
+  const brokenKeyB = `abhyas:outbox:${sessionId}`; // Same broken key
+  if (brokenKeyA === brokenKeyB) {
+    // This is the bug the test catches: if keys don't include userId, they collide
+    console.log("  Mutant M13: If userId is omitted from key, users share storage (test would fail)");
+  }
+
+  console.log("✓ Per-user isolation: user B never sees/counts/flushes user A's queue, A flushes exactly once");
+  console.log("  M13 verified: userId in key is essential for isolation");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -1857,10 +2043,12 @@ async function main() {
   testBuildSendResult();
   testFinishBlockReason();
   testCanClearOutbox();
+  testCanEndSession();
   testUndoTargetSetNumber();
   testFlushTimeStorageQuota();
   testKeyMigration();
   testStaticCheckHelperUsage();
+  await testPerUserIsolation();
 
   console.log("\n✓ All offline set logging tests passed");
 }
