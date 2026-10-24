@@ -305,12 +305,9 @@ export async function deleteSet(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
-export type ProgressionFeedback = {
-  outcome: string;
-  message: string;
-  /** One line naming a best that was beaten, or null. SPEC section 7. */
-  personalBest: string | null;
-};
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+
+export type { ProgressionFeedback };
 
 /**
  * Complete an exercise and apply progression from what was actually logged.
@@ -318,9 +315,9 @@ export type ProgressionFeedback = {
  * Progression runs here rather than at the end of the session so that a
  * workout cut short still banks the exercises that were finished.
  *
- * **Idempotent** (k1): Only updates if status is not already 'completed' or
- * 'skipped'. Retries, timeouts, or multiple tabs calling this twice won't
- * apply progression multiple times.
+ * Idempotent: only the first call that actually transitions from pending to
+ * completed/skipped applies progression. Concurrent or repeated calls return
+ * success without double-applying.
  */
 export async function finishExercise(input: {
   sessionExerciseId: string;
@@ -332,20 +329,7 @@ export async function finishExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const { error } = await supabase
-    .from("session_exercises")
-    .update({
-      status: input.skipped ? "skipped" : "completed",
-      feel: input.feel,
-      completed_at: new Date().toISOString(),
-    })
-    .eq("id", input.sessionExerciseId);
-  if (error) return { ok: false, error: error.message };
-
-  if (input.skipped) return { ok: true, data: null };
-
-  const feedback = await applyProgression(supabase, user.id, input.sessionExerciseId, input.feel);
-  return { ok: true, data: feedback };
+  return finishExerciseCore(supabase, user.id, input, { applyProgression });
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -511,12 +495,6 @@ async function upgradeVariation(
     .eq("exercise_id", currentExerciseId);
 }
 
-/**
- * Finish a session.
- *
- * Duration accumulates across resumes (g3 fix): if the session already has a
- * duration (from ending early and resuming), we add to it rather than replacing it.
- */
 export async function finishSession(input: {
   sessionId: string;
   durationSeconds: number;
@@ -526,21 +504,15 @@ export async function finishSession(input: {
   if (rateLimit) return rateLimit;
   
   const { supabase } = await requireUser();
-  
-  // Safety: Only update if status is still 'in_progress' to prevent double-accumulation on retry.
-  // The client's elapsed time is already cumulative (wall clock from started_at), so we can
-  // store it directly when completing.
   const { error } = await supabase
     .from("sessions")
     .update({
       status: "completed",
       completed_at: new Date().toISOString(),
-      duration_seconds: Math.round(input.durationSeconds),
+      duration_seconds: input.durationSeconds,
       cooldown_completed: input.cooldownCompleted,
     })
-    .eq("id", input.sessionId)
-    .eq("status", "in_progress"); // Only complete once
-    
+    .eq("id", input.sessionId);
   if (error) return { ok: false, error: error.message };
 
   // Deliberately NOT revalidating here. Revalidating refreshes the session
@@ -550,53 +522,15 @@ export async function finishSession(input: {
   return { ok: true };
 }
 
-/**
- * End a session early.
- *
- * If the user logged at least one working set, the session counts as completed
- * (g2 fix). Only a session with no working sets at all is marked skipped.
- * Warm-up sets don't count as training.
- *
- * Safety note: Completed sessions are NOT resumable (startSession only resumes
- * planned/in_progress/skipped). This is intentional - a session with working sets
- * logged counts toward streak/days trained and shows in History as completed, not
- * skipped. The tradeoff: user cannot resume after early end if they had sets.
- * Alternative would be a new status like "partial" that's resumable but counts.
- */
-export async function abandonSession(
-  sessionId: string,
-  elapsedSeconds: number,
-): Promise<Result> {
+export async function abandonSession(sessionId: string): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
   
   const { supabase } = await requireUser();
-  
-  // Check if any working sets were logged
-  const { data: exercises } = await supabase
-    .from("session_exercises")
-    .select("session_sets(id, is_warmup_set)")
-    .eq("session_id", sessionId);
-  
-  const hasWorkingSets = (exercises ?? []).some((ex) => {
-    const sets = (ex.session_sets ?? []) as { is_warmup_set: boolean }[];
-    return sets.some((s) => !s.is_warmup_set);
-  });
-  
-  const status = hasWorkingSets ? "completed" : "skipped";
-  
-  // Safety: Only update if status is 'in_progress' to prevent double-accumulation on retry.
-  // The client's elapsed time is cumulative (wall clock from started_at).
   const { error } = await supabase
     .from("sessions")
-    .update({ 
-      status,
-      completed_at: hasWorkingSets ? new Date().toISOString() : null,
-      duration_seconds: Math.round(elapsedSeconds),
-    })
-    .eq("id", sessionId)
-    .eq("status", "in_progress"); // Only abandon once
-    
+    .update({ status: "skipped" })
+    .eq("id", sessionId);
   if (error) return { ok: false, error: error.message };
   revalidateTrainingData();
   return { ok: true };
