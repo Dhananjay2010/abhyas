@@ -731,6 +731,97 @@ async function runTests() {
       console.log("  PASS: Test 9\n");
     }
 
+    console.log("TEST 10: search_path is '' on all 3 block functions");
+    {
+      const { rows: searchPathCheck } = await pool.query(`
+        SELECT 
+          p.proname,
+          p.proconfig
+        FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public'
+          AND p.proname IN ('cycle_week_for', 'rebuild_block', 'rollover_block')
+        ORDER BY p.proname
+      `) as {rows: Array<{proname: string; proconfig: string[] | null}>};
+
+      check("found all 3 functions", searchPathCheck.length === 3, `found ${searchPathCheck.length}`);
+      
+      for (const func of searchPathCheck) {
+        const hasSearchPath = func.proconfig && func.proconfig.some((cfg: string) => cfg === "search_path=");
+        check(`${func.proname} has search_path=''`, hasSearchPath, `proconfig: ${JSON.stringify(func.proconfig)}`);
+      }
+
+      console.log("  PASS: Test 10\n");
+    }
+
+    console.log("TEST 11: rollover_block called twice is idempotent");
+    {
+      userId = await createTestUser();
+      
+      // Create initial active block
+      const blockId1 = randomUUID();
+      await pool.query(`
+        INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, status)
+        VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-10-01', '2026-10-28', 4, 'active')
+      `, [blockId1, userId]);
+
+      const payload = {
+        id: randomUUID(),
+        block_number: 2,
+        split_type: "upper_lower",
+        days_per_week: 4,
+        primary_track: "weights",
+        goal: "strength",
+        level: "intermediate",
+        ends_on: "2026-11-25",
+        deload_week: 4,
+        days: [],
+      };
+
+      // First rollover call
+      const result1 = await callRPC(pool, userId, "rollover_block", {
+        p_today: "2026-10-29",
+        p_payload: payload,
+      });
+
+      check("first rollover succeeded", !result1.error, result1.error || "");
+
+      // Get state after first rollover
+      const { rows: afterFirst } = await pool.query(
+        "SELECT id, status, started_on, ends_on, ended_on, block_number FROM programs WHERE user_id = $1 ORDER BY started_on",
+        [userId]
+      ) as {rows: Array<{id: string; status: string; started_on: string; ends_on: string; ended_on: string | null; block_number: number}>};
+
+      check("after first: 2 blocks total", afterFirst.length === 2, `${afterFirst.length} blocks`);
+      check("after first: 1 completed", afterFirst.filter(b => b.status === 'completed').length === 1);
+      check("after first: 1 active", afterFirst.filter(b => b.status === 'active').length === 1);
+
+      const activeAfterFirst = afterFirst.find(b => b.status === 'active');
+      check("active block is block 2", activeAfterFirst?.block_number === 2);
+
+      // Second rollover call with same p_today (idempotency test)
+      const result2 = await callRPC(pool, userId, "rollover_block", {
+        p_today: "2026-10-29",
+        p_payload: { ...payload, id: randomUUID() },
+      });
+
+      check("second rollover succeeded (idempotent)", !result2.error, result2.error || "");
+      check("second rollover returns same active block", result2.data === result1.data);
+
+      // Get state after second rollover
+      const { rows: afterSecond } = await pool.query(
+        "SELECT id, status, started_on, ends_on, ended_on, block_number FROM programs WHERE user_id = $1 ORDER BY started_on",
+        [userId]
+      ) as {rows: Array<{id: string; status: string; started_on: string; ends_on: string; ended_on: string | null; block_number: number}>};
+
+      check("after second: still 2 blocks", afterSecond.length === 2, `${afterSecond.length} blocks`);
+      check("after second: still 1 completed", afterSecond.filter(b => b.status === 'completed').length === 1);
+      check("after second: still 1 active", afterSecond.filter(b => b.status === 'active').length === 1);
+      check("no state change from second call", JSON.stringify(afterFirst) === JSON.stringify(afterSecond));
+
+      console.log("  PASS: Test 11\n");
+    }
+
     await pool.end();
 
     return failures === 0;
