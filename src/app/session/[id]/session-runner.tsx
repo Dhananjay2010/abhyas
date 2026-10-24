@@ -227,7 +227,21 @@ export function SessionRunner({
     };
     tick();
     const t = setInterval(tick, 250);
-    return () => clearInterval(t);
+    
+    // Recompute when tab/app becomes visible again (handles backgrounding)
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    const handleFocus = () => tick();
+    
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, [restEndsAt, beeper, settings.restSound, settings.restVibrate]);
 
   const startRest = useCallback((seconds: number, exerciseId: string) => {
@@ -524,10 +538,13 @@ export function SessionRunner({
               // because a revalidation from there re-renders this route and its
               // completed-session guard would redirect away before the summary
               // could be read.
+              
+              // Prefetch Today to prime the cache before navigating
+              router.prefetch("/today");
+              
               await actions.refreshAfterSession();
-              // The revalidation above purged Today from the client cache, so
-              // this navigation fetches it fresh; a refresh as well would fetch
-              // it twice.
+              
+              // Navigate immediately - prefetch has warmed the cache
               router.push("/today");
             }}
           >

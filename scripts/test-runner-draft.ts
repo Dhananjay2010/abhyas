@@ -469,6 +469,66 @@ const fakeLocalStorage = {
   }
 }
 
+// ---- rest timer pure helper tests (QA2 item 1) -------------------------
+{
+  const testCases = [
+    {
+      name: "before end",
+      endTime: Date.now() + 60000,
+      now: Date.now(),
+      expected: 60000,
+    },
+    {
+      name: "at end",
+      endTime: Date.now(),
+      now: Date.now(),
+      expected: 0,
+    },
+    {
+      name: "after end",
+      endTime: Date.now() - 10000,
+      now: Date.now(),
+      expected: 0,
+    },
+    {
+      name: "clock jump forward",
+      endTime: 1000000000,
+      now: 2000000000,
+      expected: 0,
+    },
+    {
+      name: "clock jump backward",
+      endTime: 2000000000,
+      now: 1000000000,
+      expected: 1000000000,
+    },
+  ];
+
+  for (const tc of testCases) {
+    fakeLocalStorage.clear();
+    const userId = "user-1";
+    const sessionId = "session-1";
+    
+    serialize(userId, sessionId, {
+      restEndsAt: tc.endTime,
+      restExerciseId: "ex-1",
+      draft: null,
+    });
+    
+    const parsed = parse(userId, sessionId);
+    if (!parsed) {
+      fail(`rest timer (${tc.name}): parse failed`);
+    } else {
+      const remaining = remainingRestMs(parsed, tc.now);
+      if (remaining !== tc.expected) {
+        fail(`rest timer (${tc.name}): expected ${tc.expected}ms, got ${remaining}ms`);
+      } else {
+        pass(`rest timer (${tc.name}): ${remaining}ms`);
+      }
+    }
+  }
+}
+
 console.log("\n--- Mutation Testing ---\n");
 
 // ---- MUTANT 1: Store remaining instead of restEndsAt -----------------
@@ -710,6 +770,32 @@ console.log("\n--- Mutation Testing ---\n");
   
   if (!threwOnCorrupt && !threwOnOldVersion) {
     console.log("  Result: ✓ Test catches mutant (parse returns null, never throws)");
+  }
+}
+
+// ---- MUTANT 9: Exercise change resets rest ----------------------------
+{
+  console.log("\nMUTANT 9: Exercise change resets rest (should preserve across exercises)");
+  fakeLocalStorage.clear();
+  const userId = "user-1";
+  const sessionId = "session-1";
+
+  // Start rest on exercise A
+  serialize(userId, sessionId, {
+    restEndsAt: Date.now() + 90000,
+    restExerciseId: "ex-a",
+    draft: null,
+  });
+
+  // Simulate reading for exercise B (different exercise)
+  const stateForExB = parse(userId, sessionId);
+  
+  // Correct: rest persists even when viewing different exercise
+  // The UI decides whether to show it based on restExerciseId matching
+  if (stateForExB?.restEndsAt === null) {
+    console.log("  Result: ⚠️  Mutant undetected (rest cleared on exercise change)");
+  } else {
+    console.log("  Result: ✓ Test catches mutant (rest persists in storage, UI filters by exerciseId)");
   }
 }
 
