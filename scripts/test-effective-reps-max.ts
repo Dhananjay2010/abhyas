@@ -39,6 +39,9 @@ check("unloaded bodyweight with null progressed uses planned 12",
 check("unloaded bodyweight with undefined progressed uses planned 12",
   effectiveRepsMax({ plannedMax: 12, progressedTarget: undefined, isBodyweight: true, usedWeight: null }) === 12,
   `${effectiveRepsMax({ plannedMax: 12, progressedTarget: undefined, isBodyweight: true, usedWeight: null })}`);
+check("unloaded bodyweight with stale lower progressed 10 uses planned 12 (max guard)",
+  effectiveRepsMax({ plannedMax: 12, progressedTarget: 10, isBodyweight: true, usedWeight: null }) === 12,
+  `${effectiveRepsMax({ plannedMax: 12, progressedTarget: 10, isBodyweight: true, usedWeight: null })}`);
 
 // Hold (metric: seconds): same logic, different numbers.
 check("hold with progressed 50s uses 50",

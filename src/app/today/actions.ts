@@ -3,6 +3,7 @@
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { createBlockForUser } from "@/lib/program/persist";
+import { resetProgressionTargets } from "@/lib/program/progression";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 export type BuildPlanResult = { ok: true } | { ok: false; error: string };
@@ -24,6 +25,9 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+
+  // Reset progression targets before rebuilding the block
+  await resetProgressionTargets(supabase, user.id);
 
   const result = await createBlockForUser(supabase, user.id, { mode: "rebuild" });
   if (!result.ok) return { ok: false, error: result.error };

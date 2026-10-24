@@ -6,6 +6,7 @@ import type { Database } from "@/lib/database.types";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
+import { resetProgressionTargets } from "@/lib/program/progression";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -59,6 +60,17 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     patch.yoga_days_per_week > patch.days_per_week - 1
   ) {
     return { ok: false, error: "At least one day a week has to be training." };
+  }
+
+  // Reset progression targets if goal, level, days_per_week, or track changed
+  const resetsProgression =
+    patch.goal !== undefined ||
+    patch.level !== undefined ||
+    patch.days_per_week !== undefined ||
+    patch.track !== undefined;
+
+  if (resetsProgression) {
+    await resetProgressionTargets(supabase, user.id);
   }
 
   // Validate and update with testable logic

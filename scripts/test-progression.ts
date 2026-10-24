@@ -867,14 +867,23 @@ console.log("\neffectiveRepsMax unification: page and evaluator agree on target"
     nonBodyweightNoWeight.outcome === "progressed" && nonBodyweightNoWeight.nextWorkingWeightKg === 5,
     `outcome=${nonBodyweightNoWeight.outcome}, next=${nonBodyweightNoWeight.nextWorkingWeightKg}`);
 
-  // (c) Bodyweight with no weight, currentTargetReps 10, repsMax 12, succeeds at 10 reps.
-  const bodyweightNoWeight = run({
+  // (c) Bodyweight with no weight, currentTargetReps 10, repsMax 12: now requires 12 (max guard).
+  const bodyweightStaleTarget = run({
     meta: PUSHUP,
     sets: sets(4, 10, null),
     state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 10 }),
   });
-  check("bodyweight with no weight, progressed target 10, succeeds at 10 reps (progressed target)",
-    bodyweightNoWeight.outcome === "progressed" && bodyweightNoWeight.nextTargetReps === 12,
+  check("bodyweight with stale progressed target 10 and planned 12 does NOT succeed at 10 (max guard)",
+    bodyweightStaleTarget.outcome === "hold",
+    `outcome=${bodyweightStaleTarget.outcome}`);
+
+  const bodyweightNoWeight = run({
+    meta: PUSHUP,
+    sets: sets(4, 12, null),
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 10 }),
+  });
+  check("bodyweight with progressed target 10 and planned 12 succeeds at 12",
+    bodyweightNoWeight.outcome === "progressed" && bodyweightNoWeight.nextTargetReps === 14,
     `outcome=${bodyweightNoWeight.outcome}, next=${bodyweightNoWeight.nextTargetReps}`);
 
   // (d) Bodyweight with added weight, currentTargetReps 14, repsMax 12, succeeds at 12 reps.
@@ -906,6 +915,71 @@ console.log("\neffectiveRepsMax unification: page and evaluator agree on target"
   check("bodyweight must succeed at progressed target 10, NOT planned 12",
     bodyweightWrongTarget.outcome === "progressed",
     `outcome=${bodyweightWrongTarget.outcome}`);
+}
+
+console.log("\nKettlebell rounding: snap to real increments");
+{
+  const KETTLEBELL: ExerciseMeta = {
+    mechanic: "compound",
+    movementPattern: "hinge",
+    metric: "reps",
+    isBodyweight: false,
+    progressionChain: null,
+    progressionRank: null,
+    equipmentIds: ["kettlebell"],
+  };
+
+  // 18.75 kg → nearest kettlebell (16 or 20). Using nearest-down: 18.75 → 16 kg.
+  const kb1875 = run({
+    meta: KETTLEBELL,
+    sets: sets(4, 12, 15),
+    state: fresh({ currentWorkingWeightKg: 15 }),
+    feel: "right",
+  });
+  check("kettlebell 15 kg + 5 kg step (20) goes to nearest real bell 20 kg",
+    kb1875.nextWorkingWeightKg === 20, `${kb1875.nextWorkingWeightKg}`);
+
+  // Deload from 20 kg: 70% = 14 kg → 14 kg (exact match).
+  const kbDeload = suggestedWeight({ currentWorkingWeightKg: 20 }, true, KETTLEBELL);
+  check("kettlebell 20 kg deload (70% = 14) stays at 14 kg",
+    kbDeload === 14, `${kbDeload}`);
+
+  // Deload from 24 kg: 70% = 16.8 kg → 16 kg (nearest-down).
+  const kbDeload24 = suggestedWeight({ currentWorkingWeightKg: 24 }, true, KETTLEBELL);
+  check("kettlebell 24 kg deload (70% = 16.8) rounds to 16 kg",
+    kbDeload24 === 16, `${kbDeload24}`);
+
+  // Back-off from 28 kg: 90% = 25.2 kg → 24 kg (nearest-down).
+  const kbBackoff = run({
+    meta: KETTLEBELL,
+    sets: sets(4, 10, 28),
+    state: fresh({ currentWorkingWeightKg: 28, consecutiveFailures: 1 }),
+  });
+  check("kettlebell 28 kg miss twice backs off to 24 kg (90% = 25.2 → 24)",
+    kbBackoff.nextWorkingWeightKg === 24, `${kbBackoff.nextWorkingWeightKg}`);
+}
+
+console.log("\nProgression reset: clear targets when goal/block changes");
+{
+  // After reset, null currentTargetReps means next evaluation uses planned range.
+  const afterReset = run({
+    meta: PUSHUP,
+    sets: sets(4, 12, null),
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: null }),
+  });
+  check("after reset, null currentTargetReps succeeds at 12 (planned max)",
+    afterReset.outcome === "progressed" && afterReset.nextTargetReps === 14,
+    `outcome=${afterReset.outcome}, next=${afterReset.nextTargetReps}`);
+
+  // Reset prevents stale higher target from old plan being used.
+  const staleHighTarget = run({
+    meta: PUSHUP,
+    sets: sets(4, 12, null),
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 16 }),
+  });
+  check("stale high target 16 with planned 12 requires 16 reps (max guard)",
+    staleHighTarget.outcome === "hold",
+    `outcome=${staleHighTarget.outcome}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

@@ -16,6 +16,7 @@ export function effectiveRepsMax(input: {
   const { plannedMax, progressedTarget, isBodyweight, usedWeight } = input;
   // Loaded exercises or bodyweight with added weight use planned target
   if (!isBodyweight || (usedWeight !== null && usedWeight > 0)) return plannedMax;
-  // Unloaded bodyweight uses progressed target if available
-  return progressedTarget ?? plannedMax;
+  // Unloaded bodyweight uses the higher of progressed or planned target
+  // to prevent stale lower targets from counting as success
+  return Math.max(plannedMax, progressedTarget ?? plannedMax);
 }

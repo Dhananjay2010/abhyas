@@ -38,6 +38,7 @@ export type ExerciseMeta = {
   isBodyweight: boolean;
   progressionChain: string | null;
   progressionRank: number | null;
+  equipmentIds: string[];
 };
 
 export type Outcome =
@@ -131,6 +132,37 @@ export function addedWeightStep(meta: ExerciseMeta): number {
 
 function roundTo(value: number, step: number): number {
   return Math.round(value / step) * step;
+}
+
+/**
+ * Snap weight to equipment increments.
+ * 
+ * Kettlebells: 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32 kg.
+ * Uses nearest-down rule: ties and between-increments go to the lower bell.
+ * Dumbbells and other equipment: use the standard grid (step).
+ */
+function roundToEquipment(value: number, step: number, equipmentIds: string[]): number {
+  const hasKettlebell = equipmentIds.includes("kettlebell");
+  if (!hasKettlebell) return roundTo(value, step);
+
+  const KETTLEBELL_SIZES = [4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
+  
+  // Find the nearest kettlebell size, ties go down
+  let nearest = KETTLEBELL_SIZES[0];
+  let minDiff = Math.abs(value - nearest);
+  
+  for (const size of KETTLEBELL_SIZES) {
+    const diff = Math.abs(value - size);
+    if (diff < minDiff) {
+      nearest = size;
+      minDiff = diff;
+    } else if (diff === minDiff && size < nearest) {
+      // Tie: choose lower
+      nearest = size;
+    }
+  }
+  
+  return nearest;
 }
 
 /** Epley. Only meaningful for a working set, so callers cap the rep count. */
@@ -323,7 +355,7 @@ export function evaluateProgression(input: {
     // Snap off-grid weights to grid: smallest multiple of step strictly above from.
     const next = isBodyweightWithAddedWeight
       ? Math.floor(from / step) * step + step
-      : roundTo(from + (feel === "easy" ? step * 2 : step), step);
+      : roundToEquipment(from + (feel === "easy" ? step * 2 : step), step, meta.equipmentIds);
 
     return {
       ...carried,
@@ -350,7 +382,7 @@ export function evaluateProgression(input: {
     // Loaded exercises: reduce by ~10%.
     if (meta.isBodyweight) {
       const step = addedWeightStep(meta);
-      const reduced = Math.max(0, roundTo(currentWeight - step * 2, step));
+      const reduced = Math.max(0, roundToEquipment(currentWeight - step * 2, step, meta.equipmentIds));
       return {
         ...carried,
         outcome: "backed_off",
@@ -364,7 +396,7 @@ export function evaluateProgression(input: {
       };
     }
     const step = incrementFor(meta);
-    const reduced = Math.max(step, roundTo(currentWeight * 0.9, step));
+    const reduced = Math.max(step, roundToEquipment(currentWeight * 0.9, step, meta.equipmentIds));
     return {
       ...carried,
       outcome: "backed_off",
@@ -406,10 +438,27 @@ export function suggestedWeight(
   // that reaches 0, return null (no added weight). Loaded exercises floor at
   // one step.
   const step = meta.isBodyweight ? addedWeightStep(meta) : incrementFor(meta);
-  const deloaded = roundTo(w * 0.7, step);
+  const deloaded = roundToEquipment(w * 0.7, step, meta.equipmentIds);
   if (meta.isBodyweight) {
-    const result = deloaded >= w ? roundTo(w - step, step) : deloaded;
+    const result = deloaded >= w ? roundToEquipment(w - step, step, meta.equipmentIds) : deloaded;
     return result <= 0 ? null : result;
   }
   return Math.max(step, deloaded);
+}
+
+/**
+ * Reset progression targets for all of a user's exercises.
+ * 
+ * Called when the goal changes or the block is rebuilt, so stale progressed
+ * targets (e.g. currentTargetReps from an old plan with a different rep range)
+ * are cleared and the next evaluation uses the new plan's range.
+ */
+export async function resetProgressionTargets(
+  supabase: { from: (table: string) => any },
+  userId: string,
+): Promise<void> {
+  await supabase
+    .from("exercise_progress")
+    .update({ current_target_reps: null })
+    .eq("user_id", userId);
 }

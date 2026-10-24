@@ -146,6 +146,7 @@ export default async function SessionPage({
           isBodyweight,
           progressionChain: null,
           progressionRank: null,
+          equipmentIds: ex?.equipment_ids ?? [],
         },
       ),
       isBodyweight,
