@@ -140,19 +140,21 @@ export function BreatheHome({
 
   return (
     <>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Breathe</h1>
-          <p className="mt-2 text-sm text-muted">{weekLine(stats)}</p>
+      <header className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Breathe</h1>
+            <p className="mt-2 text-sm text-muted">{weekLine(stats)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPrefs(true)}
+            aria-label="Breathing preferences"
+            className="-mr-2 mt-0.5 rounded-xl p-2.5 text-muted transition-colors hover:bg-surface hover:text-fg"
+          >
+            <Icon.Sliders />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowPrefs(true)}
-          aria-label="Breathing preferences"
-          className="-mr-2 mt-0.5 rounded-xl p-2.5 text-muted transition-colors hover:bg-surface hover:text-fg"
-        >
-          <Icon.Sliders />
-        </button>
       </header>
 
       <WeekStrip days={stats.weekDays} todayIndex={todayIndex} className="mt-6" />
@@ -177,7 +179,7 @@ export function BreatheHome({
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold tracking-wider text-breath uppercase">Again</p>
             <p className="mt-1 truncate text-lg font-semibold">{again.name}</p>
-            <p className="text-sm text-breath-ink/70">{againLength.label} · starts right away</p>
+            <p className="text-sm text-breath-ink/70">{againLength.label} · Opens your last session, ready to start</p>
           </div>
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-accent text-accent-fg">
             <Icon.Play />

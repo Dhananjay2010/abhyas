@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { clockLabel } from "@/components/session-row";
 import { GUIDANCE_OPTIONS, moodLabel } from "@/lib/breathing/pattern";
+import { branding } from "@/lib/branding";
 import { Stat } from "./stat";
 
 export type BreathingLog = {
@@ -121,7 +122,7 @@ export function BreathingDetail({
 
       {logs.length === 0 && (
         <p className="mt-6 text-sm text-muted">
-          Recorded before Abhyas kept the details of each practice.
+          Recorded before {branding.name} kept the details of each practice.
         </p>
       )}
 

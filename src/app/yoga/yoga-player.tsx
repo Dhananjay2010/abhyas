@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { stripSeriesSuffix, groupVideosByWeek } from "@/lib/yoga-display";
 import { markYogaVideoDone } from "./actions";
+import { branding } from "@/lib/branding";
 
 export type YogaVideo = {
   id: string;
@@ -51,6 +53,12 @@ export function YogaPlayer({
   const [playingId, setPlayingId] = useState<string | null>(null);
   const playing = open?.videos.find((v) => v.id === playingId) ?? nextUp;
 
+  // Group videos by week for series playlists
+  const videoGroups = useMemo(
+    () => (open?.isSeries ? groupVideosByWeek(open.videos) : null),
+    [open],
+  );
+
   if (playlists.length === 0) {
     return <p className="text-muted">No yoga series are available yet.</p>;
   }
@@ -79,7 +87,7 @@ export function YogaPlayer({
             </div>
           </div>
 
-          <h2 className="mt-3 font-semibold">{playing.title}</h2>
+          <h2 className="mt-3 font-semibold">{stripSeriesSuffix(playing.title)}</h2>
           <p className="mt-1 text-xs text-muted">
             {playing.minutes ? `${playing.minutes} min · ` : ""}
             Yoga with Adriene
@@ -131,35 +139,79 @@ export function YogaPlayer({
               {open.videos.filter((v) => v.done).length} of {open.videos.length} done
             </span>
           </div>
-          <ul className="space-y-1.5">
-            {open.videos.map((v) => (
-              <li key={v.id}>
-                <button
-                  onClick={() => setPlayingId(v.id)}
-                  className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
-                    v.id === playing?.id
-                      ? "border-accent bg-accent/10"
-                      : "border-border bg-surface hover:border-muted/50"
-                  }`}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                        v.done ? "bg-success" : "bg-border"
-                      }`}
-                    />
-                    <span className={`truncate ${v.done ? "text-muted" : ""}`}>
-                      {v.title}
+
+          {videoGroups ? (
+            // Grouped by week for series
+            <div className="space-y-6">
+              {videoGroups.map((group) => (
+                <div key={group.label}>
+                  <h3 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
+                    {group.label}
+                  </h3>
+                  <ul className="space-y-1.5">
+                    {group.videos.map((v) => (
+                      <li key={v.id}>
+                        <button
+                          onClick={() => setPlayingId(v.id)}
+                          className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                            v.id === playing?.id
+                              ? "border-accent bg-accent/10"
+                              : "border-border bg-surface hover:border-muted/50"
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-start gap-2">
+                            <span
+                              aria-hidden="true"
+                              className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                                v.done ? "bg-success" : "bg-border"
+                              }`}
+                            />
+                            <span className={`line-clamp-2 ${v.done ? "text-muted" : ""}`}>
+                              {stripSeriesSuffix(v.title)}
+                            </span>
+                          </span>
+                          {v.minutes && (
+                            <span className="mt-0.5 shrink-0 text-xs text-muted">{v.minutes}m</span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Ungrouped list for non-series playlists
+            <ul className="space-y-1.5">
+              {open.videos.map((v) => (
+                <li key={v.id}>
+                  <button
+                    onClick={() => setPlayingId(v.id)}
+                    className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                      v.id === playing?.id
+                        ? "border-accent bg-accent/10"
+                        : "border-border bg-surface hover:border-muted/50"
+                    }`}
+                  >
+                    <span className="flex min-w-0 items-start gap-2">
+                      <span
+                        aria-hidden="true"
+                        className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                          v.done ? "bg-success" : "bg-border"
+                        }`}
+                      />
+                      <span className={`line-clamp-2 ${v.done ? "text-muted" : ""}`}>
+                        {stripSeriesSuffix(v.title)}
+                      </span>
                     </span>
-                  </span>
-                  {v.minutes && (
-                    <span className="shrink-0 text-xs text-muted">{v.minutes}m</span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+                    {v.minutes && (
+                      <span className="mt-0.5 shrink-0 text-xs text-muted">{v.minutes}m</span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 
@@ -207,7 +259,7 @@ export function YogaPlayer({
         >
           Yoga with Adriene
         </a>
-        , played from YouTube. Abhyas does not host or modify it.
+        , played from YouTube. {branding.name} does not host or modify it.
       </p>
     </div>
   );

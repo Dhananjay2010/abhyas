@@ -90,7 +90,7 @@ const EXERCISES: RunnerExercise[] = [
     metric: "reps",
     primaryMuscles: ["chest"], plannedSets: 4, repsMin: 8, repsMax: 12,
     restSeconds: 8, workingWeightKg: 60, suggestedWeightKg: 60,
-    status: "pending", feel: null, sets: [],
+    status: "pending", feel: null, sets: [], isBodyweight: false,
   },
   {
     id: "e2", exerciseId: "x2", name: "Wide-Grip Lat Pulldown",
@@ -98,7 +98,7 @@ const EXERCISES: RunnerExercise[] = [
     metric: "reps",
     primaryMuscles: ["lats"], plannedSets: 3, repsMin: 8, repsMax: 12,
     restSeconds: 8, workingWeightKg: null, suggestedWeightKg: null,
-    status: "pending", feel: null, sets: [],
+    status: "pending", feel: null, sets: [], isBodyweight: false,
   },
   // A hold, so the countdown and the seconds field can be exercised here. The
   // target is short on purpose: the harness is for driving the UI, not waiting.
@@ -108,7 +108,7 @@ const EXERCISES: RunnerExercise[] = [
     metric: "seconds",
     primaryMuscles: ["abs"], plannedSets: 2, repsMin: 6, repsMax: 10,
     restSeconds: 8, workingWeightKg: null, suggestedWeightKg: null,
-    status: "pending", feel: null, sets: [],
+    status: "pending", feel: null, sets: [], isBodyweight: true,
   },
 ];
 

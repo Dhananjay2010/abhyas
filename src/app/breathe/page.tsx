@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { addDays, isoWeekday, localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import {
   INTENTS,
   PREFS_COLUMNS,
@@ -29,6 +30,7 @@ import {
 import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { suggestPractice } from "@/lib/breathing/suggest";
 import { BreatheHome, type LastPractice } from "./breathe-home";
+import { PracticeSwitch } from "@/components/practice-switch";
 import { findPatternByLogKey } from "./load";
 
 export const dynamic = "force-dynamic";
@@ -109,7 +111,7 @@ export default async function BreathePage({
     .map((routine) => resolveRoutine(routine, patterns))
     .filter((r): r is ResolvedRoutine => r !== null);
 
-  const timezone = profileRes.data?.timezone || "Asia/Kolkata";
+  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
   const today = localDateString(timezone);
   const stats = breathingStats(
     (practicesRes.data ?? []).map((s) => ({
@@ -182,7 +184,9 @@ export default async function BreathePage({
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
-      <BreatheHome
+      <PracticeSwitch />
+      <div className="mt-6">
+        <BreatheHome
         patterns={patterns}
         routines={routines}
         journeys={journeys}
@@ -194,7 +198,8 @@ export default async function BreathePage({
         shifts={shifts}
         intent={intent}
         todayIndex={isoWeekday(today)}
-      />
+        />
+      </div>
     </main>
   );
 }
