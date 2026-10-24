@@ -17,23 +17,37 @@ export function DeleteAccountForm() {
   function handleDelete() {
     if (!ready) return;
     
+    setError(null);
     startTransition(async () => {
-      const result = await deleteAccount();
-      if (!result.ok) {
-        setError(result.error);
+      try {
+        const result = await deleteAccount();
+        if (!result.ok) {
+          setError(result.error);
+        }
+        // If successful, the action redirects to the landing page after sign out
+      } catch (err) {
+        // Catch any thrown errors (e.g. fetch failures) to prevent hitting error boundary
+        setError(
+          err instanceof Error && err.message
+            ? `An error occurred: ${err.message}`
+            : "An unexpected error occurred. Please try again."
+        );
       }
-      // If successful, the action redirects to the landing page after sign out
     });
   }
 
   return (
     <div className="mt-8 space-y-6">
       <div>
-        <p className="text-sm text-muted mb-4">
+        <label htmlFor="delete-confirmation" className="sr-only">
+          Type {CONFIRMATION_WORD} to confirm deletion
+        </label>
+        <p id="delete-instructions" className="text-sm text-muted mb-4">
           To confirm deletion, type <strong className="text-fg">{CONFIRMATION_WORD}</strong> in the
           box below:
         </p>
         <input
+          id="delete-confirmation"
           type="text"
           value={confirmationText}
           onChange={(e) => setConfirmationText(e.target.value.trim())}
@@ -43,6 +57,7 @@ export function DeleteAccountForm() {
           autoComplete="off"
           data-1p-ignore
           data-lpignore="true"
+          aria-describedby="delete-instructions"
         />
       </div>
 

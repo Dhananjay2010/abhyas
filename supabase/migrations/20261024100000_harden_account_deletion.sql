@@ -83,3 +83,10 @@ comment on function public.delete_own_account() is
   'Enforces that users can only delete their own account via auth.uid() check. '
   'SECURITY DEFINER with cleared search_path and fully qualified names. '
   'Execute permission revoked from public and anon, granted only to authenticated.';
+
+-- Revoke execute on trigger functions
+-- Trigger functions don't need EXECUTE permissions from any role because
+-- firing a trigger doesn't check the invoker's EXECUTE privilege.
+-- These are from 20260908090100_rls_and_triggers.sql and 20260922090000_restore_signup_trigger.sql
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+revoke execute on function public.set_user_id_from_parent() from public, anon, authenticated;
