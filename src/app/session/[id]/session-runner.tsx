@@ -13,7 +13,7 @@ import {
   vibrationSupported,
 } from "@/lib/session/device";
 import { validateSet } from "@/lib/session/validation";
-import { swappedEntryFields } from "@/lib/session/swap";
+import { swappedEntryFields, swapSheetState } from "@/lib/session/swap";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import {
@@ -838,65 +838,81 @@ export function SessionRunner({
             <p className="mb-3 text-sm font-medium">
               Swap for something that works the same pattern
             </p>
-            {alternatives.length === 0 ? (
-              <p className="text-sm text-muted">
-                Nothing else matches your equipment and injuries for this movement.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {alternatives.map((a) => (
-                  <li key={a.exerciseId}>
+            {(() => {
+              const sheetState = swapSheetState({ alternatives });
+              return sheetState.isEmpty ? (
+                <div>
+                  <p className="text-sm text-muted">{sheetState.message}</p>
+                  {sheetState.showSkipButton && (
                     <button
                       disabled={busy}
-                      onClick={async () => {
-                        /*
-                          `run` reports success as a boolean, so the payload is
-                          carried out in a box. It is needed: a swap can change
-                          the UNIT -- the alternatives for a core slot include
-                          holds on purpose -- and the server re-prescribes the
-                          range when it does. Without applying both, swapping a
-                          set of 8-12 reps for a plank left the screen asking
-                          for reps, or for an eight-second hold.
-                        */
-                        const box: { value?: SwapResult } = {};
-                        const ok = await run(async () => {
-                          const r = await actions.swapExercise({
-                            sessionExerciseId: current.id,
-                            newExerciseId: a.exerciseId,
-                          });
-                          if (r.ok) box.value = r.data;
-                          return r;
-                        });
-                        if (!ok || !box.value) return;
-                        const swapped = box.value;
-                        const swappedFields = swappedEntryFields({ equipmentIds: swapped.equipmentIds });
-                        setExercises((prev) =>
-                          prev.map((e) =>
-                            e.id === current.id
-                              ? {
-                                  ...e,
-                                  name: a.name,
-                                  cue: a.cue,
-                                  exerciseId: a.exerciseId,
-                                  metric: swapped.metric,
-                                  repsMin: swapped.repsMin ?? e.repsMin,
-                                  repsMax: swapped.repsMax ?? e.repsMax,
-                                  isBodyweight: swappedFields.isBodyweight,
-                                }
-                              : e,
-                          ),
-                        );
+                      onClick={() => {
                         setAlternatives(null);
+                        setConfirming("skip");
                       }}
-                      className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-60"
+                      className="mt-3 w-full rounded-lg bg-surface px-4 text-sm font-medium text-danger transition-colors hover:bg-surface-2 disabled:opacity-60"
+                      style={{ minHeight: "44px" }}
                     >
-                      <span className="font-medium">{a.name}</span>
-                      {a.cue && <p className="mt-1 text-xs text-muted">{a.cue}</p>}
+                      Skip
                     </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  )}
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {alternatives.map((a) => (
+                    <li key={a.exerciseId}>
+                      <button
+                        disabled={busy}
+                        onClick={async () => {
+                          /*
+                            `run` reports success as a boolean, so the payload is
+                            carried out in a box. It is needed: a swap can change
+                            the UNIT -- the alternatives for a core slot include
+                            holds on purpose -- and the server re-prescribes the
+                            range when it does. Without applying both, swapping a
+                            set of 8-12 reps for a plank left the screen asking
+                            for reps, or for an eight-second hold.
+                          */
+                          const box: { value?: SwapResult } = {};
+                          const ok = await run(async () => {
+                            const r = await actions.swapExercise({
+                              sessionExerciseId: current.id,
+                              newExerciseId: a.exerciseId,
+                            });
+                            if (r.ok) box.value = r.data;
+                            return r;
+                          });
+                          if (!ok || !box.value) return;
+                          const swapped = box.value;
+                          const swappedFields = swappedEntryFields({ equipmentIds: swapped.equipmentIds });
+                          setExercises((prev) =>
+                            prev.map((e) =>
+                              e.id === current.id
+                                ? {
+                                    ...e,
+                                    name: a.name,
+                                    cue: a.cue,
+                                    exerciseId: a.exerciseId,
+                                    metric: swapped.metric,
+                                    repsMin: swapped.repsMin ?? e.repsMin,
+                                    repsMax: swapped.repsMax ?? e.repsMax,
+                                    isBodyweight: swappedFields.isBodyweight,
+                                  }
+                                : e,
+                            ),
+                          );
+                          setAlternatives(null);
+                        }}
+                        className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-60"
+                      >
+                        <span className="font-medium">{a.name}</span>
+                        {a.cue && <p className="mt-1 text-xs text-muted">{a.cue}</p>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()}
             <div className="mt-3">
               <GhostButton onClick={() => setAlternatives(null)}>Cancel</GhostButton>
             </div>

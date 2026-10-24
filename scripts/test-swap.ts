@@ -1,4 +1,4 @@
-import { swappedEntryFields } from "../src/lib/session/swap";
+import { swappedEntryFields, swapSheetState } from "../src/lib/session/swap";
 
 let failures = 0;
 
@@ -52,6 +52,67 @@ console.log("Swapped exercise entry fields: isBodyweight from equipment");
   const barbell = swappedEntryFields({ equipmentIds: ["barbell"] });
   check("barbell gives isBodyweight false",
     barbell.isBodyweight === false, `got ${barbell.isBodyweight}`);
+}
+
+console.log("\nSwap sheet state: empty list detection and Skip button");
+{
+  // Empty alternatives list
+  const empty = swapSheetState({ alternatives: [] });
+  check("empty list: isEmpty is true",
+    empty.isEmpty === true, `got ${empty.isEmpty}`);
+  check("empty list: message is exact copy",
+    empty.message === "No safe swap for this one. You can skip it.",
+    `got "${empty.message}"`);
+  check("empty list: showSkipButton is true",
+    empty.showSkipButton === true, `got ${empty.showSkipButton}`);
+
+  // Non-empty alternatives list
+  const nonEmpty = swapSheetState({ alternatives: [{ id: 1 }, { id: 2 }] });
+  check("non-empty list: isEmpty is false",
+    nonEmpty.isEmpty === false, `got ${nonEmpty.isEmpty}`);
+  check("non-empty list: message is empty string",
+    nonEmpty.message === "", `got "${nonEmpty.message}"`);
+  check("non-empty list: showSkipButton is false",
+    nonEmpty.showSkipButton === false, `got ${nonEmpty.showSkipButton}`);
+
+  // Single alternative
+  const single = swapSheetState({ alternatives: [{ id: 1 }] });
+  check("single alternative: isEmpty is false",
+    single.isEmpty === false, `got ${single.isEmpty}`);
+  check("single alternative: showSkipButton is false",
+    single.showSkipButton === false, `got ${single.showSkipButton}`);
+}
+
+console.log("\nMutation tests: copy and Skip button condition must not change");
+{
+  // Test that the exact copy is enforced (will fail if mutated)
+  const emptyState = swapSheetState({ alternatives: [] });
+  const expectedCopy = "No safe swap for this one. You can skip it.";
+  check("mutation guard: exact copy 'No safe swap for this one. You can skip it.'",
+    emptyState.message === expectedCopy,
+    `got "${emptyState.message}"`);
+
+  // Test that Skip button appears only when empty (will fail if condition is mutated)
+  const emptyShowsSkip = swapSheetState({ alternatives: [] });
+  check("mutation guard: empty list shows Skip button",
+    emptyShowsSkip.showSkipButton === true && emptyShowsSkip.isEmpty === true,
+    `isEmpty=${emptyShowsSkip.isEmpty}, showSkipButton=${emptyShowsSkip.showSkipButton}`);
+
+  const nonEmptyHidesSkip = swapSheetState({ alternatives: [{ id: 1 }] });
+  check("mutation guard: non-empty list hides Skip button",
+    nonEmptyHidesSkip.showSkipButton === false && nonEmptyHidesSkip.isEmpty === false,
+    `isEmpty=${nonEmptyHidesSkip.isEmpty}, showSkipButton=${nonEmptyHidesSkip.showSkipButton}`);
+
+  // Test coupling: showSkipButton must match isEmpty
+  const emptyStateCoupled = swapSheetState({ alternatives: [] });
+  check("mutation guard: showSkipButton === isEmpty when empty",
+    emptyStateCoupled.showSkipButton === emptyStateCoupled.isEmpty,
+    `isEmpty=${emptyStateCoupled.isEmpty}, showSkipButton=${emptyStateCoupled.showSkipButton}`);
+
+  const nonEmptyStateCoupled = swapSheetState({ alternatives: [{ id: 1 }] });
+  check("mutation guard: showSkipButton === isEmpty when non-empty",
+    nonEmptyStateCoupled.showSkipButton === nonEmptyStateCoupled.isEmpty,
+    `isEmpty=${nonEmptyStateCoupled.isEmpty}, showSkipButton=${nonEmptyStateCoupled.showSkipButton}`);
 }
 
 if (failures > 0) {
