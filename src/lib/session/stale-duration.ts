@@ -54,7 +54,7 @@ export function resolveStaleFinish(input: StaleFinishInput): StaleFinish {
     // New behavior: add rest interval
     let restMs = 300 * 1000; // default 300s
     if (input.restSeconds != null && Number.isFinite(input.restSeconds)) {
-      const clamped = Math.max(0, Math.min(300, input.restSeconds));
+      const clamped = Math.min(300, input.restSeconds);
       restMs = clamped * 1000;
     }
     endedAtMs = safeLastSet + restMs;

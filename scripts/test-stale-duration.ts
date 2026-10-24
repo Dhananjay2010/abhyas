@@ -140,28 +140,52 @@ console.log("\n5. Planned rest = 900s clamped to 300s");
   );
 }
 
-// Test 6: Negative rest clamped to 0
+// Test 6: Negative rest clamped to 0 (e3)
 console.log("\n6. Negative rest clamped to 0");
 {
   const startedAt = "2026-10-23T14:00:00Z";
   const lastSetCompletedAt = "2026-10-23T14:08:00Z"; // 8 minutes after start
 
-  const result = resolveStaleFinish({
+  // Test with -1 (should clamp to 0)
+  const resultNegative = resolveStaleFinish({
     startedAt,
     lastSetCompletedAt,
     workingSetCount: 2,
-    restSeconds: -100,
+    restSeconds: -1,
   });
-
-  assertEquals(result.status, "completed", "Status is completed");
-  // Duration: (14:08 + 0s) - 14:00 = 8 minutes = 480s
-  assertEquals(result.durationSeconds, 480, "Duration is 8 minutes (negative rest clamped to 0)");
-
+  
+  // Test with 0 (should stay 0)
+  const resultZero = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 2,
+    restSeconds: 0,
+  });
+  
+  // Critical: -1 and 0 must produce IDENTICAL results (both clamped to 0)
+  assertEquals(resultNegative.durationSeconds, resultZero.durationSeconds, "Negative rest gives same duration as 0 rest");
   assertEquals(
-    new Date(result.endedAt).getTime(),
-    new Date(lastSetCompletedAt).getTime(),
-    "Ended at last set (negative rest clamped to 0)"
+    new Date(resultNegative.endedAt).getTime(),
+    new Date(resultZero.endedAt).getTime(),
+    "Negative rest gives same endedAt as 0 rest (both clamped to 0)"
   );
+  
+  // Verify 0.5s rest works correctly (not clamped to 0)
+  const resultHalfSecond = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 2,
+    restSeconds: 0.5,
+  });
+  const expectedEndMsHalf = new Date(lastSetCompletedAt).getTime() + 500;
+  assertEquals(
+    new Date(resultHalfSecond.endedAt).getTime(),
+    expectedEndMsHalf,
+    "0.5s rest is honored (not clamped to 0)"
+  );
+  
+  // Verify duration is correct for 0.5s
+  assertEquals(resultHalfSecond.durationSeconds, 480, "Duration with 0.5s rest is 480s (8min rounded)");
 }
 
 // Test 7: Missing restSeconds (undefined) ends at last set (backward compatibility)

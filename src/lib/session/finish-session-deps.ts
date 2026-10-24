@@ -57,15 +57,20 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
       if (error) return { data: null, error: error.message };
       if (!data) return { data: null, error: null };
       
-      const profiles = data.profiles;
-      let timezone = 'UTC';
-      if (profiles && typeof profiles === 'object') {
-        type ProfilesWithTimezone = { timezone?: string | null };
-        const tzValue = (profiles as ProfilesWithTimezone).timezone;
-        if (typeof tzValue === 'string') {
-          timezone = tzValue;
-        }
+      // Type guard for profiles with timezone
+      function hasTimezone(profiles: unknown): profiles is { timezone: string | null } {
+        return (
+          profiles !== null &&
+          typeof profiles === 'object' &&
+          'timezone' in profiles &&
+          (typeof (profiles as { timezone: unknown }).timezone === 'string' ||
+           (profiles as { timezone: unknown }).timezone === null)
+        );
       }
+      
+      const timezone = hasTimezone(data.profiles) && data.profiles.timezone
+        ? data.profiles.timezone
+        : 'UTC';
 
       return {
         data: {
