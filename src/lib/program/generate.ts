@@ -159,8 +159,10 @@ const PATTERN_FALLBACK: Partial<Record<Pattern, Pattern>> = {
  * 
  * Verified against scripts/fixtures/catalogue.json. Every slug here must exist
  * in the catalogue (tested in test-generator.ts).
+ * 
+ * Exported for testing.
  */
-const STAPLE_MOVEMENTS: Partial<Record<Pattern, string[]>> = {
+export const STAPLE_MOVEMENTS: Partial<Record<Pattern, string[]>> = {
   horizontal_press: [
     "pushups",                              // bodyweight, beginner
     "push-up-wide",                         // bodyweight, beginner

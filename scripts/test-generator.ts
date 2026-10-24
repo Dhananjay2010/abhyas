@@ -11,6 +11,7 @@
 import { readFileSync } from "node:fs";
 import {
   generateProgram,
+  STAPLE_MOVEMENTS,
   type CandidateExercise,
   type GeneratorInput,
 } from "../src/lib/program/generate";
@@ -427,21 +428,12 @@ console.log("\n19. Determinism: same inputs produce same plan");
 
 console.log("\n20. STAPLE_MOVEMENTS: every slug exists in catalogue");
 {
-  // Import STAPLE_MOVEMENTS pattern to test it
-  const staplePatterns = {
-    horizontal_press: ["pushups", "push-up-wide", "barbell-bench-press-medium-grip"],
-    squat: ["bodyweight-squat", "goblet-squat", "barbell-squat"],
-    hinge: ["glute-bridge", "romanian-deadlift", "barbell-deadlift"],
-    horizontal_pull: ["inverted-row", "doorway-row", "bent-over-barbell-row"],
-    vertical_pull: ["pullups", "chin-up", "full-range-of-motion-lat-pulldown"],
-    vertical_press: ["pike-push-up", "dumbbell-shoulder-press", "barbell-shoulder-press"],
-  };
-
+  // Use the REAL STAPLE_MOVEMENTS from generate.ts, not a duplicate
   const allSlugs = new Set(catalogue.map((e) => e.slug));
   let allExist = true;
 
-  for (const [pattern, slugs] of Object.entries(staplePatterns)) {
-    for (const slug of slugs) {
+  for (const [pattern, slugs] of Object.entries(STAPLE_MOVEMENTS)) {
+    for (const slug of slugs ?? []) {
       if (!allSlugs.has(slug)) {
         check(`${pattern} staple '${slug}' exists in catalogue`, false, "MISSING");
         allExist = false;
