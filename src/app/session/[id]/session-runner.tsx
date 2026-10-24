@@ -940,7 +940,7 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              if (await run(() => actions.abandonSession(sessionId))) {
+              if (await run(() => actions.abandonSession(sessionId, elapsed))) {
                 if (onExit) onExit();
                 else router.push("/today");
               }

@@ -498,18 +498,34 @@ async function upgradeVariation(
     .eq("exercise_id", currentExerciseId);
 }
 
+/**
+ * Finish a session.
+ *
+ * Duration accumulates across resumes (g3 fix): if the session already has a
+ * duration (from ending early and resuming), we add to it rather than replacing it.
+ */
 export async function finishSession(input: {
   sessionId: string;
   durationSeconds: number;
   cooldownCompleted: boolean;
 }): Promise<Result> {
   const { supabase } = await requireUser();
+  
+  // Read current duration to accumulate
+  const { data: current } = await supabase
+    .from("sessions")
+    .select("duration_seconds")
+    .eq("id", input.sessionId)
+    .single();
+  
+  const accumulated = (current?.duration_seconds ?? 0) + Math.round(input.durationSeconds);
+  
   const { error } = await supabase
     .from("sessions")
     .update({
       status: "completed",
       completed_at: new Date().toISOString(),
-      duration_seconds: input.durationSeconds,
+      duration_seconds: accumulated,
       cooldown_completed: input.cooldownCompleted,
     })
     .eq("id", input.sessionId);
@@ -522,11 +538,47 @@ export async function finishSession(input: {
   return { ok: true };
 }
 
-export async function abandonSession(sessionId: string): Promise<Result> {
+/**
+ * End a session early.
+ *
+ * If the user logged at least one working set, the session counts as completed
+ * (g2 fix). The elapsed time is saved so it can be accumulated on resume (g3 fix).
+ * Only a session with no working sets at all is marked skipped.
+ * Warm-up sets don't count as training.
+ */
+export async function abandonSession(
+  sessionId: string,
+  elapsedSeconds: number,
+): Promise<Result> {
   const { supabase } = await requireUser();
+  
+  // Check if any working sets were logged
+  const { data: exercises } = await supabase
+    .from("session_exercises")
+    .select("session_sets(id, is_warmup_set)")
+    .eq("session_id", sessionId);
+  
+  const hasWorkingSets = (exercises ?? []).some((ex) => {
+    const sets = (ex.session_sets ?? []) as { is_warmup_set: boolean }[];
+    return sets.some((s) => !s.is_warmup_set);
+  });
+  
+  // Read current duration to accumulate
+  const { data: current } = await supabase
+    .from("sessions")
+    .select("duration_seconds")
+    .eq("id", sessionId)
+    .single();
+  
+  const accumulated = (current?.duration_seconds ?? 0) + Math.round(elapsedSeconds);
+  
   const { error } = await supabase
     .from("sessions")
-    .update({ status: "skipped" })
+    .update({ 
+      status: hasWorkingSets ? "completed" : "skipped",
+      completed_at: hasWorkingSets ? new Date().toISOString() : null,
+      duration_seconds: accumulated,
+    })
     .eq("id", sessionId);
   if (error) return { ok: false, error: error.message };
   revalidateTrainingData();
