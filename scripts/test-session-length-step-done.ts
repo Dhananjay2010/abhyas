@@ -25,7 +25,6 @@ console.log("\n1. DB default value without explicit save means NOT done");
   // Before the migration: DB has default 60, but user never saved explicitly
   // After the migration: DB has NULL (no default)
   const profileWithNull: SessionLengthInitialState = {
-    displayName: "Test User",
     dateOfBirth: "1990-01-01",
     sex: "male",
     heightCm: 175,
@@ -35,11 +34,11 @@ console.log("\n1. DB default value without explicit save means NOT done");
     primaryTrack: "weights",
     daysPerWeek: 4,
     sessionMinutes: null, // No explicit save yet
-    yogaDaysPerWeek: 0,
+    
     disclaimerAccepted: true,
-    hasAllEquipment: false,
-    equipmentIds: [],
-    injuries: [],
+    
+    
+    
   };
   
   const stepIndex = initialStepIndex(profileWithNull);
@@ -49,8 +48,7 @@ console.log("\n1. DB default value without explicit save means NOT done");
 
 console.log("\n2. Explicit save means done");
 {
-  const profileWithSaved: InitialState = {
-    displayName: "Test User",
+  const profileWithSaved: SessionLengthInitialState = {
     dateOfBirth: "1990-01-01",
     sex: "male",
     heightCm: 175,
@@ -60,11 +58,11 @@ console.log("\n2. Explicit save means done");
     primaryTrack: "weights",
     daysPerWeek: 4,
     sessionMinutes: 45, // User explicitly saved 45
-    yogaDaysPerWeek: 0,
+    
     disclaimerAccepted: true,
-    hasAllEquipment: false,
-    equipmentIds: [],
-    injuries: [],
+    
+    
+    
   };
   
   const stepIndex = initialStepIndex(profileWithSaved);
@@ -76,8 +74,8 @@ console.log("\n3. Any explicitly saved value means done");
 {
   const values = [30, 45, 60, 75];
   for (const minutes of values) {
-    const profile: InitialState = {
-      displayName: "Test User",
+    const profile: SessionLengthInitialState = {
+      
       dateOfBirth: "1990-01-01",
       sex: "male",
       heightCm: 175,
@@ -87,11 +85,11 @@ console.log("\n3. Any explicitly saved value means done");
       primaryTrack: "weights",
       daysPerWeek: 4,
       sessionMinutes: minutes,
-      yogaDaysPerWeek: 0,
+      
       disclaimerAccepted: true,
-      hasAllEquipment: false,
-      equipmentIds: [],
-      injuries: [],
+      
+      
+      
     };
     
     const stepIndex = initialStepIndex(profile);
@@ -104,8 +102,8 @@ console.log("\n4. Reload without save must land on session-length step");
 {
   // User opens /onboarding, sees session-length step, closes browser
   // Reopens /onboarding later - should still be on session-length step
-  const profileAfterReload: InitialState = {
-    displayName: "Test User",
+  const profileAfterReload: SessionLengthInitialState = {
+    
     dateOfBirth: "1990-01-01",
     sex: "male",
     heightCm: 175,
@@ -115,11 +113,11 @@ console.log("\n4. Reload without save must land on session-length step");
     primaryTrack: "weights",
     daysPerWeek: 4,
     sessionMinutes: null, // Still null after reload
-    yogaDaysPerWeek: 0,
+    
     disclaimerAccepted: true,
-    hasAllEquipment: false,
-    equipmentIds: [],
-    injuries: [],
+    
+    
+    
   };
   
   const stepIndex = initialStepIndex(profileAfterReload);
