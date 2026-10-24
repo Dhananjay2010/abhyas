@@ -55,11 +55,16 @@ async function main() {
       .from("programs")
       .insert({
         user_id: userId,
-        template: "old",
-        phase: "old",
+        block_number: 1,
+        split_type: "full_body",
+        days_per_week: 3,
+        primary_track: "weights",
+        goal: "strength",
+        level: "intermediate",
         status: "active",
         started_on: oldStartDate,
         ends_on: addDays(oldStartDate, 27),
+        deload_week: 4,
       })
       .select("id")
       .single();
@@ -94,11 +99,16 @@ async function main() {
       .from("programs")
       .insert({
         user_id: userId,
-        template: "new",
-        phase: "new",
+        block_number: 2,
+        split_type: "upper_lower",
+        days_per_week: 4,
+        primary_track: "weights",
+        goal: "muscle_gain",
+        level: "intermediate",
         status: "active",
         started_on: newStartDate,
         ends_on: addDays(newStartDate, 27),
+        deload_week: 4,
       });
 
     if (newProgramError) {

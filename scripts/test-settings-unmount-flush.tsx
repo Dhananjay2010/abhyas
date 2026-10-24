@@ -83,6 +83,9 @@ async function testUnmountFlush() {
       await new Promise(r => setTimeout(r, 100)); 
       return { ok: true }; 
     },
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   const { unmount, container } = render(

@@ -54,10 +54,16 @@ async function main() {
       .from("programs")
       .insert({
         user_id: userId,
-        template: "test",
-        phase: "test",
+        block_number: 1,
+        split_type: "upper_lower",
+        days_per_week: 4,
+        primary_track: "weights",
+        goal: "strength",
+        level: "intermediate",
         status: "active",
         started_on: "2026-01-01",
+        ends_on: "2026-01-28",
+        deload_week: 4,
       })
       .select("id")
       .single();
@@ -73,8 +79,9 @@ async function main() {
       .from("program_days")
       .insert({
         program_id: program.id,
+        user_id: userId,
         day_index: 1,
-        day_type: "upper",
+        day_type: "weights",
         label: "Old Upper",
         status: "superseded",
       })
@@ -92,8 +99,9 @@ async function main() {
       .from("program_days")
       .insert({
         program_id: program.id,
+        user_id: userId,
         day_index: 1,
-        day_type: "upper",
+        day_type: "weights",
         label: "New Upper",
         status: "active",
       })
@@ -112,7 +120,7 @@ async function main() {
       user_id: userId,
       local_date: testDate,
       status: "planned",
-      actual_type: "upper",
+      actual_type: "weights",
       program_day_id: oldDay.id,
     });
 
@@ -136,7 +144,7 @@ async function main() {
     assert(resolved?.isOverride, "Should be marked as override");
     
     // 2. Should have correct dayType
-    assert.equal(resolved?.dayType, "upper", "dayType should be upper");
+    assert.equal(resolved?.dayType, "weights", "dayType should be weights");
     
     // 3. Label should be either "Old Upper" or "New Upper" (not "Today")
     assert(

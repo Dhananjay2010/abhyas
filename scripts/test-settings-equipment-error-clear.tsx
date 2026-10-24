@@ -70,6 +70,9 @@ async function runTest() {
     updateSessionSettings: async () => ({ ok: true }),
     updateEquipment,
     updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   const { container } = render(

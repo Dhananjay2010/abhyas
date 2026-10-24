@@ -57,10 +57,16 @@ async function main() {
       .from("programs")
       .insert({
         user_id: userId,
-        template: "test",
-        phase: "test",
-        status: "current",
+        block_number: 1,
+        split_type: "full_body",
+        days_per_week: 3,
+        primary_track: "weights",
+        goal: "strength",
+        level: "intermediate",
+        status: "active",
         started_on: "2026-01-01",
+        ends_on: "2026-01-28",
+        deload_week: 4,
       })
       .select("id")
       .single();
@@ -75,14 +81,18 @@ async function main() {
     const { error: daysError } = await supabase.from("program_days").insert([
       {
         program_id: program.id,
+        user_id: userId,
         day_index: 1,
-        day_type: "lower",
+        day_type: "weights",
+        label: "Lower",
         status: "active",
       },
       {
         program_id: program.id,
+        user_id: userId,
         day_index: 2,
-        day_type: "upper",
+        day_type: "weights",
+        label: "Upper",
         status: "superseded",
       },
     ]);
@@ -120,14 +130,16 @@ async function main() {
     // Assert only active day is returned
     assert.equal(activeDays?.length, 1, "Only 1 active day");
     assert.equal(activeDays?.[0].day_index, 1, "Active day is day_index 1");
-    assert.equal(activeDays?.[0].day_type, "lower", "Active day is lower");
+    assert.equal(activeDays?.[0].day_type, "weights", "Active day is weights");
 
     // Test ordering with multiple active days
     await supabase.from("program_days").insert([
       {
         program_id: program.id,
+        user_id: userId,
         day_index: 3,
-        day_type: "full",
+        day_type: "weights",
+        label: "Full",
         status: "active",
       },
     ]);

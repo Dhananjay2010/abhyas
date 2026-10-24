@@ -85,6 +85,9 @@ async function testNoOldRevert() {
     updateSessionSettings: async () => ({ ok: true }),
     updateEquipment: async () => ({ ok: true }),
     updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
   };
 
   const { container } = render(
