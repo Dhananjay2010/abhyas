@@ -150,15 +150,13 @@ async function main() {
       errors.push('not capitalized');
     }
     
-    const primaryMusclesArray = ex.primary_muscles
-      .replace(/[{}]/g, '')
-      .split(',')
-      .filter(m => m.length > 0);
+    const primaryMusclesArray = Array.isArray(ex.primary_muscles)
+      ? ex.primary_muscles
+      : ex.primary_muscles.replace(/[{}]/g, '').split(',').filter(m => m.length > 0);
     
-    const equipmentArray = ex.equipment_ids
-      .replace(/[{}]/g, '')
-      .split(',')
-      .filter(e => e.length > 0);
+    const equipmentArray = Array.isArray(ex.equipment_ids)
+      ? ex.equipment_ids
+      : ex.equipment_ids.replace(/[{}]/g, '').split(',').filter(e => e.length > 0);
     
     const expectedCue = buildCue({
       mechanic: ex.mechanic,

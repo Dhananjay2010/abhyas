@@ -410,17 +410,17 @@ MUSCLE_LABEL = {
 }
 
 EQUIPMENT_LABEL = {
-    "barbell": "Barbell", "dumbbell": "Dumbbells", "cable_machine": "Cable machine",
-    "kettlebell": "Kettlebell", "resistance_band": "Bands", "ez_bar": "EZ bar",
-    "machine_generic": "Machine", "leg_press": "Leg press", "hack_squat": "Hack squat",
-    "leg_curl": "Leg curl", "leg_extension": "Leg extension",
-    "lat_pulldown": "Lat pulldown", "pec_deck": "Pec deck",
-    "chest_press_machine": "Chest press", "seated_row_machine": "Seated row",
-    "smith_machine": "Smith machine", "pull_up_bar": "Pull-up bar",
-    "dip_bars": "Dip bars", "flat_bench": "Bench", "adjustable_bench": "Bench",
-    "squat_rack": "Rack", "medicine_ball": "Medicine ball",
-    "stability_ball": "Stability ball", "foam_roller": "Foam roller",
-    "jump_rope": "Jump rope", "ab_wheel": "Ab wheel",
+    "barbell": "Barbell", "dumbbell": "Dumbbell", "cable_machine": "Cable",
+    "kettlebell": "Kettlebell", "resistance_band": "Bands", "ez_bar": "EZ Bar",
+    "machine_generic": "Machine", "leg_press": "Leg Press", "hack_squat": "Hack Squat",
+    "leg_curl": "Leg Curl Machine", "leg_extension": "Leg Extension Machine",
+    "lat_pulldown": "Lat Pulldown", "pec_deck": "Pec Deck",
+    "chest_press_machine": "Chest Press Machine", "seated_row_machine": "Seated Row Machine",
+    "smith_machine": "Smith Machine", "pull_up_bar": "Pull-up Bar",
+    "dip_bars": "Dip Station", "flat_bench": "Bench", "adjustable_bench": "Bench",
+    "squat_rack": "Squat Rack", "medicine_ball": "Medicine Ball",
+    "stability_ball": "Stability Ball", "foam_roller": "Foam Roller",
+    "jump_rope": "Jump Rope", "ab_wheel": "Ab Wheel",
 }
 
 
