@@ -26,6 +26,7 @@ export function InProgressBar() {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const res = await fetch(`/api/in-progress?tz=${encodeURIComponent(tz)}`, {
           credentials: "same-origin",
+          cache: "no-store",
         });
 
         if (cancelled) return;

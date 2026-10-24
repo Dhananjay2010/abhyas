@@ -290,7 +290,7 @@ class FakeSupabase {
     check("title defaults to Workout", result?.title === "Workout", result?.title);
   }
 
-  console.log("\n7. Timezone resolution: profile timezone is used");
+  console.log("\n7. Timezone resolution: profile timezone wins over param");
   {
     const fake = new FakeSupabase();
     fake.addProfile("user1", "America/New_York");
@@ -299,12 +299,49 @@ class FakeSupabase {
     fake.addExercise("ex7", "s8");
     fake.addSet("set9", "user1", "ex7", false);
 
+    // Pass UTC as param, but profile has NY timezone - profile should win
     const result = await getInProgressSession(
       fake as unknown as SupabaseClient<Database>,
       "user1",
       "UTC"
     );
-    check("returns session with NY timezone", result !== null);
+    check("returns session (profile NY tz wins over UTC param)", result !== null);
+  }
+
+  console.log("\n8. Timezone fallback: browser tz when profile tz is null");
+  {
+    const fake = new FakeSupabase();
+    fake.addProfile("user1", null); // No profile timezone
+    const laToday = localDateString("America/Los_Angeles");
+    fake.addSession("s9", "user1", "in_progress", "2026-10-24T14:00:00Z", laToday, "Pull");
+    fake.addExercise("ex8", "s9");
+    fake.addSet("set10", "user1", "ex8", false);
+
+    // Pass LA timezone as param - should be used as fallback
+    const result = await getInProgressSession(
+      fake as unknown as SupabaseClient<Database>,
+      "user1",
+      "America/Los_Angeles"
+    );
+    check("returns session (browser LA tz used as fallback)", result !== null);
+  }
+
+  console.log("\n9. Timezone fallback: system default when both are null");
+  {
+    const fake = new FakeSupabase();
+    fake.addProfile("user1", null);
+    const utcToday = localDateString("UTC");
+    fake.addSession("s10", "user1", "in_progress", "2026-10-24T14:00:00Z", utcToday, "Legs");
+    fake.addExercise("ex9", "s10");
+    fake.addSet("set11", "user1", "ex9", false);
+
+    // Pass invalid timezone - should fall back to system default (UTC)
+    const result = await getInProgressSession(
+      fake as unknown as SupabaseClient<Database>,
+      "user1",
+      "Invalid/Timezone"
+    );
+    check("returns session (system default tz as final fallback)", result !== null);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

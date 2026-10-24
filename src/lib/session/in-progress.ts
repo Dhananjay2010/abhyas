@@ -32,13 +32,14 @@ export async function getInProgressSession(
   timezone: string
 ): Promise<InProgressSession | null> {
   // M2: Fetch profile to get saved timezone, resolve it, then compute today
+  // Profile timezone wins, browser timezone (param) is fallback, system default is final fallback
   const { data: profile } = await supabase
     .from("profiles")
     .select("timezone")
     .eq("id", userId)
     .single();
 
-  const tz = resolveTimezoneWithProfile(profile?.timezone);
+  const tz = resolveTimezoneWithProfile(profile?.timezone || timezone);
   const today = localDateString(tz);
 
   // Find the user's in_progress session for today
