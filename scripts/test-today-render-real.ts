@@ -138,32 +138,9 @@ assert(
   "Other days unaffected by swap"
 );
 
-console.log("\n=== Test 4: Warm-up section rendering logic (extracted helper) ===\n");
+console.log("\n=== Test 4: WarmupSection component rendering ===\n");
 
-// Extract the warm-up section rendering logic from page.tsx
-function shouldRenderWarmupSection(isTraining: boolean, exercises: unknown[]): boolean {
-  return isTraining && exercises.length > 0;
-}
-
-// Test the helper
-const isTraining = true;
-const emptyExercises: { key: string; name: string }[] = [];
-const hasExercises = [{ key: "1", name: "Squat", sets: 3 }];
-
-const shouldRenderEmpty = shouldRenderWarmupSection(isTraining, emptyExercises);
-const shouldRenderWithItems = shouldRenderWarmupSection(isTraining, hasExercises);
-
-assert(
-  !shouldRenderEmpty,
-  "Warm-up section NOT rendered when todayExercises.length === 0"
-);
-
-assert(
-  shouldRenderWithItems,
-  "Warm-up section IS rendered when todayExercises.length > 0"
-);
-
-// Render test: check the actual WarmupSection component
+// Test the real WarmupSection component
 const emptyRender = renderToStaticMarkup(
   createElement(WarmupSection, {
     todayExercises: [],
