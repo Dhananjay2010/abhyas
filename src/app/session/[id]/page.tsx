@@ -57,7 +57,7 @@ export default async function SessionPage({
         .select("primary_track, has_all_equipment, timezone")
         .eq("id", user.id)
         .single(),
-      supabase.from("user_injuries").select("body_region"),
+      supabase.from("user_injuries").select("body_region, severity"),
       supabase.from("warmup_exercises").select("*").eq("is_active", true),
       supabase.from("user_equipment").select("equipment_id"),
       supabase
@@ -172,12 +172,17 @@ export default async function SessionPage({
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
   const allWarmupRows = (warmupsRes.data ?? []) as WarmupRow[];
   
+  // Separate current and past injuries: prehab uses ALL (past injuries benefit from warming up),
+  // but exclusion logic (mobility filter and cool-down) uses only CURRENT to avoid over-filtering
+  const allInjuries = injuriesRes.data ?? [];
+  const allInjuryRegions = allInjuries.map((i) => i.body_region);
+  const currentInjuryRegions = allInjuries.filter((i) => i.severity === "current").map((i) => i.body_region);
+  
   const warmup = selectWarmup({
     warmups: allWarmupRows,
     trainingMuscles,
-    // Prehab uses past injuries too -- they do not block a movement, but they
-    // are exactly what is worth warming up.
-    injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region),
+    injuryRegions: currentInjuryRegions,
+    prehabRegions: allInjuryRegions,
     track: profileRes.data?.primary_track ?? "weights",
     hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
     availableEquipment: profileRes.data?.has_all_equipment
@@ -185,11 +190,11 @@ export default async function SessionPage({
       : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
   });
 
-  // QA H7: Cool-down filter uses injuries (prehab drills for current, general stretches for all)
+  // Cool-down uses only CURRENT injuries for exclusion
   const cooldown = selectCooldown({
     stretches: allWarmupRows,
     trainingMuscles,
-    injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region),
+    injuryRegions: currentInjuryRegions,
     hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
     availableEquipment: profileRes.data?.has_all_equipment
       ? null

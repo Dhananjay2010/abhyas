@@ -8,6 +8,7 @@ import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { branding } from "@/lib/branding";
+import { persistSessionLength } from "@/lib/onboarding/session-length";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
@@ -224,4 +225,17 @@ export async function completeOnboarding(): Promise<ActionResult> {
 
   revalidateTrainingData();
   return { ok: true };
+}
+
+export async function saveSessionLength(minutes: number): Promise<ActionResult> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+
+  const { supabase, user } = await requireUser();
+
+  // TODO: switch to isValidSessionLength from src/lib/session-length-options.ts once PR #54 merges.
+  return persistSessionLength(
+    (m) => supabase.from("profiles").update({ preferred_session_minutes: m }).eq("id", user.id),
+    minutes
+  );
 }
