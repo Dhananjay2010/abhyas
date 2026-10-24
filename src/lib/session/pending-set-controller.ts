@@ -50,7 +50,6 @@ export type PendingSetController = {
   load(): void;
   replay(): Promise<void>;
   onFocus(): void;
-  onAuthRestored(): void;
   getState(): PendingSetState;
 };
 
@@ -247,13 +246,6 @@ export function createPendingSetController(config: {
     }
   }
 
-  function onAuthRestored(): void {
-    const loaded = loadPendingSets(storage, sessionId);
-    if (loaded.length > 0) {
-      replay();
-    }
-  }
-
   function getState(): PendingSetState {
     return state;
   }
@@ -265,7 +257,6 @@ export function createPendingSetController(config: {
     load,
     replay,
     onFocus,
-    onAuthRestored,
     getState,
   };
 }

@@ -218,6 +218,14 @@ export function SessionRunner({
   const wakeLock = useWakeLock(phase !== "done");
 
   // ---- pending set replay -----------------------------------------------
+  // Auto-replay on mount if pending sets exist
+  useEffect(() => {
+    if (!controller) return;
+    // Trigger replay on mount if there are pending sets
+    controller.onFocus();
+  }, [controller]);
+
+  // Retry on window focus and visibility change
   useEffect(() => {
     if (!controller) return;
 
