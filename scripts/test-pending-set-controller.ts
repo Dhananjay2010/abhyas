@@ -10,6 +10,7 @@ import {
 import { SESSION_EXPIRED_CODE, resolveAuth } from "../src/lib/session/auth-result";
 import type { Result } from "../src/app/session/actions";
 import type { Storage } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -89,6 +90,7 @@ async function testRapidFocusAndReplay() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -144,6 +146,7 @@ async function testPrefilledStorageLoadsAndReplays() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -177,6 +180,7 @@ async function testUnresolvedPromiseNotMarkedSaved() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -267,6 +271,7 @@ async function testSingleFlightReplayGuard() {
   };
 
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -304,6 +309,7 @@ async function testSessionExpiredHandling() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -353,6 +359,7 @@ async function testDuplicate23505() {
   });
 
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -381,6 +388,7 @@ async function testNetworkErrorKeepsPending() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -418,6 +426,7 @@ async function testThrownSessionExpired() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -465,6 +474,7 @@ async function testThrownSessionExpiredInReplay() {
   };
 
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -517,6 +527,7 @@ async function testReplayedSetsReported() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,

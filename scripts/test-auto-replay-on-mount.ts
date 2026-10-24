@@ -14,6 +14,7 @@ import {
 } from "../src/lib/session/pending-set-controller";
 import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
 import type { Storage } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -85,6 +86,7 @@ async function testOnFocusReplaysOnFirstCall() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -131,6 +133,7 @@ async function testOnFocusDoesNotReplayTwice() {
   };
 
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -190,6 +193,7 @@ async function testOnFocusRetriesAfterFailure() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -230,6 +234,7 @@ async function testReplayAttemptedResetOnNewPendingSet() {
   };
 
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,

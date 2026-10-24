@@ -21,6 +21,7 @@ import {
   storageKey,
   type Storage,
 } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -75,6 +76,7 @@ async function test23505InSubmitCountsAsSaved() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -93,7 +95,7 @@ async function test23505InSubmitCountsAsSaved() {
   assertEqual(result.status, "saved", "23505 in submit returns 'saved' status");
   
   // Check storage directly - should be empty (not saved as pending)
-  const pending = loadPendingSets(storage, sessionId);
+  const pending = loadPendingSets(storage, sessionId, createPendingSetDeps());
   assertEqual(pending.length, 0, "23505 set not saved to storage (already exists on server)");
 }
 
@@ -130,6 +132,7 @@ async function testReplayDoesntClearBeforeConfirm() {
   };
 
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -143,7 +146,7 @@ async function testReplayDoesntClearBeforeConfirm() {
   await new Promise((resolve) => setTimeout(resolve, 10));
 
   // Check storage immediately - set should still be there
-  const remaining = loadPendingSets(storage, sessionId);
+  const remaining = loadPendingSets(storage, sessionId, createPendingSetDeps());
   assertEqual(remaining.length, 1, "Set still in storage while request pending");
   assertEqual(callCount, 1, "Server was called once");
 }
@@ -181,6 +184,7 @@ async function testReplayKeepsStillExpiredSetPending() {
 
   const states: PendingSetState[] = [];
   const controller = createPendingSetController({
+    deps: createPendingSetDeps(),
     storage,
     logSet,
     sessionId,
@@ -193,7 +197,7 @@ async function testReplayKeepsStillExpiredSetPending() {
   assertEqual(finalState.pending.length, 1, "Set still pending after failed replay");
   assert(finalState.expired, "Still marked as expired");
   
-  const remaining = loadPendingSets(storage, sessionId);
+  const remaining = loadPendingSets(storage, sessionId, createPendingSetDeps());
   assertEqual(remaining.length, 1, "Set remains in storage");
 }
 
@@ -213,19 +217,18 @@ async function testSavePendingSetDedupes() {
   };
 
   // Save the same set twice
-  savePendingSet(storage, sessionId, set);
-  savePendingSet(storage, sessionId, set);
+  savePendingSet(storage, sessionId, set, createPendingSetDeps());
+  savePendingSet(storage, sessionId, set, createPendingSetDeps());
 
-  const loaded = loadPendingSets(storage, sessionId);
+  const loaded = loadPendingSets(storage, sessionId, createPendingSetDeps());
   assertEqual(loaded.length, 1, "Duplicate clientId not saved twice");
 
-  // Save with different clientId but same exercise/setNumber
   savePendingSet(storage, sessionId, {
     ...set,
     clientId: "client-2",
-  });
+  }, createPendingSetDeps());
 
-  const loaded2 = loadPendingSets(storage, sessionId);
+  const loaded2 = loadPendingSets(storage, sessionId, createPendingSetDeps());
   assertEqual(loaded2.length, 2, "Different clientId is saved");
 }
 
@@ -238,7 +241,7 @@ async function testBadJsonFallback() {
   // Put invalid JSON in storage
   storage.setItem(storageKey(), "{invalid json}");
 
-  const loaded = loadPendingSets(storage, sessionId);
+  const loaded = loadPendingSets(storage, sessionId, createPendingSetDeps());
 
   assertEqual(loaded, [], "Returns empty array for bad JSON");
   assertEqual(storage.getItem(storageKey()), null, "Bad JSON cleared from storage");
@@ -251,9 +254,9 @@ async function testBadJsonFallback() {
     weightKg: 50,
     durationSeconds: null,
     clientId: "client-1",
-  });
+  }, createPendingSetDeps());
 
-  const loaded2 = loadPendingSets(storage, sessionId);
+  const loaded2 = loadPendingSets(storage, sessionId, createPendingSetDeps());
   assertEqual(loaded2.length, 1, "Can save after bad JSON recovery");
 }
 

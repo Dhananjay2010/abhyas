@@ -15,6 +15,7 @@ import {
   storageKey,
   type Storage,
 } from "../src/lib/session/pending-set-retry";
+import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -61,7 +62,7 @@ async function testInvalidJsonCleared() {
   const storage = createStorage();
   storage.setItem(storageKey(), "not valid json{{{");
 
-  const result = loadAllPendingSets(storage);
+  const result = loadAllPendingSets(storage, createPendingSetDeps());
 
   assertEqual(result, {}, "Returns empty object for invalid JSON");
   assertEqual(storage.getItem(storageKey()), null, "Storage key is cleared");
@@ -73,7 +74,7 @@ async function testArrayRejected() {
   const storage = createStorage();
   storage.setItem(storageKey(), JSON.stringify([{ sessionId: "foo" }]));
 
-  const result = loadAllPendingSets(storage);
+  const result = loadAllPendingSets(storage, createPendingSetDeps());
 
   assertEqual(result, {}, "Returns empty object for array");
   assertEqual(storage.getItem(storageKey()), null, "Storage key is cleared");
@@ -90,7 +91,7 @@ async function testWrongShapeRejected() {
     JSON.stringify({ "session-1": { setNumber: 1 } })
   );
 
-  let result = loadAllPendingSets(storage);
+  let result = loadAllPendingSets(storage, createPendingSetDeps());
   assertEqual(result, {}, "Rejects object instead of array");
   assertEqual(storage.getItem(storageKey()), null, "Storage cleared");
 
@@ -108,7 +109,7 @@ async function testWrongShapeRejected() {
     })
   );
 
-  result = loadAllPendingSets(storage);
+  result = loadAllPendingSets(storage, createPendingSetDeps());
   assertEqual(result, {}, "Rejects sets with missing fields");
   assertEqual(storage.getItem(storageKey()), null, "Storage cleared");
 
@@ -129,7 +130,7 @@ async function testWrongShapeRejected() {
     })
   );
 
-  result = loadAllPendingSets(storage);
+  result = loadAllPendingSets(storage, createPendingSetDeps());
   assertEqual(result, {}, "Rejects sets with wrong field types");
   assertEqual(storage.getItem(storageKey()), null, "Storage cleared");
 }
@@ -172,7 +173,7 @@ async function testWellFormedDataPasses() {
 
   storage.setItem(storageKey(), JSON.stringify(wellFormed));
 
-  const result = loadAllPendingSets(storage);
+  const result = loadAllPendingSets(storage, createPendingSetDeps());
 
   assertEqual(result, wellFormed, "Returns well-formed data unchanged");
   assert(storage.getItem(storageKey()) !== null, "Storage not cleared");
@@ -184,7 +185,7 @@ async function testLoadPendingSetsWithInvalidStorage() {
   const storage = createStorage();
   storage.setItem(storageKey(), "invalid json");
 
-  const result = loadPendingSets(storage, "session-1");
+  const result = loadPendingSets(storage, "session-1", createPendingSetDeps());
 
   assertEqual(result, [], "Returns empty array when storage is invalid");
   assertEqual(storage.getItem(storageKey()), null, "Invalid storage is cleared");
@@ -206,9 +207,9 @@ async function testSavePendingSetValidation() {
     weightKg: 50,
     durationSeconds: null,
     clientId: "client-1",
-  });
+  }, createPendingSetDeps());
 
-  const loaded = loadPendingSets(storage, "session-1");
+  const loaded = loadPendingSets(storage, "session-1", createPendingSetDeps());
   assertEqual(loaded.length, 1, "Set saved despite invalid prior storage");
   assertEqual(loaded[0]?.setNumber, 1, "Correct set loaded");
 }
@@ -233,7 +234,7 @@ async function testNullFieldsValid() {
 
   storage.setItem(storageKey(), JSON.stringify(withNulls));
 
-  const result = loadAllPendingSets(storage);
+  const result = loadAllPendingSets(storage, createPendingSetDeps());
 
   assertEqual(result, withNulls, "Null fields are accepted");
 }
@@ -260,7 +261,7 @@ async function testExtraFieldsIgnored() {
 
   storage.setItem(storageKey(), JSON.stringify(withExtra));
 
-  const result = loadAllPendingSets(storage);
+  const result = loadAllPendingSets(storage, createPendingSetDeps());
 
   assert(result["session-1"]?.[0]?.setNumber === 1, "Data with extra fields is accepted");
 }
@@ -305,7 +306,7 @@ async function testStaleEntriesPruned() {
 
   storage.setItem(storageKey(), JSON.stringify(withStale));
 
-  const result = loadAllPendingSets(storage);
+  const result = loadAllPendingSets(storage, createPendingSetDeps());
 
   assert(result["old-session"] === undefined, "Stale session (>7 days) is pruned");
   assert(result["recent-session"] !== undefined, "Recent session is kept");
@@ -333,7 +334,7 @@ async function testLegacyFormatMigrated() {
 
   storage.setItem(storageKey(), JSON.stringify(legacyFormat));
 
-  const result = loadAllPendingSets(storage);
+  const result = loadAllPendingSets(storage, createPendingSetDeps());
 
   assertEqual(result["session-1"]?.length, 1, "Legacy data migrated successfully");
   assertEqual(result["session-1"]?.[0]?.setNumber, 1, "Data intact after migration");
@@ -380,7 +381,7 @@ async function testTimestampUpdatedOnSave() {
     weightKg: 50,
     durationSeconds: null,
     clientId: "client-2",
-  });
+  }, createPendingSetDeps());
 
   const raw = storage.getItem(storageKey());
   const parsed = JSON.parse(raw!);
