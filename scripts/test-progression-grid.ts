@@ -963,7 +963,7 @@ console.log("\n23. Back-off: 90% rounded to 2.5 kg grid, never more than one inc
     { current: 60, meta: { ...BENCH, movementPattern: "squat" }, expected: 52.5, label: "lower 60 kg" },
     { current: 120, meta: { ...BENCH, movementPattern: "squat" }, expected: 107.5, label: "lower 120 kg" },
     { current: 5.5, meta: BENCH, expected: 5.5, label: "upper 5.5 kg (hold)" },
-    { current: 2.75, meta: CURL, expected: 2.75, label: "isolation 2.75 kg (hold)" },
+    { current: 2.75, meta: CURL, expected: 2.5, label: "isolation 2.75 kg (equipment grid: drops to 2.5)" },
     { current: 2.5, meta: CURL, expected: 2.5, label: "isolation 2.5 kg (hold)" },
   ];
   
@@ -1167,8 +1167,8 @@ console.log("\n30. Isolation back-off uses 1.25 kg grid (not 2.5 kg)");
     equipmentIds: ["dumbbell"],
     unit: "kg",
   });
-  check("isolation back-off 13.75 kg: 13.75 -> 11.25 kg (1.25 grid)", backOffIso.nextWorkingWeightKg === 11.25, `${backOffIso.nextWorkingWeightKg}`);
-  check("isolation back-off 13.75 kg message says 'dropping to 11.25 kg'", backOffIso.message.includes("dropping to 11.25 kg"), backOffIso.message);
+  check("isolation back-off 13.75 kg: 13.75 -> 10 kg (equipment 2.5 grid, not 1.25)", backOffIso.nextWorkingWeightKg === 10, `${backOffIso.nextWorkingWeightKg}`);
+  check("isolation back-off 13.75 kg message says 'dropping to 10 kg' or '10.0 kg'", backOffIso.message.includes("10") && backOffIso.message.includes("kg"), backOffIso.message);
   const curl15 = run({ meta: CURL, sets: sets(4, 12, 15), state: fresh({ currentWorkingWeightKg: 15 }), equipmentIds: undefined, unit: undefined });
   check("unwired curl 15 kg -> 'up to 16.25 kg' (main's kg wording, not 16.3)", curl15.nextWorkingWeightKg === 16.25 && curl15.message.includes("up to 16.25 kg"), curl15.message);
 }

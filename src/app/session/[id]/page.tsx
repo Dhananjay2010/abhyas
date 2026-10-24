@@ -4,6 +4,7 @@ import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warm
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { progressionInputsFromExercise } from "@/lib/session/progression-inputs";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
@@ -47,14 +48,14 @@ export default async function SessionPage({
         // session_exercises points at it twice — once for the exercise itself
         // and once for what it was swapped from. Without the hint PostgREST
         // answers PGRST201 rather than guessing.
-        .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, metric, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, duration_seconds, is_warmup_set))")
+        .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, metric, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, mechanic, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, duration_seconds, is_warmup_set))")
         .eq("id", id)
         .order("order_index", { referencedTable: "session_exercises" })
         .maybeSingle(),
       supabase.from("user_settings").select("*").eq("user_id", user.id).single(),
       supabase
         .from("profiles")
-        .select("primary_track, has_all_equipment, timezone")
+        .select("primary_track, has_all_equipment, timezone, units")
         .eq("id", user.id)
         .single(),
       supabase.from("user_injuries").select("body_region, severity"),
@@ -109,6 +110,7 @@ export default async function SessionPage({
       name: string;
       cue: string | null;
       movement_pattern: Database["public"]["Enums"]["movement_pattern"];
+      mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
       primary_muscles: Muscle[];
       equipment_ids: string[];
     };
@@ -142,13 +144,14 @@ export default async function SessionPage({
         { currentWorkingWeightKg: working },
         session.is_deload,
         {
-          mechanic: null,
+          mechanic: ex?.mechanic ?? null,
           movementPattern: ex?.movement_pattern ?? "other",
           metric: r.metric ?? "reps",
           isBodyweight,
           progressionChain: null,
           progressionRank: null,
         },
+        ...progressionInputsFromExercise(ex ?? { mechanic: null, equipment_ids: [] }, profileRes.data?.units),
       ),
       isBodyweight,
       // Warm-up sets are excluded and the order applied here rather than in the

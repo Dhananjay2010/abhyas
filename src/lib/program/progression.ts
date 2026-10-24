@@ -579,36 +579,42 @@ export function evaluateProgression(input: {
     const rawReduced = currentWeight * 0.9;
     let reduced: number;
     
-    if (equipmentIds && equipmentIds.includes('kettlebell')) {
-      // Kettlebell: snap to real bell (down), never more than one bell below current
-      const bells = KETTLEBELL_WEIGHTS_KG;
-      const currentIndex = bells.indexOf(currentWeight);
-      let targetIndex: number;
-      
-      if (currentIndex >= 0) {
-        // Current is exactly on a bell, drop at most one bell
-        targetIndex = Math.max(0, currentIndex - 1);
+    if (equipmentIds && unit) {
+      // Equipment-aware back-off: snap to equipment grid
+      if (equipmentIds.includes('kettlebell')) {
+        // Kettlebell: snap to real bell (down), never more than one bell below current
+        const bells = KETTLEBELL_WEIGHTS_KG;
+        const currentIndex = bells.indexOf(currentWeight);
+        let targetIndex: number;
+        
+        if (currentIndex >= 0) {
+          // Current is exactly on a bell, drop at most one bell
+          targetIndex = Math.max(0, currentIndex - 1);
+        } else {
+          // Current is off-grid, find the bell at or below 90%
+          targetIndex = bells.findIndex(b => b >= rawReduced);
+          if (targetIndex === -1) {
+            targetIndex = bells.length - 1;
+          } else if (bells[targetIndex] > rawReduced && targetIndex > 0) {
+            targetIndex--;
+          }
+          // Ensure we don't drop more than one bell below current
+          const currentBellIndex = bells.findIndex(b => b >= currentWeight);
+          if (currentBellIndex > 0 && targetIndex < currentBellIndex - 1) {
+            targetIndex = currentBellIndex - 1;
+          }
+        }
+        
+        reduced = bells[targetIndex];
       } else {
-        // Current is off-grid, find the bell at or below 90%
-        targetIndex = bells.findIndex(b => b >= rawReduced);
-        if (targetIndex === -1) {
-          targetIndex = bells.length - 1;
-        } else if (bells[targetIndex] > rawReduced && targetIndex > 0) {
-          targetIndex--;
-        }
-        // Ensure we don't drop more than one bell below current
-        const currentBellIndex = bells.findIndex(b => b >= currentWeight);
-        if (currentBellIndex > 0 && targetIndex < currentBellIndex - 1) {
-          targetIndex = currentBellIndex - 1;
-        }
+        // Standard equipment: snap down to equipment grid (~90%)
+        const gridStep = equipmentGridStep(equipmentIds, 'kg');
+        reduced = roundToGrid(rawReduced, equipmentIds, unit, gridStep, 'down');
       }
-      
-      reduced = bells[targetIndex];
     } else {
-      // Standard equipment: use 2.5 kg grid (1.25 kg for isolation), NOT the lift increment
+      // No equipment info: use 2.5 kg grid (1.25 kg for isolation), never drop more than one increment
       const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
       const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
-      // Never drop more than one lift increment below the 90% value
       const minAllowed = rawReduced - liftIncrement;
       reduced = Math.max(snapped, minAllowed);
     }

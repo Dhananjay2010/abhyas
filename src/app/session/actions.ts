@@ -23,6 +23,7 @@ import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
+import { progressionInputsFromExercise } from "@/lib/session/progression-inputs";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -77,7 +78,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // active program's id, so the program is fetched with all seven of its days
   // embedded and the right one is picked once the timezone is known.
   const [profileRes, openRes, settingsRes] = await Promise.all([
-    supabase.from("profiles").select("timezone, primary_track").eq("id", user.id).single(),
+    supabase.from("profiles").select("timezone, primary_track, units").eq("id", user.id).single(),
     supabase
       .from("sessions")
       // `skipped` is in here so that an attempt ended early can be picked up
@@ -368,7 +369,7 @@ async function applyProgression(
   };
   if (!ex) return null;
 
-  const [sessionRes, setsRes, progressRes] = await Promise.all([
+  const [sessionRes, setsRes, progressRes, profileRes] = await Promise.all([
     supabase.from("sessions").select("is_deload, local_date, program_id").eq("id", se.session_id).maybeSingle(),
     supabase
       .from("session_sets")
@@ -382,6 +383,7 @@ async function applyProgression(
       .eq("user_id", userId)
       .eq("exercise_id", se.exercise_id)
       .maybeSingle(),
+    supabase.from("profiles").select("units").eq("id", userId).maybeSingle(),
   ]);
 
   const meta: ExerciseMeta = {
@@ -422,6 +424,7 @@ async function applyProgression(
     meta,
     state,
     isDeload: sessionRes.data?.is_deload ?? false,
+    ...progressionInputsFromExercise(ex, profileRes.data?.units),
   });
 
   await writeExerciseProgressCore(
