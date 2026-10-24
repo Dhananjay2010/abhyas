@@ -57,16 +57,17 @@ export type OpenSession = {
 export async function closeStaleSessions(
   supabase: Client,
   open: OpenSession[],
-  _today: string,
+  today: string,
 ): Promise<number> {
   const deps = buildCloseStaleDeps(supabase);
-  return closeStaleSessionsCore(deps, open, Date.now());
+  return closeStaleSessionsCore(deps, open, Date.now(), today);
 }
 
 export async function closeStaleSessionsCore(
   deps: CloseStaleDeps,
   open: OpenSession[],
   nowMs: number,
+  today: string,
 ): Promise<number> {
   if (open.length === 0) return 0;
 
@@ -132,8 +133,10 @@ export async function closeStaleSessionsCore(
       // If there are logged sets, use the first set's time as started_at fallback
       const fallbackStartedAt = firstSetCompletedAt.get(id);
       if (!fallbackStartedAt) {
-        // No started_at and no sets - mark as stale regardless of date
-        stale.push(id);
+        // No started_at and no sets - mark as stale only if dated before today
+        if (session && session.local_date < _today) {
+          stale.push(id);
+        }
         continue;
       }
       // Has sets but no started_at - use set time for staleness check
