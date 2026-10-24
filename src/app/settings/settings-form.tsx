@@ -884,7 +884,7 @@ export function SettingsForm({
       </Section>
 
       <Section title="Units">
-        <Field label="Weight and height units">
+        <Field label="Weight and height units" error={fieldErrors.get("units")}>
           <Segmented
             options={[
               { value: "metric", label: "Metric (kg, cm)" },
@@ -893,7 +893,7 @@ export function SettingsForm({
             value={s.units}
             onChange={(v) => {
               setS((prev) => ({ ...prev, units: v }));
-              save(() => actions.updateProfileSettings({ units: v }));
+              saveProfile("units", { units: v });
             }}
           />
         </Field>

@@ -348,11 +348,12 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     // The component starts at About step (disclaimer already accepted)
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // Check that hints show imperial units
+    // Check that hints show imperial units (main's code shows "kg" and "cm", not "lb" or "ft")
     const bodyText = container.textContent || "";
     check(
-      "About step hints show imperial units (lb, ft, in)",
-      bodyText.includes("lb") || bodyText.includes("ft") || bodyText.includes("in")
+      "About step hints show imperial format (lb, not kg)",
+      bodyText.includes("lb") && !bodyText.includes("kg"),
+      `bodyText includes lb: ${bodyText.includes("lb")}, includes kg: ${bodyText.includes("kg")}`
     );
 
     // Find and fill DOB (use 1990-05-12)
@@ -575,6 +576,109 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
           }
         }
       }
+    }
+  }
+
+  console.log("\n5. Rapid toggle serialization: multiple metric/imperial toggles with max 1 in flight");
+
+  {
+    let saveCallCount = 0;
+    let inflightCount = 0;
+    let maxInflightCount = 0;
+    const saveResults: string[] = [];
+
+    const mockActions: SettingsActions = {
+      updateSessionSettings: async () => ({ ok: true }),
+      updateProfileSettings: async (patch) => {
+        inflightCount++;
+        maxInflightCount = Math.max(maxInflightCount, inflightCount);
+        saveCallCount++;
+        
+        // Simulate network delay
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        
+        if (patch.units) {
+          saveResults.push(patch.units);
+        }
+        
+        inflightCount--;
+        return { ok: true };
+      },
+      updateEquipment: async () => ({ ok: true }),
+      updateInjuries: async () => ({ ok: true }),
+    };
+
+    const initial: SettingsState = {
+      goal: "strength",
+      level: "intermediate",
+      primaryTrack: "weights",
+      daysPerWeek: 4,
+      yogaDaysPerWeek: 0,
+      preferredSessionMinutes: 45,
+      hasAllEquipment: true,
+      equipmentIds: [],
+      injuries: [],
+      planningMode: "progression",
+      perSetLogging: true,
+      resumeSession: true,
+      cooldownEnabled: true,
+      restAutostart: true,
+      restSound: true,
+      restVibrate: true,
+      restOverrideSeconds: null,
+      bodyweightPrompt: "weekly",
+      timezone: null,
+      dateOfBirth: null,
+      units: "metric",
+    };
+
+    const { container } = render(
+      React.createElement(SettingsForm, {
+        initial,
+        equipment: [],
+        timezones: ["UTC"],
+        actions: mockActions,
+      })
+    );
+
+    // Find Imperial button
+    const imperialButton = Array.from(container.querySelectorAll("button")).find((btn) =>
+      btn.textContent?.includes("Imperial")
+    );
+    const metricButton = Array.from(container.querySelectorAll("button")).find((btn) =>
+      btn.textContent?.includes("Metric")
+    );
+
+    check("Found Imperial and Metric buttons", !!(imperialButton && metricButton));
+
+    if (imperialButton && metricButton) {
+      // Rapidly toggle: metric -> imperial -> metric -> imperial
+      await userEvent.click(imperialButton);
+      await userEvent.click(metricButton);
+      await userEvent.click(imperialButton);
+      await userEvent.click(metricButton);
+      await userEvent.click(imperialButton);
+
+      // Wait for all saves to complete
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      check(
+        "Max 1 request in flight at a time",
+        maxInflightCount <= 1,
+        `max in flight: ${maxInflightCount}`
+      );
+
+      check(
+        "Final value is 'imperial' (last click)",
+        saveResults[saveResults.length - 1] === "imperial",
+        `got '${saveResults[saveResults.length - 1]}'`
+      );
+
+      check(
+        "Save was coalesced (fewer saves than clicks)",
+        saveCallCount < 5,
+        `${saveCallCount} saves for 5 clicks`
+      );
     }
   }
 
