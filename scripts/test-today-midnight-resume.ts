@@ -122,7 +122,7 @@ console.log("\n9. Test H: prepareOpenSessions preserves real started_at (not der
 console.log("\n10. Test I: shouldRedirectSession keeps in_progress sessions accessible");
 {
   check("completed redirects", shouldRedirectSession("completed") === true);
-  check("skipped redirects", shouldRedirectSession("skipped") === true);
+  check("skipped does NOT redirect", shouldRedirectSession("skipped") === false);
   check("in_progress does NOT redirect", shouldRedirectSession("in_progress") === false);
   check("planned does NOT redirect", shouldRedirectSession("planned") === false);
 }

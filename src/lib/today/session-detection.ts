@@ -77,8 +77,8 @@ export function todayCloseInput(
 
 /**
  * Determine if a session should redirect to /today based on its status.
- * Only completed/skipped sessions redirect; in_progress and planned stay accessible.
+ * Only completed sessions redirect; in_progress and planned stay accessible.
  */
 export function shouldRedirectSession(status: string): boolean {
-  return status === "completed" || status === "skipped";
+  return status === "completed";
 }
