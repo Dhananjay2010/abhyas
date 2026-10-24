@@ -23,6 +23,7 @@ import { endEarlyConfirmTitle, sessionSummaryTitle } from "@/lib/session/end-ear
 import { focusTrap } from "@/lib/focus-trap";
 import { formatNumber } from "@/lib/format";
 import { PendingTracker } from "@/lib/session/pending-tracker";
+import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import {
   abandonSession,
   deleteSet,
@@ -294,6 +295,7 @@ export function SessionRunner({
    */
   const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
 
+<<<<<<< HEAD
   async function run<T extends { ok: boolean; error?: string }>(
     fn: () => Promise<T>
   ): Promise<"busy" | boolean> {
@@ -310,9 +312,7 @@ export function SessionRunner({
           else setError(null);
           return r.ok;
         } catch (err) {
-          // h2: Catch network errors (offline, timeout, etc)
-          const message = err instanceof Error ? err.message : "Network error. Check your connection.";
-          setError(message);
+          setError(runnerErrorMessage(err));
           return false;
         }
       }
@@ -327,6 +327,24 @@ export function SessionRunner({
     if (pendingTracker.hasRecentFailures()) {
       setSaveError("Couldn't save your last set. Please retry.");
       return;
+=======
+  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>) {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const r = await fn();
+      if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
+      else setError(null);
+      return r.ok;
+    } catch (err) {
+      // h2: Catch network errors (offline, timeout, etc)
+      setError(runnerErrorMessage(err));
+      return false;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+>>>>>>> origin/main
     }
     setSavePending(false);
     setSaveError(null);
