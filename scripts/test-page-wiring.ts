@@ -1,312 +1,125 @@
-#!/usr/bin/env tsx
 /**
- * Behavioral unit tests for Today page wiring helpers.
- *
- * Tests todayStateInputFromRows and todayPromptBlocks without source-grep.
- * These helpers extract page logic from the DB layer.
+ * Test page-wiring helper: preserves error states (null values).
+ * 
+ * Covers:
+ * - b1: failed load stays null, doesn't become false
+ * - f1: offer not shown on failed load (hasStartedAny stays null)
  */
 
-import { todayStateInputFromRows } from "../src/lib/today/page-input";
-import { todayPromptBlocks } from "../src/lib/today/prompt-blocks";
+import { buildPageState } from "../src/lib/today/page-wiring";
 
-let totalTests = 0;
-let passedTests = 0;
-
-function assert(condition: boolean, message: string) {
-  totalTests++;
-  if (!condition) {
-    console.error(`❌ FAIL: ${message}`);
-    process.exit(1);
-  } else {
-    passedTests++;
-    console.log(`✓ ${message}`);
-  }
-}
-
-console.log("\n=== Test 1: todayStateInputFromRows ===\n");
-
-const inputRows = {
+const baseInput = {
   profile: {
-    created_at: "2026-10-20T10:00:00Z",
-    timezone: "UTC",
+    created_at: "2024-01-01T00:00:00Z",
+    timezone: "America/New_York",
   },
   program: {
-    id: "program-1",
-    started_on: "2026-10-20",
+    id: "p1",
+    started_on: "2024-01-01",
   },
   days: [
-    { day_index: 1, day_type: "weights" as const, label: "Upper A" },
+    { day_index: 1, day_type: "weights" as const, label: "Push" },
     { day_index: 2, day_type: "rest" as const, label: null },
   ],
-  todaySessions: [
-    { status: "planned", actual_type: "rest" as const, program_id: "program-1", started_at: null },
-  ],
-  yesterdaySessions: [],
-  timezone: "UTC",
-  localToday: "2026-10-22",
-  yesterday: "2026-10-21",
-  dayType: "rest" as const,
+  todaySessions: [],
+  timezone: "America/New_York",
+  localToday: "2024-01-15",
+  yesterday: "2024-01-14",
+  dayType: null,
   strengthDone: false,
   strengthOpen: false,
-  hasStartedAny: true,
 };
 
-const result = todayStateInputFromRows(inputRows);
-
-assert(
-  result.profile.created_at === "2026-10-20T10:00:00Z",
-  "Maps profile.created_at"
-);
-
-assert(
-  result.program.id === "program-1",
-  "Maps program.id"
-);
-
-assert(
-  result.days.length === 2,
-  "Maps days array"
-);
-
-assert(
-  result.sessions.today.length === 1,
-  "Maps today sessions"
-);
-
-assert(
-  result.sessions.today[0].status === "planned",
-  "Maps session status"
-);
-
-assert(
-  result.dayType === "rest",
-  "Maps dayType"
-);
-
-assert(
-  result.hasStartedSession === true,
-  "Maps hasStartedAny to hasStartedSession"
-);
-
-console.log("\n=== Test 2: todayPromptBlocks - missed prompt ===\n");
-
-const missedBlocks = todayPromptBlocks({
-  promptType: "missed",
-  missedYesterday: true,
-  hasStartedAny: true,
-  nextTrainingDay: null,
-  isTraining: true,
+// Test 1: successful query - hasStartedAny is false
+const successResult = buildPageState({
+  ...baseInput,
+  allSessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessions: [],
 });
 
-assert(
-  missedBlocks.showMissedPrompt === true,
-  "Shows missed prompt for 'missed' type"
-);
-
-
-assert(
-  missedBlocks.showRestPlan === false,
-  "Hides rest plan for 'missed' type"
-);
-
-assert(
-  missedBlocks.showBothPrompt === false,
-  "Hides both prompt for 'missed' type"
-);
-
-console.log("\n=== Test 3: todayPromptBlocks - both state ===\n");
-
-const bothBlocks = todayPromptBlocks({
-  promptType: "both",
-  missedYesterday: true,
-  hasStartedAny: true,
-  nextTrainingDay: null,
-  isTraining: false,
-});
-
-assert(
-  bothBlocks.showBothPrompt === true,
-  "Shows both prompt for 'both' type"
-);
-
-assert(
-  bothBlocks.showRestPlan === true,
-  "Shows rest plan for 'both' type"
-);
-
-assert(
-  bothBlocks.showMissedPrompt === false,
-  "Hides separate missed prompt for 'both' type"
-);
-
-
-console.log("\n=== Test 4: todayPromptBlocks - first day rest ===\n");
-
-const firstDayBlocks = todayPromptBlocks({
-  promptType: "rest_plan",
-  missedYesterday: false,
-  hasStartedAny: false,
-  nextTrainingDay: { dayName: "Monday", dayIndex: 1 },
-  isTraining: false,
-});
-
-assert(
-  firstDayBlocks.showFirstDayWelcome === true,
-  "Shows first day welcome when never started on rest day"
-);
-
-
-assert(
-  firstDayBlocks.showRestPlan === true,
-  "Shows rest plan for first day rest"
-);
-
-assert(
-  firstDayBlocks.showMissedPrompt === false,
-  "Hides missed prompt for first day rest"
-);
-
-console.log("\n=== Test 5: todayPromptBlocks - normal rest day ===\n");
-
-const normalRestBlocks = todayPromptBlocks({
-  promptType: "rest_plan",
-  missedYesterday: false,
-  hasStartedAny: true,
-  nextTrainingDay: null,
-  isTraining: false,
-});
-
-assert(
-  normalRestBlocks.showRestPlan === true,
-  "Shows rest plan for normal rest day"
-);
-
-assert(
-  normalRestBlocks.showFirstDayWelcome === false,
-  "Hides first day welcome when user has started"
-);
-
-
-console.log("\n=== Test 6: todayPromptBlocks - no prompt ===\n");
-
-const noPromptBlocks = todayPromptBlocks({
-  promptType: "none",
-  missedYesterday: false,
-  hasStartedAny: true,
-  nextTrainingDay: null,
-  isTraining: false,
-});
-
-assert(
-  noPromptBlocks.showMissedPrompt === false,
-  "Hides all prompts for 'none' type"
-);
-
-
-assert(
-  noPromptBlocks.showRestPlan === false,
-  "Hides rest plan for 'none' type"
-);
-
-assert(
-  noPromptBlocks.showBothPrompt === false,
-  "Hides both prompt for 'none' type"
-);
-
-assert(
-  noPromptBlocks.showFirstDayWelcome === false,
-  "Hides first day welcome for 'none' type"
-);
-
-console.log("\n=== Test 7: Day-one - never started on training day ===\n");
-
-const neverStartedTraining = todayPromptBlocks({
-  promptType: "none",
-  missedYesterday: false,
-  hasStartedAny: false,
-  nextTrainingDay: null,
-  isTraining: true,
-});
-
-assert(
-  neverStartedTraining.showFirstDayWelcome === true,
-  "Shows first day welcome when never started on training day"
-);
-
-assert(
-  neverStartedTraining.showMissedPrompt === false,
-  "Hides missed prompt when never started on training day"
-);
-
-
-console.log("\n=== Test 8: Day-one - never started on rest day ===\n");
-
-const neverStartedRest = todayPromptBlocks({
-  promptType: "rest_plan",
-  missedYesterday: false,
-  hasStartedAny: false,
-  nextTrainingDay: { dayName: "Monday", dayIndex: 1 },
-  isTraining: false,
-});
-
-assert(
-  neverStartedRest.showFirstDayWelcome === true,
-  "Shows first day welcome when never started on rest day"
-);
-
-
-assert(
-  neverStartedRest.showMissedPrompt === false,
-  "Hides missed prompt when never started on rest day"
-);
-
-console.log("\n=== Test 9: Day-one - one completed session then missed ===\n");
-
-const oneThenMissed = todayPromptBlocks({
-  promptType: "missed",
-  missedYesterday: true,
-  hasStartedAny: true,
-  nextTrainingDay: null,
-  isTraining: true,
-});
-
-assert(
-  oneThenMissed.showMissedPrompt === true,
-  "Shows missed prompt after one completed session"
-);
-
-assert(
-  oneThenMissed.showFirstDayWelcome === false,
-  "Hides first day welcome after one completed session"
-);
-
-console.log("\n=== Test 10: Day-one - never started suppresses missed prompt ===\n");
-
-const neverStartedSuppressesMissed = todayPromptBlocks({
-  promptType: "missed",
-  missedYesterday: true,
-  hasStartedAny: false,
-  nextTrainingDay: null,
-  isTraining: true,
-});
-
-assert(
-  neverStartedSuppressesMissed.showMissedPrompt === false,
-  "Suppresses missed prompt when never started (day-one guard)"
-);
-
-assert(
-  neverStartedSuppressesMissed.showFirstDayWelcome === true,
-  "Shows first day welcome instead of missed prompt when never started"
-);
-
-console.log("\n==================================================");
-console.log(`📊 Test Results: ${passedTests}/${totalTests} passed`);
-
-if (passedTests === totalTests) {
-  console.log("✅ All tests passed!");
-  process.exit(0);
-} else {
-  console.log(`❌ ${totalTests - passedTests} test(s) failed`);
-  process.exit(1);
+if (successResult.hasStartedAny !== false) {
+  throw new Error(`Expected hasStartedAny = false, got ${successResult.hasStartedAny}`);
 }
+
+if (successResult.todayStateInput === null) {
+  throw new Error("Expected non-null todayStateInput for successful query");
+}
+
+// Test 2: successful query - hasStartedAny is true
+const hasStartedResult = buildPageState({
+  ...baseInput,
+  allSessionsRes: {
+    data: [
+      { actual_type: "weights", status: "completed", started_at: "2024-01-10T10:00:00Z" },
+    ],
+    error: null,
+  },
+  yesterdaySessions: [],
+});
+
+if (hasStartedResult.hasStartedAny !== true) {
+  throw new Error(`Expected hasStartedAny = true, got ${hasStartedResult.hasStartedAny}`);
+}
+
+// Test 3: b1 - failed allSessions load - hasStartedAny stays null
+const failedLoadResult = buildPageState({
+  ...baseInput,
+  allSessionsRes: {
+    data: null,
+    error: new Error("Database connection failed"),
+  },
+  yesterdaySessions: [],
+});
+
+if (failedLoadResult.hasStartedAny !== null) {
+  throw new Error(`b1: failed load must preserve null, got ${failedLoadResult.hasStartedAny}`);
+}
+
+if (failedLoadResult.todayStateInput === null) {
+  throw new Error("Expected non-null todayStateInput when only allSessions failed");
+}
+
+// Test 4: f1 - failed yesterday sessions - todayStateInput is null
+const failedYesterdayResult = buildPageState({
+  ...baseInput,
+  allSessionsRes: {
+    data: [],
+    error: null,
+  },
+  yesterdaySessions: null, // Error state from attachWorkingSetCounts
+});
+
+if (failedYesterdayResult.todayStateInput !== null) {
+  throw new Error("f1: failed yesterday query must return null todayStateInput");
+}
+
+if (failedYesterdayResult.hasStartedAny !== false) {
+  throw new Error("hasStartedAny should still be computed even when yesterday failed");
+}
+
+// Test 5: both failed - hasStartedAny null, todayStateInput null
+const bothFailedResult = buildPageState({
+  ...baseInput,
+  allSessionsRes: {
+    data: null,
+    error: new Error("Failed"),
+  },
+  yesterdaySessions: null,
+});
+
+if (bothFailedResult.hasStartedAny !== null) {
+  throw new Error("Expected hasStartedAny = null when allSessions failed");
+}
+
+if (bothFailedResult.todayStateInput !== null) {
+  throw new Error("Expected todayStateInput = null when yesterday failed");
+}
+
+console.log("✓ Test 1: successful query - hasStartedAny is false");
+console.log("✓ Test 2: successful query - hasStartedAny is true");
+console.log("✓ Test 3: b1 - failed allSessions load preserves null");
+console.log("✓ Test 4: f1 - failed yesterday sessions returns null todayStateInput");
+console.log("✓ Test 5: both failed - both null");

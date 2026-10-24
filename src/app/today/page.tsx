@@ -13,14 +13,13 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { buildTodayState } from "@/lib/today/build-state";
-import { todayStateInputFromRows } from "@/lib/today/page-input";
 import { todayPromptBlocks } from "@/lib/today/prompt-blocks";
-import { hasStartedAnyOrNull } from "@/lib/today/load-failure-guard";
 import { TodayPrompts } from "@/components/today/today-prompts";
 import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
 import { WarmupSection } from "@/components/today/warmup-section";
 import { buildTodayView } from "@/lib/today/page-helpers";
-import { workingSetCountsBySession } from "@/lib/today/working-set-counts";
+import { attachWorkingSetCounts } from "@/lib/today/yesterday-sessions";
+import { buildPageState } from "@/lib/today/page-wiring";
 
 export const dynamic = "force-dynamic";
 
@@ -231,17 +230,12 @@ export default async function TodayPage() {
         .in("session_id", yesterdaySessionIds)
     : { data: null, error: null };
   
-  // Compute working set counts using pure helper
-  // If query errors, treat yesterday as unknown (suppress missed prompt)
-  const workingSetCounts = sessionExercisesRes.error
-    ? null // Query failed - unknown state
-    : workingSetCountsBySession(sessionExercisesRes.data ?? []);
-  
-  // Attach working set counts to yesterday sessions
-  const yesterdaySessionsWithCounts = yesterdaySessions.map(s => ({
-    ...s,
-    working_set_count: workingSetCounts?.get(s.id) ?? 0
-  }));
+  // Attach working set counts to yesterday's sessions using pure helper
+  // Returns null on error to prevent treating errored reads as 0 working sets
+  const yesterdaySessionsWithCounts = attachWorkingSetCounts(
+    sessionExercisesRes,
+    yesterdaySessions
+  );
 
   /*
     Which of today's session rows speaks for the day.
@@ -345,9 +339,30 @@ export default async function TodayPage() {
       ? override
       : undefined;
 
-  // Check if user has started any strength or yoga session (for welcome card and first-day logic)
-  // If the query failed, use null (unknown state) - hide first-session offer and show normal Today
-  const hasStartedAny: boolean | null = hasStartedAnyOrNull(allSessionsRes);
+  // Build page state using helper that preserves error states (null values)
+  // This ensures failed queries don't get defaulted to false at the page layer
+  const pageState = buildPageState({
+    profile: {
+      created_at: profile.created_at,
+      timezone: profile.timezone,
+    },
+    program: {
+      id: program.id,
+      started_on: program.started_on,
+    },
+    days: days ?? [],
+    allSessionsRes,
+    todaySessions,
+    yesterdaySessions: yesterdaySessionsWithCounts,
+    timezone,
+    localToday,
+    yesterday,
+    dayType,
+    strengthDone,
+    strengthOpen: !!strengthOpen,
+  });
+
+  const { hasStartedAny, todayStateInput: stateInput } = pageState;
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
@@ -392,27 +407,6 @@ export default async function TodayPage() {
   // Use pure helpers to derive all prompt logic
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
-
-  const stateInput = todayStateInputFromRows({
-    profile: {
-      created_at: profile.created_at,
-      timezone: profile.timezone,
-    },
-    program: {
-      id: program.id,
-      started_on: program.started_on,
-    },
-    days: days ?? [],
-    todaySessions,
-    yesterdaySessions: yesterdaySessionsWithCounts,
-    timezone,
-    localToday,
-    yesterday,
-    dayType,
-    strengthDone,
-    strengthOpen: !!strengthOpen,
-    hasStartedAny,
-  });
 
   const todayState = buildTodayState(stateInput);
   const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
