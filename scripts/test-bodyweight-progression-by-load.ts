@@ -23,7 +23,6 @@ const pullupMeta: ExerciseMeta = {
   progressionRank: 1,
   mechanic: "compound",
   movementPattern: "vertical_pull",
-  equipmentIds: ["pull_up_bar"],
 };
 
 const pullupStep = addedWeightStep(pullupMeta);
@@ -37,7 +36,6 @@ const squatMeta: ExerciseMeta = {
   progressionRank: null,
   mechanic: "compound",
   movementPattern: "squat",
-  equipmentIds: ["barbell"],
 };
 
 const squatIncrement = incrementFor(squatMeta);

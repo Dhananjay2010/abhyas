@@ -62,7 +62,6 @@ export function buildSwapResult(input: SwapInput): SwapResult {
     isBodyweight,
     progressionChain: null,
     progressionRank: null,
-    equipmentIds: input.exerciseMeta.equipmentIds,
   };
 
   const suggestedWeightKg = suggestedWeight(

@@ -113,7 +113,6 @@ export function buildRunnerInit(
           isBodyweight,
           progressionChain: null,
           progressionRank: null,
-          equipmentIds: ex?.equipment_ids ? [...ex.equipment_ids] : [],
         }
       ),
       isBodyweight,

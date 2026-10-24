@@ -396,7 +396,6 @@ async function applyProgression(
     isBodyweight: isBodyweightEquipment(ex.equipment_ids),
     progressionChain: ex.progression_chain,
     progressionRank: ex.progression_rank,
-    equipmentIds: ex.equipment_ids,
   };
 
   const prior = progressRes.data;

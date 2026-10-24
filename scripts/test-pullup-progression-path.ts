@@ -19,7 +19,6 @@ const meta: ExerciseMeta = {
   isBodyweight: isBodyweightEquipment(["pull_up_bar"]),
   progressionChain: "pullup_chain",
   progressionRank: 1,
-  equipmentIds: ["pull_up_bar"],
 };
 
 check("isBodyweight is true for pull_up_bar", meta.isBodyweight === true,
