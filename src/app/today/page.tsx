@@ -22,6 +22,7 @@ import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
 import { getWeekRowLabel } from "@/lib/today/week-display";
 import { WarmupSection } from "@/components/today/warmup-section";
 import { findFirstTrainingDay } from "@/lib/today/first-training-day";
+import { countWorkingSets } from "@/lib/session/count-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -203,7 +204,7 @@ export default async function TodayPage() {
     */
     supabase
       .from("sessions")
-      .select("id, status, actual_type, local_date, program_id, program_day_id, started_at, created_at, working_set_count")
+      .select("id, status, actual_type, local_date, program_id, program_day_id, started_at, created_at")
       .gte("local_date", yesterday)
       .lte("local_date", weekAheadEnd)
       // Newest first, which is how `startSession` breaks the same tie.
@@ -218,6 +219,59 @@ export default async function TodayPage() {
 
   const allSessions = sessionsRes.data ?? [];
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
+  
+  // Compute working set count for yesterday's sessions (needed for missed-day detection)
+  const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
+  const yesterdaySessionIds = yesterdaySessions.map((s) => s.id);
+  
+  // Fetch session_exercises and sets for yesterday's sessions in parallel
+  const [sessionExercisesRes, yesterdaySetsRes] = yesterdaySessionIds.length > 0
+    ? await Promise.all([
+        supabase
+          .from("session_exercises")
+          .select("id, session_id")
+          .in("session_id", yesterdaySessionIds),
+        // Fetch sets via a join approach using session_exercises
+        (async () => {
+          const exRes = await supabase
+            .from("session_exercises")
+            .select("id")
+            .in("session_id", yesterdaySessionIds);
+          const exerciseIds = exRes.data?.map(e => e.id) ?? [];
+          if (exerciseIds.length === 0) return { data: null, error: null };
+          return await supabase
+            .from("session_sets")
+            .select("session_exercise_id, is_warmup_set, reps, duration_seconds")
+            .in("session_exercise_id", exerciseIds);
+        })()
+      ])
+    : [{ data: null, error: null }, { data: null, error: null }];
+    
+  // Map session_exercise_id to session_id
+  const sessionExerciseToSession = new Map(
+    (sessionExercisesRes.data ?? []).map(se => [se.id, se.session_id])
+  );
+  
+  // Group sets by session
+  const setsBySession = new Map<string, Array<{ is_warmup_set: boolean | null; reps: number | null; duration_seconds: number | null }>>();
+  for (const set of yesterdaySetsRes.data ?? []) {
+    const sessionId = sessionExerciseToSession.get(set.session_exercise_id);
+    if (sessionId) {
+      const list = setsBySession.get(sessionId) ?? [];
+      list.push({ 
+        is_warmup_set: set.is_warmup_set, 
+        reps: set.reps, 
+        duration_seconds: set.duration_seconds 
+      });
+      setsBySession.set(sessionId, list);
+    }
+  }
+  
+  // Compute working set count for each yesterday session
+  const yesterdaySessionsWithCounts = yesterdaySessions.map(s => ({
+    ...s,
+    working_set_count: countWorkingSets(setsBySession.get(s.id) ?? [])
+  }));
 
   /*
     Which of today's session rows speaks for the day.
@@ -332,7 +386,6 @@ export default async function TodayPage() {
   // Use pure helpers to derive all prompt logic
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
-  const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
 
   const stateInput = todayStateInputFromRows({
     profile: {
@@ -345,7 +398,7 @@ export default async function TodayPage() {
     },
     days: days ?? [],
     todaySessions,
-    yesterdaySessions,
+    yesterdaySessions: yesterdaySessionsWithCounts,
     timezone,
     localToday,
     yesterday,

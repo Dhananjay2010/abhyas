@@ -10,7 +10,7 @@ import type { TodayPromptType } from "./prompt-state";
 export interface PromptBlocksInput {
   promptType: TodayPromptType;
   missedYesterday: boolean;
-  hasStartedAny: boolean;
+  hasStartedAny: boolean | null;
   nextTrainingDay: { dayName: string; dayIndex: number } | null;
   isTraining: boolean;
   firstTrainingDay?: { dayIndex: number; label: string | null } | null;
@@ -27,7 +27,8 @@ export interface PromptBlocks {
 export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
   const { promptType, hasStartedAny, nextTrainingDay, isTraining, firstTrainingDay } = input;
 
-  const neverStarted = !hasStartedAny;
+  // If hasStartedAny is null (unknown state), hide first-session offer and show normal Today
+  const neverStarted = hasStartedAny === false;
 
   // Day-one guard: hide all prompts except first-day welcome for never-started users
   if (neverStarted) {

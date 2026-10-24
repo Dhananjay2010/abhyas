@@ -37,8 +37,8 @@ export type MissedDayInput = {
     program_id: string | null;
     working_set_count?: number;
   }>;
-  /** Whether the user has ever started any training session */
-  hasStartedAny: boolean;
+  /** Whether the user has ever started any training session (null = unknown) */
+  hasStartedAny: boolean | null;
 };
 
 /**
@@ -67,6 +67,7 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
   } = input;
 
   // Day-one guard: user has never started any training, so can't have missed anything
+  // If hasStartedAny is null (unknown state), treat as false (no missed prompt on error)
   if (!hasStartedAny) {
     return false;
   }
