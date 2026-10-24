@@ -1,0 +1,413 @@
+{
+  "baseline-bw-2d-60m-30y-home": {
+    "planHash": "18341798cd3aa7d045fb886c78717092d7a86b9d55b45ff05ca001ac42243056",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "beginner",
+      "track": "weights",
+      "daysPerWeek": 2,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": [
+        "dumbbell",
+        "bench",
+        "barbell"
+      ]
+    }
+  },
+  "baseline-bw-3d-75m-55y-gym": {
+    "planHash": "54e2b97b78fd61b1f38938ab7baae7dc3b78924fa3171da804d4255580d43f7e",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "beginner",
+      "track": "weights",
+      "daysPerWeek": 3,
+      "hasAllEquipment": true,
+      "age": 55,
+      "sessionMinutes": 75,
+      "equipmentIds": []
+    }
+  },
+  "baseline-bw-4d-30m-30y-bodyweight": {
+    "planHash": "2d9785def5551c7e4bc456ad6bb3d1bf99eae2e3594aa46f10e17011e7798c34",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "beginner",
+      "track": "weights",
+      "daysPerWeek": 4,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 30,
+      "equipmentIds": []
+    }
+  },
+  "baseline-bw-5d-45m-55y-home": {
+    "planHash": "e8100aaf6753f75ab5fdcae2eeb4c5a81b4a83439ae4f0f7cace5425d9b67e73",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "beginner",
+      "track": "weights",
+      "daysPerWeek": 5,
+      "hasAllEquipment": false,
+      "age": 55,
+      "sessionMinutes": 45,
+      "equipmentIds": [
+        "dumbbell",
+        "bench"
+      ]
+    }
+  },
+  "baseline-bw-6d-60m-30y-gym": {
+    "planHash": "eb6d5ca63e11fcb0b185b9acde25ce9e6b7b28bb978a73186d06623073a7d314",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "beginner",
+      "track": "weights",
+      "daysPerWeek": 6,
+      "hasAllEquipment": true,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": []
+    }
+  },
+  "baseline-bb-2d-60m-30y-home": {
+    "planHash": "aa3e9d220fbd74063496244abd8c81948dfbf1573c99982f8490bf06ffe3b5e8",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "beginner",
+      "track": "bodyweight",
+      "daysPerWeek": 2,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": []
+    }
+  },
+  "baseline-bb-3d-75m-55y-gym": {
+    "planHash": "5bd3d44bd5df6585109d5d4b9eb0ef707e5f58c86e1e5fa3562b495c2aefab1c",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "beginner",
+      "track": "bodyweight",
+      "daysPerWeek": 3,
+      "hasAllEquipment": false,
+      "age": 55,
+      "sessionMinutes": 75,
+      "equipmentIds": []
+    }
+  },
+  "baseline-bb-4d-30m-30y-bodyweight": {
+    "planHash": "4321c54567d2264d08f6d8e46683d12aca4bfd8936b28f0e9094a84fbb457b06",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "beginner",
+      "track": "bodyweight",
+      "daysPerWeek": 4,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 30,
+      "equipmentIds": []
+    }
+  },
+  "baseline-bb-5d-45m-55y-home": {
+    "planHash": "2ae1426a00f216b1666d330a9cee47839ca3430f1d935ac71a7f505a087b0d28",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "beginner",
+      "track": "bodyweight",
+      "daysPerWeek": 5,
+      "hasAllEquipment": false,
+      "age": 55,
+      "sessionMinutes": 45,
+      "equipmentIds": []
+    }
+  },
+  "baseline-bb-6d-60m-30y-gym": {
+    "planHash": "51866f46821b37f647eb5c1312f928186415a6b80952207e2216d541f3770cfd",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "beginner",
+      "track": "bodyweight",
+      "daysPerWeek": 6,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": []
+    }
+  },
+  "baseline-iw-2d-60m-30y-home": {
+    "planHash": "585331cda0a1a8fe78713af423a734103d4debab78dbdac77d8ac64550d5de7a",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "intermediate",
+      "track": "weights",
+      "daysPerWeek": 2,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": [
+        "dumbbell",
+        "bench",
+        "barbell"
+      ]
+    }
+  },
+  "baseline-iw-3d-75m-55y-gym": {
+    "planHash": "70e5bedb5cf0f3cbb3e49da25f364308b414e828f701d7396e5c2e6bd41424f1",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "intermediate",
+      "track": "weights",
+      "daysPerWeek": 3,
+      "hasAllEquipment": true,
+      "age": 55,
+      "sessionMinutes": 75,
+      "equipmentIds": []
+    }
+  },
+  "baseline-iw-4d-30m-30y-bodyweight": {
+    "planHash": "c316e6eea5884e1d2e74e039b523531d3fb8113e255a115fbd83ebb0584c1d88",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "intermediate",
+      "track": "weights",
+      "daysPerWeek": 4,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 30,
+      "equipmentIds": []
+    }
+  },
+  "baseline-iw-5d-45m-55y-home": {
+    "planHash": "aa99af3bc3931a81aae3aff45ae3c3f9ba8c767b5b915d1c4e48919745e87dc1",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "intermediate",
+      "track": "weights",
+      "daysPerWeek": 5,
+      "hasAllEquipment": false,
+      "age": 55,
+      "sessionMinutes": 45,
+      "equipmentIds": [
+        "dumbbell",
+        "bench"
+      ]
+    }
+  },
+  "baseline-iw-6d-60m-30y-gym": {
+    "planHash": "d1435b934330e75b939f9fa6f077d16d7096eb3e8ea788c717bc4c09e2f526a6",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "intermediate",
+      "track": "weights",
+      "daysPerWeek": 6,
+      "hasAllEquipment": true,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": []
+    }
+  },
+  "baseline-ib-2d-60m-30y-home": {
+    "planHash": "1f05cde8a0104cc4c25f2f62cf9c26f390d43b2ffc00d036c2a9a695ffe482a4",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "intermediate",
+      "track": "bodyweight",
+      "daysPerWeek": 2,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": []
+    }
+  },
+  "baseline-ib-3d-75m-55y-gym": {
+    "planHash": "1c5d67afb92388e9ee741dfbb67a95281d2a75777da55b99f38d5c9e8890a20d",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "intermediate",
+      "track": "bodyweight",
+      "daysPerWeek": 3,
+      "hasAllEquipment": false,
+      "age": 55,
+      "sessionMinutes": 75,
+      "equipmentIds": []
+    }
+  },
+  "baseline-ib-4d-30m-30y-bodyweight": {
+    "planHash": "4321c54567d2264d08f6d8e46683d12aca4bfd8936b28f0e9094a84fbb457b06",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "intermediate",
+      "track": "bodyweight",
+      "daysPerWeek": 4,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 30,
+      "equipmentIds": []
+    }
+  },
+  "baseline-ib-5d-45m-55y-home": {
+    "planHash": "5db1412f0518abab65d60ad6b8eb60cf4397ac790de500497bb1158bbcfba227",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "intermediate",
+      "track": "bodyweight",
+      "daysPerWeek": 5,
+      "hasAllEquipment": false,
+      "age": 55,
+      "sessionMinutes": 45,
+      "equipmentIds": []
+    }
+  },
+  "baseline-ib-6d-60m-30y-gym": {
+    "planHash": "286b1df69179a8e9664bc1c50d13361860e9938948f7cbf601a41c2f7286f2eb",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "intermediate",
+      "track": "bodyweight",
+      "daysPerWeek": 6,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": []
+    }
+  },
+  "baseline-ew-2d-60m-30y-home": {
+    "planHash": "585331cda0a1a8fe78713af423a734103d4debab78dbdac77d8ac64550d5de7a",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "expert",
+      "track": "weights",
+      "daysPerWeek": 2,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": [
+        "dumbbell",
+        "bench",
+        "barbell"
+      ]
+    }
+  },
+  "baseline-ew-3d-75m-55y-gym": {
+    "planHash": "c3e84c352a75ac284957f448b948c6531dc49738500f1024110c02c91217e5a2",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "expert",
+      "track": "weights",
+      "daysPerWeek": 3,
+      "hasAllEquipment": true,
+      "age": 55,
+      "sessionMinutes": 75,
+      "equipmentIds": []
+    }
+  },
+  "baseline-ew-4d-30m-30y-bodyweight": {
+    "planHash": "c316e6eea5884e1d2e74e039b523531d3fb8113e255a115fbd83ebb0584c1d88",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "expert",
+      "track": "weights",
+      "daysPerWeek": 4,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 30,
+      "equipmentIds": []
+    }
+  },
+  "baseline-ew-5d-45m-55y-home": {
+    "planHash": "28cb242395935513ce53f518697cddf68290629895b94285685a268170f3a9ff",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "expert",
+      "track": "weights",
+      "daysPerWeek": 5,
+      "hasAllEquipment": false,
+      "age": 55,
+      "sessionMinutes": 45,
+      "equipmentIds": [
+        "dumbbell",
+        "bench"
+      ]
+    }
+  },
+  "baseline-ew-6d-60m-30y-gym": {
+    "planHash": "9fbbb3de470e8be4a297386fa06085459663a65bcd72fb5c690ca42c8ea6c209",
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "expert",
+      "track": "weights",
+      "daysPerWeek": 6,
+      "hasAllEquipment": true,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": []
+    }
+  },
+  "baseline-eb-2d-60m-30y-home": {
+    "planHash": "1f05cde8a0104cc4c25f2f62cf9c26f390d43b2ffc00d036c2a9a695ffe482a4",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "expert",
+      "track": "bodyweight",
+      "daysPerWeek": 2,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": []
+    }
+  },
+  "baseline-eb-3d-75m-55y-gym": {
+    "planHash": "89fa3b67aa5440572e595fc57b54c4fdceca0784ad8930e9113eeef985202b40",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "expert",
+      "track": "bodyweight",
+      "daysPerWeek": 3,
+      "hasAllEquipment": false,
+      "age": 55,
+      "sessionMinutes": 75,
+      "equipmentIds": []
+    }
+  },
+  "baseline-eb-4d-30m-30y-bodyweight": {
+    "planHash": "4321c54567d2264d08f6d8e46683d12aca4bfd8936b28f0e9094a84fbb457b06",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "expert",
+      "track": "bodyweight",
+      "daysPerWeek": 4,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 30,
+      "equipmentIds": []
+    }
+  },
+  "baseline-eb-5d-45m-55y-home": {
+    "planHash": "c8e64babf941021ee3f78682832e45c9fc8c2c39ce1cf0ba3d96dc9264722e38",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "expert",
+      "track": "bodyweight",
+      "daysPerWeek": 5,
+      "hasAllEquipment": false,
+      "age": 55,
+      "sessionMinutes": 45,
+      "equipmentIds": []
+    }
+  },
+  "baseline-eb-6d-60m-30y-gym": {
+    "planHash": "ab9073d387411f06b2bcaa412789ef67bad90e888aeaf0188dd3fd606357cae9",
+    "profile": {
+      "goal": "general_fitness",
+      "level": "expert",
+      "track": "bodyweight",
+      "daysPerWeek": 6,
+      "hasAllEquipment": false,
+      "age": 30,
+      "sessionMinutes": 60,
+      "equipmentIds": []
+    }
+  }
+}

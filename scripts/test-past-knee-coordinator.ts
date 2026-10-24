@@ -89,19 +89,21 @@ const homeInput = {
 } satisfies Parameters<typeof generateProgram>[0];
 
 const homePlan = generateProgram(homeInput);
-const homeExercises = homePlan.days.flatMap(d => d.exercises.map(ex => catalogue.find(e => e.id === ex.exerciseId))).filter(Boolean);
+const homeExercises = homePlan.days
+  .flatMap(d => d.exercises.map(ex => catalogue.find(e => e.id === ex.exerciseId)))
+  .filter((e): e is CandidateExercise => e !== undefined);
 
 // Check no banned moves
-const homeBanned = homeExercises.filter(e => BANNED_FOR_PAST_KNEE.has(e!.slug));
-check("No banned exercises", homeBanned.length === 0, homeBanned.length > 0 ? `Found: ${homeBanned.map(e => e!.slug).join(", ")}` : undefined);
+const homeBanned = homeExercises.filter(e => BANNED_FOR_PAST_KNEE.has(e.slug));
+check("No banned exercises", homeBanned.length === 0, homeBanned.length > 0 ? `Found: ${homeBanned.map(e => e.slug).join(", ")}` : undefined);
 
 // Check lunges are from safe list (if any exist)
-const homeLunges = homeExercises.filter(e => e!.movement_pattern === "lunge");
-const homeUnsafeLunges = homeLunges.filter(e => !EXPECTED_KNEE_SAFE_LUNGES.has(e!.slug));
-check("All lunges are knee-safe", homeUnsafeLunges.length === 0, homeUnsafeLunges.length > 0 ? `Unsafe: ${homeUnsafeLunges.map(e => e!.slug).join(", ")}` : undefined);
+const homeLunges = homeExercises.filter(e => e.movement_pattern === "lunge");
+const homeUnsafeLunges = homeLunges.filter(e => !EXPECTED_KNEE_SAFE_LUNGES.has(e.slug));
+check("All lunges are knee-safe", homeUnsafeLunges.length === 0, homeUnsafeLunges.length > 0 ? `Unsafe: ${homeUnsafeLunges.map(e => e.slug).join(", ")}` : undefined);
 
 // Check bodyweight squat allowed
-const homeSquats = homeExercises.filter(e => e!.slug === "bodyweight-squat");
+const homeSquats = homeExercises.filter(e => e.slug === "bodyweight-squat");
 check("Bodyweight squat allowed", homeSquats.length > 0, "Not found in plan");
 
 // Test 2: Gym past-knee (allows barbell squat, floor deadlift)
@@ -116,20 +118,22 @@ const gymInput = {
 } satisfies Parameters<typeof generateProgram>[0];
 
 const gymPlan = generateProgram(gymInput);
-const gymExercises = gymPlan.days.flatMap(d => d.exercises.map(ex => catalogue.find(e => e.id === ex.exerciseId))).filter(Boolean);
+const gymExercises = gymPlan.days
+  .flatMap(d => d.exercises.map(ex => catalogue.find(e => e.id === ex.exerciseId)))
+  .filter((e): e is CandidateExercise => e !== undefined);
 
 // Check no banned moves
-const gymBanned = gymExercises.filter(e => BANNED_FOR_PAST_KNEE.has(e!.slug));
-check("No banned exercises", gymBanned.length === 0, gymBanned.length > 0 ? `Found: ${gymBanned.map(e => e!.slug).join(", ")}` : undefined);
+const gymBanned = gymExercises.filter(e => BANNED_FOR_PAST_KNEE.has(e.slug));
+check("No banned exercises", gymBanned.length === 0, gymBanned.length > 0 ? `Found: ${gymBanned.map(e => e.slug).join(", ")}` : undefined);
 
 // Check lunges are from safe list
-const gymLunges = gymExercises.filter(e => e!.movement_pattern === "lunge");
-const gymUnsafeLunges = gymLunges.filter(e => !EXPECTED_KNEE_SAFE_LUNGES.has(e!.slug));
-check("All lunges are knee-safe", gymUnsafeLunges.length === 0, gymUnsafeLunges.length > 0 ? `Unsafe: ${gymUnsafeLunges.map(e => e!.slug).join(", ")}` : undefined);
+const gymLunges = gymExercises.filter(e => e.movement_pattern === "lunge");
+const gymUnsafeLunges = gymLunges.filter(e => !EXPECTED_KNEE_SAFE_LUNGES.has(e.slug));
+check("All lunges are knee-safe", gymUnsafeLunges.length === 0, gymUnsafeLunges.length > 0 ? `Unsafe: ${gymUnsafeLunges.map(e => e.slug).join(", ")}` : undefined);
 
 // Check compound lower-body (barbell squat, deadlift should be possible)
-const gymSquats = gymExercises.filter(e => e!.slug.includes("squat") && e!.mechanic === "compound");
-const gymDeadlifts = gymExercises.filter(e => e!.slug.includes("deadlift"));
+const gymSquats = gymExercises.filter(e => e.slug.includes("squat") && e.mechanic === "compound");
+const gymDeadlifts = gymExercises.filter(e => e.slug.includes("deadlift"));
 check("Compound squats present", gymSquats.length > 0, `Found ${gymSquats.length} compound squats`);
 check("Deadlifts present", gymDeadlifts.length > 0, `Found ${gymDeadlifts.length} deadlifts`);
 
