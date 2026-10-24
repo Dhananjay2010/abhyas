@@ -1120,10 +1120,17 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     if (hasKneeInjury && isLowerOrFullDay) {
       const hasQuadWork = pickedExercises.some(p => p.ex.primary_muscles.includes("quads"));
       if (!hasQuadWork) {
+        // PR #73 Task 3a: For CURRENT knee, skip wall-sit if no accessory slots available
+        const hasCurrentKneeLocal = input.currentInjuryRegions.includes("knee");
+        const totalSlots = maxExercises;
+        const hasAccessorySlots = totalSlots > 4;
+        
         // Force-add a knee-safe quad exercise (including wall-sit as accessory)
         const kneeSafeOptions = pool
           .filter(e => {
             if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+            // PR #73 Task 3a: Skip wall-sit for current-knee if no accessory slots
+            if (hasCurrentKneeLocal && e.slug === "wall-sit" && !hasAccessorySlots) return false;
             if (!e.primary_muscles.includes("quads")) return false;
             if (usedInBlock.has(e.id)) return false;
             
@@ -1751,52 +1758,38 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       });
       
       // PR #73 Task 3a: For CURRENT knee injury, ensure Wall Sit is never in main slots (0-3) and never after core
+      const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
       if (hasCurrentKnee) {
         const wallSitIndex = exercises.findIndex(ex => {
           const e = byId.get(ex.exerciseId);
           return e?.slug === "wall-sit";
         });
         
-        if (wallSitIndex !== -1) {
-          // Check if Wall Sit is in main slot (0-3)
-          if (wallSitIndex < 4) {
-            // Move Wall Sit to first accessory position (index 4) if there are at least 4 exercises
-            if (exercises.length >= 5) {
-              const [wallSit] = exercises.splice(wallSitIndex, 1);
-              exercises.splice(4, 0, wallSit);
-            }
-          }
-          
-          // Re-find Wall Sit index after potential move
-          const newWallSitIndex = exercises.findIndex(ex => {
+        if (wallSitIndex !== -1 && wallSitIndex < 4) {
+          // Wall Sit is in main slot - move it to accessory area before core
+          // Find position just before first core exercise, or at index 4 if no core
+          const firstCoreIndex = exercises.findIndex(ex => {
             const e = byId.get(ex.exerciseId);
-            return e?.slug === "wall-sit";
+            return e?.movement_pattern === "core";
           });
           
-          // Check if Wall Sit is after any core exercise
-          if (newWallSitIndex !== -1) {
-            const lastCoreIndex = exercises
-              .map((ex, idx) => {
-                const e = byId.get(ex.exerciseId);
-                return e?.movement_pattern === "core" ? idx : -1;
-              })
-              .reduce((max, idx) => Math.max(max, idx), -1);
-            
-            if (lastCoreIndex >= 0 && newWallSitIndex > lastCoreIndex) {
-              // Move Wall Sit to position just before first core exercise
-              const firstCoreIndex = exercises.findIndex(ex => {
-                const e = byId.get(ex.exerciseId);
-                return e?.movement_pattern === "core";
-              });
-              
-              if (firstCoreIndex !== -1 && firstCoreIndex !== newWallSitIndex) {
-                const [wallSit] = exercises.splice(newWallSitIndex, 1);
-                exercises.splice(firstCoreIndex, 0, wallSit);
-              }
-            }
+          let targetIndex: number;
+          if (firstCoreIndex !== -1 && firstCoreIndex >= 4) {
+            // Core exists in accessory area - insert Wall Sit just before it
+            targetIndex = firstCoreIndex;
+          } else {
+            // No core in accessory area - put Wall Sit at position 4
+            targetIndex = Math.min(4, exercises.length);
           }
           
-          // Rebuild orderIndex after all Wall Sit adjustments
+          if (targetIndex !== wallSitIndex) {
+            const [wallSit] = exercises.splice(wallSitIndex, 1);
+            // Adjust target if we removed an element before it
+            const adjustedTarget = targetIndex > wallSitIndex ? targetIndex - 1 : targetIndex;
+            exercises.splice(adjustedTarget, 0, wallSit);
+          }
+          
+          // Rebuild orderIndex after move
           exercises.forEach((ex, idx) => {
             ex.orderIndex = idx;
           });
