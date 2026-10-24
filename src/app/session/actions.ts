@@ -495,16 +495,17 @@ export async function finishSession(input: {
   durationSeconds: number;
   cooldownCompleted: boolean;
 }): Promise<Result<{ status: "completed" | "skipped" }>> {
-  const rateLimit = await checkActionRateLimit("session");
-  if (rateLimit) return rateLimit as Result<{ status: "completed" | "skipped" }>;
-  
+  const rateLimit: Result<{ status: "completed" | "skipped" }> | null = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+
   const { supabase } = await requireUser();
 
   // Deliberately NOT revalidating here. Revalidating refreshes the session
   // route, whose "completed -> redirect to /today" guard then fires before the
   // client can show the summary, so the user never saw their totals or what
   // progression changed. Today is refreshed when they leave the summary.
-  return await finishSessionCore(supabase, input);
+  const { makeFinishSessionDeps } = await import("@/lib/session/finish-session-deps");
+  return await finishSessionCore(makeFinishSessionDeps(supabase), input);
 }
 
 /**

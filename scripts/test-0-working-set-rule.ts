@@ -8,7 +8,8 @@
  *   npx tsx scripts/test-0-working-set-rule.ts
  */
 
-import { finishSessionCore, type FinishSessionClient } from "../src/lib/session/finish-session";
+import { finishSessionCore } from "../src/lib/session/finish-session";
+import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 
 let passed = 0;
@@ -34,53 +35,47 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?: string) {
+function makeFakeFinishSessionDeps(
+  exercises: SessionExerciseWithSets[],
+  updateError?: string,
+  readError?: string
+): FinishSessionDeps & { calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> } {
   const calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> = [];
 
-  // Session metadata for stale detection
-  const session = {
-    started_at: new Date(Date.now() - 1800000).toISOString(), // 30 min ago
+  const session: SessionRow = {
+    started_at: new Date(Date.now() - 1800000).toISOString(),
     local_date: new Date().toISOString().slice(0, 10),
     timezone: "UTC",
   };
 
   return {
     calls,
-    from: (table: string) => {
-      const currentTable = table;
-      const filters: Record<string, unknown> = {};
-      let updatePayload: Record<string, unknown> = {};
-
-      return {
-        select: () => ({
-          eq: async (column: string, value: unknown) => {
-            filters[column] = value;
-            calls.push({ method: "select", table: currentTable, filters: { ...filters } });
-            if (readError) return { data: null, error: { message: readError } };
-            // Return session data for sessions table, exercises for session_exercises
-            if (currentTable === "sessions") {
-              return { data: [session], error: null };
-            }
-            return { data: exercises, error: null };
-          },
-        }),
-        update: (payload: Record<string, unknown>) => {
-          updatePayload = payload;
-          return {
-            eq: (column: string, value: unknown) => {
-              filters[column] = value;
-              return {
-                eq: async (column2: string, value2: unknown) => {
-                  filters[column2] = value2;
-                  calls.push({ method: "update", table: currentTable, payload: { ...updatePayload }, filters: { ...filters } });
-                  if (updateError) return { error: { message: updateError }, count: null };
-                  return { error: null, count: 1 };
-                },
-              };
-            },
-          };
-        },
-      };
+    async loadSession(id) {
+      calls.push({ method: "loadSession", table: "sessions", filters: { id } });
+      if (readError) return { data: null, error: readError };
+      return { data: session, error: null };
+    },
+    async loadExercises(sessionId) {
+      calls.push({ method: "loadExercises", table: "session_exercises", filters: { sessionId } });
+      if (readError) return { data: null, error: readError };
+      return { data: exercises, error: null };
+    },
+    async updateSession(id, patch) {
+      calls.push({ method: "updateSession", table: "sessions", payload: patch, filters: { id } });
+      if (updateError) return { error: updateError, updatedCount: 0 };
+      return { error: null, updatedCount: 1 };
+    },
+    async loadSessionStatus(id) {
+      calls.push({ method: "loadSessionStatus", table: "sessions", filters: { id } });
+      return { data: { status: "completed" }, error: null };
+    },
+    async loadExercisesForUpdate(sessionId) {
+      calls.push({ method: "loadExercisesForUpdate", table: "session_exercises", filters: { sessionId } });
+      return { data: [], error: null };
+    },
+    async updateExerciseStatus(id, status) {
+      calls.push({ method: "updateExerciseStatus", table: "session_exercises", payload: { status }, filters: { id } });
+      return { error: null };
     },
   };
 }
@@ -97,7 +92,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
       { session_sets: [] },
     ];
 
-    const fake = makeFakeSupabase(exercises);
+    const fake = makeFakeFinishSessionDeps(exercises);
     const result = await finishSessionCore(fake, {
       sessionId: "s1",
       durationSeconds: 300,
@@ -123,7 +118,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
       { session_sets: [{ id: "w3", is_warmup_set: true }] },
     ];
 
-    const fake = makeFakeSupabase(exercises);
+    const fake = makeFakeFinishSessionDeps(exercises);
     const result = await finishSessionCore(fake, {
       sessionId: "s2",
       durationSeconds: 600,
@@ -148,7 +143,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
       { session_sets: [] },
     ];
 
-    const fake = makeFakeSupabase(exercises);
+    const fake = makeFakeFinishSessionDeps(exercises);
     const result = await abandonSessionCore(fake, "s3", 200);
 
     assertTrue(result.ok, "Abandon should succeed");
@@ -170,7 +165,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
       { session_sets: [] },
     ];
 
-    const fake = makeFakeSupabase(exercises);
+    const fake = makeFakeFinishSessionDeps(exercises);
     const result = await finishSessionCore(fake, {
       sessionId: "s4",
       durationSeconds: 900,
@@ -195,7 +190,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
       { session_sets: [] }, // Not reached
     ];
 
-    const fake = makeFakeSupabase(exercises);
+    const fake = makeFakeFinishSessionDeps(exercises);
     const result = await abandonSessionCore(fake, "s5", 400);
 
     assertTrue(result.ok, "Abandon should succeed");
