@@ -82,6 +82,7 @@ function makeFakeSupabase() {
     },
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return { supabase: supabase as unknown as SupabaseClient<any>, calls };
 }
 
