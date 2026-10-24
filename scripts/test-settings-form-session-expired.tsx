@@ -61,7 +61,7 @@ Module.prototype.require = function (id: string) {
 import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
 
 const initialState: SettingsState = {
-  goal: 'muscle',
+  goal: 'muscle_gain',
   level: 'intermediate',
   primaryTrack: 'weights',
   daysPerWeek: 4,

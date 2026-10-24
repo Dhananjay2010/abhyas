@@ -286,9 +286,10 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
         // 500 or redirects are now FAILURES
         const isSuccess = status === 200 || status === 404;
         const isRedirect = status === 307 || status === 308;
+        const passed = isSuccess && !isRedirect;
         
         return {
-          passed: isSuccess && !isRedirect,
+          passed,
           message: isSuccess && !isRedirect
             ? `${description}: ${status} (no redirect)`
             : `${description}: FAILED - expected 200/404, got ${status}${location ? ` → ${location}` : ''}`
@@ -391,7 +392,7 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
     const status = response.status;
     const location = response.headers.get('location');
     const isRedirect = status === 307 || status === 308;
-    const hasSignInRedirect = location === '/' || location?.startsWith('/?next=');
+    const hasSignInRedirect = location === '/' || (location?.startsWith('/?next=') === true);
     
     const passed = isRedirect && hasSignInRedirect;
     
