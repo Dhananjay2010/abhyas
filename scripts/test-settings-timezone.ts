@@ -267,7 +267,99 @@ async function runTests() {
     console.log("  When undefined, the timezone key is not included in the DB update at all.");
   }
 
-  console.log("\n15. Server-side validation prevents database writes on invalid input");
+  console.log("\n15. All UTC-equivalent names map to 'UTC'");
+  {
+    const utcEquivalents = [
+      "UTC", "Etc/UTC", "GMT", "Etc/GMT", "Etc/GMT0", "GMT0",
+      "Etc/GMT-0", "Etc/GMT+0", "GMT-0", "GMT+0",
+      "Etc/Universal", "Universal", "Etc/Zulu", "Zulu",
+      "Greenwich", "Etc/Greenwich", "UCT", "Etc/UCT"
+    ];
+
+    for (const input of utcEquivalents) {
+      const result = canonicalizeTimezone(input);
+      check(`${input} → UTC`, result === "UTC");
+      
+      // Test case variations
+      const lower = canonicalizeTimezone(input.toLowerCase());
+      check(`${input.toLowerCase()} → UTC (lowercase)`, lower === "UTC");
+    }
+  }
+
+  console.log("\n16. Legacy ICU names map to modern IANA names");
+  {
+    const legacyMappings: [string, string][] = [
+      ["Atlantic/Faeroe", "Atlantic/Faroe"],
+      ["America/Godthab", "America/Nuuk"],
+      ["Pacific/Ponape", "Pacific/Pohnpei"],
+      ["Pacific/Truk", "Pacific/Chuuk"],
+      ["America/Indianapolis", "America/Indiana/Indianapolis"],
+    ];
+
+    for (const [input, expected] of legacyMappings) {
+      const result = canonicalizeTimezone(input);
+      check(`${input} → ${expected}`, result === expected);
+      
+      // Test case variations
+      const lower = canonicalizeTimezone(input.toLowerCase());
+      check(`${input.toLowerCase()} → ${expected} (lowercase)`, lower === expected);
+    }
+
+    // Also verify modern names pass through unchanged
+    const modernNames = ["Atlantic/Faroe", "America/Nuuk", "Pacific/Pohnpei", "Pacific/Chuuk", "America/Indiana/Indianapolis"];
+    for (const name of modernNames) {
+      const result = canonicalizeTimezone(name);
+      check(`${name} → ${name} (modern form)`, result === name);
+    }
+  }
+
+  console.log("\n17. Offset handling: real offsets rejected, zero-offset accepted");
+  {
+    const rejectedOffsets = [
+      "Etc/GMT+5", "GMT-14", "+05:30", "-08:00", "UTC+5", "GMT+1"
+    ];
+
+    for (const input of rejectedOffsets) {
+      const result = canonicalizeTimezone(input);
+      check(`rejects ${input} (real offset)`, result === null);
+    }
+
+    const acceptedZeroOffsets: [string, string][] = [
+      ["GMT-0", "UTC"],
+      ["GMT+0", "UTC"],
+      ["Etc/GMT-0", "UTC"],
+      ["Etc/GMT+0", "UTC"],
+    ];
+
+    for (const [input, expected] of acceptedZeroOffsets) {
+      const result = canonicalizeTimezone(input);
+      check(`${input} → ${expected} (zero offset)`, result === expected);
+    }
+  }
+
+  console.log("\n18. All canonical outputs accepted by Intl");
+  {
+    const allAliases = [
+      "UTC", "Etc/UTC", "GMT", "Etc/GMT", "Etc/GMT0", "GMT0",
+      "Atlantic/Faroe", "America/Nuuk", "Pacific/Pohnpei", "Pacific/Chuuk", 
+      "America/Indiana/Indianapolis", "Asia/Kolkata", "Asia/Ho_Chi_Minh",
+      "Asia/Kathmandu", "Asia/Yangon", "Europe/Kyiv", "America/Argentina/Buenos_Aires"
+    ];
+
+    for (const alias of allAliases) {
+      const canonical = canonicalizeTimezone(alias);
+      if (canonical !== null) {
+        try {
+          new Intl.DateTimeFormat("en-US", { timeZone: canonical });
+          check(`${alias} → ${canonical} accepted by Intl`, true);
+        } catch (e) {
+          check(`${alias} → ${canonical} accepted by Intl`, false);
+        }
+      }
+    }
+  }
+
+  console.log("\n19. Server-side validation prevents database writes on invalid input");
   {
     // The sanitizer rejects invalid values before they reach the DB
     const invalidInputs = ["InvalidZone123", "EST", "+05:30", "Mars/Olympus", "Etc/GMT+5"];
@@ -278,7 +370,7 @@ async function runTests() {
     }
   }
 
-  console.log("\n16. Profile update logic with dependency injection");
+  console.log("\n20. Profile update logic with dependency injection");
   {
     // Test that invalid timezone prevents DB write
     let updateCalled = false;

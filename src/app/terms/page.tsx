@@ -18,7 +18,7 @@ export default function TermsOfServicePage() {
         ← Back
       </Link>
       
-      <div className="mt-6 rounded-lg border-2 border-warning/50 bg-warning/5 px-4 py-3">
+      <div className="mt-6 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
         <p className="text-sm font-medium text-warning">
           ⚠️ Draft — Pending Legal Review
         </p>
