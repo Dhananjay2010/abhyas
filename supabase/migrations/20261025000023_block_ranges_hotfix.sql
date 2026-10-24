@@ -100,16 +100,16 @@ begin
     floor((p_today - v_old_block.started_on) / 7)
   );
 
-  -- L4: If started_on = p_today but DIFFERENT payload id, update the row in place
+  -- L4: If started_on = p_today but DIFFERENT payload id, update config in place
   -- to avoid creating an empty superseded range (ended_on < started_on)
+  -- Keep the same program.id to preserve FK integrity for sessions
   if v_old_block.started_on = p_today then
     -- Delete existing program_days and exercises (CASCADE will handle exercises)
     delete from public.program_days where program_id = v_old_block.id;
     
-    -- Update the program row with new payload
+    -- Update the program row with new payload (keep same id for FK integrity)
     update public.programs
     set
-      id = (p_payload->>'id')::uuid,
       block_number = (p_payload->>'block_number')::int,
       split_type = (p_payload->>'split_type')::public.split_type,
       days_per_week = (p_payload->>'days_per_week')::int,
@@ -121,7 +121,8 @@ begin
       week_offset = v_new_week_offset
     where id = v_old_block.id;
     
-    v_new_program_id := (p_payload->>'id')::uuid;
+    -- Return the existing program id (not the payload id)
+    v_new_program_id := v_old_block.id;
   else
     -- Different day: retire the old block as 'superseded'
     update public.programs
