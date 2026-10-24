@@ -54,7 +54,7 @@ const result = evaluateProgression({
 check("progressed outcome", result.outcome === "progressed", `got ${result.outcome}`);
 check("nextTargetReps is 14 (progresses by reps)", result.nextTargetReps === 14,
   `got ${result.nextTargetReps}`);
-check("nextWorkingWeightKg is undefined (not progressing by load)", result.nextWorkingWeightKg === undefined,
+check("nextWorkingWeightKg is null (not progressing by load)", result.nextWorkingWeightKg === null,
   `got ${result.nextWorkingWeightKg}`);
 
 console.log("\nPull-up bar WITH ADDED WEIGHT progresses by load");
