@@ -61,7 +61,7 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: v2.122.0
 
       - name: Override auth config for CI
         run: |
