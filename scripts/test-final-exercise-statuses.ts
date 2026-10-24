@@ -5,8 +5,8 @@
  *   npx tsx scripts/test-final-exercise-statuses.ts
  */
 
-import { finishSessionCore } from "../src/lib/session/finish-session";
-import { abandonSessionCore } from "../src/lib/session/abandon-session";
+import { finishSessionCore, asSupabaseClient } from "../src/lib/session/finish-session";
+import { abandonSessionCore, asSupabaseClient as asAbandonClient } from "../src/lib/session/abandon-session";
 
 let passed = 0;
 let failed = 0;
@@ -102,7 +102,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      fake as unknown as import("../src/lib/session/finish-session").SupabaseClient,
+      asSupabaseClient(fake),
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 
@@ -132,7 +132,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      fake as unknown as import("../src/lib/session/finish-session").SupabaseClient,
+      asSupabaseClient(fake),
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 
@@ -158,7 +158,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      fake as unknown as import("../src/lib/session/finish-session").SupabaseClient,
+      asSupabaseClient(fake),
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 
@@ -183,7 +183,7 @@ async function runTests() {
     const fake = makeFakeSupabase({}, exercises);
 
     await abandonSessionCore(
-      fake as unknown as import("../src/lib/session/abandon-session").SupabaseClient,
+      asAbandonClient(fake),
       "s1",
       1200
     );
@@ -228,7 +228,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      fake as unknown as import("../src/lib/session/finish-session").SupabaseClient,
+      asSupabaseClient(fake),
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 
@@ -260,7 +260,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      fake as unknown as import("../src/lib/session/finish-session").SupabaseClient,
+      asSupabaseClient(fake),
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 

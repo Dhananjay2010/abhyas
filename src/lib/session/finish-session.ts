@@ -12,6 +12,12 @@ export interface SupabaseClient {
   from: (table: string) => SupabaseQueryBuilder;
 }
 
+// Narrow any Supabase-like client to our interface
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function asSupabaseClient(client: any): SupabaseClient {
+  return client;
+}
+
 interface SupabaseQueryBuilder {
   select: (columns: string) => SupabaseSelectBuilder;
   update: (data: Record<string, unknown>, options?: { count: string }) => SupabaseUpdateBuilder;

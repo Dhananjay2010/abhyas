@@ -40,7 +40,7 @@ console.log("1. Sets logged with null rest uses default 300s");
   assertEquals(result.status, "completed", "Status is completed");
   // Duration: (14:25 + 5min) - 14:00 = 30 minutes = 1800s
   assertEquals(result.durationSeconds, 1800, "Duration is 30 minutes (25m + 5m rest)");
-  
+
   const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
@@ -82,7 +82,7 @@ console.log("\n3. Planned rest = 120s");
   assertEquals(result.status, "completed", "Status is completed");
   // Duration: (14:20 + 2min) - 14:00 = 22 minutes = 1320s
   assertEquals(result.durationSeconds, 1320, "Duration is 22 minutes (20m + 2m rest)");
-  
+
   const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 120 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
@@ -107,7 +107,7 @@ console.log("\n4. Planned rest = 0s");
   assertEquals(result.status, "completed", "Status is completed");
   // Duration: (14:15 + 0s) - 14:00 = 15 minutes = 900s
   assertEquals(result.durationSeconds, 900, "Duration is 15 minutes (no rest)");
-  
+
   assertEquals(
     new Date(result.endedAt).getTime(),
     new Date(lastSetCompletedAt).getTime(),
@@ -131,7 +131,7 @@ console.log("\n5. Planned rest = 900s clamped to 300s");
   assertEquals(result.status, "completed", "Status is completed");
   // Duration: (14:10 + 5min capped) - 14:00 = 15 minutes = 900s
   assertEquals(result.durationSeconds, 900, "Duration is 15 minutes (10m + 5m capped rest)");
-  
+
   const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
@@ -156,7 +156,7 @@ console.log("\n6. Negative rest clamped to 0");
   assertEquals(result.status, "completed", "Status is completed");
   // Duration: (14:08 + 0s) - 14:00 = 8 minutes = 480s
   assertEquals(result.durationSeconds, 480, "Duration is 8 minutes (negative rest clamped to 0)");
-  
+
   assertEquals(
     new Date(result.endedAt).getTime(),
     new Date(lastSetCompletedAt).getTime(),
@@ -180,7 +180,7 @@ console.log("\n7. Missing restSeconds uses default 300s");
   assertEquals(result.status, "completed", "Status is completed");
   // Duration: (14:12 + 5min) - 14:00 = 17 minutes = 1020s
   assertEquals(result.durationSeconds, 1020, "Duration is 17 minutes (12m + 5m default rest)");
-  
+
   const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
@@ -226,7 +226,7 @@ console.log("\n9. Long past-day session: never 6-hour cap (regression test #87)"
   assertEquals(result.status, "completed", "Status is completed");
   // Duration: (18:00 + 3min) - 10:00 = 8h 3min = 28980s
   assertEquals(result.durationSeconds, 28980, "Duration is 8h 3min (28980s), no 6h cap");
-  
+
   const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 180 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
@@ -251,7 +251,7 @@ console.log("\n10. NaN rest uses default 300s");
   assertEquals(result.status, "completed", "Status is completed");
   // Duration: (14:05 + 5min) - 14:00 = 10 minutes = 600s
   assertEquals(result.durationSeconds, 600, "Duration is 10 minutes (NaN becomes 300s)");
-  
+
   const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
@@ -276,7 +276,7 @@ console.log("\n11. Infinity rest uses default 300s");
   assertEquals(result.status, "completed", "Status is completed");
   // Duration: (14:07 + 5min) - 14:00 = 12 minutes = 720s
   assertEquals(result.durationSeconds, 720, "Duration is 12 minutes (Infinity becomes 300s)");
-  
+
   const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),

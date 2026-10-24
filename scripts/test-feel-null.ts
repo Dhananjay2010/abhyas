@@ -5,7 +5,7 @@
  *   npx tsx scripts/test-feel-null.ts
  */
 
-import { finishExerciseCore } from "../src/lib/session/finish-exercise";
+import { finishExerciseCore, asSupabaseClient } from "../src/lib/session/finish-exercise";
 
 let passed = 0;
 let failed = 0;
@@ -56,7 +56,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      fake as unknown as import("../src/lib/session/finish-exercise").SupabaseClient,
+      asSupabaseClient(fake),
       "user1",
       {
         sessionExerciseId: "ex1",
@@ -74,7 +74,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      fake as unknown as import("../src/lib/session/finish-exercise").SupabaseClient,
+      asSupabaseClient(fake),
       "user1",
       {
         sessionExerciseId: "ex1",
@@ -92,7 +92,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      fake as unknown as import("../src/lib/session/finish-exercise").SupabaseClient,
+      asSupabaseClient(fake),
       "user1",
       {
         sessionExerciseId: "ex1",
@@ -110,7 +110,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      fake as unknown as import("../src/lib/session/finish-exercise").SupabaseClient,
+      asSupabaseClient(fake),
       "user1",
       {
         sessionExerciseId: "ex1",
@@ -128,7 +128,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      fake as unknown as import("../src/lib/session/finish-exercise").SupabaseClient,
+      asSupabaseClient(fake),
       "user1",
       {
         sessionExerciseId: "ex1",

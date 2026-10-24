@@ -19,6 +19,12 @@ export interface SupabaseClient {
   from: (table: string) => any;
 }
 
+// Narrow any Supabase-like client to our interface
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function asSupabaseClient(client: any): SupabaseClient {
+  return client;
+}
+
 export interface FinishExerciseDeps {
   applyProgression: (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

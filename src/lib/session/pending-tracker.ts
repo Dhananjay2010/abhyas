@@ -87,23 +87,3 @@ export class PendingTracker {
     this.latestResult = null;
   }
 }
-
-/**
- * Determine if finish/end-early can proceed.
- *
- * Pure function for testability.
- */
-export function canFinish(params: {
-  pendingSaves: number;
-  failedSaves: boolean;
-}): { can: boolean; reason: string | null } {
-  if (params.failedSaves) {
-    return { can: false, reason: "Couldn't save your last set" };
-  }
-
-  if (params.pendingSaves > 0) {
-    return { can: false, reason: "Saving your set…" };
-  }
-
-  return { can: true, reason: null };
-}

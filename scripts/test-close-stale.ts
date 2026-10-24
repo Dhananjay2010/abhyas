@@ -5,7 +5,7 @@
  *   npx tsx scripts/test-close-stale.ts
  */
 
-import { closeStaleSessions } from "../src/lib/session/close-stale";
+import { closeStaleSessions, asClient } from "../src/lib/session/close-stale";
 
 let passed = 0;
 let failed = 0;
@@ -95,7 +95,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      fake as unknown as import("../src/lib/session/close-stale").Client,
+      asClient(fake),
       [{ id: "s1", local_date: "2026-10-23" }],
       "2026-10-24"
     );
@@ -121,7 +121,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      fake as unknown as import("../src/lib/session/close-stale").Client,
+      asClient(fake),
       [{ id: "s2", local_date: "2026-10-23" }],
       "2026-10-24"
     );
@@ -150,7 +150,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      fake as unknown as import("../src/lib/session/close-stale").Client,
+      asClient(fake),
       [{ id: "s3", local_date: "2026-10-23" }],
       "2026-10-24"
     );
@@ -167,7 +167,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      fake as unknown as import("../src/lib/session/close-stale").Client,
+      asClient(fake),
       [{ id: "s4", local_date: "2026-10-24" }],
       "2026-10-24"
     );
@@ -201,7 +201,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      fake as unknown as import("../src/lib/session/close-stale").Client,
+      asClient(fake),
       [
         { id: "s5a", local_date: "2026-10-23" },
         { id: "s5b", local_date: "2026-10-23" },
