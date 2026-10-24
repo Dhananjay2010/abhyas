@@ -1,61 +1,24 @@
 #!/usr/bin/env npx tsx
 /**
- * Generate m3-baseline-no-injury.json from origin/main catalogue.
- * Used to ensure no regressions in no-injury plans/swaps.
+ * Writes scripts/fixtures/m3-baseline-no-injury.json from origin/main's catalogue
+ * fixture, through the shared real path (scripts/m3-real-path.ts).
+ * Refuses to run if src/lib/program or the swap action differs from origin/main,
+ * so "current code" here is main's generator. Deterministic: no timestamps.
+ * Run: npx tsx scripts/gen-m3-baseline.ts
  */
+import { execSync } from "child_process";
+import { writeFileSync } from "fs";
+import { join } from "path";
+import { M3_NO_INJURY_PROFILES, parseCatalogue, snapshotPlan } from "./m3-real-path";
 
-import { generateProgram, type GeneratorInput, type CandidateExercise } from "@/lib/program/generate";
-import { rankAlternatives, type AlternativesContext } from "@/lib/program/alternatives";
-import { hashString } from "@/lib/program/generate";
-import { readFileSync, writeFileSync } from "fs";
-
-const mainCatalogue = JSON.parse(readFileSync('scripts/fixtures/catalogue-main.json', 'utf-8')) as CandidateExercise[];
-
-const profiles: GeneratorInput[] = [
-  { userId: "base1", blockNumber: 1, goal: "strength", level: "intermediate", primaryTrack: "bodyweight",
-    daysPerWeek: 4, yogaDaysPerWeek: 0, age: 30, bmi: 22, hasAllEquipment: false,
-    equipmentIds: ["bodyweight", "yoga_mat", "dumbbell", "resistance_band"],
-    currentInjuryRegions: [], preferredSessionMinutes: 45, catalogue: mainCatalogue },
-  { userId: "base2", blockNumber: 1, goal: "muscle_gain", level: "intermediate", primaryTrack: "weights",
-    daysPerWeek: 4, yogaDaysPerWeek: 0, age: 25, bmi: 24, hasAllEquipment: true, equipmentIds: [],
-    currentInjuryRegions: [], preferredSessionMinutes: 60, catalogue: mainCatalogue },
-  { userId: "base3", blockNumber: 1, goal: "fat_loss", level: "beginner", primaryTrack: "bodyweight",
-    daysPerWeek: 3, yogaDaysPerWeek: 1, age: 35, bmi: 28, hasAllEquipment: false,
-    equipmentIds: ["bodyweight", "yoga_mat"],
-    currentInjuryRegions: [], preferredSessionMinutes: 30, catalogue: mainCatalogue },
-];
-
-const allExerciseSlugs = new Set<string>();
-const allSwapSlugs = new Set<string>();
-
-for (const input of profiles) {
-  const plan = generateProgram(input);
-  for (const day of plan.days) {
-    for (const ex of day.exercises) {
-      const exercise = mainCatalogue.find(e => e.id === ex.exerciseId);
-      if (exercise) {
-        allExerciseSlugs.add(exercise.slug);
-        
-        const ctx: AlternativesContext = {
-          level: input.level,
-          availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
-          injuryRegions: [],
-          scoreFn: () => 1,
-          tieBreakFn: (s: string) => hashString(s),
-        };
-        const swaps = rankAlternatives(exercise, mainCatalogue, ctx);
-        for (const swap of swaps) {
-          allSwapSlugs.add(swap.slug);
-        }
-      }
-    }
-  }
+try {
+  execSync("git diff --quiet origin/main HEAD -- src/lib/program src/app/session/actions.ts", { stdio: "pipe" });
+} catch {
+  console.error("src/lib/program or src/app/session/actions.ts differs from origin/main; generate the baseline on main instead");
+  process.exit(1);
 }
-
-const baseline = {
-  exerciseSlugs: Array.from(allExerciseSlugs).sort(),
-  swapSlugs: Array.from(allSwapSlugs).sort(),
-};
-
-writeFileSync('scripts/fixtures/m3-baseline-no-injury.json', JSON.stringify(baseline, null, 2) + '\n');
-console.log(`Generated baseline: ${baseline.exerciseSlugs.length} exercises, ${baseline.swapSlugs.length} swaps`);
+const mainCommit = execSync("git rev-parse origin/main", { encoding: "utf-8" }).trim();
+const mainCatalogue = parseCatalogue(JSON.parse(execSync("git show origin/main:scripts/fixtures/catalogue.json", { encoding: "utf-8", maxBuffer: 64 * 1024 * 1024 })));
+const profiles = M3_NO_INJURY_PROFILES.map((p) => ({ userId: p.userId, days: snapshotPlan(p, mainCatalogue) }));
+writeFileSync(join(process.cwd(), "scripts/fixtures/m3-baseline-no-injury.json"), JSON.stringify({ mainCommit, profiles }, null, 2) + "\n");
+console.log(`baseline: ${profiles.length} profiles from ${mainCommit.slice(0, 8)}, ${mainCatalogue.length} exercises`);
