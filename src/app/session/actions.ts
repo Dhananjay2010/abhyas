@@ -16,7 +16,7 @@ import {
   type ProgressState,
 } from "@/lib/program/progression";
 import { isBodyweightEquipment } from "@/lib/program/bodyweight";
-import { applyDeload, prescribe } from "@/lib/program/prescription";
+import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { swapExerciseCore } from "@/lib/session/swap-core";
 import { validateSet } from "@/lib/session/validation";
