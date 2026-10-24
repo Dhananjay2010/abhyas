@@ -5,6 +5,8 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
 import { isUuid } from "@/lib/ids";
+import { EditSession } from "./edit-session";
+import { SessionActions } from "./session-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,7 @@ export default async function SessionDetailPage({
     .from("sessions")
     // The pattern is named through its foreign key, so a second link between
     // the two tables (breathing_logs is one) can never make it ambiguous.
-    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance, routine_name, routine_step)")
+    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, started_at, completed_at, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance, routine_name, routine_step)")
     .eq("id", id)
     .maybeSingle();
   
@@ -112,6 +114,13 @@ export default async function SessionDetailPage({
         {session.is_deload && " · deload"}
       </p>
 
+      <EditSession
+        sessionId={session.id}
+        localDate={session.local_date}
+        startedAt={session.started_at}
+        completedAt={session.completed_at}
+      />
+
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">
         <Stat label="Time" value={minutes !== null ? `${minutes}m` : "—"} />
         <Stat label="Sets" value={`${(sets ?? []).length}`} />
@@ -179,6 +188,8 @@ export default async function SessionDetailPage({
           );
         })}
       </ol>
+
+      <SessionActions sessionId={session.id} />
     </main>
   );
 }
