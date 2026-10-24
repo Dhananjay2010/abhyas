@@ -1,3 +1,5 @@
+import { exerciseCompletion } from "./completion";
+
 export type SessionSet = {
   id: string;
   is_warmup_set: boolean;
@@ -85,5 +87,40 @@ export async function abandonSessionCore(
     .eq("status", "in_progress"); // Only abandon once
 
   if (error) return { ok: false, error: error.message };
+
+  // Update exercise statuses based on logged vs planned sets
+  type ExerciseForStatusUpdate = {
+    id: string;
+    planned_sets: number;
+    status: string;
+    session_sets: { id: string; is_warmup_set: boolean }[] | null;
+  };
+
+  const { data: exercisesForStatus, error: exerciseReadError } = await supabase
+    .from("session_exercises")
+    .select("id, planned_sets, status, session_sets(id, is_warmup_set)")
+    .eq("session_id", sessionId);
+
+  if (exerciseReadError) {
+    return { ok: false, error: exerciseReadError.message };
+  }
+
+  // Update each exercise status if still pending
+  for (const ex of (exercisesForStatus ?? []) as ExerciseForStatusUpdate[]) {
+    if (ex.status !== "pending") continue;
+
+    const workingSets = (ex.session_sets ?? []).filter((s) => !s.is_warmup_set).length;
+    const completionStatus = exerciseCompletion(workingSets, ex.planned_sets);
+    
+    // Map completion status to database enum: "partial" counts as "completed"
+    const dbStatus = completionStatus === "skipped" ? "skipped" : "completed";
+
+    await supabase
+      .from("session_exercises")
+      .update({ status: dbStatus, completed_at: new Date().toISOString() })
+      .eq("id", ex.id)
+      .eq("status", "pending");
+  }
+
   return { ok: true, data: { status } };
 }
