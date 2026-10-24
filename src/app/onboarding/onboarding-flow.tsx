@@ -26,7 +26,17 @@ import {
   StepShell,
   inputClass,
 } from "@/components/ui";
-import { INJURY_STATUS_COPY } from "@/lib/onboarding/copy";
+import { INJURY_STATUS_COPY, INJURY_INTRO, INJURY_DISCLAIMER } from "@/lib/onboarding/copy";
+import {
+  validateAboutStep,
+  validateGoalStep,
+  validateLevelStep,
+  validateTrackStep,
+  validateDaysStep,
+  validateMixStep,
+  validateEquipmentStep,
+  validateInjuriesStep,
+} from "@/lib/onboarding/step-validation";
 import { orderEquipmentCategories } from "@/lib/onboarding/equipment-order";
 import {
   acceptDisclaimer,
@@ -267,31 +277,32 @@ export function OnboardingFlow({
   }
 
   if (current === "about") {
+    const validation = validateAboutStep({ dateOfBirth, sex, heightCm, weightKg });
     const height = Number(heightCm);
     const weight = Number(weightKg);
     
-    // Validate date of birth
-    const dobValid = dateOfBirth !== "" && /^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth) && (() => {
-      const date = new Date(dateOfBirth);
-      if (isNaN(date.getTime())) return false;
-      const year = date.getFullYear();
-      if (year < 1000 || year > 9999) return false;
-      const currentYear = new Date().getFullYear();
-      if (year < 1900 || year > currentYear) return false;
-      if (date > new Date()) return false;
-      return true;
-    })();
-    const dobError = dateOfBirth !== "" && !dobValid 
-      ? "Please enter a valid date between 1900 and today" 
+    // Individual field errors for inline display
+    const dobError = dateOfBirth !== "" && !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)
+      ? "Please enter a valid date (YYYY-MM-DD)"
+      : dateOfBirth !== "" && !(() => {
+          const date = new Date(dateOfBirth);
+          if (isNaN(date.getTime())) return false;
+          const year = date.getFullYear();
+          if (year < 1000 || year > 9999) return false;
+          const currentYear = new Date().getFullYear();
+          if (year < 1900 || year > currentYear) return false;
+          if (date > new Date()) return false;
+          return true;
+        })()
+        ? "Date should be between 1900 and today"
+        : null;
+    
+    const heightError = heightCm !== "" && (!Number.isFinite(height) || height < 100 || height > 250)
+      ? "Height should be between 100 and 250 cm"
       : null;
-    
-    const heightValid = heightCm !== "" && Number.isFinite(height) && height >= 100 && height <= 250;
-    const weightValid = weightKg !== "" && Number.isFinite(weight) && weight >= 25 && weight <= 300;
-    const heightError = heightCm !== "" && !heightValid ? "Height should be between 100 and 250 cm" : null;
-    const weightError = weightKg !== "" && !weightValid ? "Weight should be between 25 and 300 kg" : null;
-    
-    const ready =
-      dobValid && sex !== null && heightValid && weightValid && !pending;
+    const weightError = weightKg !== "" && (!Number.isFinite(weight) || weight < 25 || weight > 300)
+      ? "Weight should be between 25 and 300 kg"
+      : null;
 
     return (
       <StepShell
@@ -300,9 +311,12 @@ export function OnboardingFlow({
         subtitle="Age and body size are used as safety filters — they decide what we keep out of your plan, not what we put in."
         footer={
           <>
+            {!validation.valid && validation.reason && (
+              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+            )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
-              disabled={!ready}
+              disabled={!validation.valid || pending}
               onClick={() => {
                 // Detect browser timezone on client
                 const browserTimezone =
@@ -387,6 +401,7 @@ export function OnboardingFlow({
   }
 
   if (current === "goal") {
+    const validation = validateGoalStep({ goal });
     return (
       <StepShell
         {...shell}
@@ -394,9 +409,12 @@ export function OnboardingFlow({
         subtitle="This sets your rep ranges and rest times. It is the single biggest input."
         footer={
           <>
+            {!validation.valid && validation.reason && (
+              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+            )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
-              disabled={!goal || pending}
+              disabled={!validation.valid || pending}
               onClick={() => advance(() => actions.saveProfileFields({ goal }))}
             >
               {pending ? "Saving…" : "Continue"}
@@ -420,16 +438,20 @@ export function OnboardingFlow({
   }
 
   if (current === "level") {
+    const validation = validateLevelStep({ level });
     return (
       <StepShell
         {...shell}
-        title="Where are you right now?"
+        title="How experienced are you?"
         subtitle="Be honest rather than optimistic. You can change this later."
         footer={
           <>
+            {!validation.valid && validation.reason && (
+              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+            )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
-              disabled={!level || pending}
+              disabled={!validation.valid || pending}
               onClick={() => advance(() => actions.saveProfileFields({ level }))}
             >
               {pending ? "Saving…" : "Continue"}
@@ -453,15 +475,19 @@ export function OnboardingFlow({
   }
 
   if (current === "track") {
+    const validation = validateTrackStep({ location, homeTrack });
     return (
       <StepShell
         {...shell}
         title="Where will you train?"
         footer={
           <>
+            {!validation.valid && validation.reason && (
+              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+            )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
-              disabled={!track || pending}
+              disabled={!validation.valid || pending}
               onClick={() => advance(() => actions.saveProfileFields({ primary_track: track }))}
             >
               {pending ? "Saving…" : "Continue"}
@@ -506,6 +532,7 @@ export function OnboardingFlow({
   }
 
   if (current === "days") {
+    const validation = validateDaysStep({ daysPerWeek });
     return (
       <StepShell
         {...shell}
@@ -513,9 +540,12 @@ export function OnboardingFlow({
         subtitle="Pick what you will actually do, not what you wish you would do. This chooses your split."
         footer={
           <>
+            {!validation.valid && validation.reason && (
+              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+            )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
-              disabled={!daysPerWeek || pending}
+              disabled={!validation.valid || pending}
               onClick={() =>
                 advance(() =>
                   actions.saveProfileFields({
@@ -608,6 +638,8 @@ export function OnboardingFlow({
       });
     }
 
+    const validation = validateEquipmentStep({ hasAllEquipment, selectedEquipment });
+
     return (
       <StepShell
         {...shell}
@@ -615,9 +647,12 @@ export function OnboardingFlow({
         subtitle="We never suggest an exercise you have no equipment for."
         footer={
           <>
+            {!validation.valid && validation.reason && (
+              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+            )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
-              disabled={pending || (!hasAllEquipment && selectedEquipment.size === 0)}
+              disabled={!validation.valid || pending}
               onClick={() =>
                 advance(() =>
                   actions.saveEquipment({
@@ -707,15 +742,20 @@ export function OnboardingFlow({
     });
   }
 
+  const injuriesValidation = validateInjuriesStep({ injuries });
+
   return (
     <StepShell
       {...shell}
       title="Anything hurt?"
-      subtitle="We exclude exercises that load an injured area, and add specific prehab work to your warm-up instead."
+      subtitle={INJURY_INTRO}
       footer={
         <>
+          {!injuriesValidation.valid && injuriesValidation.reason && (
+            <p className="mb-3 text-sm text-muted">{injuriesValidation.reason}</p>
+          )}
           {error && <ErrorNote>{error}</ErrorNote>}
-          <PrimaryButton disabled={pending} onClick={finish}>
+          <PrimaryButton disabled={!injuriesValidation.valid || pending} onClick={finish}>
             {pending
               ? "Setting up…"
               : injuries.size === 0
@@ -790,6 +830,10 @@ export function OnboardingFlow({
           ))}
         </div>
       )}
+
+      <div className="mt-6 rounded-lg border border-border bg-surface px-4 py-3 text-xs leading-relaxed text-muted">
+        {INJURY_DISCLAIMER}
+      </div>
     </StepShell>
   );
 }
