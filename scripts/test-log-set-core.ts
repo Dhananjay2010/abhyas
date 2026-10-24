@@ -7,6 +7,8 @@
  */
 
 import { logSetCore } from "../src/lib/session/log-set-core";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types";
 
 export {}; // Make this a module
 
@@ -137,7 +139,7 @@ function createRecordingFakeClient(initialSets: SessionSet[], options?: { raceMo
     wasInsertCalled: () => calls.some((c) => c.method === "insert"),
     getFilterCalls: () =>
       calls.filter((c) => c.method === "maybeSingle" || c.method === "order").map((c) => c.filters),
-  };
+  } as FakeSupabaseClient & Pick<SupabaseClient<Database>, "from">;
 }
 
 let passed = 0;
@@ -177,7 +179,7 @@ async function main() {
   // Test 1: Mutant (a) - insert is called, not upsert
   await testLogSetCore("Insert is called, not upsert", async () => {
     const fake = createRecordingFakeClient([]);
-    await logSetCore(fake as SupabaseClient<Database>, "user-1", {
+    await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
       sessionExerciseId: "ex-1",
       setNumber: 1,
       reps: 10,
@@ -204,7 +206,7 @@ async function main() {
       },
     ]);
 
-    await logSetCore(fake as SupabaseClient<Database>, "user-1", {
+    await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
       sessionExerciseId: "ex-2",
       setNumber: 1,
       reps: 10,
@@ -236,7 +238,7 @@ async function main() {
 
     const fake = createRecordingFakeClient([], { raceMode: true, racedSet });
 
-    const result = await logSetCore(fake as SupabaseClient<Database>, "user-1", {
+    const result = await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
       sessionExerciseId: "ex-3",
       setNumber: 1,
       reps: 10,
@@ -271,7 +273,7 @@ async function main() {
 
     const fake = createRecordingFakeClient([], { raceMode: true, racedSet });
 
-    const result = await logSetCore(fake as SupabaseClient<Database>, "user-1", {
+    const result = await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
       sessionExerciseId: "ex-4",
       setNumber: 1,
       reps: 10,
@@ -297,7 +299,7 @@ async function main() {
       },
     ]);
 
-    const result = await logSetCore(fake as SupabaseClient<Database>, "user-1", {
+    const result = await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
       sessionExerciseId: "ex-5",
       setNumber: 1,
       reps: 15,
@@ -320,7 +322,7 @@ async function main() {
   await testLogSetCore("No existing set → insert succeeds", async () => {
     const fake = createRecordingFakeClient([]);
 
-    const result = await logSetCore(fake as SupabaseClient<Database>, "user-1", {
+    const result = await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
       sessionExerciseId: "ex-6",
       setNumber: 1,
       reps: 10,
@@ -352,7 +354,7 @@ async function main() {
     const fake = createRecordingFakeClient([], { raceMode: true, racedSet: existingSet });
 
     // Stale tab tries to log set 2 with different values: 10 reps @ 60kg
-    const result = await logSetCore(fake as SupabaseClient<Database>, "user-1", {
+    const result = await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
       sessionExerciseId: "ex-7",
       setNumber: 2,
       reps: 10,
