@@ -410,32 +410,57 @@ MUSCLE_LABEL = {
 }
 
 EQUIPMENT_LABEL = {
-    "barbell": "Barbell", "dumbbell": "Dumbbells", "cable_machine": "Cable machine",
-    "kettlebell": "Kettlebell", "resistance_band": "Bands", "ez_bar": "EZ bar",
-    "machine_generic": "Machine", "leg_press": "Leg press", "hack_squat": "Hack squat",
-    "leg_curl": "Leg curl", "leg_extension": "Leg extension",
-    "lat_pulldown": "Lat pulldown", "pec_deck": "Pec deck",
-    "chest_press_machine": "Chest press", "seated_row_machine": "Seated row",
-    "smith_machine": "Smith machine", "pull_up_bar": "Pull-up bar",
-    "dip_bars": "Dip bars", "flat_bench": "Bench", "adjustable_bench": "Bench",
-    "squat_rack": "Rack", "medicine_ball": "Medicine ball",
-    "stability_ball": "Stability ball", "foam_roller": "Foam roller",
-    "jump_rope": "Jump rope", "ab_wheel": "Ab wheel",
+    "barbell": "Barbell", "dumbbell": "Dumbbell", "cable_machine": "Cable",
+    "kettlebell": "Kettlebell", "resistance_band": "Bands", "ez_bar": "EZ Bar",
+    "machine_generic": "Machine", "leg_press": "Leg Press", "hack_squat": "Hack Squat",
+    "leg_curl": "Leg Curl Machine", "leg_extension": "Leg Extension Machine",
+    "lat_pulldown": "Lat Pulldown", "pec_deck": "Pec Deck",
+    "chest_press_machine": "Chest Press Machine", "seated_row_machine": "Seated Row Machine",
+    "smith_machine": "Smith Machine", "pull_up_bar": "Pull-up Bar",
+    "dip_bars": "Dip Station", "flat_bench": "Bench", "adjustable_bench": "Bench",
+    "squat_rack": "Squat Rack", "medicine_ball": "Medicine Ball",
+    "stability_ball": "Stability Ball", "foam_roller": "Foam Roller",
+    "jump_rope": "Jump Rope", "ab_wheel": "Ab Wheel",
 }
 
 
-def build_cue(mechanic, force, primary, equipment) -> str:
+def build_cue(mechanic, pattern, primary, equipment) -> str:
     """Our own one-line summary, derived from attributes. Not imported prose."""
-    bits = []
-    if mechanic:
-        bits.append(mechanic.capitalize())
-    if force and force != "static":
-        bits.append(f"{force} movement")
-    head = " ".join(bits) if bits else "Exercise"
-    muscles = ", ".join(MUSCLE_LABEL.get(m, m) for m in primary[:3])
-    kit = ", ".join(dict.fromkeys(EQUIPMENT_LABEL.get(e, e) for e in equipment))
-    out = f"{head} targeting {muscles}." if muscles else f"{head}."
-    return f"{out} {kit}." if kit else out
+    mechanic_label = mechanic or ''
+    pattern_label = pattern.replace('_', ' ') if pattern else ''
+    
+    skip_pattern = (
+        not pattern_label or
+        pattern_label == 'other' or
+        pattern_label == 'static' or
+        pattern_label == 'cardio' or
+        (len(primary) == 1 and primary[0] and pattern_label == MUSCLE_LABEL.get(primary[0], ''))
+    )
+    
+    if skip_pattern:
+        movement_prefix = (
+            mechanic_label if mechanic_label
+            else pattern_label if pattern_label not in ('other', 'static', 'cardio')
+            else ''
+        )
+    else:
+        movement_prefix = (
+            f"{mechanic_label} {pattern_label}" if mechanic_label
+            else pattern_label
+        )
+    
+    muscle_labels = [MUSCLE_LABEL.get(m, m) for m in primary[:3]]
+    equipment_suffix = f" with {EQUIPMENT_LABEL.get(equipment[0], equipment[0])}." if equipment and EQUIPMENT_LABEL.get(equipment[0]) else "."
+    
+    base = (
+        f"{movement_prefix} movement targeting {', '.join(muscle_labels)}" if movement_prefix
+        else f"Targets {', '.join(muscle_labels)}"
+    )
+    
+    if base:
+        base = base[0].upper() + base[1:]
+    
+    return base + equipment_suffix
 
 
 def main() -> None:
@@ -500,7 +525,7 @@ def main() -> None:
             "impact": impact,
             "spinal_load": spinal,
             "default_rest_seconds": 120 if mechanic == "compound" else 75,
-            "cue": build_cue(mechanic, force, primary, equipment),
+            "cue": build_cue(mechanic, pattern, primary, equipment),
         })
 
     # Progression chains

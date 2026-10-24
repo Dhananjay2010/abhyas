@@ -200,7 +200,7 @@
     "id": "d1c5da0a-8778-498a-9b3f-19e10784d600",
     "slug": "cat-cow-stretch",
     "name": "Cat-Cow Stretch",
-    "type": "stretch",
+    "type": "mobility",
     "target_regions": [
       "core",
       "lower_back",

@@ -7710,7 +7710,7 @@
     "equipment_ids": [],
     "level_min": "beginner",
     "contraindicated_regions": [],
-    "impact": "high",
+    "impact": "low",
     "spinal_load": "none",
     "tracks": [
       "weights",
@@ -17584,6 +17584,6 @@
     ],
     "default_rest_seconds": 90,
     "category": "strength",
-    "cue": "Band behind knees creates forward resistance - controlled squat motion"
+    "cue": "Anchor band to sturdy post or rack at knee height. Band behind knees creates forward resistance - controlled squat motion"
   }
 ]
