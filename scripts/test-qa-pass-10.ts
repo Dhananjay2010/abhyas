@@ -182,6 +182,7 @@ testSeeds("C2: Shoulder injury gets NO vertical_press, overhead, or throws",
       trainingMuscles: ["chest", "front_delts"],
       injuryRegions: ["shoulder"],
       track: "weights",
+      hasAllEquipment: true,
       availableEquipment: null,
     });
     const badWarmup = warmup.filter(w => w.target_regions.includes("shoulder"));
@@ -330,6 +331,7 @@ testSeeds("H6: Knee injury gets at least 1 quad move per Lower day",
       trainingMuscles: ["quads", "hamstrings"],
       injuryRegions: ["knee"],
       track: "weights",
+      hasAllEquipment: true,
       availableEquipment: null,
     });
     const hasKneeWarmup = warmup.some(w => w.target_regions.includes("knee"));
@@ -349,6 +351,7 @@ testSeeds("H7: Warmup and cooldown filter by injuries",
       trainingMuscles: ["quads", "hamstrings"],
       injuryRegions: ["knee"],
       track: "weights",
+      hasAllEquipment: true,
       availableEquipment: null,
     });
     const badWarmup = warmup.filter(w => w.target_regions.includes("knee"));
@@ -358,6 +361,8 @@ testSeeds("H7: Warmup and cooldown filter by injuries",
       stretches: warmups,
       trainingMuscles: ["quads"],
       injuryRegions: ["knee"],
+      hasAllEquipment: true,
+      availableEquipment: null,
     });
     const badCooldown = cooldown.filter(w => w.target_regions.includes("knee"));
     check(`Seed ${seed}: Cooldown filtered by knee injury`, badCooldown.length === 0);
@@ -487,3 +492,36 @@ testSeeds("Gym advanced 6d strength",
 // Summary
 console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);
 process.exit(failures > 0 ? 1 : 0);
+
+// QA Pass 10 (h): Warmup/cooldown equipment filtering test
+
+testSeeds('(h) Bodyweight-only user gets no equipment warmups/cooldowns',
+  { primaryTrack: 'bodyweight', hasAllEquipment: false, equipmentIds: [], daysPerWeek: 3 },
+  (plan, picked, seed) => {
+    const warmup = selectWarmup({
+      warmups,
+      trainingMuscles: ['chest', 'triceps'],
+      injuryRegions: [],
+      track: 'bodyweight',
+      hasAllEquipment: false,
+      availableEquipment: new Set([]),
+    });
+    
+    const warmupWithEquipment = warmup.filter(w => w.equipment_ids.length > 0);
+    check(`Seed ${seed}: Bodyweight warmup needs no equipment`, warmupWithEquipment.length === 0,
+      warmupWithEquipment.map(w => `${w.name}[${w.equipment_ids}]`).join(', '));
+    
+    const cooldown = selectCooldown({
+      stretches: warmups,
+      trainingMuscles: ['chest'],
+      injuryRegions: [],
+      hasAllEquipment: false,
+      availableEquipment: new Set([]),
+    });
+    
+    const cooldownWithEquipment = cooldown.filter(w => w.equipment_ids.length > 0);
+    check(`Seed ${seed}: Bodyweight cooldown needs no equipment`, cooldownWithEquipment.length === 0,
+      cooldownWithEquipment.map(w => `${w.name}[${w.equipment_ids}]`).join(', '));
+  }
+);
+

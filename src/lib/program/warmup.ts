@@ -13,6 +13,7 @@ export type WarmupRow = {
   target_muscles: Muscle[];
   duration_seconds: number;
   instructions: string[];
+  equipment_ids: string[];
 };
 
 export type WarmupItem = WarmupRow & { phase: "cardio" | "mobility" | "prehab" | "stretch" };
@@ -53,12 +54,23 @@ export function selectWarmup(input: {
   injuryRegions: BodyRegion[];
   track: Track;
   availableEquipment: Set<string> | null;
+  hasAllEquipment: boolean;
 }): WarmupItem[] {
-  const { warmups, trainingMuscles, injuryRegions, track, availableEquipment } = input;
+  const { warmups, trainingMuscles, injuryRegions, track, availableEquipment, hasAllEquipment } = input;
   const muscles = new Set(trainingMuscles);
   const regions = new Set(injuryRegions);
 
-  const byType = (t: WarmupRow["type"]) => warmups.filter((w) => w.type === t);
+  // QA Pass 10 (h): Equipment filter helper - ALL-of logic, same as exercises
+  const canUseEquipment = (w: WarmupRow) => {
+    if (hasAllEquipment) return true;
+    if (w.equipment_ids.length === 0) return true;
+    if (!availableEquipment) return false;
+    // ALL equipment required (AND logic)
+    return w.equipment_ids.every((e) => availableEquipment.has(e));
+  };
+
+  const byType = (t: WarmupRow["type"]) => 
+    warmups.filter((w) => w.type === t && canUseEquipment(w));
 
   // 1. Five minutes of easy cardio.
   const preference =
@@ -149,15 +161,27 @@ export function selectCooldown(input: {
   stretches: WarmupRow[];
   trainingMuscles: Muscle[];
   injuryRegions?: BodyRegion[];
+  hasAllEquipment: boolean;
+  availableEquipment: Set<string> | null;
 }): WarmupItem[] {
-  const { stretches, trainingMuscles, injuryRegions = [] } = input;
+  const { stretches, trainingMuscles, injuryRegions = [], hasAllEquipment, availableEquipment } = input;
   const muscles = new Set(trainingMuscles);
   const regions = new Set(injuryRegions);
 
-  // QA H7: Filter for stretch exercises AND filter out injury contraindications
+  // QA Pass 10 (h): Equipment filter - ALL-of logic
+  const canUseEquipment = (w: WarmupRow) => {
+    if (hasAllEquipment) return true;
+    if (w.equipment_ids.length === 0) return true;
+    if (!availableEquipment) return false;
+    // ALL equipment required (AND logic)
+    return w.equipment_ids.every((e) => availableEquipment.has(e));
+  };
+
+  // QA H7: Filter for stretch exercises AND filter out injury contraindications AND equipment
   const byType = stretches.filter((w) => 
     w.type === "stretch" && 
-    !w.target_regions.some((r) => regions.has(r))
+    !w.target_regions.some((r) => regions.has(r)) &&
+    canUseEquipment(w)
   );
 
   // Rank stretches by how many of today's muscles they target

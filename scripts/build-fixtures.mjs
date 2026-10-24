@@ -54,8 +54,8 @@ async function main() {
   
   console.log('\nLoading base data...');
   
-  // Clear exercises table to reload from clean base catalogue
-  await db.exec('DELETE FROM exercises; DELETE FROM warmup_exercises;');
+  // Don't clear warmup_exercises - they come from migrations, not base data
+  await db.exec('DELETE FROM exercises;');
   
   const toArray = (arr) => {
     if (!arr || arr.length === 0) return '{}';
@@ -171,9 +171,9 @@ async function main() {
   writeFileSync('scripts/fixtures/catalogue.json', JSON.stringify(exercises, null, 2) + '\n');
   console.log(`\n✓ Wrote ${exercises.length} exercises to scripts/fixtures/catalogue.json`);
   
-  // Export warmups (they got the stretch inserts from 140100)
+  // Export warmups (they got the stretch inserts from 140100, equipment from 140500)
   const warmupResult = await db.query(`
-    SELECT id, slug, name, type, target_regions, target_muscles, duration_seconds, instructions
+    SELECT id, slug, name, type, target_regions, target_muscles, duration_seconds, instructions, equipment_ids
     FROM warmup_exercises
     ORDER BY slug
   `);
@@ -198,6 +198,7 @@ async function main() {
       target_muscles: parseArray(row.target_muscles),
       duration_seconds: row.duration_seconds,
       instructions: parseArray(row.instructions),
+      equipment_ids: parseArray(row.equipment_ids),
     };
   });
   
