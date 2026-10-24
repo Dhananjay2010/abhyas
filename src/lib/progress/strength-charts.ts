@@ -14,14 +14,28 @@ export type ExerciseChart = {
 };
 
 /**
- * Transform raw strength history rows into per-exercise charts with points
- * ordered oldest to newest (chronological).
+ * Fetch-shaping helper: takes exercise_strength_history rows as fetched from
+ * the DB (descending order, newest first) and returns chart-ready data with
+ * points ordered oldest to newest (chronological).
  *
- * Input rows may be in any order (typically newest-first from the DB). This
- * function processes them in the order given and returns points in that same
- * order, so callers must reverse descending data before calling.
+ * This is the entry point for Progress page and tests. It reverses the
+ * descending fetch order so charts plot left-to-right oldest to newest.
  */
-export function buildStrengthCharts(
+export function buildStrengthChartsFromDescendingRows(
+  rowsNewestFirst: StrengthHistoryRow[],
+  shortDateFn: (iso: string) => string
+): ExerciseChart[] {
+  return buildStrengthCharts([...rowsNewestFirst].reverse(), shortDateFn);
+}
+
+/**
+ * Transform raw strength history rows into per-exercise charts with points
+ * in the same order as the input rows.
+ *
+ * Internal helper. Callers should use buildStrengthChartsFromDescendingRows
+ * for DB data fetched newest-first.
+ */
+function buildStrengthCharts(
   rows: StrengthHistoryRow[],
   shortDateFn: (iso: string) => string
 ): ExerciseChart[] {

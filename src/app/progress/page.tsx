@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
 import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
-import { buildStrengthCharts } from "@/lib/progress/strength-charts";
+import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-charts";
 import { localDateString } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
 import { LogWeight } from "./log-weight";
@@ -125,10 +125,10 @@ export default async function ProgressPage() {
     .map((v) => ({ label: shortDate(v.local_date), value: Number(v.volume_kg) }));
 
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
-  // phone, and each lift is its own question anyway. Reverse data since it was
-  // fetched newest-first.
-  const strengthCharts = buildStrengthCharts(
-    [...(strengthRes.data ?? [])].reverse(),
+  // phone, and each lift is its own question anyway. Data is fetched newest-first;
+  // the helper reverses it so charts plot chronologically (oldest to newest).
+  const strengthCharts = buildStrengthChartsFromDescendingRows(
+    strengthRes.data ?? [],
     shortDate
   ).slice(0, 6);
 
