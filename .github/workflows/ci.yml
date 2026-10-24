@@ -77,6 +77,16 @@ jobs:
       - name: Run database reset with seed
         run: supabase db reset
 
+      - name: Test breathe retry race condition
+        run: npx tsx scripts/test-breathe-retry-race.ts
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: Test breathe lost response retry
+        run: npx tsx scripts/test-breathe-lost-response.ts
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
       - name: Verify seed data
         run: |
           # Query the database to verify seed data was loaded correctly
