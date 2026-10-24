@@ -93,7 +93,7 @@ async function main() {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Document;
+    } as DocumentLike;
 
     const fakeWin = {
       addEventListener: (event: string, handler: EventListener) => {
@@ -105,7 +105,7 @@ async function main() {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Window;
+    } as WindowLike;
 
     attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -131,7 +131,7 @@ async function main() {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Document;
+    } as DocumentLike;
 
     const fakeWin = {
       addEventListener: (event: string, handler: EventListener) => {
@@ -143,7 +143,7 @@ async function main() {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Window;
+    } as WindowLike;
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -175,7 +175,7 @@ async function main() {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Document;
+    } as DocumentLike;
 
     const fakeWin = {
       addEventListener: (event: string, handler: EventListener) => {
@@ -187,7 +187,7 @@ async function main() {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Window;
+    } as WindowLike;
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -219,7 +219,7 @@ async function main() {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Document;
+    } as DocumentLike;
 
     const fakeWin = {
       addEventListener: (event: string, handler: EventListener) => {
@@ -231,7 +231,7 @@ async function main() {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Window;
+    } as WindowLike;
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -264,7 +264,7 @@ async function main() {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Document;
+    } as DocumentLike;
 
     const fakeWin = {
       addEventListener: (event: string, handler: EventListener) => {
@@ -276,7 +276,7 @@ async function main() {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Window;
+    } as WindowLike;
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -309,7 +309,7 @@ async function main() {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Document;
+    } as DocumentLike;
 
     const fakeWin = {
       addEventListener: (event: string, handler: EventListener) => {
@@ -321,7 +321,7 @@ async function main() {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Window;
+    } as WindowLike;
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -352,7 +352,7 @@ async function main() {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Document;
+    } as DocumentLike;
 
     const fakeWin = {
       addEventListener: (event: string, handler: EventListener) => {
@@ -364,7 +364,7 @@ async function main() {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as unknown as Window;
+    } as WindowLike;
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {});
 
