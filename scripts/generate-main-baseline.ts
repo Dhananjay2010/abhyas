@@ -15,6 +15,7 @@ const EXCLUDED_SLUGS = new Set([
   "wide-grip-rear-pull-up",
   "barbell-guillotine-bench-press",
   "neck-press",
+  "low-pulley-row-to-neck",
 ]);
 
 const EQUIPMENT_PROFILES: Record<string, Set<string> | null> = {

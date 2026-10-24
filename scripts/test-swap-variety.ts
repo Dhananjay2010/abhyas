@@ -187,7 +187,7 @@ console.log("\n4. Oracle check: Seated Cable Rows (seated-cable-rows, full gym)"
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
+      "shotgun-row",
     ];
     
     console.log(`  Got: ${slugs.join(", ")}`);

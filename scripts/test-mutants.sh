@@ -137,7 +137,20 @@ else
 fi
 echo ""
 
-echo "6. Mutation: Remove pullover filter entirely"
+echo "6. Mutation: Remove low-pulley-row-to-neck from exclusion set"
+cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"
+cp "$BACKUP_EXC_FILE" "$EXCLUSIONS_FILE"
+sed -i 's/"low-pulley-row-to-neck",/\/\/ MUTANT: removed/' "$EXCLUSIONS_FILE"
+verify_mutation "$EXCLUSIONS_FILE" "// MUTANT: removed" "low-pulley-row-to-neck removal marker"
+total_mutations=$((total_mutations + 1))
+if run_tests "Remove low-pulley-row-to-neck"; then
+  caught_mutations=$((caught_mutations + 1))
+else
+  survived_mutations=$((survived_mutations + 1))
+fi
+echo ""
+
+echo "7. Mutation: Remove pullover filter entirely"
 cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"
 cp "$BACKUP_EXC_FILE" "$EXCLUSIONS_FILE"
 sed -i '/if (isCompoundPull && !isPulloverOriginal)/,/}/d' "$ALTERNATIVES_FILE"
@@ -150,7 +163,7 @@ else
 fi
 echo ""
 
-echo "7. Mutation: Apply pullover filter to every original (drop !isPulloverOriginal)"
+echo "8. Mutation: Apply pullover filter to every original (drop !isPulloverOriginal)"
 cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"
 cp "$BACKUP_EXC_FILE" "$EXCLUSIONS_FILE"
 sed -i 's/if (isCompoundPull && !isPulloverOriginal)/if (isCompoundPull)/' "$ALTERNATIVES_FILE"
@@ -163,7 +176,7 @@ else
 fi
 echo ""
 
-echo "8. Mutation: Apply pullover filter only to vertical pulls"
+echo "9. Mutation: Apply pullover filter only to vertical pulls"
 cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"
 cp "$BACKUP_EXC_FILE" "$EXCLUSIONS_FILE"
 sed -i 's/current.movement_pattern === "horizontal_pull" || //' "$ALTERNATIVES_FILE"
@@ -176,7 +189,7 @@ else
 fi
 echo ""
 
-echo "9. Mutation: Drop compound requirement for pullover filter"
+echo "10. Mutation: Drop compound requirement for pullover filter"
 cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"
 cp "$BACKUP_EXC_FILE" "$EXCLUSIONS_FILE"
 cp "$ALTERNATIVES_FILE" /tmp/before-mut9.ts
@@ -223,7 +236,7 @@ cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"
 cp "$BACKUP_EXC_FILE" "$EXCLUSIONS_FILE"
 
 echo "=== Mutation Testing Results ==="
-echo "Total mutations: 11"
+echo "Total mutations: 12"
 echo "Caught: $caught_mutations"
 echo "Survived: $survived_mutations"
 echo ""

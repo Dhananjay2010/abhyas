@@ -11,4 +11,5 @@ export const EXCLUDED_EXERCISE_SLUGS: ReadonlySet<string> = new Set([
   "wide-grip-rear-pull-up",
   "barbell-guillotine-bench-press",
   "neck-press",
+  "low-pulley-row-to-neck",
 ]);

@@ -43829,8 +43829,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -43843,8 +43843,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -47348,8 +47348,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -47362,8 +47362,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -138303,10 +138303,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "one-arm-dumbbell-row",
       "bent-over-two-dumbbell-row-with-palms-in",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "bent-over-two-dumbbell-row"
     ]
   },
   {
@@ -138319,8 +138319,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "bent-over-two-dumbbell-row-with-palms-in"
+      "bent-over-two-dumbbell-row-with-palms-in",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -138429,10 +138429,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "one-arm-dumbbell-row",
       "bent-over-two-dumbbell-row-with-palms-in",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "bent-over-two-dumbbell-row"
     ]
   },
   {
@@ -138445,8 +138445,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "bent-over-two-dumbbell-row-with-palms-in"
+      "bent-over-two-dumbbell-row-with-palms-in",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -138471,10 +138471,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "one-arm-dumbbell-row",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -138487,7 +138487,203 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "none",
+    "seed": "seed-1",
+    "alternatives": [
+      "face-pull",
+      "elevated-cable-rows",
+      "seated-cable-rows",
+      "one-arm-dumbbell-row",
+      "shotgun-row"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "face-pull",
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row",
+      "elevated-cable-rows",
+      "bent-over-two-dumbbell-row-with-palms-in"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "none",
+    "seed": "seed-3",
+    "alternatives": [
+      "face-pull",
+      "one-arm-dumbbell-row",
+      "elevated-cable-rows",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "shoulder",
+    "seed": "seed-1",
+    "alternatives": [
+      "face-pull",
+      "elevated-cable-rows",
+      "seated-cable-rows",
+      "one-arm-dumbbell-row",
+      "shotgun-row"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "shoulder",
+    "seed": "seed-2",
+    "alternatives": [
+      "face-pull",
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row",
+      "elevated-cable-rows",
+      "bent-over-two-dumbbell-row-with-palms-in"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "shoulder",
+    "seed": "seed-3",
+    "alternatives": [
+      "face-pull",
+      "one-arm-dumbbell-row",
+      "elevated-cable-rows",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "neck",
+    "seed": "seed-1",
+    "alternatives": [
+      "face-pull",
+      "elevated-cable-rows",
+      "seated-cable-rows",
+      "one-arm-dumbbell-row",
+      "shotgun-row"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "neck",
+    "seed": "seed-2",
+    "alternatives": [
+      "face-pull",
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row",
+      "elevated-cable-rows",
+      "bent-over-two-dumbbell-row-with-palms-in"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "neck",
+    "seed": "seed-3",
+    "alternatives": [
+      "face-pull",
+      "one-arm-dumbbell-row",
+      "elevated-cable-rows",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "knee",
+    "seed": "seed-1",
+    "alternatives": [
+      "face-pull",
+      "elevated-cable-rows",
+      "seated-cable-rows",
+      "one-arm-dumbbell-row",
+      "shotgun-row"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "face-pull",
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row",
+      "elevated-cable-rows",
+      "bent-over-two-dumbbell-row-with-palms-in"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "knee",
+    "seed": "seed-3",
+    "alternatives": [
+      "face-pull",
+      "one-arm-dumbbell-row",
+      "elevated-cable-rows",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "face-pull",
+      "elevated-cable-rows",
+      "seated-cable-rows",
+      "one-arm-dumbbell-row",
+      "shotgun-row"
+    ]
+  },
+  {
+    "exercise": "barbell-rear-delt-row",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "face-pull",
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row",
+      "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row"
     ]
   },
@@ -138495,202 +138691,6 @@
     "exercise": "barbell-rear-delt-row",
     "level": "intermediate",
     "equipment": "cable-dumbbell",
-    "injuries": "none",
-    "seed": "seed-1",
-    "alternatives": [
-      "face-pull",
-      "elevated-cable-rows",
-      "seated-cable-rows",
-      "one-arm-dumbbell-row",
-      "shotgun-row"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "face-pull",
-      "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "one-arm-dumbbell-row",
-      "elevated-cable-rows"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "none",
-    "seed": "seed-3",
-    "alternatives": [
-      "face-pull",
-      "one-arm-dumbbell-row",
-      "elevated-cable-rows",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "shoulder",
-    "seed": "seed-1",
-    "alternatives": [
-      "face-pull",
-      "elevated-cable-rows",
-      "seated-cable-rows",
-      "one-arm-dumbbell-row",
-      "shotgun-row"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "shoulder",
-    "seed": "seed-2",
-    "alternatives": [
-      "face-pull",
-      "kneeling-high-pulley-row",
-      "one-arm-dumbbell-row",
-      "elevated-cable-rows",
-      "bent-over-two-dumbbell-row-with-palms-in"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "shoulder",
-    "seed": "seed-3",
-    "alternatives": [
-      "face-pull",
-      "one-arm-dumbbell-row",
-      "elevated-cable-rows",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "neck",
-    "seed": "seed-1",
-    "alternatives": [
-      "face-pull",
-      "elevated-cable-rows",
-      "seated-cable-rows",
-      "one-arm-dumbbell-row",
-      "shotgun-row"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "neck",
-    "seed": "seed-2",
-    "alternatives": [
-      "face-pull",
-      "kneeling-high-pulley-row",
-      "one-arm-dumbbell-row",
-      "elevated-cable-rows",
-      "bent-over-two-dumbbell-row-with-palms-in"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "neck",
-    "seed": "seed-3",
-    "alternatives": [
-      "face-pull",
-      "one-arm-dumbbell-row",
-      "elevated-cable-rows",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "knee",
-    "seed": "seed-1",
-    "alternatives": [
-      "face-pull",
-      "elevated-cable-rows",
-      "seated-cable-rows",
-      "one-arm-dumbbell-row",
-      "shotgun-row"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "face-pull",
-      "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "one-arm-dumbbell-row",
-      "elevated-cable-rows"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "face-pull",
-      "one-arm-dumbbell-row",
-      "elevated-cable-rows",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "face-pull",
-      "elevated-cable-rows",
-      "seated-cable-rows",
-      "one-arm-dumbbell-row",
-      "shotgun-row"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "face-pull",
-      "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "one-arm-dumbbell-row",
-      "elevated-cable-rows"
-    ]
-  },
-  {
-    "exercise": "barbell-rear-delt-row",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
@@ -138724,9 +138724,9 @@
     "alternatives": [
       "face-pull",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "one-arm-dumbbell-row",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "bent-over-two-dumbbell-row-with-palms-in"
     ]
   },
   {
@@ -138850,9 +138850,9 @@
     "alternatives": [
       "face-pull",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "one-arm-dumbbell-row",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "bent-over-two-dumbbell-row-with-palms-in"
     ]
   },
   {
@@ -138892,9 +138892,9 @@
     "alternatives": [
       "face-pull",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "one-arm-dumbbell-row",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -209171,8 +209171,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -209185,8 +209185,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -218474,8 +218474,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -218488,8 +218488,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -221993,8 +221993,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -222007,8 +222007,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -225336,7 +225336,7 @@
       "bent-over-two-dumbbell-row-with-palms-in",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -225350,7 +225350,7 @@
       "bent-over-two-dumbbell-row-with-palms-in",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -225462,7 +225462,7 @@
       "bent-over-two-dumbbell-row-with-palms-in",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -225476,7 +225476,7 @@
       "bent-over-two-dumbbell-row-with-palms-in",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -225503,8 +225503,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -225517,8 +225517,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -228846,7 +228846,7 @@
       "bent-over-two-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -228860,7 +228860,7 @@
       "bent-over-two-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -228972,7 +228972,7 @@
       "bent-over-two-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -228986,7 +228986,7 @@
       "bent-over-two-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -229013,8 +229013,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -229027,8 +229027,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -351045,11 +351045,11 @@
     "injuries": "none",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "dumbbell-incline-row"
     ]
   },
   {
@@ -351059,11 +351059,11 @@
     "injuries": "none",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "incline-bench-pull"
     ]
   },
   {
@@ -351073,11 +351073,11 @@
     "injuries": "none",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "bent-over-barbell-row"
     ]
   },
   {
@@ -351171,11 +351171,11 @@
     "injuries": "knee",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "dumbbell-incline-row"
     ]
   },
   {
@@ -351185,11 +351185,11 @@
     "injuries": "knee",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "incline-bench-pull"
     ]
   },
   {
@@ -351199,11 +351199,11 @@
     "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "bent-over-barbell-row"
     ]
   },
   {
@@ -351213,11 +351213,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "dumbbell-incline-row"
     ]
   },
   {
@@ -351227,11 +351227,11 @@
     "injuries": "lower_back",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "incline-bench-pull"
     ]
   },
   {
@@ -351241,11 +351241,11 @@
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -351255,10 +351255,24 @@
     "injuries": "none",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
+    ]
+  },
+  {
+    "exercise": "cable-rope-rear-delt-rows",
+    "level": "intermediate",
+    "equipment": "full-gym",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "face-pull",
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row",
       "shotgun-row"
     ]
   },
@@ -351267,27 +351281,13 @@
     "level": "intermediate",
     "equipment": "full-gym",
     "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "low-pulley-row-to-neck",
-      "kneeling-high-pulley-row",
-      "face-pull",
-      "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
-    ]
-  },
-  {
-    "exercise": "cable-rope-rear-delt-rows",
-    "level": "intermediate",
-    "equipment": "full-gym",
-    "injuries": "none",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -351381,11 +351381,11 @@
     "injuries": "knee",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -351395,11 +351395,11 @@
     "injuries": "knee",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -351409,11 +351409,11 @@
     "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -351423,11 +351423,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -351437,11 +351437,11 @@
     "injuries": "lower_back",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -351451,11 +351451,11 @@
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -351465,11 +351465,11 @@
     "injuries": "none",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -351479,11 +351479,11 @@
     "injuries": "none",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -351493,11 +351493,11 @@
     "injuries": "none",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -351591,11 +351591,11 @@
     "injuries": "knee",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -351605,11 +351605,11 @@
     "injuries": "knee",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -351619,11 +351619,11 @@
     "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -351633,11 +351633,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -351647,11 +351647,11 @@
     "injuries": "lower_back",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -351661,11 +351661,11 @@
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -352296,11 +352296,11 @@
     "injuries": "none",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -352310,11 +352310,11 @@
     "injuries": "none",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -352324,11 +352324,11 @@
     "injuries": "none",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -352422,11 +352422,11 @@
     "injuries": "knee",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -352436,11 +352436,11 @@
     "injuries": "knee",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -352450,11 +352450,11 @@
     "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -352464,11 +352464,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -352478,11 +352478,11 @@
     "injuries": "lower_back",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -352492,11 +352492,11 @@
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "seated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -352506,10 +352506,24 @@
     "injuries": "none",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
+    ]
+  },
+  {
+    "exercise": "cable-rope-rear-delt-rows",
+    "level": "intermediate",
+    "equipment": "cable-dumbbell",
+    "injuries": "none",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "face-pull",
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row",
       "shotgun-row"
     ]
   },
@@ -352518,27 +352532,13 @@
     "level": "intermediate",
     "equipment": "cable-dumbbell",
     "injuries": "none",
-    "seed": "seed-2",
-    "alternatives": [
-      "low-pulley-row-to-neck",
-      "kneeling-high-pulley-row",
-      "face-pull",
-      "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
-    ]
-  },
-  {
-    "exercise": "cable-rope-rear-delt-rows",
-    "level": "intermediate",
-    "equipment": "cable-dumbbell",
-    "injuries": "none",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -352632,11 +352632,11 @@
     "injuries": "knee",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -352646,11 +352646,11 @@
     "injuries": "knee",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -352660,11 +352660,11 @@
     "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -352674,11 +352674,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -352688,11 +352688,11 @@
     "injuries": "lower_back",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -352702,11 +352702,11 @@
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -352716,11 +352716,11 @@
     "injuries": "none",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -352730,11 +352730,11 @@
     "injuries": "none",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -352744,11 +352744,11 @@
     "injuries": "none",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -352842,11 +352842,11 @@
     "injuries": "knee",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -352856,11 +352856,11 @@
     "injuries": "knee",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -352870,11 +352870,11 @@
     "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -352884,11 +352884,11 @@
     "injuries": "lower_back",
     "seed": "seed-1",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "face-pull",
       "elevated-cable-rows",
       "seated-cable-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -352898,11 +352898,11 @@
     "injuries": "lower_back",
     "seed": "seed-2",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "kneeling-high-pulley-row",
       "face-pull",
       "elevated-cable-rows",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -352912,11 +352912,11 @@
     "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "seated-cable-rows",
       "face-pull",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -601280,8 +601280,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -601294,8 +601294,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -684622,7 +684622,7 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -684635,8 +684635,8 @@
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows"
     ]
   },
   {
@@ -684748,20 +684748,6 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "elevated-cable-rows",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-high-pulley-row",
-      "kneeling-single-arm-high-pulley-row",
-      "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows"
     ]
   },
@@ -684770,6 +684756,20 @@
     "level": "beginner",
     "equipment": "full-gym",
     "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows"
+    ]
+  },
+  {
+    "exercise": "elevated-cable-rows",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
@@ -684790,20 +684790,6 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "elevated-cable-rows",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-high-pulley-row",
-      "kneeling-single-arm-high-pulley-row",
-      "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows"
     ]
   },
@@ -684812,6 +684798,20 @@
     "level": "beginner",
     "equipment": "full-gym",
     "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows"
+    ]
+  },
+  {
+    "exercise": "elevated-cable-rows",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
@@ -684846,7 +684846,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -684972,7 +684972,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -685014,7 +685014,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -685056,7 +685056,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -685182,7 +685182,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -685224,7 +685224,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -685873,7 +685873,7 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -685886,8 +685886,8 @@
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows"
     ]
   },
   {
@@ -685999,20 +685999,6 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "elevated-cable-rows",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-high-pulley-row",
-      "kneeling-single-arm-high-pulley-row",
-      "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows"
     ]
   },
@@ -686021,6 +686007,20 @@
     "level": "beginner",
     "equipment": "cable-dumbbell",
     "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows"
+    ]
+  },
+  {
+    "exercise": "elevated-cable-rows",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
@@ -686041,20 +686041,6 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "elevated-cable-rows",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-high-pulley-row",
-      "kneeling-single-arm-high-pulley-row",
-      "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows"
     ]
   },
@@ -686063,6 +686049,20 @@
     "level": "beginner",
     "equipment": "cable-dumbbell",
     "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows"
+    ]
+  },
+  {
+    "exercise": "elevated-cable-rows",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
@@ -686097,7 +686097,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -686223,7 +686223,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -686265,7 +686265,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -686307,7 +686307,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -686433,7 +686433,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -686475,7 +686475,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -722758,7 +722758,7 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -722769,10 +722769,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "seated-cable-rows"
     ]
   },
   {
@@ -722784,9 +722784,9 @@
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -722884,7 +722884,7 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -722895,10 +722895,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "seated-cable-rows"
     ]
   },
   {
@@ -722910,9 +722910,9 @@
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -722926,7 +722926,7 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -722937,10 +722937,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "seated-cable-rows"
     ]
   },
   {
@@ -722952,9 +722952,9 @@
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -722979,10 +722979,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -722995,8 +722995,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -723105,10 +723105,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -723121,8 +723121,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -723147,10 +723147,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -723163,8 +723163,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -723189,10 +723189,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -723205,8 +723205,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -723315,10 +723315,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -723331,8 +723331,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -723357,10 +723357,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -723373,8 +723373,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -724009,7 +724009,7 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -724020,10 +724020,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "seated-cable-rows"
     ]
   },
   {
@@ -724035,9 +724035,9 @@
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -724135,7 +724135,7 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -724146,10 +724146,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "seated-cable-rows"
     ]
   },
   {
@@ -724161,9 +724161,9 @@
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -724177,7 +724177,7 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -724188,10 +724188,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "seated-cable-rows"
     ]
   },
   {
@@ -724203,9 +724203,9 @@
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -724230,10 +724230,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -724246,8 +724246,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -724356,10 +724356,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -724372,8 +724372,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -724398,10 +724398,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -724414,8 +724414,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -724440,10 +724440,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -724456,8 +724456,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -724566,10 +724566,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -724582,8 +724582,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -724608,10 +724608,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -724624,8 +724624,8 @@
       "elevated-cable-rows",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "seated-one-arm-cable-pulley-rows"
     ]
   },
   {
@@ -873404,8 +873404,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -873418,8 +873418,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1041861,8 +1041861,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1041874,9 +1041874,9 @@
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1041890,7 +1041890,7 @@
       "shotgun-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "leverage-iso-row"
     ]
   },
   {
@@ -1041987,8 +1041987,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1042000,9 +1042000,9 @@
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1042010,55 +1042010,55 @@
     "level": "beginner",
     "equipment": "full-gym",
     "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "kneeling-single-arm-high-pulley-row",
-      "shotgun-row",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "kneeling-high-pulley-row",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "shotgun-row",
-      "kneeling-single-arm-high-pulley-row",
-      "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "kneeling-high-pulley-row",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-single-arm-high-pulley-row",
-      "shotgun-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
-    ]
-  },
-  {
-    "exercise": "kneeling-high-pulley-row",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "leverage-iso-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-high-pulley-row",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "inverted-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-high-pulley-row",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows",
+      "inverted-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-high-pulley-row",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "leverage-iso-row"
     ]
   },
   {
@@ -1042086,7 +1042086,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1042212,7 +1042212,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1042254,7 +1042254,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1042296,7 +1042296,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1042422,7 +1042422,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1042464,7 +1042464,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1043112,8 +1043112,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1043125,9 +1043125,9 @@
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1043141,7 +1043141,7 @@
       "shotgun-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1043238,8 +1043238,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1043251,9 +1043251,9 @@
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1043261,55 +1043261,55 @@
     "level": "beginner",
     "equipment": "cable-dumbbell",
     "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "kneeling-single-arm-high-pulley-row",
-      "shotgun-row",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "kneeling-high-pulley-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "shotgun-row",
-      "kneeling-single-arm-high-pulley-row",
-      "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "kneeling-high-pulley-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-single-arm-high-pulley-row",
-      "shotgun-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
-    ]
-  },
-  {
-    "exercise": "kneeling-high-pulley-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "one-arm-dumbbell-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-high-pulley-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "shotgun-row",
+      "kneeling-single-arm-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-high-pulley-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-high-pulley-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1043337,7 +1043337,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1043463,7 +1043463,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1043505,7 +1043505,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1043547,7 +1043547,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1043673,7 +1043673,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1043715,7 +1043715,7 @@
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1045380,8 +1045380,8 @@
       "shotgun-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1045393,9 +1045393,9 @@
     "alternatives": [
       "kneeling-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1045409,7 +1045409,7 @@
       "kneeling-high-pulley-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "leverage-iso-row"
     ]
   },
   {
@@ -1045506,8 +1045506,8 @@
       "shotgun-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1045519,9 +1045519,9 @@
     "alternatives": [
       "kneeling-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1045529,55 +1045529,55 @@
     "level": "beginner",
     "equipment": "full-gym",
     "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "shotgun-row",
-      "kneeling-high-pulley-row",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "kneeling-single-arm-high-pulley-row",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "shotgun-row",
-      "kneeling-high-pulley-row",
-      "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "kneeling-single-arm-high-pulley-row",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-high-pulley-row",
-      "shotgun-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
-    ]
-  },
-  {
-    "exercise": "kneeling-single-arm-high-pulley-row",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
       "shotgun-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "leverage-iso-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-single-arm-high-pulley-row",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "shotgun-row",
+      "kneeling-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "inverted-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-single-arm-high-pulley-row",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "shotgun-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows",
+      "inverted-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-single-arm-high-pulley-row",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "shotgun-row",
+      "kneeling-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "leverage-iso-row"
     ]
   },
   {
@@ -1045605,7 +1045605,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1045731,7 +1045731,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1045773,7 +1045773,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1045815,7 +1045815,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1045941,7 +1045941,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1045983,7 +1045983,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1046631,8 +1046631,8 @@
       "shotgun-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1046644,9 +1046644,9 @@
     "alternatives": [
       "kneeling-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1046660,7 +1046660,7 @@
       "kneeling-high-pulley-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1046757,8 +1046757,8 @@
       "shotgun-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1046770,9 +1046770,9 @@
     "alternatives": [
       "kneeling-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1046780,55 +1046780,55 @@
     "level": "beginner",
     "equipment": "cable-dumbbell",
     "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "shotgun-row",
-      "kneeling-high-pulley-row",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "kneeling-single-arm-high-pulley-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "shotgun-row",
-      "kneeling-high-pulley-row",
-      "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "kneeling-single-arm-high-pulley-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-high-pulley-row",
-      "shotgun-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
-    ]
-  },
-  {
-    "exercise": "kneeling-single-arm-high-pulley-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
       "shotgun-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "one-arm-dumbbell-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-single-arm-high-pulley-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "shotgun-row",
+      "kneeling-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-single-arm-high-pulley-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "shotgun-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
+    ]
+  },
+  {
+    "exercise": "kneeling-single-arm-high-pulley-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "shotgun-row",
+      "kneeling-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1046856,7 +1046856,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1046982,7 +1046982,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1047024,7 +1047024,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1047066,7 +1047066,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1047192,7 +1047192,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1047234,7 +1047234,7 @@
       "elevated-cable-rows",
       "shotgun-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1096790,8 +1096790,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1096804,8 +1096804,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1103855,8 +1103855,8 @@
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
-      "one-arm-dumbbell-row"
+      "one-arm-dumbbell-row",
+      "bent-over-two-dumbbell-row-with-palms-in"
     ]
   },
   {
@@ -1103981,8 +1103981,8 @@
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
-      "one-arm-dumbbell-row"
+      "one-arm-dumbbell-row",
+      "bent-over-two-dumbbell-row-with-palms-in"
     ]
   },
   {
@@ -1104023,8 +1104023,8 @@
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "low-pulley-row-to-neck",
-      "one-arm-dumbbell-row"
+      "one-arm-dumbbell-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1135508,8 +1135508,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1135522,8 +1135522,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1172519,8 +1172519,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1172533,8 +1172533,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1246854,7 +1246854,7 @@
       "bent-over-two-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1246868,7 +1246868,7 @@
       "bent-over-two-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1246980,7 +1246980,7 @@
       "bent-over-two-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1246994,7 +1246994,7 @@
       "bent-over-two-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1247008,20 +1247008,6 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "one-arm-dumbbell-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "seated-cable-rows",
-      "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows"
     ]
   },
@@ -1247030,13 +1247016,27 @@
     "level": "beginner",
     "equipment": "cable-dumbbell",
     "injuries": "lower_back",
-    "seed": "seed-3",
+    "seed": "seed-2",
     "alternatives": [
       "seated-cable-rows",
-      "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
+      "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows",
       "shotgun-row"
+    ]
+  },
+  {
+    "exercise": "one-arm-dumbbell-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -1247232,7 +1247232,7 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "elevated-cable-rows"
     ]
   },
   {
@@ -1247442,7 +1247442,7 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "elevated-cable-rows"
     ]
   },
   {
@@ -1289258,8 +1289258,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1289272,8 +1289272,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1310267,8 +1310267,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1310281,8 +1310281,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1503434,8 +1503434,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1503448,8 +1503448,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1563882,8 +1563882,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "dumbbell-incline-row"
     ]
   },
   {
@@ -1563894,10 +1563894,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "incline-bench-pull"
     ]
   },
   {
@@ -1563908,10 +1563908,10 @@
     "seed": "seed-3",
     "alternatives": [
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "bent-over-barbell-row"
     ]
   },
   {
@@ -1564008,8 +1564008,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "dumbbell-incline-row"
     ]
   },
   {
@@ -1564020,10 +1564020,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "incline-bench-pull"
     ]
   },
   {
@@ -1564034,10 +1564034,10 @@
     "seed": "seed-3",
     "alternatives": [
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "bent-over-barbell-row"
     ]
   },
   {
@@ -1564050,8 +1564050,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "dumbbell-incline-row"
     ]
   },
   {
@@ -1564062,10 +1564062,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "incline-bench-pull"
     ]
   },
   {
@@ -1564076,10 +1564076,10 @@
     "seed": "seed-3",
     "alternatives": [
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1564106,8 +1564106,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564121,7 +1564121,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564232,8 +1564232,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564247,7 +1564247,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564274,8 +1564274,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564289,7 +1564289,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564316,8 +1564316,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564331,7 +1564331,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564442,8 +1564442,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564457,7 +1564457,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564484,8 +1564484,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1564499,7 +1564499,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565133,8 +1565133,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1565145,10 +1565145,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1565159,10 +1565159,10 @@
     "seed": "seed-3",
     "alternatives": [
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1565259,8 +1565259,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1565271,10 +1565271,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1565285,10 +1565285,10 @@
     "seed": "seed-3",
     "alternatives": [
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1565301,8 +1565301,8 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1565313,10 +1565313,10 @@
     "seed": "seed-2",
     "alternatives": [
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows",
-      "shotgun-row"
+      "shotgun-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1565327,10 +1565327,10 @@
     "seed": "seed-3",
     "alternatives": [
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
       "shotgun-row",
-      "kneeling-high-pulley-row"
+      "kneeling-high-pulley-row",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1565357,8 +1565357,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565372,7 +1565372,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565483,8 +1565483,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565498,7 +1565498,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565525,8 +1565525,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565540,7 +1565540,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565567,8 +1565567,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565582,7 +1565582,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565693,8 +1565693,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565708,7 +1565708,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565735,8 +1565735,8 @@
       "seated-one-arm-cable-pulley-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1565750,7 +1565750,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608229,7 +1608229,7 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1608241,9 +1608241,9 @@
     "alternatives": [
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -1608255,9 +1608255,9 @@
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -1608355,20 +1608355,6 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "seated-one-arm-cable-pulley-rows",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "seated-cable-rows",
-      "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows"
     ]
   },
@@ -1608377,13 +1608363,27 @@
     "level": "beginner",
     "equipment": "full-gym",
     "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "seated-cable-rows",
+      "kneeling-high-pulley-row",
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
+    ]
+  },
+  {
+    "exercise": "seated-one-arm-cable-pulley-rows",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -1608397,20 +1608397,6 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "seated-one-arm-cable-pulley-rows",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "seated-cable-rows",
-      "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows"
     ]
   },
@@ -1608419,17 +1608405,31 @@
     "level": "beginner",
     "equipment": "full-gym",
     "injuries": "lower_back",
-    "seed": "seed-3",
+    "seed": "seed-2",
     "alternatives": [
       "seated-cable-rows",
-      "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
+      "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows",
       "shotgun-row"
     ]
   },
   {
     "exercise": "seated-one-arm-cable-pulley-rows",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "kneeling-high-pulley-row"
+    ]
+  },
+  {
+    "exercise": "seated-one-arm-cable-pulley-rows",
     "level": "intermediate",
     "equipment": "full-gym",
     "injuries": "none",
@@ -1608452,8 +1608452,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608467,7 +1608467,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608578,8 +1608578,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608593,7 +1608593,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608620,8 +1608620,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608635,7 +1608635,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608662,8 +1608662,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608677,7 +1608677,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608788,8 +1608788,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608803,7 +1608803,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608830,8 +1608830,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1608845,7 +1608845,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1609480,7 +1609480,7 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1609492,9 +1609492,9 @@
     "alternatives": [
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -1609506,9 +1609506,9 @@
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -1609606,20 +1609606,6 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "seated-one-arm-cable-pulley-rows",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "knee",
-    "seed": "seed-2",
-    "alternatives": [
-      "seated-cable-rows",
-      "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows"
     ]
   },
@@ -1609628,13 +1609614,27 @@
     "level": "beginner",
     "equipment": "cable-dumbbell",
     "injuries": "knee",
+    "seed": "seed-2",
+    "alternatives": [
+      "seated-cable-rows",
+      "kneeling-high-pulley-row",
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
+    ]
+  },
+  {
+    "exercise": "seated-one-arm-cable-pulley-rows",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "knee",
     "seed": "seed-3",
     "alternatives": [
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "shotgun-row"
+      "shotgun-row",
+      "kneeling-high-pulley-row"
     ]
   },
   {
@@ -1609648,20 +1609648,6 @@
       "shotgun-row",
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "seated-one-arm-cable-pulley-rows",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "seated-cable-rows",
-      "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row",
       "cable-rope-rear-delt-rows"
     ]
   },
@@ -1609670,17 +1609656,31 @@
     "level": "beginner",
     "equipment": "cable-dumbbell",
     "injuries": "lower_back",
-    "seed": "seed-3",
+    "seed": "seed-2",
     "alternatives": [
       "seated-cable-rows",
-      "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
+      "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows",
       "shotgun-row"
     ]
   },
   {
     "exercise": "seated-one-arm-cable-pulley-rows",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row",
+      "kneeling-high-pulley-row"
+    ]
+  },
+  {
+    "exercise": "seated-one-arm-cable-pulley-rows",
     "level": "intermediate",
     "equipment": "cable-dumbbell",
     "injuries": "none",
@@ -1609703,8 +1609703,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1609718,7 +1609718,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1609829,8 +1609829,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1609844,7 +1609844,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1609871,8 +1609871,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1609886,7 +1609886,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1609913,8 +1609913,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1609928,7 +1609928,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1610039,8 +1610039,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1610054,7 +1610054,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1610081,8 +1610081,8 @@
       "seated-cable-rows",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1610096,7 +1610096,7 @@
       "elevated-cable-rows",
       "cable-rope-rear-delt-rows",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1637553,8 +1637553,8 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1637566,9 +1637566,9 @@
     "alternatives": [
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1637582,7 +1637582,7 @@
       "kneeling-high-pulley-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "leverage-iso-row"
     ]
   },
   {
@@ -1637679,8 +1637679,8 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1637692,9 +1637692,9 @@
     "alternatives": [
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "inverted-row"
     ]
   },
   {
@@ -1637702,55 +1637702,55 @@
     "level": "beginner",
     "equipment": "full-gym",
     "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "shotgun-row",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row",
-      "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "shotgun-row",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-high-pulley-row",
-      "kneeling-single-arm-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
-    ]
-  },
-  {
-    "exercise": "shotgun-row",
-    "level": "beginner",
-    "equipment": "full-gym",
-    "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "leverage-iso-row"
+    ]
+  },
+  {
+    "exercise": "shotgun-row",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "kneeling-single-arm-high-pulley-row",
+      "kneeling-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "inverted-row"
+    ]
+  },
+  {
+    "exercise": "shotgun-row",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows",
+      "inverted-row"
+    ]
+  },
+  {
+    "exercise": "shotgun-row",
+    "level": "beginner",
+    "equipment": "full-gym",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "kneeling-single-arm-high-pulley-row",
+      "kneeling-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "leverage-iso-row"
     ]
   },
   {
@@ -1637778,7 +1637778,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1637904,7 +1637904,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1637946,7 +1637946,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1637988,7 +1637988,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1638114,7 +1638114,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1638156,7 +1638156,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1638804,8 +1638804,8 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1638817,9 +1638817,9 @@
     "alternatives": [
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1638833,7 +1638833,7 @@
       "kneeling-high-pulley-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1638930,8 +1638930,8 @@
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1638943,9 +1638943,9 @@
     "alternatives": [
       "kneeling-high-pulley-row",
       "kneeling-single-arm-high-pulley-row",
-      "low-pulley-row-to-neck",
       "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1638953,55 +1638953,55 @@
     "level": "beginner",
     "equipment": "cable-dumbbell",
     "injuries": "knee",
-    "seed": "seed-3",
-    "alternatives": [
-      "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row",
-      "seated-cable-rows",
-      "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
-    ]
-  },
-  {
-    "exercise": "shotgun-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-1",
-    "alternatives": [
-      "kneeling-single-arm-high-pulley-row",
-      "kneeling-high-pulley-row",
-      "seated-cable-rows",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows"
-    ]
-  },
-  {
-    "exercise": "shotgun-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
-    "seed": "seed-2",
-    "alternatives": [
-      "kneeling-high-pulley-row",
-      "kneeling-single-arm-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "cable-rope-rear-delt-rows",
-      "seated-cable-rows"
-    ]
-  },
-  {
-    "exercise": "shotgun-row",
-    "level": "beginner",
-    "equipment": "cable-dumbbell",
-    "injuries": "lower_back",
     "seed": "seed-3",
     "alternatives": [
       "kneeling-single-arm-high-pulley-row",
       "kneeling-high-pulley-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck"
+      "one-arm-dumbbell-row"
+    ]
+  },
+  {
+    "exercise": "shotgun-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-1",
+    "alternatives": [
+      "kneeling-single-arm-high-pulley-row",
+      "kneeling-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
+    ]
+  },
+  {
+    "exercise": "shotgun-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-2",
+    "alternatives": [
+      "kneeling-high-pulley-row",
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows",
+      "seated-cable-rows",
+      "one-arm-dumbbell-row"
+    ]
+  },
+  {
+    "exercise": "shotgun-row",
+    "level": "beginner",
+    "equipment": "cable-dumbbell",
+    "injuries": "lower_back",
+    "seed": "seed-3",
+    "alternatives": [
+      "kneeling-single-arm-high-pulley-row",
+      "kneeling-high-pulley-row",
+      "seated-cable-rows",
+      "cable-rope-rear-delt-rows",
+      "one-arm-dumbbell-row"
     ]
   },
   {
@@ -1639029,7 +1639029,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1639155,7 +1639155,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1639197,7 +1639197,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1639239,7 +1639239,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1639365,7 +1639365,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1639407,7 +1639407,7 @@
       "elevated-cable-rows",
       "kneeling-single-arm-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck"
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1698419,8 +1698419,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1698433,8 +1698433,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1947270,7 +1947270,7 @@
       "dumbbell-incline-row",
       "kneeling-high-pulley-row",
       "incline-bench-pull",
-      "low-pulley-row-to-neck"
+      "one-arm-long-bar-row"
     ]
   },
   {
@@ -1948353,7 +1948353,7 @@
       "bent-over-two-dumbbell-row-with-palms-in",
       "bent-over-two-dumbbell-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1948479,7 +1948479,7 @@
       "bent-over-two-dumbbell-row-with-palms-in",
       "bent-over-two-dumbbell-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck"
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1948519,9 +1948519,9 @@
     "alternatives": [
       "one-arm-dumbbell-row",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
       "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows"
+      "cable-rope-rear-delt-rows",
+      "shotgun-row"
     ]
   },
   {
@@ -1948534,8 +1948534,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1948730,8 +1948730,8 @@
       "one-arm-dumbbell-row",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1948940,8 +1948940,8 @@
       "one-arm-dumbbell-row",
       "kneeling-high-pulley-row",
       "face-pull",
-      "low-pulley-row-to-neck",
-      "elevated-cable-rows"
+      "elevated-cable-rows",
+      "kneeling-single-arm-high-pulley-row"
     ]
   },
   {
@@ -1954931,8 +1954931,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1954945,8 +1954945,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -1984211,8 +1984211,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -1984225,8 +1984225,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {
@@ -2036531,8 +2036531,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "kneeling-high-pulley-row",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "cable-rope-rear-delt-rows"
     ]
   },
   {
@@ -2036545,8 +2036545,8 @@
       "one-arm-dumbbell-row",
       "seated-cable-rows",
       "cable-rope-rear-delt-rows",
-      "low-pulley-row-to-neck",
-      "kneeling-single-arm-high-pulley-row"
+      "kneeling-single-arm-high-pulley-row",
+      "shotgun-row"
     ]
   },
   {

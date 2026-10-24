@@ -20,6 +20,7 @@ const EXCLUDED_SLUGS = [
   "wide-grip-rear-pull-up",
   "barbell-guillotine-bench-press",
   "neck-press",
+  "low-pulley-row-to-neck",
 ];
 
 const catalogue: CandidateExercise[] = JSON.parse(
