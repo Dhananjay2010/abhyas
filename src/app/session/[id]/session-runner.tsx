@@ -166,10 +166,13 @@ export function SessionRunner({
       storage: window.localStorage,
       logSet: actions.logSet,
       sessionId,
-      onChange: setPendingSetState,
+      onChange: (state) => {
+        // Use callback form to avoid dependency on setPendingSetState
+        setPendingSetState(state);
+      },
     });
     setController(ctrl);
-  }, [sessionId, controller]);
+  }, [sessionId, controller, actions.logSet]);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -252,27 +255,33 @@ export function SessionRunner({
   useEffect(() => {
     if (pendingSetState.replayed.length === 0) return;
 
-    setExercises((prev) => {
-      let updated = prev;
-      for (const set of pendingSetState.replayed) {
-        updated = updated.map((e) =>
-          e.id === set.sessionExerciseId
-            ? {
-                ...e,
-                sets: [
-                  ...e.sets.filter((s) => s.setNumber !== set.setNumber),
-                  {
-                    setNumber: set.setNumber,
-                    reps: set.reps,
-                    weightKg: set.weightKg,
-                    durationSeconds: set.durationSeconds,
-                  },
-                ].sort((a, b) => a.setNumber - b.setNumber),
-              }
-            : e
+    setExercises((prevExercises) => {
+      return prevExercises.map((e) => {
+        const replayedForExercise = pendingSetState.replayed.filter(
+          (s) => s.sessionExerciseId === e.id
         );
-      }
-      return updated;
+        if (replayedForExercise.length === 0) return e;
+
+        const updatedSets = [...e.sets];
+        for (const set of replayedForExercise) {
+          const existingIndex = updatedSets.findIndex((s) => s.setNumber === set.setNumber);
+          const newSet = {
+            setNumber: set.setNumber,
+            reps: set.reps,
+            weightKg: set.weightKg,
+            durationSeconds: set.durationSeconds,
+          };
+          if (existingIndex >= 0) {
+            updatedSets[existingIndex] = newSet;
+          } else {
+            updatedSets.push(newSet);
+          }
+        }
+        return {
+          ...e,
+          sets: updatedSets.sort((a, b) => a.setNumber - b.setNumber),
+        };
+      });
     });
   }, [pendingSetState.replayed]);
 
