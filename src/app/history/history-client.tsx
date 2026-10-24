@@ -171,12 +171,11 @@ export function HistoryClient({
                   details.push(pluralize(item.breathing.breaths, item.breathing.pumps ? "pump" : "breath"));
                 }
               } else {
-                // Use sessionCompletion to show "Completed" or "Ended early · X/Y sets"
-                const completionLabel = sessionCompletion(item.status, item.setCount, undefined);
-                details.push(completionLabel);
+                // Show completion status (TODO: "Ended early" when Dev 3's #37 adds explicit state)
+                details.push("Completed");
                 if (item.isDeload) details.push("deload");
                 if (durationLabel) details.push(durationLabel);
-                if (item.setCount > 0 && completionLabel === "Completed") details.push(pluralize(item.setCount, "set"));
+                if (item.setCount > 0) details.push(pluralize(item.setCount, "set"));
                 if (item.topSetWeight) details.push(`${Math.round(item.topSetWeight)}kg top`);
                 if (item.volumeKg > 0) details.push(`${Math.round(item.volumeKg)}kg total`);
               }

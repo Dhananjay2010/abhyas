@@ -27,25 +27,30 @@ type MockSession = {
 };
 
 const sessions: MockSession[] = [
-  // Mixed types, deliberately out of chronological order
+  // Same day (2026-10-24), mixed types, deliberately out of chronological order
   { id: "s1", actual_type: "weights", completed_at: "2026-10-24T18:00:00Z", started_at: "2026-10-24T17:55:00Z", local_date: "2026-10-24" },
   { id: "s2", actual_type: "meditation", completed_at: "2026-10-24T16:00:00Z", started_at: "2026-10-24T15:50:00Z", local_date: "2026-10-24" },
   { id: "s3", actual_type: "yoga", completed_at: "2026-10-24T17:00:00Z", started_at: "2026-10-24T16:30:00Z", local_date: "2026-10-24" },
   { id: "s4", actual_type: "weights", completed_at: "2026-10-24T09:00:00Z", started_at: "2026-10-24T08:30:00Z", local_date: "2026-10-24" },
-  { id: "s5", actual_type: "yoga", completed_at: "2026-10-23T20:00:00Z", started_at: "2026-10-23T19:30:00Z", local_date: "2026-10-23" },
-  { id: "s6", actual_type: "meditation", completed_at: "2026-10-23T10:00:00Z", started_at: "2026-10-23T09:50:00Z", local_date: "2026-10-23" },
   // Session without completed_at (in progress)
   { id: "s7", actual_type: "weights", completed_at: null, started_at: "2026-10-24T15:00:00Z", local_date: "2026-10-24" },
-  // Same timestamp, different ids (tie-breaker test)
+  // Previous day (2026-10-23)
+  { id: "s5", actual_type: "yoga", completed_at: "2026-10-23T20:00:00Z", started_at: "2026-10-23T19:30:00Z", local_date: "2026-10-23" },
+  { id: "s6", actual_type: "meditation", completed_at: "2026-10-23T10:00:00Z", started_at: "2026-10-23T09:50:00Z", local_date: "2026-10-23" },
+  // Same day and time (tie-breaker test)
   { id: "s8", actual_type: "yoga", completed_at: "2026-10-23T12:00:00Z", started_at: "2026-10-23T11:30:00Z", local_date: "2026-10-23" },
   { id: "s9", actual_type: "meditation", completed_at: "2026-10-23T12:00:00Z", started_at: "2026-10-23T11:35:00Z", local_date: "2026-10-23" },
 ];
 
-console.log("1. Sort by completed_at DESC, then started_at DESC, then id DESC");
+console.log("1. Sort by local_date DESC, then completed_at DESC, then started_at DESC, then id DESC");
 
 // Sort function mimicking PostgREST order clauses
 function sortSessions(sessions: MockSession[]): MockSession[] {
   return [...sessions].sort((a, b) => {
+    // local_date DESC (primary sort - groups same-day sessions)
+    const dateCmp = b.local_date.localeCompare(a.local_date);
+    if (dateCmp !== 0) return dateCmp;
+
     // completed_at DESC (nulls last)
     if (a.completed_at && b.completed_at) {
       const cmp = b.completed_at.localeCompare(a.completed_at);
@@ -68,24 +73,31 @@ function sortSessions(sessions: MockSession[]): MockSession[] {
 const sorted = sortSessions(sessions);
 
 sortCheck("sorted 9 sessions", sorted.length === 9);
-sortCheck("first session is s1 (18:00)", sorted[0].id === "s1", `got ${sorted[0].id}`);
+sortCheck("first session is from 2026-10-24 (most recent date)", sorted[0].local_date === "2026-10-24", `got ${sorted[0].local_date}`);
+sortCheck("first session is s1 (18:00, newest on that day)", sorted[0].id === "s1", `got ${sorted[0].id}`);
 sortCheck("second session is s3 (yoga, 17:00)", sorted[1].id === "s3" && sorted[1].actual_type === "yoga", `got ${sorted[1].id}`);
 sortCheck("third session is s2 (meditation, 16:00)", sorted[2].id === "s2" && sorted[2].actual_type === "meditation", `got ${sorted[2].id}`);
 
-console.log("\n2. Session without completed_at (nulls last) sorts by started_at");
+console.log("\n2. Same-day sessions: session without completed_at (nulls last) sorts by started_at");
 const s7Index = sorted.findIndex((s) => s.id === "s7");
 const s4Index = sorted.findIndex((s) => s.id === "s4");
-sortCheck("s7 (no completed_at) comes after all with completed_at", s7Index > s4Index, `s7 at ${s7Index}, s4 at ${s4Index}`);
+const s2Index = sorted.findIndex((s) => s.id === "s2");
+sortCheck("s7 (no completed_at, started 15:00) comes after s2 (completed 16:00)", s7Index > s2Index, `s7 at ${s7Index}, s2 at ${s2Index}`);
+sortCheck("s7 (started 15:00) comes after s4 (completed 09:00)", s7Index > s4Index, `s7 at ${s7Index}, s4 at ${s4Index}`);
+sortCheck("all Oct 24 sessions before Oct 23", sorted.findIndex((s) => s.local_date === "2026-10-23") > s4Index);
 
-console.log("\n3. All types are mixed in chronological order");
-const types = sorted.slice(0, 4).map((s) => s.actual_type);
-const uniqueTypes = new Set(types);
-sortCheck("first 4 sessions have all 3 types", uniqueTypes.size === 3, `types: ${[...uniqueTypes].join(", ")}`);
+console.log("\n3. All types are mixed in chronological order within same day");
+const oct24Sessions = sorted.filter((s) => s.local_date === "2026-10-24");
+const oct24Types = oct24Sessions.map((s) => s.actual_type);
+const uniqueTypes = new Set(oct24Types);
+sortCheck("Oct 24 sessions have all 3 types", uniqueTypes.size === 3, `types: ${[...uniqueTypes].join(", ")}`);
 
-console.log("\n4. Tie-breaker: same completed_at, id DESC wins");
+console.log("\n4. Tie-breaker: same date, same completed_at, id DESC wins");
 const s8Index = sorted.findIndex((s) => s.id === "s8");
 const s9Index = sorted.findIndex((s) => s.id === "s9");
-sortCheck("s8 and s9 have same completed_at (12:00)", sorted[s8Index].completed_at === sorted[s9Index].completed_at);
+sortCheck("s8 and s9 have same date and completed_at", 
+  sorted[s8Index].local_date === sorted[s9Index].local_date && 
+  sorted[s8Index].completed_at === sorted[s9Index].completed_at);
 sortCheck("s9 comes before s8 (id DESC)", s9Index < s8Index, `s9 at ${s9Index}, s8 at ${s8Index}`);
 
 console.log("\n5. Page boundary: 20th session is deterministic");
@@ -123,8 +135,8 @@ if (sortFailures > 0) {
   process.exit(1);
 } else {
   console.log("✅ All tests passed\n");
-  console.log("Conclusion: History list sorts by completed_at DESC (nulls last),");
-  console.log("then started_at DESC, then id DESC. All session types (strength,");
-  console.log("yoga, breathing) are mixed in chronological order. Pagination");
-  console.log("preserves sort order across boundaries.\n");
+  console.log("Conclusion: History list sorts by local_date DESC (groups same-day sessions),");
+  console.log("then completed_at DESC (nulls last), then started_at DESC, then id DESC.");
+  console.log("All session types (strength, yoga, breathing) are mixed in chronological");
+  console.log("order within each day. Pagination preserves sort order across boundaries.\n");
 }

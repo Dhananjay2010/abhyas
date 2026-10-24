@@ -69,9 +69,11 @@ export default async function HistoryPage({
     query = query.eq("actual_type", "meditation");
   }
 
-  // Sort by session time (completed_at, or started_at if not completed) descending,
-  // then by id descending as deterministic tie-breaker
+  // Sort by local_date DESC (groups same-day sessions), then effective time
+  // (completed_at, falling back to started_at) DESC, then id DESC (tie-breaker)
+  // This ensures newest sessions appear first, with stable pagination
   query = query
+    .order("local_date", { ascending: false })
     .order("completed_at", { ascending: false, nullsFirst: false })
     .order("started_at", { ascending: false, nullsFirst: false })
     .order("id", { ascending: false })
@@ -196,6 +198,7 @@ export default async function HistoryPage({
       startedAt: s.started_at,
       completedAt: s.completed_at,
       isDeload: s.is_deload,
+      endedEarly: false, // TODO: derive from set counts or get from #37
       programDayLabel: (s.program_days as unknown as { label: string } | null)?.label ?? null,
       setCount: workingSetCount,
       volumeKg: Number(vol?.volume_kg ?? 0),

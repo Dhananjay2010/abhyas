@@ -144,12 +144,12 @@ export default async function ProgressPage() {
         <StatTile
           label="Streak"
           value={`${streaks.current}`}
-          sub={streaks.current === 1 ? "session" : "sessions in a row"}
+          sub={streaks.current === 1 ? "day in a row" : "days in a row"}
         />
         <StatTile
           label="Best streak"
           value={`${streaks.longest}`}
-          sub={streaks.longest === 1 ? "session" : "sessions"}
+          sub={streaks.longest === 1 ? "day" : "days"}
         />
         <StatTile label="Days trained" value={`${streaks.totalSessions}`} sub="all time" />
         <StatTile
@@ -164,6 +164,10 @@ export default async function ProgressPage() {
           sub="all time"
         />
       </section>
+      
+      <p className="mt-3 text-xs text-muted">
+        Your streak counts scheduled training days you trained. Missing one resets it. Breathe sessions don't count.
+      </p>
 
       {!hasAnything && (
         <p className="mt-8 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">

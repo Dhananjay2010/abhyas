@@ -9,6 +9,7 @@ export interface SessionListItem {
   startedAt: string | null;
   completedAt: string | null;
   isDeload: boolean;
+  endedEarly: boolean;
   programDayLabel: string | null;
   setCount: number;
   volumeKg: number;

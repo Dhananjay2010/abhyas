@@ -2,12 +2,12 @@
  * Session completion label helper.
  * 
  * TODO: Replace with shared helper from src/lib/ when sessionCompletion() is exported.
- * Another developer is adding an exported helper with this signature.
+ * Dev 3's #37 will add explicit ended-early state and planned sets count.
  * 
  * @param status - Session status (e.g., "completed", "in_progress")
- * @param completedSets - Number of sets completed
- * @param plannedSets - Total number of sets planned
- * @returns Label like "Completed" or "Ended early · 2/10 sets"
+ * @param completedSets - Number of working sets completed
+ * @param plannedSets - Total number of sets planned (optional until #37)
+ * @returns Label like "Completed" or "Ended early · 2 of 10 sets"
  */
 export function sessionCompletion(
   status: string,
@@ -26,7 +26,7 @@ export function sessionCompletion(
     completedSets < plannedSets
   ) {
     const word = plannedSets === 1 ? "set" : "sets";
-    return `Ended early · ${completedSets}/${plannedSets} ${word}`;
+    return `Ended early · ${completedSets} of ${plannedSets} ${word}`;
   }
 
   return "Completed";
