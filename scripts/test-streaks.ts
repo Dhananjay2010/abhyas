@@ -155,11 +155,11 @@ console.log("\n8. A block rebuilt the same day must not erase today's streak");
 {
   // Regression: rebuilding on 9 Sept leaves two programs covering that date.
   // The retired one has Wednesday as rest; the active one has it as training.
-  // Taking the older schedule made the streak skip a session just completed.
+  // With the new block-range system, the retired block gets ended_on = started_on - 1 (empty range).
   const records = buildDayRecords({
     programs: [
-      { id: "retired", startedOn: "2026-09-09", endsOn: "2026-10-06" },
-      { id: "active", startedOn: "2026-09-09", endsOn: "2026-10-06" },
+      { id: "retired", startedOn: "2026-09-09", endsOn: "2026-10-06", endedOn: "2026-09-08" }, // empty range
+      { id: "active", startedOn: "2026-09-09", endsOn: "2026-10-06", endedOn: null },
     ],
     dayTypesByProgram: {
       retired: { 1: "yoga", 2: "weights", 3: "rest", 4: "weights", 5: "weights", 6: "rest", 7: "rest" },
@@ -168,7 +168,7 @@ console.log("\n8. A block rebuilt the same day must not erase today's streak");
     completedSessions: [{ local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 }],
     today: "2026-09-09",
   });
-  check("today uses the newest block's schedule",
+  check("today uses the active block's schedule (retired is empty)",
     records.find((r) => r.localDate === "2026-09-09")?.dayType === "weights",
     `${records.find((r) => r.localDate === "2026-09-09")?.dayType}`);
   const s = computeStreaks(records, "2026-09-09");

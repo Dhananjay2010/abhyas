@@ -723,6 +723,7 @@ export type Database = {
           created_at: string
           days_per_week: number
           deload_week: number
+          ended_on: string | null
           ends_on: string
           goal: Database["public"]["Enums"]["fitness_goal"]
           id: string
@@ -732,12 +733,14 @@ export type Database = {
           started_on: string
           status: Database["public"]["Enums"]["program_status"]
           user_id: string
+          week_offset: number
         }
         Insert: {
           block_number?: number
           created_at?: string
           days_per_week: number
           deload_week?: number
+          ended_on?: string | null
           ends_on: string
           goal: Database["public"]["Enums"]["fitness_goal"]
           id?: string
@@ -747,12 +750,14 @@ export type Database = {
           started_on: string
           status?: Database["public"]["Enums"]["program_status"]
           user_id: string
+          week_offset?: number
         }
         Update: {
           block_number?: number
           created_at?: string
           days_per_week?: number
           deload_week?: number
+          ended_on?: string | null
           ends_on?: string
           goal?: Database["public"]["Enums"]["fitness_goal"]
           id?: string
@@ -762,6 +767,7 @@ export type Database = {
           started_on?: string
           status?: Database["public"]["Enums"]["program_status"]
           user_id?: string
+          week_offset?: number
         }
         Relationships: []
       }
@@ -1424,6 +1430,13 @@ export type Database = {
           days_completed: number
         }[]
       }
+      rebuild_block: {
+        Args: {
+          p_today: string
+          p_payload: Json
+        }
+        Returns: string
+      }
       record_breathing_practice: {
         Args: {
           p_breaths: number
@@ -1440,6 +1453,13 @@ export type Database = {
           p_seconds: number
           p_session_id?: string
           p_user_pattern_id: string
+        }
+        Returns: string
+      }
+      rollover_block: {
+        Args: {
+          p_today: string
+          p_payload: Json
         }
         Returns: string
       }
@@ -1534,7 +1554,7 @@ export type Database = {
         | "full_body"
         | "cardio"
       planning_mode: "progression" | "daily_menu"
-      program_status: "active" | "completed" | "abandoned"
+      program_status: "active" | "completed" | "abandoned" | "superseded"
       session_status:
         | "planned"
         | "in_progress"
@@ -1773,7 +1793,7 @@ export const Constants = {
         "cardio",
       ],
       planning_mode: ["progression", "daily_menu"],
-      program_status: ["active", "completed", "abandoned"],
+      program_status: ["active", "completed", "abandoned", "superseded"],
       session_status: [
         "planned",
         "in_progress",
