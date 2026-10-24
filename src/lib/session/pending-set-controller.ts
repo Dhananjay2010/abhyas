@@ -148,6 +148,10 @@ export function createPendingSetController(config: {
         return { status: "saved" };
       }
 
+      if ("reason" in result && result.reason === "set_exists") {
+        return { status: "saved" };
+      }
+
       setState({ error: result.error ?? "Failed to save set" });
       return { status: "failed", error: result.error ?? "Failed to save set" };
     } catch (err) {
@@ -226,7 +230,7 @@ export function createPendingSetController(config: {
             durationSeconds: set.durationSeconds,
           });
 
-          if (result.ok || isDuplicateError(result)) {
+          if (result.ok || isDuplicateError(result) || ("reason" in result && result.reason === "set_exists")) {
             clearPendingSet(storage, userId, sessionId, set.clientId, deps);
             successfullyReplayed.push(set);
           } else if (isSessionExpired(result)) {
