@@ -236,6 +236,7 @@ jobs:
           npm run test:exercise-history-real-db
           npm run test:progress-rpcs-real-db
           npm run test:progress-active-days
+          npm run test:superseded-override
           npm run test:equipment-two-client
           npm run test:injuries-two-client
           npx tsx scripts/test-delete-set.ts
