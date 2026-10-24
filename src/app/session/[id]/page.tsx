@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
+import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -170,13 +170,27 @@ export default async function SessionPage({
   });
 
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
+  const allWarmupRows = (warmupsRes.data ?? []) as WarmupRow[];
+  
   const warmup = selectWarmup({
-    warmups: (warmupsRes.data ?? []) as WarmupRow[],
+    warmups: allWarmupRows,
     trainingMuscles,
     // Prehab uses past injuries too -- they do not block a movement, but they
     // are exactly what is worth warming up.
     injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region),
     track: profileRes.data?.primary_track ?? "weights",
+    hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
+    availableEquipment: profileRes.data?.has_all_equipment
+      ? null
+      : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
+  });
+
+  // QA H7: Cool-down filter uses injuries (prehab drills for current, general stretches for all)
+  const cooldown = selectCooldown({
+    stretches: allWarmupRows,
+    trainingMuscles,
+    injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region),
+    hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
     availableEquipment: profileRes.data?.has_all_equipment
       ? null
       : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
@@ -206,6 +220,7 @@ export default async function SessionPage({
       warmupAlreadyDone={session.warmup_completed}
       startedAt={session.started_at}
       warmup={warmup}
+      cooldown={cooldown}
       exercises={exercises}
       settings={settings}
       tomorrow={tomorrow}
