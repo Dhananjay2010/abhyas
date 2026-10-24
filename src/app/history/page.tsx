@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { getUnitsPreference } from "@/lib/units";
 import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
@@ -26,7 +27,7 @@ export default async function HistoryPage({
 
   const profileRes = await supabase
     .from("profiles")
-    .select("timezone, onboarding_completed_at")
+    .select("timezone, onboarding_completed_at, units")
     .eq("id", user.id)
     .single();
 
@@ -36,6 +37,7 @@ export default async function HistoryPage({
 
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const today = localDateString(timezone);
+  const units = getUnitsPreference(profile.units);
 
   // Build the query based on filter
   let query = supabase
@@ -247,6 +249,7 @@ export default async function HistoryPage({
       totalCount={count ?? 0}
       today={today}
       timezone={timezone}
+      units={units}
     />
   );
 }

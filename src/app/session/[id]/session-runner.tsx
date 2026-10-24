@@ -29,6 +29,8 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
+import { resolveSetConflict } from "@/lib/session/conflict-reducer";
+import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -226,33 +228,8 @@ export function SessionRunner({
     setRestRemaining(seconds);
   }, []);
 
-  // Fresh data on resume: refresh when the component mounts or when the page
-  // becomes visible again (visibilitychange) or comes back from bfcache (pageshow)
-  useEffect(() => {
-    // Refresh on mount to ensure we have fresh data
-    router.refresh();
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        router.refresh();
-      }
-    };
-
-    const handlePageShow = (event: PageTransitionEvent) => {
-      if (event.persisted) {
-        // Page was restored from bfcache
-        router.refresh();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("pageshow", handlePageShow);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("pageshow", handlePageShow);
-    };
-  }, [router]);
+  // Fresh data on resume: refresh when resuming or navigating back
+  useResumeRefresh();
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
@@ -631,20 +608,10 @@ export function SessionRunner({
 
       if (!result.ok) {
         if ("reason" in result && result.reason === "set_exists") {
-          setExercises((prev) =>
-            prev.map((e) =>
-              e.id === current.id
-                ? { ...e, sets: result.savedSets }
-                : e,
-            ),
-          );
-          const nextUnfinishedIndex = exercises.findIndex(
-            (e, i) => i >= exerciseIndex && e.status === "pending" && e.sets.length < e.plannedSets,
-          );
-          if (nextUnfinishedIndex !== -1 && nextUnfinishedIndex !== exerciseIndex) {
-            setExerciseIndex(nextUnfinishedIndex);
-          }
-          setMessage("That set was already saved. Showing your latest sets.");
+          const resolution = resolveSetConflict(exercises, current.id, exerciseIndex, result);
+          setExercises(resolution.exercises);
+          setExerciseIndex(resolution.nextExerciseIndex);
+          setMessage(resolution.message);
           setError(null);
           return;
         }
