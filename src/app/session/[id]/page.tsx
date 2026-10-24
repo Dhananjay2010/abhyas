@@ -2,11 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
-import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { isBodyweightEquipment } from "@/lib/program/bodyweight";
-import { effectiveRepsMax } from "@/lib/program/effective-target";
-import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
+import { buildRunnerInit } from "@/lib/session/build-runner-init";
+import { SessionRunner, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
@@ -102,70 +100,12 @@ export default async function SessionPage({
   */
   const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
 
-  const exercises: RunnerExercise[] = rows.map((r) => {
-    const ex = r.exercises;
-    const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
-    const working =
-      progress?.current_working_weight_kg === null || progress === undefined
-        ? null
-        : Number(progress.current_working_weight_kg);
-    const isBodyweight = isBodyweightEquipment(ex?.equipment_ids);
-    return {
-      id: r.id,
-      exerciseId: ex?.id ?? "",
-      name: ex?.name ?? "Exercise",
-      cue: ex?.cue ?? null,
-      /*
-        The session's own unit, not the catalogue's. A session resumed after the
-        exercise was re-tagged must keep running in the unit its sets were
-        logged in, or half the sets in one exercise would be reps and half
-        seconds.
-      */
-      metric: r.metric ?? "reps",
-      primaryMuscles: ex?.primary_muscles ?? [],
-      plannedSets: r.planned_sets ?? 3,
-      repsMin: r.planned_reps_min ?? 8,
-      repsMax: effectiveRepsMax({
-        plannedMax: r.planned_reps_max ?? 12,
-        progressedTarget: progress?.current_target_reps,
-        isBodyweight,
-        usedWeight: working,
-      }),
-      restSeconds: r.rest_seconds ?? 90,
-      status: r.status,
-      feel: r.feel,
-      workingWeightKg: working,
-      suggestedWeightKg: suggestedWeight(
-        { currentWorkingWeightKg: working },
-        session.is_deload,
-        {
-          mechanic: ex?.mechanic ?? null,
-          movementPattern: ex?.movement_pattern ?? "other",
-          metric: r.metric ?? "reps",
-          isBodyweight,
-          progressionChain: null,
-          progressionRank: null,
-          equipmentIds: ex?.equipment_ids ?? [],
-        },
-      ),
-      isBodyweight,
-      // Warm-up sets are excluded and the order applied here rather than in the
-      // query. PostgREST is documented to filter an embedded resource without
-      // dropping its parent, but if that were ever wrong the failure would be
-      // silent and severe: a session that has not been started yet has no
-      // logged sets, so every exercise would vanish from the runner. A handful
-      // of rows per exercise is not worth taking that on trust.
-      sets: (r.session_sets ?? [])
-        .filter((set) => !set.is_warmup_set)
-        .sort((a, b) => a.set_number - b.set_number)
-        .map((set) => ({
-          setNumber: set.set_number,
-          reps: set.reps,
-          weightKg: set.weight_kg === null ? null : Number(set.weight_kg),
-          durationSeconds: set.duration_seconds,
-        })),
-    };
-  });
+  const exercises = buildRunnerInit(
+    rows,
+    progressByExercise,
+    remembersWeights,
+    session.is_deload
+  );
 
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
   const allWarmupRows = (warmupsRes.data ?? []) as WarmupRow[];

@@ -29,8 +29,9 @@ export class FakeSupabaseClient {
     const currentFilters: Array<{ column: string; value: unknown }> = [];
 
     const chainable = {
-      select: (_columns?: string) => {
+      select: (columns?: string) => {
         currentMethod = "select";
+        void columns;
         return chainable;
       },
 

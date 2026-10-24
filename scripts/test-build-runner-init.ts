@@ -16,7 +16,7 @@ console.log("\nP1: uses progress working weight");
   const rows = [
     {
       id: "se-1",
-      metric: "reps",
+      metric: "reps" as const,
       planned_sets: 3,
       planned_reps_min: 8,
       planned_reps_max: 12,
@@ -30,7 +30,7 @@ console.log("\nP1: uses progress working weight");
         equipment_ids: ["barbell"],
         mechanic: "compound",
         movement_pattern: "squat",
-        primary_muscles: ["quads"],
+        primary_muscles: ["quads"] as const,
       },
     },
   ];
@@ -47,7 +47,7 @@ console.log("\nP2: uses correct progress field (not target_reps)");
   const rows = [
     {
       id: "se-1",
-      metric: "reps",
+      metric: "reps" as const,
       planned_sets: 3,
       planned_reps_min: 8,
       planned_reps_max: 12,
@@ -61,7 +61,7 @@ console.log("\nP2: uses correct progress field (not target_reps)");
         equipment_ids: ["barbell"],
         mechanic: "compound",
         movement_pattern: "squat",
-        primary_muscles: ["quads"],
+        primary_muscles: ["quads"] as const,
       },
     },
   ];
@@ -82,7 +82,7 @@ console.log("\nP3: checks bodyweight equipment");
   const barbell = [
     {
       id: "se-1",
-      metric: "reps",
+      metric: "reps" as const,
       planned_sets: 3,
       planned_reps_min: 8,
       planned_reps_max: 12,
@@ -96,7 +96,7 @@ console.log("\nP3: checks bodyweight equipment");
         equipment_ids: ["barbell"],
         mechanic: "compound",
         movement_pattern: "squat",
-        primary_muscles: ["quads"],
+        primary_muscles: ["quads"] as const,
       },
     },
   ];
@@ -104,7 +104,7 @@ console.log("\nP3: checks bodyweight equipment");
   const pullup = [
     {
       id: "se-2",
-      metric: "reps",
+      metric: "reps" as const,
       planned_sets: 3,
       planned_reps_min: 5,
       planned_reps_max: 10,
@@ -118,7 +118,7 @@ console.log("\nP3: checks bodyweight equipment");
         equipment_ids: ["pull_up_bar"],
         mechanic: "compound",
         movement_pattern: "vertical_pull",
-        primary_muscles: ["lats"],
+        primary_muscles: ["lats"] as const,
       },
     },
   ];
@@ -137,7 +137,7 @@ console.log("\nP4: passes progressedTarget to effectiveRepsMax");
   const rows = [
     {
       id: "se-1",
-      metric: "reps",
+      metric: "reps" as const,
       planned_sets: 3,
       planned_reps_min: 5,
       planned_reps_max: 10,
@@ -151,7 +151,7 @@ console.log("\nP4: passes progressedTarget to effectiveRepsMax");
         equipment_ids: ["pull_up_bar"],
         mechanic: "compound",
         movement_pattern: "vertical_pull",
-        primary_muscles: ["lats"],
+        primary_muscles: ["lats"] as const,
       },
     },
   ];
@@ -172,7 +172,7 @@ console.log("\nP-series: no progress returns null weight");
   const rows = [
     {
       id: "se-1",
-      metric: "reps",
+      metric: "reps" as const,
       planned_sets: 3,
       planned_reps_min: 8,
       planned_reps_max: 12,
@@ -186,7 +186,7 @@ console.log("\nP-series: no progress returns null weight");
         equipment_ids: ["barbell"],
         mechanic: "compound",
         movement_pattern: "squat",
-        primary_muscles: ["quads"],
+        primary_muscles: ["quads"] as const,
       },
     },
   ];
