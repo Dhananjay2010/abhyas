@@ -9,6 +9,21 @@
  */
 
 (function() {
+const fs = require('fs');
+
+// First check that session-runner.tsx disables finish button when pending sets exist
+const runnerCode = fs.readFileSync("src/app/session/[id]/session-runner.tsx", "utf-8");
+const disabledLineFound = runnerCode.split('\n').some((line: string) =>
+  line.includes('disabled=') &&
+  line.includes('pendingSetState.pending.length') &&
+  !line.trim().startsWith('//')
+);
+if (!disabledLineFound) {
+  console.error("❌ session-runner.tsx must disable finish button when pendingSetState.pending.length > 0");
+  process.exit(1);
+}
+console.log("✓ session-runner.tsx disables finish button when pending sets exist\n");
+
 let exitCode = 0;
 
 function assert(condition: boolean, message: string): void {

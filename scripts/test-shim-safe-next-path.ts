@@ -15,6 +15,7 @@
 // Import the shim module - need to access the internal safeNextPath
 // Since it's not exported, we'll test through signInAgainHref which uses it
 import { signInAgainHref } from "../src/lib/session/session-expired-shim";
+import { readFileSync } from "fs";
 
 let exitCode = 0;
 
@@ -28,6 +29,19 @@ function assert(condition: boolean, message: string) {
 }
 
 console.log("Testing session-expired-shim safeNextPath\n");
+
+// First check that the shim's safeNextPath actually checks for '//'
+const shimCode = readFileSync("src/lib/session/session-expired-shim.tsx", "utf-8");
+const safeNextPathCode = shimCode.split('function safeNextPath')[1]?.split('function ')[0] || '';
+const protocolRelativeLine = safeNextPathCode.split('\n').find(line => 
+  line.includes("startsWith('//')") || line.includes('startsWith("//")')
+);
+assert(
+  protocolRelativeLine &&
+  !protocolRelativeLine.trim().startsWith('//') &&
+  /if\s*\(\s*path\.startsWith\s*\(\s*['"]\/{2}['"]/.test(protocolRelativeLine),
+  "safeNextPath must have an active if (path.startsWith('//')) check, not if (false)"
+);
 
 // Test through signInAgainHref since safeNextPath is internal
 // signInAgainHref calls safeNextPath and returns /?next=encoded(result)
