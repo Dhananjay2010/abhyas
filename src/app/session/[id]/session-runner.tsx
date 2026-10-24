@@ -592,6 +592,21 @@ export function SessionRunner({
     const meta = s as unknown as { failed?: boolean; unsaved?: boolean };
     return meta.failed || meta.unsaved;
   });
+  
+  // B2: Count unsaved and failed rows across ALL exercises for leave dialog
+  const lostCount = exercises.reduce((sum, ex) => {
+    return sum + ex.sets.filter((s) => {
+      const meta = s as unknown as { unsaved?: boolean };
+      return meta.unsaved;
+    }).length;
+  }, 0);
+  
+  const failedCount = exercises.reduce((sum, ex) => {
+    return sum + ex.sets.filter((s) => {
+      const meta = s as unknown as { failed?: boolean };
+      return meta.failed;
+    }).length;
+  }, 0);
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
   const lastWeight =
@@ -883,7 +898,8 @@ export function SessionRunner({
       syncState={syncState}
       onRetrySync={flushOutbox}
       pendingCount={pendingCount}
-      unsavedCount={unsavedCount}
+      lostCount={lostCount}
+      failedCount={failedCount}
     >
       <div onPointerDown={onAnyTap}>
         {bannerFor === exerciseIndex && progressNotes.length > 0 && (
@@ -1574,7 +1590,8 @@ function Shell({
   syncState,
   onRetrySync,
   pendingCount = 0,
-  unsavedCount = 0,
+  lostCount = 0,
+  failedCount = 0,
   confirmExit = true,
   children,
 }: {
@@ -1587,7 +1604,8 @@ function Shell({
   syncState?: SyncState;
   onRetrySync?: () => void;
   pendingCount?: number;
-  unsavedCount?: number;
+  lostCount?: number;
+  failedCount?: number;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
   children: React.ReactNode;
@@ -1597,13 +1615,15 @@ function Shell({
   // inside thumb reach, and used to leave mid-set on a single tap.
   const [confirmingExit, setConfirmingExit] = useState(false);
 
-  // S3: Leave dialog copy with unsavedCount
+  // B2: Leave dialog copy based on lostCount (unsaved) vs failedCount
   const exitMessage =
-    unsavedCount > 0
-      ? `Leave this session? ${unsavedCount} set${unsavedCount > 1 ? "s" : ""} couldn't be saved and will be lost if you leave.`
-      : pendingCount > 0
-        ? `Leave this session? ${pendingCount} set${pendingCount > 1 ? "s are" : " is"} saved on this device and will sync when you reopen this session online.`
-        : "Everything you have logged is already saved, and you can pick it up again from Today.";
+    lostCount > 0
+      ? `Leave this session? ${lostCount} set${lostCount > 1 ? "s" : ""} couldn't be saved and will be lost if you leave.`
+      : failedCount > 0
+        ? `Leave this session? ${failedCount} set${failedCount > 1 ? "s weren't" : " wasn't"} accepted – reopen this session to retry or remove ${failedCount > 1 ? "them" : "it"}.`
+        : pendingCount > 0
+          ? `Leave this session? ${pendingCount} set${pendingCount > 1 ? "s are" : " is"} saved on this device and will sync when you reopen this session online.`
+          : "Everything you have logged is already saved, and you can pick it up again from Today.";
 
   return (
     <main className="mx-auto min-h-dvh w-full max-w-md px-6 pt-6 pb-16">
