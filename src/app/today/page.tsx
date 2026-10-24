@@ -10,7 +10,6 @@ import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
-import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { buildTodayState } from "@/lib/today/build-state";
@@ -19,9 +18,7 @@ import { todayPromptBlocks } from "@/lib/today/prompt-blocks";
 import { hasStartedAnySession } from "@/lib/today/has-started-any";
 import { TodayPrompts } from "@/components/today/today-prompts";
 import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
-import { getWeekRowLabel } from "@/lib/today/week-display";
 import { WarmupSection } from "@/components/today/warmup-section";
-import { findFirstTrainingDay } from "@/lib/today/first-training-day";
 import { countWorkingSets } from "@/lib/session/count-sets";
 import { buildTodayView } from "@/lib/today/page-helpers";
 

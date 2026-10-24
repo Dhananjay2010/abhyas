@@ -11,7 +11,6 @@
 
 import { countWorkingSets } from "../src/lib/session/count-sets";
 import { isMissedTrainingDay } from "../src/lib/today/missed-day";
-import { isoWeekday } from "../src/lib/dates";
 
 let totalTests = 0;
 let passedTests = 0;
