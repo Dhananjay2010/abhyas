@@ -407,6 +407,7 @@ function Practice({
   const hasContext = useSyncExternalStore(noSubscribe, () => breathAudio() !== null, () => false);
 
   const [logId] = useState(() => uuid());
+  const saveInFlightRef = useRef(false);
   const [clock] = useState(() => new PausableClock());
   // "How do you feel right now?" belongs at the start of a routine, not before
   // every step of it -- the same reasoning as the settle-in above. A routine is
@@ -509,6 +510,12 @@ function Practice({
 
   const doSave = useCallback(
     (o: Outcome) => {
+      // In-flight guard: prevent concurrent saves (double-tap, wind-down auto-save + manual Finish)
+      if (saveInFlightRef.current) {
+        return;
+      }
+      saveInFlightRef.current = true;
+      
       setSave({ state: "saving" });
       actions
         .recordBreathingPractice({
@@ -529,6 +536,7 @@ function Practice({
         })
         .then(
           (r) => {
+            saveInFlightRef.current = false;
             if (!r.ok) {
               setSave({ state: "error", error: r.error });
               savedOkRef.current = false;
@@ -543,11 +551,13 @@ function Practice({
               sendMood(m);
             }
           },
-          () =>
+          () => {
+            saveInFlightRef.current = false;
             setSave({
               state: "error",
               error: "Could not reach the server. Check your connection and try again.",
-            }),
+            });
+          }
         );
     },
     [
