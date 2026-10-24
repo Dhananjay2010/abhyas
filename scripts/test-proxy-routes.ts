@@ -286,9 +286,10 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
         // 500 or redirects are now FAILURES
         const isSuccess = status === 200 || status === 404;
         const isRedirect = status === 307 || status === 308;
+        const passed = isSuccess && !isRedirect;
         
         return {
-          passed: isSuccess && !isRedirect,
+          passed,
           message: isSuccess && !isRedirect
             ? `${description}: ${status} (no redirect)`
             : `${description}: FAILED - expected 200/404, got ${status}${location ? ` → ${location}` : ''}`
@@ -337,6 +338,74 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
     results.push({
       passed: false,
       message: `API /api/in-progress: FAILED - ${error}`
+    });
+  }
+
+  // Test server action with expired session: POST with Next-Action header should return 401 text/plain
+  try {
+    const response = await fetch(`${baseUrl}/settings`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'test-proxy-routes/1.0',
+        'Next-Action': 'test-action-id',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+    
+    const status = response.status;
+    const contentType = response.headers.get('content-type') || '';
+    const location = response.headers.get('location');
+    const body = await response.text();
+    
+    const is401 = status === 401;
+    const isTextPlain = contentType.includes('text/plain');
+    const hasSessionExpiredCode = body.includes('SESSION_EXPIRED');
+    const noLocationHeader = !location;
+    
+    const passed = is401 && isTextPlain && hasSessionExpiredCode && noLocationHeader;
+    
+    results.push({
+      passed,
+      message: passed
+        ? `Server action (signed out): 401 text/plain with SESSION_EXPIRED, no Location header`
+        : `Server action (signed out): FAILED - ${status}, Content-Type: ${contentType}, Location: ${location || 'none'}, Body includes SESSION_EXPIRED: ${hasSessionExpiredCode}`
+    });
+  } catch (error) {
+    results.push({
+      passed: false,
+      message: `Server action (signed out): FAILED - ${error}`
+    });
+  }
+
+  // Test that normal GET to same route still redirects (307/308)
+  try {
+    const response = await fetch(`${baseUrl}/settings`, {
+      method: 'GET',
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'test-proxy-routes/1.0'
+      }
+    });
+    
+    const status = response.status;
+    const location = response.headers.get('location');
+    const isRedirect = status === 307 || status === 308;
+    const hasSignInRedirect = location === '/' || (location?.startsWith('/?next=') === true);
+    
+    const passed = isRedirect && hasSignInRedirect;
+    
+    results.push({
+      passed,
+      message: passed
+        ? `Server action comparison - GET /settings (signed out): ${status} → ${location} (correct redirect)`
+        : `Server action comparison - GET /settings (signed out): FAILED - ${status}${location ? ` → ${location}` : ''} (expected 307/308 redirect)`
+    });
+  } catch (error) {
+    results.push({
+      passed: false,
+      message: `Server action comparison - GET /settings (signed out): FAILED - ${error}`
     });
   }
 
