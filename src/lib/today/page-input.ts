@@ -39,7 +39,7 @@ export interface TodayStateInputRows {
   dayType: DayType | null;
   strengthDone: boolean;
   strengthOpen: boolean;
-  hasStartedAny: boolean;
+  hasStartedAny: boolean | null;
 }
 
 export function todayStateInputFromRows(rows: TodayStateInputRows) {

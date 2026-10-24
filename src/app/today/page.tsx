@@ -324,9 +324,9 @@ export default async function TodayPage() {
       : undefined;
 
   // Check if user has started any strength or yoga session (for welcome card and first-day logic)
-  // If the query failed, assume they HAVE started (safer fallback - show normal Today, not brand-new welcome)
-  const hasStartedAny = allSessionsRes.error
-    ? true
+  // If the query failed, use null (unknown state) - hide first-session offer and show normal Today
+  const hasStartedAny: boolean | null = allSessionsRes.error
+    ? null
     : hasStartedAnySession({ sessions: allSessionsRes.data ?? [] });
 
   // Use pure helpers to derive all prompt logic
@@ -359,7 +359,8 @@ export default async function TodayPage() {
   const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
 
   // Find first training day in plan for first-session offer
-  const firstTrainingDay = !hasStartedAny && days ? findFirstTrainingDay(days) : null;
+  // Only show if we know they haven't started (not null/unknown)
+  const firstTrainingDay = hasStartedAny === false && days ? findFirstTrainingDay(days) : null;
 
   const promptBlocks = todayPromptBlocks({
     promptType,

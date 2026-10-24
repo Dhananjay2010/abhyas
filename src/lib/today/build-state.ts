@@ -68,7 +68,7 @@ export interface BuildTodayStateInput {
   // Session state
   strengthDone: boolean;
   strengthOpen: boolean;
-  hasStartedSession: boolean;
+  hasStartedSession: boolean | null;
 }
 
 export interface BuildTodayStateOutput {
