@@ -129,8 +129,8 @@ for (const c of cases) {
   
   // Get the label
   const label = getSessionLabel({
-    status: c.status as any,
-    actualType: c.type as any,
+    status: c.status as "completed" | "in_progress" | "skipped",
+    actualType: c.type as "weights" | "bodyweight" | "yoga" | "meditation" | null,
     setCount: workingSetCount,
     localDate: date,
     today: TODAY,
