@@ -348,5 +348,87 @@ console.log("\n16. Weighted rep PR rule edge cases");
     `got ${mostReps3 ? mostReps3.set.weight_kg + '×' + mostReps3.value : 'none'}`);
 }
 
+console.log("\n17. Rep PR baseline from first session's top set (Task A)");
+{
+  // R9: 60×12 / 100×5 / 100×8 -> currentPRs.most_reps = 100×8
+  const r9: SetData[] = [
+    set(12, 60, null),
+    set(5, 100, null),
+    set(8, 100, null),
+  ];
+  const prsR9 = detectPersonalRecords(r9, "reps");
+  const mostRepsR9 = prsR9.find(pr => pr.type === "most_reps");
+  check("R9: 60×12 / 100×5 / 100×8 -> currentPRs.most_reps = 100×8",
+    mostRepsR9?.value === 8 && mostRepsR9?.set.weight_kg === 100,
+    `got ${mostRepsR9 ? mostRepsR9.set.weight_kg + '×' + mostRepsR9.value : 'none'}`);
+
+  // Multi-set first session: [80×10, 100×5], then 100×8 -> currentPRs.most_reps = 100×8
+  // Baseline is 100×5 (highest weight), not 80×10 (even though 80×10 has higher e1RM)
+  const multiSet1: SetData[] = [
+    set(10, 80, null),
+    set(5, 100, null),
+    set(8, 100, null),
+  ];
+  const prsMulti1 = detectPersonalRecords(multiSet1, "reps");
+  const mostRepsMulti1 = prsMulti1.find(pr => pr.type === "most_reps");
+  check("First session [80×10, 100×5], then 100×8 -> currentPRs.most_reps = 100×8",
+    mostRepsMulti1?.value === 8 && mostRepsMulti1?.set.weight_kg === 100,
+    `got ${mostRepsMulti1 ? mostRepsMulti1.set.weight_kg + '×' + mostRepsMulti1.value : 'none'}`);
+
+  // Baseline ordering: highest weight wins, even if lower e1RM
+  // [100×3, 90×10] baseline is 100×3 (weight 100 > 90), not 90×10 (e1RM 120 > 110)
+  const weightVsE1RM: SetData[] = [
+    set(3, 100, null),
+    set(10, 90, null),
+  ];
+  const prsWeightVsE1RM = detectPersonalRecords(weightVsE1RM, "reps");
+  const mostRepsWeightVsE1RM = prsWeightVsE1RM.find(pr => pr.type === "most_reps");
+  check("First session [100×3, 90×10]: baseline is 100×3 (highest weight), not 90×10 (highest e1RM)",
+    mostRepsWeightVsE1RM?.value === 3 && mostRepsWeightVsE1RM?.set.weight_kg === 100,
+    `got ${mostRepsWeightVsE1RM ? mostRepsWeightVsE1RM.set.weight_kg + '×' + mostRepsWeightVsE1RM.value : 'none'}`);
+}
+
+console.log("\n18. L2: Bodyweight (null weight) handling");
+{
+  // Weighted sets plus bodyweight set with higher reps gives bodyweight most_reps PR
+  // Bodyweight 20 reps beats earlier bodyweight 15 reps
+  const mixedSets: SetData[] = [
+    set(15, null, null),     // Bodyweight baseline
+    set(10, 60, null),       // Weighted
+    set(5, 100, null),       // Weighted
+    set(20, null, null),     // Bodyweight PR (beats 15)
+  ];
+  const prsMixed = detectPersonalRecords(mixedSets, "reps");
+  const mostRepsMixed = prsMixed.find(pr => pr.type === "most_reps");
+  check("Weighted + bodyweight 20 reps beats earlier bodyweight 15 -> most_reps PR",
+    mostRepsMixed?.value === 20 && mostRepsMixed?.set.weight_kg === null,
+    `got ${mostRepsMixed ? (mostRepsMixed.set.weight_kg ?? 'bodyweight') + '×' + mostRepsMixed.value : 'none'}`);
+
+  // Bodyweight with 0 weight should behave same as null
+  const mixedSetsZero: SetData[] = [
+    set(15, 0, null),        // Bodyweight baseline (0 weight)
+    set(10, 60, null),       // Weighted
+    set(20, 0, null),        // Bodyweight PR (0 weight)
+  ];
+  const prsMixedZero = detectPersonalRecords(mixedSetsZero, "reps");
+  const mostRepsMixedZero = prsMixedZero.find(pr => pr.type === "most_reps");
+  check("Weighted + bodyweight (0 weight) 20 reps beats earlier 15 -> most_reps PR",
+    mostRepsMixedZero?.value === 20 && (mostRepsMixedZero?.set.weight_kg === 0 || mostRepsMixedZero?.set.weight_kg === null),
+    `got ${mostRepsMixedZero ? (mostRepsMixedZero.set.weight_kg ?? 'bodyweight') + '×' + mostRepsMixedZero.value : 'none'}`);
+
+  // Bodyweight doesn't interfere with weighted rep PRs
+  const mixedWeighted: SetData[] = [
+    set(15, null, null),     // Bodyweight
+    set(5, 100, null),       // Weighted baseline
+    set(10, null, null),     // Bodyweight (lower than first)
+    set(8, 100, null),       // Weighted rep PR
+  ];
+  const prsMixedWeighted = detectPersonalRecords(mixedWeighted, "reps");
+  const mostRepsMixedWeighted = prsMixedWeighted.find(pr => pr.type === "most_reps");
+  check("Bodyweight sets don't interfere with weighted rep PR at 100×8",
+    mostRepsMixedWeighted?.value === 15 && mostRepsMixedWeighted?.set.weight_kg === null,
+    `got ${mostRepsMixedWeighted ? (mostRepsMixedWeighted.set.weight_kg ?? 'bodyweight') + '×' + mostRepsMixedWeighted.value : 'none'}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

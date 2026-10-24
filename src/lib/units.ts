@@ -175,6 +175,40 @@ export function formatHeight(
 }
 
 /**
+ * Format volume for display (B7).
+ * - Below 100,000: full number with commas (e.g., "11,500 kg")
+ * - 100,000+: abbreviated with "k" and 1 decimal (e.g., "115.2k kg")
+ * - Never uses tonnes ("t")
+ * - Converts to imperial when appropriate
+ *
+ * @param volumeKg - Volume in kilograms
+ * @param units - 'metric' or 'imperial'
+ * @returns Formatted volume string
+ */
+export function formatVolume(volumeKg: number, units: UnitsPreference = "metric"): string {
+  if (!Number.isFinite(volumeKg) || volumeKg <= 0) return "0 kg";
+  
+  let value = volumeKg;
+  let label = "kg";
+  
+  if (units === "imperial") {
+    value = kgToLb(volumeKg);
+    label = "lb";
+  }
+  
+  if (value >= 100000) {
+    // Abbreviated with k
+    const k = value / 1000;
+    return `${k.toFixed(1)}k ${label}`;
+  } else {
+    // Full number with commas
+    const rounded = Math.round(value);
+    const formatted = rounded.toLocaleString("en-US");
+    return `${formatted} ${label}`;
+  }
+}
+
+/**
  * Get the unit label for weight.
  */
 export function weightLabel(units: string): string {
