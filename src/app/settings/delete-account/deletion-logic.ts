@@ -6,6 +6,7 @@
  */
 
 import { getSiteInfo } from "@/lib/legal/site-info";
+import { isDeleteConfirmed } from "./form-logic";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
@@ -90,4 +91,36 @@ export async function performAccountDeletion(deps: DeletionDeps): Promise<Result
   redirect();
   // TypeScript: redirect() never returns, but we need a return statement for type checking
   return { ok: true };
+}
+
+export interface ConfirmAndDeleteDeps {
+  rateLimit: () => Promise<Result | null>;
+  deleteAccount: () => Promise<Result>;
+}
+
+/**
+ * Gate account deletion on confirmation and rate limit.
+ * 
+ * This is the server-side confirmation check extracted for testing.
+ * Testable by injecting spy dependencies.
+ * 
+ * Flow:
+ * 1. Check confirmation (exact "DELETE" match)
+ * 2. If invalid, return error WITHOUT calling dependencies
+ * 3. Check rate limit
+ * 4. Perform deletion
+ */
+export async function confirmAndDelete(
+  confirmation: string,
+  deps: ConfirmAndDeleteDeps
+): Promise<Result> {
+  // Verify confirmation BEFORE rate-limit check to avoid wasting rate-limit slots
+  if (!isDeleteConfirmed(confirmation)) {
+    return { ok: false, error: "Type DELETE to confirm." };
+  }
+
+  const rateLimit = await deps.rateLimit();
+  if (rateLimit) return rateLimit;
+
+  return await deps.deleteAccount();
 }
