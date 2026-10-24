@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { SessionListItem, SessionType } from "./types";
 import { formatInTimezone } from "@/lib/timezone";
+import { sessionCompletion } from "./session-completion";
 
 interface HistoryClientProps {
   items: SessionListItem[];
@@ -149,10 +150,12 @@ export function HistoryClient({
                   details.push(`${item.breathing.breaths} ${word}`);
                 }
               } else {
-                details.push("Completed");
+                // Use sessionCompletion to show "Completed" or "Ended early · X/Y sets"
+                const completionLabel = sessionCompletion(item.status, item.setCount, undefined);
+                details.push(completionLabel);
                 if (item.isDeload) details.push("deload");
                 if (minutes !== null) details.push(`${minutes}m`);
-                if (item.setCount > 0) details.push(`${item.setCount} sets`);
+                if (item.setCount > 0 && completionLabel === "Completed") details.push(`${item.setCount} sets`);
                 if (item.topSetWeight) details.push(`${Math.round(item.topSetWeight)}kg top`);
                 if (item.volumeKg > 0) details.push(`${Math.round(item.volumeKg)}kg total`);
               }

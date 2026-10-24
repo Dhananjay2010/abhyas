@@ -6,6 +6,7 @@ import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
 import { isUuid } from "@/lib/ids";
 import { EditSession } from "./edit-session";
+import { EditSets } from "./edit-sets";
 import { SessionActions } from "./session-actions";
 
 export const dynamic = "force-dynamic";
@@ -82,9 +83,8 @@ export default async function SessionDetailPage({
   const ids = (exercises ?? []).map((e) => e.id);
   const { data: sets } = await supabase
     .from("session_sets")
-    .select("session_exercise_id, set_number, reps, weight_kg, duration_seconds")
+    .select("session_exercise_id, set_number, reps, weight_kg, duration_seconds, is_warmup_set")
     .in("session_exercise_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"])
-    .eq("is_warmup_set", false)
     .order("set_number");
 
   if (exercisesError) {
@@ -140,7 +140,7 @@ export default async function SessionDetailPage({
             row whose stamp and contents somehow disagree.
           */
           const isTimed = e.metric === "seconds";
-          const mine = (sets ?? []).filter((s) => s.session_exercise_id === e.id);
+          const mine = (sets ?? []).filter((s) => s.session_exercise_id === e.id && !s.is_warmup_set);
           return (
             <li key={e.id} className="rounded-xl border border-border bg-surface px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-3">
@@ -188,6 +188,23 @@ export default async function SessionDetailPage({
           );
         })}
       </ol>
+
+      <EditSets
+        sessionId={session.id}
+        exercises={(exercises ?? []).map((e) => ({
+          id: e.id,
+          name: (e.exercises as unknown as { name: string } | null)?.name ?? "Exercise",
+          metric: e.metric || "reps",
+          sets: (sets ?? []).filter((s) => s.session_exercise_id === e.id).map((s) => ({
+            session_exercise_id: s.session_exercise_id,
+            set_number: s.set_number,
+            reps: s.reps,
+            weight_kg: s.weight_kg,
+            duration_seconds: s.duration_seconds,
+            is_warmup_set: s.is_warmup_set,
+          })),
+        }))}
+      />
 
       <SessionActions sessionId={session.id} />
     </main>

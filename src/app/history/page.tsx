@@ -4,6 +4,7 @@ import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
+import { detectSessionPRs } from "./detect-session-prs";
 
 export const dynamic = "force-dynamic";
 
@@ -117,8 +118,17 @@ export default async function HistoryPage({
     setsByExercise.set(set.session_exercise_id, list);
   }
 
-  // Get exercise history to detect PRs
+  // Get exercise history helpers
   const { findTopSet } = await import("@/lib/exercise-history/calculations");
+
+  // Detect which sessions had PRs at the time
+  const newestCompletedAt = sessions?.[0]?.completed_at ?? null;
+  const sessionsWithPRs = await detectSessionPRs(
+    supabase,
+    user.id,
+    sessionIds,
+    newestCompletedAt
+  );
 
   const items: SessionListItem[] = (sessions ?? []).map((s) => {
     const vol = volumeById.get(s.id);
@@ -127,7 +137,6 @@ export default async function HistoryPage({
 
     // Calculate top set weight for strength sessions
     let topSetWeight: number | null = null;
-    let hasPR = false;
 
     if (!isBreathing && exercises.length > 0) {
       const topSets = exercises.map((ex) => {
@@ -141,11 +150,10 @@ export default async function HistoryPage({
         topSetWeight = Math.max(...topSets.map((s) => s?.weight_kg ?? 0).filter((w) => w > 0));
         if (topSetWeight === 0) topSetWeight = null;
       }
-
-      // Simple PR detection: check if any exercise in this session has a PR
-      // For now, just check if this was a completed session (full PR detection would require historical data)
-      hasPR = false; // We'll implement full PR detection later
     }
+
+    // Check if this session had any PRs at the time
+    const hasPR = sessionsWithPRs.has(s.id);
 
     const logs = (s.breathing_logs ?? []) as Array<{
       breaths: number;
