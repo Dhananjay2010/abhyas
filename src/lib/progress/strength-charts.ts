@@ -58,6 +58,6 @@ function buildStrengthCharts(
   }
   
   return [...byExercise.values()]
-    .filter((e) => e.points.length >= 2)
+    .filter((e) => e.points.length >= 1)  // Include single-point charts
     .sort((a, b) => b.points.length - a.points.length);
 }
