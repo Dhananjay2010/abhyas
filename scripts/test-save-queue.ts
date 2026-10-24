@@ -124,9 +124,9 @@ console.log("\n▶ Test 2: Coalescing rapid clicks (4→5→3→4)");
   // Second request (the final 4, coalesced) should now be in-flight
   await new Promise(done => setTimeout(done, 10));
   
-  // Resolve final request
+  // Resolve final request (only p4 will resolve, p2 and p3 were coalesced away)
   currentResolver!({ days: 4 });
-  await Promise.all([p2, p3, p4]);
+  await p4;
 
   // Server should have received exactly 2 writes: 4, 4
   if (serverWrites.length === 2 && serverWrites[0] === 4 && serverWrites[1] === 4) {
@@ -253,6 +253,72 @@ console.log("\n▶ Test 5: Flush sends queued items immediately");
     console.log(`  ✓ Flush processed queued items (${serverWrites.length} writes)`);
   } else {
     console.error(`  ❌ Expected at least 2 writes, got ${serverWrites.length}`);
+    failures++;
+  }
+}
+
+// Test 6: Equipment saves (replaces deleted test-equipment-sequence.ts L4)
+console.log("\n▶ Test 6: Equipment key serialization (L4)");
+{
+  const queue = createSaveQueue<number>();
+  const serverWrites: number[] = [];
+  const resolvers: Array<(v: number) => void> = [];
+
+  const makeRequest = (value: number) => () => new Promise<number>((resolve) => {
+    resolvers.push(resolve);
+    serverWrites.push(value);
+  });
+
+  // Simulate overlapping equipment saves: hasAll on→off→on→off
+  const p1 = queue.enqueue("equipment", makeRequest(1)); // on
+  const p2 = queue.enqueue("equipment", makeRequest(0)); // off
+  const p3 = queue.enqueue("equipment", makeRequest(1)); // on
+  const p4 = queue.enqueue("equipment", makeRequest(0)); // off
+
+  await new Promise(done => setTimeout(done, 10));
+
+  const status = queue.getStatus();
+  const inFlight = queue.getInFlightKeys();
+  const queued = queue.getQueuedKeys();
+
+  if (inFlight.length === 1 && inFlight[0] === "equipment") {
+    console.log("  ✓ At most 1 equipment save in-flight");
+  } else {
+    console.error(`  ❌ Expected 1 in-flight equipment key, got ${inFlight.length}`);
+    failures++;
+  }
+
+  if (serverWrites.length === 1 && serverWrites[0] === 1) {
+    console.log("  ✓ Equipment saves coalesced (1 server write)");
+  } else {
+    console.error(`  ❌ Expected 1 write with value 1, got ${serverWrites.length} writes: [${serverWrites.join(", ")}]`);
+    failures++;
+  }
+
+  // Resolve first
+  resolvers[0]!(1);
+  await p1;
+
+  // Wait for coalesced request to become in-flight
+  await new Promise(done => setTimeout(done, 20));
+
+  if (serverWrites.length === 2) {
+    console.log(`  ✓ Second coalesced write started (final value: ${serverWrites[1]})`);
+  } else {
+    console.error(`  ❌ Expected 2 writes after first resolved, got ${serverWrites.length}`);
+    failures++;
+  }
+
+  // Resolve final
+  if (resolvers[1]) {
+    resolvers[1]!(0);
+    await p4; // Only p4 resolves, p2 and p3 were coalesced
+  }
+
+  if (serverWrites[serverWrites.length - 1] === 0) {
+    console.log("  ✓ Final equipment value matches last user action (off=0)");
+  } else {
+    console.error(`  ❌ Expected final value 0, got ${serverWrites[serverWrites.length - 1]}`);
     failures++;
   }
 }

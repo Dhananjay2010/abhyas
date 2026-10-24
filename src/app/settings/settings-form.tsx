@@ -335,7 +335,7 @@ export function SettingsForm({
         {showSaved && <span className="text-accent">Saved</span>}
         {hasErrors && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-destructive">
+            <span className="text-danger">
               {Array.from(fieldErrors.values())[0]}
             </span>
             <button
