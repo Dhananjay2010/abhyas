@@ -20,6 +20,7 @@ import {
   feetAndInchesToInches,
   formatWeight,
   formatHeight,
+  formatVolume,
   parseWeight,
   parseHeight,
   weightLabel,
@@ -364,7 +365,43 @@ console.log("\n16. Weight validation (isValidWeightKg)");
   check("negative is invalid", isValidWeightKg(-10) === false);
 }
 
-console.log("\n8. Date of birth validation (isValidDateOfBirth)");
+console.log("\n17. Volume formatting (formatVolume)");
+{
+  // Below 100,000: show full with thousands separators
+  check("metric: 1,000 kg", formatVolume(1000, "metric") === "1,000 kg");
+  check("metric: 11,500 kg", formatVolume(11500, "metric") === "11,500 kg");
+  check("metric: 50,000 kg", formatVolume(50000, "metric") === "50,000 kg");
+  check("metric: 99,999 kg", formatVolume(99999, "metric") === "99,999 kg");
+  
+  // Imperial conversion below 100k
+  check("imperial: 1,000 kg → 2,205 lb", formatVolume(1000, "imperial") === "2,205 lb");
+  check("imperial: 11,500 kg → 25,353 lb", formatVolume(11500, "imperial") === "25,353 lb");
+  
+  // At 100k+: abbreviate to k with 1 decimal
+  check("metric: 100,000 kg → 100.0k kg", formatVolume(100000, "metric") === "100.0k kg");
+  check("metric: 115,000 kg → 115.0k kg", formatVolume(115000, "metric") === "115.0k kg");
+  check("metric: 115,200 kg → 115.2k kg", formatVolume(115200, "metric") === "115.2k kg");
+  check("metric: 250,000 kg → 250.0k kg", formatVolume(250000, "metric") === "250.0k kg");
+  
+  // Imperial at 100k+
+  check("imperial: 100,000 kg → 220.5k lb", formatVolume(100000, "imperial") === "220.5k lb");
+  check("imperial: 115,200 kg → 254.0k lb", formatVolume(115200, "imperial") === "254.0k lb");
+  
+  // Edge cases
+  check("small: 100 kg", formatVolume(100, "metric") === "100 kg");
+  check("small: 1 kg", formatVolume(1, "metric") === "1 kg");
+  check("null returns em dash", formatVolume(null, "metric") === "—");
+  check("undefined returns em dash", formatVolume(undefined, "imperial") === "—");
+  check("zero returns em dash", formatVolume(0, "metric") === "—");
+  check("negative returns em dash", formatVolume(-100, "metric") === "—");
+  check("custom empty value", formatVolume(null, "metric", "N/A") === "N/A");
+  
+  // Boundary test: 99,999 vs 100,000
+  check("99,999 kg full format", formatVolume(99999, "metric") === "99,999 kg");
+  check("100,000 kg abbreviated", formatVolume(100000, "metric") === "100.0k kg");
+}
+
+console.log("\n18. Date of birth validation (isValidDateOfBirth)");
 {
   // Valid dates
   check("Valid date: 1990-05-15", isValidDateOfBirth("1990-05-15"));

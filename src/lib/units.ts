@@ -455,3 +455,45 @@ export function getUnitsPreference(
   if (units === "imperial" || units === "metric") return units;
   return fallback;
 }
+
+// ============================================================
+// VOLUME FORMATTING
+// ============================================================
+
+/**
+ * Format volume (total reps × weight) for display.
+ * 
+ * Rules:
+ * - Below 100,000: show full number with thousands separators (e.g., "11,500 kg")
+ * - At 100,000+: abbreviate to k with 1 decimal (e.g., "115.2k kg")
+ * - Converts to imperial units when requested
+ * - Never rounds to tonnes
+ * 
+ * @param volumeKg - Total volume in kilograms
+ * @param units - 'metric' or 'imperial'
+ * @param emptyValue - Value to return for missing/invalid input (default: "—")
+ * @returns Formatted volume string with unit label
+ */
+export function formatVolume(
+  volumeKg: number | null | undefined,
+  units: string,
+  emptyValue = "—"
+): string {
+  if (volumeKg == null || volumeKg <= 0 || !Number.isFinite(volumeKg)) {
+    return emptyValue;
+  }
+
+  // Convert to display units
+  const value = units === "imperial" ? kgToLb(volumeKg) : volumeKg;
+  const label = weightLabel(units);
+
+  // Below 100k: show full number with thousands separators
+  if (value < 100000) {
+    const formatted = Math.round(value).toLocaleString("en-US");
+    return `${formatted} ${label}`;
+  }
+
+  // 100k+: abbreviate to k with 1 decimal
+  const kValue = value / 1000;
+  return `${kValue.toFixed(1)}k ${label}`;
+}

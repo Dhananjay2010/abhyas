@@ -5,6 +5,7 @@ import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
 import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-charts";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { getUnitsPreference, formatVolume, weightLabel } from "@/lib/units";
 import type { Database } from "@/lib/database.types";
 import { LogWeight } from "./log-weight";
 
@@ -36,7 +37,7 @@ export default async function ProgressPage() {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("timezone, onboarding_completed_at")
+      .select("timezone, onboarding_completed_at, units_preference")
       .eq("id", user.id)
       .single(),
     // Fetch recent data descending, reverse for processing. NEVER order
@@ -78,6 +79,7 @@ export default async function ProgressPage() {
 
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const today = localDateString(timezone);
+  const units = getUnitsPreference(profile.units_preference);
 
   // ---- streaks -----------------------------------------------------------
   // Across every block, not just the active one: a streak that reset because a
@@ -110,10 +112,15 @@ export default async function ProgressPage() {
   // ---- charts ------------------------------------------------------------
   // Reverse data since it was fetched newest-first for h1 fix
   const weights = [...(weightsRes.data ?? [])].reverse();
-  const weightPoints: Point[] = weights.map((w) => ({
-    label: shortDate(w.recorded_on),
-    value: Number(w.weight_kg),
-  }));
+  const weightPoints: Point[] = weights.map((w) => {
+    const kg = Number(w.weight_kg);
+    // Convert to user's preferred units for display
+    const displayValue = units === "imperial" ? kg * 2.20462262185 : kg;
+    return {
+      label: shortDate(w.recorded_on),
+      value: displayValue,
+    };
+  });
   const latestWeight = weights.length ? Number(weights[weights.length - 1].weight_kg) : null;
 
   // View columns are typed nullable by Supabase's generator, so narrow first.
@@ -123,14 +130,19 @@ export default async function ProgressPage() {
   );
   const volumePoints: Point[] = volumeRows
     .slice(-14)
-    .map((v) => ({ label: shortDate(v.local_date), value: Number(v.volume_kg) }));
+    .map((v) => {
+      const kg = Number(v.volume_kg);
+      const displayValue = units === "imperial" ? kg * 2.20462262185 : kg;
+      return { label: shortDate(v.local_date), value: displayValue };
+    });
 
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
   // phone, and each lift is its own question anyway. Data is fetched newest-first;
   // the helper reverses it so charts plot chronologically (oldest to newest).
   const strengthCharts = buildStrengthChartsFromDescendingRows(
     strengthRes.data ?? [],
-    shortDate
+    shortDate,
+    units
   ).slice(0, 6);
 
   const totalVolume = volumeRows.reduce((n, v) => n + Number(v.volume_kg), 0);
@@ -142,25 +154,19 @@ export default async function ProgressPage() {
 
       <section className="mt-6 grid grid-cols-2 gap-3">
         <StatTile
-          label="Streak"
+          label="Days in a row"
           value={`${streaks.current}`}
-          sub={streaks.current === 1 ? "session" : "sessions in a row"}
+          sub={streaks.current === 1 ? "day" : "days"}
         />
         <StatTile
           label="Best streak"
           value={`${streaks.longest}`}
-          sub={streaks.longest === 1 ? "session" : "sessions"}
+          sub={streaks.longest === 1 ? "day" : "days"}
         />
         <StatTile label="Days trained" value={`${streaks.totalSessions}`} sub="all time" />
         <StatTile
           label="Volume lifted"
-          value={
-            totalVolume >= 10000
-              ? `${Math.round(totalVolume / 1000)}t`
-              : totalVolume >= 1000
-                ? `${(totalVolume / 1000).toFixed(1)}t`
-                : `${Math.round(totalVolume)}kg`
-          }
+          value={formatVolume(totalVolume, units, "0 kg")}
           sub="all time"
         />
       </section>
@@ -174,7 +180,7 @@ export default async function ProgressPage() {
       <section className="mt-10">
         <h2 className="text-sm font-semibold">Body weight</h2>
         <p className="mb-3 text-xs text-muted">Weigh in weekly, same time of day.</p>
-        <LineChart points={weightPoints} unit="kg" title="Body weight" />
+        <LineChart points={weightPoints} unit={weightLabel(units)} title="Body weight" />
         <LogWeight current={latestWeight} />
       </section>
 
@@ -184,7 +190,7 @@ export default async function ProgressPage() {
           <p className="mb-3 text-xs text-muted">
             Reps × weight, totalled across the session.
           </p>
-          <BarChart points={volumePoints} unit="kg" title="Volume per session" />
+          <BarChart points={volumePoints} unit={weightLabel(units)} title="Volume per session" />
         </section>
       )}
 
@@ -192,14 +198,14 @@ export default async function ProgressPage() {
         <section className="mt-10">
           <h2 className="text-sm font-semibold">Strength by lift</h2>
           <p className="mb-4 text-xs text-muted">
-            Estimated one-rep max. Each lift gets its own chart — five lines on one
+            Est. 1RM ({weightLabel(units)}). Each lift gets its own chart — five lines on one
             axis would be unreadable here.
           </p>
           <div className="space-y-8">
             {strengthCharts.map((e) => (
               <div key={e.name}>
                 <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
-                <LineChart points={e.points} unit="kg" title={e.name} height={110} />
+                <LineChart points={e.points} unit={weightLabel(units)} title={e.name} height={110} />
               </div>
             ))}
           </div>

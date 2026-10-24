@@ -348,5 +348,35 @@ console.log("\n16. Weighted rep PR rule edge cases");
     `got ${mostReps3 ? mostReps3.set.weight_kg + '×' + mostReps3.value : 'none'}`);
 }
 
+console.log("\n17. Rep PR baseline from first session's top set (Task A)");
+{
+  // R9: 60×12 / 100×5 / 100×8 -> currentPRs.most_reps = 100×8
+  const r9: SetData[] = [
+    set(12, 60, null),
+    set(5, 100, null),
+    set(8, 100, null),
+  ];
+  const prsR9 = detectPersonalRecords(r9, "reps");
+  const mostRepsR9 = prsR9.find(pr => pr.type === "most_reps");
+  check("R9: 60×12 / 100×5 / 100×8 -> currentPRs.most_reps = 100×8",
+    mostRepsR9?.value === 8 && mostRepsR9?.set.weight_kg === 100,
+    `got ${mostRepsR9 ? mostRepsR9.set.weight_kg + '×' + mostRepsR9.value : 'none'}`);
+
+  // Multi-set first session: [80×10, 100×5], then 100×8 -> currentPRs.most_reps = 100×8
+  // This tests that when first session has multiple sets, we use the top one (100×5) as baseline
+  const multiSet1: SetData[] = [
+    set(10, 80, null),
+    set(5, 100, null),
+    set(8, 100, null),
+  ];
+  const prsMulti1 = detectPersonalRecords(multiSet1, "reps");
+  const mostRepsMulti1 = prsMulti1.find(pr => pr.type === "most_reps");
+  check("First session [80×10, 100×5], then 100×8 -> currentPRs.most_reps = 100×8",
+    mostRepsMulti1?.value === 8 && mostRepsMulti1?.set.weight_kg === 100,
+    `got ${mostRepsMulti1 ? mostRepsMulti1.set.weight_kg + '×' + mostRepsMulti1.value : 'none'}`);
+
+  // Note: "First session only [80×10, 100×5]" test is in real DB tests where session boundaries exist
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

@@ -274,30 +274,49 @@ export function detectPersonalRecords(
   // Most reps: same-weight comparison for weighted, plain for bodyweight
   if (hasWeight) {
     // Weighted: use checkWeightedRepPR helper
-    // Start with first set as baseline, then replace when sets qualify as rep PRs
-    let bestRepPRSet: SetData | null = allSets[0] ?? null;
-    let bestRepPRValue = bestRepPRSet?.reps ?? 0;
-
-    // Process sets chronologically
+    // Find all sets before the first rep PR - these form the "baseline session"
+    let firstRepPRIndex = -1;
     for (let i = 1; i < allSets.length; i++) {
+      const currentSet = allSets[i];
+      const earlierSets = allSets.slice(0, i);
+      if (checkWeightedRepPR(currentSet, earlierSets)) {
+        firstRepPRIndex = i;
+        break;
+      }
+    }
+
+    // Baseline: top set from before any rep PRs occurred
+    let bestRepPRSet: SetData | null;
+    if (firstRepPRIndex === -1) {
+      // No rep PRs found - use first set as baseline (original behavior)
+      // This handles cases like 100×5 / 110×3 where 110 is a new heavier weight (not a rep PR)
+      bestRepPRSet = allSets[0] ?? null;
+    } else if (firstRepPRIndex === 1) {
+      // First rep PR is at index 1, so only allSets[0] is baseline
+      bestRepPRSet = allSets[0] ?? null;
+    } else {
+      // Multiple sets before first rep PR - find the top one (highest e1RM)
+      // This is the key fix: use top set from "first session", not just allSets[0]
+      const baselineSets = allSets.slice(0, firstRepPRIndex);
+      bestRepPRSet = findTopSet(baselineSets, "reps");
+    }
+
+    // Process remaining sets to find rep PRs (last one wins)
+    for (let i = Math.max(1, firstRepPRIndex); i < allSets.length; i++) {
       const currentSet = allSets[i];
       const earlierSets = allSets.slice(0, i);
       
       if (checkWeightedRepPR(currentSet, earlierSets)) {
-        const currentReps = currentSet.reps ?? 0;
-        if (currentReps > bestRepPRValue) {
-          bestRepPRSet = currentSet;
-          bestRepPRValue = currentReps;
-        }
+        bestRepPRSet = currentSet;
       }
     }
 
-    if (bestRepPRSet && bestRepPRValue > 0) {
+    if (bestRepPRSet && (bestRepPRSet.reps ?? 0) > 0) {
       const e1rm = calculateEpley1RM(bestRepPRSet.reps, bestRepPRSet.weight_kg) ?? undefined;
       records.push({
         type: "most_reps",
         set: bestRepPRSet,
-        value: bestRepPRValue,
+        value: bestRepPRSet.reps!,
         e1rm,
       });
     }

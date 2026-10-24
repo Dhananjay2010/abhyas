@@ -1029,6 +1029,51 @@ async function runTests() {
     check("R12: currentPRs.most_reps is 100×5 (agrees with badge rule)",
       mostRepsPR?.set.weight_kg === 100 && mostRepsPR?.value === 5,
       `got ${mostRepsPR?.set.weight_kg}×${mostRepsPR?.value}`);
+
+    // First session [80×10, 100×5], then 100×8 -> currentPRs.most_reps = 100×8
+    const s10 = randomUUID(), s11 = randomUUID();
+    const se10 = randomUUID(), se11 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s10, user_id: userIdA, local_date: "2026-10-10", status: "completed", completed_at: "2026-10-10T10:00:00Z" },
+      { id: s11, user_id: userIdA, local_date: "2026-10-11", status: "completed", completed_at: "2026-10-11T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se10, user_id: userIdA, session_id: s10, exercise_id: exercises[16].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se11, user_id: userIdA, session_id: s11, exercise_id: exercises[16].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se10, set_number: 1, reps: 10, weight_kg: 80, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se10, set_number: 2, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se11, set_number: 1, reps: 8, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histMulti1 = await getExerciseHistory(supabaseA, userIdA, exercises[16].id, { limit: 10 });
+    const mostRepsPRMulti1 = histMulti1.currentPRs.find(pr => pr.type === "most_reps");
+    check("First session [80×10, 100×5], then 100×8 -> currentPRs.most_reps = 100×8",
+      mostRepsPRMulti1?.set.weight_kg === 100 && mostRepsPRMulti1?.value === 8,
+      `got ${mostRepsPRMulti1?.set.weight_kg}×${mostRepsPRMulti1?.value}`);
+
+    // First session only [80×10, 100×5] -> currentPRs.most_reps = 100×5
+    const s12 = randomUUID();
+    const se12 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s12, user_id: userIdA, local_date: "2026-10-12", status: "completed", completed_at: "2026-10-12T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se12, user_id: userIdA, session_id: s12, exercise_id: exercises[17].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se12, set_number: 1, reps: 10, weight_kg: 80, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se12, set_number: 2, reps: 5, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histMulti2 = await getExerciseHistory(supabaseA, userIdA, exercises[17].id, { limit: 10 });
+    const mostRepsPRMulti2 = histMulti2.currentPRs.find(pr => pr.type === "most_reps");
+    check("First session only [80×10, 100×5] -> currentPRs.most_reps = 100×5",
+      mostRepsPRMulti2?.set.weight_kg === 100 && mostRepsPRMulti2?.value === 5,
+      `got ${mostRepsPRMulti2?.set.weight_kg}×${mostRepsPRMulti2?.value}`);
   }
 
   console.log("\n19. Item 7: Test at exact batch boundary");

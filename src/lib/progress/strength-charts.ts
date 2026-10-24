@@ -1,4 +1,5 @@
 import type { Point } from "@/components/charts";
+import { kgToLb } from "@/lib/units";
 
 export type StrengthHistoryRow = {
   exercise_id: string | null;
@@ -23,9 +24,10 @@ export type ExerciseChart = {
  */
 export function buildStrengthChartsFromDescendingRows(
   rowsNewestFirst: StrengthHistoryRow[],
-  shortDateFn: (iso: string) => string
+  shortDateFn: (iso: string) => string,
+  units: string = "metric"
 ): ExerciseChart[] {
-  return buildStrengthCharts([...rowsNewestFirst].reverse(), shortDateFn);
+  return buildStrengthCharts([...rowsNewestFirst].reverse(), shortDateFn, units);
 }
 
 /**
@@ -37,7 +39,8 @@ export function buildStrengthChartsFromDescendingRows(
  */
 function buildStrengthCharts(
   rows: StrengthHistoryRow[],
-  shortDateFn: (iso: string) => string
+  shortDateFn: (iso: string) => string,
+  units: string = "metric"
 ): ExerciseChart[] {
   const byExercise = new Map<string, ExerciseChart>();
   
@@ -49,9 +52,13 @@ function buildStrengthCharts(
       points: [] as Point[],
     };
     
+    // Convert e1RM to user's preferred units
+    const e1rmKg = Number(row.best_e1rm);
+    const displayValue = units === "imperial" ? kgToLb(e1rmKg) : e1rmKg;
+    
     entry.points.push({
       label: shortDateFn(row.local_date),
-      value: Number(row.best_e1rm),
+      value: displayValue,
     });
     
     byExercise.set(row.exercise_id, entry);
