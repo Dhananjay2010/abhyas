@@ -313,6 +313,39 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
   results.push(await testRoute('/robots.txt', false, 'Public /robots.txt'));
   results.push(await testRoute('/sitemap.xml', false, 'Public /sitemap.xml'));
   results.push(await testRoute('/manifest.webmanifest', false, 'Public /manifest.webmanifest'));
+<<<<<<< HEAD
+=======
+  
+  // Test API routes: should return JSON (401 or {session:null}), not HTML redirect
+  // Resume bar fix (PR #87): unauthenticated /api/in-progress must not break client fetch
+  try {
+    const response = await fetch(`${baseUrl}/api/in-progress`, {
+      redirect: 'manual',
+      headers: { 'User-Agent': 'test-proxy-routes/1.0' }
+    });
+    const contentType = response.headers.get('content-type') || '';
+    const isJson = contentType.includes('application/json');
+    const status = response.status;
+    const validStatus = status === 401 || status === 200;
+    const passed = isJson && validStatus;
+    
+    results.push({
+      passed,
+      message: passed
+        ? `API /api/in-progress: ${status}, Content-Type: application/json (correct JSON response)`
+        : `API /api/in-progress: FAILED - ${status}, Content-Type: ${contentType} (expected JSON)`
+    });
+  } catch (error) {
+    results.push({
+      passed: false,
+      message: `API /api/in-progress: FAILED - ${error}`
+    });
+  }
+  
+  // Test that paths with literal $ in URL are treated as non-existent routes
+  // The middleware should still run (redirect to sign-in) because /today$ is not a public path
+  results.push(await testRoute('/today$', true, 'Non-existent path /today$ (literal $ in URL should redirect)'));
+>>>>>>> origin/main
 
   return results;
 }
