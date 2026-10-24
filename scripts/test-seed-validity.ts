@@ -258,8 +258,59 @@ function runTests(): TestResult[] {
   } else {
     // The seed uses the trigger to create profiles, so this is OK
     results.push({
-      passed: true,
+        passed: true,
       message: 'Seed relies on handle_new_user trigger to create profiles'
+    });
+  }
+  
+  // Test 6: Check for trigger conflict (profiles/user_settings auto-created by handle_new_user)
+  const hasHandleNewUserTrigger = migrationFiles.some(file => {
+    const content = readFileSync(join(MIGRATIONS_DIR, file), 'utf-8');
+    return content.includes('handle_new_user') && 
+           content.includes('insert into public.profiles') &&
+           content.includes('on conflict');
+  });
+  
+  if (hasHandleNewUserTrigger) {
+    // Check if seed has INSERT INTO profiles or user_settings without ON CONFLICT
+    const profilesInsertMatch = seedContent.match(/INSERT\s+INTO\s+(?:public\.)?profiles\s*\([^)]+\)\s*VALUES[\s\S]*?(?:ON CONFLICT|;)/gi);
+    const userSettingsInsertMatch = seedContent.match(/INSERT\s+INTO\s+(?:public\.)?user_settings\s*\([^)]+\)\s*VALUES[\s\S]*?(?:ON CONFLICT|;)/gi);
+    
+    const conflictIssues: string[] = [];
+    
+    if (profilesInsertMatch) {
+      for (const match of profilesInsertMatch) {
+        if (!match.toUpperCase().includes('ON CONFLICT')) {
+          conflictIssues.push('profiles');
+          break;
+        }
+      }
+    }
+    
+    if (userSettingsInsertMatch) {
+      for (const match of userSettingsInsertMatch) {
+        if (!match.toUpperCase().includes('ON CONFLICT')) {
+          conflictIssues.push('user_settings');
+          break;
+        }
+      }
+    }
+    
+    if (conflictIssues.length > 0) {
+      results.push({
+        passed: false,
+        message: `Seed inserts into ${conflictIssues.join(', ')} without ON CONFLICT, but handle_new_user trigger auto-creates these tables (will cause duplicate key error)`
+      });
+    } else {
+      results.push({
+        passed: true,
+        message: 'Seed handles handle_new_user trigger correctly (uses ON CONFLICT or omits auto-created tables)'
+      });
+    }
+  } else {
+    results.push({
+      passed: true,
+      message: 'No handle_new_user trigger found in migrations'
     });
   }
   

@@ -76,6 +76,7 @@ BEGIN
   -- Create auth.identities row for email provider
   INSERT INTO auth.identities (
     id,
+    provider_id,
     user_id,
     identity_data,
     provider,
@@ -84,10 +85,12 @@ BEGIN
     updated_at
   ) VALUES (
     test_user_id,
+    test_user_id::text,
     test_user_id,
     jsonb_build_object(
       'sub', test_user_id::text,
-      'email', test_email
+      'email', test_email,
+      'email_verified', true
     ),
     'email',
     now(),
@@ -95,9 +98,10 @@ BEGIN
     now()
   );
 
-  RAISE NOTICE 'Created test auth user: % (password: %)', test_email, test_password;
+  RAISE NOTICE 'Created test auth user: %', test_email;
 
-  -- Profile: "Test User" — clearly fake
+  -- handle_new_user trigger auto-creates profiles and user_settings.
+  -- Update them with test-specific values using ON CONFLICT.
   INSERT INTO profiles (
     id,
     display_name,
@@ -128,32 +132,23 @@ BEGIN
     now() - interval '30 days',
     now() - interval '30 days',
     now() - interval '30 days'
-  );
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    display_name = EXCLUDED.display_name,
+    date_of_birth = EXCLUDED.date_of_birth,
+    sex = EXCLUDED.sex,
+    height_cm = EXCLUDED.height_cm,
+    level = EXCLUDED.level,
+    goal = EXCLUDED.goal,
+    days_per_week = EXCLUDED.days_per_week,
+    yoga_days_per_week = EXCLUDED.yoga_days_per_week,
+    preferred_session_minutes = EXCLUDED.preferred_session_minutes,
+    has_all_equipment = EXCLUDED.has_all_equipment,
+    onboarding_completed_at = EXCLUDED.onboarding_completed_at,
+    disclaimer_accepted_at = EXCLUDED.disclaimer_accepted_at;
 
-  -- User settings: defaults
-  INSERT INTO user_settings (
-    user_id,
-    planning_mode,
-    per_set_logging,
-    resume_session,
-    cooldown_enabled,
-    rest_timer_sound,
-    rest_timer_vibrate,
-    rest_timer_autostart,
-    bodyweight_prompt,
-    theme
-  ) VALUES (
-    test_user_id,
-    'progression',
-    true,
-    true,
-    true,
-    true,
-    true,
-    true,
-    'weekly',
-    'dark'
-  );
+  -- user_settings is also auto-created by handle_new_user with defaults.
+  -- No need to update it; the defaults are fine for testing.
 
   -- Equipment: home gym setup (barbell, dumbbells, bench, pull-up bar)
   INSERT INTO user_equipment (user_id, equipment_id)
@@ -414,7 +409,6 @@ BEGIN
     (test_user_id, current_date - interval '7 days', 76.0),
     (test_user_id, current_date, 75.5);
 
-  RAISE NOTICE 'Test user seeded successfully';
-  RAISE NOTICE 'Sign in with: % / %', test_email, test_password;
+  RAISE NOTICE 'Test user seeded successfully: %', test_email;
 
 END $$;

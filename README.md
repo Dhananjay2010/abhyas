@@ -310,16 +310,33 @@ The local database is seeded with deterministic test data from `supabase/seed.sq
 **Using the test data:**
 
 1. Start local Supabase: `npm run supabase:start`
-2. The seed runs automatically and creates a test user
-3. Sign in to your local app with:
+2. The seed runs automatically and creates a test user in the local database
    - Email: `test@example.com`
    - Password: `testpass123`
+   - UUID: `00000000-0000-0000-0000-000000000001`
 
-The seed creates a deterministic test user in `auth.users` with email/password authentication. This works locally regardless of whether Google OAuth is configured.
+**⚠️ Important:** The app's UI only offers **Google OAuth sign-in** (no email/password form). The seeded user **cannot sign in through the app UI as-is**. To use the seeded test user locally:
 
-If you want to use **Google OAuth locally** instead, configure it in `supabase/config.toml` under `[auth.external.google]` and sign in through the app's Google sign-in flow.
+**Option 1: Enable email authentication locally (for testing without Google)**
 
-The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, test@example.com) and safe to commit.
+Edit `supabase/config.toml` and set:
+```toml
+[auth.email]
+enable_signup = true
+enable_confirmations = false  # Already confirmed in seed
+```
+
+Then restart local Supabase (`npm run supabase:reset`) and sign in via Supabase Studio's SQL Editor or a custom sign-in flow (not provided in the app).
+
+**Option 2: Use Google OAuth locally (matches production)**
+
+Configure Google OAuth in `supabase/config.toml` under `[auth.external.google]` with local redirect URLs, then sign in through the app's Google sign-in button. After signing in, you can replace your Google user's UUID in the database with `00000000-0000-0000-0000-000000000001` to see the seeded test data.
+
+**Option 3: Use the seeded user programmatically**
+
+Access the local database directly (via Studio SQL Editor or psql) to query/modify the seeded user's data for testing server-side logic, migrations, or database queries.
+
+The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, test@example.com) and safe to commit. The password `testpass123` is a local-only test credential.
 
 ---
 
