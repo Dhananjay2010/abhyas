@@ -2658,17 +2658,18 @@ async function testCreateOutboxController() {
   
   // Create a real EventTarget
   const target = new EventTarget();
-  let flushCount = 0;
+  const counter = { count: 0 };
   const flush = () => {
-    flushCount++;
+    counter.count++;
   };
   
   const controller = createOutboxController({ target, flush });
   
   // Before start, online event should not trigger flush
   target.dispatchEvent(new Event("online"));
-  if (flushCount !== 0) {
-    throw new Error(`Flush should not be called before start(), got ${flushCount}`);
+  let count = counter.count;
+  if (count !== 0) {
+    throw new Error(`Flush should not be called before start(), got ${count}`);
   }
   
   // Start listening
@@ -2676,14 +2677,16 @@ async function testCreateOutboxController() {
   
   // Dispatch online event
   target.dispatchEvent(new Event("online"));
-  if (flushCount !== 1) {
-    throw new Error(`Flush should be called once after online event, got ${flushCount}`);
+  count = counter.count;
+  if (count !== 1) {
+    throw new Error(`Flush should be called once after online event, got ${count}`);
   }
   
   // Dispatch again
   target.dispatchEvent(new Event("online"));
-  if (flushCount !== 2) {
-    throw new Error(`Flush should be called twice after second online event, got ${flushCount}`);
+  count = counter.count;
+  if (count !== 2) {
+    throw new Error(`Flush should be called twice after second online event, got ${count}`);
   }
   
   // Stop listening
@@ -2691,16 +2694,18 @@ async function testCreateOutboxController() {
   
   // After stop, online event should not trigger flush
   target.dispatchEvent(new Event("online"));
-  if (flushCount !== 2) {
-    throw new Error(`Flush should not be called after stop(), got ${flushCount}`);
+  count = counter.count;
+  if (count !== 2) {
+    throw new Error(`Flush should not be called after stop(), got ${count}`);
   }
   
   // Start again (idempotent)
   controller.start();
   controller.start(); // Second start is no-op
   target.dispatchEvent(new Event("online"));
-  if (flushCount !== 3) {
-    throw new Error(`Flush should be called once after restart, got ${flushCount}`);
+  count = counter.count;
+  if (count !== 3) {
+    throw new Error(`Flush should be called once after restart, got ${count}`);
   }
   
   console.log("✓ createOutboxController: start/stop controls online event listener");
