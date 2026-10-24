@@ -255,13 +255,37 @@ export function SettingsForm({
         saveProfile(key, patch as Parameters<typeof actions.updateProfileSettings>[0], affectsPlan);
       } else if (type === 'session' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
         saveSession(key, patch as Parameters<typeof actions.updateSessionSettings>[0]);
-      } else if (type === 'equipment' && patch && typeof patch === 'object' && !Array.isArray(patch) && 'hasAll' in patch && 'equipmentIds' in patch) {
-        const equipPatch = patch as { hasAll: boolean; equipmentIds: string[] };
-        saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
-      } else if (type === 'injuries' && Array.isArray(patch)) {
-        // Re-enqueue injuries save directly
-        retryMetadata.current.set("injuries", { type: 'injuries', patch });
-        enqueueSave("injuries", () => actions.updateInjuries(patch as Parameters<typeof actions.updateInjuries>[0]), true);
+      } else if (type === 'equipment' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
+        // Per-item equipment restore (PRIORITY 1: no whole-list overwrites)
+        if ('operation' in patch) {
+          if (patch.operation === 'setItem' && 'equipmentId' in patch && 'enabled' in patch) {
+            const { equipmentId, enabled } = patch as { equipmentId: string; enabled: boolean };
+            startTransition(async () => {
+              await actions.setEquipmentItem({ equipmentId, enabled });
+            });
+          } else if (patch.operation === 'setHasAll' && 'hasAll' in patch) {
+            const { hasAll } = patch as { hasAll: boolean };
+            startTransition(async () => {
+              await actions.setHasAllEquipment(hasAll);
+            });
+          }
+        } else if ('hasAll' in patch && 'equipmentIds' in patch) {
+          // Legacy whole-list format (from before conversion): use old saveEquipment
+          const equipPatch = patch as { hasAll: boolean; equipmentIds: string[] };
+          saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
+        }
+      } else if (type === 'injuries' && patch && typeof patch === 'object') {
+        // Per-item injury restore (PRIORITY 1: no whole-list overwrites)
+        if (!Array.isArray(patch) && 'operation' in patch && patch.operation === 'setInjury' && 'bodyRegion' in patch && 'present' in patch) {
+          const { bodyRegion, present, severity } = patch as { bodyRegion: BodyRegion; present: boolean; severity?: InjurySeverity };
+          startTransition(async () => {
+            await actions.setInjury({ bodyRegion, present, severity });
+          });
+        } else if (Array.isArray(patch)) {
+          // Legacy whole-list format (from before conversion): use old updateInjuries
+          retryMetadata.current.set("injuries", { type: 'injuries', patch });
+          enqueueSave("injuries", () => actions.updateInjuries(patch as Parameters<typeof actions.updateInjuries>[0]), true);
+        }
       }
     }
   });
@@ -884,9 +908,6 @@ export function SettingsForm({
                 <span className="text-danger">{errorMsg}</span>
                 <button
                   onClick={() => {
-<<<<<<< HEAD
-                    // M1 fix #2: Retry through saveProfile/saveSession or retryFn
-                    const metadata = retryMetadata.current.get(key);
                     // M1 fix #2: Retry through appropriate save function
                     const metadata = retryMetadata.current.get(key);
                     if (metadata) {
@@ -1017,28 +1038,100 @@ export function SettingsForm({
             // PRIORITY 1: Atomic has_all set (explicit state)
             setS(prev => ({ ...prev, hasAllEquipment: newState }));
             
-            startTransition(async () => {
-              const result = await actions.setHasAllEquipment(newState);
-              if (!result.ok) {
-                // Revert on error
-                setS(prev => ({ ...prev, hasAllEquipment: !newState }));
-                const friendlyError = getFriendlyError("equipment", result.error);
-                setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
-                setError(friendlyError);
-              } else {
-                // Success: clear equipment errors
-                setFieldErrors(prev => {
-                  const next = new Map(prev);
-                  next.delete("equipment");
-                  if (next.size === 0) setError(null);
-                  return next;
+            // Store metadata with per-item operation (for retry and stashing)
+            const hasAllPatch = { operation: 'setHasAll' as const, hasAll: newState };
+            retryMetadata.current.set("equipment", { 
+              type: 'equipment', 
+              patch: hasAllPatch,
+              retryFn: () => {
+                startTransition(async () => {
+                  const result = await actions.setHasAllEquipment(newState);
+                  if (!result.ok) {
+                    setS(prev => ({ ...prev, hasAllEquipment: !newState }));
+                    const friendlyError = getFriendlyError("equipment", result.error);
+                    setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+                    setError(friendlyError);
+                  } else {
+                    setFieldErrors(prev => {
+                      const next = new Map(prev);
+                      next.delete("equipment");
+                      if (next.size === 0) setError(null);
+                      return next;
+                    });
+                    if (!newState) {
+                      setEquipmentOffConfirmation(
+                        getEquipmentOffMessage(s.equipmentIds.length > 0)
+                      );
+                    }
+                  }
                 });
-                if (!newState) {
-                  // Show confirmation when turning off
-                  setEquipmentOffConfirmation(
-                    getEquipmentOffMessage(s.equipmentIds.length > 0)
-                  );
+              }
+            });
+            
+            startTransition(async () => {
+              try {
+                const result = await actions.setHasAllEquipment(newState);
+                
+                // Check for session expiration in result
+                if (isSessionExpired(result)) {
+                  const metadata = retryMetadata.current.get("equipment");
+                  if (metadata) {
+                    const existing = getPendingChanges();
+                    const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                    const newChange = {
+                      key: "equipment",
+                      type: metadata.type,
+                      patch: metadata.patch,
+                      timestamp: Date.now()
+                    };
+                    const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+                    stashPendingChanges(merged, pathname);
+                  }
+                  notifySessionExpired();
+                  return;
                 }
+                
+                if (!result.ok) {
+                  // Revert on error
+                  setS(prev => ({ ...prev, hasAllEquipment: !newState }));
+                  const friendlyError = getFriendlyError("equipment", result.error);
+                  setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+                  setError(friendlyError);
+                } else {
+                  // Success: clear equipment errors
+                  setFieldErrors(prev => {
+                    const next = new Map(prev);
+                    next.delete("equipment");
+                    if (next.size === 0) setError(null);
+                    return next;
+                  });
+                  if (!newState) {
+                    // Show confirmation when turning off
+                    setEquipmentOffConfirmation(
+                      getEquipmentOffMessage(s.equipmentIds.length > 0)
+                    );
+                  }
+                }
+              } catch (err) {
+                // Check for session expiration in thrown error
+                if (isSessionExpired(err)) {
+                  const metadata = retryMetadata.current.get("equipment");
+                  if (metadata) {
+                    const existing = getPendingChanges();
+                    const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                    const newChange = {
+                      key: "equipment",
+                      type: metadata.type,
+                      patch: metadata.patch,
+                      timestamp: Date.now()
+                    };
+                    const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+                    stashPendingChanges(merged, pathname);
+                  }
+                  notifySessionExpired();
+                  return;
+                }
+                throw err;
               }
             });
           }}
@@ -1087,25 +1180,76 @@ export function SettingsForm({
                         onClick={() => {
                           // PRIORITY 1: Atomic equipment set (explicit state) to prevent data loss
                           const newState = !on;
+                          const equipmentId = e.id;
                           
                           // Optimistic update
                           setS(prev => ({ 
                             ...prev, 
                             equipmentIds: newState 
-                              ? [...prev.equipmentIds, e.id]
-                              : prev.equipmentIds.filter(id => id !== e.id)
+                              ? [...prev.equipmentIds, equipmentId]
+                              : prev.equipmentIds.filter(id => id !== equipmentId)
                           }));
                           
-                          // Store retry function
-                          const retry = async () => {
-                            startTransition(async () => {
-                              const result = await actions.setEquipmentItem({ equipmentId: e.id, enabled: newState });
+                          // Store metadata with per-item operation (for retry and stashing)
+                          const itemPatch = { operation: 'setItem' as const, equipmentId, enabled: newState };
+                          retryMetadata.current.set("equipment", { 
+                            type: 'equipment', 
+                            patch: itemPatch,
+                            retryFn: () => {
+                              startTransition(async () => {
+                                const result = await actions.setEquipmentItem({ equipmentId, enabled: newState });
+                                if (!result.ok) {
+                                  setS(prev => ({ 
+                                    ...prev, 
+                                    equipmentIds: newState 
+                                      ? prev.equipmentIds.filter(id => id !== equipmentId)
+                                      : [...prev.equipmentIds, equipmentId]
+                                  }));
+                                  const friendlyError = getFriendlyError("equipment", result.error);
+                                  setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+                                  setError(friendlyError);
+                                } else {
+                                  setFieldErrors(prev => {
+                                    const next = new Map(prev);
+                                    next.delete("equipment");
+                                    if (next.size === 0) setError(null);
+                                    return next;
+                                  });
+                                }
+                              });
+                            }
+                          });
+                          
+                          // Atomic server save (set explicit state)
+                          startTransition(async () => {
+                            try {
+                              const result = await actions.setEquipmentItem({ equipmentId, enabled: newState });
+                              
+                              // Check for session expiration in result
+                              if (isSessionExpired(result)) {
+                                const metadata = retryMetadata.current.get("equipment");
+                                if (metadata) {
+                                  const existing = getPendingChanges();
+                                  const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                  const newChange = {
+                                    key: "equipment",
+                                    type: metadata.type,
+                                    patch: metadata.patch,
+                                    timestamp: Date.now()
+                                  };
+                                  const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+                                  stashPendingChanges(merged, pathname);
+                                }
+                                notifySessionExpired();
+                                return;
+                              }
+                              
                               if (!result.ok) {
                                 setS(prev => ({ 
                                   ...prev, 
                                   equipmentIds: newState 
-                                    ? prev.equipmentIds.filter(id => id !== e.id)
-                                    : [...prev.equipmentIds, e.id]
+                                    ? prev.equipmentIds.filter(id => id !== equipmentId)
+                                    : [...prev.equipmentIds, equipmentId]
                                 }));
                                 const friendlyError = getFriendlyError("equipment", result.error);
                                 setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
@@ -1118,12 +1262,28 @@ export function SettingsForm({
                                   return next;
                                 });
                               }
-                            });
-                          };
-                          retryMetadata.current.set("equipment", { type: 'equipment', retryFn: retry });
-                          
-                          // Atomic server save (set explicit state)
-                          retry();
+                            } catch (err) {
+                              // Check for session expiration in thrown error
+                              if (isSessionExpired(err)) {
+                                const metadata = retryMetadata.current.get("equipment");
+                                if (metadata) {
+                                  const existing = getPendingChanges();
+                                  const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                  const newChange = {
+                                    key: "equipment",
+                                    type: metadata.type,
+                                    patch: metadata.patch,
+                                    timestamp: Date.now()
+                                  };
+                                  const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+                                  stashPendingChanges(merged, pathname);
+                                }
+                                notifySessionExpired();
+                                return;
+                              }
+                              throw err;
+                            }
+                          });
                         }}
                         className={`rounded-full border px-4 py-2 text-sm ${
                           on
@@ -1157,23 +1317,50 @@ export function SettingsForm({
                 onClick={() => {
                   // PRIORITY 1: Atomic injury set (explicit state) to prevent data loss
                   const newState = !found;
+                  const bodyRegion = r.value;
+                  const severity = newState ? "current" as const : undefined;
                   
                   // Optimistic update
                   const next = newState
-                    ? [...s.injuries, { bodyRegion: r.value, severity: "current" as const }]
-                    : s.injuries.filter((i) => i.bodyRegion !== r.value);
+                    ? [...s.injuries, { bodyRegion, severity: "current" as const }]
+                    : s.injuries.filter((i) => i.bodyRegion !== bodyRegion);
                   setS(prev => ({ ...prev, injuries: next }));
+                  
+                  // Store metadata with per-item operation (for retry and stashing)
+                  const injuryPatch = { operation: 'setInjury' as const, bodyRegion, present: newState, severity };
+                  retryMetadata.current.set("injuries", { 
+                    type: 'injuries', 
+                    patch: injuryPatch,
+                    retryFn: () => {
+                      startTransition(async () => {
+                        const result = await actions.setInjury({ bodyRegion, present: newState, severity });
+                        if (!result.ok) {
+                          setS(prev => ({ ...prev, injuries: found ? [found, ...prev.injuries] : prev.injuries.filter(i => i.bodyRegion !== bodyRegion) }));
+                          const friendlyError = getFriendlyError("injuries", result.error);
+                          setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                          setError(friendlyError);
+                        } else {
+                          setFieldErrors(prev => {
+                            const next = new Map(prev);
+                            next.delete("injuries");
+                            if (next.size === 0) setError(null);
+                            return next;
+                          });
+                        }
+                      });
+                    }
+                  });
                   
                   // Atomic server save (set explicit state)
                   startTransition(async () => {
                     const result = await actions.setInjury({ 
-                      bodyRegion: r.value, 
+                      bodyRegion, 
                       present: newState,
-                      severity: newState ? "current" : undefined
+                      severity
                     });
                     if (!result.ok) {
                       // Revert on error
-                      setS(prev => ({ ...prev, injuries: found ? [found, ...prev.injuries] : prev.injuries.filter(i => i.bodyRegion !== r.value) }));
+                      setS(prev => ({ ...prev, injuries: found ? [found, ...prev.injuries] : prev.injuries.filter(i => i.bodyRegion !== bodyRegion) }));
                       const friendlyError = getFriendlyError("injuries", result.error);
                       setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
                       setError(friendlyError);
@@ -1217,15 +1404,43 @@ export function SettingsForm({
                       aria-pressed={inj.severity === sev}
                       onClick={() => {
                         // PRIORITY 1: Atomic injury severity change (explicit state)
+                        const bodyRegion = inj.bodyRegion;
+                        const severity = sev;
+                        
                         // Optimistic update
                         const next = s.injuries.map((i) =>
-                          i.bodyRegion === inj.bodyRegion ? { ...i, severity: sev } : i,
+                          i.bodyRegion === bodyRegion ? { ...i, severity } : i,
                         );
                         setS(prev => ({ ...prev, injuries: next }));
                         
+                        // Store metadata with per-item operation (for retry and stashing)
+                        const injuryPatch = { operation: 'setInjury' as const, bodyRegion, present: true, severity };
+                        retryMetadata.current.set("injuries", { 
+                          type: 'injuries', 
+                          patch: injuryPatch,
+                          retryFn: () => {
+                            startTransition(async () => {
+                              const result = await actions.setInjury({ bodyRegion, present: true, severity });
+                              if (!result.ok) {
+                                setS(prev => ({ ...prev, injuries: s.injuries }));
+                                const friendlyError = getFriendlyError("injuries", result.error);
+                                setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                                setError(friendlyError);
+                              } else {
+                                setFieldErrors(prev => {
+                                  const next = new Map(prev);
+                                  next.delete("injuries");
+                                  if (next.size === 0) setError(null);
+                                  return next;
+                                });
+                              }
+                            });
+                          }
+                        });
+                        
                         // Atomic server save (set explicit state with new severity)
                         startTransition(async () => {
-                          const result = await actions.setInjury({ bodyRegion: inj.bodyRegion, present: true, severity: sev });
+                          const result = await actions.setInjury({ bodyRegion, present: true, severity });
                           if (!result.ok) {
                             // Revert on error
                             setS(prev => ({ ...prev, injuries: s.injuries }));

@@ -68,6 +68,9 @@ async function runTests(): Promise<TestResult[]> {
       updateProfileSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const { container } = render(
@@ -129,6 +132,9 @@ async function runTests(): Promise<TestResult[]> {
       updateProfileSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const { container } = render(
@@ -187,6 +193,9 @@ async function runTests(): Promise<TestResult[]> {
       updateProfileSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const { container } = render(
@@ -250,6 +259,9 @@ async function runTests(): Promise<TestResult[]> {
       updateProfileSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const { container } = render(
@@ -311,6 +323,9 @@ async function runTests(): Promise<TestResult[]> {
       updateProfileSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const { container } = render(
@@ -384,6 +399,13 @@ async function runTests(): Promise<TestResult[]> {
         code: SESSION_EXPIRED_CODE
       } as { ok: false; error: string; code: string }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({
+        ok: false,
+        error: 'Session expired',
+        code: SESSION_EXPIRED_CODE
+      } as { ok: false; error: string; code: string }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const { container } = render(
@@ -441,8 +463,8 @@ async function runTests(): Promise<TestResult[]> {
       const equipmentPatchValid = equipmentChange && 
         typeof equipmentChange.patch === 'object' && 
         equipmentChange.patch !== null &&
-        'hasAll' in equipmentChange.patch &&
-        'equipmentIds' in equipmentChange.patch;
+        (('hasAll' in equipmentChange.patch && 'equipmentIds' in equipmentChange.patch) ||
+         ('operation' in equipmentChange.patch && 'equipmentId' in equipmentChange.patch && 'enabled' in equipmentChange.patch));
 
       clearPendingChanges();
 
@@ -478,6 +500,11 @@ async function runTests(): Promise<TestResult[]> {
         throw new Error(`${SESSION_EXPIRED_CODE}: Your session has expired`);
       },
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => {
+        throw new Error(`${SESSION_EXPIRED_CODE}: Your session has expired`);
+      },
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const { container } = render(
@@ -535,8 +562,8 @@ async function runTests(): Promise<TestResult[]> {
       const equipmentPatchValid = equipmentChange && 
         typeof equipmentChange.patch === 'object' && 
         equipmentChange.patch !== null &&
-        'hasAll' in equipmentChange.patch &&
-        'equipmentIds' in equipmentChange.patch;
+        (('hasAll' in equipmentChange.patch && 'equipmentIds' in equipmentChange.patch) ||
+         ('operation' in equipmentChange.patch && 'equipmentId' in equipmentChange.patch && 'enabled' in equipmentChange.patch));
 
       clearPendingChanges();
 
@@ -595,6 +622,9 @@ async function runTests(): Promise<TestResult[]> {
         return { ok: true };
       },
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     // Render form within act to ensure effects run
@@ -762,6 +792,9 @@ async function runTests(): Promise<TestResult[]> {
         return { ok: true };
       },
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     // Initial render
