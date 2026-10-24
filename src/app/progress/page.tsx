@@ -82,6 +82,7 @@ export default async function ProgressPage() {
 
   // ---- progress summary (days trained, volume) ------------------------
   // Use RPC to avoid 414 URI too long errors (was passing 500+ session IDs in .in())
+  // @ts-expect-error - RPC function not in generated types yet
   const { data: progressData, error: progressError } = await supabase.rpc("progress_summary", {
     p_user: user.id,
   });
@@ -117,6 +118,7 @@ export default async function ProgressPage() {
   const sessionIds = (sessionsRes.data ?? []).map((s) => s.id);
 
   // Use RPC to get set counts without unbounded .in() filter
+  // @ts-expect-error - RPC function not in generated types yet
   const { data: setCountsData } = await supabase.rpc("get_session_set_counts", {
     p_user: user.id,
     p_session_ids: sessionIds,

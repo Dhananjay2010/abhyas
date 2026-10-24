@@ -42,6 +42,7 @@ export default async function HistoryPage({
 
   // Get the correct count using RPC (excludes zero-set strength and skipped sessions)
   // Pass today as a date (YYYY-MM-DD string is coerced to date by PostgREST)
+  // @ts-expect-error - RPC function not in generated types yet
   const { data: countData } = await supabase.rpc("get_history_count", {
     p_user: user.id,
     p_filter: filter,
@@ -62,7 +63,7 @@ export default async function HistoryPage({
     completed_at: string | null;
     is_deload: boolean;
     week_in_block: number | null;
-    program_days: { label: string } | null;
+    program_days: { label: string | null } | null;
     breathing_patterns: { name: string; phases: unknown } | null;
     breathing_logs: Array<{ breaths: number; routine_name: string | null }>;
   };
