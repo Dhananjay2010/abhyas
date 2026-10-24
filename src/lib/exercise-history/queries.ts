@@ -249,18 +249,44 @@ export async function getExerciseHistory(
     };
   }
 
-  // For PR detection, fetch the complete chronological history once
-  // This is more efficient than re-downloading per page
-  const { data: allHistoryRows, error: allHistoryError } = await supabase
-    .from("exercise_history")
-    .select("session_exercise_id, session_id, local_date, metric, completed_at")
-    .eq("user_id", userId)
-    .eq("exercise_id", exerciseId)
-    .order("completed_at", { ascending: true })
-    .order("session_exercise_id", { ascending: true });
+  // For PR detection, fetch the complete chronological history in batches
+  // PostgREST caps responses at 1000 rows, so we need to paginate
+  const allHistoryRows: Array<{
+    session_exercise_id: string | null;
+    session_id: string | null;
+    local_date: string | null;
+    metric: string | null;
+    completed_at: string | null;
+  }> = [];
+  
+  let batchOffset = 0;
+  const batchSize = 1000;
+  while (true) {
+    const { data: batchRows, error: batchError } = await supabase
+      .from("exercise_history")
+      .select("session_exercise_id, session_id, local_date, metric, completed_at")
+      .eq("user_id", userId)
+      .eq("exercise_id", exerciseId)
+      .order("completed_at", { ascending: true })
+      .order("session_exercise_id", { ascending: true })
+      .range(batchOffset, batchOffset + batchSize - 1);
 
-  if (allHistoryError) {
-    throw new Error(`Failed to fetch history: ${allHistoryError.message}`);
+    if (batchError) {
+      throw new Error(`Failed to fetch history: ${batchError.message}`);
+    }
+
+    if (!batchRows || batchRows.length === 0) {
+      break;
+    }
+
+    allHistoryRows.push(...batchRows);
+
+    // If we got fewer than the batch size, we've reached the end
+    if (batchRows.length < batchSize) {
+      break;
+    }
+
+    batchOffset += batchSize;
   }
 
   if (!allHistoryRows || allHistoryRows.length === 0) {
@@ -278,6 +304,7 @@ export async function getExerciseHistory(
     .eq("user_id", userId)
     .eq("exercise_id", exerciseId)
     .order("completed_at", { ascending: false })
+    .order("session_exercise_id", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (historyError) {
