@@ -108,7 +108,7 @@ const testWarmups: WarmupRowWithoutEquipment[] = [
 ];
 
 try {
-  const warmup = selectWarmup({
+  selectWarmup({
     warmups: testWarmups as WarmupRow[],
     trainingMuscles: ["chest", "front_delts"],
     injuryRegions: [],
@@ -123,7 +123,7 @@ try {
 }
 
 try {
-  const cooldown = selectCooldown({
+  selectCooldown({
     stretches: testWarmups as WarmupRow[],
     trainingMuscles: ["chest"],
     injuryRegions: [],
@@ -348,7 +348,7 @@ testSeeds("Shoulder injury: no pushups or upright rows on Upper/Push days",
       d.focus === "upper" || d.focus === "push" || d.focus === "pull"
     );
     
-    upperPushDays.forEach((day, dayIdx) => {
+    upperPushDays.forEach(day => {
       const dayExercises = day.exercises.map(e => byId.get(e.exerciseId)!);
       const hasPushups = dayExercises.some(e => 
         e.slug === "pushups" || e.slug === "push-up-wide"

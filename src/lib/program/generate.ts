@@ -64,6 +64,23 @@ export type GeneratorInput = {
 export const CARRY_OVER_SLOTS = 2;
 
 /**
+ * Set floors (hotfix for PR #53 regression):
+ * - All exercises: minimum 2 working sets
+ * - Main lifts (first 2 slots): 3+ sets for intermediate/advanced, 2-3 for beginners
+ */
+const SET_FLOOR = 2;
+const MAIN_LIFT_FLOOR_BEGINNER = 2;
+const MAIN_LIFT_FLOOR_INTERMEDIATE_ADVANCED = 3;
+
+/**
+ * Pattern and isolation limits (hotfix for PR #53 regression):
+ * - At most 1 extra exercise of the same movement pattern per session
+ * - At most 2 isolation exercises per target muscle per session
+ */
+const MAX_EXTRA_SAME_PATTERN = 1;
+const MAX_ISOLATIONS_PER_MUSCLE = 2;
+
+/**
  * M3: Estimate total session duration in minutes for a generated day.
  * Accounts for warm-up, exercise work time (sets × avg_reps × tempo + rest), and cool-down.
  * 
@@ -620,6 +637,12 @@ function pickForSlot(
     // for main slots (all goals) and all slots (beginners, injured, age 50+)
     candidates = candidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
     if (candidates.length === 0) continue; // Try fallback pattern if filtered out
+    
+    // Hotfix: Exclude seconds-metric exercises (timed holds) from main lift slots (0-1)
+    if (slotIndex < CARRY_OVER_SLOTS) {
+      candidates = candidates.filter((e) => e.metric !== "seconds");
+      if (candidates.length === 0) continue; // Try fallback pattern if all are holds
+    }
 
     // Rank by score, then staple preference for main pattern slots (0-3),
     // then by RNG. QA: apply staples to vertical_press (slot 3) at all levels
@@ -929,10 +952,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     if (avoidHighSpinalLoad && isLowerOrFullDay && (input.hasAllEquipment || input.equipmentIds.length > 0)) {
       const hinges = pickedExercises.filter(p => p.ex.movement_pattern === "hinge");
       const hasHighSpinalHinge = hinges.some(p => p.ex.spinal_load === "high");
-      const hasSafeLoadedHinge = hinges.some(p => 
-        p.ex.spinal_load !== "high" &&
-        p.ex.equipment_ids.some(id => id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine")
-      );
       
       // If we have a high-spinal hinge, try to replace it
       if (hasHighSpinalHinge) {
@@ -1187,7 +1206,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         // Strategy 1: Drop an accessory if we have more than minimum, preferring duplicates
         if (exercises.length > minExercises) {
-          const patternsSeen = new Set<string>();
           const patternCounts = new Map<string, number>();
           let dropIndex = -1;
           
@@ -1281,6 +1299,26 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         const timeBasedMax = Math.ceil(sessionMinutes / 6); // ~6 min per exercise avg for bodyweight
         const maxExercises = Math.max(baseMax, Math.min(12, timeBasedMax));
         if (exercises.length < maxExercises && accessoryPatterns.length > 0) {
+          // Hotfix: Count existing patterns to enforce pattern limit (max 1 extra of same pattern)
+          const patternCounts = new Map<string, number>();
+          for (const ex of exercises) {
+            const candidate = pool.find(e => e.id === ex.exerciseId);
+            if (candidate) {
+              patternCounts.set(candidate.movement_pattern, (patternCounts.get(candidate.movement_pattern) || 0) + 1);
+            }
+          }
+          
+          // Hotfix: Count isolations per target muscle (max 2 per muscle)
+          const isolationsByMuscle = new Map<string, number>();
+          for (const ex of exercises) {
+            const candidate = pool.find(e => e.id === ex.exerciseId);
+            if (candidate && candidate.mechanic === "isolation") {
+              for (const muscle of candidate.primary_muscles) {
+                isolationsByMuscle.set(muscle, (isolationsByMuscle.get(muscle) || 0) + 1);
+              }
+            }
+          }
+          
           // Check pattern balance to decide what to add
           const pushPatterns = ["horizontal_press", "vertical_press"];
           const pullPatterns = ["horizontal_pull", "vertical_pull"];
@@ -1306,12 +1344,30 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           let pickedPattern: Pattern | null = null;
           
           for (const pattern of preferredPatterns) {
+            // Hotfix: Skip patterns that already have too many exercises (original + max 1 extra)
+            const currentCount = patternCounts.get(pattern) || 0;
+            const originalSlotCount = slots.filter(s => s === pattern).length;
+            if (currentCount > originalSlotCount + MAX_EXTRA_SAME_PATTERN) {
+              continue;
+            }
+            
             candidates = pool
-              .filter((e) => 
-                e.movement_pattern === pattern &&
-                !usedInBlock.has(e.id) &&
-                isEligible(e, input)
-              )
+              .filter((e) => {
+                if (e.movement_pattern !== pattern) return false;
+                if (usedInBlock.has(e.id)) return false;
+                if (!isEligible(e, input)) return false;
+                
+                // Hotfix: If this is an isolation, check muscle limits
+                if (e.mechanic === "isolation") {
+                  for (const muscle of e.primary_muscles) {
+                    if ((isolationsByMuscle.get(muscle) || 0) >= MAX_ISOLATIONS_PER_MUSCLE) {
+                      return false;
+                    }
+                  }
+                }
+                
+                return true;
+              })
               .sort((a, b) => 
                 score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
                 score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
@@ -1324,16 +1380,35 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             }
           }
           
-          // If preferred patterns exhausted, try any slot pattern
+          // If preferred patterns exhausted, try any slot pattern (respecting limits)
           if (candidates.length === 0) {
             for (const pattern of slots) {
               if (pattern === "core") continue; // Skip core to avoid too many core exercises
+              
+              // Hotfix: Skip patterns that already have too many exercises
+              const currentCount = patternCounts.get(pattern) || 0;
+              const originalSlotCount = slots.filter(s => s === pattern).length;
+              if (currentCount > originalSlotCount + MAX_EXTRA_SAME_PATTERN) {
+                continue;
+              }
+              
               candidates = pool
-                .filter((e) => 
-                  e.movement_pattern === pattern &&
-                  !usedInBlock.has(e.id) &&
-                  isEligible(e, input)
-                )
+                .filter((e) => {
+                  if (e.movement_pattern !== pattern) return false;
+                  if (usedInBlock.has(e.id)) return false;
+                  if (!isEligible(e, input)) return false;
+                  
+                  // Hotfix: If this is an isolation, check muscle limits
+                  if (e.mechanic === "isolation") {
+                    for (const muscle of e.primary_muscles) {
+                      if ((isolationsByMuscle.get(muscle) || 0) >= MAX_ISOLATIONS_PER_MUSCLE) {
+                        return false;
+                      }
+                    }
+                  }
+                  
+                  return true;
+                })
                 .sort((a, b) => 
                   score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
                   score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
@@ -1434,9 +1509,9 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }
     }
 
-    // Post-pacing balance: Ensure push/pull balance within ±1 set-group
-    // Only apply to sessions with both push and pull exercises
-    // Respect level caps: beginner 3, intermediate 4, advanced 5
+    // Hotfix: Post-pacing balance with set floors
+    // Ensure push/pull balance within ±1 set-group, but NEVER cut below set floors
+    // If balance can't be met without breaking floors, drop the surplus exercise instead
     const setCapByLevel: Record<Level, number> = {
       beginner: 3,
       intermediate: 4,
@@ -1461,28 +1536,61 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       let pushCount = pushExercises.reduce((sum, e) => sum + e.targetSets, 0);
       let pullCount = pullExercises.reduce((sum, e) => sum + e.targetSets, 0);
       
-      // If imbalanced by more than 1, rebalance (respecting level caps)
+      // Hotfix: Define set floors
+      const getSetFloor = (ex: typeof exercises[0]) => {
+        const orderIndex = exercises.findIndex(e => e.exerciseId === ex.exerciseId);
+        // Main lifts (slots 0-1): higher floor for intermediate/advanced
+        if (orderIndex < CARRY_OVER_SLOTS) {
+          return input.level === "beginner" ? MAIN_LIFT_FLOOR_BEGINNER : MAIN_LIFT_FLOOR_INTERMEDIATE_ADVANCED;
+        }
+        // All other exercises: general floor
+        return SET_FLOOR;
+      };
+      
+      // Rebalance if imbalanced by more than 1
       while (pullCount > pushCount + 1) {
         // Try to add a set to a push exercise first
         const pushToBoost = pushExercises.find(e => e.targetSets < maxSets);
         if (pushToBoost) {
           pushToBoost.targetSets++;
-        }
-        
-        // If no push exercise can be boosted (all at cap), reduce pull instead
-        // Allow reducing down to 1 set minimum for balance
-        if (!pushToBoost || pullCount > pushCount + 2) {
-          const pullToReduce = pullExercises.filter(e => e.targetSets > 1).sort((a, b) => b.targetSets - a.targetSets)[0];
+          pushCount++;
+        } else {
+          // Can't boost push; try to reduce pull (but respect floor)
+          const pullToReduce = pullExercises
+            .filter(e => e.targetSets > getSetFloor(e))
+            .sort((a, b) => b.targetSets - a.targetSets)[0];
+          
           if (pullToReduce) {
             pullToReduce.targetSets--;
+            pullCount--;
           } else {
-            break; // Can't rebalance further
+            // Can't reduce without breaking floor; drop the highest-set pull accessory
+            const accessoryPulls = pullExercises
+              .map(e => ({ e, idx: exercises.findIndex(ex => ex.exerciseId === e.exerciseId) }))
+              .filter(({ idx }) => idx >= CARRY_OVER_SLOTS) // Only drop accessories, not main lifts
+              .sort((a, b) => b.e.targetSets - a.e.targetSets);
+            
+            if (accessoryPulls.length > 0) {
+              const { idx } = accessoryPulls[0];
+              exercises.splice(idx, 1);
+              // Re-index
+              exercises.forEach((ex, i) => ex.orderIndex = i);
+              // Update lists
+              pushExercises.length = 0;
+              pullExercises.length = 0;
+              exercises.forEach(e => {
+                const ex = pool.find(p => p.id === e.exerciseId);
+                if (ex && pushPatterns.includes(ex.movement_pattern)) pushExercises.push(e);
+                if (ex && pullPatterns.includes(ex.movement_pattern)) pullExercises.push(e);
+              });
+              pushCount = pushExercises.reduce((sum, e) => sum + e.targetSets, 0);
+              pullCount = pullExercises.reduce((sum, e) => sum + e.targetSets, 0);
+            } else {
+              break; // No accessories to drop
+            }
           }
         }
         
-        // Recalculate counts
-        pushCount = pushExercises.reduce((sum, e) => sum + e.targetSets, 0);
-        pullCount = pullExercises.reduce((sum, e) => sum + e.targetSets, 0);
         if (Math.abs(pullCount - pushCount) <= 1) break;
       }
       
@@ -1495,22 +1603,44 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         const pullToBoost = pullExercises.find(e => e.targetSets < maxSets);
         if (pullToBoost) {
           pullToBoost.targetSets++;
-        }
-        
-        // If no pull exercise can be boosted (all at cap), reduce push instead
-        // Allow reducing down to 1 set minimum for balance
-        if (!pullToBoost || pushCount > pullCount + 2) {
-          const pushToReduce = pushExercises.filter(e => e.targetSets > 1).sort((a, b) => b.targetSets - a.targetSets)[0];
+          pullCount++;
+        } else {
+          // Can't boost pull; try to reduce push (but respect floor)
+          const pushToReduce = pushExercises
+            .filter(e => e.targetSets > getSetFloor(e))
+            .sort((a, b) => b.targetSets - a.targetSets)[0];
+          
           if (pushToReduce) {
             pushToReduce.targetSets--;
+            pushCount--;
           } else {
-            break; // Can't rebalance further
+            // Can't reduce without breaking floor; drop the highest-set push accessory
+            const accessoryPushes = pushExercises
+              .map(e => ({ e, idx: exercises.findIndex(ex => ex.exerciseId === e.exerciseId) }))
+              .filter(({ idx }) => idx >= CARRY_OVER_SLOTS) // Only drop accessories, not main lifts
+              .sort((a, b) => b.e.targetSets - a.e.targetSets);
+            
+            if (accessoryPushes.length > 0) {
+              const { idx } = accessoryPushes[0];
+              exercises.splice(idx, 1);
+              // Re-index
+              exercises.forEach((ex, i) => ex.orderIndex = i);
+              // Update lists
+              pushExercises.length = 0;
+              pullExercises.length = 0;
+              exercises.forEach(e => {
+                const ex = pool.find(p => p.id === e.exerciseId);
+                if (ex && pushPatterns.includes(ex.movement_pattern)) pushExercises.push(e);
+                if (ex && pullPatterns.includes(ex.movement_pattern)) pullExercises.push(e);
+              });
+              pushCount = pushExercises.reduce((sum, e) => sum + e.targetSets, 0);
+              pullCount = pullExercises.reduce((sum, e) => sum + e.targetSets, 0);
+            } else {
+              break; // No accessories to drop
+            }
           }
         }
         
-        // Recalculate counts
-        pushCount = pushExercises.reduce((sum, e) => sum + e.targetSets, 0);
-        pullCount = pullExercises.reduce((sum, e) => sum + e.targetSets, 0);
         if (Math.abs(pullCount - pushCount) <= 1) break;
       }
     }
