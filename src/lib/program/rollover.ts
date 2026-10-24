@@ -3,6 +3,7 @@ import type { Database } from "@/lib/database.types";
 import { generateProgram, CARRY_OVER_SLOTS, type GeneratorInput, type CandidateExercise } from "./generate";
 import { ageOn } from "@/lib/onboarding/options";
 import { addDays } from "@/lib/dates";
+import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 
 type Client = SupabaseClient<Database>;
 
@@ -166,7 +167,7 @@ async function callRolloverRPC(
     currentInjuryRegions: (injuriesRes.data ?? [])
       .filter((i) => i.severity === "current")
       .map((i) => i.body_region),
-    preferredSessionMinutes: profile.preferred_session_minutes ?? 60,
+    preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver,
   };
