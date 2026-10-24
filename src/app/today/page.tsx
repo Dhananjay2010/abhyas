@@ -301,8 +301,8 @@ export default async function TodayPage() {
   const strengthDone = todaySessions.some(
     (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type),
   );
-  const strengthPlanned = todaySessions.find(
-    (s) => s.status === "planned" && ownsPlannedWorkout(s.actual_type) && !s.started_at,
+  const strengthOpen = todaySessions.find(
+    (s) => (s.status === "in_progress" || s.status === "planned") && ownsPlannedWorkout(s.actual_type),
   );
 
   /*
