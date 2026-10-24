@@ -146,7 +146,6 @@
     "test:block-range": "tsx scripts/test-block-range.ts",
     "test:rebuild-history": "tsx scripts/test-rebuild-history.ts",
     "test:block-range-db": "tsx scripts/test-block-range-db.ts",
-    "test:block-range-db-followup": "tsx scripts/test-block-range-db-followup.ts",
     "test:deload-best": "tsx scripts/test-deload-best.ts",
     "test:deload-best-cases": "tsx scripts/test-deload-best-cases.ts",
     "test:write-progress": "tsx scripts/test-write-progress.ts",
