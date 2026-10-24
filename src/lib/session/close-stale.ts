@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
+import { buildCloseStaleDeps, type CloseStaleDeps } from "./close-stale-deps";
 
 type Client = SupabaseClient<Database>;
 
@@ -14,20 +15,6 @@ export type OpenSession = {
   id: string; 
   local_date: string;
   started_at: string | null;
-};
-
-export type SessionExerciseRow = {
-  session_id: string;
-  session_sets: Array<{
-    id: string;
-    is_warmup_set: boolean;
-    completed_at: string | null;
-  }> | null;
-};
-
-export type CloseStaleDeps = {
-  fetchSessionExercises: (sessionIds: string[]) => Promise<SessionExerciseRow[]>;
-  markSessionDone: (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number) => Promise<void>;
 };
 
 /**
@@ -65,24 +52,8 @@ export type CloseStaleDeps = {
 export async function closeStaleSessions(
   supabase: Client,
   open: OpenSession[],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _today: string,
 ): Promise<number> {
-  const deps: CloseStaleDeps = {
-    fetchSessionExercises: async (sessionIds: string[]) => {
-      const { data } = await supabase
-        .from("session_exercises")
-        .select("session_id, session_sets(id, is_warmup_set, completed_at)")
-        .in("session_id", sessionIds);
-      return (data ?? []) as SessionExerciseRow[];
-    },
-    markSessionDone: async (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number) => {
-      await supabase
-        .from("sessions")
-        .update({ status, completed_at: completedAt, duration_seconds: durationSeconds })
-        .eq("id", id);
-    },
-  };
+  const deps = buildCloseStaleDeps(supabase);
   return closeStaleSessionsCore(deps, open, Date.now());
 }
 

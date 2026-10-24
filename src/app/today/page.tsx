@@ -97,7 +97,7 @@ export default async function TodayPage() {
   // A session left open on an earlier day is closed out here. Without this, a
   // workout that was trained but never walked through the summary counted for
   // nothing at all — see lib/session/close-stale.ts. No-op on a normal day.
-  const credited = await closeStaleSessions(supabase, openRes.data ?? [], localToday);
+  const credited = await closeStaleSessions(supabase, openRes.data ?? []);
 
   // A four-week block that has run its course rolls over here, on load. Handing
   // it the block we just read makes the common case — the block is current —
