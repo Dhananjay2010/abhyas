@@ -16,6 +16,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 
+type HistoryPageRow = { session_id: string; total_count: number };
+
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
@@ -298,7 +300,6 @@ async function runTests() {
 
       check("get_history_page succeeds for lifts", !liftsError,
         liftsError ? `error: ${liftsError.message}` : "");
-      type HistoryPageRow = { session_id: string; total_count: number };
       const liftsCount = (liftsPage as HistoryPageRow[])?.[0]?.total_count ?? 0;
       check("lifts count = 260", liftsCount === 260,
         `got ${liftsCount}`);
