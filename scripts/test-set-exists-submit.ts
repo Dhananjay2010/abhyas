@@ -6,9 +6,10 @@
  * it treats it as a successful save (not as an error).
  */
 
-import { createPendingSetController, type PendingSetState } from "../src/lib/session/pending-set-controller";
+import { createPendingSetController } from "../src/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 import type { Result } from "../src/app/session/actions";
+import type { Storage } from "../src/lib/session/pending-set-retry";
 
 type Storage = {
   getItem(key: string): string | null;
