@@ -42,6 +42,7 @@ export default async function OnboardingPage() {
     level: profile.level,
     primaryTrack: profile.primary_track,
     daysPerWeek: profile.days_per_week,
+    sessionMinutes: profile.preferred_session_minutes,
     yogaDaysPerWeek: profile.yoga_days_per_week ?? 0,
     disclaimerAccepted: Boolean(profile.disclaimer_accepted_at),
     hasAllEquipment: profile.has_all_equipment ?? false,

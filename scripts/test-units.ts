@@ -132,7 +132,7 @@ console.log("\n6. Weight display formatting");
 console.log("\n7. Height display formatting");
 {
   check("metric: 175 cm", formatHeight(175, "metric") === "175 cm");
-  check("metric: 175.5 cm shows decimal", formatHeight(175.5, "metric") === "175.5 cm");
+  check("metric: 175.5 cm rounds to 176 cm", formatHeight(175.5, "metric") === "176 cm");
   check("imperial: 175 cm → 5'9\"", formatHeight(175, "imperial") === `5'9"`);
   check("imperial: 183 cm → 6'0\"", formatHeight(183, "imperial") === `6'0"`);
   check("imperial: 180 cm → 5'11\"", formatHeight(180, "imperial") === `5'11"`);
@@ -191,7 +191,7 @@ console.log("\n9. Height input parsing");
   check("metric: '175' → 175 cm", metric175 === 175);
 
   const metric175_5 = parseHeight("175.5", "metric");
-  check("metric: '175.5' → 175.5 cm", metric175_5 === 175.5);
+  check("metric: '175.5' → 176 cm (rounded)", metric175_5 === 176);
 
   const imperial5_9 = parseHeight("5'9\"", "imperial");
   check("imperial: 5'9\" parses", imperial5_9 != null && approxEqual(imperial5_9, 175, 1),
@@ -279,11 +279,12 @@ console.log("\n11. Round-trip stability: height");
   check("180 cm → display → parse → 180 cm", parsed2 != null && approxEqual(parsed2, originalCm2, 1),
     `displayed=${displayed2}, parsed=${parsed2?.toFixed(1)}`);
 
-  // Metric should be perfectly stable
+  // Metric rounds to integer, so round-trip goes through rounding
   const metricCm = 175.5;
   const metricDisplay = formatHeight(metricCm, "metric", false);
   const metricParsed = parseHeight(metricDisplay, "metric");
-  check("metric: 175.5 cm → display → parse → 175.5 cm", metricParsed === metricCm);
+  check("metric: 175.5 cm → display (176) → parse → 176 cm", metricParsed === 176,
+    `displayed=${metricDisplay}, parsed=${metricParsed}`);
 }
 
 console.log("\n12. Inch carry at 12: edge cases");

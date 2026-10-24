@@ -86,18 +86,46 @@ export function SessionRow({ s, today }: { s: SessionSummary; today: string }) {
         s.volumeKg > 0 ? `${Math.round(s.volumeKg)} kg` : null,
       ].filter(Boolean);
 
+  const isInProgress = s.status === "in_progress";
+
   return (
-    <Link
-      href={`/history/${s.id}`}
-      className="block rounded-xl border border-border bg-surface px-4 py-3.5 transition-colors hover:border-muted/50"
-    >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="font-semibold">{s.label}</span>
-        <span className="shrink-0 text-xs text-muted">
-          {s.localDate === today ? "Today" : longDate(s.localDate)}
-        </span>
-      </div>
-      <p className="mt-1 text-xs text-muted">{details.join(" · ")}</p>
-    </Link>
+    <div className="relative rounded-xl border border-border bg-surface transition-colors hover:border-muted/50">
+      <Link
+        href={`/history/${s.id}`}
+        className="block px-4 py-3.5"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="font-semibold">{s.label}</span>
+          <span className="shrink-0 text-xs text-muted">
+            {s.localDate === today ? "Today" : longDate(s.localDate)}
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-muted">{details.join(" · ")}</p>
+      </Link>
+      {isInProgress && (
+        <div className="border-t border-border px-4 py-2.5">
+          <Link
+            href={`/session/${s.id}`}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent transition-colors hover:text-accent-hover"
+          >
+            Resume
+            <svg
+              aria-hidden="true"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
