@@ -127,6 +127,7 @@
     "test:session-length-validation": "tsx scripts/test-session-length-validation.ts",
     "test:session-length-migration": "tsx scripts/test-session-length-migration.ts",
     "test:robots-sitemap": "tsx scripts/test-robots-sitemap.ts",
+    "test:proxy-routes": "tsx scripts/test-proxy-routes.ts",
     "test:node-version": "tsx scripts/test-node-version.ts"
   },
   "dependencies": {
