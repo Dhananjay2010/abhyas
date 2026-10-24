@@ -6,15 +6,16 @@
  */
 
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { readFileSync } from "fs";
 
-const catalogue: CandidateExercise[] = require("./fixtures/catalogue.json");
+const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf-8"));
 const mainBaseline: Array<{
   name: string;
   userId: string;
   slugs: string[];
   expectedSlug: string;
   foundExpected: boolean;
-}> = require("./fixtures/main-baseline-exclusions.json");
+}> = JSON.parse(readFileSync(__dirname + "/fixtures/main-baseline-exclusions.json", "utf-8"));
 
 const EXCLUDED_SLUGS = [
   "neck-press",

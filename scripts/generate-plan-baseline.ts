@@ -6,11 +6,11 @@
  * plan contained no excluded exercises.
  */
 
-import { writeFileSync } from "fs";
+import { writeFileSync, readFileSync } from "fs";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
 // Must import from origin/main's catalogue
-const catalogue: CandidateExercise[] = require("./fixtures/catalogue.json");
+const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf-8"));
 
 const EQUIPMENT_PROFILES = {
   "full-gym": [] as string[], // hasAllEquipment: true

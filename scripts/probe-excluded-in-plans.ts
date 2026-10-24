@@ -8,8 +8,9 @@
  */
 
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { readFileSync } from "fs";
 
-const catalogue: CandidateExercise[] = require("./fixtures/catalogue.json");
+const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf-8"));
 
 const EXCLUDED_SLUGS = [
   "neck-press",
@@ -25,12 +26,14 @@ const idToSlug = new Map(catalogue.map(e => [e.id, e.slug]));
 const EQUIPMENT_PROFILES = {
   "full-gym": { ids: [] as string[], hasAll: true },
   "barbell-bench": { ids: ["barbell", "squat_rack", "flat_bench"], hasAll: false },
-  "dumbbells-bench": { ids: ["dumbbells", "flat_bench"], hasAll: false },
+  "dumbbells-bench": { ids: ["dumbbell", "flat_bench"], hasAll: false },
   "cable-machine": { ids: ["cable_machine"], hasAll: false },
   "bodyweight": { ids: [] as string[], hasAll: false },
 };
 
-const INJURY_SETS = [
+type BodyRegion = "lower_back" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "hip" | "knee" | "ankle" | "core";
+
+const INJURY_SETS: BodyRegion[][] = [
   [],
   ["shoulder"],
   ["neck"],
@@ -40,7 +43,7 @@ const INJURY_SETS = [
 ];
 
 const LEVELS: Array<"beginner" | "intermediate" | "expert"> = ["beginner", "intermediate", "expert"];
-const GOALS = ["muscle_gain", "strength"] as const;
+const GOALS: Array<"muscle_gain" | "strength"> = ["muscle_gain", "strength"];
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [30, 45, 60, 75, 90];
 
@@ -72,7 +75,7 @@ for (const [equipmentName, { ids, hasAll }] of Object.entries(EQUIPMENT_PROFILES
               equipmentIds: ids,
               hasAllEquipment: hasAll,
               goal,
-              currentInjuryRegions: injuries as any[],
+              currentInjuryRegions: injuries,
               age: null,
               bmi: null,
               daysPerWeek: days,

@@ -30,9 +30,11 @@ const EXCLUDED_SLUGS = new Set([
   "low-pulley-row-to-neck",
 ]);
 
+type FitnessLevel = "beginner" | "intermediate" | "expert";
+
 type BaselinePlan = {
   userId: string;
-  level: string;
+  level: FitnessLevel;
   equipment: string;
   days: number;
   minutes: number;
@@ -55,10 +57,10 @@ let diffedUnexpected = 0;
 const EQUIPMENT_MAP: Record<string, { ids: string[]; hasAll: boolean; track: "weights" | "bodyweight" }> = {
   "full-gym": { ids: [], hasAll: true, track: "weights" },
   "barbell-bench-rack": { ids: ["barbell", "squat_rack", "flat_bench"], hasAll: false, track: "weights" },
-  "dumbbells-bench": { ids: ["dumbbells", "flat_bench"], hasAll: false, track: "weights" },
+  "dumbbells-bench": { ids: ["dumbbell", "flat_bench"], hasAll: false, track: "weights" },
   "cable-machine": { ids: ["cable_machine"], hasAll: false, track: "weights" },
   "bodyweight": { ids: [], hasAll: false, track: "bodyweight" },
-  "dumbbells-only": { ids: ["dumbbells"], hasAll: false, track: "weights" },
+  "dumbbells-only": { ids: ["dumbbell"], hasAll: false, track: "weights" },
 };
 
 for (const plan of baseline) {
@@ -68,7 +70,7 @@ for (const plan of baseline) {
   const input: GeneratorInput = {
     userId: plan.userId,
     blockNumber: 1,
-    level: plan.level as any,
+    level: plan.level,
     equipmentIds: equipmentSpec.ids,
     hasAllEquipment: equipmentSpec.hasAll,
     goal: "muscle_gain",

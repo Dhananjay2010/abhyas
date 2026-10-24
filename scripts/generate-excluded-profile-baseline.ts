@@ -2,10 +2,10 @@
  * Generate baseline for the 3 profiles that DO generate excluded exercises on main.
  */
 
-import { writeFileSync } from "fs";
+import { writeFileSync, readFileSync } from "fs";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
-const catalogue: CandidateExercise[] = require("./fixtures/catalogue.json");
+const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf-8"));
 
 const profiles: Array<{
   name: string;

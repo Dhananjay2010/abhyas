@@ -6,21 +6,12 @@
  */
 
 import { readFileSync } from "fs";
-import { buildPatternList, rankAlternatives, type AlternativesContext, type ExerciseRow } from "../src/lib/program/alternatives";
+import { buildPatternList, rankAlternatives, type AlternativesContext } from "../src/lib/program/alternatives";
 import { isEligible, score, hashString, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
 );
-
-const EXCLUDED_SLUGS = [
-  "standing-barbell-press-behind-neck",
-  "wide-grip-pulldown-behind-the-neck",
-  "wide-grip-rear-pull-up",
-  "barbell-guillotine-bench-press",
-  "neck-press",
-  "low-pulley-row-to-neck",
-];
 
 let failures = 0;
 
