@@ -12,6 +12,7 @@
 
 import { isNetworkError } from "./network-error";
 import { mapErrorToUserMessage } from "./error-messages";
+import { isQuotaError } from "./quota-error";
 
 export type QueuedSet = {
   clientId: string; // UUID, client-side only (not sent to server)
@@ -399,7 +400,16 @@ export class Outbox {
       finalState.pending = finalState.pending.filter(
         (s) => !sentClientIds.includes(s.clientId) && !failedClientIds.includes(s.clientId),
       );
-      this.storage.set(finalState);
+      try {
+        this.storage.set(finalState);
+      } catch (err) {
+        // Quota exceeded: sets were saved on server but can't update local storage
+        // Throw with a special message so the hook can show it to the user
+        if (isQuotaError(err)) {
+          throw new Error("FLUSH_STORAGE_QUOTA_EXCEEDED");
+        }
+        throw err;
+      }
       return { sentClientIds, stopped: false, skipped: false };
     } finally {
       flushLocks.delete(this.storageKey);

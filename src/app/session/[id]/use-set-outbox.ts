@@ -146,8 +146,17 @@ export function useSetOutbox<
         setSyncState({ type: "idle" });
       }
     } catch (err) {
-      // Map quota and other errors to user-friendly text
+      // Flush-time storage quota: sets were saved but can't update localStorage
       const rawMessage = err instanceof Error ? err.message : "Sync failed, will retry";
+      if (rawMessage === "FLUSH_STORAGE_QUOTA_EXCEEDED") {
+        setSyncState({
+          type: "failed",
+          message: "Saved, but this phone is out of space. Free some space to keep logging offline.",
+        });
+        return;
+      }
+
+      // Other errors: map to user-friendly text
       const mappedMessage = mapErrorToUserMessage(undefined, rawMessage);
       setSyncState({
         type: "failed",

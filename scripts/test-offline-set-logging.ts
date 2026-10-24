@@ -1398,7 +1398,52 @@ function testUndoTargetSetNumber() {
   console.log("✓ undoTargetSetNumber: returns highest setNumber for undo");
 }
 
-// ---- Static check: helpers are imported and used -------------------------
+// ---- Flush-time storage quota after successful send ------------------------
+async function testFlushTimeStorageQuota() {
+  const storage = new FakeStorage();
+  const sender = new FakeSender();
+  const outbox = new Outbox(storage, sender, "test");
+
+  // Enqueue a set
+  outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 100,
+    durationSeconds: null,
+  });
+
+  // Make storage.set() throw a quota error on write
+  let setCallCount = 0;
+  const originalSet = storage.set.bind(storage);
+  storage.set = (state) => {
+    setCallCount++;
+    // Throw quota error on the final write (after successful send)
+    if (setCallCount === 1) {
+      const quotaError = new DOMException("QuotaExceededError", "QuotaExceededError");
+      Object.defineProperty(quotaError, 'code', { value: 22 });
+      throw quotaError;
+    }
+    originalSet(state);
+  };
+
+  // Flush should throw the special error
+  try {
+    await outbox.flush();
+    throw new Error("Expected flush to throw FLUSH_STORAGE_QUOTA_EXCEEDED");
+  } catch (err) {
+    if (err instanceof Error && err.message !== "FLUSH_STORAGE_QUOTA_EXCEEDED") {
+      throw new Error(`Expected FLUSH_STORAGE_QUOTA_EXCEEDED, got: ${err.message}`);
+    }
+  }
+
+  // The set should have been sent to the server
+  if (sender.sent.length !== 1) {
+    throw new Error(`Expected 1 sent, got ${sender.sent.length}`);
+  }
+
+  console.log("✓ Flush-time storage quota: throws special error after successful send");
+}
 function testStaticCheckHelperUsage() {
   // Check use-set-outbox.ts imports and uses helpers
   const outboxCode = readFileSync("src/app/session/[id]/use-set-outbox.ts", "utf-8");
@@ -1675,6 +1720,7 @@ async function main() {
   testFinishBlockReason();
   testCanClearOutbox();
   testUndoTargetSetNumber();
+  testFlushTimeStorageQuota();
   testStaticCheckHelperUsage();
 
   console.log("\n✓ All offline set logging tests passed");
