@@ -100,6 +100,81 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## Testing
+
+The project uses custom test scripts (not Jest or Vitest) for deterministic unit tests of core logic:
+
+```bash
+# Run all tests
+npm test
+
+# Run individual test suites
+npm run test:generator    # Block generation logic
+npm run test:progression  # Progression and working weight calculation
+npm run test:streaks      # Streak computation
+npm run test:dates        # Date handling and timezone logic
+npm run test:breathing    # Breathing pattern validation
+npm run test:branding     # Branding config and PWA manifest
+```
+
+All tests must pass before deployment.
+
+---
+
+## Linting & Type Checking
+
+```bash
+# Run ESLint
+npm run lint
+
+# Run TypeScript type checking
+npx tsc --noEmit
+```
+
+Both must pass cleanly for production builds.
+
+---
+
+## Building for Production
+
+```bash
+npm run build
+```
+
+This runs Next.js's production build. The build output is optimized and ready to deploy.
+
+**Note:** The production build generates static assets and server functions. Vercel handles deployment automatically on push to `main`.
+
+---
+
+## Deploying to Vercel
+
+Deployment is automatic via GitHub integration:
+
+1. **Push to `main`** → production deployment at https://abhyas-indol.vercel.app
+2. **Push to any branch** → preview deployment at `abhyas-<branch>-<hash>.vercel.app`
+
+### Manual deployment (if needed)
+
+```bash
+# Install Vercel CLI (one-time)
+npm install -g vercel
+
+# Deploy to preview
+vercel
+
+# Deploy to production
+vercel --prod
+```
+
+### Vercel configuration
+
+The project pins the serverless region to **`bom1` (Mumbai)** in `vercel.json` to co-locate with the Supabase database in `ap-south-1`. This keeps latency low for all database queries.
+
+**Never change the region without also migrating the database.** See `context/01-foundation-and-environment.md` for details on the latency trade-off.
+
+---
+
 ## Development and Test Environments
 
 Abhyas supports **three environment tiers** to keep development and testing isolated from production:
@@ -258,7 +333,7 @@ The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-0
 
 ---
 
-### Running Tests Against Local Supabase
+### Running Tests
 
 All tests in this project are **deterministic unit tests** that do not require a database connection. They test core logic (block generation, progression, streaks, etc.) with mocked data.
 
@@ -266,21 +341,15 @@ All tests in this project are **deterministic unit tests** that do not require a
 npm test
 ```
 
-**Tests do not connect to Supabase** (local or production). If you want to add integration tests later:
-
-1. Start local Supabase: `npm run supabase:start`
-2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the local values
-3. Run your integration tests: `npm run test:integration` (not yet implemented)
-
-The `npm run test:local` alias is reserved for this future workflow.
+**Tests do not connect to Supabase** (local or production). If you want to add integration tests in the future, start local Supabase first, set the local env vars, and write tests that connect to the local database.
 
 ---
 
 ### Optional: Hosted Dev/Staging Supabase Project
 
-For **shared development** or **preview deployments**, you may want a hosted Supabase project separate from production.
+For **shared development** or **preview deployments**, you may want a hosted Supabase project separate from production. This is entirely optional and depends on your workflow needs.
 
-#### Creating a Dev/Staging Project
+#### Creating a Dev/Staging Project (if desired)
 
 1. Go to [supabase.com/dashboard](https://supabase.com/dashboard)
 2. Click **New project**
@@ -289,7 +358,7 @@ For **shared development** or **preview deployments**, you may want a hosted Sup
 5. Set a strong database password (save it in a password manager)
 6. Wait for provisioning (~2 minutes)
 
-#### Applying Migrations
+#### Applying Migrations to Dev/Staging
 
 Once the project is ready:
 
@@ -337,9 +406,9 @@ In the **Vercel dashboard** → **Project Settings** → **Environment Variables
 
 These are used **only when deploying to the `main` branch** (the live app).
 
-#### 2. Preview Environment Variables
+#### 2. Preview Environment Variables (optional)
 
-Add **separate variables** for preview deployments:
+If you have a hosted dev/staging project, add **separate variables** for preview deployments:
 
 | Variable | Value | Environment |
 |----------|-------|-------------|
@@ -348,10 +417,9 @@ Add **separate variables** for preview deployments:
 
 Vercel automatically uses **Preview** variables for all non-production deployments (branches, PRs).
 
-**If you don't have a hosted dev project yet:**
-- Leave preview variables unset
-- Preview deployments will fail to connect to the database (expected)
-- Or set preview variables to the **local Supabase values** (they won't work remotely, but the build will succeed)
+**If you don't have a hosted dev project:**
+- Leave preview variables unset, or set them to placeholder values
+- Preview deployments will fail to connect to the database (expected without a dev project)
 
 #### 3. Optional: Performance Debugging Variables
 
@@ -361,17 +429,6 @@ Vercel automatically uses **Preview** variables for all non-production deploymen
 | `PERF_DEBUG` | `1` | **Preview only** |
 
 These enable the `/api/diag` endpoint for performance metrics. Not needed for production.
-
-#### 4. Verifying Environment Variables
-
-After setting variables in Vercel:
-
-1. Push a branch (e.g. `git push origin my-feature`)
-2. Vercel creates a preview deployment
-3. Check the deployment logs for the Supabase URL being used
-4. Open the preview URL and verify the database connection
-
-**Preview deployments should never touch production data.**
 
 ---
 
@@ -403,7 +460,7 @@ When adding or modifying migrations:
 
    This shows any schema drift between your local database and the migration files.
 
-4. **Never apply migrations to production manually.** Migrations are applied via CI/CD or by the team lead only.
+4. **Production migrations:** After a PR is merged to `main`, the project owner's coordinator applies migrations to production through the Supabase connector. Never apply migrations to production manually.
 
 ---
 
@@ -415,82 +472,7 @@ When adding or modifying migrations:
 | **Vercel Preview (branches/PRs)** | Hosted dev/staging project (optional) | `https://<dev-ref>.supabase.co` | Shared development, preview deployments, QA |
 | **Vercel Production (`main` branch)** | Production project (`brldynuhozaszaduwfse`) | `https://brldynuhozaszaduwfse.supabase.co` | Live app, real users |
 
-**Golden rule:** Local and preview environments never connect to production. Production never runs untested migrations.
-
----
-
-## Testing
-
-The project uses custom test scripts (not Jest or Vitest) for deterministic unit tests of core logic:
-
-```bash
-# Run all tests
-npm test
-
-# Run individual test suites
-npm run test:generator    # Block generation logic
-npm run test:progression  # Progression and working weight calculation
-npm run test:streaks      # Streak computation
-npm run test:dates        # Date handling and timezone logic
-npm run test:breathing    # Breathing pattern validation
-npm run test:branding     # Branding config and PWA manifest
-```
-
-All tests must pass before deployment.
-
----
-
-## Linting & Type Checking
-
-```bash
-# Run ESLint
-npm run lint
-
-# Run TypeScript type checking
-npx tsc --noEmit
-```
-
-Both must pass cleanly for production builds.
-
----
-
-## Building for Production
-
-```bash
-npm run build
-```
-
-This runs Next.js's production build. The build output is optimized and ready to deploy.
-
-**Note:** The production build generates static assets and server functions. Vercel handles deployment automatically on push to `main`.
-
----
-
-## Deploying to Vercel
-
-Deployment is automatic via GitHub integration:
-
-1. **Push to `main`** → production deployment at https://abhyas-indol.vercel.app
-2. **Push to any branch** → preview deployment at `abhyas-<branch>-<hash>.vercel.app`
-
-### Manual deployment (if needed)
-
-```bash
-# Install Vercel CLI (one-time)
-npm install -g vercel
-
-# Deploy to preview
-vercel
-
-# Deploy to production
-vercel --prod
-```
-
-### Vercel configuration
-
-The project pins the serverless region to **`bom1` (Mumbai)** in `vercel.json` to co-locate with the Supabase database in `ap-south-1`. This keeps latency low for all database queries.
-
-**Never change the region without also migrating the database.** See `context/01-foundation-and-environment.md` for details on the latency trade-off.
+**Golden rule:** Local and preview environments never connect to production. Production migrations are applied by the project owner's coordinator after merge.
 
 ---
 
