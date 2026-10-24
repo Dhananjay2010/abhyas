@@ -55,13 +55,21 @@ global.mockNextNavigation = {
 
 // Override module resolution for next/navigation
 import { createRequire } from "module";
+
 const testRequire = createRequire(import.meta.url);
-const Module = testRequire("module") as typeof import("module") & { _load: any };
+
+type ModuleLoadFunction = (request: string, parent: unknown, isMain: boolean) => unknown;
+
+interface ModuleWithLoad {
+  _load: ModuleLoadFunction;
+}
+
+const Module = testRequire("module") as unknown as ModuleWithLoad;
 const originalLoad = Module._load;
 
-Module._load = function (request: string, parent: any, isMain: boolean) {
+Module._load = function (request: string, parent: unknown, isMain: boolean): unknown {
   if (request === "next/navigation") {
-    // @ts-ignore
+    // @ts-expect-error - global augmentation for testing
     return global.mockNextNavigation;
   }
   return originalLoad.call(this, request, parent, isMain);
