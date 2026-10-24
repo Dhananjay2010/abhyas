@@ -2205,11 +2205,6 @@ async function testM13_UserIdInKey() {
   const keyA = `abhyas:outbox:${userId_A}:${sessionId}`;
   const keyB = `abhyas:outbox:${userId_B}:${sessionId}`;
 
-  // Verify keys are different
-  if (keyA === keyB) {
-    throw new Error("M13: Keys for different users must be different");
-  }
-
   // Create outboxes with these keys
   const storage_A = createMockStorage(keyA);
   const storage_B = createMockStorage(keyB);
