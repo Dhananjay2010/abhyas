@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, useEffect } from "react";
+import { useMemo, useState, useTransition, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { markYogaVideoDone } from "./actions";
 
@@ -41,6 +41,7 @@ export function YogaPlayer({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [optimisticDone, setOptimisticDone] = useState<Set<string>>(new Set());
+  const isFirstRender = useRef(true);
 
   // Open the series with progress already in it, otherwise the first playlist.
   const initial =
@@ -83,7 +84,16 @@ export function YogaPlayer({
     if (playing) {
       params.set("video", playing.id);
     }
-    router.replace(`/yoga?${params.toString()}`, { scroll: false });
+    const newSearch = params.toString();
+    const currentSearch = searchParams.toString();
+    
+    // Skip replace on first render if URL already matches
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      if (currentSearch === newSearch) return;
+    }
+    
+    router.replace(`/yoga?${newSearch}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open?.id, playing?.id, router]);
 
