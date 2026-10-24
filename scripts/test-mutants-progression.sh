@@ -54,8 +54,13 @@ test_mutant() {
   # Check string exists (literal match)
   if ! grep -qF "$find_str" "$PROG_FILE"; then
     echo "  ⚠️  STRING NOT FOUND (no-op mutant)"
-    SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
-    return 1
+    echo
+    echo "==================================="
+    echo "Total mutants: $MUTANT_COUNT"
+    echo "STRING NOT FOUND ERROR in mutant: $name"
+    echo
+    echo "❌ MUTATION TEST FAILED: string not found"
+    exit 1
   fi
   
   # Plant mutant using Python for literal replacement
@@ -115,19 +120,13 @@ test_mutant \
   "next = roundToGrid(rawNext, equipmentIds, unit, step, 'up');" \
   "next = roundToGrid(rawNext, equipmentIds, unit, step, 'down');"
 
-# PR2: Back-off bypasses grid
-test_mutant \
-  "Back-off bypasses grid" \
-  "      const snapped = roundToGrid(rawReduced, equipmentIds, unit, gridStep, 'down');" \
-  "      const snapped = rawReduced;"
-
-# PR3: Non-loadable equipment resets to 0
+# PR2: Non-loadable equipment resets to 0
 test_mutant \
   "Non-loadable equipment → 0" \
   "const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));" \
   "const hasLoadable = false;"
 
-# PR4: lb grid step on roundToGrid
+# PR3: lb grid step on roundToGrid
 test_mutant \
   "lb grid step in roundToGrid" \
   "const gridStep = equipmentGridStep(effectiveEquipmentIds, 'kg');" \
@@ -145,13 +144,13 @@ test_mutant \
   "      const gridStep = equipmentGridStep(equipmentIds, 'kg');" \
   "      const gridStep = equipmentGridStep(equipmentIds, 'lb');"
 
-# PR6: No-equipment minimum floor → 0
+# PR5: No-equipment minimum floor → 0
 test_mutant \
   "No-equipment minimum floor → 0" \
   "return Math.max(step, rounded);" \
   "return 0;"
 
-# PR7: First miss drops two steps
+# PR6: First miss drops two steps
 test_mutant \
   "First miss drops two grid steps" \
   "const rawDrop = currentWeight - gridStep;" \
@@ -211,6 +210,60 @@ test_mutant \
   "Suggestion can raise weight" \
   "      return Math.min(w, snapped);" \
   "      return snapped;"
+
+# I2a: Back-off uses lift increment for rounding (not 2.5 kg grid)
+test_mutant \
+  "Back-off uses lift increment for rounding" \
+  "    const roundingGrid = meta.mechanic === \"isolation\" ? 1.25 : 2.5;" \
+  "    const roundingGrid = incrementFor(meta);"
+
+# I2b: Back-off skips minAllowed check (can drop too far)
+test_mutant \
+  "Back-off skips minAllowed check" \
+  "    const reduced = Math.max(snapped, minAllowed);" \
+  "    const reduced = snapped;"
+
+# I3a: First miss can raise weight (no check)
+test_mutant \
+  "First miss can raise weight on standard equipment" \
+  "      // Never raise on miss
+      nextWeight = candidate < currentWeight ? candidate : currentWeight;" \
+  "      // Allow raising
+      nextWeight = candidate;"
+
+# I3b: First miss kettlebell can raise weight
+test_mutant \
+  "First miss can raise weight on kettlebell" \
+  "        // Never raise on miss
+        nextWeight = candidate < currentWeight ? candidate : currentWeight;" \
+  "        // Allow raising
+        nextWeight = candidate;"
+
+# K1: Kettlebell back-off doesn't snap to real bell
+test_mutant \
+  "Kettlebell back-off bypasses bell list" \
+  "    if (equipmentIds && equipmentIds.includes('kettlebell')) {" \
+  "    if (false && equipmentIds && equipmentIds.includes('kettlebell')) {"
+
+# K2: Back-off can raise weight (no never-raise check)
+test_mutant \
+  "Back-off can raise weight" \
+  "    // Never RAISE on back-off
+    if (reduced > currentWeight) {
+      reduced = currentWeight;
+    }" \
+  "    // Allow raising
+    if (false && reduced > currentWeight) {
+      reduced = currentWeight;
+    }"
+
+# K3: Back-off hold check disabled (reduced <= step)
+test_mutant \
+  "Back-off hold check disabled" \
+  "    // HOLD if the computed weight is at or below the minimum step
+    if (reduced <= liftIncrement) {" \
+  "    // Hold check disabled
+    if (false && reduced <= liftIncrement) {"
 
 echo "==================================="
 echo "Total mutants: $MUTANT_COUNT"

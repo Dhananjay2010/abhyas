@@ -112,15 +112,15 @@ export const MAX_PLANNER_SETS = 5;
  * Week 4 of every block is a deload: less volume, nothing near failure.
  *
  * Input contract:
- * - sets must be a finite number >= 0 and <= MAX_PLANNER_SETS
+ * - sets must be a finite number >= 0
  * - Non-finite values (NaN, Infinity, -Infinity) throw RangeError
  * - Negative values throw RangeError
- * - Values > MAX_PLANNER_SETS throw RangeError
+ * - Values > MAX_PLANNER_SETS are clamped to MAX_PLANNER_SETS before deload
  * - Validation occurs BEFORE rounding to catch negative fractional values
- * - After validation passes, non-integers are rounded to nearest integer
+ * - After validation and clamping pass, non-integers are rounded to nearest integer
  *
  * For all valid inputs >= 0, output equals: min(sets, max(2, round(sets * 0.6)))
- * where 0 stays 0, 1 stays 1, 2 stays 2, and 5 becomes 3.
+ * where 0 stays 0, 1 stays 1, 2 stays 2, 5 becomes 3, and 6-10 clamp to 5 then yield 3.
  */
 export function applyDeload(p: Prescription): Prescription {
   // Normalize -0 to 0

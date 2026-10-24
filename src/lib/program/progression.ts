@@ -1,6 +1,5 @@
 import type { Database } from "@/lib/database.types";
-// KETTLEBELL_WEIGHTS_LB imported for mutation testing only
-import { KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, type WeightUnit } from "@/lib/session/equipment-grid";
+import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, type WeightUnit } from "@/lib/session/equipment-grid";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -132,10 +131,16 @@ export function addedWeightStep(meta: ExerciseMeta): number {
 
 /**
  * Convert kg weight to user's display unit.
+ * For lb, uses the same rounding as the app's formatter (nearest 0.5 lb),
+ * returning a number suitable for message display.
  */
 function displayWeight(kgValue: number, unit: WeightUnit | undefined): number {
   if (unit === 'lb') {
-    return Math.round(kgValue * 2.20462 * 4) / 4; // Round to nearest 0.25 lb
+    // Match app's formatWeight: kgToLb, round to 0.5, then round to 1 decimal
+    const lb = kgValue * 2.20462262185;
+    const roundedToHalf = Math.round(lb * 2) / 2;
+    const roundedToDecimal = Math.round(roundedToHalf * 10) / 10;
+    return roundedToDecimal;
   }
   return kgValue;
 }
@@ -557,21 +562,73 @@ export function evaluateProgression(input: {
         message: "Missed twice in a row — back to bodyweight to build up again.",
       };
     }
-    // Back-off: 90% of current, but never drop more than one grid step below that
+    // Back-off: 90%, round to 2.5 kg grid (1.25 for isolation), never drop more than one increment
+    const liftIncrement = incrementFor(meta);
+    
+    // HOLD when current weight is at or below the minimum step
+    if (currentWeight <= liftIncrement) {
+      return {
+        ...carried,
+        outcome: "hold",
+        nextWorkingWeightKg: currentWeight,
+        nextTargetReps: repsMax,
+        consecutiveFailures: 0,
+        message: "Missed twice in a row but already at light weight — holding to build back up.",
+      };
+    }
+    
     const rawReduced = currentWeight * 0.9;
     let reduced: number;
     
-    if (equipmentIds && unit) {
-      // With equipment: use equipment grid step, ensure we don't drop more than one step below computed
-      const gridStep = equipmentGridStep(equipmentIds, 'kg');
-      const snapped = roundToGrid(rawReduced, equipmentIds, unit, gridStep, 'down');
-      // Never go below (computed - one grid step), and never below the grid minimum
-      const minAllowed = Math.max(gridStep, rawReduced - gridStep);
-      reduced = Math.max(minAllowed, snapped);
+    if (equipmentIds && equipmentIds.includes('kettlebell')) {
+      // Kettlebell: snap to real bell (down), never more than one bell below current
+      const bells = KETTLEBELL_WEIGHTS_KG;
+      const currentIndex = bells.indexOf(currentWeight);
+      let targetIndex: number;
+      
+      if (currentIndex >= 0) {
+        // Current is exactly on a bell, drop at most one bell
+        targetIndex = Math.max(0, currentIndex - 1);
+      } else {
+        // Current is off-grid, find the bell at or below 90%
+        targetIndex = bells.findIndex(b => b >= rawReduced);
+        if (targetIndex === -1) {
+          targetIndex = bells.length - 1;
+        } else if (bells[targetIndex] > rawReduced && targetIndex > 0) {
+          targetIndex--;
+        }
+        // Ensure we don't drop more than one bell below current
+        const currentBellIndex = bells.findIndex(b => b >= currentWeight);
+        if (currentBellIndex > 0 && targetIndex < currentBellIndex - 1) {
+          targetIndex = currentBellIndex - 1;
+        }
+      }
+      
+      reduced = bells[targetIndex];
     } else {
-      // Without equipment: use lift increment, floor to step but keep minimum
-      const step = incrementFor(meta);
-      reduced = Math.max(step, Math.floor(rawReduced / step) * step);
+      // Standard equipment: use 2.5 kg grid (1.25 kg for isolation), NOT the lift increment
+      const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
+      const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
+      // Never drop more than one lift increment below the 90% value
+      const minAllowed = rawReduced - liftIncrement;
+      reduced = Math.max(snapped, minAllowed);
+    }
+    
+    // Never RAISE on back-off
+    if (reduced > currentWeight) {
+      reduced = currentWeight;
+    }
+    
+    // HOLD if the computed weight is at or below the minimum step
+    if (reduced <= liftIncrement) {
+      return {
+        ...carried,
+        outcome: "hold",
+        nextWorkingWeightKg: currentWeight,
+        nextTargetReps: repsMax,
+        consecutiveFailures: 0,
+        message: "Missed twice in a row but already at light weight — holding to build back up.",
+      };
     }
     return {
       ...carried,
@@ -595,13 +652,17 @@ export function evaluateProgression(input: {
         nextWeight = bells[currentIndex - 1];
       } else {
         // Not exactly on a bell, round down to previous bell
-        nextWeight = roundToGrid(currentWeight - 0.1, equipmentIds, unit, incrementFor(meta), 'down');
+        const candidate = roundToGrid(currentWeight - 0.1, equipmentIds, unit, incrementFor(meta), 'down');
+        // Never raise on miss
+        nextWeight = candidate < currentWeight ? candidate : currentWeight;
       }
     } else {
       // Standard equipment: drop by one grid step (always kg grid, state is kg)
       const gridStep = equipmentGridStep(equipmentIds, 'kg');
       const rawDrop = currentWeight - gridStep;
-      nextWeight = roundToGrid(rawDrop, equipmentIds, unit, gridStep, 'down');
+      const candidate = roundToGrid(rawDrop, equipmentIds, unit, gridStep, 'down');
+      // Never raise on miss
+      nextWeight = candidate < currentWeight ? candidate : currentWeight;
     }
   }
 

@@ -953,26 +953,34 @@ console.log("\n22. Kettlebell 36, 40, 48 kg bells and success never decreases");
   check("kettlebell 41 kg (off-grid) -> 48 kg (next bell, not down to 40)", kb41.nextWorkingWeightKg === 48 && kb41.outcome === "progressed", `${kb41.outcome}, ${kb41.nextWorkingWeightKg}`);
 }
 
-console.log("\n23. Back-off never drops more than one grid step below computed value");
+console.log("\n23. Back-off: 90% rounded to 2.5 kg grid, never more than one increment drop");
 {
-  // Barbell 10 kg * 0.9 = 9 kg, grid step 2.5 kg, one step below 9 is 6.5, rounds to 7.5 kg
-  const backOff10 = run({
-    sets: sets(4, 10, 10),
-    state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
-    equipmentIds: ["barbell"],
-    unit: "kg",
-  });
-  check("barbell 10 kg back-off: 10 -> 7.5 kg (not 5)", backOff10.nextWorkingWeightKg === 7.5, `${backOff10.nextWorkingWeightKg}`);
+  // Hard-coded expected-value table test (imports real function)
+  const backOffCases: Array<{current: number, meta: ExerciseMeta, expected: number, label: string}> = [
+    { current: 10, meta: { ...BENCH, movementPattern: "squat" }, expected: 7.5, label: "lower 10 kg" },
+    { current: 11, meta: { ...BENCH, movementPattern: "squat" }, expected: 7.5, label: "lower 11 kg" },
+    { current: 20, meta: { ...BENCH, movementPattern: "squat" }, expected: 17.5, label: "lower 20 kg" },
+    { current: 60, meta: { ...BENCH, movementPattern: "squat" }, expected: 52.5, label: "lower 60 kg" },
+    { current: 120, meta: { ...BENCH, movementPattern: "squat" }, expected: 107.5, label: "lower 120 kg" },
+    { current: 5.5, meta: BENCH, expected: 5.5, label: "upper 5.5 kg (hold)" },
+    { current: 2.75, meta: CURL, expected: 2.75, label: "isolation 2.75 kg (hold)" },
+    { current: 2.5, meta: CURL, expected: 2.5, label: "isolation 2.5 kg (hold)" },
+  ];
   
-  // Isolation 2.5 kg * 0.9 = 2.25 kg, grid step 2.5 kg, minimum is 2.5, so stays at 2.5
-  const backOffIso = run({
-    meta: CURL,
-    sets: sets(4, 10, 2.5),
-    state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 1 }),
-    equipmentIds: ["dumbbell"],
-    unit: "kg",
-  });
-  check("isolation 2.5 kg back-off: 2.5 -> 2.5 kg (not 1.25)", backOffIso.nextWorkingWeightKg === 2.5, `${backOffIso.nextWorkingWeightKg}`);
+  for (const testCase of backOffCases) {
+    const result = run({
+      meta: testCase.meta,
+      sets: sets(4, 10, testCase.current),
+      state: fresh({ currentWorkingWeightKg: testCase.current, consecutiveFailures: 1 }),
+      equipmentIds: ["barbell"],
+      unit: "kg",
+    });
+    check(
+      `back-off ${testCase.label}: ${testCase.current} -> ${testCase.expected} kg`,
+      result.nextWorkingWeightKg === testCase.expected,
+      `got ${result.nextWorkingWeightKg}`
+    );
+  }
 }
 
 console.log("\n24. Suggestion never raises weight");
@@ -988,6 +996,116 @@ console.log("\n24. Suggestion never raises weight");
   // Kettlebell deload suggestion for 2 kg: 2 * 0.7 = 1.4, should not raise to 4
   const kbDeloadSugg2 = suggestedWeight({ currentWorkingWeightKg: 2 }, true, KETTLEBELL_SWING, ["kettlebell"], "kg");
   check("KB deload suggestion for 2 kg: stays <= 2 kg (not 4)", kbDeloadSugg2 !== null && kbDeloadSugg2 <= 2, `${kbDeloadSugg2}`);
+}
+
+console.log("\n25. First miss and back-off never raise weight");
+{
+  // First miss at 0.5 kg: would drop to 0.5 - 2.5 = -2, rounds to 2.5 min, but must hold at 0.5
+  const firstMiss05 = run({
+    meta: CURL,
+    sets: sets(4, 10, 0.5),
+    state: fresh({ currentWorkingWeightKg: 0.5 }),
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+  });
+  check("first miss 0.5 kg: holds at 0.5 kg (not 2.5)", firstMiss05.nextWorkingWeightKg === 0.5, `${firstMiss05.nextWorkingWeightKg}`);
+  
+  // First miss at 1 kg: would drop to 1 - 2.5 = -1.5, rounds to 2.5 min, but must hold at 1
+  const firstMiss1 = run({
+    meta: CURL,
+    sets: sets(4, 10, 1),
+    state: fresh({ currentWorkingWeightKg: 1 }),
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+  });
+  check("first miss 1 kg: holds at 1 kg (not 2.5)", firstMiss1.nextWorkingWeightKg === 1, `${firstMiss1.nextWorkingWeightKg}`);
+  
+  // Kettlebell first miss at 3 kg (off-grid): would round to 4 kg min, but must hold at 3
+  const kbFirstMiss3 = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 10, 3),
+    state: fresh({ currentWorkingWeightKg: 3 }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("kettlebell first miss 3 kg: holds at 3 kg (not 4)", kbFirstMiss3.nextWorkingWeightKg === 3, `${kbFirstMiss3.nextWorkingWeightKg}`);
+  
+  // Back-off at 2.5 kg: would compute 2.25, round to 1.25, but should hold
+  const backOff25 = run({
+    meta: CURL,
+    sets: sets(4, 10, 2.5),
+    state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 1 }),
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+  });
+  check("back-off 2.5 kg: holds at 2.5 kg (not less)", backOff25.nextWorkingWeightKg === 2.5, `${backOff25.nextWorkingWeightKg}`);
+}
+
+console.log("\n26. Messages display lb values matching app formatter");
+{
+  // 42.5 kg back-off -> 37.5 kg = 82.673 lb -> 82.5 lb (half-pound rounding)
+  const backOff425 = run({
+    sets: sets(4, 10, 42.5),
+    state: fresh({ currentWorkingWeightKg: 42.5, consecutiveFailures: 1 }),
+    equipmentIds: ["barbell"],
+    unit: "lb",
+  });
+  check("42.5 kg back-off displays 82.5 lb (not 82.75)", backOff425.message.includes("82.5 lb"), backOff425.message);
+  
+  // 57.5 kg back-off -> 50 kg = 110.231 lb -> 110 lb (whole number, no .0)
+  const backOff575 = run({
+    sets: sets(4, 10, 57.5),
+    state: fresh({ currentWorkingWeightKg: 57.5, consecutiveFailures: 1 }),
+    equipmentIds: ["barbell"],
+    unit: "lb",
+  });
+  check("57.5 kg back-off displays 110 lb (not 110.0 or 110.25)", backOff575.message.includes("110 lb") && !backOff575.message.includes("110.0") && !backOff575.message.includes("110.25"), backOff575.message);
+}
+
+console.log("\n27. Back-off never raises weight");
+{
+  // 1 kg * 0.9 = 0.9, rounds to 0, but must hold at 1 kg (not raise to 5 kg)
+  const backOff1 = run({
+    meta: CURL,
+    sets: sets(4, 10, 1),
+    state: fresh({ currentWorkingWeightKg: 1, consecutiveFailures: 1 }),
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+  });
+  check("back-off 1 kg: holds at 1 kg (never raises)", backOff1.nextWorkingWeightKg === 1, `${backOff1.nextWorkingWeightKg}`);
+  
+  // 0.5 kg * 0.9 = 0.45, rounds to 0, but must hold at 0.5 kg
+  const backOff05 = run({
+    meta: CURL,
+    sets: sets(4, 10, 0.5),
+    state: fresh({ currentWorkingWeightKg: 0.5, consecutiveFailures: 1 }),
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+  });
+  check("back-off 0.5 kg: holds at 0.5 kg (never raises)", backOff05.nextWorkingWeightKg === 0.5, `${backOff05.nextWorkingWeightKg}`);
+}
+
+console.log("\n28. Kettlebell back-off lands on real bell, one step down at most");
+{
+  // 48 kg * 0.9 = 43.2, not a real bell, should drop to 40 kg (one bell down)
+  const kbBackOff48 = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 10, 48),
+    state: fresh({ currentWorkingWeightKg: 48, consecutiveFailures: 1 }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("kettlebell back-off 48 kg: 48 -> 40 kg (one bell down)", kbBackOff48.nextWorkingWeightKg === 40, `${kbBackOff48.nextWorkingWeightKg}`);
+  
+  // 20 kg * 0.9 = 18, exact bell, should stay at 18
+  const kbBackOff20 = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 10, 20),
+    state: fresh({ currentWorkingWeightKg: 20, consecutiveFailures: 1 }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("kettlebell back-off 20 kg: 20 -> 18 kg (one bell down)", kbBackOff20.nextWorkingWeightKg === 18, `${kbBackOff20.nextWorkingWeightKg}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

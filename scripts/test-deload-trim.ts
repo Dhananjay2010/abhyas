@@ -174,12 +174,10 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
   };
   
   let overMaxThrew = false;
-  let overMaxThrewRangeError = false;
   try {
     applyDeload(overMaxP);
-  } catch (e) {
+  } catch {
     overMaxThrew = true;
-    overMaxThrewRangeError = e instanceof RangeError;
   }
   
   check(
@@ -201,12 +199,10 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
   };
   
   let hugeThrew = false;
-  let hugeThrewRangeError = false;
   try {
     applyDeload(hugeP);
-  } catch (e) {
+  } catch {
     hugeThrew = true;
-    hugeThrewRangeError = e instanceof RangeError;
   }
   
   check(
@@ -229,12 +225,10 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
   };
   
   let nearMaxThrew = false;
-  let nearMaxThrewRangeError = false;
   try {
     applyDeload(nearMaxP);
-  } catch (e) {
+  } catch {
     nearMaxThrew = true;
-    nearMaxThrewRangeError = e instanceof RangeError;
   }
   
   check(
@@ -260,7 +254,7 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
     let result;
     try {
       result = applyDeload(p);
-    } catch (e) {
+    } catch {
       threw = true;
     }
     

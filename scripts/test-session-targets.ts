@@ -52,21 +52,20 @@ console.log("\n1. Direct applyDeload tests: exhaustive for sets 0-5 (MAX_PLANNER
     check(`applyDeload: ${sets} sets never exceeds planned`, result.sets <= sets, `${result.sets} > ${sets}`);
   }
   
-  // Test that 6-10 throw RangeError (exceeds MAX_PLANNER_SETS)
+  // Test that 6-10 clamp to MAX_PLANNER_SETS (5 sets), then deload to 3
   for (let sets = 6; sets <= 10; sets++) {
     const p: Prescription = { sets, repsMin: 8, repsMax: 12, restSeconds: 90 };
     let threw = false;
-    let threwRangeError = false;
+    let result: Prescription | undefined;
     try {
-      applyDeload(p);
+      result = applyDeload(p);
     } catch (e) {
       threw = true;
-      threwRangeError = e instanceof RangeError;
     }
     check(
-      `applyDeload: ${sets} sets throws RangeError (exceeds MAX_PLANNER_SETS)`,
-      threw && threwRangeError,
-      threw ? (threwRangeError ? "" : "threw but not RangeError") : "did not throw"
+      `applyDeload: ${sets} sets clamps to 5, then deloads to 3`,
+      !threw && result !== undefined && result.sets === 3,
+      threw ? "threw (should clamp)" : (result !== undefined ? (result.sets === 3 ? "" : `got ${result.sets}`) : "no result")
     );
   }
 }
