@@ -8,7 +8,7 @@ import { isPublicPath } from "./public-paths";
  * Signed-out users accessing these are redirected to /.
  * /api is included to preserve its pre-existing signed-out behavior.
  */
-const PROTECTED_PREFIXES = [
+export const PROTECTED_PREFIXES = [
   "/today",
   "/breathe",
   "/history",
@@ -19,6 +19,102 @@ const PROTECTED_PREFIXES = [
   "/yoga",
   "/api",
 ];
+
+export type RouteDecision = "pass" | "redirect" | "notFound";
+
+/**
+ * Decide what to do with a request based on authentication and route.
+ * 
+ * - Signed in: always "pass"
+ * - Public path: "pass"
+ * - Protected route: "redirect" to /
+ * - Unknown path: "notFound" (404 from proxy)
+ */
+export function routeDecision(pathname: string, signedIn: boolean): RouteDecision {
+  if (signedIn || isPublicPath(pathname)) {
+    return "pass";
+  }
+
+  const isProtected = PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+
+  return isProtected ? "redirect" : "notFound";
+}
+
+/**
+ * Generate a minimal 404 HTML page for proxy responses.
+ * Uses current branding colors and app name.
+ */
+function generate404Html(): string {
+  // Read-only access to branding (don't edit branding.ts per PR #8)
+  const appName = "Abhyas";
+  const accentColor = "#8b5cf6"; // from branding
+  const bgColor = "#0a0c0e";
+  const fgColor = "#f8f8f2";
+  
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 - ${appName}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: ${bgColor};
+      color: ${fgColor};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    main {
+      text-align: center;
+      max-width: 28rem;
+    }
+    h1 {
+      font-size: 4rem;
+      font-weight: bold;
+      letter-spacing: -0.025em;
+    }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-top: 1rem;
+    }
+    p {
+      margin-top: 0.5rem;
+      opacity: 0.7;
+    }
+    a {
+      display: inline-block;
+      margin-top: 2rem;
+      padding: 0.75rem 1.5rem;
+      background: ${accentColor};
+      color: ${bgColor};
+      text-decoration: none;
+      border-radius: 0.75rem;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+    a:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>404</h1>
+    <h2>Page not found</h2>
+    <p>The page you're looking for doesn't exist or has been moved.</p>
+    <a href="/">Go to ${appName}</a>
+  </main>
+</body>
+</html>`;
+}
 
 export async function updateSession(request: NextRequest) {
   const started = performance.now();
@@ -62,23 +158,21 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getClaims();
   const signedIn = !error && Boolean(claims?.claims?.sub);
 
-  if (!signedIn && !isPublicPath(pathname)) {
-    // Check if this is a known protected route
-    const isProtected = PROTECTED_PREFIXES.some(
-      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
-    );
+  const decision = routeDecision(pathname, signedIn);
 
-    if (isProtected) {
-      // Known protected route: redirect to home
-      const url = request.nextUrl.clone();
-      url.pathname = "/";
-      return finish(NextResponse.redirect(url), started, pathname, signedIn);
-    }
+  if (decision === "redirect") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return finish(NextResponse.redirect(url), started, pathname, signedIn);
+  }
 
-    // Unknown path for signed-out user: return 404 directly from the proxy
-    // without running any app code. This maintains deny-by-default security.
+  if (decision === "notFound") {
     return finish(
-      new NextResponse(null, { status: 404, statusText: "Not Found" }),
+      new NextResponse(generate404Html(), {
+        status: 404,
+        statusText: "Not Found",
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      }),
       started,
       pathname,
       signedIn

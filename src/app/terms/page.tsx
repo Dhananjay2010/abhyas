@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { getSiteInfo, LEGAL_LAST_UPDATED } from "@/lib/legal/site-info";
 
 export const metadata = {
   title: "Terms of Service — Abhyas",
 };
 
 export default function TermsOfServicePage() {
+  const { gymName, supportEmail, gymAddress, gymPhone, appName } = getSiteInfo();
+  
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10 pb-28">
       <Link
@@ -26,19 +29,19 @@ export default function TermsOfServicePage() {
       </div>
 
       <h1 className="mt-8 text-4xl font-bold tracking-tight">Terms of Service</h1>
-      <p className="mt-2 text-sm text-muted">Last updated: {new Date().toLocaleDateString()}</p>
+      <p className="mt-2 text-sm text-muted">Last updated: {LEGAL_LAST_UPDATED}</p>
 
       <div className="prose prose-invert mt-8 max-w-none space-y-6 text-sm leading-relaxed">
         <section>
           <h2 className="text-xl font-semibold">1. Acceptance of Terms</h2>
           <p>
-            By accessing and using Abhyas (&quot;the App,&quot; &quot;we,&quot; &quot;our,&quot;
+            By accessing and using {appName} (&quot;the App,&quot; &quot;we,&quot; &quot;our,&quot;
             or &quot;us&quot;), you agree to be bound by these Terms of Service and our Privacy
             Policy. If you do not agree to these terms, do not use the App.
           </p>
           <p>
-            This App is provided to you by [GYM NAME] as a white-label service. Your membership
-            or service agreement with [GYM NAME] also applies to your use of this App.
+            This App is provided to you by {gymName} as a white-label service. Your membership
+            or service agreement with {gymName} also applies to your use of this App.
           </p>
         </section>
 
@@ -224,12 +227,13 @@ export default function TermsOfServicePage() {
         <section>
           <h2 className="text-xl font-semibold">12. Governing Law and Disputes</h2>
           <p>
-            These Terms are governed by the laws of [JURISDICTION], without regard to conflict of
-            law principles.
+            These Terms are governed by the laws of India, without regard to conflict of
+            law principles. This agreement is subject to the provisions of the Digital Personal Data 
+            Protection Act, 2023 (DPDP Act) and the Information Technology Act, 2000.
           </p>
           <p>
-            Any disputes arising from these Terms or your use of the App shall be resolved through
-            [ARBITRATION CLAUSE / COURT JURISDICTION TO BE DETERMINED BY GYM&apos;S LEGAL COUNSEL].
+            Any disputes arising from these Terms or your use of the App shall be subject to the 
+            exclusive jurisdiction of the courts in [CITY, STATE], India.
           </p>
         </section>
 
@@ -268,16 +272,16 @@ export default function TermsOfServicePage() {
           <p>
             For questions about these Terms of Service, contact:
           </p>
-          <p className="mt-2 pl-6">
-            [GYM NAME]<br />
-            [GYM ADDRESS]<br />
-            [GYM EMAIL]<br />
-            [GYM PHONE]
-          </p>
-          <p className="mt-2 text-muted italic">
-            Note: The contact information above must be replaced with the specific gym&apos;s
-            details for each white-label deployment.
-          </p>
+          <div className="mt-2 pl-6">
+            <p>{gymName}</p>
+            {gymAddress && <p>{gymAddress}</p>}
+            <p>
+              <a href={`mailto:${supportEmail}`} className="text-accent hover:underline">
+                {supportEmail}
+              </a>
+            </p>
+            {gymPhone && <p>{gymPhone}</p>}
+          </div>
         </section>
       </div>
 

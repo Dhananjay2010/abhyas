@@ -1,28 +1,29 @@
 import type { MetadataRoute } from "next";
+import { getSiteUrl } from "@/lib/site-url";
+
+// Fixed date for deterministic builds
+const LAST_MODIFIED = new Date("2024-01-01T00:00:00Z");
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-    "http://localhost:3000";
+  const baseUrl = getSiteUrl();
 
   // Only list real public pages that exist
   return [
     {
       url: baseUrl,
-      lastModified: new Date(),
+      lastModified: LAST_MODIFIED,
       changeFrequency: "monthly",
       priority: 1,
     },
     {
       url: `${baseUrl}/terms`,
-      lastModified: new Date(),
+      lastModified: LAST_MODIFIED,
       changeFrequency: "yearly",
       priority: 0.5,
     },
     {
       url: `${baseUrl}/privacy`,
-      lastModified: new Date(),
+      lastModified: LAST_MODIFIED,
       changeFrequency: "yearly",
       priority: 0.5,
     },
