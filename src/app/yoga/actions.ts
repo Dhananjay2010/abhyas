@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
@@ -19,6 +20,9 @@ export type Result = { ok: true } | { ok: false; error: string };
 export async function markYogaVideoDone(videoId: string): Promise<Result> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
 
   const { data: video } = await supabase
     .from("yoga_videos")

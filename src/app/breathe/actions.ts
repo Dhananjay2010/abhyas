@@ -7,6 +7,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 import { MAX_DAYS } from "@/lib/breathing/journey";
 import { parsePhases } from "@/lib/breathing/pattern";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import {
   isMood,
   validatePatternDraft,
@@ -42,6 +43,9 @@ export async function recordBreathingPractice(
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit as DataResult<{ sessionId: string }>;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -104,6 +108,9 @@ export async function recordJourneyDay(input: {
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit as DataResult<JourneyDayResult>;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -143,6 +150,9 @@ export async function rateBreathingPractice(input: {
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
 
   // RLS limits this to the caller's own logs. A zero-row result means the id
   // is not theirs or does not exist, and that is reported rather than
@@ -178,6 +188,9 @@ export async function savePatternTiming(input: {
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
 
   const { error } = await supabase.from("user_breathing_patterns").upsert(
     {
@@ -198,6 +211,9 @@ export async function savePatternTiming(input: {
 export async function resetPatternTiming(basePatternId: string): Promise<Result> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
 
   const { error } = await supabase
     .from("user_breathing_patterns")
@@ -220,6 +236,9 @@ export async function saveCustomPattern(input: {
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit as DataResult<{ id: string }>;
 
   const row = { name: input.draft.name.trim(), phases: input.draft.phases };
 
@@ -263,6 +282,9 @@ export async function saveCustomPattern(input: {
 export async function deleteCustomPattern(id: string): Promise<Result> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
 
   const { error } = await supabase
     .from("user_breathing_patterns")
@@ -281,6 +303,12 @@ type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 export async function updateBreathingPrefs(patch: PrefsPatch): Promise<Result> {
   const invalid = validatePrefs(patch);
   if (invalid) return { ok: false, error: invalid };
+  
+  const { supabase: tempClient, user: tempUser } = await getAuthedClient();
+  if (tempUser) {
+    const rateLimit = await checkActionRateLimit("default", tempUser.id);
+    if (rateLimit) return rateLimit;
+  }
 
   const update: SettingsUpdate = {};
   if (patch.defaultMinutes !== undefined) update.meditation_default_minutes = patch.defaultMinutes;

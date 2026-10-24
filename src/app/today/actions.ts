@@ -3,6 +3,7 @@
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { createBlockForUser } from "@/lib/program/persist";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 export type BuildPlanResult = { ok: true } | { ok: false; error: string };
 
@@ -20,6 +21,9 @@ export type BuildPlanResult = { ok: true } | { ok: false; error: string };
 export async function buildPlan(): Promise<BuildPlanResult> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("expensive", user.id);
+  if (rateLimit) return rateLimit;
 
   const result = await createBlockForUser(supabase, user.id, { mode: "rebuild" });
   if (!result.ok) return { ok: false, error: result.error };

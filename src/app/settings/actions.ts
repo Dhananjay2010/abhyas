@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -20,6 +21,9 @@ async function requireUser() {
 /** Session preferences. None of these affect the generated plan. */
 export async function updateSessionSettings(patch: SettingsUpdate): Promise<Result> {
   const { supabase, user } = await requireUser();
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
   // Upsert, not update. `user_settings` is created by the on_auth_user_created
   // trigger, so a plain UPDATE quietly matches zero rows for any account whose
   // row is missing — and PostgREST reports no error for that, so the action
@@ -40,6 +44,9 @@ export async function updateSessionSettings(patch: SettingsUpdate): Promise<Resu
  */
 export async function updateProfileSettings(patch: ProfileUpdate): Promise<Result> {
   const { supabase, user } = await requireUser();
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
 
   if (patch.days_per_week != null && (patch.days_per_week < 3 || patch.days_per_week > 6)) {
     return { ok: false, error: "Days per week must be between 3 and 6." };
@@ -64,6 +71,9 @@ export async function updateEquipment(input: {
   equipmentIds: string[];
 }): Promise<Result> {
   const { supabase, user } = await requireUser();
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
 
   const { error: flagError } = await supabase
     .from("profiles")
@@ -92,6 +102,9 @@ export async function updateInjuries(
   injuries: { bodyRegion: BodyRegion; severity: InjurySeverity }[],
 ): Promise<Result> {
   const { supabase, user } = await requireUser();
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
 
   const { error: clearError } = await supabase
     .from("user_injuries")

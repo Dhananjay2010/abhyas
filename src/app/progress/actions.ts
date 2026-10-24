@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 export type LogWeightResult = { ok: true } | { ok: false; error: string };
 
@@ -13,6 +14,9 @@ export async function logBodyWeight(weightKg: number): Promise<LogWeightResult> 
 
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
+  
+  const rateLimit = await checkActionRateLimit("default", user.id);
+  if (rateLimit) return rateLimit;
 
   const { data: profile } = await supabase
     .from("profiles")
