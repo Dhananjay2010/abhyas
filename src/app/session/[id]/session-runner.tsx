@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/lib/database.types";
 import type { WarmupItem } from "@/lib/program/warmup";
@@ -29,6 +29,9 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
+import { resolveSetConflict } from "@/lib/session/conflict-reducer";
+import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
+import { mergeSets } from "@/lib/session/merge-sets";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -137,8 +140,26 @@ export function SessionRunner({
   const router = useRouter();
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
-  const [exercises, setExercises] = useState(initialExercises);
+  
+  // Use reducer to manage exercises with server data merging
+  const [exercises, dispatch] = useReducer(
+    (state: typeof initialExercises, action: { type: 'set'; exercises: typeof initialExercises } | { type: 'merge'; serverData: typeof initialExercises }) => {
+      if (action.type === 'set') {
+        return action.exercises;
+      } else {
+        // Merge server data with current local state
+        return mergeSets(state, action.serverData);
+      }
+    },
+    initialExercises
+  );
+  
+  const setExercises = useCallback((update: typeof initialExercises | ((prev: typeof initialExercises) => typeof initialExercises)) => {
+    const newExercises = typeof update === 'function' ? update(exercises) : update;
+    dispatch({ type: 'set', exercises: newExercises });
+  }, [exercises]);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
@@ -225,6 +246,16 @@ export function SessionRunner({
     setRestRemaining(seconds);
   }, []);
 
+  // Fresh data on resume: refresh when resuming or navigating back
+  useResumeRefresh();
+
+  // Case B: Merge server data with local state when initialExercises changes
+  // (e.g., after router.refresh from useResumeRefresh). This prevents dropping
+  // confirmed local saves that haven't landed on the server yet.
+  useEffect(() => {
+    dispatch({ type: 'merge', serverData: initialExercises });
+  }, [initialExercises]);
+
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
 
@@ -302,6 +333,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
@@ -366,6 +398,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
@@ -427,6 +460,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
         confirmExit={false}
       >
         <div className="space-y-3">
@@ -529,6 +563,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           This session has no exercises. That usually means the plan could not
@@ -584,28 +619,52 @@ export function SessionRunner({
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
-    const ok = await run(() =>
-      actions.logSet({
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const result = await actions.logSet({
         sessionExerciseId: current.id,
         setNumber: nextSetNumber,
         reps,
         weightKg,
         durationSeconds,
-      }),
-    );
-    if (!ok) return;
-    setExercises((prev) =>
-      prev.map((e) =>
-        e.id === current.id
-          ? {
-              ...e,
-              sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
-            }
-          : e,
-      ),
-    );
-    if (settings.restAutostart && nextSetNumber < current.plannedSets) {
-      startRest(restSeconds);
+      });
+
+      if (!result.ok) {
+        if ("reason" in result && result.reason === "set_exists") {
+          const resolution = resolveSetConflict(exercises, current.id, exerciseIndex, result);
+          setExercises(resolution.exercises);
+          setExerciseIndex(resolution.nextExerciseIndex);
+          setMessage(resolution.message);
+          setError(null);
+          return;
+        }
+        setError("error" in result ? (result.error ?? "Something went wrong") : "Failed");
+        return;
+      }
+
+      setError(null);
+      setMessage(null);
+      setExercises((prev) =>
+        prev.map((e) =>
+          e.id === current.id
+            ? {
+                ...e,
+                sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
+              }
+            : e,
+        ),
+      );
+      if (settings.restAutostart && nextSetNumber < current.plannedSets) {
+        startRest(restSeconds);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Network error. Check your connection.";
+      setError(errorMessage);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   }
 
@@ -685,6 +744,7 @@ export function SessionRunner({
       onExit={() => (onExit ? onExit() : router.push("/today"))}
       wakeLock={wakeLock}
       error={error}
+        message={message}
     >
       <div onPointerDown={onAnyTap}>
         {bannerFor === exerciseIndex && progressNotes.length > 0 && (
@@ -1182,13 +1242,14 @@ function SetEntry({
   );
 }
 
-function Shell({
+export function Shell({
   title,
   subtitle,
   elapsed,
   onExit,
   wakeLock,
   error,
+  message,
   confirmExit = true,
   children,
 }: {
@@ -1198,6 +1259,7 @@ function Shell({
   onExit: () => void;
   wakeLock: { active: boolean };
   error: string | null;
+  message?: string | null;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
   children: React.ReactNode;
@@ -1266,6 +1328,12 @@ function Shell({
           className="mt-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
         >
           {error}
+        </p>
+      )}
+
+      {message && (
+        <p className="mt-4 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-fg">
+          {message}
         </p>
       )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * Device capabilities used during a guided session.
@@ -151,18 +151,25 @@ export function vibrate(pattern: number | number[]) {
 
 /** Counts elapsed seconds, resilient to the tab being backgrounded. */
 export function useElapsed(startedAtIso: string | null): number {
-  // Lazy state initialisers run once and are the sanctioned place for a clock
-  // read; a ref would be impure during render.
   const [start] = useState(() =>
-    startedAtIso ? new Date(startedAtIso).getTime() : Date.now(),
+    startedAtIso ? new Date(startedAtIso).getTime() : null,
   );
-  const [now, setNow] = useState(() => Date.now());
+  
+  // Use useSyncExternalStore to subscribe to time (an external system)
+  // Returns 0 during SSR (getServerSnapshot)
+  const now = useSyncExternalStore(
+    useCallback((onStoreChange: () => void) => {
+      // Subscribe to time updates every second
+      const interval = setInterval(onStoreChange, 1000);
+      return () => clearInterval(interval);
+    }, []),
+    () => Date.now(), // getSnapshot (client)
+    () => 0, // getServerSnapshot (SSR) - returns 0 so elapsed will be 0
+  );
 
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
+  // Return 0 during SSR and when there's no start time
+  if (start === null) return 0;
+  
   return Math.max(0, Math.floor((now - start) / 1000));
 }
 

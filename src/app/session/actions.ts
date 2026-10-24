@@ -20,6 +20,7 @@ import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
+import { logSetCore } from "@/lib/session/log-set-core";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -28,6 +29,17 @@ type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
+
+export type SetConflictResult = {
+  ok: false;
+  reason: "set_exists";
+  savedSets: Array<{
+    setNumber: number;
+    reps: number | null;
+    weightKg: number | null;
+    durationSeconds: number | null;
+  }>;
+};
 
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
@@ -105,7 +117,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     // Returning it as-is used to strand the user on "this session has no
     // exercises" with no way forward, permanently, because this branch would
     // keep returning the same empty shell.
-    await Promise.all([
+    const [updateRes] = await Promise.all([
       supabase
         .from("sessions")
         .update({
@@ -125,6 +137,27 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
         .eq("id", existing.id),
       ensureSessionExercises(supabase, user.id, existing.id),
     ]);
+
+    // Handle 23505: another in_progress session already exists for this user/date
+    if (updateRes.error && updateRes.error.code === "23505") {
+      // Re-read the existing in_progress session for this user/date
+      const { data: currentInProgress } = await supabase
+        .from("sessions")
+        .select("id, created_at")
+        .eq("user_id", user.id)
+        .eq("local_date", today)
+        .eq("status", "in_progress")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (currentInProgress) {
+        return { ok: true, data: { sessionId: currentInProgress.id } };
+      }
+      // Re-read failed, fall through to error
+      return { ok: false, error: "Could not start the session" };
+    }
+
     return { ok: true, data: { sessionId: existing.id } };
   }
 
@@ -160,8 +193,20 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
-  // Creating the session and reading what to put in it are independent: both
-  // need only the day, which wave one already produced.
+  // Case C: Idempotent session start - check for existing in_progress session first
+  const { data: existingInProgressSessions } = await supabase
+    .from("sessions")
+    .select("id, status, local_date, actual_type")
+    .eq("user_id", user.id)
+    .eq("local_date", today)
+    .eq("status", "in_progress");
+
+  if (existingInProgressSessions && existingInProgressSessions.length > 0) {
+    // An in_progress session already exists for this user + date, return it (idempotent)
+    return { ok: true, data: { sessionId: existingInProgressSessions[0].id } };
+  }
+
+  // No existing in_progress session, create a new one and read the plan
   const [sessionRes, plannedRes] = await Promise.all([
     supabase
       .from("sessions")
@@ -187,6 +232,24 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .eq("program_day_id", day.id)
       .order("order_index"),
   ]);
+
+  // Handle 23505: unique_violation from the partial unique index
+  if (sessionRes.error && sessionRes.error.code === "23505") {
+    // The partial unique index rejected a duplicate. Re-read and return the existing session.
+    const { data: rereadSession } = await supabase
+      .from("sessions")
+      .select("id, created_at")
+      .eq("user_id", user.id)
+      .eq("status", "in_progress")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (rereadSession) {
+      return { ok: true, data: { sessionId: rereadSession.id } };
+    }
+    // Re-read failed, fall through to generic error
+  }
 
   const session = sessionRes.data;
   if (sessionRes.error || !session) {
@@ -263,7 +326,7 @@ export async function logSet(input: {
   weightKg: number | null;
   /** Seconds held, for a `seconds` exercise. Its `reps` stays null. */
   durationSeconds?: number | null;
-}): Promise<Result> {
+}): Promise<Result | SetConflictResult> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
   
@@ -272,20 +335,14 @@ export async function logSet(input: {
   if (invalid) return { ok: false, error: invalid };
 
   const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("session_sets").upsert(
-    {
-      session_exercise_id: input.sessionExerciseId,
-      user_id: user.id,
-      set_number: input.setNumber,
-      reps: input.reps,
-      weight_kg: input.weightKg,
-      duration_seconds: durationSeconds,
-      is_warmup_set: false,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "session_exercise_id,set_number,is_warmup_set" },
-  );
-  return error ? { ok: false, error: error.message } : { ok: true };
+
+  return logSetCore(supabase, user.id, {
+    sessionExerciseId: input.sessionExerciseId,
+    setNumber: input.setNumber,
+    reps: input.reps,
+    weightKg: input.weightKg,
+    durationSeconds,
+  });
 }
 
 export async function deleteSet(
