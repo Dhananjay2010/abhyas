@@ -16,6 +16,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { sessionCompletion } from "@/lib/session/completion";
+import { isNetworkError } from "@/lib/session/network-error";
 import {
   abandonSession,
   deleteSet,
@@ -155,6 +156,7 @@ export function SessionRunner({
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
   const endEarlyTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
 
   // Resume where the session actually stopped rather than at the top.
   const firstUnfinished = Math.max(
@@ -977,25 +979,42 @@ export function SessionRunner({
               totalSetsDone={totalSetsDone}
               totalSetsPlanned={totalSetsPlanned}
               triggerRef={endEarlyTriggerRef}
+              offlineError={endEarlyOfflineError}
+              onClearOfflineError={() => setEndEarlyOfflineError(false)}
               onCancel={() => {
                 setConfirming(null);
+                setEndEarlyOfflineError(false);
               }}
               onConfirm={async () => {
-                setConfirming(null);
                 const secs = stopElapsed();
-                const ok = await run(() => actions.abandonSession(sessionId, secs));
-                if (!ok) {
-                  resumeElapsed();
-                  endEarlyTriggerRef.current?.focus();
-                  return;
-                }
-                if (totalSetsDone === 0) {
-                  await actions.refreshAfterSession();
-                  if (onExit) onExit();
-                  else router.push("/today");
-                } else {
-                  setEndedEarly(true);
-                  setPhase("done");
+                try {
+                  const result = await actions.abandonSession(sessionId, secs);
+                  if (!result.ok) {
+                    resumeElapsed();
+                    endEarlyTriggerRef.current?.focus();
+                    return;
+                  }
+                  setConfirming(null);
+                  setEndEarlyOfflineError(false);
+                  if (totalSetsDone === 0) {
+                    await actions.refreshAfterSession();
+                    if (onExit) onExit();
+                    else router.push("/today");
+                  } else {
+                    setEndedEarly(true);
+                    setPhase("done");
+                  }
+                } catch (err) {
+                  if (isNetworkError(err)) {
+                    setEndEarlyOfflineError(true);
+                    resumeElapsed();
+                  } else {
+                    setConfirming(null);
+                    setEndEarlyOfflineError(false);
+                    resumeElapsed();
+                    endEarlyTriggerRef.current?.focus();
+                    setError(err instanceof Error ? err.message : "Something went wrong");
+                  }
                 }
               }}
               disabled={busy}
@@ -1410,11 +1429,14 @@ function CapabilityNote({
  * - Escape key support via cancel event
  * - focus trap with Tab/Shift+Tab cycling
  * - focus management: initial focus on "Keep going", returns to trigger on close
+ * - offline error handling: shows error and clears on 'online' event
  */
 function EndEarlyConfirm({
   totalSetsDone,
   totalSetsPlanned,
   triggerRef,
+  offlineError,
+  onClearOfflineError,
   onCancel,
   onConfirm,
   disabled = false,
@@ -1422,6 +1444,8 @@ function EndEarlyConfirm({
   totalSetsDone: number;
   totalSetsPlanned: number;
   triggerRef: React.RefObject<HTMLButtonElement | null>;
+  offlineError: boolean;
+  onClearOfflineError: () => void;
   onCancel: () => void;
   onConfirm: () => void;
   disabled?: boolean;
@@ -1436,6 +1460,15 @@ function EndEarlyConfirm({
     onCancelRef.current = onCancel;
     onConfirmRef.current = onConfirm;
   });
+
+  useEffect(() => {
+    const handleOnline = () => {
+      onClearOfflineError();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [onClearOfflineError]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -1520,6 +1553,12 @@ function EndEarlyConfirm({
           ? " The session can be resumed from Today."
           : " The session can\u2019t be resumed once ended."}
       </p>
+      {offlineError && (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          You&apos;re offline. Your session wasn&apos;t ended – try again when you&apos;re back
+          online.
+        </p>
+      )}
       <div className="mt-4 flex gap-3">
         <button
           ref={keepGoingRef}
