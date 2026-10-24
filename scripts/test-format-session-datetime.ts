@@ -100,5 +100,18 @@ test("afternoon session shows pm", () => {
   assertContains(result, "pm", "Should show pm in lowercase");
 });
 
+// Item 9 tests: started_at vs completed_at
+test("item 9: started_at 23:50 IST with completed_at 00:01 next day shows start time and start date", () => {
+  // Session started at 23:50 IST on Oct 24, completed at 00:01 IST on Oct 25
+  // In UTC: 23:50 IST = 18:20 UTC Oct 24
+  const startedAt = "2026-10-24T18:20:00.000Z"; // 23:50 IST
+  const localDate = "2026-10-24"; // Should match the start date
+  const result = formatSessionDateTime(startedAt, localDate, "Asia/Kolkata");
+  
+  assertContains(result, "Oct 24", "Should show start date (Oct 24), not next day");
+  assertContains(result, "11:50", "Should show start time (23:50 = 11:50 pm)");
+  assertContains(result, "pm", "Should show pm for 23:50");
+});
+
 console.log("\nformatSessionDateTime tests complete");
 process.exit(exitCode);

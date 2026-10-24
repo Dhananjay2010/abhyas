@@ -13,6 +13,7 @@ import { countWorkingSets } from "@/lib/session/count-sets";
 import { formatVolume, getUnitsPreference } from "@/lib/units";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
+import { computeSessionDuration, formatDurationMinutes } from "@/lib/history/compute-duration";
 
 export const dynamic = "force-dynamic";
 
@@ -97,7 +98,7 @@ export default async function SessionDetailPage({
   const ids = (exercises ?? []).map((e) => e.id);
   const { data: sets } = await supabase
     .from("session_sets")
-    .select("session_exercise_id, set_number, reps, weight_kg, duration_seconds, is_warmup_set")
+    .select("session_exercise_id, set_number, reps, weight_kg, duration_seconds, is_warmup_set, completed_at")
     .in("session_exercise_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"])
     .order("set_number");
 
@@ -109,13 +110,24 @@ export default async function SessionDetailPage({
     (session.program_days as unknown as { label: string } | null)?.label ?? null,
     session.actual_type,
   );
-  const minutes = session.duration_seconds ? Math.round(session.duration_seconds / 60) : null;
+  
+  // Item 9: Duration - use stored duration_seconds, or compute from sets if NULL
+  const lastSetCompletedAt = sets && sets.length > 0 
+    ? sets[sets.length - 1].completed_at 
+    : null;
+  const durationSeconds = computeSessionDuration(
+    session.duration_seconds,
+    session.started_at,
+    lastSetCompletedAt
+  );
+  const minutes = durationSeconds !== null ? Math.round(durationSeconds / 60) : null;
+  
   const volume = (sets ?? []).reduce(
     (n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0),
     0,
   );
 
-  // TZ-2: Format date and time consistently
+  // TZ-2: Format date and time consistently (item 9: always from started_at)
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const dateTimeLabel = formatSessionDateTime(session.started_at, session.local_date, timezone);
 

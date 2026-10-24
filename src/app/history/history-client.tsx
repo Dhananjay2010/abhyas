@@ -8,19 +8,12 @@ import { formatVolume, formatTopSet, type UnitsPreference } from "@/lib/units";
 import { closeOutSession } from "./actions";
 import { getSessionLabel, type SessionStatus, type ActualType } from "@/lib/history/session-label";
 import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
+import { formatDurationMinutes } from "@/lib/history/compute-duration";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {
   if (count === 1) return `${count} ${singular}`;
   return `${count} ${plural || singular + "s"}`;
-}
-
-// Helper for duration display - shows "<1 min" for very short sessions
-function formatMinutes(seconds: number | null): string | null {
-  if (seconds === null) return null;
-  const minutes = Math.round(seconds / 60);
-  if (minutes === 0 && seconds > 0) return "<1 min";
-  return `${minutes} min`;
 }
 
 interface HistoryClientProps {
@@ -165,7 +158,8 @@ export function HistoryClient({
                 timeLabel = formatSessionDateTime(item.startedAt, item.localDate, timezone);
               }
 
-              const durationLabel = formatMinutes(item.durationSeconds);
+              // Item 9: Duration - never show "0 min" for NULL duration
+              const durationLabel = formatDurationMinutes(item.durationSeconds);
 
               // Build label for the session
               let label = "";

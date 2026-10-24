@@ -66,7 +66,7 @@ export default async function ProgressPage() {
       .order("created_at"),
     supabase
       .from("sessions")
-      .select("id, local_date, status, actual_type, is_deload")
+      .select("id, local_date, status, actual_type, is_deload, duration_seconds")
       .order("local_date", { ascending: false })
       .limit(500),
     supabase.from("program_days").select("program_id, day_index, day_type"),
