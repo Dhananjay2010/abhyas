@@ -125,10 +125,11 @@ Apply the same sed overrides CI uses, start Supabase, then restore the original 
 
 ```bash
 # Step 1: Apply local auth overrides (same as CI)
-sed -i 's|site_url = "https://abhyas-indol.vercel.app"|site_url = "http://localhost:3000"|' supabase/config.toml
-sed -i 's/enable_signup = false/enable_signup = true/' supabase/config.toml
-sed -i 's/enable_confirmations = true/enable_confirmations = false/' supabase/config.toml
-sed -i 's/max_frequency = "1m0s"/max_frequency = "1s"/' supabase/config.toml
+# Note: These commands work on GNU sed (Linux). On macOS (BSD sed), add .bak extension and remove backup:
+sed -i.bak 's|site_url = "https://abhyas-indol.vercel.app"|site_url = "http://localhost:3000"|' supabase/config.toml && rm supabase/config.toml.bak
+sed -i.bak 's/enable_signup = false/enable_signup = true/' supabase/config.toml && rm supabase/config.toml.bak
+sed -i.bak 's/enable_confirmations = true/enable_confirmations = false/' supabase/config.toml && rm supabase/config.toml.bak
+sed -i.bak 's/max_frequency = "1m0s"/max_frequency = "1s"/' supabase/config.toml && rm supabase/config.toml.bak
 
 # Step 2: Start Supabase with the modified config
 npm run supabase:start
