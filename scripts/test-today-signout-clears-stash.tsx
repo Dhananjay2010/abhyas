@@ -7,6 +7,7 @@
  * Run with: npm run test:today-signout-clears-stash
  */
 
+import './helpers/setup-jsdom';
 import { render, fireEvent } from '@testing-library/react';
 import { SignOutForm } from '../src/app/today/signout-form';
 import { stashPendingChanges, getPendingChanges, PendingChange } from '../src/lib/auth/pending-changes';
