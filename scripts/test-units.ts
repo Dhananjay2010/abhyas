@@ -173,12 +173,12 @@ console.log("\n8. Weight input parsing");
   check("'154.5lb' accepted", parseWeight("154.5lb", "imperial") != null);
   check("'154.5 lbs' accepted", parseWeight("154.5 lbs", "imperial") != null);
 
-  // Absurd values rejected
+  // Absurd values rejected (aligned with server validation: 20-500 kg)
   check("0 kg rejected", parseWeight("0", "metric") === null);
-  check("0.05 kg rejected (too small)", parseWeight("0.05", "metric") === null);
+  check("19 kg rejected (too small)", parseWeight("19", "metric") === null);
   check("501 kg rejected (too large)", parseWeight("501", "metric") === null);
   check("1200 lb rejected (~544 kg)", parseWeight("1200", "imperial") === null);
-  check("0.1 kg accepted (edge)", parseWeight("0.1", "metric") === 0.1);
+  check("20 kg accepted (edge)", parseWeight("20", "metric") === 20);
   check("500 kg accepted (edge)", parseWeight("500", "metric") === 500);
 }
 
@@ -230,13 +230,13 @@ console.log("\n9. Height input parsing");
   check("separate (5, 12) rejected", parseHeight(5, "imperial", 12) === null);
   check("separate (5, 11) accepted", parseHeight(5, "imperial", 11) != null);
 
-  // Absurd values rejected
-  check("metric: 49 cm rejected (too short)", parseHeight("49", "metric") === null);
-  check("metric: 273 cm rejected (too tall)", parseHeight("273", "metric") === null);
-  check("metric: 50 cm accepted (edge)", parseHeight("50", "metric") === 50);
-  check("metric: 272 cm accepted (edge)", parseHeight("272", "metric") === 272);
-  check("imperial: 1'6\" (~46 cm) rejected", parseHeight("1'6\"", "imperial") === null);
-  check("imperial: 9'0\" (~274 cm) rejected", parseHeight("9'0\"", "imperial") === null);
+  // Absurd values rejected (aligned with server validation: 100-250 cm)
+  check("metric: 99 cm rejected (too short)", parseHeight("99", "metric") === null);
+  check("metric: 251 cm rejected (too tall)", parseHeight("251", "metric") === null);
+  check("metric: 100 cm accepted (edge)", parseHeight("100", "metric") === 100);
+  check("metric: 250 cm accepted (edge)", parseHeight("250", "metric") === 250);
+  check("imperial: 3'2\" (~97 cm) rejected", parseHeight("3'2\"", "imperial") === null);
+  check("imperial: 8'3\" (~251 cm) rejected", parseHeight("8'3\"", "imperial") === null);
 }
 
 console.log("\n10. Round-trip stability: weight");

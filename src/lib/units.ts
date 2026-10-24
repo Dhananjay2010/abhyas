@@ -200,7 +200,8 @@ export function heightLabel(units: string): string {
  * This ensures round-trip stability: display → input → storage → display
  * produces the same value unless the user changed it.
  *
- * Rejects absurd values: weight must be between 0.1 and 500 kg (0.2–1100 lb).
+ * Rejects absurd values: weight must be between 20 and 500 kg (~44–1100 lb).
+ * Bounds aligned with server-side validation.
  *
  * @param input - User input string or number
  * @param units - 'metric' or 'imperial'
@@ -235,8 +236,9 @@ export function parseWeight(
     kg = value;
   }
 
-  // Reject absurd values: 0.1 to 500 kg (0.2 to ~1100 lb)
-  if (kg < 0.1 || kg > 500) return null;
+  // Reject absurd values: 20 to 500 kg (~44 to ~1100 lb)
+  // Bounds aligned with server-side validation
+  if (kg < 20 || kg > 500) return null;
 
   return kg;
 }
@@ -252,7 +254,8 @@ export function parseWeight(
  *   - Two separate numbers (feet and inches)
  *
  * Imperial parsing rounds to whole inches to match display format.
- * Rejects absurd values: height must be between 50 and 272 cm (~1'8" to 8'11").
+ * Rejects absurd values: height must be between 100 and 250 cm (~3'3" to 8'2").
+ * Bounds aligned with server-side validation.
  * Rejects inches >= 12 in split-input form.
  *
  * @param input - User input (string for imperial, number for metric)
@@ -278,8 +281,8 @@ export function parseHeight(
       if (inches >= 12) return null;
       const totalInches = feetAndInchesToInches(feet, inches);
       const cm = inToCm(totalInches);
-      // Reject absurd values: 50 to 272 cm
-      if (cm < 50 || cm > 272) return null;
+      // Reject absurd values: 100 to 250 cm (aligned with server validation)
+      if (cm < 100 || cm > 250) return null;
       return cm;
     }
 
@@ -287,7 +290,7 @@ export function parseHeight(
     if (typeof input === "number") {
       if (!Number.isFinite(input) || input < 0) return null;
       const cm = inToCm(input);
-      if (cm < 50 || cm > 272) return null;
+      if (cm < 100 || cm > 250) return null;
       return cm;
     }
 
@@ -305,7 +308,7 @@ export function parseHeight(
         if (inches >= 12) return null;
         const totalInches = feetAndInchesToInches(feet, inches);
         const cm = inToCm(totalInches);
-        if (cm < 50 || cm > 272) return null;
+        if (cm < 100 || cm > 250) return null;
         return cm;
       }
 
@@ -318,7 +321,7 @@ export function parseHeight(
         if (inches >= 12) return null;
         const totalInches = feetAndInchesToInches(feet, inches);
         const cm = inToCm(totalInches);
-        if (cm < 50 || cm > 272) return null;
+        if (cm < 100 || cm > 250) return null;
         return cm;
       }
 
@@ -328,7 +331,7 @@ export function parseHeight(
         const value = Number(match[1]);
         if (Number.isFinite(value) && value >= 0) {
           const cm = inToCm(value);
-          if (cm < 50 || cm > 272) return null;
+          if (cm < 100 || cm > 250) return null;
           return cm;
         }
       }
@@ -351,8 +354,8 @@ export function parseHeight(
 
   if (!Number.isFinite(value) || value <= 0) return null;
 
-  // Reject absurd values: 50 to 272 cm
-  if (value < 50 || value > 272) return null;
+  // Reject absurd values: 100 to 250 cm (aligned with server validation)
+  if (value < 100 || value > 250) return null;
 
   return value;
 }

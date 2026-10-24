@@ -110,9 +110,14 @@ parseHeight("69 in", "imperial");      // ✓
 parseWeight("70abc", "metric");        // ✗ (trailing garbage)
 parseHeight("5'12\"", "imperial");     // ✗ (inches >= 12)
 parseWeight("0", "metric");            // ✗ (absurd: too small)
-parseWeight("600", "metric");          // ✗ (absurd: >500 kg)
-parseHeight("30", "metric");           // ✗ (absurd: <50 cm)
-parseHeight("300", "metric");          // ✗ (absurd: >272 cm)
+parseWeight("19", "metric");           // ✗ (absurd: <20 kg)
+parseWeight("501", "metric");          // ✗ (absurd: >500 kg)
+parseHeight("99", "metric");           // ✗ (absurd: <100 cm)
+parseHeight("251", "metric");          // ✗ (absurd: >250 cm)
+
+// Bounds aligned with server-side validation:
+// Weight: 20-500 kg (~44-1100 lb)
+// Height: 100-250 cm (~3'3"-8'2")
 ```
 
 ### Unit Labels
@@ -164,7 +169,8 @@ All parsing functions return `null` for invalid input:
 - Zero or negative numbers
 - `null` or `undefined`
 - Non-numeric strings or trailing garbage
-- Absurd values (weight >500 kg, height outside 50–272 cm)
+- Absurd values (weight outside 20–500 kg, height outside 100–250 cm)
+- Bounds are aligned with server-side validation (PR #14)
 - Imperial inches >= 12 in split-input form
 
 All conversion functions return `0` for invalid input.
@@ -297,7 +303,8 @@ The test suite covers:
 - Input parsing (all supported formats, strict parsing, unit suffixes)
 - Rejection of trailing garbage ("70abc")
 - Rejection of inches >= 12 in split form
-- Rejection of absurd values (weight >500 kg, height outside 50–272 cm)
+- Rejection of absurd values (weight outside 20–500 kg, height outside 100–250 cm)
+- Bounds aligned with server-side validation (PR #14)
 
 ## Future Work (Out of Scope for This PR)
 
