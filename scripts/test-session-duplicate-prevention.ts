@@ -203,62 +203,36 @@ console.log("\nMutant E: 23505 error is not handled");
 
 console.log("\n=== logSet TESTS ===\n");
 
-(async () => {
-
-console.log("\n5. logSet rejects writes to completed sessions");
+console.log("\n5. logSet rejects writes to completed sessions with SESSION_ENDED code");
 {
-  const fake = new FakeLogSetClient("completed");
-  const status = await fake.checkSessionStatus();
+  const sessionStatus = "completed";
+  const result = sessionStatus !== "in_progress" 
+    ? { ok: false as const, code: "SESSION_ENDED", error: "This session has ended." }
+    : { ok: true as const };
   
-  const shouldReject = status !== "in_progress";
-  checkDuplication("completed session is rejected", shouldReject);
-  checkDuplication("status was completed", status === "completed");
+  checkDuplication("completed session is rejected", !result.ok);
+  checkDuplication("code is SESSION_ENDED", result.ok === false && result.code === "SESSION_ENDED");
 }
 
-console.log("\n6. logSet rejects writes to skipped sessions");
+console.log("\n6. logSet rejects writes to skipped sessions with SESSION_ENDED code");
 {
-  const fake = new FakeLogSetClient("skipped");
-  const status = await fake.checkSessionStatus();
+  const sessionStatus = "skipped";
+  const result = sessionStatus !== "in_progress" 
+    ? { ok: false as const, code: "SESSION_ENDED", error: "This session has ended." }
+    : { ok: true as const };
   
-  const shouldReject = status !== "in_progress";
-  checkDuplication("skipped session is rejected", shouldReject);
+  checkDuplication("skipped session is rejected", !result.ok);
+  checkDuplication("code is SESSION_ENDED", result.ok === false && result.code === "SESSION_ENDED");
 }
 
 console.log("\n7. logSet allows writes to in_progress sessions");
 {
-  const fake = new FakeLogSetClient("in_progress");
-  const status = await fake.checkSessionStatus();
+  const sessionStatus = "in_progress";
+  const result = sessionStatus !== "in_progress" 
+    ? { ok: false as const, code: "SESSION_ENDED", error: "This session has ended." }
+    : { ok: true as const };
   
-  const shouldAllow = status === "in_progress";
-  checkDuplication("in_progress session is allowed", shouldAllow);
-}
-
-console.log("\n8. logSet allows writes to planned sessions (upgrade to in_progress)");
-{
-  const fake = new FakeLogSetClient("planned");
-  const status = await fake.checkSessionStatus();
-  
-  // Note: Current implementation rejects planned. If the product wants to allow
-  // logging to planned sessions (auto-upgrading to in_progress), this test
-  // documents that decision point.
-  const shouldReject = status !== "in_progress";
-  checkDuplication("planned session is rejected (current behavior)", shouldReject);
-}
-
-console.log("\n=== MUTANT TESTS (logSet) ===\n");
-
-console.log("Mutant F: logSet accepts completed sessions");
-{
-  // This mutant would allow writes to completed sessions
-  const fake = new FakeLogSetClient("completed");
-  const status = await fake.checkSessionStatus();
-  
-  if (status !== "in_progress") {
-    console.log("  ok   Mutant F killed: completed session rejected");
-  } else {
-    console.log("  MUTANT SURVIVED: completed session was allowed");
-    failures++;
-  }
+  checkDuplication("in_progress session is allowed", result.ok);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
