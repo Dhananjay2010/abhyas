@@ -470,28 +470,26 @@ console.log("\nBodyweight exercises with added weight");
   check("upper-body bodyweight with 5 kg added goes to 6.25 kg",
     upper.nextWorkingWeightKg === 6.25, `${upper.nextWorkingWeightKg}`);
 
-  // Back-off: two misses drop added weight to 0.
+  // Back-off: two misses subtract two steps (10 - 2.5*2 = 5).
   const backoff = run({
     meta: SQUAT_BW,
     sets: sets(4, 10, 10),
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
   });
-  check("two misses with added weight drop to 0",
-    backoff.nextWorkingWeightKg === 0, `${backoff.nextWorkingWeightKg}`);
-  check("message says back to bodyweight",
-    backoff.message.includes("back to bodyweight"), backoff.message);
+  check("two misses with 10 kg added weight drop to 5 kg",
+    backoff.nextWorkingWeightKg === 5, `${backoff.nextWorkingWeightKg}`);
+  check("message says down to 5 kg",
+    backoff.message.includes("down to 5 kg"), backoff.message);
 
   // Back-off edge case: stored added weight but this session logged without weight.
-  // Regression: if heaviest=0, the old `isBodyweight && heaviest>0` check failed
-  // and fell through to loaded-exercise logic with incrementFor, so a lower-body
-  // move with currentWeight=10 gave max(5, roundTo(9, 5))=10 and didn't drop at all.
+  // The stored weight is used for the back-off calculation, so 10 kg goes to 5 kg.
   const backoffNoWeight = run({
     meta: SQUAT_BW,
     sets: sets(4, 10, null),
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
   });
-  check("stored weight but logged without: still drops to 0",
-    backoffNoWeight.nextWorkingWeightKg === 0, `${backoffNoWeight.nextWorkingWeightKg}`);
+  check("stored weight but logged without: still drops by two steps to 5 kg",
+    backoffNoWeight.nextWorkingWeightKg === 5, `${backoffNoWeight.nextWorkingWeightKg}`);
   check("outcome is backed_off", backoffNoWeight.outcome === "backed_off",
     backoffNoWeight.outcome);
 
@@ -531,6 +529,208 @@ console.log("\nBodyweight exercises with added weight");
   );
   check("deload suggestion for bodyweight upper-body rounds to 1.25 kg step",
     suggestedBwUpper === 3.75, `${suggestedBwUpper}`);
+}
+
+console.log("\nIssue 1: After back-off to 0, next success uses actual weight lifted");
+{
+  const SQUAT_BW: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "squat",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  const PUSHUP_LOADED: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "horizontal_press",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  
+  // Upper-body: 4x12 with 5 kg should give 6.25 kg (5 + 1.25), not 2.5 kg (0 + 2.5).
+  const upperAfterBackoff = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 12, 5),
+    state: fresh({ currentWorkingWeightKg: 0, currentTargetReps: 12 }),
+  });
+  check("upper-body 4x12 with 5 kg after back-off to 0 gives 6.25 kg",
+    upperAfterBackoff.nextWorkingWeightKg === 6.25, `${upperAfterBackoff.nextWorkingWeightKg}`);
+
+  // Lower-body: 4x12 with 5 kg should give 7.5 kg (5 + 2.5), not 2.5 kg.
+  const lowerAfterBackoff = run({
+    meta: SQUAT_BW,
+    sets: sets(4, 12, 5),
+    state: fresh({ currentWorkingWeightKg: 0, currentTargetReps: 12 }),
+  });
+  check("lower-body 4x12 with 5 kg after back-off to 0 gives 7.5 kg",
+    lowerAfterBackoff.nextWorkingWeightKg === 7.5, `${lowerAfterBackoff.nextWorkingWeightKg}`);
+}
+
+console.log("\nIssue 2: Two misses subtract two steps, not straight to 0");
+{
+  const SQUAT_BW: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "squat",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  const PUSHUP_LOADED: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "horizontal_press",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+
+  // Lower-body: 30 kg goes to 25 kg (30 - 2.5*2), not 0.
+  const heavy = run({
+    meta: SQUAT_BW,
+    sets: sets(4, 10, 30),
+    state: fresh({ currentWorkingWeightKg: 30, consecutiveFailures: 1 }),
+  });
+  check("lower-body 30 kg goes to 25 kg after two misses",
+    heavy.nextWorkingWeightKg === 25, `${heavy.nextWorkingWeightKg}`);
+  check("message says 'down to 25 kg'",
+    heavy.message.includes("down to 25 kg"), heavy.message);
+
+  // Upper-body: 10 kg goes to 7.5 kg (10 - 1.25*2), not 0.
+  const medium = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 10, 10),
+    state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
+  });
+  check("upper-body 10 kg goes to 7.5 kg after two misses",
+    medium.nextWorkingWeightKg === 7.5, `${medium.nextWorkingWeightKg}`);
+  check("message says 'down to 7.5 kg'",
+    medium.message.includes("down to 7.5 kg"), medium.message);
+
+  // Upper-body: 2.5 kg goes to 0 (2.5 - 1.25*2 = 0).
+  const light = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 10, 2.5),
+    state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 1 }),
+  });
+  check("upper-body 2.5 kg goes to 0 after two misses",
+    light.nextWorkingWeightKg === 0, `${light.nextWorkingWeightKg}`);
+  check("message says 'back to bodyweight'",
+    light.message.includes("back to bodyweight"), light.message);
+}
+
+console.log("\nIssue 3: Off-grid weights snap to grid on success");
+{
+  const PUSHUP_LOADED: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "horizontal_press",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+
+  // 12 kg upper goes to 12.5 kg (next grid multiple), not 13.25 kg (12 + 1.25).
+  const offGrid = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 12, 12),
+    state: fresh({ currentWorkingWeightKg: 12, currentTargetReps: 12 }),
+  });
+  check("upper-body 12 kg snaps to 12.5 kg",
+    offGrid.nextWorkingWeightKg === 12.5, `${offGrid.nextWorkingWeightKg}`);
+
+  // 12.5 kg (on-grid) goes to 13.75 kg (next grid multiple).
+  const onGrid = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 12, 12.5),
+    state: fresh({ currentWorkingWeightKg: 12.5, currentTargetReps: 12 }),
+  });
+  check("upper-body 12.5 kg goes to 13.75 kg",
+    onGrid.nextWorkingWeightKg === 13.75, `${onGrid.nextWorkingWeightKg}`);
+}
+
+console.log("\nIssue 4: Deload reduces small added weights, can reach 0");
+{
+  const SQUAT_BW: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "squat",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  const PUSHUP_LOADED: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "horizontal_press",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+
+  // 1.25 kg upper deload: floor(1.25 * 0.7 / 1.25) * 1.25 = 0.
+  const tiny = suggestedWeight({ currentWorkingWeightKg: 1.25 }, true, PUSHUP_LOADED);
+  check("1.25 kg upper deload goes to 0",
+    tiny === 0, `${tiny}`);
+
+  // 10 kg lower deload: floor(10 * 0.7 / 2.5) * 2.5 = 7.5 kg.
+  const lower = suggestedWeight({ currentWorkingWeightKg: 10 }, true, SQUAT_BW);
+  check("10 kg lower deload goes to 7.5 kg",
+    lower === 7.5, `${lower}`);
+
+  // 5 kg upper deload: floor(5 * 0.7 / 1.25) * 1.25 = 3.75 kg.
+  const upper = suggestedWeight({ currentWorkingWeightKg: 5 }, true, PUSHUP_LOADED);
+  check("5 kg upper deload goes to 3.75 kg",
+    upper === 3.75, `${upper}`);
+}
+
+console.log("\nGuard checks: loaded squats and unloaded bodyweight unchanged");
+{
+  // Loaded squat: 100 kg with 'easy' still gets doubled to 110 kg.
+  const loadedEasy = run({
+    meta: SQUAT,
+    sets: sets(4, 12, 100),
+    state: fresh({ currentWorkingWeightKg: 100 }),
+    feel: "easy",
+  });
+  check("loaded squat 100 kg with easy still gets 110 kg",
+    loadedEasy.nextWorkingWeightKg === 110, `${loadedEasy.nextWorkingWeightKg}`);
+
+  // Loaded squat: 100 kg normal feel goes to 105 kg.
+  const loadedNormal = run({
+    meta: SQUAT,
+    sets: sets(4, 12, 100),
+    state: fresh({ currentWorkingWeightKg: 100 }),
+    feel: "right",
+  });
+  check("loaded squat 100 kg normal goes to 105 kg",
+    loadedNormal.nextWorkingWeightKg === 105, `${loadedNormal.nextWorkingWeightKg}`);
+
+  // Loaded bench with off-grid weight: 62 kg goes to 65 kg (62 + 2.5, rounded).
+  // NOT snapped to grid (which would give 62.5 kg). Preserves existing behavior
+  // for loaded lifts where off-grid values may be legitimate.
+  const loadedOffGrid = run({
+    meta: BENCH,
+    sets: sets(4, 12, 62),
+    state: fresh({ currentWorkingWeightKg: 62 }),
+    feel: "right",
+  });
+  check("loaded bench 62 kg (off-grid) goes to 65 kg, NOT 62.5 kg",
+    loadedOffGrid.nextWorkingWeightKg === 65, `${loadedOffGrid.nextWorkingWeightKg}`);
+
+  // Unloaded bodyweight: still progresses reps.
+  const unloaded = run({
+    meta: PUSHUP,
+    sets: sets(4, 12, null),
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 12 }),
+  });
+  check("unloaded bodyweight still progresses reps to 14",
+    unloaded.nextTargetReps === 14, `${unloaded.nextTargetReps}`);
+  check("and still invents no weight",
+    unloaded.nextWorkingWeightKg === null);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

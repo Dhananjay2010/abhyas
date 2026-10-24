@@ -308,8 +308,14 @@ export function evaluateProgression(input: {
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
     const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta);
     const jump = isBodyweightWithAddedWeight || feel !== "easy" ? step : step * 2;
-    const from = state.currentWorkingWeightKg ?? heaviest;
-    const next = roundTo(from + jump, step);
+    // For bodyweight moves, use max(stored, heaviest) so a 0 back-off doesn't
+    // ignore the weight actually lifted. Loaded lifts keep their stored weight.
+    const from = isBodyweightWithAddedWeight
+      ? Math.max(state.currentWorkingWeightKg ?? 0, heaviest)
+      : state.currentWorkingWeightKg ?? heaviest;
+    // Snap off-grid weights to grid: smallest multiple of step strictly above from.
+    const nextOnGrid = Math.floor(from / step) * step + step;
+    const next = isBodyweightWithAddedWeight ? nextOnGrid : roundTo(from + jump, step);
 
     return {
       ...carried,
@@ -329,16 +335,21 @@ export function evaluateProgression(input: {
   const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
   if (failures >= 2 && currentWeight !== null && currentWeight > 0) {
-    // Bodyweight with any stored or used added weight: drop to bodyweight entirely.
+    // Bodyweight with added weight: drop two steps, floor at 0.
     // Loaded exercises: reduce by ~10%.
     if (meta.isBodyweight) {
+      const step = addedWeightStep(meta);
+      const reduced = Math.max(0, currentWeight - step * 2);
       return {
         ...carried,
         outcome: "backed_off",
-        nextWorkingWeightKg: 0,
+        nextWorkingWeightKg: reduced,
         nextTargetReps: repsMax,
         consecutiveFailures: 0,
-        message: "Missed twice in a row — back to bodyweight to build up again.",
+        message:
+          reduced === 0
+            ? "Missed twice in a row — back to bodyweight to build up again."
+            : `Missed twice in a row — down to ${reduced} kg to build back.`,
       };
     }
     const step = incrementFor(meta);
@@ -379,7 +390,13 @@ export function suggestedWeight(
   if (w === null || w <= 0) return null;
   if (!isDeload) return w;
   // Deload: about 70% of working weight, on a loadable increment.
-  // Bodyweight exercises with added weight use their own smaller steps.
+  // Bodyweight exercises with added weight use their own smaller steps. Small
+  // added weights (one step or less after deload) drop to 0. Loaded exercises
+  // floor at one step.
   const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta) : incrementFor(meta);
-  return Math.max(step, roundTo(w * 0.7, step));
+  const deloaded = roundTo(w * 0.7, step);
+  if (meta.isBodyweight) {
+    return deloaded <= step ? 0 : deloaded;
+  }
+  return Math.max(step, deloaded);
 }
