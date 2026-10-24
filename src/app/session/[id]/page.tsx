@@ -190,6 +190,7 @@ export default async function SessionPage({
     // are exactly what is worth warming up.
     injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region),
     track: profileRes.data?.primary_track ?? "weights",
+    hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
     availableEquipment: profileRes.data?.has_all_equipment
       ? null
       : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
@@ -200,6 +201,10 @@ export default async function SessionPage({
     stretches: allWarmupRows,
     trainingMuscles,
     injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region),
+    hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
+    availableEquipment: profileRes.data?.has_all_equipment
+      ? null
+      : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
   });
 
   const s = settingsRes.data;
