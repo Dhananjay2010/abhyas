@@ -45,8 +45,8 @@ console.log('\n3. Aria-labels are present and correct');
 
 console.log('\n4. Disabled state at bounds');
 {
-  check('atMin constant exists', source.includes('const atMin = value <= min'));
-  check('atMax constant exists', source.includes('const atMax = value >= max'));
+  check('atMin constant exists (now uses currentValue)', source.includes('const atMin = currentValue <= min'));
+  check('atMax constant exists (now uses currentValue)', source.includes('const atMax = currentValue >= max'));
   check('decrease button disabled at min', 
     source.includes('disabled={disabled || atMin}'));
   check('increase button disabled at max',
@@ -125,8 +125,8 @@ console.log('\n11. Race condition fix: step from typed value when editing');
 {
   check('parseValue helper exists',
     source.includes('const parseValue = (str: string): number'));
-  check('parseValue uses parseInt for reps',
-    source.includes("if (kind === 'reps')") && source.includes('parseInt(str, 10)'));
+  check('parseValue uses parseInt for reps (after normalizing)',
+    !!source.match(/parseValue[\s\S]*?if \(kind === ['"]reps['"]\)[\s\S]*?parseInt\(normalized, 10\)/));
   check('handleDecrease checks isEditing',
     source.includes('if (isEditing)'));
   const isEditingMatches = source.match(/if \(isEditing\)/g);
@@ -145,7 +145,53 @@ console.log('\n12. nextFn results are clamped');
     clampMatches !== null && clampMatches.length >= 2);
 }
 
-console.log('\n13. Component structure');
+console.log('\n13. MEDIUM 1: displayValue updated after step (blur does not revert)');
+{
+  check('handleDecrease calls setDisplayValue(String(clamped))',
+    !!source.match(/const handleDecrease[\s\S]*?setDisplayValue\(String\(clamped\)\)/));
+  check('handleIncrease calls setDisplayValue(String(clamped))',
+    !!source.match(/const handleIncrease[\s\S]*?setDisplayValue\(String\(clamped\)\)/));
+  const setDisplayValueMatches = source.match(/setDisplayValue\(String\(clamped\)\)/g);
+  check('setDisplayValue(String(clamped)) appears at least twice (once per step handler)',
+    setDisplayValueMatches !== null && setDisplayValueMatches.length >= 2);
+}
+
+console.log('\n14. LOW b: disabled state based on typed value, not committed prop');
+{
+  check('getCurrentValue helper exists',
+    source.includes('const getCurrentValue = ()'));
+  check('getCurrentValue checks isEditing',
+    !!source.match(/getCurrentValue[\s\S]*?if \(isEditing\)/));
+  check('getCurrentValue parses displayValue when editing',
+    !!source.match(/getCurrentValue[\s\S]*?parseValue\(displayValue\)/));
+  check('currentValue is computed from getCurrentValue',
+    source.includes('const currentValue = getCurrentValue()'));
+  check('atMin uses currentValue (not value)',
+    source.includes('const atMin = currentValue <= min'));
+  check('atMax uses currentValue (not value)',
+    source.includes('const atMax = currentValue >= max'));
+}
+
+console.log('\n15. LOW c: parse comma decimal (62,5 → 62.5)');
+{
+  check('parseValue normalizes comma to dot',
+    !!source.match(/parseValue[\s\S]*?replace\(['"],['"],\s*['"]\.['"]\)/));
+  check('replace is applied to input string (str becomes normalized)',
+    !!source.match(/parseValue[\s\S]*?const normalized = str\.replace\(['"],['"],\s*['"]\.['"]\)/));
+}
+
+console.log('\n16. LOW d: no duplicate sr-only style');
+{
+  check('aria-live span has sr-only class',
+    source.includes('aria-live="polite"') && 
+    !!source.match(/aria-live="polite"[\s\S]{0,100}className="sr-only"/));
+  check('sr-only span has NO inline style attribute (FIXED)',
+    !source.match(/aria-live="polite"[\s\S]*?className="sr-only"[\s\S]*?style=\{/));
+  check('position: absolute is NOT in sr-only span',
+    !source.match(/className="sr-only"[\s\S]{0,200}position: ['"]absolute['"]/));
+}
+
+console.log('\n17. Component structure');
 {
   check("exports 'use client' directive", source.startsWith("'use client'"));
   check('exports StepperInput function', source.includes('export function StepperInput'));
