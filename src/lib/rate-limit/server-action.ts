@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
-import { checkRateLimit, getClientIp, createRateLimitKey, type RateLimitType } from "./index";
+import { checkRateLimit, createRateLimitKey, type RateLimitType } from "./index";
+import { getSessionUser } from "@/lib/supabase/auth";
 
 type ActionResult<T = unknown> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
@@ -8,14 +9,15 @@ type ActionResult<T = unknown> =
 /**
  * Check rate limit within a server action.
  * 
+ * Automatically keys by userId for authenticated users, IP for unauthenticated.
  * Returns an error result when limit is exceeded.
  * Call this at the start of server actions that need rate limiting.
  * 
  * @example
  * ```ts
  * export async function expensiveAction(): Promise<ActionResult> {
- *   const rateLimit = await checkActionRateLimit("expensive", userId);
- *   if (!rateLimit.ok) return rateLimit;
+ *   const rateLimit = await checkActionRateLimit("expensive");
+ *   if (rateLimit) return rateLimit;
  *   
  *   // action implementation
  * }
@@ -23,7 +25,6 @@ type ActionResult<T = unknown> =
  */
 export async function checkActionRateLimit(
   type: RateLimitType = "default",
-  userId?: string,
 ): Promise<ActionResult | null> {
   const headersList = await headers();
   
@@ -38,7 +39,9 @@ export async function checkActionRateLimit(
     ip = realIp;
   }
 
-  const key = createRateLimitKey(ip, userId);
+  // Key by userId for authenticated users, IP for unauthenticated
+  const user = await getSessionUser();
+  const key = createRateLimitKey(ip, user?.id);
   const result = await checkRateLimit(key, type);
 
   if (!result.success) {

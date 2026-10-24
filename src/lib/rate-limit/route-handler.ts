@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIp, createRateLimitKey, type RateLimitType } from "./index";
 
+type RateLimiters = Awaited<ReturnType<typeof import("./index").createTestLimiters>>;
+
 /**
  * Wrapper for Next.js route handlers that applies rate limiting.
  * 
@@ -21,16 +23,17 @@ export function withRateLimit<T extends Request>(
   options: {
     type?: RateLimitType;
     getUserId?: (request: T) => Promise<string | undefined>;
+    limiterOverride?: RateLimiters | null;
   } = {},
 ): (request: T, context?: unknown) => Promise<Response> {
-  const { type = "default", getUserId } = options;
+  const { type = "default", getUserId, limiterOverride } = options;
 
   return async (request: T, context?: unknown): Promise<Response> => {
     const ip = getClientIp(request);
     const userId = getUserId ? await getUserId(request) : undefined;
     const key = createRateLimitKey(ip, userId);
 
-    const result = await checkRateLimit(key, type);
+    const result = await checkRateLimit(key, type, limiterOverride);
 
     if (!result.success) {
       return NextResponse.json(

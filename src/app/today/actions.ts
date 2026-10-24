@@ -19,11 +19,11 @@ export type BuildPlanResult = { ok: true } | { ok: false; error: string };
  * there is no block yet (the "Build my first block" path) it builds block 1.
  */
 export async function buildPlan(): Promise<BuildPlanResult> {
+  const rateLimit = await checkActionRateLimit("expensive");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
-  
-  const rateLimit = await checkActionRateLimit("expensive", user.id);
-  if (rateLimit) return rateLimit;
 
   const result = await createBlockForUser(supabase, user.id, { mode: "rebuild" });
   if (!result.ok) return { ok: false, error: result.error };

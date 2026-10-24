@@ -1,23 +1,23 @@
-#!/usr/bin/env tsx
 /**
- * Test rate limiting logic.
+ * Test rate limiting logic using the REAL limiter with in-memory backend.
  *
- * Tests the rate limiter's behavior in no-store mode (when Redis is not configured)
- * and validates the IP extraction and key generation logic.
+ * Tests the rate limiter's behavior with an actual limit, plus no-store fallback,
+ * fail-open on errors, and IP extraction logic.
  */
 
-import { strict as assert } from "assert";
-
-// Store original env vars to restore later
+// Clear Redis config to test no-op mode first
 const originalUrl = process.env.UPSTASH_REDIS_REST_URL;
 const originalToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-// Clear Redis config to test no-op mode
 delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
-// Now import the rate limit module (it will run in no-op mode)
-import { checkRateLimit, getClientIp, createRateLimitKey, type RateLimitType } from "../src/lib/rate-limit/index";
+import {
+  checkRateLimit,
+  getClientIp,
+  createRateLimitKey,
+  createTestLimiters,
+  type RateLimitType,
+} from "../src/lib/rate-limit/index";
 
 let failures = 0;
 
@@ -27,7 +27,6 @@ function check(label: string, ok: boolean, detail = "") {
 }
 
 async function runTests() {
-
   console.log("\n1. No-store fallback always returns success");
   {
     const result = await checkRateLimit("test-key", "default");
@@ -63,38 +62,104 @@ async function runTests() {
   console.log("\n3. Rate limit key generation");
   {
     check("uses IP when no user ID", createRateLimitKey("1.2.3.4") === "1.2.3.4");
+    check("uses userId when provided", createRateLimitKey("1.2.3.4", "user-123") === "user-123");
     check(
-      "combines IP and user ID",
-      createRateLimitKey("1.2.3.4", "user-123") === "1.2.3.4:user-123"
+      "IP hopping doesn't matter with userId",
+      createRateLimitKey("5.6.7.8", "user-123") === "user-123"
     );
   }
 
-  console.log("\n4. Different rate limit types");
+  console.log("\n4. Test limiter enforces limits");
   {
+    const testLimiters = createTestLimiters({
+      default: { limit: 3, window: "1 m" },
+    });
+
+    const key = "test-user";
+    
+    // First 3 requests should succeed
+    for (let i = 1; i <= 3; i++) {
+      const result = await checkRateLimit(key, "default", testLimiters);
+      check(`request ${i}/3 succeeds`, result.success === true);
+      check(`remaining is ${3 - i}`, result.remaining === 3 - i);
+    }
+    
+    // 4th request should be rate limited
+    const blocked = await checkRateLimit(key, "default", testLimiters);
+    check("request 4/3 is blocked", blocked.success === false);
+    check("retryAfter is set", blocked.retryAfter !== undefined && blocked.retryAfter > 0);
+  }
+
+  console.log("\n5. Different rate limit types work");
+  {
+    const testLimiters = createTestLimiters({
+      auth: { limit: 2, window: "1 m" },
+      session: { limit: 5, window: "1 m" },
+      expensive: { limit: 1, window: "1 m" },
+      default: { limit: 3, window: "1 m" },
+    });
+
     const types: RateLimitType[] = ["auth", "session", "expensive", "default"];
     for (const type of types) {
-      const result = await checkRateLimit("test-key", type);
+      const result = await checkRateLimit(`key-${type}`, type, testLimiters);
       check(`type ${type} works`, result.success === true);
     }
   }
 
-  console.log("\n5. Multiple calls succeed in no-op mode");
+  console.log("\n6. Separate keys have separate buckets");
   {
-    let allSucceed = true;
-    for (let i = 0; i < 150; i++) {
-      const result = await checkRateLimit("burst-test", "default");
-      if (!result.success) {
-        allSucceed = false;
-        break;
-      }
-    }
-    check("150 rapid calls all succeed", allSucceed);
+    const testLimiters = createTestLimiters({
+      default: { limit: 2, window: "1 m" },
+    });
+
+    // Exhaust limit for user1
+    await checkRateLimit("user1", "default", testLimiters);
+    await checkRateLimit("user1", "default", testLimiters);
+    const user1Blocked = await checkRateLimit("user1", "default", testLimiters);
+    check("user1 is blocked after 2 requests", user1Blocked.success === false);
+
+    // user2 should still have quota
+    const user2First = await checkRateLimit("user2", "default", testLimiters);
+    check("user2 is not blocked", user2First.success === true);
   }
 
-  console.log("\n6. retryAfter is not set on success");
+  console.log("\n7. Fail-open on error (simulated)");
   {
-    const result = await checkRateLimit("test-key", "default");
-    check("retryAfter is undefined", result.retryAfter === undefined);
+    // Test that checkRateLimit handles errors gracefully
+    const faultyLimiter = {
+      auth: {
+        limit: async () => {
+          throw new Error("Simulated Upstash outage");
+        },
+      },
+      session: { limit: async () => ({ success: true, limit: 100, remaining: 99, reset: Date.now(), pending: Promise.resolve() }) },
+      expensive: { limit: async () => ({ success: true, limit: 10, remaining: 9, reset: Date.now(), pending: Promise.resolve() }) },
+      default: { limit: async () => ({ success: true, limit: 30, remaining: 29, reset: Date.now(), pending: Promise.resolve() }) },
+    };
+
+    const result = await checkRateLimit("test-key", "auth", faultyLimiter as unknown as ReturnType<typeof createTestLimiters>);
+    check("request succeeds despite error", result.success === true);
+    check("limit is Infinity on error", result.limit === Infinity);
+  }
+
+  console.log("\n8. Fail-open on timeout (simulated)");
+  {
+    // Test that checkRateLimit times out slow responses
+    const slowLimiter = {
+      auth: {
+        limit: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 5000)); // 5s > 2s timeout
+          return { success: true, limit: 60, remaining: 59, reset: Date.now(), pending: Promise.resolve() };
+        },
+      },
+      session: { limit: async () => ({ success: true, limit: 100, remaining: 99, reset: Date.now(), pending: Promise.resolve() }) },
+      expensive: { limit: async () => ({ success: true, limit: 10, remaining: 9, reset: Date.now(), pending: Promise.resolve() }) },
+      default: { limit: async () => ({ success: true, limit: 30, remaining: 29, reset: Date.now(), pending: Promise.resolve() }) },
+    };
+
+    const result = await checkRateLimit("test-key", "auth", slowLimiter as unknown as ReturnType<typeof createTestLimiters>);
+    check("request succeeds despite timeout", result.success === true);
+    check("limit is Infinity on timeout", result.limit === Infinity);
   }
 
   if (failures > 0) {

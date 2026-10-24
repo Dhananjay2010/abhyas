@@ -12,11 +12,11 @@ export async function logBodyWeight(weightKg: number): Promise<LogWeightResult> 
     return { ok: false, error: "Weight should be between 25 and 300 kg." };
   }
 
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
-  
-  const rateLimit = await checkActionRateLimit("default", user.id);
-  if (rateLimit) return rateLimit;
 
   const { data: profile } = await supabase
     .from("profiles")

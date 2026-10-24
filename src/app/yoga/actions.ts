@@ -18,11 +18,11 @@ export type Result = { ok: true } | { ok: false; error: string };
  * exactly like a strength session.
  */
 export async function markYogaVideoDone(videoId: string): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
-  
-  const rateLimit = await checkActionRateLimit("default", user.id);
-  if (rateLimit) return rateLimit;
 
   const { data: video } = await supabase
     .from("yoga_videos")
