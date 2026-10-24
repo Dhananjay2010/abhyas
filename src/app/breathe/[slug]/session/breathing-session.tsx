@@ -1394,7 +1394,7 @@ function Practice({
             <h2 id="pause-title" className="text-xl font-semibold tracking-tight">
               Paused
             </h2>
-            <p className="mt-1 text-sm text-breath-ink/70">
+            <p className="mt-1 text-base text-breath-ink">
               {view.sub === "settle"
                 ? "You have not started yet."
                 : view.sub === "winddown"
