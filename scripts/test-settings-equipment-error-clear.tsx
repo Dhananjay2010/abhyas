@@ -99,8 +99,8 @@ async function runTest() {
 
   await act(async () => { await user.click(dumbbellChip); });
 
-  // Wait for save to complete
-  await new Promise(resolve => setTimeout(resolve, 100));
+  // Wait for save to complete and UI to update
+  await new Promise(resolve => setTimeout(resolve, 300));
 
   // Check that error is visible
   let statusDiv = container.querySelector('[role="status"]');
