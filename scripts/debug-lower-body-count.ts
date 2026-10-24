@@ -9,7 +9,7 @@ const catalogue: CandidateExercise[] = JSON.parse(
 const input: GeneratorInput = {
   userId: "test-user",
   blockNumber: 1,
-  goal: "general_fitness",
+  goal: "muscle_gain",
   level: "beginner",
   primaryTrack: "gym",
   daysPerWeek: 2,
