@@ -5,7 +5,7 @@
  *   npx tsx scripts/test-feel-null.ts
  */
 
-import { finishExerciseCore, type SupabaseClient } from "../src/lib/session/finish-exercise";
+import { finishExerciseCore } from "../src/lib/session/finish-exercise";
 
 let passed = 0;
 let failed = 0;
@@ -22,18 +22,16 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-interface FakeSupabase extends SupabaseClient {
-  storedFeel: unknown;
-}
-
-function makeFakeSupabase(): FakeSupabase {
-  const fake: FakeSupabase = {
-    storedFeel: undefined,
+function makeFakeSupabase() {
+  const storedFeel: { value: unknown } = { value: undefined };
+  
+  return {
+    get storedFeel() { return storedFeel.value; },
     from: (table: string) => {
       if (table !== "session_exercises") throw new Error(`Unexpected table: ${table}`);
       return {
         update: (payload: { feel: unknown; status: string; completed_at: string }) => {
-          fake.storedFeel = payload.feel;
+          storedFeel.value = payload.feel;
           return {
             eq: () => ({
               not: () => ({
@@ -45,7 +43,6 @@ function makeFakeSupabase(): FakeSupabase {
       };
     },
   };
-  return fake;
 }
 
 async function runTests() {

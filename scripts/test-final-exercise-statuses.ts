@@ -5,7 +5,7 @@
  *   npx tsx scripts/test-final-exercise-statuses.ts
  */
 
-import { finishSessionCore, type SupabaseClient } from "../src/lib/session/finish-session";
+import { finishSessionCore } from "../src/lib/session/finish-session";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 
 let passed = 0;
@@ -75,7 +75,7 @@ function makeFakeSupabase(
       throw new Error(`Unexpected table: ${table}`);
     },
   };
-  return fake as unknown as FakeSupabase;
+  return fake;
 }
 
 async function runTests() {

@@ -72,7 +72,7 @@ function makeFakeSupabase(
       throw new Error(`Unexpected table: ${table}`);
     },
   };
-  return fake as unknown as FakeSupabase;
+  return fake;
 }
 
 async function runTests() {

@@ -9,7 +9,7 @@
  *   npx tsx scripts/test-abandon-session.ts
  */
 
-import { decideAbandonStatus, abandonSessionCore, type SessionExercise, type SupabaseClient } from "../src/lib/session/abandon-session";
+import { decideAbandonStatus, abandonSessionCore, type SessionExercise } from "../src/lib/session/abandon-session";
 import { buildDayRecords, computeStreaks } from "../src/lib/progress/streaks";
 import { pickReusableSession } from "../src/lib/session/reusable-session";
 
@@ -119,7 +119,7 @@ console.log("\n4. abandonSessionCore: applies status and duration once");
   ]);
   fake.setSession("sess1", "in_progress");
 
-  await abandonSessionCore(fake as unknown as SupabaseClient, "sess1", 1234.5);
+  await abandonSessionCore(fake, "sess1", 1234.5);
   
   const session = fake.getSession("sess1");
   check("status is completed", session?.status === "completed", session?.status);
@@ -135,10 +135,10 @@ console.log("\n5. abandonSessionCore: second call is no-op");
   ]);
   fake.setSession("sess2", "in_progress");
 
-  await abandonSessionCore(fake as unknown as SupabaseClient, "sess2", 600);
+  await abandonSessionCore(fake, "sess2", 600);
   const after1 = fake.getSession("sess2");
   
-  await abandonSessionCore(fake as unknown as SupabaseClient, "sess2", 900); // retry with different duration
+  await abandonSessionCore(fake, "sess2", 900); // retry with different duration
   const after2 = fake.getSession("sess2");
   
   check("duration unchanged on retry", after1?.duration_seconds === after2?.duration_seconds, `${after1?.duration_seconds} vs ${after2?.duration_seconds}`);
@@ -150,19 +150,19 @@ console.log("\n6. abandonSessionCore: duration clamped to 0..6 hours");
   const fake1 = new FakeSupabase();
   fake1.setSessionExercises("neg", [{ session_sets: [{ id: "s1", is_warmup_set: false }] }]);
   fake1.setSession("neg", "in_progress");
-  await abandonSessionCore(fake1 as unknown as SupabaseClient, "neg", -100);
+  await abandonSessionCore(fake1, "neg", -100);
   check("negative duration clamped to 0", fake1.getSession("neg")?.duration_seconds === 0, String(fake1.getSession("neg")?.duration_seconds));
 
   const fake2 = new FakeSupabase();
   fake2.setSessionExercises("huge", [{ session_sets: [{ id: "s1", is_warmup_set: false }] }]);
   fake2.setSession("huge", "in_progress");
-  await abandonSessionCore(fake2 as unknown as SupabaseClient, "huge", 50000);
+  await abandonSessionCore(fake2, "huge", 50000);
   check("50000 seconds clamped to 21600 (6 hours)", fake2.getSession("huge")?.duration_seconds === 21600, String(fake2.getSession("huge")?.duration_seconds));
 
   const fake3 = new FakeSupabase();
   fake3.setSessionExercises("frac", [{ session_sets: [{ id: "s1", is_warmup_set: false }] }]);
   fake3.setSession("frac", "in_progress");
-  await abandonSessionCore(fake3 as unknown as SupabaseClient, "frac", 123.7);
+  await abandonSessionCore(fake3, "frac", 123.7);
   check("fractional seconds rounded", fake3.getSession("frac")?.duration_seconds === 124, String(fake3.getSession("frac")?.duration_seconds));
 }
 
