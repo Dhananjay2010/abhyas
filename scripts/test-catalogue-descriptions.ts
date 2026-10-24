@@ -71,7 +71,8 @@ async function main() {
   console.log('Test 1: Capturing pre-migration upper-body cues...\n');
   
   const upperBodyExercises = await db.query<{slug: string; cue: string; category: string; movement_pattern: string}>(
-    `SELECT slug, cue, category, movement_pattern FROM exercises WHERE movement_pattern IN ('push', 'pull')`
+    `SELECT slug, cue, category, movement_pattern FROM exercises 
+     WHERE movement_pattern IN ('horizontal_press', 'vertical_press', 'horizontal_pull', 'vertical_pull', 'biceps', 'triceps', 'lateral_delt', 'rear_delt', 'forearm', 'neck')`
   );
   
   const upperBodyCues = new Map(upperBodyExercises.rows.map(r => [r.slug, r.cue]));
@@ -128,7 +129,7 @@ async function main() {
     equipment: string | null;
   }>(
     `SELECT slug, cue, mechanic, movement_pattern, primary_muscles, equipment FROM exercises 
-     WHERE category NOT IN ('push', 'pull')`
+     WHERE movement_pattern NOT IN ('push', 'pull')`
   );
   
   const ALL_EQUIPMENT_IDS = Object.keys(EQUIPMENT_LABEL);
