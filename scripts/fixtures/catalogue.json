@@ -3687,6 +3687,29 @@
     "default_rest_seconds": 120
   },
   {
+    "id": "6261fc86-6fdb-43d9-99e2-647050f2ffa8",
+    "slug": "doorway-row",
+    "name": "Doorway Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats",
+      "upper_back"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120
+  },
+  {
     "id": "4912e502-e218-4cfc-8837-ad47eb3a8993",
     "slug": "double-kettlebell-alternating-hang-clean",
     "name": "Double Kettlebell Alternating Hang Clean",
@@ -5436,6 +5459,28 @@
     "default_rest_seconds": 120
   },
   {
+    "id": "52078e7e-174e-4120-a3ce-a0264eec03c0",
+    "slug": "glute-bridge",
+    "name": "Glute Bridge",
+    "movement_pattern": "hinge",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "glutes",
+      "hamstrings"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 90
+  },
+  {
     "id": "777a02f3-d55e-488f-b2dd-bd22e5730ed4",
     "slug": "glute-ham-raise",
     "name": "Glute Ham Raise",
@@ -6288,6 +6333,31 @@
       "bodyweight"
     ],
     "default_rest_seconds": 75
+  },
+  {
+    "id": "a1a99728-03be-4089-81d0-78a722aa36f3",
+    "slug": "inverted-row",
+    "name": "Inverted Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats",
+      "upper_back"
+    ],
+    "equipment_ids": [
+      "pull_up_bar"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120
   },
   {
     "id": "39a4eee0-b654-4177-9333-0a8349820002",
@@ -9327,6 +9397,30 @@
       "bodyweight"
     ],
     "default_rest_seconds": 120
+  },
+  {
+    "id": "525ae733-77f2-49ff-aa03-85be54cf8c89",
+    "slug": "pike-push-up",
+    "name": "Pike Push-Up",
+    "movement_pattern": "vertical_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "front_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 90
   },
   {
     "id": "99bd2b9f-bc71-422d-90a2-4edc47907410",
