@@ -19,10 +19,60 @@ export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
 
-// Minimal Supabase client interface
-export interface SupabaseClient {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  from: (table: string) => any;
+// Database client interface for abandon-session operations
+export interface AbandonSessionClient {
+  from(table: "session_exercises"): SessionExercisesQueryBuilder;
+  from(table: "sessions"): SessionsQueryBuilder;
+}
+
+interface SessionExercisesQueryBuilder {
+  select(columns: "session_sets(id, is_warmup_set)"): SessionExercisesSelectBuilder;
+  select(columns: "id, planned_sets, status, session_sets(id, is_warmup_set)"): SessionExercisesStatusSelectBuilder;
+}
+
+interface SessionExercisesSelectBuilder {
+  eq(column: "session_id", value: string): Promise<{
+    data: Array<{
+      session_sets: Array<{
+        id: string;
+        is_warmup_set: boolean;
+      }> | null;
+    }> | null;
+    error: { message: string } | null;
+  }>;
+}
+
+interface SessionExercisesStatusSelectBuilder {
+  eq(column: "session_id", value: string): Promise<{
+    data: Array<{
+      id: string;
+      planned_sets: number;
+      status: string;
+      session_sets: Array<{
+        id: string;
+        is_warmup_set: boolean;
+      }> | null;
+    }> | null;
+    error: { message: string } | null;
+  }>;
+}
+
+interface SessionsQueryBuilder {
+  update(data: {
+    status: string;
+    completed_at: string | null;
+    duration_seconds: number;
+  }): SessionsUpdateBuilder;
+}
+
+interface SessionsUpdateBuilder {
+  eq(column: "id", value: string): SessionsUpdateChain;
+}
+
+interface SessionsUpdateChain {
+  eq(column: "status", value: string): Promise<{
+    error: { message: string } | null;
+  }>;
 }
 
 /**
@@ -57,7 +107,7 @@ export function decideAbandonStatus(
  * Alternative would be a new status like "partial" that's resumable but counts.
  */
 export async function abandonSessionCore(
-  supabase: SupabaseClient,
+  supabase: AbandonSessionClient,
   sessionId: string,
   elapsedSeconds: number,
 ): Promise<Result<{ status: "completed" | "skipped" }>> {
@@ -89,13 +139,6 @@ export async function abandonSessionCore(
   if (error) return { ok: false, error: error.message };
 
   // Update exercise statuses based on logged vs planned sets
-  type ExerciseForStatusUpdate = {
-    id: string;
-    planned_sets: number;
-    status: string;
-    session_sets: { id: string; is_warmup_set: boolean }[] | null;
-  };
-
   const { data: exercisesForStatus, error: exerciseReadError } = await supabase
     .from("session_exercises")
     .select("id, planned_sets, status, session_sets(id, is_warmup_set)")
@@ -106,7 +149,7 @@ export async function abandonSessionCore(
   }
 
   // Update each exercise status if still pending
-  for (const ex of (exercisesForStatus ?? []) as ExerciseForStatusUpdate[]) {
+  for (const ex of exercisesForStatus ?? []) {
     if (ex.status !== "pending") continue;
 
     const workingSets = (ex.session_sets ?? []).filter((s) => !s.is_warmup_set).length;

@@ -7,36 +7,82 @@ export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
 
-// Minimal Supabase client interface
-export interface SupabaseClient {
-  from: (table: string) => SupabaseQueryBuilder;
+// Database client interface for finish-session operations
+export interface FinishSessionClient {
+  from(table: "sessions"): SessionsQueryBuilder;
+  from(table: "session_exercises"): SessionExercisesQueryBuilder;
 }
 
-// Narrow a Supabase-like client to our minimal interface
-// This validates the structure without unsafe casts
-export function narrowToSupabaseClient<T extends { from: (...args: unknown[]) => unknown }>(
-  client: T
-): SupabaseClient {
-  return {
-    from: (table: string) => client.from(table) as ReturnType<SupabaseClient["from"]>,
-  };
+interface SessionsQueryBuilder {
+  select(columns: "started_at, local_date, timezone"): SessionsSelectBuilder;
+  select(columns: "status"): SessionsStatusSelectBuilder;
+  update(
+    data: {
+      status: string;
+      completed_at: string | null;
+      duration_seconds: number;
+      cooldown_completed?: boolean;
+    },
+    options: { count: "exact" }
+  ): SessionsUpdateBuilder;
 }
 
-interface SupabaseQueryBuilder {
-  select: (columns: string) => SupabaseSelectBuilder;
-  update: (data: Record<string, unknown>, options?: { count: string }) => SupabaseUpdateBuilder;
+interface SessionsSelectBuilder {
+  eq(column: "id", value: string): Promise<{
+    data: Array<{ started_at: string; local_date: string; timezone: string }> | null;
+    error: { message: string } | null;
+  }>;
 }
 
-interface SupabaseSelectBuilder {
-  eq: (column: string, value: unknown) => Promise<{ data: unknown; error: { message: string } | null }>;
+interface SessionsStatusSelectBuilder {
+  eq(column: "id", value: string): Promise<{
+    data: Array<{ status: "completed" | "skipped" | "in_progress" }> | null;
+    error: { message: string } | null;
+  }>;
 }
 
-interface SupabaseUpdateBuilder {
-  eq: (column: string, value: unknown) => SupabaseUpdateChain;
+interface SessionsUpdateBuilder {
+  eq(column: "id", value: string): SessionsUpdateChain;
 }
 
-interface SupabaseUpdateChain {
-  eq: (column: string, value: unknown) => Promise<{ error: { message: string } | null; count: number | null }>;
+interface SessionsUpdateChain {
+  eq(column: "status", value: string): Promise<{
+    error: { message: string } | null;
+    count: number | null;
+  }>;
+}
+
+interface SessionExercisesQueryBuilder {
+  select(columns: "session_sets(id, is_warmup_set, completed_at)"): SessionExercisesSelectBuilder;
+  select(columns: "id, planned_sets, status, session_sets(id, is_warmup_set)"): SessionExercisesStatusSelectBuilder;
+}
+
+interface SessionExercisesSelectBuilder {
+  eq(column: "session_id", value: string): Promise<{
+    data: Array<{
+      session_sets: Array<{
+        id: string;
+        is_warmup_set: boolean;
+        completed_at: string | null;
+      }> | null;
+    }> | null;
+    error: { message: string } | null;
+  }>;
+}
+
+interface SessionExercisesStatusSelectBuilder {
+  eq(column: "session_id", value: string): Promise<{
+    data: Array<{
+      id: string;
+      planned_sets: number;
+      status: string;
+      session_sets: Array<{
+        id: string;
+        is_warmup_set: boolean;
+      }> | null;
+    }> | null;
+    error: { message: string } | null;
+  }>;
 }
 
 /**
@@ -54,7 +100,7 @@ interface SupabaseUpdateChain {
  * at the last logged set instead of recording unrealistic times.
  */
 export async function finishSessionCore(
-  supabase: SupabaseClient,
+  supabase: FinishSessionClient,
   params: {
     sessionId: string;
     durationSeconds: number;
@@ -70,7 +116,7 @@ export async function finishSessionCore(
   if (sessionError) return { ok: false, error: sessionError.message };
 
   const session = Array.isArray(sessionData) && sessionData.length > 0
-    ? (sessionData[0] as { started_at: string; local_date: string; timezone: string })
+    ? sessionData[0]
     : null;
 
   if (!session) return { ok: false, error: "Session not found" };
@@ -83,22 +129,11 @@ export async function finishSessionCore(
 
   if (readError) return { ok: false, error: readError.message };
 
-  // Cast to our extended type that includes completed_at
-  type SessionSetWithTimestamp = {
-    id: string;
-    is_warmup_set: boolean;
-    completed_at: string | null;
-  };
-
-  type SessionExerciseWithTimestamp = {
-    session_sets: SessionSetWithTimestamp[] | null;
-  };
-
   // Count working sets and find the last logged set timestamp
   let workingSetCount = 0;
   let lastSetCompletedAt: string | null = null;
 
-  for (const exercise of (exercises ?? []) as SessionExerciseWithTimestamp[]) {
+  for (const exercise of exercises ?? []) {
     for (const set of exercise.session_sets ?? []) {
       if (!set.is_warmup_set) {
         workingSetCount++;
@@ -135,7 +170,7 @@ export async function finishSessionCore(
     durationSeconds = staleFinish.durationSeconds;
   } else {
     // Normal finish: use now and client-provided duration
-    status = decideAbandonStatus((exercises ?? []) as SessionExercise[]);
+    status = decideAbandonStatus(exercises ?? []);
     endedAt = now;
     durationSeconds = params.durationSeconds;
   }
@@ -168,22 +203,13 @@ export async function finishSessionCore(
       .eq("id", params.sessionId);
 
     if (rereadError) return { ok: false, error: rereadError.message };
+    if (!session || session.length === 0) return { ok: false, error: "Session not found on re-read" };
 
-    const actualStatus = Array.isArray(session) && session.length > 0
-      ? (session[0] as { status: string }).status
-      : "skipped";
-
-    return { ok: true, data: { status: actualStatus as "completed" | "skipped" } };
+    const actualStatus = session[0].status;
+    return { ok: true, data: { status: actualStatus } };
   }
 
   // Update exercise statuses based on logged vs planned sets
-  type ExerciseForStatusUpdate = {
-    id: string;
-    planned_sets: number;
-    status: string;
-    session_sets: { id: string; is_warmup_set: boolean }[] | null;
-  };
-
   const { data: exercisesForStatus, error: exerciseReadError } = await supabase
     .from("session_exercises")
     .select("id, planned_sets, status, session_sets(id, is_warmup_set)")
@@ -194,7 +220,7 @@ export async function finishSessionCore(
   }
 
   // Update each exercise status if still pending
-  for (const ex of (exercisesForStatus ?? []) as ExerciseForStatusUpdate[]) {
+  for (const ex of exercisesForStatus ?? []) {
     if (ex.status !== "pending") continue;
 
     const workingSets = (ex.session_sets ?? []).filter((s) => !s.is_warmup_set).length;

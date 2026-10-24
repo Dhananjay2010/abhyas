@@ -504,8 +504,7 @@ export async function finishSession(input: {
   // route, whose "completed -> redirect to /today" guard then fires before the
   // client can show the summary, so the user never saw their totals or what
   // progression changed. Today is refreshed when they leave the summary.
-  const { narrowToSupabaseClient } = await import("@/lib/session/finish-session");
-  return await finishSessionCore(narrowToSupabaseClient(supabase), input);
+  return await finishSessionCore(supabase, input);
 }
 
 /**

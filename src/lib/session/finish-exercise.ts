@@ -12,11 +12,32 @@ export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
 
-// Minimal Supabase client interface needed by the core function.
-// Uses `any` to avoid type conflicts with the actual Supabase client.
-export interface SupabaseClient {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  from: (table: string) => any;
+// Database client interface for finish-exercise operations
+export interface FinishExerciseClient {
+  from(table: "session_exercises"): SessionExercisesQueryBuilder;
+}
+
+interface SessionExercisesQueryBuilder {
+  update(data: {
+    status: string;
+    feel: SetFeel | null;
+    completed_at: string;
+  }): SessionExercisesUpdateBuilder;
+}
+
+interface SessionExercisesUpdateBuilder {
+  eq(column: "id", value: string): SessionExercisesUpdateChain;
+}
+
+interface SessionExercisesUpdateChain {
+  not(column: "status", operator: "in", value: string): SessionExercisesSelect;
+}
+
+interface SessionExercisesSelect {
+  select(columns: "id"): Promise<{
+    data: Array<{ id: string }> | null;
+    error: { message: string } | null;
+  }>;
 }
 
 export interface FinishExerciseDeps {
@@ -37,7 +58,7 @@ export interface FinishExerciseDeps {
  * or repeated calls return success without double-applying.
  */
 export async function finishExerciseCore(
-  supabase: SupabaseClient,
+  supabase: FinishExerciseClient,
   userId: string,
   input: {
     sessionExerciseId: string;

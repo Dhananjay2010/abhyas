@@ -8,7 +8,7 @@
  *   npx tsx scripts/test-0-working-set-rule.ts
  */
 
-import { finishSessionCore, type SupabaseClient } from "../src/lib/session/finish-session";
+import { finishSessionCore, type FinishSessionClient } from "../src/lib/session/finish-session";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 
 let passed = 0;
@@ -34,11 +34,7 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-interface FakeSupabase extends SupabaseClient {
-  calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }>;
-}
-
-function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?: string): FakeSupabase {
+function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?: string) {
   const calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> = [];
 
   // Session metadata for stale detection
