@@ -1,217 +1,246 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import semver from 'semver';
 
-console.log('Testing Node version requirements...');
-
-// Simple semver parser and validator
-type SemverVersion = { major: number; minor: number; patch: number };
-
-function parseSemverVersion(version: string): SemverVersion {
-  const cleaned = version.replace(/^v/, '');
-  const parts = cleaned.split('.').map(p => parseInt(p, 10));
-
-  if (parts.length === 1 && !isNaN(parts[0])) {
-    // Handle major-only versions like "23" -> "23.0.0"
-    return { major: parts[0], minor: 0, patch: 0 };
+/**
+ * Validates that engines.node and .nvmrc meet project requirements.
+ * 
+ * Requirements:
+ * - engines.node must be a valid semver range
+ * - engines.node must be a subset of '>=22.13.0 <23' (no versions outside this range allowed)
+ * - .nvmrc must be a valid version that satisfies engines.node
+ * 
+ * @returns Array of error messages, empty if valid
+ */
+export function validateEngines(
+  enginesNode: string,
+  nvmrc: string
+): string[] {
+  const errors: string[] = [];
+  
+  // Validate engines.node is a valid range
+  if (!semver.validRange(enginesNode)) {
+    errors.push(`engines.node is not a valid semver range: "${enginesNode}"`);
+    return errors; // Can't proceed with invalid range
   }
-
-  if (parts.length === 2 && !parts.some(isNaN)) {
-    // Handle major.minor versions like "22.13" -> "22.13.0"
-    return { major: parts[0], minor: parts[1], patch: 0 };
+  
+  // Check if engines.node is a subset of the required range
+  const requiredRange = '>=22.13.0 <23';
+  
+  // Special case: reject empty or wildcard ranges
+  if (enginesNode.trim() === '' || enginesNode.trim() === '*') {
+    errors.push(`engines.node cannot be empty or wildcard, must restrict to ${requiredRange}`);
+    return errors;
   }
-
-  if (parts.length !== 3 || parts.some(isNaN)) {
-    throw new Error(`Invalid semver version: ${version}`);
+  
+  // Use subset to ensure engines.node doesn't allow any versions outside our required range
+  if (!semver.subset(enginesNode, requiredRange)) {
+    errors.push(`engines.node "${enginesNode}" is not a subset of required range ${requiredRange}`);
   }
-
-  return { major: parts[0], minor: parts[1], patch: parts[2] };
+  
+  // Validate .nvmrc can be coerced to a version
+  const nvmrcVersion = semver.coerce(nvmrc);
+  if (!nvmrcVersion) {
+    errors.push(`Failed to parse .nvmrc version: "${nvmrc}"`);
+    return errors;
+  }
+  
+  // Check if coerced .nvmrc meets minimum requirement
+  if (semver.lt(nvmrcVersion, '22.13.0')) {
+    errors.push(
+      `.nvmrc "${nvmrc}" coerces to ${nvmrcVersion.version} which is below minimum 22.13.0`
+    );
+  }
+  
+  // Check if .nvmrc satisfies engines.node
+  if (!semver.satisfies(nvmrcVersion, enginesNode)) {
+    errors.push(
+      `.nvmrc "${nvmrc}" (${nvmrcVersion.version}) does not satisfy engines.node "${enginesNode}"`
+    );
+  }
+  
+  return errors;
 }
 
-function compareSemver(a: SemverVersion, b: SemverVersion): number {
-  if (a.major !== b.major) return a.major - b.major;
-  if (a.minor !== b.minor) return a.minor - b.minor;
-  return a.patch - b.patch;
-}
-
-function satisfiesRange(version: SemverVersion, rangeStr: string): boolean {
-  // Parse range like ">=22.13.0 <23"
-  const rangeStr_trimmed = rangeStr.trim();
-
-  // Split by whitespace to handle multiple constraints
-  const constraints = rangeStr_trimmed.split(/\s+/);
-
-  for (const constraint of constraints) {
-    if (constraint.startsWith('>=')) {
-      const minVersion = parseSemverVersion(constraint.slice(2));
-      if (compareSemver(version, minVersion) < 0) {
-        return false;
+// Main execution
+if (require.main === module) {
+  console.log('Testing Node version requirements...');
+  
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8'));
+  const nvmrc = readFileSync(join(process.cwd(), '.nvmrc'), 'utf-8').trim();
+  const enginesNode = pkg.engines?.node;
+  
+  if (!enginesNode) {
+    console.error('✗ package.json missing engines.node field');
+    process.exit(1);
+  }
+  
+  console.log(`  .nvmrc: ${nvmrc}`);
+  console.log(`  engines.node: ${enginesNode}`);
+  console.log(`  current Node: ${process.version}`);
+  
+  // Validate engines and .nvmrc
+  const errors = validateEngines(enginesNode, nvmrc);
+  
+  if (errors.length > 0) {
+    console.error('\n✗ Validation failed:');
+    errors.forEach(err => console.error(`  - ${err}`));
+    process.exit(1);
+  }
+  
+  // Validate current Node satisfies engines.node (with prerelease support)
+  const currentVersion = semver.parse(process.version);
+  if (!currentVersion) {
+    console.error(`✗ Failed to parse current Node version: ${process.version}`);
+    process.exit(1);
+  }
+  
+  // For prerelease versions, we need includePrerelease option
+  const satisfiesEngines = semver.satisfies(
+    process.version,
+    enginesNode,
+    { includePrerelease: true }
+  );
+  
+  if (!satisfiesEngines) {
+    console.error(
+      `✗ Current Node version ${process.version} does not satisfy engines.node: ${enginesNode}`
+    );
+    process.exit(1);
+  }
+  
+  console.log('\n✓ Node version requirements validated');
+  console.log('  - engines.node is a subset of >=22.13.0 <23');
+  console.log('  - .nvmrc satisfies engines.node');
+  console.log('  - Current Node satisfies engines.node');
+  
+  // Comprehensive table tests
+  console.log('\n=== Table Tests ===\n');
+  
+  interface TestCase {
+    description: string;
+    enginesNode: string;
+    nvmrc: string;
+    shouldPass: boolean;
+    expectedErrors?: string[];
+  }
+  
+  const testCases: TestCase[] = [
+    // Accept cases
+    {
+      description: 'Valid range >=22.13.0 <23',
+      enginesNode: '>=22.13.0 <23',
+      nvmrc: '22.14.0',
+      shouldPass: true
+    },
+    {
+      description: 'Valid range with space after operator',
+      enginesNode: '>= 22.13.0 <23',
+      nvmrc: '22.14.0',
+      shouldPass: true
+    },
+    {
+      description: 'Caret range ^22.13.0',
+      enginesNode: '^22.13.0',
+      nvmrc: '22.14.0',
+      shouldPass: true
+    },
+    {
+      description: '.nvmrc with v prefix',
+      enginesNode: '>=22.13.0 <23',
+      nvmrc: 'v22.14.0',
+      shouldPass: true
+    },
+    
+    // Reject cases - engines.node issues
+    {
+      description: 'Only upper bound <=23.0.0 (no minimum)',
+      enginesNode: '<=23.0.0',
+      nvmrc: '22.14.0',
+      shouldPass: false
+    },
+    {
+      description: 'OR range allowing 24.x',
+      enginesNode: '>=22.13.0 <23 || >=24',
+      nvmrc: '22.14.0',
+      shouldPass: false
+    },
+    {
+      description: 'Contradictory range',
+      enginesNode: '>=23.0.0 <22.0.0',
+      nvmrc: '22.14.0',
+      shouldPass: false
+    },
+    {
+      description: 'Empty engines.node',
+      enginesNode: '',
+      nvmrc: '22.14.0',
+      shouldPass: false
+    },
+    {
+      description: 'Wildcard engines.node',
+      enginesNode: '*',
+      nvmrc: '22.14.0',
+      shouldPass: false
+    },
+    {
+      description: 'No upper bound >=22',
+      enginesNode: '>=22',
+      nvmrc: '22.14.0',
+      shouldPass: false
+    },
+    {
+      description: 'Upper bound too high >=22.13.0 <24',
+      enginesNode: '>=22.13.0 <24',
+      nvmrc: '22.14.0',
+      shouldPass: false
+    },
+    {
+      description: 'X-range 22.x (not a subset, allows 22.0.0-22.12.x)',
+      enginesNode: '22.x',
+      nvmrc: '22.14.0',
+      shouldPass: false
+    },
+    
+    // Reject cases - .nvmrc issues
+    {
+      description: '.nvmrc major-only "22" coerces to 22.0.0 < 22.13.0',
+      enginesNode: '>=22.13.0 <23',
+      nvmrc: '22',
+      shouldPass: false
+    }
+  ];
+  
+  let passed = 0;
+  let failed = 0;
+  
+  for (const testCase of testCases) {
+    const errors = validateEngines(testCase.enginesNode, testCase.nvmrc);
+    const actualPass = errors.length === 0;
+    
+    if (actualPass === testCase.shouldPass) {
+      passed++;
+      console.log(`✓ ${testCase.description}`);
+      if (!actualPass && errors.length > 0) {
+        console.log(`  └─ Correctly rejected: ${errors[0]}`);
       }
-    } else if (constraint.startsWith('>')) {
-      const minVersion = parseSemverVersion(constraint.slice(1));
-      if (compareSemver(version, minVersion) <= 0) {
-        return false;
-      }
-    } else if (constraint.startsWith('<=')) {
-      const maxVersion = parseSemverVersion(constraint.slice(2));
-      if (compareSemver(version, maxVersion) > 0) {
-        return false;
-      }
-    } else if (constraint.startsWith('<')) {
-      const maxVersion = parseSemverVersion(constraint.slice(1));
-      if (compareSemver(version, maxVersion) >= 0) {
-        return false;
-      }
-    } else if (constraint.startsWith('=')) {
-      const exactVersion = parseSemverVersion(constraint.slice(1));
-      if (compareSemver(version, exactVersion) !== 0) {
-        return false;
-      }
-    } else if (constraint.includes('.')) {
-      // Assume exact version match if it contains a dot
-      const exactVersion = parseSemverVersion(constraint);
-      if (compareSemver(version, exactVersion) !== 0) {
-        return false;
+    } else {
+      failed++;
+      console.error(`✗ ${testCase.description}`);
+      console.error(`  Expected: ${testCase.shouldPass ? 'PASS' : 'FAIL'}`);
+      console.error(`  Got: ${actualPass ? 'PASS' : 'FAIL'}`);
+      if (errors.length > 0) {
+        console.error(`  Errors: ${errors.join('; ')}`);
       }
     }
   }
-
-  return true;
-}
-
-function validateEnginesRange(rangeStr: string): { hasMinimum: boolean; excludes23: boolean; meetsMinimum: boolean } {
-  const rangeStr_trimmed = rangeStr.trim();
-  const constraints = rangeStr_trimmed.split(/\s+/);
-
-  let hasMinimum = false;
-  let meetsMinimum = false;
-  let excludes23 = false;
-
-  const requiredMin = parseSemverVersion('22.13.0');
-  const version23 = parseSemverVersion('23.0.0');
-
-  for (const constraint of constraints) {
-    if (constraint.startsWith('>=')) {
-      hasMinimum = true;
-      const minVersion = parseSemverVersion(constraint.slice(2));
-      if (compareSemver(minVersion, requiredMin) >= 0) {
-        meetsMinimum = true;
-      }
-    }
-
-    if (constraint.startsWith('<')) {
-      const maxVersion = parseSemverVersion(constraint.slice(1));
-      if (compareSemver(version23, maxVersion) >= 0) {
-        excludes23 = true;
-      }
-    }
+  
+  console.log(`\n=== Test Results: ${passed}/${testCases.length} passed ===\n`);
+  
+  if (failed > 0) {
+    console.error(`✗ ${failed} test(s) failed`);
+    process.exit(1);
   }
-
-  return { hasMinimum, excludes23, meetsMinimum };
+  
+  console.log('✓ All table tests passed');
 }
-
-const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8'));
-const nvmrc = readFileSync(join(process.cwd(), '.nvmrc'), 'utf-8').trim();
-const enginesNode = pkg.engines?.node;
-
-if (!enginesNode) {
-  console.error('✗ package.json missing engines.node field');
-  process.exit(1);
-}
-
-console.log(`  .nvmrc: ${nvmrc}`);
-console.log(`  engines.node: ${enginesNode}`);
-console.log(`  current Node: ${process.version}`);
-
-// Parse versions
-let nvmrcVersion: SemverVersion;
-let currentVersion: SemverVersion;
-
-try {
-  nvmrcVersion = parseSemverVersion(nvmrc);
-  currentVersion = parseSemverVersion(process.version);
-} catch (e) {
-  console.error(`✗ Failed to parse version: ${(e as Error).message}`);
-  process.exit(1);
-}
-
-// Required range for running Node and .nvmrc
-const requiredRange = '>=22.13.0 <23';
-
-// Validate .nvmrc satisfies the required range
-if (!satisfiesRange(nvmrcVersion, requiredRange)) {
-  console.error(`✗ .nvmrc version ${nvmrc} does not satisfy required range: ${requiredRange}`);
-  process.exit(1);
-}
-
-// Validate current Node satisfies the required range
-if (!satisfiesRange(currentVersion, requiredRange)) {
-  console.error(`✗ Current Node version ${process.version} does not satisfy required range: ${requiredRange}`);
-  process.exit(1);
-}
-
-// Validate engines.node range
-const engineValidation = validateEnginesRange(enginesNode);
-
-if (!engineValidation.hasMinimum || !engineValidation.meetsMinimum) {
-  console.error(`✗ engines.node must require >=22.13.0, got: ${enginesNode}`);
-  process.exit(1);
-}
-
-if (!engineValidation.excludes23) {
-  console.error(`✗ engines.node must restrict to <23, got: ${enginesNode}`);
-  process.exit(1);
-}
-
-console.log('✓ Node version requirements validated');
-console.log('  - .nvmrc satisfies >=22.13.0 <23');
-console.log('  - Current Node satisfies >=22.13.0 <23');
-console.log('  - engines.node requires >=22.13.0 and excludes 23.x');
-
-// Negative test cases (these should fail on old logic)
-console.log('\nRunning negative test cases...');
-
-const negativeCases = [
-  { version: '22.12.0', shouldFail: true, reason: 'below minimum 22.13.0' },
-  { version: '21.9.0', shouldFail: true, reason: 'major version 21' },
-  { version: '23.0.0', shouldFail: true, reason: 'major version 23' },
-];
-
-for (const testCase of negativeCases) {
-  const testVersion = parseSemverVersion(testCase.version);
-  const passes = satisfiesRange(testVersion, requiredRange);
-
-  if (testCase.shouldFail && passes) {
-    console.error(`✗ Test case failed: ${testCase.version} should NOT satisfy range but did`);
-    process.exit(1);
-  } else if (!testCase.shouldFail && !passes) {
-    console.error(`✗ Test case failed: ${testCase.version} should satisfy range but didn't`);
-    process.exit(1);
-  } else {
-    console.log(`  ✓ ${testCase.version} correctly ${testCase.shouldFail ? 'rejected' : 'accepted'} (${testCase.reason})`);
-  }
-}
-
-// Test that old substring logic would have failed
-const badEnginesRanges = [
-  { range: '>=22', shouldPass: false, reason: 'no upper bound' },
-  { range: '>=22.0.0', shouldPass: false, reason: 'minimum too low and no upper bound' },
-  { range: '>=22.13.0 <24', shouldPass: false, reason: 'allows 23.x' },
-];
-
-console.log('\nTesting engines.node range validation...');
-for (const testCase of badEnginesRanges) {
-  const validation = validateEnginesRange(testCase.range);
-  const passes = validation.hasMinimum && validation.meetsMinimum && validation.excludes23;
-
-  if (testCase.shouldPass && !passes) {
-    console.error(`✗ Range test failed: "${testCase.range}" should be valid but was rejected`);
-    process.exit(1);
-  } else if (!testCase.shouldPass && passes) {
-    console.error(`✗ Range test failed: "${testCase.range}" should be invalid but was accepted`);
-    process.exit(1);
-  } else {
-    console.log(`  ✓ "${testCase.range}" correctly ${testCase.shouldPass ? 'accepted' : 'rejected'} (${testCase.reason})`);
-  }
-}
-
-console.log('\n✓ All validation tests passed');
