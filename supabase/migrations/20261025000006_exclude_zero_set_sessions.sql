@@ -3,8 +3,10 @@
 -- Defense in depth: warmup-only sessions should not count toward volume or
 -- appear in strength history charts. This recreates session_volume and
 -- exercise_strength_history to exclude sessions with no working sets.
+--
+-- Idempotent: Uses DROP VIEW IF EXISTS and CREATE OR REPLACE VIEW.
 
--- Drop and recreate session_volume
+-- Drop and recreate session_volume (idempotent)
 drop view if exists session_volume;
 
 create view session_volume with (security_invoker = on) as
@@ -31,7 +33,7 @@ having count(case when ss.is_warmup_set = false
                   then 1 end) > 0
     or s.actual_type not in ('weights', 'bodyweight');
 
--- Drop and recreate exercise_strength_history
+-- Drop and recreate exercise_strength_history (idempotent)
 drop view if exists exercise_strength_history;
 
 create view exercise_strength_history with (security_invoker = on) as
@@ -63,6 +65,6 @@ where ss.is_warmup_set = false
   )
 group by ss.user_id, se.exercise_id, e.name, e.movement_pattern, s.local_date;
 
--- Restore grants
+-- Restore grants (idempotent - GRANT is already idempotent in PostgreSQL)
 grant select on session_volume to authenticated;
 grant select on exercise_strength_history to authenticated;
