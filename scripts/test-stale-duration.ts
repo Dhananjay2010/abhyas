@@ -164,8 +164,8 @@ console.log("\n6. Negative rest clamped to 0");
   );
 }
 
-// Test 7: Missing restSeconds (undefined) uses default 300s
-console.log("\n7. Missing restSeconds uses default 300s");
+// Test 7: Missing restSeconds (undefined) ends at last set (backward compatibility)
+console.log("\n7. Missing restSeconds ends at last set (main's behavior)");
 {
   const startedAt = "2026-10-23T14:00:00Z";
   const lastSetCompletedAt = "2026-10-23T14:12:00Z"; // 12 minutes after start
@@ -174,18 +174,18 @@ console.log("\n7. Missing restSeconds uses default 300s");
     startedAt,
     lastSetCompletedAt,
     workingSetCount: 2,
-    // restSeconds omitted
+    // restSeconds omitted (undefined) - main's behavior
   });
 
   assertEquals(result.status, "completed", "Status is completed");
-  // Duration: (14:12 + 5min) - 14:00 = 17 minutes = 1020s
-  assertEquals(result.durationSeconds, 1020, "Duration is 17 minutes (12m + 5m default rest)");
+  // Duration: 14:12 - 14:00 = 12 minutes = 720s (no rest added)
+  assertEquals(result.durationSeconds, 720, "Duration is 12 minutes (no rest added, main's behavior)");
 
-  const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
+  const expectedEndMs = new Date(lastSetCompletedAt).getTime();
   assertEquals(
     new Date(result.endedAt).getTime(),
     expectedEndMs,
-    "Ended at last set + 300s (default)"
+    "Ended at last set (no rest, main's behavior)"
   );
 }
 
