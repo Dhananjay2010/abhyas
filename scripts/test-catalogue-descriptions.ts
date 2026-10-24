@@ -4,8 +4,8 @@
  * movement pattern and mechanic.
  * 
  * This test:
- * 1. Parses the actual migration SQL (20261024140700) and verifies it matches cue-fixes.json
- * 2. Applies base seed + relevant migrations + 140700, then audits the result
+ * 1. Parses the actual migration SQL (20261025000011) and verifies it matches cue-fixes.json
+ * 2. Applies base seed + relevant migrations + 20261025000011, then audits the result
  * 3. Verifies scripts/fixtures/catalogue.json has the correct new cues
  */
 
@@ -24,7 +24,7 @@ let pass = true;
 console.log("1. Migration SQL matches cue-fixes.json");
 
 // Parse UPDATE statements from migration
-const migrationPath = join(process.cwd(), "supabase/migrations/20261024140700_catalogue_descriptions.sql");
+const migrationPath = join(process.cwd(), "supabase/migrations/20261025000011_catalogue_descriptions.sql");
 const migrationContent = readFileSync(migrationPath, "utf-8");
 
 const updatePattern = /UPDATE exercises SET cue = '([^'](?:[^']|'')*?)'\s+WHERE slug = '([^']+)' AND cue = '([^'](?:[^']|'')*?)';/g;
