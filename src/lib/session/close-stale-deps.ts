@@ -14,7 +14,8 @@ export type SessionExerciseRow = {
 
 export type CloseStaleDeps = {
   fetchSessionExercises: (sessionIds: string[]) => Promise<SessionExerciseRow[]>;
-  markSessionDone: (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number) => Promise<void>;
+  markSessionDone: (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number) => Promise<boolean>;
+  markPlannedSkipped: (id: string) => Promise<void>;
 };
 
 export function buildCloseStaleDeps(supabase: Client): CloseStaleDeps {
@@ -29,11 +30,21 @@ export function buildCloseStaleDeps(supabase: Client): CloseStaleDeps {
       return data ?? [];
     },
     markSessionDone: async (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number) => {
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from("sessions")
         .update({ status, completed_at: completedAt, duration_seconds: durationSeconds })
         .eq("id", id)
         .eq("status", "in_progress");
+      
+      if (error) throw error;
+      return (count ?? 0) > 0;
+    },
+    markPlannedSkipped: async (id: string) => {
+      const { error } = await supabase
+        .from("sessions")
+        .update({ status: "skipped" })
+        .eq("id", id)
+        .eq("status", "planned");
       
       if (error) throw error;
     },

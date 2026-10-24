@@ -142,10 +142,10 @@ export async function closeStaleSessionsCore(
   const completed = stale.filter((id) => trained.has(id));
   const abandoned = stale.filter((id) => !trained.has(id));
 
-  await Promise.all([
+  const results = await Promise.all([
     ...completed.map(async (id) => {
       const session = byId.get(id);
-      if (!session?.started_at) return;
+      if (!session?.started_at) return false;
 
       const workingSetCount = trained.has(id) ? 1 : 0;
       const input: StaleFinishInput = {
@@ -155,15 +155,16 @@ export async function closeStaleSessionsCore(
       };
 
       const finish = resolveStaleFinish(input);
-      await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+      const updated = await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+      return updated && finish.status === "completed";
     }),
     ...abandoned.map(async (id) => {
       const session = byId.get(id);
       
-      // Planned rows (no started_at) are marked skipped with no duration
+      // Planned rows (no started_at) are marked skipped separately
       if (!session?.started_at) {
-        await deps.markSessionDone(id, "skipped", new Date().toISOString(), 0);
-        return;
+        await deps.markPlannedSkipped(id);
+        return false;
       }
 
       const input: StaleFinishInput = {
@@ -174,8 +175,9 @@ export async function closeStaleSessionsCore(
 
       const finish = resolveStaleFinish(input);
       await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+      return false;
     }),
   ]);
 
-  return completed.length;
+  return results.filter(Boolean).length;
 }

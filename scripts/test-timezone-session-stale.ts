@@ -50,12 +50,21 @@ class FakeCloseStaleDeps implements CloseStaleDeps {
     return sessionIds.flatMap((id) => this.sessionExercises.get(id) ?? []);
   }
 
-  async markSessionDone(id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number): Promise<void> {
+  async markSessionDone(id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number): Promise<boolean> {
     const session = this.sessions.get(id);
-    if (session) {
+    if (session && session.status === "in_progress") {
       session.status = status;
       session.completed_at = completedAt;
       session.duration_seconds = durationSeconds;
+      return true;
+    }
+    return false;
+  }
+
+  async markPlannedSkipped(id: string): Promise<void> {
+    const session = this.sessions.get(id);
+    if (session && session.status === "planned") {
+      session.status = "skipped";
     }
   }
 }
@@ -418,6 +427,29 @@ console.log("\n16. Planned row for today remains open");
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
   
   check("planned row for today stays planned", fake.getSession("planned-today")?.status === "planned");
+}
+
+console.log("\n17. Race condition: already-completed session not overwritten by stale close");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T20:00:00Z");
+  const sevenHoursAgo = new Date(now - 7 * 60 * 60 * 1000).toISOString();
+  
+  // Session is already completed (race: user finished it just before stale close ran)
+  fake.setSession("race", "completed");
+  fake.setSessionExercises("race", [
+    { session_id: "race", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: sevenHoursAgo }] },
+  ]);
+  
+  const open: OpenSession[] = [
+    { id: "race", local_date: "2026-10-24", started_at: sevenHoursAgo },
+  ];
+  
+  // The stale logic would normally close this, but the update should not overwrite completed status
+  const credited = await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  check("race: session stays completed (not overwritten)", fake.getSession("race")?.status === "completed");
+  check("race: credited count is 0 (no actual update)", credited === 0);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
