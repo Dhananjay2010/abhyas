@@ -108,7 +108,7 @@ export function SettingsForm({
     hasAll: initial.hasAllEquipment,
     ids: initial.equipmentIds,
   });
-  
+
   /** Equipment hint shown when user tries an unsaveable state */
   const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
   
@@ -983,7 +983,8 @@ export function SettingsForm({
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS(prev => ({ ...prev, preferredSessionMinutes: n }));
-              saveProfile("preferred_session_minutes", { preferred_session_minutes: n });
+              // M2 L2: Session length affects plan generation
+              saveProfile("preferred_session_minutes", { preferred_session_minutes: n }, true);
             }}
           />
         </Field>
