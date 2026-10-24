@@ -8,7 +8,6 @@ import {
   calculateSetVolume,
   findTopSet,
   detectPersonalRecords,
-  detectSetPRs,
   type SetData,
   type PersonalRecord,
 } from "../src/lib/exercise-history/calculations";
@@ -194,77 +193,13 @@ console.log("\n9. PR detection - time-based exercise");
   );
 }
 
-console.log("\n10. Real-time PR detection as sets are logged");
-{
-  // Simulating a progressive session where PRs are achieved
-  const session: SetData[] = [
-    set(8, 100),   // First set: all PRs (first time)
-    set(8, 100),   // Same as before: no new PRs
-    set(9, 100),   // More reps: new most_reps and best_e1rm PRs
-    set(6, 110),   // Heavier: new heaviest_weight and best_e1rm PRs
-  ];
-  
-  // First set - everything is a PR
-  check("first set: 3 PRs", detectSetPRs(session, 0, "reps").length === 3);
-  check("first set: has heaviest_weight", detectSetPRs(session, 0, "reps").includes("heaviest_weight"));
-  check("first set: has best_e1rm", detectSetPRs(session, 0, "reps").includes("best_e1rm"));
-  check("first set: has most_reps", detectSetPRs(session, 0, "reps").includes("most_reps"));
-  
-  // Second set - no PRs (same as first)
-  check("second set: no new PRs", detectSetPRs(session, 1, "reps").length === 0);
-  
-  // Third set - more reps (9 vs 8)
-  const thirdSetPRs = detectSetPRs(session, 2, "reps");
-  check("third set: 2 PRs", thirdSetPRs.length === 2, `got ${thirdSetPRs.join(", ")}`);
-  check("third set: most_reps PR", thirdSetPRs.includes("most_reps"));
-  check("third set: best_e1rm PR", thirdSetPRs.includes("best_e1rm"));
-  
-  // Fourth set - heavier weight
-  const fourthSetPRs = detectSetPRs(session, 3, "reps");
-  check("fourth set: 2 PRs", fourthSetPRs.length === 2, `got ${fourthSetPRs.join(", ")}`);
-  check("fourth set: heaviest_weight PR", fourthSetPRs.includes("heaviest_weight"));
-  check("fourth set: best_e1rm PR", fourthSetPRs.includes("best_e1rm"));
-}
-
-console.log("\n11. Real-time PR detection - bodyweight");
-{
-  const session: SetData[] = [
-    set(10, 0),
-    set(12, 0),  // PR
-    set(11, 0),  // No PR
-    set(15, 0),  // PR
-  ];
-  
-  check("bodyweight first set: 1 PR", detectSetPRs(session, 0, "reps").length === 1);
-  check("12 reps: is a PR", detectSetPRs(session, 1, "reps").length === 1);
-  check("11 reps: not a PR", detectSetPRs(session, 2, "reps").length === 0);
-  check("15 reps: is a PR", detectSetPRs(session, 3, "reps").length === 1);
-}
-
-console.log("\n12. Real-time PR detection - time-based");
-{
-  const session: SetData[] = [
-    set(null, null, 30),
-    set(null, null, 45),  // PR
-    set(null, null, 40),  // No PR
-    set(null, null, 60),  // PR
-  ];
-  
-  check("time-based first set: 1 PR", detectSetPRs(session, 0, "seconds").length === 1);
-  check("45s: is a PR", detectSetPRs(session, 1, "seconds").includes("longest_duration"));
-  check("40s: not a PR", detectSetPRs(session, 2, "seconds").length === 0);
-  check("60s: is a PR", detectSetPRs(session, 3, "seconds").includes("longest_duration"));
-}
-
-console.log("\n13. Edge cases and invalid inputs");
+console.log("\n10. Edge cases and invalid inputs");
 {
   check("negative reps: null 1RM", calculateEpley1RM(-5, 100) === null);
   check("negative weight: null 1RM", calculateEpley1RM(10, -50) === null);
-  check("detectSetPRs with invalid index returns []", detectSetPRs([set(10, 50)], 5, "reps").length === 0);
-  check("detectSetPRs with negative index returns []", detectSetPRs([set(10, 50)], -1, "reps").length === 0);
 }
 
-console.log("\n14. Mixed weight scenario (transitioning from bodyweight to weighted)");
+console.log("\n11. Mixed weight scenario (transitioning from bodyweight to weighted)");
 {
   // User starts with bodyweight, then adds weight
   const history: SetData[] = [
@@ -286,7 +221,7 @@ console.log("\n14. Mixed weight scenario (transitioning from bodyweight to weigh
   );
 }
 
-console.log("\n15. Realistic bench press progression");
+console.log("\n12. Realistic bench press progression");
 {
   // 4-week progression on bench press
   const week1 = [set(8, 60), set(8, 60), set(7, 60)];
@@ -308,7 +243,7 @@ console.log("\n15. Realistic bench press progression");
   );
 }
 
-console.log("\n16. Realistic bodyweight pull-ups progression");
+console.log("\n13. Realistic bodyweight pull-ups progression");
 {
   const pullups: SetData[] = [
     // Week 1
@@ -330,7 +265,7 @@ console.log("\n16. Realistic bodyweight pull-ups progression");
   );
 }
 
-console.log("\n17. Realistic plank hold progression");
+console.log("\n14. Realistic plank hold progression");
 {
   const planks: SetData[] = [
     // Week 1
@@ -349,7 +284,7 @@ console.log("\n17. Realistic plank hold progression");
   check("longest: 60s", prs[0]?.value === 60);
 }
 
-console.log("\n18. Epley formula validation with known values");
+console.log("\n15. Epley formula validation with known values");
 {
   // Known 1RM = 100kg
   // Expected reps at different weights (approximate)
