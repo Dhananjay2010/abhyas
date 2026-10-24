@@ -23,6 +23,7 @@ import {
   canEndSession,
   undoTargetSetNumber,
   classifyLogSetError,
+  countSetsWithFlag,
 } from "../src/lib/session/sync-helpers";
 import { isQuotaError } from "../src/lib/session/quota-error";
 import { readFileSync } from "fs";
@@ -2136,8 +2137,6 @@ async function testM6_NetworkErrorRetryBudget() {
 
 // ---- M8: countSetsWithFlag Actually Used ---------------------------------
 function testM8_CountSetsWithFlagUsed() {
-  const { countSetsWithFlag } = require("../src/lib/session/sync-helpers");
-  
   // Test data with mixed flags
   const exercises = [
     {
