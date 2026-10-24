@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { signOutAction } from "@/lib/auth/signout";
 import { clearAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
+import { clearPendingChanges } from "@/lib/auth/pending-changes";
 
 export function SignOutButton({ userId }: { userId: string }) {
   const [pending, startTransition] = useTransition();
@@ -14,6 +15,7 @@ export function SignOutButton({ userId }: { userId: string }) {
     }
     
     startTransition(async () => {
+      clearPendingChanges();
       const result = await signOutAction();
       if (!result.ok) {
         setError("Unable to sign out. Please try again.");
