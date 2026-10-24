@@ -196,7 +196,7 @@ export function SettingsForm({
   const needsUnloadPrompt = useRef(false);
 
   const pathname = usePathname();
-  const sessionExpiredUI = useSessionExpiredPrompt();
+  const [sessionExpiredUI] = useSessionExpiredPrompt();
 
   useEffect(() => {
     if (equipmentOffConfirmation) {

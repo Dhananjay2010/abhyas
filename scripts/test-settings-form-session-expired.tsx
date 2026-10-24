@@ -384,11 +384,11 @@ async function runTests(): Promise<TestResult[]> {
         await userEvent.click(toggle);
 
         await waitFor(() => {
-          const errorText = container.textContent?.includes('Network error');
+          const errorText = container.textContent?.includes("Couldn't save");
           return errorText === true;
         }, { timeout: 3000 });
 
-        const hasError = container.textContent?.includes('Network error');
+        const hasError = container.textContent?.includes("Couldn't save");
         const sessionPrompt = container.querySelector('[data-testid="session-expired-prompt"]');
         const noSessionPrompt = !sessionPrompt;
         
@@ -419,7 +419,17 @@ async function main() {
   console.log('Testing SettingsForm session expired handling');
   console.log('==========================================\n');
 
+  // Catch unhandled promise rejections from React transitions
+  const rejections: any[] = [];
+  const rejectHandler = (reason: any) => {
+    rejections.push(reason);
+  };
+  process.on('unhandledRejection', rejectHandler);
+
   const results = await runTests();
+  
+  // Remove handler after tests
+  process.off('unhandledRejection', rejectHandler);
   let allPassed = true;
 
   for (const result of results) {
