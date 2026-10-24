@@ -103,8 +103,8 @@ export default async function HistoryPage({
       .range(offset, offset + limit - 1);
 
     sessionsError = error;
-    // Extract the nested sessions data
-    sessions = volumeSessions?.map((v: { sessions: SessionQueryResult }) => v.sessions) ?? null;
+    // Extract the nested sessions data - !inner returns an array but we know it's 1:1 so take first
+    sessions = volumeSessions?.map((v: { sessions: SessionQueryResult[] }) => v.sessions[0]) ?? null;
   } else {
     // For yoga/breathing: query sessions directly (no zero-set filtering needed)
     let query = supabase
