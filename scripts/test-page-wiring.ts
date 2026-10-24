@@ -103,9 +103,6 @@ assert(
   "Shows missed prompt for 'missed' type"
 );
 
-assert(
-  "Hides Keep/Swap/Rest for 'missed' type"
-);
 
 assert(
   missedBlocks.showRestPlan === false,
@@ -142,9 +139,6 @@ assert(
   "Hides separate missed prompt for 'both' type"
 );
 
-assert(
-  "Hides Keep/Swap/Rest for 'both' type"
-);
 
 console.log("\n=== Test 4: todayPromptBlocks - first day rest ===\n");
 
@@ -161,9 +155,6 @@ assert(
   "Shows first day welcome when never started on rest day"
 );
 
-assert(
-  "Shows 'start first workout anyway' when never started on rest day"
-);
 
 assert(
   firstDayBlocks.showRestPlan === true,
@@ -195,9 +186,6 @@ assert(
   "Hides first day welcome when user has started"
 );
 
-assert(
-  "Hides 'start first workout anyway' when user has started"
-);
 
 console.log("\n=== Test 6: todayPromptBlocks - no prompt ===\n");
 
@@ -214,9 +202,6 @@ assert(
   "Hides all prompts for 'none' type"
 );
 
-assert(
-  "Hides Keep/Swap/Rest for 'none' type"
-);
 
 assert(
   noPromptBlocks.showRestPlan === false,
@@ -253,9 +238,6 @@ assert(
   "Hides missed prompt when never started on training day"
 );
 
-assert(
-  "Hides Keep/Swap/Rest when never started on training day"
-);
 
 console.log("\n=== Test 8: Day-one - never started on rest day ===\n");
 
@@ -272,9 +254,6 @@ assert(
   "Shows first day welcome when never started on rest day"
 );
 
-assert(
-  "Shows 'start first workout anyway' when never started on rest day"
-);
 
 assert(
   neverStartedRest.showMissedPrompt === false,
