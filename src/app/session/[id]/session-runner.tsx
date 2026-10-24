@@ -159,15 +159,20 @@ export function SessionRunner({
     replayed: [],
   });
 
-  const [controller] = useState(() => {
-    if (typeof window === "undefined") return null;
-    return createPendingSetController({
+  const [controller, setController] = useState<ReturnType<
+    typeof createPendingSetController
+  > | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || controller) return;
+    const ctrl = createPendingSetController({
       storage: window.localStorage,
       logSet: actions.logSet,
       sessionId,
       onChange: setPendingSetState,
     });
-  });
+    setController(ctrl);
+  }, [sessionId, controller]);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
