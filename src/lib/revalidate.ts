@@ -14,9 +14,13 @@ import { revalidatePath } from "next/cache";
  * be served from the client's cache for up to thirty seconds after the data
  * behind it changed. Revalidating the whole set from one place is what makes
  * the cache safe to switch on.
+ *
+ * M1: Also revalidates /api/in-progress so the client-side resume bar can
+ * refetch after starting, logging, or finishing a session.
  */
 export function revalidateTrainingData() {
   revalidatePath("/today");
   revalidatePath("/history");
   revalidatePath("/progress");
+  revalidatePath("/api/in-progress");
 }
