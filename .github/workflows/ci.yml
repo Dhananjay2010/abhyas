@@ -234,6 +234,7 @@ jobs:
           export SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d '=' -f 2- | tr -d '"')
           echo "Service role key configured (first 20 chars): ${SUPABASE_SERVICE_ROLE_KEY:0:20}..."
           npm run test:exercise-history-real-db
+          npm run test:progress-rpcs-real-db
           npx tsx scripts/test-delete-set.ts
           npx tsx scripts/test-skipped-session-shapes.ts
         env:

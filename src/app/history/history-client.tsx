@@ -8,6 +8,7 @@ import { formatInTimezone } from "@/lib/timezone";
 import { sessionCompletion } from "@/lib/session/session-completion";
 import { formatVolume, formatTopSet, type UnitsPreference } from "@/lib/units";
 import { closeOutSession } from "./actions";
+import { getSessionLabel, type SessionStatus, type ActualType } from "@/lib/history/session-label";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {
@@ -192,32 +193,41 @@ export function HistoryClient({
                   details.push(pluralize(item.breathing.breaths, item.breathing.pumps ? "pump" : "breath"));
                 }
               } else {
-                // Product rule (2026-10-24): zero-set strength sessions show as 'Skipped'
-                const isZeroSetStrength = item.setCount === 0 || item.status === "skipped";
+                // Get session status label using extracted function
+                const statusLabel = getSessionLabel({
+                  status: item.status as SessionStatus,
+                  actualType: item.actualType as ActualType,
+                  setCount: item.setCount,
+                  localDate: item.localDate,
+                  today,
+                  endedEarly: item.endedEarly,
+                  plannedSets: item.plannedSets,
+                });
                 
-                // QA (iii): Today's in_progress session shows "In progress", not "Completed"
-                const isTodayInProgress = item.status === "in_progress" && item.localDate === today && !isPastInProgress;
-                
-                if (isZeroSetStrength) {
-                  details.push("Skipped");
-                } else if (isTodayInProgress) {
-                  details.push("In progress");
-                } else if (item.endedEarly && item.plannedSets) {
-                  // Show completion status or "Ended early" if applicable
-                  details.push(`Ended early · ${item.setCount} of ${item.plannedSets} ${item.plannedSets === 1 ? "set" : "sets"}`);
+                // For past in_progress, the timeLabel already shows "Unfinished from <date>"
+                // so we just push the statusLabel which will be that message
+                if (isPastInProgress) {
+                  // Status label contains "Unfinished from <date>", skip adding it to details
+                  // since it's already in timeLabel
                 } else {
-                  details.push("Completed");
+                  details.push(statusLabel);
                 }
+                
                 if (item.isDeload) details.push("deload");
                 if (durationLabel) details.push(durationLabel);
-                // Only show set count if not already shown in "ended early" label or skipped
+                
+                // Show set count unless it's zero-set or already shown in "Ended early"
+                const isZeroSetStrength = (item.actualType === "weights" || item.actualType === "bodyweight" || item.actualType === null) && item.setCount === 0;
                 if (!item.endedEarly && !isZeroSetStrength && item.setCount > 0) {
                   details.push(pluralize(item.setCount, "set"));
                 }
                 if (item.topSetWeight) {
                   details.push(formatTopSet(item.topSetWeight, units));
                 }
-                if (item.volumeKg > 0) details.push(`${formatVolume(item.volumeKg, units)} total`);
+                if (item.volumeKg > 0) {
+                  // Use non-breaking space to keep number+unit together at narrow widths
+                  details.push(`${formatVolume(item.volumeKg, units)}\u00A0total`);
+                }
               }
 
               // Yoga rows are non-interactive (yoga detail view is owned by PR #19)
