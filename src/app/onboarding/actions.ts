@@ -37,6 +37,7 @@ export async function saveAboutYou(input: {
   sex: Database["public"]["Enums"]["sex_type"];
   heightCm: number;
   weightKg: number;
+  browserTimezone?: string; // Optional: browser-detected timezone from client
 }): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
@@ -53,25 +54,40 @@ export async function saveAboutYou(input: {
 
   const { supabase, user } = await requireUser();
 
-  const { data: tzRow } = await supabase
+  const { data: profile } = await supabase
     .from("profiles")
     .select("timezone")
     .eq("id", user.id)
     .single();
 
+  // Profile update
+  const profileUpdate: ProfileUpdate = {
+    date_of_birth: input.dateOfBirth,
+    sex: input.sex,
+    height_cm: input.heightCm,
+  };
+
+  // Record browser timezone if provided and profile still has the default
+  // (The column defaults to 'Asia/Kolkata', so we overwrite it with browser/gym preference)
+  if (input.browserTimezone) {
+    const { validateTimezone } = await import("@/lib/branding");
+    const validated = validateTimezone(input.browserTimezone);
+    if (validated) {
+      profileUpdate.timezone = validated;
+    }
+  }
+
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({
-      date_of_birth: input.dateOfBirth,
-      sex: input.sex,
-      height_cm: input.heightCm,
-    })
+    .update(profileUpdate)
     .eq("id", user.id);
   if (profileError) return { ok: false, error: profileError.message };
 
   // The first weigh-in doubles as the BMI input for the safety filters. It is
   // dated in the user's timezone, not UTC.
-  const today = localDateString(tzRow?.timezone || "Asia/Kolkata");
+  const { resolveTimezoneWithProfile } = await import("@/lib/timezone");
+  const timezone = resolveTimezoneWithProfile(profileUpdate.timezone || profile?.timezone);
+  const today = localDateString(timezone);
   const { error: weightError } = await supabase
     .from("body_metrics")
     .upsert(
