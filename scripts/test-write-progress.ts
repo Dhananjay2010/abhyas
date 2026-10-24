@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Test: writeExerciseProgressCore writes bests during deload (M7 Mutant 3 guard)
+ * Test: writeExerciseProgressCore writes bests during deload
  *
  * Fake-client test of the real progress write path. Asserts the upserted
  * exercise_progress row has the new best_* values for a deload session.

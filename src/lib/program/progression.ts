@@ -155,7 +155,7 @@ export type BestResult = {
 /**
  * Update best tracking from a session's working sets.
  *
- * Pure: no I/O, exported for testing and mutant coverage. Warm-up sets are
+ * Pure: no I/O, exported for testing. Warm-up sets are
  * excluded by the caller. Bests are tracked regardless of deload or progression
  * outcome, per SPEC section 7 and Task M7.
  */

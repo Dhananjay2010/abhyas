@@ -147,11 +147,10 @@ console.log("\n5. Deload e1RM improvement returns updated best_e1rm");
   check("bestWeightKg unchanged", d.bestWeightKg === 60);
 }
 
-console.log("\n6. Mutant guard: verify Decision values are written by production code");
+console.log("\n6. Production code must write Decision values correctly");
 {
-  // The production code at actions.ts:413-428 writes Decision.best* to the DB.
+  // The production code at actions.ts writes Decision.best* to the DB.
   // This test verifies that those returned values are actually used.
-  // Mutant 3 sets those writes to null; if it survives, this test should catch it.
   const withBest = evaluateProgression({
     sets: sets(4, 12, 80),
     plannedSets: 4,
