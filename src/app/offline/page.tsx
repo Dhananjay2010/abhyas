@@ -25,7 +25,7 @@ export default function OfflinePage() {
           }
           body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: ${branding.backgroundColor};
+            background: ${branding.colors.bg};
             color: #f5f5f5;
             display: flex;
             align-items: center;
@@ -55,8 +55,8 @@ export default function OfflinePage() {
             margin-bottom: 2rem;
           }
           button {
-            background: #22c55e;
-            color: white;
+            background: ${branding.colors.accent};
+            color: ${branding.colors.accentFg};
             border: none;
             padding: 0.875rem 2rem;
             font-size: 1rem;
@@ -66,7 +66,7 @@ export default function OfflinePage() {
             transition: background 0.2s;
           }
           button:hover {
-            background: #16a34a;
+            background: ${branding.colors.accentHover};
           }
           button:active {
             transform: translateY(1px);
