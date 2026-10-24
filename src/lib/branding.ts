@@ -12,6 +12,8 @@
  * See docs/white-label.md for deployment and customization guide.
  */
 
+import { canonicalizeTimezone } from "./timezone-canonical";
+
 /**
  * Brand color configuration.
  * All colors must be valid 6-digit hex codes (#RRGGBB).
@@ -136,7 +138,7 @@ const abhyas: Brand = {
     bg: "#0a0c0e",
     surface: "#151a1f",
     surface2: "#1d242b",
-    border: "#2a333c",
+    border: "#607280",
     fg: "#ecf1f6",
     muted: "#93a1ae",
     success: "#4ade80",
@@ -174,7 +176,7 @@ const example: Brand = {
     bg: "#0a0a0a",
     surface: "#1a1a1a",
     surface2: "#262626",
-    border: "#404040",
+    border: "#707070",
     fg: "#fafafa",
     muted: "#a3a3a3",
     success: "#22c55e",
@@ -201,66 +203,29 @@ const brands: Record<string, Brand> = {
   example,
 };
 
+/**
+ * Get all registered brands for testing and validation.
+ * Returns a read-only array of all brand configurations.
+ */
+export function getAllBrands(): readonly Brand[] {
+  return Object.values(brands);
+}
+
 // ---------------------------------------------------------------------------
 // Brand selection and validation
 // ---------------------------------------------------------------------------
 
 /**
- * Valid IANA timezone names.
- * A subset of commonly used timezones. Add more as needed.
- * Full list: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
- */
-const VALID_TIMEZONES = new Set([
-  "UTC",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Toronto",
-  "America/Vancouver",
-  "America/Mexico_City",
-  "America/Sao_Paulo",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Europe/Madrid",
-  "Europe/Rome",
-  "Europe/Amsterdam",
-  "Asia/Dubai",
-  "Asia/Kolkata",
-  "Asia/Bangkok",
-  "Asia/Singapore",
-  "Asia/Hong_Kong",
-  "Asia/Shanghai",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Australia/Sydney",
-  "Australia/Melbourne",
-  "Pacific/Auckland",
-]);
-
-/**
- * Validate a timezone string using Intl.DateTimeFormat.
- * Returns the timezone if valid, null otherwise.
- * Accepts any timezone that Intl recognizes, including IANA zones
- * (America/New_York, America/Port-au-Prince, Etc/GMT+5) and abbreviations (EST, PST).
+ * Validate and canonicalize a timezone string.
+ * Delegates to canonicalizeTimezone for validation and normalization.
+ * Returns the canonical IANA timezone name if valid, null otherwise.
+ * 
+ * Legacy aliases (Asia/Calcutta, Europe/Kiev) are mapped to canonical names
+ * (Asia/Kolkata, Europe/Kyiv). This ensures stored values are always canonical.
  */
 export function validateTimezone(tz: string | null | undefined): string | null {
   if (!tz) return null;
-  
-  // Sanity check: reject strings with dots or path separators to prevent traversal
-  // Also reject spaces and other obvious non-timezone characters
-  if (/[.\s]|\.\./.test(tz)) {
-    return null;
-  }
-  
-  // Validate via Intl (authoritative check - trusts the platform's timezone database)
-  try {
-    new Intl.DateTimeFormat(undefined, { timeZone: tz });
-    return tz;
-  } catch {
-    return null;
-  }
+  return canonicalizeTimezone(tz);
 }
 
 /**
