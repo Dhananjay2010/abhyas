@@ -348,7 +348,8 @@ export default async function TodayPage() {
   });
 
   // ---- wave 3 -------------------------------------------------------------
-  // Load plannable days only when needed: rest day or missed-yesterday state.
+  // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
+  // The prompt offers "Swap the day", which needs the strength/bodyweight options.
   // The session's own exercises are loaded only when a workout has been started.
   // Also check if user has ever started a session (for welcome card visibility).
   const needsPlannableDays = 

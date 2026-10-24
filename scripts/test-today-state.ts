@@ -341,6 +341,64 @@ assert(
   "Saturday signup: yesterday (Fri training day) should NOT be missed (before signup)"
 );
 
+console.log("\n=== Test 14: Day 1 comprehensive - signup today, program starts today ===\n");
+
+// User signs up Monday, program starts Monday, checking yesterday (Sunday)
+// Sunday is a rest day in 3-day plan
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-19", // Sun (yesterday)
+    programStartedOn: "2026-10-20", // Mon (today, signup day)
+    onboardingCompletedAt: "2026-10-20T10:00:00Z", // Mon morning (today)
+    timezone: "UTC",
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-19")], // Sun = 7, rest day
+    sessions: [],
+  }),
+  "Signup today (Mon): yesterday (Sun) should NOT be missed (rest day, but also before signup)"
+);
+
+// User signs up Tuesday, program starts Tuesday, checking yesterday (Monday - training day)
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-20", // Mon (yesterday, training day)
+    programStartedOn: "2026-10-21", // Tue (today, signup day)
+    onboardingCompletedAt: "2026-10-21T10:00:00Z", // Tue morning (today)
+    timezone: "UTC",
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-20")], // Mon = 1, training day
+    sessions: [],
+  }),
+  "Signup today (Tue): yesterday (Mon training day) should NOT be missed (before signup)"
+);
+
+console.log("\n=== Test 15: Day 1 comprehensive - signup yesterday, program starts today ===\n");
+
+// User signed up yesterday (Sun), program starts today (Mon), checking yesterday (Sun)
+// This simulates: user completed onboarding yesterday evening, today is day 1
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-19", // Sun (yesterday, when user signed up)
+    programStartedOn: "2026-10-20", // Mon (today, program starts)
+    onboardingCompletedAt: "2026-10-19T20:00:00Z", // Sun evening (yesterday)
+    timezone: "UTC",
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-19")], // Sun = 7, rest day
+    sessions: [],
+  }),
+  "Signup yesterday (Sun), program starts today (Mon): yesterday should NOT be missed (before program start)"
+);
+
+// User signed up yesterday (Mon), program starts today (Tue), checking yesterday (Mon - training day)
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-20", // Mon (yesterday, training day, when user signed up)
+    programStartedOn: "2026-10-21", // Tue (today, program starts)
+    onboardingCompletedAt: "2026-10-20T20:00:00Z", // Mon evening (yesterday)
+    timezone: "UTC",
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-20")], // Mon = 1, training day
+    sessions: [],
+  }),
+  "Signup yesterday (Mon training day), program starts today (Tue): yesterday should NOT be missed (before program start)"
+);
+
 console.log("\n==================================================");
 console.log(`📊 Test Results: ${passedTests}/${totalTests} passed`);
 
