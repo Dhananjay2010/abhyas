@@ -31,12 +31,22 @@ export type StaleFinish = {
 export function resolveStaleFinish(input: StaleFinishInput): StaleFinish {
   const start = Date.parse(input.startedAt);
 
+  // Guard: invalid startedAt produces NaN
+  if (!Number.isFinite(start)) {
+    throw new Error("Invalid startedAt timestamp");
+  }
+
   // No sets logged: skipped, duration = 0
   if (input.workingSetCount <= 0 || input.lastSetCompletedAt === null) {
     return { durationSeconds: 0, endedAt: input.startedAt, status: "skipped" };
   }
 
   const lastSetMs = Date.parse(input.lastSetCompletedAt);
+
+  // Guard: invalid lastSetCompletedAt produces NaN
+  if (!Number.isFinite(lastSetMs)) {
+    throw new Error("Invalid lastSetCompletedAt timestamp");
+  }
 
   // Resolve rest interval: null/missing/non-finite becomes 300, clamp to [0, 300]
   let restMs = 300 * 1000; // default 300s
