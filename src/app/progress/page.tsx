@@ -132,7 +132,7 @@ export default async function ProgressPage() {
   });
 
   type SetCountRow = { session_id: string; set_count: number };
-  const setCounts = (setCountsData ?? []) as SetCountRow[];
+  const setCounts = (setCountsData ?? []) as unknown as SetCountRow[];
   const workingSetsBySession = new Map(
     setCounts.map((v) => [
       v.session_id,
