@@ -16,6 +16,20 @@ export type OpenSession = {
   started_at: string | null;
 };
 
+export type SessionExerciseRow = {
+  session_id: string;
+  session_sets: Array<{
+    id: string;
+    is_warmup_set: boolean;
+    completed_at: string | null;
+  }> | null;
+};
+
+export type CloseStaleDeps = {
+  fetchSessionExercises: (sessionIds: string[]) => Promise<SessionExerciseRow[]>;
+  markSessionDone: (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number) => Promise<void>;
+};
+
 /**
  * Close out sessions left open after extended inactivity.
  *
@@ -54,11 +68,26 @@ export async function closeStaleSessions(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _today: string,
 ): Promise<number> {
-  return closeStaleSessionsCore(supabase, open, Date.now());
+  const deps: CloseStaleDeps = {
+    fetchSessionExercises: async (sessionIds: string[]) => {
+      const { data } = await supabase
+        .from("session_exercises")
+        .select("session_id, session_sets(id, is_warmup_set, completed_at)")
+        .in("session_id", sessionIds);
+      return (data ?? []) as SessionExerciseRow[];
+    },
+    markSessionDone: async (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number) => {
+      await supabase
+        .from("sessions")
+        .update({ status, completed_at: completedAt, duration_seconds: durationSeconds })
+        .eq("id", id);
+    },
+  };
+  return closeStaleSessionsCore(deps, open, Date.now());
 }
 
 export async function closeStaleSessionsCore(
-  supabase: Client,
+  deps: CloseStaleDeps,
   open: OpenSession[],
   nowMs: number,
 ): Promise<number> {
@@ -69,20 +98,13 @@ export async function closeStaleSessionsCore(
   // Fetch session exercises with their sets to determine:
   // 1. Whether the session has working sets (completed vs skipped)
   // 2. The last set's completed_at to calculate ended_at
-  const { data: rows } = await supabase
-    .from("session_exercises")
-    .select("session_id, session_sets(id, is_warmup_set, completed_at)")
-    .in("session_id", ids);
+  const rows = await deps.fetchSessionExercises(ids);
 
   const trained = new Set<string>();
   const lastSetCompletedAt = new Map<string, string | null>();
 
-  for (const row of rows ?? []) {
-    const sets = (row.session_sets ?? []) as Array<{ 
-      id: string; 
-      is_warmup_set: boolean; 
-      completed_at: string | null; 
-    }>;
+  for (const row of rows) {
+    const sets = row.session_sets ?? [];
     
     // Check if session has working sets
     if (sets.some((x) => !x.is_warmup_set)) {
@@ -125,52 +147,33 @@ export async function closeStaleSessionsCore(
   const abandoned = stale.filter((id) => !trained.has(id));
 
   await Promise.all([
-    completed.length > 0
-      ? Promise.all(
-          completed.map(async (id) => {
-            const session = byId.get(id);
-            if (!session?.started_at) return;
+    ...completed.map(async (id) => {
+      const session = byId.get(id);
+      if (!session?.started_at) return;
 
-            const workingSetCount = trained.has(id) ? 1 : 0;
-            const input: StaleFinishInput = {
-              startedAt: session.started_at,
-              lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
-              workingSetCount,
-            };
+      const workingSetCount = trained.has(id) ? 1 : 0;
+      const input: StaleFinishInput = {
+        startedAt: session.started_at,
+        lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
+        workingSetCount,
+      };
 
-            const finish = resolveStaleFinish(input);
-            await supabase
-              .from("sessions")
-              .update({
-                status: finish.status,
-                completed_at: finish.endedAt,
-                duration_seconds: finish.durationSeconds,
-              })
-              .eq("id", id);
-          }),
-        )
-      : Promise.resolve(),
-    abandoned.length > 0
-      ? Promise.all(
-          abandoned.map(async (id) => {
-            const session = byId.get(id);
-            if (!session?.started_at) return;
+      const finish = resolveStaleFinish(input);
+      await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+    }),
+    ...abandoned.map(async (id) => {
+      const session = byId.get(id);
+      if (!session?.started_at) return;
 
-            const input: StaleFinishInput = {
-              startedAt: session.started_at,
-              lastSetCompletedAt: null,
-              workingSetCount: 0,
-            };
+      const input: StaleFinishInput = {
+        startedAt: session.started_at,
+        lastSetCompletedAt: null,
+        workingSetCount: 0,
+      };
 
-            const finish = resolveStaleFinish(input);
-            await supabase.from("sessions").update({ 
-              status: finish.status,
-              completed_at: finish.endedAt,
-              duration_seconds: finish.durationSeconds,
-            }).eq("id", id);
-          }),
-        )
-      : Promise.resolve(),
+      const finish = resolveStaleFinish(input);
+      await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
+    }),
   ]);
 
   return completed.length;
