@@ -38,6 +38,7 @@ type QueryCall = {
 function makeFakeSupabase() {
   const calls: QueryCall[] = [];
   let chainedTable: string | null = null;
+  let selectFields: string | null = null;
 
   const chainMethods = {
     select(fields: string) {
