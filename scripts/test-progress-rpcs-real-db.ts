@@ -648,14 +648,40 @@ async function runTests() {
     {
       // This test proves the bug exists on main and is fixed by loadHistoryPage
       // Seed exactly 48 completed sessions for a test user
-      const paginationUserId = randomUUID();
       
-      // Create user profile
-      await adminClient.from("profiles").insert({
-        id: paginationUserId,
-        timezone: "UTC",
-        onboarding_completed_at: "2026-01-01T00:00:00Z",
+      // Create auth user FIRST (like userA/userB pattern)
+      const paginationEmail = `test-pagination-${Date.now()}@example.com`;
+      const paginationPassword = "test-password-pagination";
+      
+      const { data: paginationAuthData, error: paginationSignUpError } = await adminClient.auth.admin.createUser({
+        email: paginationEmail,
+        password: paginationPassword,
+        email_confirm: true,
       });
+
+      if (paginationSignUpError || !paginationAuthData.user) {
+        console.error("Failed to create pagination test user:", paginationSignUpError);
+        check("pagination user created", false, paginationSignUpError?.message);
+        return;
+      }
+
+      const paginationUserId = paginationAuthData.user.id;
+
+      // Ensure profile exists (trigger may have created it, but set required fields)
+      const { error: profileError } = await adminClient
+        .from("profiles")
+        .upsert({
+          id: paginationUserId,
+          timezone: "UTC",
+          onboarding_completed_at: "2026-01-01T00:00:00Z",
+        });
+
+      if (profileError) {
+        console.error("Failed to create pagination user profile:", profileError);
+        check("pagination profile created", false, profileError.message);
+        await adminClient.auth.admin.deleteUser(paginationUserId);
+        return;
+      }
 
       const sessions = [];
       const sessionExercises = [];
@@ -703,78 +729,102 @@ async function runTests() {
         });
       }
 
-      await adminClient.from("sessions").insert(sessions);
-      await adminClient.from("session_exercises").insert(sessionExercises);
-      await adminClient.from("session_sets").insert(sets);
+      // Insert in chunks
+      for (let i = 0; i < sessions.length; i += 100) {
+        const { error: sessError } = await adminClient.from("sessions").insert(sessions.slice(i, i + 100));
+        if (sessError) {
+          console.error("Failed to insert pagination sessions:", sessError);
+          check("pagination sessions inserted", false, sessError.message);
+          await adminClient.auth.admin.deleteUser(paginationUserId);
+          return;
+        }
+
+        const { error: seError } = await adminClient.from("session_exercises").insert(sessionExercises.slice(i, i + 100));
+        if (seError) {
+          console.error("Failed to insert pagination session_exercises:", seError);
+          check("pagination session_exercises inserted", false, seError.message);
+          await adminClient.auth.admin.deleteUser(paginationUserId);
+          return;
+        }
+
+        // Each batch of 100 sessions has 100 sets (1 per session)
+        const { error: setsError } = await adminClient.from("session_sets").insert(sets.slice(i, i + 100));
+        if (setsError) {
+          console.error("Failed to insert pagination sets:", setsError);
+          check("pagination sets inserted", false, setsError.message);
+          await adminClient.auth.admin.deleteUser(paginationUserId);
+          return;
+        }
+      }
 
       // Create authenticated client for pagination user
-      const paginationEmail = `test-pagination-${Date.now()}@example.com`;
-      const paginationPassword = "test-password-pagination";
-      
-      await adminClient.auth.admin.createUser({
-        id: paginationUserId,
+      const paginationClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { error: signInError } = await paginationClient.auth.signInWithPassword({
         email: paginationEmail,
         password: paginationPassword,
-        email_confirm: true,
       });
 
-      const paginationClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      await paginationClient.auth.signInWithPassword({
-        email: paginationEmail,
-        password: paginationPassword,
-      });
+      if (signInError) {
+        console.error("Failed to sign in pagination user:", signInError);
+        check("pagination user signed in", false, signInError.message);
+        await adminClient.auth.admin.deleteUser(paginationUserId);
+        return;
+      }
+
+      // Import and test the REAL loadHistoryPage function
+      const { loadHistoryPage } = await import("../src/lib/history/load-history-page.js");
+
+      // Expected ordering: local_date desc, completed_at desc, id desc
+      // We seeded in order, so session 0 = newest (2026-10-24), session 47 = oldest
+      const expectedOrder = sessions.map(s => s.id); // Already in correct order
 
       // Page 1: rows 1-20
-      const { data: page1Data } = await paginationClient.rpc("get_history_page", {
-        p_user: paginationUserId,
-        p_filter: "lifts",
-        p_today: "2026-10-24",
-        p_limit: 20,
-        p_offset: 0,
+      const page1Result = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "1",
       });
 
-      const page1Rows = page1Data as HistoryPageRow[];
-      const page1Ids = page1Rows.map(r => r.session_id).filter((id): id is string => id !== null);
+      check("page 1 loaded successfully", !page1Result.error, page1Result.error);
+      check("page 1 returns 20 rows", page1Result.sessionIds.length === 20,
+        `got ${page1Result.sessionIds.length}`);
 
-      // Page 2: rows 21-40 (offset 20)
-      const { data: page2Data } = await paginationClient.rpc("get_history_page", {
-        p_user: paginationUserId,
-        p_filter: "lifts",
-        p_today: "2026-10-24",
-        p_limit: 20,
-        p_offset: 20,
+      // Page 2: rows 21-40
+      const page2Result = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "2",
       });
 
-      const page2Rows = page2Data as HistoryPageRow[];
-      const page2Ids = page2Rows.map(r => r.session_id).filter((id): id is string => id !== null);
+      check("page 2 loaded successfully", !page2Result.error, page2Result.error);
+      check("page 2 returns 20 rows", page2Result.sessionIds.length === 20,
+        `got ${page2Result.sessionIds.length}`);
 
-      // Page 3: rows 41-48 (offset 40)
-      const { data: page3Data } = await paginationClient.rpc("get_history_page", {
-        p_user: paginationUserId,
-        p_filter: "lifts",
-        p_today: "2026-10-24",
-        p_limit: 20,
-        p_offset: 40,
+      // Page 3: rows 41-48
+      const page3Result = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "3",
       });
 
-      const page3Rows = page3Data as HistoryPageRow[];
-      const page3Ids = page3Rows.map(r => r.session_id).filter((id): id is string => id !== null);
-
-      check("page 1 returns 20 rows", page1Ids.length === 20,
-        `got ${page1Ids.length}`);
-      check("page 2 returns 20 rows", page2Ids.length === 20,
-        `got ${page2Ids.length}`);
-      check("page 3 returns 8 rows", page3Ids.length === 8,
-        `got ${page3Ids.length}`);
+      check("page 3 loaded successfully", !page3Result.error, page3Result.error);
+      check("page 3 returns 8 rows", page3Result.sessionIds.length === 8,
+        `got ${page3Result.sessionIds.length}`);
 
       // CRITICAL: page 1 and page 2 must NOT overlap
-      const page1Set = new Set(page1Ids);
-      const page2Set = new Set(page2Ids);
-      const page3Set = new Set(page3Ids);
+      const page1Set = new Set(page1Result.sessionIds);
+      const page2Set = new Set(page2Result.sessionIds);
+      const page3Set = new Set(page3Result.sessionIds);
 
-      const overlap1_2 = page1Ids.filter(id => page2Set.has(id));
-      const overlap2_3 = page2Ids.filter(id => page3Set.has(id));
-      const overlap1_3 = page1Ids.filter(id => page3Set.has(id));
+      const overlap1_2 = page1Result.sessionIds.filter(id => page2Set.has(id));
+      const overlap2_3 = page2Result.sessionIds.filter(id => page3Set.has(id));
+      const overlap1_3 = page1Result.sessionIds.filter(id => page3Set.has(id));
 
       check("page 1 and page 2 have NO overlap", overlap1_2.length === 0,
         `found ${overlap1_2.length} duplicates`);
@@ -783,30 +833,49 @@ async function runTests() {
       check("page 1 and page 3 have NO overlap", overlap1_3.length === 0,
         `found ${overlap1_3.length} duplicates`);
 
-      // Verify ordering: page 1 should have newest 20, page 2 next 20, page 3 oldest 8
-      // Fetch all sessions to verify order
-      const { data: allSessions } = await adminClient
-        .from("sessions")
-        .select("id, completed_at")
-        .eq("user_id", paginationUserId)
-        .order("completed_at", { ascending: false });
+      // Verify correct rows
+      const expectedPage1 = expectedOrder.slice(0, 20);
+      const expectedPage2 = expectedOrder.slice(20, 40);
+      const expectedPage3 = expectedOrder.slice(40, 48);
 
-      if (allSessions && allSessions.length === 48) {
-        const expectedPage1 = allSessions.slice(0, 20).map(s => s.id);
-        const expectedPage2 = allSessions.slice(20, 40).map(s => s.id);
-        const expectedPage3 = allSessions.slice(40, 48).map(s => s.id);
+      const page1Matches = expectedPage1.every(id => page1Set.has(id));
+      const page2Matches = expectedPage2.every(id => page2Set.has(id));
+      const page3Matches = expectedPage3.every(id => page3Set.has(id));
 
-        const page1Matches = expectedPage1.every(id => page1Set.has(id));
-        const page2Matches = expectedPage2.every(id => page2Set.has(id));
-        const page3Matches = expectedPage3.every(id => page3Set.has(id));
+      check("page 1 contains correct rows 1-20", page1Matches,
+        `expected all ${expectedPage1.length} to match`);
+      check("page 2 contains correct rows 21-40", page2Matches,
+        `expected all ${expectedPage2.length} to match`);
+      check("page 3 contains correct rows 41-48", page3Matches,
+        `expected all ${expectedPage3.length} to match`);
 
-        check("page 1 contains correct rows 1-20", page1Matches,
-          `expected all ${expectedPage1.length} to match`);
-        check("page 2 contains correct rows 21-40", page2Matches,
-          `expected all ${expectedPage2.length} to match`);
-        check("page 3 contains correct rows 41-48", page3Matches,
-          `expected all ${expectedPage3.length} to match`);
-      }
+      // Page 4 should clamp to page 3
+      const page4Result = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "4",
+      });
+
+      check("page 4 clamps to page 3", page4Result.page === 3,
+        `got page ${page4Result.page}`);
+      check("page 4 returns same as page 3", page4Result.sessionIds.length === 8,
+        `got ${page4Result.sessionIds.length}`);
+
+      // 'abc' should give page 1
+      const abcResult = await loadHistoryPage(paginationClient, {
+        userId: paginationUserId,
+        filter: "lifts",
+        today: "2026-10-24",
+        limit: 20,
+        pageParam: "abc",
+      });
+
+      check("'abc' gives page 1", abcResult.page === 1,
+        `got page ${abcResult.page}`);
+      check("'abc' returns 20 rows", abcResult.sessionIds.length === 20,
+        `got ${abcResult.sessionIds.length}`);
 
       // Clean up pagination test user
       await adminClient.auth.admin.deleteUser(paginationUserId);
