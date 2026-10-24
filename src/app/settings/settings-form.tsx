@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -84,24 +84,77 @@ export function SettingsForm({
   const [s, setS] = useState(initial);
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const pendingSavesRef = useRef(0);
+
+  // beforeunload guard while saves are pending
+  useEffect(() => {
+    if (pendingSavesRef.current === 0) return;
+    
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [pendingSavesRef.current]);
+
+  // Auto-clear "saved" status after 2 seconds
+  useEffect(() => {
+    if (saveStatus !== "saved") return;
+    const timer = setTimeout(() => setSaveStatus("idle"), 2000);
+    return () => clearTimeout(timer);
+  }, [saveStatus]);
 
   function save(run: () => Promise<Result>, affectsPlan = false) {
-    startTransition(async () => {
-      const r = await run();
-      if (!r.ok) return setError(r.error);
-      setError(null);
-      if (affectsPlan) setPlanStale(true);
-      // No router.refresh() here. updateSettings and friends revalidate
-      // "/settings", and Next.js returns the re-rendered tree with the action's
-      // own response — refreshing on top of that fetched this five-query screen
-      // a second time, on every single toggle.
+    pendingSavesRef.current++;
+    setSaveStatus("saving");
+    
+    // Serialize saves: wait for previous save to complete
+    const nextSave = saveQueueRef.current.then(async () => {
+      return new Promise<void>((resolve) => {
+        startTransition(async () => {
+          try {
+            const r = await run();
+            if (!r.ok) {
+              setError(r.error);
+              setSaveStatus("idle");
+            } else {
+              setError(null);
+              if (affectsPlan) setPlanStale(true);
+              setSaveStatus("saved");
+            }
+          } catch (e) {
+            setError("Save failed. Please try again.");
+            setSaveStatus("idle");
+          } finally {
+            pendingSavesRef.current--;
+            resolve();
+          }
+        });
+      });
     });
+    
+    saveQueueRef.current = nextSave;
   }
 
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
 
   return (
     <div className="space-y-12">
+      {saveStatus === "saving" && (
+        <div className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
+          Saving changes…
+        </div>
+      )}
+      {saveStatus === "saved" && (
+        <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm text-success">
+          Changes saved
+        </div>
+      )}
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {planStale && (

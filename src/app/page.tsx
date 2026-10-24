@@ -47,9 +47,9 @@ export default async function LandingPage({
         </ul>
       </div>
 
-      <div className="mt-12">
+      <div className="mt-12 space-y-6">
         {error === "auth_failed" && (
-          <p className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+          <p className="rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
             Sign-in did not complete. Please try again.
           </p>
         )}

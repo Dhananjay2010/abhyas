@@ -1,5 +1,3 @@
-"use client";
-
 import {
   useCallback,
   useEffect,
@@ -48,6 +46,7 @@ import { MOODS, moodLabel, type Pattern, type SessionOptions } from "@/lib/breat
 import type { ResolvedStep, Routine } from "@/lib/breathing/routine";
 import { GLOW_BG, HALO_BG, ORB_BG, SESSION_BG } from "@/lib/breathing/theme";
 import { formatClock, useWakeLock, vibrate } from "@/lib/session/device";
+import { formatDuration } from "@/lib/format-duration";
 import {
   rateBreathingPractice,
   recordBreathingPractice,
@@ -1013,8 +1012,7 @@ function Practice({
   }
 
   if (stage === "finished" && outcome) {
-    const weekMinutes =
-      week.seconds === 0 ? "0 min" : week.seconds < 60 ? "Under a minute" : `${Math.round(week.seconds / 60)} min`;
+    const weekMinutes = formatDuration(week.seconds);
     // A routine's summary is the whole thing, not just its last step.
     const seconds = before.seconds + outcome.seconds;
     const breaths = before.breaths + outcome.breaths;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { markYogaVideoDone } from "./actions";
 
 export type YogaVideo = {
@@ -35,25 +36,63 @@ export function YogaPlayer({
   channelUrl: string;
   actions?: Actions;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [optimisticDone, setOptimisticDone] = useState<Set<string>>(new Set());
 
   // Open the series with progress already in it, otherwise the first playlist.
   const initial =
     playlists.find((p) => p.videos.some((v) => v.done)) ?? playlists[0] ?? null;
-  const [openId, setOpenId] = useState<string | null>(initial?.id ?? null);
+  
+  // Restore from URL or use initial
+  const urlPlaylistId = searchParams.get("playlist");
+  const urlVideoId = searchParams.get("video");
+  const initialPlaylistId = urlPlaylistId && playlists.some(p => p.id === urlPlaylistId) 
+    ? urlPlaylistId 
+    : initial?.id ?? null;
+  
+  const [openId, setOpenId] = useState<string | null>(initialPlaylistId);
   const open = playlists.find((p) => p.id === openId) ?? null;
 
   const nextUp = useMemo(
-    () => open?.videos.find((v) => !v.done) ?? open?.videos[0] ?? null,
-    [open],
+    () => {
+      const videos = open?.videos.map(v => ({
+        ...v,
+        done: v.done || optimisticDone.has(v.id)
+      })) ?? [];
+      return videos.find((v) => !v.done) ?? videos[0] ?? null;
+    },
+    [open, optimisticDone],
   );
-  const [playingId, setPlayingId] = useState<string | null>(null);
+  
+  // Restore playing video from URL
+  const initialPlayingId = urlVideoId && open?.videos.some(v => v.id === urlVideoId)
+    ? urlVideoId
+    : null;
+  
+  const [playingId, setPlayingId] = useState<string | null>(initialPlayingId);
   const playing = open?.videos.find((v) => v.id === playingId) ?? nextUp;
+
+  // Update URL when selection changes
+  useEffect(() => {
+    if (!open) return;
+    const params = new URLSearchParams();
+    params.set("playlist", open.id);
+    if (playing) {
+      params.set("video", playing.id);
+    }
+    router.replace(`/yoga?${params.toString()}`, { scroll: false });
+  }, [open?.id, playing?.id, router]);
 
   if (playlists.length === 0) {
     return <p className="text-muted">No yoga series are available yet.</p>;
   }
+
+  const isOptimisticallyDone = playing && optimisticDone.has(playing.id);
+  const isActuallyDone = playing?.done ?? false;
+  const isDone = isActuallyDone || isOptimisticallyDone;
 
   return (
     <div>
@@ -101,20 +140,32 @@ export function YogaPlayer({
 
           <div className="mt-4">
             <button
-              disabled={pending || playing.done}
-              onClick={() =>
+              disabled={pending || isDone}
+              onClick={() => {
+                if (!playing) return;
+                // Optimistic update
+                setOptimisticDone(prev => new Set([...prev, playing.id]));
+                setError(null);
+                
                 startTransition(async () => {
-                  setError(null);
                   const r = await actions.markYogaVideoDone(playing.id);
-                  if (!r.ok) return setError(r.error);
-                  setPlayingId(null);
-                  // markYogaVideoDone revalidates "/yoga"; the re-rendered tree
-                  // comes back with the action. A refresh here fetched it twice.
-                })
-              }
+                  if (!r.ok) {
+                    // Rollback on error
+                    setOptimisticDone(prev => {
+                      const next = new Set(prev);
+                      next.delete(playing.id);
+                      return next;
+                    });
+                    setError(r.error);
+                  } else {
+                    // Success - the revalidation will update the actual done state
+                    setPlayingId(null);
+                  }
+                });
+              }}
               className="w-full rounded-xl bg-accent px-6 py-4 text-base font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
-              {playing.done ? "Already marked done" : pending ? "Saving…" : "I did this"}
+              {isDone ? "Already marked done" : pending ? "Saving…" : "I did this"}
             </button>
             <p className="mt-2 text-center text-xs text-muted">
               We cannot tell whether a video was watched, so this is on your word.
@@ -128,37 +179,40 @@ export function YogaPlayer({
           <div className="mb-3 flex items-baseline justify-between gap-3">
             <h2 className="text-sm font-semibold">{open.title}</h2>
             <span className="shrink-0 text-xs text-muted">
-              {open.videos.filter((v) => v.done).length} of {open.videos.length} done
+              {open.videos.filter((v) => v.done || optimisticDone.has(v.id)).length} of {open.videos.length} done
             </span>
           </div>
           <ul className="space-y-1.5">
-            {open.videos.map((v) => (
-              <li key={v.id}>
-                <button
-                  onClick={() => setPlayingId(v.id)}
-                  className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
-                    v.id === playing?.id
-                      ? "border-accent bg-accent/10"
-                      : "border-border bg-surface hover:border-muted/50"
-                  }`}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                        v.done ? "bg-success" : "bg-border"
-                      }`}
-                    />
-                    <span className={`truncate ${v.done ? "text-muted" : ""}`}>
-                      {v.title}
+            {open.videos.map((v) => {
+              const vDone = v.done || optimisticDone.has(v.id);
+              return (
+                <li key={v.id}>
+                  <button
+                    onClick={() => setPlayingId(v.id)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                      v.id === playing?.id
+                        ? "border-accent bg-accent/10"
+                        : "border-border bg-surface hover:border-muted/50"
+                    }`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                          vDone ? "bg-success" : "bg-border"
+                        }`}
+                      />
+                      <span className={`truncate ${vDone ? "text-muted" : ""}`}>
+                        {v.title}
+                      </span>
                     </span>
-                  </span>
-                  {v.minutes && (
-                    <span className="shrink-0 text-xs text-muted">{v.minutes}m</span>
-                  )}
-                </button>
-              </li>
-            ))}
+                    {v.minutes && (
+                      <span className="shrink-0 text-xs text-muted">{v.minutes}m</span>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
