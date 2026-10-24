@@ -130,3 +130,22 @@ export function activeTab(pathname: string): string | null {
 export function needsNotFoundNav(pathname: string): boolean {
   return activeTab(pathname) === null;
 }
+
+/**
+ * Map bottom nav tab hrefs to their actual destination.
+ * For /practice, routes through choosePracticeRoute to pick breathe or yoga.
+ * All other tabs pass through unchanged.
+ *
+ * @param tabHref - The tab's nominal href (e.g. "/practice")
+ * @param pathname - Current pathname (for context)
+ * @param lastPractice - Last practice type from localStorage
+ * @returns The resolved href to navigate to
+ */
+export function getBottomNavHref(
+  tabHref: string,
+  pathname: string,
+  lastPractice: PracticeType | null
+): string {
+  if (tabHref !== "/practice") return tabHref;
+  return choosePracticeRoute(pathname, lastPractice);
+}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { activeTab, choosePracticeRoute, needsNotFoundNav, PRACTICE_LAST_CHANGE_EVENT, type PracticeType } from "@/lib/nav";
+import { activeTab, getBottomNavHref, needsNotFoundNav, PRACTICE_LAST_CHANGE_EVENT, type PracticeType } from "@/lib/nav";
 import { useOfflineError } from "@/contexts/offline-error-context";
 
 /**
@@ -113,17 +113,11 @@ export function BottomNav({ forNotFound }: { forNotFound?: boolean } = {}) {
   if (forNotFound ? !needsNotFoundNav(pathname) : !active) return null;
   if (isOfflineError) return null;
 
-  // Map /practice to the appropriate destination using choice logic
-  const getHref = (tabHref: string) => {
-    if (tabHref !== "/practice") return tabHref;
-    return choosePracticeRoute(pathname, lastPractice);
-  };
-
   return (
     <nav data-bottom-nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
       <ul className="mx-auto flex max-w-md">
         {TABS.map((t) => {
-          const href = getHref(t.href);
+          const href = getBottomNavHref(t.href, pathname, lastPractice);
           const isActive = active === t.href;
           const Icon = t.Icon;
           return (

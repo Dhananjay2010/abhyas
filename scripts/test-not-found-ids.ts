@@ -417,15 +417,60 @@ async function runTests() {
       check("breathe/load.ts exists", false, `${err}`);
     }
 
-    // Test that BottomNav uses choosePracticeRoute (not hard-coded /breathe)
+    // Test that BottomNav uses getBottomNavHref helper
     try {
       const bnContent = await fs.readFile("src/components/bottom-nav.tsx", "utf-8");
       check(
-        "BottomNav getHref uses choosePracticeRoute",
-        bnContent.includes("choosePracticeRoute"),
+        "BottomNav imports getBottomNavHref",
+        bnContent.includes("getBottomNavHref"),
+      );
+      check(
+        "BottomNav calls getBottomNavHref",
+        bnContent.includes("getBottomNavHref(t.href, pathname, lastPractice)"),
       );
     } catch (err) {
-      check("bottom-nav.tsx exists for choosePracticeRoute test", false, `${err}`);
+      check("bottom-nav.tsx exists for getBottomNavHref test", false, `${err}`);
+    }
+
+    // Test the actual getBottomNavHref logic to catch mutants
+    try {
+      const { getBottomNavHref } = await import("../src/lib/nav.js");
+
+      // Test mutant 1: returning raw "/practice" instead of routing it
+      check(
+        'getBottomNavHref("/practice", ...) must not return "/practice"',
+        getBottomNavHref("/practice", "/today", "yoga") !== "/practice" &&
+        getBottomNavHref("/practice", "/yoga", null) !== "/practice"
+      );
+
+      // Test mutant 2: returning "/breathe" always instead of choosePracticeRoute logic
+      check(
+        'getBottomNavHref("/practice", "/yoga", null) must return "/yoga"',
+        getBottomNavHref("/practice", "/yoga", null) === "/yoga"
+      );
+
+      check(
+        'getBottomNavHref("/practice", "/today", "yoga") must return "/yoga"',
+        getBottomNavHref("/practice", "/today", "yoga") === "/yoga"
+      );
+
+      check(
+        'getBottomNavHref("/practice", "/today", "breathe") must return "/breathe"',
+        getBottomNavHref("/practice", "/today", "breathe") === "/breathe"
+      );
+
+      check(
+        'getBottomNavHref("/practice", "/today", null) must return "/breathe"',
+        getBottomNavHref("/practice", "/today", null) === "/breathe"
+      );
+
+      // Test non-practice tabs pass through unchanged
+      check(
+        'getBottomNavHref("/today", ...) returns "/today"',
+        getBottomNavHref("/today", "/yoga", "yoga") === "/today"
+      );
+    } catch (err) {
+      check("getBottomNavHref logic tests", false, `${err}`);
     }
   }
 

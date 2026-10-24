@@ -174,13 +174,11 @@ function testLayoutBottomNav() {
 
   const bottomNavSource = fs.readFileSync(bottomNavPath, "utf-8");
 
-  // BottomNav should use activeTab() and check the visibility condition
+  // BottomNav should use activeTab() and the exact forNotFound gate
   assert(
     bottomNavSource.includes("activeTab(pathname)") &&
-    (bottomNavSource.includes("if (!active) return null") ||
-     bottomNavSource.includes("if (!active && !(forNotFound") ||
-     bottomNavSource.includes("if (forNotFound ? !")),
-    'BottomNav must use activeTab() and return null when inactive'
+    bottomNavSource.includes("if (forNotFound ? !needsNotFoundNav(pathname) : !active) return null;"),
+    'BottomNav must use activeTab() and the exact gate: if (forNotFound ? !needsNotFoundNav(pathname) : !active) return null;'
   );
 
   // Must have data-bottom-nav attribute for CSS hiding
