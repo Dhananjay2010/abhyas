@@ -381,6 +381,88 @@ const dummyTieBreak = (slug: string) => hashString(slug);
   console.log("✅ Test (f): Lunge→squat fallback passed");
 }
 
+// Test (g): Mid-session new injury case
+{
+  // Current exercise is now contraindicated but was fine when planned
+  const shoulderPress: TestExerciseRow = {
+    id: "test-shoulder-press",
+    name: "Shoulder Press",
+    slug: "shoulder-press",
+    metric: "reps",
+    movement_pattern: "vertical_press",
+    mechanic: "compound",
+    primary_muscles: ["front_delts"],
+    level_min: "beginner",
+    impact: "low",
+    contraindicated_regions: ["shoulder"],
+    equipment_ids: ["dumbbell"],
+    spinal_load: "none",
+    tracks: ["weights"],
+    default_rest_seconds: 90,
+    category: "strength",
+  };
+  
+  const pushPress: TestExerciseRow = {
+    id: "test-push-press",
+    name: "Push Press",
+    slug: "push-press",
+    metric: "reps",
+    movement_pattern: "vertical_press",
+    mechanic: "compound",
+    primary_muscles: ["front_delts"],
+    level_min: "intermediate",
+    impact: "low",
+    contraindicated_regions: [],
+    equipment_ids: ["barbell"],
+    spinal_load: "low",
+    tracks: ["weights"],
+    default_rest_seconds: 120,
+    category: "strength",
+  };
+  
+  const landminePress: TestExerciseRow = {
+    id: "test-landmine-press",
+    name: "Landmine Press",
+    slug: "landmine-press",
+    metric: "reps",
+    movement_pattern: "vertical_press",
+    mechanic: "compound",
+    primary_muscles: ["front_delts"],
+    level_min: "beginner",
+    impact: "low",
+    contraindicated_regions: [],
+    equipment_ids: ["barbell"],
+    spinal_load: "none",
+    tracks: ["weights"],
+    default_rest_seconds: 90,
+    category: "strength",
+  };
+  
+  const syntheticCatalogue = [shoulderPress, pushPress, landminePress];
+  
+  // User now has shoulder injury, current exercise (shoulderPress) is contraindicated
+  const alternatives = rankAlternatives(shoulderPress, syntheticCatalogue, {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: ["shoulder"],
+    scoreFn: dummyScore,
+    tieBreakFn: dummyTieBreak,
+  });
+  
+  assert(alternatives.length > 0, "(g) Alternatives found even when current exercise is contraindicated");
+  
+  const hasShoulderContra = alternatives.some((e) => e.contraindicated_regions.includes("shoulder"));
+  assert(!hasShoulderContra, "(g) No shoulder-contraindicated exercises for shoulder injury");
+  
+  const allVertical = alternatives.every((e) => e.movement_pattern === "vertical_press");
+  assert(allVertical, "(g) All alternatives match current movement_pattern (vertical_press)");
+  
+  const hasCurrentExercise = alternatives.some((e) => e.id === "test-shoulder-press");
+  assert(!hasCurrentExercise, "(g) Current exercise excluded from alternatives");
+  
+  console.log("✅ Test (g): Mid-session new injury case passed");
+}
+
 if (failed > 0) {
   console.error(`\n❌ ${failed} test(s) failed`);
   process.exit(1);

@@ -664,17 +664,14 @@ export async function findAlternatives(
     .filter((e) => !alreadyInSession.has(e.id))
     .filter((e) => isEligible(e, { ...input, catalogue: [] }));
   
-  // Then apply new rules and rank
-  const currentExercise = eligible.find((e) => e.id === current.exercise_id);
+  // Find current exercise in the pool (not in eligible - it may be contraindicated)
+  const currentExercise = (poolRes.data ?? []).find((e: unknown) => (e as { id: string }).id === current.exercise_id);
   if (!currentExercise) {
-    // Current might not be in eligible if it was swapped to from another pattern
-    // Fall back to finding it in the original pool
-    const fallback = (poolRes.data ?? []).find((e: unknown) => (e as { id: string }).id === current.exercise_id);
-    if (!fallback) return { ok: false, error: "Current exercise not found in pool" };
+    return { ok: false, error: "Current exercise not found in pool" };
   }
   
   const ranked = rankAlternatives(
-    currentExercise || ((poolRes.data ?? [])[0] as unknown as CandidateExercise),
+    currentExercise as unknown as CandidateExercise,
     eligible,
     {
       level: input.level,
@@ -686,12 +683,16 @@ export async function findAlternatives(
     },
   );
 
-  const alternatives = ranked.map((e) => ({
-    exerciseId: e.id,
-    name: e.name,
-    cue: null,
-    metric: e.metric ?? ("reps" as const),
-  }));
+  const alternatives = ranked.map((e) => {
+    // Map back to pool row to get cue
+    const poolRow = (poolRes.data ?? []).find((p: unknown) => (p as { id: string }).id === e.id) as { cue?: string | null } | undefined;
+    return {
+      exerciseId: e.id,
+      name: e.name,
+      cue: poolRow?.cue ?? null,
+      metric: e.metric ?? ("reps" as const),
+    };
+  });
 
   return { ok: true, data: alternatives };
 }
@@ -742,7 +743,7 @@ export async function swapExercise(input: {
 
   const replacement = replacementRes.data;
   const metric = metricOf(replacement);
-  const equipmentIds = (replacement as { equipment_ids?: string[] } | null)?.equipment_ids ?? [];
+  const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
 
   /*
