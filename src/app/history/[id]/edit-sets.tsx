@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { updateSet, deleteSet } from "../actions";
 
 interface SetData {
@@ -23,13 +24,16 @@ interface EditSetsProps {
 }
 
 export function EditSets({ sessionId, exercises }: EditSetsProps) {
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [editedSets, setEditedSets] = useState<Map<string, SetData>>(new Map());
   const [errors, setErrors] = useState<Map<string, string>>(new Map());
+  const [globalError, setGlobalError] = useState<string | null>(null);
   const [setToDelete, setSetToDelete] = useState<{ exerciseId: string; setNumber: number } | null>(null);
   const [showUndo, setShowUndo] = useState(false);
   const [deletedSet, setDeletedSet] = useState<{ exerciseId: string; setNumber: number } | null>(null);
+  const [showLastSetConfirm, setShowLastSetConfirm] = useState<{ exerciseId: string; setNumber: number } | null>(null);
 
   const handleEdit = () => {
     // Initialize edited sets with current values
@@ -63,10 +67,10 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
         newErrors.set(`${key}-${field}`, "Must be a number");
       } else if (numValue < 0) {
         newErrors.set(`${key}-${field}`, "Must be positive");
-      } else if (field === "reps" && numValue > 999) {
-        newErrors.set(`${key}-${field}`, "Maximum 999 reps");
-      } else if (field === "weight_kg" && numValue > 9999) {
-        newErrors.set(`${key}-${field}`, "Maximum 9999 kg");
+      } else if (field === "reps" && numValue > 100) {
+        newErrors.set(`${key}-${field}`, "Maximum 100 reps");
+      } else if (field === "weight_kg" && numValue > 500) {
+        newErrors.set(`${key}-${field}`, "Maximum 500 kg");
       } else if (field === "duration_seconds" && numValue > 3600) {
         newErrors.set(`${key}-${field}`, "Maximum 1 hour");
       } else {
@@ -82,24 +86,63 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
   };
 
   const handleDeleteClick = (sessionExerciseId: string, setNumber: number) => {
-    setSetToDelete({ exerciseId: sessionExerciseId, setNumber });
+    // Count total working sets
+    let totalWorkingSets = 0;
+    for (const exercise of exercises) {
+      totalWorkingSets += exercise.sets.filter(s => !s.is_warmup_set).length;
+    }
+
+    // If this is the last set, show special confirmation
+    if (totalWorkingSets === 1) {
+      setShowLastSetConfirm({ exerciseId: sessionExerciseId, setNumber });
+    } else {
+      setSetToDelete({ exerciseId: sessionExerciseId, setNumber });
+    }
   };
 
   const confirmDelete = () => {
     if (!setToDelete) return;
 
     startTransition(async () => {
-      const result = await deleteSet(setToDelete.exerciseId, setToDelete.setNumber);
+      const result = await deleteSet(setToDelete.exerciseId, setToDelete.setNumber, false);
       
-      if (result.error) {
-        alert(`Failed to delete set: ${result.error}`);
-      } else {
+      if (result.success) {
         setDeletedSet(setToDelete);
         setShowUndo(true);
         setSetToDelete(null);
         
         // Hide undo after 5 seconds
         setTimeout(() => setShowUndo(false), 5000);
+      } else if (result.error) {
+        if (result.error === "last_set") {
+          // Should not happen as we check before, but handle it
+          setShowLastSetConfirm(setToDelete);
+          setSetToDelete(null);
+        } else {
+          setGlobalError(result.error);
+          setSetToDelete(null);
+        }
+      }
+    });
+  };
+
+  const confirmDeleteLastSet = () => {
+    if (!showLastSetConfirm) return;
+
+    startTransition(async () => {
+      const result = await deleteSet(
+        showLastSetConfirm.exerciseId,
+        showLastSetConfirm.setNumber,
+        true
+      );
+      
+      if (result.success) {
+        if (result.sessionDeleted && result.redirect) {
+          router.push(result.redirect);
+        }
+      } else if (result.error) {
+        setGlobalError(result.error);
+        setShowLastSetConfirm(null);
       }
     });
   };
@@ -108,10 +151,16 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
     setSetToDelete(null);
   };
 
+  const cancelLastSetConfirm = () => {
+    setShowLastSetConfirm(null);
+  };
+
   const handleSave = () => {
     if (errors.size > 0) {
       return;
     }
+
+    setGlobalError(null);
 
     startTransition(async () => {
       const updates: Promise<{ success?: boolean; error?: string }>[] = [];
@@ -135,7 +184,7 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
         setIsEditing(false);
         setEditedSets(new Map());
       } else {
-        alert(`Failed to update ${failed.length} set(s)`);
+        setGlobalError(`Failed to update ${failed.length} set(s). ${failed[0]?.error || ""}`);
       }
     });
   };
@@ -157,6 +206,12 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
       <p className="mt-1 text-xs text-muted">
         Editing sets recalculates PR status. Empty fields will be saved as blank.
       </p>
+
+      {globalError && (
+        <div className="mt-3 rounded bg-[rgb(var(--destructive-rgb)/0.1)] px-3 py-2 text-sm text-[rgb(var(--destructive-rgb))]">
+          {globalError}
+        </div>
+      )}
 
       <div className="mt-4 max-h-96 space-y-4 overflow-y-auto">
         {exercises.map((exercise) => {
@@ -192,11 +247,12 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
                           }
                           placeholder="seconds"
                           min="0"
+                          max="3600"
                           step="1"
                           className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
                         />
                         {errors.has(`${key}-duration_seconds`) && (
-                          <p className="mt-0.5 text-xs text-destructive">
+                          <p className="mt-0.5 text-xs text-[rgb(var(--destructive-rgb))]">
                             {errors.get(`${key}-duration_seconds`)}
                           </p>
                         )}
@@ -216,12 +272,13 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
                               )
                             }
                             placeholder="reps"
-                            min="0"
+                            min="1"
+                            max="100"
                             step="1"
                             className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
                           />
                           {errors.has(`${key}-reps`) && (
-                            <p className="mt-0.5 text-xs text-destructive">
+                            <p className="mt-0.5 text-xs text-[rgb(var(--destructive-rgb))]">
                               {errors.get(`${key}-reps`)}
                             </p>
                           )}
@@ -240,11 +297,12 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
                             }
                             placeholder="kg"
                             min="0"
+                            max="500"
                             step="0.5"
                             className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
                           />
                           {errors.has(`${key}-weight_kg`) && (
-                            <p className="mt-0.5 text-xs text-destructive">
+                            <p className="mt-0.5 text-xs text-[rgb(var(--destructive-rgb))]">
                               {errors.get(`${key}-weight_kg`)}
                             </p>
                           )}
@@ -299,6 +357,34 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
         </div>
       )}
 
+      {/* Last set confirmation dialog */}
+      {showLastSetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-xl">
+            <h3 className="text-lg font-semibold">Delete session?</h3>
+            <p className="mt-2 text-sm text-muted">
+              This is the last set. Delete the whole session?
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={cancelLastSetConfirm}
+                disabled={isPending}
+                className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:border-muted/50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteLastSet}
+                disabled={isPending}
+                className="flex-1 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {isPending ? "Deleting..." : "Delete session"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Undo toast */}
       {showUndo && deletedSet && (
         <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-border bg-surface px-4 py-3 shadow-xl">
@@ -317,6 +403,7 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
             setIsEditing(false);
             setEditedSets(new Map());
             setErrors(new Map());
+            setGlobalError(null);
           }}
           disabled={isPending}
           className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:border-muted/50 disabled:opacity-50"
