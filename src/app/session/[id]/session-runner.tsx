@@ -31,6 +31,7 @@ import {
 } from "../actions";
 import { resolveSetConflict } from "@/lib/session/conflict-reducer";
 import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
+import { mergeSets } from "@/lib/session/merge-sets";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -230,6 +231,13 @@ export function SessionRunner({
 
   // Fresh data on resume: refresh when resuming or navigating back
   useResumeRefresh();
+
+  // Case B: Merge server data with local state when initialExercises changes
+  // (e.g., after router.refresh from useResumeRefresh). This prevents dropping
+  // confirmed local saves that haven't landed on the server yet.
+  useEffect(() => {
+    setExercises((prevExercises) => mergeSets(prevExercises, initialExercises));
+  }, [initialExercises]);
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
