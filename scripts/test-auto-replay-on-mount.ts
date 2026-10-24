@@ -224,17 +224,12 @@ async function testOnFocusRetriesAfterFailure() {
   assert(states[states.length - 1].pending.length === 1, "Set still pending after failed replay");
   assert(states[states.length - 1].expired, "Still marked as expired");
 
-  // Second onFocus: should NOT retry automatically (replayAttempted guard)
+  // Second onFocus: should retry automatically (allow retry after failure)
   controller.onFocus();
   await new Promise((resolve) => setTimeout(resolve, 50));
 
-  assertEqual(callCount, 1, "onFocus does not retry after failure (manual retry needed)");
-
-  // Manual retry via replay() should work
-  await controller.replay();
-
-  assertEqual(callCount, 2, "Manual replay() succeeds");
-  assertEqual(states[states.length - 1].pending.length, 0, "Set saved after manual retry");
+  assertEqual(callCount, 2, "onFocus retries after failure (auto-retry on focus)");
+  assertEqual(states[states.length - 1].pending.length, 0, "Set cleared after successful retry");
 }
 
 async function testReplayAttemptedResetOnNewPendingSet() {
