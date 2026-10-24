@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { SettingsForm, type SettingsState } from "./settings-form";
 import { getSiteInfo } from "@/lib/legal/site-info";
+import { SignOutButton } from "./signout-button";
 
 export const dynamic = "force-dynamic";
 
@@ -90,11 +91,7 @@ export default async function SettingsPage() {
         <section>
           <h2 className="text-lg font-semibold mb-2">Account</h2>
           <div className="space-y-3">
-            <form action="/auth/signout" method="post">
-              <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg text-left">
-                Sign out
-              </button>
-            </form>
+            <SignOutButton />
             <a
               href="/settings/delete-account"
               className="block rounded-xl border border-danger/30 bg-danger/10 px-6 py-3 text-sm font-medium text-danger transition-colors hover:bg-danger/20"
