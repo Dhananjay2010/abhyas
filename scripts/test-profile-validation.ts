@@ -16,6 +16,8 @@ import {
   validateSettingsFields,
   validateTimezone,
   validateDateOfBirth,
+  validateHeightCm,
+  validateWeightKg,
   ONBOARDING_ALLOWED_COLUMNS,
   SETTINGS_ALLOWED_COLUMNS,
 } from "../src/lib/profile/validation";
@@ -260,27 +262,27 @@ console.log("\n6. L6: Age computed in user timezone, not UTC");
 
 console.log("\n7. P3-M5: Height and weight NaN/Infinity handling");
 {
-  // These tests verify the server-side logic without actually calling the database
-  // The actual saveAboutYou function can't be easily tested offline as it requires Supabase client
+  // Test the real validation functions (imports from src/lib/profile/validation.ts)
+  check("accepts valid height", validateHeightCm(175).ok);
+  check("accepts valid weight", validateWeightKg(70).ok);
   
-  // Test the validation logic that's in saveAboutYou
-  const testHeightWeight = (h: number, w: number): boolean => {
-    // This mirrors the logic in saveAboutYou after the NaN fix
-    if (!Number.isFinite(h) || h < 100 || h > 250) return false;
-    if (!Number.isFinite(w) || w < 25 || w > 300) return false;
-    return true;
-  };
-
-  check("accepts valid height and weight", testHeightWeight(175, 70));
-  check("rejects NaN height", !testHeightWeight(NaN, 70));
-  check("rejects Infinity height", !testHeightWeight(Infinity, 70));
-  check("rejects -Infinity height", !testHeightWeight(-Infinity, 70));
-  check("rejects NaN weight", !testHeightWeight(175, NaN));
-  check("rejects Infinity weight", !testHeightWeight(175, Infinity));
-  check("rejects height < 100", !testHeightWeight(99, 70));
-  check("rejects height > 250", !testHeightWeight(251, 70));
-  check("rejects weight < 25", !testHeightWeight(175, 24));
-  check("rejects weight > 300", !testHeightWeight(175, 301));
+  check("rejects NaN height", !validateHeightCm(NaN).ok);
+  check("rejects Infinity height", !validateHeightCm(Infinity).ok);
+  check("rejects -Infinity height", !validateHeightCm(-Infinity).ok);
+  check("rejects height < 100", !validateHeightCm(99).ok);
+  check("rejects height > 250", !validateHeightCm(251).ok);
+  
+  check("rejects NaN weight", !validateWeightKg(NaN).ok);
+  check("rejects Infinity weight", !validateWeightKg(Infinity).ok);
+  check("rejects -Infinity weight", !validateWeightKg(-Infinity).ok);
+  check("rejects weight < 25", !validateWeightKg(24).ok);
+  check("rejects weight > 300", !validateWeightKg(301).ok);
+  
+  // Test numeric string inputs (forms may pass strings)
+  check("accepts valid height as string", validateHeightCm("175").ok);
+  check("accepts valid weight as string", validateWeightKg("70").ok);
+  check("rejects NaN string height", !validateHeightCm("NaN").ok);
+  check("rejects invalid string weight", !validateWeightKg("invalid").ok);
 }
 
 // ============================================================

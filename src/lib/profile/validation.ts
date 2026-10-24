@@ -62,6 +62,8 @@ const NEVER_WRITABLE: ReadonlySet<keyof ProfileRow> = new Set([
 
 export type ValidationResult = { ok: true; data: ProfileUpdate } | { ok: false; error: string };
 
+export type ValueValidationResult = { ok: true } | { ok: false; error: string };
+
 /**
  * Validate and allow-list fields for onboarding actions.
  * Returns only the columns that are safe to write.
@@ -206,4 +208,40 @@ export function validateDateOfBirth(
   }
 
   return { ok: true, date: dob };
+}
+
+/**
+ * P3-M5: Validate height with NaN/Infinity checks.
+ * Accepts both number and numeric string (for form inputs).
+ */
+export function validateHeightCm(value: number | string): ValueValidationResult {
+  const height = typeof value === "string" ? Number(value) : value;
+  
+  if (!Number.isFinite(height)) {
+    return { ok: false, error: "Height should be between 100 and 250 cm." };
+  }
+  
+  if (height < 100 || height > 250) {
+    return { ok: false, error: "Height should be between 100 and 250 cm." };
+  }
+  
+  return { ok: true };
+}
+
+/**
+ * P3-M5: Validate weight with NaN/Infinity checks.
+ * Accepts both number and numeric string (for form inputs).
+ */
+export function validateWeightKg(value: number | string): ValueValidationResult {
+  const weight = typeof value === "string" ? Number(value) : value;
+  
+  if (!Number.isFinite(weight)) {
+    return { ok: false, error: "Weight should be between 25 and 300 kg." };
+  }
+  
+  if (weight < 25 || weight > 300) {
+    return { ok: false, error: "Weight should be between 25 and 300 kg." };
+  }
+  
+  return { ok: true };
 }

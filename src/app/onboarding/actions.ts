@@ -5,7 +5,10 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
+<<<<<<< HEAD
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+=======
+>>>>>>> 18c740d (refactor: extract height/weight validation into pure testable functions)
 import {
   validateOnboardingFields,
   validateDateOfBirth,
