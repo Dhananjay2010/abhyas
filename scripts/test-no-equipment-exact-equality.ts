@@ -14,7 +14,7 @@ import { evaluateProgression as branchProgression, type ExerciseMeta } from "../
 let failures = 0;
 let checks = 0;
 
-function check(label: string, mainVal: any, branchVal: any) {
+function check(label: string, mainVal: string | number | null | undefined, branchVal: string | number | null | undefined) {
   checks++;
   const ok = mainVal === branchVal;
   if (!ok) {
