@@ -33,8 +33,8 @@ export function buildCloseStaleDeps(supabase: Client): CloseStaleDeps {
       const { error, count } = await supabase
         .from("sessions")
         .update({ status, completed_at: completedAt, duration_seconds: durationSeconds })
-        .eq("id", id)
-        .eq("status", "in_progress");
+        .eq("id", id);
+        // REMOVED: .eq("status", "in_progress")
       
       if (error) throw error;
       return (count ?? 0) > 0;
