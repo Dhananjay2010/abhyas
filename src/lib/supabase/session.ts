@@ -73,7 +73,6 @@ function generate404Html(): string {
   // Read-only access to branding (don't edit branding.ts per PR #8)
   const appName = escapeHtml(branding.name);
   const bgColor = branding.backgroundColor;
-  const themeColor = branding.themeColor;
   
   // Brand accent color (reviewer confirmed #22c55e green)
   const accentColor = "#22c55e";
