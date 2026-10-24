@@ -27,6 +27,7 @@ type Mutant = {
   pattern: string | RegExp;
   mutate: string;
   tests: string[]; // Test script names (test:knee-swaps, test:catalogue-knee-jumps, etc.)
+  notes?: string; // Optional explanation for why a mutant behaves a certain way
 };
 
 const mutants: Mutant[] = [
@@ -64,6 +65,87 @@ const mutants: Mutant[] = [
     pattern: /if \(\(hasKneeInjury \|\| hasPastKnee\) && isLowerOrFullDay\) {/,
     mutate: 'if (!(hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {',
     tests: ["test:knee-safety-matrix"],
+  },
+
+  // 5a. Drop knee high-impact filter in swap path (alternatives.ts)
+  {
+    name: "Drop knee high-impact filter in alternatives (swaps)",
+    file: "src/lib/program/alternatives.ts",
+    pattern: /\/\/ 4b\. PR #73: Knee injuries exclude high-impact lower-body moves\n\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.impact === "high"\) {/,
+    mutate: '// 4b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (!(ctx.anyKneeInjury ?? false) && candidate.impact === "high") {',
+    tests: ["test:knee-swaps", "test:catalogue-knee-jumps"],
+  },
+
+  // 5b. Drop past-knee 4-list restriction in swaps (alternatives.ts)
+  {
+    name: "Drop past-knee 4-list restriction in swaps",
+    file: "src/lib/program/alternatives.ts",
+    pattern: /\/\/ 2b\. Past-knee lunge swaps: ONLY allow the 4-exercise quad list\n\s+if \(hasPastKnee && current\.movement_pattern === "lunge"\) {/,
+    mutate: '// 2b. Past-knee lunge swaps: ONLY allow the 4-exercise quad list\n    if (!hasPastKnee && current.movement_pattern === "lunge") {',
+    tests: ["test:knee-swaps"],
+  },
+
+  // 5e. getSwapPatterns dropping anyKneeInjury
+  {
+    name: "Drop anyKneeInjury in getSwapPatterns",
+    file: "src/lib/program/swap-patterns.ts",
+    pattern: /const hasKneeInjury = input\.anyKneeInjury \?\? false;/,
+    mutate: 'const hasKneeInjury = false;',
+    tests: ["test:knee-swaps"],
+  },
+
+  // 5f. hasCurrentKnee forced to false
+  {
+    name: "Force hasCurrentKnee to false in buildPatternList",
+    file: "src/lib/program/alternatives.ts",
+    pattern: /const skipFallback = \(hasCurrentKnee \?\? hasKneeInjury\) && currentPattern === "lunge";/,
+    mutate: 'const skipFallback = (false) && currentPattern === "lunge";',
+    tests: ["test:knee-swaps"],
+  },
+
+  // 5c. Drop past-knee never-empty swap fallback
+  {
+    name: "Drop past-knee never-empty swap fallback",
+    file: "src/lib/program/alternatives.ts",
+    pattern: /\/\/ Fallback for past-knee lunge swaps: if empty, add bodyweight options from the 4-list\n\s+if \(deduplicated\.length === 0 && hasPastKnee && current\.movement_pattern === "lunge"\) {/,
+    mutate: '// Fallback for past-knee lunge swaps: if empty, add bodyweight options from the 4-list\n  if (deduplicated.length === 0 && !hasPastKnee && current.movement_pattern === "lunge") {',
+    tests: ["test:knee-swaps"],
+  },
+
+  // 5d. Unsafe-lunge list check (checking if truly equivalent to contraindication check)
+  {
+    name: "Drop unsafe-lunge list check (deficit lunges, pistols)",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ PR #73 coordinator: ANY knee injury \(current or past\) excludes unsafe lunges\n\s+\/\/ \(deficit lunges, pistol squats, side split squat\)\n\s+if \(input\.anyKneeInjury && UNSAFE_KNEE_LUNGES\.has\(ex\.slug\)\) {/,
+    mutate: '// PR #73 coordinator: ANY knee injury (current or past) excludes unsafe lunges\n  // (deficit lunges, pistol squats, side split squat)\n  if (!input.anyKneeInjury && UNSAFE_KNEE_LUNGES.has(ex.slug)) {',
+    tests: ["test:knee-safety-matrix"],
+    notes: "UNSAFE_KNEE_LUNGES is NOT redundant with contraindication tags - these exercises are not explicitly tagged as contraindicated in the catalogue, so this filter is necessary."
+  },
+
+  // 5g. Timed-hold swap logic - NOTE: Does not exist as a separate check
+  // There is no separate timed-hold filtering in the swap path (alternatives.ts).
+  // Timed holds are filtered via isIsometric() for dynamic press replacements only,
+  // which is not knee-specific. The wouldViolateConstraints check in generate.ts
+  // prevents timed holds in main slots during generation, but this doesn't apply to swaps.
+
+  // 5h. Re-add current-knee skip for step-ups and split-squats
+  {
+    name: "Re-add current-knee contraindication skip for step-ups/split-squats",
+    file: "src/lib/program/generate.ts",
+    pattern: /if \(allContraindications\.some\(\(r\) => input\.currentInjuryRegions\.includes\(r\)\)\) {\n\s+return false;\n\s+}/,
+    mutate: `if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
+      const KNEE_SAFE_LUNGE_EXERCISES = new Set([
+        "step-up-with-knee-raise",
+        "barbell-step-ups",
+        "dumbbell-step-ups",
+        "split-squat-with-dumbbells",
+        "smith-single-leg-split-squat",
+      ]);
+      if (!(input.currentInjuryRegions.includes("knee") && KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug))) {
+        return false;
+      }
+    }`,
+    tests: ["test:knee-safety-matrix", "test:knee-swaps"],
   },
 ];
 
@@ -105,6 +187,14 @@ function runMutation(mutant: Mutant): void {
       return;
     }
     writeFileSync(file, mutated, "utf8");
+    
+    // 3b. Verify file actually changed (compare against backup)
+    const mutatedHash = sha256(mutated);
+    if (mutatedHash === originalHash) {
+      console.log(`  ⊘ SKIP: File hash unchanged after mutation`);
+      skipped++;
+      return;
+    }
 
     // 4. Verify it compiles
     try {

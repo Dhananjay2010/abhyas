@@ -89,6 +89,11 @@ function simulateSwapPath(
   const pool = catalogue.filter(ex => patterns.includes(ex.movement_pattern));
   const eligible = pool.filter(ex => isEligible(ex, input));
   
+  // Debug: log pattern expansion
+  if (process.env.DEBUG_SWAPS) {
+    console.log(`    patterns: ${patterns.join(", ")} (pool: ${pool.length}, eligible: ${eligible.length})`);
+  }
+  
   const wantCompound = currentExercise.mechanic !== "isolation";
   const tieBreak = (slug: string) => hashString(`test:${slug}`);
   const scoreFn = (e: CandidateExercise) => score(e, wantCompound, input.level, input.primaryTrack);
@@ -100,6 +105,7 @@ function simulateSwapPath(
       level: input.level,
       availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
       injuryRegions: input.currentInjuryRegions,
+      anyKneeInjury: input.anyKneeInjury,
       limit: 20,
       scoreFn,
       tieBreakFn: tieBreak,
@@ -162,18 +168,12 @@ for (const testCase of TEST_CASES) {
     
     const swapList = simulateSwapPath(currentExercise, testCase.injuries);
     
-    // Check non-empty
-    // Exception: Current knee + lunge may be empty because all lunges are contraindicated
-    const hasCurrentKnee = testCase.injuries.some(inj => inj.region === "knee" && inj.severity === "current");
-    const expectEmpty = hasCurrentKnee && pattern === "lunge";
-    
-    if (!expectEmpty) {
-      check(
-        `${pattern} (${slug}): non-empty swap list`,
-        swapList.length > 0,
-        `${swapList.length} options`
-      );
-    }
+    // Check non-empty - real swap path returns hinge/core alternatives for current-knee lunges
+    check(
+      `${pattern} (${slug}): non-empty swap list`,
+      swapList.length > 0,
+      `${swapList.length} options`
+    );
     
     // Check no banned exercises
     const banned: string[] = [];
@@ -243,6 +243,26 @@ if (testExercise) {
   check("Knee lunge patterns exclude squat fallback", !kneeHasSquat,
     kneeHasSquat ? "Squat pattern found in knee lunge patterns!" : undefined);
 }
+
+// Count empty swap lists for all current-knee lunge exercises
+console.log("\n4. Count empty swap lists for current-knee lunges (comprehensive)");
+const currentKneeInjuries: InjuryRow[] = [{ region: "knee", severity: "current" }];
+const allLunges = catalogue.filter(e => e.movement_pattern === "lunge");
+let emptyCount = 0;
+let totalCount = 0;
+
+for (const ex of allLunges) {
+  const swaps = simulateSwapPath(ex, currentKneeInjuries, true);
+  totalCount++;
+  if (swaps.length === 0) {
+    emptyCount++;
+    console.log(`  ⚠ ${ex.slug}: EMPTY`);
+  }
+}
+
+console.log(`  Empty swap lists: ${emptyCount}/${totalCount} current-knee lunge swaps`);
+check("Zero empty current-knee lunge swap lists", emptyCount === 0,
+  emptyCount > 0 ? `Found ${emptyCount} empty lists` : undefined);
 
 console.log("\n" + "─".repeat(60));
 console.log(`Summary: ${passed} passed, ${failed} failed\n`);
