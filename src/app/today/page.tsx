@@ -295,14 +295,7 @@ export default async function TodayPage() {
     override !== undefined &&
     (override.actual_type !== (scheduled?.day_type ?? null) ||
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
-<<<<<<< HEAD
-  const week = cycleWeekFor(
-    { id: program.id, started_on: program.started_on, ended_on: program.ends_on, week_offset: program.week_offset },
-    localToday
-  );
-=======
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
->>>>>>> origin/main
   const isDeload = week === program.deload_week;
 
   const strengthDone = todaySessions.some(
