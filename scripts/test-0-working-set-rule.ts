@@ -80,29 +80,6 @@ function makeFakeFinishSessionDeps(
   };
 }
 
-function makeFakeAbandonSessionDeps(exercises: SessionExerciseRow[]): AbandonSessionDeps & { calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> } {
-  const calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> = [];
-
-  return {
-    calls,
-    async loadExercises(sessionId) {
-      calls.push({ method: "loadExercises", table: "session_exercises", filters: { sessionId } });
-      return { data: exercises, error: null };
-    },
-    async updateSession(id, patch) {
-      calls.push({ method: "updateSession", table: "sessions", payload: patch, filters: { id } });
-      return { error: null };
-    },
-    async loadExercisesForUpdate(sessionId) {
-      calls.push({ method: "loadExercisesForUpdate", table: "session_exercises", filters: { sessionId } });
-      return { data: [], error: null };
-    },
-    async updateExerciseStatus(id, status) {
-      calls.push({ method: "updateExerciseStatus", table: "session_exercises", payload: { status }, filters: { id } });
-      return { error: null };
-    },
-  };
-}
 
 (async () => {
   console.log("🧪 Testing 0-working-set rule\n");

@@ -1,4 +1,4 @@
-import { decideAbandonStatus, type SessionExercise } from "./abandon-session";
+import { decideAbandonStatus } from "./abandon-session";
 import { resolveStaleFinish } from "./stale-duration";
 import { isStaleSession } from "./is-stale-session";
 import { exerciseCompletion } from "./completion";
