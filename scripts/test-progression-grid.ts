@@ -1108,5 +1108,28 @@ console.log("\n28. Kettlebell back-off lands on real bell, one step down at most
   check("kettlebell back-off 20 kg: 20 -> 18 kg (one bell down)", kbBackOff20.nextWorkingWeightKg === 18, `${kbBackOff20.nextWorkingWeightKg}`);
 }
 
+console.log("\n29. Back-off max drop: never more than one increment below 90%");
+{
+  // 11 kg * 0.9 = 9.9, floor to 2.5 grid = 7.5, but max drop = 9.9 - 5 = 4.9, so 7.5 is OK
+  const backOff11 = run({
+    meta: { ...BENCH, movementPattern: "squat" },
+    sets: sets(4, 10, 11),
+    state: fresh({ currentWorkingWeightKg: 11, consecutiveFailures: 1 }),
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  check("back-off 11 kg: 11 -> 7.5 kg (not 5 kg)", backOff11.nextWorkingWeightKg === 7.5, `${backOff11.nextWorkingWeightKg}`);
+  
+  // 6 kg * 0.9 = 5.4, floor to 2.5 grid = 5, but max drop = 5.4 - 2.5 = 2.9, so 5 is OK
+  const backOff6 = run({
+    meta: BENCH,
+    sets: sets(4, 10, 6),
+    state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 1 }),
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  check("back-off 6 kg: 6 -> 5 kg (not 2.5 kg)", backOff6.nextWorkingWeightKg === 5, `${backOff6.nextWorkingWeightKg}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

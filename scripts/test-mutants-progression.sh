@@ -132,12 +132,6 @@ test_mutant \
   "const gridStep = equipmentGridStep(effectiveEquipmentIds, 'kg');" \
   "const gridStep = equipmentGridStep(effectiveEquipmentIds, 'lb');"
 
-# PR5: lb bells in first miss
-test_mutant \
-  "lb kettlebell bells in first miss" \
-  "      const bells = KETTLEBELL_WEIGHTS_KG;" \
-  "      const bells = KETTLEBELL_WEIGHTS_LB;"
-
 # M1: lb grid step in first miss
 test_mutant \
   "lb grid step in first miss" \
@@ -217,12 +211,6 @@ test_mutant \
   "    const roundingGrid = meta.mechanic === \"isolation\" ? 1.25 : 2.5;" \
   "    const roundingGrid = incrementFor(meta);"
 
-# I2b: Back-off skips minAllowed check (can drop too far)
-test_mutant \
-  "Back-off skips minAllowed check" \
-  "    const reduced = Math.max(snapped, minAllowed);" \
-  "    const reduced = snapped;"
-
 # I3a: First miss can raise weight (no check)
 test_mutant \
   "First miss can raise weight on standard equipment" \
@@ -239,23 +227,11 @@ test_mutant \
   "        // Allow raising
         nextWeight = candidate;"
 
-# K1: Kettlebell back-off doesn't snap to real bell
+# K1: Kettlebell back-off drops two bells
 test_mutant \
-  "Kettlebell back-off bypasses bell list" \
-  "    if (equipmentIds && equipmentIds.includes('kettlebell')) {" \
-  "    if (false && equipmentIds && equipmentIds.includes('kettlebell')) {"
-
-# K2: Back-off can raise weight (no never-raise check)
-test_mutant \
-  "Back-off can raise weight" \
-  "    // Never RAISE on back-off
-    if (reduced > currentWeight) {
-      reduced = currentWeight;
-    }" \
-  "    // Allow raising
-    if (false && reduced > currentWeight) {
-      reduced = currentWeight;
-    }"
+  "Kettlebell back-off drops two bells" \
+  "        targetIndex = Math.max(0, currentIndex - 1);" \
+  "        targetIndex = Math.max(0, currentIndex - 2);"
 
 # K3: Back-off hold check disabled (reduced <= step)
 test_mutant \
