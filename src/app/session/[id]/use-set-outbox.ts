@@ -6,7 +6,7 @@ import {
   classifyLogSetOutcome,
   type OutboxSender,
 } from "@/lib/session/outbox";
-import { getRetryDelay } from "@/lib/session/error-messages";
+import { getRetryDelay, mapErrorToUserMessage } from "@/lib/session/error-messages";
 import * as actions from "../actions";
 
 export type SyncState =
