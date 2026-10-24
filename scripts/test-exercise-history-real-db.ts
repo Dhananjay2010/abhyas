@@ -489,7 +489,7 @@ async function runTests() {
     check("M1: returns 3 sessions", history.sessions.length === 3, `got ${history.sessions.length}`);
     const [sess3, sess2, sess1] = history.sessions;
 
-    check("M1 s1: first session gets PRs", sess1?.prs.length === 3, `got ${sess1?.prs.length}`);
+    check("M1 s1: first session gets NO PRs (baseline rule)", sess1?.prs.length === 0, `got ${sess1?.prs.length} PRs`);
     check("M1 s2: beats s1 (62.5 > 60)", 
       sess2?.prs.some(pr => pr.type === "heaviest_weight") && sess2?.prs.some(pr => pr.type === "best_e1rm"),
       `s2 prs: ${sess2?.prs.map(p => p.type).join(", ")}`);
@@ -719,6 +719,119 @@ async function runTests() {
     // All 12 sessions should be present
     const allFetched = [...page1SeIds, ...page2SeIds];
     check("Ordering: all 12 sessions fetched", allFetched.length === 12, `got ${allFetched.length}`);
+  }
+
+  console.log("\n13. PR rule: deload most-reps (100×5 then 70×8 is NOT a PR)");
+  {
+    // QA scenario: squat s1 100kg x5, s2 70kg x8
+    // Expected: s2 should NOT get most_reps PR (lighter weight)
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+
+    const { error: e1 } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-01", status: "completed", completed_at: "2026-10-01T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-08", status: "completed", completed_at: "2026-10-08T10:00:00Z" },
+    ]);
+    if (e1) { console.error("Deload insert sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[8].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[8].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (e2) { console.error("Deload insert session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 8, weight_kg: 70, is_warmup_set: false },
+    ]);
+    if (e3) { console.error("Deload insert sets failed:", e3); return false; }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exercises[8].id, { limit: 10 });
+
+    check("Deload: returns 2 sessions", history.sessions.length === 2);
+    const [sess2, sess1] = history.sessions; // Newest first
+
+    check("Deload s1: first session gets NO PRs", sess1?.prs.length === 0);
+    check("Deload s2: 70×8 does NOT get most_reps PR (lighter than 100×5)",
+      !sess2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sess2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    check("Deload s2: no PRs at all (lighter weight, fewer reps)",
+      sess2?.prs.length === 0,
+      `expected 0 PRs, got ${sess2?.prs.length}`);
+  }
+
+  console.log("\n14. PR rule: weighted most-reps at heavier weight (100×5 then 100×8 IS a PR)");
+  {
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+
+    const { error: e1 } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-02", status: "completed", completed_at: "2026-10-02T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-09", status: "completed", completed_at: "2026-10-09T10:00:00Z" },
+    ]);
+    if (e1) { console.error("Same-weight insert sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[9].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[9].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (e2) { console.error("Same-weight insert session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 8, weight_kg: 100, is_warmup_set: false },
+    ]);
+    if (e3) { console.error("Same-weight insert sets failed:", e3); return false; }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exercises[9].id, { limit: 10 });
+
+    check("Same-weight: returns 2 sessions", history.sessions.length === 2);
+    const [sess2, sess1] = history.sessions;
+
+    check("Same-weight s1: first session gets NO PRs", sess1?.prs.length === 0);
+    check("Same-weight s2: 100×8 DOES get most_reps PR (same weight, more reps)",
+      sess2?.prs.some(pr => pr.type === "most_reps" && pr.value === 8),
+      `s2 prs: ${sess2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+  }
+
+  console.log("\n15. PR rule: weighted most-reps at heavier weight (100×5 then 105×6 IS a PR)");
+  {
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+
+    const { error: e1 } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-03", status: "completed", completed_at: "2026-10-03T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-10", status: "completed", completed_at: "2026-10-10T10:00:00Z" },
+    ]);
+    if (e1) { console.error("Heavier insert sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[10].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[10].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (e2) { console.error("Heavier insert session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 6, weight_kg: 105, is_warmup_set: false },
+    ]);
+    if (e3) { console.error("Heavier insert sets failed:", e3); return false; }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exercises[10].id, { limit: 10 });
+
+    check("Heavier: returns 2 sessions", history.sessions.length === 2);
+    const [sess2, sess1] = history.sessions;
+
+    check("Heavier s1: first session gets NO PRs", sess1?.prs.length === 0);
+    check("Heavier s2: 105×6 DOES get most_reps PR (heavier weight, more reps)",
+      sess2?.prs.some(pr => pr.type === "most_reps" && pr.value === 6),
+      `s2 prs: ${sess2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
   }
 
   if (failures > 0) {
