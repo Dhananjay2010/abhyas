@@ -9,7 +9,7 @@ import {
 } from "./generate";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
-import { currentInjuryRegions, hasAnyKneeInjury, hasPastKneeInjury } from "./injury-regions";
+import { buildInjuryFlags } from "./injury-regions";
 
 type Client = SupabaseClient<Database>;
 
@@ -213,15 +213,7 @@ export async function createBlockForUser(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: currentInjuryRegions(
-      (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }))
-    ),
-    anyKneeInjury: hasAnyKneeInjury(
-      (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }))
-    ),
-    pastKneeInjury: hasPastKneeInjury(
-      (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }))
-    ),
+    ...buildInjuryFlags(injuriesRes.data ?? []),
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver: options.carryOver,

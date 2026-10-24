@@ -43,10 +43,8 @@ export type GeneratorInput = {
   equipmentIds: string[];
   /** Current injuries hard-filter. Past ones only drive warm-up prehab. */
   currentInjuryRegions: BodyRegion[];
-  /** True if user has any knee injury (current or past) - for jump/plyometric exclusion. */
+  /** True if user has any knee injury (current or past) - for jump/plyometric/lunge exclusions. */
   anyKneeInjury?: boolean;
-  /** True if user has past knee injury - for knee-safe lunge/split-squat list. */
-  pastKneeInjury?: boolean;
   /** Preferred session length in minutes. Affects exercise count. */
   preferredSessionMinutes?: number;
   catalogue: CandidateExercise[];

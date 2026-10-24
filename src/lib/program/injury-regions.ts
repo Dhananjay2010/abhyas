@@ -58,13 +58,20 @@ export function hasAnyKneeInjury(injuries: InjuryRow[]): boolean {
 }
 
 /**
- * Checks if user has past knee injury specifically (for lunge/split-squat safety list).
+ * Builds GeneratorInput injury flags from database injury rows.
+ * Used by persist.ts, rollover.ts, and actions.ts to maintain ONE-LINE usage.
  * 
- * @param injuries - Array of injury records
- * @returns true if past knee injury exists
+ * Returns object with:
+ * - currentInjuryRegions: CURRENT injuries only (squat allowlist, deadlift exclusion, hinges)
+ * - anyKneeInjury: Current OR past knee (jump/plyo/lunge exclusions)
+ * 
+ * @param dbInjuries - Array of database injury rows with body_region/severity
+ * @returns Injury flags for GeneratorInput
  */
-export function hasPastKneeInjury(injuries: InjuryRow[]): boolean {
-  return injuries.some(injury => 
-    injury.region === "knee" && injury.severity === "past"
-  );
+export function buildInjuryFlags(dbInjuries: Array<{ body_region: BodyRegion; severity: InjurySeverity }>) {
+  const injuries: InjuryRow[] = dbInjuries.map(inj => ({ region: inj.body_region, severity: inj.severity }));
+  return {
+    currentInjuryRegions: currentInjuryRegions(injuries),
+    anyKneeInjury: hasAnyKneeInjury(injuries),
+  };
 }
