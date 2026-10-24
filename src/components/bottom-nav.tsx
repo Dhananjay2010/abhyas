@@ -32,21 +32,22 @@ const Icons = {
     <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
       <path d="M3 3v5h5" />
-      <path d="M12 7v5l4 2" />
+      <polyline points="12 7 12 12 15 15" />
     </svg>
   ),
-  // trending-up from Lucide
+  // bar-chart-2 from Lucide
   Progress: () => (
     <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-      <polyline points="16 7 22 7 22 13" />
+      <line x1="18" x2="18" y1="20" y2="10" />
+      <line x1="12" x2="12" y1="20" y2="4" />
+      <line x1="6" x2="6" y1="20" y2="14" />
     </svg>
   ),
-  // settings from Lucide
-  Settings: () => (
+  // user from Lucide
+  Profile: () => (
     <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-      <circle cx="12" cy="12" r="3" />
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
     </svg>
   ),
 };
@@ -56,42 +57,40 @@ const TABS = [
   { href: "/practice", label: "Practice", Icon: Icons.Practice },
   { href: "/history", label: "History", Icon: Icons.History },
   { href: "/progress", label: "Progress", Icon: Icons.Progress },
-  { href: "/settings", label: "Settings", Icon: Icons.Settings },
-];
+  { href: "/settings", label: "Profile", Icon: Icons.Profile },
+] as const;
 
-/**
- * The tab bar, mounted once in the root layout.
- *
- * It used to be rendered inside each page, which meant it was part of the
- * segment Next.js swaps on navigation: the bar was destroyed and rebuilt on
- * every tab change, and the active tab could not move until the new page's
- * HTML came back from the server. Living in the root layout it stays mounted
- * for the life of the session, and `usePathname()` updates the highlight on
- * the tap rather than on the response — which is most of what makes a tab
- * change feel instant.
- *
- * Yoga and Breathe are combined into one "Practice" tab because 6 tabs at
- * 390px would be too cramped (65px per tab). Practice is the shared concept:
- * both are intentional movement/breath work, distinguished from strength
- * training on Today.
- */
+// ---- Practice choice persistence
+
+let lastSnapshot: PracticeType | null = null;
+const subscribers = new Set<() => void>();
+
 function subscribe(callback: () => void) {
-  // Listen to 'storage' events (fired in other tabs when localStorage changes)
-  // and 'practice:last-change' (fired in this tab when setLastPractice writes)
-  window.addEventListener("storage", callback);
-  window.addEventListener(PRACTICE_LAST_CHANGE_EVENT, callback);
-  return () => {
-    window.removeEventListener("storage", callback);
-    window.removeEventListener(PRACTICE_LAST_CHANGE_EVENT, callback);
-  };
+  subscribers.add(callback);
+  return () => subscribers.delete(callback);
 }
 
 function getLastPracticeSnapshot(): PracticeType | null {
+  return lastSnapshot;
+}
+
+export function setLastPractice(practice: PracticeType) {
+  if (typeof window === "undefined") return;
   try {
-    const stored = localStorage.getItem("practice:last");
-    return stored === "breathe" || stored === "yoga" ? stored : null;
+    localStorage.setItem("practice:last", practice);
+    lastSnapshot = practice;
+    subscribers.forEach((cb) => cb());
+    window.dispatchEvent(new Event(PRACTICE_LAST_CHANGE_EVENT));
   } catch {
-    return null;
+    // Ignore storage errors
+  }
+}
+
+if (typeof window !== "undefined") {
+  try {
+    lastSnapshot = (localStorage.getItem("practice:last") as PracticeType | null) || null;
+  } catch {
+    // Ignore storage errors
   }
 }
 
