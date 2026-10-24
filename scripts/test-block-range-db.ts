@@ -8,6 +8,7 @@
  * Or in CI: Skips (requires isolated PostgreSQL with schema creation privileges)
  */
 import { randomUUID } from "crypto";
+import type { Pool } from "pg";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
