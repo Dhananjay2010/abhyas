@@ -173,6 +173,22 @@ async function test3() {
 
   assert(mockNextRouter.refreshCalls.length === 1, "router.refresh() not called again within 10s (throttled)");
   
+  // Mock Date.now to simulate 11 seconds passing
+  const realDateNow = Date.now;
+  const timeOffset = 11000;
+  Date.now = () => realDateNow() + timeOffset;
+  
+  // Third visibility change after 10s SHOULD call refresh again
+  await act(async () => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+
+  await new Promise(r => setTimeout(r, 100));
+
+  Date.now = realDateNow; // Restore
+
+  assert(mockNextRouter.refreshCalls.length === 2, `router.refresh() called again after 10s (got ${mockNextRouter.refreshCalls.length} calls)`);
+  
   cleanup();
 }
 
