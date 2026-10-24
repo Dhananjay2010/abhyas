@@ -8,7 +8,7 @@
 export type PendingAction = {
   id: string;
   type: "logSet" | "deleteSet" | "finishExercise";
-  promise: Promise<{ ok: boolean; error?: string }>;
+  promise: Promise<ActionResult>;
 };
 
 export type ActionResult = {
@@ -23,12 +23,12 @@ export class PendingTracker {
   /**
    * Register a pending action and track its completion.
    */
-  track<T extends { ok: boolean; error?: string }>(
+  track<T extends ActionResult>(
     type: "logSet" | "deleteSet" | "finishExercise",
     promise: Promise<T>,
   ): Promise<T> {
     const id = `${type}-${Date.now()}-${Math.random()}`;
-    this.pending.set(id, { id, type, promise: promise as Promise<{ ok: boolean; error?: string }> });
+    this.pending.set(id, { id, type, promise });
 
     // Clear previous result when starting a new action
     this.latestResult = null;
