@@ -97,33 +97,36 @@ async function runTests() {
   const testEmailB = `test-b-${Date.now()}@example.com`;
   const testPasswordB = "test-password-456";
 
-  const { data: authDataA, error: signUpErrorA } = await adminClient.auth.admin.createUser({
-    email: testEmailA,
-    password: testPasswordA,
-    email_confirm: true,
-  });
-
-  if (signUpErrorA || !authDataA.user) {
-    console.error("Failed to create test user A:", signUpErrorA);
-    return false;
-  }
-
-  const { data: authDataB, error: signUpErrorB } = await adminClient.auth.admin.createUser({
-    email: testEmailB,
-    password: testPasswordB,
-    email_confirm: true,
-  });
-
-  if (signUpErrorB || !authDataB.user) {
-    console.error("Failed to create test user B:", signUpErrorB);
-    return false;
-  }
-
-  const userIdA = authDataA.user.id;
-  const userIdB = authDataB.user.id;
-  console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
+  let userIdA: string | null = null;
+  let userIdB: string | null = null;
 
   try {
+    const { data: authDataA, error: signUpErrorA } = await adminClient.auth.admin.createUser({
+      email: testEmailA,
+      password: testPasswordA,
+      email_confirm: true,
+    });
+
+    if (signUpErrorA || !authDataA.user) {
+      console.error("Failed to create test user A:", signUpErrorA);
+      return false;
+    }
+
+    userIdA = authDataA.user.id;
+
+    const { data: authDataB, error: signUpErrorB } = await adminClient.auth.admin.createUser({
+      email: testEmailB,
+      password: testPasswordB,
+      email_confirm: true,
+    });
+
+    if (signUpErrorB || !authDataB.user) {
+      console.error("Failed to create test user B:", signUpErrorB);
+      return false;
+    }
+
+    userIdB = authDataB.user.id;
+    console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
 
   // Create separate authenticated clients for user queries (sign in to get JWTs)
   // Use a fresh anon client for each user to avoid session conflicts
@@ -834,6 +837,296 @@ async function runTests() {
       `s2 prs: ${sess2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
   }
 
+  console.log("\n16. Item 1: Sets query paging (>1000 sets in one batch)");
+  {
+    // Create 100 sessions with 12 working sets each = 1200 rows
+    // This tests that the sets query doesn't silently truncate at 1000
+    const sessions = [];
+    const sessionExercises = [];
+    const sets = [];
+    const startDate = new Date("2024-01-01T12:00:00Z");
+
+    for (let i = 0; i < 100; i++) {
+      const sessionId = randomUUID();
+      const seId = randomUUID();
+      
+      const sessionDate = new Date(startDate);
+      sessionDate.setDate(startDate.getDate() + i);
+      const isoDate = sessionDate.toISOString();
+      const localDate = isoDate.split("T")[0];
+      
+      sessions.push({
+        id: sessionId,
+        user_id: userIdA,
+        local_date: localDate,
+        status: "completed",
+        completed_at: isoDate,
+      });
+
+      sessionExercises.push({
+        id: seId,
+        user_id: userIdA,
+        session_id: sessionId,
+        exercise_id: exercises[11].id,
+        metric: "reps",
+        status: "completed",
+        order_index: 0,
+      });
+
+      // 12 sets per session, with set 12 of session 99 being 140 kg
+      for (let setNum = 1; setNum <= 12; setNum++) {
+        sets.push({
+          user_id: userIdA,
+          session_exercise_id: seId,
+          set_number: setNum,
+          reps: 5,
+          weight_kg: (i === 99 && setNum === 12) ? 140 : 100,
+          is_warmup_set: false,
+        });
+      }
+    }
+
+    const { error: e1 } = await adminClient.from("sessions").insert(sessions);
+    if (e1) { console.error("Item 1: Insert 100 sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert(sessionExercises);
+    if (e2) { console.error("Item 1: Insert 100 session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert(sets);
+    if (e3) { console.error("Item 1: Insert 1200 sets failed:", e3); return false; }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exercises[11].id, { limit: 5 });
+
+    check("Item 1: newest session shows all 12 sets", history.sessions[0].sets.length === 12,
+      `got ${history.sessions[0].sets.length}`);
+    check("Item 1: newest session's 140 kg set is seen",
+      history.sessions[0].sets.some(s => s.weight_kg === 140),
+      `max weight: ${Math.max(...history.sessions[0].sets.map(s => s.weight_kg ?? 0))}`);
+    check("Item 1: newest session gets heaviest_weight PR",
+      history.sessions[0].prs.some(pr => pr.type === "heaviest_weight"));
+  }
+
+  console.log("\n17. Item 2: currentPRs independent of page");
+  {
+    // Use exercise from test 1, which already has many sessions
+    const page1 = await getExerciseHistory(supabaseA, userIdA, exerciseB, { limit: 10, offset: 0 });
+    const page2 = await getExerciseHistory(supabaseA, userIdA, exerciseB, { limit: 10, offset: 10 });
+
+    check("Item 2: page 1 has currentPRs", page1.currentPRs.length > 0);
+    check("Item 2: page 2 has same currentPRs",
+      JSON.stringify(page1.currentPRs) === JSON.stringify(page2.currentPRs),
+      `page1: ${page1.currentPRs.length}, page2: ${page2.currentPRs.length}`);
+  }
+
+  console.log("\n18. Items 3-5: QA Bot 1 rep PR scenarios");
+  {
+    // R9: 60×12, then 100×5, then 100×8 -> third is a PR
+    const s1 = randomUUID(), s2 = randomUUID(), s3 = randomUUID();
+    const se1 = randomUUID(), se2 = randomUUID(), se3 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-01", status: "completed", completed_at: "2026-10-01T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-02", status: "completed", completed_at: "2026-10-02T10:00:00Z" },
+      { id: s3, user_id: userIdA, local_date: "2026-10-03", status: "completed", completed_at: "2026-10-03T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[12].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[12].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se3, user_id: userIdA, session_id: s3, exercise_id: exercises[12].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 12, weight_kg: 60, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 1, reps: 8, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histR9 = await getExerciseHistory(supabaseA, userIdA, exercises[12].id, { limit: 10 });
+    const [sessR9_3, sessR9_2, sessR9_1] = histR9.sessions;
+
+    check("R9: 60×12, 100×5, 100×8 -> third session is rep PR",
+      sessR9_3?.prs.some(pr => pr.type === "most_reps" && pr.value === 8),
+      `s3 prs: ${sessR9_3?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    check("R9: second session gets heaviest but not most_reps",
+      sessR9_2?.prs.some(pr => pr.type === "heaviest_weight") &&
+      !sessR9_2?.prs.some(pr => pr.type === "most_reps"));
+
+    // R10: 100×5, then [50×10, 100×10] -> no PR for second session
+    const s4 = randomUUID(), s5 = randomUUID();
+    const se4 = randomUUID(), se5 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s4, user_id: userIdA, local_date: "2026-10-04", status: "completed", completed_at: "2026-10-04T10:00:00Z" },
+      { id: s5, user_id: userIdA, local_date: "2026-10-05", status: "completed", completed_at: "2026-10-05T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se4, user_id: userIdA, session_id: s4, exercise_id: exercises[13].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se5, user_id: userIdA, session_id: s5, exercise_id: exercises[13].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se4, set_number: 1, reps: 10, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se5, set_number: 1, reps: 10, weight_kg: 50, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se5, set_number: 2, reps: 10, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histR10 = await getExerciseHistory(supabaseA, userIdA, exercises[13].id, { limit: 10 });
+    const [sessR10_2, sessR10_1] = histR10.sessions;
+
+    check("R10: [50×10, 100×10] after 100×10 is NOT a rep PR",
+      !sessR10_2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sessR10_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+
+    // R11: [50×10, 100×10], then 60×11 -> NOT a PR
+    const s6 = randomUUID(), s7 = randomUUID();
+    const se6 = randomUUID(), se7 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s6, user_id: userIdA, local_date: "2026-10-06", status: "completed", completed_at: "2026-10-06T10:00:00Z" },
+      { id: s7, user_id: userIdA, local_date: "2026-10-07", status: "completed", completed_at: "2026-10-07T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se6, user_id: userIdA, session_id: s6, exercise_id: exercises[14].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se7, user_id: userIdA, session_id: s7, exercise_id: exercises[14].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se6, set_number: 1, reps: 10, weight_kg: 50, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se6, set_number: 2, reps: 10, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se7, set_number: 1, reps: 11, weight_kg: 60, is_warmup_set: false },
+    ]);
+
+    const histR11 = await getExerciseHistory(supabaseA, userIdA, exercises[14].id, { limit: 10 });
+    const [sessR11_2, sessR11_1] = histR11.sessions;
+
+    check("R11: 60×11 after [50×10, 100×10] is NOT a PR",
+      !sessR11_2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sessR11_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+
+    // R12: currentPRs.most_reps agrees with badges (100×5, 70×8)
+    const s8 = randomUUID(), s9 = randomUUID();
+    const se8 = randomUUID(), se9 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s8, user_id: userIdA, local_date: "2026-10-08", status: "completed", completed_at: "2026-10-08T10:00:00Z" },
+      { id: s9, user_id: userIdA, local_date: "2026-10-09", status: "completed", completed_at: "2026-10-09T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se8, user_id: userIdA, session_id: s8, exercise_id: exercises[15].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se9, user_id: userIdA, session_id: s9, exercise_id: exercises[15].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se8, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se9, set_number: 1, reps: 8, weight_kg: 70, is_warmup_set: false },
+    ]);
+
+    const histR12 = await getExerciseHistory(supabaseA, userIdA, exercises[15].id, { limit: 10 });
+    const [sessR12_2, sessR12_1] = histR12.sessions;
+
+    check("R12: no session gets most_reps badge after deload",
+      !sessR12_2?.prs.some(pr => pr.type === "most_reps") &&
+      !sessR12_1?.prs.some(pr => pr.type === "most_reps"));
+    const mostRepsPR = histR12.currentPRs.find(pr => pr.type === "most_reps");
+    check("R12: currentPRs.most_reps is 100×5 (agrees with badge rule)",
+      mostRepsPR?.set.weight_kg === 100 && mostRepsPR?.value === 5,
+      `got ${mostRepsPR?.set.weight_kg}×${mostRepsPR?.value}`);
+  }
+
+  console.log("\n19. Item 7: Test at exact batch boundary");
+  {
+    // Test with exactly 1000 rows, and 1001 rows
+    const sessions1000 = [];
+    const sessionExercises1000 = [];
+    const sets1000 = [];
+    const startDate = new Date("2023-01-01T12:00:00Z");
+
+    for (let i = 0; i < 1000; i++) {
+      const sessionId = randomUUID();
+      const seId = randomUUID();
+      
+      const sessionDate = new Date(startDate);
+      sessionDate.setDate(startDate.getDate() + i);
+      const isoDate = sessionDate.toISOString();
+      const localDate = isoDate.split("T")[0];
+      
+      sessions1000.push({
+        id: sessionId,
+        user_id: userIdA,
+        local_date: localDate,
+        status: "completed",
+        completed_at: isoDate,
+      });
+
+      sessionExercises1000.push({
+        id: seId,
+        user_id: userIdA,
+        session_id: sessionId,
+        exercise_id: exercises[16].id,
+        metric: "reps",
+        status: "completed",
+        order_index: 0,
+      });
+
+      sets1000.push({
+        user_id: userIdA,
+        session_exercise_id: seId,
+        set_number: 1,
+        reps: 5,
+        weight_kg: i === 999 ? 150 : 100,
+        is_warmup_set: false,
+      });
+    }
+
+    // Insert in batches to avoid payload limits
+    for (let i = 0; i < sessions1000.length; i += 100) {
+      await adminClient.from("sessions").insert(sessions1000.slice(i, i + 100));
+      await adminClient.from("session_exercises").insert(sessionExercises1000.slice(i, i + 100));
+      await adminClient.from("session_sets").insert(sets1000.slice(i, i + 100));
+    }
+
+    const hist1000 = await getExerciseHistory(supabaseA, userIdA, exercises[16].id, { limit: 10 });
+
+    check("Item 7: exactly 1000 rows processed correctly", hist1000.totalCount === 1000);
+    check("Item 7: newest session (150 kg) gets heaviest PR",
+      hist1000.sessions[0].prs.some(pr => pr.type === "heaviest_weight"));
+    check("Item 7: currentPRs shows 150 kg",
+      hist1000.currentPRs.find(pr => pr.type === "heaviest_weight")?.value === 150);
+
+    // Add one more session for 1001 total
+    const s1001 = randomUUID();
+    const se1001 = randomUUID();
+    const date1001 = new Date(startDate);
+    date1001.setDate(startDate.getDate() + 1000);
+
+    await adminClient.from("sessions").insert({
+      id: s1001,
+      user_id: userIdA,
+      local_date: date1001.toISOString().split("T")[0],
+      status: "completed",
+      completed_at: date1001.toISOString(),
+    });
+    await adminClient.from("session_exercises").insert({
+      id: se1001,
+      user_id: userIdA,
+      session_id: s1001,
+      exercise_id: exercises[16].id,
+      metric: "reps",
+      status: "completed",
+      order_index: 0,
+    });
+    await adminClient.from("session_sets").insert({
+      user_id: userIdA,
+      session_exercise_id: se1001,
+      set_number: 1,
+      reps: 5,
+      weight_kg: 145,
+      is_warmup_set: false,
+    });
+
+    const hist1001 = await getExerciseHistory(supabaseA, userIdA, exercises[16].id, { limit: 10 });
+
+    check("Item 7: 1001 rows processed correctly", hist1001.totalCount === 1001);
+    check("Item 7: 145 kg session has no heaviest PR (150 kg earlier)",
+      !hist1001.sessions[0].prs.some(pr => pr.type === "heaviest_weight"));
+  }
+
   if (failures > 0) {
     console.log(`\n❌ ${failures} FAILURES\n`);
     return false;
@@ -845,8 +1138,8 @@ async function runTests() {
     // Cleanup test users and their data on every path
     console.log("\nCleaning up test users...");
     try {
-      await adminClient.auth.admin.deleteUser(userIdA);
-      await adminClient.auth.admin.deleteUser(userIdB);
+      if (userIdA) await adminClient.auth.admin.deleteUser(userIdA);
+      if (userIdB) await adminClient.auth.admin.deleteUser(userIdB);
       console.log("✓ Test users deleted\n");
     } catch (cleanupError) {
       console.error("Warning: cleanup failed:", cleanupError);
