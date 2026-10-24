@@ -335,13 +335,11 @@ export function evaluateProgression(input: {
     nextWorkingWeightKg: currentWeight,
     nextTargetReps: state.currentTargetReps ?? repsMax,
     consecutiveFailures: failures,
-    // "this weight" is meaningless for a hold, and for any unloaded bodyweight
-    // movement -- both were being told to stay at a weight they never had.
     message: isTimed
-      ? "Staying at this hold length until every set reaches the top of the range."
+      ? `Stay at this hold length until all sets reach ${repsMax} seconds.`
       : currentWeight === null
-        ? "Staying here until every set reaches the top of the range."
-        : "Staying at this weight until every set reaches the top of the range.",
+        ? `Stay here until all sets reach ${repsMax} reps.`
+        : `Stay at this weight until all sets reach ${repsMax} reps.`,
   };
 }
 

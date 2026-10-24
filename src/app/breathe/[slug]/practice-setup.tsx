@@ -243,7 +243,7 @@ export function PracticeSetup({
             {formatClock(seconds)}
           </span>
         </div>
-        <div role="radiogroup" aria-label="Length" className="mt-2 flex gap-1 rounded-xl bg-surface-2 p-1">
+        <div role="radiogroup" aria-label="Length" className="mt-2 flex flex-wrap gap-1 rounded-xl bg-surface-2 p-1">
           {plan.options.map((o) => {
             const on = !custom && o.cycles === cycles;
             return (
