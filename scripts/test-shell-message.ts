@@ -5,6 +5,8 @@
  * Tests that the Shell component renders the informational message with correct styling.
  */
 
+/* eslint-disable react/no-children-prop */
+
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 import { Shell } from "../src/app/session/[id]/session-runner";
