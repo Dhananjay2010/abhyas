@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { formatValueExact } from "@/lib/progress/format-chart-value";
 
 /**
  * Small inline-SVG charts.
@@ -31,11 +32,6 @@ function niceBounds(values: number[]): [number, number] {
   return [min - span * 0.12, max + span * 0.12];
 }
 
-function formatValue(v: number, unit: string): string {
-  const rounded = Math.abs(v) >= 100 ? Math.round(v) : Math.round(v * 10) / 10;
-  return `${rounded}${unit ? ` ${unit}` : ""}`;
-}
-
 /** Toggleable table so the numbers are never available only as pixels. */
 function ValueTable({
   points,
@@ -64,7 +60,7 @@ function ValueTable({
               <tr key={i} className="border-t border-border">
                 <td className="py-1.5 text-muted">{p.label}</td>
                 <td className="py-1.5 text-right tabular-nums">
-                  {formatValue(p.value, unit)}
+                  {formatValueExact(p.value, unit)}
                   {p.isDeload && (
                     <span className="ml-2 text-muted opacity-70">Deload</span>
                   )}
@@ -100,7 +96,7 @@ export function LineChart({
     return (
       <div>
         <p className="text-2xl font-bold tabular-nums">
-          {formatValue(points[0].value, unit)}
+          {formatValueExact(points[0].value, unit)}
         </p>
         <p className="mt-1 text-xs text-muted">
           {points[0].label}
@@ -141,7 +137,7 @@ export function LineChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full touch-none"
         role="img"
-        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, latest value ${formatValue(lastNonDeload.value, unit)} on ${lastNonDeload.label}${allDeloads ? ' (deload)' : ''}${deloadCount > 0 ? `. ${deloadCount} deload ${deloadCount === 1 ? 'session' : 'sessions'} marked` : ''}.`}
+        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, latest value ${formatValueExact(lastNonDeload.value, unit)} on ${lastNonDeload.label}${allDeloads ? ' (deload)' : ''}${deloadCount > 0 ? `. ${deloadCount} deload ${deloadCount === 1 ? 'session' : 'sessions'} marked` : ''}.`}
         onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - rect.left) / rect.width) * width;
@@ -163,10 +159,10 @@ export function LineChart({
           />
         ))}
         <text x="2" y={PAD.top + 4} fontSize="9" fill="var(--color-muted)">
-          {Math.round(hi)}
+          {Math.round(hi).toLocaleString("en-US")}
         </text>
         <text x="2" y={PAD.top + innerH + 4} fontSize="9" fill="var(--color-muted)">
-          {Math.round(lo)}
+          {Math.round(lo).toLocaleString("en-US")}
         </text>
 
         <path
@@ -233,7 +229,7 @@ export function LineChart({
       </svg>
 
       <p className="mt-1 text-sm tabular-nums">
-        <span className="font-semibold">{formatValue(points[shown].value, unit)}</span>{" "}
+        <span className="font-semibold">{formatValueExact(points[shown].value, unit)}</span>{" "}
         <span className="text-muted">· {points[shown].label}{allDeloads ? ' (deload)' : ''}</span>
       </p>
 
@@ -283,7 +279,7 @@ export function BarChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full touch-none"
         role="img"
-        aria-label={`${title}. ${points.length} ${points.length === 1 ? "session" : "sessions"}, most recent ${formatValue(lastNonDeload.value, unit)}${allDeloads ? ' (deload)' : ''}.`}
+        aria-label={`${title}. ${points.length} ${points.length === 1 ? "session" : "sessions"}, most recent ${formatValueExact(lastNonDeload.value, unit)}${allDeloads ? ' (deload)' : ''}.`}
         onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - rect.left) / rect.width) * width;
@@ -301,7 +297,7 @@ export function BarChart({
           strokeWidth="1"
         />
         <text x="2" y={PAD.top + 4} fontSize="9" fill="var(--color-muted)">
-          {Math.round(max)}
+          {Math.round(max).toLocaleString("en-US")}
         </text>
 
         {points.map((p, i) => {
@@ -335,7 +331,7 @@ export function BarChart({
       </svg>
 
       <p className="mt-1 text-sm tabular-nums">
-        <span className="font-semibold">{formatValue(points[shown].value, unit)}</span>{" "}
+        <span className="font-semibold">{formatValueExact(points[shown].value, unit)}</span>{" "}
         <span className="text-muted">· {points[shown].label}{allDeloads ? ' (deload)' : ''}</span>
       </p>
 
