@@ -101,6 +101,8 @@ export function SettingsForm({
     hasAll: initial.hasAllEquipment,
     ids: initial.equipmentIds,
   });
+  /** L2 QA fix: Track saved session length for rollback on error */
+  const [savedSessionLength, setSavedSessionLength] = useState(initial.preferredSessionMinutes);
   /** Equipment hint shown when user tries an unsaveable state */
   const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
   /** Confirmation message shown when turning off "I have access to everything" */
@@ -601,7 +603,18 @@ export function SettingsForm({
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS({ ...s, preferredSessionMinutes: n });
-              save(() => actions.updateProfileSettings({ preferred_session_minutes: n }));
+              // L2 QA fix: Rollback on validation error
+              startTransition(async () => {
+                const r = await actions.updateProfileSettings({ preferred_session_minutes: n });
+                if (!r.ok) {
+                  // Revert to last saved value
+                  setS({ ...s, preferredSessionMinutes: savedSessionLength });
+                  return setError(r.error);
+                }
+                // Success: update saved value
+                setSavedSessionLength(n);
+                setError(null);
+              });
             }}
           />
         </Field>
