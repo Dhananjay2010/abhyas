@@ -2,18 +2,19 @@
 
 import { useState, useEffect, useRef } from "react";
 import { branding } from "@/lib/branding";
-import { safeNextPath } from "@/lib/safe-next-path";
+import { determineRetryAction } from "@/lib/offline-retry-logic";
 
 /**
  * Client-side retry button for the offline page.
  *
  * Shows "Still offline" feedback when retry is attempted while still offline.
  * Only reloads when the network is back (navigator.onLine and test fetch succeed).
- * When url param is present, navigates to the validated path (XSS/open-redirect safe).
- * When url param is absent, reloads the current page.
+ * Uses determineRetryAction to decide: reload current page vs navigate to ?url=.
  *
  * Timeout protection: if navigation doesn't happen within 4s, reset to idle state
  * and show "Still offline" (prevents button from getting stuck on "Checking…").
+ * Timeout is cleared once navigation starts (ping succeeds), so slow 3G doesn't
+ * flip to "Still offline" while the page loads.
  *
  * Falls back to a plain link for no-JS scenarios.
  */
@@ -52,49 +53,31 @@ export function OfflineRetry() {
     }, RETRY_TIMEOUT_MS);
 
     // Quick check: navigator.onLine
-    if (!navigator.onLine) {
-      if (timeoutRef.current !== null) {
-        window.clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      if (mountedRef.current) {
-        setChecking(false);
-        setStillOffline(true);
-      }
-      return;
-    }
+    const online = navigator.onLine;
 
     // Confirm with a test fetch (navigator.onLine can lie)
-    try {
-      const response = await fetch("/favicon.ico", {
-        method: "HEAD",
-        cache: "no-store",
-      });
-      if (response.ok) {
-        const params = new URLSearchParams(window.location.search);
-        const urlParam = params.get("url");
-        
-        if (urlParam) {
-          // Navigate to the validated safe path (XSS/open-redirect protection)
-          window.location.href = safeNextPath(urlParam, "/");
-        } else {
-          // No url param: reload the current page
-          window.location.reload();
-        }
-        // Navigation or reload initiated; component will unmount, cleanup handles timeout
-      } else {
-        // Fetch succeeded but returned error (unlikely, but handle it)
-        if (timeoutRef.current !== null) {
-          window.clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-        if (mountedRef.current) {
-          setChecking(false);
-          setStillOffline(true);
-        }
+    let fetchSucceeded = false;
+    if (online) {
+      try {
+        const response = await fetch("/favicon.ico", {
+          method: "HEAD",
+          cache: "no-store",
+        });
+        fetchSucceeded = response.ok;
+      } catch {
+        fetchSucceeded = false;
       }
-    } catch {
-      // Fetch failed: still offline
+    }
+
+    // Get URL param
+    const params = new URLSearchParams(window.location.search);
+    const urlParam = params.get("url");
+
+    // Determine action using pure logic
+    const action = determineRetryAction(online, fetchSucceeded, urlParam);
+
+    if (action.type === "still-offline") {
+      // Clear timeout and show "Still offline"
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
@@ -103,6 +86,20 @@ export function OfflineRetry() {
         setChecking(false);
         setStillOffline(true);
       }
+    } else {
+      // Clear timeout once navigation starts (so slow 3G doesn't flip to "Still offline")
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+
+      // Navigate or reload
+      if (action.type === "navigate") {
+        window.location.href = action.url;
+      } else {
+        window.location.reload();
+      }
+      // Navigation initiated; component will unmount
     }
   }
 

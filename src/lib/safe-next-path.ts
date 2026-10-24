@@ -30,8 +30,8 @@ export function safeNextPath(next: string | null | undefined, fallback = '/today
     return fallback;
   }
 
-  // Reject URL-encoded slashes that could bypass the '//' check
-  if (next.includes('%2F%2F') || next.includes('%2f%2f')) {
+  // Reject URL-encoded slashes that could bypass the '//' check (case-insensitive)
+  if (lowerNext.includes('%2f%2f')) {
     return fallback;
   }
 

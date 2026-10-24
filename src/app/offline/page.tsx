@@ -7,7 +7,8 @@
  *
  * Enhanced with client-side retry feedback: shows "Still offline" message
  * when retry is attempted while still offline, and only reloads when back online.
- * Reloads the original URL the user was navigating to (from ?url= query param).
+ * The service worker serves this page under the original URL the user was
+ * navigating to, so window.location.href reflects the intended destination.
  *
  * Marked with data-offline attribute to hide bottom nav.
  */
