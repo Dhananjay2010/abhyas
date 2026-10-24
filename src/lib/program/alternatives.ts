@@ -37,10 +37,17 @@ export function buildPatternList(
 ): MovementPattern[] {
   const patterns: MovementPattern[] = [currentPattern];
   
-  // Add direct fallback (lunge↔squat)
-  const fallback = FALLBACK_PATTERNS[currentPattern];
-  if (fallback && !patterns.includes(fallback)) {
-    patterns.push(fallback);
+  // For knee injuries on lunge pattern, DON'T add squat fallback
+  // (would widen to barbell-squat, hack-squat, etc. which aren't on the knee-safe list)
+  // Instead, only add knee-safe patterns below
+  const skipFallback = hasKneeInjury && currentPattern === "lunge";
+  
+  if (!skipFallback) {
+    // Add direct fallback (lunge↔squat)
+    const fallback = FALLBACK_PATTERNS[currentPattern];
+    if (fallback && !patterns.includes(fallback)) {
+      patterns.push(fallback);
+    }
   }
   
   // For knee injuries on lower-body patterns, add knee-safe alternatives

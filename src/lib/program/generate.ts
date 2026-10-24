@@ -418,18 +418,6 @@ export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'smith-machine-stiff-legged-deadlift', // Smith machine stiff-leg variant
 ]);
 
-// PR #53: Loaded windmill and side-bend exercises excluded for lower_back injury
-export const LOADED_WINDMILL_SIDE_BEND: ReadonlySet<string> = new Set([
-  'advanced-kettlebell-windmill',
-  'barbell-side-bend',
-  'bosu-ball-cable-crunch-with-side-bends',
-  'double-kettlebell-windmill',
-  'dumbbell-side-bend',
-  'kettlebell-windmill',
-  'one-arm-high-pulley-cable-side-bends',
-  'weighted-ball-side-bend',
-]);
-
 /**
  * QA Pass 10 C2: Derive contraindications from exercise properties.
  * - vertical_press or "overhead" in name → shoulder
@@ -454,13 +442,6 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   
   // High spinal load affects lower back (moderate is manageable for most)
   if (ex.spinal_load === "high") {
-    derived.push("lower_back");
-  }
-  
-  // QA Pass 10 followup (restored from PR #53): Loaded lateral-flexion moves (kettlebell windmill, etc.) contraindicated for lower_back
-  if ((nameLower.includes("windmill") || slugLower.includes("windmill") ||
-       nameLower.includes("side bend") || slugLower.includes("side-bend")) &&
-      ex.equipment_ids.length > 0) {
     derived.push("lower_back");
   }
   
@@ -542,9 +523,6 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   // Also block high spinal load for current lower_back injury (handled above via derived contraindications)
   if (input.age !== null && input.age >= 50 && ex.spinal_load === "high") return false;
 
-  // QA Pass 10 followup (restored from PR #53): Beginners get no high-impact plyometric moves (knee tuck jump, etc.)
-  if (input.level === "beginner" && ex.impact === "high") return false;
-
   // PR #73 coordinator: ANY knee injury (current or past) excludes jump/plyometric moves on ALL slots
   // Detect by catalogue data: high-impact + lower-body primary muscles
   // Applies to both generation and swaps via isEligible
@@ -567,19 +545,12 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     return false;
   }
 
-  // PR #73 QA scoped policy: CURRENT knee only uses knee-safe lunge list
-  // Past knee: lunges are excluded entirely (fall back to hinges/other patterns)
-  const hasCurrentKneeInjury = input.currentInjuryRegions.includes("knee");
-  if (hasCurrentKneeInjury && ex.movement_pattern === "lunge") {
+  // PR #73 QA scoped policy: ANY knee (current OR past) uses strict knee-safe lunge list
+  // Both current and past knee use KNEE_SAFE_LUNGE_EXERCISES for lunge/split-squat slots
+  if (input.anyKneeInjury && ex.movement_pattern === "lunge") {
     if (!KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
       return false;
     }
-  }
-  
-  // Past knee with no current knee: exclude ALL lunge-pattern exercises
-  // (step-ups and split squats included - they don't get the allowlist)
-  if (input.anyKneeInjury && !hasCurrentKneeInjury && ex.movement_pattern === "lunge") {
-    return false;
   }
 
   return true;
@@ -711,8 +682,8 @@ export function wouldViolateConstraints(
 ): boolean {
   const hasKneeInjury = input.currentInjuryRegions.includes("knee");
   
-  // For timed holds, check if they would end up in a main slot (orderIndex < 4) after sorting
-  if (candidate.metric === "seconds") {
+  // For knee-injured users only: timed holds should not end up in main slots after sorting
+  if (hasKneeInjury && candidate.metric === "seconds") {
     // Simulate sorting with this candidate
     const withCandidate = [...pickedSoFar, { ex: candidate, slotIndex }];
     const sorted = withCandidate.sort((a, b) => {
@@ -1798,20 +1769,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           });
         }
       }
-    }
-    
-    // Cap accessory and core sets to never exceed main sets
-    // MUST run AFTER final sort so the cap applies to the correct slots
-    const sortedMains = exercises.filter((ex, idx) => idx < 4);
-    const sortedAccessories = exercises.filter((ex, idx) => idx >= 4);
-    
-    if (sortedMains.length > 0 && sortedAccessories.length > 0) {
-      const minMainSets = Math.min(...sortedMains.map(ex => ex.targetSets));
-      sortedAccessories.forEach(acc => {
-        if (acc.targetSets > minMainSets) {
-          acc.targetSets = minMainSets;
-        }
-      });
     }
 
     days.push({
