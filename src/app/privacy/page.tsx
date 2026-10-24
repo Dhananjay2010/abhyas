@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { getSiteInfo, LEGAL_LAST_UPDATED } from "@/lib/legal/site-info";
 
 export const metadata = {
   title: "Privacy Policy — Abhyas",
 };
 
 export default function PrivacyPolicyPage() {
+  const { gymName, supportEmail, gymAddress, gymPhone, appName } = getSiteInfo();
+  
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10 pb-28">
       <Link
@@ -26,20 +29,22 @@ export default function PrivacyPolicyPage() {
       </div>
 
       <h1 className="mt-8 text-4xl font-bold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-sm text-muted">Last updated: {new Date().toLocaleDateString()}</p>
+      <p className="mt-2 text-sm text-muted">Last updated: {LEGAL_LAST_UPDATED}</p>
 
       <div className="prose prose-invert mt-8 max-w-none space-y-6 text-sm leading-relaxed">
         <section>
           <h2 className="text-xl font-semibold">1. Introduction</h2>
           <p>
-            Abhyas (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) provides a fitness tracking
+            {appName} (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) provides a fitness tracking
             and workout guidance application. This Privacy Policy explains how we collect, use,
             disclose, and safeguard your information when you use our application.
           </p>
           <p>
-            This policy applies to the white-label instances of Abhyas provided to gym owners and
-            their members. The specific gym operating your instance is the data controller for your
-            information.
+            This policy applies to the white-label instances of {appName} provided to gym owners and
+            their members. {gymName} is the data controller for your information under this instance.
+          </p>
+          <p>
+            This privacy policy complies with the Digital Personal Data Protection Act, 2023 (DPDP Act) of India.
           </p>
         </section>
 
@@ -127,6 +132,11 @@ export default function PrivacyPolicyPage() {
               <strong>YouTube:</strong> We embed yoga videos from YouTube. YouTube&apos;s privacy
               policy applies when you watch these videos.
             </li>
+            <li>
+              <strong>Sentry:</strong> For error monitoring and diagnostics. Error reports are 
+              sent to Sentry with personally identifiable information scrubbed. Sentry&apos;s 
+              privacy policy applies to this data.
+            </li>
           </ul>
           <p>
             We do not sell, rent, or trade your personal information to third parties for marketing
@@ -165,21 +175,22 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-xl font-semibold">7. Data Retention</h2>
           <p>
             We retain your information for as long as your account is active. When you delete your
-            account, all your personal data and workout history is permanently deleted from our
-            systems.
+            account through Settings, all your personal data and workout history is <strong>permanently 
+            and immediately deleted</strong> from our systems with no recovery period. This deletion is 
+            final and cannot be undone.
           </p>
           <p>
-            Aggregate, anonymized usage statistics may be retained indefinitely for product
-            improvement purposes.
+            Under the DPDP Act 2023, you have the right to request erasure of your personal data, 
+            which can be exercised through the account deletion feature in Settings.
           </p>
         </section>
 
         <section>
           <h2 className="text-xl font-semibold">8. Children&apos;s Privacy</h2>
           <p>
-            Abhyas is not intended for use by individuals under the age of 16. We do not knowingly
+            {appName} is not intended for use by individuals under the age of 16. We do not knowingly
             collect personal information from children under 16. If we become aware that a user is
-            under 16, we will delete their account and data.
+            under 16, we will delete their account and data in compliance with the DPDP Act 2023.
           </p>
         </section>
 
@@ -204,19 +215,18 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2 className="text-xl font-semibold">11. Contact Information</h2>
           <p>
-            For questions about this Privacy Policy or our data practices, contact the gym that
-            provided your access to Abhyas, or reach out to:
+            For questions about this Privacy Policy or our data practices, contact:
           </p>
-          <p className="mt-2 pl-6">
-            [GYM NAME]<br />
-            [GYM ADDRESS]<br />
-            [GYM EMAIL]<br />
-            [GYM PHONE]
-          </p>
-          <p className="mt-2 text-muted italic">
-            Note: The contact information above must be replaced with the specific gym&apos;s
-            details for each white-label deployment.
-          </p>
+          <div className="mt-2 pl-6">
+            <p>{gymName}</p>
+            {gymAddress && <p>{gymAddress}</p>}
+            <p>
+              <a href={`mailto:${supportEmail}`} className="text-accent hover:underline">
+                {supportEmail}
+              </a>
+            </p>
+            {gymPhone && <p>{gymPhone}</p>}
+          </div>
         </section>
       </div>
 
