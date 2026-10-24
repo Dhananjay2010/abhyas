@@ -92,7 +92,14 @@ export default async function ProgressPage() {
     console.error("Failed to load progress summary:", progressError);
   }
 
-  const totalVolume = progressQueryFailed ? null : (Number(progressData?.total_volume_kg) ?? 0);
+  type ProgressSummary = {
+    days_trained: number;
+    local_dates: string[];
+    total_volume_kg: number;
+    session_count: number;
+  };
+  const summary = progressData as ProgressSummary | null;
+  const totalVolume = progressQueryFailed ? null : (Number(summary?.total_volume_kg) ?? 0);
 
   // ---- streaks -----------------------------------------------------------
   // Across every block, not just the active one: a streak that reset because a
@@ -124,8 +131,10 @@ export default async function ProgressPage() {
     p_session_ids: sessionIds,
   });
 
+  type SetCountRow = { session_id: string; set_count: number };
+  const setCounts = (setCountsData ?? []) as SetCountRow[];
   const workingSetsBySession = new Map(
-    (setCountsData ?? []).map((v: { session_id: string; set_count: number }) => [
+    setCounts.map((v) => [
       v.session_id,
       Number(v.set_count) || 0,
     ])
