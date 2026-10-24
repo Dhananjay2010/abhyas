@@ -13,6 +13,7 @@ import {
   vibrationSupported,
 } from "@/lib/session/device";
 import { validateSet } from "@/lib/session/validation";
+import { swappedEntryFields } from "@/lib/session/swap";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import {
@@ -868,6 +869,7 @@ export function SessionRunner({
                         });
                         if (!ok || !box.value) return;
                         const swapped = box.value;
+                        const swappedFields = swappedEntryFields({ equipmentIds: swapped.equipmentIds });
                         setExercises((prev) =>
                           prev.map((e) =>
                             e.id === current.id
@@ -879,6 +881,7 @@ export function SessionRunner({
                                   metric: swapped.metric,
                                   repsMin: swapped.repsMin ?? e.repsMin,
                                   repsMax: swapped.repsMax ?? e.repsMax,
+                                  isBodyweight: swappedFields.isBodyweight,
                                 }
                               : e,
                           ),
