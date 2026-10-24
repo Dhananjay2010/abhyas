@@ -99,10 +99,10 @@ async function runTests() {
   const userId = authData.user.id;
   console.log(`✓ Created test user: ${userId}\n`);
 
-  // Create profile
+  // Create profile (upsert in case trigger already created one)
   const { error: profileError } = await adminClient
     .from("profiles")
-    .insert({
+    .upsert({
       id: userId,
       timezone: "America/New_York",
       level: "intermediate",
