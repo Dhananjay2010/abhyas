@@ -57,8 +57,15 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
       if (error) return { data: null, error: error.message };
       if (!data) return { data: null, error: null };
       
-      const profile = data.profiles as unknown as { timezone: string | null };
-      const timezone = profile?.timezone || "UTC";
+      const profiles = data.profiles;
+      let timezone = 'UTC';
+      if (profiles && typeof profiles === 'object') {
+        type ProfilesWithTimezone = { timezone?: string | null };
+        const tzValue = (profiles as ProfilesWithTimezone).timezone;
+        if (typeof tzValue === 'string') {
+          timezone = tzValue;
+        }
+      }
 
       return {
         data: {
