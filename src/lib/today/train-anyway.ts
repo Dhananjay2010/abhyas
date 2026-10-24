@@ -57,6 +57,12 @@ export function trainAnywayOptions(input: TrainAnywayInput): TrainAnywayDay[] {
   const seenIndices = new Set<number>();
   const seenLabels = new Set<string>();
   
+  // Add yesterday to seen sets if it was offered (to avoid duplicates in upcoming)
+  if (missedYesterday && yesterdayDay && isTrainingDay(yesterdayDay.day_type)) {
+    seenIndices.add(yesterdayDay.day_index);
+    seenLabels.add((yesterdayDay.label ?? "Training").toLowerCase());
+  }
+  
   for (const day of trainingDays) {
     const normalizedLabel = (day.label ?? "Training").toLowerCase();
     if (!seenIndices.has(day.day_index) && !seenLabels.has(normalizedLabel)) {
