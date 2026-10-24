@@ -13,7 +13,8 @@
  */
 import { readFileSync } from "node:fs";
 
-// Read the shared function from session/actions.ts
+// Read the shared function from session/prepare-exercises.ts and actions.ts
+const prepareExercisesContent = readFileSync("src/lib/session/prepare-exercises.ts", "utf8");
 const actionsContent = readFileSync("src/app/session/actions.ts", "utf8");
 
 let failures = 0;
@@ -25,12 +26,13 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\n1. Verify prepareSessionExercises exists and is used");
 {
-  check("prepareSessionExercises function exists", actionsContent.includes("function prepareSessionExercises("));
+  check("prepareSessionExercises function exists", prepareExercisesContent.includes("export function prepareSessionExercises("));
   check(
     "function comment declares it as THE ONE shared function",
-    actionsContent.includes("This is the ONE shared function that applies") ||
-    actionsContent.includes("the ONE shared function that applies"),
+    prepareExercisesContent.includes("This is the ONE shared function that applies") ||
+    prepareExercisesContent.includes("the ONE shared function that applies"),
   );
+  check("prepareSessionExercises uses applyDeload", prepareExercisesContent.includes("applyDeload"));
 }
 
 console.log("\n2. Verify prepareSessionExercises is called from startSession");
@@ -79,10 +81,10 @@ console.log("\n3. Verify prepareSessionExercises is called from ensureSessionExe
 
 console.log("\n4. Verify prepareSessionExercises applies deload correctly");
 {
-  const funcIndex = actionsContent.indexOf("function prepareSessionExercises(");
+  const funcIndex = prepareExercisesContent.indexOf("export function prepareSessionExercises(");
   if (funcIndex !== -1) {
-    const endIndex = actionsContent.indexOf("\n}", funcIndex);
-    const funcBody = actionsContent.substring(funcIndex, endIndex + 2);
+    const endIndex = prepareExercisesContent.indexOf("\n}", funcIndex);
+    const funcBody = prepareExercisesContent.substring(funcIndex, endIndex + 2);
 
     check(
       "function accepts isDeload parameter",
@@ -103,14 +105,13 @@ console.log("\n5. Verify applyDeload import and usage");
 {
   check(
     "applyDeload is imported from prescription",
-    actionsContent.includes('import') &&
-    actionsContent.includes('applyDeload') &&
-    actionsContent.includes('prescription'),
+    prepareExercisesContent.includes('import') &&
+    prepareExercisesContent.includes('applyDeload') &&
+    prepareExercisesContent.includes('prescription'),
   );
   check(
     "prepareSessionExercises uses applyDeload",
-    actionsContent.includes("function prepareSessionExercises") &&
-    actionsContent.includes("applyDeload("),
+    prepareExercisesContent.includes("applyDeload("),
   );
 }
 
