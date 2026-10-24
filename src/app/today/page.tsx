@@ -12,14 +12,9 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
-import { buildTodayState } from "@/lib/today/build-state";
-import { todayPromptBlocks } from "@/lib/today/prompt-blocks";
 import { TodayPrompts } from "@/components/today/today-prompts";
-import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
 import { WarmupSection } from "@/components/today/warmup-section";
-import { buildTodayView } from "@/lib/today/page-helpers";
-import { attachWorkingSetCounts } from "@/lib/today/yesterday-sessions";
-import { buildPageState } from "@/lib/today/page-wiring";
+import { buildPage } from "@/lib/today/build-page";
 
 export const dynamic = "force-dynamic";
 
@@ -217,25 +212,16 @@ export default async function TodayPage() {
 
   const allSessions = sessionsRes.data ?? [];
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
-  
-  // Compute working set count for yesterday's sessions (needed for missed-day detection)
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
   const yesterdaySessionIds = yesterdaySessions.map((s) => s.id);
   
-  // Fetch session_exercises with embedded sets for yesterday's sessions (single query)
+  // Fetch session_exercises for yesterday (needed for missed-day detection)
   const sessionExercisesRes = yesterdaySessionIds.length > 0
     ? await supabase
         .from("session_exercises")
         .select("session_id, session_sets(is_warmup_set, reps, duration_seconds)")
         .in("session_id", yesterdaySessionIds)
     : { data: null, error: null };
-  
-  // Attach working set counts to yesterday's sessions using pure helper
-  // Returns null on error to prevent treating errored reads as 0 working sets
-  const yesterdaySessionsWithCounts = attachWorkingSetCounts(
-    sessionExercisesRes,
-    yesterdaySessions
-  );
 
   /*
     Which of today's session rows speaks for the day.
@@ -339,21 +325,24 @@ export default async function TodayPage() {
       ? override
       : undefined;
 
-  // Build page state using helper that preserves error states (null values)
-  // This ensures failed queries don't get defaulted to false at the page layer
-  const pageState = buildPageState({
+  // Build all Today page state using buildPage helper
+  const pageResult = buildPage({
     profile: {
+      id: profile.id,
       created_at: profile.created_at,
       timezone: profile.timezone,
     },
     program: {
       id: program.id,
       started_on: program.started_on,
+      week_offset: program.week_offset,
+      deload_week: program.deload_week,
     },
     days: days ?? [],
     allSessionsRes,
-    todaySessions,
-    yesterdaySessions: yesterdaySessionsWithCounts,
+    todaySessionsRes: { data: todaySessions, error: null },
+    yesterdaySessionsRes: { data: yesterdaySessions, error: null },
+    sessionExercisesRes,
     timezone,
     localToday,
     yesterday,
@@ -362,90 +351,30 @@ export default async function TodayPage() {
     strengthOpen: !!strengthOpen,
   });
 
-  const { hasStartedAny, todayStateInput: stateInput } = pageState;
+  const {
+    todayView,
+    todayState,
+    promptBlocks,
+    trainAnywayDays,
+    yesterdayDay,
+    firstTrainingDay,
+    plannable: plannableFromHelper,
+    hasStartedAny,
+  } = pageResult;
 
-  /*
-    One-day overrides across this week, keyed by weekday so "Your week" can show
-    them. Without this the list rendered the block's template labels only, so a
-    choice made last night was invisible until the day arrived: the user picked
-    Rest for tomorrow and the week still said Push. Only a difference is
-    recorded -- "keep the plan" writes no row, and a swap that happens to match
-    the template is not news.
-  */
-  const chosenByDayIndex = new Map<number, string>();
-  for (const d of days ?? []) {
-    // The next time this weekday comes round, which is today for today.
-    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
-    const sess = allSessions.find(
-      (x) =>
-        x.local_date === date &&
-        (x.status === "planned" || x.status === "in_progress") &&
-        x.actual_type !== null,
-    );
-    if (!sess?.actual_type) continue;
-    const chosenDay = sess.program_day_id
-      ? days?.find((pd) => pd.id === sess.program_day_id)
-      : undefined;
-    const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
-    if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
-  }
-
-  // Build today view using pure helper (week, isDeload, firstTrainingDay, weekRowsWithChoices)
-  const todayView = buildTodayView({
-    program: {
-      started_on: program.started_on,
-      week_offset: program.week_offset,
-      deload_week: program.deload_week,
-    },
-    localToday,
-    days: days ?? [],
-    hasStartedAny, // null, true, or false - helper handles all cases
-    chosenByDayIndex,
-  });
-  const { week, isDeload, firstTrainingDay, weekRowsWithChoices } = todayView;
-
-  // Use pure helpers to derive all prompt logic
-  const yesterdayIndex = isoWeekday(yesterday);
-  const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
-
-  // Build today state - always has input now (yesterdayUnknown flag handles errors)
-  const todayState = buildTodayState(stateInput);
+  const { week, isDeload, weekRowsWithChoices } = todayView;
   const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
 
-  const promptBlocks = todayPromptBlocks({
-    promptType,
-    missedYesterday,
-    hasStartedAny,
-    nextTrainingDay: nextTraining,
-    isTraining,
-    firstTrainingDay, // Already null when hasStartedAny is null (buildTodayView handles it)
-  });
 
   // ---- wave 3 -------------------------------------------------------------
   // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
   // The prompt offers "Swap the day", which needs the strength/bodyweight options.
   // The session's own exercises are loaded only when a workout has been started.
-  // 
-  // H2: Always load plannable days for rest days (not just when yesterday was missed)
-  // so "Or train today anyway" can offer workout options even when yesterday was done.
   const needsPlannableDays =
     (dayType === "rest" || missedYesterday) && !strengthDone && !strengthOpen;
 
-  const [plannable, daysForTrainAnyway, performedRows] = await Promise.all([
+  const [plannable, performedRows] = await Promise.all([
     needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
-    // H2: For "Or train today anyway" on rest days, compute which workout to offer
-    dayType === "rest" && days
-      ? Promise.resolve(buildTrainAnywayDays({
-          allDays: days.map((d) => ({
-            id: d.id,
-            day_index: d.day_index,
-            day_type: d.day_type,
-            label: d.label,
-          })),
-          localToday,
-          missedYesterday,
-        }))
-      : Promise.resolve([]),
     performed
       ? supabase
           .from("session_exercises")
@@ -593,7 +522,7 @@ export default async function TodayPage() {
         localToday={localToday}
         dayLabel={dayLabel}
         plannable={plannable}
-        trainAnywayDays={daysForTrainAnyway}
+        trainAnywayDays={trainAnywayDays}
         yesterdayDay={yesterdayDay ? { day_type: yesterdayDay.day_type, label: yesterdayDay.label } : null}
         nextTraining={nextTraining}
         isTraining={isTraining}
