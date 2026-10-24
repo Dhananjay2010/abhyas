@@ -20,12 +20,10 @@ import { buildTodayState } from "../src/lib/today/build-state";
 type DayType = Database["public"]["Enums"]["day_type"];
 
 function assert(condition: boolean, message: string) {
-  totalTests++;
   if (!condition) {
     console.error(`❌ FAIL: ${message}`);
     process.exit(1);
   } else {
-    passedTests++;
     console.log(`✓ ${message}`);
   }
 }
