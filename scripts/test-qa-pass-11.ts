@@ -137,12 +137,79 @@ try {
 }
 
 // ====================
-// REVERTED_WITH_53_GENERATOR: Tests for PR #53 generator pacing and coordinator logic
+// 2. Knee injury coordinator allowlist and scoring (restored from PR #53)
 // ====================
-// These tests verify behavior introduced in PR #53 (merge commit 66cdf5c) that was
+
+testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from allowlist), comes before any hinge, no hip-flexion-with-band as main, no adjacent hinges",
+  { currentInjuryRegions: ["knee"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
+  (plan, picked, seed) => {
+    const lowerDays = plan.days.filter(d => d.focus === "lower" || d.focus === "legs");
+    
+    // Coordinator allowlist (restored from PR #53): leg-extensions, single-leg-leg-extension, box-squat, wall-sit, spanish-squat
+    const kneeSafeAllowlist = [
+      "leg-extensions", "single-leg-leg-extension", "box-squat", "wall-sit", "spanish-squat"
+    ];
+    
+    // Check first main exercise on each Lower day
+    lowerDays.forEach((day, dayIdx) => {
+      if (day.exercises.length > 0) {
+        const firstEx = byId.get(day.exercises[0].exerciseId)!;
+        const isKneeSafe = kneeSafeAllowlist.includes(firstEx.slug);
+        check(`Seed ${seed} Lower day ${dayIdx + 1}: first exercise is knee-safe from allowlist`, 
+          isKneeSafe, 
+          `Got ${firstEx.name} [${firstEx.slug}]`);
+        
+        // Check knee-safe quad comes before any hinge
+        const firstHingeIndex = day.exercises.findIndex(e => {
+          const ex = byId.get(e.exerciseId);
+          return ex && ex.movement_pattern === "hinge";
+        });
+        
+        if (firstHingeIndex !== -1) {
+          // There is a hinge, make sure a knee-safe quad comes first
+          const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
+            const ex = byId.get(e.exerciseId);
+            return ex && kneeSafeAllowlist.includes(ex.slug);
+          });
+          check(`Seed ${seed} Lower day ${dayIdx + 1}: knee-safe quad before hinge`, 
+            kneeSafeBeforeHinge,
+            `First hinge at position ${firstHingeIndex + 1}`);
+        }
+        
+        // Check hip-flexion-with-band is NOT in main slots (first 4)
+        const mainExercises = day.exercises.slice(0, 4).map(e => byId.get(e.exerciseId)!);
+        const hasHipFlexionMain = mainExercises.some(e => e.slug === "hip-flexion-with-band");
+        check(`Seed ${seed} Lower day ${dayIdx + 1}: hip-flexion-with-band not in main slots`, !hasHipFlexionMain);
+      }
+    });
+    
+    // Check no adjacent hinges across all days
+    const allDays = plan.days.filter(d => d.dayType === "weights");
+    allDays.forEach((day, dayIdx) => {
+      let hasAdjacentHinges = false;
+      for (let i = 0; i < day.exercises.length - 1; i++) {
+        const current = byId.get(day.exercises[i].exerciseId);
+        const next = byId.get(day.exercises[i + 1].exerciseId);
+        if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
+          hasAdjacentHinges = true;
+          check(`Seed ${seed} Day ${dayIdx + 1}: no adjacent hinges`, false, 
+            `${current.name} then ${next.name}`);
+          break;
+        }
+      }
+      if (!hasAdjacentHinges) {
+        check(`Seed ${seed} Day ${dayIdx + 1}: no adjacent hinges`, true);
+      }
+    });
+  }
+);
+
+// ====================
+// REVERTED_WITH_53_GENERATOR: Tests for PR #53 generator pacing logic
+// ====================
+// These tests verify pacing behavior introduced in PR #53 (merge commit 66cdf5c) that was
 // reverted in PR #65 due to HIGH regression (1-set rows, stacked duplicates).
 // The pre-PR#53 generator does not have:
-// - The knee-safe quad allowlist with +15 score bonus
 // - The "add exercises first, then sets" pacing strategy
 // - The post-pacing push/pull balance that can reduce sets to 1
 // 
@@ -151,78 +218,9 @@ try {
 
 if (false) {  // SKIPPED - reverted with PR #53 generator (PR #65)
   console.log("\n[SKIPPED] REVERTED_WITH_53_GENERATOR tests:");
-  console.log("  - 2. Knee injury coordinator allowlist and scoring");
   console.log("  - 3. Pacing: exercise-first strategy with level caps");
   console.log("These tests are preserved but skipped because they test behavior from");
   console.log("PR #53 that was reverted in PR #65. See PR #65 body for details.\n");
-
-  // ====================
-  // 2. HIGH knee: hip-flexion-with-band never a main lift, knee-safe options first
-  // ====================
-
-  testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from allowlist), comes before any hinge, no hip-flexion-with-band as main, no adjacent hinges",
-    { currentInjuryRegions: ["knee"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
-    (plan, picked, seed) => {
-      const lowerDays = plan.days.filter(d => d.focus === "lower" || d.focus === "legs");
-      
-      // Coordinator allowlist: leg-extensions, single-leg-leg-extension, box-squat, wall-sit, spanish-squat
-      const kneeSafeAllowlist = [
-        "leg-extensions", "single-leg-leg-extension", "box-squat", "wall-sit", "spanish-squat"
-      ];
-      
-      // Check first main exercise on each Lower day
-      lowerDays.forEach((day, dayIdx) => {
-        if (day.exercises.length > 0) {
-          const firstEx = byId.get(day.exercises[0].exerciseId)!;
-          const isKneeSafe = kneeSafeAllowlist.includes(firstEx.slug);
-          check(`Seed ${seed} Lower day ${dayIdx + 1}: first exercise is knee-safe from allowlist`, 
-            isKneeSafe, 
-            `Got ${firstEx.name} [${firstEx.slug}]`);
-          
-          // Check knee-safe quad comes before any hinge
-          const firstHingeIndex = day.exercises.findIndex(e => {
-            const ex = byId.get(e.exerciseId);
-            return ex && ex.movement_pattern === "hinge";
-          });
-          
-          if (firstHingeIndex !== -1) {
-            // There is a hinge, make sure a knee-safe quad comes first
-            const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
-              const ex = byId.get(e.exerciseId);
-              return ex && kneeSafeAllowlist.includes(ex.slug);
-            });
-            check(`Seed ${seed} Lower day ${dayIdx + 1}: knee-safe quad before hinge`, 
-              kneeSafeBeforeHinge,
-              `First hinge at position ${firstHingeIndex + 1}`);
-          }
-          
-          // Check hip-flexion-with-band is NOT in main slots (first 4)
-          const mainExercises = day.exercises.slice(0, 4).map(e => byId.get(e.exerciseId)!);
-          const hasHipFlexionMain = mainExercises.some(e => e.slug === "hip-flexion-with-band");
-          check(`Seed ${seed} Lower day ${dayIdx + 1}: hip-flexion-with-band not in main slots`, !hasHipFlexionMain);
-        }
-      });
-      
-      // Check no adjacent hinges across all days
-      const allDays = plan.days.filter(d => d.dayType === "weights");
-      allDays.forEach((day, dayIdx) => {
-        let hasAdjacentHinges = false;
-        for (let i = 0; i < day.exercises.length - 1; i++) {
-          const current = byId.get(day.exercises[i].exerciseId);
-          const next = byId.get(day.exercises[i + 1].exerciseId);
-          if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
-            hasAdjacentHinges = true;
-            check(`Seed ${seed} Day ${dayIdx + 1}: no adjacent hinges`, false, 
-              `${current.name} then ${next.name}`);
-            break;
-          }
-        }
-        if (!hasAdjacentHinges) {
-          check(`Seed ${seed} Day ${dayIdx + 1}: no adjacent hinges`, true);
-        }
-      });
-    }
-  );
 
   // ====================
   // 3. MEDIUM pacing: exercise first, then sets, with level caps

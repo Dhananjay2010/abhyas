@@ -343,18 +343,18 @@ function shouldExcludeForSafety(
 }
 
 /**
- * QA Pass 10 H6: Exercises that are safe for knee injuries despite being quad-focused.
+ * QA Pass 10 H6 (restored from PR #53): Exercises safe for knee injuries despite being quad-focused.
  * These use limited ROM, isometric holds, or controlled movements that don't aggravate the knee.
- * Must be REAL prod slugs only. H6 test requires hasAllEquipment: true.
+ * Must be REAL prod slugs only. Exported for testing.
+ * 
+ * From PR #53 coordinator decision: leg-extensions, single-leg-leg-extension, box-squat, wall-sit, spanish-squat
  */
-const KNEE_SAFE_QUAD_EXERCISES = new Set([
-  'leg-extensions',           // Partial ROM, controlled (requires leg_extension machine)
-  'single-leg-leg-extension', // Controlled, no impact (requires leg_extension machine)
-  'box-squat',                // Limited depth, box provides safety (requires barbell, squat_rack)
-  'step-up-with-knee-raise',  // Controlled, user picks height (bodyweight)
-  'dumbbell-step-ups',        // Controlled step-ups (requires dumbbell)
-  'hip-flexion-with-band',    // Quad isolation without knee stress (requires resistance_band)
-  'barbell-step-ups',         // Controlled step-ups (requires barbell)
+export const KNEE_SAFE_QUAD_EXERCISES: Readonly<Set<string>> = new Set([
+  'leg-extensions',           // Partial ROM, pain-free range (machine)
+  'single-leg-leg-extension', // Partial ROM, pain-free range (machine)
+  'box-squat',                // Box at parallel or higher (barbell, squat_rack)
+  'wall-sit',                 // Isometric hold, no dynamic stress (bodyweight, seconds metric)
+  'spanish-squat',            // Band-resisted, controlled (resistance_band)
 ]);
 
 /**
@@ -472,6 +472,7 @@ export function score(
   wantCompound: boolean,
   level: Level,
   primaryTrack: Track = "weights",
+  currentInjuryRegions: BodyRegion[] = [],
 ): number {
   let s = 0;
   if (wantCompound && ex.mechanic === "compound") s += 4;
@@ -497,6 +498,12 @@ export function score(
   // is what bench press needs, not a reason to avoid it.
   if (primaryTrack === "bodyweight") {
     s -= Math.max(0, ex.equipment_ids.length - 1);
+  }
+
+  // QA Pass 10 followup (restored from PR #53): Knee injury bonus for knee-safe quad exercises
+  // Coordinator decision: leg-extensions, single-leg-leg-extension, box-squat, wall-sit, spanish-squat
+  if (currentInjuryRegions.includes("knee") && KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
+    s += 15; // Much higher than compound bonus (4), so knee-safe options rank first
   }
 
   return s;
@@ -615,7 +622,7 @@ function pickForSlot(
     const ranked = candidates
       .map((e) => ({
         e,
-        score: score(e, wantCompound, input.level, input.primaryTrack),
+        score: score(e, wantCompound, input.level, input.primaryTrack, input.currentInjuryRegions),
         stapleKey: isMainSlot
           ? stapleSortKey(e, p, input.hasAllEquipment, input.primaryTrack)
           : `1:${e.slug}`, // Non-main slots: no staple bonus
@@ -654,7 +661,7 @@ function pickForSlot(
     const ranked = filtered
       .map((e) => ({
         e,
-        score: score(e, slotIndex < 4, input.level, input.primaryTrack),
+        score: score(e, slotIndex < 4, input.level, input.primaryTrack, input.currentInjuryRegions),
         stapleKey: stapleSortKey(e, altPattern, input.hasAllEquipment, input.primaryTrack),
         rng: rng(),
       }))
@@ -805,7 +812,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           })
           .map(e => ({
             e,
-            score: score(e, i < 4, input.level, input.primaryTrack),
+            score: score(e, i < 4, input.level, input.primaryTrack, input.currentInjuryRegions),
             stapleKey: stapleSortKey(e, pattern, input.hasAllEquipment, input.primaryTrack),
             rng: rng(),
           }))
@@ -869,7 +876,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return true;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -897,7 +904,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return isEligible(e, input);
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -934,7 +941,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -974,7 +981,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -1066,6 +1073,110 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       });
     });
 
+    // QA Pass 10 followup (restored from PR #53): Knee-safe coordinator logic
+    // For members with knee injury on Lower/Full days:
+    // 1. First lower-body main exercise must be knee-safe quad (comes before any hinge)
+    // 2. Hip-flexion-with-band is never a main (first 4 slots)
+    // 3. No two hinges are adjacent
+    // Note: hasKneeInjury and isLowerOrFullDay already declared above
+
+    if (hasKneeInjury && isLowerOrFullDay && exercises.length > 0) {
+      // Rule 1: Ensure first exercise is knee-safe quad if any quad/squat/lunge exists
+      const firstEx = pool.find(e => e.id === exercises[0].exerciseId);
+      const hasQuadWork = exercises.some(ex => {
+        const e = pool.find(p => p.id === ex.exerciseId);
+        return e && (e.movement_pattern === "squat" || e.movement_pattern === "lunge" || e.primary_muscles.includes("quads"));
+      });
+
+      if (hasQuadWork && firstEx && !KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug)) {
+        // Find the first knee-safe quad exercise in the list
+        const kneeSafeIndex = exercises.findIndex(ex => {
+          const e = pool.find(p => p.id === ex.exerciseId);
+          return e && KNEE_SAFE_QUAD_EXERCISES.has(e.slug);
+        });
+
+        if (kneeSafeIndex > 0) {
+          // Swap it to the front
+          [exercises[0], exercises[kneeSafeIndex]] = [exercises[kneeSafeIndex], exercises[0]];
+          // Update orderIndex
+          exercises.forEach((e, idx) => { e.orderIndex = idx; });
+        }
+      }
+
+      // Rule 2: Ensure knee-safe quad comes before any hinge
+      const firstHingeIndex = exercises.findIndex(ex => {
+        const e = pool.find(p => p.id === ex.exerciseId);
+        return e && e.movement_pattern === "hinge";
+      });
+
+      if (firstHingeIndex !== -1) {
+        const kneeSafeBeforeHinge = exercises.slice(0, firstHingeIndex).some(ex => {
+          const e = pool.find(p => p.id === ex.exerciseId);
+          return e && KNEE_SAFE_QUAD_EXERCISES.has(e.slug);
+        });
+
+        if (!kneeSafeBeforeHinge) {
+          // Find a knee-safe quad after the hinge and move it before
+          const kneeSafeAfterHinge = exercises.findIndex((ex, idx) => {
+            if (idx <= firstHingeIndex) return false;
+            const e = pool.find(p => p.id === ex.exerciseId);
+            return e && KNEE_SAFE_QUAD_EXERCISES.has(e.slug);
+          });
+
+          if (kneeSafeAfterHinge !== -1) {
+            // Move it right before the hinge
+            const kneeSafe = exercises.splice(kneeSafeAfterHinge, 1)[0];
+            exercises.splice(firstHingeIndex, 0, kneeSafe);
+            // Update orderIndex
+            exercises.forEach((e, idx) => { e.orderIndex = idx; });
+          }
+        }
+      }
+    }
+
+    // Rule 3 (for ALL days with knee injury, not just lower): Hip-flexion-with-band never in main slots
+    if (hasKneeInjury && exercises.length >= 4) {
+      const hipFlexionInMain = exercises.slice(0, 4).findIndex(ex => {
+        const e = pool.find(p => p.id === ex.exerciseId);
+        return e && e.slug === "hip-flexion-with-band";
+      });
+
+      if (hipFlexionInMain !== -1) {
+        // Swap it with the first non-main exercise (slot 4 or later)
+        if (exercises.length > 4) {
+          [exercises[hipFlexionInMain], exercises[4]] = [exercises[4], exercises[hipFlexionInMain]];
+          // Update orderIndex
+          exercises.forEach((e, idx) => { e.orderIndex = idx; });
+        }
+      }
+    }
+
+    // Rule 4 (for ALL days with knee injury): No two hinges are adjacent
+    if (hasKneeInjury && exercises.length > 1) {
+      for (let i = 0; i < exercises.length - 1; i++) {
+        const current = pool.find(e => e.id === exercises[i].exerciseId);
+        const next = pool.find(e => e.id === exercises[i + 1].exerciseId);
+        
+        if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
+          // Find a non-hinge exercise to swap with
+          const swapCandidates = exercises.slice(i + 2).map((ex, idx) => ({ ex, idx: idx + i + 2 }))
+            .filter(({ ex }) => {
+              const candidate = pool.find(e => e.id === ex.exerciseId);
+              return candidate && candidate.movement_pattern !== "hinge";
+            });
+          
+          if (swapCandidates.length > 0) {
+            // Swap with the first non-hinge exercise after the adjacent hinges
+            const { idx: swapIdx } = swapCandidates[0];
+            [exercises[i + 1], exercises[swapIdx]] = [exercises[swapIdx], exercises[i + 1]];
+            // Update orderIndex
+            exercises[i + 1].orderIndex = i + 1;
+            exercises[swapIdx].orderIndex = swapIdx;
+          }
+        }
+      }
+    }
+
     // QA Pass 10 H8: A day with no exercises is a dead end. For bodyweight upper/full-body
     // days, prioritize at least one pulling movement to maintain push:pull balance.
     // The day is relabelled when backfilled (it's not "Pull" if there are no pulls).
@@ -1078,8 +1189,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         .filter((e) => !usedInBlock.has(e.id))
         .sort(
           (a, b) =>
-            score(b, true, input.level, input.primaryTrack) -
-              score(a, true, input.level, input.primaryTrack) ||
+            score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
+              score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug),
         );
       
@@ -1256,8 +1367,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               isEligible(e, input)
             )
             .sort((a, b) => 
-              score(b, true, input.level, input.primaryTrack) -
-              score(a, true, input.level, input.primaryTrack) ||
+              score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
+              score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
               a.slug.localeCompare(b.slug)
             );
           
@@ -1311,8 +1422,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             isEligible(e, input)
           )
           .sort((a, b) => 
-            score(b, true, input.level, input.primaryTrack) -
-            score(a, true, input.level, input.primaryTrack) ||
+            score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
+            score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug)
           );
         
