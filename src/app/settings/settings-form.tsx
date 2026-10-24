@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   BODY_REGIONS,
@@ -93,6 +94,7 @@ export function SettingsForm({
   timezones: string[];
   actions?: SettingsActions;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
@@ -181,7 +183,16 @@ export function SettingsForm({
   }, [saveQueue]);
 
   useEffect(() => {
-    // Flush on pagehide and visibilitychange
+    // QA#1: Flush on component unmount (client-side navigation)
+    return () => {
+      if (saveQueue.hasPending()) {
+        saveQueue.flush();
+      }
+    };
+  }, [saveQueue]);
+
+  useEffect(() => {
+    // Flush on pagehide and visibilitychange to hidden
     const handlePageHide = () => {
       if (saveQueue.hasPending()) {
         saveQueue.flush();
@@ -192,6 +203,11 @@ export function SettingsForm({
       if (document.visibilityState === "hidden" && saveQueue.hasPending()) {
         saveQueue.flush();
       }
+      
+      // QA#3: Refresh when tab becomes visible (unless saves are pending)
+      if (document.visibilityState === "visible" && !saveQueue.hasPending()) {
+        router.refresh();
+      }
     };
 
     window.addEventListener("pagehide", handlePageHide);
@@ -201,7 +217,7 @@ export function SettingsForm({
       window.removeEventListener("pagehide", handlePageHide);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [saveQueue]);
+  }, [saveQueue, router]);
 
   // Update needsUnloadPrompt whenever queue status changes
   useEffect(() => {
