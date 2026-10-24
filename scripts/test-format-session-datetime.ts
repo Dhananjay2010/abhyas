@@ -100,6 +100,34 @@ test("afternoon session shows pm", () => {
   assertContains(result, "pm", "Should show pm in lowercase");
 });
 
+test("today shows 'Today · time'", () => {
+  const todaySession = "2026-10-24T09:30:00.000Z"; // 9:30 AM UTC on Oct 24
+  const result = formatSessionDateTime(todaySession, "2026-10-24", "UTC", "2026-10-24");
+  
+  assertContains(result, "Today", "Should show Today");
+  assertContains(result, "9:30", "Should show time");
+  assertContains(result, "am", "Should show am");
+});
+
+test("yesterday shows 'Yesterday · time'", () => {
+  const yesterdaySession = "2026-10-23T14:30:00.000Z"; // 2:30 PM UTC on Oct 23
+  const result = formatSessionDateTime(yesterdaySession, "2026-10-23", "UTC", "2026-10-24");
+  
+  assertContains(result, "Yesterday", "Should show Yesterday");
+  assertContains(result, "2:30", "Should show time");
+  assertContains(result, "pm", "Should show pm");
+});
+
+test("older date shows full date with time", () => {
+  const olderSession = "2026-10-20T10:00:00.000Z"; // Oct 20
+  const result = formatSessionDateTime(olderSession, "2026-10-20", "UTC", "2026-10-24");
+  
+  assertContains(result, "Oct 20", "Should show Oct 20");
+  assertContains(result, "10:00", "Should show time");
+  assertNotContains(result, "Today", "Should not show Today");
+  assertNotContains(result, "Yesterday", "Should not show Yesterday");
+});
+
 // Item 9 tests: started_at vs completed_at
 test("item 9: started_at 23:50 IST with completed_at 00:01 next day shows start time and start date", () => {
   // Session started at 23:50 IST on Oct 24, completed at 00:01 IST on Oct 25
