@@ -18,6 +18,8 @@
     "test:abhyas-literals": "tsx scripts/test-abhyas-literals.ts",
     "test:again-copy": "tsx scripts/test-again-copy.ts",
     "test:alternatives": "tsx scripts/test-alternatives.ts",
+    "test:block-range": "tsx scripts/test-block-range.ts",
+    "test:block-range-db": "tsx scripts/test-block-range-db.ts",
     "test:bodyweight": "tsx scripts/test-bodyweight.ts",
     "test:bottom-nav-accessibility": "tsx scripts/test-bottom-nav-accessibility.ts",
     "test:bottom-nav-offline-context": "tsx scripts/test-bottom-nav-offline-context.ts",
@@ -91,6 +93,7 @@
     "test:qa-pass-11": "tsx scripts/test-qa-pass-11.ts",
     "test:rate-limit": "tsx scripts/test-rate-limit.ts",
     "test:rate-limit-endpoint": "tsx scripts/test-rate-limit-endpoint.ts",
+    "test:rebuild-history": "tsx scripts/test-rebuild-history.ts",
     "test:redirect-origin": "tsx scripts/test-redirect-origin.ts",
     "test:redirect-origin-malformed": "tsx scripts/test-redirect-origin-malformed.ts",
     "test:reset-decision": "tsx scripts/test-reset-decision.ts",
@@ -171,7 +174,9 @@
     "sharp": "^0.33.5",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "pg": "^8.23.1",
+    "@types/pg": "^8.23.1"
   },
   "engines": {
     "node": ">=22.13.0 <23"

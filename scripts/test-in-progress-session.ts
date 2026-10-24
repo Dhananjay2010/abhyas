@@ -1,77 +1,24 @@
 /**
- * Test getInProgressSession function.
+ * L2: Test the REAL getInProgressSession function.
  * 
  * Verifies:
- * - Returns null when no in-progress session exists
- * - Returns the most recent in-progress session
+ * - M2: Only today's in_progress session is returned (timezone-aware)
+ * - Returns null when no in-progress session exists today
+ * - Returns null when in_progress session is from yesterday
+ * - Returns the most recent in-progress session for today
  * - workingSetsLogged counts only is_warmup_set = false
  * - Warm-up sets are excluded from the count
  * - Multiple in-progress sessions: returns most recent by started_at
+ * - Timezone resolution works correctly
+ * - 0-set sessions are returned (L3)
  * 
  *   npx tsx scripts/test-in-progress-session.ts
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
-
-// Re-implement the function here to test without importing
-async function getInProgressSession(
-  supabase: SupabaseClient<Database>,
-  userId: string
-) {
-  const { data: sessions, error: sessionError } = await supabase
-    .from("sessions")
-    .select("id, started_at, program_days(label)")
-    .eq("user_id", userId)
-    .eq("status", "in_progress")
-    .order("started_at", { ascending: false })
-    .limit(1);
-
-  if (sessionError || !sessions || sessions.length === 0) {
-    return null;
-  }
-
-  const session = sessions[0];
-
-  const { data: exercises, error: exercisesError } = await supabase
-    .from("session_exercises")
-    .select("id")
-    .eq("session_id", session.id);
-
-  if (exercisesError || !exercises || exercises.length === 0) {
-    const programDay = session.program_days as unknown as { label: string } | null;
-    return {
-      id: session.id,
-      title: programDay?.label ?? "Workout",
-      workingSetsLogged: 0,
-      startedAt: session.started_at ?? new Date().toISOString(),
-    };
-  }
-
-  const exerciseIds = exercises.map((e) => e.id);
-
-  const { data: sets, error: setsError } = await supabase
-    .from("session_sets")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("is_warmup_set", false)
-    .in("session_exercise_id", exerciseIds);
-
-  if (setsError) {
-    return null;
-  }
-
-  const programDay = session.program_days as unknown as { label: string } | null;
-  const title = programDay?.label ?? "Workout";
-  const workingSetsLogged = sets?.length ?? 0;
-
-  return {
-    id: session.id,
-    title,
-    workingSetsLogged,
-    startedAt: session.started_at ?? new Date().toISOString(),
-  };
-}
+import { getInProgressSession } from "../src/lib/session/in-progress";
+import { localDateString } from "../src/lib/dates";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -85,7 +32,12 @@ class FakeSupabase {
     user_id: string;
     status: string;
     started_at: string;
+    local_date: string;
     program_days: { label: string } | null;
+  }> = [];
+  private profiles: Array<{
+    id: string;
+    timezone: string | null;
   }> = [];
   private sessionExercises: Array<{ id: string; session_id: string }> = [];
   private sessionSets: Array<{
@@ -100,6 +52,7 @@ class FakeSupabase {
     userId: string,
     status: string,
     startedAt: string,
+    localDate: string,
     label: string | null
   ) {
     this.sessions.push({
@@ -107,7 +60,15 @@ class FakeSupabase {
       user_id: userId,
       status,
       started_at: startedAt,
+      local_date: localDate,
       program_days: label ? { label } : null,
+    });
+  }
+
+  addProfile(userId: string, timezone: string | null) {
+    this.profiles.push({
+      id: userId,
+      timezone,
     });
   }
 
@@ -130,6 +91,25 @@ class FakeSupabase {
   }
 
   from(table: string) {
+    if (table === "profiles") {
+      return {
+        select: (cols: string) => ({
+          eq: (col: string, val: string) => {
+            const filtered = this.profiles.filter(
+              (p) => (p as never)[col] === val
+            );
+            return {
+              single: () =>
+                Promise.resolve({
+                  data: filtered[0] || null,
+                  error: null,
+                }),
+            };
+          },
+        }),
+      };
+    }
+
     if (table === "sessions") {
       return {
         select: (cols: string) => {
@@ -204,83 +184,164 @@ class FakeSupabase {
 }
 
 (async () => {
-  console.log("\n1. No in-progress session → returns null");
+  const today = localDateString("UTC");
+  const yesterday = localDateString("UTC", new Date(Date.now() - 86400000));
+
+  console.log("\n1. M2: No in-progress session today → returns null");
   {
     const fake = new FakeSupabase();
-    fake.addSession("s1", "user1", "completed", "2026-10-24T10:00:00Z", "Push");
+    fake.addProfile("user1", "UTC");
+    fake.addSession("s1", "user1", "completed", "2026-10-24T10:00:00Z", today, "Push");
     const result = await getInProgressSession(
       fake as unknown as SupabaseClient<Database>,
-      "user1"
+      "user1",
+      "UTC"
     );
     check("no in-progress session", result === null, result ? result.id : "");
   }
 
-  console.log("\n2. In-progress session with working sets");
+  console.log("\n2. M2: In-progress session from yesterday → returns null");
   {
     const fake = new FakeSupabase();
-    fake.addSession("s2", "user1", "in_progress", "2026-10-24T11:00:00Z", "Pull");
+    fake.addProfile("user1", "UTC");
+    fake.addSession("s2", "user1", "in_progress", "2026-10-23T11:00:00Z", yesterday, "Pull");
     fake.addExercise("ex1", "s2");
-    fake.addSet("set1", "user1", "ex1", true); // warm-up
-    fake.addSet("set2", "user1", "ex1", false); // working
-    fake.addSet("set3", "user1", "ex1", false); // working
+    fake.addSet("set1", "user1", "ex1", false);
 
     const result = await getInProgressSession(
       fake as unknown as SupabaseClient<Database>,
-      "user1"
+      "user1",
+      "UTC"
+    );
+    check("past-day in-progress not returned", result === null, result ? result.id : "");
+  }
+
+  console.log("\n3. In-progress session today with working sets");
+  {
+    const fake = new FakeSupabase();
+    fake.addProfile("user1", "UTC");
+    fake.addSession("s3", "user1", "in_progress", "2026-10-24T11:00:00Z", today, "Pull");
+    fake.addExercise("ex2", "s3");
+    fake.addSet("set2", "user1", "ex2", true); // warm-up
+    fake.addSet("set3", "user1", "ex2", false); // working
+    fake.addSet("set4", "user1", "ex2", false); // working
+
+    const result = await getInProgressSession(
+      fake as unknown as SupabaseClient<Database>,
+      "user1",
+      "UTC"
     );
     check("returns session", result !== null);
-    check("session id", result?.id === "s2", result?.id);
+    check("session id", result?.id === "s3", result?.id);
     check("title from program_day", result?.title === "Pull", result?.title);
     check("workingSetsLogged excludes warm-up", result?.workingSetsLogged === 2, String(result?.workingSetsLogged));
   }
 
-  console.log("\n3. Warm-up only → zero working sets");
+  console.log("\n4. L3: 0-set in-progress session today is returned");
   {
     const fake = new FakeSupabase();
-    fake.addSession("s3", "user1", "in_progress", "2026-10-24T12:00:00Z", "Legs");
-    fake.addExercise("ex2", "s3");
-    fake.addSet("set4", "user1", "ex2", true);
-    fake.addSet("set5", "user1", "ex2", true);
+    fake.addProfile("user1", "UTC");
+    fake.addSession("s4", "user1", "in_progress", "2026-10-24T12:00:00Z", today, "Legs");
+    fake.addExercise("ex3", "s4");
 
     const result = await getInProgressSession(
       fake as unknown as SupabaseClient<Database>,
-      "user1"
+      "user1",
+      "UTC"
     );
     check("returns session", result !== null);
     check("workingSetsLogged is 0", result?.workingSetsLogged === 0, String(result?.workingSetsLogged));
   }
 
-  console.log("\n4. Multiple in-progress sessions → returns most recent");
+  console.log("\n5. Multiple in-progress sessions today → returns most recent");
   {
     const fake = new FakeSupabase();
-    fake.addSession("s4", "user1", "in_progress", "2026-10-24T09:00:00Z", "Upper");
-    fake.addSession("s5", "user1", "in_progress", "2026-10-24T13:00:00Z", "Lower");
-    fake.addExercise("ex3", "s4");
+    fake.addProfile("user1", "UTC");
+    fake.addSession("s5", "user1", "in_progress", "2026-10-24T09:00:00Z", today, "Upper");
+    fake.addSession("s6", "user1", "in_progress", "2026-10-24T13:00:00Z", today, "Lower");
     fake.addExercise("ex4", "s5");
-    fake.addSet("set6", "user1", "ex3", false);
-    fake.addSet("set7", "user1", "ex4", false);
-    fake.addSet("set8", "user1", "ex4", false);
+    fake.addExercise("ex5", "s6");
+    fake.addSet("set5", "user1", "ex4", false);
+    fake.addSet("set6", "user1", "ex5", false);
+    fake.addSet("set7", "user1", "ex5", false);
 
     const result = await getInProgressSession(
       fake as unknown as SupabaseClient<Database>,
-      "user1"
+      "user1",
+      "UTC"
     );
-    check("returns most recent", result?.id === "s5", result?.id);
-    check("workingSetsLogged from s5", result?.workingSetsLogged === 2, String(result?.workingSetsLogged));
+    check("returns most recent", result?.id === "s6", result?.id);
+    check("workingSetsLogged from s6", result?.workingSetsLogged === 2, String(result?.workingSetsLogged));
   }
 
-  console.log("\n5. Session without program_days → title defaults to 'Workout'");
+  console.log("\n6. Session without program_days → title defaults to 'Workout'");
   {
     const fake = new FakeSupabase();
-    fake.addSession("s6", "user1", "in_progress", "2026-10-24T14:00:00Z", null);
-    fake.addExercise("ex5", "s6");
-    fake.addSet("set9", "user1", "ex5", false);
+    fake.addProfile("user1", "UTC");
+    fake.addSession("s7", "user1", "in_progress", "2026-10-24T14:00:00Z", today, null);
+    fake.addExercise("ex6", "s7");
+    fake.addSet("set8", "user1", "ex6", false);
 
     const result = await getInProgressSession(
       fake as unknown as SupabaseClient<Database>,
-      "user1"
+      "user1",
+      "UTC"
     );
     check("title defaults to Workout", result?.title === "Workout", result?.title);
+  }
+
+  console.log("\n7. Timezone resolution: profile timezone wins over param");
+  {
+    const fake = new FakeSupabase();
+    fake.addProfile("user1", "America/New_York");
+    const nyToday = localDateString("America/New_York");
+    fake.addSession("s8", "user1", "in_progress", "2026-10-24T14:00:00Z", nyToday, "Push");
+    fake.addExercise("ex7", "s8");
+    fake.addSet("set9", "user1", "ex7", false);
+
+    // Pass UTC as param, but profile has NY timezone - profile should win
+    const result = await getInProgressSession(
+      fake as unknown as SupabaseClient<Database>,
+      "user1",
+      "UTC"
+    );
+    check("returns session (profile NY tz wins over UTC param)", result !== null);
+  }
+
+  console.log("\n8. Timezone fallback: browser tz when profile tz is null");
+  {
+    const fake = new FakeSupabase();
+    fake.addProfile("user1", null); // No profile timezone
+    const laToday = localDateString("America/Los_Angeles");
+    fake.addSession("s9", "user1", "in_progress", "2026-10-24T14:00:00Z", laToday, "Pull");
+    fake.addExercise("ex8", "s9");
+    fake.addSet("set10", "user1", "ex8", false);
+
+    // Pass LA timezone as param - should be used as fallback
+    const result = await getInProgressSession(
+      fake as unknown as SupabaseClient<Database>,
+      "user1",
+      "America/Los_Angeles"
+    );
+    check("returns session (browser LA tz used as fallback)", result !== null);
+  }
+
+  console.log("\n9. Timezone fallback: system default when both are null");
+  {
+    const fake = new FakeSupabase();
+    fake.addProfile("user1", null);
+    const utcToday = localDateString("UTC");
+    fake.addSession("s10", "user1", "in_progress", "2026-10-24T14:00:00Z", utcToday, "Legs");
+    fake.addExercise("ex9", "s10");
+    fake.addSet("set11", "user1", "ex9", false);
+
+    // Pass invalid timezone - should fall back to system default (UTC)
+    const result = await getInProgressSession(
+      fake as unknown as SupabaseClient<Database>,
+      "user1",
+      "Invalid/Timezone"
+    );
+    check("returns session (system default tz as final fallback)", result !== null);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

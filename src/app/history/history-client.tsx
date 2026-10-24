@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { SessionListItem, SessionType } from "./types";
 import { formatInTimezone } from "@/lib/timezone";
 import { sessionCompletion } from "@/lib/session/session-completion";
 import { formatVolume, formatTopSet, type UnitsPreference } from "@/lib/units";
+import { closeOutSession } from "./actions";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {
@@ -85,6 +87,7 @@ export function HistoryClient({
   const searchParams = useSearchParams();
   const limit = 20;
   const totalPages = Math.ceil(totalCount / limit);
+  const [closingOut, setClosingOut] = useState<string | null>(null);
 
   const handleFilterChange = (newFilter: SessionType) => {
     const params = new URLSearchParams(searchParams);
@@ -97,6 +100,16 @@ export function HistoryClient({
     const params = new URLSearchParams(searchParams);
     params.set("page", newPage.toString());
     router.push(`/history?${params.toString()}`);
+  };
+
+  const handleCloseOut = async (sessionId: string) => {
+    setClosingOut(sessionId);
+    const result = await closeOutSession(sessionId);
+    if (result.error) {
+      alert(`Failed to close out session: ${result.error}`);
+    }
+    setClosingOut(null);
+    router.refresh();
   };
 
   return (
@@ -139,9 +152,14 @@ export function HistoryClient({
         <>
           <ul className="mt-6 space-y-2">
             {items.map((item) => {
+              // M2: Detect past-day in_progress sessions
+              const isPastInProgress = item.status === "in_progress" && item.localDate !== today;
+
               // Format time label with timezone-aware time for same-day sessions
               let timeLabel = "";
-              if (item.localDate === today && item.completedAt) {
+              if (isPastInProgress) {
+                timeLabel = `Unfinished from ${longDate(item.localDate)}`;
+              } else if (item.localDate === today && item.completedAt) {
                 timeLabel = `Today · ${formatTime(item.completedAt, timezone)}`;
               } else if (item.localDate === today) {
                 timeLabel = "Today";
@@ -177,8 +195,13 @@ export function HistoryClient({
                 // Product rule (2026-10-24): zero-set strength sessions show as 'Skipped'
                 const isZeroSetStrength = item.setCount === 0 || item.status === "skipped";
                 
+                // QA (iii): Today's in_progress session shows "In progress", not "Completed"
+                const isTodayInProgress = item.status === "in_progress" && item.localDate === today && !isPastInProgress;
+                
                 if (isZeroSetStrength) {
                   details.push("Skipped");
+                } else if (isTodayInProgress) {
+                  details.push("In progress");
                 } else if (item.endedEarly && item.plannedSets) {
                   // Show completion status or "Ended early" if applicable
                   details.push(`Ended early · ${item.setCount} of ${item.plannedSets} ${item.plannedSets === 1 ? "set" : "sets"}`);
@@ -221,7 +244,18 @@ export function HistoryClient({
 
               return (
                 <li key={item.id}>
-                  {isInteractive ? (
+                  {isPastInProgress ? (
+                    <div className="flex min-h-[44px] items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+                      {content}
+                      <button
+                        onClick={() => handleCloseOut(item.id)}
+                        disabled={closingOut === item.id}
+                        className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                      >
+                        {closingOut === item.id ? "Closing..." : "Close out"}
+                      </button>
+                    </div>
+                  ) : isInteractive ? (
                     <Link
                       href={`/history/${item.id}`}
                       className="flex min-h-[44px] items-center rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-muted/50"
