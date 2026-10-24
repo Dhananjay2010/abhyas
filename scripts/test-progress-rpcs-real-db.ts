@@ -87,9 +87,12 @@ async function runTests() {
   const testPasswordA = "test-password-123";
   const testEmailB = `test-progress-b-${Date.now()}@example.com`;
   const testPasswordB = "test-password-456";
+  const testEmailC = `test-progress-c-${Date.now()}@example.com`;
+  const testPasswordC = "test-password-789";
 
   let userIdA: string | null = null;
   let userIdB: string | null = null;
+  let userIdC: string | null = null;
 
   try {
     const { data: authDataA, error: signUpErrorA } = await adminClient.auth.admin.createUser({
@@ -117,7 +120,20 @@ async function runTests() {
     }
 
     userIdB = authDataB.user.id;
-    console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
+
+    const { data: authDataC, error: signUpErrorC } = await adminClient.auth.admin.createUser({
+      email: testEmailC,
+      password: testPasswordC,
+      email_confirm: true,
+    });
+
+    if (signUpErrorC || !authDataC.user) {
+      console.error("Failed to create test user C:", signUpErrorC);
+      return false;
+    }
+
+    userIdC = authDataC.user.id;
+    console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}... C=${userIdC.slice(0, 8)}...\n`);
 
     // Create authenticated clients
     const anonClientA = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -463,19 +479,18 @@ async function runTests() {
         is_warmup_set: false,
       });
 
-      // Session 2: completed from 2 days ago (should appear)
-      // Changed from in_progress to completed to comply with migration 20261025000022's
-      // unique index (one in_progress session per user). Cannot have both sess2 and sess3
-      // as in_progress for the same user.
+      // Session 2: in_progress from 2 days ago (should appear because local_date <= p_today)
+      // Uses userIdC to avoid violating the unique index (one in_progress per user).
+      // This tests that get_history_page includes past-day in_progress sessions, which
+      // it treats specially: included only when local_date <= p_today.
       const sess2Id = randomUUID();
       await adminClient.from("sessions").insert({
         id: sess2Id,
-        user_id: userIdA,
+        user_id: userIdC,
         local_date: "2026-10-22",
-        status: "completed",
+        status: "in_progress",
         actual_type: "weights",
         started_at: "2026-10-22T09:00:00Z",
-        completed_at: "2026-10-22T10:00:00Z",
       });
 
       // Session 3: in_progress today with 0 sets (should appear)
@@ -499,7 +514,7 @@ async function runTests() {
         actual_type: "weights",
       });
 
-      // Fetch page 1 (first 20)
+      // Fetch page 1 (first 20) for userIdA
       const { data: page1, error: page1Error } = await supabaseA.rpc("get_history_page", {
         p_user: userIdA,
         p_filter: "lifts",
@@ -533,15 +548,41 @@ async function runTests() {
         page1Ids.includes(sess3Id),
         `sess3Id ${sess3Id.slice(0, 8)} in page: ${page1Ids.includes(sess3Id)}`);
 
-      // Verify past completed session appears
-      check("past-day completed session appears", 
-        page1Ids.includes(sess2Id),
-        `sess2Id ${sess2Id.slice(0, 8)} in page: ${page1Ids.includes(sess2Id)}`);
-
       // Verify skipped does NOT appear
       check("skipped session excluded", 
         !page1Ids.includes(sess4Id),
         `sess4Id ${sess4Id.slice(0, 8)} NOT in page: ${!page1Ids.includes(sess4Id)}`);
+
+      // Test sess2 (past-day in_progress) for userIdC
+      // Create authenticated client for userIdC
+      const anonClientC = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const { error: signInErrorC } = await anonClientC.auth.signInWithPassword({
+        email: testEmailC,
+        password: testPasswordC,
+      });
+
+      if (signInErrorC) {
+        console.error("Failed to sign in user C:", signInErrorC);
+        failures++;
+      } else {
+        const supabaseC = anonClientC;
+
+        const { data: pageC } = await supabaseC.rpc("get_history_page", {
+          p_user: userIdC,
+          p_filter: "lifts",
+          p_today: "2026-10-24",
+          p_limit: 20,
+          p_offset: 0,
+        });
+
+        const pageCData = pageC as PageRow[];
+        const pageCIds = pageCData.map((r: PageRow) => r.session_id);
+
+        // Verify past-day in_progress appears for userIdC
+        check("past-day in_progress session appears (userIdC)", 
+          pageCIds.includes(sess2Id),
+          `sess2Id ${sess2Id.slice(0, 8)} in pageC: ${pageCIds.includes(sess2Id)}`);
+      }
 
       // Test pagination: fetch page 2, page 3
       const { data: page2 } = await supabaseA.rpc("get_history_page", {
@@ -730,6 +771,7 @@ async function runTests() {
     try {
       if (userIdA) await adminClient.auth.admin.deleteUser(userIdA);
       if (userIdB) await adminClient.auth.admin.deleteUser(userIdB);
+      if (userIdC) await adminClient.auth.admin.deleteUser(userIdC);
       console.log("✓ Test users deleted\n");
     } catch (cleanupError) {
       console.error("Warning: cleanup failed:", cleanupError);
