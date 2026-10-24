@@ -102,6 +102,72 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
   return { ok: true };
 }
 
+/** 
+ * Atomic equipment toggle: add or remove a single item from the server's current list.
+ * Prevents data loss when multiple tabs have stale state.
+ */
+export async function toggleEquipmentItem(input: {
+  equipmentId: string;
+  add: boolean;
+}): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
+  const { supabase, user } = await requireUser();
+
+  if (input.add) {
+    // Validate equipment ID exists
+    const { data: validEquipment, error: catalogueError } = await supabase
+      .from("equipment")
+      .select("id")
+      .eq("id", input.equipmentId)
+      .single();
+    
+    if (catalogueError || !validEquipment) {
+      return { ok: false, error: `Invalid equipment: ${input.equipmentId}` };
+    }
+    
+    // Add equipment (upsert to handle duplicates)
+    const { error } = await supabase
+      .from("user_equipment")
+      .upsert({ user_id: user.id, equipment_id: input.equipmentId }, { onConflict: "user_id,equipment_id" });
+    
+    if (error) return { ok: false, error: error.message };
+  } else {
+    // Remove equipment
+    const { error } = await supabase
+      .from("user_equipment")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("equipment_id", input.equipmentId);
+    
+    if (error) return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+/**
+ * Toggle has_all_equipment flag.
+ */
+export async function toggleHasAllEquipment(hasAll: boolean): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
+  const { supabase, user } = await requireUser();
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ has_all_equipment: hasAll })
+    .eq("id", user.id);
+  
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
 export async function updateEquipment(input: {
   hasAll: boolean;
   equipmentIds: string[];
@@ -206,6 +272,53 @@ export async function updateEquipment(input: {
     .update({ has_all_equipment: input.hasAll })
     .eq("id", user.id);
   if (flagError) return { ok: false, error: flagError.message };
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+/**
+ * Atomic injury toggle: add or remove a single injury from the server's current list.
+ * Prevents data loss when multiple tabs have stale state.
+ */
+export async function toggleInjury(input: {
+  bodyRegion: BodyRegion;
+  severity: InjurySeverity | null;
+}): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
+  const { supabase, user} = await requireUser();
+
+  if (input.severity === null) {
+    // Remove injury
+    const { error } = await supabase
+      .from("user_injuries")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("body_region", input.bodyRegion);
+    
+    if (error) return { ok: false, error: error.message };
+  } else {
+    // Add or update injury (delete old + insert new to handle severity changes)
+    const { error: deleteError } = await supabase
+      .from("user_injuries")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("body_region", input.bodyRegion);
+    
+    if (deleteError) return { ok: false, error: deleteError.message };
+    
+    const { error: insertError } = await supabase
+      .from("user_injuries")
+      .insert({
+        user_id: user.id,
+        body_region: input.bodyRegion,
+        severity: input.severity,
+      });
+    
+    if (insertError) return { ok: false, error: insertError.message };
+  }
 
   revalidatePath("/settings");
   return { ok: true };

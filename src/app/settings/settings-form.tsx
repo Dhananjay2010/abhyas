@@ -26,6 +26,9 @@ import {
   updateInjuries,
   updateProfileSettings,
   updateSessionSettings,
+  toggleEquipmentItem,
+  toggleHasAllEquipment,
+  toggleInjury,
   type Result,
 } from "./actions";
 import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
@@ -41,6 +44,9 @@ export type SettingsActions = {
   updateProfileSettings: typeof updateProfileSettings;
   updateEquipment: typeof updateEquipment;
   updateInjuries: typeof updateInjuries;
+  toggleEquipmentItem: typeof toggleEquipmentItem;
+  toggleHasAllEquipment: typeof toggleHasAllEquipment;
+  toggleInjury: typeof toggleInjury;
 };
 
 const REAL_ACTIONS: SettingsActions = {
@@ -48,6 +54,9 @@ const REAL_ACTIONS: SettingsActions = {
   updateProfileSettings,
   updateEquipment,
   updateInjuries,
+  toggleEquipmentItem,
+  toggleHasAllEquipment,
+  toggleInjury,
 };
 
 export type EquipmentRow = { id: string; name: string; category: string };
@@ -277,6 +286,12 @@ export function SettingsForm({
       window.removeEventListener("pagehide", handlePageHide);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
+      
+      // MEDIUM 1: Flush pending saves on unmount (soft navigation)
+      // This ensures saves complete even after the component unmounts
+      if (saveQueue.hasPending()) {
+        saveQueue.flush();
+      }
     };
   }, [saveQueue, router]);
 
@@ -297,6 +312,116 @@ export function SettingsForm({
     saveQueue.getStatus,
     saveQueue.getStatus
   );
+
+  // Item 5: Serialize initial props to detect changes from router.refresh()
+  const initialSerialized = useRef<string>(JSON.stringify(initial));
+  const [pendingPropsSync, setPendingPropsSync] = useState<SettingsState | null>(null);
+
+  // Item 5: Detect props changes and re-sync when queue is idle
+  useEffect(() => {
+    const newSerialized = JSON.stringify(initial);
+    
+    // Props haven't changed, nothing to do
+    if (newSerialized === initialSerialized.current) {
+      return;
+    }
+    
+    // Props changed - need to re-sync
+    if (queueStatus.state === "idle") {
+      // Queue is idle, re-sync immediately
+      initialSerialized.current = newSerialized;
+      
+      // Re-sync state from new props
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Syncing with server state from props
+      setS(initial);
+      
+      // Re-sync lastSavedValues
+      lastSavedValues.current = {
+        goal: initial.goal,
+        level: initial.level,
+        primaryTrack: initial.primaryTrack,
+        daysPerWeek: initial.daysPerWeek,
+        yogaDaysPerWeek: initial.yogaDaysPerWeek,
+        preferredSessionMinutes: initial.preferredSessionMinutes,
+        planningMode: initial.planningMode,
+        perSetLogging: initial.perSetLogging,
+        resumeSession: initial.resumeSession,
+        cooldownEnabled: initial.cooldownEnabled,
+        restAutostart: initial.restAutostart,
+        restSound: initial.restSound,
+        restVibrate: initial.restVibrate,
+        restOverrideSeconds: initial.restOverrideSeconds,
+        bodyweightPrompt: initial.bodyweightPrompt,
+        timezone: initial.timezone,
+      };
+      
+      // Re-sync equipment saved state
+      setSavedEquipment({
+        hasAll: initial.hasAllEquipment,
+        ids: initial.equipmentIds,
+      });
+      
+      // Re-sync DOB
+      lastSavedDob.current = initial.dateOfBirth;
+      currentDob.current = initial.dateOfBirth;
+      
+      // LOW 4 (QA Bots 1 and 2): Clear planStale when props re-sync
+      // Props changed means router.refresh brought new data (possibly from rebuild)
+      setPlanStale(false);
+      
+      setPendingPropsSync(null);
+    } else {
+      // Queue is busy, defer re-sync until it drains
+      setPendingPropsSync(initial);
+    }
+  }, [initial, queueStatus.state]);
+
+  // Item 5: Apply pending props sync after queue drains
+  useEffect(() => {
+    if (pendingPropsSync && queueStatus.state === "idle") {
+      const newSerialized = JSON.stringify(pendingPropsSync);
+      initialSerialized.current = newSerialized;
+      
+      // Re-sync state from pending props
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Syncing with server state from props
+      setS(pendingPropsSync);
+      
+      // Re-sync lastSavedValues
+      lastSavedValues.current = {
+        goal: pendingPropsSync.goal,
+        level: pendingPropsSync.level,
+        primaryTrack: pendingPropsSync.primaryTrack,
+        daysPerWeek: pendingPropsSync.daysPerWeek,
+        yogaDaysPerWeek: pendingPropsSync.yogaDaysPerWeek,
+        preferredSessionMinutes: pendingPropsSync.preferredSessionMinutes,
+        planningMode: pendingPropsSync.planningMode,
+        perSetLogging: pendingPropsSync.perSetLogging,
+        resumeSession: pendingPropsSync.resumeSession,
+        cooldownEnabled: pendingPropsSync.cooldownEnabled,
+        restAutostart: pendingPropsSync.restAutostart,
+        restSound: pendingPropsSync.restSound,
+        restVibrate: pendingPropsSync.restVibrate,
+        restOverrideSeconds: pendingPropsSync.restOverrideSeconds,
+        bodyweightPrompt: pendingPropsSync.bodyweightPrompt,
+        timezone: pendingPropsSync.timezone,
+      };
+      
+      // Re-sync equipment saved state
+      setSavedEquipment({
+        hasAll: pendingPropsSync.hasAllEquipment,
+        ids: pendingPropsSync.equipmentIds,
+      });
+      
+      // Re-sync DOB
+      lastSavedDob.current = pendingPropsSync.dateOfBirth;
+      currentDob.current = pendingPropsSync.dateOfBirth;
+      
+      // LOW 4 (QA Bots 1 and 2): Clear planStale when props re-sync
+      setPlanStale(false);
+      
+      setPendingPropsSync(null);
+    }
+  }, [pendingPropsSync, queueStatus.state]);
 
   /** Get friendly field name for error messages (N1) */
   function getFieldDisplayName(key: string): string {
@@ -389,11 +514,11 @@ export function SettingsForm({
         setAnySaveOccurred(true);
         
         if (!result.ok) {
-          // N1: Only revert if no newer save is pending for this key
-          const shouldRevert = !saveQueue.hasPending() || 
-            (!saveQueue.getInFlightKeys().includes(key) && !saveQueue.getQueuedKeys().includes(key));
+          // LOW 2: Only revert if no newer save is pending for THIS key
+          // Don't revert if this key has another save in flight or queued
+          const keyHasNewerSave = saveQueue.getInFlightKeys().includes(key) || saveQueue.getQueuedKeys().includes(key);
           
-          if (shouldRevert) {
+          if (!keyHasNewerSave) {
             onFailure?.();
           }
           
@@ -416,11 +541,10 @@ export function SettingsForm({
           if (affectsPlan) setPlanStale(true);
         }
       } catch (err) {
-        // N1: Only revert if no newer save is pending
-        const shouldRevert = !saveQueue.hasPending() || 
-          (!saveQueue.getInFlightKeys().includes(key) && !saveQueue.getQueuedKeys().includes(key));
+        // LOW 2: Only revert if no newer save is pending for THIS key
+        const keyHasNewerSave = saveQueue.getInFlightKeys().includes(key) || saveQueue.getQueuedKeys().includes(key);
         
-        if (shouldRevert) {
+        if (!keyHasNewerSave) {
           onFailure?.();
         }
         
@@ -443,10 +567,8 @@ export function SettingsForm({
     patch: Parameters<typeof actions.updateProfileSettings>[0],
     affectsPlan = false
   ) {
-    // Capture the new value being saved
-    const newValue = Object.values(patch)[0];
-    const apiKey = Object.keys(patch)[0];
-    const stateKey = mapApiKeyToStateKey(apiKey);
+    // LOW 3: Capture ALL keys in the patch for multi-key reverts
+    const patchEntries = Object.entries(patch);
     
     // Store retry metadata (M1 fix #2)
     retryMetadata.current.set(key, { type: 'profile', patch, affectsPlan });
@@ -456,18 +578,27 @@ export function SettingsForm({
       () => actions.updateProfileSettings(patch),
       affectsPlan,
       () => {
-        // On success: update lastSavedValues AND state
-        if (stateKey && stateKey in lastSavedValues.current) {
-          lastSavedValues.current[stateKey] = newValue as never;
-          // Also update state to match (for retry success case)
-          setS(prev => ({ ...prev, [stateKey]: newValue }));
+        // On success: update lastSavedValues AND state for ALL keys in patch
+        for (const [apiKey, newValue] of patchEntries) {
+          const stateKey = mapApiKeyToStateKey(apiKey);
+          if (stateKey && stateKey in lastSavedValues.current) {
+            lastSavedValues.current[stateKey] = newValue as never;
+            setS(prev => ({ ...prev, [stateKey]: newValue }));
+          }
         }
       },
       () => {
-        // On failure: revert to last saved value
-        if (stateKey && stateKey in lastSavedValues.current) {
-          setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
-        }
+        // LOW 3: On failure, revert ALL keys in the patch
+        setS(prev => {
+          const reverted = { ...prev };
+          for (const [apiKey] of patchEntries) {
+            const stateKey = mapApiKeyToStateKey(apiKey);
+            if (stateKey && stateKey in lastSavedValues.current) {
+              reverted[stateKey] = lastSavedValues.current[stateKey] as never;
+            }
+          }
+          return reverted;
+        });
       }
     );
   }
@@ -477,10 +608,8 @@ export function SettingsForm({
     key: string,
     patch: Parameters<typeof actions.updateSessionSettings>[0]
   ) {
-    // Capture the new value being saved
-    const newValue = Object.values(patch)[0];
-    const apiKey = Object.keys(patch)[0];
-    const stateKey = mapApiKeyToStateKey(apiKey);
+    // LOW 3: Capture ALL keys in the patch for multi-key reverts
+    const patchEntries = Object.entries(patch);
     
     // Store retry metadata (M1 fix #2)
     retryMetadata.current.set(key, { type: 'session', patch });
@@ -490,18 +619,27 @@ export function SettingsForm({
       () => actions.updateSessionSettings(patch),
       false,
       () => {
-        // On success: update lastSavedValues AND state
-        if (stateKey && stateKey in lastSavedValues.current) {
-          lastSavedValues.current[stateKey] = newValue as never;
-          // Also update state to match (for retry success case)
-          setS(prev => ({ ...prev, [stateKey]: newValue }));
+        // On success: update lastSavedValues AND state for ALL keys in patch
+        for (const [apiKey, newValue] of patchEntries) {
+          const stateKey = mapApiKeyToStateKey(apiKey);
+          if (stateKey && stateKey in lastSavedValues.current) {
+            lastSavedValues.current[stateKey] = newValue as never;
+            setS(prev => ({ ...prev, [stateKey]: newValue }));
+          }
         }
       },
       () => {
-        // On failure: revert to last saved value
-        if (stateKey && stateKey in lastSavedValues.current) {
-          setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
-        }
+        // LOW 3: On failure, revert ALL keys in the patch
+        setS(prev => {
+          const reverted = { ...prev };
+          for (const [apiKey] of patchEntries) {
+            const stateKey = mapApiKeyToStateKey(apiKey);
+            if (stateKey && stateKey in lastSavedValues.current) {
+              reverted[stateKey] = lastSavedValues.current[stateKey] as never;
+            }
+          }
+          return reverted;
+        });
       }
     );
   }
@@ -725,35 +863,22 @@ export function SettingsForm({
           onClick={() => {
             const turningOff = s.hasAllEquipment;
             
-            if (turningOff) {
-              const restoredIds = savedEquipment.ids.length > 0 
-                ? savedEquipment.ids 
-                : s.equipmentIds;
-              
-              if (restoredIds.length === 0) {
-                setS(prev => ({ ...prev, hasAllEquipment: false, equipmentIds: [] }));
-                setEquipmentHint("Pick at least one item; nothing changes until you do");
-                setEquipmentOffConfirmation(null);
-                return;
+            // PRIORITY 1: Atomic has_all toggle
+            setS(prev => ({ ...prev, hasAllEquipment: !turningOff }));
+            
+            startTransition(async () => {
+              const result = await actions.toggleHasAllEquipment(!turningOff);
+              if (!result.ok) {
+                // Revert on error
+                setS(prev => ({ ...prev, hasAllEquipment: turningOff }));
+                setError(result.error);
+              } else if (turningOff) {
+                // Show confirmation when turning off
+                setEquipmentOffConfirmation(
+                  getEquipmentOffMessage(s.equipmentIds.length > 0)
+                );
               }
-              
-              setS(prev => ({ ...prev, hasAllEquipment: false, equipmentIds: restoredIds }));
-              saveEquipment(false, restoredIds, true);
-            } else {
-              const decision = decideClientEquipmentUpdate({
-                currentHasAll: s.hasAllEquipment,
-                currentEquipmentIds: s.equipmentIds,
-                action: "toggle",
-              });
-              
-              if (!decision.allow) {
-                setEquipmentHint(decision.hint);
-                return;
-              }
-              
-              setS(prev => ({ ...prev, hasAllEquipment: true }));
-              saveEquipment(true, s.equipmentIds);
-            }
+            });
           }}
           aria-pressed={s.hasAllEquipment}
           className={`w-full rounded-xl border px-5 py-3 text-left text-sm font-semibold ${
@@ -798,24 +923,31 @@ export function SettingsForm({
                         key={e.id}
                         aria-pressed={on}
                         onClick={() => {
-                          const decision = decideClientEquipmentUpdate({
-                            currentHasAll: s.hasAllEquipment,
-                            currentEquipmentIds: s.equipmentIds,
-                            action: "chip-click",
-                            chipId: e.id,
-                          });
+                          // PRIORITY 1: Atomic equipment toggle to prevent data loss
+                          const adding = !on;
                           
-                          if (!decision.allow) {
-                            setEquipmentHint(decision.hint);
-                            return;
-                          }
-                          
+                          // Optimistic update
                           setS(prev => ({ 
                             ...prev, 
-                            hasAllEquipment: decision.newHasAll, 
-                            equipmentIds: decision.newEquipmentIds 
+                            equipmentIds: adding 
+                              ? [...prev.equipmentIds, e.id]
+                              : prev.equipmentIds.filter(id => id !== e.id)
                           }));
-                          saveEquipment(decision.newHasAll, decision.newEquipmentIds);
+                          
+                          // Atomic server save (add/remove single item)
+                          startTransition(async () => {
+                            const result = await actions.toggleEquipmentItem({ equipmentId: e.id, add: adding });
+                            if (!result.ok) {
+                              // Revert on error
+                              setS(prev => ({ 
+                                ...prev, 
+                                equipmentIds: adding 
+                                  ? prev.equipmentIds.filter(id => id !== e.id)
+                                  : [...prev.equipmentIds, e.id]
+                              }));
+                              setError(result.error);
+                            }
+                          });
                         }}
                         className={`rounded-full border px-4 py-2 text-sm ${
                           on
@@ -847,11 +979,27 @@ export function SettingsForm({
                 key={r.value}
                 aria-pressed={Boolean(found)}
                 onClick={() => {
-                  const next = found
-                    ? s.injuries.filter((i) => i.bodyRegion !== r.value)
-                    : [...s.injuries, { bodyRegion: r.value, severity: "current" as const }];
+                  // PRIORITY 1: Atomic injury toggle to prevent data loss
+                  const adding = !found;
+                  
+                  // Optimistic update
+                  const next = adding
+                    ? [...s.injuries, { bodyRegion: r.value, severity: "current" as const }]
+                    : s.injuries.filter((i) => i.bodyRegion !== r.value);
                   setS(prev => ({ ...prev, injuries: next }));
-                  saveInjuries(next);
+                  
+                  // Atomic server save (add/remove single injury)
+                  startTransition(async () => {
+                    const result = await actions.toggleInjury({ 
+                      bodyRegion: r.value, 
+                      severity: adding ? "current" : null 
+                    });
+                    if (!result.ok) {
+                      // Revert on error
+                      setS(prev => ({ ...prev, injuries: found ? [found, ...prev.injuries] : prev.injuries.filter(i => i.bodyRegion !== r.value) }));
+                      setError(result.error);
+                    }
+                  });
                 }}
                 className={`rounded-full border px-4 py-2 text-sm ${
                   found
@@ -881,11 +1029,22 @@ export function SettingsForm({
                       key={sev}
                       aria-pressed={inj.severity === sev}
                       onClick={() => {
+                        // PRIORITY 1: Atomic injury severity change
+                        // Optimistic update
                         const next = s.injuries.map((i) =>
                           i.bodyRegion === inj.bodyRegion ? { ...i, severity: sev } : i,
                         );
                         setS(prev => ({ ...prev, injuries: next }));
-                        saveInjuries(next);
+                        
+                        // Atomic server save (update severity for this body region)
+                        startTransition(async () => {
+                          const result = await actions.toggleInjury({ bodyRegion: inj.bodyRegion, severity: sev });
+                          if (!result.ok) {
+                            // Revert on error
+                            setS(prev => ({ ...prev, injuries: s.injuries }));
+                            setError(result.error);
+                          }
+                        });
                       }}
                       className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize ${
                         inj.severity === sev ? "bg-accent text-accent-fg" : "text-muted"
