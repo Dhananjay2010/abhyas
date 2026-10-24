@@ -49,6 +49,7 @@ async function runTests() {
 
   if (authError || !authData.user) {
     console.error("Failed to create test user:", authError);
+    failures++;
     return false;
   }
 
@@ -66,6 +67,7 @@ async function runTests() {
 
   if (!profile) {
     console.error("Profile was not automatically created");
+    failures++;
     return false;
   }
 
@@ -79,7 +81,7 @@ async function runTests() {
       status: "active",
       split_type: "ppl",
       days_per_week: 6,
-      primary_track: "strength",
+      primary_track: "weights",
       goal: "muscle_gain",
       level: "intermediate",
     })
@@ -88,6 +90,7 @@ async function runTests() {
 
   if (programError || !program) {
     console.error("Program creation failed:", programError);
+    failures++;
     return false;
   }
 
@@ -118,6 +121,7 @@ async function runTests() {
 
   if (legacyError || !legacySession) {
     console.error("Legacy session creation failed:", legacyError);
+    failures++;
     return false;
   }
 
@@ -136,6 +140,7 @@ async function runTests() {
 
   if (legacyExError || !legacyExercise) {
     console.error("Legacy exercise creation failed:", legacyExError);
+    failures++;
     return false;
   }
 
@@ -184,6 +189,7 @@ async function runTests() {
 
   if (skippedError || !skippedSession) {
     console.error("Skipped session creation failed:", skippedError);
+    failures++;
     return false;
   }
 
@@ -212,6 +218,7 @@ async function runTests() {
 
   if (mixedSkippedError || !mixedSkipped) {
     console.error("Mixed skipped creation failed:", mixedSkippedError);
+    failures++;
     return false;
   }
 
@@ -231,6 +238,7 @@ async function runTests() {
 
   if (mixedYogaError || !mixedYoga) {
     console.error("Mixed yoga creation failed:", mixedYogaError);
+    failures++;
     return false;
   }
 
@@ -283,6 +291,7 @@ async function runTests() {
 
   if (validError || !validSession) {
     console.error("Valid session creation failed:", validError);
+    failures++;
     return false;
   }
 
@@ -300,6 +309,7 @@ async function runTests() {
 
   if (validExError || !validExercise) {
     console.error("Valid exercise creation failed:", validExError);
+    failures++;
     return false;
   }
 
@@ -364,5 +374,7 @@ runTests()
   })
   .catch((err) => {
     console.error("Test error:", err);
+    failures++;
+    console.error(`\n❌ ${failures} failure(s)\n`);
     process.exit(1);
   });
