@@ -35,8 +35,7 @@ export const viewport: Viewport = {
   themeColor: branding.themeColor,
   width: "device-width",
   initialScale: 1,
-  // The guided session has fixed controls; zooming breaks the layout mid-set.
-  maximumScale: 1,
+  // Zoom re-enabled (i10/k6): removed maximumScale for accessibility (WCAG 1.4.4)
   viewportFit: "cover",
 };
 
