@@ -1,5 +1,5 @@
 /**
- * Behavior test for Mutant F: bodyweight progresses by load instead of reps
+ * Behavior test for bodyweight progresses by load instead of reps
  * 
  * Test that the incrementFor and addedWeightStep functions return correct
  * values for bodyweight exercises, and verify progression chooses rep
