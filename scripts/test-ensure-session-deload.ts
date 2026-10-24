@@ -136,11 +136,12 @@ function createFakeSupabaseClient() {
 
       if (table === "program_day_exercises") {
         return {
-          select(_fields: string) {
+          select() {
             return {
               eq(_field: string, value: string) {
+                void _field;
                 return {
-                  order(_orderField: string) {
+                  order() {
                     const exercises = programDayExercises.filter(
                       (pde) => pde.program_day_id === value,
                     );

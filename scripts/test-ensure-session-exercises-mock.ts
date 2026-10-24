@@ -51,7 +51,7 @@ function createMockSupabase(
               );
             }
             return {
-              eq(_field: string, _value: string) {
+              eq() {
                 return {
                   maybeSingle() {
                     return Promise.resolve({ data: sessionData, error: null });
@@ -93,7 +93,7 @@ function createMockSupabase(
 
       throw new Error(`Unexpected table: ${table}`);
     },
-  } as any;
+  };
 }
 
 async function runTests() {
