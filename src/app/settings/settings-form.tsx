@@ -396,8 +396,9 @@ export function SettingsForm({
       initialSerialized.current = newSerialized;
       
       // Re-sync state from new props
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Syncing with server state from props
-      setS(initial);
+      startTransition(() => {
+        setS(initial);
+      });
       
       // Re-sync lastSavedValues
       lastSavedValues.current = {
@@ -447,8 +448,9 @@ export function SettingsForm({
       initialSerialized.current = newSerialized;
       
       // Re-sync state from pending props
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Syncing with server state from props
-      setS(pendingPropsSync);
+      startTransition(() => {
+        setS(pendingPropsSync);
+      });
       
       // Re-sync lastSavedValues
       lastSavedValues.current = {
