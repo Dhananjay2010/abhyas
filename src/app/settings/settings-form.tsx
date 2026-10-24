@@ -249,19 +249,31 @@ export function SettingsForm({
       return;
     }
 
-    clearPendingChanges();
-
     // Use the extracted restore logic with real server actions
     startTransition(async () => {
-      await replayPendingOps(pending.changes, {
-        updateProfileSettings: actions.updateProfileSettings,
-        updateSessionSettings: actions.updateSessionSettings,
-        setEquipmentItem: actions.setEquipmentItem,
-        setHasAllEquipment: actions.setHasAllEquipment,
-        setInjury: actions.setInjury,
-        updateEquipment: actions.updateEquipment,
-        updateInjuries: actions.updateInjuries,
-      });
+      try {
+        await replayPendingOps(pending.changes, {
+          updateProfileSettings: actions.updateProfileSettings,
+          updateSessionSettings: actions.updateSessionSettings,
+          setEquipmentItem: actions.setEquipmentItem,
+          setHasAllEquipment: actions.setHasAllEquipment,
+          setInjury: actions.setInjury,
+          updateEquipment: actions.updateEquipment,
+          updateInjuries: actions.updateInjuries,
+        });
+        
+        // Only clear the stash after ALL operations succeed
+        clearPendingChanges();
+      } catch (err) {
+        // If session expired during restore, keep the stash and show prompt
+        if (isSessionExpired(err)) {
+          notifySessionExpired();
+          return;
+        }
+        // For other errors, clear the stash and re-throw
+        clearPendingChanges();
+        throw err;
+      }
     });
   });
 

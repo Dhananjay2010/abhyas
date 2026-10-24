@@ -31,32 +31,57 @@ export interface PendingChange {
  * 
  * Uses per-item actions (setEquipmentItem, setInjury) for new stash format,
  * falls back to whole-list actions (updateEquipment, updateInjuries) for legacy format.
+ * 
+ * Throws if any operation fails with SESSION_EXPIRED (either as a result code or thrown error).
  */
 export async function replayPendingOps(
   changes: PendingChange[],
   actions: RestoreActions
 ): Promise<void> {
+  // Helper to check if a result indicates session expiration
+  function checkSessionExpired(result: unknown): boolean {
+    if (!result || typeof result !== 'object') return false;
+    if ('code' in result && result.code === 'SESSION_EXPIRED') return true;
+    if ('error' in result && typeof result.error === 'string' && result.error.includes('SESSION_EXPIRED')) return true;
+    return false;
+  }
+
   for (const change of changes) {
     const { type, patch } = change;
     
     if (type === 'profile' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
-      await actions.updateProfileSettings(patch as Record<string, unknown>);
+      const result = await actions.updateProfileSettings(patch as Record<string, unknown>);
+      if (checkSessionExpired(result)) {
+        throw new Error('SESSION_EXPIRED: Session expired during restore');
+      }
     } else if (type === 'session' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
-      await actions.updateSessionSettings(patch as Record<string, unknown>);
+      const result = await actions.updateSessionSettings(patch as Record<string, unknown>);
+      if (checkSessionExpired(result)) {
+        throw new Error('SESSION_EXPIRED: Session expired during restore');
+      }
     } else if (type === 'equipment' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
       // Per-item equipment restore (no whole-list overwrites)
       if ('operation' in patch) {
         if (patch.operation === 'setItem' && 'equipmentId' in patch && 'enabled' in patch) {
           const { equipmentId, enabled } = patch as { equipmentId: string; enabled: boolean };
-          await actions.setEquipmentItem({ equipmentId, enabled });
+          const result = await actions.setEquipmentItem({ equipmentId, enabled });
+          if (checkSessionExpired(result)) {
+            throw new Error('SESSION_EXPIRED: Session expired during restore');
+          }
         } else if (patch.operation === 'setHasAll' && 'hasAll' in patch) {
           const { hasAll } = patch as { hasAll: boolean };
-          await actions.setHasAllEquipment(hasAll);
+          const result = await actions.setHasAllEquipment(hasAll);
+          if (checkSessionExpired(result)) {
+            throw new Error('SESSION_EXPIRED: Session expired during restore');
+          }
         }
       } else if ('hasAll' in patch && 'equipmentIds' in patch && actions.updateEquipment) {
         // Fallback: whole-list restore (legacy stash format from before per-item actions)
         const { hasAll, equipmentIds } = patch as { hasAll: boolean; equipmentIds: string[] };
-        await actions.updateEquipment({ hasAll, equipmentIds });
+        const result = await actions.updateEquipment({ hasAll, equipmentIds });
+        if (checkSessionExpired(result)) {
+          throw new Error('SESSION_EXPIRED: Session expired during restore');
+        }
       }
     } else if (type === 'injury' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
       // Per-item injury restore
@@ -67,11 +92,17 @@ export async function replayPendingOps(
             present: boolean;
             severity?: InjurySeverity;
           };
-          await actions.setInjury({ bodyRegion, present, severity });
+          const result = await actions.setInjury({ bodyRegion, present, severity });
+          if (checkSessionExpired(result)) {
+            throw new Error('SESSION_EXPIRED: Session expired during restore');
+          }
         }
       } else if (Array.isArray(patch) && actions.updateInjuries) {
         // Fallback: whole-list restore (legacy stash format)
-        await actions.updateInjuries(patch as { bodyRegion: BodyRegion; severity: InjurySeverity }[]);
+        const result = await actions.updateInjuries(patch as { bodyRegion: BodyRegion; severity: InjurySeverity }[]);
+        if (checkSessionExpired(result)) {
+          throw new Error('SESSION_EXPIRED: Session expired during restore');
+        }
       }
     }
   }
