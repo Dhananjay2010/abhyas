@@ -5,12 +5,17 @@
  * 1. It was a training day in the block's template
  * 2. It occurred on or after the program started_on date
  * 3. It occurred on or after the user's onboarding completion date
- * 4. No session was completed on that day
+ * 4. No session that "owns a planned workout" was completed on that day
  *
  * This prevents showing "YOU MISSED YESTERDAY" on day 1 of a new program.
+ *
+ * Uses the shared ownsPlannedWorkout rule from training-days.ts:
+ * Only strength (weights/bodyweight) sessions settle a day.
+ * Yoga and breathing are anytime activities.
  */
 
 import type { Database } from "@/lib/database.types";
+import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
@@ -45,8 +50,9 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     completedSessions,
   } = input;
 
-  // Not a training day in the template
-  if (templateDayType !== "weights" && templateDayType !== "bodyweight") {
+  // Not a strength training day in the template
+  // Use the shared rule: only weights/bodyweight count
+  if (!ownsPlannedWorkout(templateDayType)) {
     return false;
   }
 
@@ -64,10 +70,9 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
   }
 
   // Check if any strength session was completed
+  // Use the shared rule from training-days.ts
   const strengthCompleted = completedSessions.some(
-    (s) =>
-      s.status === "completed" &&
-      (s.actual_type === "weights" || s.actual_type === "bodyweight")
+    (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type)
   );
 
   return !strengthCompleted;

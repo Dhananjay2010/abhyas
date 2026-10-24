@@ -576,7 +576,7 @@ export type Database = {
           preferred_session_minutes: number
           primary_track: Database["public"]["Enums"]["track_type"] | null
           sex: Database["public"]["Enums"]["sex_type"] | null
-          timezone: string
+          timezone: string | null
           units: string
           updated_at: string
           yoga_days_per_week: number
@@ -597,7 +597,7 @@ export type Database = {
           preferred_session_minutes?: number
           primary_track?: Database["public"]["Enums"]["track_type"] | null
           sex?: Database["public"]["Enums"]["sex_type"] | null
-          timezone?: string
+          timezone?: string | null
           units?: string
           updated_at?: string
           yoga_days_per_week?: number
@@ -618,7 +618,7 @@ export type Database = {
           preferred_session_minutes?: number
           primary_track?: Database["public"]["Enums"]["track_type"] | null
           sex?: Database["public"]["Enums"]["sex_type"] | null
-          timezone?: string
+          timezone?: string | null
           units?: string
           updated_at?: string
           yoga_days_per_week?: number

@@ -16,6 +16,7 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isMissedTrainingDay } from "@/lib/today/missed-day";
 import { calculateTodayState } from "@/lib/today/today-state";
 import { WelcomeCard, shouldShowWelcome } from "@/components/welcome-card";
+import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 
 export const dynamic = "force-dynamic";
 
@@ -126,14 +127,15 @@ export default async function TodayPage() {
   const weekAheadEnd = addDays(localToday, 6);
 
   // A rollover replaced the active block, so the row read above is stale.
-  // This happens on one day in twenty-eight.
+  // This happens on one day in twenty-eight. Query for the new block by its
+  // exact ID rather than by status, so there's no ambiguity or timing issue.
   let program = programRes.data;
   if (rollover.status === "rolled_over") {
     const { data: fresh } = await supabase
       .from("programs")
       .select("id, block_number, split_type, started_on, ends_on, deload_week")
-      .eq("status", "active")
-      .maybeSingle();
+      .eq("id", rollover.programId)
+      .single();
     program = fresh;
   }
 
@@ -205,8 +207,6 @@ export default async function TodayPage() {
   const allSessions = sessionsRes.data ?? [];
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
 
-  const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
-
   /*
     Which of today's session rows speaks for the day.
 
@@ -232,7 +232,7 @@ export default async function TodayPage() {
   const ownsToday = (s: (typeof todaySessions)[number]) =>
     s.actual_type !== null &&
     (s.status === "planned" ||
-      (isStrength(s.actual_type) &&
+      (ownsPlannedWorkout(s.actual_type) &&
         (s.status === "in_progress" || s.status === "completed" || s.status === "skipped")));
 
   // Finished beats under way beats intended beats abandoned. Only the last two
@@ -288,10 +288,10 @@ export default async function TodayPage() {
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
   const strengthDone = todaySessions.some(
-    (s) => s.status === "completed" && isStrength(s.actual_type),
+    (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type),
   );
   const strengthOpen = todaySessions.find(
-    (s) => (s.status === "in_progress" || s.status === "planned") && isStrength(s.actual_type),
+    (s) => (s.status === "in_progress" || s.status === "planned") && ownsPlannedWorkout(s.actual_type),
   );
 
   /*
@@ -307,7 +307,7 @@ export default async function TodayPage() {
   */
   const performed =
     override &&
-    isStrength(override.actual_type) &&
+    ownsPlannedWorkout(override.actual_type) &&
     (override.status === "completed" || override.started_at !== null)
       ? override
       : undefined;
