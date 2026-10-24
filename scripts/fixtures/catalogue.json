@@ -287,7 +287,7 @@
     "slug": "alternating-kettlebell-row",
     "name": "Alternating Kettlebell Row",
     "movement_pattern": "horizontal_pull",
-    "mechanic": "compound",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
       "upper_back"
@@ -3218,9 +3218,7 @@
     ],
     "equipment_ids": [],
     "level_min": "beginner",
-    "contraindicated_regions": [
-      "lower_back"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -3430,9 +3428,7 @@
       "adjustable_bench"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [
-      "lower_back"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -3691,27 +3687,6 @@
     "default_rest_seconds": 120
   },
   {
-    "id": "00000000-0000-0000-0000-doorway-row",
-    "slug": "doorway-row",
-    "name": "Doorway Row",
-    "movement_pattern": "horizontal_pull",
-    "mechanic": "compound",
-    "metric": "reps",
-    "primary_muscles": [
-      "lats",
-      "upper_back"
-    ],
-    "equipment_ids": [],
-    "level_min": "beginner",
-    "contraindicated_regions": [],
-    "impact": "low",
-    "spinal_load": "none",
-    "tracks": [
-      "bodyweight"
-    ],
-    "default_rest_seconds": 120
-  },
-  {
     "id": "4912e502-e218-4cfc-8837-ad47eb3a8993",
     "slug": "double-kettlebell-alternating-hang-clean",
     "name": "Double Kettlebell Alternating Hang Clean",
@@ -3789,7 +3764,7 @@
     "id": "f006dfa5-fb52-48c3-ad3f-4f3979b0fa5e",
     "slug": "double-kettlebell-snatch",
     "name": "Double Kettlebell Snatch",
-    "movement_pattern": "hinge",
+    "movement_pattern": "vertical_press",
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
@@ -5461,28 +5436,6 @@
     "default_rest_seconds": 120
   },
   {
-    "id": "00000000-0000-0000-0000-glute-bridge",
-    "slug": "glute-bridge",
-    "name": "Glute Bridge",
-    "movement_pattern": "hinge",
-    "mechanic": "compound",
-    "metric": "reps",
-    "primary_muscles": [
-      "glutes",
-      "hamstrings"
-    ],
-    "equipment_ids": [],
-    "level_min": "beginner",
-    "contraindicated_regions": [],
-    "impact": "low",
-    "spinal_load": "none",
-    "tracks": [
-      "weights",
-      "bodyweight"
-    ],
-    "default_rest_seconds": 90
-  },
-  {
     "id": "777a02f3-d55e-488f-b2dd-bd22e5730ed4",
     "slug": "glute-ham-raise",
     "name": "Glute Ham Raise",
@@ -5508,8 +5461,8 @@
     "id": "290dcb3c-1816-4ec1-9fe2-8edd7cf9e8a5",
     "slug": "glute-kickback",
     "name": "Glute Kickback",
-    "movement_pattern": "other",
-    "mechanic": "isolation",
+    "movement_pattern": "hinge",
+    "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
       "glutes"
@@ -5942,7 +5895,7 @@
     "slug": "incline-bench-pull",
     "name": "Incline Bench Pull",
     "movement_pattern": "horizontal_pull",
-    "mechanic": "compound",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
       "upper_back"
@@ -6335,29 +6288,6 @@
       "bodyweight"
     ],
     "default_rest_seconds": 75
-  },
-  {
-    "id": "00000000-0000-0000-0000-inverted-row",
-    "slug": "inverted-row",
-    "name": "Inverted Row",
-    "movement_pattern": "horizontal_pull",
-    "mechanic": "compound",
-    "metric": "reps",
-    "primary_muscles": [
-      "lats",
-      "upper_back"
-    ],
-    "equipment_ids": [
-      "pull_up_bar"
-    ],
-    "level_min": "beginner",
-    "contraindicated_regions": [],
-    "impact": "low",
-    "spinal_load": "none",
-    "tracks": [
-      "bodyweight"
-    ],
-    "default_rest_seconds": 120
   },
   {
     "id": "39a4eee0-b654-4177-9333-0a8349820002",
@@ -8392,9 +8322,7 @@
     ],
     "equipment_ids": [],
     "level_min": "beginner",
-    "contraindicated_regions": [
-      "lower_back"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -8845,7 +8773,7 @@
     "id": "385cc342-acef-46b6-acbb-8868ad46e797",
     "slug": "one-arm-kettlebell-split-snatch",
     "name": "One-Arm Kettlebell Split Snatch",
-    "movement_pattern": "hinge",
+    "movement_pattern": "vertical_press",
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
@@ -9399,28 +9327,6 @@
       "bodyweight"
     ],
     "default_rest_seconds": 120
-  },
-  {
-    "id": "00000000-0000-0000-0000-pike-push-up",
-    "slug": "pike-push-up",
-    "name": "Pike Push-Up",
-    "movement_pattern": "vertical_press",
-    "mechanic": "compound",
-    "metric": "reps",
-    "primary_muscles": [
-      "front_delts",
-      "triceps"
-    ],
-    "equipment_ids": [],
-    "level_min": "beginner",
-    "contraindicated_regions": [],
-    "impact": "low",
-    "spinal_load": "none",
-    "tracks": [
-      "weights",
-      "bodyweight"
-    ],
-    "default_rest_seconds": 90
   },
   {
     "id": "99bd2b9f-bc71-422d-90a2-4edc47907410",
@@ -10073,7 +9979,7 @@
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
-      "glutes"
+      "hamstrings"
     ],
     "equipment_ids": [
       "barbell"
@@ -10894,9 +10800,7 @@
       "dumbbell"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [
-      "shoulder"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -11437,9 +11341,7 @@
       "dumbbell"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [
-      "shoulder"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -12739,9 +12641,7 @@
       "dumbbell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [
-      "shoulder"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -12815,9 +12715,7 @@
       "barbell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [
-      "shoulder"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "low",
     "tracks": [
@@ -13357,7 +13255,7 @@
     "id": "e4a05057-cea4-4e67-a6ab-03ea4f7b10a6",
     "slug": "straight-arm-dumbbell-pullover",
     "name": "Straight-Arm Dumbbell Pullover",
-    "movement_pattern": "horizontal_pull",
+    "movement_pattern": "horizontal_press",
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
@@ -13367,9 +13265,7 @@
       "dumbbell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [
-      "shoulder"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -13456,7 +13352,7 @@
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
-      "glutes"
+      "hamstrings"
     ],
     "equipment_ids": [
       "barbell"
@@ -13480,7 +13376,7 @@
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
-      "glutes"
+      "hamstrings"
     ],
     "equipment_ids": [
       "barbell"
@@ -13504,7 +13400,7 @@
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
-      "glutes"
+      "hamstrings"
     ],
     "equipment_ids": [
       "barbell"

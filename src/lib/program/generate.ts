@@ -410,24 +410,28 @@ function pickForSlot(
       if (candidates.length === 0) continue; // Try fallback pattern if filtered out
     }
 
-    // Rank by score, then deterministically by staple preference, then by rng.
-    // The staple sort key guarantees that staples win over non-staples when scores
-    // tie, and applies to ALL levels now (not just beginners).
+    // Rank by score, then staple preference for main slots, then by rng.
+    // Staple sorting applies strongly to main slots (0-1) to ensure proper
+    // strength/hypertrophy staples at all levels. For accessories (2+), we still
+    // score for mechanic/level fit, but allow RNG to create variety across blocks.
+    const isMainSlot = slotIndex < CARRY_OVER_SLOTS;
+    
     const ranked = candidates
       .map((e) => ({
         e,
         score: score(e, wantCompound, input.level, input.primaryTrack),
-        stapleKey: stapleSortKey(e, p),
+        stapleKey: isMainSlot ? stapleSortKey(e, p) : `1:${e.slug}`, // Non-main slots: no staple bonus
         rng: rng(),
       }))
       .sort((a, b) => {
         // 1. Highest score wins
         if (a.score !== b.score) return b.score - a.score;
-        // 2. Among tied scores, staples win (deterministic code-unit comparison)
-        if (a.stapleKey !== b.stapleKey) {
+        // 2. For main slots: staples win among tied scores (deterministic)
+        //    For accessories: skip to RNG for variety
+        if (isMainSlot && a.stapleKey !== b.stapleKey) {
           return a.stapleKey < b.stapleKey ? -1 : a.stapleKey > b.stapleKey ? 1 : 0;
         }
-        // 3. Among tied non-staples, rng breaks the tie
+        // 3. RNG breaks ties (provides variety for accessories across blocks)
         return b.rng - a.rng;
       });
 
