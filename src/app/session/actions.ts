@@ -7,8 +7,7 @@ import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
-import { buildInjuryFlags } from "@/lib/program/injury-regions";
+import { isEligible, score, hashString, buildInjuryFlags, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,

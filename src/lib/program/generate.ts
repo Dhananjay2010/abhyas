@@ -357,7 +357,7 @@ export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * KNEE-SAFE LUNGE EXERCISES for current OR past knee injuries (PR #73 coordinator requirement).
+ * KNEE-SAFE LUNGE EXERCISES for CURRENT knee injury (PR #73 scoped policy).
  * 
  * Step-up variants and controlled split squats only. Excludes deficit/elevated lunges,
  * pistol squats, and side split squat.
@@ -369,6 +369,19 @@ export const KNEE_SAFE_LUNGE_EXERCISES: ReadonlySet<string> = new Set([
   'dumbbell-step-ups',            // Step-up variant
   'split-squat-with-dumbbells',   // Controlled split squat
   'smith-single-leg-split-squat', // Controlled split squat
+]);
+
+/**
+ * Knee-safe exercises for PAST knee injury lunge/split-squat slots (PR #73 scoped policy).
+ * 
+ * Past knee uses the strict 4-exercise quad list for lunge slots.
+ * Must be REAL prod slugs only. Exported for testing.
+ */
+export const PAST_KNEE_LUNGE_EXERCISES: ReadonlySet<string> = new Set([
+  'leg-extensions',
+  'single-leg-leg-extension',
+  'wall-sit',
+  'spanish-squat',
 ]);
 
 /**
@@ -545,10 +558,17 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     return false;
   }
 
-  // PR #73 QA scoped policy: ANY knee (current OR past) uses strict knee-safe lunge list
-  // Both current and past knee use KNEE_SAFE_LUNGE_EXERCISES for lunge/split-squat slots
-  if (input.anyKneeInjury && ex.movement_pattern === "lunge") {
-    if (!KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
+  // PR #73 QA scoped policy: Lunge slots use different lists for current vs past knee
+  // Current knee: step-ups and split squats (KNEE_SAFE_LUNGE_EXERCISES)
+  // Past knee: quad isolation list (PAST_KNEE_LUNGE_EXERCISES)
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const hasPastKnee = input.anyKneeInjury && !hasCurrentKnee;
+  
+  if (ex.movement_pattern === "lunge") {
+    if (hasCurrentKnee && !KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
+      return false;
+    }
+    if (hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {
       return false;
     }
   }
@@ -1205,7 +1225,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
 
     // QA: 50+ users (or anyone avoiding high spinal load) get safer loaded hinges on lower days
     const avoidHighSpinalLoad = input.age !== null && input.age >= 50;
-    if (avoidHighSpinalLoad && isLowerOrFullDay && (input.hasAllEquipment || input.equipmentIds.length > 0)) {
+    if (avoidHighSpinalLoad && (entry.focus === "lower" || entry.focus === "full" || entry.focus === "legs") && (input.hasAllEquipment || input.equipmentIds.length > 0)) {
       const hinges = pickedExercises.filter(p => p.ex.movement_pattern === "hinge");
       const hasHighSpinalHinge = hinges.some(p => p.ex.spinal_load === "high");
       const hasSafeLoadedHinge = hinges.some(p => 
@@ -1593,7 +1613,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               : -1;
             
             // Default: insert before core (or at end if no core)
-            let insertIndex = lastCoreIndex >= 0 ? lastCoreIndex : exercises.length;
+            let insertIndex = hasKneeInjury && lastCoreIndex >= 0 ? lastCoreIndex : exercises.length;
             
             // But if knee-safe pick is at position 0, insert after it (position 1 minimum)
             if (kneeSafeIndex === 0) {
@@ -1669,7 +1689,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return e?.movement_pattern === "core" ? idx : -1;
           }).reduce((max, idx) => Math.max(max, idx), -1);
           
-          const insertIndex = lastCoreIndex >= 0 ? lastCoreIndex : exercises.length;
+          const insertIndex = hasKneeInjury && lastCoreIndex >= 0 ? lastCoreIndex : exercises.length;
           
           // Insert at the correct position and update orderIndex for all exercises after it
           exercises.splice(insertIndex, 0, {
@@ -1790,3 +1810,4 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
 }
 
 export { applyDeload };
+export { buildInjuryFlags } from "./injury-regions";

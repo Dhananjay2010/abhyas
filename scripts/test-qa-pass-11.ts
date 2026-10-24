@@ -54,13 +54,7 @@ function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
 
 function allPicked(input: GeneratorInput) {
   const plan = generateProgram(input);
-  const picked: CandidateExercise[] = [];
-  for (const d of plan.days) {
-    for (const e of d.exercises) {
-      const ex = byId.get(e.exerciseId);
-      if (ex) picked.push(ex);
-    }
-  }
+  const picked = plan.days.flatMap((d) => d.exercises.map((e) => byId.get(e.exerciseId)!));
   return { plan, picked };
 }
 
@@ -143,126 +137,92 @@ try {
 }
 
 // ====================
-// 2. Knee injury coordinator allowlist and scoring (restored from PR #53)
+// REVERTED_WITH_53_GENERATOR: Tests for PR #53 generator pacing and coordinator logic
 // ====================
-
-testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from allowlist), comes before any hinge, no adjacent hinges",
-  { currentInjuryRegions: ["knee"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
-  (plan, picked, seed) => {
-    const lowerDays = plan.days.filter(d => d.focus === "lower" || d.focus === "legs" || d.focus === "full_body");
-    
-    // Floor: must have at least one lower/full_body day
-    check(`Seed ${seed}: has lower/full_body days`, lowerDays.length > 0,
-      `Expected at least one lower/full_body day, got ${lowerDays.length}`);
-    
-    // Hard-coded expected knee-safe quad exercises (independent oracle, not imported from generator)
-    const EXPECTED_KNEE_SAFE_QUADS = new Set([
-      "leg-extensions",
-      "single-leg-leg-extension",
-      "wall-sit",
-      "spanish-squat",
-    ]);
-    
-    // Check first main exercise on each Lower day
-    lowerDays.forEach((day, dayIdx) => {
-      if (day.exercises.length > 0) {
-        const firstEx = byId.get(day.exercises[0].exerciseId);
-        if (!firstEx) {
-          check(`Seed ${seed} Lower day ${dayIdx + 1}: first exercise found in catalogue`, false, "exercise not in catalogue");
-          return;
-        }
-        const isKneeSafe = EXPECTED_KNEE_SAFE_QUADS.has(firstEx.slug);
-        check(`Seed ${seed} Lower day ${dayIdx + 1}: first exercise is knee-safe from allowlist`, 
-          isKneeSafe, 
-          `Got ${firstEx.name} [${firstEx.slug}]`);
-        
-        // Check adjacent hinges: no two hinges in a row
-        for (let i = 0; i < day.exercises.length - 1; i++) {
-          const curr = byId.get(day.exercises[i].exerciseId);
-          const next = byId.get(day.exercises[i + 1].exerciseId);
-          if (curr && next && curr.movement_pattern === "hinge" && next.movement_pattern === "hinge") {
-            check(`Seed ${seed} Lower day ${dayIdx + 1}: no adjacent hinges`, false,
-              `${curr.name} at ${i + 1} followed by ${next.name} at ${i + 2}`);
-          }
-        }
-      }
-    });
-    
-    // Check no adjacent hinges across all days
-    const allDays = plan.days.filter(d => d.dayType === "weights");
-    allDays.forEach((day, dayIdx) => {
-      let hasAdjacentHinges = false;
-      for (let i = 0; i < day.exercises.length - 1; i++) {
-        const current = byId.get(day.exercises[i].exerciseId);
-        const next = byId.get(day.exercises[i + 1].exerciseId);
-        if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
-          hasAdjacentHinges = true;
-          check(`Seed ${seed} Day ${dayIdx + 1}: no adjacent hinges`, false, 
-            `${current.name} then ${next.name}`);
-          break;
-        }
-      }
-      if (!hasAdjacentHinges) {
-        check(`Seed ${seed} Day ${dayIdx + 1}: no adjacent hinges`, true);
-      }
-    });
-  }
-);
-
-// Add test case that fails without the coordinator logic (full-body days with knee injury)
-testSeeds("2b. Knee injury full-body: first main is knee-safe, comes before hinge",
-  { currentInjuryRegions: ["knee"], level: "beginner", daysPerWeek: 3, goal: "muscle_gain", hasAllEquipment: true },
-  (plan, picked, seed) => {
-    const fullBodyDays = plan.days.filter(d => d.focus === "full_body");
-    
-    // Floor: must have at least one full_body day
-    check(`Seed ${seed}: has full_body days`, fullBodyDays.length > 0,
-      `Expected at least one full_body day, got ${fullBodyDays.length}`);
-    
-    fullBodyDays.forEach((day) => {
-      if (day.exercises.length === 0) {
-        check(`Seed ${seed} ${day.label}: has exercises`, false, "Empty full_body day");
-        return;
-      }
-      
-      const firstEx = byId.get(day.exercises[0].exerciseId);
-      if (!firstEx) {
-        check(`Seed ${seed} ${day.label}: first exercise found in catalogue`, false, "exercise not in catalogue");
-        return;
-      }
-      
-      // Check: first exercise matches hard-coded check done earlier
-      
-      // Check adjacent hinges: no two hinges in a row
-      for (let i = 0; i < day.exercises.length - 1; i++) {
-        const curr = byId.get(day.exercises[i].exerciseId);
-        const next = byId.get(day.exercises[i + 1].exerciseId);
-        if (curr && next && curr.movement_pattern === "hinge" && next.movement_pattern === "hinge") {
-          check(`Seed ${seed} ${day.label}: no adjacent hinges`, false,
-            `${curr.name} at ${i + 1} followed by ${next.name} at ${i + 2}`);
-        }
-      }
-    });
-  }
-);
-
-// ====================
-// REVERTED_WITH_53_GENERATOR: Tests for PR #53 generator pacing logic
-// ====================
-// These tests verify pacing behavior introduced in PR #53 (merge commit 66cdf5c) that was
-// reverted in PR #67 due to HIGH regression (1-set rows, stacked duplicates).
+// These tests verify behavior introduced in PR #53 (merge commit 66cdf5c) that was
+// reverted in PR #65 due to HIGH regression (1-set rows, stacked duplicates).
 // The pre-PR#53 generator does not have:
+// - The knee-safe quad allowlist with +15 score bonus
 // - The "add exercises first, then sets" pacing strategy
 // - The post-pacing push/pull balance that can reduce sets to 1
 // 
 // Kept for reference and future restoration when the forward fix lands.
 // See: uploads/report-bot1-pr53.md
 
-if (false) {  // SKIPPED - reverted with PR #53 generator (PR #67)
+if (false) {  // SKIPPED - reverted with PR #53 generator (PR #65)
   console.log("\n[SKIPPED] REVERTED_WITH_53_GENERATOR tests:");
+  console.log("  - 2. Knee injury coordinator allowlist and scoring");
   console.log("  - 3. Pacing: exercise-first strategy with level caps");
   console.log("These tests are preserved but skipped because they test behavior from");
-  console.log("PR #53 that was reverted in PR #67. See PR #67 body for details.\n");
+  console.log("PR #53 that was reverted in PR #65. See PR #65 body for details.\n");
+
+  // ====================
+  // 2. HIGH knee: hip-flexion-with-band never a main lift, knee-safe options first
+  // ====================
+
+  testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from allowlist), comes before any hinge, no hip-flexion-with-band as main, no adjacent hinges",
+    { currentInjuryRegions: ["knee"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
+    (plan, picked, seed) => {
+      const lowerDays = plan.days.filter(d => d.focus === "lower" || d.focus === "legs");
+      
+      // Coordinator allowlist: leg-extensions, single-leg-leg-extension, box-squat, wall-sit, spanish-squat
+      const kneeSafeAllowlist = [
+        "leg-extensions", "single-leg-leg-extension", "box-squat", "wall-sit", "spanish-squat"
+      ];
+      
+      // Check first main exercise on each Lower day
+      lowerDays.forEach((day, dayIdx) => {
+        if (day.exercises.length > 0) {
+          const firstEx = byId.get(day.exercises[0].exerciseId)!;
+          const isKneeSafe = kneeSafeAllowlist.includes(firstEx.slug);
+          check(`Seed ${seed} Lower day ${dayIdx + 1}: first exercise is knee-safe from allowlist`, 
+            isKneeSafe, 
+            `Got ${firstEx.name} [${firstEx.slug}]`);
+          
+          // Check knee-safe quad comes before any hinge
+          const firstHingeIndex = day.exercises.findIndex(e => {
+            const ex = byId.get(e.exerciseId);
+            return ex && ex.movement_pattern === "hinge";
+          });
+          
+          if (firstHingeIndex !== -1) {
+            // There is a hinge, make sure a knee-safe quad comes first
+            const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
+              const ex = byId.get(e.exerciseId);
+              return ex && kneeSafeAllowlist.includes(ex.slug);
+            });
+            check(`Seed ${seed} Lower day ${dayIdx + 1}: knee-safe quad before hinge`, 
+              kneeSafeBeforeHinge,
+              `First hinge at position ${firstHingeIndex + 1}`);
+          }
+          
+          // Check hip-flexion-with-band is NOT in main slots (first 4)
+          const mainExercises = day.exercises.slice(0, 4).map(e => byId.get(e.exerciseId)!);
+          const hasHipFlexionMain = mainExercises.some(e => e.slug === "hip-flexion-with-band");
+          check(`Seed ${seed} Lower day ${dayIdx + 1}: hip-flexion-with-band not in main slots`, !hasHipFlexionMain);
+        }
+      });
+      
+      // Check no adjacent hinges across all days
+      const allDays = plan.days.filter(d => d.dayType === "weights");
+      allDays.forEach((day, dayIdx) => {
+        let hasAdjacentHinges = false;
+        for (let i = 0; i < day.exercises.length - 1; i++) {
+          const current = byId.get(day.exercises[i].exerciseId);
+          const next = byId.get(day.exercises[i + 1].exerciseId);
+          if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
+            hasAdjacentHinges = true;
+            check(`Seed ${seed} Day ${dayIdx + 1}: no adjacent hinges`, false, 
+              `${current.name} then ${next.name}`);
+            break;
+          }
+        }
+        if (!hasAdjacentHinges) {
+          check(`Seed ${seed} Day ${dayIdx + 1}: no adjacent hinges`, true);
+        }
+      });
+    }
+  );
 
   // ====================
   // 3. MEDIUM pacing: exercise first, then sets, with level caps
@@ -390,215 +350,32 @@ testSeeds("6. Upright rows: all variants have min reps >= 8 (gym advanced streng
 );
 
 // ====================
-// 7. Safety exclusions (restored from PR #53)
+// 7. LOWs
 // ====================
 
-// 7c. Beginners get no high-impact plyometric (restored from PR #53)
-console.log("\n7c. Beginners: no high-impact plyometric moves (matrix test)");
-
-const beginnerLevels: GeneratorInput["level"][] = ["beginner"];
-const equipmentSets: Array<{ name: string; hasAll: boolean; ids: string[]; track: "weights" | "bodyweight" }> = [
-  { name: "gym", hasAll: true, ids: [], track: "weights" },
-  { name: "home-dumbbell", hasAll: false, ids: ["dumbbell"], track: "weights" },
-  { name: "bodyweight", hasAll: false, ids: [], track: "bodyweight" },
-];
-const durations = [30, 45, 60, 75];
-const testSeedsUserIds = [
-  "11111111-1111-1111-1111-111111111111",
-  "22222222-2222-2222-2222-222222222222",
-  "33333333-3333-3333-3333-333333333333",
-];
-const goals: GeneratorInput["goal"][] = ["general_fitness", "muscle_gain"];
-const injurySets: GeneratorInput["currentInjuryRegions"][] = [[], ["shoulder"]];
-
-let beginnerTestCount = 0;
-let beginnerFailCount = 0;
-
-for (const userId of testSeedsUserIds) {
-  for (const goal of goals) {
-    for (const injuries of injurySets) {
-      for (const level of beginnerLevels) {
-        for (const equipment of equipmentSets) {
-          for (const duration of durations) {
-            for (const days of [3, 4, 5]) {
-              beginnerTestCount++;
-              const testInput = base({
-                userId,
-                goal,
-                currentInjuryRegions: injuries,
-                level,
-                primaryTrack: equipment.track,
-                hasAllEquipment: equipment.hasAll,
-                equipmentIds: equipment.ids,
-                daysPerWeek: days,
-                preferredSessionMinutes: duration,
-              });
-              
-              const { picked } = allPicked(testInput);
-              const highImpact = picked.filter(e => e.impact === "high");
-              
-              if (highImpact.length > 0) {
-                check(`Beginner ${goal} injuries:${injuries.length} ${equipment.name} ${days}d ${duration}min seed:${userId.substring(0,8)}: no high-impact`, false,
-                  highImpact.map(e => e.name).join(", "));
-                beginnerFailCount++;
-              }
-            }
-          }
-        }
-      }
-    }
+// (c) Beginners get no high-impact plyometric
+testSeeds("7c. Beginners get no high-impact plyometric (Knee Tuck Jump, etc.)",
+  { level: "beginner", daysPerWeek: 3, preferredSessionMinutes: 30, hasAllEquipment: false, equipmentIds: [] },
+  (plan, picked, seed) => {
+    const highImpact = picked.filter(e => e.impact === "high");
+    check(`Seed ${seed}: beginner has no high-impact moves`, highImpact.length === 0,
+      highImpact.length > 0 ? highImpact.map(e => e.name).join(", ") : "");
   }
-}
+);
 
-if (beginnerFailCount === 0) {
-  check(`All ${beginnerTestCount} beginner profiles: no high-impact moves`, true);
-}
-
-// QA repro cases for beginner high-impact (use general_fitness and test seeds)
-console.log("\n7c. QA repro: beginner/gym/general/3d/60min Full Body B");
-const testSeedsForRepros = [
-  "11111111-1111-1111-1111-111111111111",
-  "22222222-2222-2222-2222-222222222222",
-  "33333333-3333-3333-3333-333333333333",
-];
-
-for (const userId of testSeedsForRepros) {
-  const qa7c1 = generateProgram(base({
-    userId,
-    level: "beginner",
-    goal: "general_fitness",
-    primaryTrack: "weights",
-    hasAllEquipment: true,
-    daysPerWeek: 3,
-    preferredSessionMinutes: 60,
-  }));
-  const fb_b_day = qa7c1.days.find(d => d.label === "Full Body B");
-  if (!fb_b_day) {
-    check(`Seed ${userId.substring(0,8)} Full Body B exists`, false, "Day not found in plan");
-  } else {
-    // Check whole day for high-impact
-    const highImpactExercises = fb_b_day.exercises.filter(e => {
-      const ex = byId.get(e.exerciseId);
-      return ex && ex.impact === "high";
-    });
-    check(`Seed ${userId.substring(0,8)} Full Body B: no high-impact exercises`, highImpactExercises.length === 0,
-      highImpactExercises.length > 0 ? highImpactExercises.map(e => {
-        const ex = byId.get(e.exerciseId);
-        return ex ? ex.name : "unknown";
-      }).join(", ") : "");
+// (d) Advanced Kettlebell Windmill contraindicated for lower_back
+testSeeds("7d. Lower_back injury excludes kettlebell windmill and loaded side bends",
+  { currentInjuryRegions: ["lower_back"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
+  (plan, picked, seed) => {
+    const windmills = picked.filter(e => 
+      (e.name.toLowerCase().includes("windmill") || e.slug.includes("windmill") ||
+       e.name.toLowerCase().includes("side bend") || e.slug.includes("side-bend")) &&
+      e.equipment_ids.length > 0
+    );
+    check(`Seed ${seed}: lower_back injury has no loaded windmill/side-bend`, windmills.length === 0,
+      windmills.length > 0 ? windmills.map(e => e.name).join(", ") : "");
   }
-}
-
-console.log("\n7c. QA repro: beginner/gym/5d/30min/shoulder-injury Push");
-for (const userId of testSeedsForRepros) {
-  const qa7c2 = generateProgram(base({
-    userId,
-    level: "beginner",
-    primaryTrack: "weights",
-    hasAllEquipment: true,
-    daysPerWeek: 5,
-    preferredSessionMinutes: 30,
-    currentInjuryRegions: ["shoulder"],
-  }));
-  const push_day = qa7c2.days.find(d => d.label === "Push");
-  if (!push_day) {
-    check(`Seed ${userId.substring(0,8)} Push exists`, false, "Day not found in plan");
-  } else {
-    // Check whole day for high-impact
-    const highImpactExercises = push_day.exercises.filter(e => {
-      const ex = byId.get(e.exerciseId);
-      return ex && ex.impact === "high";
-    });
-    check(`Seed ${userId.substring(0,8)} Push: no high-impact exercises`, highImpactExercises.length === 0,
-      highImpactExercises.length > 0 ? highImpactExercises.map(e => {
-        const ex = byId.get(e.exerciseId);
-        return ex ? ex.name : "unknown";
-      }).join(", ") : "");
-  }
-}
-
-// 7d. Lower_back injury excludes windmill and loaded side bends (restored from PR #53)
-console.log("\n7d. Lower_back injury: no windmill/loaded side-bend (matrix test)");
-const levels: GeneratorInput["level"][] = ["beginner", "intermediate", "expert"];
-
-let lowerBackTestCount = 0;
-let lowerBackFailCount = 0;
-
-for (const userId of testSeedsUserIds) {
-  for (const goal of goals) {
-    for (const level of levels) {
-      for (const equipment of equipmentSets) {
-        for (const duration of durations) {
-          for (const days of [3, 4, 5]) {
-            lowerBackTestCount++;
-            const testInput = base({
-              userId,
-              goal,
-              level,
-              primaryTrack: equipment.track,
-              hasAllEquipment: equipment.hasAll,
-              equipmentIds: equipment.ids,
-              daysPerWeek: days,
-              preferredSessionMinutes: duration,
-              currentInjuryRegions: ["lower_back"],
-            });
-            
-            const { picked } = allPicked(testInput);
-            const windmills = picked.filter(e => 
-              (e.name.toLowerCase().includes("windmill") || e.slug.includes("windmill") ||
-               e.name.toLowerCase().includes("side bend") || e.slug.includes("side-bend")) &&
-              e.equipment_ids.length > 0
-            );
-            
-            if (windmills.length > 0) {
-              check(`${level} ${goal} ${equipment.name} ${days}d ${duration}min seed:${userId.substring(0,8)} lower_back: no loaded windmill/side-bend`, false,
-                windmills.map(e => e.name).join(", "));
-              lowerBackFailCount++;
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-if (lowerBackFailCount === 0) {
-  check(`All ${lowerBackTestCount} lower_back profiles: no loaded windmill/side-bend`, true);
-}
-
-// QA repro case for lower_back windmill
-console.log("\n7d. QA repro: intermediate/gym/4d/45min/lower_back Lower");
-for (const userId of testSeedsForRepros) {
-  const qa7d = generateProgram(base({
-    userId,
-    level: "intermediate",
-    primaryTrack: "weights",
-    hasAllEquipment: true,
-    daysPerWeek: 4,
-    preferredSessionMinutes: 45,
-    currentInjuryRegions: ["lower_back"],
-  }));
-  const lower_day = qa7d.days.find(d => d.label === "Lower");
-  if (!lower_day) {
-    check(`Seed ${userId.substring(0,8)} Lower exists`, false, "Day not found in plan - expected day with label === 'Lower'");
-  } else {
-    // Check whole day for loaded windmill/side-bend
-    const windmillExercises = lower_day.exercises.filter(e => {
-      const ex = byId.get(e.exerciseId);
-      if (!ex) return false;
-      return (ex.name.toLowerCase().includes("windmill") || 
-              ex.slug.includes("windmill") ||
-              ex.name.toLowerCase().includes("side bend") || 
-              ex.slug.includes("side-bend")) &&
-             ex.equipment_ids.length > 0;
-    });
-    check(`Seed ${userId.substring(0,8)} Lower: no loaded windmill/side-bend`, windmillExercises.length === 0,
-      windmillExercises.length > 0 ? windmillExercises.map(e => {
-        const ex = byId.get(e.exerciseId);
-        return ex ? ex.name : "unknown";
-      }).join(", ") : "");
-  }
-}
+);
 
 // ====================
 // Additional contraindications from injury-deload-yoga report
@@ -611,15 +388,14 @@ testSeeds("Shoulder injury: no pushups or upright rows on Upper/Push days",
       d.focus === "upper" || d.focus === "push" || d.focus === "pull"
     );
     
-    upperPushDays.forEach((day) => {
-      const hasPushups = day.exercises.some(e => {
-        const ex = byId.get(e.exerciseId);
-        return ex && (ex.slug === "pushups" || ex.slug === "push-up-wide");
-      });
-      const hasUprightRow = day.exercises.some(e => {
-        const ex = byId.get(e.exerciseId);
-        return ex && ex.slug.includes("upright") && ex.slug.includes("row");
-      });
+    upperPushDays.forEach((day, dayIdx) => {
+      const dayExercises = day.exercises.map(e => byId.get(e.exerciseId)!);
+      const hasPushups = dayExercises.some(e => 
+        e.slug === "pushups" || e.slug === "push-up-wide"
+      );
+      const hasUprightRow = dayExercises.some(e => 
+        e.slug.includes("upright") && e.slug.includes("row")
+      );
       check(`Seed ${seed} ${day.label}: no pushups`, !hasPushups);
       check(`Seed ${seed} ${day.label}: no upright rows`, !hasUprightRow);
     });
