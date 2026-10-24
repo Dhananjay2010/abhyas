@@ -203,7 +203,7 @@ export default async function TodayPage() {
     */
     supabase
       .from("sessions")
-      .select("id, status, actual_type, local_date, program_id, program_day_id, started_at, created_at")
+      .select("id, status, actual_type, local_date, program_id, program_day_id, started_at, created_at, working_set_count")
       .gte("local_date", yesterday)
       .lte("local_date", weekAheadEnd)
       // Newest first, which is how `startSession` breaks the same tie.
