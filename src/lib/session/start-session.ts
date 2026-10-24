@@ -1,6 +1,6 @@
 import { buildSessionExerciseRows } from "@/lib/session/build-session-exercises";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { weekInBlock } from "@/lib/program/prescription";
+import { cycleWeekFor } from "@/lib/program/block-range";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { pickReusableSession } from "@/lib/session/reusable-session";
@@ -79,7 +79,7 @@ export async function startSessionCore(
   const program = (
     await supabase
       .from("programs")
-      .select("id, started_on, deload_week, program_days(id, day_index, day_type, focus, label)")
+      .select("id, started_on, deload_week, week_offset, program_days(id, day_index, day_type, focus, label)")
       .eq("id", rolloverResult.programId)
       .maybeSingle()
   ).data;
@@ -90,7 +90,7 @@ export async function startSessionCore(
   const day = (program.program_days ?? []).find((d: { day_index: number }) => d.day_index === dayIndex);
   if (!day) return { ok: false, error: "No plan for today." };
 
-  const week = weekInBlock(program.started_on, today);
+  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
   const isDeloadWeek = week === program.deload_week;
 
   const { data: planned } = await supabase
