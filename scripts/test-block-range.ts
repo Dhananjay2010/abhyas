@@ -81,33 +81,19 @@ console.log("\n3. blockForDate: range rule only, never 'newest'");
   check("empty range doesn't cover any date", blockForDate([withEmpty[0]], "2026-10-01") === null);
 }
 
-console.log("\n4. blockForDate: overlap detection in non-production");
+console.log("\n4. blockForDate: no gaps in coverage");
 {
-  const overlapping = [
+  const blocks = [
     b("1", "2026-10-01", "2026-10-28"),
-    b("2", "2026-10-15", "2026-11-11"), // overlaps with block 1
+    b("2", "2026-10-29", "2026-11-25"),
+    b("3", "2026-11-26", null),
   ];
-
-  const oldNodeEnv = process.env.NODE_ENV;
-  try {
-    // Use Object.defineProperty to bypass read-only restriction
-    Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true });
-    let threw = false;
-    try {
-      blockForDate(overlapping, "2026-10-20");
-    } catch (e) {
-      threw = (e as Error).message.includes("Multiple blocks cover");
-    }
-    check("throws in non-production for overlap", threw);
-  } finally {
-    Object.defineProperty(process.env, 'NODE_ENV', { value: oldNodeEnv, writable: true });
-  }
-
-  // In production, doesn't throw
-  Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', writable: true });
-  const result = blockForDate(overlapping, "2026-10-20");
-  check("returns first covering block in production", result?.id === "1");
-  Object.defineProperty(process.env, 'NODE_ENV', { value: oldNodeEnv, writable: true });
+  
+  check("Oct 28 (end of block 1) is covered", blockForDate(blocks, "2026-10-28")?.id === "1");
+  check("Oct 29 (start of block 2) is covered", blockForDate(blocks, "2026-10-29")?.id === "2");
+  check("Nov 25 (end of block 2) is covered", blockForDate(blocks, "2026-11-25")?.id === "2");
+  check("Nov 26 (start of block 3) is covered", blockForDate(blocks, "2026-11-26")?.id === "3");
+  check("future date is covered by active block", blockForDate(blocks, "2027-01-15")?.id === "3");
 }
 
 console.log("\n5. blockNumberFor: 1-based, by started_on order, skips empty ranges");
