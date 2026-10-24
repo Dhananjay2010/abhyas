@@ -67,8 +67,8 @@ export async function saveAboutYou(input: {
     height_cm: input.heightCm,
   };
 
-  // Record browser timezone if provided and profile still has the default
-  // (The column defaults to 'Asia/Kolkata', so we overwrite it with browser/gym preference)
+  // Record browser timezone if provided (replaces NULL or existing value)
+  // (No longer has a database default, so NULL means "not set yet")
   if (input.browserTimezone) {
     const { validateTimezone } = await import("@/lib/branding");
     const validated = validateTimezone(input.browserTimezone);

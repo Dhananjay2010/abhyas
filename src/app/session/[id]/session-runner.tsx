@@ -421,6 +421,11 @@ export function SessionRunner({
       if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
       else setError(null);
       return r.ok;
+    } catch (err) {
+      // h2: Catch network errors (offline, timeout, etc)
+      const message = err instanceof Error ? err.message : "Network error. Check your connection.";
+      setError(message);
+      return false;
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -1223,7 +1228,7 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              if (await run(() => actions.abandonSession(sessionId))) {
+              if (await run(() => actions.abandonSession(sessionId, elapsed))) {
                 if (onExit) onExit();
                 else router.push("/today");
               }
