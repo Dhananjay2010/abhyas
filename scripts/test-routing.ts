@@ -52,12 +52,12 @@ console.log("\n2. robots.txt generation");
 
 console.log("\n3. sitemap.xml generation");
 {
-  process.env.NEXT_PUBLIC_SITE_URL = "https://example.com";
+  // sitemap.ts now uses branding.siteUrl directly
   const map = sitemap();
   check("returns array of URLs", Array.isArray(map));
-  check("includes home page", map.some((entry) => entry.url === "https://example.com"));
-  check("includes /terms", map.some((entry) => entry.url === "https://example.com/terms"));
-  check("includes /privacy", map.some((entry) => entry.url === "https://example.com/privacy"));
+  check("includes home page", map.some((entry) => entry.url === branding.siteUrl));
+  check("includes /terms", map.some((entry) => entry.url === `${branding.siteUrl}/terms`));
+  check("includes /privacy", map.some((entry) => entry.url === `${branding.siteUrl}/privacy`));
   check("does not include /today", !map.some((entry) => entry.url.endsWith("/today")));
   check("lastModified is deterministic", map.every((e) => {
     const date = e.lastModified;
