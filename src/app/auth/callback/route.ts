@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
-import { sanitizeRedirectPath } from "@/lib/auth/redirect";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const rawNext = searchParams.get("next");
-  const next = sanitizeRedirectPath(rawNext);
+  const next = searchParams.get("next") ?? "/today";
 
   if (code) {
     const supabase = await createClient();
