@@ -8,15 +8,17 @@ export type WeightUnit = 'kg' | 'lb';
 /**
  * Standard kettlebell weights in kg.
  * These follow the international competition standard progression.
+ * Frozen to prevent mutation of the shared constant.
  */
-export const KETTLEBELL_WEIGHTS_KG = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
+export const KETTLEBELL_WEIGHTS_KG: readonly number[] = Object.freeze([4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32]);
 
 /**
  * Standard kettlebell weights in lb.
  * Based on conventional US retail offerings: 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80 lb.
  * Source: Common US gym and retail standards (Rogue, Kettlebell Kings, etc.)
+ * Frozen to prevent mutation of the shared constant.
  */
-export const KETTLEBELL_WEIGHTS_LB = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80];
+export const KETTLEBELL_WEIGHTS_LB: readonly number[] = Object.freeze([5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80]);
 
 /**
  * Returns the weight step increment for given equipment.
