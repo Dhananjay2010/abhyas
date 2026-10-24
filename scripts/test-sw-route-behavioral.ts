@@ -33,12 +33,14 @@ class FakeRequest {
   method: string;
   mode: string;
   headers: Map<string, string>;
+  cache?: string;
 
-  constructor(url: string, init?: { method?: string; mode?: string; headers?: Record<string, string> }) {
+  constructor(url: string, init?: { method?: string; mode?: string; headers?: Record<string, string>; cache?: string }) {
     this.url = url;
     this.method = init?.method || "GET";
     this.mode = init?.mode || "navigate";
     this.headers = new Map(Object.entries(init?.headers || {}));
+    this.cache = init?.cache;
   }
 }
 
@@ -79,8 +81,9 @@ class FakeResponse {
 class FakeCache {
   private store = new Map<string, FakeResponse>();
 
-  async addAll(urls: string[]): Promise<void> {
-    for (const url of urls) {
+  async addAll(items: Array<string | FakeRequest>): Promise<void> {
+    for (const item of items) {
+      const url = typeof item === "string" ? item : item.url;
       if (url.includes("/offline")) {
         this.store.set("/offline", new FakeResponse(MOCK_OFFLINE_HTML, {
           status: 200,
@@ -175,6 +178,13 @@ async function testServiceWorkerBehavior() {
     // Global constructors
     Request: FakeRequest,
     Response: FakeResponse,
+    URL: URL,
+    // Fake location
+    location: {
+      origin: "http://localhost",
+      href: "http://localhost/",
+      pathname: "/",
+    },
     // Fake fetch that always rejects (offline)
     fetch: async (_url: string | FakeRequest) => {
       throw new Error("Network request failed (simulated offline)");
@@ -213,19 +223,41 @@ async function testServiceWorkerBehavior() {
   // Simulate install event
   console.log("\n▶ Simulating install event (precaching /offline)...");
 
+  const promises: Promise<void>[] = [];
   const installEvent = {
     type: "install",
-    waitUntil: (promise: Promise<void>) => promise,
+    waitUntil: (promise: Promise<void>) => {
+      promises.push(promise);
+    },
   };
 
   const installHandlers = listeners.get("install") || [];
   for (const handler of installHandlers) {
-    await handler(installEvent);
+    handler(installEvent);
+  }
+
+  // Wait for all waitUntil promises
+  try {
+    await Promise.all(promises);
+  } catch (error) {
+    console.error("Install event error:", error);
+    throw error;
   }
 
   // Verify /offline was cached
-  const defaultCache = await fakeCaches.open("default-offline");
-  const cachedOffline = await defaultCache.match("/offline");
+  // The cache name is generated from brand ID and build version in the SW script
+  // Since we executed the SW, check all caches for the offline page
+  const cacheNames = await fakeCaches.keys();
+  let cachedOffline: FakeResponse | undefined;
+  
+  for (const cacheName of cacheNames) {
+    const cache = await fakeCaches.open(cacheName);
+    const match = await cache.match("/offline");
+    if (match) {
+      cachedOffline = match;
+      break;
+    }
+  }
 
   assert(
     cachedOffline !== undefined,
