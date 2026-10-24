@@ -213,6 +213,25 @@ async function testVersionCheck() {
   console.log("  ✓ Uses separate interval handles (swUpdateInterval, versionCheckInterval)");
   console.log("  ✓ Clears both intervals on unmount");
   console.log("  ✓ Removes controllerchange listener on unmount");
+
+  assert(
+    source.includes("cancelled") && source.includes("let cancelled = false") || source.includes("let cancelled=false"),
+    "Component must use cancelled flag to prevent interval leak on unmount during await"
+  );
+
+  assert(
+    source.includes("if (cancelled)") || source.includes("if(cancelled)"),
+    "Component must check cancelled flag after await and before creating interval"
+  );
+
+  assert(
+    source.includes("cancelled = true") && source.includes("return () =>"),
+    "Component must set cancelled = true in cleanup function"
+  );
+
+  console.log("  ✓ Uses cancelled flag to prevent async interval leak");
+  console.log("  ✓ Checks cancelled after await navigator.serviceWorker.ready");
+  console.log("  ✓ Sets cancelled = true on unmount");
   console.log("  ✓ No interval leaks");
 }
 

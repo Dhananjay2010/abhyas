@@ -97,6 +97,7 @@ export function NewVersionHint() {
     let swUpdateInterval: number | null = null;
     let versionCheckInterval: number | null = null;
     let visibilityCheckTimeout: number | null = null;
+    let cancelled = false;
 
     async function checkVersion() {
       try {
@@ -147,6 +148,9 @@ export function NewVersionHint() {
       async function checkForUpdates() {
         const registration = await navigator.serviceWorker.ready;
         
+        // Check if component unmounted during await
+        if (cancelled) return;
+        
         registration.addEventListener("updatefound", () => {
           const newWorker = registration.installing;
           if (!newWorker) return;
@@ -163,17 +167,20 @@ export function NewVersionHint() {
         registration.update().catch(() => {
           // Ignore update check errors
         });
+        
+        // Check again before creating interval
+        if (cancelled) return;
+
+        swUpdateInterval = window.setInterval(() => {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.update().catch(() => {
+              // Ignore update check errors
+            });
+          });
+        }, 5 * 60 * 1000);
       }
 
       checkForUpdates();
-
-      swUpdateInterval = window.setInterval(() => {
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.update().catch(() => {
-            // Ignore update check errors
-          });
-        });
-      }, 5 * 60 * 1000);
     }
 
     versionCheckInterval = window.setInterval(() => {
@@ -196,6 +203,7 @@ export function NewVersionHint() {
     checkVersion();
 
     return () => {
+      cancelled = true;
       if (swUpdateInterval !== null) {
         window.clearInterval(swUpdateInterval);
       }

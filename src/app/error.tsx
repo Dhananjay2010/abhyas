@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useState, startTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { isOfflineError } from "@/lib/offline-error";
@@ -21,6 +21,7 @@ export default function Error({
   const [online, setOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
+  const reportedErrorRef = useRef<Error | null>(null);
 
   useEffect(() => {
     console.error("Page error:", error);
@@ -55,8 +56,10 @@ export default function Error({
   useEffect(() => {
     setIsOfflineError(offline);
     
-    if (!offline && !isChunkError) {
+    // Report to Sentry at most once per error object (avoid re-reporting on online/offline toggle)
+    if (!offline && !isChunkError && reportedErrorRef.current !== error) {
       Sentry.captureException(error);
+      reportedErrorRef.current = error;
     }
   }, [offline, isChunkError, error, setIsOfflineError]);
 
