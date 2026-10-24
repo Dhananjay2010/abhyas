@@ -66,16 +66,19 @@ async function testOnFocusReplaysOnFirstCall() {
   storage.setItem(
     storageKey("test-user-id"),
     JSON.stringify({
-      [sessionId]: [
-        {
-          sessionExerciseId: "ex-1",
-          setNumber: 1,
-          reps: 10,
-          weightKg: 50,
-          durationSeconds: null,
-          clientId: "client-1",
-        },
-      ],
+      [sessionId]: {
+        sets: [
+          {
+            sessionExerciseId: "ex-1",
+            setNumber: 1,
+            reps: 10,
+            weightKg: 50,
+            durationSeconds: null,
+            clientId: "client-1",
+          },
+        ],
+        timestamp: Date.now(),
+      },
     })
   );
 
@@ -90,6 +93,7 @@ async function testOnFocusReplaysOnFirstCall() {
     deps: createPendingSetDeps(),
     storage,
     logSet,
+    userId: "test-user-id",
     sessionId,
     onChange: (state) => states.push(state),
   });
@@ -114,16 +118,19 @@ async function testOnFocusDoesNotReplayTwice() {
   storage.setItem(
     storageKey("test-user-id"),
     JSON.stringify({
-      [sessionId]: [
-        {
-          sessionExerciseId: "ex-1",
-          setNumber: 1,
-          reps: 10,
-          weightKg: 50,
-          durationSeconds: null,
-          clientId: "client-1",
-        },
-      ],
+      [sessionId]: {
+        sets: [
+          {
+            sessionExerciseId: "ex-1",
+            setNumber: 1,
+            reps: 10,
+            weightKg: 50,
+            durationSeconds: null,
+            clientId: "client-1",
+          },
+        ],
+        timestamp: Date.now(),
+      },
     })
   );
 
@@ -137,6 +144,7 @@ async function testOnFocusDoesNotReplayTwice() {
     deps: createPendingSetDeps(),
     storage,
     logSet,
+    userId: "test-user-id",
     sessionId,
     onChange: () => {},
   });
@@ -164,16 +172,19 @@ async function testOnFocusRetriesAfterFailure() {
   storage.setItem(
     storageKey("test-user-id"),
     JSON.stringify({
-      [sessionId]: [
-        {
-          sessionExerciseId: "ex-1",
-          setNumber: 1,
-          reps: 10,
-          weightKg: 50,
-          durationSeconds: null,
-          clientId: "client-1",
-        },
-      ],
+      [sessionId]: {
+        sets: [
+          {
+            sessionExerciseId: "ex-1",
+            setNumber: 1,
+            reps: 10,
+            weightKg: 50,
+            durationSeconds: null,
+            clientId: "client-1",
+          },
+        ],
+        timestamp: Date.now(),
+      },
     })
   );
 
@@ -197,6 +208,7 @@ async function testOnFocusRetriesAfterFailure() {
     deps: createPendingSetDeps(),
     storage,
     logSet,
+    userId: "test-user-id",
     sessionId,
     onChange: (state) => states.push(state),
   });
@@ -238,6 +250,7 @@ async function testReplayAttemptedResetOnNewPendingSet() {
     deps: createPendingSetDeps(),
     storage,
     logSet,
+    userId: "test-user-id",
     sessionId,
     onChange: () => {},
   });
