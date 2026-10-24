@@ -187,7 +187,7 @@ console.log('\n7. roundToEquipmentGrid - kettlebell kg');
   
   // Clamp to bounds
   check('below min (2 kg) → 4 kg', roundToEquipmentGrid(2, ['kettlebell'], 'kg') === 4);
-  check('above max (40 kg) → 32 kg', roundToEquipmentGrid(40, ['kettlebell'], 'kg') === 32);
+  check('above max (50 kg) → 48 kg', roundToEquipmentGrid(50, ['kettlebell'], 'kg') === 48);
 }
 
 console.log('\n8. roundToEquipmentGrid - kettlebell lb');

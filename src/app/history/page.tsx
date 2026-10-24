@@ -43,53 +43,22 @@ export default async function HistoryPage({
   
   const limit = 20;
 
-  // Get ordered session IDs and total count from single RPC
-  // @ts-expect-error - RPC function not in generated types yet
-  const { data: pageData, error: pageError } = await supabase.rpc("get_history_page", {
-    p_user: user.id,
-    p_filter: filter,
-    p_today: today,
-    p_limit: limit,
-    p_offset: 0, // Will be set after page validation
+  // Load history page with pagination (fix: fetch with correct offset)
+  const { loadHistoryPage } = await import("@/lib/history/load-history-page");
+  const historyResult = await loadHistoryPage(supabase, {
+    userId: user.id,
+    filter,
+    today,
+    limit,
+    pageParam: params.page,
   });
 
-  if (pageError) {
-    console.error("Failed to load history page:", pageError);
+  if (historyResult.error) {
+    console.error("Failed to load history page:", historyResult.error);
   }
 
-  type PageRow = { session_id: string | null; total_count: number };
-  const pageRows = pageError ? [] : ((pageData ?? []) as unknown as PageRow[]);
-  const count = pageRows.length > 0 ? Number(pageRows[0].total_count) : 0;
-
-  // Parse and validate page param (QA Bot 3 M4)
-  const { parsePageParam } = await import("@/lib/history/parse-page-param");
-  const totalPages = Math.ceil(count / limit);
-  const page = parsePageParam(params.page, totalPages);
-  const offset = (page - 1) * limit;
-
-  // If page param was invalid or beyond range, refetch with corrected offset
-  const needsRefetch = params.page !== undefined && (
-    parseInt(params.page, 10) !== page ||
-    isNaN(parseInt(params.page, 10))
-  );
-
-  let finalPageData = pageData;
-  let finalPageError = pageError;
-  if (!pageError && needsRefetch) {
-    // @ts-expect-error - RPC function not in generated types yet
-    const refetch = await supabase.rpc("get_history_page", {
-      p_user: user.id,
-      p_filter: filter,
-      p_today: today,
-      p_limit: limit,
-      p_offset: offset,
-    });
-    finalPageData = refetch.data;
-    finalPageError = refetch.error;
-  }
-
-  const finalPageRows = finalPageError ? [] : ((finalPageData ?? []) as unknown as PageRow[]);
-  const sessionIds = finalPageRows.map((r) => r.session_id).filter((id): id is string => id !== null);
+  const { sessionIds, totalCount: count, page, totalPages } = historyResult;
+  const finalPageError = historyResult.error ? new Error(historyResult.error) : null;
 
   // Fetch session details for the IDs returned by RPC
   const { data: sessions, error: sessionsError } = await supabase
@@ -135,9 +104,8 @@ export default async function HistoryPage({
   // Get session exercises to find top sets and PRs, and to calculate planned sets (QA Bot 3 M3: handle errors silently)
   const { data: sessionExercises, error: exercisesError } = await supabase
     .from("session_exercises")
-    .select("id, session_id, exercise_id, metric, planned_sets")
-    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"])
-    .eq("status", "completed");
+    .select("id, session_id, exercise_id, metric, planned_sets, status")
+    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
 
   if (exercisesError) {
     console.error("Failed to load session exercises:", exercisesError);
@@ -145,18 +113,27 @@ export default async function HistoryPage({
 
   const exercisesBySession = new Map<string, Array<{ id: string; exercise_id: string; metric: string }>>();
   const plannedSetsBySession = new Map<string, number>();
+  const hasPendingExerciseBySession = new Map<string, boolean>();
   
   for (const ex of sessionExercises ?? []) {
-    const list = exercisesBySession.get(ex.session_id) ?? [];
-    list.push({ id: ex.id, exercise_id: ex.exercise_id, metric: ex.metric ?? "reps" });
-    exercisesBySession.set(ex.session_id, list);
+    // Only add completed exercises for top set calculation
+    if (ex.status === "completed") {
+      const list = exercisesBySession.get(ex.session_id) ?? [];
+      list.push({ id: ex.id, exercise_id: ex.exercise_id, metric: ex.metric ?? "reps" });
+      exercisesBySession.set(ex.session_id, list);
+    }
     
-    // Sum planned_sets to get total planned sets for this session
-    if (ex.planned_sets && ex.planned_sets > 0) {
+    // Sum planned_sets only over 'pending' or 'completed' exercises (exclude 'skipped' and 'swapped_out')
+    if ((ex.status === "pending" || ex.status === "completed") && ex.planned_sets && ex.planned_sets > 0) {
       plannedSetsBySession.set(
         ex.session_id,
         (plannedSetsBySession.get(ex.session_id) ?? 0) + ex.planned_sets
       );
+    }
+    
+    // Track if any exercise is still pending
+    if (ex.status === "pending") {
+      hasPendingExerciseBySession.set(ex.session_id, true);
     }
   }
 
@@ -242,10 +219,19 @@ export default async function HistoryPage({
       );
 
     const plannedSets = plannedSetsBySession.get(s.id);
+    const hasPendingExercise = hasPendingExerciseBySession.get(s.id) ?? false;
+    const hasNoExercises = exercises.length === 0;
+    
+    // A completed strength session counts as ended early when:
+    // 1. At least one exercise is still 'pending' AND logged working sets < planned, OR
+    // 2. It has 0 working sets (no exercises or all pending with 0 sets)
+    const isStrength = !isBreathing && s.actual_type !== "yoga";
     const endedEarly = 
-      plannedSets !== undefined && 
-      plannedSets > 0 && 
-      workingSetCount < plannedSets;
+      (hasPendingExercise && 
+       plannedSets !== undefined && 
+       plannedSets > 0 && 
+       workingSetCount < plannedSets) ||
+      (isStrength && s.status === "completed" && workingSetCount === 0 && (hasPendingExercise || hasNoExercises));
 
     return {
       id: s.id,
