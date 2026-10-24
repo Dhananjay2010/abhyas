@@ -36,7 +36,7 @@ function assertTrue(condition: boolean, message: string) {
 type UpdateCall = {
   sessionId: string;
   patch: {
-    status: "completed" | "skipped" | "in_progress";
+    status: string;
     completed_at: string | null;
     duration_seconds: number;
     cooldown_completed?: boolean;

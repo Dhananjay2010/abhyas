@@ -95,10 +95,10 @@ console.log("\n2. stopElapsed is called on abandon (end early)");
     resumeElapsed() {},
     async abandonSession(sessionId: string, durationSeconds: number) {
       abandonDuration = durationSeconds;
-      return { ok: true };
+      return { ok: true as const };
     },
     async refreshAfterSession() {
-      return { ok: true };
+      return { ok: true as const };
     },
     setError() {},
     setPhase() {},
@@ -179,10 +179,10 @@ console.log("\n4. resumeElapsed is called when abandon fails");
       resumeCount++;
     },
     async abandonSession() {
-      return { ok: false, error: "Database error" };
+      return { ok: false as const, error: "Database error" };
     },
     async refreshAfterSession() {
-      return { ok: true };
+      return { ok: true as const };
     },
     setError() {},
     setPhase() {},

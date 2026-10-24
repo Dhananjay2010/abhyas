@@ -29,12 +29,14 @@ console.log("1. Swapped-in exercise with 0 working sets on ended session");
 {
   const workingSetsLogged = 0;
   const plannedSets = 3;
-  const sessionStatus = "completed" as const;
+  const sessionStatus = "completed" as "completed" | "skipped" | "in_progress";
   const isSwappedIn = true;
 
   const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets);
   
-  const finalLabel = isSwappedIn && workingSetsLogged === 0 && sessionStatus !== "in_progress"
+  // Simulate Today page's logic
+  const isEnded = sessionStatus !== "in_progress";
+  const finalLabel = isSwappedIn && workingSetsLogged === 0 && isEnded
     ? "Swapped in"
     : label;
 
@@ -44,14 +46,16 @@ console.log("1. Swapped-in exercise with 0 working sets on ended session");
 // Test 2: Swapped-in exercise with sets should show partial/completed
 console.log("\n2. Swapped-in exercise with partial sets on ended session");
 {
-  const workingSetsLogged = 2;
+  const workingSetsLogged: number = 2;
   const plannedSets = 3;
-  const sessionStatus = "completed" as const;
+  const sessionStatus = "completed" as "completed" | "skipped" | "in_progress";
   const isSwappedIn = true;
 
   const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets);
   
-  const finalLabel = isSwappedIn && workingSetsLogged === 0 && sessionStatus !== "in_progress"
+  // Simulate Today page's logic
+  const isEnded = sessionStatus !== "in_progress";
+  const finalLabel = isSwappedIn && workingSetsLogged === 0 && isEnded
     ? "Swapped in"
     : label;
 
@@ -63,12 +67,14 @@ console.log("\n3. Non-swapped exercise with 0 sets shows 'Skipped'");
 {
   const workingSetsLogged = 0;
   const plannedSets = 3;
-  const sessionStatus = "completed" as const;
+  const sessionStatus = "completed" as "completed" | "skipped" | "in_progress";
   const isSwappedIn = false;
 
   const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets);
   
-  const finalLabel = isSwappedIn && workingSetsLogged === 0 && sessionStatus !== "in_progress"
+  // Simulate Today page's logic
+  const isEnded = sessionStatus !== "in_progress";
+  const finalLabel = isSwappedIn && workingSetsLogged === 0 && isEnded
     ? "Swapped in"
     : label;
 
