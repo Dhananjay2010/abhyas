@@ -20,7 +20,6 @@ import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
-import { keepPlannedRow } from "@/lib/session/keep-planned-row";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -59,7 +58,7 @@ function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metr
 export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<{ sessionId: string }>;
-
+  
   const { supabase, user } = await requireUser();
 
   // ---- wave 1 -------------------------------------------------------------
@@ -236,7 +235,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
 export async function markWarmupDone(sessionId: string): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-
+  
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("sessions")
@@ -255,7 +254,7 @@ export async function logSet(input: {
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-
+  
   const durationSeconds = input.durationSeconds ?? null;
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
@@ -283,7 +282,7 @@ export async function deleteSet(
 ): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-
+  
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("session_sets")
@@ -315,7 +314,7 @@ export async function finishExercise(input: {
 }): Promise<Result<ProgressionFeedback | null>> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
-
+  
   const { supabase, user } = await requireUser();
 
   return finishExerciseCore(supabase, user.id, input, { applyProgression });
@@ -491,7 +490,7 @@ export async function finishSession(input: {
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-
+  
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("sessions")
@@ -572,7 +571,7 @@ export async function findAlternatives(
 ): Promise<Result<Alternative[]>> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<Alternative[]>;
-
+  
   const { supabase, user } = await requireUser();
 
   const { data: current } = await supabase
@@ -735,7 +734,7 @@ export async function swapExercise(input: {
 }): Promise<Result<SwapResult>> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<SwapResult>;
-
+  
   const { supabase, user } = await requireUser();
 
   const [currentRes, replacementRes, profileRes] = await Promise.all([
@@ -915,7 +914,7 @@ export async function planDay(input: {
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-
+  
   const { supabase, user } = await requireUser();
 
   const { data: profile } = await supabase
@@ -973,43 +972,6 @@ export async function planDay(input: {
         );
       if (error) return { ok: false, error: error.message };
     }
-
-    // Write a planned row with the scheduled day_type to persist the "Keep" choice
-    const { data: program } = await supabase
-      .from("programs")
-      .select("id, started_on, deload_week")
-      .eq("status", "active")
-      .maybeSingle();
-
-    if (!program) {
-      revalidateTrainingData();
-      return { ok: true };
-    }
-
-    // Get the template day for this weekday
-    const dayIndex = isoWeekday(input.localDate);
-    const { data: programDay } = await supabase
-      .from("program_days")
-      .select("id, day_type")
-      .eq("program_id", program.id)
-      .eq("day_index", dayIndex)
-      .maybeSingle();
-
-    if (!programDay) {
-      revalidateTrainingData();
-      return { ok: true };
-    }
-
-    const row = keepPlannedRow({
-      userId: user.id,
-      program,
-      programDay,
-      localDate: input.localDate,
-    });
-
-    const { error: insertError } = await supabase.from("sessions").insert(row);
-
-    if (insertError) return { ok: false, error: insertError.message };
     revalidateTrainingData();
     return { ok: true };
   }

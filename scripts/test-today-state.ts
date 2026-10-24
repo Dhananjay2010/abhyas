@@ -200,10 +200,9 @@ console.log("\n=== Test 6: Signup day guard (date < earliestCountableDate) ===\n
 
 // Test with weights template on the signup day itself
 // 2026-10-26 is Mon (training day in 3-day plan), program starts 2026-10-26
-// NEW BEHAVIOR: Signup day itself CAN be missed (if no sessions)
-// Only dates BEFORE signup are protected
+// REQUIREMENT (QA Bot 2): Signup day itself is NEVER missed (date <= earliestCountableDate returns false)
 assert(
-  isMissedTrainingDay({
+  !isMissedTrainingDay({
     date: "2026-10-26", // Mon (signup day, training day)
     programStartedOn: "2026-10-26", // Mon (same day)
     profileCreatedAt: "2026-10-26T10:00:00Z",
@@ -213,7 +212,7 @@ assert(
     sessions: [],
     hasStartedAny: true,
   }),
-  "Signup day with weights template: CAN be missed (date >= earliestCountableDate)"
+  "Signup day with weights template: CANNOT be missed (signup day itself exempt)"
 );
 
 // Test that fails if the guard is removed
@@ -251,19 +250,19 @@ assert(
   "Defense-in-depth: training day before signup is NOT missed (plan started 3 days before)"
 );
 
-// Start date yesterday → yesterday IS countable (if missed)
+// Start date yesterday = signup day → yesterday CANNOT be missed (signup day exempt)
 assert(
-  isMissedTrainingDay({
+  !isMissedTrainingDay({
     date: "2026-10-22", // Fri (yesterday, training day)
-    programStartedOn: "2026-10-22", // Fri (started yesterday)
+    programStartedOn: "2026-10-22", // Fri (started yesterday = signup day)
     profileCreatedAt: "2026-10-22T10:00:00Z", // Fri signup
     timezone: "UTC",
     programId: TEST_PROGRAM_ID,
     templateDayType: "weights",
-    sessions: [], // No sessions, so missed
+    sessions: [], // No sessions
     hasStartedAny: true,
   }),
-  "Defense-in-depth: start date yesterday → yesterday IS countable as missed"
+  "Defense-in-depth: signup day (yesterday) CANNOT be missed (signup day exempt)"
 );
 
 // Timezone edge: created_at UTC late evening, but next day in Asia/Kolkata
@@ -722,14 +721,3 @@ assert(
   bothStateTest.missedYesterday,
   "'both' state: correctly identifies missed yesterday"
 );
-
-console.log("\n==================================================");
-console.log(`📊 Test Results: ${passedTests}/${totalTests} passed`);
-
-if (passedTests === totalTests) {
-  console.log("✅ All tests passed!");
-  process.exit(0);
-} else {
-  console.log(`❌ ${totalTests - passedTests} test(s) failed`);
-  process.exit(1);
-}

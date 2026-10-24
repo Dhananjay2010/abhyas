@@ -3,8 +3,8 @@
  *
  * A day is only "missed" if:
  * 1. It was a training day in the block's template
- * 2. It occurred AFTER the program started_on date (signup day itself never missed)
- * 3. It occurred on or after the user's onboarding completion date
+ * 2. It occurred AFTER max(signup day, program start) — the signup day itself is never missed
+ * 3. It occurred after the user's onboarding completion
  * 4. No choice was made for that day in THIS program (no planned override, no completed strength)
  *
  * The guards exist to prevent spurious "missed yesterday" prompts on day 1 and
@@ -12,7 +12,7 @@
  */
 
 import { localDateString } from "@/lib/dates";
-import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import { ownsPlannedWorkout, countsTowardStreak } from "@/lib/progress/training-days";
 import type { Database } from "@/lib/database.types";
 
 type DayType = Database["public"]["Enums"]["day_type"];
@@ -75,6 +75,7 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
   // Guard: "too new to have missed anything"
   // Defense-in-depth: earliestCountableDate = max(profile created_at as local date, program started_on)
   // Any date before this can never be missed, even if the template scheduled training.
+  // The signup day itself is never missed (this matches the comment at the top of this file).
   // This prevents "missed yesterday" on signup day, after block rebuilds, and for any date
   // before the member started (e.g. a plan that began 3 days before signup).
   const earliestCountableDate = (() => {
@@ -86,36 +87,38 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     return createdAtLocal > programStartedOn ? createdAtLocal : programStartedOn;
   })();
 
-  // A date can only be missed if it's NOT BEFORE the earliest countable date
-  // (days before signup are never missed, but signup day itself CAN be missed)
-  if (date < earliestCountableDate) {
+  // The signup day itself is never missed. Skip any day <= earliestCountableDate.
+  if (date <= earliestCountableDate) {
     return false;
   }
 
   // Check if any choice was made for this day IN THIS PROGRAM:
-  // 1. A completed strength session for this program
-  const strengthCompleted = sessions.some(
-    (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type) && s.program_id === programId
+  // 1. A completed session that counts toward streaks (weights/bodyweight/yoga)
+  //    Per streak rule: a completed strength session (1+ working sets), bodyweight, or yoga settles the day.
+  //    Skipped sessions (0 working sets) do NOT settle the day.
+  const settledBySession = sessions.some(
+    (s) => 
+      s.status === "completed" && 
+      countsTowardStreak(s.actual_type) && 
+      s.program_id === programId
   );
-  if (strengthCompleted) {
+  if (settledBySession) {
     return false;
   }
 
-  // 2. A Rest/Yoga/Breathing choice (planned, in_progress, completed, or skipped) for this program
-  // Anytime breathing (program_id null) does NOT settle a missed strength day
-  const hasChoice = sessions.some(
+  // 2. A Rest/Yoga/Breathing choice (planned or in_progress) for this program
+  //    Anytime breathing (program_id null) does NOT settle a missed strength day.
+  //    Note: completed yoga/breathing are handled above via countsTowardStreak.
+  const hasPlannedChoice = sessions.some(
     (s) =>
       s.program_id === programId &&
-      (s.status === "planned" ||
-        s.status === "in_progress" ||
-        s.status === "completed" ||
-        s.status === "skipped") &&
+      (s.status === "planned" || s.status === "in_progress") &&
       (s.actual_type === "rest" || s.actual_type === "yoga" || s.actual_type === "meditation")
   );
-  if (hasChoice) {
+  if (hasPlannedChoice) {
     return false;
   }
 
-  // Skipped or planned weights sessions that were never completed DO count as missed
+  // Skipped sessions (0 working sets) or planned-but-never-started sessions DO count as missed
   return true;
 }
