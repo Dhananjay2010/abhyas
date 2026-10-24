@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { SessionListItem, SessionType } from "./types";
 import { formatInTimezone } from "@/lib/timezone";
 import { sessionCompletion } from "@/lib/session/session-completion";
-import { formatVolume, type UnitsPreference } from "@/lib/units";
+import { formatVolume, formatTopSet, type UnitsPreference } from "@/lib/units";
 import { closeOutSession } from "./actions";
 
 // Helper for proper pluralization
@@ -209,7 +209,9 @@ export function HistoryClient({
                 if (!item.endedEarly && !isZeroSetStrength && item.setCount > 0) {
                   details.push(pluralize(item.setCount, "set"));
                 }
-                if (item.topSetWeight) details.push(`${Math.round(item.topSetWeight)}${units === "imperial" ? "lb" : "kg"} top`);
+                if (item.topSetWeight) {
+                  details.push(formatTopSet(item.topSetWeight, units));
+                }
                 if (item.volumeKg > 0) details.push(`${formatVolume(item.volumeKg, units)} total`);
               }
 

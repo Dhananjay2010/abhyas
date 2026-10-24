@@ -149,15 +149,17 @@ export default async function ProgressPage() {
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
   // phone, and each lift is its own question anyway. Data is fetched newest-first;
   // the helper reverses it so charts plot chronologically (oldest to newest).
-  // B1: Exclude deload weeks from strength charts
+  // B1/B2/C2: Include all sessions in charts (deload points marked with isDeload flag)
   const deloadDates = new Set(
     (sessionsRes.data ?? [])
       .filter(s => s.is_deload === true)
       .map(s => s.local_date)
   );
   const strengthCharts = buildStrengthChartsFromDescendingRows(
-    (strengthRes.data ?? []).filter(row => row.local_date && !deloadDates.has(row.local_date)),
-    shortDate
+    strengthRes.data ?? [],
+    shortDate,
+    units,
+    deloadDates
   ).slice(0, 6);
 
   const totalVolume = volumeRows.reduce((n, v) => n + Number(v.volume_kg), 0);
@@ -247,7 +249,7 @@ export default async function ProgressPage() {
                 <div key={e.name}>
                   <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
                   {showChart ? (
-                    <LineChart points={e.points} unit="kg" title={e.name} height={110} />
+                    <LineChart points={e.points} unit={e.unitLabel} title={`${e.name} (est. 1RM)`} height={110} />
                   ) : (
                     <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
                       One session logged. Your strength trend will appear after your next workout.
