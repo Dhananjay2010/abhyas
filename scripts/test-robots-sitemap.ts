@@ -10,7 +10,7 @@ import { PUBLIC_PATHS } from "../src/lib/supabase/public-paths";
 import { readFileSync } from "fs";
 import { join } from "path";
 
-// Read the MIDDLEWARE_MATCHER pattern from proxy.ts at runtime
+// Read the MIDDLEWARE_MATCHER pattern and config from proxy.ts at runtime
 const proxyPath = join(__dirname, "..", "src", "proxy.ts");
 const proxyContent = readFileSync(proxyPath, "utf-8");
 const matcherMatch = proxyContent.match(/export const MIDDLEWARE_MATCHER = "([^"]+)"/);
@@ -18,7 +18,16 @@ if (!matcherMatch) {
   console.error("ERROR: Could not find MIDDLEWARE_MATCHER in proxy.ts");
   process.exit(1);
 }
-const MIDDLEWARE_MATCHER = new RegExp(matcherMatch[1]);
+const MIDDLEWARE_MATCHER_STRING = matcherMatch[1];
+const MIDDLEWARE_MATCHER = new RegExp(MIDDLEWARE_MATCHER_STRING);
+
+// Extract config.matcher
+const configMatch = proxyContent.match(/matcher:\s*\[\s*"([^"]+)"/);
+if (!configMatch) {
+  console.error("ERROR: Could not find config.matcher in proxy.ts");
+  process.exit(1);
+}
+const CONFIG_MATCHER = configMatch[1];
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -70,21 +79,51 @@ console.log("\n2. sitemap.xml generation");
   check("lastModified is fixed constant", firstEntry.lastModified instanceof Date);
 }
 
-console.log("\n3. Middleware matcher RegExp");
+console.log("\n3. Middleware matcher RegExp behavioral tests");
 {
-  // In Next.js, the config.matcher string gets processed by Next's routing engine,
-  // not directly as a JavaScript RegExp. The pattern may behave differently there.
-  // For now, just verify the MIDDLEWARE_MATCHER constant exists and is a string in proxy.ts
-  check("MIDDLEWARE_MATCHER exported from proxy.ts", proxyContent.includes("export const MIDDLEWARE_MATCHER ="));
-  check("M IDDLEWARE_MATCHER includes robots.txt exclusion", proxyContent.includes("robots\\\\.txt"));
-  check("MIDDLEWARE_MATCHER includes sitemap.xml exclusion", proxyContent.includes("sitemap\\\\.xml"));
+  // These paths MUST match (go through middleware)
+  const shouldMatch = [
+    "/",
+    "/today",
+    "/settings",
+    "/api/version",
+    "/robots.txt.bak",
+    "/sitemap.xml/foo",
+    "/sw.jsx"
+  ];
+  
+  for (const path of shouldMatch) {
+    check(`MUST match ${path}`, MIDDLEWARE_MATCHER.test(path) === true);
+  }
+  
+  // These paths must NOT match (skip middleware)
+  const shouldNotMatch = [
+    "/robots.txt",
+    "/sitemap.xml",
+    "/sw.js",
+    "/manifest.webmanifest",
+    "/favicon.ico",
+    "/icons/icon-192.png",
+    "/screenshots/a.png",
+    "/brands/x/logo.svg",
+    "/logo.png",
+    "/_next/static/x.js"
+  ];
+  
+  for (const path of shouldNotMatch) {
+    check(`must NOT match ${path}`, MIDDLEWARE_MATCHER.test(path) === false);
+  }
 }
 
 console.log("\n4. config.matcher consistency");
 {
-  // Verify config.matcher array exists and contains the exclusion pattern
-  check("config.matcher array found", proxyContent.includes("matcher: ["));
-  check("config.matcher includes robots.txt exclusion", proxyContent.includes("matcher:") && proxyContent.includes("robots\\\\.txt"));
+  // config.matcher[0] must equal MIDDLEWARE_MATCHER without the leading '^'
+  const expectedConfigMatcher = MIDDLEWARE_MATCHER_STRING.slice(1); // Remove leading '^'
+  check("config.matcher[0] equals MIDDLEWARE_MATCHER (minus leading '^')", CONFIG_MATCHER === expectedConfigMatcher);
+  
+  // Additional checks
+  check("MIDDLEWARE_MATCHER includes robots.txt exclusion", MIDDLEWARE_MATCHER_STRING.includes("robots\\\\.txt"));
+  check("MIDDLEWARE_MATCHER includes sitemap.xml exclusion", MIDDLEWARE_MATCHER_STRING.includes("sitemap\\\\.xml"));
 }
 
 console.log("\n5. PUBLIC_PATHS includes SEO routes");
