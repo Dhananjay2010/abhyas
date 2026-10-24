@@ -9,6 +9,8 @@
  */
 
 import { makeFinishSessionDeps } from "../src/lib/session/finish-session-deps";
+import type { Database } from "../src/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 let passed = 0;
 let failed = 0;
@@ -23,9 +25,7 @@ function assertTrue(condition: boolean, message: string, detail?: string) {
   }
 }
 
-// Mock Supabase client with a rest_seconds field in exercise query
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function makeFakeClient(restSeconds: number | null): any {
+function makeFakeClient(restSeconds: number | null): SupabaseClient<Database> {
   return {
     from: (table: string) => {
       if (table === "sessions") {
