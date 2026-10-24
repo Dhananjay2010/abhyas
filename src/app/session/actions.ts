@@ -317,6 +317,10 @@ export type ProgressionFeedback = {
  *
  * Progression runs here rather than at the end of the session so that a
  * workout cut short still banks the exercises that were finished.
+ *
+ * **Idempotent** (k1): Only updates if status is not already 'completed' or
+ * 'skipped'. Retries, timeouts, or multiple tabs calling this twice won't
+ * apply progression multiple times.
  */
 export async function finishExercise(input: {
   sessionExerciseId: string;
@@ -325,15 +329,27 @@ export async function finishExercise(input: {
 }): Promise<Result<ProgressionFeedback | null>> {
   const { supabase, user } = await requireUser();
 
-  const { error } = await supabase
+  // k1: Conditional update - only proceed if exercise wasn't already finished.
+  // This prevents double progression from retries or multiple tabs.
+  const { data: updated, error } = await supabase
     .from("session_exercises")
     .update({
       status: input.skipped ? "skipped" : "completed",
       feel: input.feel,
       completed_at: new Date().toISOString(),
     })
-    .eq("id", input.sessionExerciseId);
+    .eq("id", input.sessionExerciseId)
+    .neq("status", "completed")
+    .neq("status", "skipped")
+    .select("id")
+    .maybeSingle();
+
   if (error) return { ok: false, error: error.message };
+
+  // If no row was updated, exercise was already finished - return success without progression
+  if (!updated) {
+    return { ok: true, data: null };
+  }
 
   if (input.skipped) return { ok: true, data: null };
 
