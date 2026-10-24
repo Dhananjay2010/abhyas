@@ -40,11 +40,12 @@ export default async function HistoryPage({
   const units = getUnitsPreference(profile.units);
 
   // Get the correct count using RPC (excludes zero-set strength and skipped sessions)
+  // Pass today as a date (YYYY-MM-DD string is coerced to date by PostgREST)
   // @ts-expect-error - RPC function not in generated types yet
   const { data: countData } = await supabase.rpc("get_history_count", {
     p_user: user.id,
     p_filter: filter,
-    p_today: today,
+    p_today: today, // ISO date string, PostgREST converts to date type
   });
   const count = Number(countData ?? 0);
 

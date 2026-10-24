@@ -56,6 +56,7 @@ comment on function progress_summary is
   'for a user without requiring client to pass unbounded session ID lists. '
   'Used by Progress page to avoid 414 URI too long errors.';
 
+revoke execute on function progress_summary(uuid) from public, anon;
 grant execute on function progress_summary(uuid) to authenticated;
 
 
@@ -101,6 +102,7 @@ comment on function get_session_set_counts is
   'Used by streak computation to filter strength sessions with 0 sets. '
   'Accepts up to 500 session IDs to avoid URI too long errors.';
 
+revoke execute on function get_session_set_counts(uuid, uuid[]) from public, anon;
 grant execute on function get_session_set_counts(uuid, uuid[]) to authenticated;
 
 
@@ -185,7 +187,7 @@ grant select on exercise_strength_history to authenticated;
 create or replace function get_history_count(
   p_user uuid default auth.uid(),
   p_filter text default 'lifts',
-  p_today text default null
+  p_today date default current_date
 )
 returns bigint
 language plpgsql
@@ -194,17 +196,14 @@ set search_path = public, pg_temp
 as $$
 declare
   v_count bigint;
-  v_today text;
 begin
   -- Ensure user is authenticated
   if p_user is null then
     raise exception 'User not authenticated';
   end if;
 
-  -- Default to current date if not provided
-  v_today := coalesce(p_today, current_date::text);
-
   -- Count sessions based on filter, excluding zero-set strength and skipped
+  -- coalesce(actual_type,'') = '' means strength (NULL or '' both treated as strength)
   if p_filter = 'lifts' then
     -- For strength sessions, only count those with working sets (in session_volume)
     select count(distinct s.id)
@@ -212,7 +211,7 @@ begin
     from sessions s
     inner join session_volume sv on sv.session_id = s.id
     where s.user_id = p_user
-      and s.local_date <= v_today
+      and s.local_date <= p_today
       and s.status <> 'skipped'
       and coalesce(s.actual_type, '') in ('weights', 'bodyweight', '');
   elsif p_filter = 'yoga' then
@@ -220,7 +219,7 @@ begin
     into v_count
     from sessions s
     where s.user_id = p_user
-      and s.local_date <= v_today
+      and s.local_date <= p_today
       and s.status <> 'skipped'
       and s.actual_type = 'yoga';
   elsif p_filter = 'breathing' then
@@ -228,7 +227,7 @@ begin
     into v_count
     from sessions s
     where s.user_id = p_user
-      and s.local_date <= v_today
+      and s.local_date <= p_today
       and s.status <> 'skipped'
       and s.actual_type = 'meditation';
   else
@@ -243,4 +242,5 @@ comment on function get_history_count is
   'Returns count of sessions for History page, excluding zero-set strength and skipped sessions. '
   'Matches the count of rows that will actually be displayed.';
 
-grant execute on function get_history_count(uuid, text, text) to authenticated;
+revoke execute on function get_history_count(uuid, text, date) from public, anon;
+grant execute on function get_history_count(uuid, text, date) to authenticated;

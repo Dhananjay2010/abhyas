@@ -93,6 +93,7 @@
     "test:exercise-history": "tsx scripts/test-exercise-history.ts",
     "test:exercise-history-queries": "tsx scripts/test-exercise-history-queries.ts",
     "test:exercise-history-real-db": "tsx scripts/test-exercise-history-real-db.ts",
+    "test:progress-rpcs-real-db": "tsx scripts/test-progress-rpcs-real-db.ts",
     "test:chunk-load-error": "tsx scripts/test-chunk-load-error.ts",
     "test:yoga-video-suppression": "tsx scripts/test-yoga-video-suppression.ts",
     "test:redirect-origin-malformed": "tsx scripts/test-redirect-origin-malformed.ts",
