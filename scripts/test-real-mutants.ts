@@ -135,9 +135,9 @@ const mutants: Array<{
   {
     id: "X11",
     desc: "the block start date replaces user's local today",
-    file: "src/lib/program/generate.ts",
-    original: "started_on: localToday,",
-    mutated: "started_on: '2026-01-01',  // MUTANT X11: wrong start date",
+    file: "src/lib/program/persist.ts",
+    original: "  const startedOn = rebuildOf?.started_on ?? localDateString(timezone);",
+    mutated: "  const startedOn = '2026-01-01';  // MUTANT X11: hardcoded start date",
   },
   {
     id: "X16",

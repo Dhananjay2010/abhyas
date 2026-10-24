@@ -205,6 +205,43 @@ console.log("\n15. Session with sets in the past is kept (not deleted)");
   check("session with sets in past is kept", action === "keep");
 }
 
+console.log("\n16. NEW1: Label match must verify day_type (5→4 day rebuild, label lands on rest)");
+{
+  // Old 5-day: Mon=Upper, Tue=Lower, Wed=Push, Thu=Pull, Fri=Legs
+  // New 4-day: Mon=Upper, Tue=Lower, Wed=Rest, Thu=Upper
+  // A "Push" session from Wed should NOT match the new Wed (Rest)
+  // AND there should be no Push day in the new block, so it falls back to delete
+  const oldSession = session("Push", 3, "weights", "weights");
+  const newDays = [
+    day("new-upper", 1, "weights", "Upper"),
+    day("new-lower", 2, "weights", "Lower"),
+    day("new-rest", 3, "rest", null),  // Same index as old Push, but wrong type
+    day("new-upper-2", 4, "weights", "Upper"),
+  ];
+  const match = matchNewDay(oldSession, newDays);
+
+  // Label "Push" doesn't exist in new days
+  // day_index=3 exists but is Rest (wrong type)
+  // Falls back to day_type=weights, which finds Upper
+  check("label+index fail, falls back to weights match", match?.day_type === "weights");
+}
+
+console.log("\n17. NEW2: Day_index match must verify day_type (day shifts to rest)");
+{
+  // Old: Tuesday=Lower (weights)
+  // New: Tuesday=Rest, no weights days at all
+  // Session from old Tuesday should be deleted (no match)
+  const oldSession = session(null, 2, "weights", "weights");
+  const newDays = [
+    day("new-rest-1", 1, "rest", null),
+    day("new-rest-2", 2, "rest", null),
+    day("new-rest-3", 3, "rest", null),
+  ];
+  const match = matchNewDay(oldSession, newDays);
+
+  check("day_index match fails if day_type differs, no fallback", match === null);
+}
+
 if (failures > 0) {
   console.log(`\n❌ ${failures} failure(s)`);
   process.exit(1);
