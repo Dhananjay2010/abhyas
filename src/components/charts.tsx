@@ -223,7 +223,8 @@ export function BarChart({
   const innerH = height - PAD.top - PAD.bottom;
   // 2px gap between adjacent bars, per the mark spec.
   const slot = innerW / points.length;
-  const barW = Math.max(3, slot - 2);
+  // Cap bar width to 40px for single data points
+  const barW = points.length === 1 ? 40 : Math.max(3, slot - 2);
   const shown = active === null ? points.length - 1 : active;
 
   return (
@@ -255,10 +256,12 @@ export function BarChart({
 
         {points.map((p, i) => {
           const h = Math.max(2, (p.value / max) * innerH);
+          // Center single bars instead of left-aligning them
+          const xOffset = points.length === 1 ? (innerW - barW) / 2 : i * slot + 1;
           return (
             <rect
               key={i}
-              x={PAD.left + i * slot + 1}
+              x={PAD.left + xOffset}
               y={PAD.top + innerH - h}
               width={barW}
               height={h}
