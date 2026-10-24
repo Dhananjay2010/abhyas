@@ -155,7 +155,7 @@ test_mutant \
 test_mutant \
   "Hard hold condition disabled" \
   "if (feel === \"hard\" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {" \
-  "if (false && feel === \"hard\" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {"
+  "if (feel === \"easy\" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {"
 
 # PR9: Deload bypasses grid
 test_mutant \
@@ -169,11 +169,15 @@ test_mutant \
   "let nextWeight = currentWeight;" \
   "let nextWeight = currentWeight !== null && currentWeight > 0 ? currentWeight - incrementFor(meta) : currentWeight;"
 
-# N2: No-equipment first miss drops (not holds)
+# N2: No-equipment first miss drops (code change, not comment)
 test_mutant \
   "No-equipment first miss drops (main holds)" \
-  "// First miss: drop one equipment grid step with equipment, hold without" \
-  "// First miss: drop one equipment grid step with equipment, drop increment without"
+  "  // First miss: drop one equipment grid step with equipment, hold without
+  let nextWeight = currentWeight;
+  if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {" \
+  "  // First miss: drop one equipment grid step with equipment, drop without
+  let nextWeight = currentWeight !== null && currentWeight > 0 ? currentWeight - incrementFor(meta) : currentWeight;
+  if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {"
 
 # N6: noData snap removed
 test_mutant \

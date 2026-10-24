@@ -844,5 +844,27 @@ console.log("\n19. Units: kg storage with lb display");
   check("kettlebell 16 kg Hard with lb display: holds at 16 kg (not 15)", kbHardLb.nextWorkingWeightKg === 16, `${kbHardLb.nextWorkingWeightKg}`);
 }
 
+console.log("\n20. noData snaps off-grid stored weight to grid (down)");
+{
+  // Off-grid stored weight with no data: snaps down to grid
+  const noDataOffGrid = run({
+    sets: [],
+    state: fresh({ currentWorkingWeightKg: 57.3 }),
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  check("noData with off-grid 57.3 kg: snaps down to 55 kg", noDataOffGrid.nextWorkingWeightKg === 55, `${noDataOffGrid.nextWorkingWeightKg}`);
+  
+  // Off-grid kettlebell weight with no data: snaps to previous bell
+  const noDataKbOffGrid = run({
+    meta: KETTLEBELL_SWING,
+    sets: [],
+    state: fresh({ currentWorkingWeightKg: 17 }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("noData with off-grid 17 kg KB: snaps down to 16 kg", noDataKbOffGrid.nextWorkingWeightKg === 16, `${noDataKbOffGrid.nextWorkingWeightKg}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
