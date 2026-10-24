@@ -36,8 +36,9 @@ function testInvalidBrandFails() {
       `NEXT_PUBLIC_BRAND=bogus npx tsx -e "import('./src/lib/branding')"`,
       { encoding: "utf-8", stdio: "pipe" }
     );
-  } catch (error: any) {
-    const output = error.stderr?.toString() || error.stdout?.toString() || "";
+  } catch (error: unknown) {
+    const err = error as { stderr?: Buffer; stdout?: Buffer };
+    const output = err.stderr?.toString() || err.stdout?.toString() || "";
     assert(
       output.includes("Valid brand ids:"),
       "Error message should list valid brand ids"
