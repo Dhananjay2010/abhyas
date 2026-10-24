@@ -1,105 +1,93 @@
-"use client";
-
-import { branding } from "@/lib/branding";
-
 /**
  * Offline fallback page.
  *
  * Shown by the service worker when the user is offline and tries to navigate
- * to a page that isn't cached. Reads branding from the centralized config.
+ * to a page that isn't cached. This page has inline styles so it works even
+ * when the external CSS files (_next/static/css/) are not cached.
+ *
+ * This is a server component that works without JavaScript. The retry link
+ * is a plain anchor that reloads the page.
  */
+
+import { branding } from "@/lib/branding";
+
 export default function OfflinePage() {
+  // Inline styles so the page works without external CSS
+  // All colors come from branding config (not hardcoded)
+  const containerStyle = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "100vh",
+    padding: "1.5rem",
+    background: branding.colors.bg,
+    color: branding.colors.fg,
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  };
+
+  const contentStyle = {
+    textAlign: "center" as const,
+    maxWidth: "28rem",
+  };
+
+  const iconStyle = {
+    width: "6rem",
+    height: "6rem",
+    margin: "0 auto 2rem",
+    opacity: 0.8,
+  };
+
+  const headingStyle = {
+    fontSize: "1.5rem",
+    marginBottom: "0.75rem",
+    fontWeight: 600,
+  };
+
+  const paragraphStyle = {
+    fontSize: "1rem",
+    lineHeight: 1.5,
+    color: branding.colors.muted,
+    marginBottom: "2rem",
+  };
+
+  const buttonStyle = {
+    display: "inline-block",
+    padding: "0.875rem 2rem",
+    fontSize: "1rem",
+    fontWeight: 500,
+    borderRadius: "0.5rem",
+    backgroundColor: branding.colors.accent,
+    color: branding.colors.accentFg,
+    textDecoration: "none",
+    transition: "opacity 0.2s",
+  };
+
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Offline - {branding.name}</title>
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: ${branding.colors.bg};
-            color: #f5f5f5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 1.5rem;
-          }
-          .container {
-            text-align: center;
-            max-width: 400px;
-          }
-          .icon {
-            width: 96px;
-            height: 96px;
-            margin: 0 auto 2rem;
-            opacity: 0.8;
-          }
-          h1 {
-            font-size: 1.5rem;
-            margin-bottom: 0.75rem;
-            font-weight: 600;
-          }
-          p {
-            font-size: 1rem;
-            line-height: 1.5;
-            color: #a3a3a3;
-            margin-bottom: 2rem;
-          }
-          button {
-            background: ${branding.colors.accent};
-            color: ${branding.colors.accentFg};
-            border: none;
-            padding: 0.875rem 2rem;
-            font-size: 1rem;
-            font-weight: 500;
-            border-radius: 0.5rem;
-            cursor: pointer;
-            transition: background 0.2s;
-          }
-          button:hover {
-            background: ${branding.colors.accentHover};
-          }
-          button:active {
-            transform: translateY(1px);
-          }
-        `,
-          }}
+    <div style={containerStyle}>
+      <div style={contentStyle}>
+        {/* App icon: real 192x192 icon from branding, precached by service worker */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={branding.icons.icon192}
+          alt=""
+          width={96}
+          height={96}
+          style={iconStyle}
         />
-      </head>
-      <body>
-        <div className="container">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={branding.icons.icon192}
-            alt={branding.name}
-            className="icon"
-            width="96"
-            height="96"
-          />
-          <h1>You&apos;re offline</h1>
-          <p>
-            {branding.name} needs an internet connection to load new content.
-            Check your connection and try again.
-          </p>
-          <button onClick={() => window.location.reload()}>Retry</button>
-        </div>
-      </body>
-    </html>
+
+        <h1 style={headingStyle}>You&apos;re offline</h1>
+        <p style={paragraphStyle}>
+          {branding.name} needs an internet connection to load new content.
+          Check your connection and try again.
+        </p>
+
+        {/* Retry button: green background with computed text color.
+            Plain <a> href instead of Link - this page must work without JavaScript */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+        <a href="/" style={buttonStyle}>
+          Retry
+        </a>
+      </div>
+    </div>
   );
 }
-
-/**
- * This page can be pre-rendered at build time even though it's a client component.
- * The service worker caches the static HTML and serves it offline. The client-side
- * interactivity (reload button) becomes available when the page loads.
- */
-export const dynamic = "force-static";
