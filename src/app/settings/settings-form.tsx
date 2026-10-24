@@ -421,9 +421,11 @@ export function SettingsForm({
       };
       
       // Re-sync equipment saved state
-      setSavedEquipment({
-        hasAll: initial.hasAllEquipment,
-        ids: initial.equipmentIds,
+      startTransition(() => {
+        setSavedEquipment({
+          hasAll: initial.hasAllEquipment,
+          ids: initial.equipmentIds,
+        });
       });
       
       // Re-sync DOB
@@ -432,12 +434,15 @@ export function SettingsForm({
       
       // LOW 4 (QA Bots 1 and 2): Clear planStale when props re-sync
       // Props changed means router.refresh brought new data (possibly from rebuild)
-      setPlanStale(false);
-      
-      setPendingPropsSync(null);
+      startTransition(() => {
+        setPlanStale(false);
+        setPendingPropsSync(null);
+      });
     } else {
       // Queue is busy, defer re-sync until it drains
-      setPendingPropsSync(initial);
+      startTransition(() => {
+        setPendingPropsSync(initial);
+      });
     }
   }, [initial, queueStatus.state]);
 
@@ -473,9 +478,11 @@ export function SettingsForm({
       };
       
       // Re-sync equipment saved state
-      setSavedEquipment({
-        hasAll: pendingPropsSync.hasAllEquipment,
-        ids: pendingPropsSync.equipmentIds,
+      startTransition(() => {
+        setSavedEquipment({
+          hasAll: pendingPropsSync.hasAllEquipment,
+          ids: pendingPropsSync.equipmentIds,
+        });
       });
       
       // Re-sync DOB
@@ -483,9 +490,10 @@ export function SettingsForm({
       currentDob.current = pendingPropsSync.dateOfBirth;
       
       // LOW 4 (QA Bots 1 and 2): Clear planStale when props re-sync
-      setPlanStale(false);
-      
-      setPendingPropsSync(null);
+      startTransition(() => {
+        setPlanStale(false);
+        setPendingPropsSync(null);
+      });
     }
   }, [pendingPropsSync, queueStatus.state]);
 
