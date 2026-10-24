@@ -24,11 +24,15 @@ if (typeof (global as unknown as { requestIdleCallback?: unknown }).requestIdleC
   (global as unknown as { cancelIdleCallback: (id: NodeJS.Timeout) => void }).cancelIdleCallback = (id: NodeJS.Timeout) => clearTimeout(id);
 }
 
-// Mock pathname value
-const mockPathname = '/settings';
+// Mock storage for pathname
+const mockState = {
+  pathname: '/settings'
+};
 
 // Create mock functions
-const mockUsePathname = () => mockPathname;
+const mockUsePathname = () => {
+  return mockState.pathname;
+};
 const mockUseRouter = () => ({
   push: () => {},
   refresh: () => {},
@@ -52,22 +56,28 @@ Object.keys(require.cache).forEach(key => {
   }
 });
 
+// Override ESM import resolution for next/navigation
+const nextNavigationModule = {
+  __esModule: true,
+  usePathname: mockUsePathname,
+  useRouter: mockUseRouter,
+  default: {},
+};
+
 Module.prototype.require = function (id: string) {
   if (id === 'next/navigation') {
-    return {
-      usePathname: mockUsePathname,
-      useRouter: mockUseRouter,
-    };
+    return nextNavigationModule;
   }
   if (id === 'next/link') {
-    return MockLink;
+    const LinkModule = { __esModule: true, default: MockLink };
+    return LinkModule;
   }
   // eslint-disable-next-line prefer-rest-params
   return originalRequire.apply(this, arguments);
 };
 
 // Now import everything after mocking is in place
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
 import { resetSessionExpiredState } from '../src/components/session-expired-prompt';
@@ -605,12 +615,13 @@ async function runTests(): Promise<TestResult[]> {
     }
   }
 
-  // Test 7: Stashed changes persist and can be retrieved (restoration tested manually)
+  // Test 7: Form restores stashed changes on mount
   {
     resetSessionExpiredState();
     clearPendingChanges();
     
-    // Verify stashing multiple changes works
+    // Seed the stash with toggle + equipment changes
+    // Note: usePathname() returns null in test environment, so we stash with null
     stashPendingChanges([
       {
         key: 'cooldown_enabled',
@@ -624,24 +635,151 @@ async function runTests(): Promise<TestResult[]> {
         patch: { hasAll: false, equipmentIds: ['barbell'] },
         timestamp: Date.now()
       }
-    ], '/settings');
+    ], null as unknown as string);
     
-    const pending = getPendingChanges();
-    const hasStashedChanges = pending !== null && pending.changes.length === 2 && pending.returnPath === '/settings';
-    const hasSession = pending?.changes.some(ch => ch.type === 'session' && ch.key === 'cooldown_enabled') ?? false;
-    const hasEquipment = pending?.changes.some(ch => ch.type === 'equipment' && ch.key === 'equipment') ?? false;
+    const testState: SettingsState = {
+      ...initialState,
+      hasAllEquipment: false,
+      equipmentIds: []
+    };
     
-    // Clear for next test
-    clearPendingChanges();
-    const clearedOk = getPendingChanges() === null;
+    // Spy on save actions
+    const sessionCalls: unknown[] = [];
+    const equipmentCalls: unknown[] = [];
+    
+    const actions: SettingsActions = {
+      updateSessionSettings: async (patch) => {
+        sessionCalls.push(patch);
+        return { ok: true };
+      },
+      updateProfileSettings: async () => ({ ok: true }),
+      updateEquipment: async (patch) => {
+        equipmentCalls.push(patch);
+        return { ok: true };
+      },
+      updateInjuries: async () => ({ ok: true }),
+    };
 
-    const passed = hasStashedChanges && hasSession && hasEquipment && clearedOk;
+    // Render form within act to ensure effects run
+    await act(async () => {
+      render(
+        <SettingsForm
+          initial={testState}
+          equipment={equipment}
+          timezones={timezones}
+          actions={actions}
+        />
+      );
+      // Flush microtasks to allow effects and save queue to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
+
+    // Give more time for restoration to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Wait for restoration to complete
+    await waitFor(() => {
+      return sessionCalls.length > 0 && equipmentCalls.length > 0;
+    }, { timeout: 5000 });
+
+    const sessionCalledOnce = sessionCalls.length === 1;
+    const equipmentCalledOnce = equipmentCalls.length === 1;
+    
+    const sessionPatchCorrect = sessionCalledOnce && 
+      typeof sessionCalls[0] === 'object' &&
+      sessionCalls[0] !== null &&
+      'cooldown_enabled' in sessionCalls[0] &&
+      (sessionCalls[0] as { cooldown_enabled: boolean }).cooldown_enabled === false;
+    
+    const equipmentPatchCorrect = equipmentCalledOnce &&
+      typeof equipmentCalls[0] === 'object' &&
+      equipmentCalls[0] !== null &&
+      'hasAll' in equipmentCalls[0] &&
+      'equipmentIds' in equipmentCalls[0] &&
+      (equipmentCalls[0] as { hasAll: boolean; equipmentIds: string[] }).hasAll === false &&
+      (equipmentCalls[0] as { hasAll: boolean; equipmentIds: string[] }).equipmentIds.includes('barbell');
+    
+    // Stash should be cleared after successful restoration
+    const pendingAfter = getPendingChanges();
+    const stashCleared = pendingAfter === null;
+
+    const passed = sessionCalledOnce && equipmentCalledOnce &&
+                   sessionPatchCorrect && equipmentPatchCorrect &&
+                   stashCleared;
 
     results.push({
       passed,
       message: passed
-        ? 'Test 7: Stashed changes persist and can be retrieved (restoration tested manually)'
-        : `Test 7: FAILED - hasStashed: ${hasStashedChanges}, hasSession: ${hasSession}, hasEquip: ${hasEquipment}, clearedOk: ${clearedOk}`
+        ? 'Test 7: Form restores stashed changes on mount'
+        : `Test 7: FAILED - sessionOnce: ${sessionCalledOnce}, equipOnce: ${equipmentCalledOnce}, sessionPatch: ${sessionPatchCorrect}, equipPatch: ${equipmentPatchCorrect}, cleared: ${stashCleared}`
+    });
+  }
+
+  // Test 7b: When restore save returns SESSION_EXPIRED, stash is kept
+  {
+    resetSessionExpiredState();
+    clearPendingChanges();
+    
+    // Seed the stash with a toggle change
+    // Note: usePathname() returns null in test environment, so we stash with null
+    stashPendingChanges([
+      {
+        key: 'cooldown_enabled',
+        type: 'session',
+        patch: { cooldown_enabled: false },
+        timestamp: Date.now()
+      }
+    ], null as unknown as string);
+    
+    const testState: SettingsState = {
+      ...initialState,
+      hasAllEquipment: false,
+      equipmentIds: []
+    };
+    
+    // Action that returns SESSION_EXPIRED on restore attempt
+    const actions: SettingsActions = {
+      updateSessionSettings: async () => ({
+        ok: false,
+        error: 'Session expired',
+        code: SESSION_EXPIRED_CODE
+      } as { ok: false; error: string; code: string }),
+      updateProfileSettings: async () => ({ ok: true }),
+      updateEquipment: async () => ({ ok: true }),
+      updateInjuries: async () => ({ ok: true }),
+    };
+
+    // Render form within act
+    await act(async () => {
+      render(
+        <SettingsForm
+          initial={testState}
+          equipment={equipment}
+          timezones={timezones}
+          actions={actions}
+        />
+      );
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    // Wait for prompt to appear
+    await waitFor(() => {
+      const alert = document.querySelector('[data-testid="session-expired-prompt"]');
+      return alert !== null;
+    }, { timeout: 3000 });
+
+    // Stash should NOT be cleared (session expired again)
+    const pendingAfter = getPendingChanges();
+    const stashKept = pendingAfter !== null && pendingAfter.changes.length === 1;
+    const hasCorrectChange = pendingAfter?.changes[0]?.key === 'cooldown_enabled';
+
+    const passed = stashKept && hasCorrectChange;
+
+    results.push({
+      passed,
+      message: passed
+        ? 'Test 7b: When restore save returns SESSION_EXPIRED, stash is kept'
+        : `Test 7b: FAILED - stashKept: ${stashKept}, hasCorrectChange: ${hasCorrectChange}`
     });
   }
 
