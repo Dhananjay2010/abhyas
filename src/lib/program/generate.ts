@@ -545,6 +545,11 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     if (isLowerBody) {
       return false;
     }
+    
+    // SAFETY: Beginners with knee injury (any) exclude ALL high-impact exercises
+    if (input.level === "beginner") {
+      return false;
+    }
   }
 
   // PR #73 coordinator: ANY knee injury excludes sissy squats (including weighted-sissy-squat)
