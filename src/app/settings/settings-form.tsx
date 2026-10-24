@@ -82,6 +82,11 @@ export function SettingsForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
+  /** Track initial equipment to detect real changes */
+  const [initialEquipment] = useState({
+    hasAll: initial.hasAllEquipment,
+    ids: initial.equipmentIds,
+  });
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
 
@@ -96,6 +101,17 @@ export function SettingsForm({
       // own response — refreshing on top of that fetched this five-query screen
       // a second time, on every single toggle.
     });
+  }
+
+  /** Check if equipment actually changed from initial state */
+  function equipmentChanged(hasAll: boolean, equipmentIds: string[]): boolean {
+    if (hasAll !== initialEquipment.hasAll) return true;
+    const sortedInitial = [...initialEquipment.ids].sort();
+    const sortedNew = [...equipmentIds].sort();
+    return (
+      sortedInitial.length !== sortedNew.length ||
+      sortedInitial.some((id, i) => id !== sortedNew[i])
+    );
   }
 
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
@@ -205,9 +221,10 @@ export function SettingsForm({
           onClick={() => {
             const nextHasAll = !s.hasAllEquipment;
             setS({ ...s, hasAllEquipment: nextHasAll });
+            const changed = equipmentChanged(nextHasAll, s.equipmentIds);
             save(
               () => actions.updateEquipment({ hasAll: nextHasAll, equipmentIds: s.equipmentIds }),
-              true,
+              changed,
             );
           }}
           aria-pressed={s.hasAllEquipment}
@@ -244,9 +261,10 @@ export function SettingsForm({
                             ? s.equipmentIds.filter((x) => x !== e.id)
                             : [...s.equipmentIds, e.id];
                           setS({ ...s, hasAllEquipment: false, equipmentIds: next });
+                          const changed = equipmentChanged(false, next);
                           save(
                             () => actions.updateEquipment({ hasAll: false, equipmentIds: next }),
-                            true,
+                            changed,
                           );
                         }}
                         className={`rounded-full border px-4 py-2 text-sm ${

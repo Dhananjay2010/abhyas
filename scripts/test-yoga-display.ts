@@ -123,5 +123,13 @@ const weekBoundary: YogaVideoForGrouping[] = [
 
 testGrouping(weekBoundary, 2, "Week 1 (Day 7–7)", "Week boundary: Day 7 is Week 1, Day 8 is Week 2");
 
+const day0Videos: YogaVideoForGrouping[] = [
+  { id: "1", title: "Day 0 - Welcome Home", dayIndex: 0, done: false },
+  { id: "2", title: "Day 1", dayIndex: 1, done: false },
+  { id: "3", title: "Day 7", dayIndex: 7, done: false },
+];
+
+testGrouping(day0Videos, 2, "Introduction", "Day 0 videos go into Introduction, not Week 0");
+
 console.log(`\n${failures === 0 ? "✓" : "✗"} ${failures === 0 ? "All tests passed" : `${failures} test(s) failed`}`);
 process.exit(failures === 0 ? 0 : 1);

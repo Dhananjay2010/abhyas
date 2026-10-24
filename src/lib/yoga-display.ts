@@ -34,14 +34,14 @@ export type YogaWeekGroup = {
 /**
  * Groups yoga videos by week based on their day_index.
  * Day 1-7 = Week 1, Day 8-14 = Week 2, etc.
- * Videos without a day_index (intro videos) go into a group at the start.
+ * Videos with dayIndex <= 0 or null (intro videos) go into a group at the start.
  */
 export function groupVideosByWeek(videos: YogaVideoForGrouping[]): YogaWeekGroup[] {
   const weekMap = new Map<number, YogaVideoForGrouping[]>();
   const introVideos: YogaVideoForGrouping[] = [];
 
   for (const video of videos) {
-    if (video.dayIndex === null) {
+    if (video.dayIndex === null || video.dayIndex <= 0) {
       introVideos.push(video);
     } else {
       const weekNumber = Math.floor((video.dayIndex - 1) / 7) + 1;
