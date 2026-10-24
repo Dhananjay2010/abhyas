@@ -314,7 +314,107 @@ function runTests(): TestResult[] {
     });
   }
   
+  // Test 7: Validate all exercise slugs in seed.sql exist in migrations
+  const exerciseSlugsInSeed = extractExerciseSlugs(seedContent);
+  const exerciseSlugsInMigrations = extractExerciseSlugsFromMigrations();
+  
+  const missingExerciseSlugs: string[] = [];
+  
+  for (const slug of exerciseSlugsInSeed) {
+    if (!exerciseSlugsInMigrations.has(slug)) {
+      missingExerciseSlugs.push(slug);
+    }
+  }
+  
+  if (missingExerciseSlugs.length > 0) {
+    results.push({
+      passed: false,
+      message: `Seed references exercise slugs not found in migrations: ${missingExerciseSlugs.join(', ')}`
+    });
+  } else if (exerciseSlugsInSeed.size > 0) {
+    results.push({
+      passed: true,
+      message: `All ${exerciseSlugsInSeed.size} exercise slugs in seed exist in migrations`
+    });
+  } else {
+    results.push({
+      passed: true,
+      message: 'No exercise slugs found in seed (may use dynamic queries)'
+    });
+  }
+  
   return results;
+}
+
+function extractExerciseSlugs(sql: string): Set<string> {
+  const slugs = new Set<string>();
+  
+  // Match WHERE e.slug = 'slug-name'
+  const singleSlugPattern = /WHERE\s+e\.slug\s*=\s*'([a-z0-9-]+)'/gi;
+  let match;
+  while ((match = singleSlugPattern.exec(sql)) !== null) {
+    slugs.add(match[1]);
+  }
+  
+  // Match WHERE e.slug IN ('slug1', 'slug2', ...)
+  const inClausePattern = /WHERE\s+e\.slug\s+IN\s*\(([\s\S]*?)\)/gi;
+  while ((match = inClausePattern.exec(sql)) !== null) {
+    const slugList = match[1];
+    // Extract all 'slug-name' patterns
+    const slugPattern = /'([a-z0-9-]+)'/g;
+    let slugMatch;
+    while ((slugMatch = slugPattern.exec(slugList)) !== null) {
+      slugs.add(slugMatch[1]);
+    }
+  }
+  
+  // Match WHEN e.slug patterns in CASE statements
+  const caseWhenPattern = /WHEN\s+e\.slug\s*=?\s*'([a-z0-9-]+)'/gi;
+  while ((match = caseWhenPattern.exec(sql)) !== null) {
+    slugs.add(match[1]);
+  }
+  
+  return slugs;
+}
+
+function extractExerciseSlugsFromMigrations(): Set<string> {
+  const slugs = new Set<string>();
+  
+  const files = readdirSync(MIGRATIONS_DIR)
+    .filter(f => f.endsWith('.sql'))
+    .sort();
+  
+  for (const file of files) {
+    const content = readFileSync(join(MIGRATIONS_DIR, file), 'utf-8');
+    
+    // Match INSERT INTO exercises with slug as first column
+    // Pattern: ('slug-name', ...
+    // The VALUES block can span many lines and may end with on conflict
+    const insertPattern = /INSERT\s+INTO\s+(?:public\.)?exercises\s*\([^)]*\)\s*VALUES\s*([\s\S]*?)(?:on conflict|ON CONFLICT)/gi;
+    let match;
+    while ((match = insertPattern.exec(content)) !== null) {
+      const valuesBlock = match[1];
+      // Extract all tuples starting with ('slug-name',
+      const tuplePattern = /\('([a-z0-9-]+)',/g;
+      let tupleMatch;
+      while ((tupleMatch = tuplePattern.exec(valuesBlock)) !== null) {
+        slugs.add(tupleMatch[1]);
+      }
+    }
+    
+    // Also check for simple VALUES (...); pattern without ON CONFLICT
+    const simpleInsertPattern = /INSERT\s+INTO\s+(?:public\.)?exercises\s*\([^)]*\)\s*VALUES\s*([\s\S]*?);/gi;
+    while ((match = simpleInsertPattern.exec(content)) !== null) {
+      const valuesBlock = match[1];
+      const tuplePattern = /\('([a-z0-9-]+)',/g;
+      let tupleMatch;
+      while ((tupleMatch = tuplePattern.exec(valuesBlock)) !== null) {
+        slugs.add(tupleMatch[1]);
+      }
+    }
+  }
+  
+  return slugs;
 }
 
 // Run the tests
