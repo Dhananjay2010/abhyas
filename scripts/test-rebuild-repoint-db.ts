@@ -76,7 +76,7 @@ async function runTests() {
       return false;
     }
     console.log(`✓ Using service_role key\n`);
-  } catch (e) {
+  } catch {
     console.error("❌ Failed to decode service role key");
     return false;
   }
@@ -175,7 +175,6 @@ async function runTests() {
       return false;
     }
 
-    const oldUpperId = oldDays[0].id;
     const oldLowerId = oldDays[1].id;
 
     // Create a planned session pointing at the old Lower day
@@ -262,7 +261,6 @@ async function runTests() {
       return false;
     }
 
-    const newUpperId = newDays[0].id;
     const newLowerId = newDays[1].id;
 
     // Run re-pointing

@@ -170,10 +170,12 @@ export async function repointSessionsAfterRebuild(
   const sessionRows: SessionRow[] = sessions.map((s) => {
     const oldDay = Array.isArray(s.program_days) ? s.program_days[0] : s.program_days;
     const sessionExercises = Array.isArray(s.session_exercises) ? s.session_exercises : [];
-    const hasSets = sessionExercises.some((se: any) => {
-      const sets = Array.isArray(se.session_sets) ? se.session_sets : [];
-      return sets.length > 0;
-    });
+    const hasSets = sessionExercises.some(
+      (se: { session_sets?: { id: string }[] }) => {
+        const sets = Array.isArray(se.session_sets) ? se.session_sets : [];
+        return sets.length > 0;
+      },
+    );
 
     return {
       id: s.id,
