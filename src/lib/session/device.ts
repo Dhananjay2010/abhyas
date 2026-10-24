@@ -149,21 +149,41 @@ export function vibrate(pattern: number | number[]) {
   }
 }
 
+export type ElapsedState = {
+  elapsed: number;
+  stop: () => void;
+};
+
 /** Counts elapsed seconds, resilient to the tab being backgrounded. */
-export function useElapsed(startedAtIso: string | null): number {
+export function useElapsed(startedAtIso: string | null): ElapsedState {
   // Lazy state initialisers run once and are the sanctioned place for a clock
   // read; a ref would be impure during render.
   const [start] = useState(() =>
     startedAtIso ? new Date(startedAtIso).getTime() : Date.now(),
   );
   const [now, setNow] = useState(() => Date.now());
+  const [stopped, setStopped] = useState(false);
+  const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
 
   useEffect(() => {
+    if (stopped) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [stopped]);
 
-  return Math.max(0, Math.floor((now - start) / 1000));
+  const elapsed = stopped && frozenElapsed !== null
+    ? frozenElapsed
+    : Math.max(0, Math.floor((now - start) / 1000));
+
+  const stop = useCallback(() => {
+    if (!stopped) {
+      const finalElapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
+      setFrozenElapsed(finalElapsed);
+      setStopped(true);
+    }
+  }, [stopped, start]);
+
+  return { elapsed, stop };
 }
 
 export function formatClock(totalSeconds: number): string {

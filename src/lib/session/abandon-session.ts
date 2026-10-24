@@ -1,5 +1,3 @@
-import type { Database } from "@/lib/database.types";
-
 export type SessionSet = {
   id: string;
   is_warmup_set: boolean;

@@ -131,7 +131,7 @@ export function SessionRunner({
   onExit?: () => void;
 }) {
   const router = useRouter();
-  const elapsed = useElapsed(startedAt);
+  const elapsedState = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
   const [exercises, setExercises] = useState(initialExercises);
   const [error, setError] = useState<string | null>(null);
@@ -263,8 +263,11 @@ export function SessionRunner({
    * secondary actions. Leaving is confirmed separately, inside `Shell`, since
    * that button lives in the header. Neither loses logged sets, which is why
    * both ask rather than block.
+   *
+   * "End session early" also needs confirmation: it was one unguarded tap and
+   * the session cannot be resumed once ended.
    */
-  const [confirming, setConfirming] = useState<"skip" | null>(null);
+  const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
 
   async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>) {
     if (busyRef.current) return false;
@@ -294,7 +297,7 @@ export function SessionRunner({
       <Shell
         title="Warm-up"
         subtitle={`${warmupIndex + 1} of ${warmup.length}`}
-        elapsed={elapsed}
+        elapsed={elapsedState.elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
@@ -358,7 +361,7 @@ export function SessionRunner({
       <Shell
         title="Cool-down"
         subtitle="5 minutes"
-        elapsed={elapsed}
+        elapsed={elapsedState.elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
@@ -384,8 +387,9 @@ export function SessionRunner({
           <BigButton
             disabled={busy}
             onClick={async () => {
+              elapsedState.stop();
               await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
+                actions.finishSession({ sessionId, durationSeconds: elapsedState.elapsed, cooldownCompleted: true }),
               );
               setPhase("done");
             }}
@@ -395,8 +399,9 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
+              elapsedState.stop();
               await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+                actions.finishSession({ sessionId, durationSeconds: elapsedState.elapsed, cooldownCompleted: false }),
               );
               setPhase("done");
             }}
@@ -421,14 +426,14 @@ export function SessionRunner({
       <Shell
         title="Session complete"
         subtitle={null}
-        elapsed={elapsed}
+        elapsed={elapsedState.elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
         confirmExit={false}
       >
         <div className="space-y-3">
-          <Stat label="Time" value={formatClock(elapsed)} />
+          <Stat label="Time" value={formatClock(elapsedState.elapsed)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
           {volume > 0 && <Stat label="Total volume" value={`${Math.round(volume)} kg`} />}
           <Stat
@@ -523,7 +528,7 @@ export function SessionRunner({
       <Shell
         title="Nothing to do"
         subtitle={null}
-        elapsed={elapsed}
+        elapsed={elapsedState.elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
@@ -665,8 +670,9 @@ export function SessionRunner({
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
+        elapsedState.stop();
         await run(() =>
-          actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+          actions.finishSession({ sessionId, durationSeconds: elapsedState.elapsed, cooldownCompleted: false }),
         );
         setPhase("done");
       }
@@ -679,7 +685,7 @@ export function SessionRunner({
     <Shell
       title={`Exercise ${exerciseIndex + 1} of ${exercises.length}`}
       subtitle={isDeload ? `Deload week ${week}` : `Week ${week}`}
-      elapsed={elapsed}
+      elapsed={elapsedState.elapsed}
       onExit={() => (onExit ? onExit() : router.push("/today"))}
       wakeLock={wakeLock}
       error={error}
@@ -942,17 +948,24 @@ export function SessionRunner({
               Skip this exercise
             </GhostButton>
           )}
-          <GhostButton
-            disabled={busy}
-            onClick={async () => {
-              if (await run(() => actions.abandonSession(sessionId, elapsed))) {
-                if (onExit) onExit();
-                else router.push("/today");
-              }
-            }}
-          >
-            End session early
-          </GhostButton>
+          {confirming === "end_early" ? (
+            <EndEarlyConfirm
+              totalSetsDone={totalSetsDone}
+              totalSetsPlanned={totalSetsPlanned}
+              onCancel={() => setConfirming(null)}
+              onConfirm={async () => {
+                setConfirming(null);
+                elapsedState.stop();
+                await run(() => actions.abandonSession(sessionId, elapsedState.elapsed));
+                setPhase("done");
+              }}
+              disabled={busy}
+            />
+          ) : (
+            <GhostButton disabled={busy} onClick={() => setConfirming("end_early")}>
+              End session early
+            </GhostButton>
+          )}
         </div>
 
         <p className="mt-8 text-center text-xs text-muted">
@@ -1342,4 +1355,76 @@ function CapabilityNote({
   if (vibrateEnabled && !vibrationSupported()) bits.push("vibration unsupported here");
 
   return <p className="mt-4 text-center text-[11px] text-muted/70">{bits.join(" · ")}</p>;
+}
+
+/**
+ * Confirmation dialog for ending a session early.
+ *
+ * Accessible dialog with focus trap semantics, role=dialog, aria-modal,
+ * Escape to cancel, 44px touch targets, and brand CSS variables only.
+ */
+function EndEarlyConfirm({
+  totalSetsDone,
+  totalSetsPlanned,
+  onCancel,
+  onConfirm,
+  disabled = false,
+}: {
+  totalSetsDone: number;
+  totalSetsPlanned: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+  disabled?: boolean;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const keepGoingRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    keepGoingRef.current?.focus();
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onCancel]);
+
+  return (
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="end-early-title"
+      className="rounded-xl border border-border bg-surface-2 px-4 py-4"
+    >
+      <p id="end-early-title" className="text-sm font-medium">
+        End this session?
+      </p>
+      <p className="mt-2 text-sm text-muted">
+        You&apos;ve logged {totalSetsDone} of {totalSetsPlanned} sets. The session can&apos;t be
+        resumed once ended.
+      </p>
+      <div className="mt-4 flex gap-3">
+        <button
+          ref={keepGoingRef}
+          onClick={onCancel}
+          className="flex-1 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+          style={{ minHeight: "44px" }}
+        >
+          Keep going
+        </button>
+        <button
+          disabled={disabled}
+          onClick={onConfirm}
+          className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60"
+          style={{ minHeight: "44px" }}
+        >
+          End session
+        </button>
+      </div>
+    </div>
+  );
 }
