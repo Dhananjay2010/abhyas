@@ -59,14 +59,22 @@ async function main() {
   
   console.log('Test 2: Validate migration safety (must have WHERE slug guards)...\n');
   
-  const unsafeStatements = migrationSql.split(/;\s*\n/).filter(stmt => {
+  const sqlWithoutComments = migrationSql.split('\n').filter(line => !line.trim().startsWith('--')).join('\n');
+  
+  const unsafeStatements = sqlWithoutComments.split(/;\s*\n/).filter(stmt => {
     const trimmed = stmt.trim();
     const isExercisesUpdate = trimmed.toLowerCase().startsWith('update exercises');
     const isWarmupUpdate = trimmed.toLowerCase().startsWith('update warmup_exercises');
     if (!isExercisesUpdate && !isWarmupUpdate) return false;
     if (!/WHERE\s+slug\s*=/i.test(trimmed)) return true;
-    if (isExercisesUpdate && !/AND\s+cue\s*=/i.test(trimmed)) return true;
+    if (isExercisesUpdate && !(/AND\s+cue\s*=/i.test(trimmed) || /AND\s+impact\s*=\s*'high'/i.test(trimmed))) return true;
+    if (isWarmupUpdate && !/AND\s+type\s*=/i.test(trimmed)) return true;
     return false;
+  });
+  
+  const allUpdateStatements = sqlWithoutComments.split(/;\s*\n/).filter(stmt => {
+    const trimmed = stmt.trim().toLowerCase();
+    return trimmed.startsWith('update exercises') || trimmed.startsWith('update warmup_exercises');
   });
   
   if (unsafeStatements.length > 0) {
@@ -75,7 +83,11 @@ async function main() {
     throw new Error('Migration contains unsafe UPDATE statements');
   }
   
-  console.log(`  ✅ All ${totalStatementCount} statements have slug/cue or slug/type guards\n`);
+  if (allUpdateStatements.length !== totalStatementCount) {
+    throw new Error(`Expected to inspect ${totalStatementCount} statements but found ${allUpdateStatements.length}`);
+  }
+  
+  console.log(`  ✅ Inspected and validated all ${totalStatementCount} statements have proper guards\n`);
   
   console.log('Test 3: Pattern check (all migrated slugs must be lower-body/core/cardio/other)...\n');
   
@@ -84,19 +96,18 @@ async function main() {
     [Array.from(migrationSlugs).filter(s => s !== 'spanish-squat' && s !== 'isometric-chest-squeezes')]
   );
   
-  const allowedPatterns = new Set(['squat', 'lunge', 'hinge', 'calf', 'core', 'cardio', 'other', 'static']);
-  const upperBodyPatterns = new Set(['push', 'pull', 'carry']);
+  const allowedPatterns = new Set(['squat', 'lunge', 'hinge', 'calf', 'core', 'cardio', 'other']);
   
   let badPatternCount = 0;
   for (const ex of targetedExercisePatterns.rows) {
-    if (ex.movement_pattern && upperBodyPatterns.has(ex.movement_pattern)) {
-      console.log(`  ❌ ${ex.slug}: pattern="${ex.movement_pattern}" is upper-body`);
+    if (!ex.movement_pattern || !allowedPatterns.has(ex.movement_pattern)) {
+      console.log(`  ❌ ${ex.slug}: pattern="${ex.movement_pattern}" not in allowed set`);
       badPatternCount++;
     }
   }
   
   if (badPatternCount > 0) {
-    throw new Error(`${badPatternCount} migrated exercises have upper-body patterns`);
+    throw new Error(`${badPatternCount} migrated exercises have disallowed patterns`);
   }
   
   console.log(`  ✅ All ${targetedExercisePatterns.rows.length} migrated exercises have allowed patterns\n`);
@@ -133,14 +144,13 @@ async function main() {
   
   console.log('Test 8: Validate exactly N rows changed on first run, 0 on second...\n');
   
-  const allExercisesAfterFirst = await db.query<{slug: string; cue: string; impact: string}>(
-    `SELECT slug, cue, impact FROM exercises ORDER BY slug`
-  );
-  
   let changedOnFirstRun = 0;
-  for (const row of allExercisesAfterFirst.rows) {
-    const before = beforeState.get(row.slug);
-    if (before && (before.cue !== row.cue || before.impact !== row.impact)) {
+  for (const [slug, before] of beforeState) {
+    const allExercisesAfterFirst = await db.query<{cue: string; impact: string}>(
+      `SELECT cue, impact FROM exercises WHERE slug = $1`, [slug]
+    );
+    const after = allExercisesAfterFirst.rows[0];
+    if (after && (before.cue !== after.cue || before.impact !== after.impact)) {
       changedOnFirstRun++;
     }
   }
@@ -151,7 +161,9 @@ async function main() {
   
   console.log(`  ✅ Exactly ${changedOnFirstRun} exercise rows changed on first run\n`);
   
-  const beforeSecondRun = allExercisesAfterFirst.rows.map(r => ({ slug: r.slug, cue: r.cue, impact: r.impact }));
+  const beforeSecondRun = await db.query<{slug: string; cue: string; impact: string}>(
+    `SELECT slug, cue, impact FROM exercises ORDER BY slug`
+  );
   
   await db.exec(migrationSql);
   
@@ -161,7 +173,7 @@ async function main() {
   
   let changedOnSecondRun = 0;
   for (let i = 0; i < afterSecondRun.rows.length; i++) {
-    if (beforeSecondRun[i].cue !== afterSecondRun.rows[i].cue || beforeSecondRun[i].impact !== afterSecondRun.rows[i].impact) {
+    if (beforeSecondRun.rows[i].cue !== afterSecondRun.rows[i].cue || beforeSecondRun.rows[i].impact !== afterSecondRun.rows[i].impact) {
       changedOnSecondRun++;
     }
   }

@@ -116,14 +116,9 @@
     "test:equipment-bodyweight": "tsx scripts/test-equipment-bodyweight.ts",
     "test:inline-errors": "tsx scripts/test-inline-errors.ts",
     "test:yoga-preselection": "tsx scripts/test-yoga-preselection.ts",
-<<<<<<< HEAD
     "test:cue-parity": "tsx scripts/test-cue-parity.ts",
     "test:catalogue-descriptions": "tsx scripts/test-catalogue-descriptions.ts",
     "test:progression-chains": "tsx scripts/test-progression-chains.ts",
-=======
-    "test:session-targets": "tsx scripts/test-session-targets.ts",
-    "test:deload-trim": "tsx scripts/test-deload-trim.ts",
->>>>>>> origin/main
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
@@ -143,7 +138,8 @@
     "test:block-range": "tsx scripts/test-block-range.ts",
     "test:rebuild-history": "tsx scripts/test-rebuild-history.ts",
     "test:block-range-db": "tsx scripts/test-block-range-db.ts",
-    "test:session-targets": "tsx scripts/test-session-targets.ts"
+    "test:session-targets": "tsx scripts/test-session-targets.ts",
+    "test:deload-trim": "tsx scripts/test-deload-trim.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
