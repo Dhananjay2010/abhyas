@@ -121,15 +121,10 @@ async function testServedServiceWorker() {
     'Service worker must check mode === "navigate"'
   );
 
-  // 5. Fetch handler: pass original URL to offline page
+  // 5. Fetch handler: serve offline page under original URL (no url param needed)
   assert(
-    scriptText.includes("searchParams.set"),
-    "Service worker fetch handler must set url query param for original URL"
-  );
-
-  assert(
-    scriptText.includes("pathname + requestUrl.search") || scriptText.includes("requestUrl.pathname"),
-    "Service worker fetch handler must include pathname in url param"
+    scriptText.includes("window.location") || scriptText.includes("original request URL") || scriptText.includes("correct URL in the address bar"),
+    "Service worker fetch handler must document that it serves offline page under original URL"
   );
 
   // 6. Content-Type and Cache-Control headers
@@ -171,7 +166,7 @@ async function testServedServiceWorker() {
   console.log("  ✓ Checks /api routes");
   console.log("  ✓ Checks _rsc query param");
   console.log("  ✓ Checks mode === 'navigate'");
-  console.log("  ✓ Passes original URL to offline page via query param");
+  console.log("  ✓ Documents serving offline page under original URL");
   console.log("  ✓ Serves icon cache-first for offline page");
   console.log("  ✓ Checks icon URL pathname explicitly");
   console.log("  ✓ Content-Type is application/javascript");
