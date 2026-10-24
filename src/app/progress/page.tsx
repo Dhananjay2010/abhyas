@@ -167,24 +167,40 @@ export default async function ProgressPage() {
 
       {!hasAnything && (
         <p className="mt-8 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-          Complete a session or log your weight and the charts will fill in here.
+          Your first workout starts your streak. Complete a session or log your weight and the charts will fill in here.
         </p>
       )}
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold">Body weight</h2>
         <p className="mb-3 text-xs text-muted">Weigh in weekly, same time of day.</p>
-        <LineChart points={weightPoints} unit="kg" title="Body weight" />
+        {weightPoints.length < 2 ? (
+          <p className="mb-4 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
+            {weightPoints.length === 0
+              ? "Log your weight below to start tracking. Two data points will show a trend."
+              : "One entry logged. Add another to see your trend over time."}
+          </p>
+        ) : (
+          <LineChart points={weightPoints} unit="kg" title="Body weight" />
+        )}
         <LogWeight current={latestWeight} />
       </section>
 
-      {volumePoints.length > 0 && (
+      {volumeRows.length > 0 && (
         <section className="mt-10">
           <h2 className="text-sm font-semibold">Volume per session</h2>
           <p className="mb-3 text-xs text-muted">
             Reps × weight, totalled across the session.
           </p>
-          <BarChart points={volumePoints} unit="kg" title="Volume per session" />
+          {volumePoints.length < 2 ? (
+            <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
+              {volumePoints.length === 0
+                ? "Complete a workout with logged sets to see your volume."
+                : "One session logged. Your trend will appear after your next workout."}
+            </p>
+          ) : (
+            <BarChart points={volumePoints} unit="kg" title="Volume per session" />
+          )}
         </section>
       )}
 
@@ -196,12 +212,21 @@ export default async function ProgressPage() {
             axis would be unreadable here.
           </p>
           <div className="space-y-8">
-            {strengthCharts.map((e) => (
-              <div key={e.name}>
-                <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
-                <LineChart points={e.points} unit="kg" title={e.name} height={110} />
-              </div>
-            ))}
+            {strengthCharts.map((e) => {
+              const showChart = e.points.length >= 2;
+              return (
+                <div key={e.name}>
+                  <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
+                  {showChart ? (
+                    <LineChart points={e.points} unit="kg" title={e.name} height={110} />
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
+                      One session logged. Your strength trend will appear after your next workout.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
