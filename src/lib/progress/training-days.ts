@@ -26,12 +26,39 @@ type SessionType = Database["public"]["Enums"]["day_type"];
  * the template schedule. A "train anyway" session on a rest day counts.
  * Breathing practices never count.
  *
+ * For strength sessions (weights/bodyweight): must have at least one working set
+ * (warmup-only sessions don't count). Pass sets for validation or omit for
+ * type-only check (backward compatible).
+ *
  * Training sessions: weights, bodyweight, yoga
  * Non-training: rest, active_recovery, meditation (breathing)
  */
-export function countsTowardStreak(sessionType: SessionType | null): boolean {
+export function countsTowardStreak(
+  sessionType: SessionType | null,
+  sets?: Array<{ is_warmup_set: boolean | null; reps: number | null; duration_seconds: number | null }>
+): boolean {
   if (!sessionType) return false;
-  return sessionType === "weights" || sessionType === "bodyweight" || sessionType === "yoga";
+  
+  // Yoga always counts by type
+  if (sessionType === "yoga") return true;
+  
+  // Breathing never counts
+  if (sessionType === "rest" || sessionType === "active_recovery" || sessionType === "meditation") {
+    return false;
+  }
+  
+  // Strength sessions (weights/bodyweight) must have working sets
+  if (sessionType === "weights" || sessionType === "bodyweight") {
+    // If sets provided, validate working set count
+    if (sets !== undefined) {
+      const { countWorkingSets } = require("@/lib/session/count-sets");
+      return countWorkingSets(sets) > 0;
+    }
+    // Backward compatible: assume valid if sets not provided
+    return true;
+  }
+  
+  return false;
 }
 
 /**

@@ -137,15 +137,16 @@ export default async function HistoryPage({
   // Get exercise history helpers
   const { findTopSet } = await import("@/lib/exercise-history/calculations");
 
-  const items: SessionListItem[] = (sessions ?? []).map((s) => {
-    const vol = volumeById.get(s.id);
-    const isBreathing = s.actual_type === "meditation";
-    const exercises = exercisesBySession.get(s.id) ?? [];
+  const items: SessionListItem[] = (sessions ?? [])
+    .map((s) => {
+      const vol = volumeById.get(s.id);
+      const isBreathing = s.actual_type === "meditation";
+      const exercises = exercisesBySession.get(s.id) ?? [];
 
-    // Get working set count from detectSessionPRs (already computed)
-    const workingSetCount = setCountsBySession.get(s.id) ?? 0;
+      // Get working set count from detectSessionPRs (already computed)
+      const workingSetCount = setCountsBySession.get(s.id) ?? 0;
 
-    // Calculate top set weight for strength sessions
+      // Calculate top set weight for strength sessions
     let topSetWeight: number | null = null;
 
     if (!isBreathing && exercises.length > 0) {
@@ -202,6 +203,14 @@ export default async function HistoryPage({
           }
         : null,
     };
+  })
+  .filter((item) => {
+    // Exclude strength sessions with 0 working sets
+    const isStrength = item.actualType === "weights" || item.actualType === "bodyweight";
+    if (isStrength && item.setCount === 0) {
+      return false;
+    }
+    return true;
   });
 
   return (
