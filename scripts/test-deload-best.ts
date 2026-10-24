@@ -137,6 +137,29 @@ console.log("\n5. Warm-up sets never count (caller responsibility, but verified)
   const result = nextBest(zeroSets, prior, BENCH);
   check("zero-value sets excluded", result.bestWeightKg === 65, `${result.bestWeightKg}`);
 }
+{
+  // Mutant guard: if zero-value filter is removed, this should fail
+  const prior = { bestWeightKg: 60, bestReps: 12, bestE1rm: 84 };
+  const allZero: LoggedSet[] = [
+    { reps: 0, weightKg: 0 },
+    { reps: 0, weightKg: null },
+  ];
+  const result = nextBest(allZero, prior, BENCH);
+  check("all-zero sets don't update best", result.bestWeightKg === 60, `${result.bestWeightKg}`);
+  check("bests preserved when no working sets", result.bestReps === 12 && result.bestE1rm === 84);
+}
+{
+  // Critical mutant guard: non-zero weight with zero reps must NOT update best
+  // If v > 0 check is removed, this warm-up set would incorrectly set a 100 kg best
+  const prior = { bestWeightKg: 60, bestReps: 12, bestE1rm: 84 };
+  const warmUpWithWeight: LoggedSet[] = [
+    { reps: 0, weightKg: 100 },  // Warm-up set: heavy weight but 0 reps
+    { reps: 12, weightKg: 65 },  // Working set
+  ];
+  const result = nextBest(warmUpWithWeight, prior, BENCH);
+  check("warm-up set with weight doesn't set best", result.bestWeightKg === 65, `${result.bestWeightKg}`);
+  check("not 100 from the zero-rep warm-up", result.bestWeightKg !== 100);
+}
 
 console.log("\n6. Deload still doesn't advance the progression target");
 {
