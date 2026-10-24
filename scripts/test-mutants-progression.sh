@@ -2,15 +2,15 @@
 set -euo pipefail
 
 # Mutation testing for progression grid rounding
-# Plants exact-string mutants, verifies they change the file and compile,
-# runs targeted tests, counts new failures, restores from saved copy.
+# Uses literal string replacement (grep -F), verifies each mutant changes the file,
+# restores from backup on ANY exit, targeted tests only.
 
 PROG_FILE="src/lib/program/progression.ts"
-SAVED_FILE="/tmp/progression-saved-$$.ts"
+BACKUP_FILE="/tmp/progression-backup-$$.ts"
 MUTANT_COUNT=0
 SURVIVED_COUNT=0
 
-# Targeted test scripts
+# Targeted test scripts (green baseline required)
 TESTS=(
   "npm run test:progression"
   "npm run test:progression-grid"
@@ -19,23 +19,24 @@ TESTS=(
 echo "=== MUTATION TESTING: progression grid rounding ==="
 echo
 
-# Save original file
-cp "$PROG_FILE" "$SAVED_FILE"
-echo "Saved original to $SAVED_FILE"
+# Save backup
+cp "$PROG_FILE" "$BACKUP_FILE"
+echo "Saved backup to $BACKUP_FILE"
 echo
 
-# Run baseline tests
+# Restore on ANY exit
+trap 'cp "$BACKUP_FILE" "$PROG_FILE" 2>/dev/null; rm -f "$BACKUP_FILE"' EXIT
+
+# Check baseline
 echo "Running baseline tests..."
-BASELINE_EXIT=0
 for test in "${TESTS[@]}"; do
   if ! $test > /dev/null 2>&1; then
     echo "ERROR: Baseline test failed: $test"
-    echo "Baseline must pass before mutation testing"
-    rm -f "$SAVED_FILE"
+    echo "Baseline must be green before mutation testing"
     exit 1
   fi
 done
-echo "Baseline: PASS"
+echo "Baseline: all tests pass"
 echo
 
 # Helper to test one mutant
@@ -48,53 +49,48 @@ test_mutant() {
   echo "[$MUTANT_COUNT] $name"
   
   # Restore original
-  cp "$SAVED_FILE" "$PROG_FILE"
+  cp "$BACKUP_FILE" "$PROG_FILE"
   
-  # Plant mutant using exact string replacement
+  # Check string exists (literal match)
   if ! grep -qF "$find_str" "$PROG_FILE"; then
     echo "  ⚠️  STRING NOT FOUND (no-op mutant)"
-    echo "     Looking for: $find_str"
     SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
     return 1
   fi
   
-  # Replace
-  local tmp_file="/tmp/mutant-$$.ts"
-  awk -v find="$find_str" -v replace="$replace_str" '
-  {
-    if (index($0, find) > 0) {
-      sub(find, replace)
-      changed = 1
-    }
-    print
-  }
-  END { if (!changed) exit 1 }
-  ' "$PROG_FILE" > "$tmp_file"
+  # Plant mutant using Python for literal replacement
+  python3 -c "
+import sys
+with open('$PROG_FILE', 'r') as f:
+    content = f.read()
+original = content
+content = content.replace('''$find_str''', '''$replace_str''', 1)
+with open('$PROG_FILE', 'w') as f:
+    f.write(content)
+sys.exit(0 if content != original else 1)
+" 2>/dev/null
   
   if [ $? -ne 0 ]; then
     echo "  ⚠️  REPLACEMENT FAILED"
-    rm -f "$tmp_file"
     SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
     return 1
   fi
-  
-  mv "$tmp_file" "$PROG_FILE"
   
   # Verify file changed
-  if diff -q "$SAVED_FILE" "$PROG_FILE" > /dev/null 2>&1; then
-    echo "  ⚠️  FILE UNCHANGED (no-op mutant)"
+  if diff -q "$BACKUP_FILE" "$PROG_FILE" > /dev/null 2>&1; then
+    echo "  ⚠️  FILE UNCHANGED"
     SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
     return 1
   fi
   
-  # Verify it still compiles
+  # Verify still compiles
   if ! npx --package=typescript tsc --noEmit > /dev/null 2>&1; then
     echo "  ⚠️  DOES NOT COMPILE"
     SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
     return 1
   fi
   
-  # Run targeted tests and count failures
+  # Run targeted tests
   local has_new_failure=0
   for test in "${TESTS[@]}"; do
     if ! $test > /dev/null 2>&1; then
@@ -104,72 +100,86 @@ test_mutant() {
   done
   
   if [ "$has_new_failure" -eq 0 ]; then
-    echo "  ❌ SURVIVED (no new failures)"
+    echo "  ❌ SURVIVED"
     SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
   else
-    echo "  ✓ KILLED"
+    echo "  ✅ KILLED"
   fi
   
   echo
 }
 
-# Mutant R2: Success rounds down instead of up
+# PR1: Success rounds down
 test_mutant \
-  "Success rounds down instead of up" \
+  "Success rounds down (not up)" \
   "next = roundToGrid(rawNext, equipmentIds, unit, step, 'up');" \
   "next = roundToGrid(rawNext, equipmentIds, unit, step, 'down');"
 
-# Mutant R1: Back-off grid bypass (off-grid result)
+# PR2: Back-off bypasses grid
 test_mutant \
-  "Back-off bypasses grid (10% reduction not snapped)" \
+  "Back-off bypasses grid" \
   "const reduced = roundToGrid(rawReduced, equipmentIds, unit, step, 'down');" \
   "const reduced = rawReduced;"
 
-# Mutant R3: Chin-up load reset (non-loadable → 0)
+# PR3: Non-loadable equipment resets to 0
 test_mutant \
-  "Non-loadable equipment resets load to 0" \
+  "Non-loadable equipment → 0" \
   "const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));" \
   "const hasLoadable = false;"
 
-# Mutant R4: lb bells applied to kg
+# PR4: lb bells on kg state
 test_mutant \
-  "lb kettlebell bells applied to kg state" \
-  "const bells = unit === 'kg' ? KETTLEBELL_WEIGHTS_KG : KETTLEBELL_WEIGHTS_LB;" \
+  "lb kettlebell bells on kg state" \
+  "const bells = KETTLEBELL_WEIGHTS_KG;" \
   "const bells = KETTLEBELL_WEIGHTS_LB;"
 
-# Mutant R5: lb step applied to kg (standard grid)
+# PR5: lb grid step on kg
 test_mutant \
-  "lb grid step applied to kg values" \
-  "const gridStep = equipmentGridStep(effectiveEquipmentIds, unit);" \
+  "lb grid step on kg values" \
+  "const gridStep = equipmentGridStep(effectiveEquipmentIds, 'kg');" \
   "const gridStep = equipmentGridStep(effectiveEquipmentIds, 'lb');"
 
-# Mutant R6: Minimum floor → 0
+# PR6: No-equipment minimum floor → 0
 test_mutant \
-  "Minimum floor returns 0" \
+  "No-equipment minimum floor → 0" \
   "return Math.max(step, rounded);" \
   "return 0;"
 
-# Mutant R7: First miss drops two increments
+# PR7: First miss drops two steps
 test_mutant \
   "First miss drops two grid steps" \
   "const rawDrop = currentWeight - gridStep;" \
   "const rawDrop = currentWeight - gridStep * 2;"
 
-# Mutant R8: Hard hold not snapped to grid
+# PR8: Hard hold weight check disabled
 test_mutant \
-  "Hard hold weight not snapped to grid" \
-  "const held = equipmentIds && unit" \
-  "const held = false && equipmentIds && unit"
+  "Hard hold condition disabled" \
+  "if (feel === \"hard\" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {" \
+  "if (false && feel === \"hard\" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {"
 
-# Mutant R9: suggestedWeight deload bypasses grid
+# PR9: Deload bypasses grid
 test_mutant \
   "Deload suggestion bypasses grid" \
   "return roundToGrid(rawDeload, equipmentIds, unit, step, 'down');" \
   "return rawDeload;"
 
-# Restore original
-cp "$SAVED_FILE" "$PROG_FILE"
-rm -f "$SAVED_FILE"
+# N1: No-equipment first miss floor removed (allows negatives)
+test_mutant \
+  "No-equipment first miss allows negatives" \
+  "let nextWeight = currentWeight;" \
+  "let nextWeight = currentWeight !== null && currentWeight > 0 ? currentWeight - incrementFor(meta) : currentWeight;"
+
+# N2: No-equipment first miss drops (not holds)
+test_mutant \
+  "No-equipment first miss drops (main holds)" \
+  "// First miss: drop one equipment grid step with equipment, hold without" \
+  "// First miss: drop one equipment grid step with equipment, drop increment without"
+
+# N6: noData snap removed
+test_mutant \
+  "noData snap removed" \
+  "noDataWeight = snapped > noDataWeight ? noDataWeight : snapped;" \
+  "noDataWeight = noDataWeight;"
 
 echo "==================================="
 echo "Total mutants: $MUTANT_COUNT"

@@ -273,14 +273,6 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
   }
 }
 
-console.log("\n2b. Mutant: upper bound removed");
-{
-  // If upper bound is removed, 1e308 would not throw
-  // This is already tested above, just documenting expected fail count
-  console.log("    Expected fail count for mutant (upper bound removed): 3+");
-  console.log("    (tests for MAX+1, 1e308, MAX+0.4, and 6-10 would fail)");
-}
-
 console.log("\n3. Rep trim: 2-set bodyweight reps 8-12 becomes 5-8");
 {
   const planned: PlannedExercise = {

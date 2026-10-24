@@ -371,14 +371,14 @@ console.log("\n10. Determinism check");
 
 console.log("\n11. Backed-off weights are rounded to grid");
 {
-  // Two misses: 60 kg * 0.9 = 54 kg, rounds to 55 kg (barbell grid)
+  // Two misses: 60 kg * 0.9 = 54 kg, floored to 2.5 kg step = 52.5 kg (barbell grid)
   const d = run({
     sets: sets(4, 10, 60),
     state: fresh({ currentWorkingWeightKg: 60, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
   });
   check("outcome backed_off", d.outcome === "backed_off", d.outcome);
-  check("60 kg -> 55 kg (rounded to barbell grid)", d.nextWorkingWeightKg === 55, `${d.nextWorkingWeightKg}`);
+  check("60 kg -> 52.5 kg (floored to barbell grid)", d.nextWorkingWeightKg === 52.5, `${d.nextWorkingWeightKg}`);
 }
 {
   // Pin-stack machine: 50 kg * 0.9 = 45 kg (on-grid)
@@ -626,21 +626,21 @@ console.log("\n14. KG/LB UNIT TEST");
     `${dKg.nextWorkingWeightKg}`
   );
   
-  // Test lb
-  const lbWeight = 45; // 45 lb (on 5 lb grid)
+  // Test lb display: state still stored in kg
+  const lbStoredKg = 20; // 20 kg (stored value)
   const dLb = run({
     meta: BENCH,
-    sets: sets(4, 12, lbWeight),
-    state: fresh({ currentWorkingWeightKg: lbWeight }),
+    sets: sets(4, 12, lbStoredKg),
+    state: fresh({ currentWorkingWeightKg: lbStoredKg }),
     equipmentIds: ["barbell"],
     unit: "lb",
   });
   
-  // Barbell lb grid: 5 lb steps
-  // 45 + 5 = 50
+  // Barbell with lb display: still uses kg grid (2.5 kg steps)
+  // 20 + 2.5 = 22.5
   check(
-    "lb: barbell 45 lb progresses on lb grid (50 lb)",
-    dLb.nextWorkingWeightKg === 50,
+    "lb display: barbell 20 kg → 22.5 kg (kg grid, not lb)",
+    dLb.nextWorkingWeightKg === 22.5,
     `${dLb.nextWorkingWeightKg}`
   );
   
@@ -659,18 +659,18 @@ console.log("\n14. KG/LB UNIT TEST");
     `${dKbKg.nextWorkingWeightKg}`
   );
   
-  // Kettlebell lb
-  const kbLb = 35; // 35 lb
+  // Kettlebell with lb display: state still stored in kg
+  const kbLbStored = 16; // 16 kg (stored value)
   const dKbLb = run({
     meta: KETTLEBELL_SWING,
-    sets: sets(4, 12, kbLb),
-    state: fresh({ currentWorkingWeightKg: kbLb }),
+    sets: sets(4, 12, kbLbStored),
+    state: fresh({ currentWorkingWeightKg: kbLbStored }),
     equipmentIds: ["kettlebell"],
     unit: "lb",
   });
   check(
-    "lb: kettlebell 35 lb → 40 lb (lb bell)",
-    dKbLb.nextWorkingWeightKg === 40,
+    "lb display: kettlebell 16 kg → 18 kg (kg bell, not lb)",
+    dKbLb.nextWorkingWeightKg === 18,
     `${dKbLb.nextWorkingWeightKg}`
   );
 }
@@ -785,6 +785,63 @@ console.log("\n  (e) Mutant: Kettlebell deload rounds up");
     "kg"
   );
   check("Kettlebell deload rounds down to 16 kg", deload === 16, `${deload}`);
+}
+
+console.log("\n18. Kettlebell 4 kg progression (min bell)");
+{
+  // Test 4 kg -> 6 kg for every exercise type
+  const liftTypes: Array<{ meta: ExerciseMeta; name: string }> = [
+    { meta: { ...BENCH, movementPattern: "squat" }, name: "lower compound" },
+    { meta: BENCH, name: "upper compound" },
+    { meta: { ...BENCH, mechanic: "isolation" }, name: "isolation" },
+    { meta: { ...PUSHUP, isBodyweight: true }, name: "added-weight bodyweight" },
+  ];
+  
+  for (const liftType of liftTypes) {
+    const d = run({
+      meta: liftType.meta,
+      sets: sets(4, 12, 4),
+      state: fresh({ currentWorkingWeightKg: 4 }),
+      equipmentIds: ["kettlebell"],
+      unit: "kg",
+    });
+    check(
+      `kettlebell 4 kg ${liftType.name}: 4 -> 6`,
+      d.nextWorkingWeightKg === 6,
+      `${d.nextWorkingWeightKg}`
+    );
+  }
+}
+
+console.log("\n19. Units: kg storage with lb display");
+{
+  // State is stored in kg. With unit:"lb", grid still operates on kg values
+  const barbellLb = run({
+    sets: sets(4, 12, 40),
+    state: fresh({ currentWorkingWeightKg: 40 }),
+    equipmentIds: ["barbell"],
+    unit: "lb",
+  });
+  check("barbell 40 kg with lb display: 40 -> 42.5 kg (not 45)", barbellLb.nextWorkingWeightKg === 42.5, `${barbellLb.nextWorkingWeightKg}`);
+  
+  const kettlebellLb = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 12, 24),
+    state: fresh({ currentWorkingWeightKg: 24 }),
+    equipmentIds: ["kettlebell"],
+    unit: "lb",
+  });
+  check("kettlebell 24 kg with lb display: 24 -> 28 kg (not 25)", kettlebellLb.nextWorkingWeightKg === 28, `${kettlebellLb.nextWorkingWeightKg}`);
+  
+  const kbHardLb = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 12, 16),
+    state: fresh({ currentWorkingWeightKg: 16 }),
+    equipmentIds: ["kettlebell"],
+    feel: "hard",
+    unit: "lb",
+  });
+  check("kettlebell 16 kg Hard with lb display: holds at 16 kg (not 15)", kbHardLb.nextWorkingWeightKg === 16, `${kbHardLb.nextWorkingWeightKg}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
