@@ -138,7 +138,8 @@
     "test:block-range": "tsx scripts/test-block-range.ts",
     "test:rebuild-history": "tsx scripts/test-rebuild-history.ts",
     "test:block-range-db": "tsx scripts/test-block-range-db.ts",
-    "test:session-targets": "tsx scripts/test-session-targets.ts"
+    "test:session-targets": "tsx scripts/test-session-targets.ts",
+    "test:site-url": "tsx scripts/test-site-url.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
