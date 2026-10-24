@@ -40,18 +40,6 @@ console.log("\nTesting 7-day cutoff with fake clock\n");
 const storage = createStorage();
 const userId = "user-1";
 const sessionId = "sess-1";
-
-// Create deps with fake clock
-const realNow = Date.now();
-const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-
-console.log("\nTesting 7-day cutoff with fake clock\n");
-
-const storage = createStorage();
-const userId = "user-1";
-const sessionId = "sess-1";
-
-// Create deps with fake clock
 const realNow = Date.now();
 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
