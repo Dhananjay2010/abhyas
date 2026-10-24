@@ -123,7 +123,6 @@
     "test:deload-trim": "tsx scripts/test-deload-trim.ts",
     "test:save-queue": "tsx scripts/test-save-queue.ts",
     "test:settings-server-order": "tsx scripts/test-settings-server-order.tsx",
-    "test:equipment-sequence": "tsx scripts/test-equipment-sequence.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
@@ -149,10 +148,11 @@
     "test:settings-triple-tap": "tsx scripts/test-settings-triple-tap.tsx",
     "test:settings-first-load": "tsx scripts/test-settings-first-load.tsx",
     "test:settings-retry": "tsx scripts/test-settings-retry.tsx",
+    "test:equipment-sequence": "tsx scripts/test-equipment-sequence.ts",
     "test:settings-equipment-error-clear": "tsx scripts/test-settings-equipment-error-clear.tsx",
     "test:settings-two-fields-fail": "tsx scripts/test-settings-two-fields-fail.tsx",
-    "test:settings-no-revert-over-newer": "tsx scripts/test-settings-no-revert-over-newer.tsx"
->>>>>>> origin/main
+    "test:settings-no-revert-over-newer": "tsx scripts/test-settings-no-revert-over-newer.tsx",
+    "test:settings-flush-network-errors": "tsx scripts/test-settings-flush-network-errors.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
