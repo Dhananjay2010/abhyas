@@ -73,9 +73,11 @@ console.log("\n2. Text colors meet AA standards");
 {
   const fgBg = contrastRatio("#ecf1f6", COLORS.bg);
   const mutedBg = contrastRatio("#93a1ae", COLORS.bg);
+  const mutedSurface = contrastRatio("#93a1ae", COLORS.surface);
 
   check("fg vs bg", fgBg >= 7.0, `${fgBg.toFixed(2)}:1 (AAA large text)`);
   check("muted vs bg", mutedBg >= 4.5, `${mutedBg.toFixed(2)}:1 (AA normal text)`);
+  check("muted vs surface (dimmed chips)", mutedSurface >= 4.5, `${mutedSurface.toFixed(2)}:1 (AA normal text)`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

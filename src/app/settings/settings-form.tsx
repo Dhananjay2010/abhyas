@@ -299,7 +299,7 @@ export function SettingsForm({
                           true,
                         );
                       }}
-                      className={`rounded-full border px-4 py-2 text-sm ${
+                      className={`rounded-full border px-4 py-2 text-sm min-h-[44px] flex items-center ${
                         on
                           ? "border-accent bg-accent/10 text-accent"
                           : "border-border bg-surface text-muted"
@@ -334,7 +334,7 @@ export function SettingsForm({
                   setS({ ...s, injuries: next });
                   save(() => actions.updateInjuries(next), true);
                 }}
-                className={`rounded-full border px-4 py-2 text-sm ${
+                className={`rounded-full border px-4 py-2 text-sm min-h-[44px] flex items-center ${
                   found
                     ? "border-accent bg-accent/10 text-accent"
                     : "border-border bg-surface text-muted"
