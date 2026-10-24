@@ -13,6 +13,7 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { buildStartedSessionRows, buildTemplateRows } from "@/lib/today/build-today-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export default async function TodayPage() {
   // Nothing here depends on anything else here, so all three go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes, openRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes, openRes, settingsRes] = await Promise.all([
     // `maybeSingle`, not `single`: a missing row is a state to handle, not an
     // exception. With `single` PostgREST answers "Cannot coerce the result to a
     // single JSON object", which threw during the server render and reached the
@@ -49,6 +50,7 @@ export default async function TodayPage() {
       .in("status", ["planned", "in_progress"])
       .order("local_date", { ascending: false })
       .limit(20),
+    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).maybeSingle(),
   ]);
 
   /*
@@ -164,7 +166,7 @@ export default async function TodayPage() {
       .from("program_days")
       // One string literal: Supabase infers the row type from it, and a
       // concatenation degrades the result to GenericStringError.
-      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
+      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, exercise_id, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric, equipment_ids))")
       .eq("program_id", program.id)
       .order("day_index")
       .order("order_index", { referencedTable: "program_day_exercises" }),
@@ -338,7 +340,7 @@ export default async function TodayPage() {
           // `metric` from the session row, not from `exercises`: it records the
           // unit the session was RUN in. Reading the catalogue's current metric
           // rendered a plank prescribed in reps last week as "2 x 8-12s".
-          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue)")
+          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercise_id, exercises!session_exercises_exercise_id_fkey(name, cue, equipment_ids)")
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
@@ -365,6 +367,7 @@ export default async function TodayPage() {
 
   const template = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
     order_index: number;
+    exercise_id: string | null;
     target_sets: number | null;
     target_reps_min: number | null;
     target_reps_max: number | null;
@@ -373,8 +376,26 @@ export default async function TodayPage() {
       name: string;
       cue: string | null;
       metric: Database["public"]["Enums"]["exercise_metric"] | null;
+      equipment_ids: string[];
     } | null;
   }>;
+
+  // Fetch exercise_progress for exercises in the performed session OR the template
+  const templateExerciseIds = template.map(t => t.exercise_id).filter((id): id is string => id !== null);
+  const exerciseIds = performedRows?.data?.map(r => r.exercise_id).filter((id): id is string => id !== null) ?? [];
+  const allExerciseIds = [...new Set([...exerciseIds, ...templateExerciseIds])];
+  
+  const progressRes = allExerciseIds.length > 0 && settingsRes.data?.planning_mode !== "daily_menu"
+    ? await supabase
+        .from("exercise_progress")
+        .select("exercise_id, current_working_weight_kg, current_target_reps")
+        .eq("user_id", user.id)
+        .in("exercise_id", allExerciseIds)
+    : { data: null };
+
+  const progressByExercise = new Map(
+    (progressRes.data ?? []).map(p => [p.exercise_id, p])
+  );
 
   const actual = (performedRows?.data ?? null) as Array<{
     order_index: number;
@@ -382,41 +403,21 @@ export default async function TodayPage() {
     planned_reps_min: number | null;
     planned_reps_max: number | null;
     rest_seconds: number | null;
-    status: string | null;
+    status: Database["public"]["Enums"]["exercise_status"] | null;
     swapped_from_exercise_id: string | null;
     metric: Database["public"]["Enums"]["exercise_metric"] | null;
+    exercise_id: string | null;
     exercises: {
       name: string;
       cue: string | null;
+      equipment_ids: string[];
     } | null;
   }> | null;
 
   const todayExercises: TodayRow[] =
     actual && actual.length > 0
-      ? actual.map((r) => ({
-          key: `s${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.metric ?? null,
-          sets: r.planned_sets,
-          repsMin: r.planned_reps_min,
-          repsMax: r.planned_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: r.status === "skipped",
-          swappedIn: r.swapped_from_exercise_id !== null,
-        }))
-      : template.map((r) => ({
-          key: `p${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.exercises?.metric ?? null,
-          sets: r.target_sets,
-          repsMin: r.target_reps_min,
-          repsMax: r.target_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: false,
-          swappedIn: false,
-        }));
+      ? buildStartedSessionRows(actual, progressByExercise)
+      : buildTemplateRows(template, progressByExercise);
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show

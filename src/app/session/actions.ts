@@ -15,8 +15,10 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
-import { applyDeload, prescribe } from "@/lib/program/prescription";
+import { isBodyweightEquipment } from "@/lib/program/bodyweight";
+import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
+import { swapExerciseCore } from "@/lib/session/swap-core";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
@@ -391,9 +393,10 @@ async function applyProgression(
     // by what the exercise has since been re-tagged as would read a set of
     // twelve reps as a twelve-second hold.
     metric: se.metric ?? "reps",
-    isBodyweight: (ex.equipment_ids ?? []).length === 0,
+    isBodyweight: isBodyweightEquipment(ex.equipment_ids),
     progressionChain: ex.progression_chain,
     progressionRank: ex.progression_rank,
+    equipmentIds: ex.equipment_ids,
   };
 
   const prior = progressRes.data;
@@ -732,6 +735,9 @@ export type SwapResult = {
   repsMin: number | null;
   repsMax: number | null;
   equipmentIds: string[];
+  workingWeightKg: number | null;
+  suggestedWeightKg: number | null;
+  targetReps: number | null;
 };
 
 export async function swapExercise(input: {
@@ -743,82 +749,14 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes] = await Promise.all([
-    supabase
-      .from("session_exercises")
-      .select("exercise_id, metric, planned_reps_min, planned_reps_max")
-      .eq("id", input.sessionExerciseId)
-      .maybeSingle(),
-    /*
-      The unit can change with the swap: the alternatives for a core slot
-      include holds, deliberately -- making a plank reachable from the swap list
-      was the point of ranking that list. Without carrying the metric the
-      session went on asking for reps while the screen named a plank.
-      
-      equipment_ids is also needed: when the session loads, isBodyweight is 
-      derived from whether equipment_ids is empty, and without it here a barbell
-      exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
-    */
-    supabase
-      .from("exercises")
-      .select("metric, mechanic, equipment_ids")
-      .eq("id", input.newExerciseId)
-      .maybeSingle(),
-    supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
-  ]);
+  const result = await swapExerciseCore({ supabase, userId: user.id }, input);
 
-  const current = currentRes.data;
-  if (!current) return { ok: false, error: "Exercise not found" };
+  if (!result.ok) return result;
 
-  const replacement = replacementRes.data;
-  const metric = metricOf(replacement);
-  const equipmentIds = replacement?.equipment_ids ?? [];
-  const profile = profileRes.data;
-
-  /*
-    A changed unit needs a changed range. `planned_reps_min/max` are the range
-    in the exercise's own metric, so swapping eight-to-twelve reps for a hold
-    without re-prescribing would ask for an eight-second plank. The goal's hold
-    table is the same one the generator uses, so a swap lands on what the
-    planner would have prescribed for that slot.
-
-    Only the range is re-derived. Sets stay as the day dosed them -- including a
-    deload week's reduction, which `applyDeload` applies to sets and not to the
-    range -- because the swap is a substitution within the session, not a
-    re-planning of it.
-  */
-  const reranged =
-    metric !== current.metric && profile?.goal && profile?.level
-      ? prescribe(
-          profile.goal,
-          profile.level,
-          replacementRes.data?.mechanic === "isolation",
-          metric,
-        )
-      : null;
-
-  const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
-  const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
-
-  const { error } = await supabase
-    .from("session_exercises")
-    .update({
-      exercise_id: input.newExerciseId,
-      swapped_from_exercise_id: current.exercise_id,
-      metric,
-      planned_reps_min: repsMin,
-      planned_reps_max: repsMax,
-    })
-    .eq("id", input.sessionExerciseId);
-
-  // Returned rather than left for the client to guess: the runner is mid-session
-  // and must not re-fetch, but it does have to redraw the target and the
-  // hold button with the range that was just written.
-  return error
-    ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds } };
+  // The runner is mid-session and must not re-fetch, so we don't revalidate here.
+  // The returned data tells the runner what it needs to redraw the UI.
+  return result;
 }
-
 
 /**
  * Make sure a session has its exercises, copying them from the program day.

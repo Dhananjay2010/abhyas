@@ -26,7 +26,7 @@ async function requireUser() {
 export async function updateSessionSettings(patch: SettingsUpdate): Promise<Result> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase, user } = await requireUser();
   // Upsert, not update. `user_settings` is created by the on_auth_user_created
   // trigger, so a plain UPDATE quietly matches zero rows for any account whose
@@ -49,7 +49,7 @@ export async function updateSessionSettings(patch: SettingsUpdate): Promise<Resu
 export async function updateProfileSettings(patch: ProfileUpdate): Promise<Result> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase, user } = await requireUser();
 
   if (patch.days_per_week != null && (patch.days_per_week < 3 || patch.days_per_week > 6)) {
@@ -108,7 +108,7 @@ export async function updateEquipment(input: {
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase, user } = await requireUser();
 
   // Fetch current state
@@ -117,15 +117,15 @@ export async function updateEquipment(input: {
     .select("has_all_equipment")
     .eq("id", user.id)
     .single();
-  
+
   const { data: currentEquipment } = await supabase
     .from("user_equipment")
     .select("equipment_id")
     .eq("user_id", user.id);
-  
+
   const currentHasAll = profile?.has_all_equipment ?? false;
   const currentEquipmentIds = currentEquipment?.map(e => e.equipment_id) ?? [];
-  
+
   // Decide what to do
   const decision = decideEquipmentUpdate({
     currentHasAll,
@@ -133,11 +133,11 @@ export async function updateEquipment(input: {
     newHasAll: input.hasAll,
     newEquipmentIds: input.equipmentIds,
   });
-  
+
   if (decision.action === "error") {
     return { ok: false, error: decision.error };
   }
-  
+
   if (decision.action === "skip") {
     return { ok: true };
   }
@@ -146,24 +146,24 @@ export async function updateEquipment(input: {
   if (!input.hasAll && input.equipmentIds.length > 0) {
     // Dedupe the IDs
     const uniqueIds = Array.from(new Set(input.equipmentIds));
-    
+
     // Check all IDs exist in equipment catalogue
     const { data: validEquipment, error: catalogueError } = await supabase
       .from("equipment")
       .select("id")
       .in("id", uniqueIds);
-    
+
     if (catalogueError) {
       return { ok: false, error: catalogueError.message };
     }
-    
+
     const validIds = new Set(validEquipment?.map(e => e.id) ?? []);
     const invalidIds = uniqueIds.filter(id => !validIds.has(id));
-    
+
     if (invalidIds.length > 0) {
-      return { 
-        ok: false, 
-        error: `Invalid equipment: ${invalidIds.join(", ")}` 
+      return {
+        ok: false,
+        error: `Invalid equipment: ${invalidIds.join(", ")}`
       };
     }
   }
@@ -171,7 +171,7 @@ export async function updateEquipment(input: {
   // L2 QA fix: Insert/upsert new rows before deleting removed ones
   if (!input.hasAll && input.equipmentIds.length > 0) {
     const uniqueIds = Array.from(new Set(input.equipmentIds));
-    
+
     // Upsert new equipment rows
     const { error: upsertError } = await supabase
       .from("user_equipment")
@@ -216,7 +216,7 @@ export async function updateInjuries(
 ): Promise<Result> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase, user } = await requireUser();
 
   const { error: clearError } = await supabase

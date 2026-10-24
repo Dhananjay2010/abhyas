@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+import { effectiveRepsMax } from "./effective-target";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -37,6 +38,8 @@ export type ExerciseMeta = {
   isBodyweight: boolean;
   progressionChain: string | null;
   progressionRank: number | null;
+  /** Equipment IDs for grid-based weight rounding (optional, used by equipment-grid feature). */
+  equipmentIds?: string[];
 };
 
 export type Outcome =
@@ -301,8 +304,15 @@ export function evaluateProgression(input: {
   const carried = { ...base };
 
   // Success requires the full set count AND the top of the rep range on each.
+  // For unloaded bodyweight moves, use the progressed target if available.
   const completedAllSets = working.length >= plannedSets;
-  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= repsMax);
+  const target = effectiveRepsMax({
+    plannedMax: repsMax,
+    progressedTarget: state.currentTargetReps,
+    isBodyweight: meta.isBodyweight,
+    usedWeight: heaviest,
+  });
+  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= target);
   const succeeded = completedAllSets && hitTopOfRange;
 
   if (succeeded) {
@@ -312,7 +322,11 @@ export function evaluateProgression(input: {
     if (heaviest === 0) {
       const canProgressVariation = meta.isBodyweight && meta.progressionChain !== null;
       const step = isTimed ? HOLD_STEP_SECONDS : 2;
-      const nextTarget = (state.currentTargetReps ?? repsMax) + step;
+      // Use max(currentTargetReps, repsMax) to prevent stale lower targets from progressing
+      const baseTarget = meta.isBodyweight
+        ? Math.max(state.currentTargetReps ?? repsMax, repsMax)
+        : (state.currentTargetReps ?? repsMax);
+      const nextTarget = baseTarget + step;
       // Reps run out of usefulness relative to the range they started in; a
       // hold runs out at an absolute length, whatever it was prescribed at.
       const ceiling = isTimed ? HOLD_CEILING_SECONDS : repsMax + 4;
