@@ -35,6 +35,32 @@ export function isSessionExpired(errOrResponse: unknown): boolean {
 }
 
 /**
+ * Check if an error indicates session expiration (401 or auth error).
+ */
+export function isSessionExpired(errOrResponse: unknown): boolean {
+  if (
+    errOrResponse &&
+    typeof errOrResponse === 'object' &&
+    'ok' in errOrResponse &&
+    errOrResponse.ok === false
+  ) {
+    const err = errOrResponse as { ok: false; error?: string; code?: string };
+    if (err.code === SESSION_EXPIRED_CODE) return true;
+  }
+  
+  if (errOrResponse instanceof Error) {
+    const message = errOrResponse.message;
+    return message.startsWith(SESSION_EXPIRED_CODE + ':');
+  }
+  
+  if (errOrResponse instanceof Response) {
+    return errOrResponse.status === 401;
+  }
+  
+  return false;
+}
+
+/**
  * Build a sign-in redirect URL with next parameter.
  */
 export function signInAgainHref(nextPath: string): string {
