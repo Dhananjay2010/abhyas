@@ -148,8 +148,46 @@ export function SessionRunner({
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
 
-  // Start from initialExercises and merge pending/failed in mount effect (avoid hydration mismatch)
-  const [exercises, setExercises] = useState(initialExercises);
+  // Load from cache if initialExercises empty (offline reload)
+  // Production path: src/app/session/[id]/session-runner.tsx:154
+  const [exercises, setExercises] = useState<RunnerExercise[]>(() => {
+    if (initialExercises.length > 0) return initialExercises;
+    
+    if (typeof window === "undefined") return initialExercises;
+    
+    const storage: SessionCacheStorage = {
+      getItem: (key) => window.localStorage.getItem(key),
+      setItem: (key, value) => window.localStorage.setItem(key, value),
+    };
+
+    const cached = loadCachedSession(storage, sessionId, userId);
+    if (!cached) return initialExercises;
+
+    // Map to RunnerExercise format
+    return cached.exercises.map((ex) => ({
+      id: ex.id,
+      exerciseId: ex.exerciseId,
+      name: ex.name,
+      cue: null,
+      metric: "reps",
+      primaryMuscles: [],
+      plannedSets: ex.plannedSets,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: ex.sets.map((s) => ({
+        setNumber: s.setNumber,
+        reps: s.reps,
+        weightKg: s.weightKg,
+        durationSeconds: s.durationSeconds,
+      })),
+      isBodyweight: false,
+    }));
+  });
 
   const [error, setError] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
@@ -202,55 +240,6 @@ export function SessionRunner({
   );
 
   const wakeLock = useWakeLock(phase !== "done");
-
-  /**
-   * Load from cached snapshot when server data unavailable (offline reload).
-   * Production path: src/app/session/[id]/session-runner.tsx:207
-   */
-  const [cacheLoadAttempted, setCacheLoadAttempted] = useState(false);
-
-  useEffect(() => {
-    if (cacheLoadAttempted || initialExercises.length > 0) return;
-    
-    setCacheLoadAttempted(true);
-    
-    if (typeof window === "undefined") return;
-    
-    const storage: SessionCacheStorage = {
-      getItem: (key) => window.localStorage.getItem(key),
-      setItem: (key, value) => window.localStorage.setItem(key, value),
-    };
-
-    const cached = loadCachedSession(storage, sessionId, userId);
-    if (!cached) return;
-
-    // Map to RunnerExercise format
-    const restoredExercises: RunnerExercise[] = cached.exercises.map((ex) => ({
-      id: ex.id,
-      exerciseId: ex.exerciseId,
-      name: ex.name,
-      cue: null,
-      metric: "reps",
-      primaryMuscles: [],
-      plannedSets: ex.plannedSets,
-      repsMin: 8,
-      repsMax: 12,
-      restSeconds: 90,
-      workingWeightKg: null,
-      suggestedWeightKg: null,
-      status: "pending",
-      feel: null,
-      sets: ex.sets.map((s) => ({
-        setNumber: s.setNumber,
-        reps: s.reps,
-        weightKg: s.weightKg,
-        durationSeconds: s.durationSeconds,
-      })),
-      isBodyweight: false,
-    }));
-
-    setExercises(restoredExercises);
-  }, [cacheLoadAttempted, initialExercises.length, sessionId, userId]);
 
   /**
    * Write a session snapshot to localStorage for offline resilience.

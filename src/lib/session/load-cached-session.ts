@@ -5,7 +5,7 @@
  * Returns null if no cached data found.
  */
 
-import { readSessionSnapshot, mergeSnapshotWithOutbox, type SessionCacheStorage, type SessionSnapshot } from "./session-cache";
+import { readSessionSnapshot, mergeSnapshotWithOutbox, type SessionCacheStorage } from "./session-cache";
 
 export interface CachedSessionData {
   exercises: Array<{
