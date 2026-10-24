@@ -42,7 +42,6 @@ export default async function HistoryPage({
 
   // Get the correct count using RPC (excludes zero-set strength and skipped sessions)
   // Pass today as a date (YYYY-MM-DD string is coerced to date by PostgREST)
-  // @ts-expect-error - RPC function not in generated types yet
   const { data: countData } = await supabase.rpc("get_history_count", {
     p_user: user.id,
     p_filter: filter,
@@ -53,7 +52,21 @@ export default async function HistoryPage({
   // Build the query based on filter
   // For lifts, we need to join with session_volume to exclude zero-set sessions at SQL level
   // For other filters, we can query sessions directly
-  let sessions: unknown[] | null = null;
+  type SessionQueryResult = {
+    id: string;
+    local_date: string;
+    status: string;
+    actual_type: string | null;
+    duration_seconds: number | null;
+    started_at: string | null;
+    completed_at: string | null;
+    is_deload: boolean;
+    week_in_block: number | null;
+    program_days: { label: string } | null;
+    breathing_patterns: { name: string; phases: unknown } | null;
+    breathing_logs: Array<{ breaths: number; routine_name: string | null }>;
+  };
+  let sessions: SessionQueryResult[] | null = null;
   let sessionsError: PostgrestError | null = null;
 
   if (filter === "lifts") {
@@ -90,7 +103,7 @@ export default async function HistoryPage({
 
     sessionsError = error;
     // Extract the nested sessions data
-    sessions = volumeSessions?.map((v: { sessions: unknown }) => v.sessions) ?? null;
+    sessions = volumeSessions?.map((v: { sessions: SessionQueryResult }) => v.sessions) ?? null;
   } else {
     // For yoga/breathing: query sessions directly (no zero-set filtering needed)
     let query = supabase
