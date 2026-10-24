@@ -2,6 +2,7 @@
 
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
@@ -51,6 +52,9 @@ function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metr
  * wiping the sets already logged.
  */
 export async function startSession(): Promise<Result<{ sessionId: string }>> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<{ sessionId: string }>;
+  
   const { supabase, user } = await requireUser();
 
   // ---- wave 1 -------------------------------------------------------------
@@ -241,6 +245,9 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
 }
 
 export async function markWarmupDone(sessionId: string): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("sessions")
@@ -257,6 +264,9 @@ export async function logSet(input: {
   /** Seconds held, for a `seconds` exercise. Its `reps` stays null. */
   durationSeconds?: number | null;
 }): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const durationSeconds = input.durationSeconds ?? null;
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
@@ -282,6 +292,9 @@ export async function deleteSet(
   sessionExerciseId: string,
   setNumber: number,
 ): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("session_sets")
@@ -314,6 +327,9 @@ export async function finishExercise(input: {
   feel: SetFeel | null;
   skipped?: boolean;
 }): Promise<Result<ProgressionFeedback | null>> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
+  
   const { supabase, user } = await requireUser();
 
   const { error } = await supabase
@@ -506,6 +522,9 @@ export async function finishSession(input: {
   durationSeconds: number;
   cooldownCompleted: boolean;
 }): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase } = await requireUser();
   
   // Safety: Only update if status is still 'in_progress' to prevent double-accumulation on retry.
@@ -548,6 +567,9 @@ export async function abandonSession(
   sessionId: string,
   elapsedSeconds: number,
 ): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase } = await requireUser();
   
   // Check if any working sets were logged
@@ -613,6 +635,9 @@ export type Alternative = {
 export async function findAlternatives(
   sessionExerciseId: string,
 ): Promise<Result<Alternative[]>> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<Alternative[]>;
+  
   const { supabase, user } = await requireUser();
 
   const { data: current } = await supabase
@@ -726,6 +751,9 @@ export async function swapExercise(input: {
   sessionExerciseId: string;
   newExerciseId: string;
 }): Promise<Result<SwapResult>> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit as Result<SwapResult>;
+  
   const { supabase, user } = await requireUser();
 
   const [currentRes, replacementRes, profileRes] = await Promise.all([
@@ -897,6 +925,9 @@ export async function planDay(input: {
   localDate: string;
   plan: DayPlan;
 }): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("session");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
 
   const { data: profile } = await supabase
