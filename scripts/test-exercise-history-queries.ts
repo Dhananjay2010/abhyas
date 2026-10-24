@@ -16,7 +16,7 @@ import {
 type QueryCall = {
   method: string;
   table: string;
-  filters: Array<{ column: string; operator: string; value: any }>;
+  filters: Array<{ column: string; operator: string; value: unknown }>;
   orders: Array<{ column: string; ascending: boolean }>;
   limit?: number;
   range?: [number, number];
@@ -26,9 +26,9 @@ type QueryCall = {
  * Mock Supabase client that records query calls for assertion.
  */
 function createMockSupabase(mockData: {
-  sessions?: any[];
-  sessionExercises?: any[];
-  sets?: any[];
+  sessions?: unknown[];
+  sessionExercises?: unknown[];
+  sets?: unknown[];
 }) {
   const calls: QueryCall[] = [];
 
@@ -41,19 +41,19 @@ function createMockSupabase(mockData: {
     };
 
     const builder = {
-      select(columns: string) {
+      select(_columns: string) {
         currentCall.method = "select";
         return builder;
       },
-      eq(column: string, value: any) {
+      eq(column: string, value: unknown) {
         currentCall.filters.push({ column, operator: "eq", value });
         return builder;
       },
-      in(column: string, values: any[]) {
+      in(column: string, values: unknown[]) {
         currentCall.filters.push({ column, operator: "in", value: values });
         return builder;
       },
-      not(column: string, operator: string, value: any) {
+      not(column: string, operator: string, value: unknown) {
         currentCall.filters.push({ column, operator: `not_${operator}`, value });
         return builder;
       },
@@ -85,11 +85,11 @@ function createMockSupabase(mockData: {
         
         return Promise.resolve({ data, error: null });
       },
-      then(resolve: (value: any) => void) {
+      then(resolve: (value: { data: unknown; error: null }) => void) {
         calls.push({ ...currentCall });
         
         // Return mock data based on table
-        let data: any = null;
+        let data: unknown = null;
         if (table === "sessions") {
           data = mockData.sessions || [];
         } else if (table === "session_exercises") {
@@ -152,6 +152,7 @@ async function runTests() {
       ],
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await getLastPerformance(mockClient as any, "user-123", "exercise-456");
     const calls = mockClient._getCalls();
 
@@ -187,6 +188,7 @@ async function runTests() {
       ],
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await getBatchLastPerformance(mockClient as any, "user-123", ["ex1", "ex2"]);
     
     check("returns a Map", result instanceof Map);
@@ -213,6 +215,7 @@ async function runTests() {
       ],
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await getExerciseHistory(mockClient as any, "user-123", "exercise-789", { limit: 10, offset: 0 });
     const calls = mockClient._getCalls();
 
@@ -255,6 +258,7 @@ async function runTests() {
       sets: [{ session_exercise_id: "se1", reps: 10, weight_kg: 50, duration_seconds: null }],
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await getLastPerformance(mockClient as any, "user-123", "exercise-456");
     const calls = mockClient._getCalls();
 
