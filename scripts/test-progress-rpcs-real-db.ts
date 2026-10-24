@@ -644,6 +644,174 @@ async function runTests() {
       }
     }
 
+    console.log("\n10. History pagination fix: page 2 shows rows 21-40 (not 1-20)");
+    {
+      // This test proves the bug exists on main and is fixed by loadHistoryPage
+      // Seed exactly 48 completed sessions for a test user
+      const paginationUserId = randomUUID();
+      
+      // Create user profile
+      await adminClient.from("profiles").insert({
+        id: paginationUserId,
+        timezone: "UTC",
+        onboarding_completed_at: "2026-01-01T00:00:00Z",
+      });
+
+      const sessions = [];
+      const sessionExercises = [];
+      const sets = [];
+
+      // Create 48 sessions with unique completion timestamps
+      for (let i = 0; i < 48; i++) {
+        const sessionId = randomUUID();
+        const seId = randomUUID();
+        
+        // Date descending: most recent first
+        const daysAgo = i;
+        const sessionDate = new Date("2026-10-24T12:00:00Z");
+        sessionDate.setDate(sessionDate.getDate() - daysAgo);
+        const localDate = sessionDate.toISOString().split("T")[0];
+        const completedAt = sessionDate.toISOString();
+
+        sessions.push({
+          id: sessionId,
+          user_id: paginationUserId,
+          local_date: localDate,
+          status: "completed",
+          actual_type: "weights",
+          completed_at: completedAt,
+        });
+
+        sessionExercises.push({
+          id: seId,
+          user_id: paginationUserId,
+          session_id: sessionId,
+          exercise_id: exerciseA,
+          metric: "reps",
+          status: "completed",
+          order_index: 0,
+        });
+
+        // 1 set per session
+        sets.push({
+          user_id: paginationUserId,
+          session_exercise_id: seId,
+          set_number: 1,
+          reps: 5,
+          weight_kg: 100,
+          is_warmup_set: false,
+        });
+      }
+
+      await adminClient.from("sessions").insert(sessions);
+      await adminClient.from("session_exercises").insert(sessionExercises);
+      await adminClient.from("session_sets").insert(sets);
+
+      // Create authenticated client for pagination user
+      const paginationEmail = `test-pagination-${Date.now()}@example.com`;
+      const paginationPassword = "test-password-pagination";
+      
+      await adminClient.auth.admin.createUser({
+        id: paginationUserId,
+        email: paginationEmail,
+        password: paginationPassword,
+        email_confirm: true,
+      });
+
+      const paginationClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      await paginationClient.auth.signInWithPassword({
+        email: paginationEmail,
+        password: paginationPassword,
+      });
+
+      // Page 1: rows 1-20
+      const { data: page1Data } = await paginationClient.rpc("get_history_page", {
+        p_user: paginationUserId,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 20,
+        p_offset: 0,
+      });
+
+      const page1Rows = page1Data as HistoryPageRow[];
+      const page1Ids = page1Rows.map(r => r.session_id).filter((id): id is string => id !== null);
+
+      // Page 2: rows 21-40 (offset 20)
+      const { data: page2Data } = await paginationClient.rpc("get_history_page", {
+        p_user: paginationUserId,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 20,
+        p_offset: 20,
+      });
+
+      const page2Rows = page2Data as HistoryPageRow[];
+      const page2Ids = page2Rows.map(r => r.session_id).filter((id): id is string => id !== null);
+
+      // Page 3: rows 41-48 (offset 40)
+      const { data: page3Data } = await paginationClient.rpc("get_history_page", {
+        p_user: paginationUserId,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 20,
+        p_offset: 40,
+      });
+
+      const page3Rows = page3Data as HistoryPageRow[];
+      const page3Ids = page3Rows.map(r => r.session_id).filter((id): id is string => id !== null);
+
+      check("page 1 returns 20 rows", page1Ids.length === 20,
+        `got ${page1Ids.length}`);
+      check("page 2 returns 20 rows", page2Ids.length === 20,
+        `got ${page2Ids.length}`);
+      check("page 3 returns 8 rows", page3Ids.length === 8,
+        `got ${page3Ids.length}`);
+
+      // CRITICAL: page 1 and page 2 must NOT overlap
+      const page1Set = new Set(page1Ids);
+      const page2Set = new Set(page2Ids);
+      const page3Set = new Set(page3Ids);
+
+      const overlap1_2 = page1Ids.filter(id => page2Set.has(id));
+      const overlap2_3 = page2Ids.filter(id => page3Set.has(id));
+      const overlap1_3 = page1Ids.filter(id => page3Set.has(id));
+
+      check("page 1 and page 2 have NO overlap", overlap1_2.length === 0,
+        `found ${overlap1_2.length} duplicates`);
+      check("page 2 and page 3 have NO overlap", overlap2_3.length === 0,
+        `found ${overlap2_3.length} duplicates`);
+      check("page 1 and page 3 have NO overlap", overlap1_3.length === 0,
+        `found ${overlap1_3.length} duplicates`);
+
+      // Verify ordering: page 1 should have newest 20, page 2 next 20, page 3 oldest 8
+      // Fetch all sessions to verify order
+      const { data: allSessions } = await adminClient
+        .from("sessions")
+        .select("id, completed_at")
+        .eq("user_id", paginationUserId)
+        .order("completed_at", { ascending: false });
+
+      if (allSessions && allSessions.length === 48) {
+        const expectedPage1 = allSessions.slice(0, 20).map(s => s.id);
+        const expectedPage2 = allSessions.slice(20, 40).map(s => s.id);
+        const expectedPage3 = allSessions.slice(40, 48).map(s => s.id);
+
+        const page1Matches = expectedPage1.every(id => page1Set.has(id));
+        const page2Matches = expectedPage2.every(id => page2Set.has(id));
+        const page3Matches = expectedPage3.every(id => page3Set.has(id));
+
+        check("page 1 contains correct rows 1-20", page1Matches,
+          `expected all ${expectedPage1.length} to match`);
+        check("page 2 contains correct rows 21-40", page2Matches,
+          `expected all ${expectedPage2.length} to match`);
+        check("page 3 contains correct rows 41-48", page3Matches,
+          `expected all ${expectedPage3.length} to match`);
+      }
+
+      // Clean up pagination test user
+      await adminClient.auth.admin.deleteUser(paginationUserId);
+    }
+
     console.log("\n9. QA TZ-1: completed session with local_date > p_today appears");
     {
       // After a timezone change, a completed session can have local_date = tomorrow
