@@ -339,7 +339,7 @@ export default async function TodayPage() {
           // `metric` from the session row, not from `exercises`: it records the
           // unit the session was RUN in. Reading the catalogue's current metric
           // rendered a plank prescribed in reps last week as "2 x 8-12s".
-          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue), session_sets!session_sets_session_exercise_id_fkey(set_type)")
+          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue), session_sets!session_sets_session_exercise_id_fkey(is_warmup_set)")
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
@@ -392,7 +392,7 @@ export default async function TodayPage() {
       cue: string | null;
     } | null;
     session_sets: Array<{
-      set_type: string | null;
+      is_warmup_set: boolean;
     }>;
   }> | null;
 
@@ -400,7 +400,7 @@ export default async function TodayPage() {
     actual && actual.length > 0
       ? actual.map((r) => {
           const workingSetsLogged = (r.session_sets ?? []).filter(
-            (s) => s.set_type === "working",
+            (s) => !s.is_warmup_set,
           ).length;
           const plannedSets = r.planned_sets ?? 0;
           const completion = exerciseCompletion(workingSetsLogged, plannedSets);
@@ -408,12 +408,17 @@ export default async function TodayPage() {
           let completionLabel = "";
           let strikethrough = false;
 
-          if (completion === "skipped") {
-            completionLabel = "Skipped";
-            strikethrough = true;
-          } else if (completion === "partial") {
-            completionLabel = `Partly done · ${workingSetsLogged} of ${plannedSets} sets`;
-            strikethrough = false;
+          // Only show completion status for ended sessions
+          const sessionEnded = performed?.status !== "in_progress";
+
+          if (sessionEnded) {
+            if (completion === "skipped") {
+              completionLabel = "Skipped";
+              strikethrough = true;
+            } else if (completion === "partial") {
+              completionLabel = `Partly done · ${workingSetsLogged} of ${plannedSets} sets`;
+              strikethrough = false;
+            }
           }
 
           return {

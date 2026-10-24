@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Test resolveStaleFinish helper.
+ * Test resolveStaleFinish helper with rest interval logic.
  *
  *   npx tsx scripts/test-stale-duration.ts
  */
@@ -22,20 +22,10 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-function assertTrue(condition: boolean, message: string) {
-  if (condition) {
-    console.log(`  ok   ${message}`);
-    passed++;
-  } else {
-    console.error(`❌ ${message}`);
-    failed++;
-  }
-}
-
 console.log("\nTesting resolveStaleFinish helper\n");
 
-// Test 1: Normal case with working sets and last set
-console.log("1. Normal stale finish with working sets");
+// Test 1: Sets logged, ended_at = last_set + rest (default 300s)
+console.log("1. Sets logged with null rest uses default 300s");
 {
   const startedAt = "2026-10-23T14:00:00Z";
   const lastSetCompletedAt = "2026-10-23T14:25:00Z"; // 25 minutes after start
@@ -44,124 +34,23 @@ console.log("1. Normal stale finish with working sets");
     startedAt,
     lastSetCompletedAt,
     workingSetCount: 3,
+    restSeconds: null,
   });
 
   assertEquals(result.status, "completed", "Status is completed");
-  assertEquals(result.durationSeconds, 1500, "Duration is 25 minutes (1500s)");
-  // Normalize timestamps for comparison (both to milliseconds)
+  // Duration: (14:25 + 5min) - 14:00 = 30 minutes = 1800s
+  assertEquals(result.durationSeconds, 1800, "Duration is 30 minutes (25m + 5m rest)");
+  
+  const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
-    new Date(lastSetCompletedAt).getTime(),
-    "Ended at last set time"
+    expectedEndMs,
+    "Ended at last set + 300s"
   );
 }
 
-// Test 2: Warm-up only (0 working sets) gives skipped
-console.log("\n2. Warm-up only (0 working sets) gives skipped");
-{
-  const startedAt = "2026-10-23T14:00:00Z";
-  const lastSetCompletedAt = "2026-10-23T14:05:00Z";
-
-  const result = resolveStaleFinish({
-    startedAt,
-    lastSetCompletedAt,
-    workingSetCount: 0,
-  });
-
-  assertEquals(result.status, "skipped", "Status is skipped");
-  assertEquals(result.durationSeconds, 0, "Duration is 0");
-  assertEquals(
-    new Date(result.endedAt).getTime(),
-    new Date(startedAt).getTime(),
-    "Ended at start time"
-  );
-}
-
-// Test 3: Null last set with working sets (shouldn't happen but handle it)
-console.log("\n3. Null last set with working sets");
-{
-  const startedAt = "2026-10-23T14:00:00Z";
-
-  const result = resolveStaleFinish({
-    startedAt,
-    lastSetCompletedAt: null,
-    workingSetCount: 1,
-  });
-
-  assertEquals(result.status, "completed", "Status is completed (has working sets)");
-  assertEquals(result.durationSeconds, 0, "Duration is 0 (no sets logged)");
-  assertEquals(
-    new Date(result.endedAt).getTime(),
-    new Date(startedAt).getTime(),
-    "Ended at start time"
-  );
-}
-
-// Test 4: Last set before start is clamped to start
-console.log("\n4. Last set before start is clamped");
-{
-  const startedAt = "2026-10-23T14:00:00Z";
-  const lastSetCompletedAt = "2026-10-23T13:55:00Z"; // 5 minutes BEFORE start (invalid)
-
-  const result = resolveStaleFinish({
-    startedAt,
-    lastSetCompletedAt,
-    workingSetCount: 2,
-  });
-
-  assertEquals(result.status, "completed", "Status is completed");
-  assertEquals(result.durationSeconds, 0, "Duration is 0 (clamped to start)");
-  assertEquals(
-    new Date(result.endedAt).getTime(),
-    new Date(startedAt).getTime(),
-    "Ended at start time (clamped)"
-  );
-}
-
-// Test 5: Exactly at start time
-console.log("\n5. Last set exactly at start time");
-{
-  const startedAt = "2026-10-23T14:00:00Z";
-  const lastSetCompletedAt = "2026-10-23T14:00:00Z";
-
-  const result = resolveStaleFinish({
-    startedAt,
-    lastSetCompletedAt,
-    workingSetCount: 1,
-  });
-
-  assertEquals(result.status, "completed", "Status is completed");
-  assertEquals(result.durationSeconds, 0, "Duration is 0");
-  assertEquals(
-    new Date(result.endedAt).getTime(),
-    new Date(startedAt).getTime(),
-    "Ended at start time"
-  );
-}
-
-// Test 6: Long training session (2 hours)
-console.log("\n6. Long training session");
-{
-  const startedAt = "2026-10-23T10:00:00Z";
-  const lastSetCompletedAt = "2026-10-23T12:00:00Z"; // 2 hours later
-
-  const result = resolveStaleFinish({
-    startedAt,
-    lastSetCompletedAt,
-    workingSetCount: 20,
-  });
-
-  assertEquals(result.status, "completed", "Status is completed");
-  assertEquals(result.durationSeconds, 7200, "Duration is 2 hours (7200s)");
-  assertEquals(
-    new Date(result.endedAt).getTime(),
-    new Date(lastSetCompletedAt).getTime(),
-    "Ended at last set time"
-  );
-}
-
-// Test 7: No working sets and null last set
-console.log("\n7. No working sets and null last set");
+// Test 2: No sets logged, ended_at = started_at, duration = 0
+console.log("\n2. No sets logged gives skipped with 0 duration");
 {
   const startedAt = "2026-10-23T14:00:00Z";
 
@@ -169,6 +58,7 @@ console.log("\n7. No working sets and null last set");
     startedAt,
     lastSetCompletedAt: null,
     workingSetCount: 0,
+    restSeconds: 90,
   });
 
   assertEquals(result.status, "skipped", "Status is skipped");
@@ -176,87 +66,223 @@ console.log("\n7. No working sets and null last set");
   assertEquals(result.endedAt, startedAt, "Ended at start time");
 }
 
-// Test 8: 10-hour gap caps at 4 hours
-console.log("\n8. 10-hour gap caps at 4 hours");
+// Test 3: Planned rest = 120s
+console.log("\n3. Planned rest = 120s");
 {
-  const startedAt = "2026-10-23T08:00:00Z";
-  const lastSetCompletedAt = "2026-10-23T18:00:00Z"; // 10 hours later
+  const startedAt = "2026-10-23T14:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T14:20:00Z"; // 20 minutes after start
 
   const result = resolveStaleFinish({
     startedAt,
     lastSetCompletedAt,
-    workingSetCount: 5,
+    workingSetCount: 2,
+    restSeconds: 120,
   });
 
   assertEquals(result.status, "completed", "Status is completed");
-  assertEquals(result.durationSeconds, 14400, "Duration is 4 hours (14400s), not 10");
+  // Duration: (14:20 + 2min) - 14:00 = 22 minutes = 1320s
+  assertEquals(result.durationSeconds, 1320, "Duration is 22 minutes (20m + 2m rest)");
   
-  // endedAt should be startedAt + 4 hours
-  const expectedEndMs = new Date(startedAt).getTime() + 4 * 60 * 60 * 1000;
+  const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 120 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
     expectedEndMs,
-    "Ended at start + 4 hours (capped)"
+    "Ended at last set + 120s"
   );
 }
 
-// Test 9: 30-minute session unchanged by cap
-console.log("\n9. 30-minute session unchanged by cap");
+// Test 4: Planned rest = 0s
+console.log("\n4. Planned rest = 0s");
 {
   const startedAt = "2026-10-23T14:00:00Z";
-  const lastSetCompletedAt = "2026-10-23T14:30:00Z"; // 30 minutes
+  const lastSetCompletedAt = "2026-10-23T14:15:00Z"; // 15 minutes after start
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 1,
+    restSeconds: 0,
+  });
+
+  assertEquals(result.status, "completed", "Status is completed");
+  // Duration: (14:15 + 0s) - 14:00 = 15 minutes = 900s
+  assertEquals(result.durationSeconds, 900, "Duration is 15 minutes (no rest)");
+  
+  assertEquals(
+    new Date(result.endedAt).getTime(),
+    new Date(lastSetCompletedAt).getTime(),
+    "Ended at last set (no rest added)"
+  );
+}
+
+// Test 5: Planned rest = 900s (15min) clamped to 300s
+console.log("\n5. Planned rest = 900s clamped to 300s");
+{
+  const startedAt = "2026-10-23T14:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T14:10:00Z"; // 10 minutes after start
 
   const result = resolveStaleFinish({
     startedAt,
     lastSetCompletedAt,
     workingSetCount: 3,
+    restSeconds: 900,
   });
 
   assertEquals(result.status, "completed", "Status is completed");
-  assertEquals(result.durationSeconds, 1800, "Duration is 30 minutes (1800s), unchanged");
+  // Duration: (14:10 + 5min capped) - 14:00 = 15 minutes = 900s
+  assertEquals(result.durationSeconds, 900, "Duration is 15 minutes (10m + 5m capped rest)");
+  
+  const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
-    new Date(lastSetCompletedAt).getTime(),
-    "Ended at last set time (not capped)"
+    expectedEndMs,
+    "Ended at last set + 300s (capped from 900s)"
   );
 }
 
-// Test 10: Exactly 4 hours is not capped
-console.log("\n10. Exactly 4 hours is not capped");
+// Test 6: Negative rest clamped to 0
+console.log("\n6. Negative rest clamped to 0");
+{
+  const startedAt = "2026-10-23T14:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T14:08:00Z"; // 8 minutes after start
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 2,
+    restSeconds: -100,
+  });
+
+  assertEquals(result.status, "completed", "Status is completed");
+  // Duration: (14:08 + 0s) - 14:00 = 8 minutes = 480s
+  assertEquals(result.durationSeconds, 480, "Duration is 8 minutes (negative rest clamped to 0)");
+  
+  assertEquals(
+    new Date(result.endedAt).getTime(),
+    new Date(lastSetCompletedAt).getTime(),
+    "Ended at last set (negative rest clamped to 0)"
+  );
+}
+
+// Test 7: Missing restSeconds (undefined) uses default 300s
+console.log("\n7. Missing restSeconds uses default 300s");
+{
+  const startedAt = "2026-10-23T14:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T14:12:00Z"; // 12 minutes after start
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 2,
+    // restSeconds omitted
+  });
+
+  assertEquals(result.status, "completed", "Status is completed");
+  // Duration: (14:12 + 5min) - 14:00 = 17 minutes = 1020s
+  assertEquals(result.durationSeconds, 1020, "Duration is 17 minutes (12m + 5m default rest)");
+  
+  const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
+  assertEquals(
+    new Date(result.endedAt).getTime(),
+    expectedEndMs,
+    "Ended at last set + 300s (default)"
+  );
+}
+
+// Test 8: ended_at never before last_set.completed_at (guard test)
+console.log("\n8. ended_at never before last_set.completed_at");
+{
+  const startedAt = "2026-10-23T14:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T14:30:00Z"; // 30 minutes after start
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 1,
+    restSeconds: 0, // Even with 0 rest, ended_at should not be before last set
+  });
+
+  assertEquals(result.status, "completed", "Status is completed");
+  assertEquals(
+    new Date(result.endedAt).getTime() >= new Date(lastSetCompletedAt).getTime(),
+    true,
+    "ended_at is not before last_set.completed_at"
+  );
+}
+
+// Test 9: Long training session (8 hours spanning sets) - NO 6-hour cap
+console.log("\n9. Long past-day session: never 6-hour cap (regression test #87)");
 {
   const startedAt = "2026-10-23T10:00:00Z";
-  const lastSetCompletedAt = "2026-10-23T14:00:00Z"; // Exactly 4 hours
+  const lastSetCompletedAt = "2026-10-23T18:00:00Z"; // 8 hours later
 
   const result = resolveStaleFinish({
     startedAt,
     lastSetCompletedAt,
-    workingSetCount: 10,
+    workingSetCount: 20,
+    restSeconds: 180, // 3 minutes rest
   });
 
   assertEquals(result.status, "completed", "Status is completed");
-  assertEquals(result.durationSeconds, 14400, "Duration is exactly 4 hours (14400s)");
+  // Duration: (18:00 + 3min) - 10:00 = 8h 3min = 28980s
+  assertEquals(result.durationSeconds, 28980, "Duration is 8h 3min (28980s), no 6h cap");
+  
+  const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 180 * 1000;
   assertEquals(
     new Date(result.endedAt).getTime(),
-    new Date(lastSetCompletedAt).getTime(),
-    "Ended at last set time (4 hours exactly)"
+    expectedEndMs,
+    "Ended at last set + 180s"
   );
 }
 
-// Test 11: No sets keeps current behavior (0 duration, skipped)
-console.log("\n11. No sets keeps current behavior");
+// Test 10: NaN rest uses default 300s
+console.log("\n10. NaN rest uses default 300s");
 {
-  const startedAt = "2026-10-23T08:00:00Z";
-  const lastSetCompletedAt = "2026-10-23T18:00:00Z"; // Would be 10 hours but no working sets
+  const startedAt = "2026-10-23T14:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T14:05:00Z";
 
   const result = resolveStaleFinish({
     startedAt,
     lastSetCompletedAt,
-    workingSetCount: 0,
+    workingSetCount: 1,
+    restSeconds: NaN,
   });
 
-  assertEquals(result.status, "skipped", "Status is skipped");
-  assertEquals(result.durationSeconds, 0, "Duration is 0 (no working sets)");
-  assertEquals(result.endedAt, startedAt, "Ended at start time (skipped)");
+  assertEquals(result.status, "completed", "Status is completed");
+  // Duration: (14:05 + 5min) - 14:00 = 10 minutes = 600s
+  assertEquals(result.durationSeconds, 600, "Duration is 10 minutes (NaN becomes 300s)");
+  
+  const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
+  assertEquals(
+    new Date(result.endedAt).getTime(),
+    expectedEndMs,
+    "Ended at last set + 300s (NaN handled)"
+  );
+}
+
+// Test 11: Infinity rest uses default 300s
+console.log("\n11. Infinity rest uses default 300s");
+{
+  const startedAt = "2026-10-23T14:00:00Z";
+  const lastSetCompletedAt = "2026-10-23T14:07:00Z";
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt,
+    workingSetCount: 1,
+    restSeconds: Infinity,
+  });
+
+  assertEquals(result.status, "completed", "Status is completed");
+  // Duration: (14:07 + 5min) - 14:00 = 12 minutes = 720s
+  assertEquals(result.durationSeconds, 720, "Duration is 12 minutes (Infinity becomes 300s)");
+  
+  const expectedEndMs = new Date(lastSetCompletedAt).getTime() + 300 * 1000;
+  assertEquals(
+    new Date(result.endedAt).getTime(),
+    expectedEndMs,
+    "Ended at last set + 300s (Infinity handled)"
+  );
 }
 
 console.log(`\n✅ Passed: ${passed}`);

@@ -14,7 +14,7 @@ export interface SupabaseClient {
 
 interface SupabaseQueryBuilder {
   select: (columns: string) => SupabaseSelectBuilder;
-  update: (data: Record<string, unknown>) => SupabaseUpdateBuilder;
+  update: (data: Record<string, unknown>, options?: { count: string }) => SupabaseUpdateBuilder;
 }
 
 interface SupabaseSelectBuilder {
@@ -136,12 +136,15 @@ export async function finishSessionCore(
   // Safety: Only update if status is 'in_progress' to prevent double-application on retry.
   const { error, count } = await supabase
     .from("sessions")
-    .update({
-      status,
-      completed_at: status === "completed" ? endedAt : null,
-      duration_seconds: clampedDuration,
-      cooldown_completed: status === "completed" ? params.cooldownCompleted : undefined,
-    })
+    .update(
+      {
+        status,
+        completed_at: status === "completed" ? endedAt : null,
+        duration_seconds: clampedDuration,
+        cooldown_completed: status === "completed" ? params.cooldownCompleted : undefined,
+      },
+      { count: "exact" },
+    )
     .eq("id", params.sessionId)
     .eq("status", "in_progress"); // Only finish once
 
