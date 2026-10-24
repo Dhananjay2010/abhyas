@@ -136,6 +136,7 @@ async function runTests() {
       password: testPasswordB,
     });
 
+    if (signInErrorB) {
       console.error("Failed to sign in user B:", signInErrorB);
       return false;
     }
