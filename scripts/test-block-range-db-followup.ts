@@ -552,6 +552,30 @@ async function runAll() {
     console.error("Fatal error:", error);
     process.exit(1);
   } finally {
+    // Cleanup test users, programs, program_days (even on failure)
+    try {
+      console.log("\nCleaning up test data...");
+      
+      // Get test user IDs by email pattern
+      const { rows: testUsers } = await pool.query(`
+        SELECT id FROM auth.users 
+        WHERE email IN ('test-m1@local.test', 'test-m2@local.test', 'test-a@local.test', 'test-b@local.test', 'test-rows1@local.test')
+      `);
+      
+      for (const user of testUsers) {
+        // Cascade delete: programs → program_days → program_day_exercises
+        await pool.query(`DELETE FROM programs WHERE user_id = $1`, [user.id]);
+        // Delete profiles, settings, and auth user
+        await pool.query(`DELETE FROM user_settings WHERE user_id = $1`, [user.id]);
+        await pool.query(`DELETE FROM profiles WHERE id = $1`, [user.id]);
+        await pool.query(`DELETE FROM auth.users WHERE id = $1`, [user.id]);
+      }
+      
+      console.log(`Cleaned up ${testUsers.length} test users and their data\n`);
+    } catch (cleanupError) {
+      console.error("Cleanup error (non-fatal):", cleanupError);
+    }
+    
     await pool.end();
   }
 }
