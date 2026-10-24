@@ -136,6 +136,28 @@ function scoreEquipmentFit(current: ExerciseRow, candidate: ExerciseRow): number
 }
 
 /**
+ * Check if an exercise is a behind-the-neck variant (dangerous shoulder position)
+ */
+function isBehindTheNeck(exercise: ExerciseRow): boolean {
+  const nameLower = exercise.name.toLowerCase();
+  const slugLower = exercise.slug.toLowerCase();
+  return (
+    nameLower.includes("behind-the-neck") ||
+    nameLower.includes("behind the neck") ||
+    slugLower.includes("behind-the-neck")
+  );
+}
+
+/**
+ * Get equipment signature for an exercise (for variety grouping)
+ * Returns a stable string key representing the equipment combination
+ */
+function getEquipmentSignature(exercise: ExerciseRow): string {
+  if (exercise.equipment_ids.length === 0) return "bodyweight";
+  return exercise.equipment_ids.slice().sort().join("+");
+}
+
+/**
  * Rank and filter exercise alternatives.
  * 
  * @param current - The exercise being replaced
@@ -176,24 +198,27 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 1. Exclude current exercise
     if (candidate.id === current.id) continue;
     
-    // 2. Pattern priority (lower rank = better)
+    // 2. Exclude behind-the-neck variants (dangerous shoulder position)
+    if (isBehindTheNeck(candidate)) continue;
+    
+    // 3. Pattern priority (lower rank = better)
     const patternRank = patternPriority.indexOf(candidate.movement_pattern);
     if (patternRank === -1) continue; // Not in our pattern list
     
-    // 3. Level check: candidate level must be <= user level
+    // 4. Level check: candidate level must be <= user level
     const candidateLevelRank = LEVEL_ORDER[candidate.level_min];
     if (candidateLevelRank > userLevelRank) continue;
     
-    // 4. Beginners never get high-impact (plyometric) moves
+    // 5. Beginners never get high-impact (plyometric) moves
     if (ctx.level === "beginner" && candidate.impact === "high") continue;
     
-    // 5. For dynamic press, exclude isometric and plyometric
+    // 6. For dynamic press, exclude isometric and plyometric
     if (isDynamicPress) {
       if (isIsometric(candidate)) continue;
       if (candidate.impact === "high") continue;
     }
     
-    // 6. Injury filtering: exclude if any contraindicated region intersects
+    // 7. Injury filtering: exclude if any contraindicated region intersects
     if (
       candidate.contraindicated_regions.some((region) =>
         ctx.injuryRegions.includes(region)
@@ -202,7 +227,7 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 7. Equipment check: all-of semantics
+    // 8. Equipment check: all-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
       const allAvailable = candidate.equipment_ids.every((id) =>
         ctx.availableEquipment!.has(id)
@@ -252,22 +277,53 @@ export function rankAlternatives<T extends ExerciseRow>(
     return a.tieBreak - b.tieBreak;
   });
   
-  // Deduplicate AFTER sorting so the best-ranked variant wins
-  const seen = new Map<string, boolean>();
-  const deduplicated: T[] = [];
+  // Deduplicate by name BEFORE equipment spreading
+  const nameDeduped: Array<typeof filtered[0]> = [];
+  const seenNames = new Map<string, boolean>();
   
   for (const item of filtered) {
     const normalizedName = normalizeName(item.exercise.name);
     const dedupeKey = `${item.exercise.movement_pattern}:${normalizedName}`;
     
-    if (seen.has(dedupeKey)) continue;
-    seen.set(dedupeKey, true);
-    
-    deduplicated.push(item.exercise);
-    
-    // Stop once we have enough
-    if (deduplicated.length >= limit) break;
+    if (seenNames.has(dedupeKey)) continue;
+    seenNames.set(dedupeKey, true);
+    nameDeduped.push(item);
   }
   
-  return deduplicated;
+  // Group by equipment signature for variety spreading
+  const equipmentGroups = new Map<string, Array<typeof nameDeduped[0]>>();
+  
+  for (const item of nameDeduped) {
+    const sig = getEquipmentSignature(item.exercise);
+    if (!equipmentGroups.has(sig)) {
+      equipmentGroups.set(sig, []);
+    }
+    equipmentGroups.get(sig)!.push(item);
+  }
+  
+  // Sort equipment signatures deterministically
+  const sortedSigs = Array.from(equipmentGroups.keys()).sort();
+  
+  // Round-robin select from equipment groups to ensure variety
+  const result: T[] = [];
+  
+  while (result.length < limit) {
+    let addedThisRound = false;
+    
+    for (const sig of sortedSigs) {
+      const group = equipmentGroups.get(sig)!;
+      if (group.length > 0) {
+        const item = group.shift()!;
+        result.push(item.exercise);
+        addedThisRound = true;
+        
+        if (result.length >= limit) break;
+      }
+    }
+    
+    // If we didn't add anything this round, all groups are empty
+    if (!addedThisRound) break;
+  }
+  
+  return result;
 }
