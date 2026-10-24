@@ -295,39 +295,6 @@ export function SessionRunner({
    */
   const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
 
-<<<<<<< HEAD
-  async function run<T extends { ok: boolean; error?: string }>(
-    fn: () => Promise<T>
-  ): Promise<"busy" | boolean> {
-    const result = await withBusyGuard(
-      () => busyRef.current,
-      (busy) => {
-        busyRef.current = busy;
-        setBusy(busy);
-      },
-      async () => {
-        try {
-          const r = await fn();
-          if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
-          else setError(null);
-          return r.ok;
-        } catch (err) {
-          setError(runnerErrorMessage(err));
-          return false;
-        }
-      }
-    );
-
-    if (result.busy) return "busy";
-    return result.result;
-  }
-
-  async function finish(cooldownCompleted: boolean) {
-    await pendingTracker.waitForAll();
-    if (pendingTracker.hasRecentFailures()) {
-      setSaveError("Couldn't save your last set. Please retry.");
-      return;
-=======
   async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>) {
     if (busyRef.current) return false;
     busyRef.current = true;
@@ -344,7 +311,6 @@ export function SessionRunner({
     } finally {
       busyRef.current = false;
       setBusy(false);
->>>>>>> origin/main
     }
     setSavePending(false);
     setSaveError(null);
