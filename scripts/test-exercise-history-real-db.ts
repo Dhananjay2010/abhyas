@@ -1563,7 +1563,7 @@ async function runTests() {
         `got ${session.sets.length}`);
       
       // Verify all working sets present with correct weights
-      const weights = session.sets.map(s => s.weight_kg).sort((a, b) => a - b);
+      const weights = session.sets.map(s => s.weight_kg).sort((a, b) => (a ?? 0) - (b ?? 0));
       const expectedWeights = [70, 80, 90, 100, 110];
       check("Paging: All working sets retrieved (no duplicates, none missing)",
         JSON.stringify(weights) === JSON.stringify(expectedWeights),
