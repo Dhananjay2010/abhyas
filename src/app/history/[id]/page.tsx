@@ -117,9 +117,8 @@ export default async function SessionDetailPage({
               </p>
             </div>
 
-            <dl className="mt-6 grid grid-cols-2 gap-2 text-center">
+            <dl className="mt-6 grid grid-cols-1 gap-2 text-center">
               <Stat label="Time" value={session.duration_seconds !== null ? formatDuration(session.duration_seconds) : "—"} />
-              <Stat label="Series day" value={video.day_index !== null ? `${video.day_index + 1}` : "—"} />
             </dl>
           </>
         )}

@@ -145,16 +145,21 @@ export function SettingsForm({
 
   return (
     <div className="space-y-12">
-      {saveStatus === "saving" && (
-        <div className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
-          Saving changes…
-        </div>
-      )}
-      {saveStatus === "saved" && (
-        <div className="rounded-xl border border-success/40 bg-success/10 px-4 py-3 text-sm text-success">
-          Changes saved
-        </div>
-      )}
+      {/* Fixed-height status bar to prevent layout shift */}
+      <div
+        role="status"
+        aria-live="polite"
+        className="min-h-[52px] flex items-center rounded-xl border px-4 py-3 text-sm transition-colors duration-200"
+        style={{
+          borderColor: saveStatus === "saving" ? "var(--color-accent)" : saveStatus === "saved" ? "var(--color-success)" : "transparent",
+          backgroundColor: saveStatus === "saving" ? "color-mix(in srgb, var(--color-accent) 10%, transparent)" : saveStatus === "saved" ? "color-mix(in srgb, var(--color-success) 10%, transparent)" : "transparent",
+          color: saveStatus === "saving" ? "var(--color-accent)" : saveStatus === "saved" ? "var(--color-success)" : "transparent",
+        }}
+      >
+        {saveStatus === "saving" && "Saving changes…"}
+        {saveStatus === "saved" && "Changes saved"}
+        {saveStatus === "idle" && <span aria-hidden="true">&nbsp;</span>}
+      </div>
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {planStale && (
