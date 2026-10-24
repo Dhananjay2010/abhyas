@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { SessionListItem, SessionType } from "./types";
 import { formatInTimezone } from "@/lib/timezone";
 import { sessionCompletion } from "@/lib/session/session-completion";
 import { formatVolume, formatTopSet, type UnitsPreference } from "@/lib/units";
+import { closeOutSession } from "./actions";
+import { getSessionLabel, type SessionStatus, type ActualType } from "@/lib/history/session-label";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {
@@ -52,16 +55,12 @@ const EMPTY_MESSAGES: Record<SessionType, { title: string; message: string }> = 
   },
 };
 
-function longDate(iso: string, today: string): string {
+function longDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  const [todayY] = today.split("-").map(Number);
-  const includeYear = y !== todayY;
-  
   return new Intl.DateTimeFormat("en-GB", {
     weekday: "short",
     day: "numeric",
     month: "short",
-    year: includeYear ? "numeric" : undefined,
     timeZone: "UTC",
   }).format(new Date(Date.UTC(y, m - 1, d)));
 }
@@ -89,6 +88,7 @@ export function HistoryClient({
   const searchParams = useSearchParams();
   const limit = 20;
   const totalPages = Math.ceil(totalCount / limit);
+  const [closingOut, setClosingOut] = useState<string | null>(null);
 
   const handleFilterChange = (newFilter: SessionType) => {
     const params = new URLSearchParams(searchParams);
@@ -101,6 +101,16 @@ export function HistoryClient({
     const params = new URLSearchParams(searchParams);
     params.set("page", newPage.toString());
     router.push(`/history?${params.toString()}`);
+  };
+
+  const handleCloseOut = async (sessionId: string) => {
+    setClosingOut(sessionId);
+    const result = await closeOutSession(sessionId);
+    if (result.error) {
+      alert(`Failed to close out session: ${result.error}`);
+    }
+    setClosingOut(null);
+    router.refresh();
   };
 
   return (
@@ -143,17 +153,22 @@ export function HistoryClient({
         <>
           <ul className="mt-6 space-y-2">
             {items.map((item) => {
+              // M2: Detect past-day in_progress sessions
+              const isPastInProgress = item.status === "in_progress" && item.localDate !== today;
+
               // Format time label with timezone-aware time for same-day sessions
               let timeLabel = "";
-              if (item.localDate === today && item.completedAt) {
+              if (isPastInProgress) {
+                timeLabel = `Unfinished from ${longDate(item.localDate)}`;
+              } else if (item.localDate === today && item.completedAt) {
                 timeLabel = `Today · ${formatTime(item.completedAt, timezone)}`;
               } else if (item.localDate === today) {
                 timeLabel = "Today";
               } else if (item.completedAt) {
                 // For older sessions, show date + time
-                timeLabel = `${longDate(item.localDate, today)} · ${formatTime(item.completedAt, timezone)}`;
+                timeLabel = `${longDate(item.localDate)} · ${formatTime(item.completedAt, timezone)}`;
               } else {
-                timeLabel = longDate(item.localDate, today);
+                timeLabel = longDate(item.localDate);
               }
 
               const durationLabel = formatMinutes(item.durationSeconds);
@@ -177,46 +192,39 @@ export function HistoryClient({
                 if (item.breathing.breaths) {
                   details.push(pluralize(item.breathing.breaths, item.breathing.pumps ? "pump" : "breath"));
                 }
-              } else if (item.actualType === "yoga") {
-                // For yoga sessions, trust the status field
-                if (item.status === "skipped") {
-                  details.push("Skipped");
-                } else if (item.status === "in_progress" && item.localDate === today) {
-                  details.push("In progress");
-                } else {
-                  details.push("Completed");
-                  if (durationLabel) details.push(durationLabel);
-                }
               } else {
-                // Strength sessions (weights/bodyweight/null)
-                const isStrength = item.actualType === "weights" || item.actualType === "bodyweight" || !item.actualType;
-                const isZeroSetStrength = isStrength && item.setCount === 0;
-                const isSkipped = item.status === "skipped";
-                const isInProgress = item.status === "in_progress" && item.localDate === today;
+                // Get session status label using extracted function
+                const statusLabel = getSessionLabel({
+                  status: item.status as SessionStatus,
+                  actualType: item.actualType as ActualType,
+                  setCount: item.setCount,
+                  localDate: item.localDate,
+                  today,
+                  endedEarly: item.endedEarly,
+                  plannedSets: item.plannedSets,
+                });
                 
-                if (isSkipped || isZeroSetStrength) {
-                  details.push("Skipped");
-                } else if (isInProgress) {
-                  details.push("In progress");
-                } else if (item.endedEarly && item.plannedSets) {
-                  // Show completion status or "Ended early" if applicable
-                  details.push(`Ended early · ${item.setCount} of ${item.plannedSets} ${item.plannedSets === 1 ? "set" : "sets"}`);
+                // For past in_progress, the timeLabel already shows "Unfinished from <date>"
+                // so we just push the statusLabel which will be that message
+                if (isPastInProgress) {
+                  // Status label contains "Unfinished from <date>", skip adding it to details
+                  // since it's already in timeLabel
                 } else {
-                  details.push("Completed");
+                  details.push(statusLabel);
                 }
+                
                 if (item.isDeload) details.push("deload");
                 if (durationLabel) details.push(durationLabel);
-                // Only show set count if not already shown in "ended early" label or skipped
-                if (!item.endedEarly && !isZeroSetStrength && !isSkipped && item.setCount > 0) {
+                
+                // Show set count unless it's zero-set or already shown in "Ended early"
+                const isZeroSetStrength = (item.actualType === "weights" || item.actualType === "bodyweight" || item.actualType === null) && item.setCount === 0;
+                if (!item.endedEarly && !isZeroSetStrength && item.setCount > 0) {
                   details.push(pluralize(item.setCount, "set"));
                 }
                 if (item.topSetWeight) {
                   details.push(formatTopSet(item.topSetWeight, units));
                 }
-                if (item.volumeKg > 0) {
-                  // Wrap in span to prevent 'kg total' from breaking across lines
-                  details.push(`${formatVolume(item.volumeKg, units)} total`);
-                }
+                if (item.volumeKg > 0) details.push(`${formatVolume(item.volumeKg, units)} total`);
               }
 
               // Yoga rows are non-interactive (yoga detail view is owned by PR #19)
@@ -230,13 +238,8 @@ export function HistoryClient({
                     <span className="font-semibold">{label}</span>
                     <span className="shrink-0 text-xs text-muted">{timeLabel}</span>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                    {details.map((detail, idx) => (
-                      <span key={idx} className="whitespace-nowrap text-xs text-muted">
-                        {detail}
-                        {idx < details.length - 1 && <span className="ml-2">·</span>}
-                      </span>
-                    ))}
+                  <div className="mt-1 flex items-center gap-2">
+                    <p className="text-xs text-muted">{details.join(" · ")}</p>
                     {item.hasPR && (
                       <span className="rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent">
                         PR
@@ -248,7 +251,18 @@ export function HistoryClient({
 
               return (
                 <li key={item.id}>
-                  {isInteractive ? (
+                  {isPastInProgress ? (
+                    <div className="flex min-h-[44px] items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3">
+                      {content}
+                      <button
+                        onClick={() => handleCloseOut(item.id)}
+                        disabled={closingOut === item.id}
+                        className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                      >
+                        {closingOut === item.id ? "Closing..." : "Close out"}
+                      </button>
+                    </div>
+                  ) : isInteractive ? (
                     <Link
                       href={`/history/${item.id}`}
                       className="flex min-h-[44px] items-center rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-muted/50"
