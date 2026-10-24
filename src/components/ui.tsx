@@ -70,13 +70,13 @@ export function StepShell({
         </span>
       </div>
 
-      <div className="flex-1 pb-6 pt-8">
+      <div className="flex-1 pb-32 pt-8">
         <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-2 text-sm leading-relaxed text-muted">{subtitle}</p>}
         <div className="mt-7">{children}</div>
       </div>
 
-      <div className="sticky bottom-0 -mx-6 bg-gradient-to-t from-bg via-bg to-transparent px-6 pb-8 pt-4">
+      <div className="sticky bottom-0 -mx-6 bg-gradient-to-t from-bg via-bg to-transparent px-6 pt-4" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
         {footer}
       </div>
     </div>
@@ -183,10 +183,12 @@ export function GhostButton({
 export function Field({
   label,
   hint,
+  error,
   children,
 }: {
   label: string;
   hint?: string;
+  error?: string | null;
   children: ReactNode;
 }) {
   return (
@@ -194,6 +196,11 @@ export function Field({
       <span className="text-sm font-medium text-fg">{label}</span>
       {hint && <span className="ml-2 text-xs text-muted">{hint}</span>}
       <div className="mt-2">{children}</div>
+      {error && (
+        <p className="mt-1.5 text-sm text-danger" aria-live="polite">
+          {error}
+        </p>
+      )}
     </label>
   );
 }
