@@ -41,7 +41,13 @@ export default async function YogaPage() {
           minutes: v.duration_minutes,
           dayIndex: v.day_index,
           done: doneIds.has(v.id),
-        })),
+        }))
+        .sort((a, b) => {
+          // Sort: intro videos (dayIndex <= 0 or null) first, then by dayIndex ascending
+          const aDay = a.dayIndex ?? -1;
+          const bDay = b.dayIndex ?? -1;
+          return aDay - bDay;
+        }),
     }));
 
   const channelUrl =
