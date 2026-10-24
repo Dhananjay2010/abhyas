@@ -8,14 +8,6 @@
 
 import { todayPromptBlocks } from "../src/lib/today/prompt-blocks";
 
-function countVisiblePrompts(blocks: ReturnType<typeof todayPromptBlocks>): number {
-  let count = 0;
-  if (blocks.showMissedPrompt) count++;
-  if (blocks.showBothPrompt) count++;
-  if (blocks.showRestPlan && !blocks.showBothPrompt) count++;
-  if (blocks.showFirstDayWelcome && !blocks.showRestPlan) count++;
-  return count;
-}
 
 function test(name: string, fn: () => void) {
   try {

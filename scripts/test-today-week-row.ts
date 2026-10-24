@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 /**
- * Mutant-killing tests: verify production code behavior that would break if mutated.
- * These tests target specific mutations that could survive without explicit coverage.
+ * Behavior tests: verify production code behavior that would break if changed.
+ * These tests target specific behaviors that could regress without explicit coverage.
  */
 
 import { labelForDayType } from "../src/lib/program/day-plan";

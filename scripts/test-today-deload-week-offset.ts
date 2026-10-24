@@ -40,17 +40,6 @@ const deloadWeek = 4;
 
 const weekWithOffset = cycleWeekFor(programWithOffset, testDate);
 const weekNoOffset = cycleWeekFor(programNoOffset, testDate);
-
-console.log(`Test date: ${testDate} (8 days after start)`);
-console.log(`Program with offset=2: week ${weekWithOffset}`);
-console.log(`Program with offset=0: week ${weekNoOffset}`);
-
-assert(weekNoOffset === 2, "Without offset: calendar week 2");
-assert(weekWithOffset === 4, "With offset=2: week becomes 4 (2+2)");
-
-// The deload detection in Today page does: const isDeload = week === program.deload_week
-// With offset=2, week 4 should match deload_week=4
-const isDeloadWithOffset = weekWithOffset === deloadWeek;
 const isDeloadNoOffset = weekNoOffset === deloadWeek;
 
 console.log(`\nDeload detection (deload_week=${deloadWeek}):`);

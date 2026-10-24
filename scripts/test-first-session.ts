@@ -5,7 +5,7 @@
  * Tests for owner product decision:
  * 1. First session offer on rest day (shows plan day 1, not next calendar day)
  * 2. Day-1 guard suppresses missed-day messages before max(signup, block start)
- * 3. Mutants to verify test coverage
+ * 3. Coverage verification
  */
 
 import { findFirstTrainingDay } from "../src/lib/today/first-training-day";
