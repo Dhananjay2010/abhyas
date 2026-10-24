@@ -361,7 +361,6 @@ async function test5b() {
     // Expected in test environment - error may propagate
   } finally {
     console.error = originalError;
-    // @ts-expect-error - mocking process.exit for test
     process.exit = originalExit;
     process.removeListener('unhandledRejection', rejectionHandler);
   }

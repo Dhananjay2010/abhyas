@@ -34,8 +34,25 @@ export const mockNextRouter = {
   refreshCalls: [] as number[],
 };
 
+// Declare global mock type
+declare global {
+  // eslint-disable-next-line no-var
+  var mockNextNavigation: {
+    useRouter: () => {
+      refresh: () => void;
+      push: (...args: unknown[]) => void;
+      replace: (...args: unknown[]) => void;
+      prefetch: (...args: unknown[]) => void;
+      back: () => void;
+      forward: () => void;
+    };
+    usePathname: () => string;
+    useSearchParams: () => URLSearchParams;
+    useParams: () => Record<string, unknown>;
+  };
+}
+
 // Mock next/navigation module before any imports
-// @ts-expect-error - global augmentation for testing
 global.mockNextNavigation = {
   useRouter: () => ({
     refresh: () => {
@@ -69,7 +86,6 @@ const originalLoad = Module._load;
 
 Module._load = function (request: string, parent: unknown, isMain: boolean): unknown {
   if (request === "next/navigation") {
-    // @ts-expect-error - global augmentation for testing
     return global.mockNextNavigation;
   }
   return originalLoad.call(this, request, parent, isMain);
