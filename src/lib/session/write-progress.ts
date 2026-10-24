@@ -8,7 +8,7 @@ export interface ProgressClient {
     upsert: (
       data: Record<string, unknown>,
       opts: { onConflict: string }
-    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
   };
 }
 
