@@ -98,12 +98,6 @@ function testOfflinePageComponent() {
     "Offline page must have a default export"
   );
 
-  // Should have the data-hide-nav attribute to hide bottom nav
-  assert(
-    source.includes("data-hide-nav"),
-    "Offline page should have data-hide-nav attribute to hide bottom nav"
-  );
-
   // Should use branding
   assert(
     source.includes("branding"),
@@ -160,7 +154,6 @@ function testOfflinePageComponent() {
   console.log("  ✓ No <html> tag in component (rendered by layout)");
   console.log("  ✓ No <body> tag in component (rendered by layout)");
   console.log("  ✓ Has default export");
-  console.log("  ✓ Has data-hide-nav attribute");
   console.log("  ✓ Uses branding configuration");
   console.log("  ✓ Has retry link (works without JS)");
   console.log("  ✓ Has inline styles (works without external CSS)");
@@ -170,28 +163,37 @@ function testOfflinePageComponent() {
 }
 
 function testLayoutBottomNav() {
-  console.log("\n▶ Testing layout bottom nav handling...");
+  console.log("\n▶ Testing bottom nav /offline handling...");
 
-  const layoutPath = path.join(__dirname, "..", "src", "app", "layout.tsx");
-  const layoutSource = fs.readFileSync(layoutPath, "utf-8");
-
-  // Layout should render BottomNav
+  const bottomNavPath = path.join(__dirname, "..", "src", "components", "bottom-nav.tsx");
+  
   assert(
-    layoutSource.includes("BottomNav"),
-    "Root layout should render BottomNav"
+    fs.existsSync(bottomNavPath),
+    "src/components/bottom-nav.tsx must exist"
   );
 
-  // Check that globals.css has the hide rule
-  const globalsPath = path.join(__dirname, "..", "src", "app", "globals.css");
-  const globalsSource = fs.readFileSync(globalsPath, "utf-8");
+  const bottomNavSource = fs.readFileSync(bottomNavPath, "utf-8");
 
+  // BottomNav should check for /offline pathname and return null
   assert(
-    globalsSource.includes("[data-hide-nav]") && globalsSource.includes("display: none"),
-    "globals.css should hide elements after [data-hide-nav]"
+    bottomNavSource.includes('pathname === "/offline"') && bottomNavSource.includes("return null"),
+    'BottomNav must return null when pathname === "/offline"'
   );
 
-  console.log("  ✓ Root layout renders BottomNav");
-  console.log("  ✓ globals.css has [data-hide-nav] hide rule");
+  // Verify /offline is not in ACTIVE_FOR (it's a full-screen fallback, not a tabbed page)
+  const activeForMatches = bottomNavSource.match(/ACTIVE_FOR.*?=.*?\[[\s\S]*?\];/);
+  if (activeForMatches) {
+    const activeForBlock = activeForMatches[0];
+    // Count how many times "/offline" appears - should be 0 in ACTIVE_FOR, only in the early check
+    const offlineInActiveFor = (activeForBlock.match(/["']\/offline["']/g) || []).length;
+    assert(
+      offlineInActiveFor === 0,
+      "/offline should not be in ACTIVE_FOR array (handled by early return)"
+    );
+  }
+
+  console.log('  ✓ BottomNav returns null for pathname === "/offline"');
+  console.log("  ✓ /offline not in ACTIVE_FOR (correctly excluded)");
 }
 
 function main() {

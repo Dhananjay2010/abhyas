@@ -63,7 +63,7 @@ export default function OfflinePage() {
   };
 
   return (
-    <div style={containerStyle} data-hide-nav>
+    <div style={containerStyle}>
       <div style={contentStyle}>
         {/* App icon: real 192x192 icon from branding, precached by service worker */}
         {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -64,6 +64,10 @@ const ACTIVE_FOR: Array<[test: (p: string) => boolean, tab: string]> = [
  */
 export function BottomNav() {
   const pathname = usePathname();
+  
+  // Hide nav on /offline (no network, so no navigation possible)
+  if (pathname === "/offline") return null;
+  
   const active = ACTIVE_FOR.find(([test]) => test(pathname))?.[1];
   if (!active) return null;
 
