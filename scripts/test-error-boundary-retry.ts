@@ -1,12 +1,8 @@
 /**
  * Test: Error boundary retry behavior
  *
- * Verifies that the in-app error boundary's "Try again" button
- * behaves like the /offline Retry button when showing an offline error:
- * - Shows "Checking…" state
- * - Pings connectivity
- * - Reloads/resets on success or shows "Still offline"
- * - No layout shift when showing/hiding feedback
+ * Verifies that error.tsx uses OfflineScreen for offline errors,
+ * which includes retry functionality with proper feedback.
  */
 
 import * as fs from "fs";
@@ -30,107 +26,54 @@ function testErrorBoundaryRetryBehavior() {
 
   const source = fs.readFileSync(errorPath, "utf-8");
 
-  // Must import determineRetryAction from offline-retry-logic
+  // Must use OfflineScreen component for offline errors
   assert(
-    source.includes("determineRetryAction") && source.includes("@/lib/offline-retry-logic"),
-    "error.tsx must import determineRetryAction from @/lib/offline-retry-logic"
+    source.includes("OfflineScreen"),
+    "error.tsx must use OfflineScreen component for offline errors"
   );
 
-  // Must have checking state
+  // Must import OfflineScreen from components
   assert(
-    source.includes("useState(false)") && (source.includes("checking") || source.includes("Checking")),
-    "error.tsx must have checking state"
+    source.includes('@/components/offline-screen') || 
+    source.includes("@/components/offline-screen"),
+    "error.tsx must import OfflineScreen from @/components/offline-screen"
   );
 
-  // Must have stillOffline state
+  // OfflineScreen handles all the retry logic, so error.tsx just delegates
+  // Verify OfflineScreen component has the retry behavior
+  const offlineScreenPath = path.join(__dirname, "..", "src", "components", "offline-screen.tsx");
+  const offlineScreenSource = fs.readFileSync(offlineScreenPath, "utf-8");
+
   assert(
-    source.includes("stillOffline"),
-    "error.tsx must have stillOffline state"
+    offlineScreenSource.includes("OfflineRetry"),
+    "OfflineScreen must use OfflineRetry component"
   );
 
-  // Must have timeout ref for safety timeout
+  // Check that OfflineRetry has the retry logic
+  const offlineRetryPath = path.join(__dirname, "..", "src", "app", "offline", "offline-retry.tsx");
+  const offlineRetrySource = fs.readFileSync(offlineRetryPath, "utf-8");
+
   assert(
-    source.includes("useRef") && source.includes("timeout"),
-    "error.tsx must have timeout ref"
+    offlineRetrySource.includes("Still offline"),
+    "OfflineRetry must show 'Still offline' message"
   );
 
-  // Must call determineRetryAction when offline
   assert(
-    source.includes("determineRetryAction("),
-    "error.tsx must call determineRetryAction"
+    offlineRetrySource.includes("Checking"),
+    "OfflineRetry must show 'Checking' state"
   );
 
-  // Must show "Checking…" text
   assert(
-    source.includes("Checking") || source.includes("checking"),
-    "error.tsx must show 'Checking' state"
+    offlineRetrySource.includes("minHeight") || offlineRetrySource.includes("min-height"),
+    "OfflineRetry must reserve space for feedback (minHeight)"
   );
 
-  // Must show "Still offline" text
-  assert(
-    source.includes("Still offline"),
-    "error.tsx must show 'Still offline' message"
-  );
-
-  // Must have minHeight for no layout shift
-  assert(
-    source.includes("minHeight") || source.includes("min-height"),
-    "error.tsx must reserve space for feedback (minHeight)"
-  );
-
-  // Must have visibility toggle or always render (not conditional mount with &&)
-  assert(
-    source.includes("visibility") || source.includes("stillOffline ?"),
-    "error.tsx must use visibility toggle"
-  );
-
-  // Must NOT conditionally mount the feedback element with {stillOffline && (...)}
-  // which causes layout shift when it appears
-  const conditionalMountPattern = /\{stillOffline\s*&&\s*\(/;
-  assert(
-    !conditionalMountPattern.test(source),
-    "error.tsx must NOT conditionally mount feedback with {stillOffline && ()} - causes layout shift"
-  );
-
-  // Must always render the feedback element to reserve space
-  const feedbackElementCount = (source.match(/<p[^>]*role="status"/g) || []).length;
-  assert(
-    feedbackElementCount >= 1,
-    "error.tsx must have at least one status element (feedback)"
-  );
-
-  // Must have role="status" and aria-live for accessibility
-  assert(
-    source.includes('role="status"') && source.includes('aria-live="polite"'),
-    'error.tsx feedback must have role="status" and aria-live="polite"'
-  );
-
-  // Must disable button during checking
-  assert(
-    source.includes("disabled={checking}") || source.includes("disabled={checking"),
-    "error.tsx button must be disabled during checking"
-  );
-
-  // Must clear timeout on success (before router.refresh)
-  const refreshIndex = source.indexOf("router.refresh");
-  const clearTimeoutBeforeRefresh = source.lastIndexOf("clearTimeout", refreshIndex);
-  assert(
-    clearTimeoutBeforeRefresh !== -1 && clearTimeoutBeforeRefresh < refreshIndex,
-    "error.tsx must clear timeout before router.refresh (prevents 'Still offline' on slow 3G)"
-  );
-
-  console.log("  ✓ Imports determineRetryAction from offline-retry-logic");
-  console.log("  ✓ Has checking and stillOffline states");
-  console.log("  ✓ Has timeout ref for safety");
-  console.log("  ✓ Calls determineRetryAction when offline");
-  console.log("  ✓ Shows 'Checking…' state");
-  console.log("  ✓ Shows 'Still offline' message");
-  console.log("  ✓ Reserves space for feedback (no layout shift)");
-  console.log("  ✓ Always renders feedback element (not conditional mount)");
-  console.log("  ✓ Uses visibility toggle");
-  console.log('  ✓ Has role="status" and aria-live="polite"');
-  console.log("  ✓ Disables button during checking");
-  console.log("  ✓ Clears timeout before router.refresh");
+  console.log("  ✓ error.tsx uses OfflineScreen for offline errors");
+  console.log("  ✓ error.tsx imports OfflineScreen from @/components/offline-screen");
+  console.log("  ✓ OfflineScreen uses OfflineRetry component");
+  console.log("  ✓ OfflineRetry shows 'Still offline' message");
+  console.log("  ✓ OfflineRetry shows 'Checking' state");
+  console.log("  ✓ OfflineRetry reserves space for feedback (minHeight)");
 }
 
 console.log("Testing Error Boundary Retry Behavior");

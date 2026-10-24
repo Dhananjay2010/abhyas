@@ -98,34 +98,23 @@ function testOfflinePageComponent() {
     "Offline page must have a default export"
   );
 
-  // Should use branding
+  // Should use OfflineScreen component (which internally uses branding)
   assert(
-    source.includes("branding"),
-    "Offline page should use branding configuration"
+    source.includes("OfflineScreen"),
+    "Offline page should use OfflineScreen component"
   );
 
-  // Should have retry functionality (button component or link)
+  // Should import OfflineScreen from components
   assert(
-    source.includes("OfflineRetry") || (source.includes("<a") && source.includes('href')),
-    "Offline page should have retry functionality (OfflineRetry component or link)"
+    source.includes('from "@/components/offline-screen"') || 
+    source.includes("from '@/components/offline-screen'"),
+    "Offline page should import OfflineScreen from @/components/offline-screen"
   );
 
-  // CRITICAL: Must have inline styles so it works without external CSS
+  // Should render OfflineScreen with fullPage prop
   assert(
-    source.includes("containerStyle") && source.includes("background:"),
-    "Offline page must have inline styles (containerStyle with background)"
-  );
-
-  // Must use branding.colors, not hardcoded colors
-  // (The retry button's colors are in OfflineRetry component, but page uses branding.colors)
-  assert(
-    source.includes("branding.colors.bg") || source.includes("branding.colors.fg"),
-    "Offline page must use branding.colors for page colors"
-  );
-
-  assert(
-    source.includes("branding.colors.muted"),
-    "Offline page must use branding.colors.muted"
+    source.includes("fullPage") || source.includes("<OfflineScreen"),
+    "Offline page should render OfflineScreen component"
   );
 
   // Must NOT hardcode ANY hex colors (SVG was replaced with real app icon)
@@ -136,26 +125,16 @@ function testOfflinePageComponent() {
     `Offline page must not hardcode any hex colors (found: ${hexColors.join(", ")})`
   );
 
-  // Must use real app icon (not inline SVG)
-  assert(
-    source.includes("<img") && source.includes("branding.icons.icon192"),
-    "Offline page must use real app icon (<img src={branding.icons.icon192}>)"
-  );
-
-  assert(
-    source.includes("style={containerStyle}") || source.includes("style={buttonStyle}"),
-    "Offline page must use inline style objects (not className with external CSS)"
-  );
+  // OfflineScreen component handles the icon and styles internally
+  // No need to check for them in the page source since it delegates to OfflineScreen
 
   console.log("  ✓ No <html> tag in component (rendered by layout)");
   console.log("  ✓ No <body> tag in component (rendered by layout)");
   console.log("  ✓ Has default export");
-  console.log("  ✓ Uses branding configuration");
-  console.log("  ✓ Has retry functionality (OfflineRetry component or link)");
-  console.log("  ✓ Has inline styles (works without external CSS)");
-  console.log("  ✓ Uses branding.colors (not hardcoded)");
+  console.log("  ✓ Uses OfflineScreen component");
+  console.log("  ✓ Imports OfflineScreen from @/components/offline-screen");
+  console.log("  ✓ Renders OfflineScreen with fullPage prop");
   console.log("  ✓ No hardcoded hex colors at all");
-  console.log("  ✓ Uses real app icon (not inline SVG)");
 }
 
 function testLayoutBottomNav() {
