@@ -1,6 +1,6 @@
 /**
  * Pure helpers for Today page data transformations.
- * Extracted for testing to kill surviving mutants.
+ * Extracted for testing to verify correct behavior.
  */
 
 import { cycleWeekFor } from "@/lib/program/block-range";

@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Test: Today page wiring helpers kill surviving mutants.
+ * Test: Today page wiring helpers verify correct behavior.
  * 
  * m2: First training day must be plan day 1, not next calendar day
  * m4: Week calculation must use week_offset

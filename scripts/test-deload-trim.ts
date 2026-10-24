@@ -274,7 +274,7 @@ console.log("\n5. Rep trim: minimum of 1 preserved");
 console.log("\n6. Known-weight rows get no trim (loadReducible undefined)");
 {
   // Critical: loadReducible undefined WITH metric provided must skip trim
-  // This catches the mutant that trims when loadReducible is undefined
+  // This catches incorrect behavior when loadReducible is undefined
   const plannedReps: PlannedExercise = {
     target_sets: 2,
     target_reps_min: 8,
@@ -558,7 +558,7 @@ console.log("\n12. Edge case: min > max after trim is corrected");
     `got ${result.repsMin}-${result.repsMax}`
   );
 
-  // Critical case to catch min>max mutant: edge rounding with range
+  // Critical case to catch min>max edge case: edge rounding with range
   // This targets the Math.max(trimmedMinBeforeCap, trimmedMaxBeforeCap) logic
   const planned11_13: PlannedExercise = {
     target_sets: 2,
