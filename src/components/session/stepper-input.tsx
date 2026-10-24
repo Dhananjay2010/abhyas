@@ -42,10 +42,12 @@ export function StepperInput({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const parseValue = (str: string): number => {
+    // Parse comma decimal (e.g., '62,5' → 62.5)
+    const normalized = str.replace(',', '.');
     if (kind === 'reps') {
-      return parseInt(str, 10);
+      return parseInt(normalized, 10);
     }
-    return parseFloat(str);
+    return parseFloat(normalized);
   };
 
   const handleFocus = () => {
@@ -100,6 +102,9 @@ export function StepperInput({
     
     // Clamp nextFn results to bounds
     const clamped = Math.max(min, Math.min(max, next));
+    
+    // Update displayValue to prevent blur from reverting to stale text
+    setDisplayValue(String(clamped));
     onChange(clamped);
     setAnnouncement(`${clamped}${unit ? ' ' + unit : ''}`);
   };
@@ -125,12 +130,27 @@ export function StepperInput({
     
     // Clamp nextFn results to bounds
     const clamped = Math.max(min, Math.min(max, next));
+    
+    // Update displayValue to prevent blur from reverting to stale text
+    setDisplayValue(String(clamped));
     onChange(clamped);
     setAnnouncement(`${clamped}${unit ? ' ' + unit : ''}`);
   };
 
-  const atMin = value <= min;
-  const atMax = value >= max;
+  // Base disabled state on currently typed value, not last committed prop
+  const getCurrentValue = (): number => {
+    if (isEditing) {
+      const parsed = parseValue(displayValue);
+      if (!isNaN(parsed)) {
+        return Math.max(min, Math.min(max, parsed));
+      }
+    }
+    return value;
+  };
+
+  const currentValue = getCurrentValue();
+  const atMin = currentValue <= min;
+  const atMax = currentValue >= max;
 
   const inputMode = kind === 'reps' ? 'numeric' : 'decimal';
 
@@ -208,17 +228,6 @@ export function StepperInput({
       <span
         aria-live="polite"
         className="sr-only"
-        style={{
-          position: 'absolute',
-          width: '1px',
-          height: '1px',
-          padding: '0',
-          margin: '-1px',
-          overflow: 'hidden',
-          clip: 'rect(0, 0, 0, 0)',
-          whiteSpace: 'nowrap',
-          border: '0',
-        }}
       >
         {announcement}
       </span>
