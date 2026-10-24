@@ -151,7 +151,8 @@ export function vibrate(pattern: number | number[]) {
 
 export type ElapsedState = {
   elapsed: number;
-  stop: () => void;
+  stop: () => number;
+  resume: () => void;
 };
 
 /** Counts elapsed seconds, resilient to the tab being backgrounded. */
@@ -164,6 +165,7 @@ export function useElapsed(startedAtIso: string | null): ElapsedState {
   const [now, setNow] = useState(() => Date.now());
   const [stopped, setStopped] = useState(false);
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
+  const frozenSecondsRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (stopped) return;
@@ -178,12 +180,20 @@ export function useElapsed(startedAtIso: string | null): ElapsedState {
   const stop = useCallback(() => {
     if (!stopped) {
       const finalElapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
+      frozenSecondsRef.current = finalElapsed;
       setFrozenElapsed(finalElapsed);
       setStopped(true);
     }
+    return frozenSecondsRef.current ?? 0;
   }, [stopped, start]);
 
-  return { elapsed, stop };
+  const resume = useCallback(() => {
+    setStopped(false);
+    setFrozenElapsed(null);
+    frozenSecondsRef.current = null;
+  }, []);
+
+  return { elapsed, stop, resume };
 }
 
 export function formatClock(totalSeconds: number): string {

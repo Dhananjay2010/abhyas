@@ -521,6 +521,12 @@ export async function finishSession(input: {
  * logged counts toward streak/days trained and shows in History as completed, not
  * skipped. The tradeoff: user cannot resume after early end if they had sets.
  * Alternative would be a new status like "partial" that's resumable but counts.
+ *
+ * Deliberately does NOT revalidate here. Revalidating re-renders the session
+ * route, and page.tsx:84's "completed -> redirect to /today" guard would fire
+ * before the summary could be shown. The summary's "Back to Today" button calls
+ * refreshAfterSession() which revalidates Today, History and Progress when the
+ * user leaves.
  */
 export async function abandonSession(
   sessionId: string,
@@ -531,7 +537,6 @@ export async function abandonSession(
 
   const { supabase } = await requireUser();
   const result = await abandonSessionCore(supabase, sessionId, elapsedSeconds);
-  if (result.ok) revalidateTrainingData();
   return result;
 }
 

@@ -133,7 +133,7 @@ export function SessionRunner({
   onExit?: () => void;
 }) {
   const router = useRouter();
-  const elapsedState = useElapsed(startedAt);
+  const { elapsed, stop: stopElapsed, resume: resumeElapsed } = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
   const [exercises, setExercises] = useState(initialExercises);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +141,7 @@ export function SessionRunner({
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
+  const [endedEarly, setEndedEarly] = useState(false);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -299,7 +300,7 @@ export function SessionRunner({
       <Shell
         title="Warm-up"
         subtitle={`${warmupIndex + 1} of ${warmup.length}`}
-        elapsed={elapsedState.elapsed}
+        elapsed={elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
@@ -363,7 +364,7 @@ export function SessionRunner({
       <Shell
         title="Cool-down"
         subtitle="5 minutes"
-        elapsed={elapsedState.elapsed}
+        elapsed={elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
@@ -389,11 +390,12 @@ export function SessionRunner({
           <BigButton
             disabled={busy}
             onClick={async () => {
-              elapsedState.stop();
-              await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsedState.elapsed, cooldownCompleted: true }),
+              const secs = stopElapsed();
+              const ok = await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: true }),
               );
-              setPhase("done");
+              if (ok) setPhase("done");
+              else resumeElapsed();
             }}
           >
             Done
@@ -401,11 +403,12 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              elapsedState.stop();
-              await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsedState.elapsed, cooldownCompleted: false }),
+              const secs = stopElapsed();
+              const ok = await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: false }),
               );
-              setPhase("done");
+              if (ok) setPhase("done");
+              else resumeElapsed();
             }}
           >
             Skip cool-down
@@ -426,16 +429,16 @@ export function SessionRunner({
     );
     return (
       <Shell
-        title="Session complete"
+        title={endedEarly ? "Session ended early" : "Session complete"}
         subtitle={null}
-        elapsed={elapsedState.elapsed}
+        elapsed={elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
         confirmExit={false}
       >
         <div className="space-y-3">
-          <Stat label="Time" value={formatClock(elapsedState.elapsed)} />
+          <Stat label="Time" value={formatClock(elapsed)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
           {volume > 0 && <Stat label="Total volume" value={`${Math.round(volume)} kg`} />}
           <Stat
@@ -530,7 +533,7 @@ export function SessionRunner({
       <Shell
         title="Nothing to do"
         subtitle={null}
-        elapsed={elapsedState.elapsed}
+        elapsed={elapsed}
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
@@ -672,11 +675,12 @@ export function SessionRunner({
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
-        elapsedState.stop();
-        await run(() =>
-          actions.finishSession({ sessionId, durationSeconds: elapsedState.elapsed, cooldownCompleted: false }),
+        const secs = stopElapsed();
+        const ok = await run(() =>
+          actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: false }),
         );
-        setPhase("done");
+        if (ok) setPhase("done");
+        else resumeElapsed();
       }
     } else {
       setExerciseIndex(next);
@@ -687,7 +691,7 @@ export function SessionRunner({
     <Shell
       title={`Exercise ${exerciseIndex + 1} of ${exercises.length}`}
       subtitle={isDeload ? `Deload week ${week}` : `Week ${week}`}
-      elapsed={elapsedState.elapsed}
+      elapsed={elapsed}
       onExit={() => (onExit ? onExit() : router.push("/today"))}
       wakeLock={wakeLock}
       error={error}
@@ -958,9 +962,19 @@ export function SessionRunner({
               onCancel={() => setConfirming(null)}
               onConfirm={async () => {
                 setConfirming(null);
-                elapsedState.stop();
-                await run(() => actions.abandonSession(sessionId, elapsedState.elapsed));
-                setPhase("done");
+                const secs = stopElapsed();
+                const ok = await run(() => actions.abandonSession(sessionId, secs));
+                if (!ok) {
+                  resumeElapsed();
+                  return;
+                }
+                if (totalSetsDone === 0) {
+                  if (onExit) onExit();
+                  else router.push("/today");
+                } else {
+                  setEndedEarly(true);
+                  setPhase("done");
+                }
               }}
               disabled={busy}
             />
@@ -1370,8 +1384,11 @@ function CapabilityNote({
 /**
  * Confirmation dialog for ending a session early.
  *
- * Accessible dialog with focus trap semantics, role=dialog, aria-modal,
- * Escape to cancel, 44px touch targets, and brand CSS variables only.
+ * Uses a native <dialog> element opened with showModal() for proper a11y:
+ * - modal semantics with backdrop
+ * - Escape key support via cancel event
+ * - focus trap built-in
+ * - focus management: initial focus on "Keep going", returns to trigger on close
  */
 function EndEarlyConfirm({
   totalSetsDone,
@@ -1386,55 +1403,81 @@ function EndEarlyConfirm({
   onConfirm: () => void;
   disabled?: boolean;
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const keepGoingRef = useRef<HTMLButtonElement>(null);
+  const onCancelRef = useRef(onCancel);
+  const onConfirmRef = useRef(onConfirm);
 
   useEffect(() => {
+    onCancelRef.current = onCancel;
+    onConfirmRef.current = onConfirm;
+  });
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const returnFocus = triggerRef.current;
+    if (!dialog) return;
+
+    dialog.showModal();
     keepGoingRef.current?.focus();
 
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCancel();
-      }
+    const handleCancel = (e: Event) => {
+      e.preventDefault();
+      onCancelRef.current();
     };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [onCancel]);
+
+    dialog.addEventListener("cancel", handleCancel);
+
+    return () => {
+      dialog.removeEventListener("cancel", handleCancel);
+      dialog.close();
+      returnFocus?.focus();
+    };
+  }, []);
+
+  const handleKeepGoing = () => {
+    onCancelRef.current();
+  };
+
+  const handleEndSession = () => {
+    onConfirmRef.current();
+  };
+
+  const noSetsMessage = totalSetsDone === 0;
 
   return (
-    <div
+    <dialog
       ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
       aria-labelledby="end-early-title"
-      className="rounded-xl border border-border bg-surface-2 px-4 py-4"
+      aria-describedby="end-early-desc"
+      className="rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
     >
       <p id="end-early-title" className="text-sm font-medium">
         End this session?
       </p>
-      <p className="mt-2 text-sm text-muted">
-        You&apos;ve logged {totalSetsDone} of {totalSetsPlanned} sets. The session can&apos;t be
-        resumed once ended.
+      <p id="end-early-desc" className="mt-2 text-sm text-muted">
+        You&apos;ve logged {totalSetsDone} of {totalSetsPlanned} sets.
+        {noSetsMessage
+          ? " The session can be resumed from Today."
+          : " The session can\u2019t be resumed once ended."}
       </p>
       <div className="mt-4 flex gap-3">
         <button
           ref={keepGoingRef}
-          onClick={onCancel}
-          className="flex-1 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-          style={{ minHeight: "44px" }}
+          onClick={handleKeepGoing}
+          className="flex-1 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover min-h-11"
         >
           Keep going
         </button>
         <button
           disabled={disabled}
-          onClick={onConfirm}
-          className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60"
-          style={{ minHeight: "44px" }}
+          onClick={handleEndSession}
+          className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60 min-h-11"
         >
           End session
         </button>
       </div>
-    </div>
+    </dialog>
   );
 }

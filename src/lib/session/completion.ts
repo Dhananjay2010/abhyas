@@ -21,8 +21,11 @@ export function sessionCompletion(params: {
   endedEarly: boolean;
 }): SessionCompletion {
   const { loggedSets, plannedSets, endedEarly } = params;
+  
+  const clampedLogged = Math.max(0, loggedSets);
+  const clampedPlanned = Math.max(0, plannedSets);
 
-  if (!endedEarly && loggedSets >= plannedSets) {
+  if (!endedEarly && clampedLogged >= clampedPlanned) {
     return {
       kind: "complete",
       label: "Complete",
@@ -32,14 +35,14 @@ export function sessionCompletion(params: {
   if (endedEarly) {
     return {
       kind: "partial",
-      label: `Ended early · ${loggedSets}/${plannedSets} sets`,
+      label: `Ended early · ${clampedLogged}/${clampedPlanned} sets`,
     };
   }
 
-  if (loggedSets < plannedSets) {
+  if (clampedLogged < clampedPlanned) {
     return {
       kind: "partial",
-      label: `${loggedSets}/${plannedSets} sets`,
+      label: `${clampedLogged}/${clampedPlanned} sets`,
     };
   }
 
@@ -47,4 +50,27 @@ export function sessionCompletion(params: {
     kind: "complete",
     label: "Complete",
   };
+}
+
+export type ExerciseStatus = "pending" | "completed" | "skipped";
+
+/**
+ * Determine if a session was ended early based on its status and exercise statuses.
+ *
+ * A session is considered ended early when:
+ * - The session status is "completed"
+ * - At least one exercise is still "pending"
+ *
+ * abandonSession leaves remaining exercises as "pending", while a normal finish
+ * completes or skips all exercises before finishing.
+ */
+export function endedEarlyFromRows(
+  sessionStatus: string,
+  exerciseStatuses: ExerciseStatus[],
+): boolean {
+  if (sessionStatus !== "completed") {
+    return false;
+  }
+
+  return exerciseStatuses.some((status) => status === "pending");
 }
