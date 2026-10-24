@@ -545,20 +545,30 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   // QA Pass 10 followup (restored from PR #53): Beginners get no high-impact plyometric moves (knee tuck jump, etc.)
   if (input.level === "beginner" && ex.impact === "high") return false;
 
-  // PR #73 coordinator requirement: ANY knee injury (current or past) excludes jump/plyometric moves on ALL slots
+  // PR #73 coordinator: ANY knee injury (current or past) excludes jump/plyometric moves on ALL slots
+  // Detect by catalogue data: high-impact + lower-body primary muscles
   // Applies to both generation and swaps via isEligible
-  if (input.anyKneeInjury && ex.slug.includes("jump")) {
+  if (input.anyKneeInjury && ex.impact === "high") {
+    const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
+    const isLowerBody = ex.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+    if (isLowerBody) {
+      return false;
+    }
+  }
+
+  // PR #73 coordinator: ANY knee injury excludes sissy squats (including weighted-sissy-squat)
+  if (input.anyKneeInjury && ex.slug.includes("sissy")) {
     return false;
   }
 
-  // PR #73 coordinator requirement: ANY knee injury (current or past) excludes unsafe lunges
+  // PR #73 coordinator: ANY knee injury (current or past) excludes unsafe lunges
   // (deficit lunges, pistol squats, side split squat)
   if (input.anyKneeInjury && UNSAFE_KNEE_LUNGES.has(ex.slug)) {
     return false;
   }
 
-  // PR #73 coordinator requirement: current or past knee uses knee-safe lunge list
-  if ((input.anyKneeInjury || input.pastKneeInjury) && ex.movement_pattern === "lunge") {
+  // PR #73 coordinator: ANY knee (current or past) uses knee-safe lunge list
+  if (input.anyKneeInjury && ex.movement_pattern === "lunge") {
     if (!KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
       return false;
     }

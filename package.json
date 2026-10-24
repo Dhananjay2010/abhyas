@@ -154,7 +154,8 @@
     "test:settings-retry": "tsx scripts/test-settings-retry.tsx",
     "test:settings-equipment-error-clear": "tsx scripts/test-settings-equipment-error-clear.tsx",
     "test:settings-two-fields-fail": "tsx scripts/test-settings-two-fields-fail.tsx",
-    "test:settings-no-revert-over-newer": "tsx scripts/test-settings-no-revert-over-newer.tsx"
+    "test:settings-no-revert-over-newer": "tsx scripts/test-settings-no-revert-over-newer.tsx",
+    "test:catalogue-knee-jumps": "tsx scripts/test-catalogue-knee-jumps.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
