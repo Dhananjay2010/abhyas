@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition, useEffect, useRef } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { createSerialQueue } from "@/lib/serial-queue";
 import {
   BODY_REGIONS,
   GOALS,
@@ -85,7 +86,9 @@ export function SettingsForm({
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  
+  // Serial queue for optimistic saves
+  const [saveQueue] = useState(() => createSerialQueue());
   const [pendingSaves, setPendingSaves] = useState(0);
 
   // beforeunload guard while saves are pending
@@ -113,8 +116,7 @@ export function SettingsForm({
     setPendingSaves(n => n + 1);
     setSaveStatus("saving");
     
-    // Serialize saves: wait for previous save to complete
-    const nextSave = saveQueueRef.current.then(async () => {
+    saveQueue.enqueue(async () => {
       return new Promise<void>((resolve) => {
         startTransition(async () => {
           try {
@@ -137,8 +139,6 @@ export function SettingsForm({
         });
       });
     });
-    
-    saveQueueRef.current = nextSave;
   }
 
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
