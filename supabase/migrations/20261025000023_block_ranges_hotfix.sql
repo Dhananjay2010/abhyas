@@ -93,25 +93,23 @@ begin
   if v_old_block.started_on = p_today and v_old_block.id = (p_payload->>'id')::uuid then
     return v_old_block.id;
   end if;
+  
+  -- If started_on = p_today but DIFFERENT payload id, this is an intentional same-day rebuild
+  -- Continue to supersede and create new block
 
-  -- Compute new week_offset
+  -- Compute new week_offset: carry over the current cycle week
   v_new_week_offset := (
     v_old_block.week_offset +
     floor((p_today - v_old_block.started_on) / 7)
   );
 
-  -- L4: If started_on = p_today but DIFFERENT payload id, delete old block instead of superseding with empty range
-  if v_old_block.started_on = p_today then
-    -- Delete old block and its children (CASCADE handles days and exercises)
-    delete from public.programs where id = v_old_block.id;
-  else
-    -- Different day: retire the old block as 'superseded'
-    update public.programs
-    set
-      status = 'superseded',
-      ended_on = p_today - 1
-    where id = v_old_block.id;
-  end if;
+  -- Retire the old block as 'superseded'
+  -- For same-day second rebuild, ended_on = started_on - 1 (empty range, allowed by check constraint)
+  update public.programs
+  set
+    status = 'superseded',
+    ended_on = p_today - 1
+  where id = v_old_block.id;
 
   -- Insert new program
   insert into public.programs (
