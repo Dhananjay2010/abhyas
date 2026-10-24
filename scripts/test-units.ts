@@ -175,13 +175,13 @@ console.log("\n8. Weight input parsing");
   check("'154.5lb' accepted", parseWeight("154.5lb", "imperial") != null);
   check("'154.5 lbs' accepted", parseWeight("154.5 lbs", "imperial") != null);
 
-  // Absurd values rejected (aligned with server validation: 20-500 kg)
+  // Absurd values rejected (aligned with server validation: 25-300 kg)
   check("0 kg rejected", parseWeight("0", "metric") === null);
-  check("19 kg rejected (too small)", parseWeight("19", "metric") === null);
-  check("501 kg rejected (too large)", parseWeight("501", "metric") === null);
-  check("1200 lb rejected (~544 kg)", parseWeight("1200", "imperial") === null);
-  check("20 kg accepted (edge)", parseWeight("20", "metric") === 20);
-  check("500 kg accepted (edge)", parseWeight("500", "metric") === 500);
+  check("24 kg rejected (too small)", parseWeight("24", "metric") === null);
+  check("301 kg rejected (too large)", parseWeight("301", "metric") === null);
+  check("700 lb rejected (~318 kg)", parseWeight("700", "imperial") === null);
+  check("25 kg accepted (edge)", parseWeight("25", "metric") === 25);
+  check("300 kg accepted (edge)", parseWeight("300", "metric") === 300);
 }
 
 console.log("\n9. Height input parsing");
@@ -348,10 +348,10 @@ console.log("\n15. Height validation (isValidHeightCm)");
 console.log("\n16. Weight validation (isValidWeightKg)");
 {
   check("70 kg is valid", isValidWeightKg(70) === true);
-  check("20 kg is valid (lower bound)", isValidWeightKg(20) === true);
-  check("500 kg is valid (upper bound)", isValidWeightKg(500) === true);
-  check("19 kg is invalid (too light)", isValidWeightKg(19) === false);
-  check("501 kg is invalid (too heavy)", isValidWeightKg(501) === false);
+  check("25 kg is valid (lower bound)", isValidWeightKg(25) === true);
+  check("300 kg is valid (upper bound)", isValidWeightKg(300) === true);
+  check("24 kg is invalid (too light)", isValidWeightKg(24) === false);
+  check("301 kg is invalid (too heavy)", isValidWeightKg(301) === false);
   check("NaN is invalid", isValidWeightKg(NaN) === false);
   check("Infinity is invalid", isValidWeightKg(Infinity) === false);
   check("-Infinity is invalid", isValidWeightKg(-Infinity) === false);
@@ -361,6 +361,33 @@ console.log("\n16. Weight validation (isValidWeightKg)");
   check("undefined is invalid", isValidWeightKg(undefined) === false);
   check("0 is invalid", isValidWeightKg(0) === false);
   check("negative is invalid", isValidWeightKg(-10) === false);
+}
+
+console.log("\n8. Date of birth validation (isValidDateOfBirth)");
+{
+  const { isValidDateOfBirth } = require("../src/lib/units");
+  
+  // Valid dates
+  check("Valid date: 1990-05-15", isValidDateOfBirth("1990-05-15"));
+  check("Valid date: 1900-01-01 (lower bound)", isValidDateOfBirth("1900-01-01"));
+  check("Valid date: today", isValidDateOfBirth(new Date().toISOString().slice(0, 10)));
+  check("Valid date: 2000-12-31", isValidDateOfBirth("2000-12-31"));
+
+  // Invalid dates
+  check("Rejects future date", !isValidDateOfBirth("2030-01-01"));
+  check("Rejects year before 1900", !isValidDateOfBirth("1899-12-31"));
+  check("Rejects year before 1000 (3 digits)", !isValidDateOfBirth("0999-01-01"));
+  check("Rejects year 0996", !isValidDateOfBirth("0996-01-01"));
+  check("Rejects invalid date (2020-02-30)", !isValidDateOfBirth("2020-02-30"));
+  check("Rejects invalid format (MM/DD/YYYY)", !isValidDateOfBirth("01/15/1990"));
+  check("Rejects invalid format (no dashes)", !isValidDateOfBirth("19900515"));
+  check("Rejects empty string", !isValidDateOfBirth(""));
+  check("Rejects null", !isValidDateOfBirth(null as any));
+  check("Rejects undefined", !isValidDateOfBirth(undefined as any));
+  check("Rejects non-string", !isValidDateOfBirth(12345 as any));
+  check("Rejects year 10000 (5 digits)", !isValidDateOfBirth("10000-01-01"));
+  check("Rejects 2-digit year", !isValidDateOfBirth("90-05-15"));
+  check("Rejects malformed", !isValidDateOfBirth("not-a-date"));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

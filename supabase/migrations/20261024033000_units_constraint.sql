@@ -2,14 +2,7 @@
 -- The column already exists; this migration normalizes existing data and adds validation.
 -- Imperial units support, foundation layer.
 
--- First, ensure the column is NOT NULL with a default
-alter table profiles
-  alter column units set default 'metric';
-
-alter table profiles
-  alter column units set not null;
-
--- Normalize existing data before adding the constraint
+-- First, normalize existing data (before setting not null)
 update profiles
 set units = case
   when lower(trim(units)) = 'kg' then 'metric'
@@ -19,6 +12,14 @@ set units = case
 end
 where units is null
    or lower(trim(units)) not in ('metric', 'imperial');
+
+-- Then set default
+alter table profiles
+  alter column units set default 'metric';
+
+-- Then set not null (after data is normalized)
+alter table profiles
+  alter column units set not null;
 
 -- Drop constraint if it already exists (idempotent)
 do $$
@@ -33,7 +34,7 @@ begin
   end if;
 end $$;
 
--- Add the constraint
+-- Finally, add the constraint
 alter table profiles
   add constraint profiles_units_check
   check (units in ('metric', 'imperial'));

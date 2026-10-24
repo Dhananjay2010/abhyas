@@ -274,9 +274,9 @@ export function OnboardingFlow({
       : null;
     
     const heightValid = heightCm !== "" && Number.isFinite(height) && height >= 100 && height <= 250;
-    const weightValid = weightKg !== "" && Number.isFinite(weight) && weight >= 20 && weight <= 500;
+    const weightValid = weightKg !== "" && Number.isFinite(weight) && weight >= 25 && weight <= 300;
     const heightError = heightCm !== "" && !heightValid ? "Height should be between 100 and 250 cm" : null;
-    const weightError = weightKg !== "" && !weightValid ? "Weight should be between 20 and 500 kg" : null;
+    const weightError = weightKg !== "" && !weightValid ? "Weight should be between 25 and 300 kg" : null;
     
     const ready =
       dobValid && sex !== null && heightValid && weightValid && !pending;
@@ -355,8 +355,8 @@ export function OnboardingFlow({
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
                 placeholder="70"
-                min="20"
-                max="500"
+                min="25"
+                max="300"
                 step="any"
                 className={inputClass}
               />

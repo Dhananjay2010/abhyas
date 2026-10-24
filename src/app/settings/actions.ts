@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
-import { isValidHeightCm } from "@/lib/units";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -20,6 +20,9 @@ async function requireUser() {
 
 /** Session preferences. None of these affect the generated plan. */
 export async function updateSessionSettings(patch: SettingsUpdate): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
   // Upsert, not update. `user_settings` is created by the on_auth_user_created
   // trigger, so a plain UPDATE quietly matches zero rows for any account whose
@@ -40,6 +43,9 @@ export async function updateSessionSettings(patch: SettingsUpdate): Promise<Resu
  * than the block being silently rebuilt underneath them.
  */
 export async function updateProfileSettings(patch: ProfileUpdate): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
 
   if (patch.days_per_week != null && (patch.days_per_week < 3 || patch.days_per_week > 6)) {
@@ -51,10 +57,6 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     patch.yoga_days_per_week > patch.days_per_week - 1
   ) {
     return { ok: false, error: "At least one day a week has to be training." };
-  }
-  
-  if (patch.height_cm != null && !isValidHeightCm(patch.height_cm)) {
-    return { ok: false, error: "Height should be between 100 and 250 cm." };
   }
 
   const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
@@ -68,6 +70,9 @@ export async function updateEquipment(input: {
   hasAll: boolean;
   equipmentIds: string[];
 }): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
 
   const { error: flagError } = await supabase
@@ -96,6 +101,9 @@ export async function updateEquipment(input: {
 export async function updateInjuries(
   injuries: { bodyRegion: BodyRegion; severity: InjurySeverity }[],
 ): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
 
   const { error: clearError } = await supabase

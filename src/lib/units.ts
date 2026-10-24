@@ -236,9 +236,9 @@ export function parseWeight(
     kg = value;
   }
 
-  // Reject absurd values: 20 to 500 kg (~44 to ~1100 lb)
+  // Reject absurd values: 25 to 300 kg (~55 to ~661 lb)
   // Bounds aligned with server-side validation
-  if (kg < 20 || kg > 500) return null;
+  if (kg < WEIGHT_KG_MIN || kg > WEIGHT_KG_MAX) return null;
 
   return kg;
 }
@@ -282,7 +282,7 @@ export function parseHeight(
       const totalInches = feetAndInchesToInches(feet, inches);
       const cm = inToCm(totalInches);
       // Reject absurd values: 100 to 250 cm (aligned with server validation)
-      if (cm < 100 || cm > 250) return null;
+      if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
       return cm;
     }
 
@@ -290,7 +290,7 @@ export function parseHeight(
     if (typeof input === "number") {
       if (!Number.isFinite(input) || input < 0) return null;
       const cm = inToCm(input);
-      if (cm < 100 || cm > 250) return null;
+      if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
       return cm;
     }
 
@@ -308,7 +308,7 @@ export function parseHeight(
         if (inches >= 12) return null;
         const totalInches = feetAndInchesToInches(feet, inches);
         const cm = inToCm(totalInches);
-        if (cm < 100 || cm > 250) return null;
+        if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
         return cm;
       }
 
@@ -321,7 +321,7 @@ export function parseHeight(
         if (inches >= 12) return null;
         const totalInches = feetAndInchesToInches(feet, inches);
         const cm = inToCm(totalInches);
-        if (cm < 100 || cm > 250) return null;
+        if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
         return cm;
       }
 
@@ -331,7 +331,7 @@ export function parseHeight(
         const value = Number(match[1]);
         if (Number.isFinite(value) && value >= 0) {
           const cm = inToCm(value);
-          if (cm < 100 || cm > 250) return null;
+          if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
           return cm;
         }
       }
@@ -366,6 +366,12 @@ export type UnitsPreference = "metric" | "imperial";
 // VALIDATION
 // ============================================================
 
+// Validation bounds (must match server-side validation in actions.ts)
+export const HEIGHT_CM_MIN = 100;
+export const HEIGHT_CM_MAX = 250;
+export const WEIGHT_KG_MIN = 25;
+export const WEIGHT_KG_MAX = 300;
+
 /**
  * Validate height in centimeters.
  * Rejects NaN, Infinity, non-numbers, and out-of-range values.
@@ -377,14 +383,14 @@ export type UnitsPreference = "metric" | "imperial";
 export function isValidHeightCm(cm: unknown): cm is number {
   if (typeof cm !== "number") return false;
   if (!Number.isFinite(cm)) return false;
-  if (cm < 100 || cm > 250) return false;
+  if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return false;
   return true;
 }
 
 /**
  * Validate weight in kilograms.
  * Rejects NaN, Infinity, non-numbers, and out-of-range values.
- * Valid range: 20-500 kg (aligned with server-side validation).
+ * Valid range: 25-300 kg (aligned with server-side validation).
  *
  * @param kg - Weight value to validate
  * @returns true if valid, false otherwise
@@ -392,7 +398,7 @@ export function isValidHeightCm(cm: unknown): cm is number {
 export function isValidWeightKg(kg: unknown): kg is number {
   if (typeof kg !== "number") return false;
   if (!Number.isFinite(kg)) return false;
-  if (kg < 20 || kg > 500) return false;
+  if (kg < WEIGHT_KG_MIN || kg > WEIGHT_KG_MAX) return false;
   return true;
 }
 

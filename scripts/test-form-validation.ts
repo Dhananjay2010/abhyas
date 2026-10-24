@@ -63,8 +63,8 @@ console.log("\n2. Weight validation logic (no silent truncation)");
     if (input === "") return { valid: false, error: null };
     const weight = Number(input);
     if (!Number.isFinite(weight)) return { valid: false, error: "Weight should be a valid number" };
-    if (weight < 20) return { valid: false, error: "Weight should be between 20 and 500 kg" };
-    if (weight > 500) return { valid: false, error: "Weight should be between 20 and 500 kg" };
+    if (weight < 25) return { valid: false, error: "Weight should be between 25 and 300 kg" };
+    if (weight > 300) return { valid: false, error: "Weight should be between 25 and 300 kg" };
     return { valid: true, error: null };
   }
 
@@ -72,26 +72,25 @@ console.log("\n2. Weight validation logic (no silent truncation)");
   const valid70 = validateWeight("70");
   check("70 kg is valid", valid70.valid && valid70.error === null);
 
-  const valid20 = validateWeight("20");
-  check("20 kg is valid (lower bound)", valid20.valid && valid20.error === null);
+  const valid25 = validateWeight("25");
+  check("25 kg is valid (lower bound)", valid25.valid && valid25.error === null);
 
-  const valid500 = validateWeight("500");
-  check("500 kg is valid (upper bound)", valid500.valid && valid500.error === null);
+  const valid300 = validateWeight("300");
+  check("300 kg is valid (upper bound)", valid300.valid && valid300.error === null);
 
   // Invalid inputs - should show errors, not truncate
   const invalid5000 = validateWeight("5000");
-  check("5000 kg shows error (not truncated to 50)", !invalid5000.valid && invalid5000.error !== null,
+  check("5000 kg shows error (not truncated)", !invalid5000.valid && invalid5000.error !== null,
     `error: ${invalid5000.error}`);
 
-  const invalid19 = validateWeight("19");
-  check("19 kg shows error (too light)", !invalid19.valid && invalid19.error !== null);
+  const invalid24 = validateWeight("24");
+  check("24 kg shows error (too light)", !invalid24.valid && invalid24.error !== null);
 
-  const invalid501 = validateWeight("501");
-  check("501 kg shows error (too heavy)", !invalid501.valid && invalid501.error !== null);
+  const invalid301 = validateWeight("301");
+  check("301 kg shows error (too heavy)", !invalid301.valid && invalid301.error !== null);
 
   const invalidNegative = validateWeight("-5");
-  check("-5 kg shows error (negative)", !invalidNegative.valid && invalidNegative.error !== null,
-    `error: ${invalidNegative.error}`);
+  check("-5 kg shows error (negative)", !invalidNegative.valid && invalidNegative.error !== null);
 
   const invalidEmpty = validateWeight("");
   check("Empty string: not valid, no error yet", !invalidEmpty.valid && invalidEmpty.error === null);

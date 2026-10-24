@@ -196,7 +196,11 @@ export function Field({
       <span className="text-sm font-medium text-fg">{label}</span>
       {hint && <span className="ml-2 text-xs text-muted">{hint}</span>}
       <div className="mt-2">{children}</div>
-      {error && <div className="mt-1 text-xs text-red-400">{error}</div>}
+      {error && (
+        <div role="alert" className="mt-1 text-xs text-danger">
+          {error}
+        </div>
+      )}
     </label>
   );
 }
