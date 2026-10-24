@@ -184,11 +184,11 @@ function testTimezoneValidation() {
   console.log(`  ✓ Valid timezones pass: ${validTimezones.join(", ")}`);
 
   // Invalid timezones
+  // Note: EST and other abbreviations are accepted by Intl.DateTimeFormat
   const invalidTimezones = [
     "Invalid/Timezone",
     "America/InvalidCity",
     "NotATimezone",
-    "EST", // deprecated abbreviation
     "",
     null,
     undefined,
@@ -430,10 +430,11 @@ function testManifestUsesConfig() {
   assert(m.display === "standalone", "manifest.display must be 'standalone'");
   assert(m.start_url === "/", "manifest.start_url must be '/'");
   assert(m.scope === "/", "manifest.scope must be '/'");
-  // ID should be stable and derived from brand ID
+  // ID should be stable: "/" for default brand (PWA install stability), brand-scoped for others
+  const expectedId = branding.id === "default" ? "/" : `/?brand=${branding.id}`;
   assert(
-    typeof m.id === "string" && m.id.includes(branding.id),
-    `manifest.id must be stable and include brand ID (got: ${m.id})`
+    m.id === expectedId,
+    `manifest.id must be "${expectedId}" for ${branding.id} brand (got: ${m.id})`
   );
   // Orientation should not be locked (removed for accessibility)
   assert(
