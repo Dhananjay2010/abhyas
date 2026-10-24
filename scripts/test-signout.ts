@@ -1,3 +1,4 @@
+export {};
 /**
  * Sign-out logic tests
  *

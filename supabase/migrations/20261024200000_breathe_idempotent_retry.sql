@@ -2,10 +2,10 @@
 --
 -- Two rapid calls with the same log_id (double tap, two tabs, offline retry)
 -- could both pass the "does this log exist?" check before either inserts,
--- causing both to insert and double-count the session. ON CONFLICT on the
--- log's primary key makes the insert idempotent without requiring a new
--- unique constraint: the second call's insert is a no-op, and the early
--- return logic already handles the rest.
+-- then both would update the session duration before trying to insert the log.
+-- The fix: insert the log with ON CONFLICT DO NOTHING and use RETURNING to
+-- detect if the insert actually happened. Only update the session if it did.
+-- This ensures a retry after a race adds nothing to session duration.
 
 drop function if exists public.record_breathing_practice(
   uuid, date, uuid, uuid, int, int, int, int, boolean, smallint, text, uuid, uuid, smallint
@@ -36,6 +36,7 @@ declare
   v_name    text;
   v_routine text;
   v_session uuid;
+  v_inserted boolean;
 begin
   if v_user is null then
     raise exception 'record_breathing_practice: not signed in';
@@ -84,11 +85,6 @@ begin
     if v_session is null then
       raise exception 'record_breathing_practice: unknown session %', p_session_id;
     end if;
-
-    update sessions set
-      duration_seconds = coalesce(duration_seconds, 0) + p_seconds,
-      completed_at     = now()
-    where id = v_session;
   else
     select id into v_session
       from sessions
@@ -100,16 +96,7 @@ begin
      limit 1
      for update;
 
-    if v_session is not null then
-      update sessions set
-        status               = 'completed',
-        actual_type          = 'meditation',
-        started_at           = coalesce(started_at, now() - make_interval(secs => p_seconds)),
-        completed_at         = now(),
-        duration_seconds     = p_seconds,
-        breathing_pattern_id = p_pattern_id
-      where id = v_session;
-    else
+    if v_session is null then
       insert into sessions (
         user_id, local_date, planned_type, actual_type, status,
         started_at, completed_at, duration_seconds, breathing_pattern_id
@@ -123,20 +110,46 @@ begin
 
   -- Race-safe insert: if two calls reach here with the same log_id (both passed
   -- the early-return check because neither had inserted yet), the second one's
-  -- insert is ignored. The function then re-checks at the top of the next call
-  -- and returns early, so retries are always safe.
-  insert into breathing_logs (
-    id, user_id, session_id, pattern_id, user_pattern_id, pattern_name,
-    routine_id, routine_name, routine_step,
-    cycles_completed, planned_cycles, breaths, seconds,
-    ended_early, mood_before, guidance
-  ) values (
-    p_log_id, v_user, v_session, p_pattern_id, p_user_pattern_id, v_name,
-    p_routine_id, v_routine, p_routine_step,
-    p_cycles, p_planned_cycles, p_breaths, p_seconds,
-    p_ended_early, p_mood_before, p_guidance
+  -- insert is ignored by ON CONFLICT. We use a CTE with RETURNING to detect
+  -- whether the insert actually happened, then only update the session if it did.
+  with inserted as (
+    insert into breathing_logs (
+      id, user_id, session_id, pattern_id, user_pattern_id, pattern_name,
+      routine_id, routine_name, routine_step,
+      cycles_completed, planned_cycles, breaths, seconds,
+      ended_early, mood_before, guidance
+    ) values (
+      p_log_id, v_user, v_session, p_pattern_id, p_user_pattern_id, v_name,
+      p_routine_id, v_routine, p_routine_step,
+      p_cycles, p_planned_cycles, p_breaths, p_seconds,
+      p_ended_early, p_mood_before, p_guidance
+    )
+    on conflict (id) do nothing
+    returning id
   )
-  on conflict (id) do nothing;
+  select count(*) > 0 from inserted into v_inserted;
+
+  -- Only update the session if the log insert actually happened. If it didn't
+  -- (conflict occurred), the session was already updated by the first call.
+  if v_inserted then
+    if p_session_id is not null then
+      -- Routine step: add this step's seconds to the session total
+      update sessions set
+        duration_seconds = coalesce(duration_seconds, 0) + p_seconds,
+        completed_at     = now()
+      where id = v_session;
+    else
+      -- First practice or single practice: set the session as complete
+      update sessions set
+        status               = 'completed',
+        actual_type          = 'meditation',
+        started_at           = coalesce(started_at, now() - make_interval(secs => p_seconds)),
+        completed_at         = now(),
+        duration_seconds     = p_seconds,
+        breathing_pattern_id = p_pattern_id
+      where id = v_session;
+    end if;
+  end if;
 
   return v_session;
 end;

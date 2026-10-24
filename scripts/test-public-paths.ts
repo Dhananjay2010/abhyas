@@ -1,3 +1,4 @@
+export {};
 /**
  * Tests the public path matching logic from the session proxy.
  *

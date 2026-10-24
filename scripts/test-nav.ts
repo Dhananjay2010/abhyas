@@ -1,3 +1,4 @@
+export {};
 import { activeTab } from "../src/lib/nav";
 
 let failures = 0;

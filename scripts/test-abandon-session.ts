@@ -1,3 +1,4 @@
+export {};
 /**
  * Test that ending a session early with working sets is handled correctly:
  * - decideAbandonStatus returns "completed" when working sets exist

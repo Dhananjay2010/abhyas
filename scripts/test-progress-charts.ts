@@ -1,3 +1,4 @@
+export {};
 /**
  * Progress page regression fix (2026-10-24): Strength charts must plot points
  * oldest to newest (chronological), same as weight and volume. The bug was that

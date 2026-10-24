@@ -1,3 +1,4 @@
+export {};
 /**
  * Tests for equipment toggle logic in Settings.
  * The "I have access to everything" button must toggle on/off correctly.

@@ -1,3 +1,4 @@
+export {};
 /**
  * Test: Enhanced Branding Configuration with Timezone Support
  *

@@ -1,3 +1,4 @@
+export {};
 /**
  * Test that after a block rollover, the correct block information is displayed.
  *

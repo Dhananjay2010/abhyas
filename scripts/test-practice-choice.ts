@@ -1,3 +1,4 @@
+export {};
 import { choosePracticeRoute, type PracticeType } from "../src/lib/nav";
 
 let failures = 0;

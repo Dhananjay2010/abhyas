@@ -1,3 +1,4 @@
+export {};
 import { stripSeriesSuffix, groupVideosByWeek, type YogaVideoForGrouping } from "../src/lib/yoga-display";
 
 let failures = 0;

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+export {};
 /**
  * Test: Icon dimensions
  *

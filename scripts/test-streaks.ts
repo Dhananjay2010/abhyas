@@ -1,3 +1,4 @@
+export {};
 /**
  * Streak rules: rest days are part of the plan, so they must never break a
  * streak, and an incomplete today must not either.

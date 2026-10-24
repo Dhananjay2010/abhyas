@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+export {};
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /*
  * Test: finishExercise idempotency
