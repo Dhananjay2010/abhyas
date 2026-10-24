@@ -4,6 +4,7 @@ import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warm
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { isStaleSession } from "@/lib/session/is-stale-session";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
@@ -217,7 +218,7 @@ export default async function SessionPage({
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
   const tomorrow = await nextDayPlan(supabase, timezone);
 
-  const { isStaleSession } = await import("@/lib/session/is-stale-session");
+  // Compute isStale on the server to avoid requiring timezone in client components
   const isStale = session.started_at
     ? isStaleSession({
         startedAt: session.started_at,

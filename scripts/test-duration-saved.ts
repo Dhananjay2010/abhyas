@@ -38,7 +38,7 @@ type UpdateCall = {
   patch: {
     status: string;
     completed_at: string | null;
-    duration_seconds: number;
+    duration_seconds: number | null;
     cooldown_completed?: boolean;
   };
 };

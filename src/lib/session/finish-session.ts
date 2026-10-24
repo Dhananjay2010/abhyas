@@ -67,26 +67,24 @@ export async function finishSessionCore(
 
   const now = new Date().toISOString();
 
-  // Guard: started_at is required
-  if (!session.started_at) {
-    return { ok: false, error: "Session started_at is null" };
-  }
+  // If started_at is null, treat as stale and save null duration like main did
+  const startedAt = session.started_at;
 
-  // Check if session is stale
-  const stale = isStaleSession({
-    startedAt: session.started_at,
+  // Check if session is stale (null or invalid timestamps are treated as stale)
+  const stale = !startedAt || isStaleSession({
+    startedAt,
     now,
     timezone,
   });
 
   let status: "completed" | "skipped";
   let endedAt: string;
-  let durationSeconds: number;
+  let durationSeconds: number | null;
 
   if (stale) {
     // Use stale finish logic
     const staleFinish = resolveStaleFinish({
-      startedAt: session.started_at,
+      startedAt,
       lastSetCompletedAt,
       workingSetCount,
       restSeconds: lastSetRestSeconds,
@@ -94,7 +92,7 @@ export async function finishSessionCore(
 
     status = staleFinish.status;
     endedAt = staleFinish.endedAt;
-    durationSeconds = staleFinish.durationSeconds ?? 0; // null becomes 0
+    durationSeconds = staleFinish.durationSeconds;
   } else {
     // Normal finish: use now and client-provided duration
     status = decideAbandonStatus(exercises ?? []);
@@ -102,8 +100,10 @@ export async function finishSessionCore(
     durationSeconds = params.durationSeconds;
   }
 
-  // Clamp duration to sane range: 0 to 6 hours
-  const clampedDuration = Math.max(0, Math.min(21600, Math.round(durationSeconds)));
+  // Clamp duration to sane range: 0 to 6 hours, or keep null for invalid timestamps
+  const clampedDuration = durationSeconds === null
+    ? null
+    : Math.max(0, Math.min(21600, Math.round(durationSeconds)));
 
   // Safety: Only update if status is 'in_progress' to prevent double-application on retry.
   const { error, updatedCount } = await deps.updateSession(params.sessionId, {

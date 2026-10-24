@@ -296,22 +296,27 @@ export function SessionRunner({
   const [confirming, setConfirming] = useState<"skip" | "end_early" | null>(null);
 
   async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>): Promise<"busy" | boolean> {
-    if (busyRef.current) return "busy";
-    busyRef.current = true;
-    setBusy(true);
-    try {
-      const r = await fn();
-      if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
-      else setError(null);
-      return r.ok;
-    } catch (err) {
-      // h2: Catch network errors (offline, timeout, etc)
-      setError(runnerErrorMessage(err));
-      return false;
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
+    const result = await withBusyGuard(
+      () => busyRef.current,
+      (busy) => {
+        busyRef.current = busy;
+        setBusy(busy);
+      },
+      async () => {
+        try {
+          const r = await fn();
+          if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
+          else setError(null);
+          return r.ok;
+        } catch (err) {
+          setError(runnerErrorMessage(err));
+          return false;
+        }
+      }
+    );
+
+    if (result.busy) return "busy";
+    return result.result;
   }
 
   async function finish(cooldownCompleted: boolean) {

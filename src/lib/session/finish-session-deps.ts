@@ -37,7 +37,7 @@ export type FinishSessionDeps = {
     patch: {
       status: Database["public"]["Enums"]["session_status"];
       completed_at: string | null;
-      duration_seconds: number;
+      duration_seconds: number | null;
       cooldown_completed?: boolean;
     }
   ): Promise<{ error: string | null; updatedCount: number }>;

@@ -4,6 +4,7 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
+import { makeFinishSessionDeps } from "@/lib/session/finish-session-deps";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -506,7 +507,6 @@ export async function finishSession(input: {
   // route, whose "completed -> redirect to /today" guard then fires before the
   // client can show the summary, so the user never saw their totals or what
   // progression changed. Today is refreshed when they leave the summary.
-  const { makeFinishSessionDeps } = await import("@/lib/session/finish-session-deps");
   return await finishSessionCore(makeFinishSessionDeps(supabase), input);
 }
 

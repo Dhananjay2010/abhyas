@@ -15,8 +15,16 @@ export function isStaleSession(params: {
   now: string;
   timezone: string;
 }): boolean {
-  const startMs = new Date(params.startedAt).getTime();
-  const nowMs = new Date(params.now).getTime();
+  const start = new Date(params.startedAt);
+  const nowDate = new Date(params.now);
+
+  // Treat invalid timestamps as stale (finish will handle it)
+  if (isNaN(start.getTime()) || isNaN(nowDate.getTime())) {
+    return true;
+  }
+
+  const startMs = start.getTime();
+  const nowMs = nowDate.getTime();
 
   // Stale if started on a past day (in user's timezone)
   const startedLocalDate = localDateString(params.timezone, new Date(params.startedAt));

@@ -35,7 +35,7 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-function makeFakeDeps(session: SessionRow, trackUpdates: { duration?: number } = {}) {
+function makeFakeDeps(session: SessionRow, trackUpdates: { duration?: number | null } = {}) {
   return {
     async loadSession() {
       return { data: session, error: null };
@@ -56,7 +56,7 @@ function makeFakeDeps(session: SessionRow, trackUpdates: { duration?: number } =
         error: null,
       };
     },
-    async updateSession(_id: string, patch: { duration_seconds: number }) {
+    async updateSession(_id: string, patch: { duration_seconds: number | null }) {
       trackUpdates.duration = patch.duration_seconds;
       return { error: null, updatedCount: 1 };
     },
