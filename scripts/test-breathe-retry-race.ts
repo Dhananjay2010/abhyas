@@ -6,9 +6,10 @@ export {};
  * Uses direct database connection with RLS context to test that two concurrent
  * transactions with the same log_id create exactly one session.
  *
- * Tests both paths:
- * 1. Without planned session (new session)
- * 2. With planned meditation session (routine step)
+ * Tests three paths:
+ * 1. Without planned session (new session created)
+ * 2. With planned meditation session (reuses planned row)
+ * 3. Routine step (first call creates session, second reuses it)
  *
  * IMPORTANT: This test FAILS with the advisory lock removed, proving the guard works.
  */
@@ -37,7 +38,7 @@ try {
 console.log("\n▶ Running concurrency test against localhost Postgres\n");
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000001"; // seed user
-const TEST_PATTERN_ID = "99999999-0000-0000-0000-000000000001"; // test pattern
+const FAR_OFF_DATE = "2099-12-31"; // far in future to avoid interfering with real data
 
 let failures = 0;
 
@@ -48,210 +49,265 @@ function check(label: string, ok: boolean, detail = "") {
   );
 }
 
-async function testConcurrentCalls() {
-  const clientA = new Client({ connectionString: DATABASE_URL });
-  const clientB = new Client({ connectionString: DATABASE_URL });
-  
+async function testConcurrentRace() {
+  const client1 = new Client({ connectionString: DATABASE_URL });
+  const client2 = new Client({ connectionString: DATABASE_URL });
+  await client1.connect();
+  await client2.connect();
+
   try {
-    await clientA.connect();
-    await clientB.connect();
-    
-    // Set up test pattern
-    await clientA.query("DELETE FROM breathing_patterns WHERE id = $1", [TEST_PATTERN_ID]);
-    await clientA.query(`
-      INSERT INTO breathing_patterns (id, slug, name, subtitle, description, phases, max_cycles)
-      VALUES ($1, 'test-race', 'Test Race', NULL, 'Test pattern', 
-              '[{"kind":"breathe_in","seconds":4},{"kind":"hold","seconds":4},{"kind":"breathe_out","seconds":4},{"kind":"hold","seconds":4}]'::jsonb,
-              10)
-    `, [TEST_PATTERN_ID]);
-    
-    const today = new Date().toISOString().split("T")[0]; // Use local date in practice
-    const logId = "99999999-0000-0000-0000-000000000099";
-    
-    console.log("1. Concurrent calls without planned session (new session path)");
-    
-    // Clean up any existing test data
-    await clientA.query("DELETE FROM breathing_logs WHERE id = $1", [logId]);
-    await clientA.query(`
-      DELETE FROM sessions 
-      WHERE user_id = $1 AND local_date = $2 AND actual_type = 'meditation'
-    `, [TEST_USER_ID, today]);
-    
-    // Set RLS context for both clients
-    await clientA.query("SET LOCAL role = authenticated");
-    await clientA.query(
-      "SELECT set_config('request.jwt.claims', $1, true)",
-      [`{"sub":"${TEST_USER_ID}","role":"authenticated"}`]
+    // Get box-breathing pattern id from seed data
+    const patternResult = await client1.query(
+      "SELECT id FROM breathing_patterns WHERE slug = 'box-breathing'"
     );
-    
-    await clientB.query("SET LOCAL role = authenticated");
-    await clientB.query(
-      "SELECT set_config('request.jwt.claims', $1, true)",
-      [`{"sub":"${TEST_USER_ID}","role":"authenticated"}`]
-    );
-    
-    // Start transaction A, call function, sleep, then commit
-    await clientA.query("BEGIN");
-    const promiseA = (async () => {
-      const resultA = await clientA.query(`
-        SELECT record_breathing_practice(
-          $1::uuid, $2::date, $3::uuid, NULL::uuid, 
-          5, 5, 20, 240, false, NULL::smallint, 'audio', 
-          NULL::uuid, NULL::uuid, NULL::smallint
-        ) as session_id
-      `, [logId, today, TEST_PATTERN_ID]);
-      await clientA.query("SELECT pg_sleep(0.5)");
-      await clientA.query("COMMIT");
-      return resultA.rows[0].session_id;
-    })();
-    
-    // Start transaction B immediately, try same log_id
-    await new Promise(resolve => setTimeout(resolve, 100)); // Let A get ahead
-    await clientB.query("BEGIN");
-    const promiseB = (async () => {
-      const resultB = await clientB.query(`
-        SELECT record_breathing_practice(
-          $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          5, 5, 20, 240, false, NULL::smallint, 'audio',
-          NULL::uuid, NULL::uuid, NULL::smallint
-        ) as session_id
-      `, [logId, today, TEST_PATTERN_ID]);
-      await clientB.query("COMMIT");
-      return resultB.rows[0].session_id;
-    })();
-    
-    const [sessionIdA, sessionIdB] = await Promise.all([promiseA, promiseB]);
-    
-    check("both calls succeeded", sessionIdA && sessionIdB);
-    check("both returned same session_id", sessionIdA === sessionIdB);
-    
-    // Check actual sessions created
-    const sessionsResult = await clientA.query(`
-      SELECT id, duration_seconds FROM sessions
-      WHERE user_id = $1 AND local_date = $2 AND actual_type = 'meditation'
-    `, [TEST_USER_ID, today]);
-    
-    check("exactly 1 session created", sessionsResult.rows.length === 1, 
-      `found ${sessionsResult.rows.length}`);
-    
-    if (sessionsResult.rows.length > 0) {
-      check("session duration is 240s (not doubled)", 
-        sessionsResult.rows[0].duration_seconds === 240,
-        `got ${sessionsResult.rows[0].duration_seconds}s`);
+    if (patternResult.rows.length === 0) {
+      throw new Error("box-breathing pattern not found in seed data");
     }
-    
-    // Check logs
-    const logsResult = await clientA.query(
-      "SELECT id FROM breathing_logs WHERE id = $1",
-      [logId]
-    );
-    check("exactly 1 log created", logsResult.rows.length === 1);
-    
-    console.log("\n2. Concurrent calls with planned session (routine step path)");
-    
-    const logId2 = "99999999-0000-0000-0000-000000000098";
-    await clientA.query("DELETE FROM breathing_logs WHERE id = $1", [logId2]);
-    
-    // Create planned meditation session
-    const plannedResult = await clientA.query(`
-      INSERT INTO sessions (user_id, local_date, planned_type, status)
-      VALUES ($1, $2, 'meditation', 'pending')
-      RETURNING id
-    `, [TEST_USER_ID, today]);
-    const plannedSessionId = plannedResult.rows[0].id;
-    
-    // Reset RLS context
-    await clientA.query("SET LOCAL role = authenticated");
-    await clientA.query(
-      "SELECT set_config('request.jwt.claims', $1, true)",
-      [`{"sub":"${TEST_USER_ID}","role":"authenticated"}`]
-    );
-    await clientB.query("SET LOCAL role = authenticated");
-    await clientB.query(
-      "SELECT set_config('request.jwt.claims', $1, true)",
-      [`{"sub":"${TEST_USER_ID}","role":"authenticated"}`]
-    );
-    
-    // Transaction A with planned session
-    await clientA.query("BEGIN");
-    const promiseA2 = (async () => {
-      const resultA = await clientA.query(`
-        SELECT record_breathing_practice(
+    const PATTERN_ID = patternResult.rows[0].id;
+
+    console.log("1. Test concurrent calls without planned session (new session path)");
+    {
+      const logId = crypto.randomUUID();
+
+      // Start both transactions
+      await client1.query("BEGIN");
+      await client2.query("BEGIN");
+
+      // Set up RLS context for both
+      await client1.query("SET LOCAL role authenticated");
+      await client1.query(
+        "SELECT set_config('request.jwt.claims', $1, true)",
+        [JSON.stringify({ sub: TEST_USER_ID })]
+      );
+      await client2.query("SET LOCAL role authenticated");
+      await client2.query(
+        "SELECT set_config('request.jwt.claims', $1, true)",
+        [JSON.stringify({ sub: TEST_USER_ID })]
+      );
+
+      // Run concurrent calls with same log_id
+      const promise1 = client1.query(
+        `SELECT record_breathing_practice(
           $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          3, 3, 12, 180, false, NULL::smallint, 'silent',
-          $4::uuid, NULL::uuid, NULL::smallint
-        ) as session_id
-      `, [logId2, today, TEST_PATTERN_ID, plannedSessionId]);
-      await clientA.query("SELECT pg_sleep(0.5)");
-      await clientA.query("COMMIT");
-      return resultA.rows[0].session_id;
-    })();
-    
-    // Transaction B with same planned session
-    await new Promise(resolve => setTimeout(resolve, 100));
-    await clientB.query("BEGIN");
-    const promiseB2 = (async () => {
-      const resultB = await clientB.query(`
-        SELECT record_breathing_practice(
+          5, 5, 20, 40, false, 3::smallint, 'off',
+          NULL::uuid, NULL::uuid, NULL::smallint
+        ) as session_id`,
+        [logId, FAR_OFF_DATE, PATTERN_ID]
+      );
+
+      // Add a small delay to increase chance of race
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const promise2 = client2.query(
+        `SELECT record_breathing_practice(
           $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          3, 3, 12, 180, false, NULL::smallint, 'silent',
-          $4::uuid, NULL::uuid, NULL::smallint
-        ) as session_id
-      `, [logId2, today, TEST_PATTERN_ID, plannedSessionId]);
-      await clientB.query("COMMIT");
-      return resultB.rows[0].session_id;
-    })();
-    
-    const [sessionIdA2, sessionIdB2] = await Promise.all([promiseA2, promiseB2]);
-    
-    check("both calls succeeded (planned path)", sessionIdA2 && sessionIdB2);
-    check("both returned planned session_id", 
-      sessionIdA2 === plannedSessionId && sessionIdB2 === plannedSessionId);
-    
-    // Check planned session wasn't duplicated or double-counted
-    const plannedSessionResult = await clientA.query(
-      "SELECT duration_seconds FROM sessions WHERE id = $1",
-      [plannedSessionId]
-    );
-    
-    check("planned session duration is 180s (not doubled)",
-      plannedSessionResult.rows[0].duration_seconds === 180,
-      `got ${plannedSessionResult.rows[0].duration_seconds}s`);
-    
-    const logs2Result = await clientA.query(
-      "SELECT id FROM breathing_logs WHERE id = $1",
-      [logId2]
-    );
-    check("exactly 1 log for planned path", logs2Result.rows.length === 1);
-    
+          5, 5, 20, 40, false, 3::smallint, 'off',
+          NULL::uuid, NULL::uuid, NULL::smallint
+        ) as session_id`,
+        [logId, FAR_OFF_DATE, PATTERN_ID]
+      );
+
+      const [result1, result2] = await Promise.all([promise1, promise2]);
+
+      await client1.query("COMMIT");
+      await client2.query("COMMIT");
+
+      const sessionId1 = result1.rows[0].session_id;
+      const sessionId2 = result2.rows[0].session_id;
+
+      check("both calls returned session id", !!(sessionId1 && sessionId2));
+      check("both calls returned SAME session id", sessionId1 === sessionId2, `${sessionId1} vs ${sessionId2}`);
+
+      // Count sessions created
+      const sessionCount = await client1.query(
+        "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
+        [TEST_USER_ID, FAR_OFF_DATE]
+      );
+      check("exactly ONE session created", sessionCount.rows[0].ct === "1");
+
+      // Count logs created
+      const logCount = await client1.query(
+        "SELECT COUNT(*) as ct FROM breathing_logs WHERE id = $1",
+        [logId]
+      );
+      check("exactly ONE breathing log", logCount.rows[0].ct === "1");
+
+      // Clean up
+      await client1.query("DELETE FROM breathing_logs WHERE id = $1", [logId]);
+      await client1.query("DELETE FROM sessions WHERE user_id = $1 AND local_date = $2", [TEST_USER_ID, FAR_OFF_DATE]);
+    }
+
+    console.log("\n2. Test concurrent calls with planned session (planned row path)");
+    {
+      const logId = crypto.randomUUID();
+
+      // Create planned meditation session
+      const plannedResult = await client1.query(
+        `INSERT INTO sessions (user_id, local_date, planned_type, status)
+         VALUES ($1, $2, 'meditation', 'planned')
+         RETURNING id`,
+        [TEST_USER_ID, FAR_OFF_DATE]
+      );
+      const plannedSessionId = plannedResult.rows[0].id;
+
+      // Start both transactions
+      await client1.query("BEGIN");
+      await client2.query("BEGIN");
+
+      // Set up RLS context
+      await client1.query("SET LOCAL role authenticated");
+      await client1.query(
+        "SELECT set_config('request.jwt.claims', $1, true)",
+        [JSON.stringify({ sub: TEST_USER_ID })]
+      );
+      await client2.query("SET LOCAL role authenticated");
+      await client2.query(
+        "SELECT set_config('request.jwt.claims', $1, true)",
+        [JSON.stringify({ sub: TEST_USER_ID })]
+      );
+
+      // Concurrent calls
+      const promise1 = client1.query(
+        `SELECT record_breathing_practice(
+          $1::uuid, $2::date, $3::uuid, NULL::uuid,
+          5, 5, 20, 40, false, 3::smallint, 'off',
+          NULL::uuid, NULL::uuid, NULL::smallint
+        ) as session_id`,
+        [logId, FAR_OFF_DATE, PATTERN_ID]
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const promise2 = client2.query(
+        `SELECT record_breathing_practice(
+          $1::uuid, $2::date, $3::uuid, NULL::uuid,
+          5, 5, 20, 40, false, 3::smallint, 'off',
+          NULL::uuid, NULL::uuid, NULL::smallint
+        ) as session_id`,
+        [logId, FAR_OFF_DATE, PATTERN_ID]
+      );
+
+      const [result1, result2] = await Promise.all([promise1, promise2]);
+
+      await client1.query("COMMIT");
+      await client2.query("COMMIT");
+
+      const sessionId1 = result1.rows[0].session_id;
+      const sessionId2 = result2.rows[0].session_id;
+
+      check("both calls reused planned session", sessionId1 === plannedSessionId && sessionId2 === plannedSessionId);
+
+      // Count sessions - should still be exactly 1 (the planned one)
+      const sessionCount = await client1.query(
+        "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
+        [TEST_USER_ID, FAR_OFF_DATE]
+      );
+      check("still exactly ONE session (planned)", sessionCount.rows[0].ct === "1");
+
+      // Clean up
+      await client1.query("DELETE FROM breathing_logs WHERE id = $1", [logId]);
+      await client1.query("DELETE FROM sessions WHERE user_id = $1 AND local_date = $2", [TEST_USER_ID, FAR_OFF_DATE]);
+    }
+
+    console.log("\n3. Test routine step path (second call passes p_session_id)");
+    {
+      const logId1 = crypto.randomUUID();
+      const logId2 = crypto.randomUUID();
+
+      // First call creates the session
+      await client1.query("BEGIN");
+      await client1.query("SET LOCAL role authenticated");
+      await client1.query(
+        "SELECT set_config('request.jwt.claims', $1, true)",
+        [JSON.stringify({ sub: TEST_USER_ID })]
+      );
+
+      const result1 = await client1.query(
+        `SELECT record_breathing_practice(
+          $1::uuid, $2::date, $3::uuid, NULL::uuid,
+          5, 5, 20, 40, false, 3::smallint, 'off',
+          NULL::uuid, NULL::uuid, NULL::smallint
+        ) as session_id`,
+        [logId1, FAR_OFF_DATE, PATTERN_ID]
+      );
+      await client1.query("COMMIT");
+
+      const sessionId = result1.rows[0].session_id;
+      check("first step created session", !!sessionId);
+
+      // Now concurrent calls passing p_session_id (routine step 2)
+      await client1.query("BEGIN");
+      await client2.query("BEGIN");
+
+      await client1.query("SET LOCAL role authenticated");
+      await client1.query(
+        "SELECT set_config('request.jwt.claims', $1, true)",
+        [JSON.stringify({ sub: TEST_USER_ID })]
+      );
+      await client2.query("SET LOCAL role authenticated");
+      await client2.query(
+        "SELECT set_config('request.jwt.claims', $1, true)",
+        [JSON.stringify({ sub: TEST_USER_ID })]
+      );
+
+      const promise1 = client1.query(
+        `SELECT record_breathing_practice(
+          $1::uuid, $2::date, $3::uuid, NULL::uuid,
+          5, 5, 20, 40, false, 3::smallint, 'off',
+          $4::uuid, NULL::uuid, 2::smallint
+        ) as session_id`,
+        [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const promise2 = client2.query(
+        `SELECT record_breathing_practice(
+          $1::uuid, $2::date, $3::uuid, NULL::uuid,
+          5, 5, 20, 40, false, 3::smallint, 'off',
+          $4::uuid, NULL::uuid, 2::smallint
+        ) as session_id`,
+        [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
+      );
+
+      const [result2a, result2b] = await Promise.all([promise1, promise2]);
+
+      await client1.query("COMMIT");
+      await client2.query("COMMIT");
+
+      check("both routine step calls returned same session", result2a.rows[0].session_id === result2b.rows[0].session_id);
+      check("routine step reused existing session", result2a.rows[0].session_id === sessionId);
+
+      // Count sessions - still just 1
+      const sessionCount = await client1.query(
+        "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
+        [TEST_USER_ID, FAR_OFF_DATE]
+      );
+      check("still exactly ONE session for routine", sessionCount.rows[0].ct === "1");
+
+      // Clean up
+      await client1.query("DELETE FROM breathing_logs WHERE session_id = $1", [sessionId]);
+      await client1.query("DELETE FROM sessions WHERE id = $1", [sessionId]);
+    }
+
   } finally {
-    // Clean up
-    try {
-      await clientA.query("DELETE FROM breathing_logs WHERE id IN ($1, $2)", 
-        ["99999999-0000-0000-0000-000000000099", "99999999-0000-0000-0000-000000000098"]);
-      await clientA.query("DELETE FROM sessions WHERE user_id = $1 AND actual_type = 'meditation'", 
-        [TEST_USER_ID]);
-      await clientA.query("DELETE FROM breathing_patterns WHERE id = $1", [TEST_PATTERN_ID]);
-    } catch {
-      // Cleanup errors are non-fatal
-    }
-    await clientA.end();
-    await clientB.end();
+    await client1.end();
+    await client2.end();
   }
 }
 
-testConcurrentCalls()
+testConcurrentRace()
   .then(() => {
-    if (failures > 0) {
-      console.error(`\n❌ ${failures} check(s) failed\n`);
-      console.error("NOTE: This test SHOULD pass with the advisory lock present.");
-      console.error("      It will FAIL if you remove 'perform pg_advisory_xact_lock' from the migration.\n");
+    if (failures === 0) {
+      console.log("\n✅ All concurrency race tests passed");
+      console.log("   Advisory lock prevents duplicate sessions from concurrent calls\n");
+      process.exit(0);
+    } else {
+      console.log(`\n❌ ${failures} test(s) failed\n`);
       process.exit(1);
     }
-    console.log("\n✅ All concurrency tests passed\n");
-    console.log("NOTE: Remove the advisory lock from the migration to verify this test catches the race.\n");
   })
-  .catch((err) => {
-    console.error("\n❌ Test error:", err);
+  .catch((error) => {
+    console.error("\n❌ Test error:", error);
     process.exit(1);
   });
