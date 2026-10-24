@@ -1158,7 +1158,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }).length;
       
       if (nonCoreLowerCount < 2) {
-        // Try to add more lower-body exercises (including unloaded hinges and wall-sit)
+        // PR #73 Task 3b: Force-add lower-body exercises for current-knee users
         const needed = 2 - nonCoreLowerCount;
         
         for (let attempt = 0; attempt < needed; attempt++) {
