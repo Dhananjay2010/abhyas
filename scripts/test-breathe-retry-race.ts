@@ -89,6 +89,7 @@ async function testConcurrentCalls() {
         p_seconds: 240,
         p_ended_early: false,
         p_guidance: "audio",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any),
       supabase.rpc("record_breathing_practice", {
         p_log_id: logId,
@@ -100,6 +101,7 @@ async function testConcurrentCalls() {
         p_seconds: 240,
         p_ended_early: false,
         p_guidance: "audio",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any),
     ]);
 

@@ -86,9 +86,6 @@ function checkButtonsInFile(filePath: string): { ok: boolean; issues: string[] }
                 }
               } else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
                 // Recursively check nested JSX elements (but not aria-hidden ones)
-                const childTagName = ts.isJsxElement(child)
-                  ? child.openingElement.tagName.getText(sourceFile)
-                  : child.tagName.getText(sourceFile);
                 
                 // Skip aria-hidden elements
                 const childAttrs = ts.isJsxElement(child)
