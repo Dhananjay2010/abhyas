@@ -7,6 +7,7 @@
  * npm run test:mutants
  */
 import * as fs from "fs";
+import * as path from "path";
 import * as child_process from "child_process";
 
 type MutantResult = {
@@ -17,13 +18,14 @@ type MutantResult = {
 };
 
 const results: MutantResult[] = [];
+const originalContents = new Map<string, string>();
 
 function runTest(testCommand: string): { passed: boolean; output: string } {
   try {
     const output = child_process.execSync(testCommand, {
       encoding: "utf-8",
       stdio: "pipe",
-      cwd: "/workspace",
+      cwd: path.resolve(__dirname, ".."),
     });
     return { passed: true, output };
   } catch (error: unknown) {
@@ -33,16 +35,28 @@ function runTest(testCommand: string): { passed: boolean; output: string } {
 }
 
 function applyMutant(filePath: string, original: string, mutated: string): void {
-  const content = fs.readFileSync(filePath, "utf-8");
+  const fullPath = path.resolve(__dirname, "..", filePath);
+  const content = fs.readFileSync(fullPath, "utf-8");
+
+  // Save original content on first mutation of this file
+  if (!originalContents.has(filePath)) {
+    originalContents.set(filePath, content);
+  }
+
   const mutatedContent = content.replace(original, mutated);
   if (mutatedContent === content) {
     throw new Error(`Mutant application failed: original not found in ${filePath}`);
   }
-  fs.writeFileSync(filePath, mutatedContent, "utf-8");
+  fs.writeFileSync(fullPath, mutatedContent, "utf-8");
 }
 
 function revertFile(filePath: string): void {
-  child_process.execSync(`git checkout HEAD -- ${filePath}`, { cwd: "/workspace" });
+  const saved = originalContents.get(filePath);
+  if (!saved) {
+    throw new Error(`No saved content for ${filePath}`);
+  }
+  const fullPath = path.resolve(__dirname, "..", filePath);
+  fs.writeFileSync(fullPath, saved, "utf-8");
 }
 
 console.log("\n=== Mutation Testing ===\n");
@@ -55,7 +69,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/lib/program/repoint-sessions.ts",
+      "src/lib/program/repoint-sessions.ts",
       `  // 1. Try to match by label (exact match)
   if (oldSession.old_day_label) {
     const labelMatch = newDays.find((d) => d.label === oldSession.old_day_label);
@@ -76,7 +90,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/lib/program/repoint-sessions.ts");
+    revertFile("src/lib/program/repoint-sessions.ts");
   }
 }
 
@@ -88,7 +102,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/lib/program/repoint-sessions.ts",
+      "src/lib/program/repoint-sessions.ts",
       `  // 2. If no label match, try day_index (same weekday)
   if (oldSession.old_day_index !== null) {
     const indexMatch = newDays.find((d) => d.day_index === oldSession.old_day_index);
@@ -109,7 +123,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/lib/program/repoint-sessions.ts");
+    revertFile("src/lib/program/repoint-sessions.ts");
   }
 }
 
@@ -121,7 +135,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/lib/program/repoint-sessions.ts",
+      "src/lib/program/repoint-sessions.ts",
       `  // 3. If still no match, fall back to day_type (any training day)
   const typeMatch = newDays.find((d) => d.day_type === chosenType);
   return typeMatch ?? null;`,
@@ -137,7 +151,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/lib/program/repoint-sessions.ts");
+    revertFile("src/lib/program/repoint-sessions.ts");
   }
 }
 
@@ -149,7 +163,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/lib/program/repoint-sessions.ts",
+      "src/lib/program/repoint-sessions.ts",
       `  if (session.has_sets) return "keep";`,
       `  if (!session.has_sets) return "keep"; // MUTANT: inverted`,
     );
@@ -162,7 +176,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/lib/program/repoint-sessions.ts");
+    revertFile("src/lib/program/repoint-sessions.ts");
   }
 }
 
@@ -174,7 +188,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/lib/program/repoint-sessions.ts",
+      "src/lib/program/repoint-sessions.ts",
       `  if (session.local_date < today) return "ignore";`,
       `  if (session.local_date > today) return "ignore"; // MUTANT: reversed`,
     );
@@ -187,7 +201,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/lib/program/repoint-sessions.ts");
+    revertFile("src/lib/program/repoint-sessions.ts");
   }
 }
 
@@ -199,7 +213,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/lib/session/prepare-exercises.ts",
+      "src/lib/session/prepare-exercises.ts",
       `  return programDayExercises.map((p) => {
     const dose = isDeload
       ? applyDeload({
@@ -238,7 +252,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/lib/session/prepare-exercises.ts");
+    revertFile("src/lib/session/prepare-exercises.ts");
   }
 }
 
@@ -250,7 +264,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/lib/program/repoint-sessions.ts",
+      "src/lib/program/repoint-sessions.ts",
       `  if (selectError) {
     console.error("repointSessionsAfterRebuild: failed to select sessions", selectError);
     return { ok: false, error: selectError.message };
@@ -269,7 +283,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/lib/program/repoint-sessions.ts");
+    revertFile("src/lib/program/repoint-sessions.ts");
   }
 }
 
@@ -281,7 +295,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/lib/program/repoint-sessions.ts",
+      "src/lib/program/repoint-sessions.ts",
       `  if (newDaysError) {
     console.error("repointSessionsAfterRebuild: failed to select new days", newDaysError);
     return { ok: false, error: newDaysError.message };
@@ -300,7 +314,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/lib/program/repoint-sessions.ts");
+    revertFile("src/lib/program/repoint-sessions.ts");
   }
 }
 
@@ -312,7 +326,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/lib/program/repoint-sessions.ts",
+      "src/lib/program/repoint-sessions.ts",
       `  const failures = updateResults.filter((r) => r.error);
   if (failures.length > 0) {
     console.error(
@@ -339,7 +353,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/lib/program/repoint-sessions.ts");
+    revertFile("src/lib/program/repoint-sessions.ts");
   }
 }
 
