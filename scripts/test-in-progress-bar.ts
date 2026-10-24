@@ -5,14 +5,15 @@
  * - L1: Bar is client-side, fetches on mount and pathname changes
  * - Bar is hidden while loading, logged out, or on /session/* routes
  * - Bar is shown on other routes when session exists
- * - "1 set logged" for single set (correct grammar)
- * - "N sets logged" for multiple sets
- * - L3: 0-set sessions show "0 sets logged" (consistent behavior)
+ * - "1 set" for single set (correct grammar, QA ii: shortened)
+ * - "N sets" for multiple sets
+ * - L3: 0-set sessions show "0 sets" (consistent behavior)
  * - Resume link points to /session/:id with no query params
  * 
  *   npx tsx scripts/test-in-progress-bar.ts
  */
 
+(async () => {
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
@@ -24,10 +25,11 @@ function shouldShowBar(pathname: string): boolean {
   return !pathname.startsWith("/session/");
 }
 
+// QA (ii): Shortened to fit at 390px width
 function formatSetsText(workingSetsLogged: number): string {
   return workingSetsLogged === 1
-    ? "1 set logged"
-    : `${workingSetsLogged} sets logged`;
+    ? "1 set"
+    : `${workingSetsLogged} sets`;
 }
 
 function getResumeLink(sessionId: string): string {
@@ -47,10 +49,10 @@ console.log("\n1. Bar visibility by pathname");
 
 console.log("\n2. Sets text formatting");
 {
-  check("0 sets", formatSetsText(0) === "0 sets logged", formatSetsText(0));
-  check("1 set (singular)", formatSetsText(1) === "1 set logged", formatSetsText(1));
-  check("2 sets", formatSetsText(2) === "2 sets logged", formatSetsText(2));
-  check("10 sets", formatSetsText(10) === "10 sets logged", formatSetsText(10));
+  check("0 sets", formatSetsText(0) === "0 sets", formatSetsText(0));
+  check("1 set (singular)", formatSetsText(1) === "1 set", formatSetsText(1));
+  check("2 sets", formatSetsText(2) === "2 sets", formatSetsText(2));
+  check("10 sets", formatSetsText(10) === "10 sets", formatSetsText(10));
 }
 
 console.log("\n3. Resume link format");
@@ -65,3 +67,4 @@ console.log("\n3. Resume link format");
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
+})();

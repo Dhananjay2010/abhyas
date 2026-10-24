@@ -11,6 +11,7 @@
  *   npx tsx scripts/test-history-labels.ts
  */
 
+(async () => {
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
@@ -51,12 +52,14 @@ console.log("\n2. Past-day in_progress session → not 'Completed' (handled sepa
 {
   // Note: Past-day in_progress is detected separately in the UI for "Unfinished from" display
   // The label logic here would show "Completed" but the isPastInProgress check prevents it
-  const isPastInProgress = "in_progress" === "in_progress" && "2026-10-23" !== "2026-10-24";
+  const yesterday: string = "2026-10-23";
+  const today: string = "2026-10-24";
+  const isPastInProgress = "in_progress" === "in_progress" && yesterday !== today;
   check("isPastInProgress correctly detected", isPastInProgress === true);
   
   // With isPastInProgress true, isTodayInProgress is false, so it would reach "Completed"
   // But the UI handles isPastInProgress separately to show "Unfinished from <date>"
-  const label = getSessionLabel("in_progress", 2, "2026-10-23", "2026-10-24", false, null);
+  const label = getSessionLabel("in_progress", 2, yesterday, today, false, null);
   check("past-day in_progress falls through to 'Completed' in label logic", label === "Completed", label);
   check("(but UI shows 'Unfinished from <date>' via separate check)", true);
 }
@@ -100,3 +103,4 @@ console.log("\n8. Today's 1-set in_progress → 'In progress'");
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
+})();
