@@ -125,12 +125,131 @@ console.log("\n6. Backslashes (Windows path separators)");
     sanitizeRedirectPath("/\\evil", ORIGIN) === "/today",
   );
   check(
+    "rejects /\\ at start",
+    sanitizeRedirectPath("/\\", ORIGIN) === "/today",
+  );
+  check(
     "rejects \\\\evil.example",
     sanitizeRedirectPath("\\\\evil.example", ORIGIN) === "/today",
   );
   check(
     "rejects /path\\evil",
     sanitizeRedirectPath("/path\\evil", ORIGIN) === "/today",
+  );
+}
+
+console.log("\n7. Control characters and whitespace");
+{
+  // Raw control characters
+  check(
+    "rejects /path with space",
+    sanitizeRedirectPath("/path with space", ORIGIN) === "/today",
+  );
+  check(
+    "rejects /path\twith\ttab",
+    sanitizeRedirectPath("/path\twith\ttab", ORIGIN) === "/today",
+  );
+  check(
+    "rejects /path\nwith\nnewline",
+    sanitizeRedirectPath("/path\nwith\nnewline", ORIGIN) === "/today",
+  );
+  check(
+    "rejects /path\rwith\rCR",
+    sanitizeRedirectPath("/path\rwith\rCR", ORIGIN) === "/today",
+  );
+  check(
+    "rejects /path\x00null",
+    sanitizeRedirectPath("/path\x00null", ORIGIN) === "/today",
+  );
+  check(
+    "rejects /path\x7Fdel",
+    sanitizeRedirectPath("/path\x7Fdel", ORIGIN) === "/today",
+  );
+
+  // Encoded control characters
+  check(
+    "rejects %09 (tab)",
+    sanitizeRedirectPath("/%09evil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %0a (LF)",
+    sanitizeRedirectPath("/%0aevil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %0A (LF uppercase)",
+    sanitizeRedirectPath("/%0Aevil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %0d (CR)",
+    sanitizeRedirectPath("/%0devil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %0D (CR uppercase)",
+    sanitizeRedirectPath("/%0Devil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %00 (null byte)",
+    sanitizeRedirectPath("/%00evil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %7f (DEL)",
+    sanitizeRedirectPath("/%7fevil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %7F (DEL uppercase)",
+    sanitizeRedirectPath("/%7Fevil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %20 (space)",
+    sanitizeRedirectPath("/%20evil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects + (space in query encoding)",
+    sanitizeRedirectPath("/path+with+plus", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %0c (form feed)",
+    sanitizeRedirectPath("/%0cevil", ORIGIN) === "/today",
+  );
+  check(
+    "rejects %1f (unit separator)",
+    sanitizeRedirectPath("/%1fevil", ORIGIN) === "/today",
+  );
+}
+
+console.log("\n8. Explicit schemes");
+{
+  check(
+    "rejects javascript: scheme",
+    sanitizeRedirectPath("javascript:alert(1)", ORIGIN) === "/today",
+  );
+  check(
+    "rejects data: scheme",
+    sanitizeRedirectPath("data:text/html,<script>", ORIGIN) === "/today",
+  );
+  check(
+    "rejects http: scheme",
+    sanitizeRedirectPath("http://evil.example", ORIGIN) === "/today",
+  );
+  check(
+    "rejects https: scheme",
+    sanitizeRedirectPath("https://evil.example", ORIGIN) === "/today",
+  );
+  check(
+    "rejects file: scheme",
+    sanitizeRedirectPath("file:///etc/passwd", ORIGIN) === "/today",
+  );
+  check(
+    "rejects ftp: scheme",
+    sanitizeRedirectPath("ftp://evil.example", ORIGIN) === "/today",
+  );
+  check(
+    "rejects vbscript: scheme",
+    sanitizeRedirectPath("vbscript:msgbox(1)", ORIGIN) === "/today",
+  );
+  check(
+    "rejects about: scheme",
+    sanitizeRedirectPath("about:blank", ORIGIN) === "/today",
   );
 }
 
@@ -210,6 +329,24 @@ console.log("\n10. Malformed encoding");
   check(
     "rejects incomplete %2",
     sanitizeRedirectPath("/%2", ORIGIN) === "/today",
+  );
+}
+
+console.log("\n11. Origin validation via new URL()");
+{
+  // These should be caught by the new URL() origin check
+  // even if they pass earlier filters
+  check(
+    "rejects when URL resolves to different origin",
+    sanitizeRedirectPath("/@attacker.com", ORIGIN) === "/today",
+  );
+  
+  // Valid same-origin paths should pass
+  const validPath = sanitizeRedirectPath("/session/abc?x=1#hash", ORIGIN);
+  check(
+    "allows valid same-origin path with query and hash",
+    validPath === "/session/abc?x=1#hash",
+    `got: ${validPath}`,
   );
 }
 

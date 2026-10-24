@@ -25,6 +25,7 @@ export function sanitizeRedirectPath(
   // Must start with exactly one forward slash
   if (!decoded.startsWith("/")) return "/today";
   if (decoded.startsWith("//")) return "/today";
+  if (decoded.startsWith("/\\")) return "/today";
 
   // Reject backslashes anywhere (catches /\ and encoded variants after decode)
   if (decoded.includes("\\")) return "/today";
@@ -39,10 +40,17 @@ export function sanitizeRedirectPath(
   // (/.evil.example could be misinterpreted in some contexts)
   if (decoded.startsWith("/.")) return "/today";
 
-  // Reject encoded slashes, backslashes, and @ in the original (before decode)
+  // Reject control characters (0x00-0x1F, 0x7F) and whitespace
+  // These can be used to bypass filters or cause parsing issues
+  if (/[\x00-\x1F\x7F\s]/.test(decoded)) return "/today";
+
+  // Reject encoded slashes, backslashes, @, control chars, and whitespace in the original (before decode)
   if (next.includes("%2F") || next.includes("%2f")) return "/today";
   if (next.includes("%5C") || next.includes("%5c")) return "/today";
   if (next.includes("%40")) return "/today";
+  // Common control char encodings: %09 (tab), %0a/%0A (LF), %0d/%0D (CR), %20 (space)
+  if (/%0[0-9a-fA-F]/.test(next) || /%1[0-9a-fA-F]/.test(next) || /%7[fF]/.test(next)) return "/today";
+  if (next.includes("%20") || next.includes("+")) return "/today";
 
   // Build the URL and verify it stays on the same origin
   try {
