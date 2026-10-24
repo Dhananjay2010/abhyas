@@ -137,7 +137,7 @@ having count(case when ss.is_warmup_set = false
                          or ss.duration_seconds is not null and ss.duration_seconds > 0)
                   then 1 end) > 0
     -- Include non-strength sessions (normalize NULL and '' to 'weights')
-    or coalesce(nullif(s.actual_type,''),'weights') not in ('weights', 'bodyweight');
+    or coalesce(nullif(s.actual_type::text,''),'weights') not in ('weights', 'bodyweight');
 
 grant select on session_volume to authenticated;
 
@@ -172,7 +172,7 @@ where ss.is_warmup_set = false
            or ss2.duration_seconds is not null and ss2.duration_seconds > 0)
   )
   -- Include all strength sessions (normalize NULL and '' to 'weights')
-  and coalesce(nullif(s.actual_type,''),'weights') in ('weights', 'bodyweight')
+  and coalesce(nullif(s.actual_type::text,''),'weights') in ('weights', 'bodyweight')
 group by ss.user_id, se.exercise_id, e.name, e.movement_pattern, s.local_date;
 
 grant select on exercise_strength_history to authenticated;
@@ -219,7 +219,7 @@ begin
         -- Include completed sessions
         (s.status = 'completed' and (
           -- Strength: must have working sets (normalize NULL and '' to 'weights')
-          (coalesce(nullif(s.actual_type,''),'weights') in ('weights', 'bodyweight') and sv.session_id is not null)
+          (coalesce(nullif(s.actual_type::text,''),'weights') in ('weights', 'bodyweight') and sv.session_id is not null)
           -- Yoga/breathing: always included
           or s.actual_type in ('yoga', 'meditation')
         ))
@@ -230,7 +230,7 @@ begin
       )
       -- Apply type filter (normalize NULL and '' to 'weights')
       and (
-        (p_filter = 'lifts' and coalesce(nullif(s.actual_type,''),'weights') in ('weights', 'bodyweight'))
+        (p_filter = 'lifts' and coalesce(nullif(s.actual_type::text,''),'weights') in ('weights', 'bodyweight'))
         or (p_filter = 'yoga' and s.actual_type = 'yoga')
         or (p_filter = 'breathing' and s.actual_type = 'meditation')
       )
