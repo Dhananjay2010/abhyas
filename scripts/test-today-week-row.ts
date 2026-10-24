@@ -18,7 +18,7 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-console.log("=== Mutant 3: Label must use actual label, not hardcoded ===\n");
+console.log("=== Test 1: Label must use actual label, not hardcoded ===\n");
 
 const pushLabel = labelForDayType("weights", "Push");
 const pullLabel = labelForDayType("weights", "Pull");
@@ -30,7 +30,7 @@ assert(legsLabel === "Legs", "Legs label must be 'Legs', not hardcoded");
 assert(pushLabel !== pullLabel, "Different labels must not be equal");
 assert(pushLabel !== "Hardcoded", "Label must not be hardcoded string");
 
-console.log("\n=== Mutant 4: WarmupSection must render exercises, not null ===\n");
+console.log("\n=== Test 2: WarmupSection must render exercises, not null ===\n");
 
 const exercises = [
   {
@@ -59,7 +59,7 @@ assert(
   "WarmupSection must return a section element"
 );
 
-console.log("\n=== Mutant 5: Week row label must reflect actual day type, not always Rest ===\n");
+console.log("\n=== Test 3: Week row label must reflect actual day type, not always Rest ===\n");
 
 const pushRow = getWeekRowLabel(
   { day_index: 1, day_type: "weights", label: "Push" },
@@ -75,7 +75,7 @@ assert(restRow.label === "Rest", "Rest day must show Rest");
 assert(pushRow.label !== restRow.label, "Different day types must have different labels");
 assert(pushRow.label !== "Rest", "Training day must not show Rest");
 
-console.log("\n=== Mutant 7: Week row with choice must use actual choice label ===\n");
+console.log("\n=== Test 4: Week row with choice must use actual choice label ===\n");
 
 const choiceMap = new Map([[3, "Swap to Pull"]]);
 const choiceRow = getWeekRowLabel(
@@ -91,7 +91,7 @@ assert(choiceRow.isChoice === true, "Chosen day must be marked as choice");
 assert(choiceRow.label !== "Rest", "Chosen training day must not show Rest");
 assert(choiceRow.label !== "Push", "Chosen day must show choice, not template");
 
-console.log("\n=== Mutant 8: Rest day with missed yesterday must not duplicate prompt ===\n");
+console.log("\n=== Test 5: Rest day with missed yesterday must not duplicate prompt ===\n");
 
 const bothPromptBlocks = todayPromptBlocks({
   promptType: "both",
