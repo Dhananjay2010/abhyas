@@ -1,7 +1,7 @@
 /**
  * Tests for Sentry integration setup and PII scrubbing.
  *
- * Tests the REAL functions from instrumentation files, not copies.
+ * Tests the REAL functions from shared scrubbing module.
  * Run with: tsx scripts/test-sentry.ts
  */
 
@@ -11,22 +11,23 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type * as Sentry from "@sentry/nextjs";
 
-// Import the REAL functions we're testing
+// Import the REAL functions we're testing from the shared module
 import {
-  scrubPII as serverScrubPII,
+  scrubPII,
   scrubEmailsFromString,
   scrubTokensFromURL,
-} from "../src/instrumentation";
-import { scrubPII as clientScrubPII } from "../src/instrumentation-client";
+} from "../src/lib/sentry/scrub";
 
 // Instrumentation file structure tests
 
 test("instrumentation files exist at correct Next.js paths", () => {
   const srcInstrumentation = join(process.cwd(), "src", "instrumentation.ts");
   const srcInstrumentationClient = join(process.cwd(), "src", "instrumentation-client.ts");
+  const scrubModule = join(process.cwd(), "src", "lib", "sentry", "scrub.ts");
   
   ok(existsSync(srcInstrumentation), "src/instrumentation.ts must exist for Next.js to load it");
   ok(existsSync(srcInstrumentationClient), "src/instrumentation-client.ts must exist for Next.js to load it");
+  ok(existsSync(scrubModule), "src/lib/sentry/scrub.ts must exist for shared scrubbing functions");
 });
 
 test("instrumentation.ts exports register and onRequestError", async () => {
@@ -40,21 +41,6 @@ test("instrumentation-client.ts exports onRouterTransitionStart", async () => {
   const instrumentationClient = await import("../src/instrumentation-client");
   
   strictEqual(typeof instrumentationClient.onRouterTransitionStart, "function", "onRouterTransitionStart must be exported");
-});
-
-test("Sentry is optional when DSN is not set", () => {
-  const originalClientDSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
-  const originalServerDSN = process.env.SENTRY_DSN;
-  
-  delete process.env.NEXT_PUBLIC_SENTRY_DSN;
-  delete process.env.SENTRY_DSN;
-  
-  // Sentry.init should not be called without DSN
-  strictEqual(process.env.NEXT_PUBLIC_SENTRY_DSN, undefined);
-  strictEqual(process.env.SENTRY_DSN, undefined);
-  
-  if (originalClientDSN) process.env.NEXT_PUBLIC_SENTRY_DSN = originalClientDSN;
-  if (originalServerDSN) process.env.SENTRY_DSN = originalServerDSN;
 });
 
 // PII Scrubbing tests - testing the REAL exported functions
@@ -76,6 +62,20 @@ test("scrubTokensFromURL removes sensitive query params", () => {
   const output = scrubTokensFromURL(input);
   match(output, /token=%5BRedacted%5D/);
   match(output, /other=value/);
+});
+
+test("scrubTokensFromURL removes code query param (Supabase auth)", () => {
+  const input = "https://example.com/auth/callback?code=abc123xyz&state=something";
+  const output = scrubTokensFromURL(input);
+  match(output, /code=%5BRedacted%5D/);
+  match(output, /state=something/);
+});
+
+test("scrubTokensFromURL removes URL hash entirely", () => {
+  const input = "https://example.com/page#access_token=secret&token_type=bearer";
+  const output = scrubTokensFromURL(input);
+  strictEqual(output.includes("#"), false, "URL hash should be removed entirely");
+  strictEqual(output, "https://example.com/page");
 });
 
 test("scrubTokensFromURL handles multiple sensitive params", () => {
@@ -100,7 +100,7 @@ test("scrubPII removes emails from exception messages", () => {
       ],
     },
   } as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  const result = scrubPII(event);
   strictEqual(result?.exception?.values?.[0].value, "Error for user [email]");
 });
 
@@ -110,7 +110,7 @@ test("scrubPII removes cookies entirely", () => {
       cookies: { session: "secret", other: "value" },
     },
   } as unknown as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  const result = scrubPII(event);
   strictEqual(result?.request?.cookies, undefined);
 });
 
@@ -123,8 +123,28 @@ test("scrubPII redacts authorization headers", () => {
       },
     },
   } as unknown as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  const result = scrubPII(event);
   strictEqual(result?.request?.headers?.authorization, "[Redacted]");
+  strictEqual(result?.request?.headers?.["content-type"], "application/json");
+});
+
+test("scrubPII redacts headers case-insensitively", () => {
+  const event = {
+    request: {
+      headers: {
+        Authorization: "Bearer token", // Capital A
+        Cookie: "session=abc", // Capital C
+        "X-Supabase-Auth": "jwt-token", // Mixed case
+        APIKEY: "key123", // All caps
+        "content-type": "application/json",
+      },
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  strictEqual(result?.request?.headers?.Authorization, "[Redacted]");
+  strictEqual(result?.request?.headers?.Cookie, "[Redacted]");
+  strictEqual(result?.request?.headers?.["X-Supabase-Auth"], "[Redacted]");
+  strictEqual(result?.request?.headers?.APIKEY, "[Redacted]");
   strictEqual(result?.request?.headers?.["content-type"], "application/json");
 });
 
@@ -139,7 +159,7 @@ test("scrubPII redacts multiple sensitive headers", () => {
       },
     },
   } as unknown as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  const result = scrubPII(event);
   strictEqual(result?.request?.headers?.authorization, "[Redacted]");
   strictEqual(result?.request?.headers?.cookie, "[Redacted]");
   strictEqual(result?.request?.headers?.["x-supabase-auth"], "[Redacted]");
@@ -151,8 +171,8 @@ test("scrubPII removes request data (body)", () => {
     request: {
       data: { password: "secret123", email: "user@example.com" },
     },
-  } as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
   strictEqual(result?.request?.data, undefined);
 });
 
@@ -161,8 +181,8 @@ test("scrubPII scrubs emails from request URL", () => {
     request: {
       url: "https://example.com/users/admin@test.com/profile",
     },
-  } as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
   strictEqual(result?.request?.url, "https://example.com/users/[email]/profile");
 });
 
@@ -171,9 +191,30 @@ test("scrubPII scrubs tokens from request URL", () => {
     request: {
       url: "https://example.com/auth?access_token=secret",
     },
-  } as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
   match(result?.request?.url ?? "", /access_token=%5BRedacted%5D/);
+});
+
+test("scrubPII scrubs code param from auth callback URL", () => {
+  const event = {
+    request: {
+      url: "https://example.com/auth/callback?code=pkce-auth-code-123",
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  match(result?.request?.url ?? "", /code=%5BRedacted%5D/);
+});
+
+test("scrubPII removes hash from URL", () => {
+  const event = {
+    request: {
+      url: "https://example.com/page#access_token=secret&expires_in=3600",
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  strictEqual(result?.request?.url?.includes("#"), false);
+  strictEqual(result?.request?.url, "https://example.com/page");
 });
 
 test("scrubPII scrubs breadcrumb messages", () => {
@@ -181,8 +222,8 @@ test("scrubPII scrubs breadcrumb messages", () => {
     breadcrumbs: [
       { message: "User test@example.com logged in" },
     ],
-  } as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
   strictEqual(result?.breadcrumbs?.[0].message, "User [email] logged in");
 });
 
@@ -198,7 +239,7 @@ test("scrubPII redacts sensitive keys in breadcrumb data", () => {
       },
     ],
   } as unknown as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  const result = scrubPII(event);
   strictEqual(result?.breadcrumbs?.[0].data?.password, "[Redacted]");
   strictEqual(result?.breadcrumbs?.[0].data?.token, "[Redacted]");
   strictEqual(result?.breadcrumbs?.[0].data?.normalKey, "normalValue");
@@ -215,7 +256,7 @@ test("scrubPII scrubs emails from breadcrumb data values", () => {
       },
     ],
   } as unknown as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  const result = scrubPII(event);
   strictEqual(result?.breadcrumbs?.[0].data?.userEmail, "[email]");
   strictEqual(result?.breadcrumbs?.[0].data?.userId, "123");
 });
@@ -228,8 +269,8 @@ test("scrubPII removes user PII", () => {
       username: "johndoe",
       ip_address: "192.168.1.1",
     },
-  } as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
   strictEqual(result?.user?.id, "user-123");
   strictEqual(result?.user?.email, undefined);
   strictEqual(result?.user?.username, undefined);
@@ -242,42 +283,14 @@ test("scrubPII handles event with no sensitive data", () => {
       values: [{ value: "Generic error message" }],
     },
   } as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  const result = scrubPII(event);
   strictEqual(result?.exception?.values?.[0].value, "Generic error message");
 });
 
 test("scrubPII handles empty event", () => {
   const event = {} as Sentry.ErrorEvent;
-  const result = serverScrubPII(event);
+  const result = scrubPII(event);
   deepStrictEqual(result, {});
-});
-
-test("client scrubPII works identically to server scrubPII", () => {
-  const event = {
-    exception: {
-      values: [{ value: "Error with user@example.com" }],
-    },
-    request: {
-      headers: {
-        authorization: "Bearer token",
-      },
-      url: "https://example.com/?access_token=secret",
-    },
-    user: {
-      id: "123",
-      email: "test@test.com",
-    },
-  } as unknown as Sentry.ErrorEvent;
-  
-  const serverResult = serverScrubPII(structuredClone(event));
-  const clientResult = clientScrubPII(structuredClone(event));
-  
-  // Both should scrub the same way
-  strictEqual(serverResult?.exception?.values?.[0].value, clientResult?.exception?.values?.[0].value);
-  strictEqual(serverResult?.request?.headers?.authorization, clientResult?.request?.headers?.authorization);
-  match(serverResult?.request?.url ?? "", /access_token=%5BRedacted%5D/);
-  match(clientResult?.request?.url ?? "", /access_token=%5BRedacted%5D/);
-  strictEqual(serverResult?.user?.email, clientResult?.user?.email);
 });
 
 console.log("\n✓ All Sentry tests passed\n");

@@ -26,6 +26,13 @@ export default async function SessionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  
+  // Validate UUID format before querying
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    notFound();
+  }
+  
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
@@ -37,7 +44,9 @@ export default async function SessionDetailPage({
     .eq("id", id)
     .maybeSingle();
   
-  if (sessionError?.code === "22P02") notFound();
+  if (sessionError) {
+    throw new Error(`Could not load this session: ${sessionError.message}`);
+  }
   if (!session) notFound();
 
   if (session.actual_type === "meditation") {

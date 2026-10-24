@@ -54,7 +54,7 @@ export default function GlobalError({
           button {
             margin-top: 1.5rem;
             padding: 0.75rem 1.5rem;
-            background: #3b82f6;
+            background: #f97316;
             color: white;
             font-weight: 600;
             border: none;
@@ -63,7 +63,7 @@ export default function GlobalError({
             transition: background 0.2s;
           }
           button:hover {
-            background: #2563eb;
+            background: #ea580c;
           }
         `}</style>
       </head>
