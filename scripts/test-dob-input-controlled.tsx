@@ -5,11 +5,13 @@
  * Uses key-by-key typing with a stateful parent that feeds value back to DobInput.
  */
 
+/* eslint-disable react-hooks/rules-of-hooks, react-hooks/globals, react-hooks/preserve-manual-memoization */
+
 // Setup jsdom BEFORE any React imports
 import "./helpers/setup-jsdom";
 
 // Then import React libraries
-import { render, cleanup, act } from "@testing-library/react";
+import { render, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, useCallback } from "react";
 import { DobInput } from "../src/components/onboarding/dob-input";
