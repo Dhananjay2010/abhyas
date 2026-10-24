@@ -5,11 +5,15 @@
  * to a page that isn't cached. This page has inline styles so it works even
  * when the external CSS files (_next/static/css/) are not cached.
  *
- * This is a server component that works without JavaScript. The retry link
- * is a plain anchor that reloads the page.
+ * Enhanced with client-side retry feedback: shows "Still offline" message
+ * when retry is attempted while still offline, and only reloads when back online.
+ * Reloads the original URL the user was navigating to (from ?url= query param).
+ *
+ * Marked with data-offline attribute to hide bottom nav.
  */
 
 import { branding } from "@/lib/branding";
+import { OfflineRetry } from "./offline-retry";
 
 export default function OfflinePage() {
   // Inline styles so the page works without external CSS
@@ -50,44 +54,41 @@ export default function OfflinePage() {
     marginBottom: "2rem",
   };
 
-  const buttonStyle = {
-    display: "inline-block",
-    padding: "0.875rem 2rem",
-    fontSize: "1rem",
-    fontWeight: 500,
-    borderRadius: "0.5rem",
-    backgroundColor: branding.colors.accent,
-    color: branding.colors.accentFg,
-    textDecoration: "none",
-    transition: "opacity 0.2s",
-  };
-
   return (
-    <div style={containerStyle}>
-      <div style={contentStyle}>
-        {/* App icon: real 192x192 icon from branding, precached by service worker */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={branding.icons.icon192}
-          alt=""
-          width={96}
-          height={96}
-          style={iconStyle}
-        />
+    <>
+      {/* Inline styles for html and body to prevent white frame when CSS isn't cached */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: ${branding.colors.bg};
+          }
+        `
+      }} />
+      
+      <div style={containerStyle} data-offline="true">
+        <div style={contentStyle}>
+          {/* App icon: real 192x192 icon from branding, precached by service worker */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={branding.icons.icon192}
+            alt=""
+            width={96}
+            height={96}
+            style={iconStyle}
+          />
 
-        <h1 style={headingStyle}>You&apos;re offline</h1>
-        <p style={paragraphStyle}>
-          {branding.name} needs an internet connection to load new content.
-          Check your connection and try again.
-        </p>
+          <h1 style={headingStyle}>You&apos;re offline</h1>
+          <p style={paragraphStyle}>
+            {branding.name} needs an internet connection to load new content.
+            Check your connection and try again.
+          </p>
 
-        {/* Retry button: green background with computed text color.
-            Plain <a> href instead of Link - this page must work without JavaScript */}
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a href="/" style={buttonStyle}>
-          Retry
-        </a>
+          {/* Retry button with client-side feedback (shows "Still offline" when offline) */}
+          <OfflineRetry />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
