@@ -12,6 +12,8 @@
  * - NEXT_PUBLIC_GYM_PHONE: Contact phone (optional)
  */
 
+import { branding } from "../branding";
+
 /**
  * Legal documents last updated date.
  * This should be updated whenever the Privacy Policy or Terms of Service
@@ -28,7 +30,7 @@ export interface SiteInfo {
   gymAddress?: string;
   /** Contact phone number (optional) */
   gymPhone?: string;
-  /** App display name (typically same as gymName or "Abhyas") */
+  /** App display name (typically same as gymName or brand name) */
   appName: string;
 }
 
@@ -45,7 +47,7 @@ export function getSiteInfo(): SiteInfo {
     supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@example.com",
     gymAddress: process.env.NEXT_PUBLIC_GYM_ADDRESS,
     gymPhone: process.env.NEXT_PUBLIC_GYM_PHONE,
-    appName: process.env.NEXT_PUBLIC_APP_NAME || "Abhyas",
+    appName: process.env.NEXT_PUBLIC_APP_NAME || branding.name,
   };
 }
 

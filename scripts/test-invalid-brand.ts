@@ -25,7 +25,7 @@ function testInvalidBrandFails() {
       { encoding: "utf-8", stdio: "pipe" }
     );
     throw new Error("Expected invalid brand to throw an error");
-  } catch (error) {
+  } catch {
     // execSync throws when the command exits with non-zero
     console.log("  ✓ Invalid brand throws an error (does not fall back)");
   }
@@ -56,7 +56,7 @@ function testValidBrandsLoad() {
 
   // Test default brand
   try {
-    const result = execSync(
+    execSync(
       `NEXT_PUBLIC_BRAND=default npx tsx scripts/test-brand-load-default.ts`,
       { encoding: "utf-8", stdio: "pipe" }
     );
@@ -71,7 +71,7 @@ function testValidBrandsLoad() {
 
   // Test example brand
   try {
-    const result = execSync(
+    execSync(
       `NEXT_PUBLIC_BRAND=example npx tsx scripts/test-brand-load-example.ts`,
       { encoding: "utf-8", stdio: "pipe" }
     );
