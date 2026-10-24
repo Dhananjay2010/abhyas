@@ -1135,8 +1135,8 @@ console.log("\n31. QA Bot 1 profile: same profile at 60 min");
     if (day.dayType !== "weights") continue;
 
     // Pacing logic adds exercises to hit time targets while respecting level caps
-    // Check that the exercise count is reasonable (at least 5, at most 8 for 60-min)
-    const minExercises = 5;
+    // Upper has 6 slots, Lower has 5 slots in the template, max 8 for both
+    const minExercises = day.label.includes("Upper") ? 6 : 5;
     const maxExercises = 8;
     check(
       `60-min ${day.label}: has ${minExercises}-${maxExercises} exercises`,

@@ -276,6 +276,196 @@ function runTests(): TestResult[] {
     }
   }
 
+  // ===================================================================
+  // TRUST_PROXY=1 tests
+  // ===================================================================
+
+  // Test 13: TRUST_PROXY=1 with localhost trusts forwarded headers (brand host)
+  {
+    const originalEnv = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = '1';
+    
+    const request = new Request('http://localhost:3100/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    
+    process.env.TRUST_PROXY = originalEnv;
+    
+    if (origin === 'https://abhyas-indol.vercel.app') {
+      results.push({ passed: true, message: 'TRUST_PROXY=1: localhost trusts x-forwarded headers (brand host)' });
+    } else {
+      results.push({ passed: false, message: `TRUST_PROXY=1 localhost: expected https://abhyas-indol.vercel.app, got ${origin}` });
+    }
+  }
+
+  // Test 14: TRUST_PROXY=1 with 127.0.0.1 trusts forwarded headers (brand host)
+  {
+    const originalEnv = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = '1';
+    
+    const request = new Request('http://127.0.0.1:3100/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'http',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    
+    process.env.TRUST_PROXY = originalEnv;
+    
+    if (origin === 'http://abhyas-indol.vercel.app') {
+      results.push({ passed: true, message: 'TRUST_PROXY=1: 127.0.0.1 trusts x-forwarded headers (brand host)' });
+    } else {
+      results.push({ passed: false, message: `TRUST_PROXY=1 127.0.0.1: expected http://abhyas-indol.vercel.app, got ${origin}` });
+    }
+  }
+
+  // Test 15: TRUST_PROXY=1 still validates forwarded host against brand host
+  {
+    const originalEnv = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = '1';
+    
+    const request = new Request('http://localhost:3000/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'evil.com',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    
+    process.env.TRUST_PROXY = originalEnv;
+    
+    if (origin === 'http://localhost:3000') {
+      results.push({ passed: true, message: 'TRUST_PROXY=1: still rejects non-brand forwarded host' });
+    } else {
+      results.push({ passed: false, message: `TRUST_PROXY=1 validation: expected http://localhost:3000, got ${origin}` });
+    }
+  }
+
+  // Test 16: TRUST_PROXY=1 validates protocol (only http/https) - ftp
+  {
+    const originalEnv = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = '1';
+    
+    const request = new Request('http://localhost:3000/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'ftp',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    
+    process.env.TRUST_PROXY = originalEnv;
+    
+    if (origin === 'http://abhyas-indol.vercel.app') {
+      results.push({ passed: true, message: 'TRUST_PROXY=1: rejects ftp protocol, falls back to request protocol' });
+    } else {
+      results.push({ passed: false, message: `TRUST_PROXY=1 ftp proto: expected http://abhyas-indol.vercel.app, got ${origin}` });
+    }
+  }
+
+  // Test 16b: TRUST_PROXY=1 validates protocol - javascript
+  {
+    const originalEnv = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = '1';
+    
+    const request = new Request('http://localhost:3000/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'javascript',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    
+    process.env.TRUST_PROXY = originalEnv;
+    
+    if (origin === 'http://abhyas-indol.vercel.app') {
+      results.push({ passed: true, message: 'TRUST_PROXY=1: rejects javascript protocol, falls back to request protocol' });
+    } else {
+      results.push({ passed: false, message: `TRUST_PROXY=1 javascript proto: expected http://abhyas-indol.vercel.app, got ${origin}` });
+    }
+  }
+
+  // Test 17: TRUST_PROXY not set (default behavior)
+  {
+    const originalEnv = process.env.TRUST_PROXY;
+    delete process.env.TRUST_PROXY;
+    
+    const request = new Request('http://localhost:3000/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    
+    process.env.TRUST_PROXY = originalEnv;
+    
+    if (origin === 'http://localhost:3000') {
+      results.push({ passed: true, message: 'Default behavior: localhost ignores x-forwarded headers' });
+    } else {
+      results.push({ passed: false, message: `Default behavior: expected http://localhost:3000, got ${origin}` });
+    }
+  }
+
+  // Test 18: TRUST_PROXY=0 (explicitly disabled)
+  {
+    const originalEnv = process.env.TRUST_PROXY;
+    process.env.TRUST_PROXY = '0';
+    
+    const request = new Request('http://localhost:3000/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    
+    process.env.TRUST_PROXY = originalEnv;
+    
+    if (origin === 'http://localhost:3000') {
+      results.push({ passed: true, message: 'TRUST_PROXY=0: localhost ignores x-forwarded headers' });
+    } else {
+      results.push({ passed: false, message: `TRUST_PROXY=0: expected http://localhost:3000, got ${origin}` });
+    }
+  }
+
+  // Test 19: Default mode validates protocol (only http/https) - ftp
+  {
+    const request = new Request('http://internal.vercel.com/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'ftp',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'http://abhyas-indol.vercel.app') {
+      results.push({ passed: true, message: 'Default mode: rejects ftp protocol, falls back to request protocol' });
+    } else {
+      results.push({ passed: false, message: `Default ftp proto: expected http://abhyas-indol.vercel.app, got ${origin}` });
+    }
+  }
+
+  // Test 20: Default mode validates protocol - javascript
+  {
+    const request = new Request('https://internal.vercel.com/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'javascript',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'https://abhyas-indol.vercel.app') {
+      results.push({ passed: true, message: 'Default mode: rejects javascript protocol, falls back to request protocol' });
+    } else {
+      results.push({ passed: false, message: `Default javascript proto: expected https://abhyas-indol.vercel.app, got ${origin}` });
+    }
+  }
+
   return results;
 }
 

@@ -78,7 +78,9 @@ function testSeeds(label: string, input: Partial<GeneratorInput>, assertions: (p
 // ====================
 
 console.log("\n1. Robustness: equipment_ids ?? [] handles missing column");
-const testWarmups: WarmupRow[] = [
+// Simulate missing column by creating warmup rows without equipment_ids
+type WarmupRowWithoutEquipment = Omit<WarmupRow, 'equipment_ids'> & { equipment_ids?: string[] };
+const testWarmups: WarmupRowWithoutEquipment[] = [
   {
     id: "test-1",
     slug: "test-mobility",
@@ -88,7 +90,7 @@ const testWarmups: WarmupRow[] = [
     target_muscles: ["front_delts"],
     duration_seconds: 60,
     instructions: ["Test"],
-    equipment_ids: undefined as any, // Simulate missing column
+    // equipment_ids omitted to simulate missing column
   },
   {
     id: "test-2",
@@ -99,13 +101,13 @@ const testWarmups: WarmupRow[] = [
     target_muscles: ["front_delts"],
     duration_seconds: 30,
     instructions: ["Test"],
-    equipment_ids: undefined as any,
+    // equipment_ids omitted
   },
 ];
 
 try {
   const warmup = selectWarmup({
-    warmups: testWarmups,
+    warmups: testWarmups as WarmupRow[],
     trainingMuscles: ["chest", "front_delts"],
     injuryRegions: [],
     track: "weights",
@@ -113,21 +115,23 @@ try {
     availableEquipment: new Set([]),
   });
   check("Warmup handles missing equipment_ids column", true);
-} catch (e: any) {
-  check("Warmup handles missing equipment_ids column", false, e.message);
+} catch (e) {
+  const message = e instanceof Error ? e.message : String(e);
+  check("Warmup handles missing equipment_ids column", false, message);
 }
 
 try {
   const cooldown = selectCooldown({
-    stretches: testWarmups,
+    stretches: testWarmups as WarmupRow[],
     trainingMuscles: ["chest"],
     injuryRegions: [],
     hasAllEquipment: false,
     availableEquipment: new Set([]),
   });
   check("Cooldown handles missing equipment_ids column", true);
-} catch (e: any) {
-  check("Cooldown handles missing equipment_ids column", false, e.message);
+} catch (e) {
+  const message = e instanceof Error ? e.message : String(e);
+  check("Cooldown handles missing equipment_ids column", false, message);
 }
 
 // ====================
