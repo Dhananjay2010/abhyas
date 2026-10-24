@@ -2,10 +2,16 @@
  * Pure helpers for detecting session states on Today page.
  */
 
-type SessionForDetection = {
+export type SessionForDetection = {
   status: string;
   actual_type: string | null;
   local_date?: string;
+};
+
+export type OpenSessionForClose = {
+  id: string;
+  local_date: string;
+  started_at: string | null;
 };
 
 function isStrength(actualType: string | null): boolean {
@@ -41,4 +47,26 @@ export function isYesterdayStillInProgress(
   return yesterdaySessions.some(
     (s) => s.status === "in_progress" && isStrength(s.actual_type)
   );
+}
+
+/**
+ * Prepare open sessions for closeStaleSessions.
+ * Ensures real started_at values are preserved, not derived from local_date.
+ */
+export function prepareOpenSessions(
+  sessions: OpenSessionForClose[]
+): OpenSessionForClose[] {
+  return sessions.map(s => ({
+    id: s.id,
+    local_date: s.local_date,
+    started_at: s.started_at
+  }));
+}
+
+/**
+ * Determine if a session should redirect to /today based on its status.
+ * Only completed/skipped sessions redirect; in_progress and planned stay accessible.
+ */
+export function shouldRedirectSession(status: string): boolean {
+  return status === "completed" || status === "skipped";
 }
