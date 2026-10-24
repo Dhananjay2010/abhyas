@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   BODY_REGIONS,
   GOALS,
@@ -91,6 +92,7 @@ export function SettingsForm({
   currentWeek?: number | null;
   actions?: SettingsActions;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
@@ -287,9 +289,11 @@ export function SettingsForm({
             <BuildPlanButton 
               label="Rebuild my block" 
               currentWeek={currentWeek}
+              showSuccessState={true}
               onSuccess={() => {
                 setPlanStale(false);
                 setRebuildSuccess(true);
+                router.refresh();
               }}
             />
           </div>

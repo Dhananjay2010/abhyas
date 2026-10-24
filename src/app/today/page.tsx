@@ -711,6 +711,10 @@ export default async function TodayPage() {
         </ul>
       </section>
 
+      <section className="mt-10">
+        <BuildPlanButton label="Rebuild this block" currentWeek={week} showSuccessState={true} />
+      </section>
+
       <section className="mt-10 space-y-3 text-sm">
         <div className="flex justify-between gap-4 text-muted">
           <span>Goal</span>
@@ -732,8 +736,7 @@ export default async function TodayPage() {
         </div>
       </section>
 
-      <div className="mt-10 space-y-3">
-        <BuildPlanButton label="Rebuild this block" />
+      <div className="mt-10">
         <form action="/auth/signout" method="post">
           <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
             Sign out
