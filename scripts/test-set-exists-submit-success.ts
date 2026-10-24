@@ -81,10 +81,13 @@ async function runTest() {
 
   check("Submit with set_exists returns 'saved'", result.status === "saved");
   
-  if (capturedState) {
+  if (capturedState !== undefined) {
     check("No error set in state", capturedState.error === null);
     check("Not marked as expired", capturedState.expired === false);
     check("No pending sets remain", capturedState.pending.length === 0);
+  } else {
+    console.error("❌ State was not captured");
+    exitCode = 1;
   }
   
   // Verify nothing in storage
