@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * Device capabilities used during a guided session.
@@ -155,23 +155,20 @@ export function useElapsed(startedAtIso: string | null): number {
     startedAtIso ? new Date(startedAtIso).getTime() : null,
   );
   
-  // Initial state is null to defer clock-dependent rendering until after hydration.
-  // Server render and client hydration both see null; the clock starts in the effect.
-  const [now, setNow] = useState<number | null>(null);
+  // Use useSyncExternalStore to subscribe to time (an external system)
+  // Returns 0 during SSR (getServerSnapshot)
+  const now = useSyncExternalStore(
+    useCallback((onStoreChange: () => void) => {
+      // Subscribe to time updates every second
+      const interval = setInterval(onStoreChange, 1000);
+      return () => clearInterval(interval);
+    }, []),
+    () => Date.now(), // getSnapshot (client)
+    () => 0, // getServerSnapshot (SSR) - returns 0 so elapsed will be 0
+  );
 
-  useEffect(() => {
-    // Set the initial time after mount (client-only), scheduled asynchronously
-    const initial = setTimeout(() => setNow(Date.now()), 0);
-    
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => {
-      clearTimeout(initial);
-      clearInterval(t);
-    };
-  }, []);
-
-  // Return 0 during SSR and before the first effect runs (hydration-safe)
-  if (now === null || start === null) return 0;
+  // Return 0 during SSR and when there's no start time
+  if (start === null) return 0;
   
   return Math.max(0, Math.floor((now - start) / 1000));
 }
