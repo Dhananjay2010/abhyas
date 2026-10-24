@@ -8,6 +8,7 @@ import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
+import { selectionInjuryRegions } from "@/lib/program/injury-regions";
 import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
@@ -617,9 +618,9 @@ export async function findAlternatives(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
   );
   
-  const currentInjuryRegions = (injuriesRes.data ?? [])
-    .filter((i) => i.severity === "current")
-    .map((i) => i.body_region);
+  const currentInjuryRegions = selectionInjuryRegions(
+    (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }))
+  );
 
   const input = {
     userId: user.id,

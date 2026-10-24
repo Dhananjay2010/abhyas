@@ -363,8 +363,11 @@ export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
  * Note: kettlebell-one-legged-deadlift is included because the single-leg stance
  * requires significant knee stability and flexion control during the floor pull.
  * 
- * Romanian deadlift and variants are included because even though they are hip-dominant,
- * they still require knee stability and load transmission that can aggravate knee injuries.
+ * Romanian deadlift is included because even though it's hip-dominant, it requires
+ * knee stability and load transmission that can aggravate knee injuries.
+ * 
+ * Stiff-legged deadlifts (barbell, dumbbell, smith machine) are included as they
+ * require significant hamstring flexibility and knee stability under load.
  */
 export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'barbell-deadlift',              // Conventional deadlift
@@ -380,13 +383,10 @@ export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'leverage-deadlift',             // Machine leverage deadlift
   'one-arm-side-deadlift',         // Single-arm floor pull
   'kettlebell-one-legged-deadlift', // Single-leg floor pull (knee stability demand)
-  'romanian-deadlift',             // RDL for hamstrings
-  'single-leg-romanian-deadlift',  // Single-leg RDL
-  'sumo-romanian-deadlift',        // Sumo RDL
-  'dumbbell-romanian-deadlift',    // DB RDL
-  'single-leg-dumbbell-romanian-deadlift', // Single-leg DB RDL
-  'kettlebell-romanian-deadlift',  // KB RDL
-  'single-leg-kettlebell-romanian-deadlift', // Single-leg KB RDL
+  'romanian-deadlift',             // RDL for hamstrings (only variant in catalogue)
+  'stiff-legged-barbell-deadlift', // Stiff-leg barbell variant
+  'stiff-legged-dumbbell-deadlift', // Stiff-leg dumbbell variant
+  'smith-machine-stiff-legged-deadlift', // Smith machine stiff-leg variant
 ]);
 
 // PR #53: Loaded windmill and side-bend exercises excluded for lower_back injury
@@ -672,7 +672,10 @@ export function wouldViolateConstraints(
   }
   
   // For knee-injured users, check adjacent hinges in FINAL sorted order
-  if (hasKneeInjury && candidate.movement_pattern === "hinge") {
+  // Only apply constraint to LOADED hinges (spinal_load !== "none")
+  // This allows stacking unloaded bridges (glute-bridge, butt-lift-bridge, etc.)
+  // and allows a second hinge when a non-hinge exercise separates them
+  if (hasKneeInjury && candidate.movement_pattern === "hinge" && candidate.spinal_load !== "none") {
     // Simulate the sorted order with this candidate added
     const withCandidate = [...pickedSoFar, { ex: candidate, slotIndex }];
     const sorted = withCandidate.sort((a, b) => {
@@ -693,7 +696,7 @@ export function wouldViolateConstraints(
     // Find candidate's position in sorted order
     const candidateIdx = sorted.findIndex(item => item.ex.slug === candidate.slug && item.slotIndex === slotIndex);
     
-    // Check if adjacent exercises are also hinges
+    // Check if IMMEDIATELY adjacent exercises are also hinges (loaded or unloaded)
     if (candidateIdx > 0 && sorted[candidateIdx - 1].ex.movement_pattern === "hinge") {
       return true;
     }
@@ -920,7 +923,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         firstQuadSlotHandled = true;
         
         // Priority 1: Find knee-safe quad exercises (compound OR isolation, non-timed holds only)
-        // bypass normal contraindication checks for these
         const kneeSafeCandidates = pool
           .filter(e => {
             if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
@@ -932,36 +934,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               return false;
             }
             
-            // Manual eligibility checks (level, track, equipment) WITHOUT contraindications
-            // Track check
-            if (input.primaryTrack === "bodyweight" && !e.tracks.includes("bodyweight")) {
-              return false;
-            }
-            
-            // Level check
-            if (e.level_min === "expert" && input.level === "beginner") return false;
-            if (e.level_min === "intermediate" && input.level === "beginner") return false;
-            if (e.level_min === "intermediate" && input.level === "beginner") return false; // duplicate but harmless
-            
-            // Equipment check (same logic as isEligible but isolated here)
-            if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
-              const available = new Set(input.equipmentIds);
-              const alternatives = EQUIPMENT_ALTERNATIVES[e.slug];
-              if (alternatives) {
-                const hasValidAlternative = alternatives.some(altSet =>
-                  altSet.every(eq => available.has(eq))
-                );
-                if (!hasValidAlternative) {
-                  return false;
-                }
-              } else {
-                if (!e.equipment_ids.every(eq => available.has(eq))) {
-                  return false;
-                }
-              }
-            }
-            
-            return true;
+            // Use shared eligibility check (level, track, equipment)
+            return isEligible(e, input);
           })
           .map(e => ({
             e,
@@ -1036,7 +1010,48 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }
       
       const picked = pickForSlot(pattern, i, pool, usedSet, input, rng, dayIndex, pickedExercises);
-      if (!picked) return;
+      if (!picked) {
+        // Special handling for knee-injured users on Lower/Legs days:
+        // If the pattern was lower-body and failed (likely due to adjacent hinges),
+        // try to fill with a non-hinge knee-safe lower-body exercise before giving up
+        const isLowerBodyPattern = pattern === "squat" || pattern === "lunge" || pattern === "hinge";
+        if (hasKneeInjury && isLowerOrFullDay && isLowerBodyPattern) {
+          const kneeSafeNonHinge = pool
+            .filter(e => {
+              if (usedSet.has(e.id)) return false;
+              
+              // Must be a lower-body exercise (quads, glutes, hamstrings, calves, adductors, abductors)
+              const isLowerBody = e.primary_muscles.some(m => 
+                ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"].includes(m)
+              );
+              if (!isLowerBody) return false;
+              
+              // Must NOT be a hinge or core (we want alternatives to blocked hinges)
+              if (e.movement_pattern === "hinge" || e.movement_pattern === "core") return false;
+              
+              // Check constraints
+              if (wouldViolateConstraints(e, i, pickedExercises, input)) return false;
+              
+              // Must be eligible
+              return isEligible(e, input);
+            })
+            .sort((a, b) => 
+              score(b, i < 4, input.level, input.primaryTrack) - score(a, i < 4, input.level, input.primaryTrack) ||
+              a.slug.localeCompare(b.slug)
+            );
+          
+          if (kneeSafeNonHinge.length > 0) {
+            const fallback = kneeSafeNonHinge[0];
+            usedSet.add(fallback.id);
+            if (i <= 3) {
+              usedInBlock.add(fallback.id);
+            }
+            pickedExercises.push({ ex: fallback, slotIndex: i });
+            return; // Successfully filled
+          }
+        }
+        return; // Give up on this slot
+      }
       usedSet.add(picked.id);
       if (i <= 3) {
         usedInBlock.add(picked.id); // Main slots also tracked block-wide for cross-day variety
@@ -1048,32 +1063,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     if (hasKneeInjury && isLowerOrFullDay) {
       const hasQuadWork = pickedExercises.some(p => p.ex.primary_muscles.includes("quads"));
       if (!hasQuadWork) {
-        // Force-add a knee-safe quad exercise (non-timed only for main slots)
+        // Force-add a knee-safe quad exercise (including wall-sit as accessory)
         const kneeSafeOptions = pool
           .filter(e => {
             if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
-            if (e.metric === "seconds") return false; // Exclude timed holds
             if (!e.primary_muscles.includes("quads")) return false;
             if (usedInBlock.has(e.id)) return false;
             
-            // Basic eligibility (track, level, equipment)
-            if (!e.tracks.includes(input.primaryTrack)) return false;
-            if (e.level_min === "expert" && input.level === "beginner") return false;
-            if (e.level_min === "intermediate" && input.level === "beginner") return false;
-            
-            if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
-              const altSets = EQUIPMENT_ALTERNATIVES[e.slug];
-              if (altSets) {
-                const hasValidAlt = altSets.some(altSet => altSet.every(eid => input.equipmentIds.includes(eid)));
-                if (!hasValidAlt && !e.equipment_ids.every(eid => input.equipmentIds.includes(eid))) {
-                  return false;
-                }
-              } else if (!e.equipment_ids.every(eid => input.equipmentIds.includes(eid))) {
-                return false;
-              }
-            }
-            
-            return true;
+            // Use shared eligibility check
+            return isEligible(e, input);
           })
           .sort((a, b) => 
             score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
@@ -1084,6 +1082,58 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           const added = kneeSafeOptions[0];
           usedInBlock.add(added.id);
           pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+        }
+      }
+      
+      // Ensure Lower/Legs days have at least 2 non-core lower-body exercises
+      // Count current non-core lower-body picks
+      const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
+      const nonCoreLowerCount = pickedExercises.filter(p => {
+        if (p.ex.movement_pattern === "core") return false;
+        return p.ex.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+      }).length;
+      
+      if (nonCoreLowerCount < 2) {
+        // Try to add more lower-body exercises (including unloaded hinges and wall-sit)
+        const needed = 2 - nonCoreLowerCount;
+        
+        for (let attempt = 0; attempt < needed; attempt++) {
+          const additionalLower = pool
+            .filter(e => {
+              if (usedInBlock.has(e.id)) return false;
+              if (e.movement_pattern === "core") return false;
+              
+              const isLowerBody = e.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+              if (!isLowerBody) return false;
+              
+              // Must be eligible and knee-safe
+              if (!isEligible(e, input)) return false;
+              if (e.contraindicated_regions.includes("knee")) return false;
+              if (e.movement_pattern === "squat" || e.movement_pattern === "lunge") {
+                if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+              }
+              
+              // For hinges, only allow unloaded ones to avoid adjacency issues
+              if (e.movement_pattern === "hinge" && e.spinal_load !== "none") return false;
+              
+              // Check constraints (including adjacency) with current picked exercises
+              const testSlotIndex = pickedExercises.length;
+              if (wouldViolateConstraints(e, testSlotIndex, pickedExercises, input)) return false;
+              
+              return true;
+            })
+            .sort((a, b) => 
+              score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+              a.slug.localeCompare(b.slug)
+            );
+          
+          if (additionalLower.length > 0) {
+            const added = additionalLower[0];
+            usedInBlock.add(added.id);
+            pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+          } else {
+            break; // No more valid exercises available
+          }
         }
       }
     }
@@ -1284,26 +1334,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         restSeconds: p.restSeconds,
       });
     });
-
-    // QA Pass 10 followup (restored from PR #53): Knee-safe coordinator logic
-    // For members with knee injury on Lower/Full days:
-    // 1. First lower-body main exercise must be knee-safe quad (or hip-dominant if no non-timed quads available)
-    // 2. No two hinges are adjacent (now handled at selection time)
-    // Note: hasKneeInjury and isLowerOrFullDay already declared above
-    
-    // Coordinator is now simplified - most work done at selection time
-    // Only verify first lower exercise meets knee-safe requirements
-    if (hasKneeInjury && isLowerOrFullDay && exercises.length > 0) {
-      const firstLowerIndex = exercises.findIndex(ex => {
-        const e = pool.find(p => p.id === ex.exerciseId);
-        return e && e.primary_muscles.some(m => ["quads", "glutes", "hamstrings"].includes(m));
-      });
-      
-      if (firstLowerIndex !== -1) {
-        // First lower exercise should already be knee-safe from selection logic
-        // This is a verification/fallback only
-      }
-    }
 
     // QA Pass 10 H8: A day with no exercises is a dead end. For bodyweight upper/full-body
     // days, prioritize at least one pulling movement to maintain push:pull balance.
@@ -1629,9 +1659,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       ? exercises.findIndex(ex => ex.exerciseId === kneeSafeFirstPickExerciseId)
       : -1;
     
+    // Build lookup map for O(1) access instead of pool.find() in comparator
+    const byId = new Map(pool.map(e => [e.id, e]));
+    
     exercises.sort((a, b) => {
-      const aEx = pool.find(e => e.id === a.exerciseId);
-      const bEx = pool.find(e => e.id === b.exerciseId);
+      const aEx = byId.get(a.exerciseId);
+      const bEx = byId.get(b.exerciseId);
       if (!aEx || !bEx) return 0;
       
       // Knee-safe first pick always stays first
@@ -1656,6 +1689,46 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     exercises.forEach((ex, idx) => {
       ex.orderIndex = idx;
     });
+    
+    // Ensure no timed holds (metric="seconds") landed in main slots (0-3) after sort
+    // This can happen when force-adding wall-sit or similar accessories
+    // Reuse the byId map from final sort above
+    const timedHoldInMain = exercises.findIndex((ex, idx) => {
+      if (idx >= 4) return false; // Only check main slots
+      const e = byId.get(ex.exerciseId);
+      return e?.metric === "seconds";
+    });
+    
+    if (timedHoldInMain !== -1) {
+      // Find first accessory slot (position 4+) that is NOT a timed hold
+      const firstNonTimedAccessory = exercises.findIndex((ex, idx) => {
+        if (idx < 4) return false; // Only check accessory slots
+        const e = byId.get(ex.exerciseId);
+        return e?.metric !== "seconds";
+      });
+      
+      if (firstNonTimedAccessory !== -1) {
+        // Swap timed hold with non-timed accessory
+        const temp = exercises[timedHoldInMain];
+        exercises[timedHoldInMain] = exercises[firstNonTimedAccessory];
+        exercises[firstNonTimedAccessory] = temp;
+        
+        // Rebuild orderIndex after swap
+        exercises.forEach((ex, idx) => {
+          ex.orderIndex = idx;
+        });
+      } else {
+        // No non-timed accessory to swap with - remove the timed hold from main slot
+        // and append to end
+        const [removed] = exercises.splice(timedHoldInMain, 1);
+        exercises.push(removed);
+        
+        // Rebuild orderIndex
+        exercises.forEach((ex, idx) => {
+          ex.orderIndex = idx;
+        });
+      }
+    }
     
     // Cap accessory and core sets to never exceed main sets
     // MUST run AFTER final sort so the cap applies to the correct slots

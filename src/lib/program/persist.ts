@@ -9,6 +9,7 @@ import {
 } from "./generate";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
+import { selectionInjuryRegions } from "./injury-regions";
 
 type Client = SupabaseClient<Database>;
 
@@ -212,9 +213,9 @@ export async function createBlockForUser(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: (injuriesRes.data ?? [])
-      .filter((i) => i.severity === "current")
-      .map((i) => i.body_region),
+    currentInjuryRegions: selectionInjuryRegions(
+      (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }))
+    ),
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver: options.carryOver,

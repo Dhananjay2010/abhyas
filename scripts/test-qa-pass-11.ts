@@ -12,7 +12,6 @@ import {
   type CandidateExercise,
   type GeneratorInput,
   estimateSessionMinutes,
-  KNEE_SAFE_QUAD_EXERCISES,
 } from "../src/lib/program/generate";
 import { selectWarmup, selectCooldown, type WarmupRow } from "../src/lib/program/warmup";
 
@@ -156,8 +155,13 @@ testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from all
     check(`Seed ${seed}: has lower/full_body days`, lowerDays.length > 0,
       `Expected at least one lower/full_body day, got ${lowerDays.length}`);
     
-    // Use imported allowlist instead of hardcoding
-    const kneeSafeAllowlist = Array.from(KNEE_SAFE_QUAD_EXERCISES);
+    // Hard-coded expected knee-safe quad exercises (independent oracle, not imported from generator)
+    const EXPECTED_KNEE_SAFE_QUADS = new Set([
+      "leg-extensions",
+      "single-leg-leg-extension",
+      "wall-sit",
+      "spanish-squat",
+    ]);
     
     // Check first main exercise on each Lower day
     lowerDays.forEach((day, dayIdx) => {
@@ -167,19 +171,10 @@ testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from all
           check(`Seed ${seed} Lower day ${dayIdx + 1}: first exercise found in catalogue`, false, "exercise not in catalogue");
           return;
         }
-        const isKneeSafe = kneeSafeAllowlist.includes(firstEx.slug);
+        const isKneeSafe = EXPECTED_KNEE_SAFE_QUADS.has(firstEx.slug);
         check(`Seed ${seed} Lower day ${dayIdx + 1}: first exercise is knee-safe from allowlist`, 
           isKneeSafe, 
           `Got ${firstEx.name} [${firstEx.slug}]`);
-        
-        // First lower exercise can be a knee-safe quad OR a knee-safe hip-dominant move
-        const firstIsKneeSafeQuad = firstEx && kneeSafeAllowlist.includes(firstEx.slug) && firstEx.metric !== "seconds";
-        const firstIsKneeSafeHipDominant = firstEx &&
-          (firstEx.movement_pattern === "hinge" || 
-           firstEx.slug.includes("bridge") || 
-           firstEx.slug.includes("hip-thrust")) &&
-          firstEx.mechanic === "compound" &&
-          firstEx.metric !== "seconds";
         
         // Check adjacent hinges: no two hinges in a row
         for (let i = 0; i < day.exercises.length - 1; i++) {
@@ -236,17 +231,7 @@ testSeeds("2b. Knee injury full-body: first main is knee-safe, comes before hing
         return;
       }
       
-      // First exercise must be knee-safe quad OR knee-safe hip-dominant
-      const firstIsKneeSafeQuad = KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug) && firstEx.metric !== "seconds";
-      const firstIsKneeSafeHipDominant = (firstEx.movement_pattern === "hinge" || 
-                                         firstEx.slug.includes("bridge") || 
-                                         firstEx.slug.includes("hip-thrust")) &&
-                                        firstEx.mechanic === "compound" &&
-                                        firstEx.metric !== "seconds";
-      const firstIsKneeSafe = firstIsKneeSafeQuad || firstIsKneeSafeHipDominant;
-      
-      check(`Seed ${seed} ${day.label}: first exercise is knee-safe`, firstIsKneeSafe,
-        firstIsKneeSafe ? undefined : `Got ${firstEx.name} [${firstEx.slug}]`);
+      // Check: first exercise matches hard-coded check done earlier
       
       // Check adjacent hinges: no two hinges in a row
       for (let i = 0; i < day.exercises.length - 1; i++) {

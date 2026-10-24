@@ -32,18 +32,25 @@ const EXPECTED_KNEE_SAFE_QUAD_EXERCISES = new Set([
 ]);
 
 // Hard-coded expected floor-pull deadlifts (independent test oracle)
+// Must match FLOOR_PULL_DEADLIFTS in src/lib/program/generate.ts exactly
 const EXPECTED_FLOOR_PULL_DEADLIFTS = new Set([
-  "barbell-deadlift",  // Conventional deadlift (catalogue uses barbell-deadlift, not deadlift)
+  "barbell-deadlift",
   "sumo-deadlift",
   "deficit-deadlift",
-  "stiff-legged-barbell-deadlift",  // Catalogue slug
-  "stiff-legged-dumbbell-deadlift", // Catalogue slug
+  "deadlift-with-bands",
+  "deadlift-with-chains",
+  "reverse-band-deadlift",
+  "reverse-band-sumo-deadlift",
+  "sumo-deadlift-with-bands",
+  "sumo-deadlift-with-chains",
+  "cable-deadlifts",
+  "leverage-deadlift",
+  "one-arm-side-deadlift",
+  "kettlebell-one-legged-deadlift",
   "romanian-deadlift",
-  // Note: The following variants don't exist in the catalogue as of this test:
-  // trap-bar-deadlift, snatch-grip-deadlift, stiff-leg-deadlift,
-  // single-leg-romanian-deadlift, sumo-romanian-deadlift, dumbbell-romanian-deadlift,
-  // single-leg-dumbbell-romanian-deadlift, kettlebell-romanian-deadlift,
-  // single-leg-kettlebell-romanian-deadlift
+  "stiff-legged-barbell-deadlift",
+  "stiff-legged-dumbbell-deadlift",
+  "smith-machine-stiff-legged-deadlift",
 ]);
 
 // Hard-coded expected loaded windmill/side-bend exclusions (independent test oracle)
@@ -179,8 +186,8 @@ const equipmentProfiles: Array<{ name: string; hasAll: boolean; ids: string[] }>
   { name: "bodyweight", hasAll: false, ids: [] },
   { name: "leg-extension", hasAll: false, ids: ["leg_extension"] },
   { name: "leg-extension+dumbbell", hasAll: false, ids: ["leg_extension", "dumbbell"] },
-  { name: "band", hasAll: false, ids: ["band"] },
-  { name: "barbell+rack", hasAll: false, ids: ["barbell", "rack"] },
+  { name: "band", hasAll: false, ids: ["resistance_band"] },
+  { name: "barbell+rack", hasAll: false, ids: ["barbell", "squat_rack"] },
   { name: "kettlebell", hasAll: false, ids: ["kettlebell"] },
   { name: "cable", hasAll: false, ids: ["cable_machine"] },
 ];
@@ -344,16 +351,23 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 3: No adjacent hinges
+            // Rule 3: No adjacent LOADED hinges (spinal_load !== "none")
+            // Unloaded hinges (glute-bridge, butt-lift-bridge, etc.) can be stacked
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               for (let i = 0; i < day.exercises.length - 1; i++) {
                 const current = byId.get(day.exercises[i].exerciseId);
                 const next = byId.get(day.exercises[i + 1].exerciseId);
                 
                 if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
-                  check(`${profileId} ${day.label}: no adjacent hinges`, false,
-                    `${current.name} then ${next.name} at positions ${i + 1}-${i + 2}`);
-                  profileFailed = true;
+                  // Only fail if at least one is a LOADED hinge
+                  const currentLoaded = current.spinal_load !== "none";
+                  const nextLoaded = next.spinal_load !== "none";
+                  
+                  if (currentLoaded || nextLoaded) {
+                    check(`${profileId} ${day.label}: no adjacent loaded hinges`, false,
+                      `${current.name} (${current.spinal_load}) then ${next.name} (${next.spinal_load}) at positions ${i + 1}-${i + 2}`);
+                    profileFailed = true;
+                  }
                 }
               }
             }
@@ -443,7 +457,7 @@ for (const seed of testSeeds) {
             
             // Rule 9 (PR #73 follow-up): No timed hold (metric=seconds) in main slots (0-3)
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
-              const mains = day.exercises.filter(ex => ex.orderIndex < 4);
+              const mains = day.exercises.filter((ex, idx) => idx < 4);
               
               for (const mainEx of mains) {
                 const exercise = byId.get(mainEx.exerciseId);
@@ -451,7 +465,7 @@ for (const seed of testSeeds) {
                 
                 if (exercise.metric === "seconds") {
                   check(`${profileId} ${day.label}: no timed hold in main slot`, false,
-                    `${exercise.name} [${exercise.slug}] at slot ${mainEx.orderIndex + 1}`);
+                    `${exercise.name} [${exercise.slug}] at position ${mainEx.orderIndex + 1}`);
                   profileFailed = true;
                 }
               }
@@ -504,6 +518,59 @@ for (const seed of testSeeds) {
                     `${coreEx?.name || "core"} at ${lastCoreIndex + 1}, but ${lastEx.name} (${lastEx.movement_pattern}) is last`);
                   profileFailed = true;
                 }
+              }
+            }
+            
+            // Rule 12 (PR #73): Lower/Legs days have ≥2 non-core lower-body exercises
+            // (or max available if equipment allows fewer than 2 knee-safe lower moves)
+            for (const day of plan.days.filter(d => d.focus === "lower" || d.focus === "legs" || d.focus === "full_body")) {
+              const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
+              const nonCoreLowerExercises = day.exercises.filter(ex => {
+                const e = byId.get(ex.exerciseId);
+                if (!e) return false;
+                if (e.movement_pattern === "core") return false;
+                return e.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+              });
+              
+              const coreExercises = day.exercises.filter(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e?.movement_pattern === "core";
+              });
+              
+              // Check minimum lower-body count (at least 2)
+              if (nonCoreLowerExercises.length < 2) {
+                // Count available knee-safe lower-body exercises for this equipment
+                const available = catalogue.filter(e => {
+                  if (e.movement_pattern === "core") return false;
+                  if (!e.primary_muscles.some(m => lowerBodyMuscles.includes(m))) return false;
+                  
+                  // Must be knee-safe
+                  if (e.contraindicated_regions.includes("knee")) return false;
+                  if (e.movement_pattern === "squat" || e.movement_pattern === "lunge") {
+                    if (!EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+                  }
+                  if (EXPECTED_FLOOR_PULL_DEADLIFTS.has(e.slug)) return false;
+                  
+                  // Must match equipment
+                  if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
+                    return e.equipment_ids.every(eid => input.equipmentIds.includes(eid));
+                  }
+                  return true;
+                }).length;
+                
+                const expected = Math.min(2, available);
+                if (nonCoreLowerExercises.length < expected) {
+                  check(`${profileId} ${day.label}: ≥${expected} non-core lower-body exercises`, false,
+                    `Only ${nonCoreLowerExercises.length} (${available} available for equipment)`);
+                  profileFailed = true;
+                }
+              }
+              
+              // Check maximum core count
+              if (coreExercises.length > 2) {
+                check(`${profileId} ${day.label}: ≤2 core exercises`, false,
+                  `Has ${coreExercises.length} core moves`);
+                profileFailed = true;
               }
             }
             
