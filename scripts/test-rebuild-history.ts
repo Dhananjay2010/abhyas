@@ -234,6 +234,83 @@ console.log("\n4. Rebuilt at week 3: sessions still count");
   check("all 4 sessions counted in days trained", streaks.totalSessions === 4, `${streaks.totalSessions}`);
 }
 
+console.log("\n5. Mid-block rebuild with different weekday types (REGRESSION TEST)");
+{
+  // This test FAILS on main's streaks.ts because it doesn't respect ended_on ranges.
+  // User had perfect attendance (4 days) but streak showed as 2 after rebuild.
+  //
+  // Scenario: 3-day split (Mon/Wed/Fri training), rebuilt mid-block to 6-day split.
+  // Past Mon/Wed completed under old block, where Tue/Thu/Sat/Sun were rest days.
+  // New block makes every day training. Past Tue/Thu must stay rest (from old block).
+  
+  const programs = [
+    {
+      id: "block1",
+      startedOn: "2026-10-19", // Mon
+      endsOn: "2026-11-09",
+      endedOn: "2026-10-22", // Wed, rebuild on Thu
+    },
+    {
+      id: "block2",
+      startedOn: "2026-10-23", // Thu
+      endsOn: "2026-11-16",
+      endedOn: null,
+    },
+  ];
+
+  const dayTypesByProgram = {
+    block1: {
+      1: "weights" as DayType, // Mon Oct 19
+      2: "rest" as DayType,    // Tue Oct 20
+      3: "weights" as DayType, // Wed Oct 21
+      4: "rest" as DayType,    // Thu Oct 22
+      5: "weights" as DayType, // Fri Oct 23 (never reached, rebuilt Thu)
+      6: "rest" as DayType,    // Sat
+      7: "rest" as DayType,    // Sun
+    },
+    block2: {
+      1: "weights" as DayType, // Mon
+      2: "weights" as DayType, // Tue
+      3: "weights" as DayType, // Wed
+      4: "weights" as DayType, // Thu Oct 23 (rebuild day)
+      5: "weights" as DayType, // Fri
+      6: "weights" as DayType, // Sat
+      7: "rest" as DayType,    // Sun
+    },
+  };
+
+  const completedSessions = [
+    { local_date: "2026-10-19", actual_type: "weights" as DayType }, // Mon, block1
+    { local_date: "2026-10-21", actual_type: "weights" as DayType }, // Wed, block1
+    { local_date: "2026-10-23", actual_type: "weights" as DayType }, // Thu, block2 (rebuild day)
+    { local_date: "2026-10-24", actual_type: "weights" as DayType }, // Fri, block2
+  ];
+
+  const dayRecords = buildDayRecords({
+    programs,
+    dayTypesByProgram,
+    completedSessions,
+    today: "2026-10-24",
+  });
+
+  // Key assertion: Tue Oct 20 and Thu Oct 22 must be REST (from block1)
+  const tue = dayRecords.find((d) => d.localDate === "2026-10-20");
+  const thu = dayRecords.find((d) => d.localDate === "2026-10-22");
+  
+  check("Tue Oct 20 is rest (block1 schedule)", tue?.dayType === "rest", `${tue?.dayType}`);
+  check("Thu Oct 22 is rest (block1 schedule)", thu?.dayType === "rest", `${thu?.dayType}`);
+
+  // Streak should be 4 (Mon, Wed, Thu, Fri all completed, Tue as rest doesn't break it)
+  const streaks = computeStreaks(dayRecords, "2026-10-24");
+  check("current streak is 4 (not broken by past rest days)", streaks.current === 4, `streak=${streaks.current}`);
+  check("best streak is 4", streaks.longest === 4, `${streaks.longest}`);
+  check("total sessions is 4", streaks.totalSessions === 4, `${streaks.totalSessions}`);
+
+  // This test will FAIL on main because buildDayRecords doesn't respect ended_on,
+  // causing past dates to use the NEW block's schedule (making Tue/Thu training days),
+  // which breaks the streak logic.
+}
+
 if (failures === 0) {
   console.log("\nALL CHECKS PASSED");
   process.exit(0);

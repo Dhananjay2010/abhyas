@@ -96,7 +96,7 @@ create or replace function cycle_week_for(
 ) returns int
 language sql immutable
 as $$
-  select p_week_offset + floor(extract(epoch from (p_date - p_started_on)) / (7 * 86400))::int + 1;
+  select p_week_offset + floor((p_date - p_started_on) / 7.0)::int + 1;
 $$;
 
 -- rebuild_block: Retire active block as 'superseded', insert new block
@@ -135,7 +135,7 @@ begin
   -- Compute new week_offset: carry over the current cycle week
   v_new_week_offset := (
     v_old_block.week_offset +
-    floor(extract(epoch from (p_today - v_old_block.started_on)) / (7 * 86400))::int
+    floor((p_today - v_old_block.started_on) / 7.0)::int
   );
 
   -- IDEMPOTENT: if an active block already covers p_today, return it

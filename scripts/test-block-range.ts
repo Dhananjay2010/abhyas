@@ -119,14 +119,13 @@ console.log("\n6. cycleWeekFor: week_offset carries deload across rebuild");
   const block1 = b("1", "2026-10-01", null, 0); // week_offset 0
   check("week 1 on day 1", cycleWeekFor(block1, "2026-10-01") === 1);
   check("week 1 on day 6", cycleWeekFor(block1, "2026-10-06") === 1);
-  check("week 2 on day 7", cycleWeekFor(block1, "2026-10-07") === 1); // 7 days elapsed = floor(7/7) = 1, +1 = week 2
-  check("week 2 on day 8", cycleWeekFor(block1, "2026-10-08") === 2);
+  check("week 2 on day 8", cycleWeekFor(block1, "2026-10-08") === 2); // 7 days elapsed = floor(7/7) = 1, +1 = week 2
   check("week 3 on day 15", cycleWeekFor(block1, "2026-10-15") === 3);
 
   // Mid-block rebuild at week 3: new block gets week_offset = 2
   const block2 = b("2", "2026-10-15", null, 2); // week_offset 2 (was in week 3, so offset 2)
   check("rebuild keeps cycle week: day 1 is week 3", cycleWeekFor(block2, "2026-10-15") === 3);
-  check("rebuild week 4 on day 7", cycleWeekFor(block2, "2026-10-21") === 3); // 6 days / 7 = 0, +2+1 = 3
+  check("rebuild week 3 on day 7", cycleWeekFor(block2, "2026-10-21") === 3); // 6 days / 7 = 0, +2+1 = 3
   check("rebuild week 4 on day 8", cycleWeekFor(block2, "2026-10-22") === 4); // 7 days / 7 = 1, +2+1 = 4
 
   // Default week_offset when missing
@@ -140,10 +139,78 @@ console.log("\n7. cycleWeekFor: throws on date before block start");
   let threw = false;
   try {
     cycleWeekFor(block, "2026-10-14");
-  } catch (e) {
-    threw = (e as Error).message.includes("before block start");
+  } catch (error) {
+    threw = error instanceof Error && error.message.includes("before block start");
   }
   check("throws for date before started_on", threw);
+}
+
+console.log("\n8. blockForDate: throws on overlap in non-production");
+{
+  // Save original NODE_ENV
+  const originalEnv = process.env.NODE_ENV;
+  
+  // Test in non-production mode
+  delete (process.env as { NODE_ENV?: string }).NODE_ENV;
+  (process.env as { NODE_ENV?: string }).NODE_ENV = "development";
+  
+  const overlappingBlocks = [
+    b("1", "2026-10-01", "2026-10-28"),
+    b("2", "2026-10-15", "2026-11-15"), // overlaps with block 1
+  ];
+  
+  let threw = false;
+  try {
+    blockForDate(overlappingBlocks, "2026-10-20"); // covered by both
+  } catch (error) {
+    threw = error instanceof Error && error.message.includes("Multiple blocks cover");
+  }
+  check("throws on overlap in non-production", threw);
+  
+  // Test in production mode (should not throw)
+  delete (process.env as { NODE_ENV?: string }).NODE_ENV;
+  (process.env as { NODE_ENV?: string }).NODE_ENV = "production";
+  let threwInProd = false;
+  try {
+    const result = blockForDate(overlappingBlocks, "2026-10-20");
+    check("returns first match in production", result?.id === "1");
+  } catch {
+    threwInProd = true;
+  }
+  check("does not throw in production", !threwInProd);
+  
+  // Restore original NODE_ENV
+  delete (process.env as { NODE_ENV?: string }).NODE_ENV;
+  if (originalEnv !== undefined) {
+    (process.env as { NODE_ENV?: string }).NODE_ENV = originalEnv;
+  }
+}
+
+console.log("\n9. blockForDate: endedOn-null fallback to endsOn");
+{
+  // In the real schema, ended_on can be null (active block) or set (completed/superseded)
+  // coversDate uses ended_on when checking range, so blockForDate does too
+  // This test verifies blockForDate correctly handles ended_on = null (active blocks)
+  
+  type BlockWithBoth = BlockRange & { endsOn?: string };
+  
+  const blocks: BlockWithBoth[] = [
+    { id: "1", started_on: "2026-10-01", ended_on: "2026-10-28", endsOn: "2026-10-28" },
+    { id: "2", started_on: "2026-10-29", ended_on: null, endsOn: "2026-11-25" }, // active block
+  ];
+  
+  // blockForDate uses ended_on (not endsOn) for coverage check
+  const oct15 = blockForDate(blocks, "2026-10-15");
+  const nov15 = blockForDate(blocks, "2026-11-15");
+  const dec15 = blockForDate(blocks, "2026-12-15"); // after endsOn but ended_on is null
+  
+  check("Oct 15 covered by block 1 (ended_on = 2026-10-28)", oct15?.id === "1");
+  check("Nov 15 covered by block 2 (ended_on = null)", nov15?.id === "2");
+  check("Dec 15 covered by block 2 (ended_on = null means infinite)", dec15?.id === "2");
+  
+  // Verify ended_on is what matters, not endsOn
+  const afterPlannedEnd = blockForDate(blocks, "2026-12-01");
+  check("date after endsOn still covered when ended_on is null", afterPlannedEnd?.id === "2");
 }
 
 if (failures === 0) {
