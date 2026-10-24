@@ -126,6 +126,17 @@ async function testServedServiceWorker() {
     "Service worker script must not be empty"
   );
 
+  // Must serve icon cache-first
+  assert(
+    scriptText.includes("ICON_URL") && scriptText.includes("cache-first"),
+    "Service worker must serve icon cache-first for offline page"
+  );
+
+  assert(
+    scriptText.includes("url.pathname === new URL(ICON_URL"),
+    "Service worker must check icon URL pathname explicitly"
+  );
+
   const contentType = response.headers.get("Content-Type");
   assert(
     contentType?.includes("application/javascript") ?? false,
@@ -149,6 +160,8 @@ async function testServedServiceWorker() {
   console.log("  ✓ Checks _rsc query param");
   console.log("  ✓ Checks mode === 'navigate'");
   console.log("  ✓ Passes original URL to offline page via query param");
+  console.log("  ✓ Serves icon cache-first for offline page");
+  console.log("  ✓ Checks icon URL pathname explicitly");
   console.log("  ✓ Content-Type is application/javascript");
   console.log("  ✓ Cache-Control includes max-age=0 and must-revalidate");
 }

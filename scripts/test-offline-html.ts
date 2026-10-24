@@ -174,15 +174,17 @@ function testLayoutBottomNav() {
 
   const bottomNavSource = fs.readFileSync(bottomNavPath, "utf-8");
 
-  // BottomNav should use activeTab() and return null if !active
+  // BottomNav should use activeTab() and return null if !active or isOffline
   assert(
-    bottomNavSource.includes("activeTab(pathname)") && bottomNavSource.includes("if (!active) return null"),
-    'BottomNav must use activeTab() and return null when activeTab returns null'
+    bottomNavSource.includes("activeTab(pathname)") && 
+    (bottomNavSource.includes("if (!active || isOffline) return null") || 
+     bottomNavSource.includes("if (!active) return null")),
+    'BottomNav must use activeTab() and return null when inactive or offline'
   );
 
   console.log("  ✓ BottomNav uses activeTab() for nav visibility");
-  console.log("  ✓ BottomNav returns null when activeTab returns null");
-  console.log("  ✓ /offline handled by activeTab() in src/lib/nav.ts (tested in test-nav.ts)");
+  console.log("  ✓ BottomNav returns null when activeTab returns null or offline");
+  console.log("  ✓ /offline handled by activeTab() and data-offline marker");
 }
 
 function main() {

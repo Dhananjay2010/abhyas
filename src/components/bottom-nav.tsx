@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
+import * as React from "react";
 import { activeTab, choosePracticeRoute, PRACTICE_LAST_CHANGE_EVENT, type PracticeType } from "@/lib/nav";
 
 /**
@@ -107,7 +108,17 @@ export function BottomNav() {
     getLastPracticeSnapshot,
     getLastPracticeServerSnapshot
   );
-  if (!active) return null;
+  
+  // Hide nav on offline page (marked with data-offline attribute)
+  // Use layoutEffect to check synchronously before paint
+  const [isOffline, setIsOffline] = React.useState(false);
+  
+  React.useLayoutEffect(() => {
+    const hasOfflineMarker = document.querySelector('[data-offline="true"]');
+    setIsOffline(!!hasOfflineMarker); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [pathname]);
+  
+  if (!active || isOffline) return null;
 
   // Map /practice to the appropriate destination using choice logic
   const getHref = (tabHref: string) => {

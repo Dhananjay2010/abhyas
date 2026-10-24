@@ -8,6 +8,8 @@
  * Enhanced with client-side retry feedback: shows "Still offline" message
  * when retry is attempted while still offline, and only reloads when back online.
  * Reloads the original URL the user was navigating to (from ?url= query param).
+ *
+ * Marked with data-offline attribute to hide bottom nav.
  */
 
 import { branding } from "@/lib/branding";
@@ -65,7 +67,7 @@ export default function OfflinePage() {
         `
       }} />
       
-      <div style={containerStyle}>
+      <div style={containerStyle} data-offline="true">
         <div style={contentStyle}>
           {/* App icon: real 192x192 icon from branding, precached by service worker */}
           {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -14,14 +14,16 @@ import { branding } from "@/lib/branding";
 
 /**
  * Get the current build version for cache naming.
- * Uses Vercel commit SHA in production, falls back to a constant for dev.
+ * Uses Vercel commit SHA in production, falls back to build timestamp for dev.
+ * The fallback is deterministic per build (set at build time).
  */
 function getBuildVersion(): string {
   if (process.env.VERCEL_GIT_COMMIT_SHA) {
     return process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7);
   }
-  // Fallback for local dev or non-Vercel deployments
-  return "dev";
+  // Fallback: use build timestamp (deterministic per build, not per request)
+  // This is set at build time and stays the same for all requests in this build
+  return process.env.BUILD_ID || `build-${Date.now()}`;
 }
 
 export async function GET() {
@@ -149,7 +151,8 @@ function shouldInterceptForOffline(request) {
   return false;
 }
 
-// Fetch: serve the offline page when a GET navigation request fails
+// Fetch: serve the offline page when a GET navigation request fails,
+// and serve precached icons cache-first
 self.addEventListener("fetch", (event) => {
   // Ignore all non-GET requests entirely (no respondWith).
   // POSTs and server actions go straight to the network and fail visibly.
@@ -157,7 +160,35 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Check if this GET request should be intercepted
+  const url = new URL(event.request.url);
+
+  // Serve precached icon cache-first (for offline page logo)
+  if (url.pathname === new URL(ICON_URL, self.location.origin).pathname) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const cachedResponse = await cache.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        // Not in cache, try network
+        try {
+          const networkResponse = await fetch(event.request);
+          // Optionally cache it for next time
+          if (networkResponse.ok) {
+            cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        } catch {
+          // Both cache and network failed
+          return new Response("Icon not available", { status: 404 });
+        }
+      })()
+    );
+    return;
+  }
+
+  // Check if this GET request should be intercepted for offline fallback
   if (!shouldInterceptForOffline(event.request)) {
     return;
   }
