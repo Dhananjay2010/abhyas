@@ -162,46 +162,54 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
-  // Creating the session and reading what to put in it are independent: both
-  // need only the day, which wave one already produced.
-  const [sessionRes, plannedRes] = await Promise.all([
-    supabase
-      .from("sessions")
-      .insert({
-        user_id: user.id,
-        program_id: program.id,
-        program_day_id: day.id,
-        local_date: today,
-        week_in_block: week,
-        is_deload: isDeloadWeek,
-        planned_type: day.day_type,
-        actual_type: day.day_type,
-        status: "in_progress",
-        started_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single(),
-    supabase
-      .from("program_day_exercises")
-      // The exercise's metric comes along so the session can record the unit it
-      // was run in -- see `session_exercises.metric` and SPEC section 7.
-      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
-      .eq("program_day_id", day.id)
-      .order("order_index"),
-  ]);
+  // Fetch planned exercises first to validate them before creating the session.
+  // This prevents leaving an empty in_progress session if validation fails.
+  const { data: planned } = await supabase
+    .from("program_day_exercises")
+    // The exercise's metric comes along so the session can record the unit it
+    // was run in -- see `session_exercises.metric` and SPEC section 7.
+    // equipment_ids is needed for loadReducible determination in deload weeks.
+    .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric, equipment_ids)")
+    .eq("program_day_id", day.id)
+    .order("order_index");
 
-  const session = sessionRes.data;
-  if (sessionRes.error || !session) {
-    return { ok: false, error: sessionRes.error?.message ?? "Could not start the session" };
+  // Validate exercise targets before creating the session.
+  // buildSessionExerciseRows may throw RangeError for invalid inputs (NaN, negative, etc).
+  let validatedRows;
+  try {
+    if (planned && planned.length > 0) {
+      validatedRows = buildSessionExerciseRows(planned, { isDeload: isDeloadWeek });
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `Invalid exercise targets: ${msg}` };
   }
 
-  const planned = plannedRes.data;
-  if (planned && planned.length > 0) {
-    // Week 4 of a block cuts volume; the weight suggestion is reduced
-    // separately when the session is rendered.
-    const rows = buildSessionExerciseRows(planned, { isDeload: isDeloadWeek });
+  // Only create the session after validation succeeds
+  const { data: session, error: sessionError } = await supabase
+    .from("sessions")
+    .insert({
+      user_id: user.id,
+      program_id: program.id,
+      program_day_id: day.id,
+      local_date: today,
+      week_in_block: week,
+      is_deload: isDeloadWeek,
+      planned_type: day.day_type,
+      actual_type: day.day_type,
+      status: "in_progress",
+      started_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+
+  if (sessionError || !session) {
+    return { ok: false, error: sessionError?.message ?? "Could not start the session" };
+  }
+
+  if (validatedRows && validatedRows.length > 0) {
     const { error } = await supabase.from("session_exercises").insert(
-      rows.map((r) => ({
+      validatedRows.map((r) => ({
         session_id: session.id,
         user_id: user.id, // corrected by the definer trigger
         ...r,
@@ -839,14 +847,23 @@ export async function ensureSessionExercises(
 
   const { data: planned } = await supabase
     .from("program_day_exercises")
-    .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
+    .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric, equipment_ids)")
     .eq("program_day_id", session.program_day_id)
     .order("order_index");
   if (!planned || planned.length === 0) return;
 
   const isDeload = session.is_deload ?? false;
 
-  const rows = buildSessionExerciseRows(planned, { isDeload });
+  // Validate and build exercise rows. May throw RangeError for invalid targets.
+  let rows;
+  try {
+    rows = buildSessionExerciseRows(planned, { isDeload });
+  } catch (err) {
+    // Session already exists; log the error but don't crash
+    console.error(`ensureSessionExercises validation failed for session ${sessionId}:`, err);
+    return;
+  }
+
   await supabase.from("session_exercises").insert(
     rows.map((r) => ({
       session_id: sessionId,

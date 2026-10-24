@@ -248,6 +248,78 @@ console.log("\n5. Swap path preserves deloaded set count");
   );
 }
 
+console.log("\n6. loadReducible behavior: rep/hold trim for bodyweight and holds");
+{
+  // Bodyweight exercise (no equipment) in deload week: sets stay at 2, reps trimmed
+  const bodyweightRow = {
+    exercise_id: "pushup",
+    order_index: 0,
+    target_sets: 2,
+    target_reps_min: 8,
+    target_reps_max: 12,
+    rest_seconds: 60,
+    exercises: { metric: "reps", equipment_ids: [] }, // no equipment = bodyweight
+  };
+
+  const bodyweightDeload = buildSessionExerciseRows([bodyweightRow], { isDeload: true });
+  check(
+    "bodyweight: sets unchanged (2->2, no cut)",
+    bodyweightDeload[0].planned_sets === 2,
+    `got ${bodyweightDeload[0].planned_sets}`,
+  );
+  check(
+    "bodyweight: reps trimmed (8-12 -> 5-8)",
+    bodyweightDeload[0].planned_reps_min === 5 && bodyweightDeload[0].planned_reps_max === 8,
+    `got ${bodyweightDeload[0].planned_reps_min}-${bodyweightDeload[0].planned_reps_max}`,
+  );
+
+  // Weighted exercise (has equipment) in deload week: sets cut, reps unchanged
+  const weightedRow = {
+    exercise_id: "bench",
+    order_index: 0,
+    target_sets: 5,
+    target_reps_min: 8,
+    target_reps_max: 12,
+    rest_seconds: 120,
+    exercises: { metric: "reps", equipment_ids: ["barbell"] },
+  };
+
+  const weightedDeload = buildSessionExerciseRows([weightedRow], { isDeload: true });
+  check(
+    "weighted: sets cut (5->3)",
+    weightedDeload[0].planned_sets === 3,
+    `got ${weightedDeload[0].planned_sets}`,
+  );
+  check(
+    "weighted: reps unchanged (8-12 -> 8-12)",
+    weightedDeload[0].planned_reps_min === 8 && weightedDeload[0].planned_reps_max === 12,
+    `got ${weightedDeload[0].planned_reps_min}-${weightedDeload[0].planned_reps_max}`,
+  );
+
+  // Hold exercise in deload week: 2 sets stay at 2, holds trimmed
+  const holdRow = {
+    exercise_id: "plank",
+    order_index: 0,
+    target_sets: 2,
+    target_reps_min: 30,
+    target_reps_max: 45,
+    rest_seconds: 60,
+    exercises: { metric: "seconds", equipment_ids: [] },
+  };
+
+  const holdDeload = buildSessionExerciseRows([holdRow], { isDeload: true });
+  check(
+    "hold: sets unchanged (2->2, no cut)",
+    holdDeload[0].planned_sets === 2,
+    `got ${holdDeload[0].planned_sets}`,
+  );
+  check(
+    "hold: duration trimmed (30-45 -> 20-30)",
+    holdDeload[0].planned_reps_min === 20 && holdDeload[0].planned_reps_max === 30,
+    `got ${holdDeload[0].planned_reps_min}-${holdDeload[0].planned_reps_max}`,
+  );
+}
+
 if (failures === 0) {
   console.log("\nALL CHECKS PASSED\n");
   process.exit(0);

@@ -65,11 +65,11 @@ function createMockSupabase(
 
       if (table === "program_day_exercises") {
         return {
-          select(_fields: string) {
+          select() {
             return {
-              eq(_field: string, _value: string) {
+              eq() {
                 return {
-                  order(_orderField: string) {
+                  order() {
                     return Promise.resolve({
                       data: programDayExercises,
                       error: null,
