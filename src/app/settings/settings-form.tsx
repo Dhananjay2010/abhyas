@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -28,7 +28,7 @@ import {
   type Result,
 } from "./actions";
 import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
-import { createSaveQueue } from "./save-queue";
+import { createSaveQueue, type SupersededResult } from "./save-queue";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
 import { DobInput } from "@/components/onboarding/dob-input";
@@ -97,12 +97,9 @@ export function SettingsForm({
   timezones: string[];
   actions?: SettingsActions;
 }) {
-  const pathname = usePathname();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
-  const [sessionExpiredPrompt] = useSessionExpiredPrompt();
-  const [pendingRestoreApplied, setPendingRestoreApplied] = useState(false);
   
   /** Track initial equipment to detect real changes */
   const [initialEquipment] = useState({
@@ -137,6 +134,56 @@ export function SettingsForm({
   /** Browser timezone detected on client after mount */
   const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
   
+  /** Track if any save has occurred (for LOW-a: don't show Saved on first load) */
+  const [anySaveOccurred, setAnySaveOccurred] = useState(false);
+  
+  /** Track last successfully saved values for revert on error (N1) */
+  const lastSavedValues = useRef<{
+    goal: Goal | null;
+    level: Level | null;
+    primaryTrack: Track | null;
+    daysPerWeek: number | null;
+    yogaDaysPerWeek: number;
+    preferredSessionMinutes: number;
+    planningMode: "progression" | "daily_menu";
+    perSetLogging: boolean;
+    resumeSession: boolean;
+    cooldownEnabled: boolean;
+    restAutostart: boolean;
+    restSound: boolean;
+    restVibrate: boolean;
+    restOverrideSeconds: number | null;
+    bodyweightPrompt: "daily" | "weekly" | "never";
+    timezone: string | null;
+  }>({
+    goal: initial.goal,
+    level: initial.level,
+    primaryTrack: initial.primaryTrack,
+    daysPerWeek: initial.daysPerWeek,
+    yogaDaysPerWeek: initial.yogaDaysPerWeek,
+    preferredSessionMinutes: initial.preferredSessionMinutes,
+    planningMode: initial.planningMode,
+    perSetLogging: initial.perSetLogging,
+    resumeSession: initial.resumeSession,
+    cooldownEnabled: initial.cooldownEnabled,
+    restAutostart: initial.restAutostart,
+    restSound: initial.restSound,
+    restVibrate: initial.restVibrate,
+    restOverrideSeconds: initial.restOverrideSeconds,
+    bodyweightPrompt: initial.bodyweightPrompt,
+    timezone: initial.timezone,
+  });
+  
+  /** Track pending field keys to avoid reverting over newer values */
+  const pendingKeys = useRef<Set<string>>(new Set());
+  
+  /** Track retry metadata for each key (M1 fix #2) */
+  const retryMetadata = useRef<Map<string, {
+    type: 'profile' | 'session';
+    patch: Parameters<typeof actions.updateProfileSettings>[0] | Parameters<typeof actions.updateSessionSettings>[0];
+    affectsPlan?: boolean;
+  }>>(new Map());
+  
   /** DOB error state (client-side validation) */
   const [dobError, setDobError] = useState<string | null>(null);
   /** DOB touched state */
@@ -147,6 +194,9 @@ export function SettingsForm({
   
   /** Track if we need beforeunload prompt */
   const needsUnloadPrompt = useRef(false);
+
+  const pathname = usePathname();
+  const sessionExpiredUI = useSessionExpiredPrompt();
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -175,31 +225,28 @@ export function SettingsForm({
   }, []);
 
   useEffect(() => {
-    // Restore pending changes after sign-in
-    if (pendingRestoreApplied) return;
-    
+    // Restore pending changes from stashed session state (QA E2)
     const pending = getPendingChanges();
     if (!pending || pending.returnPath !== pathname) {
       return;
     }
 
-    setPendingRestoreApplied(true);
     clearPendingChanges();
 
-    // Re-apply the pending changes once through the save queue
+    // Apply changes through the save queue
     for (const change of pending.changes) {
       const { field, value } = change;
       
-      if (field === 'preferredSessionMinutes' && typeof value === 'number') {
+      if (field === "preferredSessionMinutes" && typeof value === "number") {
         setS(prev => ({ ...prev, preferredSessionMinutes: value }));
-        saveProfile('preferred_session_minutes', { preferred_session_minutes: value }, true);
-      } else if (field === 'timezone' && typeof value === 'string') {
+        saveSession("preferred_session_minutes", { preferred_session_minutes: value });
+      } else if (field === "timezone" && (typeof value === "string" || value === null)) {
         setS(prev => ({ ...prev, timezone: value }));
-        saveProfile('timezone', { timezone: value });
+        saveProfile("timezone", { timezone: value });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, pendingRestoreApplied]);
+  }, [pathname]);
 
   useEffect(() => {
     // Register beforeunload prompt when saves are pending
@@ -237,65 +284,191 @@ export function SettingsForm({
     };
   }, [saveQueue]);
 
-  // Update needsUnloadPrompt whenever queue status changes
+  // Subscribe to queue status changes for needsUnloadPrompt (LOW-d: use events instead of polling)
   useEffect(() => {
-    const interval = setInterval(() => {
-      needsUnloadPrompt.current = saveQueue.hasPending();
-    }, 100);
-    return () => clearInterval(interval);
+    needsUnloadPrompt.current = saveQueue.hasPending();
+    
+    const unsubscribe = saveQueue.subscribe((status) => {
+      needsUnloadPrompt.current = status.state !== "idle";
+    });
+    
+    return unsubscribe;
   }, [saveQueue]);
+
+  // Subscribe to queue status changes (fix #4: must re-render from queue)
+  const queueStatus = useSyncExternalStore(
+    saveQueue.subscribe,
+    saveQueue.getStatus,
+    saveQueue.getStatus
+  );
+
+  /** Get friendly field name for error messages (N1) */
+  function getFieldDisplayName(key: string): string {
+    const fieldNames: Record<string, string> = {
+      goal: "Goal",
+      level: "Level",
+      primary_track: "Where you train",
+      days_per_week: "Days per week",
+      yoga_days_per_week: "Yoga days",
+      preferred_session_minutes: "Session length",
+      planning_mode: "Planning mode",
+      per_set_logging: "Log every set",
+      resume_session: "Resume session",
+      cooldown_enabled: "Cool-down block",
+      rest_timer_autostart: "Rest timer autostart",
+      rest_timer_sound: "Rest sound",
+      rest_timer_vibrate: "Rest vibrate",
+      rest_seconds_override: "Rest length",
+      bodyweight_prompt: "Weigh-in reminder",
+      timezone: "Timezone",
+      date_of_birth: "Date of birth",
+      equipment: "Equipment",
+      injuries: "Injuries",
+    };
+    return fieldNames[key] || key;
+  }
+
+  /** Map API keys (snake_case) to state keys (camelCase) for N1 revert */
+  function mapApiKeyToStateKey(apiKey: string): keyof typeof lastSavedValues.current | null {
+    const mapping: Record<string, keyof typeof lastSavedValues.current> = {
+      goal: "goal",
+      level: "level",
+      primary_track: "primaryTrack",
+      days_per_week: "daysPerWeek",
+      yoga_days_per_week: "yogaDaysPerWeek",
+      preferred_session_minutes: "preferredSessionMinutes",
+      planning_mode: "planningMode",
+      per_set_logging: "perSetLogging",
+      resume_session: "resumeSession",
+      cooldown_enabled: "cooldownEnabled",
+      rest_timer_autostart: "restAutostart",
+      rest_timer_sound: "restSound",
+      rest_timer_vibrate: "restVibrate",
+      rest_seconds_override: "restOverrideSeconds",
+      bodyweight_prompt: "bodyweightPrompt",
+      timezone: "timezone",
+    };
+    return mapping[apiKey] || null;
+  }
+
+  /** Get friendly error message (N1: never show raw 'Failed to fetch') */
+  function getFriendlyError(key: string, rawError: string): string {
+    const fieldName = getFieldDisplayName(key);
+    
+    // Never show raw "Failed to fetch"
+    if (rawError.toLowerCase().includes("failed to fetch") || rawError.toLowerCase().includes("network")) {
+      return `Couldn't save ${fieldName}`;
+    }
+    
+    // If error already mentions the field, use it as-is
+    if (rawError.toLowerCase().includes(fieldName.toLowerCase())) {
+      return rawError;
+    }
+    
+    // Otherwise prefix with field name
+    return `${fieldName}: ${rawError}`;
+  }
 
   /** Enqueue a save with the queue, keyed per field */
   function enqueueSave(
     key: string,
     request: () => Promise<Result>,
     affectsPlan = false,
-    pendingChange?: PendingChange
+    onSuccess?: () => void,
+    onFailure?: () => void
   ) {
+    // Track that this key has a pending save
+    pendingKeys.current.add(key);
+    
     startTransition(async () => {
       try {
         const result = await saveQueue.enqueue(key, request);
         
+        // Handle superseded results (no-op, not an error, not success)
+        if (result && typeof result === "object" && "superseded" in result) {
+          return;
+        }
+        
         // Check for session expiration in result
         if (isSessionExpired(result)) {
-          if (pendingChange) {
-            stashPendingChanges([pendingChange], pathname);
+          // Stash pending changes for supported fields
+          const changes: PendingChange[] = [];
+          if (key === "preferred_session_minutes") {
+            changes.push({ field: "preferredSessionMinutes", value: s.preferredSessionMinutes, timestamp: Date.now() });
+          } else if (key === "timezone") {
+            changes.push({ field: "timezone", value: s.timezone, timestamp: Date.now() });
+          }
+          if (changes.length > 0) {
+            stashPendingChanges(changes, pathname);
           }
           notifySessionExpired();
           return;
         }
         
+        // Mark that a save has occurred (for LOW-a)
+        setAnySaveOccurred(true);
+        
         if (!result.ok) {
-          // Record error for this field
-          setFieldErrors(prev => new Map(prev).set(key, result.error));
-          setError(result.error);
+          // N1: Only revert if no newer save is pending for this key
+          const shouldRevert = !saveQueue.hasPending() || 
+            (!saveQueue.getInFlightKeys().includes(key) && !saveQueue.getQueuedKeys().includes(key));
+          
+          if (shouldRevert) {
+            onFailure?.();
+          }
+          
+          // N1: Use friendly error message
+          const friendlyError = getFriendlyError(key, result.error);
+          setFieldErrors(prev => new Map(prev).set(key, friendlyError));
+          setError(friendlyError);
         } else {
+          // Success: update saved value
+          onSuccess?.();
+          
           // Clear error for this field
           setFieldErrors(prev => {
             const next = new Map(prev);
             next.delete(key);
+            // Fix #5: compute in functional update
+            if (next.size === 0) setError(null);
             return next;
-          });
-          // Clear global error if no field errors remain
-          setFieldErrors(prev => {
-            if (prev.size === 0) setError(null);
-            return prev;
           });
           if (affectsPlan) setPlanStale(true);
         }
       } catch (err) {
         // Check for session expiration in thrown error
         if (isSessionExpired(err)) {
-          if (pendingChange) {
-            stashPendingChanges([pendingChange], pathname);
+          // Stash pending changes for supported fields
+          const changes: PendingChange[] = [];
+          if (key === "preferred_session_minutes") {
+            changes.push({ field: "preferredSessionMinutes", value: s.preferredSessionMinutes, timestamp: Date.now() });
+          } else if (key === "timezone") {
+            changes.push({ field: "timezone", value: s.timezone, timestamp: Date.now() });
+          }
+          if (changes.length > 0) {
+            stashPendingChanges(changes, pathname);
           }
           notifySessionExpired();
           return;
         }
         
-        const message = err instanceof Error ? err.message : "Unknown error";
-        setFieldErrors(prev => new Map(prev).set(key, message));
-        setError(message);
+        // N1: Only revert if no newer save is pending
+        const shouldRevert = !saveQueue.hasPending() || 
+          (!saveQueue.getInFlightKeys().includes(key) && !saveQueue.getQueuedKeys().includes(key));
+        
+        if (shouldRevert) {
+          onFailure?.();
+        }
+        
+        const rawMessage = err instanceof Error ? err.message : "Unknown error";
+        const friendlyError = getFriendlyError(key, rawMessage);
+        setFieldErrors(prev => new Map(prev).set(key, friendlyError));
+        setError(friendlyError);
+        
+        // N1: No uncaught errors - we handled it
+      } finally {
+        // Remove from pending keys once settled
+        pendingKeys.current.delete(key);
       }
     });
   }
@@ -304,19 +477,69 @@ export function SettingsForm({
   function saveProfile(
     key: string,
     patch: Parameters<typeof actions.updateProfileSettings>[0],
-    affectsPlan = false,
-    pendingChange?: PendingChange
+    affectsPlan = false
   ) {
-    enqueueSave(key, () => actions.updateProfileSettings(patch), affectsPlan, pendingChange);
+    // Capture the new value being saved
+    const newValue = Object.values(patch)[0];
+    const apiKey = Object.keys(patch)[0];
+    const stateKey = mapApiKeyToStateKey(apiKey);
+    
+    // Store retry metadata (M1 fix #2)
+    retryMetadata.current.set(key, { type: 'profile', patch, affectsPlan });
+    
+    enqueueSave(
+      key,
+      () => actions.updateProfileSettings(patch),
+      affectsPlan,
+      () => {
+        // On success: update lastSavedValues AND state
+        if (stateKey && stateKey in lastSavedValues.current) {
+          lastSavedValues.current[stateKey] = newValue as never;
+          // Also update state to match (for retry success case)
+          setS(prev => ({ ...prev, [stateKey]: newValue }));
+        }
+      },
+      () => {
+        // On failure: revert to last saved value
+        if (stateKey && stateKey in lastSavedValues.current) {
+          setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
+        }
+      }
+    );
   }
 
   /** Save session setting */
   function saveSession(
     key: string,
-    patch: Parameters<typeof actions.updateSessionSettings>[0],
-    pendingChange?: PendingChange
+    patch: Parameters<typeof actions.updateSessionSettings>[0]
   ) {
-    enqueueSave(key, () => actions.updateSessionSettings(patch), false, pendingChange);
+    // Capture the new value being saved
+    const newValue = Object.values(patch)[0];
+    const apiKey = Object.keys(patch)[0];
+    const stateKey = mapApiKeyToStateKey(apiKey);
+    
+    // Store retry metadata (M1 fix #2)
+    retryMetadata.current.set(key, { type: 'session', patch });
+    
+    enqueueSave(
+      key,
+      () => actions.updateSessionSettings(patch),
+      false,
+      () => {
+        // On success: update lastSavedValues AND state
+        if (stateKey && stateKey in lastSavedValues.current) {
+          lastSavedValues.current[stateKey] = newValue as never;
+          // Also update state to match (for retry success case)
+          setS(prev => ({ ...prev, [stateKey]: newValue }));
+        }
+      },
+      () => {
+        // On failure: revert to last saved value
+        if (stateKey && stateKey in lastSavedValues.current) {
+          setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
+        }
+      }
+    );
   }
 
   /** Save equipment with rollback on error */
@@ -329,11 +552,19 @@ export function SettingsForm({
           actions.updateEquipment({ hasAll, equipmentIds })
         );
         
-        // Check for session expiration
+        // Handle superseded results
+        if (result && typeof result === "object" && "superseded" in result) {
+          return;
+        }
+        
+        // Check for session expiration in result
         if (isSessionExpired(result)) {
           notifySessionExpired();
           return;
         }
+        
+        // Mark that a save has occurred
+        setAnySaveOccurred(true);
         
         if (!result.ok) {
           // Rollback to last saved state
@@ -344,17 +575,21 @@ export function SettingsForm({
           }));
           setEquipmentHint(null);
           setEquipmentOffConfirmation(null);
-          setFieldErrors(prev => new Map(prev).set("equipment", result.error));
-          setError(result.error);
+          const friendlyError = getFriendlyError("equipment", result.error);
+          setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+          setError(friendlyError);
         } else {
-          // Success: update saved state
+          // Success: update saved state and clear errors (LOW-c)
           setSavedEquipment({ hasAll, ids: equipmentIds });
           setEquipmentHint(null);
           setFieldErrors(prev => {
             const next = new Map(prev);
             next.delete("equipment");
+            // Fix #5: compute in functional update
+            if (next.size === 0) setError(null);
             return next;
           });
+          
           if (changed) setPlanStale(true);
           
           if (showConfirmation) {
@@ -370,9 +605,10 @@ export function SettingsForm({
           return;
         }
         
-        const message = err instanceof Error ? err.message : "Unknown error";
-        setFieldErrors(prev => new Map(prev).set("equipment", message));
-        setError(message);
+        const rawMessage = err instanceof Error ? err.message : "Unknown error";
+        const friendlyError = getFriendlyError("equipment", rawMessage);
+        setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+        setError(friendlyError);
       }
     });
   }
@@ -393,41 +629,48 @@ export function SettingsForm({
     );
   }
 
-  /** Compute autosave status */
-  const queueStatus = saveQueue.getStatus();
+  /** Compute autosave status (LOW-b: derive from queue state) */
   const hasErrors = fieldErrors.size > 0;
   const isSaving = queueStatus.state === "saving" || queueStatus.state === "has-queued";
-  const showSaved = !isSaving && !hasErrors && queueStatus.state === "idle";
+  const showSaved = !isSaving && !hasErrors && queueStatus.state === "idle" && anySaveOccurred;
 
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
 
   return (
     <div className="relative space-y-12">
-      {sessionExpiredPrompt}
-      
+      {sessionExpiredUI}
       {/* Sticky autosave status */}
       <div 
         role="status" 
         aria-live="polite"
-        className="sticky top-0 z-10 flex min-h-[3rem] items-center border-b border-border bg-background px-4 py-2 text-sm"
+        className="sticky top-0 z-10 flex min-h-[3rem] items-center border-b border-border bg-bg px-4 py-2 text-sm"
         style={{ marginBottom: 0 }}
       >
         {isSaving && <span className="text-muted">Saving…</span>}
         {showSaved && <span className="text-accent">Saved</span>}
         {hasErrors && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-danger">
-              {Array.from(fieldErrors.values())[0]}
-            </span>
-            <button
-              onClick={() => {
-                // Retry by re-saving all fields with errors
-                // For now, just show the first error
-              }}
-              className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-accent underline underline-offset-2"
-            >
-              Retry
-            </button>
+          <div className="flex flex-col gap-2 w-full">
+            {Array.from(fieldErrors.entries()).map(([key, errorMsg]) => (
+              <div key={key} className="flex flex-wrap items-center gap-2">
+                <span className="text-danger">{errorMsg}</span>
+                <button
+                  onClick={() => {
+                    // M1 fix #2: Retry through saveProfile/saveSession
+                    const metadata = retryMetadata.current.get(key);
+                    if (metadata) {
+                      if (metadata.type === 'profile') {
+                        saveProfile(key, metadata.patch, metadata.affectsPlan);
+                      } else if (metadata.type === 'session') {
+                        saveSession(key, metadata.patch);
+                      }
+                    }
+                  }}
+                  className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-accent underline underline-offset-2"
+                >
+                  Retry
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -816,12 +1059,7 @@ export function SettingsForm({
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS(prev => ({ ...prev, preferredSessionMinutes: n }));
-              saveProfile(
-                "preferred_session_minutes", 
-                { preferred_session_minutes: n },
-                true,
-                { field: 'preferredSessionMinutes', value: n, timestamp: Date.now() }
-              );
+              saveProfile("preferred_session_minutes", { preferred_session_minutes: n });
             }}
           />
         </Field>
@@ -893,6 +1131,13 @@ export function SettingsForm({
                       actions.updateProfileSettings({ date_of_birth: dobToSave })
                     );
                     
+                    // Handle superseded results
+                    if (result && typeof result === "object" && "superseded" in result) {
+                      return;
+                    }
+                    
+                    setAnySaveOccurred(true);
+                    
                     if (!result.ok) {
                       // On failed save, revert to last saved value and show error
                       currentDob.current = lastSavedDob.current;
@@ -938,12 +1183,7 @@ export function SettingsForm({
             gymDefault={branding.timezone || FALLBACK_TIMEZONE}
             onChange={(v) => {
               setS(prev => ({ ...prev, timezone: v }));
-              saveProfile(
-                "timezone", 
-                { timezone: v },
-                false,
-                { field: 'timezone', value: v, timestamp: Date.now() }
-              );
+              saveProfile("timezone", { timezone: v });
               setTimezoneConfirmation("Timezone saved");
             }}
             disabled={pending}
