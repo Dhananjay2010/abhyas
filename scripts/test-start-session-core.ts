@@ -79,10 +79,18 @@ async function main() {
       from(table: "sessions") {
         return {
           insert(payload: unknown) {
-            return Promise.resolve({
-              data: null,
-              error: { code: "23505", message: "duplicate key value violates unique constraint" },
-            });
+            return {
+              select(cols: string) {
+                return {
+                  single() {
+                    return Promise.resolve({
+                      data: null,
+                      error: { code: "23505", message: "duplicate key value violates unique constraint" },
+                    });
+                  },
+                };
+              },
+            };
           },
           select(columns: string) {
             return {
