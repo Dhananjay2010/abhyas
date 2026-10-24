@@ -141,8 +141,8 @@ async function testVersionCheck() {
   );
 
   assert(
-    source.includes("[data-bottom-nav]") || source.includes("[data-bottom-nav]"),
-    "Banner must detect bottom nav presence"
+    source.includes("activeTab(pathname)"),
+    "Banner must use activeTab(pathname) to detect bottom nav presence"
   );
 
   assert(
@@ -151,7 +151,7 @@ async function testVersionCheck() {
   );
 
   console.log("  ✓ Banner positioned dynamically above nav");
-  console.log("  ✓ Detects [data-bottom-nav] presence");
+  console.log("  ✓ Uses activeTab(pathname) to detect bottom nav presence");
   console.log("  ✓ Offsets by 4rem + safe-area-inset-bottom when nav shown");
   console.log("  ✓ Uses safe-area-inset-bottom alone when nav hidden");
 
