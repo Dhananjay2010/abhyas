@@ -647,7 +647,7 @@ console.log("\n24. null started_at with sets: uses first set's time");
 console.log("\n25. null started_at with no sets: planned session marked skipped");
 {
   const fake = new FakeCloseStaleDeps();
-  const now = Date.parse("2026-10-24T20:00:00Z");
+  const now = Date.parse("2026-10-25T10:00:00Z");
   
   fake.setSession("empty", "planned");
   fake.setSessionExercises("empty", []);
@@ -656,7 +656,7 @@ console.log("\n25. null started_at with no sets: planned session marked skipped"
     { id: "empty", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now, "2026-10-25");
   
   const session = fake.getSession("empty");
   check("planned session marked skipped", session?.status === "skipped");
