@@ -2460,6 +2460,95 @@ async function testM15_OnlineEventFlushesOutbox() {
   console.log("✓ M15: Online event flush mechanism verified via outbox.flush()");
 }
 
+// ---- Mutant (a): Online event triggers flush ----------------------------
+async function testMutantA_OnlineEventTriggersFlush() {
+  // Test registerOnlineFlush from production code
+  const { registerOnlineFlush } = await import("../src/lib/session/online-flush");
+  
+  // Create a fake EventTarget
+  const listeners = new Map<string, Array<() => void>>();
+  const fakeTarget: EventTarget = {
+    addEventListener(type: string, listener: unknown) {
+      if (!listeners.has(type)) {
+        listeners.set(type, []);
+      }
+      listeners.get(type)!.push(listener as () => void);
+    },
+    removeEventListener(type: string, listener: unknown) {
+      const list = listeners.get(type);
+      if (list) {
+        const idx = list.indexOf(listener as () => void);
+        if (idx >= 0) list.splice(idx, 1);
+      }
+    },
+    dispatchEvent: () => false,
+  };
+
+  let flushCount = 0;
+  const flush = () => {
+    flushCount++;
+  };
+
+  // Register the listener
+  const cleanup = registerOnlineFlush(fakeTarget, flush);
+
+  // Dispatch 'online' event
+  const onlineListeners = listeners.get("online");
+  if (!onlineListeners || onlineListeners.length !== 1) {
+    throw new Error(`Expected 1 online listener, got ${onlineListeners?.length ?? 0}`);
+  }
+
+  onlineListeners[0]();
+
+  if (flushCount !== 1) {
+    throw new Error(`Expected flush to be called once after online event, got ${flushCount}`);
+  }
+
+  // Cleanup
+  cleanup();
+  const afterCleanup = listeners.get("online");
+  if (afterCleanup && afterCleanup.length > 0) {
+    throw new Error(`Cleanup should remove listener, but ${afterCleanup.length} remain`);
+  }
+
+  console.log("✓ Mutant (a): Online event triggers flush via registerOnlineFlush");
+}
+
+// ---- Mutant (d): Banner visibility based on isOffline() -----------------
+function testMutantD_BannerVisibility() {
+  // Test the production isOffline helper
+  const { isOffline } = require("../src/lib/session/is-offline");
+
+  // Test 1: SSR (no navigator) - should return false
+  const originalNavigator = global.navigator;
+  delete (global as { navigator?: unknown }).navigator;
+
+  if (isOffline()) {
+    throw new Error("isOffline should return false during SSR (no navigator)");
+  }
+
+  // Test 2: Online - should return false
+  (global as { navigator: { onLine: boolean } }).navigator = { onLine: true };
+
+  if (isOffline()) {
+    throw new Error("isOffline should return false when navigator.onLine is true");
+  }
+
+  // Test 3: Offline - should return true
+  (global as { navigator: { onLine: boolean } }).navigator = { onLine: false };
+
+  if (!isOffline()) {
+    throw new Error("isOffline should return true when navigator.onLine is false");
+  }
+
+  // Restore
+  if (originalNavigator !== undefined) {
+    (global as { navigator: unknown }).navigator = originalNavigator;
+  }
+
+  console.log("✓ Mutant (d): Banner visibility driven by isOffline() helper");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -2513,6 +2602,8 @@ async function main() {
   testM9M12_OutboxBannerDerivation();
   await testNEW2_EndEarlyFlushSequence();
   await testM15_OnlineEventFlushesOutbox();
+  await testMutantA_OnlineEventTriggersFlush();
+  testMutantD_BannerVisibility();
 
   console.log("\n✓ All offline set logging tests passed");
 }
