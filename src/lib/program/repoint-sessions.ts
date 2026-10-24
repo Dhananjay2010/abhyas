@@ -67,7 +67,7 @@ export function matchNewDay(
   // 2. If no label match, try day_index (same weekday), but only training days of the chosen type
   if (oldSession.old_day_index !== null) {
     const indexMatch = newDays.find(
-      (d) => d.day_index === oldSession.old_day_index  // MUTANT NEW2: no day_type check
+      (d) => d.day_index === oldSession.old_day_index && d.day_type === chosenType
     );
     if (indexMatch) return indexMatch;
   }
