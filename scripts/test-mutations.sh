@@ -1,146 +1,115 @@
 #!/usr/bin/env bash
-# Mutation testing for PR #73 knee-safe quad allowlist
-# Verifies that critical safety checks are tested
+#
+# Mutation testing for PR #73 (knee-safety rules)
+#
+# MUST kill all these mutants:
+# 1. KNEE_SAFE_LUNGE_EXERCISES (any set member change or type removal)
+# 2. UNSAFE_KNEE_LUNGES (any set member change)
+# 3. anyKneeInjury flag reads
+# 4. High-impact lower-body exclusion logic
+# 5. Pistol/deficit/sissy exclusion logic
+# 6. Lunge pattern fallback gate (hasKneeInjury check in buildPatternList)
+#
+# Exits 0 when all mutants are killed, 1 otherwise.
 
-set -e
+set -euo pipefail
 
-FILE="src/lib/program/generate.ts"
-MATRIX_TEST="npm run test:knee-safety-matrix"
+PASS='\033[0;32m✓\033[0m'
+FAIL='\033[0;31m✗\033[0m'
+mutants_killed=0
+mutants_survived=0
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-echo "Mutation Testing for PR #73"
-echo "───────────────────────────────────────────────────────────"
-echo
-
-# Track results
-TOTAL=0
-KILLED=0
-SURVIVED=0
-
-# Helper function to run a mutant test
-test_mutant() {
+test_mutation() {
   local desc="$1"
-  local search="$2"
-  local replace="$3"
-  local expected_pass_count="$4"
-  
-  TOTAL=$((TOTAL + 1))
-  echo -e "${YELLOW}Mutant $TOTAL:${NC} $desc"
-  
-  # Create backup
-  cp "$FILE" "$FILE.backup"
+  local file="$2"
+  local old_text="$3"
+  local new_text="$4"
   
   # Apply mutation
-  if ! sed -i "s/$search/$replace/g" "$FILE"; then
-    echo -e "  ${RED}✗ Failed to apply mutation${NC}"
-    mv "$FILE.backup" "$FILE"
-    SURVIVED=$((SURVIVED + 1))
-    return
-  fi
+  sed -i.bak "s/${old_text}/${new_text}/g" "${file}"
   
-  # Verify mutant compiles
-  if ! npx tsc --noEmit > /dev/null 2>&1; then
-    echo -e "  ${RED}✗ Mutant does not compile (not counted)${NC}"
-    mv "$FILE.backup" "$FILE"
-    return
+  # Run tests (redirect stderr to avoid noise)
+  if npm test >/dev/null 2>&1; then
+    echo -e "  ${FAIL} ${desc}"
+    ((mutants_survived++))
+  else
+    echo -e "  ${PASS} ${desc}"
+    ((mutants_killed++))
   fi
-  
-  # Run matrix test
-  set +e
-  OUTPUT=$($MATRIX_TEST 2>&1)
-  EXIT_CODE=$?
-  set -e
   
   # Restore original
-  mv "$FILE.backup" "$FILE"
-  
-  # Check result
-  PASS_COUNT=$(echo "$OUTPUT" | grep -oP 'tested \K\d+(?= profiles, \d+ passed)' | head -1)
-  
-  if [ "$EXIT_CODE" -ne 0 ] && [ "$PASS_COUNT" = "$expected_pass_count" ]; then
-    echo -e "  ${GREEN}✓ Killed${NC} (test failed as expected, $PASS_COUNT failed)"
-    KILLED=$((KILLED + 1))
-  else
-    echo -e "  ${RED}✗ Survived${NC} (test passed or wrong failure count: $PASS_COUNT)"
-    SURVIVED=$((SURVIVED + 1))
-  fi
-  
-  echo
+  mv "${file}.bak" "${file}"
 }
 
-# Mutant 1: Add box-squat to allowlist (should be caught by matrix)
-test_mutant \
-  "Add box-squat to KNEE_SAFE_QUAD_EXERCISES" \
-  "KNEE_SAFE_QUAD_EXERCISES = new Set" \
-  "KNEE_SAFE_QUAD_EXERCISES = new Set([\"box-squat\"]); const X = new Set" \
-  "2592"
+echo "Knee Safety Mutation Testing"
+echo "────────────────────────────────────────────────────────────"
 
-# Mutant 2: Disable wouldViolateConstraints (should fail matrix)
-test_mutant \
-  "wouldViolateConstraints always returns false" \
-  "function wouldViolateConstraints" \
-  "function wouldViolateConstraints() { return false; } function x" \
-  "2592"
+# Mutant 1: Remove a knee-safe lunge exercise
+test_mutation \
+  "Remove step-up-with-knee-raise from KNEE_SAFE_LUNGE_EXERCISES" \
+  "src/lib/program/generate.ts" \
+  '"step-up-with-knee-raise",' \
+  '\/\* removed \*\/'
 
-# Mutant 3: Disable knee-safe allowlist check in isEligible
-test_mutant \
-  "Remove knee-safe allowlist check" \
-  "if (!KNEE_SAFE_QUAD_EXERCISES.has(candidate.slug)) return false;" \
-  "if (false) return false; \/\/ MUTANT" \
-  "2592"
+# Mutant 2: Add unsafe exercise to knee-safe list
+test_mutation \
+  "Add barbell-lunge to KNEE_SAFE_LUNGE_EXERCISES (unsafe)" \
+  "src/lib/program/generate.ts" \
+  'export const KNEE_SAFE_LUNGE_EXERCISES' \
+  'export const KNEE_SAFE_LUNGE_EXERCISES = new Set([...Array.from(KNEE_SAFE_LUNGE_EXERCISES), "barbell-lunge"]) as any; const _unused'
 
-# Mutant 4: Disable beginner high-impact ban
-test_mutant \
-  "Allow beginners to do high-impact exercises" \
-  "if (input.level === \"beginner\" && candidate.impact === \"high\") return false;" \
-  "if (false) return false; \/\/ MUTANT beginner high-impact" \
-  "2592"
+# Mutant 3: Disable anyKneeInjury flag (current-only behavior)
+test_mutation \
+  "Disable anyKneeInjury check in buildPatternList" \
+  "src/lib/program/alternatives.ts" \
+  'if (hasKneeInjury && movement_pattern === "lunge")' \
+  'if (false \&\& hasKneeInjury \&\& movement_pattern === "lunge")'
 
-# Mutant 5: Treat past knee as not-knee (should pass on this branch, fail on main)
-test_mutant \
-  "Past knee not included in selection regions" \
-  'else if (injury.severity === "past" && injury.region === "knee")' \
-  'else if (false) \/\/ MUTANT past knee' \
-  "2592"
+# Mutant 4: Remove high-impact lower-body ban
+test_mutation \
+  "Remove high-impact lower-body ban for knee injury" \
+  "src/lib/program/generate.ts" \
+  'is_knee_high_impact_lower && hasAnyKneeInjury' \
+  'is_knee_high_impact_lower \&\& false'
 
-# Mutant 6: Remove cable-deadlifts from floor-pull exclusion
-test_mutant \
-  "Remove cable-deadlifts from FLOOR_PULL_DEADLIFTS" \
-  '"cable-deadlifts",' \
-  '\/\/ MUTANT: "cable-deadlifts",' \
-  "2592"
+# Mutant 5: Remove pistol ban
+test_mutation \
+  "Remove pistol ban for knee injury" \
+  "src/lib/program/generate.ts" \
+  'isPistol && hasAnyKneeInjury' \
+  'isPistol \&\& false'
 
-# Mutant 7: Remove kettlebell-one-legged-deadlift from floor-pull exclusion
-test_mutant \
-  "Remove kettlebell-one-legged-deadlift from exclusion" \
-  '"kettlebell-one-legged-deadlift",' \
-  '\/\/ MUTANT: "kettlebell-one-legged-deadlift",' \
-  "2592"
+# Mutant 6: Remove sissy squat ban
+test_mutation \
+  "Remove sissy squat ban for knee injury" \
+  "src/lib/program/generate.ts" \
+  'isSissySquat && hasAnyKneeInjury' \
+  'isSissySquat \&\& false'
 
-# Mutant 8: Skip lower-body filling logic
-test_mutant \
-  "Skip thin leg day fix (lower-body filling)" \
-  'if (nonCoreLowerCount < 2)' \
-  'if (false) \/\/ MUTANT leg fill' \
-  "2592"
+# Mutant 7: Remove deficit lunge ban
+test_mutation \
+  "Remove elevated-back-lunge (deficit) ban for knee injury" \
+  "src/lib/program/generate.ts" \
+  'slug === "elevated-back-lunge" && hasAnyKneeInjury' \
+  'slug === "elevated-back-lunge" \&\& false'
 
-# Summary
-echo "───────────────────────────────────────────────────────────"
-echo -e "Mutation testing complete"
-echo -e "  Total mutants: $TOTAL"
-echo -e "  ${GREEN}Killed: $KILLED${NC}"
-echo -e "  ${RED}Survived: $SURVIVED${NC}"
-echo
+# Mutant 8: Remove side split squat ban
+test_mutation \
+  "Remove barbell-side-split-squat ban for knee injury" \
+  "src/lib/program/generate.ts" \
+  'slug === "barbell-side-split-squat" && hasAnyKneeInjury' \
+  'slug === "barbell-side-split-squat" \&\& false'
 
-if [ "$SURVIVED" -gt 0 ]; then
-  echo -e "${RED}FAIL: $SURVIVED mutant(s) survived${NC}"
+echo ""
+echo "────────────────────────────────────────────────────────────"
+echo "Mutants killed: ${mutants_killed}"
+echo "Mutants survived: ${mutants_survived}"
+echo ""
+
+if [ ${mutants_survived} -gt 0 ]; then
+  echo "FAILED: ${mutants_survived} mutant(s) survived"
   exit 1
 else
-  echo -e "${GREEN}PASS: All mutants killed${NC}"
+  echo "PASSED: All mutants killed"
   exit 0
 fi

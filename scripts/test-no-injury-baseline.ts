@@ -15,7 +15,7 @@ const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
 );
 
-const baseline: Record<string, any> = JSON.parse(
+const baseline: Record<string, unknown> = JSON.parse(
   readFileSync("scripts/fixtures/no-injury-baseline.json", "utf8")
 );
 

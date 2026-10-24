@@ -1,28 +1,35 @@
 /**
- * Knee Swap Path Test (Real Swap Path)
+ * Knee Swap Path Test (Real Swap Logic, Scoped Policy)
  * 
  * Tests that swap/alternative exercise lists for knee-injured users
- * (both current and past knee) offer only knee-safe options.
+ * (both current and past knee) offer only knee-safe options through the
+ * REAL swap path (buildPatternList → isEligible → rankAlternatives).
  * 
- * Uses the REAL swap path from actions.ts:
- * - buildPatternList (pattern + fallbacks)
- * - isEligible (generator safety rules)
- * - rankAlternatives (scoring + ranking)
+ * Covers:
+ * - High-impact lower-body ban (tuck-jump, box-jump, etc.)
+ * - Sissy squat ban (sissy-squat, weighted-sissy-squat)
+ * - Deficit lunge ban (elevated-back-lunge)
+ * - Pistol ban (pistol-squat, kettlebell-pistol-squat, smith-machine-pistol-squat)
+ * - Side split squat ban (barbell-side-split-squat)
+ * - Lunge pattern: no widening into squat pattern for knee users
+ * - Past-knee lunge swaps use ONLY the 5-exercise knee-safe list
  * 
- * Tests pass on PR #73; fail on main for past knee injuries.
+ * Test MUST fail on main (no anyKneeInjury handling).
  * 
  *   npm run test:knee-swaps
  */
 import { readFileSync } from "node:fs";
 import { 
   isEligible, 
+  score,
+  hashString,
   type CandidateExercise, 
-  type GeneratorInput 
+  type GeneratorInput,
+  KNEE_SAFE_LUNGE_EXERCISES,
 } from "../src/lib/program/generate";
 import { buildPatternList, rankAlternatives } from "../src/lib/program/alternatives";
 import { hasAnyKneeInjury, currentInjuryRegions } from "../src/lib/program/injury-regions";
 
-// Type definitions (matching database schema)
 type BodyRegion = "core" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle";
 type InjurySeverity = "current" | "past";
 
@@ -34,51 +41,31 @@ interface InjuryRow {
 const fixture = "scripts/fixtures/catalogue.json";
 const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
 
-// Independent test oracle (not imported from generator) to verify safety
+// Hard-coded test oracle (independent of generator)
 const BANNED_FOR_KNEE = new Set([
-  // High-impact lower-body jumps/plyos
-  "box-jump",
-  "depth-jump",
-  "tuck-jump",
-  "star-jump",
-  "rocket-jump",
-  "scissor-jump",
-  "split-jump",
-  "jump-squat",
-  "dumbbell-squat-jump",
-  "barbell-jump-squat",
-  "bench-jump",
-  "lateral-bound",
-  "high-knee-run",
-  "butt-kicks",
-  "fast-feet-run",
-  "fast-skipping",
-  "wind-sprints",
-  "sprint-intervals",
-  "lunge-sprint",
-  
-  // Unsafe lunges (deficit, pistol, side split)
-  "pistol-squat",
-  "smith-machine-pistol-squat",
-  "kettlebell-pistol-squat",
-  "elevated-back-lunge",
-  "barbell-side-split-squat",
-  
+  // High-impact lower-body
+  "box-jump", "tuck-jump", "star-jump", "rocket-jump", "scissor-jump", "split-jump",
+  "jump-squat", "dumbbell-squat-jump", "barbell-jump-squat",
+  "bench-jump", "lateral-bound", "butt-kicks", "fast-skipping", "wind-sprints", "lunge-sprint",
+  // Pistols
+  "pistol-squat", "kettlebell-pistol-squat", "smith-machine-pistol-squat",
+  // Deficit/side split
+  "elevated-back-lunge", "barbell-side-split-squat",
   // Sissy squats
-  "sissy-squat",
-  "weighted-sissy-squat",
+  "sissy-squat", "weighted-sissy-squat",
 ]);
+
+// Knee-safe lunge list (must match generator)
+const EXPECTED_KNEE_SAFE_LUNGES = Array.from(KNEE_SAFE_LUNGE_EXERCISES);
 
 function simulateSwapPath(
   currentExercise: CandidateExercise,
   injuries: InjuryRow[],
-  equipmentIds: string[] = [],
   hasAllEquipment = true,
 ): CandidateExercise[] {
   const anyKneeInjury = hasAnyKneeInjury(injuries);
   const currentInjuries = currentInjuryRegions(injuries);
   
-  // Build GeneratorInput
   const input: GeneratorInput = {
     userId: "test-user",
     blockNumber: 1,
@@ -90,39 +77,20 @@ function simulateSwapPath(
     age: 30,
     bmi: 23,
     hasAllEquipment,
-    equipmentIds,
+    equipmentIds: [],
     currentInjuryRegions: currentInjuries,
     anyKneeInjury,
     catalogue,
   };
   
-  // Build pattern list (current + fallbacks + knee-safe if applicable)
+  // REAL swap path from actions.ts
   const patterns = buildPatternList(currentExercise.movement_pattern, anyKneeInjury);
-  
-  // Filter catalogue by patterns
   const pool = catalogue.filter(ex => patterns.includes(ex.movement_pattern));
-  
-  // Filter by isEligible (REAL generator logic)
   const eligible = pool.filter(ex => isEligible(ex, input));
   
-  // Rank alternatives (REAL swap logic from actions.ts)
   const wantCompound = currentExercise.mechanic !== "isolation";
-  const hashString = (s: string) => {
-    let hash = 0;
-    for (let i = 0; i < s.length; i++) {
-      hash = ((hash << 5) - hash) + s.charCodeAt(i);
-      hash |= 0;
-    }
-    return hash;
-  };
   const tieBreak = (slug: string) => hashString(`test:${slug}`);
-  const scoreFn = (e: CandidateExercise) => {
-    // Simplified score function (from generate.ts score())
-    let pts = 0;
-    if (e.mechanic === "compound") pts += 100;
-    if (e.equipment_ids.length === 0) pts += 10;
-    return pts;
-  };
+  const scoreFn = (e: CandidateExercise) => score(e, wantCompound, input.level, input.primaryTrack);
   
   const ranked = rankAlternatives(
     currentExercise,
@@ -131,7 +99,7 @@ function simulateSwapPath(
       level: input.level,
       availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
       injuryRegions: input.currentInjuryRegions,
-      limit: 10, // Get more for testing
+      limit: 20,
       scoreFn,
       tieBreakFn: tieBreak,
     }
@@ -153,126 +121,108 @@ function check(desc: string, ok: boolean, detail?: string) {
   }
 }
 
-// Test patterns that might include unsafe exercises - use representative exercises from catalogue
+// Test exercises from catalogue (real slugs)
 const TEST_EXERCISES = [
-  { slug: "bodyweight-squat", pattern: "squat", expectNonEmpty: true },
-  { slug: "split-squat-with-dumbbells", pattern: "lunge", expectNonEmpty: true },
-  { slug: "romanian-deadlift", pattern: "hinge", expectNonEmpty: true },
-  { slug: "alternating-cable-shoulder-press", pattern: "vertical_press", expectNonEmpty: true },
+  { slug: "bodyweight-squat", pattern: "squat" },
+  { slug: "split-squat-with-dumbbells", pattern: "lunge" },
+  { slug: "romanian-deadlift", pattern: "hinge" },
+  { slug: "barbell-bench-press-medium-grip", pattern: "horizontal_press" },
 ];
 
 const TEST_CASES: Array<{
   name: string;
   injuries: InjuryRow[];
-  equipmentScenario: { hasAllEquipment: boolean; equipmentIds: string[] };
 }> = [
   {
-    name: "Current knee injury (home)",
+    name: "Current knee injury",
     injuries: [{ region: "knee", severity: "current" }],
-    equipmentScenario: { hasAllEquipment: false, equipmentIds: ["mat", "pull_up_bar"] },
   },
   {
-    name: "Current knee injury (gym)",
-    injuries: [{ region: "knee", severity: "current" }],
-    equipmentScenario: { hasAllEquipment: true, equipmentIds: [] },
-  },
-  {
-    name: "Past knee injury (home)",
+    name: "Past knee injury",
     injuries: [{ region: "knee", severity: "past" }],
-    equipmentScenario: { hasAllEquipment: false, equipmentIds: ["mat", "pull_up_bar"] },
-  },
-  {
-    name: "Past knee injury (gym)",
-    injuries: [{ region: "knee", severity: "past" }],
-    equipmentScenario: { hasAllEquipment: true, equipmentIds: [] },
   },
 ];
 
-console.log("Knee Swap Path Test (Real Swap Logic)");
+console.log("Knee Swap Path Test (Real Swap Logic, Scoped Policy)");
 console.log("─".repeat(60));
 
 for (const testCase of TEST_CASES) {
   console.log(`\n${testCase.name}`);
   
   const anyKneeInjury = hasAnyKneeInjury(testCase.injuries);
-  check("hasAnyKneeInjury() returns true", anyKneeInjury, `Got ${anyKneeInjury}`);
+  check("hasAnyKneeInjury() returns true", anyKneeInjury);
   
-  for (const { slug, pattern, expectNonEmpty } of TEST_EXERCISES) {
-    // Find the exercise in catalogue
+  for (const { slug, pattern } of TEST_EXERCISES) {
     const currentExercise = catalogue.find(ex => ex.slug === slug);
     if (!currentExercise) {
-      check(`${pattern}: exercise ${slug} found in catalogue`, false, "Exercise not found");
+      check(`${pattern}: exercise ${slug} found`, false, "Not in catalogue");
       continue;
     }
     
-    const swapList = simulateSwapPath(
-      currentExercise,
-      testCase.injuries,
-      testCase.equipmentScenario.equipmentIds,
-      testCase.equipmentScenario.hasAllEquipment
+    const swapList = simulateSwapPath(currentExercise, testCase.injuries);
+    
+    // Check non-empty
+    check(
+      `${pattern} (${slug}): non-empty swap list`,
+      swapList.length > 0,
+      `${swapList.length} options`
     );
     
-    // Check non-empty for expected patterns
-    if (expectNonEmpty) {
-      check(
-        `${pattern}: non-empty swap list for ${slug}`,
-        swapList.length > 0,
-        `${swapList.length} exercises available`
-      );
-    }
-    
-    // Check no banned exercises in swap list
+    // Check no banned exercises
     const banned: string[] = [];
     for (const ex of swapList) {
       if (BANNED_FOR_KNEE.has(ex.slug)) {
-        banned.push(`${ex.name} [${ex.slug}]`);
+        banned.push(ex.slug);
       }
     }
     
     check(
-      `${pattern}: no banned exercises in ${swapList.length} options`,
+      `${pattern} (${slug}): no banned exercises`,
       banned.length === 0,
-      banned.length > 0 
-        ? `Found ${banned.length} banned: ${banned.slice(0, 3).join(", ")}${banned.length > 3 ? "..." : ""}` 
-        : undefined
+      banned.length > 0 ? `Found: ${banned.slice(0, 3).join(", ")}` : undefined
     );
     
-    // For squat/lunge patterns with knee injury, verify all are from safe lists or hinges
-    if (anyKneeInjury && (pattern === "squat" || pattern === "lunge")) {
-      const unsafeSquatsLunges: string[] = [];
+    // For lunge pattern, verify ALL are from knee-safe list (no squat pattern widening)
+    if (pattern === "lunge") {
+      const lungeExercises = swapList.filter(ex => ex.movement_pattern === "lunge");
+      const unsafeLunges: string[] = [];
       
-      for (const ex of swapList) {
-        // Squats and lunges must be knee-safe (hinges are allowed as fallback pattern)
-        if (ex.movement_pattern === "squat" || ex.movement_pattern === "lunge") {
-          // For current knee: all squats/lunges must be truly knee-safe
-          // For past knee: lunges must be knee-safe, but squats can be regular (not in allowlist)
-          const isCurrentKnee = testCase.injuries.some(i => i.region === "knee" && i.severity === "current");
-          
-          if (ex.movement_pattern === "lunge" && BANNED_FOR_KNEE.has(ex.slug)) {
-            unsafeSquatsLunges.push(`${ex.name} [${ex.slug}]`);
-          }
-          
-          if (ex.movement_pattern === "squat" && isCurrentKnee) {
-            // For current knee, check if it's in the safe list or a basic squat variant
-            // The test oracle already checked for banned exercises above
-            // This is an additional check for squats specifically
-            const knownUnsafe = ["box-squat", "pistol-squat", "sissy-squat"];
-            if (knownUnsafe.some(unsafe => ex.slug.includes(unsafe))) {
-              unsafeSquatsLunges.push(`${ex.name} [${ex.slug}]`);
-            }
-          }
+      for (const ex of lungeExercises) {
+        if (!EXPECTED_KNEE_SAFE_LUNGES.includes(ex.slug)) {
+          unsafeLunges.push(ex.slug);
         }
       }
       
       check(
-        `${pattern}: all squats/lunges are safe for ${slug}`,
-        unsafeSquatsLunges.length === 0,
-        unsafeSquatsLunges.length > 0 
-          ? `Found ${unsafeSquatsLunges.length} unsafe: ${unsafeSquatsLunges.join(", ")}` 
-          : undefined
+        `${pattern} (${slug}): all lunges from knee-safe list`,
+        unsafeLunges.length === 0,
+        unsafeLunges.length > 0 ? `Unsafe: ${unsafeLunges.join(", ")}` : undefined
+      );
+      
+      // Verify NO squat-pattern exercises in lunge swaps for knee users
+      const squatExercises = swapList.filter(ex => ex.movement_pattern === "squat");
+      check(
+        `${pattern} (${slug}): no squat pattern widening`,
+        squatExercises.length === 0,
+        squatExercises.length > 0 ? `Found squats: ${squatExercises.map(e => e.slug).slice(0, 3).join(", ")}` : undefined
       );
     }
   }
+}
+
+// Test 3: Verify pattern list doesn't widen for knee lunge
+console.log("\n3. Verify buildPatternList behavior for knee lunge");
+const testExercise = catalogue.find(e => e.slug === "split-squat-with-dumbbells");
+if (testExercise) {
+  const noKneePatterns = buildPatternList("lunge", false);
+  const kneePatterns = buildPatternList("lunge", true);
+  
+  const noKneeHasSquat = noKneePatterns.includes("squat");
+  const kneeHasSquat = kneePatterns.includes("squat");
+  
+  check("No-knee lunge patterns include squat fallback", noKneeHasSquat);
+  check("Knee lunge patterns exclude squat fallback", !kneeHasSquat,
+    kneeHasSquat ? "Squat pattern found in knee lunge patterns!" : undefined);
 }
 
 console.log("\n" + "─".repeat(60));

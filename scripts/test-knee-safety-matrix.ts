@@ -178,7 +178,7 @@ for (const seed of testSeeds) {
 }
 console.log();
 
-// Test matrix: level × equipment × session length × frequency × seed × goal
+// Test matrix: level × equipment × session length × frequency × seed × goal × injury severity
 const levels: GeneratorInput["level"][] = ["beginner", "intermediate", "expert"];
 const equipmentProfiles: Array<{ name: string; hasAll: boolean; ids: string[] }> = [
   { name: "gym", hasAll: true, ids: [] },
@@ -194,30 +194,36 @@ const equipmentProfiles: Array<{ name: string; hasAll: boolean; ids: string[] }>
 const sessionLengths = [30, 45, 60, 75];
 const frequencies = [2, 3, 4, 5];
 const goals: GeneratorInput["goal"][] = ["general_fitness", "muscle_gain"];
+const injurySeverities: Array<{ label: string; currentRegions: string[]; anyKnee: boolean }> = [
+  { label: "current-knee", currentRegions: ["knee"], anyKnee: true },
+  { label: "past-knee", currentRegions: [], anyKnee: true },
+];
 
 let profilesTested = 0;
 let profilesPassed = 0;
 
 for (const seed of testSeeds) {
-  for (const goal of goals) {
-    for (const level of levels) {
-      for (const equipment of equipmentProfiles) {
-        for (const sessionMinutes of sessionLengths) {
-          for (const daysPerWeek of frequencies) {
-            profilesTested++;
-            
-            const profileId = `${level}-${equipment.name}-${daysPerWeek}d-${sessionMinutes}min-${goal}-s${seed.substring(0,8)}`;
-            const input = base({
-              userId: seed,
-              goal,
-              level,
-              hasAllEquipment: equipment.hasAll,
-              equipmentIds: equipment.ids,
-              primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
-              daysPerWeek,
-              preferredSessionMinutes: sessionMinutes,
-              currentInjuryRegions: ["knee"],
-            });
+  for (const severity of injurySeverities) {
+    for (const goal of goals) {
+      for (const level of levels) {
+        for (const equipment of equipmentProfiles) {
+          for (const sessionMinutes of sessionLengths) {
+            for (const daysPerWeek of frequencies) {
+              profilesTested++;
+              
+              const profileId = `${severity.label}-${level}-${equipment.name}-${daysPerWeek}d-${sessionMinutes}min-${goal}-s${seed.substring(0,8)}`;
+              const input = base({
+                userId: seed,
+                goal,
+                level,
+                hasAllEquipment: equipment.hasAll,
+                equipmentIds: equipment.ids,
+                primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
+                daysPerWeek,
+                preferredSessionMinutes: sessionMinutes,
+                currentInjuryRegions: severity.currentRegions,
+                anyKneeInjury: severity.anyKnee,
+              });
             
             const plan = generateProgram(input);
             
@@ -582,6 +588,7 @@ for (const seed of testSeeds) {
       }
     }
   }
+  }
 }
 
 check(`All ${profilesTested} knee profiles passed`, profilesPassed === profilesTested,
@@ -731,54 +738,57 @@ check(`All ${combinedTested} combined knee+lower_back profiles passed`, combined
 
 console.log(`\nCombined injury summary: tested ${combinedTested} profiles, ${combinedPassed} passed\n`);
 
-// Determinism test over the full 864-profile matrix
-console.log("Determinism check (full 864-profile matrix)");
+// Determinism test over the full matrix (now includes both current and past knee)
+console.log("Determinism check (full matrix including past-knee)");
 console.log("─".repeat(60));
 
 let deterministicTests = 0;
 let deterministicFailures = 0;
 
 for (const seed of testSeeds) {
-  for (const goal of goals) {
-    for (const level of levels) {
-      for (const equipment of equipmentProfiles) {
-        for (const sessionMinutes of sessionLengths) {
-          for (const daysPerWeek of frequencies) {
-            deterministicTests++;
-            
-            const profileId = `${level}-${equipment.name}-${daysPerWeek}d-${sessionMinutes}min-${goal}-s${seed.substring(0,8)}`;
-            const input = base({
-              userId: seed,
-              goal,
-              level,
-              hasAllEquipment: equipment.hasAll,
-              equipmentIds: equipment.ids,
-              primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
-              daysPerWeek,
-              preferredSessionMinutes: sessionMinutes,
-              currentInjuryRegions: ["knee"],
-            });
-            
-            const plan1 = generateProgram(input);
-            const plan2 = generateProgram(input);
-            
-            const stringify = (plan: ReturnType<typeof generateProgram>) =>
-              JSON.stringify(
-                plan.days.map((d) => ({
-                  label: d.label,
-                  exercises: d.exercises.map((e) => ({
-                    id: e.exerciseId,
-                    sets: e.targetSets,
-                    repsMin: e.targetRepsMin,
-                    repsMax: e.targetRepsMax,
-                  })),
-                }))
-              );
-            
-            const isDeterministic = stringify(plan1) === stringify(plan2);
-            if (!isDeterministic) {
-              check(`${profileId}: deterministic`, false, "Plans differ on repeated generation");
-              deterministicFailures++;
+  for (const severity of injurySeverities) {
+    for (const goal of goals) {
+      for (const level of levels) {
+        for (const equipment of equipmentProfiles) {
+          for (const sessionMinutes of sessionLengths) {
+            for (const daysPerWeek of frequencies) {
+              deterministicTests++;
+              
+              const profileId = `${severity.label}-${level}-${equipment.name}-${daysPerWeek}d-${sessionMinutes}min-${goal}-s${seed.substring(0,8)}`;
+              const input = base({
+                userId: seed,
+                goal,
+                level,
+                hasAllEquipment: equipment.hasAll,
+                equipmentIds: equipment.ids,
+                primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
+                daysPerWeek,
+                preferredSessionMinutes: sessionMinutes,
+                currentInjuryRegions: severity.currentRegions,
+                anyKneeInjury: severity.anyKnee,
+              });
+              
+              const plan1 = generateProgram(input);
+              const plan2 = generateProgram(input);
+              
+              const stringify = (plan: ReturnType<typeof generateProgram>) =>
+                JSON.stringify(
+                  plan.days.map((d) => ({
+                    label: d.label,
+                    exercises: d.exercises.map((e) => ({
+                      id: e.exerciseId,
+                      sets: e.targetSets,
+                      repsMin: e.targetRepsMin,
+                      repsMax: e.targetRepsMax,
+                    })),
+                  }))
+                );
+              
+              const isDeterministic = stringify(plan1) === stringify(plan2);
+              if (!isDeterministic) {
+                check(`${profileId}: deterministic`, false, "Plans differ on repeated generation");
+                deterministicFailures++;
+              }
             }
           }
         }
