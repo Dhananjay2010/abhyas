@@ -101,11 +101,11 @@ begin
     set
       id = (p_payload->>'id')::uuid,
       block_number = (p_payload->>'block_number')::int,
-      split_type = (p_payload->>'split_type')::split_type,
+      split_type = (p_payload->>'split_type')::public.split_type,
       days_per_week = (p_payload->>'days_per_week')::int,
-      primary_track = (p_payload->>'primary_track')::track_type,
-      goal = (p_payload->>'goal')::fitness_goal,
-      level = (p_payload->>'level')::fitness_level,
+      primary_track = (p_payload->>'primary_track')::public.track_type,
+      goal = (p_payload->>'goal')::public.fitness_goal,
+      level = (p_payload->>'level')::public.fitness_level,
       ends_on = (p_payload->>'ends_on')::date,
       deload_week = (p_payload->>'deload_week')::int
     where id = v_old_block.id;
@@ -140,11 +140,11 @@ begin
       (p_payload->>'id')::uuid,
       v_user_id,
       (p_payload->>'block_number')::int,
-      (p_payload->>'split_type')::split_type,
+      (p_payload->>'split_type')::public.split_type,
       (p_payload->>'days_per_week')::int,
-      (p_payload->>'primary_track')::track_type,
-      (p_payload->>'goal')::fitness_goal,
-      (p_payload->>'level')::fitness_level,
+      (p_payload->>'primary_track')::public.track_type,
+      (p_payload->>'goal')::public.fitness_goal,
+      (p_payload->>'level')::public.fitness_level,
       p_today,
       (p_payload->>'ends_on')::date,
       (p_payload->>'deload_week')::int,
@@ -162,7 +162,7 @@ begin
       v_new_program_id,
       v_user_id,
       (v_day->>'day_index')::int,
-      (v_day->>'day_type')::day_type,
+      (v_day->>'day_type')::public.day_type,
       v_day->>'focus',
       v_day->>'label'
     ) returning id into v_program_day_id;
@@ -272,11 +272,11 @@ begin
     (p_payload->>'id')::uuid,
     v_user_id,
     (p_payload->>'block_number')::int,
-    (p_payload->>'split_type')::split_type,
+    (p_payload->>'split_type')::public.split_type,
     (p_payload->>'days_per_week')::int,
-    (p_payload->>'primary_track')::track_type,
-    (p_payload->>'goal')::fitness_goal,
-    (p_payload->>'level')::fitness_level,
+    (p_payload->>'primary_track')::public.track_type,
+    (p_payload->>'goal')::public.fitness_goal,
+    (p_payload->>'level')::public.fitness_level,
     v_new_started_on,
     -- H2: Use p_today + 27 days (28-day block) for late returns, otherwise use payload ends_on
     case
@@ -297,7 +297,7 @@ begin
       v_new_program_id,
       v_user_id,
       (v_day->>'day_index')::int,
-      (v_day->>'day_type')::day_type,
+      (v_day->>'day_type')::public.day_type,
       v_day->>'focus',
       v_day->>'label'
     ) returning id into v_program_day_id;
