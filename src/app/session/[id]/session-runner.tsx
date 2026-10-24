@@ -14,6 +14,8 @@ import {
 } from "@/lib/session/device";
 import { validateSet } from "@/lib/session/validation";
 import { swappedEntryFields, swapSheetState } from "@/lib/session/swap";
+import { setFormKey } from "@/lib/session/form-key";
+import { effectiveRepsMax } from "@/lib/program/effective-target";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import {
@@ -798,7 +800,7 @@ export function SessionRunner({
               be logged against it and fed to progression. It also left a stale
               number in a hold's seconds field.
             */
-            key={`${current.id}:${nextSetNumber}`}
+            key={setFormKey(current.id, current.exerciseId, nextSetNumber)}
             perSetLogging={settings.perSetLogging}
             metric={current.metric}
             targetSeconds={current.repsMax}
@@ -889,6 +891,12 @@ export function SessionRunner({
                             workingWeightKg: swapped.workingWeightKg,
                             suggestedWeightKg: swapped.suggestedWeightKg,
                           });
+                          const effectiveMax = effectiveRepsMax({
+                            plannedMax: swapped.repsMax ?? current.repsMax,
+                            progressedTarget: swapped.targetReps,
+                            isBodyweight: swappedFields.isBodyweight,
+                            usedWeight: swappedFields.workingWeightKg,
+                          });
                           setExercises((prev) =>
                             prev.map((e) =>
                               e.id === current.id
@@ -899,7 +907,7 @@ export function SessionRunner({
                                     exerciseId: a.exerciseId,
                                     metric: swapped.metric,
                                     repsMin: swapped.repsMin ?? e.repsMin,
-                                    repsMax: swapped.repsMax ?? e.repsMax,
+                                    repsMax: effectiveMax,
                                     isBodyweight: swappedFields.isBodyweight,
                                     workingWeightKg: swappedFields.workingWeightKg,
                                     suggestedWeightKg: swappedFields.suggestedWeightKg,

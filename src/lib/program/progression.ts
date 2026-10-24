@@ -135,23 +135,21 @@ function roundTo(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-const KETTLEBELL_SIZES = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
+const KETTLEBELL_SIZES = [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 44, 48];
 
 /**
  * Snap weight to next kettlebell above (for progression).
  *
- * Standard bells: 4,6,8,10,12,14,16,18,20,24,28,32 kg.
- * Returns the smallest bell strictly above `from`. At 32 kg (top bell), returns 32.
- * Non-standard or above-32 weights are NOT snapped: returns null.
+ * Standard bells: 4,6,8,10,12,14,16,18,20,22,24,26,28,32,36,40,44,48 kg.
+ * Returns the smallest bell strictly above `from` for standard bells.
+ * For non-standard weights (e.g., 17 kg, 40 kg from other equipment), snaps up to next bell.
+ * At 48 kg (top bell), holds at 48.
  */
 function nextKettlebellAbove(from: number): number | null {
-  // Non-standard or above top: don't snap
-  if (!KETTLEBELL_SIZES.includes(from) || from > 32) return null;
+  // At top bell: hold
+  if (from >= 48) return 48;
 
-  // At 32 kg: hold at 32
-  if (from === 32) return 32;
-
-  // Find next bell above
+  // Find next bell above (works for both standard and non-standard weights)
   for (const size of KETTLEBELL_SIZES) {
     if (size > from) return size;
   }
@@ -162,22 +160,20 @@ function nextKettlebellAbove(from: number): number | null {
 /**
  * Snap weight to next kettlebell below (for back-off).
  *
- * Returns the largest bell strictly below `from`. At 4 kg (bottom bell), returns 4.
- * Non-standard or above-32 weights are NOT snapped: returns `from` unchanged.
+ * Returns the largest bell strictly below `from` for standard bells.
+ * For non-standard weights (e.g., 17 kg), snaps down to next bell below (16 kg).
+ * At 4 kg (bottom bell), returns 4.
  */
 function nextKettlebellBelow(from: number): number | null {
-  // Non-standard or above top: don't snap
-  if (!KETTLEBELL_SIZES.includes(from) || from > 32) return null;
+  // At or below bottom bell: hold at 4
+  if (from <= 4) return 4;
 
-  // At 4 kg: hold at 4
-  if (from === 4) return 4;
-
-  // Find next bell below
+  // Find largest bell below from (works for both standard and non-standard weights)
   for (let i = KETTLEBELL_SIZES.length - 1; i >= 0; i--) {
     if (KETTLEBELL_SIZES[i] < from) return KETTLEBELL_SIZES[i];
   }
 
-  return null;
+  return 4; // Safeguard: return bottom bell
 }
 
 /**
@@ -185,21 +181,18 @@ function nextKettlebellBelow(from: number): number | null {
  *
  * Returns the largest bell ≤ 80% of current weight.
  * Example: 20 kg → 80% = 16 kg → 16 kg (exact match).
- *          24 kg → 80% = 19.2 kg → 18 kg (largest bell ≤ 19.2).
- * Non-standard or above-32 weights are NOT snapped: returns null.
+ *          24 kg → 80% = 19.2 kg → 20 kg (largest bell ≤ 19.2).
+ * Works for both standard bells and non-standard weights.
  */
 function deloadKettlebell(from: number): number | null {
-  // Non-standard or above top: don't snap
-  if (!KETTLEBELL_SIZES.includes(from) || from > 32) return null;
-
   const target = from * 0.8;
 
-  // Find largest bell ≤ target
+  // Find largest bell ≤ target (works for both standard and non-standard weights)
   for (let i = KETTLEBELL_SIZES.length - 1; i >= 0; i--) {
     if (KETTLEBELL_SIZES[i] <= target) return KETTLEBELL_SIZES[i];
   }
 
-  // Shouldn't reach here, but safeguard
+  // Safeguard: return bottom bell
   return KETTLEBELL_SIZES[0];
 }
 
@@ -402,24 +395,21 @@ export function evaluateProgression(input: {
     if (isBodyweightWithAddedWeight) {
       // Bodyweight: snap to grid, smallest multiple above from
       next = Math.floor(from / step) * step + step;
-    } else if (hasKettlebell && KETTLEBELL_SIZES.includes(from) && from <= 32) {
-      // Kettlebell: go to next bell above (one bell up for both success and easy)
+    } else if (hasKettlebell) {
+      // Kettlebell: go to next bell above (for both standard and non-standard weights)
       const nextBell = nextKettlebellAbove(from);
       if (nextBell === null || nextBell === from) {
-        next = from; // At top or can't progress
+        next = from; // At top bell or can't progress
       } else {
         next = nextBell;
       }
-    } else if (hasKettlebell && !KETTLEBELL_SIZES.includes(from)) {
-      // Non-standard kettlebell weight: single step for both normal and easy
-      next = from + step;
     } else {
       // Standard loaded exercise: use step (doubled if easy), rounded to grid
       next = roundTo(from + (feel === "easy" ? step * 2 : step), step);
     }
 
-    // At 32 kg kettlebell top, hold the weight
-    const atKettlebellTop = hasKettlebell && from === 32 && next === 32;
+    // At top kettlebell, hold the weight
+    const atKettlebellTop = hasKettlebell && from >= 48 && next === 48;
 
     return {
       ...carried,
@@ -428,7 +418,7 @@ export function evaluateProgression(input: {
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
       message: atKettlebellTop
-        ? "At the heaviest bell — hold at 32 kg."
+        ? "At the heaviest bell — hold at 48 kg."
         : feel === "easy" && !isBodyweightWithAddedWeight
           ? `All sets at the top and it felt easy — up to ${next} kg.`
           : `All sets at the top of the range — up to ${next} kg.`,
@@ -465,10 +455,10 @@ export function evaluateProgression(input: {
     const hasKettlebell = meta.equipmentIds.includes("kettlebell");
     let reduced: number;
 
-    if (hasKettlebell && KETTLEBELL_SIZES.includes(currentWeight) && currentWeight <= 32) {
-      // Kettlebell: go to next bell below
+    if (hasKettlebell) {
+      // Kettlebell: go to next bell below (for both standard and non-standard weights)
       const nextBell = nextKettlebellBelow(currentWeight);
-      reduced = nextBell !== null ? nextBell : currentWeight; // At 4 kg, hold at 4
+      reduced = nextBell !== null ? nextBell : 4; // At or below 4 kg, hold at 4
     } else {
       // Standard: reduce by ~10%, floor at step
       reduced = Math.max(step, roundTo(currentWeight * 0.9, step));
@@ -524,10 +514,10 @@ export function suggestedWeight(
   // Loaded exercises: kettlebells use largest bell ≤ 80%, others floor at step
   const hasKettlebell = meta.equipmentIds.includes("kettlebell");
 
-  if (hasKettlebell && KETTLEBELL_SIZES.includes(w) && w <= 32) {
-    // Kettlebell: largest bell ≤ 80% of current weight
+  if (hasKettlebell) {
+    // Kettlebell: largest bell ≤ 80% of current weight (for both standard and non-standard)
     const deloaded = deloadKettlebell(w);
-    return deloaded !== null ? deloaded : w; // Safeguard
+    return deloaded !== null ? deloaded : 4; // Safeguard: return bottom bell
   }
 
   // Standard: ~70% of working weight, floor at one step

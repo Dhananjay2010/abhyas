@@ -94,7 +94,7 @@ console.log("\nMutation guards: session/actions.ts isBodyweight and equipmentIds
 {
   // Mutant 8: session/actions.ts:381 using old isBodyweight rule
   // The correct rule at :382 is: isBodyweight: isBodyweightEquipment(ex.equipment_ids)
-  
+
   // This is tested indirectly through isBodyweightEquipment behavior
   const emptyForAction = isBodyweightEquipment([]);
   check("mutation guard: session/actions.ts:382 uses isBodyweightEquipment for empty equipment",
@@ -109,7 +109,7 @@ console.log("\nMutation guards: session/actions.ts isBodyweight and equipmentIds
   // Mutant 9: session/actions.ts:384 dropping equipmentIds
   // The line must be: equipmentIds: ex.equipment_ids
   // This is verified by ensuring the field is required in ExerciseMeta type
-  
+
   // Since we can't directly test the action without a full environment,
   // we verify that the helper functions require equipmentIds
   const equipmentRequired = ["barbell"];

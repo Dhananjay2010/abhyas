@@ -13,6 +13,8 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { effectiveRepsMax } from "@/lib/program/effective-target";
+import { isBodyweightEquipment } from "@/lib/program/bodyweight";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +28,7 @@ export default async function TodayPage() {
   // Nothing here depends on anything else here, so all three go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes, openRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes, openRes, settingsRes] = await Promise.all([
     // `maybeSingle`, not `single`: a missing row is a state to handle, not an
     // exception. With `single` PostgREST answers "Cannot coerce the result to a
     // single JSON object", which threw during the server render and reached the
@@ -49,6 +51,7 @@ export default async function TodayPage() {
       .in("status", ["planned", "in_progress"])
       .order("local_date", { ascending: false })
       .limit(20),
+    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).maybeSingle(),
   ]);
 
   /*
@@ -338,11 +341,25 @@ export default async function TodayPage() {
           // `metric` from the session row, not from `exercises`: it records the
           // unit the session was RUN in. Reading the catalogue's current metric
           // rendered a plank prescribed in reps last week as "2 x 8-12s".
-          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue)")
+          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercise_id, exercises!session_exercises_exercise_id_fkey(name, cue, equipment_ids)")
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
   ]);
+
+  // Fetch exercise_progress for all exercises in the performed session
+  const exerciseIds = performedRows?.data?.map(r => r.exercise_id).filter((id): id is string => id !== null) ?? [];
+  const progressRes = exerciseIds.length > 0 && settingsRes.data?.planning_mode !== "daily_menu"
+    ? await supabase
+        .from("exercise_progress")
+        .select("exercise_id, current_working_weight_kg, current_target_reps")
+        .eq("user_id", user.id)
+        .in("exercise_id", exerciseIds)
+    : { data: null };
+
+  const progressByExercise = new Map(
+    (progressRes.data ?? []).map(p => [p.exercise_id, p])
+  );
 
   /*
     One shape for the list, whichever source it came from, so the markup below
@@ -385,26 +402,42 @@ export default async function TodayPage() {
     status: string | null;
     swapped_from_exercise_id: string | null;
     metric: Database["public"]["Enums"]["exercise_metric"] | null;
+    exercise_id: string | null;
     exercises: {
       name: string;
       cue: string | null;
+      equipment_ids: string[];
     } | null;
   }> | null;
 
   const todayExercises: TodayRow[] =
     actual && actual.length > 0
-      ? actual.map((r) => ({
-          key: `s${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.metric ?? null,
-          sets: r.planned_sets,
-          repsMin: r.planned_reps_min,
-          repsMax: r.planned_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: r.status === "skipped",
-          swappedIn: r.swapped_from_exercise_id !== null,
-        }))
+      ? actual.map((r) => {
+          const progress = r.exercise_id ? progressByExercise.get(r.exercise_id) : undefined;
+          const isBodyweight = isBodyweightEquipment(r.exercises?.equipment_ids ?? []);
+          const workingWeightKg =
+            progress?.current_working_weight_kg === null || !progress
+              ? null
+              : Number(progress.current_working_weight_kg);
+          const effectiveMax = effectiveRepsMax({
+            plannedMax: r.planned_reps_max ?? 12,
+            progressedTarget: progress?.current_target_reps,
+            isBodyweight,
+            usedWeight: workingWeightKg,
+          });
+          return {
+            key: `s${r.order_index}`,
+            name: r.exercises?.name ?? "",
+            cue: r.exercises?.cue ?? null,
+            metric: r.metric ?? null,
+            sets: r.planned_sets,
+            repsMin: r.planned_reps_min,
+            repsMax: effectiveMax,
+            restSeconds: r.rest_seconds,
+            skipped: r.status === "skipped",
+            swappedIn: r.swapped_from_exercise_id !== null,
+          };
+        })
       : template.map((r) => ({
           key: `p${r.order_index}`,
           name: r.exercises?.name ?? "",

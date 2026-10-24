@@ -731,6 +731,7 @@ export type SwapResult = {
   equipmentIds: string[];
   workingWeightKg: number | null;
   suggestedWeightKg: number | null;
+  targetReps: number | null;
 };
 
 export async function swapExercise(input: {
@@ -814,7 +815,7 @@ export async function swapExercise(input: {
   const progressRes = remembersWeights
     ? await supabase
         .from("exercise_progress")
-        .select("current_working_weight_kg")
+        .select("current_working_weight_kg, current_target_reps")
         .eq("user_id", user.id)
         .eq("exercise_id", input.newExerciseId)
         .maybeSingle()
@@ -824,6 +825,11 @@ export async function swapExercise(input: {
     progressRes.data?.current_working_weight_kg === null || !progressRes.data
       ? null
       : Number(progressRes.data.current_working_weight_kg);
+
+  const targetReps =
+    progressRes.data?.current_target_reps === null || !progressRes.data
+      ? null
+      : progressRes.data.current_target_reps;
 
   const isBodyweight = isBodyweightEquipment(equipmentIds);
   const isDeload = !!(sessionRes.data as unknown as { sessions?: { is_deload: boolean } })
@@ -868,6 +874,7 @@ export async function swapExercise(input: {
           equipmentIds,
           workingWeightKg,
           suggestedWeightKg,
+          targetReps,
         },
       };
 }
