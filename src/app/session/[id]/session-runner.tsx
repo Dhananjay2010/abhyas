@@ -475,14 +475,6 @@ export function SessionRunner({
             label="Exercises"
             value={`${exercises.filter((e) => e.status === "completed").length} of ${exercises.length}`}
           />
-          <Stat
-            label="Completion"
-            value={sessionCompletion({
-              loggedSets: totalSetsDone,
-              plannedSets: totalSetsPlanned,
-              endedEarly,
-            }).label}
-          />
         </div>
         {/*
           SPEC section 7 asks the summary for "PRs hit". A best that was beaten,
