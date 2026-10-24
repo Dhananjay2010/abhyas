@@ -7,7 +7,7 @@
  */
 
 import type { Result } from "@/app/session/actions";
-import { isSessionExpired } from "./session-expired-shim";
+import { isSessionExpired } from "@/lib/auth/session-expired";
 import {
   isDuplicateError,
   loadPendingSets,

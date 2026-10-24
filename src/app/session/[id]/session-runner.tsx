@@ -31,7 +31,7 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
-import { SessionExpiredPrompt } from "@/lib/session/session-expired-shim";
+import { SessionExpiredPrompt } from "@/components/session-expired-prompt";
 import {
   createPendingSetController,
   type PendingSetState,
