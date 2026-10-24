@@ -32,9 +32,9 @@ export function buildCloseStaleDeps(supabase: Client): CloseStaleDeps {
     markSessionDone: async (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number) => {
       const { error, count } = await supabase
         .from("sessions")
-        .update({ status, completed_at: completedAt, duration_seconds: durationSeconds })
-        .eq("id", id);
-        // REMOVED: .eq("status", "in_progress")
+        .update({ status, completed_at: completedAt, duration_seconds: durationSeconds }, { count: "exact" })
+        .eq("id", id)
+        .eq("status", "in_progress");
       
       if (error) throw error;
       return (count ?? 0) > 0;
