@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
@@ -60,8 +61,17 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     return { ok: false, error: "At least one day a week has to be training." };
   }
 
-  const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
-  if (error) return { ok: false, error: error.message };
+  // Validate and update with testable logic
+  const result = await validateAndUpdateProfile(patch, {
+    updateProfile: async (validatedPatch) => {
+      const { error } = await supabase.from("profiles").update(validatedPatch).eq("id", user.id);
+      if (error) return { ok: false, error: error.message };
+      return { ok: true };
+    },
+  });
+
+  if (!result.ok) return result;
+
   revalidatePath("/settings");
   revalidatePath("/today");
   return { ok: true };
