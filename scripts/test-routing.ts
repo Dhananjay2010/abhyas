@@ -39,11 +39,11 @@ console.log("\n1. Site URL resolution");
 
 console.log("\n2. robots.txt generation");
 {
-  process.env.NEXT_PUBLIC_SITE_URL = "https://example.com";
+  // robots.ts now uses branding.siteUrl directly
   const robotsTxt = robots();
   check("has rules array", Array.isArray(robotsTxt.rules));
   check("has sitemap URL", typeof robotsTxt.sitemap === "string");
-  check("sitemap uses getSiteUrl", robotsTxt.sitemap === "https://example.com/sitemap.xml");
+  check("sitemap uses branding.siteUrl", robotsTxt.sitemap === `${branding.siteUrl}/sitemap.xml`);
   const firstRule = Array.isArray(robotsTxt.rules) ? robotsTxt.rules[0] : robotsTxt.rules;
   check("allows public paths", Array.isArray(firstRule?.allow) && firstRule.allow.includes("/"));
   check("disallows /today", Array.isArray(firstRule?.disallow) && firstRule.disallow.includes("/today"));
