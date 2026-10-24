@@ -36,7 +36,7 @@ function testOfflinePageMarker() {
 }
 
 function testBottomNavHiding() {
-  console.log("\n▶ Testing bottom nav offline detection...");
+  console.log("\n▶ Testing bottom nav offline hiding via CSS...");
 
   const bottomNavPath = path.join(__dirname, "..", "src", "components", "bottom-nav.tsx");
   
@@ -47,34 +47,47 @@ function testBottomNavHiding() {
 
   const source = fs.readFileSync(bottomNavPath, "utf-8");
 
-  // Must check for data-offline attribute
+  // Must have data-bottom-nav attribute on nav element
   assert(
-    source.includes('data-offline'),
-    "BottomNav must check for data-offline attribute"
+    source.includes('data-bottom-nav'),
+    "BottomNav <nav> element must have data-bottom-nav attribute"
   );
 
-  // Must use querySelector to find the marker
+  // Must NOT have useLayoutEffect or useState for offline detection
+  // (should use CSS instead)
   assert(
-    source.includes('querySelector') && source.includes('data-offline'),
-    "BottomNav must use querySelector to detect data-offline marker"
+    !source.includes('isOffline') && !source.includes('setIsOffline'),
+    "BottomNav must NOT use useState for offline detection (should use CSS hiding)"
   );
 
-  // Must return null when offline marker is present
+  console.log("  ✓ BottomNav has data-bottom-nav attribute");
+  console.log("  ✓ BottomNav uses CSS hiding (no useState for isOffline)");
+
+  // Check globals.css for the hiding rule
+  console.log("\n▶ Testing globals.css for offline hiding rule...");
+  
+  const globalsCssPath = path.join(__dirname, "..", "src", "app", "globals.css");
+  
   assert(
-    source.includes('isOffline') && source.includes('return null'),
-    "BottomNav must return null when isOffline is true"
+    fs.existsSync(globalsCssPath),
+    "src/app/globals.css must exist"
   );
 
-  // Must use useEffect or useLayoutEffect to check on pathname changes
+  const cssSource = fs.readFileSync(globalsCssPath, "utf-8");
+
+  // Must have CSS rule to hide bottom-nav when offline page is present
   assert(
-    source.includes('useEffect') || source.includes('useLayoutEffect') || source.includes('React.useEffect') || source.includes('React.useLayoutEffect'),
-    "BottomNav must use useEffect or useLayoutEffect to recheck on pathname changes"
+    cssSource.includes('body:has([data-offline])') && cssSource.includes('[data-bottom-nav]'),
+    "globals.css must have CSS rule: body:has([data-offline]) [data-bottom-nav]"
   );
 
-  console.log("  ✓ BottomNav checks for data-offline attribute");
-  console.log("  ✓ BottomNav uses querySelector to detect marker");
-  console.log("  ✓ BottomNav returns null when isOffline is true");
-  console.log("  ✓ BottomNav rechecks on pathname changes");
+  assert(
+    cssSource.includes('display: none'),
+    "CSS hiding rule must set display: none"
+  );
+
+  console.log("  ✓ globals.css has body:has([data-offline]) [data-bottom-nav] rule");
+  console.log("  ✓ CSS rule sets display: none");
 }
 
 console.log("Testing Offline Page Bottom Nav Hiding");

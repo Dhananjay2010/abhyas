@@ -109,16 +109,7 @@ export function BottomNav() {
     getLastPracticeServerSnapshot
   );
   
-  // Hide nav on offline page (marked with data-offline attribute)
-  // Use layoutEffect to check synchronously before paint
-  const [isOffline, setIsOffline] = React.useState(false);
-  
-  React.useLayoutEffect(() => {
-    const hasOfflineMarker = document.querySelector('[data-offline="true"]');
-    setIsOffline(!!hasOfflineMarker); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [pathname]);
-  
-  if (!active || isOffline) return null;
+  if (!active) return null;
 
   // Map /practice to the appropriate destination using choice logic
   const getHref = (tabHref: string) => {
@@ -127,7 +118,7 @@ export function BottomNav() {
   };
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
+    <nav data-bottom-nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
       <ul className="mx-auto flex max-w-md">
         {TABS.map((t) => {
           const href = getHref(t.href);

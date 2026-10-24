@@ -159,11 +159,11 @@ function testOfflinePageComponent() {
 }
 
 function testLayoutBottomNav() {
-  console.log("\n▶ Testing bottom nav offline handling...");
+  console.log("\n▶ Testing bottom nav offline handling via CSS...");
 
-  // BottomNav uses activeTab() from nav.ts to determine if nav should show
-  // The offline check is tested in scripts/test-nav.ts (activeTab('/offline') === null)
-  // This just confirms BottomNav respects that return value
+  // Bottom nav is hidden on offline page via CSS (:has selector)
+  // activeTab() from nav.ts may still return the active tab for /offline,
+  // so the nav renders but CSS hides it with body:has([data-offline]) [data-bottom-nav]
   
   const bottomNavPath = path.join(__dirname, "..", "src", "components", "bottom-nav.tsx");
   
@@ -174,17 +174,22 @@ function testLayoutBottomNav() {
 
   const bottomNavSource = fs.readFileSync(bottomNavPath, "utf-8");
 
-  // BottomNav should use activeTab() and return null if !active or isOffline
+  // BottomNav should use activeTab() and return null if !active
   assert(
     bottomNavSource.includes("activeTab(pathname)") && 
-    (bottomNavSource.includes("if (!active || isOffline) return null") || 
-     bottomNavSource.includes("if (!active) return null")),
-    'BottomNav must use activeTab() and return null when inactive or offline'
+    bottomNavSource.includes("if (!active) return null"),
+    'BottomNav must use activeTab() and return null when inactive'
+  );
+
+  // Must have data-bottom-nav attribute for CSS hiding
+  assert(
+    bottomNavSource.includes("data-bottom-nav"),
+    "BottomNav must have data-bottom-nav attribute for CSS hiding"
   );
 
   console.log("  ✓ BottomNav uses activeTab() for nav visibility");
-  console.log("  ✓ BottomNav returns null when activeTab returns null or offline");
-  console.log("  ✓ /offline handled by activeTab() and data-offline marker");
+  console.log("  ✓ BottomNav returns null when activeTab returns null");
+  console.log("  ✓ BottomNav has data-bottom-nav for CSS-based offline hiding");
 }
 
 function main() {

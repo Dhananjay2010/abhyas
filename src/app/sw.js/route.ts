@@ -14,16 +14,11 @@ import { branding } from "@/lib/branding";
 
 /**
  * Get the current build version for cache naming.
- * Uses Vercel commit SHA in production, falls back to build timestamp for dev.
- * The fallback is deterministic per build (set at build time).
+ * Uses Vercel commit SHA in production, falls back to build-time constant.
+ * NEXT_PUBLIC_BUILD_ID is set once at build time in next.config.ts.
  */
 function getBuildVersion(): string {
-  if (process.env.VERCEL_GIT_COMMIT_SHA) {
-    return process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7);
-  }
-  // Fallback: use build timestamp (deterministic per build, not per request)
-  // This is set at build time and stays the same for all requests in this build
-  return process.env.BUILD_ID || `build-${Date.now()}`;
+  return process.env.NEXT_PUBLIC_BUILD_ID || process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || "dev";
 }
 
 export async function GET() {

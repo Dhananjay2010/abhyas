@@ -24,6 +24,18 @@ async function testServedServiceWorker() {
   const response = await GET();
   const scriptText = await response.text();
 
+  // Test deterministic output: two consecutive GETs must return identical bodies
+  console.log("\n▶ Testing deterministic output (two consecutive GETs)...");
+  const response2 = await GET();
+  const scriptText2 = await response2.text();
+  
+  assert(
+    scriptText === scriptText2,
+    "Two consecutive GET requests to /sw.js must return byte-identical bodies (build version must be deterministic)"
+  );
+  
+  console.log("  ✓ Two consecutive GETs return byte-identical bodies");
+
   // 1. Brand cache prefix
   const brandPrefix = `${branding.id}-offline-`;
   assert(
