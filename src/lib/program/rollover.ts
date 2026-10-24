@@ -70,7 +70,8 @@ export async function extractCarryOver(
   const { data: days } = await supabase
     .from("program_days")
     .select("id, day_index")
-    .eq("program_id", programId);
+    .eq("program_id", programId)
+    .eq("status", "active");
 
   if (!days || days.length === 0) return {};
   const dayIndexById = new Map(days.map((d) => [d.id, d.day_index]));
