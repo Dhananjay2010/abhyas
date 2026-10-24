@@ -31,9 +31,12 @@ export type DocumentLike = {
   removeEventListener(type: "visibilitychange", listener: () => void): void;
 };
 
+/** The part of a `pageshow` PageTransitionEvent the refresh decision reads. */
+export type PageShowLike = { persisted: boolean };
+
 export type WindowLike = {
-  addEventListener(type: "pageshow", listener: (event: PageTransitionEvent) => void): void;
-  removeEventListener(type: "pageshow", listener: (event: PageTransitionEvent) => void): void;
+  addEventListener(type: "pageshow", listener: (event: PageShowLike) => void): void;
+  removeEventListener(type: "pageshow", listener: (event: PageShowLike) => void): void;
 };
 
 /**
@@ -64,7 +67,7 @@ export function attachResumeRefresh(
     }
   };
 
-  const handlePageShow = (event: PageTransitionEvent) => {
+  const handlePageShow = (event: PageShowLike) => {
     if (shouldRefreshOnEvent("pageshow", undefined, event.persisted)) {
       refresh();
     }

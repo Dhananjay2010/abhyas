@@ -1,391 +1,194 @@
 #!/usr/bin/env tsx
 /*
- * Test: logSetCore with recording fake client
+ * Test: logSetCore never overwrites a saved set.
  *
- * Tests the extracted core logic with a recording fake Supabase client
- * that asserts insert (not upsert), is_warmup_set filter, and 23505 handling.
+ * logSetCore runs against a real supabase-js client whose HTTP calls go to an
+ * in-memory PostgREST stand-in (scripts/helpers/fake-postgrest.ts) with the
+ * session_sets unique key, so the tests see what the database would: an
+ * insert or an upsert, the filters on each read, and a 23505 on a duplicate.
  */
 
-import { logSetCore, type LogSetClient } from "../src/lib/session/log-set-core";
-import type { Database } from "../src/lib/database.types";
+import { logSetCore, type LogSetResult } from "../src/lib/session/log-set-core";
+import { createFakeDb, json, type FakeDb, type Row } from "./helpers/fake-postgrest";
 
 export {}; // Make this a module
-
-type SessionSet = {
-  session_exercise_id: string;
-  user_id: string;
-  set_number: number;
-  reps: number | null;
-  weight_kg: number | null;
-  duration_seconds: number | null;
-  is_warmup_set: boolean;
-  completed_at: string;
-};
-
-type CallRecord = {
-  method: string;
-  table?: string;
-  payload?: unknown;
-  filters?: Record<string, unknown>;
-};
-
-type FakeSupabaseClient = {
-  from: (table: string) => {
-    select: (columns: string) => {
-      eq: (col: string, val: unknown) => {
-        eq: (col2: string, val2: unknown) => {
-          eq: (col3: string, val3: unknown) => {
-            maybeSingle: () => Promise<{ data: SessionSet | null; error: null }>;
-          };
-          order: (orderCol: string) => Promise<{ data: SessionSet[]; error: null }>;
-        };
-      };
-    };
-    insert: (payload: SessionSet | SessionSet[]) => Promise<{ data: null; error: { code: string; message: string } | null }>;
-  };
-  wasUpsertCalled: () => boolean;
-  wasInsertCalled: () => boolean;
-  getFilterCalls: () => Array<Record<string, unknown> | undefined>;
-  getCalls: () => CallRecord[];
-};
-
-/**
- * Recording fake Supabase client that tracks all method calls.
- * Supports "race mode" where the initial lookup returns null but insert returns 23505.
- */
-function createRecordingFakeClient(initialSets: SessionSet[], options?: { raceMode?: boolean; racedSet?: SessionSet }): FakeSupabaseClient {
-  const sets = new Map<string, SessionSet>(
-    initialSets.map((s) => [`${s.session_exercise_id}:${s.set_number}:${s.is_warmup_set}`, { ...s }]),
-  );
-  const calls: CallRecord[] = [];
-  let insertCallCount = 0;
-
-  return {
-    from: (table: string) => {
-      calls.push({ method: "from", table });
-      return {
-        select: (columns: string) => {
-          calls.push({ method: "select", table, payload: columns });
-          return {
-            eq: (col: string, val: unknown) => {
-              const methods = {
-                eq: (col2: string, val2: unknown) => {
-                  const nestedMethods = {
-                    eq: (col3: string, val3: unknown) => ({
-                      maybeSingle: async () => {
-                        calls.push({
-                          method: "maybeSingle",
-                          table,
-                          filters: { [col]: val, [col2]: val2, [col3]: val3 },
-                        });
-                        const key = `${val}:${val2}:${val3}`;
-                        
-                        // Race mode: first lookup (before insert) returns null
-                        if (options?.raceMode && insertCallCount === 0) {
-                          return { data: null, error: null };
-                        }
-                        
-                        const set = sets.get(key);
-                        return { data: set || null, error: null };
-                      },
-                    }),
-                    order: (orderCol: string) => {
-                      calls.push({
-                        method: "order",
-                        table,
-                        filters: { [col]: val, [col2]: val2 },
-                        payload: orderCol,
-                      });
-                      const matching = Array.from(sets.values()).filter(
-                        (s) => s.session_exercise_id === val && s.is_warmup_set === val2,
-                      );
-                      return Promise.resolve({ data: matching, error: null });
-                    },
-                  };
-                  return nestedMethods;
-                },
-              };
-              return methods;
-            },
-          };
-        },
-        insert: async (payload: SessionSet | SessionSet[]) => {
-          calls.push({ method: "insert", table, payload });
-          insertCallCount++;
-          const rows = Array.isArray(payload) ? payload : [payload];
-          
-          // Race mode: inject the raced set and return 23505
-          if (options?.raceMode && options.racedSet && insertCallCount === 1) {
-            const key = `${options.racedSet.session_exercise_id}:${options.racedSet.set_number}:${options.racedSet.is_warmup_set}`;
-            sets.set(key, options.racedSet);
-            return { data: null, error: { code: "23505", message: "duplicate key violates unique constraint" } };
-          }
-          
-          for (const row of rows) {
-            const key = `${row.session_exercise_id}:${row.set_number}:${row.is_warmup_set}`;
-            if (sets.has(key)) {
-              // Simulate Postgres unique constraint violation
-              return { data: null, error: { code: "23505", message: "duplicate key" } };
-            }
-            sets.set(key, { ...row });
-          }
-          return { data: null, error: null };
-        },
-      };
-    },
-    getCalls: () => calls,
-    wasUpsertCalled: () => calls.some((c) => c.method === "upsert"),
-    wasInsertCalled: () => calls.some((c) => c.method === "insert"),
-    getFilterCalls: () =>
-      calls.filter((c) => c.method === "maybeSingle" || c.method === "order").map((c) => c.filters),
-  } as FakeSupabaseClient & Pick<SupabaseClient<Database>, "from">;
-}
 
 let passed = 0;
 let failed = 0;
 
-function testLogSetCore(name: string, fn: () => void | Promise<void>) {
-  return (async () => {
-    try {
-      await fn();
-      console.log(`✓ ${name}`);
-      passed++;
-    } catch (err) {
-      console.error(`✗ ${name}`);
-      console.error(`  ${err instanceof Error ? err.message : String(err)}`);
-      failed++;
-    }
-  })();
+async function test(name: string, fn: () => Promise<void>) {
+  try {
+    await fn();
+    console.log(`✓ ${name}`);
+    passed++;
+  } catch (err) {
+    console.error(`✗ ${name}`);
+    console.error(`  ${err instanceof Error ? err.message : String(err)}`);
+    failed++;
+  }
 }
 
-function assertEqualCore<T>(actual: T, expected: T, msg: string = "") {
+function assert(condition: boolean, message: string) {
+  if (!condition) throw new Error(message);
+}
+
+function eq<T>(actual: T, expected: T, message: string) {
   if (actual !== expected) {
-    throw new Error(
-      `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}${msg ? `: ${msg}` : ""}`,
-    );
+    throw new Error(`${message}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
   }
 }
 
-function assertTrue(condition: boolean, msg: string) {
-  if (!condition) {
-    throw new Error(msg);
-  }
+function setRow(sessionExerciseId: string, setNumber: number, reps: number, weightKg: number, isWarmup = false): Row {
+  return {
+    id: `seed-${sessionExerciseId}-${setNumber}-${isWarmup}`,
+    session_exercise_id: sessionExerciseId,
+    user_id: "user-1",
+    set_number: setNumber,
+    reps,
+    weight_kg: weightKg,
+    duration_seconds: null,
+    is_warmup_set: isWarmup,
+    completed_at: "2026-10-24T06:30:00.000Z",
+  };
 }
+
+function db(rows: Row[] = []): FakeDb {
+  return createFakeDb({
+    tables: { session_sets: rows },
+    unique: [{ table: "session_sets", columns: ["session_exercise_id", "set_number", "is_warmup_set"] }],
+  });
+}
+
+function working(fake: FakeDb, sessionExerciseId: string, setNumber: number): Row[] {
+  return fake.tables.session_sets.filter(
+    (r) => r.session_exercise_id === sessionExerciseId && r.set_number === setNumber && r.is_warmup_set === false,
+  );
+}
+
+function savedSetsOf(result: LogSetResult) {
+  if (result.ok || !("reason" in result)) {
+    throw new Error(`Expected a set_exists conflict, got ${JSON.stringify(result)}`);
+  }
+  return result.savedSets;
+}
+
+const writes = (fake: FakeDb) => fake.requests.filter((r) => r.table === "session_sets" && r.method !== "GET");
 
 async function main() {
-  console.log("Testing logSetCore with recording fake client\n");
+  console.log("Testing logSetCore\n");
 
-  // Test 1: Insert is called, not upsert
-  await testLogSetCore("Insert is called, not upsert", async () => {
-    const fake = createRecordingFakeClient([]);
-    await logSetCore(fake as LogSetClient, "user-1", {
-      sessionExerciseId: "ex-1",
-      setNumber: 1,
-      reps: 10,
-      weightKg: 60,
-      durationSeconds: null,
+  await test("a new set is inserted, never upserted", async () => {
+    const fake = db();
+    const result = await logSetCore(fake.client, "user-1", {
+      sessionExerciseId: "ex-1", setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null,
     });
-
-    assertEqualCore(fake.wasUpsertCalled(), false, "Upsert should never be called");
-    assertEqualCore(fake.wasInsertCalled(), true, "Insert should be called");
+    eq(result.ok, true, "result.ok");
+    const posted = writes(fake);
+    eq(posted.length, 1, "write requests");
+    eq(posted[0].method, "POST", "write method");
+    assert(!posted[0].prefer.includes("resolution="), `insert must not be an upsert (Prefer: ${posted[0].prefer})`);
+    const rows = working(fake, "ex-1", 1);
+    eq(rows.length, 1, "rows for set 1");
+    eq(rows[0].reps, 10, "saved reps");
+    eq(rows[0].is_warmup_set, false, "saved as a working set");
   });
 
-  // Test 2: is_warmup_set: false filter is applied on lookup
-  await testLogSetCore("is_warmup_set: false filter on existing set lookup", async () => {
-    const fake = createRecordingFakeClient([
-      {
-        session_exercise_id: "ex-2",
-        user_id: "user-1",
-        set_number: 1,
-        reps: 5,
-        weight_kg: 40,
-        duration_seconds: null,
-        is_warmup_set: true,
-        completed_at: "2026-10-24T12:00:00Z",
-      },
-    ]);
-
-    await logSetCore(fake as LogSetClient, "user-1", {
-      sessionExerciseId: "ex-2",
-      setNumber: 1,
-      reps: 10,
-      weightKg: 60,
-      durationSeconds: null,
+  await test("the existing-set lookup is scoped to working sets", async () => {
+    // A warm-up set 1 with different values must not block working set 1.
+    const fake = db([setRow("ex-2", 1, 5, 40, true)]);
+    const result = await logSetCore(fake.client, "user-1", {
+      sessionExerciseId: "ex-2", setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null,
     });
-
-    const filterCalls = fake.getFilterCalls();
-    const lookupFilter = filterCalls.find(
-      (f) => f && f.session_exercise_id === "ex-2" && f.set_number === 1,
-    );
-    assertTrue(!!lookupFilter, "Should have a lookup with session_exercise_id and set_number");
-    assertEqualCore(lookupFilter!.is_warmup_set, false, "Should filter on is_warmup_set: false");
+    eq(result.ok, true, "result.ok");
+    const lookup = fake.requests.find((r) => r.method === "GET" && r.filters.set_number === "eq.1");
+    assert(lookup !== undefined, "a lookup of set 1 was made");
+    eq(lookup?.filters.is_warmup_set, "eq.false", "lookup filters is_warmup_set");
+    eq(working(fake, "ex-2", 1).length, 1, "working set 1 saved");
   });
 
-  // Test 3: 23505 handling re-reads and returns conflict
-  await testLogSetCore("23505 race: re-read and return conflict", async () => {
-    // Simulate race: initial lookup finds nothing, insert returns 23505, re-read finds different values
-    const racedSet = {
-      session_exercise_id: "ex-3",
-      user_id: "user-1",
-      set_number: 1,
-      reps: 12,
-      weight_kg: 65,
-      duration_seconds: null,
-      is_warmup_set: false,
-      completed_at: "2026-10-24T12:00:00Z",
+  await test("an identical replay succeeds without writing again", async () => {
+    const fake = db([setRow("ex-3", 1, 10, 60)]);
+    const result = await logSetCore(fake.client, "user-1", {
+      sessionExerciseId: "ex-3", setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null,
+    });
+    eq(result.ok, true, "result.ok");
+    eq(writes(fake).length, 0, "write requests");
+    eq(working(fake, "ex-3", 1).length, 1, "rows for set 1");
+  });
+
+  await test("a different value for a saved set is a conflict, and the saved set is kept", async () => {
+    const fake = db([setRow("ex-4", 1, 12, 30)]);
+    const result = await logSetCore(fake.client, "user-1", {
+      sessionExerciseId: "ex-4", setNumber: 1, reps: 8, weightKg: 35, durationSeconds: null,
+    });
+    const saved = savedSetsOf(result);
+    eq(saved.length, 1, "saved sets returned");
+    eq(saved[0].reps, 12, "returned saved reps");
+    eq(saved[0].weightKg, 30, "returned saved weight");
+    eq(writes(fake).length, 0, "write requests");
+    eq(working(fake, "ex-4", 1)[0].reps, 12, "stored reps unchanged");
+  });
+
+  await test("stale tab: logging set 2 after another tab saved it returns every saved set in order", async () => {
+    const fake = db([setRow("ex-5", 2, 12, 65), setRow("ex-5", 1, 10, 60)]);
+    const result = await logSetCore(fake.client, "user-1", {
+      sessionExerciseId: "ex-5", setNumber: 2, reps: 8, weightKg: 60, durationSeconds: null,
+    });
+    const saved = savedSetsOf(result);
+    eq(saved.map((s) => s.setNumber).join(","), "1,2", "saved set numbers in order");
+    eq(saved[1].reps, 12, "set 2 reps from the fresh tab");
+    eq(saved[1].weightKg, 65, "set 2 weight from the fresh tab");
+    eq(working(fake, "ex-5", 2)[0].reps, 12, "stored set 2 unchanged");
+  });
+
+  await test("race: insert hits 23505 and the winner has other values → conflict, winner kept", async () => {
+    const fake = db();
+    let raced = false;
+    fake.beforeRequest = (req) => {
+      if (req.method === "POST" && !raced) {
+        raced = true;
+        fake.tables.session_sets.push(setRow("ex-6", 1, 12, 65));
+      }
     };
-
-    const fake = createRecordingFakeClient([], { raceMode: true, racedSet });
-
-    const result = await logSetCore(fake as LogSetClient, "user-1", {
-      sessionExerciseId: "ex-3",
-      setNumber: 1,
-      reps: 10,
-      weightKg: 60,
-      durationSeconds: null,
+    const result = await logSetCore(fake.client, "user-1", {
+      sessionExerciseId: "ex-6", setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null,
     });
-
-    assertEqualCore(result.ok, false, "Should return conflict");
-    assertTrue(!result.ok && "reason" in result, "Result must have reason field");
-    // Type assertion: after assertTrue, we know result has these fields
-    const conflictResult = result as Extract<typeof result, { reason: "set_exists" }>;
-    assertEqualCore(conflictResult.reason, "set_exists", "Should have set_exists reason");
-    assertTrue("savedSets" in conflictResult && Array.isArray(conflictResult.savedSets), "Result must have savedSets array");
-    assertTrue(conflictResult.savedSets.length > 0, "Should have at least one saved set");
-    assertEqualCore(conflictResult.savedSets[0].reps, 12, "Should return raced set's reps");
-    assertEqualCore(conflictResult.savedSets[0].weightKg, 65, "Should return raced set's weight");
+    const saved = savedSetsOf(result);
+    eq(saved[0].reps, 12, "returned winner's reps");
+    eq(saved[0].weightKg, 65, "returned winner's weight");
+    const rows = working(fake, "ex-6", 1);
+    eq(rows.length, 1, "rows for set 1");
+    eq(rows[0].reps, 12, "winner's reps kept");
   });
 
-  // Test 4: 23505 race with identical values returns duplicate_ok
-  await testLogSetCore("23505 race: re-read identical values → duplicate_ok", async () => {
-    // Simulate race: initial lookup finds nothing, insert returns 23505, re-read finds identical values
-    const racedSet = {
-      session_exercise_id: "ex-4",
-      user_id: "user-1",
-      set_number: 1,
-      reps: 10,
-      weight_kg: 60,
-      duration_seconds: null,
-      is_warmup_set: false,
-      completed_at: "2026-10-24T12:00:00Z",
+  await test("race: insert hits 23505 and the winner has the same values → ok", async () => {
+    const fake = db();
+    let raced = false;
+    fake.beforeRequest = (req) => {
+      if (req.method === "POST" && !raced) {
+        raced = true;
+        fake.tables.session_sets.push(setRow("ex-7", 1, 10, 60));
+      }
     };
-
-    const fake = createRecordingFakeClient([], { raceMode: true, racedSet });
-
-    const result = await logSetCore(fake as LogSetClient, "user-1", {
-      sessionExerciseId: "ex-4",
-      setNumber: 1,
-      reps: 10,
-      weightKg: 60,
-      durationSeconds: null,
+    const result = await logSetCore(fake.client, "user-1", {
+      sessionExerciseId: "ex-7", setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null,
     });
-
-    assertEqualCore(result.ok, true, "Should return success for identical values");
+    eq(result.ok, true, "result.ok");
+    eq(working(fake, "ex-7", 1).length, 1, "rows for set 1");
   });
 
-  // Test 5: Existing set with different values returns conflict
-  await testLogSetCore("Existing set with different values → conflict", async () => {
-    const fake = createRecordingFakeClient([
-      {
-        session_exercise_id: "ex-5",
-        user_id: "user-1",
-        set_number: 1,
-        reps: 12,
-        weight_kg: 30,
-        duration_seconds: null,
-        is_warmup_set: false,
-        completed_at: "2026-10-24T12:00:00Z",
-      },
-    ]);
-
-    const result = await logSetCore(fake as LogSetClient, "user-1", {
-      sessionExerciseId: "ex-5",
-      setNumber: 1,
-      reps: 15,
-      weightKg: 35,
-      durationSeconds: null,
+  await test("any other insert error is reported", async () => {
+    const fake = db();
+    fake.beforeRequest = (req) =>
+      req.method === "POST" ? json(500, { code: "XX000", message: "Network error", details: null, hint: null }) : undefined;
+    const result = await logSetCore(fake.client, "user-1", {
+      sessionExerciseId: "ex-8", setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null,
     });
-
-    assertEqualCore(result.ok, false, "Should return conflict");
-    assertTrue(!result.ok && "reason" in result, "Result must have reason field");
-    // Type assertion: after assertTrue, we know result has these fields
-    const conflictResult = result as Extract<typeof result, { reason: "set_exists" }>;
-    assertEqualCore(conflictResult.reason, "set_exists", "Should have set_exists reason");
-    assertTrue("savedSets" in conflictResult && Array.isArray(conflictResult.savedSets), "Result must have savedSets array");
-    assertEqualCore(conflictResult.savedSets.length, 1, "Should return 1 saved set");
-    assertEqualCore(conflictResult.savedSets[0].reps, 12, "Should return existing reps");
-    assertEqualCore(conflictResult.savedSets[0].weightKg, 30, "Should return existing weight");
+    assert(!result.ok && "error" in result && result.error === "Network error", `got ${JSON.stringify(result)}`);
   });
 
-  // Test 6: No existing set → insert succeeds
-  await testLogSetCore("No existing set → insert succeeds", async () => {
-    const fake = createRecordingFakeClient([]);
-
-    const result = await logSetCore(fake as LogSetClient, "user-1", {
-      sessionExerciseId: "ex-6",
-      setNumber: 1,
-      reps: 10,
-      weightKg: 60,
-      durationSeconds: null,
-    });
-
-    assertEqualCore(result.ok, true, "Should succeed");
-    assertEqualCore(fake.wasInsertCalled(), true, "Insert should be called");
-    assertEqualCore(fake.wasUpsertCalled(), false, "Upsert should never be called");
-  });
-
-  // Test 7: Two-tab scenario - stale tab logs set 2 after fresh tab already saved it
-  await testLogSetCore("Two tabs: stale tab tries to log set 2 after fresh tab saved it", async () => {
-    // Simulate: fresh tab already saved set 2 with 12 reps @ 65kg
-    const existingSet = {
-      session_exercise_id: "ex-7",
-      user_id: "user-1",
-      set_number: 2,
-      reps: 12,
-      weight_kg: 65,
-      duration_seconds: null,
-      is_warmup_set: false,
-      completed_at: "2026-10-24T12:00:00Z",
-    };
-
-    // Stale tab doesn't know about this row (initial lookup returns null because it has stale cache),
-    // but insert will hit unique constraint (23505) because the row exists
-    const fake = createRecordingFakeClient([], { raceMode: true, racedSet: existingSet });
-
-    // Stale tab tries to log set 2 with different values: 10 reps @ 60kg
-    const result = await logSetCore(fake as LogSetClient, "user-1", {
-      sessionExerciseId: "ex-7",
-      setNumber: 2,
-      reps: 10,
-      weightKg: 60,
-      durationSeconds: null,
-    });
-
-    // Should return conflict with the existing row
-    assertEqualCore(result.ok, false, "Should return conflict");
-    assertTrue(!result.ok && "reason" in result, "Result must have reason field");
-    const conflictResult = result as Extract<typeof result, { reason: "set_exists" }>;
-    assertEqualCore(conflictResult.reason, "set_exists", "Should have set_exists reason");
-    assertTrue("savedSets" in conflictResult && Array.isArray(conflictResult.savedSets), "Result must have savedSets array");
-    assertTrue(conflictResult.savedSets.length > 0, "Should have at least one saved set");
-    
-    // Should return the existing row from the fresh tab, unchanged
-    assertEqualCore(conflictResult.savedSets[0].setNumber, 2, "Should return set number 2");
-    assertEqualCore(conflictResult.savedSets[0].reps, 12, "Should return existing 12 reps from fresh tab");
-    assertEqualCore(conflictResult.savedSets[0].weightKg, 65, "Should return existing 65kg from fresh tab");
-    
-    // Existing row should be unchanged (not overwritten by stale tab)
-    const calls = fake.getCalls();
-    const insertCall = calls.find((c) => c.method === "insert");
-    assertTrue(insertCall !== undefined, "Insert should have been called");
-    
-    // The 23505 error prevents the stale tab's values from being written
-    assertEqualCore(fake.wasUpsertCalled(), false, "Upsert should never be called");
-  });
-
-  // Summary
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
 }
 
-main();
+void main();

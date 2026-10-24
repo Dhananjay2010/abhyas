@@ -174,7 +174,7 @@ async function main() {
 
     const result = exercisesReducer(localState, { type: "merge", serverData });
 
-    // If mergeSets is NOT called (mutant), result would have only 2 sets (from server)
+    // If mergeSets is NOT called, result would have only 2 sets (from server)
     // With mergeSets called (correct), result keeps local set 3
     assertEqual(result[0].sets.length, 3, "mergeSets must be called to keep local set 3");
     assertEqual(result[0].sets[2].weightKg, 110, "Local set 3's weight must be preserved");

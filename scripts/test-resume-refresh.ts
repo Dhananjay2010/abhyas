@@ -10,6 +10,7 @@ import {
   attachResumeRefresh,
   type DocumentLike,
   type WindowLike,
+  type PageShowLike,
 } from "../src/lib/session/use-resume-refresh";
 
 let passed = 0;
@@ -79,33 +80,33 @@ async function main() {
   // Test 7: attachResumeRefresh calls refresh on mount
   await testResumeRefresh("attachResumeRefresh: calls refresh exactly once on mount", () => {
     let refreshCalled = 0;
-    const docListeners: Record<string, EventListener[]> = {};
-    const winListeners: Record<string, EventListener[]> = {};
+    const docListeners: Record<string, Array<() => void>> = {};
+    const winListeners: Record<string, Array<(event: PageShowLike) => void>> = {};
     
-    const fakeDoc = {
+    const fakeDoc: DocumentLike = {
       visibilityState: "visible",
-      addEventListener: (event: string, handler: EventListener) => {
+      addEventListener: (event: string, handler: () => void) => {
         if (!docListeners[event]) docListeners[event] = [];
         docListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: () => void) => {
         if (docListeners[event]) {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as DocumentLike;
+    };
 
-    const fakeWin = {
-      addEventListener: (event: string, handler: EventListener) => {
+    const fakeWin: WindowLike = {
+      addEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (!winListeners[event]) winListeners[event] = [];
         winListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (winListeners[event]) {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as WindowLike;
+    };
 
     attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -117,33 +118,33 @@ async function main() {
   // Test 8: attachResumeRefresh calls refresh on visibilitychange to visible (on doc)
   await testResumeRefresh("attachResumeRefresh: visibilitychange on doc (visible) calls refresh", () => {
     let refreshCalled = 0;
-    const docListeners: Record<string, EventListener[]> = {};
-    const winListeners: Record<string, EventListener[]> = {};
+    const docListeners: Record<string, Array<() => void>> = {};
+    const winListeners: Record<string, Array<(event: PageShowLike) => void>> = {};
     
-    const fakeDoc = {
+    const fakeDoc: DocumentLike = {
       visibilityState: "visible",
-      addEventListener: (event: string, handler: EventListener) => {
+      addEventListener: (event: string, handler: () => void) => {
         if (!docListeners[event]) docListeners[event] = [];
         docListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: () => void) => {
         if (docListeners[event]) {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as DocumentLike;
+    };
 
-    const fakeWin = {
-      addEventListener: (event: string, handler: EventListener) => {
+    const fakeWin: WindowLike = {
+      addEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (!winListeners[event]) winListeners[event] = [];
         winListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (winListeners[event]) {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as WindowLike;
+    };
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -151,7 +152,7 @@ async function main() {
 
     // Simulate visibilitychange on doc
     if (docListeners.visibilitychange) {
-      docListeners.visibilitychange[0](new Event("visibilitychange"));
+      docListeners.visibilitychange[0]();
     }
 
     assertEqualRefresh(refreshCalled, 2, "Should call refresh on mount + visibilitychange");
@@ -161,33 +162,33 @@ async function main() {
   // Test 9: attachResumeRefresh does not call refresh on visibilitychange to hidden
   await testResumeRefresh("attachResumeRefresh: visibilitychange on doc (hidden) does not call refresh", () => {
     let refreshCalled = 0;
-    const docListeners: Record<string, EventListener[]> = {};
-    const winListeners: Record<string, EventListener[]> = {};
+    const docListeners: Record<string, Array<() => void>> = {};
+    const winListeners: Record<string, Array<(event: PageShowLike) => void>> = {};
     
-    const fakeDoc = {
+    const fakeDoc: DocumentLike = {
       visibilityState: "hidden",
-      addEventListener: (event: string, handler: EventListener) => {
+      addEventListener: (event: string, handler: () => void) => {
         if (!docListeners[event]) docListeners[event] = [];
         docListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: () => void) => {
         if (docListeners[event]) {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as DocumentLike;
+    };
 
-    const fakeWin = {
-      addEventListener: (event: string, handler: EventListener) => {
+    const fakeWin: WindowLike = {
+      addEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (!winListeners[event]) winListeners[event] = [];
         winListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (winListeners[event]) {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as WindowLike;
+    };
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -195,7 +196,7 @@ async function main() {
 
     // Simulate visibilitychange to hidden on doc
     if (docListeners.visibilitychange) {
-      docListeners.visibilitychange[0](new Event("visibilitychange"));
+      docListeners.visibilitychange[0]();
     }
 
     assertEqualRefresh(refreshCalled, 1, "Should call refresh only on mount, not on visibilitychange hidden");
@@ -205,33 +206,33 @@ async function main() {
   // Test 10: attachResumeRefresh calls refresh on pageshow with persisted (on win)
   await testResumeRefresh("attachResumeRefresh: pageshow on win (persisted=true) calls refresh", () => {
     let refreshCalled = 0;
-    const docListeners: Record<string, EventListener[]> = {};
-    const winListeners: Record<string, EventListener[]> = {};
+    const docListeners: Record<string, Array<() => void>> = {};
+    const winListeners: Record<string, Array<(event: PageShowLike) => void>> = {};
     
-    const fakeDoc = {
+    const fakeDoc: DocumentLike = {
       visibilityState: "visible",
-      addEventListener: (event: string, handler: EventListener) => {
+      addEventListener: (event: string, handler: () => void) => {
         if (!docListeners[event]) docListeners[event] = [];
         docListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: () => void) => {
         if (docListeners[event]) {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as DocumentLike;
+    };
 
-    const fakeWin = {
-      addEventListener: (event: string, handler: EventListener) => {
+    const fakeWin: WindowLike = {
+      addEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (!winListeners[event]) winListeners[event] = [];
         winListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (winListeners[event]) {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as WindowLike;
+    };
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -239,7 +240,7 @@ async function main() {
 
     // Simulate pageshow with persisted on win
     if (winListeners.pageshow) {
-      const event = { persisted: true } as PageTransitionEvent;
+      const event: PageShowLike = { persisted: true };
       winListeners.pageshow[0](event);
     }
 
@@ -250,33 +251,33 @@ async function main() {
   // Test 11: BUG - pageshow dispatched on doc does NOT refresh (pageshow doesn't bubble)
   await testResumeRefresh("BUG: pageshow on doc (persisted=true) does NOT call refresh", () => {
     let refreshCalled = 0;
-    const docListeners: Record<string, EventListener[]> = {};
-    const winListeners: Record<string, EventListener[]> = {};
+    const docListeners: Record<string, Array<() => void>> = {};
+    const winListeners: Record<string, Array<(event: PageShowLike) => void>> = {};
     
-    const fakeDoc = {
+    const fakeDoc: DocumentLike = {
       visibilityState: "visible",
-      addEventListener: (event: string, handler: EventListener) => {
+      addEventListener: (event: string, handler: () => void) => {
         if (!docListeners[event]) docListeners[event] = [];
         docListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: () => void) => {
         if (docListeners[event]) {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as DocumentLike;
+    };
 
-    const fakeWin = {
-      addEventListener: (event: string, handler: EventListener) => {
+    const fakeWin: WindowLike = {
+      addEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (!winListeners[event]) winListeners[event] = [];
         winListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (winListeners[event]) {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as WindowLike;
+    };
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -284,8 +285,7 @@ async function main() {
 
     // Simulate pageshow on doc (wrong target - should not trigger)
     if (docListeners.pageshow) {
-      const event = { persisted: true } as PageTransitionEvent;
-      docListeners.pageshow[0](event);
+      docListeners.pageshow[0]();
     }
 
     assertEqualRefresh(refreshCalled, 1, "Should only call refresh on mount, not on pageshow on doc");
@@ -295,33 +295,33 @@ async function main() {
   // Test 12: visibilitychange on win does nothing (visibilitychange is on document)
   await testResumeRefresh("BUG: visibilitychange on win does NOT call refresh", () => {
     let refreshCalled = 0;
-    const docListeners: Record<string, EventListener[]> = {};
-    const winListeners: Record<string, EventListener[]> = {};
+    const docListeners: Record<string, Array<() => void>> = {};
+    const winListeners: Record<string, Array<(event: PageShowLike) => void>> = {};
     
-    const fakeDoc = {
+    const fakeDoc: DocumentLike = {
       visibilityState: "visible",
-      addEventListener: (event: string, handler: EventListener) => {
+      addEventListener: (event: string, handler: () => void) => {
         if (!docListeners[event]) docListeners[event] = [];
         docListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: () => void) => {
         if (docListeners[event]) {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as DocumentLike;
+    };
 
-    const fakeWin = {
-      addEventListener: (event: string, handler: EventListener) => {
+    const fakeWin: WindowLike = {
+      addEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (!winListeners[event]) winListeners[event] = [];
         winListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (winListeners[event]) {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as WindowLike;
+    };
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {
       refreshCalled++;
@@ -329,7 +329,7 @@ async function main() {
 
     // Simulate visibilitychange on win (wrong target - should not trigger)
     if (winListeners.visibilitychange) {
-      winListeners.visibilitychange[0](new Event("visibilitychange"));
+      winListeners.visibilitychange[0]({ persisted: false });
     }
 
     assertEqualRefresh(refreshCalled, 1, "Should only call refresh on mount, not on visibilitychange on win");
@@ -338,33 +338,33 @@ async function main() {
 
   // Test 13: cleanup removes both listeners from their respective targets
   await testResumeRefresh("attachResumeRefresh: cleanup removes both listeners from correct targets", () => {
-    const docListeners: Record<string, EventListener[]> = {};
-    const winListeners: Record<string, EventListener[]> = {};
+    const docListeners: Record<string, Array<() => void>> = {};
+    const winListeners: Record<string, Array<(event: PageShowLike) => void>> = {};
     
-    const fakeDoc = {
+    const fakeDoc: DocumentLike = {
       visibilityState: "visible",
-      addEventListener: (event: string, handler: EventListener) => {
+      addEventListener: (event: string, handler: () => void) => {
         if (!docListeners[event]) docListeners[event] = [];
         docListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: () => void) => {
         if (docListeners[event]) {
           docListeners[event] = docListeners[event].filter((h) => h !== handler);
         }
       },
-    } as DocumentLike;
+    };
 
-    const fakeWin = {
-      addEventListener: (event: string, handler: EventListener) => {
+    const fakeWin: WindowLike = {
+      addEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (!winListeners[event]) winListeners[event] = [];
         winListeners[event].push(handler);
       },
-      removeEventListener: (event: string, handler: EventListener) => {
+      removeEventListener: (event: string, handler: (event: PageShowLike) => void) => {
         if (winListeners[event]) {
           winListeners[event] = winListeners[event].filter((h) => h !== handler);
         }
       },
-    } as WindowLike;
+    };
 
     const cleanup = attachResumeRefresh({ doc: fakeDoc, win: fakeWin }, () => {});
 
