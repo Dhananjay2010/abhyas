@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { effectiveRepsMax } from "./effective-target";
 
 type Enums = Database["public"]["Enums"];
@@ -304,7 +305,11 @@ export function evaluateProgression(input: {
     if (heaviest === 0) {
       const canProgressVariation = meta.isBodyweight && meta.progressionChain !== null;
       const step = isTimed ? HOLD_STEP_SECONDS : 2;
-      const nextTarget = (state.currentTargetReps ?? repsMax) + step;
+      // Use max(currentTargetReps, repsMax) to prevent stale lower targets from progressing
+      const baseTarget = meta.isBodyweight 
+        ? Math.max(state.currentTargetReps ?? repsMax, repsMax)
+        : (state.currentTargetReps ?? repsMax);
+      const nextTarget = baseTarget + step;
       // Reps run out of usefulness relative to the range they started in; a
       // hold runs out at an absolute length, whatever it was prescribed at.
       const ceiling = isTimed ? HOLD_CEILING_SECONDS : repsMax + 4;
@@ -454,7 +459,7 @@ export function suggestedWeight(
  * are cleared and the next evaluation uses the new plan's range.
  */
 export async function resetProgressionTargets(
-  supabase: { from: (table: string) => any },
+  supabase: SupabaseClient<Database>,
   userId: string,
 ): Promise<void> {
   await supabase

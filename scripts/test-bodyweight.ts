@@ -47,6 +47,7 @@ console.log("\nPull-ups and dips with added weight follow bodyweight rules");
     isBodyweight: true,
     progressionChain: null,
     progressionRank: null,
+    equipmentIds: [],
   };
 
   const fresh = (): ProgressState => ({

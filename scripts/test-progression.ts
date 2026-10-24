@@ -26,6 +26,7 @@ const BENCH: ExerciseMeta = {
   isBodyweight: false,
   progressionChain: null,
   progressionRank: null,
+  equipmentIds: [],
 };
 const SQUAT: ExerciseMeta = { ...BENCH, movementPattern: "squat" };
 const CURL: ExerciseMeta = { ...BENCH, mechanic: "isolation", movementPattern: "biceps" };
@@ -36,6 +37,7 @@ const PUSHUP: ExerciseMeta = {
   isBodyweight: true,
   progressionChain: "push",
   progressionRank: 1,
+  equipmentIds: [],
 };
 
 const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
@@ -232,7 +234,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     movementPattern: "core",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
   const PLANK_CHAINED: ExerciseMeta = { ...PLANK, progressionChain: "plank" };
 
@@ -359,7 +361,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     movementPattern: "core",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
   const PUSHUP_BW: ExerciseMeta = {
     mechanic: "compound",
@@ -367,7 +369,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     movementPattern: "horizontal_press",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
 
   const heavier = run({ sets: sets(4, 12, 65) });
@@ -445,7 +447,7 @@ console.log("\nBodyweight exercises with added weight");
     movementPattern: "squat",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
   // Isolation bodyweight: 1.25 kg step regardless of pattern.
   const LEG_RAISE_BW: ExerciseMeta = {
@@ -454,7 +456,7 @@ console.log("\nBodyweight exercises with added weight");
     movementPattern: "core",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
   const lower = run({
     meta: SQUAT_BW,
@@ -487,7 +489,7 @@ console.log("\nBodyweight exercises with added weight");
     movementPattern: "horizontal_press",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
   const upper = run({
     meta: PUSHUP_LOADED,
@@ -575,7 +577,7 @@ console.log("\nIssue 1: After back-off to 0, next success uses actual weight lif
     movementPattern: "squat",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
   const PUSHUP_LOADED: ExerciseMeta = {
     mechanic: "compound",
@@ -583,7 +585,7 @@ console.log("\nIssue 1: After back-off to 0, next success uses actual weight lif
     movementPattern: "horizontal_press",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
   
   // Upper-body: 4x12 with 5 kg should give 6.25 kg (5 + 1.25), not 2.5 kg (0 + 2.5).
@@ -613,7 +615,7 @@ console.log("\nIssue 2: Two misses subtract two steps, not straight to 0");
     movementPattern: "squat",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
   const PUSHUP_LOADED: ExerciseMeta = {
     mechanic: "compound",
@@ -621,7 +623,7 @@ console.log("\nIssue 2: Two misses subtract two steps, not straight to 0");
     movementPattern: "horizontal_press",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
 
   // Lower-body: 30 kg goes to 25 kg (30 - 2.5*2), not 0.
@@ -710,7 +712,7 @@ console.log("\nIssue 3: Off-grid weights snap to grid on success");
     movementPattern: "horizontal_press",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
 
   // 12 kg upper goes to 12.5 kg (next grid multiple), not 13.25 kg (12 + 1.25).
@@ -740,7 +742,7 @@ console.log("\nIssue 4: Deload reduces small added weights, can reach 0");
     movementPattern: "squat",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
   const PUSHUP_LOADED: ExerciseMeta = {
     mechanic: "compound",
@@ -748,7 +750,7 @@ console.log("\nIssue 4: Deload reduces small added weights, can reach 0");
     movementPattern: "horizontal_press",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null,
+    progressionRank: null, equipmentIds: [],
   };
 
   // 1.25 kg upper deload: roundTo(1.25 * 0.7, 1.25) = 1.25, >= 1.25 so w-step = 0 → null.
@@ -906,14 +908,14 @@ console.log("\neffectiveRepsMax unification: page and evaluator agree on target"
     loadedWrongTarget.outcome === "progressed",
     `outcome=${loadedWrongTarget.outcome}`);
 
-  // Guard: dropping isBodyweight condition must fail.
+  // Guard: max(progressed, planned) means stale lower target 10 requires 12 for success.
   const bodyweightWrongTarget = run({
     meta: PUSHUP,
     sets: sets(4, 10, null),
     state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 10 }),
   });
-  check("bodyweight must succeed at progressed target 10, NOT planned 12",
-    bodyweightWrongTarget.outcome === "progressed",
+  check("bodyweight with stale target 10 does NOT succeed at 10, requires 12 (max guard)",
+    bodyweightWrongTarget.outcome === "hold",
     `outcome=${bodyweightWrongTarget.outcome}`);
 }
 

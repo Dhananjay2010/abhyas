@@ -62,12 +62,12 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     return { ok: false, error: "At least one day a week has to be training." };
   }
 
-  // Reset progression targets if goal, level, days_per_week, or track changed
+  // Reset progression targets if goal, level, days_per_week, or primary_track changed
   const resetsProgression =
     patch.goal !== undefined ||
     patch.level !== undefined ||
     patch.days_per_week !== undefined ||
-    patch.track !== undefined;
+    patch.primary_track !== undefined;
 
   if (resetsProgression) {
     await resetProgressionTargets(supabase, user.id);
