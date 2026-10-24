@@ -78,6 +78,7 @@ async function runTests(): Promise<TestResult[]> {
         initial={initialState}
         equipment={equipment}
         timezones={timezones}
+        userId="test-user-123"
         actions={actions}
       />
     );
@@ -142,6 +143,7 @@ async function runTests(): Promise<TestResult[]> {
         initial={initialState}
         equipment={equipment}
         timezones={timezones}
+        userId="test-user-123"
         actions={actions}
       />
     );
@@ -203,6 +205,7 @@ async function runTests(): Promise<TestResult[]> {
         initial={initialState}
         equipment={equipment}
         timezones={timezones}
+        userId="test-user-123"
         actions={actions}
       />
     );
@@ -269,6 +272,7 @@ async function runTests(): Promise<TestResult[]> {
         initial={initialState}
         equipment={equipment}
         timezones={timezones}
+        userId="test-user-123"
         actions={actions}
       />
     );
@@ -333,6 +337,7 @@ async function runTests(): Promise<TestResult[]> {
         initial={initialState}
         equipment={equipment}
         timezones={timezones}
+        userId="test-user-123"
         actions={actions}
       />
     );
@@ -413,6 +418,7 @@ async function runTests(): Promise<TestResult[]> {
         initial={testState}
         equipment={equipment}
         timezones={timezones}
+        userId="test-user-123"
         actions={actions}
       />
     );
@@ -447,7 +453,7 @@ async function runTests(): Promise<TestResult[]> {
       }
       
       // Both saves should have stashed
-      const pending = getPendingChanges();
+      const pending = getPendingChanges('test-user-123');
       const hasBoth = pending !== null && pending.changes.length >= 2;
       const hasSession = pending?.changes.some(ch => ch.type === 'session');
       const hasEquipment = pending?.changes.some(ch => ch.type === 'equipment');
@@ -512,6 +518,7 @@ async function runTests(): Promise<TestResult[]> {
         initial={testState}
         equipment={equipment}
         timezones={timezones}
+        userId="test-user-123"
         actions={actions}
       />
     );
@@ -546,7 +553,7 @@ async function runTests(): Promise<TestResult[]> {
       }
       
       // Both saves should have stashed
-      const pending = getPendingChanges();
+      const pending = getPendingChanges('test-user-123');
       const hasBoth = pending !== null && pending.changes.length >= 2;
       const hasSession = pending?.changes.some(ch => ch.type === 'session');
       const hasEquipment = pending?.changes.some(ch => ch.type === 'equipment');
@@ -599,7 +606,7 @@ async function runTests(): Promise<TestResult[]> {
         patch: { hasAll: false, equipmentIds: ['barbell'] },
         timestamp: Date.now()
       }
-    ], '/settings');
+    ], '/settings', 'test-user-123');
     
     const testState: SettingsState = {
       ...initialState,
@@ -634,6 +641,7 @@ async function runTests(): Promise<TestResult[]> {
           initial={testState}
           equipment={equipment}
           timezones={timezones}
+          userId="test-user-123"
           actions={actions}
         />
       );
@@ -667,7 +675,7 @@ async function runTests(): Promise<TestResult[]> {
       (equipmentCalls[0] as { hasAll: boolean; equipmentIds: string[] }).equipmentIds.includes('barbell');
     
     // Stash should be cleared after successful restoration
-    const pendingAfter = getPendingChanges();
+    const pendingAfter = getPendingChanges('test-user-123');
     const stashCleared = pendingAfter === null;
 
     const passed = sessionCalledOnce && equipmentCalledOnce &&
@@ -696,7 +704,7 @@ async function runTests(): Promise<TestResult[]> {
         patch: { cooldown_enabled: false },
         timestamp: Date.now()
       }
-    ], '/settings');
+    ], '/settings', 'test-user-123');
     
     const testState: SettingsState = {
       ...initialState,
@@ -726,6 +734,7 @@ async function runTests(): Promise<TestResult[]> {
           initial={testState}
           equipment={equipment}
           timezones={timezones}
+          userId="test-user-123"
           actions={actions}
         />
       );
@@ -739,7 +748,7 @@ async function runTests(): Promise<TestResult[]> {
     }, { timeout: 3000 });
 
     // Stash should NOT be cleared (session expired again)
-    const pendingAfter = getPendingChanges();
+    const pendingAfter = getPendingChanges('test-user-123');
     const stashKept = pendingAfter !== null && pendingAfter.changes.length === 1;
     const hasCorrectChange = pendingAfter?.changes[0]?.key === 'cooldown_enabled';
 
@@ -772,7 +781,7 @@ async function runTests(): Promise<TestResult[]> {
         patch: { hasAll: false, equipmentIds: ['barbell'] },
         timestamp: Date.now()
       }
-    ], '/settings');
+    ], '/settings', 'test-user-123');
     
     const testState: SettingsState = {
       ...initialState,

@@ -19,6 +19,7 @@ export interface PendingChange {
 export interface PendingChangesPayload {
   changes: PendingChange[];
   returnPath: string;
+  userId?: string;
 }
 
 function isStorageAvailable(): boolean {
@@ -35,7 +36,7 @@ function isStorageAvailable(): boolean {
   }
 }
 
-export function stashPendingChanges(changes: PendingChange[], returnPath: string): boolean {
+export function stashPendingChanges(changes: PendingChange[], returnPath: string, userId?: string): boolean {
   if (!isStorageAvailable()) {
     return false;
   }
@@ -49,7 +50,8 @@ export function stashPendingChanges(changes: PendingChange[], returnPath: string
         affectsPlan: ch.affectsPlan,
         timestamp: ch.timestamp || Date.now()
       })),
-      returnPath
+      returnPath,
+      userId
     };
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     return true;
@@ -58,7 +60,7 @@ export function stashPendingChanges(changes: PendingChange[], returnPath: string
   }
 }
 
-export function getPendingChanges(): PendingChangesPayload | null {
+export function getPendingChanges(currentUserId?: string): PendingChangesPayload | null {
   if (!isStorageAvailable()) {
     return null;
   }
@@ -70,6 +72,19 @@ export function getPendingChanges(): PendingChangesPayload | null {
     }
 
     const payload: PendingChangesPayload = JSON.parse(raw);
+    
+    // Drop stash if userId doesn't match (or if legacy stash has no userId)
+    if (currentUserId && payload.userId !== currentUserId) {
+      clearPendingChanges();
+      return null;
+    }
+    
+    // Drop legacy stash (no userId field) as a security precaution
+    if (!payload.userId) {
+      clearPendingChanges();
+      return null;
+    }
+
     const now = Date.now();
     
     const validChanges = payload.changes.filter(ch => {
@@ -83,7 +98,8 @@ export function getPendingChanges(): PendingChangesPayload | null {
 
     return {
       changes: validChanges,
-      returnPath: payload.returnPath
+      returnPath: payload.returnPath,
+      userId: payload.userId
     };
   } catch {
     clearPendingChanges();

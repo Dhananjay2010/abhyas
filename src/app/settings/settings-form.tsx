@@ -101,11 +101,13 @@ export function SettingsForm({
   initial,
   equipment,
   timezones,
+  userId,
   actions = REAL_ACTIONS,
 }: {
   initial: SettingsState;
   equipment: EquipmentRow[];
   timezones: string[];
+  userId?: string;
   actions?: SettingsActions;
 }) {
   const [pending, startTransition] = useTransition();
@@ -242,7 +244,7 @@ export function SettingsForm({
 
   const restorePendingChanges = useEffectEvent(() => {
     // Re-apply each stashed save through the real restore helper
-    const pending = getPendingChanges();
+    const pending = getPendingChanges(userId);
     if (!pending || pending.returnPath !== pathname) {
       return;
     }
@@ -563,7 +565,7 @@ export function SettingsForm({
           const metadata = retryMetadata.current.get(key);
           if (metadata) {
             // Accumulate with existing pending changes
-            const existing = getPendingChanges();
+            const existing = getPendingChanges(userId);
             const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
             const newChange = {
               key,
@@ -574,7 +576,7 @@ export function SettingsForm({
             };
             // Replace if same key exists, otherwise append
             const merged = existingChanges.filter(ch => ch.key !== key).concat(newChange);
-            stashPendingChanges(merged, pathname);
+            stashPendingChanges(merged, pathname, userId);
           }
           notifySessionExpired();
           return;
@@ -617,7 +619,7 @@ export function SettingsForm({
           const metadata = retryMetadata.current.get(key);
           if (metadata) {
             // Accumulate with existing pending changes
-            const existing = getPendingChanges();
+            const existing = getPendingChanges(userId);
             const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
             const newChange = {
               key,
@@ -628,7 +630,7 @@ export function SettingsForm({
             };
             // Replace if same key exists, otherwise append
             const merged = existingChanges.filter(ch => ch.key !== key).concat(newChange);
-            stashPendingChanges(merged, pathname);
+            stashPendingChanges(merged, pathname, userId);
           }
           notifySessionExpired();
           return;
@@ -763,7 +765,7 @@ export function SettingsForm({
           const metadata = retryMetadata.current.get("equipment");
           if (metadata) {
             // Accumulate with existing pending changes
-            const existing = getPendingChanges();
+            const existing = getPendingChanges(userId);
             const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
             const newChange = {
               key: "equipment",
@@ -773,7 +775,7 @@ export function SettingsForm({
             };
             // Replace if same key exists, otherwise append
             const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
-            stashPendingChanges(merged, pathname);
+            stashPendingChanges(merged, pathname, userId);
           }
           notifySessionExpired();
           return;
@@ -820,7 +822,7 @@ export function SettingsForm({
           const metadata = retryMetadata.current.get("equipment");
           if (metadata) {
             // Accumulate with existing pending changes
-            const existing = getPendingChanges();
+            const existing = getPendingChanges(userId);
             const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
             const newChange = {
               key: "equipment",
@@ -830,7 +832,7 @@ export function SettingsForm({
             };
             // Replace if same key exists, otherwise append
             const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
-            stashPendingChanges(merged, pathname);
+            stashPendingChanges(merged, pathname, userId);
           }
           notifySessionExpired();
           return;
@@ -1059,7 +1061,7 @@ export function SettingsForm({
                 if (isSessionExpired(result)) {
                   const metadata = retryMetadata.current.get("equipment");
                   if (metadata) {
-                    const existing = getPendingChanges();
+                    const existing = getPendingChanges(userId);
                     const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                     const newChange = {
                       key: "equipment",
@@ -1068,7 +1070,7 @@ export function SettingsForm({
                       timestamp: Date.now()
                     };
                     const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
-                    stashPendingChanges(merged, pathname);
+                    stashPendingChanges(merged, pathname, userId);
                   }
                   notifySessionExpired();
                   return;
@@ -1100,7 +1102,7 @@ export function SettingsForm({
                 if (isSessionExpired(err)) {
                   const metadata = retryMetadata.current.get("equipment");
                   if (metadata) {
-                    const existing = getPendingChanges();
+                    const existing = getPendingChanges(userId);
                     const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                     const newChange = {
                       key: "equipment",
@@ -1109,7 +1111,7 @@ export function SettingsForm({
                       timestamp: Date.now()
                     };
                     const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
-                    stashPendingChanges(merged, pathname);
+                    stashPendingChanges(merged, pathname, userId);
                   }
                   notifySessionExpired();
                   return;
@@ -1212,16 +1214,16 @@ export function SettingsForm({
                               if (isSessionExpired(result)) {
                                 const metadata = retryMetadata.current.get("equipment");
                                 if (metadata) {
-                                  const existing = getPendingChanges();
+                                  const existing = getPendingChanges(userId);
                                   const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                                   const newChange = {
                                     key: "equipment",
-                                    type: metadata.type,
-                                    patch: metadata.patch,
+                                    type: "equipment" as SaveType,
+                                    patch: { operation: 'setItem' as const, equipmentId, enabled: newState },
                                     timestamp: Date.now()
                                   };
                                   const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
-                                  stashPendingChanges(merged, pathname);
+                                  stashPendingChanges(merged, pathname, userId);
                                 }
                                 notifySessionExpired();
                                 return;
@@ -1250,16 +1252,16 @@ export function SettingsForm({
                               if (isSessionExpired(err)) {
                                 const metadata = retryMetadata.current.get("equipment");
                                 if (metadata) {
-                                  const existing = getPendingChanges();
+                                  const existing = getPendingChanges(userId);
                                   const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
                                   const newChange = {
                                     key: "equipment",
-                                    type: metadata.type,
-                                    patch: metadata.patch,
+                                    type: "equipment" as SaveType,
+                                    patch: { operation: 'setItem' as const, equipmentId, enabled: newState },
                                     timestamp: Date.now()
                                   };
                                   const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
-                                  stashPendingChanges(merged, pathname);
+                                  stashPendingChanges(merged, pathname, userId);
                                 }
                                 notifySessionExpired();
                                 return;
