@@ -28,14 +28,14 @@ import {
   type Result,
 } from "./actions";
 import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
-import { createSaveQueue, type SupersededResult } from "./save-queue";
+import { createSaveQueue } from "./save-queue";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
 import { DobInput } from "@/components/onboarding/dob-input";
 import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
 import { isSessionExpired } from "@/lib/auth/session-expired";
 import { useSessionExpiredPrompt, notifySessionExpired } from "@/components/session-expired-prompt";
-import { stashPendingChanges, getPendingChanges, clearPendingChanges, type PendingChange } from "@/lib/auth/pending-changes";
+import { stashPendingChanges, getPendingChanges, clearPendingChanges } from "@/lib/auth/pending-changes";
 import { usePathname } from "next/navigation";
 
 /** Injected so the form can be exercised without a signed-in session. */
@@ -245,7 +245,9 @@ export function SettingsForm({
         const equipPatch = patch as { hasAll: boolean; equipmentIds: string[] };
         saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
       } else if (type === 'injuries' && Array.isArray(patch)) {
-        saveInjuries(patch as Parameters<typeof actions.updateInjuries>[0]);
+        // Re-enqueue injuries save directly
+        retryMetadata.current.set("injuries", { type: 'injuries', patch });
+        enqueueSave("injuries", () => actions.updateInjuries(patch as Parameters<typeof actions.updateInjuries>[0]), true);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
