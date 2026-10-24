@@ -52,7 +52,7 @@ function makeFakeFinishSessionDeps(
       if (readError) return { data: null, error: readError };
       return { data: exercises, error: null };
     },
-    async updateSession(_id: string, _patch: any) {
+    async updateSession(_id: string, _patch: unknown) {
       calls.push({ method: "update", filters: { status: "in_progress" } });
       if (updateError) return { error: updateError, updatedCount: 0 };
       return { error: null, updatedCount: updateCount ?? 1 };

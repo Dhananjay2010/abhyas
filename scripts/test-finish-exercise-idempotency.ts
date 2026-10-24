@@ -75,7 +75,7 @@ function createProgressionSpy() {
 
   return {
     fn: async (
-      _supabase: any,
+      _supabase: unknown,
       userId: string,
       sessionExerciseId: string,
       feel: string | null,
