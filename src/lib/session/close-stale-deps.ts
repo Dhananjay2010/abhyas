@@ -1,3 +1,8 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
+
+type SessionsUpdate = Database["public"]["Tables"]["sessions"]["Update"];
+
 export type SessionExerciseRow = {
   session_id: string;
   session_sets: Array<{
@@ -13,57 +18,51 @@ export type CloseStaleDeps = {
   markPlannedSkipped: (id: string) => Promise<void>;
 };
 
-export interface CloseStaleClient {
-  from<T extends string>(table: T): T extends "session_exercises" 
-    ? {
-        select(columns: string): {
-          in(column: string, values: string[]): PromiseLike<{
-            data: SessionExerciseRow[] | null;
-            error: Error | null;
-          }>;
-        };
-      }
-    : T extends "sessions"
-    ? {
-        update(data: Record<string, unknown>, options?: { count?: "exact" | "estimated" | "planned" }): {
-          eq(column: string, value: string): {
-            eq(column: string, value: string): PromiseLike<{
-              error: Error | null;
-              count: number | null;
-            }>;
-          };
-        };
-      }
-    : never;
-}
+export type CloseStaleQueries = {
+  selectSessionSets(ids: string[]): PromiseLike<{ data: SessionExerciseRow[] | null; error: Error | null }>;
+  updateSessionIfStatus(
+    id: string,
+    guardStatus: "in_progress" | "planned",
+    values: SessionsUpdate
+  ): PromiseLike<{ error: Error | null; count: number | null }>;
+};
 
-export function buildCloseStaleDeps(supabase: CloseStaleClient): CloseStaleDeps {
+export function supabaseCloseStaleQueries(supabase: SupabaseClient<Database>): CloseStaleQueries {
   return {
-    fetchSessionExercises: async (sessionIds: string[]) => {
-      const { data, error } = await supabase
+    selectSessionSets: (ids) =>
+      supabase
         .from("session_exercises")
         .select("session_id, session_sets(id, is_warmup_set, completed_at)")
-        .in("session_id", sessionIds);
+        .in("session_id", ids),
+    updateSessionIfStatus: (id, guardStatus, values) =>
+      supabase.from("sessions").update(values, { count: "exact" }).eq("id", id).eq("status", guardStatus),
+  };
+}
+
+export function buildCloseStaleDeps(queries: CloseStaleQueries): CloseStaleDeps {
+  return {
+    fetchSessionExercises: async (sessionIds: string[]) => {
+      const { data, error } = await queries.selectSessionSets(sessionIds);
       
       if (error) throw error;
       return data ?? [];
     },
     markSessionDone: async (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number | null) => {
-      const { error, count } = await supabase
-        .from("sessions")
-        .update({ status, completed_at: completedAt, duration_seconds: durationSeconds }, { count: "exact" })
-        .eq("id", id)
-        .eq("status", "in_progress");
+      const guardStatus = "in_progress";
+      const values: SessionsUpdate = { 
+        status, 
+        completed_at: completedAt, 
+        duration_seconds: durationSeconds 
+      };
+      const { error, count } = await queries.updateSessionIfStatus(id, guardStatus, values);
       
       if (error) throw error;
       return (count ?? 0) > 0;
     },
     markPlannedSkipped: async (id: string) => {
-      const { error } = await supabase
-        .from("sessions")
-        .update({ status: "skipped" })
-        .eq("id", id)
-        .eq("status", "planned");
+      const guardStatus = "planned";
+      const values: SessionsUpdate = { status: "skipped" };
+      const { error } = await queries.updateSessionIfStatus(id, guardStatus, values);
       
       if (error) throw error;
     },

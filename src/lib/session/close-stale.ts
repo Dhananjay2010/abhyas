@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
-import { buildCloseStaleDeps, type CloseStaleClient } from "./close-stale-deps";
+import { buildCloseStaleDeps, supabaseCloseStaleQueries } from "./close-stale-deps";
 import type { CloseStaleDeps } from "./close-stale-deps";
 import { secondsSinceIso } from "@/lib/dates";
 
@@ -60,7 +60,8 @@ export async function closeStaleSessions(
   open: OpenSession[],
   today: string,
 ): Promise<number> {
-  const deps: CloseStaleDeps = buildCloseStaleDeps(supabase as unknown as CloseStaleClient);
+  const queries = supabaseCloseStaleQueries(supabase);
+  const deps: CloseStaleDeps = buildCloseStaleDeps(queries);
   return closeStaleSessionsCore(deps, open, Date.now(), today);
 }
 

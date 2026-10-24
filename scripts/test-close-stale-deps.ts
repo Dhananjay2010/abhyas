@@ -7,11 +7,15 @@
  *   npx tsx scripts/test-close-stale-deps.ts
  */
 
-import { buildCloseStaleDeps, type CloseStaleClient, type SessionExerciseRow } from "../src/lib/session/close-stale-deps";
+import { buildCloseStaleDeps, type CloseStaleQueries, type SessionExerciseRow } from "../src/lib/session/close-stale-deps";
 
-type UpdateOptions = { count?: "exact" | "estimated" | "planned" };
+type SessionsUpdate = {
+  status?: string;
+  completed_at?: string | null;
+  duration_seconds?: number | null;
+};
 
-class FakeSupabaseClient implements CloseStaleClient {
+class FakeCloseStaleQueries implements CloseStaleQueries {
   private sessions = new Map<string, { 
     id: string; 
     status: string; 
@@ -21,8 +25,8 @@ class FakeSupabaseClient implements CloseStaleClient {
   
   private sessionExercises = new Map<string, SessionExerciseRow[]>();
 
-  lastUpdateFilters: Record<string, string> = {};
-  lastUpdateOptions: UpdateOptions = {};
+  lastUpdateGuardStatus: string | null = null;
+  lastUpdateValues: SessionsUpdate = {};
 
   setSession(id: string, status: string) {
     this.sessions.set(id, {
@@ -41,67 +45,30 @@ class FakeSupabaseClient implements CloseStaleClient {
     this.sessionExercises.set(sessionId, exercises);
   }
 
-  from(table: "sessions"): {
-    update(data: Record<string, unknown>, options?: UpdateOptions): {
-      eq(column: string, value: string): {
-        eq(col2: string, val2: string): Promise<{ error: Error | null; count: number | null }>;
-      };
-    };
-  };
-  from(table: "session_exercises"): {
-    select(): {
-      in(_column: string, values: string[]): Promise<{ data: SessionExerciseRow[] | null; error: Error | null }>;
-    };
-  };
-  from(table: string): unknown {
-    if (table === "sessions") {
-      return {
-        update: (data: Record<string, unknown>, options?: UpdateOptions) => {
-          this.lastUpdateOptions = options ?? {};
-          return {
-            eq: (column: string, value: string) => {
-              this.lastUpdateFilters[column] = value;
-              return {
-                eq: async (col2: string, val2: string) => {
-                  this.lastUpdateFilters[col2] = val2;
-                  
-                  const sessionId = this.lastUpdateFilters["id"];
-                  const statusFilter = this.lastUpdateFilters["status"];
-                  
-                  if (!sessionId) {
-                    return { error: null, count: options?.count === "exact" ? 0 : null };
-                  }
-                  
-                  const session = this.sessions.get(sessionId);
-                  if (!session) {
-                    return { error: null, count: options?.count === "exact" ? 0 : null };
-                  }
-                  
-                  if (statusFilter && session.status !== statusFilter) {
-                    return { error: null, count: options?.count === "exact" ? 0 : null };
-                  }
-                  
-                  Object.assign(session, data);
-                  return { 
-                    error: null, 
-                    count: options?.count === "exact" ? 1 : null 
-                  };
-                }
-              };
-            }
-          };
-        }
-      };
-    } else {
-      return {
-        select: () => ({
-          in: async (_column: string, values: string[]) => {
-            const result = values.flatMap(id => this.sessionExercises.get(id) ?? []);
-            return { data: result, error: null };
-          }
-        })
-      };
+  async selectSessionSets(ids: string[]): Promise<{ data: SessionExerciseRow[] | null; error: Error | null }> {
+    const result = ids.flatMap(id => this.sessionExercises.get(id) ?? []);
+    return { data: result, error: null };
+  }
+
+  async updateSessionIfStatus(
+    id: string,
+    guardStatus: "in_progress" | "planned",
+    values: SessionsUpdate
+  ): Promise<{ error: Error | null; count: number | null }> {
+    this.lastUpdateGuardStatus = guardStatus;
+    this.lastUpdateValues = values;
+
+    const session = this.sessions.get(id);
+    if (!session) {
+      return { error: null, count: 0 };
     }
+
+    if (session.status !== guardStatus) {
+      return { error: null, count: 0 };
+    }
+
+    Object.assign(session, values);
+    return { error: null, count: 1 };
   }
 }
 
@@ -115,7 +82,7 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\n1. markSessionDone returns true when status guard matches");
 {
-  const fake = new FakeSupabaseClient();
+  const fake = new FakeCloseStaleQueries();
   fake.setSession("sess1", "in_progress");
   
   const deps = buildCloseStaleDeps(fake);
@@ -123,25 +90,27 @@ console.log("\n1. markSessionDone returns true when status guard matches");
   
   check("updated in_progress session", result === true);
   check("session is now completed", fake.getSession("sess1")?.status === "completed");
-  check("count option was passed", fake.lastUpdateOptions.count === "exact");
-  check("status filter was applied", fake.lastUpdateFilters.status === "in_progress");
+  check("guard status was in_progress", fake.lastUpdateGuardStatus === "in_progress");
+  check("values contain status", fake.lastUpdateValues.status === "completed");
+  check("values contain completed_at", fake.lastUpdateValues.completed_at === "2026-10-24T10:00:00Z");
+  check("values contain duration_seconds", fake.lastUpdateValues.duration_seconds === 3600);
 }
 
 console.log("\n2. markSessionDone returns false when status guard blocks (race condition)");
 {
-  const fake = new FakeSupabaseClient();
+  const fake = new FakeCloseStaleQueries();
   fake.setSession("race", "completed");
   
   const deps = buildCloseStaleDeps(fake);
   const result = await deps.markSessionDone("race", "completed", "2026-10-24T10:00:00Z", 3600);
   
   check("did not update completed session", result === false);
-  check("status filter was applied", fake.lastUpdateFilters.status === "in_progress");
+  check("guard status was in_progress", fake.lastUpdateGuardStatus === "in_progress");
 }
 
 console.log("\n3. markSessionDone returns false for non-existent session");
 {
-  const fake = new FakeSupabaseClient();
+  const fake = new FakeCloseStaleQueries();
   
   const deps = buildCloseStaleDeps(fake);
   const result = await deps.markSessionDone("missing", "completed", "2026-10-24T10:00:00Z", 3600);
@@ -151,7 +120,7 @@ console.log("\n3. markSessionDone returns false for non-existent session");
 
 console.log("\n4. fetchSessionExercises calls correct table and columns");
 {
-  const fake = new FakeSupabaseClient();
+  const fake = new FakeCloseStaleQueries();
   fake.setSessionExercises("sess1", [
     {
       session_id: "sess1",
@@ -171,7 +140,7 @@ console.log("\n4. fetchSessionExercises calls correct table and columns");
 
 console.log("\n5. markPlannedSkipped only affects planned sessions");
 {
-  const fake = new FakeSupabaseClient();
+  const fake = new FakeCloseStaleQueries();
   fake.setSession("planned1", "planned");
   fake.setSession("in_progress1", "in_progress");
   
@@ -179,6 +148,8 @@ console.log("\n5. markPlannedSkipped only affects planned sessions");
   await deps.markPlannedSkipped("planned1");
   
   check("planned session becomes skipped", fake.getSession("planned1")?.status === "skipped");
+  check("guard status was planned", fake.lastUpdateGuardStatus === "planned");
+  check("values contain status skipped", fake.lastUpdateValues.status === "skipped");
   
   await deps.markPlannedSkipped("in_progress1");
   check("in_progress session unchanged", fake.getSession("in_progress1")?.status === "in_progress");
