@@ -10,8 +10,6 @@
 const fs = require("fs");
 const path = require("path");
 
-export {}; // Make this a module to avoid global scope collision
-
 function assert(condition: boolean, message: string): void {
   if (!condition) {
     throw new Error(`❌ ${message}`);
