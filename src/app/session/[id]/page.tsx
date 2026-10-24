@@ -217,6 +217,15 @@ export default async function SessionPage({
   const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
   const tomorrow = await nextDayPlan(supabase, timezone);
 
+  const { isStaleSession } = await import("@/lib/session/is-stale-session");
+  const isStale = session.started_at
+    ? isStaleSession({
+        startedAt: session.started_at,
+        now: new Date().toISOString(),
+        timezone,
+      })
+    : false;
+
   return (
     <SessionRunner
       sessionId={session.id}
@@ -224,7 +233,7 @@ export default async function SessionPage({
       week={session.week_in_block ?? 1}
       warmupAlreadyDone={session.warmup_completed}
       startedAt={session.started_at}
-      timezone={timezone}
+      isStale={isStale}
       warmup={warmup}
       cooldown={cooldown}
       exercises={exercises}

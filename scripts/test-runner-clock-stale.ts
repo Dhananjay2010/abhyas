@@ -10,7 +10,7 @@
  *   npx tsx scripts/test-runner-clock-stale.ts
  */
 
-import { getRunnerClockElapsed, displayElapsed, freezeElapsed } from "../src/lib/session/device";
+import { displayElapsed, freezeElapsed } from "../src/lib/session/device";
 
 let passed = 0;
 let failed = 0;
@@ -39,35 +39,26 @@ function assertTrue(condition: boolean, message: string) {
 
 console.log("\nTesting runner clock with stale sessions\n");
 
-console.log("1. getRunnerClockElapsed caps stale sessions at 179:59");
+console.log("1. displayElapsed caps stale sessions at 179:59");
 {
-  // Session started yesterday at 10:00 UTC
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  yesterday.setHours(10, 0, 0, 0);
-  const startedAt = yesterday.toISOString();
-
-  // Simulated 5 hours elapsed
+  // Simulated 5 hours elapsed, session is stale
   const elapsed = 5 * 60 * 60;
+  const isStale = true;
 
-  const result = getRunnerClockElapsed(elapsed, startedAt, "UTC");
+  const result = displayElapsed(elapsed, isStale);
 
   const expected = 3 * 60 * 60 - 1; // 179:59
   assertEquals(result, expected, "Stale session capped at 179:59 (10799s)");
 }
 
-console.log("\n2. getRunnerClockElapsed doesn't cap same-day sessions");
+console.log("\n2. displayElapsed doesn't cap non-stale sessions");
 {
-  // Session started 2 hours ago today
-  const twoHoursAgo = new Date();
-  twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
-  const startedAt = twoHoursAgo.toISOString();
-
   const elapsed = 2 * 60 * 60 + 1800; // 2.5 hours
+  const isStale = false;
 
-  const result = getRunnerClockElapsed(elapsed, startedAt, "UTC");
+  const result = displayElapsed(elapsed, isStale);
 
-  assertEquals(result, elapsed, "Same-day session not capped");
+  assertEquals(result, elapsed, "Non-stale session not capped");
 }
 
 console.log("\n3. displayElapsed caps elapsed >= 3h when stale");

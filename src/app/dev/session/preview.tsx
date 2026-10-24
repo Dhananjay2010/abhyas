@@ -200,7 +200,7 @@ export function SessionPreview() {
         week={2}
         warmupAlreadyDone={false}
         startedAt={null}
-        timezone="UTC"
+        isStale={false}
         warmup={WARMUP}
         cooldown={[]}
         exercises={startFinished ? FINISHED : EXERCISES}

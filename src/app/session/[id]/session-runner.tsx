@@ -120,7 +120,7 @@ export function SessionRunner({
   week,
   warmupAlreadyDone,
   startedAt,
-  timezone,
+  isStale,
   warmup,
   cooldown,
   exercises: initialExercises,
@@ -134,7 +134,7 @@ export function SessionRunner({
   week: number;
   warmupAlreadyDone: boolean;
   startedAt: string | null;
-  timezone: string;
+  isStale: boolean;
   warmup: WarmupItem[];
   cooldown: WarmupItem[];
   exercises: RunnerExercise[];
@@ -146,7 +146,7 @@ export function SessionRunner({
 }) {
   const router = useRouter();
   const { elapsed: rawElapsed, stop: stopElapsed, resume: resumeElapsed } = useElapsed(startedAt);
-  const elapsed = getRunnerClockElapsed(rawElapsed, startedAt, timezone);
+  const elapsed = getRunnerClockElapsed(rawElapsed, isStale);
   const beeper = useBeeper(settings.restSound);
   const [exercises, setExercises] = useState(initialExercises);
   const [error, setError] = useState<string | null>(null);

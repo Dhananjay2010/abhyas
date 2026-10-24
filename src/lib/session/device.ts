@@ -253,28 +253,12 @@ export function displayElapsed(elapsed: number, stale: boolean): number {
  * Get the display elapsed time for the runner's clock, accounting for stale sessions.
  * 
  * @param elapsed - Raw elapsed seconds from useElapsed
- * @param startedAt - ISO timestamp when session started
- * @param timezone - Member's timezone for stale detection
+ * @param isStale - Whether the session is stale (past-day or >3h idle)
  * @returns Elapsed seconds to display (capped for stale sessions)
  */
 export function getRunnerClockElapsed(
   elapsed: number,
-  startedAt: string | null,
-  timezone: string,
+  isStale: boolean,
 ): number {
-  if (!startedAt) return elapsed;
-  
-  // Dynamic import for "use client" context - isStaleSession is server-side
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-  const { isStaleSession } = require("./is-stale-session") as { 
-    isStaleSession: (args: { startedAt: string; now: string; timezone: string }) => boolean 
-  };
-  
-  const stale = isStaleSession({
-    startedAt,
-    now: new Date().toISOString(),
-    timezone,
-  });
-  
-  return displayElapsed(elapsed, stale);
+  return displayElapsed(elapsed, isStale);
 }

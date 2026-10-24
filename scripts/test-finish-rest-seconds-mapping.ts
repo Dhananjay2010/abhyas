@@ -112,13 +112,13 @@ async function runTests() {
     if (result.data && result.data.length > 0) {
       const exercise = result.data[0];
       assertTrue(
-        "restSeconds" in exercise,
-        "Exercise should have restSeconds field",
+        "rest_seconds" in exercise,
+        "Exercise should have rest_seconds field",
       );
       assertTrue(
-        exercise.restSeconds === 120,
-        "Exercise restSeconds should match query result",
-        `Got ${exercise.restSeconds}`,
+        exercise.rest_seconds === 120,
+        "Exercise rest_seconds should match query result",
+        `Got ${exercise.rest_seconds}`,
       );
     } else {
       console.error("❌ loadExercises returned no data");
