@@ -687,7 +687,7 @@ export function SettingsForm({
             ]}
             value={s.units}
             onChange={(v) => {
-              setS({ ...s, units: v });
+              setS((prev) => ({ ...prev, units: v }));
               save(() => actions.updateProfileSettings({ units: v }));
             }}
           />
