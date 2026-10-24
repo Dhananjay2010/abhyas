@@ -64,6 +64,7 @@ const initialState: SettingsState = {
   restOverrideSeconds: null,
   bodyweightPrompt: "weekly",
   timezone: "America/New_York",
+  dateOfBirth: null,
 };
 
 const equipment = [
@@ -308,6 +309,120 @@ async function runTests() {
       console.error(`  ❌ Max concurrent=${maxConcurrent}`);
       failed++;
     }
+  });
+
+  // Test 3: Cross-field error (days fails, session succeeds, error stays visible with Retry)
+  await test("Cross-field error: days fails, session succeeds, error + Retry visible", async () => {
+    type ProfilePatch = Parameters<SettingsActions["updateProfileSettings"]>[0];
+    
+    let daysRejected = false;
+    let sessionSucceeded = false;
+
+    const updateProfileSettings = async (patch: ProfilePatch): Promise<Result> => {
+      if ('days_per_week' in patch) {
+        // Days fails
+        daysRejected = true;
+        return { ok: false, error: "Days save failed" };
+      } else if ('preferred_session_minutes' in patch) {
+        // Session succeeds
+        sessionSucceeded = true;
+        return { ok: true };
+      }
+      return { ok: true };
+    };
+
+    const actions: SettingsActions = {
+      updateProfileSettings,
+      updateSessionSettings: async () => ({ ok: true }),
+      updateEquipment: async () => ({ ok: true }),
+      updateInjuries: async () => ({ ok: true }),
+    };
+
+    const { container } = render(
+      <SettingsForm initial={initialState} equipment={equipment} timezones={timezones} actions={actions} />
+    );
+
+    const user = userEvent.setup({ delay: null });
+
+    // Click days per week (should fail)
+    const daysButton = Array.from(container.querySelectorAll('button'))
+      .find(b => b.textContent === '5');
+    
+    if (daysButton) {
+      await act(async () => { await user.click(daysButton); });
+    }
+
+    // Click session length (should succeed)
+    const sessionButton = Array.from(container.querySelectorAll('button'))
+      .find(b => b.textContent === '60m');
+    
+    if (sessionButton) {
+      await act(async () => { await user.click(sessionButton); });
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Verify both actions occurred
+    if (daysRejected) {
+      console.log(`  ✓ Days per week save rejected as expected`);
+      passed++;
+    } else {
+      console.error(`  ❌ Days per week save did not reject`);
+      failed++;
+    }
+
+    if (sessionSucceeded) {
+      console.log(`  ✓ Session length save succeeded`);
+      passed++;
+    } else {
+      console.error(`  ❌ Session length save did not succeed`);
+      failed++;
+    }
+
+    // Check that error is visible
+    const statusDiv = container.querySelector('[role="status"]');
+    const errorText = statusDiv?.textContent || "";
+    
+    if (errorText.includes("Days save failed")) {
+      console.log(`  ✓ Error message visible in status`);
+      passed++;
+    } else {
+      console.error(`  ❌ Error not visible. Status text: "${errorText}"`);
+      failed++;
+    }
+
+    // Status should NOT show "Saved" while error exists
+    if (!errorText.includes("Saved")) {
+      console.log(`  ✓ Status does not show 'Saved' while error exists`);
+      passed++;
+    } else {
+      console.error(`  ❌ Status incorrectly shows 'Saved' despite error`);
+      failed++;
+    }
+
+    // Check for Retry button with 44px minimum tap target
+    const retryButton = Array.from(container.querySelectorAll('button'))
+      .find(b => b.textContent?.includes("Retry"));
+    
+    if (retryButton) {
+      const styles = window.getComputedStyle(retryButton);
+      const minHeight = parseInt(styles.minHeight) || 0;
+      const minWidth = parseInt(styles.minWidth) || 0;
+      
+      if (minHeight >= 44 && minWidth >= 44) {
+        console.log(`  ✓ Retry button has 44px+ tap target (${minHeight}x${minWidth})`);
+        passed++;
+      } else {
+        console.error(`  ❌ Retry button tap target too small: ${minHeight}x${minWidth}`);
+        failed++;
+      }
+    } else {
+      console.error(`  ❌ Retry button not found`);
+      failed++;
+    }
+
+    // TODO: Test Retry click and verify "Saved" appears after success
+    // This would require a more complex spy that changes behavior on retry
   });
 }
 
