@@ -18,6 +18,8 @@ import { WelcomeCard } from "@/components/welcome-card";
 import { shouldShowWelcome } from "@/lib/today/welcome";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { buildTodayState } from "@/lib/today/build-state";
+import { todayStateInputFromRows } from "@/lib/today/page-input";
+import { todayPromptBlocks } from "@/lib/today/prompt-blocks";
 
 export const dynamic = "force-dynamic";
 
@@ -325,12 +327,12 @@ export default async function TodayPage() {
     .limit(1);
   const hasStartedAny = (hasStartedAnyRes.count ?? 0) > 0;
 
-  // Use pure state builder to derive all prompt logic
+  // Use pure helpers to derive all prompt logic
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
 
-  const todayState = buildTodayState({
+  const stateInput = todayStateInputFromRows({
     profile: {
       created_at: profile.created_at,
       timezone: profile.timezone,
@@ -340,29 +342,26 @@ export default async function TodayPage() {
       started_on: program.started_on,
     },
     days: days ?? [],
-    sessions: {
-      today: todaySessions.map((s) => ({
-        status: s.status,
-        actual_type: s.actual_type,
-        program_id: s.program_id,
-        started_at: s.started_at,
-      })),
-      yesterday: yesterdaySessions.map((s) => ({
-        status: s.status,
-        actual_type: s.actual_type,
-        program_id: s.program_id,
-      })),
-    },
+    todaySessions,
+    yesterdaySessions,
     timezone,
     localToday,
     yesterday,
     dayType,
     strengthDone,
     strengthOpen: !!strengthOpen,
-    hasStartedSession: hasStartedAny,
+    hasStartedAny,
   });
 
+  const todayState = buildTodayState(stateInput);
   const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
+
+  const promptBlocks = todayPromptBlocks({
+    promptType,
+    missedYesterday,
+    hasStartedAny,
+    nextTrainingDay: nextTraining,
+  });
 
   // ---- wave 3 -------------------------------------------------------------
   // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
@@ -562,7 +561,7 @@ export default async function TodayPage() {
       )}
 
       {/* Missed-yesterday prompt (not on a rest day) */}
-      {promptType === "missed" && (
+      {promptBlocks.showMissedPrompt && (
         <DayPlanPrompt
           localDate={localToday}
           dayLabel="Today"
@@ -577,7 +576,7 @@ export default async function TodayPage() {
       )}
 
       {/* Rest day with missed yesterday: unified prompt */}
-      {promptType === "both" && (
+      {promptBlocks.showBothPrompt && (
         <>
           <p className="mt-6 text-muted">
             Rest is part of the training. Your body builds strength while recovering.
@@ -617,9 +616,9 @@ export default async function TodayPage() {
       )}
 
       {/* Rest day content (without missed yesterday) */}
-      {promptType === "rest_plan" && (
+      {promptBlocks.showRestPlan && !promptBlocks.showBothPrompt && (
         <>
-          {!hasStartedAny && nextTraining ? (
+          {promptBlocks.showFirstDayWelcome && nextTraining ? (
             // First day on a rest day: show next training day
             <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
               <h3 className="font-semibold">Your first session is {nextTraining.dayName}</h3>
