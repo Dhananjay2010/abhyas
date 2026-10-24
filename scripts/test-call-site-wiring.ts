@@ -48,8 +48,8 @@ console.log("\n2. Check page.tsx wiring");
 const pageContent = fs.readFileSync("src/app/session/[id]/page.tsx", "utf8");
 
 check(
-  "imports progressionInputsFromExercise",
-  pageContent.includes('import { progressionInputsFromExercise } from "@/lib/session/progression-inputs"')
+  "does NOT import progressionInputsFromExercise (not needed)",
+  !pageContent.includes('progressionInputsFromExercise')
 );
 
 check(
@@ -65,8 +65,8 @@ check(
 );
 
 check(
-  "calls progressionInputsFromExercise",
-  pageContent.includes('progressionInputsFromExercise(')
+  "does NOT call progressionInputsFromExercise (not needed)",
+  !pageContent.includes('progressionInputsFromExercise(')
 );
 
 check(
@@ -76,13 +76,8 @@ check(
 );
 
 check(
-  "passes progInputs.equipmentIds to suggestedWeight",
-  pageContent.includes('progInputs.equipmentIds')
-);
-
-check(
-  "passes progInputs.unit to suggestedWeight",
-  pageContent.includes('progInputs.unit')
+  "suggestedWeight called WITHOUT equipment params (no rounding)",
+  !pageContent.includes('progInputs')
 );
 
 console.log("\n3. Helper behavior tests");
