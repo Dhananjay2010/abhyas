@@ -5,7 +5,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
-import { rankAlternatives } from "@/lib/program/alternatives";
+import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
@@ -588,7 +588,7 @@ export async function findAlternatives(
   const pattern = replacing?.movement_pattern;
   if (!pattern) return { ok: false, error: "This exercise has no movement pattern" };
 
-  const [profileRes, weightRes, equipmentRes, injuriesRes, siblingsRes, poolRes] =
+  const [profileRes, weightRes, equipmentRes, injuriesRes, siblingsRes] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("body_metrics").select("weight_kg")
@@ -596,11 +596,6 @@ export async function findAlternatives(
       supabase.from("user_equipment").select("equipment_id"),
       supabase.from("user_injuries").select("body_region, severity"),
       supabase.from("session_exercises").select("exercise_id").eq("session_id", current.session_id),
-      supabase
-        .from("exercises")
-        .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
-        .eq("movement_pattern", pattern)
-        .eq("is_active", true),
     ]);
 
   const profile = profileRes.data;
@@ -615,6 +610,10 @@ export async function findAlternatives(
   const alreadyInSession = new Set(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
   );
+  
+  const currentInjuryRegions = (injuriesRes.data ?? [])
+    .filter((i) => i.severity === "current")
+    .map((i) => i.body_region);
 
   const input = {
     userId: user.id,
@@ -628,9 +627,7 @@ export async function findAlternatives(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: (injuriesRes.data ?? [])
-      .filter((i) => i.severity === "current")
-      .map((i) => i.body_region),
+    currentInjuryRegions,
     catalogue: [] as CandidateExercise[],
   };
 
@@ -659,8 +656,24 @@ export async function findAlternatives(
   const wantCompound = replacing?.mechanic !== "isolation";
   const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
   
-  // Type the pool with cue field
-  const pool = (poolRes.data ?? []) as unknown as Array<CandidateExercise & { cue: string | null }>;
+  // Build pattern list (current + fallbacks + knee-safe if applicable)
+  const hasKneeInjury = currentInjuryRegions.includes("knee");
+  const patterns = buildPatternList(pattern, hasKneeInjury);
+  
+  // Helper to cast Supabase rows to typed pool rows
+  type PoolRow = CandidateExercise & { cue: string | null };
+  function asPoolRows(rows: unknown[] | null): PoolRow[] {
+    return (rows ?? []) as unknown as PoolRow[];
+  }
+  
+  // Query pool with widened pattern list
+  const poolRes = await supabase
+    .from("exercises")
+    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
+    .in("movement_pattern", patterns)
+    .eq("is_active", true);
+  
+  const pool = asPoolRows(poolRes.data);
   
   // Filter by isEligible first (generator safety rules: age, BMI, spinal load, etc.)
   const eligible = pool
@@ -668,9 +681,20 @@ export async function findAlternatives(
     .filter((e) => isEligible(e, { ...input, catalogue: [] }));
   
   // Find current exercise in the pool (not in eligible - it may be contraindicated)
-  const currentExercise = pool.find((e) => e.id === current.exercise_id);
+  let currentExercise = pool.find((e) => e.id === current.exercise_id);
+  
+  // If current is inactive or missing, fetch it separately
   if (!currentExercise) {
-    return { ok: false, error: "Current exercise not found in pool" };
+    const inactiveRes = await supabase
+      .from("exercises")
+      .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
+      .eq("id", current.exercise_id)
+      .maybeSingle();
+    
+    currentExercise = asPoolRows(inactiveRes.data ? [inactiveRes.data] : [])[0];
+    if (!currentExercise) {
+      return { ok: false, error: "Current exercise not found" };
+    }
   }
   
   const ranked = rankAlternatives(
