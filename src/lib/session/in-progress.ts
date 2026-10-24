@@ -1,7 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { localDateString } from "@/lib/dates";
 
 type DbClient = SupabaseClient<Database>;
 
@@ -13,16 +11,16 @@ export type InProgressSession = {
 };
 
 /**
- * Get the user's in-progress session for today, if one exists.
+ * Get the user's in-progress session, if one exists.
  * 
  * Returns the session's id, title (exercise label), count of working sets
  * logged (warm-ups are excluded), and when it was started (ISO timestamp).
  * 
- * Returns null if the user has no in-progress session today.
+ * Returns null if the user has no in-progress session.
  * 
- * M2: Only today's in-progress session is returned. Past-day in-progress
- * sessions are not resumable and are displayed in History with a "Close out"
- * action.
+ * Staleness handling: A separate background job (PR #111) auto-closes sessions
+ * after 6h without activity or once a newer session exists. Migration 000022
+ * enforces at most one in_progress session per user at the database level.
  * 
  * Read-only: this query does not modify any data.
  */
@@ -31,25 +29,14 @@ export async function getInProgressSession(
   userId: string,
   timezone: string
 ): Promise<InProgressSession | null> {
-  // M2: Fetch profile to get saved timezone, resolve it, then compute today
-  // Profile timezone wins, browser timezone (param) is fallback, system default is final fallback
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", userId)
-    .single();
-
-  const tz = resolveTimezoneWithProfile(profile?.timezone || timezone);
-  const today = localDateString(tz);
-
-  // Find the user's in_progress session for today
+  // Find the user's in_progress session, regardless of local_date
+  // Staleness is handled by background cleanup (PR #111) and migration 000022
   const { data: sessions, error: sessionError } = await supabase
     .from("sessions")
     .select("id, started_at, local_date, program_days(label)")
     .eq("user_id", userId)
     .eq("status", "in_progress")
-    .eq("local_date", today)
-    .order("started_at", { ascending: false })
+    .order("started_at", { ascending: false, nullsFirst: false })
     .limit(1);
 
   if (sessionError || !sessions || sessions.length === 0) {
