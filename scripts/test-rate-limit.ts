@@ -47,6 +47,15 @@ async function runTests() {
     });
     check("prefers x-vercel-forwarded-for over all others", getClientIp(req1) === "1.1.1.1");
 
+    // x-vercel-forwarded-for can be comma-separated
+    const req1b = new Request("https://example.com", {
+      headers: {
+        "x-vercel-forwarded-for": "7.7.7.7, 8.8.8.8",
+        "x-real-ip": "2.2.2.2",
+      },
+    });
+    check("extracts first IP from x-vercel-forwarded-for list", getClientIp(req1b) === "7.7.7.7");
+
     // x-real-ip is second priority
     const req2 = new Request("https://example.com", {
       headers: {

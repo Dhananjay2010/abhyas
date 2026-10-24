@@ -158,10 +158,10 @@ export async function checkRateLimit(
  * in one bucket locally, which is fine for development.
  */
 export function getClientIp(request: Request): string {
-  // Vercel's own header, most accurate
+  // Vercel's own header, most accurate (can be comma-separated list)
   const vercelForwarded = request.headers.get("x-vercel-forwarded-for");
   if (vercelForwarded) {
-    const ip = vercelForwarded.trim();
+    const ip = vercelForwarded.split(",")[0].trim();
     if (ip) return ip;
   }
 
