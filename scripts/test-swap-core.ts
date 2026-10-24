@@ -4,9 +4,10 @@
  *   npm run test:swap-core
  */
 import type { Database } from "../src/lib/database.types";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { FakeSupabaseClient } from "./fake-supabase";
 import { swapExerciseCore } from "../src/lib/session/swap-core";
+
+type SwapCoreDeps = Parameters<typeof swapExerciseCore>[0];
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -30,7 +31,7 @@ console.log("\nSwap core: reads NEW exercise progress (O1)");
   ]);
 
   await swapExerciseCore(
-    { supabase: fake as unknown as SupabaseClient<Database>, userId: "user-1" },
+    { supabase: fake, userId: "user-1" } as SwapCoreDeps,
     { sessionExerciseId: "se-1", newExerciseId: "new-ex" }
   );
 
@@ -56,7 +57,7 @@ console.log("\nSwap core: respects daily_menu mode (O2)");
   fake.seed("user_settings", [{ user_id: "user-1", planning_mode: "daily_menu" }]);
 
   const result = await swapExerciseCore(
-    { supabase: fake as unknown as SupabaseClient<Database>, userId: "user-1" },
+    { supabase: fake, userId: "user-1" } as SwapCoreDeps,
     { sessionExerciseId: "se-1", newExerciseId: "new-ex" }
   );
 
