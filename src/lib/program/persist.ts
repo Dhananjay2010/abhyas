@@ -256,9 +256,10 @@ export async function createBlockForUser(
 
   // For first builds, use the legacy insert path
   // Retire any previous active block before inserting the new one.
+  // Set ended_on to match rebuild_block convention: ended_on = (new block's started_on) - 1
   await supabase
     .from("programs")
-    .update({ status: "completed" })
+    .update({ status: "completed", ended_on: addDays(today, -1) })
     .eq("user_id", userId)
     .eq("status", "active");
 

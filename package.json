@@ -172,7 +172,8 @@
     "test:injuries-two-client": "tsx scripts/test-injuries-two-client.tsx",
     "test:block-range-db-followup": "tsx scripts/test-block-range-db-followup.ts",
     "test:progress-active-days": "tsx scripts/test-progress-active-days.ts",
-    "test:superseded-override": "tsx scripts/test-superseded-override.ts"
+    "test:superseded-override": "tsx scripts/test-superseded-override.ts",
+    "test:first-build-ended-on": "tsx scripts/test-first-build-ended-on.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
