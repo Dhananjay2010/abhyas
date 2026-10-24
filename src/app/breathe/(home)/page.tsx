@@ -29,9 +29,9 @@ import {
 } from "@/lib/supabase/cached-queries";
 import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { suggestPractice } from "@/lib/breathing/suggest";
-import { BreatheHome, type LastPractice } from "./breathe-home";
+import { BreatheHome, type LastPractice } from "../breathe-home";
 import { PracticeSwitch } from "@/components/practice-switch";
-import { findPatternByLogKey } from "./load";
+import { findPatternByLogKey } from "../load";
 
 export const dynamic = "force-dynamic";
 

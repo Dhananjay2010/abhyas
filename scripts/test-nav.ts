@@ -1,4 +1,6 @@
-import { activeTab, setLastPractice, PRACTICE_LAST_CHANGE_EVENT } from "../src/lib/nav";
+import { activeTab, needsNotFoundNav, setLastPractice, PRACTICE_LAST_CHANGE_EVENT } from "../src/lib/nav";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 let failures = 0;
 
@@ -63,6 +65,65 @@ test("/privacy", null, "No nav on /privacy");
 test("/terms", null, "No nav on /terms");
 test("/offline", null, "No nav on /offline");
 
+console.log("\n\nTesting needsNotFoundNav()...\n");
+
+function testNotFoundNav(pathname: string, expected: boolean, description: string) {
+  const actual = needsNotFoundNav(pathname);
+  if (actual !== expected) {
+    console.error(`❌ ${description}`);
+    console.error(`   pathname: ${pathname}`);
+    console.error(`   expected: ${expected}`);
+    console.error(`   actual:   ${actual}`);
+    failures++;
+  } else {
+    console.log(`✓ ${description}`);
+  }
+}
+
+// Test that needsNotFoundNav returns true for paths with no active tab
+testNotFoundNav("/session/x", true, "needsNotFoundNav true for /session/x");
+testNotFoundNav("/breathe/x/session", true, "needsNotFoundNav true for /breathe/x/session");
+testNotFoundNav("/breathe/routine/x/session", true, "needsNotFoundNav true for /breathe/routine/x/session");
+testNotFoundNav("/dev/unknown", true, "needsNotFoundNav true for /dev/unknown");
+testNotFoundNav("/unknown", true, "needsNotFoundNav true for /unknown");
+
+// Test that needsNotFoundNav returns false for paths with active tabs
+testNotFoundNav("/history/x", false, "needsNotFoundNav false for /history/x");
+testNotFoundNav("/breathe/x", false, "needsNotFoundNav false for /breathe/x");
+testNotFoundNav("/today", false, "needsNotFoundNav false for /today");
+
+console.log("\n\nTesting bottom-nav.tsx source...\n");
+
+// Verify that bottom-nav.tsx contains no hand-written path lists
+function testBottomNavSource() {
+  const bottomNavPath = join(__dirname, "..", "src", "components", "bottom-nav.tsx");
+  const source = readFileSync(bottomNavPath, "utf-8");
+
+  // Check for hard-coded path checks like startsWith("/session") or includes("/breathe")
+  const pathCheckPatterns = [
+    /startsWith\s*\(\s*["'`]\/session/,
+    /startsWith\s*\(\s*["'`]\/breathe\/.*\/session/,
+    /includes\s*\(\s*["'`]\/session/,
+    /===\s*["'`]\/session\//,
+    /===\s*["'`]\/breathe\/.*\/session/,
+  ];
+
+  let foundPathList = false;
+  for (const pattern of pathCheckPatterns) {
+    if (pattern.test(source)) {
+      console.error(`❌ bottom-nav.tsx contains hand-written path check: ${pattern}`);
+      foundPathList = true;
+      failures++;
+    }
+  }
+
+  if (!foundPathList) {
+    console.log("✓ bottom-nav.tsx contains no hand-written path lists");
+  }
+}
+
+testBottomNavSource();
+
 console.log("\n\nTesting setLastPractice() helper...\n");
 
 // Test that setLastPractice dispatches the custom event
@@ -70,7 +131,7 @@ function testSetLastPractice() {
   // Create a minimal fake window with localStorage and event dispatch
   const fakeStorage = new Map<string, string>();
   const eventListeners = new Map<string, Array<() => void>>();
-  
+
   const fakeWindow = {
     localStorage: {
       setItem(key: string, value: string) {
@@ -92,23 +153,23 @@ function testSetLastPractice() {
       eventListeners.get(type)!.push(fn);
     },
   };
-  
+
   // Temporarily replace global window for testing
   const originalWindow = global.window;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (global as any).window = fakeWindow;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (global as any).localStorage = fakeWindow.localStorage;
-  
+
   try {
     let eventFired = false;
     fakeWindow.addEventListener(PRACTICE_LAST_CHANGE_EVENT, () => {
       eventFired = true;
     });
-    
+
     // Call setLastPractice
     setLastPractice("yoga");
-    
+
     // Verify localStorage was written
     if (fakeStorage.get("practice:last") !== "yoga") {
       console.error("❌ setLastPractice should write to localStorage");
@@ -116,7 +177,7 @@ function testSetLastPractice() {
     } else {
       console.log("✓ setLastPractice writes to localStorage");
     }
-    
+
     // Verify event was dispatched
     if (!eventFired) {
       console.error("❌ setLastPractice should dispatch practice:last-change event");
@@ -124,18 +185,18 @@ function testSetLastPractice() {
     } else {
       console.log("✓ setLastPractice dispatches practice:last-change event");
     }
-    
+
     // Test with breathe
     eventFired = false;
     setLastPractice("breathe");
-    
+
     if (fakeStorage.get("practice:last") !== "breathe") {
       console.error("❌ setLastPractice should update localStorage value");
       failures++;
     } else {
       console.log("✓ setLastPractice updates localStorage value");
     }
-    
+
     if (!eventFired) {
       console.error("❌ setLastPractice should dispatch event on each call");
       failures++;

@@ -2,9 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { isUuid } from "@/lib/ids";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
-import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +27,8 @@ export default async function SessionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  
   if (!isUuid(id)) notFound();
-  
+
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 

@@ -4,9 +4,9 @@ import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warm
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { isUuid } from "@/lib/ids";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
-import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +18,8 @@ export default async function SessionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  
   if (!isUuid(id)) notFound();
-  
+
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
@@ -69,12 +68,7 @@ export default async function SessionPage({
   // which is indistinguishable from a genuinely empty session. It hid a
   // PGRST201 ambiguous-embed error for the entire life of this page, so a real
   // failure is raised rather than swallowed.
-  //
-  // The one exception is a route parameter that is not a UUID at all: Postgres
-  // rejects it as invalid input (22P02), and the honest answer to "/session/
-  // nonsense" is 404, not a server error.
   if (sessionRes.error) {
-    if (sessionRes.error.code === "22P02") notFound();
     throw new Error(`Could not load this session: ${sessionRes.error.message}`);
   }
 

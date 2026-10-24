@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import TodayLoading from "@/app/today/loading";
-import HistoryLoading from "@/app/history/loading";
+import HistoryLoading from "@/app/history/(list)/loading";
 import ProgressLoading from "@/app/progress/loading";
 import SettingsLoading from "@/app/settings/loading";
 import SessionLoading from "@/app/session/[id]/loading";
