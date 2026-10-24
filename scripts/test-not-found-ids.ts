@@ -46,19 +46,17 @@ async function main() {
   {
     const { checkSessionRoute } = await import("../src/lib/route-guards.js");
     const userId = "00000000-0000-0000-0000-000000000001";
-    const sessionId = "00000000-0000-0000-0000-000000000002";
+    const sessionId = "550e8400-e29b-41d4-a716-446655440000";
 
     // Mock Supabase client that returns data for ANY id
-    // This tests that UUID validation happens BEFORE the query
-    const fakeSupabase = {
+    // Tests that UUID validation happens BEFORE the database query
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fakeSupabase: any = {
       from: (table: string) => ({
         select: (cols: string) => ({
           eq: (col: string, val: string) => ({
             eq: (col2: string, val2: string) => ({
-              maybeSingle: async () => {
-                // Always return data - UUID check must happen before this
-                return { data: { id: val2 }, error: null };
-              }
+              maybeSingle: async () => ({ data: { id: val2 }, error: null })
             })
           })
         })
@@ -67,18 +65,19 @@ async function main() {
 
     check(
       "valid UUID returns 'ok' (mock always returns data)",
-      (await checkSessionRoute(fakeSupabase as unknown, userId, sessionId)) === "ok",
+      (await checkSessionRoute(fakeSupabase, userId, sessionId)) === "ok",
     );
     
     // Critical test: Mock returns data for ANY id, proving UUID validation happens BEFORE query
     // If UUID validation were removed, this would incorrectly return 'ok'
     check(
       "invalid UUID returns 'not_found' without querying database",
-      (await checkSessionRoute(fakeSupabase as unknown, userId, "not-a-uuid")) === "not_found",
+      (await checkSessionRoute(fakeSupabase, userId, "not-a-uuid")) === "not_found",
     );
 
     // Test error propagation
-    const errorSupabase = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errorSupabase: any = {
       from: () => ({
         select: () => ({
           eq: () => ({
@@ -91,7 +90,7 @@ async function main() {
     };
 
     try {
-      await checkSessionRoute(errorSupabase as unknown, userId, sessionId);
+      await checkSessionRoute(errorSupabase, userId, sessionId);
       check("checkSessionRoute throws when maybeSingle returns error", false);
     } catch (err) {
       check("checkSessionRoute throws when maybeSingle returns error", true);
@@ -102,29 +101,32 @@ async function main() {
   {
     const { checkBreatheRoute } = await import("../src/lib/route-guards.js");
     const userId = "00000000-0000-0000-0000-000000000001";
-    const fakeSupabase = {} as unknown;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fakeSupabase: any = {};
 
     type FakeLoadedPractice = {
-      pattern: { kind: string; id: string; slug?: string };
-      prefs: Record<string, unknown>;
-      lastCycles: number | null;
+      pattern: { kind: string; id?: string; slug?: string };
+      prefs: Record<string, never>;
+      lastCycles: null;
       firstPractice: boolean;
     };
 
-    // Built-in slug
-    const builtinLoader = async (): Promise<FakeLoadedPractice> => ({
-      pattern: { kind: "builtin", id: "1", slug: "coherent" },
+    // Built-in slugs work (checking via pattern existence)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const builtinLoader: any = async (): Promise<FakeLoadedPractice> => ({
+      pattern: { kind: "builtin-x", slug: "coherent" },
       prefs: {},
       lastCycles: null,
       firstPractice: false
     });
     check(
       "valid builtin slug returns 'ok'",
-      (await checkBreatheRoute(fakeSupabase, userId, "coherent", builtinLoader as unknown)) === "ok",
+      (await checkBreatheRoute(fakeSupabase, userId, "coherent", builtinLoader)) === "ok",
     );
 
     // User's own pattern (mine-<uuid>)
-    const ownedLoader = async (): Promise<FakeLoadedPractice> => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ownedLoader: any = async (): Promise<FakeLoadedPractice> => ({
       pattern: { kind: "mine", id: userId },
       prefs: {},
       lastCycles: null,
@@ -132,18 +134,20 @@ async function main() {
     });
     check(
       "valid custom pattern (mine-<uuid>) owned by user returns 'ok'",
-      (await checkBreatheRoute(fakeSupabase, userId, `mine-${userId}`, ownedLoader as unknown)) === "ok",
+      (await checkBreatheRoute(fakeSupabase, userId, `mine-${userId}`, ownedLoader)) === "ok",
     );
 
     // Pattern owned by someone else or missing
-    const notOwnedLoader = async (): Promise<null> => null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const notOwnedLoader: any = async (): Promise<null> => null;
     check(
       "custom pattern owned by someone else returns 'not_found'",
-      (await checkBreatheRoute(fakeSupabase, "other-user-id", `mine-${userId}`, notOwnedLoader as unknown)) === "not_found",
+      (await checkBreatheRoute(fakeSupabase, "other-user-id", `mine-${userId}`, notOwnedLoader)) === "not_found",
     );
 
     // Retimed builtin pattern
-    const retimedLoader = async (): Promise<FakeLoadedPractice> => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const retimedLoader: any = async (): Promise<FakeLoadedPractice> => ({
       pattern: { kind: "mine", id: userId },
       prefs: {},
       lastCycles: null,
@@ -151,14 +155,15 @@ async function main() {
     });
     check(
       "retimed builtin pattern returns 'ok'",
-      (await checkBreatheRoute(fakeSupabase, userId, "some-key", retimedLoader as unknown)) === "ok",
+      (await checkBreatheRoute(fakeSupabase, userId, "some-key", retimedLoader)) === "ok",
     );
 
     // Invalid slug
-    const invalidLoader = async (): Promise<null> => null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invalidLoader: any = async (): Promise<null> => null;
     check(
       "invalid slug returns 'not_found'",
-      (await checkBreatheRoute(fakeSupabase, userId, "invalid-slug", invalidLoader as unknown)) === "not_found",
+      (await checkBreatheRoute(fakeSupabase, userId, "invalid-slug", invalidLoader)) === "not_found",
     );
   }
 
@@ -190,18 +195,16 @@ async function main() {
 
   console.log("\n5. loadPractice is cached at module level");
   {
-    const { loadPractice } = await import("../src/app/breathe/load.js");
-    check(
-      "loadPractice is exported and callable",
-      typeof loadPractice === "function",
-    );
+    const breatheLoad = await import("../src/app/breathe/load.js");
+    check("loadPractice is exported and callable", typeof breatheLoad.loadPractice === "function");
   }
 
-  console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
-  process.exit(failures === 0 ? 0 : 1);
+  if (failures > 0) {
+    console.log(`\n❌ ${failures} checks failed\n`);
+    process.exit(1);
+  } else {
+    console.log("\nALL CHECKS PASSED\n");
+  }
 }
 
-main().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+main();
