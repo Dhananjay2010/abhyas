@@ -317,18 +317,19 @@ export async function deleteSet(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
-export type ProgressionFeedback = {
-  outcome: string;
-  message: string;
-  /** One line naming a best that was beaten, or null. SPEC section 7. */
-  personalBest: string | null;
-};
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+
+export type { ProgressionFeedback };
 
 /**
  * Complete an exercise and apply progression from what was actually logged.
  *
  * Progression runs here rather than at the end of the session so that a
  * workout cut short still banks the exercises that were finished.
+ *
+ * Idempotent: only the first call that actually transitions from pending to
+ * completed/skipped applies progression. Concurrent or repeated calls return
+ * success without double-applying.
  */
 export async function finishExercise(input: {
   sessionExerciseId: string;
@@ -340,20 +341,7 @@ export async function finishExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const { error } = await supabase
-    .from("session_exercises")
-    .update({
-      status: input.skipped ? "skipped" : "completed",
-      feel: input.feel,
-      completed_at: new Date().toISOString(),
-    })
-    .eq("id", input.sessionExerciseId);
-  if (error) return { ok: false, error: error.message };
-
-  if (input.skipped) return { ok: true, data: null };
-
-  const feedback = await applyProgression(supabase, user.id, input.sessionExerciseId, input.feel);
-  return { ok: true, data: feedback };
+  return finishExerciseCore(supabase, user.id, input, { applyProgression });
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
