@@ -6,8 +6,13 @@ type SessionType = Database["public"]["Enums"]["day_type"];
 /**
  * SHARED RULES (h3 decision, 2026-10-24):
  *
- * 1. TRAINING DAYS & STREAKS: Strength (weights/bodyweight) and yoga sessions
- *    count toward "days trained" and streaks. Breathing practices do NOT count.
+ * 1. TRAINING DAYS & STREAKS: 
+ *    - Strength (weights/bodyweight) sessions count ONLY when:
+ *      status = 'completed' AND working_sets >= 1
+ *    - Yoga sessions count when: status = 'completed'
+ *    - Breathing practices NEVER count
+ *    - A 'skipped' strength session NEVER counts
+ *    - A legacy 'completed' strength session with 0 sets NEVER counts
  *
  * 2. PLANNING: Only strength sessions (weights/bodyweight) settle a day for
  *    planning purposes. Yoga and breathing are "anytime" activities that don't
@@ -18,49 +23,43 @@ type SessionType = Database["public"]["Enums"]["day_type"];
  *    and timed/isometric holds (duration > 0).
  *
  * These rules are enforced in:
- * - countsTowardStreak() (training days, streaks)
+ * - countsTowardStreak() (training days, streaks) - single source of truth
  * - session_volume view (excludes 0-working-set strength)
  * - exercise_strength_history view (excludes 0-working-set strength)
  * - History list filter (excludes 0-working-set strength from "Lifts" tab)
  */
 
 /**
- * Determine if a session counts toward training streaks and "days trained".
+ * Determine if a session TYPE counts toward training streaks and "days trained".
  *
- * Rules:
- * - Yoga: always counts
- * - Strength (weights/bodyweight): counts only if it has working sets (reps or timed)
- * - Breathing/meditation: never counts
- * - Rest/recovery: never counts
+ * IMPORTANT: This function classifies session TYPES, not individual sessions.
+ * Callers must pre-filter sessions to ensure:
+ * - status = 'completed' (not 'skipped', 'planned', etc.)
+ * - strength sessions have working_sets >= 1 (join with session_volume)
+ *
+ * Rules (product rule 2026-10-24):
+ * - Yoga: counts
+ * - Strength (weights/bodyweight): counts (but caller must ensure working_sets >= 1)
+ * - Breathing/meditation: NEVER counts
+ * - Rest/recovery: NEVER counts
  *
  * @param sessionType - The session type
- * @param sets - Optional array of sets to validate working set count for strength
- * @returns true if the session counts toward streak/training-days
+ * @returns true if this session type can count toward streak/training-days
  */
 export function countsTowardStreak(
-  sessionType: SessionType | null,
-  sets?: Array<{ is_warmup_set: boolean | null; reps: number | null; duration_seconds: number | null }>
+  sessionType: SessionType | null
 ): boolean {
   if (!sessionType) return false;
 
-  // Yoga always counts
+  // Yoga counts
   if (sessionType === "yoga") return true;
 
-  // Breathing never counts
-  if (sessionType === "rest" || sessionType === "active_recovery" || sessionType === "meditation") {
-    return false;
-  }
-  
-  // Strength sessions (weights/bodyweight) must have working sets
+  // Strength counts (caller must ensure working_sets >= 1)
   if (sessionType === "weights" || sessionType === "bodyweight") {
-    // If sets provided, validate working set count
-    if (sets !== undefined) {
-      return countWorkingSets(sets) > 0;
-    }
-    // Backward compatible: assume valid if sets not provided
     return true;
   }
-  
+
+  // Breathing/rest/recovery never count
   return false;
 }
 

@@ -171,16 +171,21 @@ export function HistoryClient({
                   details.push(pluralize(item.breathing.breaths, item.breathing.pumps ? "pump" : "breath"));
                 }
               } else {
-                // Show completion status or "Ended early" if applicable
-                if (item.endedEarly && item.plannedSets) {
+                // Product rule (2026-10-24): zero-set strength sessions show as 'Skipped'
+                const isZeroSetStrength = item.setCount === 0 || item.status === "skipped";
+                
+                if (isZeroSetStrength) {
+                  details.push("Skipped");
+                } else if (item.endedEarly && item.plannedSets) {
+                  // Show completion status or "Ended early" if applicable
                   details.push(`Ended early · ${item.setCount} of ${item.plannedSets} ${item.plannedSets === 1 ? "set" : "sets"}`);
                 } else {
                   details.push("Completed");
                 }
                 if (item.isDeload) details.push("deload");
                 if (durationLabel) details.push(durationLabel);
-                // Only show set count if not already shown in "ended early" label
-                if (!item.endedEarly && item.setCount > 0) {
+                // Only show set count if not already shown in "ended early" label or skipped
+                if (!item.endedEarly && !isZeroSetStrength && item.setCount > 0) {
                   details.push(pluralize(item.setCount, "set"));
                 }
                 if (item.topSetWeight) details.push(`${Math.round(item.topSetWeight)}kg top`);

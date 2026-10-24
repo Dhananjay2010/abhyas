@@ -66,7 +66,7 @@ export default async function ProgressPage() {
       .order("created_at"),
     supabase
       .from("sessions")
-      .select("local_date, status, actual_type")
+      .select("id, local_date, status, actual_type")
       .order("local_date", { ascending: false })
       .limit(500),
     supabase.from("program_days").select("program_id, day_index, day_type"),
@@ -96,12 +96,39 @@ export default async function ProgressPage() {
     (dayTypesByProgram[d.program_id] ??= {})[d.day_index] = d.day_type;
   }
 
+  // Fetch session_volume to filter out zero-set strength sessions
+  // Product rule (2026-10-24): strength sessions count toward streaks/days trained
+  // ONLY when status = 'completed' AND working_sets >= 1
+  const completedSessionIds = (sessionsRes.data ?? [])
+    .filter((s) => s.status === "completed")
+    .map((s) => s.id);
+
+  const { data: volumeData } = await supabase
+    .from("session_volume")
+    .select("session_id")
+    .in("session_id", completedSessionIds.length ? completedSessionIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  const sessionsWithVolume = new Set((volumeData ?? []).map((v) => v.session_id));
+
+  // Filter completed sessions: keep yoga always, keep strength only if it has volume
+  const completedSessions = (sessionsRes.data ?? [])
+    .filter((s) => {
+      if (s.status !== "completed") return false;
+      // Yoga always counts when completed
+      if (s.actual_type === "yoga") return true;
+      // Strength (weights/bodyweight) must have volume (working sets >= 1)
+      if (s.actual_type === "weights" || s.actual_type === "bodyweight") {
+        return sessionsWithVolume.has(s.id);
+      }
+      // Breathing, rest, etc. never count
+      return false;
+    })
+    .map((s) => ({ local_date: s.local_date, actual_type: s.actual_type }));
+
   const dayRecords = buildDayRecords({
     programs,
     dayTypesByProgram,
-    completedSessions: (sessionsRes.data ?? [])
-      .filter((s) => s.status === "completed")
-      .map((s) => ({ local_date: s.local_date, actual_type: s.actual_type })),
+    completedSessions,
     today,
   });
 
