@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { loadStartProgram, createSupabaseDeps, type ProgramWithDays, type LoadStartProgramDeps } from "../src/lib/session/load-start-program";
+import { loadStartProgram, createSupabaseDeps } from "../src/lib/session/load-start-program";
 
 (async () => {
   console.log("✓ setup complete");
