@@ -162,9 +162,9 @@ async function runTests() {
     .from("exercises")
     .select("id, name")
     .order("id")
-    .limit(23);
+    .limit(24);
 
-  if (exError || !exercises || exercises.length < 23) {
+  if (exError || !exercises || exercises.length < 24) {
     console.error("Failed to fetch seeded exercises:", exError);
     return false;
   }
