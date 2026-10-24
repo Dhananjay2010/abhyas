@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { NewVersionHint } from "@/components/new-version-hint";
 import { branding, getBrandCssVariables } from "@/lib/branding";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -65,6 +66,7 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <ServiceWorkerRegistration />
+        <NewVersionHint />
         {children}
         {/*
           Mounted once, outside every page, so a tab change swaps only the
