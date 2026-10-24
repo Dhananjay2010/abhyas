@@ -4,6 +4,7 @@ import { useEffect, useState, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { isOfflineError } from "@/lib/offline-error";
+import { useOfflineError } from "@/contexts/offline-error-context";
 
 export default function Error({
   error,
@@ -13,6 +14,7 @@ export default function Error({
   reset: () => void;
 }) {
   const router = useRouter();
+  const { setIsOfflineError } = useOfflineError();
   const [online, setOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
@@ -20,12 +22,19 @@ export default function Error({
   useEffect(() => {
     console.error("Page error:", error);
     
-    // Capture exception once, using current online status
     const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
-    if (!isOfflineError(error, isOnline)) {
+    const offline = isOfflineError(error, isOnline);
+    
+    setIsOfflineError(offline);
+    
+    if (!offline) {
       Sentry.captureException(error);
     }
-  }, [error]);
+
+    return () => {
+      setIsOfflineError(false);
+    };
+  }, [error, setIsOfflineError]);
 
   useEffect(() => {
     function handleOnline() {
@@ -47,6 +56,7 @@ export default function Error({
   const offline = isOfflineError(error, online);
 
   function handleReset() {
+    setIsOfflineError(false);
     startTransition(() => {
       router.refresh();
       reset();

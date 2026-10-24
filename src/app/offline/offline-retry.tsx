@@ -124,6 +124,8 @@ export function OfflineRetry() {
     marginTop: "1rem",
     fontSize: "0.875rem",
     color: branding.colors.muted,
+    minHeight: "1.25rem",
+    visibility: stillOffline ? ("visible" as const) : ("hidden" as const),
   };
 
   return (
@@ -136,11 +138,9 @@ export function OfflineRetry() {
         {checking ? "Checking…" : "Retry"}
       </button>
 
-      {stillOffline && (
-        <p style={feedbackStyle} role="status" aria-live="polite">
-          Still offline
-        </p>
-      )}
+      <p style={feedbackStyle} role="status" aria-live="polite">
+        {stillOffline ? "Still offline" : "\u00A0"}
+      </p>
 
       <noscript>
         {/* Fallback for no-JS: plain link that reloads */}
