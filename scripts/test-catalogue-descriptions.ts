@@ -67,7 +67,11 @@ async function main() {
     const isWarmupUpdate = trimmed.toLowerCase().startsWith('update warmup_exercises');
     if (!isExercisesUpdate && !isWarmupUpdate) return false;
     if (!/WHERE\s+slug\s*=/i.test(trimmed)) return true;
-    if (isExercisesUpdate && !(/AND\s+cue\s*=/i.test(trimmed) || /AND\s+impact\s*=\s*'high'/i.test(trimmed))) return true;
+    if (isExercisesUpdate) {
+      const isIsometricChestStatement = /slug\s*=\s*'isometric-chest-squeezes'/i.test(trimmed) && /AND\s+impact\s*=\s*'high'/i.test(trimmed);
+      const hasCueGuard = /AND\s+cue\s*=/i.test(trimmed);
+      if (!hasCueGuard && !isIsometricChestStatement) return true;
+    }
     if (isWarmupUpdate && !/AND\s+type\s*=/i.test(trimmed)) return true;
     return false;
   });
@@ -128,7 +132,8 @@ async function main() {
   );
   
   const catCowBefore = warmupBefore.rows[0];
-  console.log(`  cat-cow-stretch type before: ${catCowBefore?.type || 'not found'}\n`);
+  const warmupTypeBefore = catCowBefore?.type || 'not found';
+  console.log(`  cat-cow-stretch type before: ${warmupTypeBefore}\n`);
   
   console.log('Test 6: Running migration (first pass)...\n');
   
@@ -144,13 +149,14 @@ async function main() {
   
   console.log('Test 8: Validate exactly N rows changed on first run, 0 on second...\n');
   
+  const exercisesAfterFirst = await db.query<{slug: string; cue: string; impact: string}>(
+    `SELECT slug, cue, impact FROM exercises ORDER BY slug`
+  );
+  
   let changedOnFirstRun = 0;
-  for (const [slug, before] of beforeState) {
-    const allExercisesAfterFirst = await db.query<{cue: string; impact: string}>(
-      `SELECT cue, impact FROM exercises WHERE slug = $1`, [slug]
-    );
-    const after = allExercisesAfterFirst.rows[0];
-    if (after && (before.cue !== after.cue || before.impact !== after.impact)) {
+  for (const row of exercisesAfterFirst.rows) {
+    const before = beforeState.get(row.slug);
+    if (before && (before.cue !== row.cue || before.impact !== row.impact)) {
       changedOnFirstRun++;
     }
   }
@@ -159,7 +165,17 @@ async function main() {
     throw new Error(`Expected exactly ${exercisesStatementCount} exercise rows to change on first run, got ${changedOnFirstRun}`);
   }
   
-  console.log(`  ✅ Exactly ${changedOnFirstRun} exercise rows changed on first run\n`);
+  console.log(`  ✅ Exactly ${changedOnFirstRun} exercise rows changed on first run`);
+  
+  const warmupAfterFirst = await db.query<{slug: string; type: string}>(
+    `SELECT slug, type FROM warmup_exercises WHERE slug = 'cat-cow-stretch'`
+  );
+  const warmupChanged = warmupAfterFirst.rows[0] && warmupAfterFirst.rows[0].type !== warmupTypeBefore;
+  if (!warmupChanged) {
+    throw new Error('Expected exactly 1 warmup row to change on first run');
+  }
+  
+  console.log(`  ✅ Exactly 1 warmup row changed on first run\n`);
   
   const beforeSecondRun = await db.query<{slug: string; cue: string; impact: string}>(
     `SELECT slug, cue, impact FROM exercises ORDER BY slug`
