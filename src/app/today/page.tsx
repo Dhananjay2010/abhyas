@@ -222,6 +222,17 @@ export default async function TodayPage() {
   const scheduled = days?.find((d) => d.day_index === todayIndex);
 
   const allSessions = sessionsRes.data ?? [];
+
+  // Fetch session_volume to get working set counts for strength sessions
+  // Required for missed-day settlement: a completed strength session with 0 working sets does NOT count
+  const sessionIds = allSessions.map((s) => s.id);
+  const { data: volumeData } = await supabase
+    .from("session_volume")
+    .select("session_id, set_count")
+    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  const workingSetsBySession = new Map((volumeData ?? []).map((v) => [v.session_id, v.set_count || 0]));
+
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
 
   /*
@@ -335,7 +346,12 @@ export default async function TodayPage() {
   // Use pure helpers to derive all prompt logic
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
-  const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
+  const yesterdaySessions = allSessions
+    .filter((s) => s.local_date === yesterday)
+    .map((s) => ({
+      ...s,
+      working_set_count: workingSetsBySession.get(s.id),
+    }));
 
   const stateInput = todayStateInputFromRows({
     profile: {

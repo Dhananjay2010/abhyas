@@ -88,6 +88,53 @@ assert(
   "Block rebuilt today (2026-10-24): yesterday (Fri) is NOT missed even though created_at earlier"
 );
 
+console.log("\n=== Guard Test 2b: Completed strength session with 0 working sets ===\n");
+
+// A completed strength session with 0 working sets should NOT settle a missed training day
+// This guards against skipped sessions (status='completed' but no sets logged)
+assert(
+  isMissedTrainingDay({
+    date: "2026-10-23", // Fri (training day in 3-day plan)
+    programStartedOn: "2026-10-20", // Tue (signup day)
+    profileCreatedAt: "2026-10-20T10:00:00Z", // Tue signup
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-23")], // Fri = weights
+    sessions: [
+      {
+        status: "completed",
+        actual_type: "weights",
+        program_id: TEST_PROGRAM_ID,
+        working_set_count: 0, // 0 working sets = skipped session
+      },
+    ],
+    hasStartedAny: true,
+  }),
+  "Completed strength session with 0 working sets does NOT settle missed day (still missed)"
+);
+
+// Verify that 1+ working sets DOES settle the day
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-23", // Fri (training day in 3-day plan)
+    programStartedOn: "2026-10-20", // Tue (signup day)
+    profileCreatedAt: "2026-10-20T10:00:00Z", // Tue signup
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-23")], // Fri = weights
+    sessions: [
+      {
+        status: "completed",
+        actual_type: "weights",
+        program_id: TEST_PROGRAM_ID,
+        working_set_count: 1, // 1+ working sets = real workout
+      },
+    ],
+    hasStartedAny: true,
+  }),
+  "Completed strength session with 1+ working sets DOES settle missed day (not missed)"
+);
+
 console.log("\n=== Guard Test 3: Day 3 after signup, never started (NEW BEHAVIOR) ===\n");
 
 // Signup Tue 2026-10-20, today is Fri 2026-10-23 (day 4)

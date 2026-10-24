@@ -31,6 +31,7 @@ export interface TodayStateInputRows {
     status: string;
     actual_type: DayType | null;
     program_id: string | null;
+    working_set_count?: number;
   }>;
   timezone: string;
   localToday: string;
@@ -63,6 +64,7 @@ export function todayStateInputFromRows(rows: TodayStateInputRows) {
         status: s.status,
         actual_type: s.actual_type,
         program_id: s.program_id,
+        working_set_count: s.working_set_count,
       })),
     },
     timezone: rows.timezone,

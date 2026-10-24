@@ -53,6 +53,7 @@ export interface BuildTodayStateInput {
       status: string;
       actual_type: DayType | null;
       program_id: string | null;
+      working_set_count?: number;
     }>;
   };
 
@@ -108,6 +109,7 @@ export function buildTodayState(input: BuildTodayStateInput): BuildTodayStateOut
       actual_type: s.actual_type,
       status: s.status,
       program_id: s.program_id,
+      working_set_count: s.working_set_count,
     })),
     hasStartedAny: hasStartedSession,
   });
