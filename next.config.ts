@@ -21,6 +21,29 @@ const nextConfig: NextConfig = {
       static: 300,
     },
   },
+
+  /**
+   * Expose build ID as a constant environment variable.
+   * Evaluated once at build time, not per request.
+   */
+  env: {
+    NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? String(Date.now()),
+  },
+
+  /**
+   * Allow YouTube thumbnail images for click-to-load video posters.
+   * i.ytimg.com serves YouTube video thumbnails (hqdefault.jpg).
+   * Used in src/components/youtube-embed.tsx.
+   */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+        pathname: "/vi/**",
+      },
+    ],
+  },
 };
 
 /**
