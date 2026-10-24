@@ -216,7 +216,7 @@ async function runTests() {
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await getExerciseHistory(mockClient as any, "user-123", "exercise-789", { limit: 10, offset: 0 });
+    const history = await getExerciseHistory(mockClient as any, "user-123", "exercise-789", { limit: 10, offset: 0 });
     const calls = mockClient._getCalls();
 
     const sessionQuery = calls.find(c => c.table === "sessions");
@@ -227,6 +227,7 @@ async function runTests() {
     check("does NOT use embedded table ordering", 
       !sessionQuery?.orders.some(o => o.column.includes(".")) || false
     );
+    check("returns totalCount", history.totalCount === 3, `got ${history.totalCount}`);
   }
 
   console.log("\n4. Real behavior: ordering and limit correctness");

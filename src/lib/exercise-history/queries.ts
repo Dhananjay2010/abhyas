@@ -272,7 +272,7 @@ export async function getExerciseHistory(
     };
   }
 
-  // Match session_exercises with sessions and sort by completed_at
+  // Match session_exercises with sessions and sort by completed_at (newest first)
   const sessionsWithExercise = allSessionExercises
     .map(se => {
       const session = allSessions.find(s => s.id === se.session_id);
@@ -294,16 +294,16 @@ export async function getExerciseHistory(
     };
   }
 
-  // Get sets for the paginated session_exercises
-  const sessionExerciseIds = paginatedSessionExercises.map(se => se.id);
-  const { data: allSets, error: setsError } = await supabase
+  // Get ALL sets for all sessions containing this exercise (for PR detection)
+  const allSessionExerciseIds = sessionsWithExercise.map(se => se.id);
+  const { data: allHistorySets, error: allSetsError } = await supabase
     .from("session_sets")
-    .select("session_exercise_id, reps, weight_kg, duration_seconds, completed_at")
-    .in("session_exercise_id", sessionExerciseIds)
+    .select("reps, weight_kg, duration_seconds, completed_at, session_exercise_id")
+    .in("session_exercise_id", allSessionExerciseIds)
     .eq("is_warmup_set", false)
     .order("completed_at");
 
-  if (setsError || !allSets) {
+  if (allSetsError || !allHistorySets) {
     return {
       sessions: [],
       totalCount,
@@ -311,9 +311,9 @@ export async function getExerciseHistory(
     };
   }
 
-  // Group sets by session_exercise_id
+  // Group sets by session_exercise_id for chronological PR detection
   const setsBySessionExercise = new Map<string, SetData[]>();
-  for (const set of allSets) {
+  for (const set of allHistorySets) {
     const sets = setsBySessionExercise.get(set.session_exercise_id) ?? [];
     sets.push({
       reps: set.reps,
@@ -323,26 +323,20 @@ export async function getExerciseHistory(
     setsBySessionExercise.set(set.session_exercise_id, sets);
   }
 
-  // Get ALL sets for PR detection across complete history
-  const allSessionExerciseIds = sessionsWithExercise.map(se => se.id);
-  const { data: allHistorySets, error: allSetsError } = await supabase
-    .from("session_sets")
-    .select("reps, weight_kg, duration_seconds, completed_at, session_exercise_id")
-    .in("session_exercise_id", allSessionExerciseIds)
-    .eq("is_warmup_set", false)
-    .order("completed_at");
+  // Get the metric - use the first session's metric as they should all be the same for an exercise
+  // But validate per-session in case of historical data inconsistencies
+  const primaryMetric = paginatedSessionExercises[0]?.metric as "reps" | "seconds";
 
-  const allCompletedSets: SetData[] = allHistorySets && !allSetsError
-    ? allHistorySets.map(s => ({
-        reps: s.reps,
-        weight_kg: s.weight_kg,
-        duration_seconds: s.duration_seconds,
-      }))
-    : [];
+  // Build complete chronological set history for PR detection
+  const allCompletedSets: SetData[] = [];
+  for (let i = sessionsWithExercise.length - 1; i >= 0; i--) {
+    const se = sessionsWithExercise[i];
+    const sets = setsBySessionExercise.get(se.id) ?? [];
+    allCompletedSets.push(...sets);
+  }
 
   // Detect current PRs from complete history
-  const metric = paginatedSessionExercises[0]?.metric as "reps" | "seconds";
-  const currentPRs = detectPersonalRecords(allCompletedSets, metric);
+  const currentPRs = detectPersonalRecords(allCompletedSets, primaryMetric);
 
   // Build session history with per-session PR detection
   const sessions: ExerciseHistorySession[] = [];
@@ -352,26 +346,24 @@ export async function getExerciseHistory(
     const sets = setsBySessionExercise.get(sessionExercise.id) ?? [];
     if (sets.length === 0) continue;
 
+    // Use this session's metric (handles historical inconsistencies)
+    const metric = (sessionExercise.metric || primaryMetric) as "reps" | "seconds";
     const topSet = findTopSet(sets, metric);
     const volumeKg = sets.reduce((sum, set) => sum + calculateSetVolume(set), 0);
     const estimatedOneRepMax = topSet
       ? calculateEpley1RM(topSet.reps, topSet.weight_kg)
       : null;
 
-    // For PR detection: find the index of this session in the complete chronological history
-    const sessionIndex = sessionsWithExercise.findIndex(s => s.id === sessionExercise.id);
-    const setsBeforeThisSession = allHistorySets && !allSetsError
-      ? allHistorySets
-          .filter(s => {
-            const seIndex = allSessionExerciseIds.indexOf(s.session_exercise_id);
-            return seIndex !== -1 && seIndex > sessionIndex; // Later in list = earlier in time (desc order)
-          })
-          .map(s => ({
-            reps: s.reps,
-            weight_kg: s.weight_kg,
-            duration_seconds: s.duration_seconds,
-          }))
-      : [];
+    // For PR detection: find all sets from strictly earlier sessions
+    const sessionIndex = sessionsWithExercise.findIndex(s => s.id === sessionExercise.session_id);
+    const setsBeforeThisSession: SetData[] = [];
+    
+    // Walk from oldest to this session (exclusive)
+    for (let j = sessionsWithExercise.length - 1; j > sessionIndex; j--) {
+      const earlierSe = sessionsWithExercise[j];
+      const earlierSets = setsBySessionExercise.get(earlierSe.id) ?? [];
+      setsBeforeThisSession.push(...earlierSets);
+    }
 
     const prsBefore = detectPersonalRecords(setsBeforeThisSession, metric);
 
