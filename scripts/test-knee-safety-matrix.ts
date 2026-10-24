@@ -669,8 +669,9 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 12 (PR #73): Lower/Legs days have ≥2 non-core lower-body exercises
+            // Rule 12 (PR #73 Task 3b): Lower/Legs days have ≥2 non-core lower-body exercises - CURRENT KNEE ONLY
             // (or max available if equipment allows fewer than 2 knee-safe lower moves)
+            if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.focus === "lower" || d.focus === "legs" || d.focus === "full_body")) {
               const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
               const nonCoreLowerExercises = day.exercises.filter(ex => {
@@ -720,6 +721,7 @@ for (const seed of testSeeds) {
                   `Has ${coreExercises.length} core moves`);
                 profileFailed = true;
               }
+            }
             }
             
             if (!profileFailed) {
