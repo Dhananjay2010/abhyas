@@ -107,7 +107,7 @@ export function BottomNav({ forNotFound }: { forNotFound?: boolean } = {}) {
   );
 
   const active = activeTab(pathname);
-  if (!active && !(forNotFound && needsNotFoundNav(pathname))) return null;
+  if (forNotFound ? !needsNotFoundNav(pathname) : !active) return null;
 
   // Map /practice to the appropriate destination using choice logic
   const getHref = (tabHref: string) => {

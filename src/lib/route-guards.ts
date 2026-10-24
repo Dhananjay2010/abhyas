@@ -5,10 +5,10 @@ import { loadPractice } from "@/app/breathe/load";
 
 /**
  * Validate a session route parameter and verify the session exists.
- * 
+ *
  * This runs in layout.tsx BEFORE streaming begins, ensuring proper 404
  * status codes for invalid or nonexistent session IDs.
- * 
+ *
  * @param supabase - Supabase client (must have user context for RLS)
  * @param userId - Current user ID for explicit filtering
  * @param id - Route parameter from params.id
@@ -39,15 +39,15 @@ export async function checkSessionRoute(
 
 /**
  * Validate a breathing practice slug and verify it resolves.
- * 
+ *
  * This runs in layout.tsx BEFORE streaming begins, ensuring proper 404
  * status codes for invalid or nonexistent practice slugs.
- * 
+ *
  * Uses the loadPractice loader which handles:
  * - Built-in patterns by slug
  * - User's own patterns (mine-<id>)
  * - User's retimed built-in patterns (findPatternByLogKey)
- * 
+ *
  * @param supabase - Supabase client (must have user context for RLS)
  * @param userId - Current user ID
  * @param slug - Route parameter from params.slug

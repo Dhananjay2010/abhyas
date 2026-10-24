@@ -14,7 +14,7 @@ export const PRACTICE_LAST_CHANGE_EVENT = "practice:last-change";
  * Writes the last practice type to localStorage and dispatches a custom event
  * so the bottom nav can update immediately (storage events don't fire in the
  * writing tab).
- * 
+ *
  * @param value - The practice type to store
  */
 export function setLastPractice(value: PracticeType): void {
@@ -28,7 +28,7 @@ export function setLastPractice(value: PracticeType): void {
 
 /**
  * Determines which practice route to open when tapping the Practice tab.
- * 
+ *
  * @param currentPath - The current pathname
  * @param lastPractice - The last visited practice from localStorage (or null)
  * @returns "/breathe" or "/yoga"
@@ -123,7 +123,7 @@ export function activeTab(pathname: string): string | null {
 /**
  * Check if a pathname needs bottom nav on its 404 page.
  * True when activeTab returns null (no tab would show on valid page).
- * 
+ *
  * @param pathname - The current pathname
  * @returns true if this path needs nav on 404, false otherwise
  */

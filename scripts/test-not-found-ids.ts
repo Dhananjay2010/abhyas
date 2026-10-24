@@ -9,8 +9,8 @@
  *   npx tsx scripts/test-not-found-ids.ts
  */
 import { isUuid } from "../src/lib/ids";
-import { 
-  checkSessionRoute, 
+import {
+  checkSessionRoute,
   checkBreatheRoute,
   guardSessionRoute,
   guardHistoryRoute,
@@ -31,7 +31,7 @@ function createFakeSessionClient(shouldExist: boolean, shouldThrow = false, hasE
         throw new Error(`Unexpected query: .from("${table}") should not be called for malformed IDs`);
       }
       return {
-        select: (_cols: string) => ({
+        select: () => ({
           eq: (col: string, val: string) => {
             eqCalls.push([col, val]);
             return {
@@ -87,12 +87,12 @@ async function runTests() {
     const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
     const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
     const errorClient = createFakeSessionClient(false, false, true);
-    
+
     check(
       "valid UUID that exists returns 'ok'",
       (await checkSessionRoute(existingClient, userId, "550e8400-e29b-41d4-a716-446655440000")) === "ok",
     );
-    
+
     // Check that .eq() was called with correct parameters
     const eqCalls = (existingClient as unknown as { _eqCalls: Array<[string, string]> })._eqCalls;
     check(
@@ -103,12 +103,12 @@ async function runTests() {
       "queries filter by id",
       eqCalls.some((call: [string, string]) => call[0] === "id" && call[1] === "550e8400-e29b-41d4-a716-446655440000"),
     );
-    
+
     check(
       "valid UUID that doesn't exist returns 'not_found'",
       (await checkSessionRoute(missingClient, userId, "c56a4180-65aa-42ec-a945-5fd21dec0538")) === "not_found",
     );
-    
+
     // Test error rejection
     let errorThrown = false;
     try {
@@ -123,62 +123,62 @@ async function runTests() {
   {
     const userId = "550e8400-e29b-41d4-a716-446655440000";
     const fakeSupabase = {} as unknown as SupabaseClient;
-    
-    type FakeLoadedPractice = { 
-      pattern: { kind: string; id: string; slug?: string; userPatternId?: string }; 
-      prefs: Record<string, unknown>; 
-      lastCycles: number | null; 
+
+    type FakeLoadedPractice = {
+      pattern: { kind: string; id: string; slug?: string; userPatternId?: string };
+      prefs: Record<string, unknown>;
+      lastCycles: number | null;
       firstPractice: boolean;
     };
-    
+
     // Built-in slug
-    const builtinLoader = async (): Promise<FakeLoadedPractice> => ({ 
-      pattern: { kind: "builtin", id: "1", slug: "coherent" }, 
-      prefs: {}, 
-      lastCycles: null, 
-      firstPractice: false 
+    const builtinLoader = async (): Promise<FakeLoadedPractice> => ({
+      pattern: { kind: "builtin", id: "1", slug: "coherent" },
+      prefs: {},
+      lastCycles: null,
+      firstPractice: false
     });
     check(
       "valid builtin slug returns 'ok'",
       (await checkBreatheRoute(fakeSupabase, userId, "coherent", builtinLoader as unknown as typeof import("../src/app/breathe/load").loadPractice)) === "ok",
     );
-    
+
     // User's own pattern (mine-<uuid>)
-    const ownedLoader = async (): Promise<FakeLoadedPractice> => ({ 
-      pattern: { kind: "mine", id: userId }, 
-      prefs: {}, 
-      lastCycles: null, 
-      firstPractice: false 
+    const ownedLoader = async (): Promise<FakeLoadedPractice> => ({
+      pattern: { kind: "mine", id: userId },
+      prefs: {},
+      lastCycles: null,
+      firstPractice: false
     });
     check(
       "valid custom pattern (mine-<uuid>) owned by user returns 'ok'",
       (await checkBreatheRoute(fakeSupabase, userId, `mine-${userId}`, ownedLoader as unknown as typeof import("../src/app/breathe/load").loadPractice)) === "ok",
     );
-    
+
     // Pattern owned by someone else or missing
     const notOwnedLoader = async (): Promise<null> => null;
     check(
       "custom pattern owned by someone else returns 'not_found'",
       (await checkBreatheRoute(fakeSupabase, userId, "mine-other-uuid", notOwnedLoader as unknown as typeof import("../src/app/breathe/load").loadPractice)) === "not_found",
     );
-    
+
     // Retimed builtin (has userPatternId from findPatternByLogKey)
-    const retimedLoader = async (): Promise<FakeLoadedPractice> => ({ 
-      pattern: { 
-        kind: "builtin", 
-        id: "2", 
+    const retimedLoader = async (): Promise<FakeLoadedPractice> => ({
+      pattern: {
+        kind: "builtin",
+        id: "2",
         slug: "box",
         userPatternId: "user-retimed-id"
-      }, 
-      prefs: {}, 
-      lastCycles: null, 
-      firstPractice: false 
+      },
+      prefs: {},
+      lastCycles: null,
+      firstPractice: false
     });
     check(
       "retimed builtin pattern returns 'ok'",
       (await checkBreatheRoute(fakeSupabase, userId, "box", retimedLoader as unknown as typeof import("../src/app/breathe/load").loadPractice)) === "ok",
     );
-    
+
     // Invalid slug
     const junkLoader = async (): Promise<null> => null;
     check(
@@ -248,23 +248,62 @@ async function runTests() {
   {
     const fs = await import("fs/promises");
     const path = await import("path");
-    
+
+    // Test that no duplicate page.tsx exists next to route group pages
+    const groupPages = [
+      { root: "src/app/breathe/page.tsx", group: "src/app/breathe/(home)/page.tsx" },
+      { root: "src/app/history/page.tsx", group: "src/app/history/(list)/page.tsx" },
+    ];
+
+    for (const { root, group } of groupPages) {
+      try {
+        await fs.access(root);
+        check(
+          `No duplicate ${root} shadowing ${group}`,
+          false,
+          `${root} exists and will shadow ${group}`,
+        );
+      } catch {
+        // File doesn't exist, which is what we want
+        check(`No duplicate ${root} shadowing ${group}`, true);
+      }
+    }
+
+    // Test that each served page has a loading.tsx above it
+    const servedPages = [
+      { page: "src/app/breathe/(home)/page.tsx", loading: "src/app/breathe/(home)/loading.tsx" },
+      { page: "src/app/history/(list)/page.tsx", loading: "src/app/history/(list)/loading.tsx" },
+    ];
+
+    for (const { page, loading } of servedPages) {
+      try {
+        await fs.access(loading);
+        check(`${page} has ${loading}`, true);
+      } catch {
+        check(
+          `${page} has ${loading}`,
+          false,
+          `${loading} does not exist`,
+        );
+      }
+    }
+
     const layoutPaths = [
       "src/app/session/[id]/layout.tsx",
       "src/app/history/[id]/layout.tsx",
       "src/app/breathe/[slug]/layout.tsx",
     ];
-    
+
     for (const layoutPath of layoutPaths) {
       const dir = path.dirname(layoutPath);
       const segments = dir.split(path.sep).filter(Boolean);
-      
+
       let foundLoading = false;
       // Check each ancestor directory (excluding the layout's own directory)
       for (let i = 1; i < segments.length - 1; i++) {
         const ancestorPath = segments.slice(0, i + 1).join(path.sep);
         const loadingPath = path.join(ancestorPath, "loading.tsx");
-        
+
         try {
           await fs.access(loadingPath);
           check(
@@ -278,7 +317,7 @@ async function runTests() {
           // File doesn't exist, which is what we want
         }
       }
-      
+
       if (!foundLoading) {
         check(`No ancestor loading.tsx wraps ${layoutPath}`, true);
       }
@@ -320,15 +359,27 @@ async function runTests() {
       check("not-found-content.tsx exists", false, `${err}`);
     }
 
-    // Test that BottomNav gates forNotFound on needsNotFoundNav
+    // Test that BottomNav gates forNotFound correctly
     try {
       const bnContent = await fs.readFile("src/components/bottom-nav.tsx", "utf-8");
       check(
         "BottomNav gates forNotFound on needsNotFoundNav",
-        bnContent.includes("forNotFound && needsNotFoundNav"),
+        bnContent.includes("if (forNotFound ? !needsNotFoundNav(pathname) : !active) return null;"),
       );
     } catch (err) {
       check("bottom-nav.tsx exists", false, `${err}`);
+    }
+
+    // Test that an active route with forNotFound doesn't render nav
+    try {
+      const bnContent = await fs.readFile("src/components/bottom-nav.tsx", "utf-8");
+      check(
+        "BottomNav with forNotFound on active route returns null",
+        bnContent.includes("forNotFound ? !needsNotFoundNav") &&
+        !bnContent.includes("forNotFound && needsNotFoundNav"),
+      );
+    } catch (err) {
+      check("bottom-nav.tsx exists for active route test", false, `${err}`);
     }
 
     // Test that both pages have the isUuid early return
@@ -347,6 +398,34 @@ async function runTests() {
       } catch (err) {
         check(`${pagePath} exists`, false, `${err}`);
       }
+    }
+  }
+
+  console.log("\n8. Code quality tests");
+  {
+    const fs = await import("fs/promises");
+
+    // Test that loadPractice is wrapped with cache() at module level
+    try {
+      const loadContent = await fs.readFile("src/app/breathe/load.ts", "utf-8");
+      check(
+        "loadPractice wrapped with cache() at module level",
+        loadContent.includes("export const loadPractice = cache(") ||
+        loadContent.includes("export const loadPractice = cache ("),
+      );
+    } catch (err) {
+      check("breathe/load.ts exists", false, `${err}`);
+    }
+
+    // Test that BottomNav uses choosePracticeRoute (not hard-coded /breathe)
+    try {
+      const bnContent = await fs.readFile("src/components/bottom-nav.tsx", "utf-8");
+      check(
+        "BottomNav getHref uses choosePracticeRoute",
+        bnContent.includes("choosePracticeRoute"),
+      );
+    } catch (err) {
+      check("bottom-nav.tsx exists for choosePracticeRoute test", false, `${err}`);
     }
   }
 
