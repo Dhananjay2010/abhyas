@@ -21,10 +21,39 @@ function check(label: string, ok: boolean, detail = "") {
 // Minimal fake Supabase client that simulates the planned-then-start scenario
 function createFakeSupabaseClient() {
   // In-memory database
-  const sessions: Record<string, any> = {};
-  const sessionExercises: any[] = [];
-  const programDays: Record<string, any> = {};
-  const programDayExercises: any[] = [];
+  type Session = {
+    id: string;
+    program_day_id: string;
+    actual_type: string;
+    is_deload: boolean;
+    session_exercises: unknown[];
+  };
+  type SessionExercise = {
+    session_id: string;
+    user_id: string;
+    exercise_id: string;
+    order_index: number;
+    planned_sets: number;
+    planned_reps_min: number;
+    planned_reps_max: number;
+    rest_seconds: number;
+    metric: string;
+  };
+  type ProgramDayExercise = {
+    program_day_id: string;
+    exercise_id: string;
+    order_index: number;
+    target_sets: number;
+    target_reps_min: number;
+    target_reps_max: number;
+    rest_seconds: number;
+    exercises: { metric: string };
+  };
+
+  const sessions: Record<string, Session> = {};
+  const sessionExercises: SessionExercise[] = [];
+  const programDays: Record<string, { id: string; program_id: string; day_index: number }> = {};
+  const programDayExercises: ProgramDayExercise[] = [];
 
   programDays["day1"] = {
     id: "day1",
@@ -82,7 +111,7 @@ function createFakeSupabaseClient() {
         return {
           select(fields: string) {
             return {
-              eq(field: string, value: any) {
+              eq(field: string, value: string) {
                 return {
                   maybeSingle() {
                     const session = sessions[value];
@@ -109,7 +138,7 @@ function createFakeSupabaseClient() {
         return {
           select(fields: string) {
             return {
-              eq(field: string, value: any) {
+              eq(field: string, value: string) {
                 return {
                   order(orderField: string) {
                     const exercises = programDayExercises.filter(
@@ -126,7 +155,7 @@ function createFakeSupabaseClient() {
 
       if (table === "session_exercises") {
         return {
-          insert(rows: any[]) {
+          insert(rows: SessionExercise[]) {
             sessionExercises.push(...rows);
             return Promise.resolve({ data: rows, error: null });
           },
@@ -145,7 +174,7 @@ import { buildSessionExerciseRows } from "../src/lib/session/build-session-exerc
 
 // Simulate ensureSessionExercises logic
 async function ensureSessionExercises(
-  supabase: any,
+  supabase: ReturnType<typeof createFakeSupabaseClient>["client"],
   userId: string,
   sessionId: string,
   // This parameter simulates the bug: on main, is_deload was NOT selected
@@ -179,7 +208,7 @@ async function ensureSessionExercises(
     // BUG: didn't read is_deload, so always uses false (full volume)
     const rows = buildSessionExerciseRows(planned, { isDeload: false });
     await supabase.from("session_exercises").insert(
-      rows.map((r: any) => ({
+      rows.map((r) => ({
         session_id: sessionId,
         user_id: userId,
         ...r,
@@ -190,7 +219,7 @@ async function ensureSessionExercises(
     const isDeload = session.is_deload ?? false;
     const rows = buildSessionExerciseRows(planned, { isDeload });
     await supabase.from("session_exercises").insert(
-      rows.map((r: any) => ({
+      rows.map((r) => ({
         session_id: sessionId,
         user_id: userId,
         ...r,
@@ -254,7 +283,7 @@ console.log("\n1. Direct start in deload week (always worked)");
 
   const rows = buildSessionExerciseRows(planned, { isDeload: true });
   sessionExercises.push(
-    ...rows.map((r: any) => ({ session_id: "sess1", user_id: "user1", ...r })),
+    ...rows.map((r) => ({ session_id: "sess1", user_id: "user1", ...r })),
   );
 
   const totalSets = sessionExercises.reduce((sum, se) => sum + se.planned_sets, 0);
