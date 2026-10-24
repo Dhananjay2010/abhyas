@@ -6,6 +6,7 @@ import { getUnitsPreference } from "@/lib/units";
 import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -39,8 +40,27 @@ export default async function HistoryPage({
   const today = localDateString(timezone);
   const units = getUnitsPreference(profile.units);
 
-  // Build the query based on filter
-  let query = supabase
+  // Get ordered session IDs and total count from single RPC
+  // @ts-expect-error - RPC function not in generated types yet
+  const { data: pageData, error: pageError } = await supabase.rpc("get_history_page", {
+    p_user: user.id,
+    p_filter: filter,
+    p_today: today,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (pageError) {
+    throw new Error(`Could not load your history: ${pageError.message}`);
+  }
+
+  type PageRow = { session_id: string | null; total_count: number };
+  const pageRows = (pageData ?? []) as unknown as PageRow[];
+  const sessionIds = pageRows.map((r) => r.session_id).filter((id): id is string => id !== null);
+  const count = pageRows.length > 0 ? Number(pageRows[0].total_count) : 0;
+
+  // Fetch session details for the IDs returned by RPC
+  const { data: sessions, error: sessionsError } = await supabase
     .from("sessions")
     .select(
       `
@@ -56,39 +76,19 @@ export default async function HistoryPage({
       program_days(label),
       breathing_patterns!sessions_breathing_pattern_id_fkey(name, phases),
       breathing_logs(breaths, routine_name)
-    `,
-      { count: "exact" }
+    `
     )
-    .eq("user_id", user.id)
-    .lte("local_date", today);
-
-  // Apply filter
-  if (filter === "lifts") {
-    query = query.in("actual_type", ["weights", "bodyweight"]);
-  } else if (filter === "yoga") {
-    query = query.eq("actual_type", "yoga");
-  } else if (filter === "breathing") {
-    query = query.eq("actual_type", "meditation");
-  }
-
-  // Sort by local_date DESC (groups same-day sessions), then effective time
-  // (completed_at, falling back to started_at) DESC, then id DESC (tie-breaker)
-  // This ensures newest sessions appear first, with stable pagination
-  query = query
-    .order("local_date", { ascending: false })
-    .order("completed_at", { ascending: false, nullsFirst: false })
-    .order("started_at", { ascending: false, nullsFirst: false })
-    .order("id", { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  const { data: sessions, error: sessionsError, count } = await query;
+    .in("id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
 
   if (sessionsError) {
-    throw new Error(`Could not load your history: ${sessionsError.message}`);
+    throw new Error(`Could not load session details: ${sessionsError.message}`);
   }
 
+  // Re-sort sessions in JS to match RPC order
+  const sessionById = new Map(sessions.map((s) => [s.id, s]));
+  const orderedSessions = sessionIds.map((id) => sessionById.get(id)).filter(Boolean) as typeof sessions;
+
   // Get volume data for strength sessions
-  const sessionIds = (sessions ?? []).map((s) => s.id);
   const { data: volumeData } = await supabase
     .from("session_volume")
     .select("session_id, volume_kg, set_count")
@@ -123,7 +123,7 @@ export default async function HistoryPage({
   // Detect which sessions had PRs at the time AND get set counts
   // This fetches all historical data needed for PR detection and reuses it for counting
   // Pass the OLDEST session's completed_at so we fetch full prior history
-  const oldestCompletedAt = sessions?.[sessions.length - 1]?.completed_at ?? null;
+  const oldestCompletedAt = orderedSessions?.[orderedSessions.length - 1]?.completed_at ?? null;
   const { sessionsWithPRs, setCountsBySession } = await detectSessionPRs(
     supabase,
     user.id,
@@ -156,8 +156,9 @@ export default async function HistoryPage({
 
   // Get exercise history helpers
   const { findTopSet } = await import("@/lib/exercise-history/calculations");
+  const { pickTopSet } = await import("@/lib/history/pick-top-set");
 
-  const items: SessionListItem[] = (sessions ?? [])
+  const items: SessionListItem[] = (orderedSessions ?? [])
     .map((s) => {
       const vol = volumeById.get(s.id);
       const isBreathing = s.actual_type === "meditation";
@@ -167,20 +168,13 @@ export default async function HistoryPage({
       const workingSetCount = setCountsBySession.get(s.id) ?? 0;
 
       // Calculate top set weight for strength sessions
+    // Use pickTopSet to find the heaviest working set across all exercises
     let topSetWeight: number | null = null;
 
     if (!isBreathing && exercises.length > 0) {
-      const topSets = exercises.map((ex) => {
-        const sets = setsByExercise.get(ex.id) ?? [];
-        if (sets.length === 0) return null;
-        const metric = (ex.metric || "reps") as "reps" | "seconds";
-        return findTopSet(sets, metric);
-      }).filter(Boolean);
-
-      if (topSets.length > 0) {
-        topSetWeight = Math.max(...topSets.map((s) => s?.weight_kg ?? 0).filter((w) => w > 0));
-        if (topSetWeight === 0) topSetWeight = null;
-      }
+      // Collect all working sets from all exercises in this session
+      const allSets = exercises.flatMap((ex) => setsByExercise.get(ex.id) ?? []);
+      topSetWeight = pickTopSet(allSets);
     }
 
     // Check if this session had any PRs at the time
@@ -231,22 +225,16 @@ export default async function HistoryPage({
           }
         : null,
     };
-  })
-  .filter((item) => {
-    // Exclude strength sessions with 0 working sets
-    const isStrength = item.actualType === "weights" || item.actualType === "bodyweight";
-    if (isStrength && item.setCount === 0) {
-      return false;
-    }
-    return true;
   });
+  // For lifts, filtering already happened at SQL level via session_volume join
+  // For yoga/breathing, no filtering needed (they don't have zero-set issues)
 
   return (
     <HistoryClient
       items={items}
       filter={filter}
       page={page}
-      totalCount={count ?? 0}
+      totalCount={count}
       today={today}
       timezone={timezone}
       units={units}
