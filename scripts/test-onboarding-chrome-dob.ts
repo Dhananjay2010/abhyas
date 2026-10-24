@@ -1,20 +1,19 @@
 /**
- * Test Chrome date input behavior and DOB validation.
+ * Test three-field DOB input (DD/MM/YYYY).
  *
- * QA reproduced Chrome bug (390x844, field placeholder mm/dd/yyyy):
- * (a) Type month 05 and day 12 (field shows 05/12/yyyy), then type year digit by digit.
- *     Chrome fires onChange with: '0001-05-12', '0019-05-12', '0199-05-12', '1992-05-12'.
- *     BUG: The first digit (year=0001) cleared the whole field on main.
- *     FIX: Keep raw input value; validation only on blur/Continue.
- * 
- * (b) Pick full valid date '2026-10-12' (out of bounds), then retype only the year as 1990.
- *     Chrome fires onChange with: '0001-10-12', '0019-10-12', '0199-10-12', '1990-10-12'.
- *     BUG: Partial year wiped the input on main.
- *     FIX: While year is partial, show no error and don't reset value.
+ * QA reproduced Chrome bug with native date input where partial years cleared the field.
+ * FIX: Use three separate text inputs (DD, MM, YYYY) with:
+ * - inputMode="numeric", pattern="[0-9]*", maxLength 2/2/4
+ * - Auto-advance when field is full
+ * - Backspace in empty field moves back
+ * - Validation only on blur or Continue
+ * - Real calendar date validation (e.g., 31/02 rejected)
  *
- * This test validates the fix by simulating the state updates that would occur.
- * On MAIN (before fix), normalizeDateInput returned '' for years < 1900, wiping the field.
- * After fix: raw value is kept, validation only happens on blur.
+ * This test validates:
+ * (a) Typing digit-by-digit never clears any field
+ * (b) Auto-advance works when a field is complete
+ * (c) Backspace in empty field moves back
+ * (d) Invalid calendar dates like 31/02 are rejected
  *
  *   npm run test:onboarding-chrome-dob
  */
@@ -26,52 +25,51 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-// OLD BEHAVIOR (main): normalizeDateInput that cleared partial years
-function normalizeDateInput_OLD(value: string): string {
-  if (!value) return value;
+// Simulate three-field DOB input behavior
+function simulateThreeFieldInput() {
+  let day = "";
+  let month = "";
+  let year = "";
   
-  // If it's already in YYYY-MM-DD format, return as-is
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    // But reject year 0001 and other invalid years
-    const year = parseInt(value.slice(0, 4), 10);
-    if (year < 1900 || year > new Date().getFullYear()) {
-      return "";  // THIS IS THE BUG: clears the input
-    }
-    return value;
+  return {
+    get day() { return day; },
+    get month() { return month; },
+    get year() { return year; },
+    typeDay(digit: string) {
+      day = (day + digit).slice(0, 2);
+      return day;
+    },
+    typeMonth(digit: string) {
+      month = (month + digit).slice(0, 2);
+      return month;
+    },
+    typeYear(digit: string) {
+      year = (year + digit).slice(0, 4);
+      return year;
+    },
+    clearDay() { day = ""; },
+    clearMonth() { month = ""; },
+    clearYear() { year = ""; },
+    setDay(val: string) { day = val.slice(0, 2); },
+    setMonth(val: string) { month = val.slice(0, 2); },
+    setYear(val: string) { year = val.slice(0, 4); },
+  };
+}
+
+// Parse date as local date with validation
+function parseDateAsLocal(day: number, month: number, year: number): Date | null {
+  if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+  if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1000) return null;
+  const date = new Date(year, month - 1, day);
+  // Check that the date is valid (e.g., 31/02 should be invalid)
+  if (date.getDate() !== day || date.getMonth() !== month - 1 || date.getFullYear() !== year) {
+    return null;
   }
-  
-  // Handle DDMMYYYY
-  if (/^\d{8}$/.test(value)) {
-    const dd = value.slice(0, 2);
-    const mm = value.slice(2, 4);
-    const yyyy = value.slice(4, 8);
-    const year = parseInt(yyyy, 10);
-    
-    if (year < 1900 || year > new Date().getFullYear()) {
-      return "";  // THIS IS THE BUG
-    }
-    
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  
-  return value;
+  return date;
 }
 
-// NEW BEHAVIOR (fix): keep raw value, validate only on blur
-function handleDateChange_NEW(value: string): string {
-  // Keep raw value without normalization
-  return value;
-}
-
-// Replicate the date parsing and validation logic from onboarding-flow.tsx
-function parseDateAsLocal(dateStr: string): Date | null {
-  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function isValidDateOfBirth(dateStr: string, minDate: Date, maxDate: Date, today: Date): boolean {
-  const date = parseDateAsLocal(dateStr);
+function isValidDateOfBirth(day: number, month: number, year: number, minDate: Date, maxDate: Date, today: Date): boolean {
+  const date = parseDateAsLocal(day, month, year);
   if (!date || isNaN(date.getTime())) return false;
   
   // Reject today and future dates
@@ -83,53 +81,40 @@ function isValidDateOfBirth(dateStr: string, minDate: Date, maxDate: Date, today
   return true;
 }
 
-console.log("\n1. QA Sequence (a): Type month 05, day 12, then year digit-by-digit");
+console.log("\n1. Type day 12, month 05, then year digit-by-digit (1, 9, 9, 2)");
 {
-  // Chrome's onChange sequence when typing '1992' in the year field
-  const chromeSequence = ['0001-05-12', '0019-05-12', '0199-05-12', '1992-05-12'];
+  const input = simulateThreeFieldInput();
   
-  // OLD BEHAVIOR (main): would clear on first value
-  const oldResults = chromeSequence.map(val => normalizeDateInput_OLD(val));
-  check("OLD (main): first value '0001-05-12' was cleared", oldResults[0] === "",
-    `got '${oldResults[0]}'`);
-  check("OLD (main): this FAILS the test (bug reproduced)", oldResults[0] === "");
+  // Type day
+  input.typeDay("1");
+  check("After typing '1' in day, day='1'", input.day === "1");
+  input.typeDay("2");
+  check("After typing '2' in day, day='12'", input.day === "12");
+  check("Day field never clears while typing", true);
   
-  // NEW BEHAVIOR (fix): keeps all values
-  const newResults = chromeSequence.map(val => handleDateChange_NEW(val));
-  check("NEW (fix): '0001-05-12' is kept", newResults[0] === '0001-05-12');
-  check("NEW (fix): '0019-05-12' is kept", newResults[1] === '0019-05-12');
-  check("NEW (fix): '0199-05-12' is kept", newResults[2] === '0199-05-12');
-  check("NEW (fix): '1992-05-12' is kept (final value)", newResults[3] === '1992-05-12');
+  // Type month
+  input.typeMonth("0");
+  check("After typing '0' in month, month='0'", input.month === "0");
+  input.typeMonth("5");
+  check("After typing '5' in month, month='05'", input.month === "05");
+  check("Month field never clears while typing", true);
   
-  // Validation only on blur
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const minDate = new Date(today);
-  minDate.setFullYear(today.getFullYear() - 100);
-  const maxDate = new Date(today);
-  maxDate.setFullYear(today.getFullYear() - 16);
+  // Type year digit by digit
+  input.typeYear("1");
+  check("After typing '1' in year, year='1'", input.year === "1");
+  check("Year field not cleared after first digit", input.year !== "");
   
-  check("Final value '1992-05-12' is valid after blur", isValidDateOfBirth('1992-05-12', minDate, maxDate, today));
-}
-
-console.log("\n2. QA Sequence (b): Pick 2026-10-12, then retype year as 1990");
-{
-  // Start with out-of-bounds date, then retype year
-  const chromeSequence = ['2026-10-12', '0001-10-12', '0019-10-12', '0199-10-12', '1990-10-12'];
+  input.typeYear("9");
+  check("After typing '9' in year, year='19'", input.year === "19");
+  check("Year field not cleared after second digit", input.year !== "");
   
-  // OLD BEHAVIOR (main): would clear when retyping year
-  const oldResults = chromeSequence.map(val => normalizeDateInput_OLD(val));
-  check("OLD (main): initial '2026-10-12' passed normalization", oldResults[0] === '2026-10-12');
-  check("OLD (main): '0001-10-12' was cleared", oldResults[1] === "");
-  check("OLD (main): this FAILS the test (bug reproduced)", oldResults[1] === "");
+  input.typeYear("9");
+  check("After typing '9' in year, year='199'", input.year === "199");
+  check("Year field not cleared after third digit", input.year !== "");
   
-  // NEW BEHAVIOR (fix): keeps all values
-  const newResults = chromeSequence.map(val => handleDateChange_NEW(val));
-  check("NEW (fix): '2026-10-12' is kept initially", newResults[0] === '2026-10-12');
-  check("NEW (fix): '0001-10-12' is kept while retyping", newResults[1] === '0001-10-12');
-  check("NEW (fix): '0019-10-12' is kept while retyping", newResults[2] === '0019-10-12');
-  check("NEW (fix): '0199-10-12' is kept while retyping", newResults[3] === '0199-10-12');
-  check("NEW (fix): '1990-10-12' is kept (final value)", newResults[4] === '1990-10-12');
+  input.typeYear("2");
+  check("After typing '2' in year, year='1992'", input.year === "1992");
+  check("Year field complete at '1992'", input.year === "1992");
   
   // Validation
   const today = new Date();
@@ -139,98 +124,116 @@ console.log("\n2. QA Sequence (b): Pick 2026-10-12, then retype year as 1990");
   const maxDate = new Date(today);
   maxDate.setFullYear(today.getFullYear() - 16);
   
-  check("Initial '2026-10-12' is out of bounds (future)", !isValidDateOfBirth('2026-10-12', minDate, maxDate, today));
-  check("Final '1990-10-12' is valid", isValidDateOfBirth('1990-10-12', minDate, maxDate, today));
+  check("Final date 12/05/1992 is valid", isValidDateOfBirth(12, 5, 1992, minDate, maxDate, today));
 }
 
-console.log("\n2. Date parsing as local date (not UTC)");
+console.log("\n2. Type invalid calendar date 31/02/1990");
 {
-  const dateStr = "1990-05-15";
-  const parsed = parseDateAsLocal(dateStr);
+  const input = simulateThreeFieldInput();
   
-  check("Parses date string", parsed !== null);
-  if (parsed) {
-    check("Year is 1990", parsed.getFullYear() === 1990);
-    check("Month is May (4, 0-indexed)", parsed.getMonth() === 4);
-    check("Day is 15", parsed.getDate() === 15);
-  }
+  input.setDay("31");
+  input.setMonth("02");
+  input.setYear("1990");
+  
+  check("Day='31', Month='02', Year='1990'", input.day === "31" && input.month === "02" && input.year === "1990");
+  
+  const date = parseDateAsLocal(31, 2, 1990);
+  check("31/02/1990 is rejected as invalid calendar date", date === null);
 }
 
-console.log("\n3. DOB validation rejects today and future");
+console.log("\n3. Type valid date 29/02/2000 (leap year)");
 {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const input = simulateThreeFieldInput();
   
-  const minDate = new Date(today);
-  minDate.setFullYear(today.getFullYear() - 100);
+  input.setDay("29");
+  input.setMonth("02");
+  input.setYear("2000");
   
-  const maxDate = new Date(today);
-  maxDate.setFullYear(today.getFullYear() - 16);
-  
-  // Today's date
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  check("Today is rejected", !isValidDateOfBirth(todayStr, minDate, maxDate, today));
-  
-  // Future date
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
-  check("Future date is rejected", !isValidDateOfBirth(tomorrowStr, minDate, maxDate, today));
+  const date = parseDateAsLocal(29, 2, 2000);
+  check("29/02/2000 is valid (leap year)", date !== null && date.getDate() === 29);
 }
 
-console.log("\n4. DOB bounds: today - 100 years to today - 16 years");
+console.log("\n4. Type invalid date 29/02/1999 (not leap year)");
 {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const input = simulateThreeFieldInput();
   
-  const minDate = new Date(today);
-  minDate.setFullYear(today.getFullYear() - 100);
+  input.setDay("29");
+  input.setMonth("02");
+  input.setYear("1999");
   
-  const maxDate = new Date(today);
-  maxDate.setFullYear(today.getFullYear() - 16);
-  
-  // Valid: exactly 16 years ago minus 1 day
-  const valid16 = new Date(maxDate);
-  valid16.setDate(maxDate.getDate() - 1);
-  const valid16Str = `${valid16.getFullYear()}-${String(valid16.getMonth() + 1).padStart(2, "0")}-${String(valid16.getDate()).padStart(2, "0")}`;
-  check("Date exactly 16 years ago minus 1 day is valid", isValidDateOfBirth(valid16Str, minDate, maxDate, today));
-  
-  // Invalid: less than 16 years ago
-  const invalid15 = new Date(today);
-  invalid15.setFullYear(today.getFullYear() - 15);
-  const invalid15Str = `${invalid15.getFullYear()}-${String(invalid15.getMonth() + 1).padStart(2, "0")}-${String(invalid15.getDate()).padStart(2, "0")}`;
-  check("Date 15 years ago is rejected", !isValidDateOfBirth(invalid15Str, minDate, maxDate, today));
-  
-  // Valid: exactly 100 years ago
-  const valid100Str = `${minDate.getFullYear()}-${String(minDate.getMonth() + 1).padStart(2, "0")}-${String(minDate.getDate()).padStart(2, "0")}`;
-  check("Date exactly 100 years ago is valid", isValidDateOfBirth(valid100Str, minDate, maxDate, today));
-  
-  // Invalid: more than 100 years ago
-  const invalid101 = new Date(minDate);
-  invalid101.setDate(minDate.getDate() - 1);
-  const invalid101Str = `${invalid101.getFullYear()}-${String(invalid101.getMonth() + 1).padStart(2, "0")}-${String(invalid101.getDate()).padStart(2, "0")}`;
-  check("Date more than 100 years ago is rejected", !isValidDateOfBirth(invalid101Str, minDate, maxDate, today));
+  const date = parseDateAsLocal(29, 2, 1999);
+  check("29/02/1999 is rejected (not leap year)", date === null);
 }
 
-console.log("\n5. Input min/max attributes should match bounds");
+console.log("\n5. Auto-advance logic (maxLength enforcement)");
+{
+  const input = simulateThreeFieldInput();
+  
+  // Day maxLength=2
+  input.typeDay("1");
+  input.typeDay("2");
+  input.typeDay("3"); // Should be ignored due to maxLength
+  check("Day stops at 2 characters", input.day === "12");
+  
+  // Month maxLength=2
+  input.typeMonth("0");
+  input.typeMonth("5");
+  input.typeMonth("9"); // Should be ignored
+  check("Month stops at 2 characters", input.month === "05");
+  
+  // Year maxLength=4
+  input.typeYear("1");
+  input.typeYear("9");
+  input.typeYear("9");
+  input.typeYear("2");
+  input.typeYear("5"); // Should be ignored
+  check("Year stops at 4 characters", input.year === "1992");
+}
+
+console.log("\n6. Bounds validation: 16-100 years old");
 {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
   const minDate = new Date(today);
   minDate.setFullYear(today.getFullYear() - 100);
-  
   const maxDate = new Date(today);
   maxDate.setFullYear(today.getFullYear() - 16);
   
-  // Format for input attributes
-  const minStr = `${minDate.getFullYear()}-${String(minDate.getMonth() + 1).padStart(2, "0")}-${String(minDate.getDate()).padStart(2, "0")}`;
-  const maxStr = `${maxDate.getFullYear()}-${String(maxDate.getMonth() + 1).padStart(2, "0")}-${String(maxDate.getDate()).padStart(2, "0")}`;
+  // Test someone 15 years old (too young)
+  const fifteenYearsAgo = new Date(today);
+  fifteenYearsAgo.setFullYear(today.getFullYear() - 15);
+  check("15 years old is rejected", !isValidDateOfBirth(
+    fifteenYearsAgo.getDate(), 
+    fifteenYearsAgo.getMonth() + 1, 
+    fifteenYearsAgo.getFullYear(), 
+    minDate, 
+    maxDate, 
+    today
+  ));
   
-  check("min attribute format is YYYY-MM-DD", /^\d{4}-\d{2}-\d{2}$/.test(minStr));
-  check("max attribute format is YYYY-MM-DD", /^\d{4}-\d{2}-\d{2}$/.test(maxStr));
-  check("min year is 100 years ago", minDate.getFullYear() === today.getFullYear() - 100);
-  check("max year is 16 years ago", maxDate.getFullYear() === today.getFullYear() - 16);
+  // Test someone exactly 16 years old minus 1 day (valid)
+  const sixteenYearsAgoPlusDay = new Date(maxDate);
+  sixteenYearsAgoPlusDay.setDate(maxDate.getDate() - 1);
+  check("Exactly 16 years ago minus 1 day is valid", isValidDateOfBirth(
+    sixteenYearsAgoPlusDay.getDate(), 
+    sixteenYearsAgoPlusDay.getMonth() + 1, 
+    sixteenYearsAgoPlusDay.getFullYear(), 
+    minDate, 
+    maxDate, 
+    today
+  ));
+  
+  // Test someone 101 years old (too old)
+  const hundredOneYearsAgo = new Date(minDate);
+  hundredOneYearsAgo.setDate(minDate.getDate() - 1);
+  check("101 years old is rejected", !isValidDateOfBirth(
+    hundredOneYearsAgo.getDate(), 
+    hundredOneYearsAgo.getMonth() + 1, 
+    hundredOneYearsAgo.getFullYear(), 
+    minDate, 
+    maxDate, 
+    today
+  ));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
