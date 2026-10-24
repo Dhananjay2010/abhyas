@@ -157,8 +157,7 @@ export default async function ProgressPage() {
   );
   const strengthCharts = buildStrengthChartsFromDescendingRows(
     (strengthRes.data ?? []).filter(row => !deloadDates.has(row.local_date)),
-    shortDate,
-    units
+    shortDate
   ).slice(0, 6);
 
   const totalVolume = volumeRows.reduce((n, v) => n + Number(v.volume_kg), 0);
