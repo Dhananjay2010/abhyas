@@ -198,7 +198,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     sets: sets(4, 12, 25),
     feel: "right",
     state: fresh({ currentWorkingWeightKg: 25, currentTargetReps: 12 }),
-    equipmentIds: ["dip_belt"],
+    equipmentIds: ["dip_bars"],
     unit: "kg",
   });
   check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 27.5,

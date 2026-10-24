@@ -146,7 +146,7 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
   let maxResult;
   try {
     maxResult = applyDeload(maxP);
-  } catch (e) {
+  } catch {
     maxThrew = true;
   }
   
@@ -157,7 +157,7 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
   );
   
   if (maxResult) {
-    const expectedMax = Math.min(MAX_PLANNER_SETS, Math.max(2, Math.round(MAX_PLANNER_SETS * 0.6)));
+    const expectedMax = 3;
     check(
       `applyDeload(${MAX_PLANNER_SETS}) = ${expectedMax}`,
       maxResult.sets === expectedMax,

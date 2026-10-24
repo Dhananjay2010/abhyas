@@ -1,126 +1,179 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Real mutation testing script for progression grid rounding
-# Plants mutants in the actual source, runs real tests, counts failures, reverts
+# Mutation testing for progression grid rounding
+# Plants exact-string mutants, verifies they change the file and compile,
+# runs targeted tests, counts new failures, restores from saved copy.
 
 PROG_FILE="src/lib/program/progression.ts"
+SAVED_FILE="/tmp/progression-saved-$$.ts"
 MUTANT_COUNT=0
 SURVIVED_COUNT=0
+
+# Targeted test scripts
+TESTS=(
+  "npm run test:progression"
+  "npm run test:progression-grid"
+)
 
 echo "=== MUTATION TESTING: progression grid rounding ==="
 echo
 
-# Helper to plant a mutant, test, and revert
+# Save original file
+cp "$PROG_FILE" "$SAVED_FILE"
+echo "Saved original to $SAVED_FILE"
+echo
+
+# Run baseline tests
+echo "Running baseline tests..."
+BASELINE_EXIT=0
+for test in "${TESTS[@]}"; do
+  if ! $test > /dev/null 2>&1; then
+    echo "ERROR: Baseline test failed: $test"
+    echo "Baseline must pass before mutation testing"
+    rm -f "$SAVED_FILE"
+    exit 1
+  fi
+done
+echo "Baseline: PASS"
+echo
+
+# Helper to test one mutant
 test_mutant() {
   local name="$1"
-  local pattern="$2"
-  local replacement="$3"
+  local find_str="$2"
+  local replace_str="$3"
   
   MUTANT_COUNT=$((MUTANT_COUNT + 1))
   echo "[$MUTANT_COUNT] $name"
   
-  # Plant mutant
-  if ! sed -i.bak "$pattern" "$PROG_FILE"; then
-    echo "  ERROR: sed failed"
-    mv "$PROG_FILE.bak" "$PROG_FILE" 2>/dev/null || true
+  # Restore original
+  cp "$SAVED_FILE" "$PROG_FILE"
+  
+  # Plant mutant using exact string replacement
+  if ! grep -qF "$find_str" "$PROG_FILE"; then
+    echo "  ⚠️  STRING NOT FOUND (no-op mutant)"
+    echo "     Looking for: $find_str"
+    SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
     return 1
   fi
   
-  # Run tests (capture failures)
-  set +e
-  npm test 2>&1 | grep -E '(FAIL|PASS|Error)' | head -20 > /tmp/mutant-test-output.txt
-  local exit_code=$?
-  set -e
+  # Replace
+  local tmp_file="/tmp/mutant-$$.ts"
+  awk -v find="$find_str" -v replace="$replace_str" '
+  {
+    if (index($0, find) > 0) {
+      sub(find, replace)
+      changed = 1
+    }
+    print
+  }
+  END { if (!changed) exit 1 }
+  ' "$PROG_FILE" > "$tmp_file"
   
-  # Count failures
-  local failures=0
-  if grep -q 'FAIL' /tmp/mutant-test-output.txt || [ $exit_code -ne 0 ]; then
-    failures=$(grep -c 'FAIL\|Error' /tmp/mutant-test-output.txt || echo 1)
-  fi
-  
-  echo "  Failures: $failures"
-  
-  if [ "$failures" -eq 0 ]; then
-    echo "  ⚠️  SURVIVED"
+  if [ $? -ne 0 ]; then
+    echo "  ⚠️  REPLACEMENT FAILED"
+    rm -f "$tmp_file"
     SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
+    return 1
   fi
   
-  # Revert
-  git checkout -- "$PROG_FILE" 2>/dev/null || mv "$PROG_FILE.bak" "$PROG_FILE"
-  rm -f "$PROG_FILE.bak"
+  mv "$tmp_file" "$PROG_FILE"
+  
+  # Verify file changed
+  if diff -q "$SAVED_FILE" "$PROG_FILE" > /dev/null 2>&1; then
+    echo "  ⚠️  FILE UNCHANGED (no-op mutant)"
+    SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
+    return 1
+  fi
+  
+  # Verify it still compiles
+  if ! npx --package=typescript tsc --noEmit > /dev/null 2>&1; then
+    echo "  ⚠️  DOES NOT COMPILE"
+    SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
+    return 1
+  fi
+  
+  # Run targeted tests and count failures
+  local has_new_failure=0
+  for test in "${TESTS[@]}"; do
+    if ! $test > /dev/null 2>&1; then
+      has_new_failure=1
+      break
+    fi
+  done
+  
+  if [ "$has_new_failure" -eq 0 ]; then
+    echo "  ❌ SURVIVED (no new failures)"
+    SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
+  else
+    echo "  ✓ KILLED"
+  fi
   
   echo
 }
 
-# Mutant 1: Remove rounding - round DOWN on progression (should round UP)
+# Mutant R2: Success rounds down instead of up
 test_mutant \
-  "Round DOWN on progression instead of UP" \
-  's/Math\.ceil(target \/ step) \* step/Math.floor(target \/ step) \* step/g' \
-  ""
+  "Success rounds down instead of up" \
+  "next = roundToGrid(rawNext, equipmentIds, unit, step, 'up');" \
+  "next = roundToGrid(rawNext, equipmentIds, unit, step, 'down');"
 
-# Mutant 2: Hard raises weight (remove hold)
+# Mutant R1: Back-off grid bypass (off-grid result)
 test_mutant \
-  "Hard raises weight (remove hold logic)" \
-  's/feel === "hard"/feel === "never"/g' \
-  ""
+  "Back-off bypasses grid (10% reduction not snapped)" \
+  "const reduced = roundToGrid(rawReduced, equipmentIds, unit, step, 'down');" \
+  "const reduced = rawReduced;"
 
-# Mutant 3: Failed set doesn't drop weight (skip back-off grid rounding)
+# Mutant R3: Chin-up load reset (non-loadable → 0)
 test_mutant \
-  "Failed set doesn't drop (skip grid on back-off)" \
-  's/roundToGrid(backoff, equipmentIds, unit, "down")/backoff/g' \
-  ""
+  "Non-loadable equipment resets load to 0" \
+  "const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));" \
+  "const hasLoadable = false;"
 
-# Mutant 4: Floor to 0 (remove minimum floor)
+# Mutant R4: lb bells applied to kg
 test_mutant \
-  "Floor to 0 (remove minimum protection)" \
-  's/Math\.max(.*equipmentMinimum.*)/0/g' \
-  ""
+  "lb kettlebell bells applied to kg state" \
+  "const bells = unit === 'kg' ? KETTLEBELL_WEIGHTS_KG : KETTLEBELL_WEIGHTS_LB;" \
+  "const bells = KETTLEBELL_WEIGHTS_LB;"
 
-# Mutant 5: Kettlebell jumps two bells (use compound increment)
+# Mutant R5: lb step applied to kg (standard grid)
 test_mutant \
-  "Kettlebell jumps two bells (wrong increment)" \
-  's/meta\.mechanic === "compound" \? 2\.5 : 1\.25/5.0/g' \
-  ""
+  "lb grid step applied to kg values" \
+  "const gridStep = equipmentGridStep(effectiveEquipmentIds, unit);" \
+  "const gridStep = equipmentGridStep(effectiveEquipmentIds, 'lb');"
 
-# Mutant 6: Apply lb grid to kg values
+# Mutant R6: Minimum floor → 0
 test_mutant \
-  "Apply lb grid to kg values (unit confusion)" \
-  's/const effectiveUnit = unit \|\| "kg"/const effectiveUnit = "lb"/g' \
-  ""
+  "Minimum floor returns 0" \
+  "return Math.max(step, rounded);" \
+  "return 0;"
 
-# Mutant 7: Skip rounding on deload
+# Mutant R7: First miss drops two increments
 test_mutant \
-  "Skip rounding on deload" \
-  's/roundToGrid(deloadWeight, equipmentIds, unit, "down")/deloadWeight/g' \
-  ""
+  "First miss drops two grid steps" \
+  "const rawDrop = currentWeight - gridStep;" \
+  "const rawDrop = currentWeight - gridStep * 2;"
 
-# Mutant 8: Use increment instead of grid step on miss
+# Mutant R8: Hard hold not snapped to grid
 test_mutant \
-  "Use increment instead of grid step on miss" \
-  's/const step = equipmentGridStep/const step = (meta.mechanic === "compound" ? 2.5 : 1.25); \/\/ equipmentGridStep/g' \
-  ""
+  "Hard hold weight not snapped to grid" \
+  "const held = equipmentIds && unit" \
+  "const held = false && equipmentIds && unit"
 
-# Mutant 9: Progression rounds to nearest instead of up
+# Mutant R9: suggestedWeight deload bypasses grid
 test_mutant \
-  "Progression rounds nearest (not up)" \
-  's/Math\.ceil(value \/ gridStep)/Math.round(value \/ gridStep)/g' \
-  ""
+  "Deload suggestion bypasses grid" \
+  "return roundToGrid(rawDeload, equipmentIds, unit, step, 'down');" \
+  "return rawDeload;"
 
-# Mutant 10: Non-loadable fallback disabled
-test_mutant \
-  "Non-loadable equipment fallback disabled" \
-  "s/const effectiveEquipmentIds = hasLoadable ? equipmentIds : \\['barbell'\\];/const effectiveEquipmentIds = equipmentIds;/g" \
-  ""
-
-# Mutant 11: Grid step calculation returns 0
-test_mutant \
-  "Grid step returns 0 (breaks rounding)" \
-  's/return Math\.max(\.\.\./return 0; \/\/ Math.max(/g' \
-  ""
+# Restore original
+cp "$SAVED_FILE" "$PROG_FILE"
+rm -f "$SAVED_FILE"
 
 echo "==================================="
 echo "Total mutants: $MUTANT_COUNT"
+echo "Killed: $((MUTANT_COUNT - SURVIVED_COUNT))"
 echo "Survived: $SURVIVED_COUNT"
 echo
 
