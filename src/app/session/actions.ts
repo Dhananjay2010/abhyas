@@ -20,6 +20,7 @@ import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
+import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -410,21 +411,13 @@ async function applyProgression(
     isDeload: sessionRes.data?.is_deload ?? false,
   });
 
-  await supabase.from("exercise_progress").upsert(
-    {
-      user_id: userId,
-      exercise_id: se.exercise_id,
-      current_working_weight_kg: decision.nextWorkingWeightKg,
-      current_target_reps: decision.nextTargetReps,
-      consecutive_failures: decision.consecutiveFailures,
-      last_performed_on: sessionRes.data?.local_date ?? null,
-      best_weight_kg: decision.bestWeightKg,
-      best_reps: decision.bestReps,
-      best_e1rm: decision.bestE1rm,
-      total_sessions: state.totalSessions + 1,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,exercise_id" },
+  await writeExerciseProgressCore(
+    supabase,
+    userId,
+    se.exercise_id,
+    decision,
+    state.totalSessions,
+    sessionRes.data?.local_date ?? null,
   );
 
   // Outgrew a bodyweight variation: upgrade the plan so next time is harder.
