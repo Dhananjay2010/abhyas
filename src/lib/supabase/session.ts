@@ -1,22 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { PERF_ENABLED } from "@/lib/perf";
-
-/** Routes reachable without a session. Everything else redirects to "/". */
-const PUBLIC_PATHS = ["/", "/auth", "/legal", "/robots.txt", "/sitemap.xml"];
-
-/** Dev-only harnesses, never routable in production (the pages 404 there too). */
-const DEV_PATHS = process.env.NODE_ENV === "development" ? ["/dev"] : [];
-
-/**
- * The latency probe, when one is configured.
- *
- * It has to be reachable without a session to be useful — it measures the path
- * between this function and Supabase, which has nothing to do with any user —
- * and it gates itself on PERF_TOKEN. With no token configured the route does
- * not exist, so this list is empty and the proxy behaves exactly as before.
- */
-const PROBE_PATHS = process.env.PERF_TOKEN ? ["/api/diag"] : [];
+import { isPublicPath } from "./public-paths";
 
 /**
  * Known protected route prefixes that require authentication.
@@ -77,11 +62,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getClaims();
   const signedIn = !error && Boolean(claims?.claims?.sub);
 
-  const isPublic = [...PUBLIC_PATHS, ...DEV_PATHS, ...PROBE_PATHS].some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
-
-  if (!signedIn && !isPublic) {
+  if (!signedIn && !isPublicPath(pathname)) {
     // Check if this is a known protected route
     const isProtected = PROTECTED_PREFIXES.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
