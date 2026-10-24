@@ -31,7 +31,7 @@ import {
 } from "../actions";
 import { classifyLogSetOutcome, nextSetNumberFor } from "@/lib/session/outbox";
 import { isQuotaError } from "@/lib/session/quota-error";
-import { mapErrorToUserMessage } from "@/lib/session/error-messages";
+import { mapErrorToUserMessage, countLoggedSets } from "@/lib/session/error-messages";
 import { useSetOutbox, type SyncState } from "./use-set-outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -245,7 +245,7 @@ export function SessionRunner({
     [exercises],
   );
   const totalSetsDone = useMemo(
-    () => exercises.reduce((n, e) => n + e.sets.length, 0),
+    () => countLoggedSets(exercises),
     [exercises],
   );
 

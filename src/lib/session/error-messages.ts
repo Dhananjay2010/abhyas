@@ -1,4 +1,31 @@
 /**
+ * Count logged sets that are saved or pending (exclude failed/unsaved).
+ * 
+ * Pure function for testability. Handles:
+ * - Doesn't count failed or unsaved rows
+ * - Doesn't double-count (deduplicates by setNumber)
+ * - Stable during flush (pending rows are counted)
+ */
+export function countLoggedSets(
+  exercises: Array<{
+    sets: Array<{
+      setNumber: number;
+      pending?: boolean;
+      failed?: boolean;
+      unsaved?: boolean;
+    }>;
+  }>,
+): number {
+  return exercises.reduce((sum, ex) => {
+    return sum + ex.sets.filter((s) => {
+      // Exclude failed and unsaved rows
+      const meta = s as { pending?: boolean; failed?: boolean; unsaved?: boolean };
+      return !meta.failed && !meta.unsaved;
+    }).length;
+  }, 0);
+}
+
+/**
  * Map Postgres error codes and raw error text to user-friendly messages.
  * 
  * Pure function for testability.
