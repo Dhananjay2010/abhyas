@@ -6,7 +6,7 @@ set -u
 
 FILE="src/lib/program/progression.ts"
 BACKUP="${FILE}.backup"
-TESTS="npm run test:first-miss-hold-guard && npx tsx scripts/test-first-miss-noequip-sweep.ts"
+TESTS="npm run test:first-miss-hold-guard && npm run test:noequip-sweep"
 
 # Colors
 RED='\033[0;31m'
@@ -114,6 +114,36 @@ run_mutant \
   "(e) failures not incremented" \
   "consecutiveFailures: failures," \
   "consecutiveFailures: state.consecutiveFailures,"
+
+# Mutant (f): guard applies without equipment
+run_mutant \
+  "(f) guard without equipment" \
+  "if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {" \
+  "if (currentWeight !== null \&\& currentWeight > 0) {"
+
+# Mutant (g): hold returns candidateWeight instead of currentWeight
+run_mutant \
+  "(g) hold returns candidate" \
+  "nextWeight = currentWeight;" \
+  "nextWeight = candidateWeight;"
+
+# Mutant (h): remove half-step floor (1.5 steps → 1.0 step)
+run_mutant \
+  "(h) no half-step floor" \
+  "currentWeight - gridBelow <= 1.5 \* gridStep" \
+  "currentWeight - gridBelow <= 1.0 * gridStep"
+
+# Mutant (i): round to nearest instead of at-or-below
+run_mutant \
+  "(i) round to nearest" \
+  "Math.floor((currentWeight - 0.001) / gridStep)" \
+  "Math.round(currentWeight / gridStep)"
+
+# Mutant (j): remove two-miss equipment cap
+run_mutant \
+  "(j) no two-miss cap" \
+  "} else if (equipmentIds && unit) {" \
+  "} else if (false) {"
 
 # Summary
 echo ""

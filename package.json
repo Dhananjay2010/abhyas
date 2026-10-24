@@ -17,6 +17,8 @@
     "test:progression": "tsx scripts/test-progression.ts",
     "test:progression-grid": "tsx scripts/test-progression-grid.ts",
     "test:first-miss-hold-guard": "tsx scripts/test-first-miss-hold-guard.ts",
+    "test:noequip-sweep": "tsx scripts/test-noequip-sweep.ts",
+    "test:equip-sweep": "tsx scripts/test-equip-sweep.ts",
     "test:input-step": "tsx scripts/test-input-step.ts",
     "test:stepper-input": "tsx scripts/test-stepper-input.ts",
     "test:load-grid": "tsx scripts/test-load-grid.ts",

@@ -610,8 +610,15 @@ export function evaluateProgression(input: {
       }
       
       reduced = bells[targetIndex];
+    } else if (equipmentIds && unit) {
+      // With equipment: use equipment grid, cap at one lift increment below 90%
+      const gridStep = equipmentGridStep(equipmentIds, 'kg');
+      const snapped = Math.floor(rawReduced / gridStep) * gridStep;
+      // Never drop more than one lift increment below the 90% value
+      const minAllowed = rawReduced - liftIncrement;
+      reduced = Math.max(snapped, minAllowed);
     } else {
-      // Standard equipment: use 2.5 kg grid (1.25 kg for isolation), NOT the lift increment
+      // No equipment: use 2.5 kg grid (1.25 kg for isolation)
       const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
       const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
       // Never drop more than one lift increment below the 90% value
@@ -658,18 +665,46 @@ export function evaluateProgression(input: {
       if (currentIndex > 0) {
         candidateWeight = bells[currentIndex - 1];
       } else {
-        // Not exactly on a bell, round down to previous bell
-        const candidate = roundToGrid(currentWeight - 0.1, equipmentIds, unit, incrementFor(meta), 'down');
-        // Never raise on miss
-        candidateWeight = candidate < currentWeight ? candidate : currentWeight;
+        // Off-grid: find the next bell below current within 1.5 bells
+        let nextBell = currentWeight;
+        for (let i = bells.length - 1; i >= 0; i--) {
+          if (bells[i] < currentWeight) {
+            nextBell = bells[i];
+            break;
+          }
+        }
+        // If no bell found or too far, hold
+        if (nextBell === currentWeight) {
+          candidateWeight = currentWeight;
+        } else {
+          candidateWeight = nextBell;
+        }
       }
     } else {
-      // Standard equipment: drop by one grid step (always kg grid, state is kg)
+      // Standard equipment: drop to next grid point below current
       const gridStep = equipmentGridStep(equipmentIds, 'kg');
-      const rawDrop = currentWeight - gridStep;
-      const candidate = roundToGrid(rawDrop, equipmentIds, unit, gridStep, 'down');
-      // Never raise on miss
-      candidateWeight = candidate < currentWeight ? candidate : currentWeight;
+      
+      // Find the next grid point strictly below current
+      // Subtract epsilon to handle on-grid values, then floor
+      const epsilon = 0.001;
+      const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);
+      const gridBelow = stepsBelow * gridStep;
+      
+      // Only drop if it's within 1.5 steps of current
+      if (gridBelow >= 0 && currentWeight - gridBelow > epsilon && currentWeight - gridBelow <= 1.5 * gridStep + epsilon) {
+        candidateWeight = gridBelow;
+      } else {
+        // Too far, negative, or same as current (shouldn't happen with epsilon), hold
+        candidateWeight = currentWeight;
+      }
+    }
+    
+    // Safety floor: don't drop to or below lift increment (matching two-miss logic)
+    const liftIncrement = incrementFor(meta);
+    if (currentWeight <= liftIncrement) {
+      candidateWeight = currentWeight;
+    } else if (candidateWeight <= liftIncrement) {
+      candidateWeight = currentWeight;
     }
     
     // Guard: if stepping down would cut more than the threshold, hold instead
