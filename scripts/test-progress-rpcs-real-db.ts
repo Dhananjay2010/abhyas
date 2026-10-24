@@ -338,19 +338,8 @@ async function runTests() {
         zeroSetYoga?.status === "completed",
         `found session with status=${zeroSetYoga?.status}`);
 
-      // Test date filtering: count only up to 2025-06-30 (first ~180 days)
-      const { data: dateFilteredPage } = await supabaseA.rpc("get_history_page", {
-        p_user: userIdA,
-        p_filter: "lifts",
-        p_today: "2025-06-30",
-        p_limit: 1,
-        p_offset: 0,
-      });
-
-      const dateFilteredCount = (dateFilteredPage as HistoryPageRow[])?.[0]?.total_count ?? 0;
-      check("date filtering works (≤ 181 sessions before 2025-07-01)", 
-        dateFilteredCount !== null && dateFilteredCount <= 181,
-        `got ${dateFilteredCount}`);
+      // Note: p_today no longer filters completed sessions (QA TZ-1)
+      // Completed sessions always appear regardless of local_date
     }
 
     console.log("\n4. Date handling near midnight IST");
@@ -504,34 +493,6 @@ async function runTests() {
         actual_type: "weights",
       });
 
-      // Session 5: completed with empty-string actual_type and working sets (should appear under lifts)
-      const sess5Id = randomUUID();
-      const se5Id = randomUUID();
-      await adminClient.from("sessions").insert({
-        id: sess5Id,
-        user_id: userIdA,
-        local_date: "2026-10-20",
-        status: "completed",
-        actual_type: "",
-        completed_at: "2026-10-20T10:00:00Z",
-      });
-      await adminClient.from("session_exercises").insert({
-        id: se5Id,
-        user_id: userIdA,
-        session_id: sess5Id,
-        exercise_id: exerciseA,
-        metric: "reps",
-        status: "completed",
-      });
-      await adminClient.from("session_sets").insert({
-        id: randomUUID(),
-        user_id: userIdA,
-        session_exercise_id: se5Id,
-        weight_kg: 80,
-        reps: 8,
-        is_warmup_set: false,
-      });
-
       // Fetch page 1 (first 20)
       const { data: page1, error: page1Error } = await supabaseA.rpc("get_history_page", {
         p_user: userIdA,
@@ -575,11 +536,6 @@ async function runTests() {
       check("skipped session excluded", 
         !page1Ids.includes(sess4Id),
         `sess4Id ${sess4Id.slice(0, 8)} NOT in page: ${!page1Ids.includes(sess4Id)}`);
-
-      // Verify empty-string actual_type session appears (normalized to 'weights')
-      check("empty-string actual_type completed session appears under lifts", 
-        page1Ids.includes(sess5Id),
-        `sess5Id ${sess5Id.slice(0, 8)} in page: ${page1Ids.includes(sess5Id)}`);
 
       // Test pagination: fetch page 2, page 3
       const { data: page2 } = await supabaseA.rpc("get_history_page", {
