@@ -5,13 +5,12 @@
  * 1. It was a training day in the block's template
  * 2. It occurred on or after the program started_on date
  * 3. It occurred on or after the user's onboarding completion date
- * 4. No session that "owns a planned workout" was completed on that day
+ * 4. No choice was made for that day (no planned override, no completed strength)
  *
  * This prevents showing "YOU MISSED YESTERDAY" on day 1 of a new program.
  *
- * Uses the shared ownsPlannedWorkout rule from training-days.ts:
- * Only strength (weights/bodyweight) sessions settle a day.
- * Yoga and breathing are anytime activities.
+ * A Rest/Yoga/Breathing choice settles a day (planned/in_progress/completed/skipped).
+ * A completed strength session also settles a day.
  */
 
 import type { Database } from "@/lib/database.types";
@@ -31,8 +30,8 @@ export type MissedDayInput = {
   timezone: string;
   /** The day template for that weekday */
   templateDayType: DayType | null;
-  /** Sessions completed on that date */
-  completedSessions: Array<{ actual_type: DayType | null; status: string }>;
+  /** Sessions for that date */
+  sessions: Array<{ actual_type: DayType | null; status: string }>;
 };
 
 /**
@@ -42,7 +41,8 @@ export type MissedDayInput = {
  * - The template scheduled strength training (weights or bodyweight)
  * - The date is on or after program start
  * - The date is on or after onboarding completion
- * - No strength session was completed on that date
+ * - No choice was made: no Rest/Yoga/Breathing override (planned/in_progress/completed/skipped)
+ *   and no completed strength session
  */
 export function isMissedTrainingDay(input: MissedDayInput): boolean {
   const {
@@ -51,7 +51,7 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     onboardingCompletedAt,
     timezone,
     templateDayType,
-    completedSessions,
+    sessions,
   } = input;
 
   // Not a strength training day in the template
@@ -74,11 +74,27 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     }
   }
 
-  // Check if any strength session was completed
-  // Use the shared rule from training-days.ts
-  const strengthCompleted = completedSessions.some(
+  // Check if any choice was made for this day:
+  // 1. A completed strength session
+  const strengthCompleted = sessions.some(
     (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type)
   );
+  if (strengthCompleted) {
+    return false;
+  }
 
-  return !strengthCompleted;
+  // 2. A Rest/Yoga/Breathing choice (planned, in_progress, completed, or skipped)
+  const hasChoice = sessions.some(
+    (s) =>
+      (s.status === "planned" ||
+        s.status === "in_progress" ||
+        s.status === "completed" ||
+        s.status === "skipped") &&
+      (s.actual_type === "rest" || s.actual_type === "yoga" || s.actual_type === "meditation")
+  );
+  if (hasChoice) {
+    return false;
+  }
+
+  return true;
 }

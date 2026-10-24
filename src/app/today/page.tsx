@@ -15,8 +15,9 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isMissedTrainingDay } from "@/lib/today/missed-day";
-import { WelcomeCard, shouldShowWelcome } from "@/components/welcome-card";
-import { ownsPlannedWorkout, countsTowardStreak } from "@/lib/progress/training-days";
+import { WelcomeCard } from "@/components/welcome-card";
+import { shouldShowWelcome } from "@/lib/today/welcome";
+import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 
 export const dynamic = "force-dynamic";
 
@@ -195,7 +196,7 @@ export default async function TodayPage() {
     */
     supabase
       .from("sessions")
-      .select("id, status, actual_type, local_date, program_day_id, started_at, created_at")
+      .select("id, status, actual_type, local_date, program_id, program_day_id, started_at, created_at")
       .gte("local_date", yesterday)
       .lte("local_date", weekAheadEnd)
       // Newest first, which is how `startSession` breaks the same tie.
@@ -328,13 +329,19 @@ export default async function TodayPage() {
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
-  const missedYesterday = isMissedTrainingDay({
+  
+  // Check if yesterday has any planned override (Rest/Yoga/Breathing choice)
+  const yesterdayOverride = yesterdaySessions.find(
+    (s) => s.local_date === yesterday && s.program_id === program.id
+  );
+  
+  const missedYesterday = !yesterdayOverride && isMissedTrainingDay({
     date: yesterday,
     programStartedOn: program.started_on,
     onboardingCompletedAt: profile.onboarding_completed_at,
     timezone,
     templateDayType: yesterdayDay?.day_type ?? null,
-    completedSessions: yesterdaySessions.map((s) => ({
+    sessions: yesterdaySessions.map((s) => ({
       actual_type: s.actual_type,
       status: s.status,
     })),
@@ -359,11 +366,13 @@ export default async function TodayPage() {
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
-    // Check if user has started any session (for welcome card)
+    // Check if user has started any strength or yoga session (for welcome card)
+    // Breathing doesn't count as "starting training"
     supabase
       .from("sessions")
       .select("id", { count: "exact", head: true })
       .not("started_at", "is", null)
+      .in("actual_type", ["weights", "bodyweight", "yoga"])
       .limit(1)
       .then((res) => (res.count ?? 0) > 0),
   ]);
@@ -528,18 +537,18 @@ export default async function TodayPage() {
       {shouldShowWelcome(hasStartedSession, hasDismissedWelcome) && (
         <WelcomeCard
           blockNumber={program.block_number}
-          daysPerWeek={profile.days_per_week ?? 3}
+          daysPerWeek={days?.filter((d) => ownsPlannedWorkout(d.day_type)).length ?? 0}
           weekSchedule={[
-            { dayName: "Monday", isTraining: days?.some((d) => d.day_index === 1 && countsTowardStreak(d.day_type)) ?? false },
-            { dayName: "Tuesday", isTraining: days?.some((d) => d.day_index === 2 && countsTowardStreak(d.day_type)) ?? false },
-            { dayName: "Wednesday", isTraining: days?.some((d) => d.day_index === 3 && countsTowardStreak(d.day_type)) ?? false },
-            { dayName: "Thursday", isTraining: days?.some((d) => d.day_index === 4 && countsTowardStreak(d.day_type)) ?? false },
-            { dayName: "Friday", isTraining: days?.some((d) => d.day_index === 5 && countsTowardStreak(d.day_type)) ?? false },
-            { dayName: "Saturday", isTraining: days?.some((d) => d.day_index === 6 && countsTowardStreak(d.day_type)) ?? false },
-            { dayName: "Sunday", isTraining: days?.some((d) => d.day_index === 7 && countsTowardStreak(d.day_type)) ?? false },
+            { dayName: "Mon", isTraining: days?.some((d) => d.day_index === 1 && ownsPlannedWorkout(d.day_type)) ?? false },
+            { dayName: "Tue", isTraining: days?.some((d) => d.day_index === 2 && ownsPlannedWorkout(d.day_type)) ?? false },
+            { dayName: "Wed", isTraining: days?.some((d) => d.day_index === 3 && ownsPlannedWorkout(d.day_type)) ?? false },
+            { dayName: "Thu", isTraining: days?.some((d) => d.day_index === 4 && ownsPlannedWorkout(d.day_type)) ?? false },
+            { dayName: "Fri", isTraining: days?.some((d) => d.day_index === 5 && ownsPlannedWorkout(d.day_type)) ?? false },
+            { dayName: "Sat", isTraining: days?.some((d) => d.day_index === 6 && ownsPlannedWorkout(d.day_type)) ?? false },
+            { dayName: "Sun", isTraining: days?.some((d) => d.day_index === 7 && ownsPlannedWorkout(d.day_type)) ?? false },
           ]}
           sessionMinutes={profile.preferred_session_minutes ?? 60}
-          blockLength={4}
+          blockLength={Math.round((new Date(program.ends_on).getTime() - new Date(program.started_on).getTime()) / (7 * 24 * 60 * 60 * 1000))}
           deloadWeek={program.deload_week}
         />
       )}
@@ -559,35 +568,31 @@ export default async function TodayPage() {
         />
       )}
 
-      {dayType === "rest" && !strengthDone && !strengthOpen && (
+      {dayType === "rest" && !strengthDone && !strengthOpen && !missedYesterday && (
         <>
-          {!missedYesterday && (
-            <p className="mt-6 text-muted">
-              Rest is part of the training. Your body builds strength while recovering.
+          <p className="mt-6 text-muted">
+            Rest is part of the training. Your body builds strength while recovering.
+          </p>
+          <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
+            <h3 className="font-semibold">Active recovery</h3>
+            <p className="mt-1 text-sm text-muted">
+              Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
             </p>
-          )}
-          {!missedYesterday && (
-            <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
-              <h3 className="font-semibold">Active recovery</h3>
-              <p className="mt-1 text-sm text-muted">
-                Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
-              </p>
-              <div className="mt-4 flex gap-3">
-                <Link
-                  href="/yoga"
-                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-                >
-                  Yoga
-                </Link>
-                <Link
-                  href="/breathe"
-                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-                >
-                  Breathe
-                </Link>
-              </div>
+            <div className="mt-4 flex gap-3">
+              <Link
+                href="/yoga"
+                className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+              >
+                Yoga
+              </Link>
+              <Link
+                href="/breathe"
+                className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+              >
+                Breathe
+              </Link>
             </div>
-          )}
+          </div>
           <DayPlanPrompt
             localDate={localToday}
             dayLabel="Today"

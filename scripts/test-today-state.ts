@@ -1,256 +1,339 @@
 #!/usr/bin/env tsx
 /**
- * Test suite for Today state pure functions.
+ * Test suite for Today screen missed-day detection.
  *
- * Tests the missed-day detection and today-state calculation across:
- * - All signup weekdays (Mon-Sun)
- * - All plan sizes (3-day and 4-day)
- * - Day 1 never shows missed
- * - Real missed days show missed
- * - Training day after a missed training day shows missed
- * - Rest settles yesterday
- * - Completed days show completed
+ * Tests the guards and logic that determine whether yesterday was "missed":
+ * 1. started_on guard: dates before program start are never missed
+ * 2. onboarding guard: dates before onboarding completion are never missed
+ * 3. timezone: onboarding timestamp converted to user's local date
+ * 4. Rest/Yoga/Breathing choices settle a day (planned/in_progress/completed/skipped)
+ * 5. Real template data from the generator
  *
- * Run with: npm test (this runs before test:sentry)
+ * Each guard is proven: the test must fail when that guard is removed.
  */
 
-import { isMissedTrainingDay, type MissedDayInput } from "../src/lib/today/missed-day";
-import { addDays, isoWeekday } from "../src/lib/dates";
+import { isMissedTrainingDay } from "../src/lib/today/missed-day";
+import type { Database } from "../src/lib/database.types";
 
-// Test tracking
+type DayType = Database["public"]["Enums"]["day_type"];
+
 let totalTests = 0;
 let passedTests = 0;
-let failedTests = 0;
 
 function assert(condition: boolean, message: string) {
   totalTests++;
   if (!condition) {
-    failedTests++;
     console.error(`❌ FAIL: ${message}`);
+    process.exit(1);
   } else {
     passedTests++;
     console.log(`✓ ${message}`);
   }
 }
 
-// 3-day plan: Mon, Wed, Fri (indices 1, 3, 5)
-const PLANS = {
-  "3-day": new Set([1, 3, 5]),
-  "4-day": new Set([1, 2, 4, 5]),
+// Real 3-day template (Mon/Wed/Fri)
+const TEMPLATE_3DAY: Record<number, DayType> = {
+  1: "weights", // Mon
+  2: "rest",
+  3: "weights", // Wed
+  4: "rest",
+  5: "weights", // Fri
+  6: "rest",
+  7: "rest",
 };
 
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Real 4-day template (Mon/Tue/Thu/Fri)
+const TEMPLATE_4DAY: Record<number, DayType> = {
+  1: "weights", // Mon
+  2: "weights", // Tue
+  3: "rest",
+  4: "weights", // Thu
+  5: "weights", // Fri
+  6: "rest",
+  7: "rest",
+};
 
-function isTrainingDay(dayIndex: number, plan: Set<number>): boolean {
-  return plan.has(dayIndex);
+function isoWeekday(date: string): number {
+  const d = new Date(date + "T00:00:00Z");
+  const day = d.getUTCDay();
+  return day === 0 ? 7 : day;
 }
 
-// Test all signup weekdays for a given plan
-function testSignupWeekdays(planName: string, trainingDays: Set<number>) {
-  console.log(`\n=== Testing ${planName} ===`);
+function addDays(date: string, days: number): string {
+  const d = new Date(date + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
-  // Test each weekday as a signup day (0 = Sun through 6 = Sat)
-  for (let signupWeekday = 0; signupWeekday <= 6; signupWeekday++) {
-    const weekdayName = DAY_NAMES[signupWeekday];
-    const signupDayIndex = ((signupWeekday + 6) % 7) + 1; // Convert to ISO weekday (1-7)
-    
-    console.log(`\n--- Signup on ${weekdayName} (${planName}) ---`);
-    
-    // Use a fixed base date and offset to test weekday
-    const baseDate = "2026-10-20"; // A Monday
-    const baseDayIndex = isoWeekday(baseDate);
-    const offsetDays = signupDayIndex - baseDayIndex;
-    const testDay1 = addDays(baseDate, offsetDays);
-    
-    const programStartedOn = testDay1;
-    const onboardingCompletedAt = `${testDay1}T10:00:00+05:30`; // 10 AM IST
-    const timezone = "Asia/Kolkata";
-    
-    // Day 1: yesterday is before program started
-    const yesterday = addDays(testDay1, -1);
-    const yesterdayWeekday = isoWeekday(yesterday);
-    const yesterdayIsTraining = isTrainingDay(yesterdayWeekday, trainingDays);
-    
-    const missedDay1 = isMissedTrainingDay({
-      date: yesterday,
-      programStartedOn,
-      onboardingCompletedAt,
-      timezone,
-      templateDayType: yesterdayIsTraining ? "weights" : "rest",
-      completedSessions: [],
-    });
-    
+console.log("=== Guard Test 1: started_on alone ===\n");
+
+// Program started 2026-10-20 (Mon), NO onboarding date
+// Check 2026-10-17 (Fri, before program start)
+// Template: 3-day plan, Fri is training day
+// Expected: NOT missed (before program start)
+// This test MUST FAIL if the started_on check is removed
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-17",
+    programStartedOn: "2026-10-20",
+    onboardingCompletedAt: null,
+    timezone: "UTC",
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-17")],
+    sessions: [],
+  }),
+  "started_on guard: Date before program start (no onboarding) should NOT be missed"
+);
+
+console.log("\n=== Guard Test 2: onboarding alone ===\n");
+
+// Program started 2026-10-10 (Thu), onboarding completed 2026-10-20 (Mon, 10 days later)
+// Check 2026-10-17 (Fri, after program start but before onboarding)
+// Template: 3-day plan, Fri is training day
+// Expected: NOT missed (before onboarding completion)
+// This test MUST FAIL if the onboarding check is removed
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-17",
+    programStartedOn: "2026-10-10",
+    onboardingCompletedAt: "2026-10-20T12:00:00Z",
+    timezone: "UTC",
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-17")],
+    sessions: [],
+  }),
+  "onboarding guard: Date after program start but before onboarding should NOT be missed"
+);
+
+console.log("\n=== Guard Test 3: timezone conversion ===\n");
+
+// onboardingCompletedAt: 2026-10-23T19:00:00Z (00:30 IST on 2026-10-24)
+// programStartedOn: 2026-10-20 (Mon)
+// date: 2026-10-23 (Fri)
+// timezone: Asia/Kolkata (UTC+5:30)
+// Template: 3-day plan, Fri is training day
+// Expected: NOT missed (2026-10-23 < 2026-10-24 onboarding completion local date)
+// This test MUST FAIL with UTC .slice(0,10) comparison
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-23",
+    programStartedOn: "2026-10-20",
+    onboardingCompletedAt: "2026-10-23T19:00:00Z",
+    timezone: "Asia/Kolkata",
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-23")],
+    sessions: [],
+  }),
+  "timezone guard: UTC timestamp after local midnight should NOT be missed when date is before local onboarding date"
+);
+
+console.log("\n=== Test 4: Real templates (3-day plan) ===\n");
+
+// 3-day plan: Mon/Wed/Fri are training days, all others are rest
+const programStart = "2026-10-20"; // Mon
+
+for (let offset = 0; offset < 7; offset++) {
+  const date = addDays(programStart, offset);
+  const weekdayIndex = isoWeekday(date);
+  const templateDayType = TEMPLATE_3DAY[weekdayIndex];
+  const isTraining = templateDayType === "weights" || templateDayType === "bodyweight";
+  
+  const missed = isMissedTrainingDay({
+    date,
+    programStartedOn: programStart,
+    onboardingCompletedAt: null,
+    timezone: "UTC",
+    templateDayType,
+    sessions: [],
+  });
+  
+  const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][weekdayIndex - 1];
+  if (weekdayIndex === 7) {
+    // Special case: Sunday wraps to 7
     assert(
-      !missedDay1,
-      `Day 1 ${weekdayName}: yesterday (${DAY_NAMES[yesterdayWeekday - 1]}) should NOT be missed (before program start)`
+      !missed,
+      `3-day ${dayName} (rest day): should NOT be missed`
     );
-    
-    // Find the next training day after signup to test "day after missed"
-    let daysAhead = 1;
-    let foundTrainingDay = false;
-    while (daysAhead <= 7 && !foundTrainingDay) {
-      const futureDay = addDays(testDay1, daysAhead);
-      const futureDayIndex = isoWeekday(futureDay);
-      if (isTrainingDay(futureDayIndex, trainingDays)) {
-        foundTrainingDay = true;
-        
-        // Test that this day IS missed when not completed
-        const missedResult = isMissedTrainingDay({
-          date: futureDay,
-          programStartedOn,
-          onboardingCompletedAt,
-          timezone,
-          templateDayType: "weights",
-          completedSessions: [], // No session completed
-        });
-        
-        assert(
-          missedResult,
-          `${DAY_NAMES[futureDayIndex - 1]} was a training day with no session (should be missed)`
-        );
-        
-        // Test that the NEXT day (day after missed training) shows missed
-        const dayAfterMissed = addDays(futureDay, 1);
-        const dayAfterMissedIndex = isoWeekday(dayAfterMissed);
-        const missedYesterday = isMissedTrainingDay({
-          date: futureDay,
-          programStartedOn,
-          onboardingCompletedAt,
-          timezone,
-          templateDayType: "weights",
-          completedSessions: [],
-        });
-        
-        assert(
-          missedYesterday,
-          `Day after missed training (${DAY_NAMES[dayAfterMissedIndex - 1]}): yesterday (${DAY_NAMES[futureDayIndex - 1]}) was missed`
-        );
-      }
-      daysAhead++;
-    }
-    
-    // Test that choosing Rest settles yesterday
-    const restDay = addDays(testDay1, 2);
-    const restDayIndex = isoWeekday(restDay);
-    const prevDay = addDays(restDay, -1);
-    const prevDayIndex = isoWeekday(prevDay);
-    
-    if (isTrainingDay(prevDayIndex, trainingDays)) {
-      // Choosing Rest should settle it
-      const missedAfterRest = isMissedTrainingDay({
-        date: prevDay,
-        programStartedOn,
-        onboardingCompletedAt,
-        timezone,
-        templateDayType: "weights",
-        completedSessions: [
-          { actual_type: "rest", status: "completed" }
-        ],
-      });
-      
-      assert(
-        missedAfterRest, // Rest doesn't settle a training day - it's still missed
-        `Choosing Rest for ${DAY_NAMES[prevDayIndex - 1]} doesn't settle a training day (still missed)`
-      );
-      
-      // But choosing a strength workout settles it
-      const missedAfterStrength = isMissedTrainingDay({
-        date: prevDay,
-        programStartedOn,
-        onboardingCompletedAt,
-        timezone,
-        templateDayType: "weights",
-        completedSessions: [
-          { actual_type: "weights", status: "completed" }
-        ],
-      });
-      
-      assert(
-        !missedAfterStrength,
-        `Choosing strength for ${DAY_NAMES[prevDayIndex - 1]} settles it (not missed)`
-      );
-    }
+  } else if (isTraining) {
+    assert(
+      missed,
+      `3-day ${dayName} (training day with no session): should be missed`
+    );
+  } else {
+    assert(
+      !missed,
+      `3-day ${dayName} (rest day): should NOT be missed`
+    );
   }
 }
 
-// Guard case: test fails WITHOUT the block-start check
-function testGuardCase() {
-  console.log(`\n=== Guard Case: Test FAILS without block-start check ===`);
+console.log("\n=== Test 5: Real templates (4-day plan) ===\n");
+
+// 4-day plan: Mon/Tue/Thu/Fri are training days
+for (let offset = 0; offset < 7; offset++) {
+  const date = addDays(programStart, offset);
+  const weekdayIndex = isoWeekday(date);
+  const templateDayType = TEMPLATE_4DAY[weekdayIndex];
+  const isTraining = templateDayType === "weights" || templateDayType === "bodyweight";
   
-  const programStartedOn = "2026-10-24";
-  const yesterday = "2026-10-23"; // Before program start
-  const timezone = "Asia/Kolkata";
-  
-  // This should return FALSE (not missed) because yesterday is before program start
   const missed = isMissedTrainingDay({
-    date: yesterday,
-    programStartedOn,
-    onboardingCompletedAt: `${programStartedOn}T10:00:00+05:30`,
-    timezone,
-    templateDayType: "weights",
-    completedSessions: [],
+    date,
+    programStartedOn: programStart,
+    onboardingCompletedAt: null,
+    timezone: "UTC",
+    templateDayType,
+    sessions: [],
   });
   
-  assert(
-    !missed,
-    `Guard case: Day before program start should NOT be missed`
-  );
-  
-  // Simulate what would happen WITHOUT the start-date check
-  // (i.e., if we only checked template + no completion)
-  const templateIsTraining = true; // weights
-  const noSessionCompleted = true;
-  const wouldBeMissedWithoutCheck = templateIsTraining && noSessionCompleted;
-  
-  assert(
-    wouldBeMissedWithoutCheck && !missed,
-    `Without started_on check, this would incorrectly flag as missed`
-  );
+  const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][weekdayIndex - 1];
+  if (weekdayIndex === 7) {
+    assert(
+      !missed,
+      `4-day ${dayName} (rest day): should NOT be missed`
+    );
+  } else if (isTraining) {
+    assert(
+      missed,
+      `4-day ${dayName} (training day with no session): should be missed`
+    );
+  } else {
+    assert(
+      !missed,
+      `4-day ${dayName} (rest day): should NOT be missed`
+    );
+  }
 }
 
-// Test UTC vs local timezone handling
-function testTimezoneHandling() {
-  console.log(`\n=== Testing Timezone Handling ===`);
-  
-  // User in UTC+5:30 onboards at 23:00 local (which is 17:30 UTC same day)
-  const localDate = "2026-10-24";
-  const onboardingUtc = "2026-10-24T17:30:00Z"; // 23:00 IST
-  const timezone = "Asia/Kolkata";
-  
-  const programStartedOn = localDate;
-  const yesterday = "2026-10-23";
-  
-  // Yesterday (Oct 23) should NOT be missed - program started Oct 24 local time
-  const missed = isMissedTrainingDay({
-    date: yesterday,
-    programStartedOn,
-    onboardingCompletedAt: onboardingUtc,
-    timezone,
+console.log("\n=== Test 6: Completed strength session settles the day ===\n");
+
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-21", // Mon (training day in 3-day plan)
+    programStartedOn: "2026-10-20",
+    onboardingCompletedAt: null,
+    timezone: "UTC",
     templateDayType: "weights",
-    completedSessions: [],
-  });
-  
-  assert(
-    !missed,
-    `UTC+5:30 user onboarding at 23:00 local: yesterday not missed (correct timezone conversion)`
-  );
-}
+    sessions: [{ actual_type: "weights", status: "completed" }],
+  }),
+  "Completed strength session: should NOT be missed"
+);
 
-// Run all tests
-console.log("🧪 Testing Today State Functions\n");
+console.log("\n=== Test 7: Rest choice settles the day (planned) ===\n");
 
-testSignupWeekdays("3-day plan (M/W/F)", PLANS["3-day"]);
-testSignupWeekdays("4-day plan (M/Tu/Th/F)", PLANS["4-day"]);
-testGuardCase();
-testTimezoneHandling();
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-21", // Mon (training day in 3-day plan)
+    programStartedOn: "2026-10-20",
+    onboardingCompletedAt: null,
+    timezone: "UTC",
+    templateDayType: "weights",
+    sessions: [{ actual_type: "rest", status: "planned" }],
+  }),
+  "Planned Rest choice: should NOT be missed"
+);
 
-// Summary
-console.log("\n" + "=".repeat(50));
+console.log("\n=== Test 8: Yoga choice settles the day (in_progress) ===\n");
+
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-21", // Mon (training day in 3-day plan)
+    programStartedOn: "2026-10-20",
+    onboardingCompletedAt: null,
+    timezone: "UTC",
+    templateDayType: "weights",
+    sessions: [{ actual_type: "yoga", status: "in_progress" }],
+  }),
+  "In-progress Yoga choice: should NOT be missed"
+);
+
+console.log("\n=== Test 9: Breathing choice settles the day (completed) ===\n");
+
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-21", // Mon (training day in 3-day plan)
+    programStartedOn: "2026-10-20",
+    onboardingCompletedAt: null,
+    timezone: "UTC",
+    templateDayType: "weights",
+    sessions: [{ actual_type: "meditation", status: "completed" }],
+  }),
+  "Completed Breathing choice: should NOT be missed"
+);
+
+console.log("\n=== Test 10: Rest choice settles the day (skipped) ===\n");
+
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-21", // Mon (training day in 3-day plan)
+    programStartedOn: "2026-10-20",
+    onboardingCompletedAt: null,
+    timezone: "UTC",
+    templateDayType: "weights",
+    sessions: [{ actual_type: "rest", status: "skipped" }],
+  }),
+  "Skipped Rest choice: should NOT be missed"
+);
+
+console.log("\n=== Test 11: Yoga day is never missed ===\n");
+
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-21",
+    programStartedOn: "2026-10-20",
+    onboardingCompletedAt: null,
+    timezone: "UTC",
+    templateDayType: "yoga",
+    sessions: [],
+  }),
+  "Yoga day with no session: should NOT be missed (anytime activity)"
+);
+
+console.log("\n=== Test 12: Breathing day is never missed ===\n");
+
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-21",
+    programStartedOn: "2026-10-20",
+    onboardingCompletedAt: null,
+    timezone: "UTC",
+    templateDayType: "meditation",
+    sessions: [],
+  }),
+  "Breathing day with no session: should NOT be missed (anytime activity)"
+);
+
+console.log("\n=== Test 13: Day 1 scenarios (various signup days) ===\n");
+
+// Signup on Sunday, program starts Monday
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-19", // Sun (before program start)
+    programStartedOn: "2026-10-20", // Mon
+    onboardingCompletedAt: "2026-10-19T20:00:00Z",
+    timezone: "UTC",
+    templateDayType: "rest",
+    sessions: [],
+  }),
+  "Day before program start: should NOT be missed"
+);
+
+// Signup on Monday (day 1 of 3-day plan), checking if yesterday (Sun) was missed
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-19", // Sun (yesterday, before program start Mon)
+    programStartedOn: "2026-10-20", // Mon
+    onboardingCompletedAt: "2026-10-20T08:00:00Z",
+    timezone: "UTC",
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-19")], // Sun = 7, rest day
+    sessions: [],
+  }),
+  "Day 1 yesterday check (Sun before Mon start): should NOT be missed"
+);
+
+console.log("\n==================================================");
 console.log(`📊 Test Results: ${passedTests}/${totalTests} passed`);
-if (failedTests > 0) {
-  console.log(`❌ ${failedTests} test(s) failed`);
-  process.exit(1);
-} else {
+
+if (passedTests === totalTests) {
   console.log("✅ All tests passed!");
   process.exit(0);
+} else {
+  console.log(`❌ ${totalTests - passedTests} test(s) failed`);
+  process.exit(1);
 }
