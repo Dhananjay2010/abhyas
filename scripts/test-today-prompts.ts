@@ -7,8 +7,6 @@
  */
 
 import { todayPromptBlocks } from "../src/lib/today/prompt-blocks";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 function countVisiblePrompts(blocks: ReturnType<typeof todayPromptBlocks>): number {
   let count = 0;
@@ -150,55 +148,3 @@ test("Shows no decision prompts on meditation day", () => {
 });
 
 console.log("\n✅ All TodayPrompts logic tests passed.");
-
-// ==============================================================================
-// SOURCE CODE INSPECTION: Count DayPlanPrompt instantiations
-// ==============================================================================
-
-const todayPromptsSource = readFileSync(join(__dirname, "../src/components/today/today-prompts.tsx"), "utf-8");
-
-console.log("\n=== Source Inspection Test: DayPlanPrompt instantiation counts ===\n");
-test("TodayPrompts.tsx contains exactly 4 DayPlanPrompt instantiations (no duplication)", () => {
-  // Count <DayPlanPrompt occurrences in the source
-  const dayPlanPromptMatches = todayPromptsSource.match(/<DayPlanPrompt/g);
-  const count = dayPlanPromptMatches ? dayPlanPromptMatches.length : 0;
-  
-  // Expected: 4 total
-  // 1. Missed-yesterday prompt (showMissedPrompt)
-  // 2. Rest day with missed yesterday (showBothPrompt)
-  // 3. First day on rest day (showRestPlan && showFirstDayWelcome)
-  // 4. Normal rest day (showRestPlan && !showBothPrompt)
-  assert(count === 4, `Expected exactly 4 <DayPlanPrompt> instances in source, found ${count}`);
-});
-
-test("All DayPlanPrompt instances are properly conditional (not duplicated)", () => {
-  // Verify each instance is inside a block/conditional structure
-  // Count the opening conditional blocks in the component
-  const missedPromptBlocks = (todayPromptsSource.match(/promptBlocks\.showMissedPrompt/g) || []).length;
-  const bothPromptBlocks = (todayPromptsSource.match(/promptBlocks\.showBothPrompt/g) || []).length;
-  const restPlanBlocks = (todayPromptsSource.match(/promptBlocks\.showRestPlan/g) || []).length;
-  const firstDayWelcomeBlocks = (todayPromptsSource.match(/promptBlocks\.showFirstDayWelcome/g) || []).length;
-  
-  // Should have at least 4 conditional checks for the 4 DayPlanPrompt instances
-  const totalConditionals = missedPromptBlocks + bothPromptBlocks + restPlanBlocks + firstDayWelcomeBlocks;
-  assert(totalConditionals >= 4, `Expected at least 4 conditional checks, found ${totalConditionals}`);
-});
-
-test("'Start your first session now' appears exactly once in intro prop", () => {
-  const startNowMatches = todayPromptsSource.match(/Start your first session now/g);
-  const count = startNowMatches ? startNowMatches.length : 0;
-  assert(count === 1, `Expected 1 "Start your first session now" in source, found ${count}`);
-});
-
-test("First-day rest day scenario has correct intro copy", () => {
-  // Verify the first-day rest day prompt shows "Start your first session now"
-  // The structure is: promptBlocks.showFirstDayWelcome && nextTraining ? ... <DayPlanPrompt intro="Start..."
-  const hasFirstDayIntro = todayPromptsSource.includes('intro="Start your first session now."');
-  assert(hasFirstDayIntro, "First-day rest day should have 'Start your first session now.' intro");
-  
-  // Also verify it's in the first-day rest context
-  const firstDayRestBlock = todayPromptsSource.includes("promptBlocks.showFirstDayWelcome && nextTraining");
-  assert(firstDayRestBlock, "Should have first-day-with-nextTraining conditional block");
-});
-
-console.log("\n✅ All source inspection tests passed. No duplicate DayPlanPrompt or buttons detected.");

@@ -41,7 +41,7 @@ export function StartSessionButton({ label }: { label: string }) {
             router.push(`/session/${r.data.sessionId}`);
           })
         }
-        className="w-full rounded-xl bg-accent px-6 py-5 text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-bg disabled:opacity-50"
+        className="w-full rounded-xl bg-accent px-6 py-5 text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
       >
         {label}
       </button>

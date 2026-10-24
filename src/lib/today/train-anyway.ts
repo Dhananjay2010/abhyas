@@ -29,30 +29,43 @@ export type TrainAnywayInput = {
 /**
  * Determine which workout options to offer in the "Or train today anyway" prompt on a rest day.
  * 
- * Product rule (H2):
- * - If yesterday was missed, offer that missed workout first (existing behavior)
- * - Otherwise, offer the next scheduled training day in the block
- * - Always wrap to next week if needed
+ * Product rule (decided):
+ * - On a rest day, offer yesterday's missed workout first if:
+ *   - Yesterday was a training day with no finished session
+ *   - AND the user had started before (day-1 guard applies)
+ * - Then offer the next 2 distinct upcoming training days
+ * - Never offer only Yoga/Breathe when training days exist
  * - For blocks with no strength days, return empty array (yoga/breathe handled separately)
  */
 export function trainAnywayOptions(input: TrainAnywayInput): TrainAnywayDay[] {
   const { todayDay, upcomingDays, missedYesterday } = input;
 
-  // If yesterday was missed and today has a workout in the template, offer it first
-  // (existing "missed yesterday" behavior - offer the workout they should have done)
+  const result: TrainAnywayDay[] = [];
+
+  // If yesterday was missed, offer yesterday's workout first
+  // (only if today's template has a training day - that represents yesterday's missed workout)
   if (missedYesterday && todayDay && isTrainingDay(todayDay.day_type)) {
-    return [todayDay];
+    result.push(todayDay);
   }
 
-  // Otherwise, find the next training day in the upcoming schedule
-  const nextTrainingDay = upcomingDays.find((d) => isTrainingDay(d.day_type));
+  // Then offer the next 2 distinct upcoming training days
+  const trainingDays = upcomingDays.filter((d) => isTrainingDay(d.day_type));
   
-  if (nextTrainingDay) {
-    return [nextTrainingDay];
+  // Get the next 2 distinct training days (by day_index to avoid duplicates)
+  const distinctTrainingDays: TrainAnywayDay[] = [];
+  const seenIndices = new Set<number>();
+  
+  for (const day of trainingDays) {
+    if (!seenIndices.has(day.day_index)) {
+      distinctTrainingDays.push(day);
+      seenIndices.add(day.day_index);
+    }
+    if (distinctTrainingDays.length >= 2) break;
   }
+  
+  result.push(...distinctTrainingDays.slice(0, 2));
 
-  // No training days in the block (e.g., all rest/yoga/meditation)
-  return [];
+  return result;
 }
 
 function isTrainingDay(dayType: DayType | null): boolean {

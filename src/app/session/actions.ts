@@ -973,7 +973,6 @@ export async function planDay(input: {
   const planned = (existing ?? []).filter((s) => s.status === "planned");
 
   if (input.plan.kind === "keep") {
-    // Delete any existing planned rows first
     if (planned.length > 0) {
       const { error } = await supabase
         .from("sessions")

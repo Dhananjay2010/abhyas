@@ -10,10 +10,10 @@ type Exercise = {
   name: string;
   cue: string | null;
   metric: string | null;
-  sets: number;
-  repsMin: number;
-  repsMax: number;
-  restSeconds: number;
+  sets: number | null;
+  repsMin: number | null;
+  repsMax: number | null;
+  restSeconds: number | null;
   skipped: boolean;
   swappedIn: boolean;
 };
@@ -49,25 +49,29 @@ export function WarmupSection({
             className="rounded-xl border border-border bg-surface px-4 py-3.5"
           >
             <div className="flex items-baseline justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">
-                  {row.swappedIn && <span className="text-accent">✱ </span>}
-                  {row.name}
-                  {row.skipped && (
-                    <span className="ml-2 text-xs text-muted">(skipped)</span>
-                  )}
-                </p>
-                {row.cue && (
-                  <p className="mt-1 text-xs text-muted leading-snug">{row.cue}</p>
-                )}
-              </div>
-              <div className="shrink-0 text-right text-sm tabular-nums text-muted">
-                {row.sets} × {row.repsMin === row.repsMax ? row.repsMin : `${row.repsMin}-${row.repsMax}`}
-              </div>
+              <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
+                {row.name}
+              </span>
+              <span className="shrink-0 text-sm tabular-nums text-accent">
+                {row.sets} × {row.repsMin}–{row.repsMax}
+                {row.metric === "seconds" ? "s" : ""}
+              </span>
             </div>
+            {(row.swappedIn || row.skipped) && (
+              <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
+                {row.skipped ? "Skipped" : "Swapped in"}
+              </p>
+            )}
+            {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}
+            <p className="mt-1 text-xs text-muted">{row.restSeconds}s rest</p>
           </li>
         ))}
       </ol>
+      {!(actual && actual.length > 0) && (
+        <p className="mt-4 text-center text-xs text-muted">
+          Warm-up is built from today&apos;s muscles and any joint you flagged.
+        </p>
+      )}
     </section>
   );
 }

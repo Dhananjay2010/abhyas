@@ -30,8 +30,6 @@ function Choice({
 
 /**
  * Renders the initial choice UI (before "choosing" state).
- * 
- * This is the logic being tested for mutant 3 (hideKeepAndRest).
  */
 export function DayPlanInitialChoices({
   isRestDay,

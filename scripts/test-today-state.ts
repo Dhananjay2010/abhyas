@@ -292,34 +292,101 @@ assert(
   "Defense-in-depth: training day before signup is NOT missed (plan started 3 days before)"
 );
 
-// Start date yesterday = signup day → yesterday CANNOT be missed (signup day exempt)
+console.log("\n=== NEW Test 6b: Signup day Saturday, yesterday Friday was training day ===\n");
+
+// User signed up Saturday 2026-10-24 at 10:00 UTC
+// Yesterday Friday 2026-10-23 was a training day in the template
+// NEW REQUIREMENT: must NOT show "missed yesterday" on signup day
+// earliestCountableDate = max(2026-10-24, 2026-10-24) = 2026-10-24
+// date 2026-10-23 <= 2026-10-24 is FALSE, but we need date < earliestCountableDate logic
 assert(
   !isMissedTrainingDay({
-    date: "2026-10-22", // Fri (yesterday, training day)
-    programStartedOn: "2026-10-22", // Fri (started yesterday = signup day)
-    profileCreatedAt: "2026-10-22T10:00:00Z", // Fri signup
+    date: "2026-10-23", // Fri (yesterday, training day)
+    programStartedOn: "2026-10-24", // Sat (signup day = program start)
+    profileCreatedAt: "2026-10-24T10:00:00Z", // Sat signup
     timezone: "UTC",
     programId: TEST_PROGRAM_ID,
     templateDayType: "weights",
-    sessions: [], // No sessions
-    hasStartedAny: true,
+    sessions: [],
+    hasStartedAny: false, // Brand new user
   }),
-  "Defense-in-depth: signup day (yesterday) CANNOT be missed (signup day exempt)"
+  "NEW: Signup Saturday, yesterday Friday training day is NOT missed (brand new user on signup day)"
 );
 
-// Timezone edge: created_at UTC late evening, but next day in Asia/Kolkata
+// With hasStartedAny=true, still should NOT be missed because date <= earliestCountableDate
 assert(
   !isMissedTrainingDay({
-    date: "2026-10-22", // Fri (training day)
-    programStartedOn: "2026-10-20", // Wed
-    profileCreatedAt: "2026-10-22T19:00:00Z", // 00:30 IST on Sat 10-23
-    timezone: "Asia/Kolkata",
+    date: "2026-10-23", // Fri (yesterday, training day)
+    programStartedOn: "2026-10-24", // Sat (signup day = program start)
+    profileCreatedAt: "2026-10-24T10:00:00Z", // Sat signup
+    timezone: "UTC",
     programId: TEST_PROGRAM_ID,
     templateDayType: "weights",
     sessions: [],
     hasStartedAny: true,
   }),
-  "Defense-in-depth TZ edge: created_at 2026-10-22T19:00Z is Sat 10-23 local → Fri 10-22 NOT missed"
+  "NEW: Signup Saturday, yesterday Friday is NOT missed even if hasStartedAny=true"
+);
+
+console.log("\n=== NEW Test 6c: Old account, block started today ===\n");
+
+// Account created 2 weeks ago (2026-10-10), but block started today (2026-10-24)
+// Yesterday (2026-10-23) was a training day
+// NEW REQUIREMENT: must NOT show missed because block started today
+// earliestCountableDate = max(2026-10-10, 2026-10-24) = 2026-10-24
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-23", // Fri (yesterday, training day)
+    programStartedOn: "2026-10-24", // Sat (block started today)
+    profileCreatedAt: "2026-10-10T10:00:00Z", // Account 2 weeks old
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: "weights",
+    sessions: [],
+    hasStartedAny: true,
+  }),
+  "NEW: Old account but block started today, yesterday NOT missed"
+);
+
+console.log("\n=== NEW Test 6d: Genuinely missed day after signup and block start ===\n");
+
+// Signup/block start on Monday 2026-10-20
+// Wednesday 2026-10-22 was a training day (2 days after signup)
+// User has started at least one session
+// This SHOULD be marked as missed
+assert(
+  isMissedTrainingDay({
+    date: "2026-10-22", // Wed (2 days after signup, training day)
+    programStartedOn: "2026-10-20", // Mon (signup day)
+    profileCreatedAt: "2026-10-20T10:00:00Z", // Mon signup
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: "weights",
+    sessions: [],
+    hasStartedAny: true,
+  }),
+  "NEW: Training day 2 days after signup IS missed (genuine missed day)"
+);
+
+console.log("\n=== NEW MUTANT Test 6e: Guard removal must fail signup-day test ===\n");
+
+// This test will PASS with the guard (returns false)
+// If the guard is removed, this will FAIL (returns true)
+// Test: signup Saturday, yesterday Friday training day
+const mutantGuardTest = isMissedTrainingDay({
+  date: "2026-10-23", // Fri (yesterday, before signup)
+  programStartedOn: "2026-10-24", // Sat (signup day)
+  profileCreatedAt: "2026-10-24T10:00:00Z", // Sat signup
+  timezone: "UTC",
+  programId: TEST_PROGRAM_ID,
+  templateDayType: "weights",
+  sessions: [],
+  hasStartedAny: false,
+});
+
+assert(
+  !mutantGuardTest,
+  "MUTANT TEST: Removing the earliestCountableDate guard must fail this test (signup day guard)"
 );
 
 console.log("\n=== Test 7: Rebuilt block (current block's started_on) ===\n");

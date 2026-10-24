@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
-import { WelcomeCard } from "@/components/welcome-card";
 import { labelForDayType } from "@/lib/program/day-plan";
 import type { PromptBlocks } from "@/lib/today/prompt-blocks";
 import type { Database } from "@/lib/database.types";
@@ -17,20 +16,6 @@ type Props = {
   yesterdayDay: { day_type: DayType; label: string | null } | null;
   nextTraining: { dayName: string; dayIndex: number } | null;
   isTraining: boolean;
-  program: {
-    block_number: number;
-    started_on: string;
-    ends_on: string;
-    deload_week: number | null;
-  };
-  days: Array<{ day_index: number; day_type: DayType }> | null;
-  profile: { preferred_session_minutes: number | null };
-  hasStartedAny: boolean;
-  hasDismissedWelcome: boolean;
-  dayType: DayType | null;
-  ownsPlannedWorkout: (dt: DayType | null) => boolean;
-  daysBetween: (a: string, b: string) => number;
-  shouldShowWelcome: (hasStarted: boolean, dismissed: boolean) => boolean;
 };
 
 export function TodayPrompts({
@@ -42,38 +27,9 @@ export function TodayPrompts({
   yesterdayDay,
   nextTraining,
   isTraining,
-  program,
-  days,
-  profile,
-  hasStartedAny,
-  hasDismissedWelcome,
-  dayType,
-  ownsPlannedWorkout,
-  daysBetween,
-  shouldShowWelcome,
 }: Props) {
   return (
     <>
-      {/* Welcome card - shown once after onboarding, before first session */}
-      {shouldShowWelcome(hasStartedAny, hasDismissedWelcome) && (
-        <WelcomeCard
-          blockNumber={program.block_number}
-          daysPerWeek={days?.filter((d) => ownsPlannedWorkout(d.day_type)).length ?? 0}
-          weekSchedule={[
-            { dayName: "Mon", isTraining: days?.some((d) => d.day_index === 1 && ownsPlannedWorkout(d.day_type)) ?? false },
-            { dayName: "Tue", isTraining: days?.some((d) => d.day_index === 2 && ownsPlannedWorkout(d.day_type)) ?? false },
-            { dayName: "Wed", isTraining: days?.some((d) => d.day_index === 3 && ownsPlannedWorkout(d.day_type)) ?? false },
-            { dayName: "Thu", isTraining: days?.some((d) => d.day_index === 4 && ownsPlannedWorkout(d.day_type)) ?? false },
-            { dayName: "Fri", isTraining: days?.some((d) => d.day_index === 5 && ownsPlannedWorkout(d.day_type)) ?? false },
-            { dayName: "Sat", isTraining: days?.some((d) => d.day_index === 6 && ownsPlannedWorkout(d.day_type)) ?? false },
-            { dayName: "Sun", isTraining: days?.some((d) => d.day_index === 7 && ownsPlannedWorkout(d.day_type)) ?? false },
-          ]}
-          sessionMinutes={profile.preferred_session_minutes ?? 60}
-          blockLength={Math.round((daysBetween(program.started_on, program.ends_on) + 1) / 7)}
-          deloadWeek={program.deload_week ?? 4}
-        />
-      )}
-
       {/* Missed-yesterday prompt (not on a rest day) */}
       {promptBlocks.showMissedPrompt && (
         <DayPlanPrompt
@@ -130,7 +86,7 @@ export function TodayPrompts({
       )}
 
       {/* First-day welcome on a training day */}
-      {promptBlocks.showFirstDayWelcome && isTraining && !shouldShowWelcome(hasStartedAny, hasDismissedWelcome) && (
+      {promptBlocks.showFirstDayWelcome && isTraining && (
         <div className="mb-4 rounded-xl border border-border bg-surface-2 p-5">
           <h3 className="font-semibold">Welcome to your first workout!</h3>
           <p className="mt-2 text-sm text-muted">
@@ -197,18 +153,6 @@ export function TodayPrompts({
             </>
           )}
         </>
-      )}
-
-      {dayType === "meditation" && (
-        <div className="mt-6">
-          <p className="text-muted">A breathing day. Pick a practice and sit with it.</p>
-          <Link
-            href="/breathe"
-            className="mt-5 block rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-          >
-            Start breathing
-          </Link>
-        </div>
       )}
     </>
   );

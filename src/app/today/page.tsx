@@ -1,26 +1,23 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { addDays, daysBetween, isoWeekday, localDateString } from "@/lib/dates";
+import { addDays, isoWeekday, localDateString } from "@/lib/dates";
 import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { shouldShowWelcome } from "@/lib/today/welcome";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { buildTodayState } from "@/lib/today/build-state";
 import { todayStateInputFromRows } from "@/lib/today/page-input";
 import { todayPromptBlocks } from "@/lib/today/prompt-blocks";
 import { hasStartedAnySession } from "@/lib/today/has-started-any";
 import { TodayPrompts } from "@/components/today/today-prompts";
-import { getInProgressSession } from "@/lib/session/in-progress";
 import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
 import { getWeekRowLabel } from "@/lib/today/week-display";
 import { WarmupSection } from "@/components/today/warmup-section";
@@ -32,10 +29,6 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
-
-  // Check welcome card dismissal cookie
-  const cookieStore = await cookies();
-  const hasDismissedWelcome = cookieStore.has(`abhyas_welcome_dismissed_${user.id}`);
 
   // ---- wave 1 -------------------------------------------------------------
   // Nothing here depends on anything else here, so all these go at once. This
@@ -115,9 +108,6 @@ export default async function TodayPage() {
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const firstName = profile.display_name?.split(" ")[0] ?? "";
   const localToday = localDateString(timezone);
-
-  // Fetch in-progress session now that timezone is known
-  const inProgressSessionRes = await getInProgressSession(supabase, user.id, timezone);
 
   // A session left open on an earlier day is closed out here. Without this, a
   // workout that was trained but never walked through the summary counted for
@@ -226,17 +216,6 @@ export default async function TodayPage() {
   const scheduled = days?.find((d) => d.day_index === todayIndex);
 
   const allSessions = sessionsRes.data ?? [];
-
-  // Fetch session_volume to get working set counts for strength sessions
-  // Required for missed-day settlement: a completed strength session with 0 working sets does NOT count
-  const sessionIds = allSessions.map((s) => s.id);
-  const { data: volumeData } = await supabase
-    .from("session_volume")
-    .select("session_id, set_count")
-    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
-
-  const workingSetsBySession = new Map((volumeData ?? []).map((v) => [v.session_id, v.set_count || 0]));
-
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
 
   /*
@@ -324,7 +303,6 @@ export default async function TodayPage() {
   const strengthPlanned = todaySessions.find(
     (s) => s.status === "planned" && ownsPlannedWorkout(s.actual_type) && !s.started_at,
   );
-  const inProgressSession = inProgressSessionRes;
 
   /*
     The day's workout, once it is a thing that happened rather than a thing that
@@ -350,12 +328,7 @@ export default async function TodayPage() {
   // Use pure helpers to derive all prompt logic
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
-  const yesterdaySessions = allSessions
-    .filter((s) => s.local_date === yesterday)
-    .map((s) => ({
-      ...s,
-      working_set_count: workingSetsBySession.get(s.id),
-    }));
+  const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
 
   const stateInput = todayStateInputFromRows({
     profile: {
@@ -374,7 +347,7 @@ export default async function TodayPage() {
     yesterday,
     dayType,
     strengthDone,
-    strengthOpen: !!inProgressSession || !!strengthPlanned,
+    strengthOpen: !!strengthPlanned,
     hasStartedAny,
   });
 
@@ -397,7 +370,7 @@ export default async function TodayPage() {
   // H2: Always load plannable days for rest days (not just when yesterday was missed)
   // so "Or train today anyway" can offer workout options even when yesterday was done.
   const needsPlannableDays =
-    (dayType === "rest" || missedYesterday) && !strengthDone && !inProgressSession && !strengthPlanned;
+    (dayType === "rest" || missedYesterday) && !strengthDone && !strengthPlanned;
 
   const [plannable, daysForTrainAnyway, performedRows] = await Promise.all([
     needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
@@ -591,15 +564,6 @@ export default async function TodayPage() {
         yesterdayDay={yesterdayDay ? { day_type: yesterdayDay.day_type, label: yesterdayDay.label } : null}
         nextTraining={nextTraining}
         isTraining={isTraining}
-        program={program}
-        days={days}
-        profile={profile}
-        hasStartedAny={hasStartedAny}
-        hasDismissedWelcome={hasDismissedWelcome}
-        dayType={dayType}
-        ownsPlannedWorkout={ownsPlannedWorkout}
-        daysBetween={daysBetween}
-        shouldShowWelcome={shouldShowWelcome}
       />
 
       {dayType === "yoga" && (
@@ -628,67 +592,13 @@ export default async function TodayPage() {
             <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
               Session complete. Well done.
             </p>
-          ) : inProgressSession ? (
-            /*
-              Don't show a resume button here - the global in-progress bar already
-              provides resume functionality. Only show "Start session" for planned
-              but not yet started sessions.
-            */
-            null
           ) : (
             <StartSessionButton label="Start session" />
           )}
         </div>
       )}
 
-      {isTraining && todayExercises.length > 0 && (
-        <section className="mt-7">
-          {/*
-            The heading said "15 min warm-up", which is what SPEC section 7 asks
-            for and not what the session builds: five items totalling nine
-            minutes, with no ramp-up-sets phase. Naming a duration the app does
-            not deliver is worse than naming none.
-          */}
-          <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
-            {!(actual && actual.length > 0)
-              ? "Warm-up, then"
-              : strengthDone
-                ? "What you did"
-                : /* Started and left: the list is real, but it is not finished. */
-                  "Where you got to"}
-          </h2>
-          <ol className="space-y-2">
-            {todayExercises.map((row) => (
-              <li
-                key={row.key}
-                className="rounded-xl border border-border bg-surface px-4 py-3.5"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
-                    {row.name}
-                  </span>
-                  <span className="shrink-0 text-sm tabular-nums text-accent">
-                    {row.sets} × {row.repsMin}–{row.repsMax}
-                    {row.metric === "seconds" ? "s" : ""}
-                  </span>
-                </div>
-                {(row.swappedIn || row.skipped) && (
-                  <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
-                    {row.skipped ? "Skipped" : "Swapped in"}
-                  </p>
-                )}
-                {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}
-                <p className="mt-1 text-xs text-muted">{row.restSeconds}s rest</p>
-              </li>
-            ))}
-          </ol>
-          {!(actual && actual.length > 0) && (
-            <p className="mt-4 text-center text-xs text-muted">
-              Warm-up is built from today&apos;s muscles and any joint you flagged.
-            </p>
-          )}
-        </section>
-      )}
+      {isTraining && <WarmupSection todayExercises={todayExercises} actual={actual} strengthDone={strengthDone} />}
 
       {/*
         Always reachable, whatever today is. These previously appeared only on
