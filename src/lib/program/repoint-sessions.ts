@@ -126,9 +126,11 @@ export function planRepointSessions(
   today: string,
 ): {
   toRebuild: Array<{ id: string; newProgramDayId: string }>;
+  toUpdateProgramOnly: string[];
   toDelete: string[];
 } {
   const toRebuild: Array<{ id: string; newProgramDayId: string }> = [];
+  const toUpdateProgramOnly: string[] = [];
   const toDelete: string[] = [];
 
   for (const session of oldSessions) {
@@ -138,9 +140,10 @@ export function planRepointSessions(
     }
 
     // Non-training types (rest, yoga, meditation) don't have program_days,
-    // so there's nothing to re-point.
+    // but still need their program_id updated to the new block.
     const chosenType = session.actual_type ?? session.planned_type;
     if (chosenType === "rest" || chosenType === "yoga" || chosenType === "meditation") {
+      toUpdateProgramOnly.push(session.id);
       continue;
     }
 
@@ -154,7 +157,7 @@ export function planRepointSessions(
     }
   }
 
-  return { toRebuild, toDelete };
+  return { toRebuild, toUpdateProgramOnly, toDelete };
 }
 
 /**
@@ -232,7 +235,7 @@ export async function repointSessionsAfterRebuild(
     };
   });
 
-  const { toRebuild, toDelete } = planRepointSessions(sessionRows, newDays, today);
+  const { toRebuild, toUpdateProgramOnly, toDelete } = planRepointSessions(sessionRows, newDays, today);
 
   // For sessions that need rebuilding (0 sets), fetch their new program day exercises
   const rebuildPromises = toRebuild.map(async (r) => {
@@ -300,6 +303,12 @@ export async function repointSessionsAfterRebuild(
   // Apply the updates in parallel, checking errors.
   const updateResults = await Promise.all([
     ...rebuildPromises,
+    toUpdateProgramOnly.length > 0
+      ? supabase
+          .from("sessions")
+          .update({ program_id: newProgramId })
+          .in("id", toUpdateProgramOnly)
+      : Promise.resolve({ error: null }),
     toDelete.length > 0
       ? supabase.from("sessions").delete().in("id", toDelete)
       : Promise.resolve({ error: null }),
