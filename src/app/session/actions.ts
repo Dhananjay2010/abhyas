@@ -15,7 +15,7 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
-import { applyDeload, prescribe, weekInBlock } from "@/lib/program/prescription";
+import { prescribe, weekInBlock } from "@/lib/program/prescription";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";

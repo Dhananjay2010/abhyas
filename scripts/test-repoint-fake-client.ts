@@ -59,12 +59,16 @@ function createFakeClient(
       if (table === "sessions") {
         return {
           select(query: string) {
+            void query;
             return {
               eq(column: string, value: unknown) {
+                void column; void value;
                 return {
                   eq(column2: string, value2: unknown) {
+                    void column2; void value2;
                     return {
                       gte(column3: string, value3: unknown) {
+                        void column3; void value3;
                         return Promise.resolve(selectResponse);
                       },
                     };
@@ -74,8 +78,10 @@ function createFakeClient(
             };
           },
           update(data: unknown) {
+            void data;
             return {
               eq(column: string, value: unknown) {
+                void column; void value;
                 const error = updateErrors[updateCallCount] || null;
                 updateCallCount++;
                 return Promise.resolve({ data: null, error });
@@ -85,6 +91,7 @@ function createFakeClient(
           delete() {
             return {
               in(column: string, values: unknown[]) {
+                void column; void values;
                 return Promise.resolve({ data: null, error: deleteError });
               },
             };
@@ -93,10 +100,13 @@ function createFakeClient(
       } else if (table === "program_days") {
         return {
           select(query: string) {
+            void query;
             return {
               eq(column: string, value: unknown) {
+                void column; void value;
                 return {
                   order(column: string) {
+                    void column;
                     return Promise.resolve(newDaysResponse);
                   },
                 };
