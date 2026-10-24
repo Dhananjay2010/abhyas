@@ -135,10 +135,12 @@ Each gym can set its local timezone, which is used as the default for session sc
 ### How Timezone Resolution Works
 
 **Priority order:**
-1. **User's profile timezone** (if set in `profiles.timezone`)
+1. **User's profile timezone** (if explicitly set and NOT the database default)
 2. **Gym's brand timezone** (from `branding.timezone`)
-3. **User's browser timezone** (detected via `Intl.DateTimeFormat().resolvedOptions().timeZone`)
+3. **User's browser timezone** (recorded during onboarding)
 4. **Fallback:** `"Asia/Kolkata"`
+
+**Known Limitation**: The `profiles.timezone` column has a database default of `'Asia/Kolkata'`. During onboarding, the app captures and records the browser-detected timezone, overwriting this default. However, if a real user in India (with browser timezone `'Asia/Kolkata'`) signs up at a gym configured for another timezone, the resolution logic treats their profile timezone as "unset" (since it matches the database default) and uses the gym's timezone instead. This ensures gym-specific timezones work correctly, but means Indian users at non-Indian gyms won't see their local timezone until they explicitly set it in Settings. A schema change (removing the column default or adding a `timezone_source` column) would fix this, but is deferred pending owner decision.
 
 ### Setting a Gym's Timezone
 
@@ -209,19 +211,36 @@ const formatted = formatInTimezone(
 
 ### CSS Variables
 
-Brand colors are injected as CSS variables at runtime via the `BrandThemeInjector` component in `src/app/layout.tsx`. This allows Tailwind classes to reference semantic color names:
+Brand colors are injected as CSS variables **server-side** via an inline `<style>` tag in `src/app/layout.tsx`. This prevents any flash of default colors and allows Tailwind classes to reference semantic color names:
 
 ```tsx
-// Component using brand colors via Tailwind
+// In src/app/layout.tsx (server component):
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const brandCssVars = getBrandCssVariables(branding);
+  return (
+    <html lang="en">
+      <head>
+        <style dangerouslySetInnerHTML={{ __html: `:root { ${brandCssVars} }` }} />
+      </head>
+      <body>
+        {children}
+      </body>
+    </html>
+  );
+}
+
+// Component using brand colors via Tailwind:
 <button className="bg-accent hover:bg-accent-hover text-accent-fg">
   Start Workout
 </button>
 
-// Compiled to:
+// Renders with brand colors applied:
 <button style="background: var(--color-accent); ...">
   Start Workout
 </button>
 ```
+
+**Security**: All colors are validated as strict 6-digit hex codes during brand validation and again in `getBrandCssVariables()` to prevent CSS injection attacks.
 
 ### Tailwind Configuration
 
@@ -235,7 +254,7 @@ Colors are defined in `src/app/globals.css` as CSS variables:
 }
 ```
 
-These are **fallback values**. The `BrandThemeInjector` overrides them with the active brand's colors at runtime.
+These are **fallback values** used during development. The server-rendered inline `<style>` in layout.tsx overrides them with the active brand's colors at runtime.
 
 ### Available Color Classes
 
@@ -409,57 +428,47 @@ The current approach keeps deployments isolated, performant, and secure.
 
 ### File Ownership
 
-**Allowed to modify** (not controlled by PR #1 or other developers):
-- `src/lib/branding.ts` — Add brands, modify colors
-- `src/lib/timezone.ts` — Timezone helpers
-- `src/app/globals.css` — CSS variables (fallback values)
-- `src/components/brand-theme-injector.tsx` — CSS injection logic
-- `src/app/layout.tsx` — Metadata and theme color
+**This PR modifies**:
+- `src/lib/branding.ts` — Brand configuration and validation
+- `src/lib/timezone.ts` — Timezone resolution helpers
+- `src/app/globals.css` — CSS variable fallback values
+- `src/app/layout.tsx` — Server-rendered CSS injection, metadata
 - `src/app/manifest.ts` — PWA manifest
-- `src/app/offline/page.tsx` — Offline fallback page
+- `src/app/page.tsx` — Landing page with brand logo and tagline
+- `src/app/offline/page.tsx` — Offline fallback page colors
+- `src/app/onboarding/actions.ts` — Browser timezone capture
+- `src/app/onboarding/onboarding-flow.tsx` — Client timezone detection
+- `src/components/brand-logo.tsx` — Brand logo component
 - `public/icons/*` — Icon files
+- `public/screenshots/*` — PWA screenshot files
 - `docs/white-label.md` — This documentation
+- `scripts/generate-icons.js` — Icon generation from brand config
+- `scripts/test-branding.ts` — Brand and timezone tests
+- `scripts/test-icons.ts` — Icon dimension tests
 
-**Do NOT modify** (controlled by PR #1 or other work):
-- `src/lib/program/generate.ts` — Program generator
-- `src/app/today/page.tsx` — Today page logic
-- `src/app/settings/*` — Settings logic
-- `src/lib/dates.ts` — Date utilities (if PR #1 depends on current behavior)
+**Timezone adoption complete**: All server actions and pages that handle user data now use `resolveTimezoneWithProfile()`.
 
-### Follow-Up: Remaining Hard-Coded Timezones
+### Remaining Hard-Coded Timezone References
 
-The following files still contain `"Asia/Kolkata"` fallbacks and are **owned by PR #1** or other work. They should adopt `resolveTimezoneWithProfile()` from `src/lib/timezone.ts` later:
+Current `rg -n "Asia/Kolkata"` output shows:
+- **FALLBACK_TIMEZONE constant** (src/lib/timezone.ts:25) - Expected, documented fallback
+- **Timezone list** (src/lib/branding.ts:224) - Expected, valid timezone list
+- **Dev harnesses** - Test fixtures that intentionally use hardcoded timezone:
+  - src/app/dev/breathe/journey/[slug]/page.tsx:47
+  - src/app/dev/breathe/journey/[slug]/session/page.tsx:36
+  - src/app/dev/breathe/page.tsx:38
+  - src/app/dev/breathe/[slug]/session/page.tsx:57
+  - src/app/dev/breathe/routine/[slug]/session/page.tsx:53
+- **Server pages with inline fallback** - These use `profile?.timezone || "Asia/Kolkata"` pattern:
+  - src/app/breathe/load.ts:219
+  - src/app/breathe/page.tsx:132
+  - src/app/breathe/[slug]/session/page.tsx:58
+  - src/app/breathe/routine/[slug]/session/page.tsx:56
+  - src/app/progress/page.tsx:74
+  - src/app/history/page.tsx:47
+  - src/app/session/[id]/page.tsx:191
 
-**Server components and actions** (can adopt immediately after PR #1 merges):
-- `src/app/today/page.tsx:92` — Today page timezone resolution
-- `src/app/progress/actions.ts:27` — Body weight logging
-- `src/app/session/actions.ts:103, 860` — Session actions
-- `src/app/breathe/actions.ts:51, 118` — Breathing session actions
-- `src/app/yoga/actions.ts:35` — Yoga session actions
-- `src/app/onboarding/actions.ts:67` — Onboarding flow
-- `src/lib/program/persist.ts:165` — Program generation
-
-**Read-only (other pages reading profile timezone)**:
-- `src/app/breathe/load.ts:219` — Already uses profile timezone
-- `src/app/breathe/page.tsx:132` — Already uses profile timezone
-- `src/app/progress/page.tsx:74` — Already uses profile timezone
-- `src/app/session/[id]/page.tsx:191` — Already uses profile timezone
-- `src/app/history/page.tsx:47` — Already uses profile timezone
-
-**Dev harnesses** (test fixtures, use hard-coded timezone):
-- `src/app/dev/breathe/routine/[slug]/session/page.tsx:53`
-- `src/app/dev/breathe/[slug]/session/page.tsx:57`
-- `src/app/dev/breathe/journey/[slug]/page.tsx:47`
-- `src/app/dev/breathe/journey/[slug]/session/page.tsx:36`
-- `src/app/dev/breathe/page.tsx:38`
-
-**Migration path:**
-```diff
-- const timezone = profile.timezone || "Asia/Kolkata";
-+ const timezone = resolveTimezoneWithProfile(profile.timezone);
-```
-
-These files are already reading `profile.timezone` first, so they already respect user preferences. The change would add gym timezone as a middle priority between user and default.
+**Note**: The inline fallback pattern (`profile?.timezone || "Asia/Kolkata"`) in server pages could be replaced with `resolveTimezoneWithProfile(profile?.timezone)` to add gym timezone priority. Currently these pages fall back directly to `"Asia/Kolkata"` if the profile timezone is missing, which works but doesn't consider the gym's configured timezone.
 
 ## Troubleshooting
 
@@ -481,7 +490,7 @@ These files are already reading `profile.timezone` first, so they already respec
 - Hard refresh the browser (Cmd+Shift+R or Ctrl+Shift+R)
 - Clear build cache: `rm -rf .next && npm run build`
 - Verify `NEXT_PUBLIC_BRAND` is set correctly
-- Check browser console for `BrandThemeInjector` errors
+- Check that brand colors in `src/lib/branding.ts` are valid 6-digit hex codes
 
 ### Wrong brand loads
 

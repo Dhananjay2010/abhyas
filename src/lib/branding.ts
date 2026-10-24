@@ -76,6 +76,11 @@ export type Brand = {
    */
   tagline?: string;
   /**
+   * Optional language code for the tagline (e.g., 'hi' for Hindi, 'es' for Spanish).
+   * Used to set the `lang` attribute on the tagline element for proper text rendering.
+   */
+  taglineLang?: string;
+  /**
    * Default unit system for new members ('metric' or 'imperial').
    * New users start with this setting and can change it in Settings.
    * Metric: kg, cm; Imperial: lb, in.
@@ -122,6 +127,7 @@ const abhyas: Brand = {
   // No timezone set — falls back to browser detection
   // No logo set — shows text name
   tagline: "अभ्यास", // Hindi word for "practice"
+  taglineLang: "hi",  // Hindi language code
   defaultUnits: "metric",
   colors: {
     accent: "#ff9a2e",

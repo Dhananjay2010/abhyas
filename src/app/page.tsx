@@ -26,7 +26,10 @@ export default async function LandingPage({
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-between px-6 py-12">
       <div className="flex flex-1 flex-col justify-center">
         {branding.tagline && (
-          <p lang="hi" className="text-base font-medium text-accent">
+          <p 
+            {...(branding.taglineLang && { lang: branding.taglineLang })} 
+            className="text-base font-medium text-accent"
+          >
             {branding.tagline}
           </p>
         )}

@@ -31,7 +31,7 @@ async function generateIcons() {
   try {
     const brandingModule = require("../src/lib/branding.ts");
     branding = brandingModule.branding;
-  } catch (error) {
+  } catch {
     console.warn("Warning: Could not load branding config, using default colors");
     branding = {
       colors: {
