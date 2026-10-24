@@ -177,9 +177,6 @@ export default async function ProgressPage() {
     (v): v is typeof v & { local_date: string; volume_kg: number } =>
       v.local_date !== null && v.volume_kg !== null && Number(v.volume_kg) > 0,
   );
-  const volumePoints: Point[] = volumeRows
-    .slice(-14)
-    .map((v) => ({ label: shortDate(v.local_date), value: Number(v.volume_kg) }));
 
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
   // phone, and each lift is its own question anyway. Data is fetched newest-first;
@@ -201,6 +198,15 @@ export default async function ProgressPage() {
       deloadDates.add(date);
     }
   }
+  
+  // Volume chart with deload markers (change 7: headline skips deload sessions)
+  const volumePoints: Point[] = volumeRows
+    .slice(-14)
+    .map((v) => ({ 
+      label: shortDate(v.local_date), 
+      value: Number(v.volume_kg),
+      isDeload: deloadDates.has(v.local_date)
+    }));
   
   const strengthCharts = buildStrengthChartsFromDescendingRows(
     strengthRes.data ?? [],
@@ -285,10 +291,10 @@ export default async function ProgressPage() {
                 progressQueryFailed 
                   ? "—"
                   : totalVolume! >= 10000
-                    ? `${Math.round(totalVolume! / 1000)}t`
+                    ? `${Math.round(totalVolume! / 1000).toLocaleString("en-US")}t`
                     : totalVolume! >= 1000
-                      ? `${(totalVolume! / 1000).toFixed(1)}t`
-                      : `${Math.round(totalVolume!)}kg`
+                      ? `${(totalVolume! / 1000).toFixed(1).replace(/(\d)(?=(\d{3})+\.)/g, '$1,')}t`
+                      : `${Math.round(totalVolume!).toLocaleString("en-US")}kg`
               }
               sub={progressQueryFailed ? "error loading" : "all time"}
             />

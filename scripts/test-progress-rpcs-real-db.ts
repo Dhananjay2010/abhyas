@@ -712,6 +712,57 @@ async function runTests() {
         `session_count: ${progressData.session_count}`);
     }
 
+    // Test change 6: completed strength session with 0 sets appears in History
+    {
+      console.log("\n7. Zero-set completed session appears in History (change 6)");
+
+      // Create a completed weights session with 0 working sets
+      const zeroSetSessionId = randomUUID();
+      const { error: insertError } = await adminClient.from("sessions").insert({
+        id: zeroSetSessionId,
+        user_id: userIdA,
+        local_date: "2024-10-15",
+        status: "completed",
+        actual_type: "weights",
+        duration_seconds: 1800,
+        started_at: "2024-10-15T10:00:00Z",
+        completed_at: "2024-10-15T10:30:00Z",
+      });
+
+      if (insertError) {
+        console.error("Failed to insert zero-set session:", insertError);
+        check("Zero-set session insert", false);
+      } else {
+        // Verify it appears in get_history_page for lifts filter
+        const { data: historyData, error: historyError } = await supabaseA.rpc("get_history_page", {
+          p_user: userIdA,
+          p_filter: "lifts",
+          p_today: "2026-10-24",
+          p_limit: 100,
+          p_offset: 0,
+        });
+
+        if (historyError) {
+          console.error("get_history_page error:", historyError);
+          check("get_history_page succeeds", false);
+        } else {
+          const historyRows = historyData as HistoryPageRow[];
+          const sessionIds = historyRows.map((r) => r.session_id).filter((id): id is string => id !== null);
+          const includesZeroSet = sessionIds.includes(zeroSetSessionId);
+          
+          check("Zero-set completed session appears in History",
+            includesZeroSet,
+            `session found: ${includesZeroSet}`);
+
+          // Verify total_count includes it
+          const totalCount = historyRows[0]?.total_count ?? 0;
+          check("total_count includes zero-set session",
+            totalCount > oldTotalCount,
+            `old: ${oldTotalCount}, new: ${totalCount}`);
+        }
+      }
+    }
+
     if (failures > 0) {
       console.log(`\n❌ ${failures} FAILURES\n`);
       return false;
