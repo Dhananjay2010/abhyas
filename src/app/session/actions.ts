@@ -175,8 +175,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   );
   if (!loadResult.ok) return { ok: false, error: loadResult.error };
 
-  const { program, dayId: dayId } = loadResult;
-  const day = program.program_days.find((d) => d.id === dayId)!;
+  const { program, day } = loadResult;
 
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
   const isDeloadWeek = week === program.deload_week;

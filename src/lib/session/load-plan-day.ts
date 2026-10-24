@@ -7,7 +7,7 @@ export type PlanDay = {
 };
 
 export type LoadPlanDayDeps = {
-  fetchDay: (dayId: string) => Promise<PlanDay | null>;
+  fetchDay: (dayId: string) => Promise<{ data: PlanDay | null; error: { message: string } | null }>;
 };
 
 export type LoadPlanDayResult =
@@ -18,7 +18,11 @@ export async function loadPlanDay(
   deps: LoadPlanDayDeps,
   dayId: string,
 ): Promise<LoadPlanDayResult> {
-  const day = await deps.fetchDay(dayId);
+  const { data: day, error } = await deps.fetchDay(dayId);
+
+  if (error) {
+    return { ok: false, error: "Could not load the training block." };
+  }
 
   if (!day) {
     return { ok: false, error: "That day is not in your block." };
@@ -30,14 +34,14 @@ export async function loadPlanDay(
 export function createSupabaseDeps(client: SupabaseClient<Database>): LoadPlanDayDeps {
   return {
     async fetchDay(dayId: string) {
-      const { data } = await client
+      const { data, error } = await client
         .from("program_days")
         .select("id, day_type")
         .eq("id", dayId)
         .eq("status", "active")
         .maybeSingle();
       
-      return data;
+      return { data, error };
     },
   };
 }
