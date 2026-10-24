@@ -924,5 +924,6 @@ function initialStepIndex(initial: InitialState): number {
   if (!initial.level) return 3;
   if (!initial.primaryTrack) return 4;
   if (!initial.daysPerWeek) return 5;
-  return 6;
+  if (!initial.sessionMinutes) return 6;
+  return 7;
 }
