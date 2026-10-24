@@ -138,14 +138,6 @@ export function clearPendingSet(
  * Check if an error is a unique violation (23505) or server "already saved" result.
  */
 export function isDuplicateError(errOrResponse: unknown): boolean {
-  if (errOrResponse instanceof Error) {
-    const msg = errOrResponse.message.toLowerCase();
-    return msg.includes('23505') || 
-           msg.includes('unique') || 
-           msg.includes('already saved') ||
-           msg.includes('duplicate key');
-  }
-  
   if (
     errOrResponse &&
     typeof errOrResponse === 'object' &&
@@ -153,12 +145,7 @@ export function isDuplicateError(errOrResponse: unknown): boolean {
     errOrResponse.ok === false
   ) {
     const err = errOrResponse as { ok: false; error?: string; code?: string };
-    const errorMsg = err.error?.toLowerCase() || '';
-    return errorMsg.includes('23505') || 
-           errorMsg.includes('unique') || 
-           errorMsg.includes('already saved') ||
-           errorMsg.includes('duplicate key') ||
-           err.code === '23505';
+    return err.code === '23505';
   }
   
   return false;
