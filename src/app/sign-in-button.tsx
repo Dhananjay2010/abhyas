@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { buildOAuthRedirectUrl } from "@/lib/auth/sign-in-redirect";
+import { safeNextPath } from "@/lib/safe-next-path";
 
 export function SignInButton({ next }: { next?: string }) {
   const [pending, setPending] = useState(false);
@@ -16,10 +18,8 @@ export function SignInButton({ next }: { next?: string }) {
     const { createClient } = await import("@/lib/supabase/client");
     const supabase = createClient();
     
-    // Build redirect URL with next parameter if present
-    const callbackUrl = next 
-      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-      : `${window.location.origin}/auth/callback`;
+    // Build redirect URL with validated next parameter (client-side validation)
+    const callbackUrl = buildOAuthRedirectUrl(window.location.origin, next, safeNextPath);
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",

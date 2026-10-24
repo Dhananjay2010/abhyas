@@ -1,11 +1,10 @@
 #!/usr/bin/env tsx
 /**
- * Test: Proxy redirect building for unauthenticated requests
+ * Test: Proxy uses sign-in redirect helper
  * 
- * Verifies that when an unauthenticated user tries to access a protected page,
- * the proxy redirects appropriately:
- * - Adds ?next for protected pages (GET requests)
- * - Does NOT add ?next for root path, /api/*, or non-GET requests
+ * Verifies that the session proxy uses the buildSignInRedirectSearch helper
+ * for consistent redirect behavior. The helper's behavior is tested separately
+ * in test-sign-in-redirect.ts.
  */
 
 import { readFileSync } from 'fs';
@@ -22,59 +21,47 @@ function runTests(): TestResult[] {
   const sessionPath = join(process.cwd(), 'src/lib/supabase/session.ts');
   const sessionContent = readFileSync(sessionPath, 'utf-8');
 
-  // Test 1: Proxy adds ?next for protected GET requests
+  // Test 1: Proxy imports buildSignInRedirectSearch
   {
-    const hasNextLogic = /const originalPath.*pathname.*search/.test(sessionContent);
+    const importsHelper = /import[\s\S]*?buildSignInRedirectSearch[\s\S]*?from[\s\S]*?sign-in-redirect/.test(sessionContent);
     results.push({
-      passed: hasNextLogic,
-      message: hasNextLogic
-        ? 'Proxy builds next parameter from pathname + search'
-        : 'Proxy does not build next parameter correctly'
+      passed: importsHelper,
+      message: importsHelper
+        ? 'Proxy imports buildSignInRedirectSearch helper'
+        : 'Proxy does not import buildSignInRedirectSearch'
     });
   }
 
-  // Test 2: Proxy checks for root path
+  // Test 2: Proxy uses the helper to build search string
   {
-    const checksRoot = /pathname\s*!==\s*['"]\/['"]/.test(sessionContent);
+    const usesHelper = /buildSignInRedirectSearch\(/.test(sessionContent);
     results.push({
-      passed: checksRoot,
-      message: checksRoot
-        ? 'Proxy checks that pathname is not root (/)'
-        : 'Proxy does not check for root path'
+      passed: usesHelper,
+      message: usesHelper
+        ? 'Proxy calls buildSignInRedirectSearch to build search string'
+        : 'Proxy does not use buildSignInRedirectSearch'
     });
   }
 
-  // Test 3: Proxy checks for /api/* paths
+  // Test 3: Proxy passes pathname, search, and method to helper
   {
-    const checksApi = /pathname\.startsWith\(['"]\/api\/['"]\)/.test(sessionContent);
+    const passesArgs = /buildSignInRedirectSearch\([^)]*pathname[^)]*search[^)]*method[^)]*\)/.test(sessionContent);
     results.push({
-      passed: checksApi,
-      message: checksApi
-        ? 'Proxy checks for /api/* paths'
-        : 'Proxy does not check for /api/* paths'
+      passed: passesArgs,
+      message: passesArgs
+        ? 'Proxy passes pathname, search, method to helper'
+        : 'Proxy does not pass correct arguments to helper'
     });
   }
 
-  // Test 4: Proxy checks request method
+  // Test 4: Proxy assigns helper result to url.search
   {
-    const checksMethod = /request\.method\s*===\s*['"]GET['"]/.test(sessionContent);
+    const assignsToSearch = /url\.search\s*=\s*buildSignInRedirectSearch/.test(sessionContent);
     results.push({
-      passed: checksMethod,
-      message: checksMethod
-        ? 'Proxy checks that request method is GET'
-        : 'Proxy does not check request method'
-    });
-  }
-
-  // Test 5: Proxy conditionally adds next parameter
-  {
-    const conditionalNext = /if\s*\(\s*shouldAddNext\s*\)/.test(sessionContent) ||
-                            /shouldAddNext[\s\S]*?url\.search/.test(sessionContent);
-    results.push({
-      passed: conditionalNext,
-      message: conditionalNext
-        ? 'Proxy conditionally adds ?next based on checks'
-        : 'Proxy does not conditionally add ?next'
+      passed: assignsToSearch,
+      message: assignsToSearch
+        ? 'Proxy assigns helper result to url.search'
+        : 'Proxy does not assign helper result correctly'
     });
   }
 

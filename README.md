@@ -121,36 +121,25 @@ max_frequency = "1m0s"
 
 **For local development with magic links or email signup:**
 
-1. **Create a git-ignored local override file** (recommended):
-   ```bash
-   # Copy the template and edit for local development
-   cp supabase/config.toml supabase/config.local.toml
-   git add supabase/config.local.toml
-   # (already in .gitignore)
-   
-   # Edit supabase/config.local.toml:
-   # - Set site_url = "http://localhost:3000"
-   # - Set enable_signup = true
-   # - Set enable_confirmations = false
-   # - Set max_frequency = "1s"
-   
-   # Start Supabase with the local config
-   supabase start -c supabase/config.local.toml
-   ```
+Apply the same sed overrides CI uses, start Supabase, then restore the original config:
 
-2. **Or apply CI-style sed overrides to a temporary copy** (used in CI):
-   ```bash
-   # The database-seed-test CI job does this automatically
-   sed -i.bak 's|site_url = "https://abhyas-indol.vercel.app"|site_url = "http://localhost:54321"|' supabase/config.toml
-   sed -i.bak 's/enable_signup = false/enable_signup = true/' supabase/config.toml
-   sed -i.bak 's/enable_confirmations = true/enable_confirmations = false/' supabase/config.toml
-   sed -i.bak 's/max_frequency = "1m0s"/max_frequency = "1s"/' supabase/config.toml
-   
-   # After testing, restore from backup
-   mv supabase/config.toml.bak supabase/config.toml
-   ```
+```bash
+# Step 1: Apply local auth overrides (same as CI)
+sed -i 's|site_url = "https://abhyas-indol.vercel.app"|site_url = "http://localhost:3000"|' supabase/config.toml
+sed -i 's/enable_signup = false/enable_signup = true/' supabase/config.toml
+sed -i 's/enable_confirmations = true/enable_confirmations = false/' supabase/config.toml
+sed -i 's/max_frequency = "1m0s"/max_frequency = "1s"/' supabase/config.toml
 
-**⚠️ Never commit local auth overrides.** Do not run `supabase config push` with local settings; it would break production auth.
+# Step 2: Start Supabase with the modified config
+npm run supabase:start
+
+# Your local Supabase is now running with email auth enabled
+
+# Step 3: When done, restore the original production-safe config
+git restore supabase/config.toml
+```
+
+**⚠️ Never commit local auth overrides.** Always run `git restore supabase/config.toml` after local testing. Do not run `supabase config push` with local settings; it would break production auth.
 
 ---
 

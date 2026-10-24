@@ -1,11 +1,10 @@
 #!/usr/bin/env tsx
 /**
- * Test: Landing page next parameter handling
+ * Test: Landing page and SignInButton use redirect helpers
  * 
- * Verifies that:
- * 1. The landing page passes the next parameter to SignInButton
- * 2. A signed-in user with a next parameter is redirected to the safe path
- * 3. The next parameter goes through safeNextPath validation
+ * Verifies that the landing page and SignInButton use the helper functions
+ * for consistent redirect behavior. The helpers' behavior is tested separately
+ * in test-sign-in-redirect.ts.
  */
 
 import { readFileSync } from 'fs';
@@ -25,14 +24,14 @@ function runTests(): TestResult[] {
   const signInButtonPath = join(process.cwd(), 'src/app/sign-in-button.tsx');
   const signInButtonContent = readFileSync(signInButtonPath, 'utf-8');
 
-  // Test 1: Landing page imports safeNextPath
+  // Test 1: Landing page imports getLandingRedirectTarget
   {
-    const hasSafeNextPathImport = /import.*safeNextPath.*from.*redirect-origin/i.test(pageContent);
+    const importsHelper = /import[\s\S]*?getLandingRedirectTarget[\s\S]*?from[\s\S]*?sign-in-redirect/.test(pageContent);
     results.push({
-      passed: hasSafeNextPathImport,
-      message: hasSafeNextPathImport 
-        ? 'Landing page imports safeNextPath'
-        : 'Landing page does not import safeNextPath'
+      passed: importsHelper,
+      message: importsHelper 
+        ? 'Landing page imports getLandingRedirectTarget helper'
+        : 'Landing page does not import getLandingRedirectTarget'
     });
   }
 
@@ -69,26 +68,25 @@ function runTests(): TestResult[] {
     });
   }
 
-  // Test 5: SignInButton includes next in redirectTo URL
+  // Test 5: SignInButton uses buildOAuthRedirectUrl helper
   {
-    const includesNext = /const\s+callbackUrl\s*=\s*next[\s\S]*?encodeURIComponent\(next\)/.test(signInButtonContent) ||
-                         /redirectTo[\s\S]*?\?\s*next[\s\S]*?encodeURIComponent\(next\)/.test(signInButtonContent);
+    const usesHelper = /buildOAuthRedirectUrl[\s\S]*?window\.location\.origin[\s\S]*?next[\s\S]*?safeNextPath/.test(signInButtonContent);
     results.push({
-      passed: includesNext,
-      message: includesNext
-        ? 'SignInButton includes next in redirectTo with encoding'
-        : 'SignInButton does not include next in redirectTo'
+      passed: usesHelper,
+      message: usesHelper
+        ? 'SignInButton uses buildOAuthRedirectUrl helper with client-side validation'
+        : 'SignInButton does not use buildOAuthRedirectUrl helper'
     });
   }
 
-  // Test 6: Landing page redirects signed-in users to safe next path
+  // Test 6: SignInButton imports from safe-next-path
   {
-    const redirectsToNext = /if\s*\(\s*next\s*\)[\s\S]*?safeNextPath\(next\)[\s\S]*?redirect/i.test(pageContent);
+    const importsFromSafe = /import[\s\S]*?safeNextPath[\s\S]*?from[\s\S]*?safe-next-path/.test(signInButtonContent);
     results.push({
-      passed: redirectsToNext,
-      message: redirectsToNext
-        ? 'Landing page redirects signed-in users to safe next path'
-        : 'Landing page does not redirect signed-in users to next path'
+      passed: importsFromSafe,
+      message: importsFromSafe
+        ? 'SignInButton imports safeNextPath from safe-next-path module'
+        : 'SignInButton does not import from safe-next-path'
     });
   }
 
@@ -103,28 +101,25 @@ function runTests(): TestResult[] {
     });
   }
 
-  // Test 8: Landing page redirects to /onboarding when not complete
+  // Test 8: Landing page uses getLandingRedirectTarget
   {
-    const redirectsToOnboarding = /!profile\?.onboarding_completed_at[\s\S]*?redirect\(['"]\/onboarding['"]\)/.test(pageContent);
+    const usesHelper = /getLandingRedirectTarget\([\s\S]*?profile\?.onboarding_completed_at[\s\S]*?next[\s\S]*?safeNextPath/.test(pageContent);
     results.push({
-      passed: redirectsToOnboarding,
-      message: redirectsToOnboarding
-        ? 'Landing page redirects to /onboarding when onboarding not complete (does not skip with next)'
-        : 'Landing page does not properly protect onboarding'
+      passed: usesHelper,
+      message: usesHelper
+        ? 'Landing page uses getLandingRedirectTarget with onboarding check'
+        : 'Landing page does not use getLandingRedirectTarget'
     });
   }
 
-  // Test 9: Landing page only redirects to next after onboarding is complete
+  // Test 9: Landing page redirects to helper result
   {
-    // Check that next redirect comes after onboarding check
-    const onboardingCheckPos = pageContent.indexOf('!profile?.onboarding_completed_at');
-    const nextRedirectPos = pageContent.indexOf('if (next)');
-    const passed = onboardingCheckPos !== -1 && nextRedirectPos !== -1 && nextRedirectPos > onboardingCheckPos;
+    const redirectsToTarget = /const\s+target\s*=\s*getLandingRedirectTarget[\s\S]*?redirect\(target\)/.test(pageContent);
     results.push({
-      passed,
-      message: passed
-        ? 'Landing page only uses next parameter after verifying onboarding is complete'
-        : 'Landing page may allow next to skip onboarding'
+      passed: redirectsToTarget,
+      message: redirectsToTarget
+        ? 'Landing page redirects to helper result'
+        : 'Landing page does not redirect to helper result'
     });
   }
 

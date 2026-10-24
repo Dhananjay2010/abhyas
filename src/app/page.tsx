@@ -5,6 +5,7 @@ import { Footer } from "@/components/footer";
 import { branding } from "@/lib/branding";
 import { BrandLogo } from "@/components/brand-logo";
 import { safeNextPath } from "@/lib/auth/redirect-origin";
+import { getLandingRedirectTarget } from "@/lib/auth/sign-in-redirect";
 
 export default async function LandingPage({
   searchParams,
@@ -22,18 +23,9 @@ export default async function LandingPage({
       .eq("id", user.id)
       .single();
 
-    // If onboarding is not complete, go to onboarding (don't skip it with next)
-    if (!profile?.onboarding_completed_at) {
-      redirect("/onboarding");
-    }
-
-    // Onboarding is complete - redirect to next if present, otherwise to today
-    if (next) {
-      const safePath = safeNextPath(next);
-      redirect(safePath);
-    }
-
-    redirect("/today");
+    // Determine redirect target based on onboarding status and next parameter
+    const target = getLandingRedirectTarget(profile?.onboarding_completed_at, next, safeNextPath);
+    redirect(target);
   }
 
   return (
