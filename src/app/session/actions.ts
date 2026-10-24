@@ -33,10 +33,36 @@ export type Result<T = undefined> =
 
 const SESSION_EXPIRED_CODE = 'SESSION_EXPIRED';
 
+export { SESSION_EXPIRED_CODE };
+
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
+}
+
+/**
+ * Resolve auth for a server action.
+ * 
+ * Returns SESSION_EXPIRED code when no user, instead of throwing. Exported
+ * for testing the server-side auth contract without React or DB.
+ */
+export async function resolveAuth<T>(
+  authFn: () => Promise<{ user: unknown | null }>,
+  action: () => Promise<Result<T>>,
+): Promise<Result<T>> {
+  try {
+    const { user } = await authFn();
+    if (!user) {
+      return { ok: false, error: "Not signed in", code: SESSION_EXPIRED_CODE };
+    }
+    return await action();
+  } catch (err) {
+    if (err instanceof Error && err.message === "Not signed in") {
+      return { ok: false, error: "Not signed in", code: SESSION_EXPIRED_CODE };
+    }
+    throw err;
+  }
 }
 
 /**

@@ -7,13 +7,12 @@
  */
 
 import type { Result } from "@/app/session/actions";
+import { isSessionExpired } from "./session-expired-shim";
 import {
-  isSessionExpired,
   isDuplicateError,
   loadPendingSets,
   savePendingSet,
   clearPendingSet,
-  clearPendingSets,
   type PendingSet,
   type Storage,
 } from "./pending-set-retry";
