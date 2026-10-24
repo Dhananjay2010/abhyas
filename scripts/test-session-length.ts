@@ -1,18 +1,23 @@
 /**
- * Test: Session length validation and server action behavior
+ * Test: Session length validation and persistSessionLength function
  *
  * Verifies:
  * - isAllowedSessionLength accepts only valid integers (30, 45, 60, 75)
  * - Rejects invalid inputs (0, 40, 90, strings, NaN, floats, null)
  * - DEFAULT_SESSION_LENGTH is 45
- * - saveSessionLength with invalid input makes no database update
+ * - persistSessionLength validates before database calls
+ * - persistSessionLength makes exactly one update call for valid input
+ * - persistSessionLength passes through database errors
+ * - saveSessionLength in actions.ts calls persistSessionLength
  */
 
 import {
   SESSION_LENGTH_OPTIONS,
   DEFAULT_SESSION_LENGTH,
   isAllowedSessionLength,
+  persistSessionLength,
 } from "../src/lib/onboarding/session-length";
+import { readFile } from "fs/promises";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -53,63 +58,104 @@ console.log("\n3. isAllowedSessionLength rejects invalid inputs");
   check("rejects large number 1000", !isAllowedSessionLength(1000));
 }
 
-console.log("\n4. Server action behavior with mock supabase");
+console.log("\n4. persistSessionLength with recording mock client");
 {
-  type MockChain = {
-    from: (table: string) => MockChain;
-    update: (data: unknown) => MockChain;
-    eq: (column: string, value: unknown) => Promise<{ error: null }>;
+  type Call = {
+    table: string;
+    data: { preferred_session_minutes: number };
+    column: string;
+    id: string;
   };
 
-  const updateCalls: unknown[] = [];
+  const calls: Call[] = [];
 
-  function createMockSupabase() {
-    function createChain(): MockChain {
-      const chain: MockChain = {
-        from: () => chain,
-        update: (data: unknown) => {
-          updateCalls.push(data);
-          return chain;
-        },
-        eq: () => Promise.resolve({ error: null }),
-      };
-      return chain;
-    }
-
+  function createMockClient(errorMessage: string | null = null) {
     return {
-      from: (table: string) => {
-        const chain = createChain();
-        return chain.from(table);
-      },
+      from: (table: "profiles") => ({
+        update: (data: { preferred_session_minutes: number }) => ({
+          eq: (column: "id", id: string) => {
+            calls.push({ table, data, column, id });
+            return Promise.resolve({ error: errorMessage ? { message: errorMessage } : null });
+          },
+        }),
+      }),
     };
   }
 
-  const mockSupabase = createMockSupabase();
-  const mockUser = { id: "test-user-id" };
-
-  updateCalls.length = 0;
-
-  const invalidInput = 40;
-  if (isAllowedSessionLength(invalidInput)) {
-    console.log("  note Would call supabase.update, but validation rejected it");
-  } else {
-    check("validation rejects 40 before attempting update", !isAllowedSessionLength(invalidInput));
-    check("no update call made for invalid input", updateCalls.length === 0);
-  }
-
-  const validInput = 45;
-  if (isAllowedSessionLength(validInput)) {
-    mockSupabase.from("profiles").update({ preferred_session_minutes: validInput }).eq("id", mockUser.id);
-    check("valid input would trigger update call", updateCalls.length === 1);
+  async function testInvalidInput(input: unknown, label: string) {
+    calls.length = 0;
+    const client = createMockClient();
+    const result = await persistSessionLength(client, "u1", input);
+    check(`${label}: zero client calls`, calls.length === 0, `got ${calls.length} calls`);
     check(
-      "update data contains preferred_session_minutes",
-      updateCalls.length > 0 &&
-        typeof updateCalls[0] === "object" &&
-        updateCalls[0] !== null &&
-        "preferred_session_minutes" in updateCalls[0]
+      `${label}: exact error string`,
+      !result.ok && result.error === "Pick 30, 45, 60 or 75 minutes.",
+      result.ok ? "result was ok" : `got error: ${result.error}`
     );
   }
+
+  async function testValidInput() {
+    calls.length = 0;
+    const client = createMockClient();
+    const result = await persistSessionLength(client, "u1", 45);
+    check("valid input (45): exactly one client call", calls.length === 1, `got ${calls.length} calls`);
+    if (calls.length === 1) {
+      check(
+        "valid input (45): update data",
+        calls[0].data.preferred_session_minutes === 45,
+        `got ${calls[0].data.preferred_session_minutes}`
+      );
+      check("valid input (45): table is profiles", calls[0].table === "profiles");
+      check("valid input (45): eq column is id", calls[0].column === "id");
+      check("valid input (45): eq id is u1", calls[0].id === "u1");
+    }
+    check("valid input (45): result is ok", result.ok, JSON.stringify(result));
+  }
+
+  async function testDatabaseError() {
+    calls.length = 0;
+    const client = createMockClient("boom");
+    const result = await persistSessionLength(client, "u1", 45);
+    check("database error: client was called", calls.length === 1, `got ${calls.length} calls`);
+    check("database error: result not ok", !result.ok);
+    if (!result.ok) {
+      check("database error: error is boom", result.error === "boom", `got error: ${result.error}`);
+    }
+  }
+
+  async function runTests() {
+    await testInvalidInput(40, "invalid input (40)");
+    await testInvalidInput("45", 'invalid input ("45")');
+    await testInvalidInput(NaN, "invalid input (NaN)");
+    await testInvalidInput(45.5, "invalid input (45.5)");
+    await testValidInput();
+    await testDatabaseError();
+  }
+
+  runTests();
 }
 
-console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
-process.exit(failures === 0 ? 0 : 1);
+console.log("\n5. Source check: saveSessionLength calls persistSessionLength");
+{
+  async function checkSourceFile() {
+    try {
+      const source = await readFile("src/app/onboarding/actions.ts", "utf-8");
+      const hasPersistCall = source.includes("persistSessionLength(");
+      check("actions.ts imports persistSessionLength", source.includes("persistSessionLength"));
+      check("saveSessionLength calls persistSessionLength", hasPersistCall);
+    } catch (error) {
+      check(
+        "source check failed",
+        false,
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  checkSourceFile();
+}
+
+setTimeout(() => {
+  console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
+  process.exit(failures === 0 ? 0 : 1);
+}, 100);
