@@ -1306,6 +1306,12 @@ function Shell({
         </p>
       )}
 
+      {message && (
+        <p className="mt-4 rounded-lg border border-info/30 bg-info/10 px-3 py-2 text-sm text-info">
+          {message}
+        </p>
+      )}
+
       <div className="mt-8">{children}</div>
     </main>
   );

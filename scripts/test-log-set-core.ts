@@ -33,12 +33,14 @@ type CallRecord = {
 
 /**
  * Recording fake Supabase client that tracks all method calls.
+ * Supports "race mode" where the initial lookup returns null but insert returns 23505.
  */
-function createRecordingFakeClient(initialSets: SessionSet[]) {
+function createRecordingFakeClient(initialSets: SessionSet[], options?: { raceMode?: boolean; racedSet?: SessionSet }) {
   const sets = new Map<string, SessionSet>(
     initialSets.map((s) => [`${s.session_exercise_id}:${s.set_number}:${s.is_warmup_set}`, { ...s }]),
   );
   const calls: CallRecord[] = [];
+  let insertCallCount = 0;
 
   return {
     from: (table: string) => {
@@ -59,6 +61,12 @@ function createRecordingFakeClient(initialSets: SessionSet[]) {
                           filters: { [col]: val, [col2]: val2, [col3]: val3 },
                         });
                         const key = `${val}:${val2}:${val3}`;
+                        
+                        // Race mode: first lookup (before insert) returns null
+                        if (options?.raceMode && insertCallCount === 0) {
+                          return { data: null, error: null };
+                        }
+                        
                         const set = sets.get(key);
                         return { data: set || null, error: null };
                       },
@@ -85,7 +93,16 @@ function createRecordingFakeClient(initialSets: SessionSet[]) {
         },
         insert: async (payload: SessionSet | SessionSet[]) => {
           calls.push({ method: "insert", table, payload });
+          insertCallCount++;
           const rows = Array.isArray(payload) ? payload : [payload];
+          
+          // Race mode: inject the raced set and return 23505
+          if (options?.raceMode && options.racedSet && insertCallCount === 1) {
+            const key = `${options.racedSet.session_exercise_id}:${options.racedSet.set_number}:${options.racedSet.is_warmup_set}`;
+            sets.set(key, options.racedSet);
+            return { data: null, error: { code: "23505", message: "duplicate key violates unique constraint" } };
+          }
+          
           for (const row of rows) {
             const key = `${row.session_exercise_id}:${row.set_number}:${row.is_warmup_set}`;
             if (sets.has(key)) {
@@ -192,8 +209,8 @@ async function main() {
 
   // Test 3: Mutant (e) - 23505 handling re-reads and returns conflict
   await testLogSetCore("23505 race: re-read and return conflict", async () => {
-    // Simulate race: set already exists when we try to insert
-    const raceSet = {
+    // Simulate race: initial lookup finds nothing, insert returns 23505, re-read finds different values
+    const racedSet = {
       session_exercise_id: "ex-3",
       user_id: "user-1",
       set_number: 1,
@@ -204,17 +221,9 @@ async function main() {
       completed_at: "2026-10-24T12:00:00Z",
     };
 
-    // Call logSetCore which will:
-    // 1. Check for existing (finds none)
-    // 2. Try to insert (gets 23505 because our fake will add the set during insert)
-    // 3. Re-read (finds the raceSet)
-    // 4. Return conflict
-    
-    // We need a smarter fake that can inject the set during the insert call
-    // For now, just start with the set already there to test the conflict path
-    const fakeWithSet = createRecordingFakeClient([raceSet]);
+    const fake = createRecordingFakeClient([], { raceMode: true, racedSet });
 
-    const result = await logSetCore(fakeWithSet as unknown as SupabaseClient<Database>, "user-1", {
+    const result = await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
       sessionExerciseId: "ex-3",
       setNumber: 1,
       reps: 10,
@@ -226,26 +235,26 @@ async function main() {
     if (!result.ok && "reason" in result) {
       assertEqualCore(result.reason, "set_exists", "Should have set_exists reason");
       assertTrue(Array.isArray(result.savedSets), "Should have savedSets array");
-      if (result.savedSets && result.savedSets.length > 0) {
-        assertEqualCore(result.savedSets[0].reps, 12, "Should return raced set's reps");
-      }
+      assertEqualCore(result.savedSets[0].reps, 12, "Should return raced set's reps");
+      assertEqualCore(result.savedSets[0].weightKg, 65, "Should return raced set's weight");
     }
   });
 
   // Test 4: 23505 race with identical values returns duplicate_ok
   await testLogSetCore("23505 race: re-read identical values → duplicate_ok", async () => {
-    const fake = createRecordingFakeClient([
-      {
-        session_exercise_id: "ex-4",
-        user_id: "user-1",
-        set_number: 1,
-        reps: 10,
-        weight_kg: 60,
-        duration_seconds: null,
-        is_warmup_set: false,
-        completed_at: "2026-10-24T12:00:00Z",
-      },
-    ]);
+    // Simulate race: initial lookup finds nothing, insert returns 23505, re-read finds identical values
+    const racedSet = {
+      session_exercise_id: "ex-4",
+      user_id: "user-1",
+      set_number: 1,
+      reps: 10,
+      weight_kg: 60,
+      duration_seconds: null,
+      is_warmup_set: false,
+      completed_at: "2026-10-24T12:00:00Z",
+    };
+
+    const fake = createRecordingFakeClient([], { raceMode: true, racedSet });
 
     const result = await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
       sessionExerciseId: "ex-4",
