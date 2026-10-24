@@ -5,6 +5,7 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
+import { countWorkingSets } from "@/lib/session/count-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -100,18 +101,17 @@ export default async function HistoryPage({
     exercisesBySession.set(ex.session_id, list);
   }
 
-  // Get all sets for these session_exercises to calculate top sets
+  // Get all sets for these session_exercises to calculate top sets and count working sets
   const sessionExerciseIds = (sessionExercises ?? []).map((se) => se.id);
   const { data: allSets } = await supabase
     .from("session_sets")
-    .select("session_exercise_id, reps, weight_kg, duration_seconds")
+    .select("session_exercise_id, reps, weight_kg, duration_seconds, is_warmup_set")
     .in(
       "session_exercise_id",
       sessionExerciseIds.length ? sessionExerciseIds : ["00000000-0000-0000-0000-000000000000"]
-    )
-    .eq("is_warmup_set", false);
+    );
 
-  const setsByExercise = new Map<string, Array<{ reps: number | null; weight_kg: number | null; duration_seconds: number | null }>>();
+  const setsByExercise = new Map<string, Array<{ reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }>>();
   for (const set of allSets ?? []) {
     const list = setsByExercise.get(set.session_exercise_id) ?? [];
     list.push(set);
@@ -135,6 +135,10 @@ export default async function HistoryPage({
     const vol = volumeById.get(s.id);
     const isBreathing = s.actual_type === "meditation";
     const exercises = exercisesBySession.get(s.id) ?? [];
+
+    // Count working sets for this session (both reps-based and timed)
+    const allSessionSets = exercises.flatMap((ex) => setsByExercise.get(ex.id) ?? []);
+    const workingSetCount = countWorkingSets(allSessionSets);
 
     // Calculate top set weight for strength sessions
     let topSetWeight: number | null = null;
@@ -181,7 +185,7 @@ export default async function HistoryPage({
       completedAt: s.completed_at,
       isDeload: s.is_deload,
       programDayLabel: (s.program_days as unknown as { label: string } | null)?.label ?? null,
-      setCount: vol?.set_count ?? 0,
+      setCount: workingSetCount,
       volumeKg: Number(vol?.volume_kg ?? 0),
       topSetWeight,
       hasPR,

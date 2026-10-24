@@ -8,6 +8,7 @@ import { isUuid } from "@/lib/ids";
 import { EditSession } from "./edit-session";
 import { EditSets } from "./edit-sets";
 import { SessionActions } from "./session-actions";
+import { countWorkingSets } from "@/lib/session/count-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -123,7 +124,7 @@ export default async function SessionDetailPage({
 
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">
         <Stat label="Time" value={minutes !== null ? `${minutes}m` : "—"} />
-        <Stat label="Sets" value={`${(sets ?? []).length}`} />
+        <Stat label="Sets" value={`${countWorkingSets(sets ?? [])}`} />
         <Stat label="Volume" value={volume > 0 ? `${Math.round(volume)}kg` : "—"} />
       </dl>
 
