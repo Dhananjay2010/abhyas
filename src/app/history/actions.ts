@@ -83,42 +83,53 @@ export async function updateSessionDateTime(
 ) {
   const { supabase, user } = await getAuthedClient();
   if (!user) {
-    return { error: "Not authenticated" };
+    return { success: false, error: "Not authenticated" };
   }
 
-  // Calculate duration_seconds if both timestamps are provided
-  let durationSeconds: number | null = null;
-  if (startedAt && completedAt) {
-    const startMs = new Date(startedAt).getTime();
-    const endMs = new Date(completedAt).getTime();
-    durationSeconds = Math.round((endMs - startMs) / 1000);
-    
-    // Validate duration
-    if (durationSeconds <= 0) {
-      return { error: "End time must be after start time" };
-    }
-    if (durationSeconds > 36000) { // 10 hours
-      return { error: "Duration cannot exceed 10 hours" };
-    }
+  // Validate timestamps are present before proceeding
+  if (!startedAt || !completedAt) {
+    return { success: false, error: "Start and end times are required." };
   }
 
-  const { error } = await supabase
-    .from("sessions")
-    .update({
-      local_date: localDate,
-      started_at: startedAt,
-      completed_at: completedAt,
-      duration_seconds: durationSeconds,
-    })
-    .eq("id", sessionId)
-    .eq("user_id", user.id);
+  // Get profile for timezone and signup date
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone, created_at")
+    .eq("id", user.id)
+    .single();
 
-  if (error) {
-    return { error: error.message };
+  const { resolveTimezoneWithProfile } = await import("@/lib/timezone");
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
+
+  // Get user's auth signup date as fallback
+  const { data: authUser } = await supabase.auth.getUser();
+  const signupDate = profile?.created_at || authUser?.user?.created_at;
+
+  if (!signupDate) {
+    return { success: false, error: "Unable to determine signup date." };
+  }
+
+  // Call core function
+  const { updateSessionDateTimeCore } = await import("@/lib/history/edit-cores");
+  const result = await updateSessionDateTimeCore(
+    supabase,
+    user.id,
+    sessionId,
+    localDate,
+    startedAt,
+    completedAt,
+    timezone,
+    signupDate
+  );
+
+  if (!result.success) {
+    return result;
   }
 
   revalidatePath("/history");
   revalidatePath(`/history/${sessionId}`);
+  revalidatePath("/progress");
+  revalidatePath("/today");
 
   return { success: true };
 }
@@ -135,38 +146,38 @@ export async function updateSet(
 ) {
   const { supabase, user } = await getAuthedClient();
   if (!user) {
-    return { error: "Not authenticated" };
+    return { success: false, error: "Not authenticated" };
   }
 
-  // Verify ownership through session_exercises
+  // Get session_id for revalidation
   const { data: sessionExercise } = await supabase
     .from("session_exercises")
-    .select("id, session_id, user_id")
+    .select("session_id")
     .eq("id", sessionExerciseId)
     .eq("user_id", user.id)
     .single();
 
-  if (!sessionExercise) {
-    return { error: "Exercise not found" };
+  const { updateSetCore } = await import("@/lib/history/edit-cores");
+  const result = await updateSetCore(
+    supabase,
+    user.id,
+    sessionExerciseId,
+    setNumber,
+    reps,
+    weightKg,
+    durationSeconds
+  );
+
+  if (!result.success) {
+    return result;
   }
 
-  const { error } = await supabase
-    .from("session_sets")
-    .update({
-      reps,
-      weight_kg: weightKg,
-      duration_seconds: durationSeconds,
-    })
-    .eq("session_exercise_id", sessionExerciseId)
-    .eq("set_number", setNumber)
-    .eq("is_warmup_set", false);
-
-  if (error) {
-    return { error: error.message };
+  if (sessionExercise) {
+    revalidatePath("/history");
+    revalidatePath(`/history/${sessionExercise.session_id}`);
+    revalidatePath("/progress");
+    revalidatePath("/today");
   }
-
-  revalidatePath("/history");
-  revalidatePath(`/history/${sessionExercise.session_id}`);
 
   return { success: true };
 }
@@ -175,45 +186,59 @@ export async function updateSet(
  * Delete a single set from a session.
  * Updates set counts, volume, PR badges, and streak/day eligibility.
  * Respects RLS: user can only delete their own sets.
+ * 
+ * If deleteSessionIfEmpty is true and this is the last working set,
+ * the entire session will be deleted.
  */
 export async function deleteSet(
   sessionExerciseId: string,
-  setNumber: number
-) {
+  setNumber: number,
+  deleteSessionIfEmpty: boolean = false
+): Promise<
+  | { success: true; sessionDeleted?: boolean; redirect?: string }
+  | { success: false; error: string; message?: string }
+> {
   const { supabase, user } = await getAuthedClient();
   if (!user) {
-    return { error: "Not authenticated" };
+    return { success: false, error: "Not authenticated" };
   }
 
-  // Verify ownership through session_exercises
+  // Get session_id for revalidation before delete
   const { data: sessionExercise } = await supabase
     .from("session_exercises")
-    .select("id, session_id, user_id")
+    .select("session_id")
     .eq("id", sessionExerciseId)
     .eq("user_id", user.id)
     .single();
 
-  if (!sessionExercise) {
-    return { error: "Exercise not found" };
+  const { deleteSetCore } = await import("@/lib/history/edit-cores");
+  const result = await deleteSetCore(
+    supabase,
+    user.id,
+    sessionExerciseId,
+    setNumber,
+    deleteSessionIfEmpty
+  );
+
+  if (!result.success) {
+    return result;
   }
 
-  // Delete the set (RLS ensures user can only delete their own)
-  const { error } = await supabase
-    .from("session_sets")
-    .delete()
-    .eq("session_exercise_id", sessionExerciseId)
-    .eq("set_number", setNumber)
-    .eq("user_id", user.id);
-
-  if (error) {
-    return { error: error.message };
+  if (result.sessionDeleted) {
+    revalidatePath("/history");
+    revalidatePath("/progress");
+    revalidatePath("/today");
+    return result;
   }
 
   // Revalidate History list (updates set counts, volume, PR badges, streak eligibility)
   // and detail page
-  revalidatePath("/history");
-  revalidatePath(`/history/${sessionExercise.session_id}`);
-  revalidatePath("/progress"); // Streak might have changed
+  if (sessionExercise) {
+    revalidatePath("/history");
+    revalidatePath(`/history/${sessionExercise.session_id}`);
+    revalidatePath("/progress");
+    revalidatePath("/today");
+  }
 
   return { success: true };
 }
