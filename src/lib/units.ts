@@ -192,15 +192,15 @@ export function formatHeight(
  */
 export function formatVolume(volumeKg: number, units: UnitsPreference = "metric"): string {
   if (!Number.isFinite(volumeKg) || volumeKg <= 0) return "0 kg";
-
+  
   let value = volumeKg;
   let label = "kg";
-
+  
   if (units === "imperial") {
     value = kgToLb(volumeKg);
     label = "lb";
   }
-
+  
   if (value >= 100000) {
     // Abbreviated with k
     const k = value / 1000;
@@ -216,7 +216,7 @@ export function formatVolume(volumeKg: number, units: UnitsPreference = "metric"
 /**
  * Format top set weight for History display.
  * Converts to user's units and rounds for display.
- *
+ * 
  * @param weightKg - Weight in kilograms
  * @param units - 'metric' or 'imperial'
  * @returns Formatted string like "220lb top" or "100kg top"
@@ -283,7 +283,7 @@ export function parseWeight(
   if (!Number.isFinite(value) || value <= 0) return null;
 
   let kg: number;
-
+  
   // Handle explicit unit suffix
   if (explicitUnit) {
     if (explicitUnit === "kg") {
@@ -482,31 +482,31 @@ export function isValidWeightKg(kg: unknown): kg is number {
  */
 export function isValidDateOfBirth(dateString: string): boolean {
   if (!dateString || typeof dateString !== "string") return false;
-
+  
   // Check format: YYYY-MM-DD
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return false;
-
+  
   const date = new Date(dateString);
   // Check if date is valid (not Invalid Date)
   if (isNaN(date.getTime())) return false;
-
+  
   // Verify that parsing didn't change the date (e.g., 2020-02-30 -> 2020-03-01)
   const [yearStr, monthStr, dayStr] = dateString.split("-");
   if (date.getUTCFullYear() !== parseInt(yearStr, 10)) return false;
   if (date.getUTCMonth() !== parseInt(monthStr, 10) - 1) return false;
   if (date.getUTCDate() !== parseInt(dayStr, 10)) return false;
-
+  
   // Check year is 4 digits (1000-9999)
   const year = date.getFullYear();
   if (year < 1000 || year > 9999) return false;
-
+  
   // Check year is in sane range (1900 to current year)
   const currentYear = new Date().getFullYear();
   if (year < 1900 || year > currentYear) return false;
-
+  
   // Check date is not in the future
   if (date > new Date()) return false;
-
+  
   return true;
 }
 

@@ -6,7 +6,7 @@ import type { InProgressSession } from "@/lib/session/in-progress";
 
 export function InProgressBar({ session }: { session: InProgressSession }) {
   const pathname = usePathname();
-
+  
   // Hide on /session/* routes (user is already in the session)
   if (pathname.startsWith("/session/")) {
     return null;

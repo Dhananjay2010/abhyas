@@ -1,13 +1,13 @@
 /**
  * Test in-progress bar visibility and text formatting.
- *
+ * 
  * Verifies:
  * - Bar is hidden on /session/* routes
  * - Bar is shown on other routes when session exists
  * - "1 set logged" for single set (correct grammar)
  * - "N sets logged" for multiple sets
  * - Resume link points to /session/:id with no query params
- *
+ * 
  *   npx tsx scripts/test-in-progress-bar.ts
  */
 
@@ -56,7 +56,7 @@ console.log("\n3. Resume link format");
   const link1 = getResumeLink("abc123");
   check("Resume link has no query params", link1 === "/session/abc123", link1);
   check("No trailing slash", !link1.endsWith("/"), link1);
-
+  
   const link2 = getResumeLink("session-456");
   check("Works with different id", link2 === "/session/session-456", link2);
 }

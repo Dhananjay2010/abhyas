@@ -12,12 +12,12 @@ export type InProgressSession = {
 
 /**
  * Get the user's most recent in-progress session, if one exists.
- *
+ * 
  * Returns the session's id, title (exercise label), count of working sets
  * logged (warm-ups are excluded), and when it was started (ISO timestamp).
- *
+ * 
  * Returns null if the user has no in-progress session.
- *
+ * 
  * Read-only: this query does not modify any data.
  */
 export async function getInProgressSession(

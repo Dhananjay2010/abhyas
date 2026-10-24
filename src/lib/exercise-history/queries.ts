@@ -1,12 +1,12 @@
 /**
  * Exercise history query helpers for Abhyas.
- *
+ * 
  * These functions provide read-only access to a user's exercise performance history.
  * They use the exercise_history view for efficient querying with proper ordering.
- *
+ * 
  * Dates are stored in local_date (date type) and are already in the user's timezone.
  * No timezone conversion is needed.
- *
+ * 
  * @module exercise-history/queries
  */
 
@@ -47,13 +47,13 @@ export interface LastPerformance {
 
 /**
  * Get the most recent completed performance of an exercise.
- *
+ * 
  * Returns null if the user has never completed this exercise.
  * Only includes sessions with at least one non-warmup set (warm-up-only rows are skipped).
- *
+ * 
  * Uses the exercise_history view for efficient querying with proper ordering.
  * The view already filters to rows with at least one working set.
- *
+ * 
  * @param supabase - Authenticated Supabase client
  * @param userId - User ID
  * @param exerciseId - Exercise ID
@@ -123,9 +123,9 @@ export async function getLastPerformance(
 /**
  * Batch variant of getLastPerformance for multiple exercises.
  * More efficient when you need "last time" data for many exercises at once.
- *
+ * 
  * Uses parallel queries to ensure each exercise gets its true latest performance.
- *
+ * 
  * @param supabase - Authenticated Supabase client
  * @param userId - User ID
  * @param exerciseIds - Array of exercise IDs
@@ -142,7 +142,7 @@ export async function getBatchLastPerformance(
 
   // Query each exercise in parallel to avoid limit bugs
   const results = await Promise.all(
-    exerciseIds.map(exerciseId =>
+    exerciseIds.map(exerciseId => 
       getLastPerformance(supabase, userId, exerciseId)
         .then(result => ({ exerciseId, result }))
     )
@@ -204,22 +204,22 @@ export interface ExerciseHistoryOptions {
 
 /**
  * Get the complete history of an exercise for a user.
- *
+ * 
  * Returns sessions containing this exercise, newest first, with:
  * - Sets, top set, volume, and estimated 1RM per session
  * - PR detection: which PRs were achieved in each session (at the time)
  * - Current PRs across all history
- *
+ * 
  * Uses the exercise_history view for efficient paginated querying.
  * The view already filters to rows with at least one working set.
- *
+ * 
  * PR detection logic (L4):
  * - A session beats every EARLIER session (chronological by completed_at, then id)
  * - Ties are not PRs (must strictly beat previous records)
  * - First session gets NO badges (baseline rule)
  * - Weighted most-reps: needs earlier set at EXACTLY same weight, AND
  *   more reps than every earlier set at weight ≥ current weight
- *
+ * 
  * @param supabase - Authenticated Supabase client
  * @param userId - User ID
  * @param exerciseId - Exercise ID
@@ -265,7 +265,7 @@ export async function getExerciseHistory(
     metric: string | null;
     completed_at: string | null;
   }> = [];
-
+  
   let batchOffset = 0;
   const batchSize = 1000;  // Request size per page
   while (true) {
@@ -318,7 +318,7 @@ export async function getExerciseHistory(
   const allSetsBySessionExercise = new Map<string, SetData[]>();
   for (let i = 0; i < allSessionExerciseIds.length; i += 100) {
     const batch = allSessionExerciseIds.slice(i, i + 100);
-
+    
     // Page through sets for this batch
     // L1: Stable ordering to avoid duplicates/gaps across pagination
     let setOffset = 0;
@@ -461,7 +461,7 @@ export async function getExerciseHistory(
 
     // Check if this session beats any previous records (strict >)
     const sessionPRs: PersonalRecord[] = [];
-
+    
     // First session gets NO badges (baseline rule)
     const isFirstSession = setsBeforeThisSession.length === 0;
     if (isFirstSession) {

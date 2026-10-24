@@ -105,12 +105,12 @@ export default async function HistoryPage({
 
   const exercisesBySession = new Map<string, Array<{ id: string; exercise_id: string; metric: string }>>();
   const plannedSetsBySession = new Map<string, number>();
-
+  
   for (const ex of sessionExercises ?? []) {
     const list = exercisesBySession.get(ex.session_id) ?? [];
     list.push({ id: ex.id, exercise_id: ex.exercise_id, metric: ex.metric ?? "reps" });
     exercisesBySession.set(ex.session_id, list);
-
+    
     // Sum planned_sets to get total planned sets for this session
     if (ex.planned_sets && ex.planned_sets > 0) {
       plannedSetsBySession.set(
@@ -136,7 +136,7 @@ export default async function HistoryPage({
   const sessionExerciseIds = (sessionExercises ?? []).map((se) => se.id);
   const allSets: Array<{ session_exercise_id: string; reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }> = [];
   const chunkSize = 100;
-
+  
   for (let i = 0; i < sessionExerciseIds.length; i += chunkSize) {
     const chunk = sessionExerciseIds.slice(i, i + chunkSize);
     const { data } = await supabase
@@ -202,9 +202,9 @@ export default async function HistoryPage({
       );
 
     const plannedSets = plannedSetsBySession.get(s.id);
-    const endedEarly =
-      plannedSets !== undefined &&
-      plannedSets > 0 &&
+    const endedEarly = 
+      plannedSets !== undefined && 
+      plannedSets > 0 && 
       workingSetCount < plannedSets;
 
     return {

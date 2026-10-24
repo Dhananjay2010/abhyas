@@ -1,6 +1,6 @@
 /**
  * Real database tests for exercise history queries.
- *
+ * 
  * These tests run against a real local Supabase instance (supabase start).
  * They verify correctness with:
  * - Out-of-order sessions (insertion ≠ completion order)
@@ -11,9 +11,9 @@
  * - M1: PR detection (60 → 62.5 → 65 kg progression, QA scenarios A-E)
  * - M2: Unfinished exercises (2 of 3 sets logged, then ended early)
  * - L1: getLastPerformance skips warm-up-only rows
- *
+ * 
  * Run: supabase start && REAL_DB=1 npm run test:exercise-history-real-db
- *
+ * 
  * In CI: REAL_DB=1 is set to require a running database (fails if unavailable).
  * Locally: skips gracefully if REAL_DB=1 is not set.
  */
@@ -57,9 +57,9 @@ async function runTests() {
   }
 
   console.log("Checking Supabase connection...");
-
+  
   const isAvailable = await testDatabaseConnection();
-
+  
   if (!isAvailable) {
     console.error("\n❌ REAL_DB=1 but Supabase is not available");
     console.error("   Run `supabase start` to enable these tests\n");
@@ -256,12 +256,12 @@ async function runTests() {
     for (let i = 0; i < 150; i++) {
       const sessionId = randomUUID();
       const seId = randomUUID();
-
+      
       const sessionDate = new Date(startDate);
       sessionDate.setDate(startDate.getDate() + i);
       const isoDate = sessionDate.toISOString();
       const localDate = isoDate.split("T")[0];
-
+      
       sessions.push({
         id: sessionId,
         user_id: userIdA,
@@ -317,12 +317,12 @@ async function runTests() {
     for (let i = 0; i < 300; i++) {
       const sessionId = randomUUID();
       const seId = randomUUID();
-
+      
       const sessionDate = new Date(startDate);
       sessionDate.setDate(startDate.getDate() + i);
       const isoDate = sessionDate.toISOString();
       const localDate = isoDate.split("T")[0];
-
+      
       sessions.push({
         id: sessionId,
         user_id: userIdA,
@@ -386,7 +386,7 @@ async function runTests() {
 
     check("returns correct totalCount", history.totalCount === 150, `got ${history.totalCount}`);
     check("returns paginated results", history.sessions.length === 10);
-    check("sessions are newest first",
+    check("sessions are newest first", 
       history.sessions[0].date > history.sessions[1].date);
   }
 
@@ -497,10 +497,10 @@ async function runTests() {
     const [sess3, sess2, sess1] = history.sessions;
 
     check("M1 s1: first session gets NO PRs (baseline rule)", sess1?.prs.length === 0, `got ${sess1?.prs.length} PRs`);
-    check("M1 s2: beats s1 (62.5 > 60)",
+    check("M1 s2: beats s1 (62.5 > 60)", 
       sess2?.prs.some(pr => pr.type === "heaviest_weight") && sess2?.prs.some(pr => pr.type === "best_e1rm"),
       `s2 prs: ${sess2?.prs.map(p => p.type).join(", ")}`);
-    check("M1 s3: beats s2 (65 > 62.5)",
+    check("M1 s3: beats s2 (65 > 62.5)", 
       sess3?.prs.some(pr => pr.type === "heaviest_weight") && sess3?.prs.some(pr => pr.type === "best_e1rm"),
       `s3 prs: ${sess3?.prs.map(p => p.type).join(", ")}`);
   }
@@ -574,7 +574,7 @@ async function runTests() {
     const lastPerf = await getLastPerformance(supabaseA, userIdA, exerciseF);
 
     check("L1: returns older row with working sets", lastPerf !== null);
-    check("L1: returns the 2026-10-27 row (not warm-up-only 2026-10-28)",
+    check("L1: returns the 2026-10-27 row (not warm-up-only 2026-10-28)", 
       lastPerf?.date === "2026-10-27",
       `got date ${lastPerf?.date}`);
     check("L1: has 100kg working set", lastPerf?.sets[0]?.weight_kg === 100);
@@ -592,12 +592,12 @@ async function runTests() {
     for (let i = 1; i <= 1100; i++) {
       const sessionId = randomUUID();
       const seId = randomUUID();
-
+      
       const sessionDate = new Date(startDate);
       sessionDate.setDate(startDate.getDate() + i);
       const isoDate = sessionDate.toISOString();
       const localDate = isoDate.split("T")[0];
-
+      
       sessions.push({
         id: sessionId,
         user_id: userIdA,
@@ -644,14 +644,14 @@ async function runTests() {
 
     check("Paging: returns correct totalCount", history.totalCount === 1100, `got ${history.totalCount}`);
     check("Paging: returns paginated results", history.sessions.length === 10);
-
+    
     // Check session 1100 (newest, should be first in results)
     const session1100 = history.sessions[0];
     check("Paging: session 1100 has 145 kg", session1100?.sets[0]?.weight_kg === 145);
     check("Paging: session 1100 has NO heaviest_weight PR (150 kg is at row 500)",
       !session1100?.prs.some(pr => pr.type === "heaviest_weight"),
       `session 1100 prs: ${session1100?.prs.map(p => p.type).join(", ")}`);
-
+    
     // Current PRs should include the 150 kg from session 500
     const heaviestPR = history.currentPRs.find(pr => pr.type === "heaviest_weight");
     check("Paging: currentPRs includes 150 kg", heaviestPR?.value === 150, `got ${heaviestPR?.value}`);
@@ -670,7 +670,7 @@ async function runTests() {
       const sessionId = randomUUID();
       const seId = randomUUID();
       seIds.push(seId);
-
+      
       sessions.push({
         id: sessionId,
         user_id: userIdA,
@@ -722,7 +722,7 @@ async function runTests() {
     const intersection = page1SeIds.filter(id => page2SeIds.includes(id));
     check("Ordering: no duplicate sessions across pages", intersection.length === 0,
       `found ${intersection.length} duplicates`);
-
+    
     // All 12 sessions should be present
     const allFetched = [...page1SeIds, ...page2SeIds];
     check("Ordering: all 12 sessions fetched", allFetched.length === 12, `got ${allFetched.length}`);
@@ -855,12 +855,12 @@ async function runTests() {
     for (let i = 0; i < 100; i++) {
       const sessionId = randomUUID();
       const seId = randomUUID();
-
+      
       const sessionDate = new Date(startDate);
       sessionDate.setDate(startDate.getDate() + i);
       const isoDate = sessionDate.toISOString();
       const localDate = isoDate.split("T")[0];
-
+      
       sessions.push({
         id: sessionId,
         user_id: userIdA,
@@ -1046,12 +1046,12 @@ async function runTests() {
     for (let i = 0; i < 1000; i++) {
       const sessionId = randomUUID();
       const seId = randomUUID();
-
+      
       const sessionDate = new Date(startDate);
       sessionDate.setDate(startDate.getDate() + i);
       const isoDate = sessionDate.toISOString();
       const localDate = isoDate.split("T")[0];
-
+      
       sessions1000.push({
         id: sessionId,
         user_id: userIdA,
@@ -1314,7 +1314,7 @@ async function runTests() {
   {
     const s1 = randomUUID();
     const se1 = randomUUID();
-
+    
     // Create a session with many sets that share set_numbers
     // This tests pagination across boundaries
     const { error: sessionErr } = await adminClient.from("sessions").insert([
@@ -1355,7 +1355,7 @@ async function runTests() {
     check("L1: All 15 sets retrieved (no gaps, no duplicates)",
       lastPerf?.sets.length === 15,
       `got ${lastPerf?.sets.length} sets`);
-
+    
     // Verify sets are in correct order by set_number
     const setNumbers = lastPerf?.sets.map(s => s.reps) || [];
     const expected = Array.from({ length: 15 }, (_, i) => 10 + i);
@@ -1371,7 +1371,7 @@ async function runTests() {
     const s2 = randomUUID();
     const se1 = randomUUID();
     const se2 = randomUUID();
-
+    
     const { error: sessionErr } = await adminClient.from("sessions").insert([
       { id: s1, user_id: userIdA, local_date: "2024-02-01", status: "completed", actual_type: "weights", completed_at: new Date("2024-02-01T10:00:00Z").toISOString() },
       { id: s2, user_id: userIdA, local_date: "2024-02-02", status: "completed", actual_type: "weights", completed_at: new Date("2024-02-02T10:00:00Z").toISOString() },
@@ -1406,11 +1406,11 @@ async function runTests() {
 
     const histL2 = await getExerciseHistory(supabaseA, userIdA, exerciseL2, { limit: 10 });
     const [sessL2_2, sessL2_1] = histL2.sessions;
-
+    
     check("L2: Bodyweight 20 reps is a most_reps PR",
       sessL2_2?.prs.some(pr => pr.type === "most_reps" && pr.value === 20),
       `s2 prs: ${sessL2_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
-
+    
     const mostRepsPRL2 = histL2.currentPRs.find(pr => pr.type === "most_reps");
     check("L2: currentPRs.most_reps is bodyweight 20",
       mostRepsPRL2?.value === 20 && mostRepsPRL2?.set.weight_kg === null,
@@ -1426,7 +1426,7 @@ async function runTests() {
     const sessionsL6 = [];
     const sessionExercisesL6 = [];
     const setsL6 = [];
-
+    
     for (let i = 0; i < sessionCount; i++) {
       const sId = randomUUID();
       const seId = randomUUID();
@@ -1484,7 +1484,7 @@ async function runTests() {
     check("L6: Page 2 has 10 sessions", page2.sessions.length === 10, `got ${page2.sessions.length}`);
     check("L6: Page 3 has 5 sessions", page3.sessions.length === 5, `got ${page3.sessions.length}`);
     check("L6: Total count is 25", page1.totalCount === 25, `got ${page1.totalCount}`);
-
+    
     // Verify no duplicates across pages
     const allSessionIds = [
       ...page1.sessions.map(s => s.sessionId),
@@ -1502,7 +1502,7 @@ async function runTests() {
   {
     const s1 = randomUUID();
     const se1 = randomUUID();
-
+    
     // Create a session with warm-up and working sets sharing set_numbers
     const { error: sessionErr } = await adminClient.from("sessions").insert([
       { id: s1, user_id: userIdA, local_date: "2024-05-01", status: "completed", actual_type: "weights", completed_at: new Date("2024-05-01T10:00:00Z").toISOString() },
@@ -1543,7 +1543,7 @@ async function runTests() {
         is_warmup_set: false,
       });
     }
-
+    
     const { error: setsErr } = await adminClient.from("session_sets").insert(sets);
     if (setsErr) {
       check("Paging: Insert sets with tie-break scenario", false, `error: ${setsErr.message}`);
@@ -1552,23 +1552,23 @@ async function runTests() {
 
     // Query via getExerciseHistory (uses paged query with ORDER BY session_exercise_id, set_number, id)
     const history = await getExerciseHistory(supabaseA, userIdA, exercisePaging, { limit: 10 });
-
+    
     check("Paging: History returns one session", history.sessions.length === 1);
-
+    
     const session = history.sessions[0];
     if (session) {
       // Working sets only (warm-ups excluded by query)
       check("Paging: 5 working sets returned (warm-ups excluded)",
         session.sets.length === 5,
         `got ${session.sets.length}`);
-
+      
       // Verify all working sets present with correct weights
       const weights = session.sets.map(s => s.weight_kg).sort((a, b) => (a ?? 0) - (b ?? 0));
       const expectedWeights = [70, 80, 90, 100, 110];
       check("Paging: All working sets retrieved (no duplicates, none missing)",
         JSON.stringify(weights) === JSON.stringify(expectedWeights),
         `got ${weights.join(", ")}`);
-
+      
       // Verify deterministic order by set_number
       const setNumbers = session.sets.map(s => weights.indexOf(s.weight_kg ?? 0) + 1);
       check("Paging: Sets in deterministic order (by set_number, id tie-break)",

@@ -193,7 +193,7 @@ export default async function ProgressPage() {
           sub="all time"
         />
       </section>
-
+      
       <p className="mt-3 text-xs text-muted">
         Your streak counts scheduled training days you trained. Missing one resets it. Breathe sessions don&apos;t count.
       </p>

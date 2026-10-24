@@ -5,10 +5,10 @@ Read-only data layer for querying a user's past performance on exercises.
 ## Quick Start
 
 ```typescript
-import {
-  getLastPerformance,
+import { 
+  getLastPerformance, 
   getBatchLastPerformance,
-  getExerciseHistory
+  getExerciseHistory 
 } from "@/lib/exercise-history";
 
 // Show "last time" in the session runner
@@ -51,17 +51,17 @@ interface LastPerformance {
 const lastTime = await getLastPerformance(supabase, userId, exerciseId);
 if (lastTime && lastTime.topSet) {
   const { reps, weight_kg } = lastTime.topSet;
-
+  
   // Weighted: "last time: 9×5kg"
   if (weight_kg && weight_kg > 0) {
     return `last time: ${reps}×${weight_kg}kg`;
   }
-
+  
   // Bodyweight: "last time: 12 reps"
   if (reps) {
     return `last time: ${reps} reps`;
   }
-
+  
   // Time-based: "last time: 60s"
   if (lastTime.topSet.duration_seconds) {
     return `last time: ${lastTime.topSet.duration_seconds}s`;
@@ -118,9 +118,9 @@ interface ExerciseHistorySession {
 **Example History page:**
 
 ```typescript
-const history = await getExerciseHistory(supabase, userId, exerciseId, {
-  limit: 10,
-  offset: 0
+const history = await getExerciseHistory(supabase, userId, exerciseId, { 
+  limit: 10, 
+  offset: 0 
 });
 
 // Show current PRs at the top
@@ -131,7 +131,7 @@ history.currentPRs.forEach(pr => {
 // List sessions with PR badges
 history.sessions.forEach(session => {
   console.log(`${session.date}: ${session.volumeKg}kg, ${session.sets.length} sets`);
-
+  
   if (session.prs.length > 0) {
     console.log(`  🏆 PRs: ${session.prs.map(pr => pr.type).join(", ")}`);
   }
@@ -169,7 +169,7 @@ Returns array of `PRType[]` achieved by that set.
 ## PR Types
 
 ```typescript
-type PRType =
+type PRType = 
   | "heaviest_weight"   // Highest weight lifted (any reps)
   | "most_reps"         // Most reps (see rules below)
   | "best_e1rm"         // Best estimated 1RM
@@ -192,7 +192,7 @@ For **weighted exercises**, a set w×r is a rep PR when:
 
 For **bodyweight exercises** (null or 0 weight): plain most-reps comparison.
 
-**Example:**
+**Example:** 
 - First session: 80×10, 100×5
 - Later session: 100×8 ✅ Rep PR (beats 100×5 at exactly 100kg)
 - Later session: 100×5 ❌ Not a PR (tie with earlier 100×5)

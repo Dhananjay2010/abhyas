@@ -21,15 +21,15 @@ console.log("\n1. robots.txt generation");
   check("has rules array", Array.isArray(robotsTxt.rules));
   check("has sitemap URL", typeof robotsTxt.sitemap === "string");
   check("sitemap uses branding.siteUrl", robotsTxt.sitemap === `${branding.siteUrl}/sitemap.xml`);
-
+  
   const firstRule = Array.isArray(robotsTxt.rules) ? robotsTxt.rules[0] : robotsTxt.rules;
   const allowed = Array.isArray(firstRule?.allow) ? firstRule.allow : [];
   const disallowed = Array.isArray(firstRule?.disallow) ? firstRule.disallow : [];
-
+  
   check("allows /", allowed.includes("/"));
   check("allows /terms", allowed.includes("/terms"));
   check("allows /privacy", allowed.includes("/privacy"));
-
+  
   const privateRoutes = ["/today", "/breathe", "/history", "/progress", "/settings", "/onboarding", "/session", "/yoga", "/auth", "/api", "/dev"];
   for (const route of privateRoutes) {
     check(`disallows ${route}`, disallowed.includes(route));
@@ -40,21 +40,21 @@ console.log("\n2. sitemap.xml generation");
 {
   const sitemapData = sitemap();
   check("has exactly 3 entries", sitemapData.length === 3);
-
+  
   const urls = sitemapData.map(entry => entry.url);
   check("includes branding.siteUrl", urls.includes(branding.siteUrl));
   check("includes /terms", urls.includes(`${branding.siteUrl}/terms`));
   check("includes /privacy", urls.includes(`${branding.siteUrl}/privacy`));
-
+  
   for (const entry of sitemapData) {
     check(`URL starts with branding.siteUrl: ${entry.url}`, entry.url.startsWith(branding.siteUrl));
   }
-
+  
   // Test determinism
   const sitemapData2 = sitemap();
   const equal = JSON.stringify(sitemapData) === JSON.stringify(sitemapData2);
   check("deterministic (two calls deep-equal)", equal);
-
+  
   const firstEntry = sitemapData[0];
   check("lastModified is fixed constant", firstEntry.lastModified instanceof Date);
 }
@@ -65,7 +65,7 @@ console.log("\n3. Middleware matcher behavioral tests (using exported config.mat
   // Next.js automatically anchors matcher patterns at the start, so we add ^ for testing
   const configMatcherPattern = config.matcher[0];
   const regex = new RegExp("^" + configMatcherPattern);
-
+  
   // These paths MUST match (go through middleware)
   const shouldMatch = [
     "/",
@@ -77,11 +77,11 @@ console.log("\n3. Middleware matcher behavioral tests (using exported config.mat
     "/sw.jsx",
     "/today.extra-route-like"
   ];
-
+  
   for (const path of shouldMatch) {
     check(`MUST match ${path}`, regex.test(path) === true);
   }
-
+  
   // These paths must NOT match (skip middleware - excluded)
   const shouldNotMatch = [
     "/robots.txt",
@@ -97,7 +97,7 @@ console.log("\n3. Middleware matcher behavioral tests (using exported config.mat
     "/logo.png",
     "/brands/x/logo.svg"
   ];
-
+  
   for (const path of shouldNotMatch) {
     check(`must NOT match ${path}`, regex.test(path) === false);
   }
@@ -108,7 +108,7 @@ console.log("\n4. config.matcher consistency");
   // Verify MIDDLEWARE_MATCHER string and config.matcher[0] are consistent
   const middlewareRegex = new RegExp(MIDDLEWARE_MATCHER);
   const configRegex = new RegExp(config.matcher[0]);
-
+  
   // They should have the same behavior (MIDDLEWARE_MATCHER has ^ prefix, config doesn't)
   const testPaths = ["/robots.txt", "/today", "/logo.png", "/icons/a/b.png"];
   let consistent = true;
@@ -118,7 +118,7 @@ console.log("\n4. config.matcher consistency");
       break;
     }
   }
-
+  
   check("MIDDLEWARE_MATCHER and config.matcher have consistent behavior", consistent);
   check("MIDDLEWARE_MATCHER includes robots.txt exclusion", MIDDLEWARE_MATCHER.includes("robots\\.txt"));
   check("MIDDLEWARE_MATCHER includes sitemap.xml exclusion", MIDDLEWARE_MATCHER.includes("sitemap\\.xml"));

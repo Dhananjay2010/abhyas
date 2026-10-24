@@ -1,13 +1,13 @@
 /**
  * Test getInProgressSession function.
- *
+ * 
  * Verifies:
  * - Returns null when no in-progress session exists
  * - Returns the most recent in-progress session
  * - workingSetsLogged counts only is_warmup_set = false
  * - Warm-up sets are excluded from the count
  * - Multiple in-progress sessions: returns most recent by started_at
- *
+ * 
  *   npx tsx scripts/test-in-progress-session.ts
  */
 

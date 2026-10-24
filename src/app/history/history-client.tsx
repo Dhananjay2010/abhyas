@@ -166,7 +166,7 @@ export function HistoryClient({
 
               // Build details line
               const details: string[] = [];
-
+              
               if (item.breathing) {
                 details.push("Breathing");
                 if (durationLabel) details.push(durationLabel);
@@ -176,7 +176,7 @@ export function HistoryClient({
               } else {
                 // Product rule (2026-10-24): zero-set strength sessions show as 'Skipped'
                 const isZeroSetStrength = item.setCount === 0 || item.status === "skipped";
-
+                
                 if (isZeroSetStrength) {
                   details.push("Skipped");
                 } else if (item.endedEarly && item.plannedSets) {
