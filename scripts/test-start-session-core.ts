@@ -9,9 +9,6 @@
  * exists for that user and local day, return it instead of inserting a new one.
  */
 
-import { PGlite } from "@electric-sql/pglite";
-import fs from "fs";
-
 export {}; // Make this a module
 
 type SessionRow = {
@@ -223,14 +220,8 @@ function assertEqual<T>(actual: T, expected: T, msg: string = "") {
 async function main() {
   console.log("Testing start-session-core (fake client)\n");
 
-  // Read schema
-  const schema = fs.readFileSync("supabase/migrations/20260908090000_initial_schema.sql", "utf8");
-
   // Test 1: First start creates a new session
   await testStartSession("First start creates a new session", async () => {
-    const db = new PGlite();
-    await db.exec(schema);
-
     const userId = "user-1";
     const localDate = "2026-10-24";
 
@@ -302,9 +293,6 @@ async function main() {
 
   // Test 2: Case (C) - Two starts give one session (idempotent)
   await testStartSession("Case (C): Two starts give one session (idempotent)", async () => {
-    const db = new PGlite();
-    await db.exec(schema);
-
     const userId = "user-1";
     const localDate = "2026-10-24";
 
@@ -393,9 +381,6 @@ async function main() {
 
   // Test 3: Different dates create different sessions
   await testStartSession("Different dates create different sessions", async () => {
-    const db = new PGlite();
-    await db.exec(schema);
-
     const userId = "user-1";
 
     const sessions: SessionRow[] = [];
@@ -477,9 +462,6 @@ async function main() {
 
   // Test 4: 23505 handling - Insert returns unique violation, re-reads existing session
   await testStartSession("23505 handling: Insert fails with unique violation, re-reads existing", async () => {
-    const db = new PGlite();
-    await db.exec(schema);
-
     const userId = "user-1";
     const localDate = "2026-10-24";
 
@@ -603,9 +585,6 @@ async function main() {
 
   // Test 5: MUTANT TEST - Return error on 23505 instead of re-reading
   await testStartSession("MUTANT: return 23505 error → SHOULD FAIL", async () => {
-    const db = new PGlite();
-    await db.exec(schema);
-
     const userId = "user-1";
     const localDate = "2026-10-24";
 
@@ -755,9 +734,6 @@ async function main() {
 
   // Test 6: MUTANT TEST - Always insert (should create duplicates)
   await testStartSession("MUTANT: always insert → SHOULD FAIL", async () => {
-    const db = new PGlite();
-    await db.exec(schema);
-
     const userId = "user-1";
     const localDate = "2026-10-24";
 
