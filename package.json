@@ -20,6 +20,7 @@
     "test:reset-progression-targets": "tsx scripts/test-reset-progression-targets.ts",
     "test:swap": "tsx scripts/test-swap.ts",
     "test:session-wiring": "tsx scripts/test-session-wiring.ts",
+    "test:wiring-real": "tsx scripts/test-wiring-real.ts",
     "test:form-key": "tsx scripts/test-form-key.ts",
     "test:input-step": "tsx scripts/test-input-step.ts",
     "test:stepper-input": "tsx scripts/test-stepper-input.ts",
