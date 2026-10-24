@@ -119,9 +119,12 @@ async function testH1_InjuryStashOnSessionExpired(): Promise<TestResult> {
     };
   }
 
-  const patch = injuryChange.patch as { operation?: string; bodyRegion?: string; present?: boolean };
+  const patch = injuryChange.patch;
+  const operation = 'operation' in patch ? patch.operation : undefined;
+  const bodyRegion = 'bodyRegion' in patch ? patch.bodyRegion : undefined;
+  const present = 'present' in patch ? patch.present : undefined;
   
-  if (patch.operation !== 'setInjury' || patch.bodyRegion !== 'shoulder' || patch.present !== true) {
+  if (operation !== 'setInjury' || bodyRegion !== 'shoulder' || present !== true) {
     return {
       passed: false,
       message: `Injury change not correctly stashed. Got: ${JSON.stringify(patch)}`,
@@ -200,9 +203,19 @@ async function testH1_InjurySeverityStashOnSessionExpired(): Promise<TestResult>
     };
   }
 
-  const patch = injuryChange.patch as { operation?: string; bodyRegion?: string; severity?: string };
+  const patch = injuryChange.patch;
+  if (typeof patch !== 'object' || !patch) {
+    return {
+      passed: false,
+      message: 'Injury change patch is not an object',
+    };
+  }
   
-  if (patch.operation !== 'setInjury' || patch.bodyRegion !== 'knee' || patch.severity !== 'past') {
+  const operation = 'operation' in patch ? patch.operation : undefined;
+  const bodyRegion = 'bodyRegion' in patch ? patch.bodyRegion : undefined;
+  const severity = 'severity' in patch ? patch.severity : undefined;
+  
+  if (operation !== 'setInjury' || bodyRegion !== 'knee' || severity !== 'past') {
     return {
       passed: false,
       message: `Severity change not correctly stashed. Got: ${JSON.stringify(patch)}`,

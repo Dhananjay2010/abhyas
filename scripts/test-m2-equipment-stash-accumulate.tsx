@@ -10,11 +10,15 @@
  */
 
 import './helpers/setup-jsdom';
-import { render, waitFor } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
-import { getPendingChanges } from '../src/lib/auth/pending-changes';
+import { getPendingChanges, type PendingChange } from '../src/lib/auth/pending-changes';
+
+function hasEquipmentId(p: unknown, id: string): boolean {
+  return p !== null && typeof p === 'object' && 'equipmentId' in p && p.equipmentId === id;
+}
 
 const initialState: SettingsState = {
   goal: 'muscle_gain',
@@ -106,13 +110,12 @@ async function testM2_MultipleEquipmentTapsAccumulate(): Promise<boolean> {
   }
 
   // Check if both barbell and kettlebell are in the stash
-  const patches = equipmentChanges.map(ch => ch.patch);
-  const barbellPatch = patches.find((p: any) => p?.equipmentId === 'barbell');
-  const kettlebellPatch = patches.find((p: any) => p?.equipmentId === 'kettlebell');
+  const barbellPatch = equipmentChanges.find(ch => hasEquipmentId(ch.patch, 'barbell'));
+  const kettlebellPatch = equipmentChanges.find(ch => hasEquipmentId(ch.patch, 'kettlebell'));
 
   if (!barbellPatch) {
     console.error('  ❌ Barbell change not found in stash (overwritten by kettlebell)');
-    console.error(`     Stash contains: ${JSON.stringify(patches)}`);
+    console.error(`     Stash contains: ${JSON.stringify(equipmentChanges.map(ch => ch.patch))}`);
     return false;
   }
 
@@ -174,8 +177,7 @@ async function testM2_SameItemMultipleTapsKeepLatest(): Promise<boolean> {
   // Filter equipment changes for barbell
   const equipmentChanges = pending.changes.filter(ch => {
     if (ch.type !== 'equipment') return false;
-    const patch = ch.patch as any;
-    return patch?.equipmentId === 'barbell';
+    return hasEquipmentId(ch.patch, 'barbell');
   });
 
   if (equipmentChanges.length === 0) {
@@ -189,9 +191,10 @@ async function testM2_SameItemMultipleTapsKeepLatest(): Promise<boolean> {
   }
 
   // The latest state should be disabled (false), since we toggled twice
-  const patch = equipmentChanges[0].patch as any;
-  if (patch.enabled !== false) {
-    console.error(`  ❌ Latest barbell state should be disabled (false), got ${patch.enabled}`);
+  const patch = equipmentChanges[0].patch;
+  const enabled = patch && typeof patch === 'object' && 'enabled' in patch ? patch.enabled : undefined;
+  if (enabled !== false) {
+    console.error(`  ❌ Latest barbell state should be disabled (false), got ${enabled}`);
     return false;
   }
 

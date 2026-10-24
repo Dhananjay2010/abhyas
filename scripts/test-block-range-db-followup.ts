@@ -9,6 +9,10 @@ import { randomUUID } from "crypto";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
+  if (process.env.CI) {
+    console.error("\n❌ DATABASE_URL not set in CI environment\n");
+    process.exit(1);
+  }
   console.log("\n⏭️  Skipping DB tests (DATABASE_URL not set)");
   console.log("   Set DATABASE_URL=***localhost/abhyas_test to run\n");
   console.log("\n✅ ALL CHECKS PASSED");
@@ -41,9 +45,9 @@ async function testM1_MidBlockRebuildPreservesDates() {
     const userId = randomUUID();
     const exerciseId = (await pool.query("SELECT id FROM exercises LIMIT 1")).rows[0]?.id;
     
-    await pool.query(`INSERT INTO auth.users (id, email, email_confirmed_at) VALUES ($1, 'test-m1@local.test', now())`, [userId]);
-    await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1, 'Test M1') ON CONFLICT DO NOTHING`, [userId]);
-    await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
+    await pool.query(`INSERT INTO auth.users (id, email) VALUES ($1::uuid, $2::text)`, [userId, 'test-m1@local.test']);
+    await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1::uuid, $2::text) ON CONFLICT DO NOTHING`, [userId, 'Test M1']);
+    await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1::uuid) ON CONFLICT DO NOTHING`, [userId]);
     
     // Create block: Oct 15 - Nov 11 (28 days, deload week 4 = Oct 29 - Nov 4)
     const blockId = randomUUID();
@@ -56,12 +60,12 @@ async function testM1_MidBlockRebuildPreservesDates() {
     try {
       await client.query("BEGIN");
       await client.query("SET LOCAL ROLE authenticated");
-      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1, 'role', 'authenticated')::text, true)`, [userId]);
-      await client.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId]);
+      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1::uuid, 'role', 'authenticated')::text, true)`, [userId]);
+      await client.query(`SELECT set_config('request.jwt.claim.sub', $1::uuid, true)`, [userId]);
       
       // Rebuild on day 27 (Nov 10)
       await client.query(`
-        SELECT rebuild_block($1, $2)
+        SELECT rebuild_block($1::date, $2::jsonb)
       `, ["2026-11-10", JSON.stringify({
         id: randomUUID(),
         block_number: 1,
