@@ -5,11 +5,11 @@
  * Tests that the session runner shows a friendly message when session expires,
  * not the raw "SESSION_EXPIRED: ..." text.
  * 
- * Minimal test scope: only checks the displayed error text.
+ * Unit test: tests the runnerErrorMessage helper directly.
  */
 
-import './helpers/setup-jsdom';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
+import { runnerErrorMessage } from '../src/lib/session/runner-error-message';
 
 interface TestResult {
   passed: boolean;
@@ -19,82 +19,82 @@ interface TestResult {
 async function runTests(): Promise<TestResult[]> {
   const results: TestResult[] = [];
 
-  // Test 1: isSessionExpired detects SESSION_EXPIRED error thrown as Error
+  // Test 1: SESSION_EXPIRED error returns friendly message
   {
-    const { isSessionExpired } = await import('../src/lib/auth/session-expired');
-    
     const sessionError = new Error(`${SESSION_EXPIRED_CODE}: Your session has expired`);
-    const regularError = new Error("Network error");
-    const nonError = { ok: false, error: "Something failed" };
-
-    if (!isSessionExpired(sessionError)) {
+    const result = runnerErrorMessage(sessionError);
+    
+    const isFriendly = result === "Your session has expired, please sign in again";
+    const containsRaw = result.includes("SESSION_EXPIRED");
+    
+    if (!isFriendly) {
       results.push({
         passed: false,
-        message: 'Test 1a: FAILED - isSessionExpired did not detect SESSION_EXPIRED Error'
+        message: `Test 1: FAILED - Expected friendly message, got: "${result}"`
       });
-    } else if (isSessionExpired(regularError)) {
+    } else if (containsRaw) {
       results.push({
         passed: false,
-        message: 'Test 1b: FAILED - isSessionExpired false positive on regular error'
-      });
-    } else if (isSessionExpired(nonError)) {
-      results.push({
-        passed: false,
-        message: 'Test 1c: FAILED - isSessionExpired false positive on non-Error object'
+        message: `Test 1: FAILED - Friendly message should not contain "SESSION_EXPIRED"`
       });
     } else {
       results.push({
         passed: true,
-        message: 'Test 1: PASSED - isSessionExpired correctly detects session expired errors'
+        message: 'Test 1: PASSED - SESSION_EXPIRED error returns friendly message without raw code'
       });
     }
   }
 
-  // Test 2: Runner error display uses friendly message for session expired
+  // Test 2: Normal Error returns its message
   {
-    // Read the session-runner source to verify it handles session expired errors
-    const fs = await import('fs');
-    const path = await import('path');
-    const runnerPath = path.join(process.cwd(), 'src/app/session/[id]/session-runner.tsx');
-    const runnerSource = fs.readFileSync(runnerPath, 'utf-8');
-
-    // Check that isSessionExpired is imported
-    const hasImport = /import.*isSessionExpired.*from.*session-expired/.test(runnerSource);
+    const normalError = new Error("Network timeout");
+    const result = runnerErrorMessage(normalError);
     
-    // Check that the catch block uses isSessionExpired
-    const hasCheck = /isSessionExpired\(err\)/.test(runnerSource);
-    
-    // Check that it sets a friendly message
-    const hasFriendlyMessage = /Your session has expired, please sign in again/.test(runnerSource);
-    
-    // Check that it doesn't just pass through the raw error message when session expired
-    const catchBlock = runnerSource.match(/catch \(err\)\s*\{[\s\S]*?(?=finally|$)/);
-    const hasConditional = catchBlock && /if\s*\(\s*isSessionExpired\(err\)/.test(catchBlock[0]);
-
-    if (!hasImport) {
+    if (result !== "Network timeout") {
       results.push({
         passed: false,
-        message: 'Test 2: FAILED - session-runner does not import isSessionExpired'
-      });
-    } else if (!hasCheck) {
-      results.push({
-        passed: false,
-        message: 'Test 2: FAILED - session-runner does not check isSessionExpired(err)'
-      });
-    } else if (!hasFriendlyMessage) {
-      results.push({
-        passed: false,
-        message: 'Test 2: FAILED - session-runner does not show friendly message'
-      });
-    } else if (!hasConditional) {
-      results.push({
-        passed: false,
-        message: 'Test 2: FAILED - session-runner does not conditionally handle expired errors'
+        message: `Test 2: FAILED - Expected "Network timeout", got: "${result}"`
       });
     } else {
       results.push({
         passed: true,
-        message: 'Test 2: PASSED - session-runner shows friendly message for expired sessions'
+        message: 'Test 2: PASSED - Normal Error returns its message'
+      });
+    }
+  }
+
+  // Test 3: Non-Error object returns generic message
+  {
+    const nonError = { code: 500, message: "Server error" };
+    const result = runnerErrorMessage(nonError);
+    
+    if (result !== "Network error. Check your connection.") {
+      results.push({
+        passed: false,
+        message: `Test 3: FAILED - Expected generic message, got: "${result}"`
+      });
+    } else {
+      results.push({
+        passed: true,
+        message: 'Test 3: PASSED - Non-Error returns generic message'
+      });
+    }
+  }
+
+  // Test 4: String (non-Error) returns generic message
+  {
+    const stringError = "Something went wrong";
+    const result = runnerErrorMessage(stringError);
+    
+    if (result !== "Network error. Check your connection.") {
+      results.push({
+        passed: false,
+        message: `Test 4: FAILED - Expected generic message for string, got: "${result}"`
+      });
+    } else {
+      results.push({
+        passed: true,
+        message: 'Test 4: PASSED - String returns generic message'
       });
     }
   }
