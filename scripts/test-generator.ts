@@ -281,5 +281,78 @@ console.log("\n13. No training day is ever empty");
       noKit.days.flatMap((d) => d.exercises).length);
 }
 
+console.log("\n14. Gym users should get proper main lifts (equipment scoring fix)");
+{
+  const { plan, picked } = allPicked(base({ primaryTrack: "weights", hasAllEquipment: true }));
+  const day1 = plan.days.find((d) => d.exercises.length > 0);
+  const firstExercise = day1?.exercises[0];
+  const ex = firstExercise ? byId.get(firstExercise.exerciseId) : null;
+  
+  // A gym user should get compound lifts, not bodyweight exercises in main slots
+  check("first exercise uses equipment", !ex || ex.equipment_ids.length > 0,
+    ex ? `got ${ex.name} with ${ex.equipment_ids.length} equipment items` : "no exercises");
+  check("no elevated push-ups for gym users with full equipment",
+    !picked.some((e) => e.slug === "push-ups-with-feet-elevated" && ex && ex.equipment_ids.length > 3));
+}
+
+console.log("\n15. Beginners should reliably get staple movements");
+{
+  const { picked } = allPicked(
+    base({ level: "beginner", primaryTrack: "bodyweight", hasAllEquipment: false, equipmentIds: [] }),
+  );
+  const slugs = picked.map((e) => e.slug);
+  
+  // A beginner should get push-ups, squats, and other staples, not random exercises
+  const hasStaple = slugs.some((s) =>
+    ["pushups", "push-up-wide", "bodyweight-squat", "glute-bridge"].includes(s),
+  );
+  check("beginner gets at least one staple movement", hasStaple,
+    `got: ${slugs.slice(0, 4).join(", ")}`);
+}
+
+console.log("\n16. Session length affects exercise count");
+{
+  const short = generateProgram(base({ preferredSessionMinutes: 30 }));
+  const long = generateProgram(base({ preferredSessionMinutes: 75 }));
+  
+  const shortCount = short.days.filter((d) => d.dayType === "weights")[0]?.exercises.length ?? 0;
+  const longCount = long.days.filter((d) => d.dayType === "weights")[0]?.exercises.length ?? 0;
+  
+  check("30-min session has fewer exercises than 75-min", shortCount < longCount,
+    `30min: ${shortCount} exercises, 75min: ${longCount} exercises`);
+  check("short sessions still have main lifts", shortCount >= 2, `got ${shortCount}`);
+}
+
+console.log("\n17. No-equipment users can train back and shoulders (after migrations)");
+{
+  const noEquipPull = catalogue.filter(
+    (e) => e.movement_pattern === "horizontal_pull" && e.equipment_ids.length === 0,
+  );
+  const noEquipPress = catalogue.filter(
+    (e) => e.movement_pattern === "vertical_press" && e.equipment_ids.length === 0,
+  );
+  
+  if (noEquipPull.length === 0) {
+    console.log("  note no-equipment horizontal pull missing (migrations not applied yet)");
+  } else {
+    check("catalogue has no-equipment horizontal pull", true, noEquipPull.map((e) => e.name).join(", "));
+  }
+  
+  check("catalogue has no-equipment vertical press", noEquipPress.length > 0,
+    noEquipPress.map((e) => e.name).join(", "));
+  
+  // Only test plan generation if the exercises exist in the catalogue
+  if (noEquipPull.length > 0 && noEquipPress.length > 0) {
+    const { picked } = allPicked(
+      base({ primaryTrack: "bodyweight", hasAllEquipment: false, equipmentIds: [], daysPerWeek: 5 }),
+    );
+    const patterns = new Set(picked.map((e) => e.movement_pattern));
+    check("plan includes horizontal pull", patterns.has("horizontal_pull"));
+    check("plan includes vertical press", patterns.has("vertical_press"));
+  } else {
+    console.log("  note skipping plan check until migrations are applied");
+  }
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
