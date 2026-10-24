@@ -50,9 +50,6 @@ console.log("\nWiring: effectiveRepsMax used by both Today and Runner");
 
 console.log("\nWiring: swapSheetState used by runner");
 {
-  check("swapSheetState is exported",
-    typeof swapSheetState === "function");
-  
   // Empty list
   const empty = swapSheetState({ alternatives: [] });
   check("empty alternatives: isEmpty is true",
@@ -74,9 +71,6 @@ console.log("\nWiring: swapSheetState used by runner");
 
 console.log("\nWiring: setFormKey prevents swap carryover");
 {
-  check("setFormKey is exported",
-    typeof setFormKey === "function");
-  
   // Keys must differ when exerciseId changes
   const before = setFormKey("se-1", "ex-a", 1);
   const after = setFormKey("se-1", "ex-b", 1);
@@ -102,23 +96,6 @@ console.log("\nWiring: isBodyweightEquipment classification");
     isBodyweightEquipment(["barbell"]) === false);
   check("mixed (pull-up + dumbbell) is not bodyweight",
     isBodyweightEquipment(["pull_up_bar", "dumbbell"]) === false);
-}
-
-console.log("\nForm key must include exerciseId");
-{
-  // Simulate the bug: key without exerciseId
-  const brokenKey = (seId: string, setNum: number) => `${seId}:${setNum}`;
-  
-  const correctBefore = setFormKey("se-1", "ex-a", 1);
-  const correctAfter = setFormKey("se-1", "ex-b", 1);
-  const brokenBefore = brokenKey("se-1", 1);
-  const brokenAfter = brokenKey("se-1", 1);
-  
-  check("correct key changes on swap",
-    correctBefore !== correctAfter);
-  check("broken key doesn't change on swap",
-    brokenBefore === brokenAfter,
-    "this is the bug");
 }
 
 console.log("\nKettlebell progression");
