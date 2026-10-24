@@ -8,6 +8,8 @@
 
 import { decideSetWrite } from "../src/lib/session/decide-set-write";
 
+export {}; // Make this a module
+
 type SessionSet = {
   session_exercise_id: string;
   user_id: string;
@@ -19,11 +21,33 @@ type SessionSet = {
   completed_at: string;
 };
 
+type FakeSupabaseResult<T> = { data: T | null; error: { code?: string; message: string } | null };
+
+interface FakeSupabaseClient {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (col: string, val: unknown) => {
+        eq: (col2: string, val2: unknown) => {
+          eq: (col3: string, val3: unknown) => {
+            maybeSingle: () => Promise<FakeSupabaseResult<SessionSet>>;
+          };
+          order: (col: string) => Promise<FakeSupabaseResult<SessionSet[]>>;
+        };
+        order: (col: string) => Promise<FakeSupabaseResult<SessionSet[]>>;
+      };
+    };
+    insert: (payload: SessionSet | SessionSet[]) => Promise<FakeSupabaseResult<SessionSet[]>>;
+    upsert: (payload: unknown) => Promise<FakeSupabaseResult<null>>;
+  };
+  getSets: () => SessionSet[];
+  wasUpsertCalled: () => boolean;
+}
+
 /**
  * Stateful fake Supabase client that stores session_sets rows in memory.
  * Tracks whether upsert was called (it should never be).
  */
-function createFakeSupabase(initialSets: SessionSet[]) {
+function createFakeSupabase(initialSets: SessionSet[]): FakeSupabaseClient {
   const sets = new Map<string, SessionSet>(
     initialSets.map((s) => [`${s.session_exercise_id}:${s.set_number}:${s.is_warmup_set}`, { ...s }]),
   );
@@ -37,13 +61,13 @@ function createFakeSupabase(initialSets: SessionSet[]) {
             eq: (col2: string, val2: unknown) => {
               const nestedMethods = {
                 eq: (col3: string, val3: unknown) => ({
-                  maybeSingle: async () => {
+                  maybeSingle: async (): Promise<FakeSupabaseResult<SessionSet>> => {
                     const key = `${val}:${val2}:${val3}`;
                     const set = sets.get(key);
                     return { data: set || null, error: null };
                   },
                 }),
-                order: (_col: string) => {
+                order: (): Promise<FakeSupabaseResult<SessionSet[]>> => {
                   const matching = Array.from(sets.values()).filter(
                     (s) => s.session_exercise_id === val && s.is_warmup_set === val2,
                   );
@@ -52,7 +76,7 @@ function createFakeSupabase(initialSets: SessionSet[]) {
               };
               return nestedMethods;
             },
-            order: (_col: string) => {
+            order: (): Promise<FakeSupabaseResult<SessionSet[]>> => {
               const matching = Array.from(sets.values()).filter(
                 (s) => s.session_exercise_id === val,
               );
@@ -62,7 +86,7 @@ function createFakeSupabase(initialSets: SessionSet[]) {
           return methods;
         },
       }),
-      insert: async (payload: SessionSet | SessionSet[]) => {
+      insert: async (payload: SessionSet | SessionSet[]): Promise<FakeSupabaseResult<SessionSet[]>> => {
         const rows = Array.isArray(payload) ? payload : [payload];
         for (const row of rows) {
           const key = `${row.session_exercise_id}:${row.set_number}:${row.is_warmup_set}`;
@@ -74,7 +98,7 @@ function createFakeSupabase(initialSets: SessionSet[]) {
         }
         return { data: rows, error: null };
       },
-      upsert: async (_payload: unknown) => {
+      upsert: async (): Promise<FakeSupabaseResult<null>> => {
         upsertCalled = true;
         return { data: null, error: { message: "upsert called (should never happen)" } };
       },
@@ -89,7 +113,7 @@ function createFakeSupabase(initialSets: SessionSet[]) {
  * This is the behaviour we're testing, not the full production code.
  */
 async function logSetBehavioural(
-  fake: ReturnType<typeof createFakeSupabase>,
+  fake: FakeSupabaseClient,
   input: {
     sessionExerciseId: string;
     setNumber: number;
@@ -200,7 +224,7 @@ async function logSetBehavioural(
 let passed = 0;
 let failed = 0;
 
-function test(name: string, fn: () => void | Promise<void>) {
+function testLogSet(name: string, fn: () => void | Promise<void>) {
   return (async () => {
     try {
       await fn();
@@ -214,7 +238,7 @@ function test(name: string, fn: () => void | Promise<void>) {
   })();
 }
 
-function assertEqual<T>(actual: T, expected: T, msg: string = "") {
+function assertEqualLogSet<T>(actual: T, expected: T, msg: string = "") {
   if (actual !== expected) {
     throw new Error(
       `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}${msg ? `: ${msg}` : ""}`,
@@ -226,7 +250,7 @@ async function main() {
   console.log("Testing logSet does not overwrite existing sets (behavioural)\n");
 
   // Test 1: B1 regression - saved 12x30, stale logs set 1 as 15x35 -> DB unchanged
-  await test("B1: saved 12×30, stale logs 15×35 → conflict, DB unchanged", async () => {
+  await testLogSet("B1: saved 12×30, stale logs 15×35 → conflict, DB unchanged", async () => {
     const fake = createFakeSupabase([
       {
         session_exercise_id: "ex-1",
@@ -249,26 +273,26 @@ async function main() {
     });
 
     // Assert: conflict returned
-    assertEqual(result.ok, false, "Should return conflict");
-    if (!result.ok && "reason" in result && "savedSets" in result) {
-      assertEqual(result.reason, "set_exists", "Reason should be set_exists");
-      assertEqual(result.savedSets.length, 1, "Should return 1 saved set");
-      assertEqual(result.savedSets[0].reps, 12, "DB still has 12 reps");
-      assertEqual(result.savedSets[0].weightKg, 30, "DB still has 30 kg");
+    assertEqualLogSet(result.ok, false, "Should return conflict");
+    if (!result.ok && "reason" in result && "savedSets" in result && result.savedSets) {
+      assertEqualLogSet(result.reason, "set_exists", "Reason should be set_exists");
+      assertEqualLogSet(result.savedSets.length, 1, "Should return 1 saved set");
+      assertEqualLogSet(result.savedSets[0].reps, 12, "DB still has 12 reps");
+      assertEqualLogSet(result.savedSets[0].weightKg, 30, "DB still has 30 kg");
     }
 
     // Assert: no upsert called
-    assertEqual(fake.wasUpsertCalled(), false, "Upsert should never be called");
+    assertEqualLogSet(fake.wasUpsertCalled(), false, "Upsert should never be called");
 
     // Assert: DB unchanged
     const sets = fake.getSets();
-    assertEqual(sets.length, 1, "DB should have 1 set");
-    assertEqual(sets[0].reps, 12, "DB reps unchanged");
-    assertEqual(sets[0].weight_kg, 30, "DB weight unchanged");
+    assertEqualLogSet(sets.length, 1, "DB should have 1 set");
+    assertEqualLogSet(sets[0].reps, 12, "DB reps unchanged");
+    assertEqualLogSet(sets[0].weight_kg, 30, "DB weight unchanged");
   });
 
   // Test 2: Race condition - insert returns 23505, re-read and return duplicate_ok
-  await test("Race: 23505 on insert, re-read identical values → duplicate_ok", async () => {
+  await testLogSet("Race: 23505 on insert, re-read identical values → duplicate_ok", async () => {
     const fake = createFakeSupabase([
       {
         session_exercise_id: "ex-2",
@@ -291,12 +315,12 @@ async function main() {
       durationSeconds: null,
     });
 
-    assertEqual(result.ok, true, "Should return success for duplicate values");
-    assertEqual(fake.wasUpsertCalled(), false, "Upsert should never be called");
+    assertEqualLogSet(result.ok, true, "Should return success for duplicate values");
+    assertEqualLogSet(fake.wasUpsertCalled(), false, "Upsert should never be called");
   });
 
   // Test 3: Race condition - insert returns 23505, re-read different values → conflict
-  await test("Race: 23505 on insert, re-read different values → conflict", async () => {
+  await testLogSet("Race: 23505 on insert, re-read different values → conflict", async () => {
     const fake = createFakeSupabase([
       {
         session_exercise_id: "ex-3",
@@ -318,15 +342,15 @@ async function main() {
       durationSeconds: null,
     });
 
-    assertEqual(result.ok, false, "Should return conflict");
+    assertEqualLogSet(result.ok, false, "Should return conflict");
     if (!result.ok && "reason" in result && "savedSets" in result) {
-      assertEqual(result.reason, "set_exists");
+      assertEqualLogSet(result.reason, "set_exists");
     }
-    assertEqual(fake.wasUpsertCalled(), false, "Upsert should never be called");
+    assertEqualLogSet(fake.wasUpsertCalled(), false, "Upsert should never be called");
   });
 
   // Test 4: Warm-up set vs working set - no collision
-  await test("Warm-up set 1 and working set 1 do not collide", async () => {
+  await testLogSet("Warm-up set 1 and working set 1 do not collide", async () => {
     const fake = createFakeSupabase([
       {
         session_exercise_id: "ex-4",
@@ -349,15 +373,15 @@ async function main() {
       durationSeconds: null,
     });
 
-    assertEqual(result.ok, true, "Should succeed (warm-up and working set don't collide)");
-    assertEqual(fake.wasUpsertCalled(), false, "Upsert should never be called");
+    assertEqualLogSet(result.ok, true, "Should succeed (warm-up and working set don't collide)");
+    assertEqualLogSet(fake.wasUpsertCalled(), false, "Upsert should never be called");
 
     const sets = fake.getSets();
-    assertEqual(sets.length, 2, "DB should have 2 sets (1 warm-up, 1 working)");
+    assertEqualLogSet(sets.length, 2, "DB should have 2 sets (1 warm-up, 1 working)");
   });
 
   // Test 5: No existing set -> insert succeeds
-  await test("No existing set → insert succeeds", async () => {
+  await testLogSet("No existing set → insert succeeds", async () => {
     const fake = createFakeSupabase([]);
 
     const result = await logSetBehavioural(fake, {
@@ -368,13 +392,13 @@ async function main() {
       durationSeconds: null,
     });
 
-    assertEqual(result.ok, true, "Should succeed");
-    assertEqual(fake.wasUpsertCalled(), false, "Upsert should never be called");
+    assertEqualLogSet(result.ok, true, "Should succeed");
+    assertEqualLogSet(fake.wasUpsertCalled(), false, "Upsert should never be called");
 
     const sets = fake.getSets();
-    assertEqual(sets.length, 1, "DB should have 1 set");
-    assertEqual(sets[0].reps, 10, "Reps correct");
-    assertEqual(sets[0].weight_kg, 60, "Weight correct");
+    assertEqualLogSet(sets.length, 1, "DB should have 1 set");
+    assertEqualLogSet(sets[0].reps, 10, "Reps correct");
+    assertEqualLogSet(sets[0].weight_kg, 60, "Weight correct");
   });
 
   // Summary
