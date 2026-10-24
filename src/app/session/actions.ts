@@ -4,10 +4,11 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
-import { ageOn } from "@/lib/onboarding/options";
-import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
+import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
   evaluateProgression,
@@ -587,7 +588,7 @@ export async function findAlternatives(
   const pattern = replacing?.movement_pattern;
   if (!pattern) return { ok: false, error: "This exercise has no movement pattern" };
 
-  const [profileRes, weightRes, equipmentRes, injuriesRes, siblingsRes, poolRes] =
+  const [profileRes, weightRes, equipmentRes, injuriesRes, siblingsRes] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("body_metrics").select("weight_kg")
@@ -595,11 +596,6 @@ export async function findAlternatives(
       supabase.from("user_equipment").select("equipment_id"),
       supabase.from("user_injuries").select("body_region, severity"),
       supabase.from("session_exercises").select("exercise_id").eq("session_id", current.session_id),
-      supabase
-        .from("exercises")
-        .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
-        .eq("movement_pattern", pattern)
-        .eq("is_active", true),
     ]);
 
   const profile = profileRes.data;
@@ -614,6 +610,10 @@ export async function findAlternatives(
   const alreadyInSession = new Set(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
   );
+  
+  const currentInjuryRegions = (injuriesRes.data ?? [])
+    .filter((i) => i.severity === "current")
+    .map((i) => i.body_region);
 
   const input = {
     userId: user.id,
@@ -627,9 +627,7 @@ export async function findAlternatives(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: (injuriesRes.data ?? [])
-      .filter((i) => i.severity === "current")
-      .map((i) => i.body_region),
+    currentInjuryRegions,
     catalogue: [] as CandidateExercise[],
   };
 
@@ -657,18 +655,67 @@ export async function findAlternatives(
   */
   const wantCompound = replacing?.mechanic !== "isolation";
   const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
-  const alternatives = ((poolRes.data ?? []) as unknown as CandidateExercise[])
+  
+  // Build pattern list (current + fallbacks + knee-safe if applicable)
+  const hasKneeInjury = currentInjuryRegions.includes("knee");
+  const patterns = buildPatternList(pattern, hasKneeInjury);
+  
+  // Helper to cast Supabase rows to typed pool rows
+  type PoolRow = CandidateExercise & { cue: string | null };
+  function asPoolRows(rows: unknown[] | null): PoolRow[] {
+    return (rows ?? []) as unknown as PoolRow[];
+  }
+  
+  // Query pool with widened pattern list
+  const poolRes = await supabase
+    .from("exercises")
+    .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
+    .in("movement_pattern", patterns)
+    .eq("is_active", true);
+  
+  const pool = asPoolRows(poolRes.data);
+  
+  // Filter by isEligible first (generator safety rules: age, BMI, spinal load, etc.)
+  const eligible = pool
     .filter((e) => !alreadyInSession.has(e.id))
-    .filter((e) => isEligible(e, { ...input, catalogue: [] }))
-    .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack) }))
-    .sort((a, b) => b.k - a.k || tieBreak(a.e.slug) - tieBreak(b.e.slug))
-    .slice(0, 6)
-    .map(({ e }) => ({
-      exerciseId: e.id,
-      name: e.name,
-      cue: (e as unknown as { cue: string | null }).cue ?? null,
-      metric: e.metric ?? ("reps" as const),
-    }));
+    .filter((e) => isEligible(e, { ...input, catalogue: [] }));
+  
+  // Find current exercise in the pool (not in eligible - it may be contraindicated)
+  let currentExercise = pool.find((e) => e.id === current.exercise_id);
+  
+  // If current is inactive or missing, fetch it separately
+  if (!currentExercise) {
+    const inactiveRes = await supabase
+      .from("exercises")
+      .select("id, slug, name, cue, metric, movement_pattern, mechanic, primary_muscles, equipment_ids, level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds")
+      .eq("id", current.exercise_id)
+      .maybeSingle();
+    
+    currentExercise = asPoolRows(inactiveRes.data ? [inactiveRes.data] : [])[0];
+    if (!currentExercise) {
+      return { ok: false, error: "Current exercise not found" };
+    }
+  }
+  
+  const ranked = rankAlternatives(
+    currentExercise,
+    eligible,
+    {
+      level: input.level,
+      availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
+      injuryRegions: input.currentInjuryRegions,
+      limit: 5,
+      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
+      tieBreakFn: tieBreak,
+    },
+  );
+
+  const alternatives = ranked.map((e) => ({
+    exerciseId: e.id,
+    name: e.name,
+    cue: e.cue ?? null,
+    metric: e.metric ?? ("reps" as const),
+  }));
 
   return { ok: true, data: alternatives };
 }
@@ -678,6 +725,7 @@ export type SwapResult = {
   metric: Database["public"]["Enums"]["exercise_metric"];
   repsMin: number | null;
   repsMax: number | null;
+  equipmentIds: string[];
 };
 
 export async function swapExercise(input: {
@@ -700,10 +748,14 @@ export async function swapExercise(input: {
       include holds, deliberately -- making a plank reachable from the swap list
       was the point of ranking that list. Without carrying the metric the
       session went on asking for reps while the screen named a plank.
+      
+      equipment_ids is also needed: when the session loads, isBodyweight is 
+      derived from whether equipment_ids is empty, and without it here a barbell
+      exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
     */
     supabase
       .from("exercises")
-      .select("metric, mechanic")
+      .select("metric, mechanic, equipment_ids")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
@@ -712,7 +764,9 @@ export async function swapExercise(input: {
   const current = currentRes.data;
   if (!current) return { ok: false, error: "Exercise not found" };
 
-  const metric = metricOf(replacementRes.data);
+  const replacement = replacementRes.data;
+  const metric = metricOf(replacement);
+  const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
 
   /*
@@ -756,7 +810,7 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax } };
+    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds } };
 }
 
 

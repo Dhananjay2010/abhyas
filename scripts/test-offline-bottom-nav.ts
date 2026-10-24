@@ -26,17 +26,27 @@ function testOfflinePageMarker() {
 
   const source = fs.readFileSync(offlinePagePath, "utf-8");
 
-  // Must have data-offline="true" attribute
+  // Must use OfflineScreen component which includes data-offline="true"
   assert(
-    source.includes('data-offline="true"'),
-    'Offline page must have data-offline="true" attribute'
+    source.includes('OfflineScreen'),
+    'Offline page must use OfflineScreen component (which sets data-offline="true")'
   );
 
-  console.log('  ✓ Offline page has data-offline="true" marker');
+  // Verify OfflineScreen component has data-offline="true"
+  const offlineScreenPath = path.join(__dirname, "..", "src", "components", "offline-screen.tsx");
+  const offlineScreenSource = fs.readFileSync(offlineScreenPath, "utf-8");
+  
+  assert(
+    offlineScreenSource.includes('data-offline="true"'),
+    'OfflineScreen component must have data-offline="true" attribute'
+  );
+
+  console.log('  ✓ Offline page uses OfflineScreen component');
+  console.log('  ✓ OfflineScreen has data-offline="true" marker');
 }
 
 function testBottomNavHiding() {
-  console.log("\n▶ Testing bottom nav offline hiding via CSS...");
+  console.log("\n▶ Testing bottom nav offline hiding mechanism...");
 
   const bottomNavPath = path.join(__dirname, "..", "src", "components", "bottom-nav.tsx");
   
@@ -53,18 +63,29 @@ function testBottomNavHiding() {
     "BottomNav <nav> element must have data-bottom-nav attribute"
   );
 
-  // Must NOT have useLayoutEffect or useState for offline detection
-  // (should use CSS instead)
+  // Must use the offline error context (not local state)
   assert(
-    !source.includes('isOffline') && !source.includes('setIsOffline'),
-    "BottomNav must NOT use useState for offline detection (should use CSS hiding)"
+    source.includes('useOfflineError'),
+    "BottomNav must use useOfflineError hook from context"
+  );
+
+  assert(
+    source.includes('isOfflineError'),
+    "BottomNav must check isOfflineError from context"
+  );
+
+  assert(
+    source.includes('if (isOfflineError) return null') || source.includes('if(isOfflineError)return null'),
+    "BottomNav must return null when isOfflineError is true"
   );
 
   console.log("  ✓ BottomNav has data-bottom-nav attribute");
-  console.log("  ✓ BottomNav uses CSS hiding (no useState for isOffline)");
+  console.log("  ✓ BottomNav uses useOfflineError hook");
+  console.log("  ✓ BottomNav checks isOfflineError from context");
+  console.log("  ✓ BottomNav returns null when offline");
 
-  // Check globals.css for the hiding rule
-  console.log("\n▶ Testing globals.css for offline hiding rule...");
+  // Check globals.css for the hiding rule (as a fallback when CSS is cached)
+  console.log("\n▶ Testing globals.css for offline hiding rule (CSS fallback)...");
   
   const globalsCssPath = path.join(__dirname, "..", "src", "app", "globals.css");
   
@@ -87,7 +108,7 @@ function testBottomNavHiding() {
   );
 
   console.log("  ✓ globals.css has body:has([data-offline]) [data-bottom-nav] rule");
-  console.log("  ✓ CSS rule sets display: none");
+  console.log("  ✓ CSS rule sets display: none (as fallback when CSS is cached)");
 }
 
 console.log("Testing Offline Page Bottom Nav Hiding");

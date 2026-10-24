@@ -4,6 +4,8 @@ import { useEffect, useState, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
 import { isOfflineError } from "@/lib/offline-error";
+import { useOfflineError } from "@/contexts/offline-error-context";
+import { OfflineScreen } from "@/components/offline-screen";
 
 export default function Error({
   error,
@@ -13,6 +15,7 @@ export default function Error({
   reset: () => void;
 }) {
   const router = useRouter();
+  const { setIsOfflineError } = useOfflineError();
   const [online, setOnline] = useState(
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
@@ -20,12 +23,19 @@ export default function Error({
   useEffect(() => {
     console.error("Page error:", error);
     
-    // Capture exception once, using current online status
     const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
-    if (!isOfflineError(error, isOnline)) {
+    const offline = isOfflineError(error, isOnline);
+    
+    setIsOfflineError(offline);
+    
+    if (!offline) {
       Sentry.captureException(error);
     }
-  }, [error]);
+
+    return () => {
+      setIsOfflineError(false);
+    };
+  }, [error, setIsOfflineError]);
 
   useEffect(() => {
     function handleOnline() {
@@ -47,34 +57,30 @@ export default function Error({
   const offline = isOfflineError(error, online);
 
   function handleReset() {
+    setIsOfflineError(false);
     startTransition(() => {
       router.refresh();
       reset();
     });
   }
 
+  // Use shared OfflineScreen component for offline errors
+  if (offline) {
+    return <OfflineScreen />;
+  }
+
+  // Non-offline error
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6">
       <div className="w-full max-w-md text-center">
-        {offline ? (
-          <>
-            <h1 className="text-3xl font-bold tracking-tight">You&apos;re offline</h1>
-            <p className="mt-4 text-muted">
-              This page needs an internet connection. Check your connection and try again.
-            </p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-3xl font-bold tracking-tight">Something went wrong</h1>
-            <p className="mt-4 text-muted">
-              An unexpected error occurred. Please try again.
-            </p>
-            {error.digest && (
-              <p className="mt-2 font-mono text-xs text-muted">
-                Error ID: {error.digest}
-              </p>
-            )}
-          </>
+        <h1 className="text-3xl font-bold tracking-tight">Something went wrong</h1>
+        <p className="mt-4 text-muted">
+          An unexpected error occurred. Please try again.
+        </p>
+        {error.digest && (
+          <p className="mt-2 font-mono text-xs text-muted">
+            Error ID: {error.digest}
+          </p>
         )}
         <button
           onClick={handleReset}
