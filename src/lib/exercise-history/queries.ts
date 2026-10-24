@@ -374,6 +374,33 @@ export async function getExerciseHistory(
     }
   }
 
+  // Precompute "sets before index i" for all displayed sessions in a single pass
+  // This avoids O(displayed_sessions * history_size) redundant work
+  const displayedIndices = new Set<number>();
+  for (const historyRow of historyRows) {
+    if (historyRow.session_exercise_id) {
+      const idx = sessionExIdToIndex.get(historyRow.session_exercise_id);
+      if (idx !== undefined) {
+        displayedIndices.add(idx);
+      }
+    }
+  }
+
+  const setsBeforeIndex = new Map<number, SetData[]>();
+  const accumulator: SetData[] = [];
+  for (let i = 0; i < allHistoryRows.length; i++) {
+    // If this index is displayed, save the sets before it
+    if (displayedIndices.has(i)) {
+      setsBeforeIndex.set(i, [...accumulator]);
+    }
+    // Add this index's sets to the accumulator
+    const seId = allHistoryRows[i].session_exercise_id;
+    if (seId) {
+      const sets = allSetsBySessionExercise.get(seId) ?? [];
+      accumulator.push(...sets);
+    }
+  }
+
   // Build session history with per-session PR detection
   const sessions: ExerciseHistorySession[] = [];
 
@@ -394,19 +421,11 @@ export async function getExerciseHistory(
       : null;
 
     // For PR detection: find all sets from strictly earlier sessions
-    // M1 fix: Group by session_exercise_id, compare chronologically
+    // Use precomputed setsBeforeIndex map for O(1) lookup
     const currentIndex = sessionExIdToIndex.get(historyRow.session_exercise_id) ?? -1;
-    const earlierRows = currentIndex >= 0
-      ? allHistoryRows.slice(0, currentIndex)
+    const setsBeforeThisSession = currentIndex >= 0
+      ? (setsBeforeIndex.get(currentIndex) ?? [])
       : [];
-
-    const setsBeforeThisSession: SetData[] = [];
-    for (const row of earlierRows) {
-      if (row.session_exercise_id) {
-        const sets = allSetsBySessionExercise.get(row.session_exercise_id) ?? [];
-        setsBeforeThisSession.push(...sets);
-      }
-    }
 
     // Detect PRs that existed before this session
     const prsBefore = detectPersonalRecords(setsBeforeThisSession, metric);
