@@ -179,6 +179,9 @@ BEGIN
     block_number,
     split_type,
     days_per_week,
+    primary_track,
+    goal,
+    level,
     started_on,
     ends_on,
     deload_week,
@@ -189,6 +192,9 @@ BEGIN
     1,
     'upper_lower',
     4,
+    'weights',
+    'muscle_gain',
+    'intermediate',
     current_date - interval '20 days',
     current_date + interval '8 days',
     4,
@@ -200,6 +206,7 @@ BEGIN
   INSERT INTO program_days (
     id,
     program_id,
+    user_id,
     day_index,
     day_type,
     focus,
@@ -207,6 +214,7 @@ BEGIN
   ) VALUES (
     gen_random_uuid(),
     test_program_id,
+    test_user_id,
     1,
     'weights',
     'Chest, shoulders, triceps',
@@ -218,6 +226,7 @@ BEGIN
   -- (In production these come from the generator; here we hardcode coach-recognisable staples)
   INSERT INTO program_day_exercises (
     program_day_id,
+    user_id,
     exercise_id,
     order_index,
     target_sets,
@@ -227,6 +236,7 @@ BEGIN
   )
   SELECT
     test_program_day_id,
+    test_user_id,
     e.id,
     ROW_NUMBER() OVER (),
     CASE e.slug
@@ -276,6 +286,7 @@ BEGIN
   INSERT INTO program_days (
     id,
     program_id,
+    user_id,
     day_index,
     day_type,
     focus,
@@ -283,6 +294,7 @@ BEGIN
   ) VALUES (
     gen_random_uuid(),
     test_program_id,
+    test_user_id,
     2,
     'weights',
     'Quads, glutes, hamstrings',
@@ -293,6 +305,7 @@ BEGIN
   -- Quads, glutes, hamstrings focus
   INSERT INTO program_day_exercises (
     program_day_id,
+    user_id,
     exercise_id,
     order_index,
     target_sets,
@@ -302,6 +315,7 @@ BEGIN
   )
   SELECT
     test_program_day_id,
+    test_user_id,
     e.id,
     ROW_NUMBER() OVER (),
     CASE e.slug
@@ -348,13 +362,14 @@ BEGIN
   END IF;
 
   -- Day 3: Rest
-  INSERT INTO program_days (program_id, day_index, day_type, label)
-  VALUES (test_program_id, 3, 'rest', 'Rest');
+  INSERT INTO program_days (program_id, user_id, day_index, day_type, label)
+  VALUES (test_program_id, test_user_id, 3, 'rest', 'Rest');
   
   -- Day 5 (Friday): Lower B
   INSERT INTO program_days (
     id,
     program_id,
+    user_id,
     day_index,
     day_type,
     focus,
@@ -362,6 +377,7 @@ BEGIN
   ) VALUES (
     gen_random_uuid(),
     test_program_id,
+    test_user_id,
     5,
     'weights',
     'Posterior chain, quads',
@@ -372,6 +388,7 @@ BEGIN
   -- Posterior chain, quads focus
   INSERT INTO program_day_exercises (
     program_day_id,
+    user_id,
     exercise_id,
     order_index,
     target_sets,
@@ -381,6 +398,7 @@ BEGIN
   )
   SELECT
     test_program_day_id,
+    test_user_id,
     e.id,
     ROW_NUMBER() OVER (),
     CASE e.slug
@@ -427,15 +445,16 @@ BEGIN
   END IF;
   
   -- Days 6, 7: Rest
-  INSERT INTO program_days (program_id, day_index, day_type, label)
+  INSERT INTO program_days (program_id, user_id, day_index, day_type, label)
   VALUES
-    (test_program_id, 6, 'rest', 'Rest'),
-    (test_program_id, 7, 'rest', 'Rest');
+    (test_program_id, test_user_id, 6, 'rest', 'Rest'),
+    (test_program_id, test_user_id, 7, 'rest', 'Rest');
 
   -- Day 4 (Thursday): Upper B
   INSERT INTO program_days (
     id,
     program_id,
+    user_id,
     day_index,
     day_type,
     focus,
@@ -443,6 +462,7 @@ BEGIN
   ) VALUES (
     gen_random_uuid(),
     test_program_id,
+    test_user_id,
     4,
     'weights',
     'Back, biceps, rear delts',
@@ -453,6 +473,7 @@ BEGIN
   -- Back, biceps, rear delts focus
   INSERT INTO program_day_exercises (
     program_day_id,
+    user_id,
     exercise_id,
     order_index,
     target_sets,
@@ -462,6 +483,7 @@ BEGIN
   )
   SELECT
     test_program_day_id,
+    test_user_id,
     e.id,
     ROW_NUMBER() OVER (),
     CASE e.slug

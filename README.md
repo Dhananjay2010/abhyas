@@ -27,10 +27,13 @@ One hour a day. No guesswork.
 
 ## Prerequisites
 
-- **Node.js 22 or later** (pinned in `.nvmrc`)
+- **Node.js 22 or later** (required, pinned in `.nvmrc` and `package.json` engines field)
 - **npm** (comes with Node)
 - **Supabase CLI** (for running migrations): `npm install -g supabase`
+- **Docker Desktop** (for local Supabase stack)
 - **nvm** (recommended, for managing Node versions): https://github.com/nvm-sh/nvm
+
+**Note:** Node.js 22+ is required. The project will not run on Node 20 or earlier. Use `nvm use` to switch to the correct version automatically from `.nvmrc`.
 
 ---
 
@@ -318,70 +321,67 @@ The local database is seeded with deterministic test data from `supabase/seed.sq
 
 ### Local QA Sign-In Options
 
-**⚠️ Important:** The app's UI only offers **Google OAuth sign-in** (no email/password form). The seeded test user **cannot sign in through the app UI directly**. Use one of these methods to test with the seeded data locally:
+**⚠️ Important:** The app's UI only offers **Google OAuth sign-in** (no email/password form). The seeded test user can sign in locally via magic link (email is enabled in local config) or an admin-created session.
 
-#### Option 1: Admin-created session (recommended for local testing)
+#### Option 1: Magic link via Mailpit (recommended for local testing)
 
-Use the Supabase CLI to create an admin session link for the test user:
+The local Supabase stack includes **Mailpit** (formerly Inbucket), a test email server at [http://localhost:54324](http://localhost:54324). Email sign-ups and confirmations are enabled in the local `supabase/config.toml` for development.
+
+**Sign in with the seeded test user:**
+
+1. Start local Supabase: `npm run supabase:start`
+2. Request a magic link via the Supabase CLI:
+   ```bash
+   # Send a magic link email to the test user
+   curl -X POST 'http://127.0.0.1:54321/auth/v1/magiclink' \
+     -H 'apikey: YOUR_LOCAL_ANON_KEY' \
+     -H 'Content-Type: application/json' \
+     -d '{"email": "test@example.com"}'
+   ```
+   Replace `YOUR_LOCAL_ANON_KEY` with the anon key from `npm run supabase:start` output.
+
+3. Open Mailpit at [http://localhost:54324](http://localhost:54324)
+4. Click the `test@example.com` inbox (or the latest email)
+5. Click the "Confirm your email" or "Log in" link in the email
+6. You'll be redirected to the app and signed in
+
+**Note:** The app UI has no "Send magic link" form, so you must trigger the email via the CLI or API. The local config enables `enable_signup = true` and `enable_confirmations = false` for easier testing.
+
+#### Option 2: Admin-created session via service role key
+
+Use the service role key to create a session directly without email:
 
 ```bash
-# Generate a magic link for the test user (no email sent, just prints the link)
-supabase auth admin generate-link \
-  --type magiclink \
-  --email test@example.com
+# Get the service role key from `npm run supabase:start` output
+# It's the long JWT starting with eyJhbG...
 
-# Example output:
+# Create a session for the test user
+curl -X POST 'http://127.0.0.1:54321/auth/v1/admin/generate_link' \
+  -H 'apikey: YOUR_LOCAL_SERVICE_ROLE_KEY' \
+  -H 'Authorization: Bearer YOUR_LOCAL_SERVICE_ROLE_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "magiclink",
+    "email": "test@example.com"
+  }'
+
+# Output includes action_link — open it in your browser:
 # http://127.0.0.1:54321/auth/v1/verify?token=...&type=magiclink&redirect_to=http://localhost:3000
 ```
 
-Open the printed link in your browser. The app will process the callback and sign you in as the test user.
+**Alternative: Use the Supabase CLI**
 
-**Alternative: Service role key approach**
-
-If you prefer a programmatic approach, use the service role key to create a session directly:
-
-```typescript
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  'http://127.0.0.1:54321',
-  'your-local-service-role-key'  // From `npm run supabase:start` output
-)
-
-// Sign in as the test user
-const { data, error } = await supabase.auth.admin.generateLink({
-  type: 'magiclink',
-  email: 'test@example.com'
-})
-
-// Open data.properties.action_link in your browser
+```bash
+supabase auth admin generate-link \
+  --type magiclink \
+  --email test@example.com
 ```
 
-#### Option 2: Magic link via local email inbox
-
-The local Supabase stack includes **Inbucket**, a test email server at [http://localhost:54324](http://localhost:54324). However, **email sign-ups are disabled** in `supabase/config.toml` (`[auth.email] enable_signup = false`), and the app UI has no route to trigger a magic link email for existing users. This option requires either:
-
-1. Manually enabling `enable_signup = true` in `supabase/config.toml` and restarting Supabase, or
-2. Adding a magic link request form to the app UI (not currently implemented)
-
-**If you enable email sign-ups**, you can test magic links:
-
-1. Enable email in `supabase/config.toml`:
-   ```toml
-   [auth.email]
-   enable_signup = true
-   ```
-2. Restart Supabase: `npm run supabase:reset`
-3. Trigger a magic link email (requires app UI changes or direct Supabase API call)
-4. Open Inbucket at [http://localhost:54324](http://localhost:54324)
-5. Check the `test@example.com` inbox for the magic link email
-6. Click the link to sign in
-
-**Note:** The app currently has **no built-in route** to request a magic link email via the UI. Use Option 1 (admin-created session) for the simplest local testing workflow.
+This prints a link you can open in your browser.
 
 #### Option 3: Sign in with Google and create your own data
 
-Configure Google OAuth in `supabase/config.toml` under `[auth.external.google]` with local redirect URLs, then sign in through the app's Google sign-in button. Use your own account and create data through the app's normal onboarding and workout flows.
+Configure Google OAuth in `supabase/config.toml` under `[auth.external.google]` with local redirect URLs, then sign in through the app's Google sign-in button. Use your own account and create data through the app's normal onboarding and workout flows. The seeded test user is for programmatic testing.
 
 #### Option 4: Direct database access (for backend testing)
 
@@ -389,7 +389,7 @@ Access the local database directly via Supabase Studio SQL Editor at [http://127
 
 ---
 
-The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, test@example.com) and safe to commit. The password `testpass123` is a local-only test credential.
+The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, test@example.com) and safe to commit. The password `testpass123` is a local-only test credential (only used if you manually enable password auth).
 
 ---
 

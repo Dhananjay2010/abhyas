@@ -2,11 +2,18 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { withRateLimit } from "@/lib/rate-limit/route-handler";
+import { getRedirectOrigin } from "@/lib/auth/redirect-origin";
 
 async function handleAuthCallback(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/today";
+  let next = searchParams.get("next") ?? "/today";
+
+  // Validate `next` is a same-origin relative path (no open redirects)
+  // Reject absolute URLs, protocol-relative URLs (//evil.com), and anything with a host
+  if (next.startsWith("//") || next.includes("://") || next.startsWith("http")) {
+    next = "/today";
+  }
 
   if (code) {
     const supabase = await createClient();
@@ -23,12 +30,8 @@ async function handleAuthCallback(request: Request) {
       */
       if (data?.user) await ensureProfileRows(supabase, data.user);
 
-      // Behind Vercel the origin is the internal host, so prefer the forwarded one.
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const base =
-        process.env.NODE_ENV === "development" || !forwardedHost
-          ? origin
-          : `https://${forwardedHost}`;
+      // Build redirect origin from forwarded headers (Vercel) or request URL (local)
+      const base = getRedirectOrigin(request);
       return NextResponse.redirect(`${base}${next}`);
     }
   }
