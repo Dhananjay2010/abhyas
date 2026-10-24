@@ -2,14 +2,9 @@
 --
 -- Two rapid calls with the same log_id (double tap, two tabs, offline retry)
 -- could both pass the "does this log exist?" check before either inserts,
--- then both would update the session duration before trying to insert the log.
--- The fix: insert the log with ON CONFLICT DO NOTHING and use RETURNING to
--- detect if the insert actually happened. Only update the session if it did.
--- This ensures a retry after a race adds nothing to session duration.
-
-drop function if exists public.record_breathing_practice(
-  uuid, date, uuid, uuid, int, int, int, int, boolean, smallint, text, uuid, uuid, smallint
-);
+-- then both would insert separate sessions. The fix uses an advisory lock on
+-- the log_id to serialize concurrent calls, with ON CONFLICT as a backstop.
+-- The lock is released automatically at transaction end.
 
 create or replace function public.record_breathing_practice(
   p_log_id          uuid,
@@ -41,6 +36,11 @@ begin
   if v_user is null then
     raise exception 'record_breathing_practice: not signed in';
   end if;
+
+  -- Serialize concurrent calls with the same log_id. The advisory lock is held
+  -- until transaction end, preventing races between the existence check and the
+  -- session/log inserts. hashtextextended is a built-in hash for text values.
+  perform pg_advisory_xact_lock(hashtextextended(p_log_id::text, 0));
 
   -- Early return if this exact practice was already logged. A retry, a double
   -- tap on Done, or a second tab all send the same client-generated log_id, so

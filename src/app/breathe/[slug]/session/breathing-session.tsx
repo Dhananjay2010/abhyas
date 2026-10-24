@@ -442,8 +442,6 @@ function Practice({
   const [rate, setRate] = useState<Status>({ state: "idle" });
   /** "End here" on a routine's hand-off: finish now rather than go on. */
   const [stopHere, setStopHere] = useState(false);
-  /** Back button pressed: show confirmation to leave. */
-  const [backPressed, setBackPressed] = useState(false);
 
   // Voice falls back to tones on a browser that cannot speak, and says so.
   const canSpeak = useSyncExternalStore(onVoicesChanged, speechSupported, () => true);
@@ -455,26 +453,6 @@ function Practice({
   const needsTap = stage === "running" && soundOn && canPlay && !hasContext && !tapped;
   const live = stage === "running" && !paused && !needsTap;
   useWakeLock(live);
-
-  // Persist session state to sessionStorage for resume/interrupted detection
-  const storageKey = `breathe-session-${pattern.slug}`;
-  useEffect(() => {
-    if (stage !== "running") return;
-    const state = {
-      slug: pattern.slug,
-      startedAt: Date.now() - clock.elapsed() * 1000,
-      cycles: options.cycles,
-      step: stepIndex,
-    };
-    sessionStorage.setItem(storageKey, JSON.stringify(state));
-  }, [stage, pattern.slug, clock, options.cycles, stepIndex, storageKey]);
-
-  // Clear session storage when practice is finished
-  useEffect(() => {
-    if (stage === "finished") {
-      sessionStorage.removeItem(storageKey);
-    }
-  }, [stage, storageKey]);
 
   const shapeRef = useRef<ShapeHandle>(null);
   const glowRef = useRef<HTMLDivElement>(null);
@@ -626,14 +604,6 @@ function Practice({
     setControls(true);
   }, [allowSound]);
 
-  // Detect back button pause and show confirmation dialog
-  useEffect(() => {
-    if (paused && backTriggeredRef.current) {
-      backTriggeredRef.current = false;
-      setBackPressed(true);
-    }
-  }, [paused, backTriggeredRef]);
-
   useEffect(() => {
     registerPause(requestPause);
   }, [registerPause, requestPause]);
@@ -667,12 +637,8 @@ function Practice({
       if (e.key !== " " && e.key !== "Escape") return;
       if ((e.target as HTMLElement | null)?.closest("button")) return;
       e.preventDefault();
-      if (e.key === "Escape" && backPressed) {
-        setBackPressed(false);
-        return;
-      }
       if (e.key === "Escape" && paused) {
-        setPaused(false);
+        resume();
         return;
       }
       if (!paused) requestPause();
@@ -680,7 +646,7 @@ function Practice({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stage, paused, backPressed, requestPause]);
+  }, [stage, paused, requestPause, resume]);
 
   useEffect(() => {
     if (paused) resumeRef.current?.focus();
@@ -1209,7 +1175,7 @@ function Practice({
       </p>
 
       {/* Main session content - inert when pause dialog is open */}
-      <div inert={(paused && !backPressed || undefined) as boolean | undefined}>
+      <div inert={(paused || undefined) as boolean | undefined}>
       <header
         className="relative mx-auto w-full max-w-md shrink-0 px-6"
         style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
@@ -1412,7 +1378,7 @@ function Practice({
         </div>
       )}
 
-      {paused && !backPressed && (
+      {paused && (
         <div
           className="absolute inset-0 z-20 flex items-end justify-center bg-black/55"
           onClick={(e) => {
@@ -1480,48 +1446,6 @@ function Practice({
                 Finish one full round to be able to save it.
               </p>
             )}
-          </div>
-        </div>
-      )}
-
-      {backPressed && (
-        <div
-          className="absolute inset-0 z-30 flex items-end justify-center bg-black/55"
-          onClick={(e) => {
-            e.stopPropagation();
-            setBackPressed(false);
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="back-confirm-title"
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md rounded-t-3xl border border-white/10 px-6 pt-6"
-            style={{ background: "#0f1d2a", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
-          >
-            <h2 id="back-confirm-title" className="text-xl font-semibold tracking-tight">
-              Leave practice?
-            </h2>
-            <p className="mt-1 text-sm text-breath-ink/70">
-              {view.sub === "practice" && pauseAt.cycles > 0
-                ? "Your progress will be lost."
-                : "You haven't started yet."}
-            </p>
-            <button
-              type="button"
-              onClick={() => setBackPressed(false)}
-              className="mt-6 w-full rounded-xl bg-accent px-6 py-4 font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-            >
-              Stay
-            </button>
-            <button
-              type="button"
-              onClick={onLeave}
-              className="mt-3 w-full rounded-xl border border-white/15 px-6 py-3.5 text-sm font-semibold transition-colors hover:border-white/30"
-            >
-              Leave
-            </button>
           </div>
         </div>
       )}

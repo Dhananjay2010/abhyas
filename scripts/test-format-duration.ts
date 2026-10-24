@@ -35,7 +35,7 @@ console.log("\n2. formatDuration shows rounded minutes or 'Under a minute'");
   check("60 seconds is '1 min'", formatDuration(60) === "1 min");
   check("90 seconds rounds to '2 min'", formatDuration(90) === "2 min",
     `got '${formatDuration(90)}'`);
-  check("30 seconds rounds to '1 min'", formatDuration(30) === "Under a minute",
+  check("30 seconds is 'Under a minute'", formatDuration(30) === "Under a minute",
     `got '${formatDuration(30)}'`);
   check("720 seconds is '12 min'", formatDuration(720) === "12 min");
 }

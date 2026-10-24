@@ -10,6 +10,7 @@ export {};
 
 import { readFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
+import * as ts from "typescript";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -35,43 +36,75 @@ function findTsxFiles(dir: string): string[] {
   return results;
 }
 
-// Simple regex-based check for buttons without accessible names
-// This catches common patterns but may have false positives/negatives
 function checkButtonsInFile(filePath: string): { ok: boolean; issues: string[] } {
   const content = readFileSync(filePath, 'utf-8');
   const issues: string[] = [];
   
-  // Find all button tags
-  const buttonRegex = /<button[^>]*>/g;
-  let match;
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
   
-  while ((match = buttonRegex.exec(content)) !== null) {
-    const buttonTag = match[0];
-    const buttonStart = match.index;
-    
-    // Skip if it has aria-label
-    if (/aria-label=["'][^"']+["']/.test(buttonTag)) {
-      continue;
+  function visit(node: ts.Node) {
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tagName = ts.isJsxElement(node)
+        ? node.openingElement.tagName.getText(sourceFile)
+        : node.tagName.getText(sourceFile);
+      
+      if (tagName === "button") {
+        let hasAriaLabel = false;
+        let hasTextContent = false;
+        
+        // Check for aria-label attribute
+        const attributes = ts.isJsxElement(node)
+          ? node.openingElement.attributes.properties
+          : node.attributes.properties;
+        
+        for (const attr of attributes) {
+          if (ts.isJsxAttribute(attr)) {
+            const attrName = attr.name.getText(sourceFile);
+            if (attrName === "aria-label") {
+              hasAriaLabel = true;
+              break;
+            }
+          }
+        }
+        
+        // Check for text content in JSX element
+        if (ts.isJsxElement(node)) {
+          for (const child of node.children) {
+            if (ts.isJsxText(child)) {
+              const text = child.getText(sourceFile).trim();
+              if (text.length > 0 && /[a-zA-Z]/.test(text)) {
+                hasTextContent = true;
+                break;
+              }
+            } else if (ts.isJsxExpression(child) && child.expression) {
+              // Check if expression is a string literal or template
+              const exprText = child.expression.getText(sourceFile);
+              if (exprText && /[a-zA-Z]/.test(exprText)) {
+                hasTextContent = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (!hasAriaLabel && !hasTextContent) {
+          const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
+          const buttonText = node.getText(sourceFile).substring(0, 80);
+          issues.push(`Line ${line + 1}: ${buttonText}...`);
+        }
+      }
     }
     
-    // Check if button has text content by finding the closing tag
-    const closingTagStart = content.indexOf('</button>', buttonStart);
-    if (closingTagStart === -1) continue;
-    
-    const buttonContent = content.substring(buttonStart + buttonTag.length, closingTagStart).trim();
-    
-    // Check for text content (not just whitespace or icons)
-    // Icons are typically: <Icon.Something />, <svg..., or aria-hidden elements
-    const hasTextContent = buttonContent.length > 0 && 
-      !/^<(Icon\.|svg|span[^>]*aria-hidden)/.test(buttonContent.trim()) &&
-      /[a-zA-Z]/.test(buttonContent);
-    
-    if (!hasTextContent) {
-      // Get line number for reporting
-      const lineNumber = content.substring(0, buttonStart).split('\n').length;
-      issues.push(`Line ${lineNumber}: ${buttonTag.substring(0, 80)}...`);
-    }
+    ts.forEachChild(node, visit);
   }
+  
+  visit(sourceFile);
   
   return { ok: issues.length === 0, issues };
 }
@@ -83,8 +116,6 @@ const files = findTsxFiles(breatheDir);
 
 console.log(`Found ${files.length} .tsx files in breathe/\n`);
 
-let totalIssues = 0;
-
 for (const file of files) {
   const relativePath = file.replace(process.cwd() + '/', '');
   const result = checkButtonsInFile(file);
@@ -92,16 +123,15 @@ for (const file of files) {
   if (!result.ok) {
     console.log(`\n${relativePath}:`);
     for (const issue of result.issues) {
+      failures++;
       console.log(`  FAIL ${issue}`);
-      totalIssues++;
     }
   }
 }
 
-if (totalIssues === 0) {
+if (failures === 0) {
   console.log("ALL CHECKS PASSED\n");
-  process.exit(0);
 } else {
-  console.log(`\n${totalIssues} button(s) without accessible names found\n`);
+  console.log(`\n❌ ${failures} button(s) without accessible names found\n`);
   process.exit(1);
 }

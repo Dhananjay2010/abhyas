@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { formatDuration } from "@/lib/format-duration";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
 import { isUuid } from "@/lib/ids";
@@ -38,7 +37,7 @@ export default async function SessionDetailPage({
     .from("sessions")
     // The pattern is named through its foreign key, so a second link between
     // the two tables (breathing_logs is one) can never make it ambiguous.
-    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, yoga_video_id, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance, routine_name, routine_step)")
+    .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance, routine_name, routine_step)")
     .eq("id", id)
     .maybeSingle();
   
@@ -72,66 +71,6 @@ export default async function SessionDetailPage({
     );
   }
 
-  // Yoga session - show video details
-  if (session.actual_type === "yoga" && session.yoga_video_id) {
-    const { data: video } = await supabase
-      .from("yoga_videos")
-      .select("title, youtube_video_id, duration_minutes, day_index, yoga_playlists(title)")
-      .eq("id", session.yoga_video_id)
-      .maybeSingle();
-
-    const playlistTitle = video?.yoga_playlists 
-      ? (Array.isArray(video.yoga_playlists) ? video.yoga_playlists[0]?.title : (video.yoga_playlists as {title?: string})?.title)
-      : null;
-
-    return (
-      <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
-        <Link href="/history" className="inline-flex items-center min-h-[44px] text-sm text-muted underline underline-offset-2">
-          ← History
-        </Link>
-
-        <h1 className="mt-4 text-3xl font-bold tracking-tight">Yoga</h1>
-        <p className="mt-1 text-sm text-muted">
-          {longDate(session.local_date)}
-        </p>
-
-        {video && (
-          <>
-            <div className="mt-6 overflow-hidden rounded-xl border border-border bg-black">
-              <div style={{ position: "relative", paddingTop: "56.25%" }}>
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${video.youtube_video_id}?rel=0&modestbranding=1`}
-                  title={video.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
-                />
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <h2 className="text-xl font-semibold">{video.title}</h2>
-              <p className="mt-1 text-sm text-muted">
-                {playlistTitle && `${playlistTitle} · `}
-                {video.day_index !== null && `Day ${video.day_index + 1}`}
-              </p>
-            </div>
-
-            <dl className="mt-6 grid grid-cols-1 gap-2 text-center">
-              <Stat label="Time" value={session.duration_seconds !== null ? formatDuration(session.duration_seconds) : "—"} />
-            </dl>
-          </>
-        )}
-
-        {!video && (
-          <p className="mt-6 text-sm text-muted">
-            Video details are no longer available.
-          </p>
-        )}
-      </main>
-    );
-  }
-
   const { data: exercises, error: exercisesError } = await supabase
     .from("session_exercises")
     .select("id, order_index, status, feel, planned_sets, planned_reps_min, planned_reps_max, metric, exercises!session_exercises_exercise_id_fkey(name), swapped_from_exercise_id")
@@ -154,6 +93,7 @@ export default async function SessionDetailPage({
     (session.program_days as unknown as { label: string } | null)?.label ?? null,
     session.actual_type,
   );
+  const minutes = session.duration_seconds ? Math.round(session.duration_seconds / 60) : null;
   const volume = (sets ?? []).reduce(
     (n, s) => n + (s.reps ?? 0) * Number(s.weight_kg ?? 0),
     0,
@@ -161,7 +101,7 @@ export default async function SessionDetailPage({
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
-      <Link href="/history" className="inline-flex items-center min-h-[44px] text-sm text-muted underline underline-offset-2">
+      <Link href="/history" className="text-sm text-muted underline underline-offset-2">
         ← History
       </Link>
 
@@ -173,7 +113,7 @@ export default async function SessionDetailPage({
       </p>
 
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">
-        <Stat label="Time" value={session.duration_seconds !== null ? formatDuration(session.duration_seconds) : "—"} />
+        <Stat label="Time" value={minutes !== null ? `${minutes}m` : "—"} />
         <Stat label="Sets" value={`${(sets ?? []).length}`} />
         <Stat label="Volume" value={volume > 0 ? `${Math.round(volume)}kg` : "—"} />
       </dl>

@@ -143,6 +143,7 @@ export function resolveRoutine(routine: Routine, patterns: Pattern[]): ResolvedR
 
 /** "About 5 min", for a routine card. Rounded, because the steps rarely land on a whole minute. */
 export function routineLength(seconds: number): string {
+  if (seconds === 0) return "0 min";
   const base = formatDuration(seconds);
   if (base === "Under a minute") return base;
   return `About ${base}`;
