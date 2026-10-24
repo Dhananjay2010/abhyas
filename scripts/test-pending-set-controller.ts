@@ -476,7 +476,9 @@ async function testThrownSessionExpiredInReplay() {
   const remaining = storage.getItem("pending-sets");
   const parsed = remaining ? JSON.parse(remaining) : {};
   assert(
-    parsed[sessionId] && parsed[sessionId].length === 1,
+    parsed[sessionId] && 
+    parsed[sessionId].sets && 
+    parsed[sessionId].sets.length === 1,
     "Pending set remains after thrown SESSION_EXPIRED in replay"
   );
 }
