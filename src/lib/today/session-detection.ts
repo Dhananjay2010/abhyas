@@ -14,6 +14,7 @@ export type OpenSessionForClose = {
   id: string;
   local_date: string;
   started_at: string | null;
+  actual_type?: string | null;
 };
 
 function isStrength(actualType: string | null): boolean {
@@ -61,7 +62,8 @@ export function prepareOpenSessions(
   return sessions.map(s => ({
     id: s.id,
     local_date: s.local_date,
-    started_at: s.started_at
+    started_at: s.started_at,
+    ...(s.actual_type !== undefined && { actual_type: s.actual_type })
   }));
 }
 
@@ -70,9 +72,15 @@ export function prepareOpenSessions(
  * Wraps prepareOpenSessions for testability.
  */
 export function todayCloseInput(
-  openRows: Array<{ id: string; local_date: string; started_at: string | null }> | null
-): OpenSessionForClose[] {
-  return prepareOpenSessions(openRows ?? []);
+  openRows: Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null }> | null
+): Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null }> {
+  if (!openRows) return [];
+  return openRows.map(row => ({
+    id: row.id,
+    local_date: row.local_date,
+    started_at: row.started_at,
+    actual_type: row.actual_type
+  }));
 }
 
 /**

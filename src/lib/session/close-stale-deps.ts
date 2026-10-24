@@ -12,13 +12,33 @@ export type SessionExerciseRow = {
   }> | null;
 };
 
+type UpdateOptions = { count?: "exact" | "estimated" | "planned" };
+type UpdateResult = { error: null; count: number | null } | { error: Error; count: null };
+type SelectResult<T> = { data: T[] | null; error: null } | { data: null; error: Error };
+
+export type CloseStaleClient = {
+  from(table: "sessions"): {
+    update(data: Record<string, unknown>, options?: UpdateOptions): {
+      eq(column: string, value: string): {
+        eq(column: string, value: string): UpdateResult;
+      };
+    };
+  };
+  from(table: "session_exercises"): {
+    select(columns: string): {
+      in(column: string, values: string[]): SelectResult<SessionExerciseRow>;
+    };
+  };
+};
+
 export type CloseStaleDeps = {
   fetchSessionExercises: (sessionIds: string[]) => Promise<SessionExerciseRow[]>;
   markSessionDone: (id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number) => Promise<boolean>;
   markPlannedSkipped: (id: string) => Promise<void>;
 };
 
-export function buildCloseStaleDeps(supabase: Client): CloseStaleDeps {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function buildCloseStaleDeps(supabase: any): CloseStaleDeps {
   return {
     fetchSessionExercises: async (sessionIds: string[]) => {
       const { data, error } = await supabase

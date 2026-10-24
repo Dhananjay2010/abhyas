@@ -13,22 +13,7 @@ type UpdateOptions = { count?: "exact" | "estimated" | "planned" };
 type UpdateResult = { error: null; count: number | null } | { error: Error; count: null };
 type SelectResult<T> = { data: T[] | null; error: null } | { data: null; error: Error };
 
-type CloseStaleClient = {
-  from(table: "sessions"): {
-    update(data: Record<string, unknown>, options?: UpdateOptions): {
-      eq(column: string, value: string): {
-        eq(column: string, value: string): UpdateResult;
-      };
-    };
-  };
-  from(table: "session_exercises"): {
-    select(columns: string): {
-      in(column: string, values: string[]): SelectResult<unknown>;
-    };
-  };
-};
-
-class FakeSupabaseClient implements CloseStaleClient {
+class FakeSupabaseClient {
   private sessions = new Map<string, { 
     id: string; 
     status: string; 
