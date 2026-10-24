@@ -249,6 +249,98 @@ export function estimateOneRepMax(weightKg: number, reps: number): number {
   return weightKg * (1 + reps / 30);
 }
 
+export type BestState = {
+  bestWeightKg: number | null;
+  bestReps: number | null;
+  bestE1rm: number | null;
+};
+
+export type BestResult = {
+  bestWeightKg: number | null;
+  bestReps: number | null;
+  bestE1rm: number | null;
+  personalBest: PersonalBest | null;
+};
+
+/**
+ * Update best tracking from a session's working sets.
+ *
+ * Pure: no I/O, exported for testing. Warm-up sets are
+ * excluded by the caller. Bests are tracked regardless of deload or progression
+ * outcome, per SPEC section 7 and Task M7.
+ */
+export function nextBest(
+  sets: LoggedSet[],
+  prior: BestState,
+  meta: Pick<ExerciseMeta, "metric">,
+): BestResult {
+  const isTimed = meta.metric === "seconds";
+  const valueOf = (set: LoggedSet) => (isTimed ? (set.durationSeconds ?? null) : set.reps);
+
+  const working = sets.filter((set) => {
+    const v = valueOf(set);
+    return v !== null && v > 0;
+  });
+
+  if (working.length === 0) {
+    return {
+      bestWeightKg: prior.bestWeightKg,
+      bestReps: prior.bestReps,
+      bestE1rm: prior.bestE1rm,
+      personalBest: null,
+    };
+  }
+
+  const heaviest = Math.max(...working.map((s) => s.weightKg ?? 0));
+  let bestWeightKg = prior.bestWeightKg;
+  let bestReps = prior.bestReps;
+  let bestE1rm = prior.bestE1rm;
+
+  for (const set of working) {
+    const w = set.weightKg ?? 0;
+    const v = valueOf(set) ?? 0;
+    if (bestWeightKg === null || w > bestWeightKg) bestWeightKg = w;
+    // For a hold this is the longest hold, not a rep count. Same column, same
+    // "best so far" meaning, read through `metric`.
+    if (bestReps === null || v > bestReps) bestReps = v;
+    // An estimated one-rep max from a hold length is nonsense -- Epley over
+    // seconds would make a 60 s weighted plank look like a triple bodyweight
+    // lift -- so timed work never contributes one. Bodyweight exercises (w=0)
+    // also cannot produce an e1RM.
+    if (w > 0 && !isTimed) {
+      const e1rm = estimateOneRepMax(w, v);
+      if (bestE1rm === null || e1rm > bestE1rm) bestE1rm = e1rm;
+    }
+  }
+
+  /*
+    What improved, if anything. Only one line is reported, because "heaviest set
+    yet" and "best estimated 1RM yet" are usually the same event described twice
+    and the summary should read like a person wrote it. Weight wins when both
+    moved; the e1rm is what catches the real case the weight misses -- more reps
+    at a weight already lifted.
+  */
+  let personalBest: PersonalBest | null = null;
+  const beat = (now: number | null, before: number | null) =>
+    now !== null && before !== null && now > before;
+
+  if (isTimed) {
+    if (beat(bestReps, prior.bestReps)) {
+      personalBest = { kind: "hold", value: bestReps! };
+    }
+  } else if (heaviest === 0) {
+    if (beat(bestReps, prior.bestReps)) {
+      personalBest = { kind: "reps", value: bestReps! };
+    }
+  } else if (beat(bestWeightKg, prior.bestWeightKg)) {
+    personalBest = { kind: "weight", value: bestWeightKg! };
+  } else if (beat(bestE1rm, prior.bestE1rm)) {
+    personalBest = { kind: "e1rm", value: bestE1rm! };
+  }
+
+  return { bestWeightKg, bestReps, bestE1rm, personalBest };
+}
+
 /**
  * Double progression.
  *
@@ -276,17 +368,6 @@ export function evaluateProgression(input: {
 }): Decision {
   const { sets, plannedSets, repsMax, feel, meta, state, isDeload, equipmentIds, unit } = input;
 
-  const base = {
-    nextWorkingWeightKg: state.currentWorkingWeightKg,
-    nextTargetReps: state.currentTargetReps ?? repsMax,
-    consecutiveFailures: state.consecutiveFailures,
-    wantsHarderVariation: false,
-    bestWeightKg: state.bestWeightKg,
-    bestReps: state.bestReps,
-    bestE1rm: state.bestE1rm,
-    personalBest: null as PersonalBest | null,
-  };
-
   const isTimed = meta.metric === "seconds";
   /** What this set is measured in: seconds held for a hold, reps otherwise. */
   const valueOf = (set: LoggedSet) => (isTimed ? (set.durationSeconds ?? null) : set.reps);
@@ -294,6 +375,19 @@ export function evaluateProgression(input: {
     const v = valueOf(set);
     return v !== null && v > 0;
   });
+
+  const bests = nextBest(sets, state, meta);
+
+  const base = {
+    nextWorkingWeightKg: state.currentWorkingWeightKg,
+    nextTargetReps: state.currentTargetReps ?? repsMax,
+    consecutiveFailures: state.consecutiveFailures,
+    wantsHarderVariation: false,
+    bestWeightKg: bests.bestWeightKg,
+    bestReps: bests.bestReps,
+    bestE1rm: bests.bestE1rm,
+    personalBest: bests.personalBest,
+  };
 
   // A deload week is deliberately not a test of progress.
   if (isDeload) {
@@ -333,54 +427,8 @@ export function evaluateProgression(input: {
     };
   }
 
-  // Track bests regardless of whether the session counted as a success.
   const heaviest = Math.max(...working.map((s) => s.weightKg ?? 0));
-  let bestWeightKg = state.bestWeightKg;
-  let bestReps = state.bestReps;
-  let bestE1rm = state.bestE1rm;
-
-  for (const set of working) {
-    const w = set.weightKg ?? 0;
-    const v = valueOf(set) ?? 0;
-    if (bestWeightKg === null || w > bestWeightKg) bestWeightKg = w;
-    // For a hold this is the longest hold, not a rep count. Same column, same
-    // "best so far" meaning, read through `metric`.
-    if (bestReps === null || v > bestReps) bestReps = v;
-    // An estimated one-rep max from a hold length is nonsense -- Epley over
-    // seconds would make a 60 s weighted plank look like a triple bodyweight
-    // lift -- so timed work never contributes one.
-    if (w > 0 && !isTimed) {
-      const e1rm = estimateOneRepMax(w, v);
-      if (bestE1rm === null || e1rm > bestE1rm) bestE1rm = e1rm;
-    }
-  }
-
-  /*
-    What improved, if anything. Only one line is reported, because "heaviest set
-    yet" and "best estimated 1RM yet" are usually the same event described twice
-    and the summary should read like a person wrote it. Weight wins when both
-    moved; the e1rm is what catches the real case the weight misses -- more reps
-    at a weight already lifted.
-  */
-  let personalBest: PersonalBest | null = null;
-  const beat = (now: number | null, before: number | null) =>
-    now !== null && before !== null && now > before;
-
-  if (isTimed) {
-    if (beat(bestReps, state.bestReps)) {
-      personalBest = { kind: "hold", value: bestReps! };
-    }
-  } else if (heaviest === 0) {
-    if (beat(bestReps, state.bestReps)) {
-      personalBest = { kind: "reps", value: bestReps! };
-    }
-  } else if (beat(bestWeightKg, state.bestWeightKg)) {
-    personalBest = { kind: "weight", value: bestWeightKg! };
-  } else if (beat(bestE1rm, state.bestE1rm)) {
-    personalBest = { kind: "e1rm", value: bestE1rm! };
-  }
-
-  const carried = { ...base, bestWeightKg, bestReps, bestE1rm, personalBest };
+  const carried = { ...base };
 
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
