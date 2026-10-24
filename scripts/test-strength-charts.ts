@@ -66,10 +66,11 @@ console.log("\nbuildStrengthChartsFromDescendingRows tests");
   const charts = buildStrengthChartsFromDescendingRows(rows, (d) => d, "metric", deloadDates);
   
   check("Deload: all 4 points present", charts[0].points.length === 4);
-  check("Deload: point 0 not marked", !charts[0].points[0].isDeload);
-  check("Deload: point 1 marked isDeload", charts[0].points[1].isDeload === true);
-  check("Deload: point 2 not marked", !charts[0].points[2].isDeload);
-  check("Deload: point 3 not marked", !charts[0].points[3].isDeload);
+  // After reversal: [01-01, 01-02, 01-03 (deload), 01-04]
+  check("Deload: point 0 (2024-01-01) not marked", !charts[0].points[0].isDeload);
+  check("Deload: point 1 (2024-01-02) not marked", !charts[0].points[1].isDeload);
+  check("Deload: point 2 (2024-01-03) marked isDeload", charts[0].points[2].isDeload === true);
+  check("Deload: point 3 (2024-01-04) not marked", !charts[0].points[3].isDeload);
 }
 
 // Test 4: Chronological ordering (oldest to newest)
