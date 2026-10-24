@@ -52,14 +52,17 @@ export function trainAnywayOptions(input: TrainAnywayInput): TrainAnywayDay[] {
   // Then offer the next 2 distinct upcoming training days
   const trainingDays = upcomingDays.filter((d) => isTrainingDay(d.day_type));
   
-  // Get the next 2 distinct training days (by day_index to avoid duplicates)
+  // Get the next 2 distinct training days (by day_index to avoid duplicates, and by label)
   const distinctTrainingDays: TrainAnywayDay[] = [];
   const seenIndices = new Set<number>();
+  const seenLabels = new Set<string>();
   
   for (const day of trainingDays) {
-    if (!seenIndices.has(day.day_index)) {
+    const normalizedLabel = (day.label ?? "Training").toLowerCase();
+    if (!seenIndices.has(day.day_index) && !seenLabels.has(normalizedLabel)) {
       distinctTrainingDays.push(day);
       seenIndices.add(day.day_index);
+      seenLabels.add(normalizedLabel);
     }
     if (distinctTrainingDays.length >= 2) break;
   }
