@@ -50,53 +50,88 @@ export default async function HistoryPage({
   const count = Number(countData ?? 0);
 
   // Build the query based on filter
-  // For strength sessions, fetch extra rows then filter zero-set client-side
-  // (proper SQL-level filtering would require complex joins that PostgREST doesn't handle well)
-  const fetchLimit = filter === "lifts" ? limit * 3 : limit; // Over-fetch for strength to account for zero-set filtering
-  
-  let query = supabase
-    .from("sessions")
-    .select(
-      `
-      id,
-      local_date,
-      status,
-      actual_type,
-      duration_seconds,
-      is_deload,
-      week_in_block,
-      started_at,
-      completed_at,
-      program_days(label),
-      breathing_patterns!sessions_breathing_pattern_id_fkey(name, phases),
-      breathing_logs(breaths, routine_name)
-    `
-    )
-    .eq("user_id", user.id)
-    .lte("local_date", today)
-    .neq("status", "skipped") // Exclude skipped sessions
-    .or(`status.eq.completed,and(status.eq.in_progress,local_date.eq.${today})`); // Include completed + in_progress today only
+  // For lifts, we need to join with session_volume to exclude zero-set sessions at SQL level
+  // For other filters, we can query sessions directly
+  let sessions: any[] | null = null;
+  let sessionsError: any = null;
 
-  // Apply filter
   if (filter === "lifts") {
-    query = query.in("actual_type", ["weights", "bodyweight"]);
-  } else if (filter === "yoga") {
-    query = query.eq("actual_type", "yoga");
-  } else if (filter === "breathing") {
-    query = query.eq("actual_type", "meditation");
+    // For strength: use session_volume which already excludes zero-set sessions
+    // Join back to sessions to get full data
+    const { data: volumeSessions, error } = await supabase
+      .from("session_volume")
+      .select(`
+        session_id,
+        sessions!inner(
+          id,
+          local_date,
+          status,
+          actual_type,
+          duration_seconds,
+          is_deload,
+          week_in_block,
+          started_at,
+          completed_at,
+          program_days(label),
+          breathing_patterns!sessions_breathing_pattern_id_fkey(name, phases),
+          breathing_logs(breaths, routine_name)
+        )
+      `)
+      .eq("user_id", user.id)
+      .lte("sessions.local_date", today)
+      .neq("sessions.status", "skipped")
+      .or(`sessions.status.eq.completed,and(sessions.status.eq.in_progress,sessions.local_date.eq.${today})`)
+      .order("sessions.local_date", { ascending: false, referencedTable: "sessions" })
+      .order("sessions.completed_at", { ascending: false, nullsFirst: false, referencedTable: "sessions" })
+      .order("sessions.started_at", { ascending: false, nullsFirst: false, referencedTable: "sessions" })
+      .order("sessions.id", { ascending: false, referencedTable: "sessions" })
+      .range(offset, offset + limit - 1);
+
+    sessionsError = error;
+    // Extract the nested sessions data
+    sessions = volumeSessions?.map((v: any) => v.sessions) ?? null;
+  } else {
+    // For yoga/breathing: query sessions directly (no zero-set filtering needed)
+    let query = supabase
+      .from("sessions")
+      .select(
+        `
+        id,
+        local_date,
+        status,
+        actual_type,
+        duration_seconds,
+        is_deload,
+        week_in_block,
+        started_at,
+        completed_at,
+        program_days(label),
+        breathing_patterns!sessions_breathing_pattern_id_fkey(name, phases),
+        breathing_logs(breaths, routine_name)
+      `
+      )
+      .eq("user_id", user.id)
+      .lte("local_date", today)
+      .neq("status", "skipped")
+      .or(`status.eq.completed,and(status.eq.in_progress,local_date.eq.${today})`);
+
+    if (filter === "yoga") {
+      query = query.eq("actual_type", "yoga");
+    } else if (filter === "breathing") {
+      query = query.eq("actual_type", "meditation");
+    }
+
+    query = query
+      .order("local_date", { ascending: false })
+      .order("completed_at", { ascending: false, nullsFirst: false })
+      .order("started_at", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    const result = await query;
+    sessions = result.data;
+    sessionsError = result.error;
   }
-
-  // Sort by local_date DESC (groups same-day sessions), then effective time
-  // (completed_at, falling back to started_at) DESC, then id DESC (tie-breaker)
-  // This ensures newest sessions appear first, with stable pagination
-  query = query
-    .order("local_date", { ascending: false })
-    .order("completed_at", { ascending: false, nullsFirst: false })
-    .order("started_at", { ascending: false, nullsFirst: false })
-    .order("id", { ascending: false })
-    .range(offset, offset + fetchLimit - 1);
-
-  const { data: sessions, error: sessionsError } = await query;
 
   if (sessionsError) {
     throw new Error(`Could not load your history: ${sessionsError.message}`);
@@ -172,7 +207,7 @@ export default async function HistoryPage({
   // Get exercise history helpers
   const { findTopSet } = await import("@/lib/exercise-history/calculations");
 
-  const allItems: SessionListItem[] = (sessions ?? [])
+  const items: SessionListItem[] = (sessions ?? [])
     .map((s) => {
       const vol = volumeById.get(s.id);
       const isBreathing = s.actual_type === "meditation";
@@ -246,18 +281,9 @@ export default async function HistoryPage({
           }
         : null,
     };
-  })
-  .filter((item) => {
-    // Exclude strength sessions with 0 working sets
-    const isStrength = item.actualType === "weights" || item.actualType === "bodyweight";
-    if (isStrength && item.setCount === 0) {
-      return false;
-    }
-    return true;
   });
-
-  // Slice to page size after filtering (we over-fetched to account for zero-set filtering)
-  const items = allItems.slice(0, limit);
+  // For lifts, filtering already happened at SQL level via session_volume join
+  // For yoga/breathing, no filtering needed (they don't have zero-set issues)
 
   return (
     <HistoryClient
