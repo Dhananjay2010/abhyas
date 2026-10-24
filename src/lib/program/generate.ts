@@ -344,14 +344,17 @@ function shouldExcludeForSafety(
 
 /**
  * QA Pass 10 H6: Exercises that are safe for knee injuries despite being quad-focused.
- * These use limited ROM or isometric holds that don't aggravate the knee.
- * Must be REAL prod slugs only.
+ * These use limited ROM, isometric holds, or controlled movements that don't aggravate the knee.
+ * Must be REAL prod slugs only. H6 test requires hasAllEquipment: true.
  */
 const KNEE_SAFE_QUAD_EXERCISES = new Set([
-  'leg-extensions',           // Partial ROM, controlled
-  'single-leg-leg-extension', // Controlled, no impact
-  'box-squat',                // Limited depth, box provides safety
-  'step-up-with-knee-raise',  // Controlled, user picks height
+  'leg-extensions',           // Partial ROM, controlled (requires leg_extension machine)
+  'single-leg-leg-extension', // Controlled, no impact (requires leg_extension machine)
+  'box-squat',                // Limited depth, box provides safety (requires barbell, squat_rack)
+  'step-up-with-knee-raise',  // Controlled, user picks height (bodyweight)
+  'dumbbell-step-ups',        // Controlled step-ups (requires dumbbell)
+  'hip-flexion-with-band',    // Quad isolation without knee stress (requires resistance_band)
+  'barbell-step-ups',         // Controlled step-ups (requires barbell)
 ]);
 
 /**
@@ -835,6 +838,77 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       pickedExercises.push({ ex: picked, slotIndex: i });
     });
     
+    // H6: After slot assignment, ensure Lower/Full days for knee-injured users have at least 1 quad exercise
+    if (hasKneeInjury && isLowerOrFullDay) {
+      const hasQuadWork = pickedExercises.some(p => p.ex.primary_muscles.includes("quads"));
+      if (!hasQuadWork) {
+        // Force-add a knee-safe quad exercise
+        const kneeSafeOptions = pool
+          .filter(e => {
+            if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+            if (!e.primary_muscles.includes("quads")) return false;
+            if (usedInBlock.has(e.id)) return false;
+            
+            // Basic eligibility (track, level, equipment)
+            if (!e.tracks.includes(input.primaryTrack)) return false;
+            if (e.level_min === "expert" && input.level === "beginner") return false;
+            if (e.level_min === "intermediate" && input.level === "beginner") return false;
+            
+            if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
+              const altSets = EQUIPMENT_ALTERNATIVES[e.slug];
+              if (altSets) {
+                const hasValidAlt = altSets.some(altSet => altSet.every(eid => input.equipmentIds.includes(eid)));
+                if (!hasValidAlt && !e.equipment_ids.every(eid => input.equipmentIds.includes(eid))) {
+                  return false;
+                }
+              } else if (!e.equipment_ids.every(eid => input.equipmentIds.includes(eid))) {
+                return false;
+              }
+            }
+            
+            return true;
+          })
+          .sort((a, b) => 
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
+        
+        if (kneeSafeOptions.length > 0) {
+          const added = kneeSafeOptions[0];
+          usedInBlock.add(added.id);
+          pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+        }
+      }
+    }
+    
+    // H8: After slot assignment, ensure bodyweight upper/full days have at least 1 pull for balance
+    const isBWPlan = input.primaryTrack === "bodyweight";
+    const isUpperOrFullDay = entry.focus === "upper" || entry.focus === "pull" || entry.focus === "push";
+    if (isBWPlan && isUpperOrFullDay) {
+      const hasPull = pickedExercises.some(p => 
+        p.ex.movement_pattern === "horizontal_pull" || p.ex.movement_pattern === "vertical_pull"
+      );
+      if (!hasPull) {
+        // Force-add a bodyweight pull exercise
+        const pullOptions = pool
+          .filter(e => {
+            if (e.movement_pattern !== "horizontal_pull" && e.movement_pattern !== "vertical_pull") return false;
+            if (usedInBlock.has(e.id)) return false;
+            return isEligible(e, input);
+          })
+          .sort((a, b) => 
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
+        
+        if (pullOptions.length > 0) {
+          const added = pullOptions[0];
+          usedInBlock.add(added.id);
+          pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+        }
+      }
+    }
+
     // For longer sessions, add extra accessories beyond the template.
     // These are always accessories (slot 4+), so use block-wide deduplication.
     if (maxExercises > entry.slots.length && pickedExercises.length >= entry.slots.length) {

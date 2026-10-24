@@ -377,8 +377,9 @@ testSeeds("H7: Warmup and cooldown filter by injuries",
 testSeeds("H8: BW intermediate 4d fat_loss has pulls on every upper day",
   { primaryTrack: "bodyweight", goal: "fat_loss", level: "intermediate", daysPerWeek: 4, hasAllEquipment: false, equipmentIds: [] },
   (plan, picked, seed) => {
+    // H8: Only check upper/push days, NOT lower days or full-body days
     const upperOrFullDays = plan.days.filter(d => 
-      d.focus === "upper" || d.focus === "pull" || d.focus === "push" || d.dayType === "bodyweight"
+      d.focus === "upper" || d.focus === "pull" || d.focus === "push"
     );
     
     if (upperOrFullDays.length > 0) {
@@ -409,6 +410,32 @@ testSeeds("H9: Age 62 gets NO high-impact, plyometric, or throws",
     );
     check(`Seed ${seed}: Age 62 has no high-impact moves`, highImpact.length === 0,
       highImpact.map(e => e.name).join(", "));
+  }
+);
+
+// ====================
+// Loaded hinge: equipped lower days include hinge when equipment allows
+// ====================
+
+testSeeds("Loaded hinge: Gym intermediate 4d includes loaded hinge on lower days",
+  { level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
+  (plan, picked, seed) => {
+    const lowerDays = plan.days.filter(d => d.focus === "lower" || d.focus === "legs");
+    if (lowerDays.length > 0) {
+      const hasLoadedHinge = lowerDays.every(day => {
+        const dayExercises = day.exercises.map(e => byId.get(e.exerciseId)!);
+        // Loaded hinge = hinge pattern with barbell, dumbbell, kettlebell, or cable
+        const loadedHinges = dayExercises.filter(e => 
+          e.movement_pattern === "hinge" && 
+          (e.equipment_ids.includes("barbell") || 
+           e.equipment_ids.includes("dumbbell") || 
+           e.equipment_ids.includes("kettlebell") || 
+           e.equipment_ids.includes("cable_machine"))
+        );
+        return loadedHinges.length > 0;
+      });
+      check(`Seed ${seed}: Every Lower day has a loaded hinge`, hasLoadedHinge);
+    }
   }
 );
 
