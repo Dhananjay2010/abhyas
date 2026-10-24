@@ -35,6 +35,7 @@ import {
 } from "@/lib/breathing/speech";
 import { openedFromApp, uuid } from "@/lib/breathing/client";
 import { PausableClock } from "@/lib/breathing/clock";
+import { createSaveOnce } from "@/lib/breathe/save-once";
 import {
   buildCycle,
   nextPhaseStart,
@@ -407,7 +408,6 @@ function Practice({
   const hasContext = useSyncExternalStore(noSubscribe, () => breathAudio() !== null, () => false);
 
   const [logId] = useState(() => uuid());
-  const saveInFlightRef = useRef(false);
   const [clock] = useState(() => new PausableClock());
   // "How do you feel right now?" belongs at the start of a routine, not before
   // every step of it -- the same reasoning as the settle-in above. A routine is
@@ -508,71 +508,61 @@ function Practice({
     [actions, logId],
   );
 
+  // Create a save-once wrapper around recordBreathingPractice
+  const guardedSave = useMemo(
+    () =>
+      createSaveOnce(
+        (o: Outcome) =>
+          actions.recordBreathingPractice({
+            logId,
+            patternId: pattern.kind === "mine" ? null : pattern.id,
+            userPatternId: pattern.userPatternId,
+            cycles: o.cycles,
+            plannedCycles: options.cycles,
+            breaths: o.breaths,
+            seconds: o.seconds,
+            endedEarly: o.endedEarly,
+            moodBefore,
+            guidance: soundOnRef.current ? modeRef.current : "off",
+            routineId: routine?.id ?? null,
+            routineStep: routine ? stepIndex + 1 : null,
+          })
+      ),
+    [actions, logId, pattern.kind, pattern.id, pattern.userPatternId, options.cycles, moodBefore, routine, stepIndex],
+  );
+
   const doSave = useCallback(
     (o: Outcome) => {
-      // In-flight guard: prevent concurrent saves (double-tap, wind-down auto-save + manual Finish)
-      if (saveInFlightRef.current) {
-        return;
-      }
-      saveInFlightRef.current = true;
-      
       setSave({ state: "saving" });
-      actions
-        .recordBreathingPractice({
-          logId,
-          // A practice of your own has no built-in behind it; a built-in you
-          // have retimed carries both, so history still groups it correctly.
-          patternId: pattern.kind === "mine" ? null : pattern.id,
-          userPatternId: pattern.userPatternId,
-          cycles: o.cycles,
-          plannedCycles: options.cycles,
-          breaths: o.breaths,
-          seconds: o.seconds,
-          endedEarly: o.endedEarly,
-          moodBefore,
-          guidance: soundOnRef.current ? modeRef.current : "off",
-          routineId: routine?.id ?? null,
-          routineStep: routine ? stepIndex + 1 : null,
-        })
-        .then(
-          (r) => {
-            saveInFlightRef.current = false;
-            if (!r.ok) {
-              setSave({ state: "error", error: r.error });
-              savedOkRef.current = false;
-              return;
-            }
-            setSave({ state: "saved" });
-            savedOkRef.current = true;
-            onSaved(o.seconds);
-            const m = pendingMood.current;
-            if (m !== null) {
-              pendingMood.current = null;
-              sendMood(m);
-            }
-          },
-          () => {
-            saveInFlightRef.current = false;
-            setSave({
-              state: "error",
-              error: "Could not reach the server. Check your connection and try again.",
-            });
+      guardedSave(o).then(
+        (r) => {
+          if (!r) {
+            // After success, guardedSave returns undefined (no-op)
+            return;
           }
-        );
+          if (!r.ok) {
+            setSave({ state: "error", error: r.error });
+            savedOkRef.current = false;
+            return;
+          }
+          setSave({ state: "saved" });
+          savedOkRef.current = true;
+          onSaved(o.seconds);
+          const m = pendingMood.current;
+          if (m !== null) {
+            pendingMood.current = null;
+            sendMood(m);
+          }
+        },
+        () => {
+          setSave({
+            state: "error",
+            error: "Could not reach the server. Check your connection and try again.",
+          });
+        }
+      );
     },
-    [
-      actions,
-      logId,
-      pattern.id,
-      pattern.kind,
-      pattern.userPatternId,
-      options.cycles,
-      moodBefore,
-      onSaved,
-      sendMood,
-      routine,
-      stepIndex,
-    ],
+    [guardedSave, onSaved, sendMood],
   );
   const doSaveRef = useRef(doSave);
   useEffect(() => {
