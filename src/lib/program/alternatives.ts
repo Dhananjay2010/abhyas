@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
+import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -26,25 +27,6 @@ const FALLBACK_PATTERNS: Partial<Record<MovementPattern, MovementPattern>> = {
 
 // Knee-safe lower-body patterns (hinge work, plus core holds like wall-sit)
 const KNEE_SAFE_LOWER_PATTERNS: MovementPattern[] = ["hinge", "core"];
-
-/**
- * Dangerous or problematic exercises excluded from swap suggestions.
- * Applied as a hard filter before ranking.
- */
-export const EXCLUDED_EXERCISE_SLUGS: ReadonlySet<string> = new Set([
-  // Behind-the-neck variants (dangerous shoulder position)
-  "standing-barbell-press-behind-neck",
-  "wide-grip-pulldown-behind-the-neck",
-  
-  // Wide-grip rear pull-up (behind-the-neck pull-up by standard description)
-  "wide-grip-rear-pull-up",
-  
-  // Barbell Guillotine Bench Press (high-risk, bar lowered to neck)
-  "barbell-guillotine-bench-press",
-  
-  // Neck Press (bar lowered to neck, similar risk to guillotine press)
-  "neck-press",
-]);
 
 /**
  * Build the list of patterns to query for alternatives.

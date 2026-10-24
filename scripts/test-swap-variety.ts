@@ -41,6 +41,8 @@ const EQUIPMENT_PROFILES: Record<string, Set<string> | null> = {
 const LEVELS: Level[] = ["beginner", "intermediate", "expert"];
 const INJURY_SCENARIOS: { label: string; regions: BodyRegion[] }[] = [
   { label: "none", regions: [] },
+  { label: "shoulder", regions: ["shoulder"] },
+  { label: "neck", regions: ["neck"] },
   { label: "knee", regions: ["knee"] },
   { label: "lower_back", regions: ["lower_back"] },
 ];

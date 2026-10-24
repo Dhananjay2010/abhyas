@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
+import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -408,6 +409,9 @@ const EQUIPMENT_ALTERNATIVES: Record<string, string[][]> = {
 };
 
 export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolean {
+  // Safety: exclude dangerous exercises (behind-the-neck variants, guillotine press, neck press)
+  if (EXCLUDED_EXERCISE_SLUGS.has(ex.slug)) return false;
+  
   // Track: a bodyweight-at-home user must never be shown gym-only work.
   if (input.primaryTrack === "bodyweight" && !ex.tracks.includes("bodyweight")) {
     return false;
