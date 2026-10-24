@@ -13,7 +13,22 @@ type UpdateOptions = { count?: "exact" | "estimated" | "planned" };
 type UpdateResult = { error: null; count: number | null } | { error: Error; count: null };
 type SelectResult<T> = { data: T[] | null; error: null } | { data: null; error: Error };
 
-class FakeSupabaseClient {
+type CloseStaleClient = {
+  from(table: "sessions"): {
+    update(data: Record<string, unknown>, options?: UpdateOptions): {
+      eq(column: string, value: string): {
+        eq(column: string, value: string): UpdateResult;
+      };
+    };
+  };
+  from(table: "session_exercises"): {
+    select(columns: string): {
+      in(column: string, values: string[]): SelectResult<unknown>;
+    };
+  };
+};
+
+class FakeSupabaseClient implements CloseStaleClient {
   private sessions = new Map<string, { 
     id: string; 
     status: string; 
@@ -84,8 +99,8 @@ class FakeSupabaseClient {
       };
     } else if (table === "session_exercises") {
       return {
-        select: (columns: string) => ({
-          in: (column: string, values: string[]): SelectResult<unknown> => {
+        select: (_columns: string) => ({
+          in: (_column: string, values: string[]): SelectResult<unknown> => {
             const result = values.flatMap(id => this.sessionExercises.get(id) ?? []);
             return { data: result, error: null };
           }
@@ -109,8 +124,7 @@ console.log("\n1. markSessionDone returns true when status guard matches");
   const fake = new FakeSupabaseClient();
   fake.setSession("sess1", "in_progress");
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deps = buildCloseStaleDeps(fake as any);
+  const deps = buildCloseStaleDeps(fake);
   const result = await deps.markSessionDone("sess1", "completed", "2026-10-24T10:00:00Z", 3600);
   
   check("updated in_progress session", result === true);
@@ -124,8 +138,7 @@ console.log("\n2. markSessionDone returns false when status guard blocks (race c
   const fake = new FakeSupabaseClient();
   fake.setSession("race", "completed");
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deps = buildCloseStaleDeps(fake as any);
+  const deps = buildCloseStaleDeps(fake);
   const result = await deps.markSessionDone("race", "completed", "2026-10-24T10:00:00Z", 3600);
   
   check("did not update completed session", result === false);
@@ -136,8 +149,7 @@ console.log("\n3. markSessionDone returns false for non-existent session");
 {
   const fake = new FakeSupabaseClient();
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deps = buildCloseStaleDeps(fake as any);
+  const deps = buildCloseStaleDeps(fake);
   const result = await deps.markSessionDone("missing", "completed", "2026-10-24T10:00:00Z", 3600);
   
   check("did not update missing session", result === false);
@@ -155,8 +167,7 @@ console.log("\n4. fetchSessionExercises calls correct table and columns");
     }
   ]);
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deps = buildCloseStaleDeps(fake as any);
+  const deps = buildCloseStaleDeps(fake);
   const result = await deps.fetchSessionExercises(["sess1"]);
   
   check("fetched session exercises", result.length === 1);
@@ -170,8 +181,7 @@ console.log("\n5. markPlannedSkipped only affects planned sessions");
   fake.setSession("planned1", "planned");
   fake.setSession("in_progress1", "in_progress");
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deps = buildCloseStaleDeps(fake as any);
+  const deps = buildCloseStaleDeps(fake);
   await deps.markPlannedSkipped("planned1");
   
   check("planned session becomes skipped", fake.getSession("planned1")?.status === "skipped");
