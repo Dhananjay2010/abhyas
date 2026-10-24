@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * Test suite for Today screen missed-day detection.
+ * Test suite for Today screen missed-day detection and prompt decision.
  *
  * Tests the guards and logic that determine whether yesterday was "missed":
  * 1. started_on guard: dates before or on program start are never missed (signup day itself)
@@ -10,9 +10,12 @@
  * 5. Real template data from the generator
  * 6. Only choices for THIS program settle missed days
  * 7. Signup day itself never counts as missed
+ * 8. Prompt decision function ensures mutual exclusivity
+ * 9. First-day scenarios (training day, rest day, Sunday)
  */
 
 import { isMissedTrainingDay } from "../src/lib/today/missed-day";
+import { decideTodayPrompt } from "../src/lib/today/prompt-state";
 import { isoWeekday } from "../src/lib/dates";
 import type { Database } from "../src/lib/database.types";
 
@@ -248,6 +251,173 @@ assert(
     sessions: [],
   }),
   "Rebuilt block: training day after new block's started_on CAN be missed"
+);
+
+console.log("\n=== Test 9: Prompt decision function (mutual exclusivity) ===\n");
+
+// Test: missed takes priority over rest_plan
+assert(
+  decideTodayPrompt({
+    missedYesterday: true,
+    dayType: "rest",
+    hasStartedSession: true,
+    answeredToday: false,
+    strengthDone: false,
+    strengthOpen: false,
+  }) === "missed",
+  "Missed yesterday takes priority over rest day"
+);
+
+// Test: rest_plan shows on rest day when not missed
+assert(
+  decideTodayPrompt({
+    missedYesterday: false,
+    dayType: "rest",
+    hasStartedSession: true,
+    answeredToday: false,
+    strengthDone: false,
+    strengthOpen: false,
+  }) === "rest_plan",
+  "Rest day shows rest_plan when not missed"
+);
+
+// Test: no prompt when session is done
+assert(
+  decideTodayPrompt({
+    missedYesterday: true,
+    dayType: "rest",
+    hasStartedSession: true,
+    answeredToday: false,
+    strengthDone: true,
+    strengthOpen: false,
+  }) === "none",
+  "No prompt when session is done"
+);
+
+// Test: no prompt when session is open
+assert(
+  decideTodayPrompt({
+    missedYesterday: true,
+    dayType: "rest",
+    hasStartedSession: true,
+    answeredToday: false,
+    strengthDone: false,
+    strengthOpen: true,
+  }) === "none",
+  "No prompt when session is open"
+);
+
+// Test: first day with missed yesterday shows no missed prompt
+assert(
+  decideTodayPrompt({
+    missedYesterday: true,
+    dayType: "weights",
+    hasStartedSession: false,
+    answeredToday: false,
+    strengthDone: false,
+    strengthOpen: false,
+  }) === "none",
+  "First day (never started) with missed yesterday shows no prompt"
+);
+
+// Test: first day on rest day shows rest_plan
+assert(
+  decideTodayPrompt({
+    missedYesterday: false,
+    dayType: "rest",
+    hasStartedSession: false,
+    answeredToday: false,
+    strengthDone: false,
+    strengthOpen: false,
+  }) === "rest_plan",
+  "First day on rest day shows rest_plan"
+);
+
+// Test: training day with no issues shows no prompt
+assert(
+  decideTodayPrompt({
+    missedYesterday: false,
+    dayType: "weights",
+    hasStartedSession: true,
+    answeredToday: false,
+    strengthDone: false,
+    strengthOpen: false,
+  }) === "none",
+  "Training day with no issues shows no prompt"
+);
+
+// Test: answered today hides missed prompt
+assert(
+  decideTodayPrompt({
+    missedYesterday: true,
+    dayType: "weights",
+    hasStartedSession: true,
+    answeredToday: true,
+    strengthDone: false,
+    strengthOpen: false,
+  }) === "none",
+  "Answered today hides missed prompt"
+);
+
+console.log("\n=== Test 10: First-day scenarios ===\n");
+
+// Test: Signup on training day (Monday)
+// hasStartedSession = false, dayType = "weights"
+// Should be able to start session, no missed prompt
+assert(
+  decideTodayPrompt({
+    missedYesterday: false,
+    dayType: "weights",
+    hasStartedSession: false,
+    answeredToday: false,
+    strengthDone: false,
+    strengthOpen: false,
+  }) === "none",
+  "Signup on training day (Monday): no prompt, can start session"
+);
+
+// Test: Signup on rest day (Saturday)
+// hasStartedSession = false, dayType = "rest"
+// Should show rest_plan with "Your first session is <Weekday>"
+assert(
+  decideTodayPrompt({
+    missedYesterday: false,
+    dayType: "rest",
+    hasStartedSession: false,
+    answeredToday: false,
+    strengthDone: false,
+    strengthOpen: false,
+  }) === "rest_plan",
+  "Signup on rest day (Saturday): shows rest_plan with next training day"
+);
+
+// Test: Signup on Sunday (rest day)
+// hasStartedSession = false, dayType = "rest"
+// Should show rest_plan with "Your first session is Monday"
+assert(
+  decideTodayPrompt({
+    missedYesterday: false,
+    dayType: "rest",
+    hasStartedSession: false,
+    answeredToday: false,
+    strengthDone: false,
+    strengthOpen: false,
+  }) === "rest_plan",
+  "Signup on Sunday: shows rest_plan with next training day"
+);
+
+// Test: Day 1 on training day, yesterday was rest (should not show missed)
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-26", // Sun (yesterday, rest day in 3-day plan)
+    programStartedOn: "2026-10-27", // Mon (signup on training day)
+    onboardingCompletedAt: "2026-10-27T10:00:00Z",
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: "rest",
+    sessions: [],
+  }),
+  "Day 1 on training day: yesterday (before signup) is NOT missed"
 );
 
 console.log("\n==================================================");

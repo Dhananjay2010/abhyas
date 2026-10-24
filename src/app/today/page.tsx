@@ -18,6 +18,7 @@ import { isMissedTrainingDay } from "@/lib/today/missed-day";
 import { WelcomeCard } from "@/components/welcome-card";
 import { shouldShowWelcome } from "@/lib/today/welcome";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import { decideTodayPrompt } from "@/lib/today/prompt-state";
 
 export const dynamic = "force-dynamic";
 
@@ -380,6 +381,34 @@ export default async function TodayPage() {
       .then((res) => (res.count ?? 0) > 0),
   ]);
 
+  // Update the prompt decision with hasStartedSession
+  const finalPromptType = decideTodayPrompt({
+    missedYesterday,
+    dayType,
+    hasStartedSession,
+    answeredToday,
+    strengthDone,
+    strengthOpen: !!strengthOpen,
+  });
+
+  // For first-day rest day: find the next training day
+  let nextTrainingDay: { dayName: string; dayIndex: number } | null = null;
+  if (!hasStartedSession && dayType === "rest") {
+    // Find the next training day starting from today
+    for (let offset = 0; offset < 7; offset++) {
+      const checkDate = addDays(localToday, offset);
+      const checkIndex = isoWeekday(checkDate);
+      const checkDay = days?.find((d) => d.day_index === checkIndex);
+      if (checkDay && ownsPlannedWorkout(checkDay.day_type)) {
+        nextTrainingDay = {
+          dayName: DAY_NAMES[checkIndex - 1],
+          dayIndex: checkIndex,
+        };
+        break;
+      }
+    }
+  }
+
   /*
     One shape for the list, whichever source it came from, so the markup below
     does not have to know. An override to rest, yoga or breathing has no program
@@ -556,8 +585,8 @@ export default async function TodayPage() {
         />
       )}
 
-      {/* Missed-yesterday prompt (shown when missed and not yet answered) */}
-      {missedYesterday && !answeredToday && !strengthDone && !strengthOpen && (
+      {/* Missed-yesterday prompt */}
+      {finalPromptType === "missed" && (
         <DayPlanPrompt
           localDate={localToday}
           dayLabel="Today"
@@ -571,40 +600,63 @@ export default async function TodayPage() {
         />
       )}
 
-      {dayType === "rest" && !strengthDone && !strengthOpen && !missedYesterday && (
+      {/* Rest day content */}
+      {finalPromptType === "rest_plan" && (
         <>
-          <p className="mt-6 text-muted">
-            Rest is part of the training. Your body builds strength while recovering.
-          </p>
-          <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
-            <h3 className="font-semibold">Active recovery</h3>
-            <p className="mt-1 text-sm text-muted">
-              Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
-            </p>
-            <div className="mt-4 flex gap-3">
-              <Link
-                href="/yoga"
-                className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-              >
-                Yoga
-              </Link>
-              <Link
-                href="/breathe"
-                className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-              >
-                Breathe
-              </Link>
+          {!hasStartedSession && nextTrainingDay ? (
+            // First day on a rest day: show next training day
+            <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
+              <h3 className="font-semibold">Your first session is {nextTrainingDay.dayName}</h3>
+              <p className="mt-2 text-sm text-muted">
+                Today is a rest day in your block. You can wait until {nextTrainingDay.dayName}, or start one now.
+              </p>
+              <DayPlanPrompt
+                localDate={localToday}
+                dayLabel="Today"
+                plannedLabel="Rest"
+                days={plannable}
+                heading="Start one now"
+                intro="Pick what you'd like to do."
+                isRestDay={true}
+              />
             </div>
-          </div>
-          <DayPlanPrompt
-            localDate={localToday}
-            dayLabel="Today"
-            plannedLabel="Rest"
-            days={plannable}
-            heading="Or train today anyway"
-            intro="Pick what you'd like to do instead."
-            isRestDay={true}
-          />
+          ) : (
+            // Normal rest day
+            <>
+              <p className="mt-6 text-muted">
+                Rest is part of the training. Your body builds strength while recovering.
+              </p>
+              <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
+                <h3 className="font-semibold">Active recovery</h3>
+                <p className="mt-1 text-sm text-muted">
+                  Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
+                </p>
+                <div className="mt-4 flex gap-3">
+                  <Link
+                    href="/yoga"
+                    className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                  >
+                    Yoga
+                  </Link>
+                  <Link
+                    href="/breathe"
+                    className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                  >
+                    Breathe
+                  </Link>
+                </div>
+              </div>
+              <DayPlanPrompt
+                localDate={localToday}
+                dayLabel="Today"
+                plannedLabel="Rest"
+                days={plannable}
+                heading="Or train today anyway"
+                intro="Pick what you'd like to do instead."
+                isRestDay={true}
+              />
+            </>
+          )}
         </>
       )}
 
