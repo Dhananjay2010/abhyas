@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { performAccountDeletion } from "./deletion-logic";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
@@ -13,6 +14,9 @@ export type Result = { ok: true } | { ok: false; error: string };
  * to the testable deletion logic.
  */
 export async function deleteAccount(): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("expensive");
+  if (rateLimit) return rateLimit;
+
   const { supabase, user } = await getAuthedClient();
   
   return performAccountDeletion({
