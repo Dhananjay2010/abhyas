@@ -128,6 +128,7 @@
     "test:error-fallback-unknown-state": "tsx scripts/test-error-fallback-unknown-state.ts",
     "test:session-length": "tsx scripts/test-session-length.ts",
     "test:in-progress-session": "tsx scripts/test-in-progress-session.ts",
+    "test:in-progress-settles-missed": "tsx scripts/test-in-progress-settles-missed.ts",
     "test:in-progress-bar": "tsx scripts/test-in-progress-bar.ts",
     "test:units": "tsx scripts/test-units.ts",
     "test:history-units": "tsx scripts/test-history-units.ts",

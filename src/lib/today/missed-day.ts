@@ -114,7 +114,19 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     return false;
   }
 
-  // 2. A Rest/Yoga/Breathing choice (planned or in_progress) for this program
+  // 2. An in_progress strength or bodyweight session in this program settles the day
+  //    (ownership decision from #32: this rule now lives here, not in the page)
+  const hasInProgressWorkout = sessions.some(
+    (s) =>
+      s.program_id === programId &&
+      s.status === "in_progress" &&
+      (s.actual_type === "weights" || s.actual_type === "bodyweight")
+  );
+  if (hasInProgressWorkout) {
+    return false;
+  }
+
+  // 3. A Rest/Yoga/Breathing choice (planned or in_progress) for this program
   //    Anytime breathing (program_id null) does NOT settle a missed strength day.
   //    Note: completed yoga/breathing are handled above via countsTowardStreak.
   const hasPlannedChoice = sessions.some(
