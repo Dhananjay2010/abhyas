@@ -34,11 +34,9 @@ import {
   SessionExpiredPrompt,
 } from "@/lib/session/session-expired-shim";
 import {
-  logSetWithRetry,
-  replayPendingSets,
-  loadPendingSets,
-  type PendingSet,
-} from "@/lib/session/pending-set-retry";
+  createPendingSetController,
+  type PendingSetState,
+} from "@/lib/session/pending-set-controller";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -153,18 +151,23 @@ export function SessionRunner({
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
-  const [pendingSets, setPendingSets] = useState<PendingSet[]>(() => {
-    if (typeof window === "undefined") return [];
-    const storage = window.localStorage;
-    return loadPendingSets(storage, sessionId);
+  const [pendingSetState, setPendingSetState] = useState<PendingSetState>({
+    pending: [],
+    expired: false,
+    retrying: false,
+    error: null,
   });
-  const [sessionExpired, setSessionExpired] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const storage = window.localStorage;
-    return loadPendingSets(storage, sessionId).length > 0;
-  });
-  const [retrying, setRetrying] = useState(false);
-  const replayAttemptedRef = useRef(false);
+
+  const controllerRef = useRef<ReturnType<typeof createPendingSetController> | null>(null);
+
+  if (!controllerRef.current && typeof window !== "undefined") {
+    controllerRef.current = createPendingSetController({
+      storage: window.localStorage,
+      logSet: actions.logSet,
+      sessionId,
+      onChange: setPendingSetState,
+    });
+  }
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -214,78 +217,27 @@ export function SessionRunner({
 
   // ---- pending set replay -----------------------------------------------
   useEffect(() => {
-    const storage = typeof window !== "undefined" ? window.localStorage : null;
-    if (!storage || pendingSets.length === 0 || replayAttemptedRef.current) return;
+    const controller = controllerRef.current;
+    if (!controller) return;
 
-    replayAttemptedRef.current = true;
+    function handleFocus() {
+      controller.onFocus();
+    }
 
-    async function attemptReplay() {
-      if (pendingSets.length === 0 || !storage) return;
-
-      setRetrying(true);
-      setError(null);
-
-      const result = await replayPendingSets(actions.logSet, storage, sessionId);
-
-      setRetrying(false);
-
-      if (result.ok) {
-        setPendingSets([]);
-        setSessionExpired(false);
-        
-        const remaining = loadPendingSets(storage, sessionId);
-        setPendingSets(remaining);
-        
-        if (remaining.length === 0) {
-          const allPending = pendingSets;
-          setExercises((prev) => {
-            let updated = prev;
-            for (const set of allPending) {
-              updated = updated.map((e) =>
-                e.id === set.sessionExerciseId
-                  ? {
-                      ...e,
-                      sets: [
-                        ...e.sets.filter((s) => s.setNumber !== set.setNumber),
-                        {
-                          setNumber: set.setNumber,
-                          reps: set.reps,
-                          weightKg: set.weightKg,
-                          durationSeconds: set.durationSeconds,
-                        },
-                      ].sort((a, b) => a.setNumber - b.setNumber),
-                    }
-                  : e
-              );
-            }
-            return updated;
-          });
-        }
-      } else {
-        setError(result.error);
-        const remaining = loadPendingSets(storage, sessionId);
-        setPendingSets(remaining);
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        controller.onFocus();
       }
     }
 
-    attemptReplay();
-  }, [pendingSets, sessionId, actions.logSet, setExercises]);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
-  useEffect(() => {
-    function onFocus() {
-      const storage = typeof window !== "undefined" ? window.localStorage : null;
-      if (!storage) return;
-
-      const loaded = loadPendingSets(storage, sessionId);
-      if (loaded.length > 0 && pendingSets.length === 0 && !replayAttemptedRef.current) {
-        setPendingSets(loaded);
-        setSessionExpired(true);
-      }
-    }
-
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [sessionId, pendingSets]);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
 
   // ---- rest timer -------------------------------------------------------
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
@@ -685,35 +637,28 @@ export function SessionRunner({
     busyRef.current = true;
     setBusy(true);
 
-    const storage = typeof window !== "undefined" ? window.localStorage : null;
-    if (!storage) {
+    const controller = controllerRef.current;
+    if (!controller) {
       busyRef.current = false;
       setBusy(false);
-      setError("Storage not available");
+      setError("Controller not initialized");
       return;
     }
 
     const clientId = `${current.id}:${nextSetNumber}:${Date.now()}`;
 
     try {
-      const result = await logSetWithRetry(
-        actions.logSet,
-        storage,
-        sessionId,
-        {
-          sessionExerciseId: current.id,
-          setNumber: nextSetNumber,
-          reps,
-          weightKg,
-          durationSeconds,
-        },
-        clientId
-      );
+      const result = await controller.submit({
+        sessionExerciseId: current.id,
+        setNumber: nextSetNumber,
+        reps,
+        weightKg,
+        durationSeconds,
+        clientId,
+      });
 
-      if (result.ok && result.saved) {
+      if (result.status === "saved") {
         setError(null);
-        setSessionExpired(false);
-        replayAttemptedRef.current = false;
         setExercises((prev) =>
           prev.map((e) =>
             e.id === current.id
@@ -727,12 +672,9 @@ export function SessionRunner({
         if (settings.restAutostart && nextSetNumber < current.plannedSets) {
           startRest(restSeconds);
         }
-      } else if (result.ok && result.sessionExpired) {
-        setSessionExpired(true);
-        const loaded = loadPendingSets(storage, sessionId);
-        setPendingSets(loaded);
+      } else if (result.status === "expired") {
         setError(null);
-      } else if (!result.ok) {
+      } else if (result.status === "failed") {
         setError(result.error);
       }
     } catch (err) {
@@ -822,68 +764,27 @@ export function SessionRunner({
       error={error}
     >
       <div onPointerDown={onAnyTap}>
-        {sessionExpired && pendingSets.length > 0 && (
+        {pendingSetState.expired && pendingSetState.pending.length > 0 && (
           <div className="mb-5">
             <SessionExpiredPrompt href={signInAgainHref(`/session/${sessionId}`)} />
             <p className="mt-2 text-sm text-muted">
-              {pendingSets.length} {pendingSets.length === 1 ? "set" : "sets"} waiting to save
+              {pendingSetState.pending.length}{" "}
+              {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
             </p>
-            {!retrying && (
+            {!pendingSetState.retrying && controllerRef.current && (
               <div className="mt-3">
                 <button
-                  onClick={async () => {
-                    const storage = typeof window !== "undefined" ? window.localStorage : null;
-                    if (!storage || pendingSets.length === 0) return;
-
-                    setRetrying(true);
-                    setError(null);
-
-                    const result = await replayPendingSets(
-                      actions.logSet,
-                      storage,
-                      sessionId
-                    );
-
-                    setRetrying(false);
-
-                    if (result.ok) {
-                      setPendingSets([]);
-                      setSessionExpired(false);
-                      replayAttemptedRef.current = false;
-                      
-                      const allPending = pendingSets;
-                      setExercises((prev) => {
-                        let updated = prev;
-                        for (const set of allPending) {
-                          updated = updated.map((e) =>
-                            e.id === set.sessionExerciseId
-                              ? {
-                                  ...e,
-                                  sets: [
-                                    ...e.sets.filter((s) => s.setNumber !== set.setNumber),
-                                    {
-                                      setNumber: set.setNumber,
-                                      reps: set.reps,
-                                      weightKg: set.weightKg,
-                                      durationSeconds: set.durationSeconds,
-                                    },
-                                  ].sort((a, b) => a.setNumber - b.setNumber),
-                                }
-                              : e
-                          );
-                        }
-                        return updated;
-                      });
-                    } else {
-                      setError(result.error);
-                      const remaining = loadPendingSets(storage, sessionId);
-                      setPendingSets(remaining);
-                    }
+                  onClick={() => {
+                    controllerRef.current?.replay();
                   }}
-                  disabled={retrying}
+                  disabled={pendingSetState.retrying}
                   className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
-                  {retrying ? "Retrying..." : `Retry saving ${pendingSets.length} ${pendingSets.length === 1 ? "set" : "sets"}`}
+                  {pendingSetState.retrying
+                    ? "Retrying..."
+                    : `Retry saving ${pendingSetState.pending.length} ${
+                        pendingSetState.pending.length === 1 ? "set" : "sets"
+                      }`}
                 </button>
               </div>
             )}
