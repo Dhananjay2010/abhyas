@@ -757,6 +757,68 @@ async function runTests() {
         `session_count: ${progressData.session_count}`);
     }
 
+    // Test change 6: completed strength session with 0 sets appears in History
+    {
+      console.log("\n7. Zero-set completed session appears in History (change 6)");
+
+      // First, capture the current total_count before adding the zero-set session
+      const { data: beforeData } = await supabaseA.rpc("get_history_page", {
+        p_user: userIdA,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 100,
+        p_offset: 0,
+      });
+      const beforeRows = beforeData as HistoryPageRow[];
+      const countBeforeZeroSet = beforeRows[0]?.total_count ?? 0;
+
+      // Create a completed weights session with 0 working sets (use recent date to appear in first page)
+      const zeroSetSessionId = randomUUID();
+      const { error: insertError } = await adminClient.from("sessions").insert({
+        id: zeroSetSessionId,
+        user_id: userIdA,
+        local_date: "2026-10-20",
+        status: "completed",
+        actual_type: "weights",
+        duration_seconds: 1800,
+        started_at: "2026-10-20T10:00:00Z",
+        completed_at: "2026-10-20T10:30:00Z",
+      });
+
+      if (insertError) {
+        console.error("Failed to insert zero-set session:", insertError);
+        check("Zero-set session insert", false);
+      } else {
+        // Verify it appears in get_history_page for lifts filter
+        const { data: historyData, error: historyError } = await supabaseA.rpc("get_history_page", {
+          p_user: userIdA,
+          p_filter: "lifts",
+          p_today: "2026-10-24",
+          p_limit: 100,
+          p_offset: 0,
+        });
+
+        if (historyError) {
+          console.error("get_history_page error:", historyError);
+          check("get_history_page succeeds", false);
+        } else {
+          const historyRows = historyData as HistoryPageRow[];
+          const sessionIds = historyRows.map((r) => r.session_id).filter((id): id is string => id !== null);
+          const includesZeroSet = sessionIds.includes(zeroSetSessionId);
+          
+          check("Zero-set completed session appears in History",
+            includesZeroSet,
+            `session found: ${includesZeroSet}`);
+
+          // Verify total_count includes it (should be 1 more than before)
+          const totalCount = historyRows[0]?.total_count ?? 0;
+          check("total_count includes zero-set session",
+            totalCount > countBeforeZeroSet,
+            `before: ${countBeforeZeroSet}, after: ${totalCount}`);
+        }
+      }
+    }
+
     if (failures > 0) {
       console.log(`\n❌ ${failures} FAILURES\n`);
       return false;
