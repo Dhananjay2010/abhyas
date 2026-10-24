@@ -122,12 +122,13 @@ export default async function HistoryPage({
   const { findTopSet } = await import("@/lib/exercise-history/calculations");
 
   // Detect which sessions had PRs at the time
-  const newestCompletedAt = sessions?.[0]?.completed_at ?? null;
+  // Pass the OLDEST session's completed_at so we fetch full prior history
+  const oldestCompletedAt = sessions?.[sessions.length - 1]?.completed_at ?? null;
   const sessionsWithPRs = await detectSessionPRs(
     supabase,
     user.id,
     sessionIds,
-    newestCompletedAt
+    oldestCompletedAt
   );
 
   const items: SessionListItem[] = (sessions ?? []).map((s) => {

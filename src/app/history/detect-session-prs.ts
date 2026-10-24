@@ -2,31 +2,31 @@
  * Detect which sessions had PRs at the time they were completed.
  * 
  * This runs in-memory PR detection for a page of History rows by:
- * 1. Fetching all relevant sets up to the newest session on the page
- * 2. Grouping sets by session and exercise, ordered chronologically
- * 3. Using detectSetPRs from src/lib/exercise-history to flag sessions with PRs
+ * 1. Querying sessions table first (ordered DESC by completed_at on sessions, not embedded)
+ * 2. Fetching all sets for those sessions (ordered ASC by set.completed_at for chronological PR detection)
+ * 3. Grouping sets by exercise and detecting PRs using detectSetPRs from src/lib/exercise-history
  * 
- * ## Trade-offs & Performance
+ * ## Query Strategy
  * 
- * **Query bound**: Limited to 5000 sets (via .limit(5000)) to keep response times predictable.
- * This covers approximately:
- * - 200 sessions with 25 sets each (heavy strength training)
- * - 500 sessions with 10 sets each (typical training)
+ * **Two-step approach**:
+ * 1. Get up to 600 completed sessions before/including the oldest session on current page
+ * 2. Fetch all sets for those sessions (no hard limit - we need complete data)
  * 
- * **Why this bound**: A user with 1000+ sessions would need to fetch tens of thousands of sets
- * to accurately detect every PR. The 5000-set cap means very old sessions may not show PR badges
- * if the user has extensive history, but:
- * - Recent sessions (within ~200-500 sessions) will be accurate
- * - Most users check recent history, not sessions from years ago
- * - Page load stays fast (single query, in-memory grouping)
+ * **Why 600 sessions**: Provides sufficient prior history for accurate PR detection on the current
+ * page while keeping queries fast. A typical user completes 2-4 sessions/week = ~150 sessions/year,
+ * so 600 sessions covers 3-4 years of history.
+ * 
+ * **Critical fixes**:
+ * - Orders sessions by completed_at on sessions table (not embedded), avoiding PostgREST bug
+ * - Orders sets by completed_at ASC on session_sets table for chronological PR detection
+ * - Fetches sessions <= oldest on page (not newest), ensuring current page has full prior context
+ * 
+ * **Performance**: Measured with 500+ session user (see PR description for actual timings).
  * 
  * **Alternative approaches** (not implemented):
  * 1. Pre-compute PR flags when sessions complete (requires DB migration)
  * 2. Dedicated API endpoint with caching (more infrastructure)
  * 3. Progressive loading (shows placeholder, then PR badges after)
- * 
- * The current approach balances accuracy, performance, and simplicity without requiring
- * database schema changes.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -55,26 +55,53 @@ interface SetRow {
 /**
  * Detect which sessions on the current page had PRs.
  * 
+ * Strategy:
+ * 1. Query sessions first (ordered by completed_at DESC on sessions table)
+ * 2. Get all session IDs needed for full prior history
+ * 3. Fetch sets for those sessions, ordered by set.completed_at ASC (chronological)
+ * 4. Group and detect PRs
+ * 
  * @param supabase - Authenticated client
  * @param userId - User ID
  * @param sessionIds - Session IDs to check (the current page)
- * @param newestCompletedAt - completed_at of the newest session on the page
+ * @param oldestCompletedAt - completed_at of the OLDEST session on the page
  * @returns Set of session IDs that had at least one PR
  */
 export async function detectSessionPRs(
   supabase: TypedSupabase,
   userId: string,
   sessionIds: string[],
-  newestCompletedAt: string | null
+  oldestCompletedAt: string | null
 ): Promise<Set<string>> {
-  if (sessionIds.length === 0 || !newestCompletedAt) {
+  if (sessionIds.length === 0 || !oldestCompletedAt) {
     return new Set();
   }
 
-  // Fetch all completed sets up to the newest session on the page
-  // Bound to a reasonable window: all sets from sessions completed <= newestCompletedAt
-  // Limited to ~5000 sets (covers ~200 sessions with 25 sets each, or 500 sessions with 10 sets each)
-  const { data: allSets, error } = await supabase
+  // Step 1: Get all completed sessions up to and including the oldest on the current page
+  // Order by completed_at DESC on the sessions table (not embedded), limit to reasonable window
+  const { data: historicalSessions, error: sessionsError } = await supabase
+    .from("sessions")
+    .select("id, completed_at")
+    .eq("user_id", userId)
+    .eq("status", "completed")
+    .not("completed_at", "is", null)
+    .lte("completed_at", oldestCompletedAt)
+    .order("completed_at", { ascending: false })
+    .limit(600); // Cover ~600 sessions (enough prior history for PR context)
+
+  if (sessionsError || !historicalSessions) {
+    console.error("Failed to fetch sessions for PR detection:", sessionsError);
+    return new Set();
+  }
+
+  const historicalSessionIds = historicalSessions.map((s) => s.id);
+  if (historicalSessionIds.length === 0) {
+    return new Set();
+  }
+
+  // Step 2: Fetch all sets for these sessions
+  // Order by completed_at ASC on session_sets table (chronological for PR detection)
+  const { data: allSets, error: setsError } = await supabase
     .from("session_sets")
     .select(
       `
@@ -87,23 +114,18 @@ export async function detectSessionPRs(
       session_exercises!inner(
         session_id,
         exercise_id,
-        metric,
-        sessions!inner(
-          completed_at
-        )
+        metric
       )
     `
     )
+    .in("session_exercises.session_id", historicalSessionIds)
     .eq("session_exercises.user_id", userId)
     .eq("session_exercises.status", "completed")
-    .eq("session_exercises.sessions.status", "completed")
-    .lte("session_exercises.sessions.completed_at", newestCompletedAt)
     .eq("is_warmup_set", false)
-    .order("completed_at", { ascending: true })
-    .limit(5000);
+    .order("completed_at", { ascending: true });
 
-  if (error || !allSets) {
-    console.error("Failed to fetch sets for PR detection:", error);
+  if (setsError || !allSets) {
+    console.error("Failed to fetch sets for PR detection:", setsError);
     return new Set();
   }
 
