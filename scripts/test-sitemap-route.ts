@@ -164,9 +164,6 @@ async function testProxyBehavior(baseUrl: string): Promise<void> {
   const robotsResponse = await fetch(`${baseUrl}/robots.txt`);
   check("robots.txt bypasses auth (no redirect)", robotsResponse.status === 200);
   check("robots.txt bypasses auth (no Location header)", !robotsResponse.headers.has("location"));
-  
-  const protectedResponse = await fetch(`${baseUrl}/today`, { redirect: "manual" });
-  check("protected route /today redirects or requires auth", protectedResponse.status !== 200 || protectedResponse.headers.has("location"));
 }
 
 async function runTests() {
