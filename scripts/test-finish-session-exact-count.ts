@@ -83,7 +83,6 @@ async function runTests() {
     const result = await finishSessionCore(
       deps,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
-      null
     );
 
     assertEquals(result.ok, true, "First call succeeds");
@@ -99,7 +98,6 @@ async function runTests() {
     const result = await finishSessionCore(
       deps,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
-      null
     );
 
     assertEquals(result.ok, true, "Second call succeeds idempotently");
@@ -155,8 +153,8 @@ async function runTests() {
     };
 
     const [result1, result2] = await Promise.all([
-      finishSessionCore(deps1, { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }, null),
-      finishSessionCore(deps1, { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }, null),
+      finishSessionCore(deps1, { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }),
+      finishSessionCore(deps1, { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }),
     ]);
 
     assertEquals(result1.ok, true, "First concurrent call succeeds");

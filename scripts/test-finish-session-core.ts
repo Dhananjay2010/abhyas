@@ -45,24 +45,24 @@ function makeFakeFinishSessionDeps(
   return {
     calls,
     async loadSession() {
-      if (readError) return { data: null, error: { message: readError } };
+      if (readError) return { data: null, error: readError };
       return { data: sessionMetadata, error: null };
     },
     async loadExercises() {
-      if (readError) return { data: null, error: { message: readError } };
+      if (readError) return { data: null, error: readError };
       return { data: exercises, error: null };
     },
     async updateSession(_id: string, _patch: any) {
       calls.push({ method: "update", filters: { status: "in_progress" } });
-      if (updateError) return { error: { message: updateError }, updatedCount: 0 };
+      if (updateError) return { error: updateError, updatedCount: 0 };
       return { error: null, updatedCount: updateCount ?? 1 };
     },
     async loadSessionStatus() {
-      if (readError) return { data: null, error: { message: readError } };
+      if (readError) return { data: null, error: readError };
       return { data: { status: "in_progress" as const }, error: null };
     },
     async loadExercisesForUpdate() {
-      if (readError) return { data: null, error: { message: readError } };
+      if (readError) return { data: null, error: readError };
       return { data: exercisesForUpdate, error: null };
     },
     async updateExerciseStatus() {
@@ -82,16 +82,16 @@ function makeFakeAbandonSessionDeps(
   return {
     calls,
     async loadExercises() {
-      if (readError) return { data: null, error: { message: readError } };
+      if (readError) return { data: null, error: readError };
       return { data: exercises, error: null };
     },
     async updateSession() {
       calls.push({ method: "update", filters: { status: "in_progress" } });
-      if (updateError) return { error: { message: updateError } };
+      if (updateError) return { error: updateError };
       return { error: null };
     },
     async loadExercisesForUpdate() {
-      if (readError) return { data: null, error: { message: readError } };
+      if (readError) return { data: null, error: readError };
       return { data: exercisesForUpdate, error: null };
     },
     async updateExerciseStatus() {

@@ -8,6 +8,7 @@
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
+import type { Database } from "../src/lib/database.types";
 import type { AbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 
 let passed = 0;
@@ -28,14 +29,13 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
 type SessionRow = {
   started_at: string;
   local_date: string;
-  timezone: string;
 };
 
 type ExerciseRow = {
   id: string;
   planned_sets: number;
-  status: string;
-  session_sets: Array<{ id: string; is_warmup_set: boolean; completed_at?: string | null }> | null;
+  status: Database["public"]["Enums"]["exercise_status"];
+  session_sets: Array<{ id: string; is_warmup_set: boolean; completed_at: string | null }> | null;
 };
 
 function makeFakeFinishSessionDeps(
@@ -56,7 +56,7 @@ function makeFakeFinishSessionDeps(
       })), error: null };
     },
     async updateSession() {
-      return { error: updateError ? { message: updateError } : null, updatedCount: updateError ? 0 : 1 };
+      return { error: updateError || null, updatedCount: updateError ? 0 : 1 };
     },
     async loadSessionStatus() {
       return { data: { status: "in_progress" as const }, error: null };
@@ -102,13 +102,12 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
     };
     const exercises = [
       {
         id: "ex1",
         planned_sets: 3,
-        status: "pending",
+        status: "pending" as const,
         session_sets: [
           { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
           { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
@@ -121,7 +120,7 @@ async function runTests() {
     await finishSessionCore(
       fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
-      null,
+      
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -134,13 +133,12 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
     };
     const exercises = [
       {
         id: "ex2",
         planned_sets: 4,
-        status: "pending",
+        status: "pending" as const,
         session_sets: [
           { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
           { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
@@ -152,7 +150,7 @@ async function runTests() {
     await finishSessionCore(
       fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
-      null,
+      
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -164,13 +162,12 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
     };
     const exercises = [
       {
         id: "ex3",
         planned_sets: 3,
-        status: "pending",
+        status: "pending" as const,
         session_sets: [],
       },
     ];
@@ -179,7 +176,7 @@ async function runTests() {
     await finishSessionCore(
       fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
-      null,
+      
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -192,11 +189,11 @@ async function runTests() {
       {
         id: "ex4",
         planned_sets: 5,
-        status: "pending",
+        status: "pending" as const,
         session_sets: [
-          { id: "s1", is_warmup_set: false },
-          { id: "s2", is_warmup_set: false },
-          { id: "s3", is_warmup_set: false },
+          { id: "s1", is_warmup_set: false, completed_at: null },
+          { id: "s2", is_warmup_set: false, completed_at: null },
+          { id: "s3", is_warmup_set: false, completed_at: null },
         ],
       },
     ];
@@ -206,7 +203,7 @@ async function runTests() {
       fake,
       "s1",
       1200,
-      null,
+      
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -218,13 +215,12 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
     };
     const exercises = [
       {
         id: "ex5a",
         planned_sets: 3,
-        status: "pending",
+        status: "pending" as const,
         session_sets: [
           { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
           { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
@@ -234,7 +230,7 @@ async function runTests() {
       {
         id: "ex5b",
         planned_sets: 4,
-        status: "pending",
+        status: "pending" as const,
         session_sets: [
           { id: "s4", is_warmup_set: false, completed_at: new Date().toISOString() },
         ],
@@ -242,7 +238,7 @@ async function runTests() {
       {
         id: "ex5c",
         planned_sets: 3,
-        status: "pending",
+        status: "pending" as const,
         session_sets: [],
       },
     ];
@@ -251,7 +247,7 @@ async function runTests() {
     await finishSessionCore(
       fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
-      null,
+      
     );
 
     assertEquals(fake.exerciseUpdates.length, 3, "Three exercises updated");
@@ -265,13 +261,12 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
-      timezone: "UTC",
     };
     const exercises = [
       {
         id: "ex6",
         planned_sets: 3,
-        status: "completed",
+        status: "completed" as const,
         session_sets: [
           { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
           { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
@@ -284,7 +279,7 @@ async function runTests() {
     await finishSessionCore(
       fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
-      null,
+      
     );
 
     assertEquals(fake.exerciseUpdates.length, 0, "No updates for already-completed exercises");
