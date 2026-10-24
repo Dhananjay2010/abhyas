@@ -11,6 +11,7 @@
     "generate-icons": "node scripts/generate-icons.js",
     "test:generator": "tsx scripts/test-generator.ts",
     "test:alternatives": "tsx scripts/test-alternatives.ts",
+    "test:swap-variety": "tsx scripts/test-swap-variety.ts",
     "test:qa-pass-10": "tsx scripts/test-qa-pass-10.ts",
     "test:qa-pass-11": "tsx scripts/test-qa-pass-11.ts",
     "test:revert-53-regression": "tsx scripts/test-revert-53-regression.ts",
