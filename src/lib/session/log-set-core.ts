@@ -2,6 +2,8 @@ import { decideSetWrite } from "./decide-set-write";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../database.types";
 
+export type LogSetClient = Pick<SupabaseClient<Database>, "from">;
+
 export type LogSetInput = {
   sessionExerciseId: string;
   setNumber: number;
@@ -33,7 +35,7 @@ export type LogSetResult =
  * - Never calls upsert
  */
 export async function logSetCore(
-  supabase: SupabaseClient<Database>,
+  supabase: LogSetClient,
   userId: string,
   input: LogSetInput,
 ): Promise<LogSetResult> {
