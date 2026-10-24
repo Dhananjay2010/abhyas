@@ -11,7 +11,6 @@
 import { isUuid } from "../src/lib/ids";
 import { 
   checkSessionRoute, 
-  checkHistoryRoute, 
   checkBreatheRoute,
   guardSessionRoute,
   guardHistoryRoute,
@@ -261,15 +260,15 @@ async function runTests() {
       const dir = path.dirname(layoutPath);
       const segments = dir.split(path.sep).filter(Boolean);
       
-      // Check each ancestor directory (excluding src/app itself)
-      for (let i = 2; i < segments.length; i++) {
+      // Check each ancestor directory (excluding the layout's own directory and src/app)
+      for (let i = 2; i < segments.length - 1; i++) {
         const ancestorPath = segments.slice(0, i + 1).join(path.sep);
         const loadingPath = path.join(ancestorPath, "loading.tsx");
         
         try {
           await fs.access(loadingPath);
           check(
-            `No loading.tsx in ancestor of ${layoutPath}`,
+            `No ancestor loading.tsx for ${layoutPath}`,
             false,
             `found ${loadingPath} which would wrap the layout`,
           );
@@ -278,7 +277,7 @@ async function runTests() {
         }
       }
       
-      check(`No loading.tsx wraps ${layoutPath}`, true);
+      check(`No ancestor loading.tsx wraps ${layoutPath}`, true);
     }
   }
 
