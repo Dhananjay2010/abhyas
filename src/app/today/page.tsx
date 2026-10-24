@@ -445,7 +445,7 @@ export default async function TodayPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
+    <main className="mx-auto w-full max-w-md px-6 py-10 pb-36">
       <header>
         <p className="text-sm text-muted">
           {DAY_NAMES[todayIndex - 1]} · Block {program.block_number} · Week {week} of 4
