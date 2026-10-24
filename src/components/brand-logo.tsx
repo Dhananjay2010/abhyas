@@ -12,9 +12,10 @@ export function BrandLogo({ className }: { className?: string }) {
       <Image
         src={branding.logo}
         alt={branding.name}
-        width={32}
-        height={32}
+        width={48}
+        height={48}
         className={className}
+        style={{ objectFit: "contain" }}
       />
     );
   }

@@ -16,6 +16,8 @@ import {
 } from "@/lib/onboarding/options";
 import { ErrorNote, OptionCard } from "@/components/ui";
 import { BuildPlanButton } from "@/app/today/build-plan-button";
+import { branding } from "@/lib/branding";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import {
   updateEquipment,
   updateInjuries,
@@ -23,6 +25,7 @@ import {
   updateSessionSettings,
   type Result,
 } from "./actions";
+import { decideClientEquipmentUpdate } from "./equipment-logic";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -60,6 +63,7 @@ export type SettingsState = {
   restVibrate: boolean;
   restOverrideSeconds: number | null;
   bodyweightPrompt: "daily" | "weekly" | "never";
+  timezone: string | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -82,6 +86,18 @@ export function SettingsForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
+  /** Track initial equipment to detect real changes */
+  const [initialEquipment] = useState({
+    hasAll: initial.hasAllEquipment,
+    ids: initial.equipmentIds,
+  });
+  /** Track saved equipment for rollback on error */
+  const [savedEquipment, setSavedEquipment] = useState({
+    hasAll: initial.hasAllEquipment,
+    ids: initial.equipmentIds,
+  });
+  /** Equipment hint shown when user tries an unsaveable state */
+  const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
 
@@ -96,6 +112,36 @@ export function SettingsForm({
       // own response — refreshing on top of that fetched this five-query screen
       // a second time, on every single toggle.
     });
+  }
+
+  /** Save equipment with rollback on error */
+  function saveEquipment(hasAll: boolean, equipmentIds: string[]) {
+    const changed = equipmentChanged(hasAll, equipmentIds);
+    startTransition(async () => {
+      const r = await actions.updateEquipment({ hasAll, equipmentIds });
+      if (!r.ok) {
+        // Rollback to last saved state
+        setS({ ...s, hasAllEquipment: savedEquipment.hasAll, equipmentIds: savedEquipment.ids });
+        setEquipmentHint(null);
+        return setError(r.error);
+      }
+      // Success: update saved state
+      setSavedEquipment({ hasAll, ids: equipmentIds });
+      setEquipmentHint(null);
+      setError(null);
+      if (changed) setPlanStale(true);
+    });
+  }
+
+  /** Check if equipment actually changed from initial state */
+  function equipmentChanged(hasAll: boolean, equipmentIds: string[]): boolean {
+    if (hasAll !== initialEquipment.hasAll) return true;
+    const sortedInitial = [...initialEquipment.ids].sort();
+    const sortedNew = [...equipmentIds].sort();
+    return (
+      sortedInitial.length !== sortedNew.length ||
+      sortedInitial.some((id, i) => id !== sortedNew[i])
+    );
   }
 
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
@@ -203,12 +249,22 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            const nextHasAll = !s.hasAllEquipment;
-            setS({ ...s, hasAllEquipment: nextHasAll });
-            save(
-              () => actions.updateEquipment({ hasAll: nextHasAll, equipmentIds: s.equipmentIds }),
-              true,
-            );
+            const decision = decideClientEquipmentUpdate({
+              currentHasAll: s.hasAllEquipment,
+              currentEquipmentIds: s.equipmentIds,
+              action: "toggle",
+            });
+            
+            if (!decision.allow) {
+              // Don't save, just show picker with hint
+              setS({ ...s, hasAllEquipment: false });
+              setEquipmentHint(decision.hint);
+              return;
+            }
+            
+            // Allow the toggle and save
+            setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
+            saveEquipment(decision.newHasAll, decision.newEquipmentIds);
           }}
           aria-pressed={s.hasAllEquipment}
           className={`w-full rounded-xl border px-5 py-3 text-left text-sm font-semibold ${
@@ -222,6 +278,9 @@ export function SettingsForm({
 
         {!s.hasAllEquipment && (
           <div className="mt-5">
+            {equipmentHint && (
+              <p className="mb-4 text-sm text-muted">{equipmentHint}</p>
+            )}
             {Object.entries(
               equipment.reduce<Record<string, EquipmentRow[]>>((acc, e) => {
                 (acc[e.category] ??= []).push(e);
@@ -240,14 +299,22 @@ export function SettingsForm({
                         key={e.id}
                         aria-pressed={on}
                         onClick={() => {
-                          const next = on
-                            ? s.equipmentIds.filter((x) => x !== e.id)
-                            : [...s.equipmentIds, e.id];
-                          setS({ ...s, hasAllEquipment: false, equipmentIds: next });
-                          save(
-                            () => actions.updateEquipment({ hasAll: false, equipmentIds: next }),
-                            true,
-                          );
+                          const decision = decideClientEquipmentUpdate({
+                            currentHasAll: s.hasAllEquipment,
+                            currentEquipmentIds: s.equipmentIds,
+                            action: "chip-click",
+                            chipId: e.id,
+                          });
+                          
+                          if (!decision.allow) {
+                            // Don't save, show hint
+                            setEquipmentHint(decision.hint);
+                            return;
+                          }
+                          
+                          // Allow the change and save
+                          setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
+                          saveEquipment(decision.newHasAll, decision.newEquipmentIds);
                         }}
                         className={`rounded-full border px-4 py-2 text-sm ${
                           on
@@ -478,10 +545,42 @@ export function SettingsForm({
         </p>
       </Section>
 
+      {/* ---------------- timezone ---------------- */}
+      <Section 
+        title="Timezone" 
+        note="Your local time for day boundaries and workout scheduling."
+      >
+        <Field 
+          label="Your timezone" 
+          hint={`Currently using: ${resolveTimezoneWithProfile(s.timezone)}`}
+        >
+          <select
+            value={s.timezone ?? ""}
+            onChange={(e) => {
+              const v = e.target.value === "" ? null : e.target.value;
+              setS({ ...s, timezone: v });
+              save(() => actions.updateProfileSettings({ timezone: v }));
+            }}
+            className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm disabled:opacity-60"
+            disabled={pending}
+          >
+            <option value="">
+              Use gym default
+              {branding.timezone ? ` (${branding.timezone})` : " (browser detected)"}
+            </option>
+            {Intl.supportedValuesOf("timeZone").map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </Section>
+
       <Section title="Not built yet">
         <p className="text-sm text-muted">
           Light theme and imperial units are in the plan but not implemented, so
-          there is nothing to switch here yet. Abhyas is dark, kilograms and
+          there is nothing to switch here yet. {branding.name} is dark, kilograms and
           centimetres for now.
         </p>
       </Section>

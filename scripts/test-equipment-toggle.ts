@@ -1,78 +1,207 @@
+#!/usr/bin/env tsx
 /**
- * Tests for equipment toggle logic in Settings.
- * The "I have access to everything" button must toggle on/off correctly.
+ * Tests for equipment toggle decision logic.
+ * 
+ * Tests the pure helper that decides whether to write, skip, or error when
+ * updating equipment settings, ensuring:
+ * - Toggle ON preserves equipment rows (server keeps them)
+ * - Toggle OFF with saved picks restores them
+ * - Empty list with hasAll false is rejected
+ * - No change means no writes and no stale flag
  */
+
+import { decideEquipmentUpdate } from "../src/app/settings/equipment-logic";
 
 let failures = 0;
 
-function testToggle(
-  currentHasAll: boolean,
-  currentEquipmentIds: string[],
-  expectedHasAll: boolean,
-  expectedEquipmentIds: string[],
-  description: string
+function testDecision(
+  description: string,
+  input: {
+    currentHasAll: boolean;
+    currentEquipmentIds: string[];
+    newHasAll: boolean;
+    newEquipmentIds: string[];
+  },
+  expected: { action: "write"; changed: boolean } | { action: "skip" } | { action: "error"; error: string }
 ) {
-  // Simulate the toggle logic
-  const nextHasAll = !currentHasAll;
-  const nextEquipmentIds = currentEquipmentIds;
-
-  if (nextHasAll !== expectedHasAll) {
-    console.error(`❌ ${description} - hasAll mismatch`);
-    console.error(`   expected hasAll: ${expectedHasAll}`);
-    console.error(`   actual hasAll:   ${nextHasAll}`);
+  const actual = decideEquipmentUpdate(input);
+  
+  if (actual.action !== expected.action) {
+    console.error(`❌ ${description} - action mismatch`);
+    console.error(`   expected: ${expected.action}`);
+    console.error(`   actual:   ${actual.action}`);
     failures++;
     return;
   }
-
-  if (JSON.stringify(nextEquipmentIds) !== JSON.stringify(expectedEquipmentIds)) {
-    console.error(`❌ ${description} - equipmentIds mismatch`);
-    console.error(`   expected equipmentIds: ${JSON.stringify(expectedEquipmentIds)}`);
-    console.error(`   actual equipmentIds:   ${JSON.stringify(nextEquipmentIds)}`);
-    failures++;
-    return;
+  
+  if (actual.action === "error" && expected.action === "error") {
+    if (actual.error !== expected.error) {
+      console.error(`❌ ${description} - error message mismatch`);
+      console.error(`   expected: "${expected.error}"`);
+      console.error(`   actual:   "${actual.error}"`);
+      failures++;
+      return;
+    }
   }
-
+  
+  if (actual.action === "write" && expected.action === "write") {
+    if (actual.changed !== expected.changed) {
+      console.error(`❌ ${description} - changed flag mismatch`);
+      console.error(`   expected: ${expected.changed}`);
+      console.error(`   actual:   ${actual.changed}`);
+      failures++;
+      return;
+    }
+  }
+  
   console.log(`✓ ${description}`);
 }
 
-console.log("Testing equipment toggle logic...\n");
+console.log("Testing equipment update decision logic...\n");
 
-// Toggle from false to true
-testToggle(
-  false,
-  ["barbell", "dumbbell"],
-  true,
-  ["barbell", "dumbbell"],
-  "Toggle ON preserves selected equipment"
+// Toggle ON - keeps rows, marks as changed
+testDecision(
+  "Toggle ON with existing equipment - keeps rows, marks changed",
+  {
+    currentHasAll: false,
+    currentEquipmentIds: ["barbell", "dumbbell"],
+    newHasAll: true,
+    newEquipmentIds: ["barbell", "dumbbell"],
+  },
+  { action: "write", changed: true }
 );
 
-// Toggle from true to false
-testToggle(
-  true,
-  ["barbell", "dumbbell"],
-  false,
-  ["barbell", "dumbbell"],
-  "Toggle OFF preserves selected equipment"
+// Toggle OFF with saved picks - restores them
+testDecision(
+  "Toggle OFF restores saved equipment - marks changed",
+  {
+    currentHasAll: true,
+    currentEquipmentIds: ["barbell", "dumbbell"],
+    newHasAll: false,
+    newEquipmentIds: ["barbell", "dumbbell"],
+  },
+  { action: "write", changed: true }
 );
 
-// Toggle from false to true with no equipment
-testToggle(false, [], true, [], "Toggle ON with no equipment selected");
-
-// Toggle from true to false with no equipment
-testToggle(true, [], false, [], "Toggle OFF with no equipment selected");
-
-// Rapid toggle sequence
-let hasAll = false;
-
-for (let i = 0; i < 4; i++) {
-  hasAll = !hasAll;
-  const expected = i % 2 === 0;
-  if (hasAll !== expected) {
-    console.error(`❌ Rapid toggle sequence failed at iteration ${i}`);
-    failures++;
+// Empty list with hasAll false - rejected
+testDecision(
+  "Empty list with hasAll false - rejected with error",
+  {
+    currentHasAll: false,
+    currentEquipmentIds: ["barbell"],
+    newHasAll: false,
+    newEquipmentIds: [],
+  },
+  { 
+    action: "error", 
+    error: 'Pick at least one item, or turn on "I have access to everything".' 
   }
-}
-console.log(`✓ Rapid toggle sequence (4 toggles)`);
+);
+
+testDecision(
+  "Toggle OFF with empty list - rejected with error",
+  {
+    currentHasAll: true,
+    currentEquipmentIds: [],
+    newHasAll: false,
+    newEquipmentIds: [],
+  },
+  { 
+    action: "error", 
+    error: 'Pick at least one item, or turn on "I have access to everything".' 
+  }
+);
+
+// No change - skip
+testDecision(
+  "No change with hasAll true - skip",
+  {
+    currentHasAll: true,
+    currentEquipmentIds: ["barbell", "dumbbell"],
+    newHasAll: true,
+    newEquipmentIds: ["barbell", "dumbbell"],
+  },
+  { action: "skip" }
+);
+
+testDecision(
+  "No change with hasAll false - skip",
+  {
+    currentHasAll: false,
+    currentEquipmentIds: ["barbell", "dumbbell"],
+    newHasAll: false,
+    newEquipmentIds: ["barbell", "dumbbell"],
+  },
+  { action: "skip" }
+);
+
+testDecision(
+  "Same equipment, different order - skip (no change)",
+  {
+    currentHasAll: false,
+    currentEquipmentIds: ["barbell", "dumbbell", "kettlebell"],
+    newHasAll: false,
+    newEquipmentIds: ["kettlebell", "barbell", "dumbbell"],
+  },
+  { action: "skip" }
+);
+
+// Equipment changes
+testDecision(
+  "Adding equipment - marks changed",
+  {
+    currentHasAll: false,
+    currentEquipmentIds: ["barbell"],
+    newHasAll: false,
+    newEquipmentIds: ["barbell", "dumbbell"],
+  },
+  { action: "write", changed: true }
+);
+
+testDecision(
+  "Removing equipment - marks changed",
+  {
+    currentHasAll: false,
+    currentEquipmentIds: ["barbell", "dumbbell"],
+    newHasAll: false,
+    newEquipmentIds: ["barbell"],
+  },
+  { action: "write", changed: true }
+);
+
+testDecision(
+  "Replacing equipment - marks changed",
+  {
+    currentHasAll: false,
+    currentEquipmentIds: ["barbell", "dumbbell"],
+    newHasAll: false,
+    newEquipmentIds: ["kettlebell", "pullupbar"],
+  },
+  { action: "write", changed: true }
+);
+
+// Edge cases
+testDecision(
+  "Toggle ON with empty equipment - marks changed",
+  {
+    currentHasAll: false,
+    currentEquipmentIds: [],
+    newHasAll: true,
+    newEquipmentIds: [],
+  },
+  { action: "write", changed: true }
+);
+
+testDecision(
+  "Repeatedly toggling ON - skip if already on",
+  {
+    currentHasAll: true,
+    currentEquipmentIds: ["barbell"],
+    newHasAll: true,
+    newEquipmentIds: ["barbell"],
+  },
+  { action: "skip" }
+);
 
 console.log(
   `\n${failures === 0 ? "✓" : "✗"} ${failures === 0 ? "All tests passed" : `${failures} test(s) failed`}`

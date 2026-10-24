@@ -47,6 +47,7 @@ export default async function SettingsPage() {
     restVibrate: st?.rest_timer_vibrate ?? true,
     restOverrideSeconds: st?.rest_seconds_override ?? null,
     bodyweightPrompt: st?.bodyweight_prompt ?? "weekly",
+    timezone: profile.timezone,
   };
 
   const { supportEmail } = getSiteInfo();

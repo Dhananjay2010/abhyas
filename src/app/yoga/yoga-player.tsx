@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { stripSeriesSuffix, groupVideosByWeek } from "@/lib/yoga-display";
 import { markYogaVideoDone } from "./actions";
 import { YouTubeEmbed } from "@/components/youtube-embed";
+import { branding } from "@/lib/branding";
 
 export type YogaVideo = {
   id: string;
@@ -252,7 +253,7 @@ export function YogaPlayer({
         >
           Yoga with Adriene
         </a>
-        , played from YouTube. Abhyas does not host or modify it.
+        , played from YouTube. {branding.name} does not host or modify it.
       </p>
     </div>
   );

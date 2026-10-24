@@ -85,6 +85,7 @@ export default function GlobalError({
             font-family: ui-monospace, monospace;
             font-size: 0.75rem;
             color: ${branding.colors.muted};
+            opacity: 0.7;
           }
           button {
             margin-top: 1.5rem;
@@ -98,7 +99,7 @@ export default function GlobalError({
             transition: opacity 0.2s;
           }
           button:hover {
-            opacity: 0.9;
+            background: ${branding.colors.accentHover};
           }
         `}</style>
       </head>
