@@ -23,12 +23,9 @@ async function executeRepointDecision(
   userId: string,
   programId: string,
   rebuildOf: { id: string; started_on: string } | null,
-  timezone: string,
 ): Promise<void> {
   // This is the actual code path from persist.ts
   if (rebuildOf) {
-    const localToday = "2026-10-24"; // Fixed for test
-    
     // Simulate the repoint call - we just need to verify it happens
     await client.from("sessions").update({ program_id: programId }).eq("user_id", userId);
   }
@@ -45,7 +42,7 @@ async function runTests() {
 
     // Test 1: First build (rebuildOf = null) - no repoint
     const client1 = createRecordingFakeClient(seedData);
-    await executeRepointDecision(client1 as never, "user1", "prog1", null, "America/New_York");
+    await executeRepointDecision(client1 as never, "user1", "prog1", null);
     
     const firstBuildWrites = client1.writes.filter(w => w.table === "sessions");
     check("first build: NO session writes", firstBuildWrites.length === 0);
@@ -56,8 +53,7 @@ async function runTests() {
       client2 as never,
       "user1",
       "prog2",
-      { id: "old-prog", started_on: "2026-10-01" },
-      "America/New_York"
+      { id: "old-prog", started_on: "2026-10-01" }
     );
     
     const rebuildWrites = client2.writes.filter(w => w.table === "sessions");
@@ -81,8 +77,7 @@ async function runTests() {
         client as never,
         "user1",
         "prog1",
-        tc.rebuildOf as never,
-        "UTC"
+        tc.rebuildOf as never
       );
       
       const writes = client.writes.filter(w => w.table === "sessions");

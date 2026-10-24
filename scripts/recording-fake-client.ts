@@ -51,7 +51,8 @@ export function createRecordingFakeClient(seedData: SeedData) {
     };
 
     const chain: QueryChain = {
-      select: (columns: string) => createQueryChain(table, filters),
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      select: (_columns: string) => createQueryChain(table, filters),
       eq: (column: string, value: unknown) =>
         createQueryChain(table, { ...filters, [column]: value }),
       in: (column: string, values: unknown[]) =>
@@ -60,9 +61,11 @@ export function createRecordingFakeClient(seedData: SeedData) {
         createQueryChain(table, { ...filters, [`${column}__is`]: value }),
       gte: (column: string, value: unknown) =>
         createQueryChain(table, { ...filters, [`${column}__gte`]: value }),
-      order: (column: string, opts?: { ascending?: boolean }) =>
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      order: (_column: string, _opts?: { ascending?: boolean }) =>
         createQueryChain(table, filters),
-      limit: (count: number) => createQueryChain(table, filters),
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      limit: (_count: number) => createQueryChain(table, filters),
       single: async () => {
         const rows = seedData[table] || [];
         return { data: rows[0] || null, error: null };
@@ -124,7 +127,8 @@ export function createRecordingFakeClient(seedData: SeedData) {
     };
 
     const chain: InsertChain = {
-      select: (columns: string) => chain,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      select: (_columns: string) => chain,
       single: async () => {
         const result = execute();
         return {
@@ -143,7 +147,8 @@ export function createRecordingFakeClient(seedData: SeedData) {
   return {
     writes,
     from: (table: string) => ({
-      select: (columns: string) => createQueryChain(table),
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      select: (_columns: string) => createQueryChain(table),
       insert: (values: unknown) => createInsertChain(table, values),
       update: (values: unknown) => createWriteChain(table, "update", values),
       delete: () => createWriteChain(table, "delete", null),
