@@ -15,7 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { generateProgram, estimateSessionMinutes, CARRY_OVER_SLOTS, type GeneratorInput, type CandidateExercise } from "../src/lib/program/generate";
-import { templatesFor, splitFor, activeDayIndices } from "../src/lib/program/splits";
+import { templatesFor, activeDayIndices } from "../src/lib/program/splits";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   fs.readFileSync(path.join(__dirname, "fixtures/catalogue.json"), "utf8")
@@ -58,7 +58,7 @@ function testInput(t: TestInput): GeneratorInput {
     bmi: 23,
     hasAllEquipment: eq.hasAll,
     equipmentIds: eq.ids,
-    currentInjuryRegions: injuries as any[],
+    currentInjuryRegions: injuries as ("knee" | "shoulder")[],
     preferredSessionMinutes: t.sessionMinutes,
     catalogue,
   };
@@ -184,7 +184,6 @@ for (const t of matrix) {
     if (day.exercises.length === 0) continue;
     
     // Find corresponding template
-    const split = splitFor(t.daysPerWeek);
     const activeIndices = activeDayIndices(t.daysPerWeek);
     const slotPos = activeIndices.indexOf(day.dayIndex);
     const template = slotPos >= 0 && slotPos < templates.length ? templates[slotPos] : null;
@@ -368,7 +367,6 @@ for (const rc of regressionCases) {
     }
     
     // Check pattern limits using template
-    const split = splitFor(rc.input.daysPerWeek);
     const activeIndices = activeDayIndices(rc.input.daysPerWeek);
     const slotPos = activeIndices.indexOf(day.dayIndex);
     const template = slotPos >= 0 && slotPos < templates.length ? templates[slotPos] : null;
