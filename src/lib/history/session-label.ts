@@ -6,14 +6,13 @@
  * 2. status='in_progress' + past date → "Unfinished from <date>"
  * 3. status='completed' → "Completed" or "Ended early" (never "Skipped")
  * 4. status='skipped' → "Skipped"
- * 5. status='abandoned' → "Abandoned"
  * 
  * Note: Zero-set strength sessions are excluded by the History page query,
  * so this function never sees them. All completed sessions that reach here
  * show "Completed" or "Ended early", never "Skipped".
  */
 
-export type SessionStatus = "completed" | "in_progress" | "skipped" | "abandoned";
+export type SessionStatus = "completed" | "in_progress" | "skipped";
 export type ActualType = "weights" | "bodyweight" | "yoga" | "meditation" | null;
 
 export interface SessionLabelInput {
@@ -52,12 +51,7 @@ export function getSessionLabel(input: SessionLabelInput): string {
     return "Skipped";
   }
 
-  // Priority 4: abandoned → "Abandoned"
-  if (status === "abandoned") {
-    return "Abandoned";
-  }
-
-  // Priority 5: completed sessions
+  // Priority 4: completed sessions
   // Trust the status - completed shows "Completed" or "Ended early"
   // (Zero-set strength sessions are excluded by the History page query)
   if (endedEarly && plannedSets && plannedSets > 0) {

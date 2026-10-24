@@ -544,6 +544,12 @@ async function runTests() {
       check("get_history_page succeeds", !page1Error,
         page1Error ? `error: ${page1Error.message}` : "");
 
+      if (page1Error || !page1) {
+        console.log("  Skipping page 1 checks due to error");
+        failures++;
+        return;
+      }
+
       type PageRow = { session_id: string; total_count: number };
       const page1Data = page1 as PageRow[];
       

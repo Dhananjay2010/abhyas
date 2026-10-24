@@ -213,7 +213,7 @@ begin
     from sessions s
     left join session_volume sv on sv.session_id = s.id
     where s.user_id = p_user
-      and s.status != 'skipped'
+      and s.status in ('completed', 'in_progress')
       and (
         -- Include completed sessions (always, regardless of local_date - QA TZ-1)
         (s.status = 'completed' and (
@@ -224,8 +224,6 @@ begin
         ))
         -- Include in_progress only if local_date <= p_today
         or (s.status = 'in_progress' and s.local_date <= p_today)
-        -- Include abandoned only if today
-        or (s.status = 'abandoned' and s.local_date = p_today)
       )
       -- Apply type filter (normalize NULL and '' to 'weights')
       and (

@@ -161,22 +161,7 @@ console.log("\n5. Skipped sessions");
   check("skipped yoga shows 'Skipped'", label === "Skipped", label);
 }
 
-console.log("\n6. Abandoned sessions");
-{
-  const input: SessionLabelInput = {
-    status: "abandoned",
-    actualType: "weights",
-    setCount: 2,
-    localDate: yesterday,
-    today,
-    endedEarly: false,
-    plannedSets: null,
-  };
-  const label = getSessionLabel(input);
-  check("abandoned shows 'Abandoned'", label === "Abandoned", label);
-}
-
-console.log("\n7. Ended early sessions");
+console.log("\n6. Ended early sessions");
 {
   const input: SessionLabelInput = {
     status: "completed",
