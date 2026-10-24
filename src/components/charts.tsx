@@ -47,7 +47,7 @@ function ValueTable({
     <div className="mt-2">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="text-xs text-muted underline underline-offset-2"
+        className="min-h-[44px] flex items-center text-xs text-muted underline underline-offset-2"
         aria-expanded={open}
       >
         {open ? "Hide values" : "Show values"}
