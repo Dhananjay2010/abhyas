@@ -7,6 +7,8 @@ import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
 import { isAllowedSessionLength } from "@/lib/onboarding/session-length";
+import { branding } from "@/lib/branding";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -14,6 +16,26 @@ type BodyRegion = Database["public"]["Enums"]["body_region"];
 type InjurySeverity = Database["public"]["Enums"]["injury_severity"];
 
 export type Result = { ok: true } | { ok: false; error: string };
+
+/**
+ * Get today's date as ISO string (YYYY-MM-DD) in the given timezone.
+ * Uses the user's timezone to avoid off-by-one errors when server runs in UTC.
+ */
+function getTodayIsoInTimezone(timezone: string | null): string {
+  const resolved = resolveTimezoneWithProfile(timezone);
+  const now = new Date();
+  
+  // Use Intl.DateTimeFormat to get date parts in user's timezone
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: resolved,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  
+  // en-CA format is YYYY-MM-DD
+  return formatter.format(now);
+}
 
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
@@ -67,6 +89,13 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     }
   }
 
+  // Fetch current profile to get timezone for DOB validation
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .single();
+
   // Validate and update with testable logic
   const result = await validateAndUpdateProfile(patch, {
     updateProfile: async (validatedPatch) => {
@@ -75,8 +104,9 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
       return { ok: true };
     },
     getTodayIso: () => {
-      const now = new Date();
-      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      // Use patch timezone if being set, else stored profile timezone, else gym default
+      const timezone = patch.timezone ?? profile?.timezone ?? null;
+      return getTodayIsoInTimezone(timezone);
     },
   });
 
