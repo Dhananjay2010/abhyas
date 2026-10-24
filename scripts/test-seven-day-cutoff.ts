@@ -45,7 +45,7 @@ const sessionId = "sess-1";
 const realNow = Date.now();
 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
-// Test 1: Set saved exactly 7 days ago should be pruned
+// Test 1: Set saved exactly 7 days ago should be kept (< 7 days is the threshold)
 const deps7Days = createPendingSetDeps({ nowMs: () => realNow });
 savePendingSet(storage, userId, sessionId, {
   sessionExerciseId: "ex-1",
@@ -59,7 +59,25 @@ savePendingSet(storage, userId, sessionId, {
 // Move clock forward exactly 7 days
 const deps7DaysLater = createPendingSetDeps({ nowMs: () => realNow + sevenDaysMs });
 const loaded7Days = loadPendingSets(storage, userId, sessionId, deps7DaysLater);
-check("Set exactly 7 days old is pruned", loaded7Days.length === 0);
+check("Set exactly 7 days old is kept (boundary)", loaded7Days.length === 1);
+
+// Test 2: Set saved >7 days (7 days 1 hour) should be pruned
+storage.removeItem(`pending-sets:${userId}`);
+const depsJustOver7 = createPendingSetDeps({ nowMs: () => realNow });
+savePendingSet(storage, userId, sessionId, {
+  sessionExerciseId: "ex-2",
+  setNumber: 1,
+  reps: 10,
+  weightKg: 50,
+  durationSeconds: null,
+  clientId: "client-over7days",
+}, depsJustOver7);
+
+// Move clock forward 7 days 1 hour
+const sevenDaysPlusOneHour = sevenDaysMs + (60 * 60 * 1000);
+const depsOver7Days = createPendingSetDeps({ nowMs: () => realNow + sevenDaysPlusOneHour });
+const loadedOver7Days = loadPendingSets(storage, userId, sessionId, depsOver7Days);
+check("Set 7 days 1 hour old is pruned", loadedOver7Days.length === 0);
 
 // Test 2: Set saved 6 days 23 hours ago should be kept
 storage.removeItem(`pending-sets:${userId}`);
