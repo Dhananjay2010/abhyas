@@ -8,7 +8,8 @@
  */
 
 import type { Database } from "@/lib/database.types";
-import { hasStartedAnyOrNull, type SessionsQueryResult } from "./load-failure-guard";
+import { hasStartedAnyOrNull } from "./load-failure-guard";
+import type { SessionsQueryResult } from "./load-failure-guard";
 import { todayStateInputFromRows, type TodayStateInputRows } from "./page-input";
 import type { BuildTodayStateInput } from "./build-state";
 import type { YesterdaySessionWithCount } from "./yesterday-sessions";

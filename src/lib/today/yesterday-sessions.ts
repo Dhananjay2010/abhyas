@@ -10,11 +10,14 @@
  */
 
 import { workingSetCountsBySession, type SessionExerciseWithSets } from "./working-set-counts";
+import type { Database } from "@/lib/database.types";
+
+type DayType = Database["public"]["Enums"]["day_type"];
 
 export type YesterdaySession = {
   id: string;
   status: string;
-  actual_type: string | null;
+  actual_type: DayType | null;
   program_id: string | null;
 };
 

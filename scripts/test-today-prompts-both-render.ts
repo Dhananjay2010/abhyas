@@ -29,17 +29,11 @@ console.log("\n=== Test: TodayPrompts 'both' state render ===\n");
 const bothState = renderToStaticMarkup(
   createElement(TodayPromptsBothUI, {
     promptBlocks: {
-      showWelcomeCard: false,
-      showRestPrompt: true,
       showMissedPrompt: true,
+      showRestPlan: true,
       showBothPrompt: true,
       showFirstDayWelcome: false,
       showFirstSessionOffer: false,
-      missedProgramDay: {
-        date: "2026-10-23",
-        dayType: "weights",
-        dayLabel: "Pull",
-      },
     },
     yesterdayDay: {
       day_type: "weights",
@@ -93,13 +87,11 @@ console.log("\n=== Test: TodayPrompts showBothPrompt=false ===\n");
 const notBothState = renderToStaticMarkup(
   createElement(TodayPromptsBothUI, {
     promptBlocks: {
-      showWelcomeCard: false,
-      showRestPrompt: true,
       showMissedPrompt: false,
+      showRestPlan: true,
       showBothPrompt: false,
       showFirstDayWelcome: false,
       showFirstSessionOffer: false,
-      missedProgramDay: null,
     },
     yesterdayDay: null,
   })

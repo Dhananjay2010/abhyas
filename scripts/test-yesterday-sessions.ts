@@ -9,8 +9,8 @@
 import { attachWorkingSetCounts } from "../src/lib/today/yesterday-sessions";
 
 const sessions = [
-  { id: "s1", status: "completed", actual_type: "weights", program_id: "p1" },
-  { id: "s2", status: "completed", actual_type: "weights", program_id: "p1" },
+  { id: "s1", status: "completed", actual_type: "weights" as const, program_id: "p1" },
+  { id: "s2", status: "completed", actual_type: "weights" as const, program_id: "p1" },
 ];
 
 // Test 1: successful query with working sets

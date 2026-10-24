@@ -9,6 +9,7 @@
 import { hasStartedAnySession, type HasStartedInput } from "./has-started-any";
 
 export type QueryResult<T> = { data: T | null; error: unknown };
+export type SessionsQueryResult = QueryResult<HasStartedInput["sessions"]>;
 
 /**
  * Determine hasStartedAny from allSessionsRes, handling load failures.

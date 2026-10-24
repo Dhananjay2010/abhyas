@@ -53,7 +53,7 @@ const hasStartedResult = buildPageState({
   ...baseInput,
   allSessionsRes: {
     data: [
-      { actual_type: "weights", status: "completed", started_at: "2024-01-10T10:00:00Z" },
+      { actual_type: "weights" as const, started_at: "2024-01-10T10:00:00Z" },
     ],
     error: null,
   },
