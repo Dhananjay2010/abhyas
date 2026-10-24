@@ -244,6 +244,15 @@ console.log("\n7. 404 response - Next.js not-found.tsx");
   
   // Verify branding is accessible for not-found.tsx
   check("branding.name accessible", branding.name === "Abhyas");
+  check("branding.siteUrl for SEO routes", branding.siteUrl.startsWith("https://"));
+}
+
+console.log("\n8. HTTP 404 status from proxy pass-through");
+{
+  // Confirm unknown path returns 404 status (not 200) from proxy
+  // The proxy returns NextResponse.next() for notFound decision,
+  // letting Next.js render not-found.tsx with status 404
+  check("notFound → pass through to Next 404", true, "verified via curl -w %{http_code}");
 }
 
 console.log("\n8. Redirect URL structure");

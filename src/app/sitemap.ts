@@ -1,11 +1,11 @@
 import type { MetadataRoute } from "next";
-import { getSiteUrl } from "@/lib/site-url";
+import { branding } from "@/lib/branding";
 
 // Fixed date for deterministic builds
 const LAST_MODIFIED = new Date("2024-01-01T00:00:00Z");
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = getSiteUrl();
+  const baseUrl = branding.siteUrl;
 
   // Only list real public pages that exist
   return [
