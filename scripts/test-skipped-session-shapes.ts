@@ -77,6 +77,8 @@ async function runTests() {
       started_on: "2026-10-20",
       ends_on: "2026-11-16",
       status: "active",
+      split_type: "ppl",
+      weeks: 4,
     })
     .select("id")
     .single();
