@@ -168,6 +168,7 @@
     "test:deload-best-cases": "tsx scripts/test-deload-best-cases.ts",
     "test:write-progress": "tsx scripts/test-write-progress.ts",
     "test:working-set-count-computation": "tsx scripts/test-working-set-count-computation.ts",
+    "test:working-set-counts-helper": "tsx scripts/test-working-set-counts-helper.ts",
     "test:settings-triple-tap": "tsx scripts/test-settings-triple-tap.tsx",
     "test:settings-first-load": "tsx scripts/test-settings-first-load.tsx",
     "test:settings-retry": "tsx scripts/test-settings-retry.tsx",

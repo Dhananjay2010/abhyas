@@ -79,7 +79,18 @@ export interface BuildTodayStateOutput {
   nextTrainingDay: { dayName: string; dayIndex: number } | null;
 }
 
-export function buildTodayState(input: BuildTodayStateInput): BuildTodayStateOutput {
+export function buildTodayState(input: BuildTodayStateInput | null): BuildTodayStateOutput {
+  // If input is null (working set counts query failed), suppress missed prompt
+  if (input === null) {
+    return {
+      promptType: "none",
+      missedYesterday: false,
+      answeredToday: false,
+      isTraining: false,
+      nextTrainingDay: null,
+    };
+  }
+  
   const {
     profile,
     program,
