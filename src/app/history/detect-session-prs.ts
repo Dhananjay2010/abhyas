@@ -41,6 +41,7 @@ interface SetRow {
   reps: number | null;
   weight_kg: number | null;
   duration_seconds: number | null;
+  is_warmup_set: boolean | null;
   completed_at: string;
   session_exercises: {
     session_id: string;

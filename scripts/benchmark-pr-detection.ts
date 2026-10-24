@@ -37,71 +37,71 @@ console.log(`   LIMIT ${config.historicalSessions}`);
 console.log(`   → ${sessionsFetchMs}ms\n`);
 
 // Step 2: Fetch sets in chunks with pagination
-const totalSets = config.historicalSessions * config.avgSetsPerSession;
-const chunks = Math.ceil(config.historicalSessions / config.sessionIdChunkSize);
-const setsPerChunk = config.sessionIdChunkSize * config.avgSetsPerSession;
-const pagesPerChunk = Math.ceil(setsPerChunk / config.maxRowsPerRequest);
-const totalSetRequests = chunks * pagesPerChunk;
-const setsFetchMs = totalSetRequests * config.avgLatencyMs;
+const totalSetsBench = config.historicalSessions * config.avgSetsPerSession;
+const chunksBench = Math.ceil(config.historicalSessions / config.sessionIdChunkSize);
+const setsPerChunkBench = config.sessionIdChunkSize * config.avgSetsPerSession;
+const pagesPerChunkBench = Math.ceil(setsPerChunkBench / config.maxRowsPerRequest);
+const totalSetRequestsBench = chunksBench * pagesPerChunkBench;
+const setsFetchMsBench = totalSetRequestsBench * config.avgLatencyMs;
 
 console.log("3. Query 2-N: Fetch sets for historical sessions");
-console.log(`   Total sets: ${totalSets}`);
-console.log(`   Session ID chunks: ${chunks} (${config.sessionIdChunkSize} IDs per chunk)`);
-console.log(`   Sets per chunk: ~${setsPerChunk}`);
-console.log(`   Pages per chunk: ${pagesPerChunk} (${config.maxRowsPerRequest} rows per page)`);
-console.log(`   Total requests: ${totalSetRequests}`);
-console.log(`   → ${totalSetRequests} × ${config.avgLatencyMs}ms = ${setsFetchMs}ms\n`);
+console.log(`   Total sets: ${totalSetsBench}`);
+console.log(`   Session ID chunks: ${chunksBench} (${config.sessionIdChunkSize} IDs per chunk)`);
+console.log(`   Sets per chunk: ~${setsPerChunkBench}`);
+console.log(`   Pages per chunk: ${pagesPerChunkBench} (${config.maxRowsPerRequest} rows per page)`);
+console.log(`   Total requests: ${totalSetRequestsBench}`);
+console.log(`   → ${totalSetRequestsBench} × ${config.avgLatencyMs}ms = ${setsFetchMsBench}ms\n`);
 
 // Total time
-const totalMs = sessionsFetchMs + setsFetchMs;
-const totalRequests = 1 + totalSetRequests;
+const totalMsBench = sessionsFetchMs + setsFetchMsBench;
+const totalRequestsBench = 1 + totalSetRequestsBench;
 
 console.log("4. Total Query Time");
-console.log(`   Requests: ${totalRequests}`);
-console.log(`   Total time: ${totalMs}ms (${(totalMs / 1000).toFixed(2)}s)\n`);
+console.log(`   Requests: ${totalRequestsBench}`);
+console.log(`   Total time: ${totalMsBench}ms (${(totalMsBench / 1000).toFixed(2)}s)\n`);
 
 // In-memory processing (detectSetPRs)
-const processingMs = 10; // Very fast, pure JS
+const processingMsBench = 10; // Very fast, pure JS
 console.log("5. In-Memory PR Detection");
-console.log(`   Process ${totalSets} sets with detectSetPRs()`);
-console.log(`   → ${processingMs}ms\n`);
+console.log(`   Process ${totalSetsBench} sets with detectSetPRs()`);
+console.log(`   → ${processingMsBench}ms\n`);
 
 // Grand total
-const grandTotalMs = totalMs + processingMs;
+const grandTotalMsBench = totalMsBench + processingMsBench;
 console.log("6. Total Page Load Time");
-console.log(`   Query: ${totalMs}ms`);
-console.log(`   Processing: ${processingMs}ms`);
-console.log(`   Total: ${grandTotalMs}ms (${(grandTotalMs / 1000).toFixed(2)}s)\n`);
+console.log(`   Query: ${totalMsBench}ms`);
+console.log(`   Processing: ${processingMsBench}ms`);
+console.log(`   Total: ${grandTotalMsBench}ms (${(grandTotalMsBench / 1000).toFixed(2)}s)\n`);
 
 // Performance analysis
 console.log("7. Performance Analysis\n");
 
-if (grandTotalMs < 1000) {
+if (grandTotalMsBench < 1000) {
   console.log("   ✅ EXCELLENT: Sub-second page load");
-} else if (grandTotalMs < 2000) {
+} else if (grandTotalMsBench < 2000) {
   console.log("   ✅ GOOD: ~1-2 second page load");
-} else if (grandTotalMs < 3000) {
+} else if (grandTotalMsBench < 3000) {
   console.log("   ⚠️  ACCEPTABLE: ~2-3 second page load");
 } else {
   console.log("   ❌ SLOW: >3 second page load");
 }
 
 console.log(`\n   With local Supabase (5-20ms latency):`);
-const localLatency = 15;
-const localTotalMs = (1 + totalSetRequests) * localLatency + processingMs;
-console.log(`   → ${localTotalMs}ms (${(localTotalMs / 1000).toFixed(2)}s)\n`);
+const localLatencyBench = 15;
+const localTotalMsBench = (1 + totalSetRequestsBench) * localLatencyBench + processingMsBench;
+console.log(`   → ${localTotalMsBench}ms (${(localTotalMsBench / 1000).toFixed(2)}s)\n`);
 
 console.log(`   With hosted Supabase (30-100ms latency):`);
-const hostedLatency = 60;
-const hostedTotalMs = (1 + totalSetRequests) * hostedLatency + processingMs;
-console.log(`   → ${hostedTotalMs}ms (${(hostedTotalMs / 1000).toFixed(2)}s)\n`);
+const hostedLatencyBench = 60;
+const hostedTotalMsBench = (1 + totalSetRequestsBench) * hostedLatencyBench + processingMsBench;
+console.log(`   → ${hostedTotalMsBench}ms (${(hostedTotalMsBench / 1000).toFixed(2)}s)\n`);
 
 // Optimization notes
 console.log("8. Optimization Notes\n");
 console.log("   Current approach (no DB migration):");
-console.log(`   - ${totalRequests} round trips to database`);
-console.log(`   - Network latency dominates (${((totalMs / grandTotalMs) * 100).toFixed(1)}% of total time)`);
-console.log(`   - In-memory processing is negligible (${((processingMs / grandTotalMs) * 100).toFixed(1)}% of total time)\n`);
+console.log(`   - ${totalRequestsBench} round trips to database`);
+console.log(`   - Network latency dominates (${((totalMsBench / grandTotalMsBench) * 100).toFixed(1)}% of total time)`);
+console.log(`   - In-memory processing is negligible (${((processingMsBench / grandTotalMsBench) * 100).toFixed(1)}% of total time)\n`);
 
 console.log("   Alternative: Precomputed PR flags (requires migration):");
 console.log("   - Add `is_pr` boolean column to `session_sets`");
