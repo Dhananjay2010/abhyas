@@ -134,7 +134,7 @@ function validateColumns(table: string, columns: string[]) {
   
   for (const col of columns) {
     // Strip filter suffixes
-    const baseCol = col.replace(/__(:?in|is|neq|gte|lte)$/, "");
+    const baseCol = col.replace(/__(?:in|not_in|is|neq|gte|lte)$/, "");
     if (!validCols.has(baseCol)) {
       throw new Error(
         `Invalid column "${col}" for table "${table}". Valid columns: ${Array.from(validCols).sort().join(", ")}`
@@ -147,6 +147,7 @@ type QueryBuilder = {
   select: (columns: string) => QueryBuilder;
   eq: (column: string, value: unknown) => QueryBuilder;
   neq: (column: string, value: unknown) => QueryBuilder;
+  not: (column: string, operator: string, value: string) => QueryBuilder;
   in: (column: string, values: unknown[]) => QueryBuilder;
   is: (column: string, value: unknown) => QueryBuilder;
   gte: (column: string, value: unknown) => QueryBuilder;
@@ -183,6 +184,10 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
         const column = key.slice(0, -4);
         const values = value as unknown[];
         result = result.filter((row) => values.includes(row[column]));
+      } else if (key.endsWith("__not_in")) {
+        const column = key.slice(0, -8);
+        const values = value as unknown[];
+        result = result.filter((row) => !values.includes(row[column]));
       } else if (key.endsWith("__is")) {
         const column = key.slice(0, -4);
         result = result.filter((row) => row[column] === value);
@@ -259,6 +264,15 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
         createQueryBuilder(table, { ...filters, [column]: value }, orderBy, limitCount),
       neq: (column, value) =>
         createQueryBuilder(table, { ...filters, [`${column}__neq`]: value }, orderBy, limitCount),
+      not: (column: string, operator: string, value: string) => {
+        // Handle .not("status", "in", "(superseded,retired)")
+        if (operator === "in") {
+          // Parse "(val1,val2)" format
+          const values = value.slice(1, -1).split(",");
+          return createQueryBuilder(table, { ...filters, [`${column}__not_in`]: values }, orderBy, limitCount);
+        }
+        throw new Error(`not() operator "${operator}" not implemented in fake client`);
+      },
       in: (column, values) =>
         createQueryBuilder(table, { ...filters, [`${column}__in`]: values }, orderBy, limitCount),
       is: (column, value) =>
