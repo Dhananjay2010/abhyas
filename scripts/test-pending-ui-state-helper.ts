@@ -39,7 +39,7 @@ const noPending: PendingSetState = {
 assertEqual(getPendingUiMode(noPending), "none", "No pending sets -> none mode");
 assertEqual(getReplayErrorMessage(noPending), null, "No error message when no pending");
 
-// Pending + error -> replay-error mode (NOT expired)
+// Pending + error -> expired mode (expired takes priority)
 const withError: PendingSetState = {
   pending: [{ sessionExerciseId: "ex1", setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null, clientId: "c1" }],
   expired: true,
@@ -47,8 +47,19 @@ const withError: PendingSetState = {
   error: "Network timeout",
   replayed: [],
 };
-assertEqual(getPendingUiMode(withError), "replay-error", "Pending + error -> replay-error mode");
-assertEqual(getReplayErrorMessage(withError), "Network timeout", "Error message extracted correctly");
+assertEqual(getPendingUiMode(withError), "expired", "Pending + expired + error -> expired mode (keeps sign-in visible)");
+assertEqual(getReplayErrorMessage(withError), null, "No error message shown in expired mode");
+
+// Pending + error but not expired -> replay-error mode
+const errorNotExpired: PendingSetState = {
+  pending: [{ sessionExerciseId: "ex1", setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null, clientId: "c1" }],
+  expired: false,
+  retrying: false,
+  error: "Network error",
+  replayed: [],
+};
+assertEqual(getPendingUiMode(errorNotExpired), "replay-error", "Pending + error but not expired -> replay-error mode");
+assertEqual(getReplayErrorMessage(errorNotExpired), "Network error", "Error message extracted when not expired");
 
 // Pending without error -> expired mode
 const withoutError: PendingSetState = {
@@ -71,7 +82,7 @@ const retrying: PendingSetState = {
 };
 assertEqual(getPendingUiMode(retrying), "expired", "Retrying without error -> expired mode");
 
-// Multiple pending + error -> replay-error mode
+// Multiple pending + expired + error -> expired mode (expired priority)
 const multipleWithError: PendingSetState = {
   pending: [
     { sessionExerciseId: "ex1", setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null, clientId: "c1" },
@@ -82,8 +93,8 @@ const multipleWithError: PendingSetState = {
   error: "Server error",
   replayed: [],
 };
-assertEqual(getPendingUiMode(multipleWithError), "replay-error", "Multiple pending + error -> replay-error mode");
-assertEqual(getReplayErrorMessage(multipleWithError), "Server error", "Error message for multiple pending");
+assertEqual(getPendingUiMode(multipleWithError), "expired", "Multiple pending + expired + error -> expired mode");
+assertEqual(getReplayErrorMessage(multipleWithError), null, "No error message shown when expired");
 
 console.log(exitCode === 0 ? "\n✅ All pending UI state tests passed" : "\n❌ Some tests failed");
 process.exit(exitCode);

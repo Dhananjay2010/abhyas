@@ -11,20 +11,28 @@ export type PendingUiMode = "expired" | "replay-error" | "none";
 /**
  * Determine which UI mode to show based on pending set state.
  * 
- * - "replay-error": Show error message from failed replay (not session expired)
- * - "expired": Show session expired prompt
+ * - "expired": Show SessionExpiredPrompt with sign-in link
+ * - "replay-error": Show error message with retry button  
  * - "none": No pending UI to show
+ * 
+ * When expired is true, always show expired mode even if error is set.
+ * This keeps the Sign-in link visible during focus retries while still signed out.
  */
 export function getPendingUiMode(state: PendingSetState): PendingUiMode {
   if (state.pending.length === 0) {
     return "none";
   }
   
+  // Expired takes priority - keep sign-in link visible
+  if (state.expired) {
+    return "expired";
+  }
+  
   if (state.error) {
     return "replay-error";
   }
   
-  return "expired";
+  return "none";
 }
 
 /**
