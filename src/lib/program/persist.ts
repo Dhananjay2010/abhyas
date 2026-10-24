@@ -7,6 +7,7 @@ import {
   type CandidateExercise,
   type GeneratorInput,
 } from "./generate";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 type Client = SupabaseClient<Database>;
 
@@ -163,7 +164,8 @@ export async function createBlockForUser(
 
   // A rebuild keeps the block's start date, so the user stays in the week they
   // were in and the deload week does not move.
-  const startedOn = rebuildOf?.started_on ?? localDateString(profile.timezone || "Asia/Kolkata");
+  const timezone = resolveTimezoneWithProfile(profile.timezone);
+  const startedOn = rebuildOf?.started_on ?? localDateString(timezone);
   const endsOn = addDays(startedOn, 27); // four weeks inclusive
 
   const { data: program, error: programError } = await supabase
