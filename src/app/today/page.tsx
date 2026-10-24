@@ -34,7 +34,7 @@ export default async function TodayPage() {
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase
       .from("programs")
-      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week, week_offset")
       .eq("status", "active")
       .maybeSingle(),
     // A strength plan with no equipment recorded is a misconfiguration that
@@ -129,7 +129,7 @@ export default async function TodayPage() {
   if (rollover.status === "rolled_over") {
     const { data: fresh } = await supabase
       .from("programs")
-      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week, week_offset")
       .eq("id", rollover.programId)
       .single();
     program = fresh;

@@ -142,7 +142,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const program = (
     await supabase
       .from("programs")
-      .select("id, started_on, deload_week, program_days(id, day_index, day_type, focus, label)")
+      .select("id, started_on, deload_week, week_offset, program_days(id, day_index, day_type, focus, label)")
       .eq("id", rolloverResult.programId)
       .maybeSingle()
   ).data;
@@ -990,7 +990,7 @@ export async function planDay(input: {
 
   const { data: program } = await supabase
     .from("programs")
-    .select("id, started_on, deload_week")
+    .select("id, started_on, deload_week, week_offset")
     .eq("status", "active")
     .maybeSingle();
 
