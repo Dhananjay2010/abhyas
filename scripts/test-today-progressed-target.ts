@@ -32,7 +32,7 @@ const progress = new Map([
   ["ex-1", { current_working_weight_kg: null, current_target_reps: 14 }],
 ]);
 
-const rows = buildTemplateRows(template as any, progress);
+const rows = buildTemplateRows(template as unknown as TemplateExerciseRow[], progress);
 
 check("row exists", rows.length === 1);
 check("repsMax is 14 (progressed), not 12 (planned)", rows[0].repsMax === 14,
