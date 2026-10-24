@@ -64,14 +64,29 @@ async function runTests() {
   console.log("✓ Connected to Supabase\n");
 
   // Service role client for fixture setup (bypasses RLS)
+  // NEVER call auth.signIn on this client - it will replace the service key with user JWT
   const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+      detectSessionInUrl: false,
     },
   });
 
-  // Create test users
+  // Verify we have the service role key (decode JWT and check role claim)
+  try {
+    const payload = JSON.parse(Buffer.from(SUPABASE_SERVICE_ROLE_KEY.split('.')[1], 'base64').toString());
+    if (payload.role !== 'service_role') {
+      console.error(`❌ Expected service_role key, got role: ${payload.role}`);
+      return false;
+    }
+    console.log(`✓ Using service_role key\n`);
+  } catch (e) {
+    console.error("❌ Failed to decode service role key");
+    return false;
+  }
+
+  // Create test users using admin API (not signIn!)
   const testEmailA = `test-a-${Date.now()}@example.com`;
   const testPasswordA = "test-password-123";
   const testEmailB = `test-b-${Date.now()}@example.com`;
@@ -103,23 +118,33 @@ async function runTests() {
   const userIdB = authDataB.user.id;
   console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
 
-  // Authenticated client for user A
-  const { data: sessionDataA } = await adminClient.auth.signInWithPassword({
+  // Create separate authenticated clients for user queries (sign in to get JWTs)
+  // Use a fresh anon client for each user to avoid session conflicts
+  const anonClientA = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data: sessionDataA, error: signInErrorA } = await anonClientA.auth.signInWithPassword({
     email: testEmailA,
     password: testPasswordA,
   });
-  const supabaseA = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${sessionDataA?.session?.access_token}` } },
-  });
 
-  // Authenticated client for user B
-  const { data: sessionDataB } = await adminClient.auth.signInWithPassword({
+  if (signInErrorA || !sessionDataA.session) {
+    console.error("Failed to sign in user A:", signInErrorA);
+    return false;
+  }
+
+  const anonClientB = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data: sessionDataB, error: signInErrorB } = await anonClientB.auth.signInWithPassword({
     email: testEmailB,
     password: testPasswordB,
   });
-  const supabaseB = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: `Bearer ${sessionDataB?.session?.access_token}` } },
-  });
+
+  if (signInErrorB || !sessionDataB.session) {
+    console.error("Failed to sign in user B:", signInErrorB);
+    return false;
+  }
+
+  // Use the authenticated clients for queries under test
+  const supabaseA = anonClientA;
+  const supabaseB = anonClientB;
 
   // Use seeded exercises (from seed.sql) instead of inserting
   const { data: exercises, error: exError } = await adminClient

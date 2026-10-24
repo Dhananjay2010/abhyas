@@ -206,7 +206,10 @@ jobs:
           "
 
       - name: Run exercise history real-DB tests
-        run: npm run test:exercise-history-real-db
+        run: |
+          # Get service role key from Supabase
+          export SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep SERVICE_ROLE_KEY | cut -d '=' -f 2)
+          npm run test:exercise-history-real-db
         env:
           REAL_DB: "1"
 
