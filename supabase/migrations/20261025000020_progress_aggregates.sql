@@ -136,8 +136,8 @@ having count(case when ss.is_warmup_set = false
                     and (ss.reps is not null and ss.reps > 0
                          or ss.duration_seconds is not null and ss.duration_seconds > 0)
                   then 1 end) > 0
-    -- Include non-strength sessions (coalesce handles NULL)
-    or coalesce(s.actual_type, '') not in ('weights', 'bodyweight');
+    -- Include non-strength sessions (NULL actual_type is treated as strength)
+    or (s.actual_type is not null and s.actual_type not in ('weights', 'bodyweight'));
 
 grant select on session_volume to authenticated;
 
@@ -171,8 +171,8 @@ where ss.is_warmup_set = false
       and (ss2.reps is not null and ss2.reps > 0
            or ss2.duration_seconds is not null and ss2.duration_seconds > 0)
   )
-  -- Include all strength sessions (coalesce handles NULL)
-  and coalesce(s.actual_type, '') in ('weights', 'bodyweight', '')
+  -- Include all strength sessions (NULL actual_type is treated as strength)
+  and (s.actual_type is null or s.actual_type in ('weights', 'bodyweight'))
 group by ss.user_id, se.exercise_id, e.name, e.movement_pattern, s.local_date;
 
 grant select on exercise_strength_history to authenticated;
@@ -203,7 +203,7 @@ begin
   end if;
 
   -- Count sessions based on filter, excluding zero-set strength and skipped
-  -- coalesce(actual_type,'') = '' means strength (NULL or '' both treated as strength)
+  -- NULL actual_type is treated as strength
   if p_filter = 'lifts' then
     -- For strength sessions, only count those with working sets (in session_volume)
     select count(distinct s.id)
@@ -213,7 +213,7 @@ begin
     where s.user_id = p_user
       and s.local_date <= p_today
       and s.status <> 'skipped'
-      and coalesce(s.actual_type, '') in ('weights', 'bodyweight', '');
+      and (s.actual_type is null or s.actual_type in ('weights', 'bodyweight'));
   elsif p_filter = 'yoga' then
     select count(*)
     into v_count
