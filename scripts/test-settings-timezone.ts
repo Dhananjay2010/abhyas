@@ -381,6 +381,7 @@ async function runTests() {
         updateCalled = true;
         return { ok: true };
       },
+      getTodayIso: () => "2026-10-24",
     });
 
     check("invalid timezone returns error", !invalidResult.ok);
@@ -397,6 +398,7 @@ async function runTests() {
         capturedTimezone = patch.timezone;
         return { ok: true };
       },
+      getTodayIso: () => "2026-10-24",
     });
 
     check("valid timezone returns success", validResult.ok === true);
@@ -417,6 +419,7 @@ async function runTests() {
         capturedHasTimezone = "timezone" in patch;
         return { ok: true };
       },
+      getTodayIso: () => "2026-10-24",
     });
 
     check("undefined timezone returns success", undefinedResult.ok === true);
