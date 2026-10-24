@@ -85,12 +85,14 @@ export async function getLastPerformance(
   }
 
   // Get the sets for this session_exercise
+  // L1: Stable ordering to avoid duplicates/gaps across pagination
   const { data: sets, error: setsError } = await supabase
     .from("session_sets")
     .select("reps, weight_kg, duration_seconds")
     .eq("session_exercise_id", historyRow.session_exercise_id)
     .eq("is_warmup_set", false)
-    .order("set_number");
+    .order("set_number", { ascending: true })
+    .order("id", { ascending: true });
 
   if (setsError) {
     throw new Error(`Failed to fetch sets: ${setsError.message}`);
@@ -316,6 +318,7 @@ export async function getExerciseHistory(
     const batch = allSessionExerciseIds.slice(i, i + 100);
     
     // Page through sets for this batch
+    // L1: Stable ordering to avoid duplicates/gaps across pagination
     let setOffset = 0;
     const setPageSize = 1000;
     while (true) {
@@ -324,7 +327,9 @@ export async function getExerciseHistory(
         .select("session_exercise_id, reps, weight_kg, duration_seconds")
         .in("session_exercise_id", batch)
         .eq("is_warmup_set", false)
-        .order("set_number")
+        .order("session_exercise_id", { ascending: true })
+        .order("set_number", { ascending: true })
+        .order("id", { ascending: true })
         .range(setOffset, setOffset + setPageSize - 1);
 
       if (setsError) {
@@ -476,18 +481,21 @@ export async function getExerciseHistory(
       }
     } else {
       // Reps-based exercises
-      const hasWeight = sets.some(s => (s.weight_kg ?? 0) > 0);
+      // L2: Treat null and 0 weight as bodyweight explicitly
+      const weightedSetsInSession = sets.filter(s => s.weight_kg !== null && s.weight_kg > 0);
+      const bodyweightSetsInSession = sets.filter(s => s.weight_kg === null || s.weight_kg === 0);
+      const hasWeight = weightedSetsInSession.length > 0;
 
       if (hasWeight) {
         // Weighted exercise PRs
 
         // 1. Heaviest weight
-        const heaviestInSession = Math.max(...sets.map(s => s.weight_kg ?? 0));
+        const heaviestInSession = Math.max(...weightedSetsInSession.map(s => s.weight_kg ?? 0));
         const prevHeaviest = prsBefore.find(pr => pr.type === "heaviest_weight");
         const prevHeaviestValue = prevHeaviest?.value ?? 0;
 
         if (heaviestInSession > prevHeaviestValue) {
-          const prSet = sets.find(s => (s.weight_kg ?? 0) === heaviestInSession) ?? sets[0];
+          const prSet = weightedSetsInSession.find(s => (s.weight_kg ?? 0) === heaviestInSession) ?? weightedSetsInSession[0];
           const e1rm = calculateEpley1RM(prSet.reps, prSet.weight_kg);
           sessionPRs.push({
             type: "heaviest_weight",
@@ -498,12 +506,12 @@ export async function getExerciseHistory(
         }
 
         // 2. Best e1RM (rounded to 0.1 kg for comparison to avoid float noise)
-        const bestE1rmInSession = Math.max(...sets.map(s => roundE1RM(calculateEpley1RM(s.reps, s.weight_kg))));
+        const bestE1rmInSession = Math.max(...weightedSetsInSession.map(s => roundE1RM(calculateEpley1RM(s.reps, s.weight_kg))));
         const prevBestE1rm = prsBefore.find(pr => pr.type === "best_e1rm");
         const prevE1rmValue = roundE1RM(prevBestE1rm?.value ?? null);
 
         if (bestE1rmInSession > prevE1rmValue) {
-          const prSet = sets.find(s => roundE1RM(calculateEpley1RM(s.reps, s.weight_kg)) === bestE1rmInSession) ?? sets[0];
+          const prSet = weightedSetsInSession.find(s => roundE1RM(calculateEpley1RM(s.reps, s.weight_kg)) === bestE1rmInSession) ?? weightedSetsInSession[0];
           const actualE1rm = calculateEpley1RM(prSet.reps, prSet.weight_kg) ?? 0;
           sessionPRs.push({
             type: "best_e1rm",
@@ -512,18 +520,16 @@ export async function getExerciseHistory(
             e1rm: actualE1rm,
           });
         }
-      }
 
-      // 3. Most reps for weighted lifts: same-weight comparison with deload guard
-      // For bodyweight (no weight), use plain most-reps
-      if (hasWeight) {
-        // Weighted: use checkWeightedRepPR helper
+        // 3. Weighted most reps: same-weight comparison
+        // L2: Only check weighted sets, not bodyweight
+        const weightedSetsBeforeThisSession = setsBeforeThisSession.filter(s => s.weight_kg !== null && s.weight_kg > 0);
         let hasRepPR = false;
         let repPRSet: SetData | null = null;
         let repPRValue = 0;
 
-        for (const currentSet of sets) {
-          if (checkWeightedRepPR(currentSet, setsBeforeThisSession)) {
+        for (const currentSet of weightedSetsInSession) {
+          if (checkWeightedRepPR(currentSet, weightedSetsBeforeThisSession)) {
             const currentReps = currentSet.reps ?? 0;
             if (!hasRepPR || currentReps > repPRValue) {
               hasRepPR = true;
@@ -542,8 +548,31 @@ export async function getExerciseHistory(
             e1rm,
           });
         }
+
+        // L2: Also check bodyweight sets independently for most_reps PRs
+        if (bodyweightSetsInSession.length > 0) {
+          const bodyweightSetsBeforeThisSession = setsBeforeThisSession.filter(s => s.weight_kg === null || s.weight_kg === 0);
+          const mostBodyweightRepsInSession = Math.max(...bodyweightSetsInSession.map(s => s.reps ?? 0));
+          const prevBodyweightMostReps = bodyweightSetsBeforeThisSession.length > 0
+            ? Math.max(...bodyweightSetsBeforeThisSession.map(s => s.reps ?? 0))
+            : 0;
+
+          // Only create a bodyweight most_reps PR if it beats the previous bodyweight PR
+          // AND it's higher than any weighted rep PR we just recorded
+          if (mostBodyweightRepsInSession > prevBodyweightMostReps) {
+            // If we didn't find a weighted rep PR, or bodyweight beats it
+            if (!hasRepPR || mostBodyweightRepsInSession > repPRValue) {
+              const prSet = bodyweightSetsInSession.find(s => (s.reps ?? 0) === mostBodyweightRepsInSession) ?? bodyweightSetsInSession[0];
+              sessionPRs.push({
+                type: "most_reps",
+                set: prSet,
+                value: mostBodyweightRepsInSession,
+              });
+            }
+          }
+        }
       } else {
-        // Bodyweight: plain most-reps (no weight restriction)
+        // Pure bodyweight: plain most-reps (no weight restriction)
         const mostRepsInSession = Math.max(...sets.map(s => s.reps ?? 0));
         const prevMostReps = prsBefore.find(pr => pr.type === "most_reps");
         const prevRepsValue = prevMostReps?.value ?? 0;

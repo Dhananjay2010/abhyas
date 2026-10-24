@@ -266,13 +266,16 @@ export function detectPersonalRecords(
   }
 
   // Reps-based exercises
-  const hasWeight = allSets.some(s => (s.weight_kg ?? 0) > 0);
+  // L2: Treat null and 0 weight as bodyweight explicitly
+  const weightedSets = allSets.filter(s => s.weight_kg !== null && s.weight_kg > 0);
+  const bodyweightSets = allSets.filter(s => s.weight_kg === null || s.weight_kg === 0);
+  const hasWeight = weightedSets.length > 0;
 
   if (hasWeight) {
     // Weighted exercise PRs
     
     // 1. Heaviest weight (at any reps)
-    const heaviestSet = allSets.reduce((best, current) => {
+    const heaviestSet = weightedSets.reduce((best, current) => {
       const bestWeight = best.weight_kg ?? 0;
       const currentWeight = current.weight_kg ?? 0;
       return currentWeight > bestWeight ? current : best;
@@ -289,7 +292,7 @@ export function detectPersonalRecords(
     }
 
     // 2. Best estimated 1RM
-    const bestE1rmSet = allSets.reduce((best, current) => {
+    const bestE1rmSet = weightedSets.reduce((best, current) => {
       const bestE1rm = roundE1RM(calculateEpley1RM(best.reps, best.weight_kg));
       const currentE1rm = roundE1RM(calculateEpley1RM(current.reps, current.weight_kg));
       return currentE1rm > bestE1rm ? current : best;
@@ -308,8 +311,6 @@ export function detectPersonalRecords(
 
   // Most reps: same-weight comparison for weighted, plain for bodyweight
   // For mixed histories (bodyweight then weighted), track both separately
-  const weightedSets = allSets.filter(s => (s.weight_kg ?? 0) > 0);
-  const bodyweightSets = allSets.filter(s => (s.weight_kg ?? 0) === 0);
   
   if (hasWeight && weightedSets.length > 0) {
     // Weighted rep PR logic
