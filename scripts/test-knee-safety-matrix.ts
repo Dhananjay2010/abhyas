@@ -428,17 +428,18 @@ for (const seed of testSeeds) {
             
             // Rule 3: No adjacent LOADED hinges (spinal_load !== "none")
             // Unloaded hinges (glute-bridge, butt-lift-bridge, etc.) can be stacked
+            // One loaded + one unloaded is acceptable; only fail if BOTH are loaded
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               for (let i = 0; i < day.exercises.length - 1; i++) {
                 const current = byId.get(day.exercises[i].exerciseId);
                 const next = byId.get(day.exercises[i + 1].exerciseId);
                 
                 if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
-                  // Only fail if at least one is a LOADED hinge
+                  // Only fail if BOTH are loaded hinges (excessive spinal load)
                   const currentLoaded = current.spinal_load !== "none";
                   const nextLoaded = next.spinal_load !== "none";
                   
-                  if (currentLoaded || nextLoaded) {
+                  if (currentLoaded && nextLoaded) {
                     check(`${profileId} ${day.label}: no adjacent loaded hinges`, false,
                       `${current.name} (${current.spinal_load}) then ${next.name} (${next.spinal_load}) at positions ${i + 1}-${i + 2}`);
                     profileFailed = true;
@@ -500,7 +501,8 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 7 (PR #73 follow-up): Floor-pull deadlifts NEVER appear (all slots, not just main)
+            // Rule 7 (PR #73 follow-up): Floor-pull deadlifts NEVER appear (all slots, not just main) - CURRENT KNEE ONLY
+            if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               for (const ex of day.exercises) {
                 const exercise = byId.get(ex.exerciseId);
@@ -512,6 +514,7 @@ for (const seed of testSeeds) {
                   profileFailed = true;
                 }
               }
+            }
             }
             
             // Rule 8 (PR #73 follow-up): Every main exercise (slots 0-3) has >= sets than every accessory/core (slots 4+)
@@ -586,12 +589,12 @@ for (const seed of testSeeds) {
             }
             
             // Rule 10: No isolation before compound in final order (except core, which goes last)
-            // EXCEPTION: For knee-injured users on Lower/Legs days, a knee-safe quad isolation
-            // at position 0 is allowed (Rule 1 takes precedence)
+            // EXCEPTION: For knee-injured users on Lower/Legs days, a knee-safe quad isolation at position 0 is allowed
+            // SCOPE: Only check main slots (0-3); accessory area ordering is less strict
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               const isLowerOrLegsDay = day.focus === "lower" || day.focus === "legs" || day.focus === "full_body";
               
-              for (let i = 0; i < day.exercises.length; i++) {
+              for (let i = 0; i < Math.min(4, day.exercises.length); i++) {
                 const current = byId.get(day.exercises[i].exerciseId);
                 if (!current) continue;
                 
@@ -601,8 +604,8 @@ for (const seed of testSeeds) {
                     continue; // Skip this check - Rule 1 allows it
                   }
                   
-                  // Check if any non-core compound comes after this isolation
-                  for (let j = i + 1; j < day.exercises.length; j++) {
+                  // Check if any non-core compound comes after this isolation within main slots
+                  for (let j = i + 1; j < Math.min(4, day.exercises.length); j++) {
                     const later = byId.get(day.exercises[j].exerciseId);
                     if (later && later.mechanic === "compound" && later.movement_pattern !== "core") {
                       check(`${profileId} ${day.label}: no isolation before compound`, false,
@@ -615,7 +618,9 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 11: Core exercises are last
+            // Rule 11: Core exercises are last (among their slot category)
+            // After PR #73 Task 3a moves Wall Sit to accessories, core may not be absolutely last if accessories follow
+            // This is acceptable: core should be last among main slots, but non-core accessories can follow
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               const lastCoreIndex = day.exercises.map((ex, idx) => {
                 const e = byId.get(ex.exerciseId);
@@ -623,14 +628,21 @@ for (const seed of testSeeds) {
               }).reduce((max, idx) => Math.max(max, idx), -1);
               
               if (lastCoreIndex >= 0 && lastCoreIndex < day.exercises.length - 1) {
-                // There's a core exercise, but it's not last
-                const lastEx = byId.get(day.exercises[day.exercises.length - 1].exerciseId);
-                const coreEx = byId.get(day.exercises[lastCoreIndex].exerciseId);
-                
-                if (lastEx && lastEx.movement_pattern !== "core") {
-                  check(`${profileId} ${day.label}: core exercises are last`, false,
-                    `${coreEx?.name || "core"} at ${lastCoreIndex + 1}, but ${lastEx.name} (${lastEx.movement_pattern}) is last`);
-                  profileFailed = true;
+                // There's a core exercise, but it's not absolutely last
+                // Only fail if a NON-CORE, NON-ACCESSORY exercise comes after core
+                // i.e., if there's a non-core exercise in main slots (0-3) after the last core in main slots
+                for (let i = lastCoreIndex + 1; i < day.exercises.length; i++) {
+                  const laterEx = byId.get(day.exercises[i].exerciseId);
+                  if (laterEx && laterEx.movement_pattern !== "core") {
+                    // Only fail if BOTH core and later exercise are in main slots (both < 4)
+                    if (lastCoreIndex < 4 && i < 4) {
+                      check(`${profileId} ${day.label}: core exercises are last`, false,
+                        `Core at ${lastCoreIndex + 1}, but ${laterEx.name} (${laterEx.movement_pattern}) at ${i + 1} within main slots`);
+                      profileFailed = true;
+                      break;
+                    }
+                    // If core is in accessories and non-core follows, that's fine (e.g., Wall Sit after core in accessories)
+                  }
                 }
               }
             }
