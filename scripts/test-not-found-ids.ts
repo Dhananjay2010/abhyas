@@ -70,10 +70,10 @@ async function main() {
       (await checkSessionRoute(fakeSupabase as any, userId, sessionId)) === "ok",
     );
     
-    // CRITICAL MUTANT-KILLER TEST:
-    // Mock returns data for ANY id, so if UUID check is removed, this would return 'ok'
+    // Critical test: Mock returns data for ANY id, proving UUID validation happens BEFORE query
+    // If UUID validation were removed, this would incorrectly return 'ok'
     check(
-      "invalid UUID returns 'not_found' despite mock returning data (MUTANT-KILLER)",
+      "invalid UUID returns 'not_found' without querying database",
       (await checkSessionRoute(fakeSupabase as any, userId, "not-a-uuid")) === "not_found",
     );
 
@@ -135,10 +135,10 @@ async function main() {
       (await checkBreatheRoute(fakeSupabase, userId, `mine-${userId}`, ownedLoader as any)) === "ok",
     );
 
-    // Pattern owned by someone else or missing (mutant-killer)
+    // Pattern owned by someone else or missing
     const notOwnedLoader = async (): Promise<null> => null;
     check(
-      "custom pattern owned by someone else returns 'not_found' (mutant-killer)",
+      "custom pattern owned by someone else returns 'not_found'",
       (await checkBreatheRoute(fakeSupabase, "other-user-id", `mine-${userId}`, notOwnedLoader as any)) === "not_found",
     );
 
