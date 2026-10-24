@@ -109,6 +109,38 @@ export function OnboardingFlow({
   const [error, setError] = useState<string | null>(null);
 
   const [dateOfBirth, setDateOfBirth] = useState(initial.dateOfBirth ?? "");
+  
+  // Normalize date input: detect typed digit strings like '01011992' and convert to YYYY-MM-DD
+  const normalizeDateInput = (value: string): string => {
+    if (!value) return value;
+    
+    // If it's already in YYYY-MM-DD format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      // But reject year 0001 and other invalid years
+      const year = parseInt(value.slice(0, 4), 10);
+      if (year < 1900 || year > new Date().getFullYear()) {
+        return "";
+      }
+      return value;
+    }
+    
+    // Handle common typed formats: DDMMYYYY (8 digits)
+    if (/^\d{8}$/.test(value)) {
+      const dd = value.slice(0, 2);
+      const mm = value.slice(2, 4);
+      const yyyy = value.slice(4, 8);
+      const year = parseInt(yyyy, 10);
+      
+      // Reject invalid years
+      if (year < 1900 || year > new Date().getFullYear()) {
+        return "";
+      }
+      
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    
+    return value;
+  };
   const [sex, setSex] = useState<Sex | null>(initial.sex);
   const [heightCm, setHeightCm] = useState(initial.heightCm?.toString() ?? "");
   const [weightKg, setWeightKg] = useState(initial.weightKg?.toString() ?? "");
@@ -121,7 +153,9 @@ export function OnboardingFlow({
     initial.primaryTrack && initial.primaryTrack !== "weights" ? initial.primaryTrack : null,
   );
   const [daysPerWeek, setDaysPerWeek] = useState<number | null>(initial.daysPerWeek);
-  const [yogaDays, setYogaDays] = useState(initial.yogaDaysPerWeek);
+  const [yogaDays, setYogaDays] = useState<number | null>(
+    initial.yogaDaysPerWeek > 0 ? initial.yogaDaysPerWeek : null
+  );
   const [hasAllEquipment, setHasAllEquipment] = useState(initial.hasAllEquipment);
   const [selectedEquipment, setSelectedEquipment] = useState<Set<string>>(
     new Set(initial.equipmentIds),
@@ -254,8 +288,37 @@ export function OnboardingFlow({
   if (current === "about") {
     const height = Number(heightCm);
     const weight = Number(weightKg);
+    
+    // Individual field validation for inline display
+    let dobError: string | null = null;
+    if (dateOfBirth !== "") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+        dobError = "Please enter a valid date";
+      } else {
+        const date = new Date(dateOfBirth);
+        const year = date.getFullYear();
+        const currentYear = new Date().getFullYear();
+        
+        if (isNaN(date.getTime())) {
+          dobError = "Please enter a valid date";
+        } else if (year < 1900 || year > currentYear) {
+          dobError = `Year must be between 1900 and ${currentYear}`;
+        } else if (date > new Date()) {
+          dobError = "Date cannot be in the future";
+        }
+      }
+    }
+    
+    const heightError = heightCm !== "" && (!Number.isFinite(height) || height < 100 || height > 250)
+      ? "Height should be between 100 and 250 cm"
+      : null;
+    const weightError = weightKg !== "" && (!Number.isFinite(weight) || weight < 25 || weight > 300)
+      ? "Weight should be between 25 and 300 kg"
+      : null;
+    
     const ready =
-      dateOfBirth !== "" && sex !== null && height > 0 && weight > 0 && !pending;
+      dateOfBirth !== "" && sex !== null && height > 0 && weight > 0 && 
+      !dobError && !heightError && !weightError && !pending;
 
     return (
       <StepShell
@@ -291,12 +354,16 @@ export function OnboardingFlow({
         }
       >
         <div className="space-y-5">
-          <Field label="Date of birth">
+          <Field label="Date of birth" error={dobError}>
             <input
               type="date"
               value={dateOfBirth}
+              min="1900-01-01"
               max={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => setDateOfBirth(e.target.value)}
+              onChange={(e) => {
+                const normalized = normalizeDateInput(e.target.value);
+                setDateOfBirth(normalized);
+              }}
               className={inputClass}
             />
           </Field>
@@ -317,23 +384,29 @@ export function OnboardingFlow({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Height" hint="cm">
+            <Field label="Height" hint="cm" error={heightError}>
               <input
                 type="number"
                 inputMode="decimal"
                 value={heightCm}
                 onChange={(e) => setHeightCm(e.target.value)}
-                placeholder="175"
+                placeholder="e.g. 175"
+                min="100"
+                max="250"
+                step="any"
                 className={inputClass}
               />
             </Field>
-            <Field label="Weight" hint="kg">
+            <Field label="Weight" hint="kg" error={weightError}>
               <input
                 type="number"
                 inputMode="decimal"
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
-                placeholder="70"
+                placeholder="e.g. 70"
+                min="25"
+                max="300"
+                step="any"
                 className={inputClass}
               />
             </Field>
@@ -478,7 +551,7 @@ export function OnboardingFlow({
                   actions.saveProfileFields({
                     days_per_week: daysPerWeek,
                     // Keep the mix inside the chosen number of days.
-                    yoga_days_per_week: Math.min(yogaDays, (daysPerWeek ?? 3) - 1),
+                    yoga_days_per_week: Math.min(yogaDays ?? 0, (daysPerWeek ?? 3) - 1),
                   }),
                 )
               }
@@ -493,11 +566,11 @@ export function OnboardingFlow({
             <OptionCard
               key={d}
               label={`${d} days`}
-              description={trainsPhysically ? splitLabelFor(d, yogaDays) : undefined}
+              description={trainsPhysically ? splitLabelFor(d, yogaDays ?? 0) : undefined}
               selected={daysPerWeek === d}
               onClick={() => {
                 setDaysPerWeek(d);
-                if (yogaDays > d - 1) setYogaDays(d - 1);
+                if (yogaDays !== null && yogaDays > d - 1) setYogaDays(d - 1);
               }}
             />
           ))}
@@ -508,6 +581,7 @@ export function OnboardingFlow({
 
   if (current === "mix") {
     const max = (daysPerWeek ?? 3) - 1;
+    const yogaValid = yogaDays !== null;
     return (
       <StepShell
         {...shell}
@@ -515,10 +589,15 @@ export function OnboardingFlow({
         subtitle={`Yoga counts as a training day. Of your ${daysPerWeek} days, some can be yoga instead of training.`}
         footer={
           <>
+            {!yogaValid && (
+              <p className="mb-3 text-sm text-danger" aria-live="polite">
+                Please select how many yoga days you want (or choose &ldquo;No yoga&rdquo;)
+              </p>
+            )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
-              disabled={pending}
-              onClick={() => advance(() => actions.saveProfileFields({ yoga_days_per_week: yogaDays }))}
+              disabled={!yogaValid || pending}
+              onClick={() => advance(() => actions.saveProfileFields({ yoga_days_per_week: yogaDays ?? 0 }))}
             >
               {pending ? "Saving…" : "Continue"}
             </PrimaryButton>
@@ -547,12 +626,19 @@ export function OnboardingFlow({
   }
 
   if (current === "equipment") {
+    const isBodyweightOnly = track === "bodyweight";
     const grouped = equipment.reduce<Record<string, EquipmentRow[]>>((acc, e) => {
       (acc[e.category] ??= []).push(e);
       return acc;
     }, {});
+    
+    // Order bodyweight first for home users
+    const categories = Object.keys(grouped);
+    const orderedCategories = location === "home" && categories.includes("bodyweight")
+      ? ["bodyweight", ...categories.filter((k) => k !== "bodyweight")]
+      : categories;
 
-    function toggle(id: string) {
+    const toggle = (id: string) => {
       setHasAllEquipment(false);
       setSelectedEquipment((prev) => {
         const next = new Set(prev);
@@ -560,13 +646,17 @@ export function OnboardingFlow({
         else next.add(id);
         return next;
       });
-    }
+    };
 
     return (
       <StepShell
         {...shell}
-        title="What can you actually use?"
-        subtitle="We never suggest an exercise you have no equipment for."
+        title={isBodyweightOnly ? "Bodyweight training confirmed" : "What can you actually use?"}
+        subtitle={
+          isBodyweightOnly
+            ? "We've selected bodyweight equipment for you. Add anything else you have."
+            : "We never suggest an exercise you have no equipment for."
+        }
         footer={
           <>
             {error && <ErrorNote>{error}</ErrorNote>}
@@ -615,33 +705,37 @@ export function OnboardingFlow({
         )}
 
         <div className={hasAllEquipment ? "pointer-events-none opacity-40" : ""}>
-          {Object.entries(grouped).map(([category, items]) => (
-            <div key={category} className="mb-6">
-              <h2 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
-                {CATEGORY_LABELS[category] ?? category}
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {items.map((e) => {
-                  const on = selectedEquipment.has(e.id);
-                  return (
-                    <button
-                      key={e.id}
-                      type="button"
-                      onClick={() => toggle(e.id)}
-                      aria-pressed={on}
-                      className={`rounded-full border px-4 py-2 text-sm transition-colors ${
-                        on
-                          ? "border-accent bg-accent/10 text-accent"
-                          : "border-border bg-surface text-muted hover:text-fg"
-                      }`}
-                    >
-                      {e.name}
-                    </button>
-                  );
-                })}
+          {orderedCategories.map((category) => {
+            const items = grouped[category];
+            if (!items) return null;
+            return (
+              <div key={category} className="mb-6">
+                <h2 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
+                  {CATEGORY_LABELS[category] ?? category}
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {items.map((e) => {
+                    const on = selectedEquipment.has(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => toggle(e.id)}
+                        aria-pressed={on}
+                        className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                          on
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-border bg-surface text-muted hover:text-fg"
+                        }`}
+                      >
+                        {e.name}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </StepShell>
     );
