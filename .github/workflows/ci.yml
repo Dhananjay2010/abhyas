@@ -237,6 +237,7 @@ jobs:
           npm run test:progress-rpcs-real-db
           npx tsx scripts/test-delete-set.ts
           npx tsx scripts/test-skipped-session-shapes.ts
+          REAL_DB=1 npm run test:history-edit-validation-db
         env:
           REAL_DB: "1"
 
