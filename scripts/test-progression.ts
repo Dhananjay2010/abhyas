@@ -1211,5 +1211,70 @@ console.log("\nKettlebell tie tests and edge cases");
     kbDeload32 === 24, `${kbDeload32}`);
 }
 
+console.log("\nKettlebell walk test: 4 to 48 up and down");
+{
+  const KETTLEBELL: ExerciseMeta = {
+    mechanic: "compound",
+    movementPattern: "hinge",
+    metric: "reps",
+    isBodyweight: false,
+    progressionChain: "kettlebell",
+    progressionRank: null,
+    equipmentIds: ["kettlebell"],
+  };
+  
+  const bells = [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 44, 48];
+  
+  // Walk up: progression after successful sets
+  for (let i = 0; i < bells.length - 1; i++) {
+    const current = bells[i];
+    const expected = bells[i + 1];
+    const result = run({
+      meta: KETTLEBELL,
+      sets: sets(4, 12, current),
+      state: fresh({ currentWorkingWeightKg: current }),
+    });
+    check(`kettlebell ${current} kg → ${expected} kg (up)`, result.nextWorkingWeightKg === expected, `got ${result.nextWorkingWeightKg}`);
+  }
+  
+  // At 48: hold after success
+  const hold48 = run({
+    meta: KETTLEBELL,
+    sets: sets(3, 12, 48),
+    state: fresh({ currentWorkingWeightKg: 48 }),
+  });
+  check("kettlebell 48 kg holds at 48 kg", hold48.nextWorkingWeightKg === 48, `got ${hold48.nextWorkingWeightKg}`);
+  
+  // Above 48: hold at current weight after success
+  const hold52 = run({
+    meta: KETTLEBELL,
+    sets: sets(3, 12, 52),
+    state: fresh({ currentWorkingWeightKg: 52 }),
+  });
+  check("kettlebell 52 kg holds at 52 kg (above standard)", hold52.nextWorkingWeightKg === 52, `got ${hold52.nextWorkingWeightKg}`);
+  
+  const hold64 = run({
+    meta: KETTLEBELL,
+    sets: sets(3, 12, 64),
+    state: fresh({ currentWorkingWeightKg: 64 }),
+  });
+  check("kettlebell 64 kg holds at 64 kg (above standard)", hold64.nextWorkingWeightKg === 64, `got ${hold64.nextWorkingWeightKg}`);
+  
+  // Walk down (deload)
+  for (let i = bells.length - 1; i > 0; i--) {
+    const current = bells[i];
+    const target = current * 0.8;
+    const deloaded = suggestedWeight({ currentWorkingWeightKg: current }, true, KETTLEBELL);
+    // Find expected: largest bell ≤ target
+    let expected = bells[0];
+    for (const bell of bells) {
+      if (bell <= target) expected = bell;
+      else break;
+    }
+    check(`kettlebell ${current} kg deload (80% = ${target.toFixed(1)}) → ${expected} kg`, 
+      deloaded === expected, `got ${deloaded}`);
+  }
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
