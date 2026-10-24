@@ -2549,10 +2549,169 @@ async function testMutantD_BannerVisibility() {
   console.log("✓ Mutant (d): Banner visibility driven by isOffline() helper");
 }
 
+// ---- Test logSetCore (c) --------------------------------------------------
+async function testLogSetCore() {
+  const { logSetCore } = await import("../src/lib/session/log-set-core");
+  
+  // Create a fake client that enforces unique (session_exercise_id, set_number)
+  const rows: Array<{
+    session_exercise_id: string;
+    set_number: number;
+    reps: number | null;
+    weight_kg: number | null;
+  }> = [];
+  
+  const fakeClient = {
+    from: (table: string) => {
+      if (table !== "session_sets") {
+        throw new Error(`Unexpected table: ${table}`);
+      }
+      return {
+        upsert: async (data: unknown, options: { onConflict: string }) => {
+          const row = data as {
+            session_exercise_id: string;
+            set_number: number;
+            reps: number | null;
+            weight_kg: number | null;
+            user_id: string;
+            duration_seconds: number | null;
+            is_warmup_set: boolean;
+            completed_at: string;
+          };
+          
+          // Check for existing row with same (session_exercise_id, set_number)
+          const existing = rows.findIndex(
+            r => r.session_exercise_id === row.session_exercise_id && r.set_number === row.set_number
+          );
+          
+          // If upsert with onConflict, we overwrite
+          if (existing >= 0) {
+            rows[existing] = {
+              session_exercise_id: row.session_exercise_id,
+              set_number: row.set_number,
+              reps: row.reps,
+              weight_kg: row.weight_kg,
+            };
+          } else {
+            rows.push({
+              session_exercise_id: row.session_exercise_id,
+              set_number: row.set_number,
+              reps: row.reps,
+              weight_kg: row.weight_kg,
+            });
+          }
+          
+          return { data: null, error: null };
+        },
+      };
+    },
+  } as unknown as Parameters<typeof logSetCore>[0];
+  
+  // First insert
+  const result1 = await logSetCore(fakeClient, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    userId: "user1",
+  });
+  
+  if (!result1.ok) {
+    throw new Error(`First insert should succeed: ${result1.error}`);
+  }
+  
+  if (rows.length !== 1) {
+    throw new Error(`Expected 1 row after first insert, got ${rows.length}`);
+  }
+  
+  // Second insert with same exercise+setNumber (replay) - should upsert (overwrite)
+  const result2 = await logSetCore(fakeClient, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 12, // Different reps
+    weightKg: 55, // Different weight
+    durationSeconds: null,
+    userId: "user1",
+  });
+  
+  if (!result2.ok) {
+    throw new Error(`Replay should succeed (idempotent): ${result2.error}`);
+  }
+  
+  // Should still be exactly 1 row (upserted, not duplicated)
+  if (rows.length !== 1) {
+    throw new Error(`Expected 1 row after replay (upserted), got ${rows.length}`);
+  }
+  
+  // Verify the row has the second set's data
+  if (rows[0].reps !== 12 || rows[0].weight_kg !== 55) {
+    throw new Error(`Upsert should overwrite with new data: reps=${rows[0].reps}, weight=${rows[0].weight_kg}`);
+  }
+  
+  console.log("✓ logSetCore: idempotent upsert, replay overwrites, exactly one row exists");
+}
+
+// ---- Test createOutboxController (a) -------------------------------------
+async function testCreateOutboxController() {
+  const { createOutboxController } = await import("../src/lib/session/outbox-controller");
+  
+  // Create a real EventTarget
+  const target = new EventTarget();
+  let flushCount = 0;
+  const flush = () => {
+    flushCount++;
+  };
+  
+  const controller = createOutboxController({ target, flush });
+  
+  // Before start, online event should not trigger flush
+  target.dispatchEvent(new Event("online"));
+  if (flushCount !== 0) {
+    throw new Error(`Flush should not be called before start(), got ${flushCount}`);
+  }
+  
+  // Start listening
+  controller.start();
+  
+  // Dispatch online event
+  target.dispatchEvent(new Event("online"));
+  if (flushCount !== 1) {
+    throw new Error(`Flush should be called once after online event, got ${flushCount}`);
+  }
+  
+  // Dispatch again
+  target.dispatchEvent(new Event("online"));
+  if (flushCount !== 2) {
+    throw new Error(`Flush should be called twice after second online event, got ${flushCount}`);
+  }
+  
+  // Stop listening
+  controller.stop();
+  
+  // After stop, online event should not trigger flush
+  target.dispatchEvent(new Event("online"));
+  if (flushCount !== 2) {
+    throw new Error(`Flush should not be called after stop(), got ${flushCount}`);
+  }
+  
+  // Start again (idempotent)
+  controller.start();
+  controller.start(); // Second start is no-op
+  target.dispatchEvent(new Event("online"));
+  if (flushCount !== 3) {
+    throw new Error(`Flush should be called once after restart, got ${flushCount}`);
+  }
+  
+  console.log("✓ createOutboxController: start/stop controls online event listener");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
 
+  await testLogSetCore();
+  await testCreateOutboxController();
   await testQueueAndFlush();
   await testClientSideDedup();
   await testServerSideUpsert();
