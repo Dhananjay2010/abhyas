@@ -126,7 +126,7 @@ console.log("\n4. Proxy security decisions (deny-by-default)");
   // Mock the proxy decision logic for testing
   // In reality this runs in the proxy, but we test the logic here
   
-  const PUBLIC_PATHS = ["/", "/auth", "/robots.txt", "/sitemap.xml"];
+  const PUBLIC_PATHS = ["/", "/auth", "/legal", "/robots.txt", "/sitemap.xml"];
   const DEV_PATHS: string[] = []; // production mode for this test
   const PROBE_PATHS: string[] = []; // no PERF_TOKEN
   const PROTECTED_PREFIXES = [
@@ -162,22 +162,27 @@ console.log("\n4. Proxy security decisions (deny-by-default)");
     return "pass-through";
   }
 
-  // Test cases for signed-out users
+  // Test all existing public routes pass through for signed-out users
+  check("public / passes through", proxyDecision("/", false) === "pass-through");
+  check("public /auth/callback passes through", proxyDecision("/auth/callback", false) === "pass-through");
+  check("public /auth/signout passes through", proxyDecision("/auth/signout", false) === "pass-through");
+  check("public /legal passes through", proxyDecision("/legal", false) === "pass-through");
+  check("public /legal/anything passes through", proxyDecision("/legal/anything", false) === "pass-through");
+  check("public /robots.txt passes through", proxyDecision("/robots.txt", false) === "pass-through");
+  check("public /sitemap.xml passes through", proxyDecision("/sitemap.xml", false) === "pass-through");
+
+  // Test cases for signed-out users - unknown paths
   check("unknown path /xyz returns 404", proxyDecision("/xyz", false) === "404");
   check("unknown path /fake-page returns 404", proxyDecision("/fake-page", false) === "404");
   check("unknown nested /some/deep/path returns 404", proxyDecision("/some/deep/path", false) === "404");
   
+  // Protected routes redirect
   check("protected /today redirects", proxyDecision("/today", false) === "redirect");
   check("protected /breathe redirects", proxyDecision("/breathe", false) === "redirect");
   check("protected /history redirects", proxyDecision("/history", false) === "redirect");
   check("protected /settings redirects", proxyDecision("/settings", false) === "redirect");
   check("protected /api/diag redirects", proxyDecision("/api/diag", false) === "redirect");
   check("protected /api/something redirects", proxyDecision("/api/something", false) === "redirect");
-  
-  check("public / passes through", proxyDecision("/", false) === "pass-through");
-  check("public /auth/callback passes through", proxyDecision("/auth/callback", false) === "pass-through");
-  check("public /robots.txt passes through", proxyDecision("/robots.txt", false) === "pass-through");
-  check("public /sitemap.xml passes through", proxyDecision("/sitemap.xml", false) === "pass-through");
 
   // Signed-in users always pass through
   check("signed-in user on /today passes through", proxyDecision("/today", true) === "pass-through");
