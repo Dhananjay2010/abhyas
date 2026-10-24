@@ -55,11 +55,46 @@ export default async function SettingsPage() {
 
       <SettingsForm initial={initial} equipment={equipmentRes.data ?? []} />
 
-      <form action="/auth/signout" method="post" className="mt-12">
-        <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
-          Sign out
-        </button>
-      </form>
+      <div className="mt-12 space-y-8 border-t border-border pt-8">
+        <section>
+          <h2 className="text-lg font-semibold mb-2">Legal</h2>
+          <div className="space-y-3">
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg"
+            >
+              Privacy Policy →
+            </a>
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg"
+            >
+              Terms of Service →
+            </a>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-lg font-semibold mb-2">Account</h2>
+          <div className="space-y-3">
+            <form action="/auth/signout" method="post">
+              <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg text-left">
+                Sign out
+              </button>
+            </form>
+            <a
+              href="/settings/delete-account"
+              className="block rounded-xl border border-danger/30 bg-danger/10 px-6 py-3 text-sm font-medium text-danger transition-colors hover:bg-danger/20"
+            >
+              Delete account →
+            </a>
+          </div>
+        </section>
+      </div>
 
     </main>
   );
