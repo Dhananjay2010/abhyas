@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
+import { StartFirstSessionButton } from "./start-first-session-button";
 import { labelForDayType } from "@/lib/program/day-plan";
 import type { PromptBlocks } from "@/lib/today/prompt-blocks";
 import type { Database } from "@/lib/database.types";
@@ -110,12 +111,11 @@ export function TodayPrompts({
               <p className="mt-2 text-sm text-muted">
                 Today is a rest day in your block. Start your first training session now.
               </p>
-              <Link
-                href={`/session/start?programDayId=${firstTrainingDay.programDayId}&date=${localToday}`}
-                className="mt-4 block rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
-              >
-                Start it now
-              </Link>
+              <StartFirstSessionButton
+                localDate={localToday}
+                programDayId={firstTrainingDay.programDayId}
+                label="Start it now"
+              />
             </div>
           ) : promptBlocks.showFirstDayWelcome && nextTraining ? (
             // First day on a rest day: show next training day
