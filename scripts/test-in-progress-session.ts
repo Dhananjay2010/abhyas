@@ -19,6 +19,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 import { getInProgressSession } from "../src/lib/session/in-progress";
 import { localDateString } from "../src/lib/dates";
+import { FALLBACK_TIMEZONE } from "../src/lib/timezone";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -330,12 +331,12 @@ class FakeSupabase {
   {
     const fake = new FakeSupabase();
     fake.addProfile("user1", null);
-    const utcToday = localDateString("UTC");
-    fake.addSession("s10", "user1", "in_progress", "2026-10-24T14:00:00Z", utcToday, "Legs");
+    const fallbackToday = localDateString(FALLBACK_TIMEZONE);
+    fake.addSession("s10", "user1", "in_progress", "2026-10-24T14:00:00Z", fallbackToday, "Legs");
     fake.addExercise("ex9", "s10");
     fake.addSet("set11", "user1", "ex9", false);
 
-    // Pass invalid timezone - should fall back to system default (UTC)
+    // Pass invalid timezone - should fall back to system default (FALLBACK_TIMEZONE)
     const result = await getInProgressSession(
       fake as unknown as SupabaseClient<Database>,
       "user1",
