@@ -172,7 +172,7 @@
     "test:today-state": "tsx scripts/test-today-state.ts",
     "test:today-prompts": "tsx scripts/test-today-prompts.ts",
     "test:page-wiring": "tsx scripts/test-page-wiring.ts",
-    "test:page-input": "tsx scripts/test-today-page-input.ts",
+    "test:page-input": "tsx scripts/test-page-input.ts",
     "test:has-started-any": "tsx scripts/test-has-started-any.ts",
     "test:page-helpers": "tsx scripts/test-page-helpers.ts",
     "test:missed-day-program-id": "tsx scripts/test-missed-day-program-id.ts",
