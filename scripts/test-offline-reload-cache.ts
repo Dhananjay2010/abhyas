@@ -10,7 +10,6 @@ import {
   writeSessionSnapshot,
   readSessionSnapshot,
   mergeSnapshotWithOutbox,
-  type SessionSnapshot,
   type SessionCacheStorage,
 } from "../src/lib/session/session-cache";
 
