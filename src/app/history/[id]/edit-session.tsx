@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { updateSessionDateTime } from "../actions";
 import { utcToZonedDateTime, zonedDateTimeToUtc } from "@/lib/timezone";
 import { localDateString } from "@/lib/dates";
@@ -34,19 +34,15 @@ export function EditSession({
   const [editedStartTime, setEditedStartTime] = useState(startZoned?.time || "");
   const [editedEndTime, setEditedEndTime] = useState(endZoned?.time || "");
 
-  // Calculate date picker limits
-  const [minDate, setMinDate] = useState<string>("");
-  const [maxDate, setMaxDate] = useState<string>("");
-
-  useEffect(() => {
-    // Calculate min date from signup date
+  // Calculate date picker limits with useMemo
+  const minDate = useMemo(() => {
     const signupLocalDate = utcToZonedDateTime(signupDate, timezone).date;
-    setMinDate(signupLocalDate);
-    
-    // Calculate max date as today
-    const today = localDateString(timezone);
-    setMaxDate(today);
+    return signupLocalDate;
   }, [signupDate, timezone]);
+
+  const maxDate = useMemo(() => {
+    return localDateString(timezone);
+  }, [timezone]);
 
   const handleSave = () => {
     setError(null);
