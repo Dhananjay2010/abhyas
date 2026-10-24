@@ -424,13 +424,13 @@ EQUIPMENT_LABEL = {
 }
 
 
-def build_cue(mechanic, force, primary, equipment) -> str:
+def build_cue(mechanic, pattern, primary, equipment) -> str:
     """Our own one-line summary, derived from attributes. Not imported prose."""
     bits = []
     if mechanic:
         bits.append(mechanic.capitalize())
-    if force and force != "static":
-        bits.append(f"{force} movement")
+    if pattern and pattern != "static":
+        bits.append(f"{pattern.replace('_', ' ')} movement")
     head = " ".join(bits) if bits else "Exercise"
     muscles = ", ".join(MUSCLE_LABEL.get(m, m) for m in primary[:3])
     kit = ", ".join(dict.fromkeys(EQUIPMENT_LABEL.get(e, e) for e in equipment))
@@ -500,7 +500,7 @@ def main() -> None:
             "impact": impact,
             "spinal_load": spinal,
             "default_rest_seconds": 120 if mechanic == "compound" else 75,
-            "cue": build_cue(mechanic, force, primary, equipment),
+            "cue": build_cue(mechanic, pattern, primary, equipment),
         })
 
     # Progression chains

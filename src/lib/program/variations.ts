@@ -58,6 +58,7 @@ export function nextVariation(chain: string, currentSlug: string): string | null
  * @param chains - The chains to validate
  * @param catalogue - Array of exercises with slug and equipment_ids
  * @returns Array of slugs that require equipment
+ * @throws Error if any slug in the chains is not found in the catalogue
  */
 export function findNonBodyweightSlugs(
   chains: Readonly<Record<string, readonly string[]>>,
@@ -65,14 +66,15 @@ export function findNonBodyweightSlugs(
 ): string[] {
   const nonBodyweight: string[] = [];
   
-  for (const chain of Object.values(chains)) {
-    for (const slug of chain) {
+  for (const [chainName, chainSlugs] of Object.entries(chains)) {
+    for (const slug of chainSlugs) {
       const exercise = catalogue.find(ex => ex.slug === slug);
-      if (exercise) {
-        const equipmentIds: readonly string[] = exercise.equipment_ids || [];
-        if (equipmentIds.length > 0) {
-          nonBodyweight.push(slug);
-        }
+      if (!exercise) {
+        throw new Error(`Exercise slug "${slug}" in chain "${chainName}" not found in catalogue`);
+      }
+      const equipmentIds: readonly string[] = exercise.equipment_ids || [];
+      if (equipmentIds.length > 0) {
+        nonBodyweight.push(slug);
       }
     }
   }
