@@ -1,9 +1,8 @@
 #!/usr/bin/env tsx
 /**
- * Test for week_offset mutant (m4).
+ * Test: cycleWeekFor must respect week_offset parameter.
  * 
- * This test verifies that Today page uses cycleWeekFor which respects week_offset,
- * not the old weekInBlock which ignored it.
+ * Verifies week calculation includes offset from block-range.ts.
  */
 
 import { cycleWeekFor } from "../src/lib/program/block-range";

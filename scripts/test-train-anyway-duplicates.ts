@@ -1,8 +1,8 @@
-#!/usr/bin/env tsx
+#!/usr:bin/env tsx
 /**
- * Test for train-anyway duplicates mutant (m0-train-anyway-duplicates).
+ * Test: Train-anyway must not offer duplicate day_index values.
  * 
- * This test verifies that train-anyway options do not include duplicate day_index values.
+ * Verifies deduplication logic in trainAnywayOptions.
  */
 
 import { trainAnywayOptions } from "../src/lib/today/train-anyway";

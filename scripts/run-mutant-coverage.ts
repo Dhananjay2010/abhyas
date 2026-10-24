@@ -156,13 +156,13 @@ for (const mutant of mutants) {
   console.log(`Applied mutant to ${mutant.file}`);
   
   // Run full test suite
-  let testResult = { killed: false, firstFailingTest: null as string | null };
+  const testResult = { killed: false, firstFailingTest: null as string | null };
   try {
     execSync("npm test 2>&1", { stdio: "pipe", encoding: "utf-8" });
     console.log("⚠️  MUTANT SURVIVED: All tests passed (needs coverage!)");
     testResult.killed = false;
-  } catch (error: any) {
-    const output = error.stdout || error.stderr || "";
+  } catch (error: unknown) {
+    const output = (error as { stdout?: string; stderr?: string }).stdout || (error as { stdout?: string; stderr?: string }).stderr || "";
     console.log("✓ MUTANT KILLED: Test suite failed");
     
     // Extract first failing test name

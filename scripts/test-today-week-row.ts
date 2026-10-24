@@ -37,7 +37,7 @@ const exercises = [
     key: "ex1",
     name: "Bench Press",
     cue: "Touch chest",
-    metric: null as any,
+    metric: null,
     sets: 4,
     repsMin: 8,
     repsMax: 12,
@@ -138,4 +138,4 @@ assert(
   "Normal rest day must not show missed prompt"
 );
 
-console.log("\n✅ All mutant-killing tests passed\n");
+console.log("\n✅ All week-row behavior tests passed\n");

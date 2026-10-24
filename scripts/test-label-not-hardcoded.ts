@@ -1,9 +1,8 @@
 #!/usr/bin/env tsx
 /**
- * Test for label-hardcoded mutant (m0-label-hardcoded).
+ * Test: Labels must use actual label values, not hardcoded strings.
  * 
- * This test verifies that plannableDays uses actual labels from program_days,
- * not hardcoded strings.
+ * Verifies that plannableDays uses actual labels from program_days.
  */
 
 import { labelForDayType } from "../src/lib/program/day-plan";
