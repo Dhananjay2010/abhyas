@@ -54,6 +54,14 @@ jobs:
         with:
           version: latest
 
+      - name: Override auth config for CI
+        run: |
+          # Override production auth settings for local testing only
+          sed -i 's|site_url = "https://abhyas-indol.vercel.app"|site_url = "http://localhost:3000"|' supabase/config.toml
+          sed -i 's|enable_signup = false|enable_signup = true|' supabase/config.toml
+          sed -i 's|enable_confirmations = true|enable_confirmations = false|' supabase/config.toml
+          sed -i 's|max_frequency = "1m0s"|max_frequency = "1s"|' supabase/config.toml
+
       - name: Start Supabase local stack
         run: supabase start
 

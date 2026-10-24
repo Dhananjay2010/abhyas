@@ -103,6 +103,37 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## Important: `supabase/config.toml` Auth Settings
+
+**⚠️ The committed `config.toml` uses production-safe auth settings to prevent accidental misconfiguration:**
+
+```toml
+[auth]
+site_url = "https://abhyas-indol.vercel.app"
+
+[auth.email]
+enable_signup = false
+enable_confirmations = true
+max_frequency = "1m0s"
+```
+
+**These settings protect production.** Running `supabase config push` with relaxed local dev settings would disable signups and break email confirmations in production.
+
+**For local development:**
+- The seed script creates test users (see QA Sign-In section below)
+- The CI workflow automatically overrides these settings via `sed` before running database tests
+- If you need to test signup flows locally, override temporarily in your local copy (never commit):
+
+```bash
+# Edit supabase/config.toml (local only, do not commit):
+site_url = "http://localhost:3000"
+enable_signup = true
+enable_confirmations = false
+max_frequency = "1s"
+```
+
+---
+
 ## Testing
 
 The project uses custom test scripts (not Jest or Vitest) for deterministic unit tests of core logic:
