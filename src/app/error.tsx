@@ -104,7 +104,7 @@ export default function Error({
         }
       }
 
-      const action = determineRetryAction(onlineStatus, fetchSucceeded, null);
+      const action = determineRetryAction(onlineStatus, fetchSucceeded, null, window.location.pathname);
 
       if (action.type === "still-offline") {
         if (timeoutRef.current !== null) {
@@ -167,16 +167,14 @@ export default function Error({
         >
           {checking ? "Checking…" : "Try again"}
         </button>
-        {stillOffline && (
-          <p
-            className="mt-4 text-sm text-muted"
-            style={{ minHeight: "1.25rem", visibility: stillOffline ? "visible" : "hidden" }}
-            role="status"
-            aria-live="polite"
-          >
-            {stillOffline ? "Still offline" : "\u00A0"}
-          </p>
-        )}
+        <p
+          className="mt-4 text-sm text-muted"
+          style={{ minHeight: "1.25rem", visibility: stillOffline ? "visible" : "hidden" }}
+          role="status"
+          aria-live="polite"
+        >
+          {stillOffline ? "Still offline" : "\u00A0"}
+        </p>
       </div>
     </main>
   );

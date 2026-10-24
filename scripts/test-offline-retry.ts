@@ -54,19 +54,30 @@ async function testRetryDecisionLogic() {
   // Test reload scenarios
   console.log("\n▶ Testing reload scenarios...");
 
-  result = determineRetryAction(true, true, null);
+  result = determineRetryAction(true, true, null, "/session/123");
   assert(
     result.type === "reload",
-    "online + fetch succeeded + no url param → reload"
+    "online + fetch succeeded + no url param + non-offline path → reload"
   );
 
-  result = determineRetryAction(true, true, "");
+  result = determineRetryAction(true, true, "", "/today");
   assert(
     result.type === "reload",
-    "online + fetch succeeded + empty url param → reload"
+    "online + fetch succeeded + empty url param + non-offline path → reload"
   );
 
   console.log("  ✓ Reload scenarios return reload");
+
+  // Test /offline special handling
+  console.log("\n▶ Testing /offline path special handling...");
+
+  result = determineRetryAction(true, true, null, "/offline");
+  assert(
+    result.type === "navigate" && result.url === "/",
+    "online + fetch succeeded + no url param + /offline path → navigate to / (not reload /offline)"
+  );
+
+  console.log("  ✓ /offline with no url param navigates to / instead of reloading");
 
   // Test navigate scenarios
   console.log("\n▶ Testing navigate scenarios...");

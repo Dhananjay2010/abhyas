@@ -78,10 +78,25 @@ function testErrorBoundaryRetryBehavior() {
     "error.tsx must reserve space for feedback (minHeight)"
   );
 
-  // Must have visibility toggle or always render
+  // Must have visibility toggle or always render (not conditional mount with &&)
   assert(
     source.includes("visibility") || source.includes("stillOffline ?"),
-    "error.tsx must use visibility toggle or conditional rendering"
+    "error.tsx must use visibility toggle"
+  );
+
+  // Must NOT conditionally mount the feedback element with {stillOffline && (...)}
+  // which causes layout shift when it appears
+  const conditionalMountPattern = /\{stillOffline\s*&&\s*\(/;
+  assert(
+    !conditionalMountPattern.test(source),
+    "error.tsx must NOT conditionally mount feedback with {stillOffline && ()} - causes layout shift"
+  );
+
+  // Must always render the feedback element to reserve space
+  const feedbackElementCount = (source.match(/<p[^>]*role="status"/g) || []).length;
+  assert(
+    feedbackElementCount >= 1,
+    "error.tsx must have at least one status element (feedback)"
   );
 
   // Must have role="status" and aria-live for accessibility
@@ -111,6 +126,7 @@ function testErrorBoundaryRetryBehavior() {
   console.log("  ✓ Shows 'Checking…' state");
   console.log("  ✓ Shows 'Still offline' message");
   console.log("  ✓ Reserves space for feedback (no layout shift)");
+  console.log("  ✓ Always renders feedback element (not conditional mount)");
   console.log("  ✓ Uses visibility toggle");
   console.log('  ✓ Has role="status" and aria-live="polite"');
   console.log("  ✓ Disables button during checking");

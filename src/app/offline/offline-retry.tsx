@@ -69,12 +69,13 @@ export function OfflineRetry() {
       }
     }
 
-    // Get URL param
+    // Get URL param and current path
     const params = new URLSearchParams(window.location.search);
     const urlParam = params.get("url");
+    const currentPath = window.location.pathname;
 
     // Determine action using pure logic
-    const action = determineRetryAction(online, fetchSucceeded, urlParam);
+    const action = determineRetryAction(online, fetchSucceeded, urlParam, currentPath);
 
     if (action.type === "still-offline") {
       // Clear timeout and show "Still offline"
