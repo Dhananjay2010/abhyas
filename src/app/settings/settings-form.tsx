@@ -231,16 +231,7 @@ export function SettingsForm({
   }, [saveQueue]);
 
   useEffect(() => {
-    // QA#1: Flush on component unmount (client-side navigation)
-    return () => {
-      if (saveQueue.hasPending()) {
-        saveQueue.flush();
-      }
-    };
-  }, [saveQueue]);
-
-  useEffect(() => {
-    // Flush on pagehide and visibilitychange to hidden
+    // Flush on pagehide and visibilitychange
     const handlePageHide = () => {
       if (saveQueue.hasPending()) {
         saveQueue.flush();
@@ -250,12 +241,6 @@ export function SettingsForm({
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden" && saveQueue.hasPending()) {
         saveQueue.flush();
-      }
-      
-      // QA#3: Refresh when tab becomes visible (unless saves are pending)
-      // TODO: Implement router.refresh() - requires proper router context mocking in tests
-      if (document.visibilityState === "visible" && !saveQueue.hasPending()) {
-        // Refresh logic will be added after resolving test environment router context
       }
     };
 

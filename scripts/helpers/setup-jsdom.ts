@@ -22,3 +22,42 @@ Object.defineProperty(global, "self", { value: dom.window, writable: true, confi
 
 // Set React act environment flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+// Mock next/navigation for tests
+import { createRequire } from "module";
+const testRequire = createRequire(import.meta.url);
+const Module = testRequire("module") as typeof import("module");
+const originalLoad = Module._load;
+
+// Track router.refresh calls for tests
+export const mockNextRouter = {
+  refresh: () => {},
+  push: () => {},
+  replace: () => {},
+  prefetch: () => {},
+  back: () => {},
+  forward: () => {},
+  refreshCalls: [] as number[],
+};
+
+(Module as { _load: typeof originalLoad })._load = function (request: string, parent: NodeModule, isMain: boolean) {
+  if (request === "next/navigation") {
+    return {
+      useRouter: () => ({
+        refresh: () => {
+          mockNextRouter.refreshCalls.push(Date.now());
+          mockNextRouter.refresh();
+        },
+        push: mockNextRouter.push,
+        replace: mockNextRouter.replace,
+        prefetch: mockNextRouter.prefetch,
+        back: mockNextRouter.back,
+        forward: mockNextRouter.forward,
+      }),
+      usePathname: () => "/settings",
+      useSearchParams: () => new URLSearchParams(),
+      useParams: () => ({}),
+    };
+  }
+  return originalLoad.call(this, request, parent, isMain);
+};
