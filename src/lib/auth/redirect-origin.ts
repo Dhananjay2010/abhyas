@@ -1,48 +1,7 @@
 import { branding } from '@/lib/branding';
+import { safeNextPath as safeNextPathImpl } from '@/lib/safe-next-path';
 
-/**
- * Validate a `next` parameter for safe same-origin redirects.
- * 
- * Accepts only relative paths starting with a single '/', not '//' and not '/\\'.
- * Rejects paths with backslashes, control characters, and URLs that resolve to
- * a different origin.
- * 
- * @param next - The next path from query params
- * @returns The validated path, or '/today' if invalid
- */
-export function safeNextPath(next: string | null | undefined): string {
-  if (!next || typeof next !== 'string') {
-    return '/today';
-  }
-
-  // Must start with a single '/', not '//' (protocol-relative) or '/\' (Windows path)
-  if (!next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) {
-    return '/today';
-  }
-
-  // Reject backslashes and control characters
-  if (next.includes('\\') || /[\x00-\x1F\x7F]/.test(next)) {
-    return '/today';
-  }
-
-  // Reject javascript: and data: URIs (unlikely given the '/' check, but defense in depth)
-  if (next.toLowerCase().startsWith('javascript:') || next.toLowerCase().startsWith('data:')) {
-    return '/today';
-  }
-
-  // Verify the path resolves to the same origin when parsed as a URL
-  try {
-    const resolved = new URL(next, 'http://x');
-    if (resolved.origin !== 'http://x') {
-      return '/today';
-    }
-  } catch {
-    // Malformed URL
-    return '/today';
-  }
-
-  return next;
-}
+export { safeNextPathImpl as safeNextPath };
 
 /**
  * Build a safe redirect origin for auth callbacks.
