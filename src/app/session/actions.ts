@@ -317,12 +317,9 @@ export async function deleteSet(
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
-export type ProgressionFeedback = {
-  outcome: string;
-  message: string;
-  /** One line naming a best that was beaten, or null. SPEC section 7. */
-  personalBest: string | null;
-};
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+
+export type { ProgressionFeedback };
 
 /**
  * Complete an exercise and apply progression from what was actually logged.
@@ -344,41 +341,7 @@ export async function finishExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  /*
-    Conditional update: only transition rows that are not already finished.
-    
-    `status` cannot be NULL (it has a DEFAULT), so a simple `NOT IN` is safe.
-    If the exercise was already completed or skipped, zero rows are updated and
-    the RETURNING clause gives back an empty array. That's the idempotency
-    check: the first call wins the transition and runs progression; every
-    subsequent call sees no row and skips it.
-    
-    Using `.single()` here would throw on the second call, which is exactly the
-    wrong behavior for an idempotent action — a retry or double-tap would fail
-    rather than succeed quietly. So we use the array form and check its length.
-  */
-  const { data, error } = await supabase
-    .from("session_exercises")
-    .update({
-      status: input.skipped ? "skipped" : "completed",
-      feel: input.feel,
-      completed_at: new Date().toISOString(),
-    })
-    .eq("id", input.sessionExerciseId)
-    .not("status", "in", "(completed,skipped)")
-    .select("id");
-
-  if (error) return { ok: false, error: error.message };
-
-  // No row returned: the exercise was already finished by a prior call.
-  if (!data || data.length === 0) {
-    return { ok: true, data: null };
-  }
-
-  if (input.skipped) return { ok: true, data: null };
-
-  const feedback = await applyProgression(supabase, user.id, input.sessionExerciseId, input.feel);
-  return { ok: true, data: feedback };
+  return finishExerciseCore(supabase, user.id, input, { applyProgression });
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
