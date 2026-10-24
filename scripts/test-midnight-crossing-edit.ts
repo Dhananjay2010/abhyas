@@ -83,7 +83,9 @@ function assertEqual<T>(actual: T, expected: T, message?: string) {
       }),
       update: () => ({
         eq: () => ({
-          eq: () => Promise.resolve({ error: null })
+          eq: () => ({
+            select: () => Promise.resolve({ data: [{ id: 'test-session-id' }], error: null })
+          })
         })
       })
     })
