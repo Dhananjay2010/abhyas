@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { activeTab, choosePracticeRoute, type PracticeType } from "@/lib/nav";
+import { activeTab, choosePracticeRoute, PRACTICE_LAST_CHANGE_EVENT, type PracticeType } from "@/lib/nav";
 
 /**
  * Bottom navigation icons from Lucide (https://lucide.dev)
@@ -51,11 +51,11 @@ const Icons = {
 };
 
 const TABS = [
-  { href: "/today", label: "Today", icon: Icons.Today },
-  { href: "/practice", label: "Practice", icon: Icons.Practice },
-  { href: "/history", label: "History", icon: Icons.History },
-  { href: "/progress", label: "Progress", icon: Icons.Progress },
-  { href: "/settings", label: "Settings", icon: Icons.Settings },
+  { href: "/today", label: "Today", Icon: Icons.Today },
+  { href: "/practice", label: "Practice", Icon: Icons.Practice },
+  { href: "/history", label: "History", Icon: Icons.History },
+  { href: "/progress", label: "Progress", Icon: Icons.Progress },
+  { href: "/settings", label: "Settings", Icon: Icons.Settings },
 ];
 
 /**
@@ -75,8 +75,14 @@ const TABS = [
  * training on Today.
  */
 function subscribe(callback: () => void) {
+  // Listen to 'storage' events (fired in other tabs when localStorage changes)
+  // and 'practice:last-change' (fired in this tab when setLastPractice writes)
   window.addEventListener("storage", callback);
-  return () => window.removeEventListener("storage", callback);
+  window.addEventListener(PRACTICE_LAST_CHANGE_EVENT, callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(PRACTICE_LAST_CHANGE_EVENT, callback);
+  };
 }
 
 function getLastPracticeSnapshot(): PracticeType | null {
@@ -117,10 +123,9 @@ export function BottomNav({ forceVisible = false }: { forceVisible?: boolean } =
     >
       <ul className="mx-auto flex max-w-md">
         {TABS.map((t) => {
-          const Icon = t.icon;
           const href = getHref(t.href);
           const isActive = active === t.href;
-          
+          const Icon = t.Icon;
           return (
             <li key={t.href} className="flex-1">
               <Link
@@ -134,13 +139,14 @@ export function BottomNav({ forceVisible = false }: { forceVisible?: boolean } =
                 // the "Block N starts today" message, because the rollover would
                 // already have happened in a prefetch they never asked for.
                 aria-current={isActive ? "page" : undefined}
-                className={`flex flex-col items-center gap-1 px-1 pt-2 text-center text-xs font-medium transition-colors ${
+                // px-1: five labels have to fit a 375px screen.
+                className={`flex flex-col items-center gap-1 px-1 pt-2.5 text-center transition-colors ${
                   isActive ? "text-accent" : "text-muted"
                 }`}
                 style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
               >
                 <Icon />
-                <span>{t.label}</span>
+                <span className="text-[11px] font-medium leading-none">{t.label}</span>
               </Link>
             </li>
           );
