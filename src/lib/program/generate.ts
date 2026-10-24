@@ -567,11 +567,19 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     return false;
   }
 
-  // PR #73 coordinator: ANY knee (current or past) uses knee-safe lunge list
-  if (input.anyKneeInjury && ex.movement_pattern === "lunge") {
+  // PR #73 QA scoped policy: CURRENT knee only uses knee-safe lunge list
+  // Past knee: lunges are excluded entirely (fall back to hinges/other patterns)
+  const hasCurrentKneeInjury = input.currentInjuryRegions.includes("knee");
+  if (hasCurrentKneeInjury && ex.movement_pattern === "lunge") {
     if (!KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
       return false;
     }
+  }
+  
+  // Past knee with no current knee: exclude ALL lunge-pattern exercises
+  // (step-ups and split squats included - they don't get the allowlist)
+  if (input.anyKneeInjury && !hasCurrentKneeInjury && ex.movement_pattern === "lunge") {
+    return false;
   }
 
   return true;
