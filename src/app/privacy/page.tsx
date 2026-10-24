@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getSiteInfo, LEGAL_LAST_UPDATED } from "@/lib/legal/site-info";
+import { branding } from "@/lib/branding";
 
 export const metadata = {
-  title: "Privacy Policy — Abhyas",
+  title: `Privacy Policy — ${branding.name}`,
 };
 
 export default function PrivacyPolicyPage() {
@@ -199,7 +200,7 @@ export default function PrivacyPolicyPage() {
           <p>
             Your data is stored in Supabase&apos;s data centers. The specific location depends on
             your instance configuration (e.g., Mumbai region for the default deployment). By using
-            Abhyas, you consent to the transfer of your information to these locations.
+            {appName}, you consent to the transfer of your information to these locations.
           </p>
         </section>
 
@@ -208,7 +209,7 @@ export default function PrivacyPolicyPage() {
           <p>
             We may update this Privacy Policy from time to time. We will notify you of significant
             changes by updating the &quot;Last updated&quot; date at the top of this policy. Your
-            continued use of Abhyas after changes constitutes acceptance of the updated policy.
+            continued use of {appName} after changes constitutes acceptance of the updated policy.
           </p>
         </section>
 
