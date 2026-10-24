@@ -14,6 +14,7 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
+import { isBodyweightEquipment } from "@/lib/program/bodyweight";
 import { applyDeload, prescribe, weekInBlock } from "@/lib/program/prescription";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
@@ -376,7 +377,7 @@ async function applyProgression(
     // by what the exercise has since been re-tagged as would read a set of
     // twelve reps as a twelve-second hold.
     metric: se.metric ?? "reps",
-    isBodyweight: (ex.equipment_ids ?? []).length === 0,
+    isBodyweight: isBodyweightEquipment(ex.equipment_ids),
     progressionChain: ex.progression_chain,
     progressionRank: ex.progression_rank,
   };

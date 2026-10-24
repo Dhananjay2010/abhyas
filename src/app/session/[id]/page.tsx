@@ -4,6 +4,7 @@ import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { isBodyweightEquipment } from "@/lib/program/bodyweight";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
@@ -117,7 +118,7 @@ export default async function SessionPage({
       progress?.current_working_weight_kg === null || progress === undefined
         ? null
         : Number(progress.current_working_weight_kg);
-    const isBodyweight = (ex?.equipment_ids ?? []).length === 0;
+    const isBodyweight = isBodyweightEquipment(ex?.equipment_ids);
     return {
       id: r.id,
       exerciseId: ex?.id ?? "",
