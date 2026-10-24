@@ -5,8 +5,6 @@
  * so stale Start/Resume button isn't shown after logging in another tab.
  */
 
-import { renderToStaticMarkup } from "react-dom/server";
-import * as React from "react";
 
 let failures = 0;
 

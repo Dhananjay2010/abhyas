@@ -185,8 +185,8 @@ function createFakeClient(
               );
               return Promise.resolve({ data: filtered, error: null });
             },
-            order: (_column: string, _options: { ascending: boolean }) => ({
-              limit: (_n: number) => ({
+            order: () => ({
+              limit: () => ({
                 maybeSingle: () => {
                   const filtered = sessions.filter(
                     (s) => s.user_id === userId && s.status === "in_progress",
@@ -197,8 +197,8 @@ function createFakeClient(
               }),
             }),
           }),
-          order: (_column: string, _options: { ascending: boolean }) => ({
-            limit: (_n: number) => ({
+          order: () => ({
+            limit: () => ({
               maybeSingle: () => {
                 const filtered = sessions.filter(
                   (s) => s.user_id === userId && s.status === "in_progress",
@@ -453,17 +453,17 @@ async function main() {
 
     const fakeClient: FakeSupabaseClient = {
       from: () => ({
-        select: (columns: string) => ({
-          eq: (_column: string, _value: string) => ({
-            eq: (_column2: string, _value2: string) => ({
-              eq: (_column3: string, _value3: string) => {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              eq: () => {
                 const filtered = sessions.filter(
                   (s) => s.user_id === userId && s.local_date === localDate && s.status === "in_progress",
                 );
                 return Promise.resolve({ data: filtered, error: null });
               },
-              order: (_column3: string, _options: { ascending: boolean }) => ({
-                limit: (_n: number) => ({
+              order: () => ({
+                limit: () => ({
                   maybeSingle: () => {
                   const filtered = sessions.filter(
                     (s) => s.user_id === userId && s.status === "in_progress",
@@ -474,8 +474,8 @@ async function main() {
                 }),
               }),
             }),
-            order: (_column2: string, _options: { ascending: boolean }) => ({
-              limit: (_n: number) => ({
+            order: () => ({
+              limit: () => ({
                 maybeSingle: () => {
                   const filtered = sessions.filter(
                     (s) => s.user_id === userId && s.status === "in_progress",
