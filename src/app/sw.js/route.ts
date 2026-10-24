@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 
 import { branding } from "@/lib/branding";
+import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY, OFFLINE_SCREEN_BUTTON_LABEL } from "@/lib/offline-copy";
 
 /**
  * Get the current build version for cache naming.
@@ -34,7 +35,8 @@ export async function GET() {
  * default "no internet" page.
  *
  * This is intentionally conservative:
- * - Only caches the offline page itself and its app icon
+ * - Caches the offline page itself and its app icon
+ * - Caches /_next/static/* (JS chunks, CSS) cache-first (immutable hashed filenames)
  * - Does NOT cache authenticated API responses (Supabase, user data)
  * - Does NOT cache app pages (they depend on user state and database calls)
  * - Does NOT cache RSC payloads (they're tied to specific builds)
@@ -49,16 +51,65 @@ const OFFLINE_URL = "/offline";
 const ICON_URL = "${iconUrl}";
 
 // Install: cache the offline page and app icon
+// The offline page is rendered by Next.js at build time and uses shared constants
+// for heading ("${OFFLINE_SCREEN_HEADING}"), body ("${OFFLINE_SCREEN_BODY}"),
+// and button label ("${OFFLINE_SCREEN_BUTTON_LABEL}") to ensure consistency
+// with in-app offline error boundaries.
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
+      
       // Precache the offline page (rendered by Next.js with inline styles)
       // and the app icon it displays (so it shows offline)
       await cache.addAll([
         new Request(OFFLINE_URL, { cache: "reload" }),
         new Request(ICON_URL, { cache: "reload" }),
       ]);
+
+      // Best-effort precache of the offline page's JS chunks
+      // Read the cached /offline HTML and extract /_next/static/* URLs
+      try {
+        const offlineResponse = await cache.match(OFFLINE_URL);
+        if (offlineResponse) {
+          const offlineHtml = await offlineResponse.text();
+          const chunkUrls = [];
+
+          // Extract <script src="/_next/static/...">
+          const scriptRegex = /<script[^>]+src="(\\/_next\\/static\\/[^"]+)"/g;
+          let match;
+          while ((match = scriptRegex.exec(offlineHtml)) !== null) {
+            chunkUrls.push(match[1]);
+          }
+
+          // Extract <link href="/_next/static/..." rel="stylesheet">
+          const linkRegex = /<link[^>]+href="(\\/_next\\/static\\/[^"]+)"[^>]*rel="stylesheet"/g;
+          while ((match = linkRegex.exec(offlineHtml)) !== null) {
+            chunkUrls.push(match[1]);
+          }
+
+          // Extract <link rel="stylesheet" href="/_next/static/...">
+          const linkRegex2 = /<link[^>]+rel="stylesheet"[^>]+href="(\\/_next\\/static\\/[^"]+)"/g;
+          while ((match = linkRegex2.exec(offlineHtml)) !== null) {
+            chunkUrls.push(match[1]);
+          }
+
+          // Deduplicate and cache same-origin chunks
+          const uniqueUrls = [...new Set(chunkUrls)];
+          const sameOriginUrls = uniqueUrls.filter(url => url.startsWith('/_next/static/'));
+          
+          if (sameOriginUrls.length > 0) {
+            // Best effort per-URL caching: one failing chunk doesn't prevent others
+            await Promise.allSettled(
+              sameOriginUrls.map(url => cache.add(new Request(url, { cache: "reload" })))
+            );
+          }
+        }
+      } catch {
+        // Failed to read offline HTML or extract chunks, but continue with install
+        // Runtime caching will pick up chunks on first navigation
+      }
+
       await self.skipWaiting();
     })()
   );
@@ -82,6 +133,33 @@ self.addEventListener("activate", (event) => {
     })()
   );
 });
+
+/**
+ * Check if a request is for a static asset that should be cached.
+ * 
+ * Cache /_next/static/* (JS chunks, CSS, etc.) - these have hashed filenames
+ * and are immutable, so they're safe to cache indefinitely.
+ */
+function shouldCacheStatic(request) {
+  // Only cache same-origin GET requests
+  if (request.method !== "GET") {
+    return false;
+  }
+
+  const url = new URL(request.url);
+  
+  // Only cache same-origin requests
+  if (url.origin !== self.location.origin) {
+    return false;
+  }
+
+  // Cache /_next/static/* (JS chunks, CSS, fonts, etc.)
+  if (url.pathname.startsWith("/_next/static/")) {
+    return true;
+  }
+
+  return false;
+}
 
 /**
  * Check if a request should be intercepted for offline fallback.
@@ -147,7 +225,7 @@ function shouldInterceptForOffline(request) {
 }
 
 // Fetch: serve the offline page when a GET navigation request fails,
-// and serve precached icons cache-first
+// serve precached icons cache-first, and cache /_next/static/* assets
 self.addEventListener("fetch", (event) => {
   // Ignore all non-GET requests entirely (no respondWith).
   // POSTs and server actions go straight to the network and fail visibly.
@@ -177,6 +255,32 @@ self.addEventListener("fetch", (event) => {
         } catch {
           // Both cache and network failed
           return new Response("Icon not available", { status: 404 });
+        }
+      })()
+    );
+    return;
+  }
+
+  // Cache /_next/static/* assets (JS chunks, CSS) cache-first
+  if (shouldCacheStatic(event.request)) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const cachedResponse = await cache.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        // Not in cache, fetch from network and cache for next time
+        try {
+          const networkResponse = await fetch(event.request);
+          if (networkResponse.ok) {
+            // Clone the response before caching (response can only be read once)
+            cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        } catch {
+          // Network failed and not in cache
+          return Response.error();
         }
       })()
     );
