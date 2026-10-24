@@ -39,7 +39,7 @@ const INJURY_SETS = [
   ["shoulder", "knee"],
 ];
 
-const LEVELS = ["beginner", "intermediate", "advanced"] as const;
+const LEVELS: Array<"beginner" | "intermediate" | "expert"> = ["beginner", "intermediate", "expert"];
 const GOALS = ["muscle_gain", "strength"] as const;
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [30, 45, 60, 75, 90];

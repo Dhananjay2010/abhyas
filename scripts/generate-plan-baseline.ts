@@ -18,7 +18,7 @@ const EQUIPMENT_PROFILES = {
   "bodyweight": [] as string[],
 };
 
-const LEVELS = ["beginner", "intermediate", "advanced"] as const;
+const LEVELS: Array<"beginner" | "intermediate" | "expert"> = ["beginner", "intermediate", "expert"];
 const DAYS_PER_WEEK = [2, 3, 4, 5];
 const SESSION_MINUTES = [30, 45, 60, 75];
 

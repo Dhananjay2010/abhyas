@@ -42,16 +42,16 @@ function check(label: string, condition: boolean, detail?: string) {
 }
 
 // Profiles that generate excluded exercises on origin/main (found via probe):
-// - neck-press: barbell-bench, lower_back injury, advanced, muscle_gain, 2d, 90min
-// - barbell-guillotine-bench-press: barbell-bench, no injuries, advanced, strength, 3d, 90min
+// - neck-press: barbell-bench, lower_back injury, expert, muscle_gain, 2d, 90min
+// - barbell-guillotine-bench-press: barbell-bench, no injuries, expert, strength, 3d, 90min
 // - low-pulley-row-to-neck: cable-machine, no injuries, intermediate, muscle_gain, 2d, 90min
 
-console.log("\n1. neck-press profile (barbell+bench, lower_back injury, advanced, muscle_gain, 2d, 90min)");
+console.log("\n1. neck-press profile (barbell+bench, lower_back injury, expert, muscle_gain, 2d, 90min)");
 {
   const input: GeneratorInput = {
     userId: "test-neck-press",
     blockNumber: 1,
-    level: "advanced",
+    level: "expert",
     equipmentIds: ["barbell", "squat_rack", "flat_bench"],
     hasAllEquipment: false,
     goal: "muscle_gain",
@@ -80,12 +80,12 @@ console.log("\n1. neck-press profile (barbell+bench, lower_back injury, advanced
   }
 }
 
-console.log("\n2. barbell-guillotine-bench-press profile (barbell+bench, no injuries, advanced, strength, 3d, 90min)");
+console.log("\n2. barbell-guillotine-bench-press profile (barbell+bench, no injuries, expert, strength, 3d, 90min)");
 {
   const input: GeneratorInput = {
     userId: "test-guillotine",
     blockNumber: 1,
-    level: "advanced",
+    level: "expert",
     equipmentIds: ["barbell", "squat_rack", "flat_bench"],
     hasAllEquipment: false,
     goal: "strength",

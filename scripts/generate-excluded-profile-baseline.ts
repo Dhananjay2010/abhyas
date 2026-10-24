@@ -7,33 +7,42 @@ import { generateProgram, type CandidateExercise, type GeneratorInput } from "..
 
 const catalogue: CandidateExercise[] = require("./fixtures/catalogue.json");
 
-const profiles = [
+const profiles: Array<{
+  name: string;
+  level: "beginner" | "intermediate" | "expert";
+  equipmentIds: string[];
+  hasAllEquipment: boolean;
+  goal: "fat_loss" | "muscle_gain" | "strength" | "general_fitness" | "flexibility_stress";
+  injuries: Array<"lower_back" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "hip" | "knee" | "ankle" | "core">;
+  days: number;
+  minutes: number;
+}> = [
   {
     name: "neck-press",
-    level: "advanced" as const,
+    level: "expert",
     equipmentIds: ["barbell", "squat_rack", "flat_bench"],
     hasAllEquipment: false,
-    goal: "muscle_gain" as const,
-    injuries: ["lower_back"] as any[],
+    goal: "muscle_gain",
+    injuries: ["lower_back"],
     days: 2,
     minutes: 90,
   },
   {
     name: "guillotine",
-    level: "advanced" as const,
+    level: "expert",
     equipmentIds: ["barbell", "squat_rack", "flat_bench"],
     hasAllEquipment: false,
-    goal: "strength" as const,
+    goal: "strength",
     injuries: [],
     days: 3,
     minutes: 90,
   },
   {
     name: "low-pulley",
-    level: "intermediate" as const,
+    level: "intermediate",
     equipmentIds: ["cable_machine"],
     hasAllEquipment: false,
-    goal: "muscle_gain" as const,
+    goal: "muscle_gain",
     injuries: [],
     days: 2,
     minutes: 90,

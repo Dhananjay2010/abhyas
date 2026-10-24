@@ -19,7 +19,7 @@ const EQUIPMENT_PROFILES = {
   "dumbbells-only": { ids: ["dumbbells"], hasAll: false, track: "weights" as const },
 };
 
-const LEVELS = ["beginner", "intermediate", "advanced"] as const;
+const LEVELS: Array<"beginner" | "intermediate" | "expert"> = ["beginner", "intermediate", "expert"];
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [30, 45, 60, 75];
 const AGES = [30, 55];
