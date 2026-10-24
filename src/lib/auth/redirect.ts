@@ -55,3 +55,46 @@ export function sanitizeRedirectPath(
     return "/today";
   }
 }
+
+/**
+ * Build a sanitized redirect query string for an unauthenticated user.
+ *
+ * Captures the original destination (pathname + search) and returns it as
+ * a query string parameter that can be appended to the landing page URL.
+ */
+export function buildRedirectQuery(
+  pathname: string,
+  search: string,
+  origin: string,
+): string {
+  const destination = pathname + search;
+  const next = sanitizeRedirectPath(destination, origin);
+  return `?next=${encodeURIComponent(next)}`;
+}
+
+/**
+ * Copy cookies from one NextResponse to another.
+ *
+ * Used when creating a new redirect response after Supabase's setAll has written
+ * cookies (like refreshed auth tokens) onto a different response object.
+ */
+export function copyCookies(
+  from: { cookies: { getAll(): Array<{ name: string; value: string }>; get(name: string): any } },
+  to: { cookies: { set(name: string, value: string, options?: any): void } },
+): void {
+  from.cookies.getAll().forEach(({ name, value }) => {
+    const cookie = from.cookies.get(name);
+    if (cookie) {
+      // Copy the cookie with all its options (path, maxAge, etc.)
+      to.cookies.set(name, value, {
+        path: cookie.path,
+        domain: cookie.domain,
+        maxAge: cookie.maxAge,
+        expires: cookie.expires,
+        httpOnly: cookie.httpOnly,
+        secure: cookie.secure,
+        sameSite: cookie.sameSite,
+      });
+    }
+  });
+}

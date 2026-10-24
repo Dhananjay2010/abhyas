@@ -2,31 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { PERF_ENABLED } from "@/lib/perf";
 import { isPublicPath } from "./public-paths";
-import { sanitizeRedirectPath } from "../auth/redirect";
-
-/**
- * Copy cookies from one NextResponse to another.
- * 
- * Used when creating a new redirect response after Supabase's setAll has written
- * cookies (like refreshed auth tokens) onto a different response object.
- */
-function copyCookies(from: NextResponse, to: NextResponse): void {
-  from.cookies.getAll().forEach(({ name, value }) => {
-    const cookie = from.cookies.get(name);
-    if (cookie) {
-      // Copy the cookie with all its options (path, maxAge, etc.)
-      to.cookies.set(name, value, {
-        path: cookie.path,
-        domain: cookie.domain,
-        maxAge: cookie.maxAge,
-        expires: cookie.expires,
-        httpOnly: cookie.httpOnly,
-        secure: cookie.secure,
-        sameSite: cookie.sameSite,
-      });
-    }
-  });
-}
+import { buildRedirectQuery, copyCookies } from "../auth/redirect";
 
 export async function updateSession(request: NextRequest) {
   const started = performance.now();
@@ -71,17 +47,10 @@ export async function updateSession(request: NextRequest) {
   const signedIn = !error && Boolean(claims?.claims?.sub);
 
   if (!signedIn && !isPublicPath(pathname)) {
-    // Preserve the original destination (path + search) as a sanitized `next` param
-    const origin = request.nextUrl.origin;
-    const destination = pathname + request.nextUrl.search;
-    const next = sanitizeRedirectPath(destination, origin);
-    
     const url = request.nextUrl.clone();
     url.pathname = "/";
-    url.search = `?next=${encodeURIComponent(next)}`;
-    
+    url.search = buildRedirectQuery(pathname, request.nextUrl.search, request.nextUrl.origin);
     const redirect = NextResponse.redirect(url);
-    // Copy any cookies that Supabase set (e.g., cleared expired tokens) onto the redirect
     copyCookies(response, redirect);
     return finish(redirect, started, pathname, signedIn);
   }
