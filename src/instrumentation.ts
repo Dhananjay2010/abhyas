@@ -1,43 +1,78 @@
-import * as Sentry from "@sentry/nextjs";
-
 /**
- * Sentry server-side configuration for Node.js runtime.
- *
- * Catches errors in:
- * - Server Components
- * - Server Actions
- * - API Route Handlers
+ * Next.js instrumentation hook for server-side monitoring.
  * 
- * Fully optional: if SENTRY_DSN is unset, this is a no-op.
+ * Loads Sentry configuration for Node.js and Edge runtimes.
+ * Called once when the server starts.
+ * 
+ * @see https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation
  */
 
-const DSN = process.env.SENTRY_DSN;
+import * as Sentry from "@sentry/nextjs";
 
-if (DSN) {
-  Sentry.init({
-    dsn: DSN,
-
-    environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const DSN = process.env.SENTRY_DSN;
     
-    // Release tracking: use Vercel's commit SHA if available
-    release: process.env.VERCEL_GIT_COMMIT_SHA,
+    if (DSN) {
+      Sentry.init({
+        dsn: DSN,
+        environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
+        release: process.env.VERCEL_GIT_COMMIT_SHA,
+        tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE || "0.1"),
+        
+        beforeSend(event, _hint) {
+          return scrubPII(event);
+        },
+      });
+    }
+  }
 
-    // Low sample rate for a small app - adjust as needed
-    tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE || "0.1"),
-
-    beforeSend(event, hint) {
-      return scrubPII(event, hint);
-    },
-  });
+  if (process.env.NEXT_RUNTIME === "edge") {
+    const DSN = process.env.SENTRY_DSN;
+    
+    if (DSN) {
+      Sentry.init({
+        dsn: DSN,
+        environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
+        release: process.env.VERCEL_GIT_COMMIT_SHA,
+        tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE || "0.1"),
+        
+        beforeSend(event, _hint) {
+          return scrubPII(event);
+        },
+      });
+    }
+  }
 }
 
 /**
- * Scrub PII and secrets from server-side error events.
+ * onRequestError hook - captures server-side errors from:
+ * - Server Components
+ * - Server Actions  
+ * - API Route Handlers
+ * - Middleware/Proxy
  */
-function scrubPII(
-  event: Sentry.ErrorEvent,
-  _hint: Sentry.EventHint
-): Sentry.ErrorEvent | null {
+export async function onRequestError(
+  error: unknown,
+  request: {
+    path: string;
+    method: string;
+    headers: Record<string, string | string[] | undefined>;
+  },
+  context: {
+    routerKind: string;
+    routePath: string;
+    routeType: string;
+  }
+) {
+  Sentry.captureRequestError(error, request, context);
+}
+
+/**
+ * Scrub PII and secrets from error events.
+ * Exported for testing.
+ */
+export function scrubPII(event: Sentry.ErrorEvent): Sentry.ErrorEvent | null {
   // Scrub emails from exception messages
   if (event.exception?.values) {
     for (const ex of event.exception.values) {
@@ -49,10 +84,8 @@ function scrubPII(
 
   // Scrub request data
   if (event.request) {
-    // Remove cookies entirely (may contain session tokens)
     delete event.request.cookies;
 
-    // Scrub auth headers
     if (event.request.headers) {
       const sensitiveHeaders = [
         "authorization",
@@ -67,24 +100,20 @@ function scrubPII(
       }
     }
 
-    // Remove request bodies (may contain passwords, tokens, or PII)
     delete event.request.data;
 
-    // Scrub emails and tokens from URL
     if (event.request.url) {
       event.request.url = scrubEmailsFromString(event.request.url);
       event.request.url = scrubTokensFromURL(event.request.url);
     }
 
-    // Scrub query string
     if (event.request.query_string) {
       if (typeof event.request.query_string === "string") {
         event.request.query_string = scrubEmailsFromString(event.request.query_string);
       } else {
-        // If it's an object, scrub each value
         const scrubbed: Record<string, string> = {};
         for (const [key, value] of Object.entries(event.request.query_string)) {
-          scrubbed[key] = typeof value === "string" ? scrubEmailsFromString(value) : value;
+          scrubbed[key] = typeof value === "string" ? scrubEmailsFromString(value) : String(value);
         }
         event.request.query_string = scrubbed as unknown as typeof event.request.query_string;
       }
@@ -131,20 +160,14 @@ function scrubPII(
     delete event.user.ip_address;
   }
 
-  // Add server context
-  event.tags = {
-    ...event.tags,
-    runtime: "nodejs",
-  };
-
   return event;
 }
 
-function scrubEmailsFromString(str: string): string {
+export function scrubEmailsFromString(str: string): string {
   return str.replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, "[email]");
 }
 
-function scrubTokensFromURL(url: string): string {
+export function scrubTokensFromURL(url: string): string {
   try {
     const parsed = new URL(url);
     const sensitiveParams = [

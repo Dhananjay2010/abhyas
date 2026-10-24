@@ -30,18 +30,27 @@ const nextConfig: NextConfig = {
  * Without it, the build proceeds normally but source maps stay local.
  */
 const sentryConfig = {
+  // Organization and project for source map upload
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
   // Suppress source map upload logs unless there's an error
   silent: true,
 
-  // Upload source maps only when auth token is present
-  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
-  disableClientWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+  // Source maps configuration
+  sourcemaps: {
+    // Disable source map generation and upload when auth token not present
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
 
-  // For better error reporting, but don't fail the build if it goes wrong
+  // For better error reporting
   widenClientFileUpload: true,
   
   // Disable automatic instrumentation of Vercel Cron Jobs (not used in this app)
   automaticVercelMonitors: false,
+
+  // Don't warn about missing onRouterTransitionStart (we have it)
+  suppressOnRouterTransitionStartWarning: true,
 };
 
 export default process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN
