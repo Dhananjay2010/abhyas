@@ -3,16 +3,16 @@
 /*
  * Test: finishExercise idempotency
  *
- * Tests the real finishExerciseCore function with a stateful fake Supabase
- * client that actually applies filters and updates rows in memory. Verifies
+ * Tests the real finishExerciseCore function with a stateful fake deps
+ * that actually applies filters and updates rows in memory. Verifies
  * that progression is applied exactly once per exercise completion.
  */
 
 import {
   finishExerciseCore,
-  type SupabaseClient,
   type ProgressionFeedback,
 } from "../src/lib/session/finish-exercise";
+import type { FinishExerciseDeps } from "../src/lib/session/finish-exercise-deps";
 
 type ExerciseStatus = "pending" | "completed" | "skipped" | "swapped_out";
 
@@ -24,10 +24,10 @@ interface SessionExerciseRow {
 }
 
 /**
- * Stateful fake Supabase client that stores session_exercises rows in memory
- * and actually applies the .eq and .not filters.
+ * Stateful fake deps that stores session_exercises rows in memory
+ * and actually applies the conditional filter.
  */
-function createFakeSupabase(
+function createFakeDeps(
   initialRows: SessionExerciseRow[],
   options: { skipConditionalFilter?: boolean } = {},
 ) {
@@ -35,42 +35,32 @@ function createFakeSupabase(
     initialRows.map((r) => [r.id, { ...r }]),
   );
 
-  const client: SupabaseClient = {
-    from: (_table: string) => ({
-      update: (payload: Record<string, unknown>) => ({
-        eq: (col: string, val: unknown) => ({
-          not: (col2: string, op: string, values: string) => ({
-            select: async (columns: string) => {
-              // Simulate async operation with a microtask delay to allow
-              // concurrent calls to interleave
-              await Promise.resolve();
+  const deps: FinishExerciseDeps = {
+    updateExercise: async (id: string, payload: { feel: unknown; status: string; completed_at: string }) => {
+      // Simulate async operation with a microtask delay to allow concurrent calls to interleave
+      await Promise.resolve();
 
-              const row = rows.get(val as string);
-              if (!row) {
-                return { data: [], error: null };
-              }
+      const row = rows.get(id);
+      if (!row) {
+        return { data: null, error: null };
+      }
 
-              // Apply the conditional filter unless explicitly disabled
-              // (for guard test showing the test can fail)
-              const shouldUpdate = options.skipConditionalFilter ||
-                (row.status !== "completed" && row.status !== "skipped");
+      // Apply the conditional filter unless explicitly disabled
+      const shouldUpdate = options.skipConditionalFilter ||
+        (row.status !== "completed" && row.status !== "skipped");
 
-              if (!shouldUpdate) {
-                return { data: [], error: null };
-              }
+      if (!shouldUpdate) {
+        return { data: null, error: null };
+      }
 
-              // Update the row
-              Object.assign(row, payload);
-              return { data: [{ id: row.id }], error: null };
-            },
-          }),
-        }),
-      }),
-    }),
+      // Update the row
+      Object.assign(row, payload);
+      return { data: { id: row.id }, error: null };
+    },
   };
 
   return {
-    client,
+    deps,
     getRow: (id: string) => rows.get(id),
     getRows: () => Array.from(rows.values()),
   };
@@ -85,7 +75,7 @@ function createProgressionSpy() {
 
   return {
     fn: async (
-      _supabase: SupabaseClient,
+      _supabase: any,
       userId: string,
       sessionExerciseId: string,
       feel: string | null,
@@ -134,20 +124,20 @@ async function main() {
 
   // Test 1: Two sequential calls - progression applied exactly once
   await test("Two sequential calls: progression applied exactly once", async () => {
-    const fake = createFakeSupabase([{ id: "ex-1", status: "pending", feel: null, completed_at: null }]);
+    const fake = createFakeDeps([{ id: "ex-1", status: "pending", feel: null, completed_at: null }]);
     const spy = createProgressionSpy();
 
-    const result1 = await finishExerciseCore(fake.client, "user-1", {
+    const result1 = await finishExerciseCore(fake.deps, "user-1", {
       sessionExerciseId: "ex-1",
       feel: "right",
       skipped: false,
-    }, { applyProgression: spy.fn });
+    }, { applyProgression: spy.fn }, null);
 
-    const result2 = await finishExerciseCore(fake.client, "user-1", {
+    const result2 = await finishExerciseCore(fake.deps, "user-1", {
       sessionExerciseId: "ex-1",
       feel: "right",
       skipped: false,
-    }, { applyProgression: spy.fn });
+    }, { applyProgression: spy.fn }, null);
 
     assertEqual(result1.ok, true, "First call should succeed");
     assertEqual(result2.ok, true, "Second call should succeed");
@@ -159,20 +149,20 @@ async function main() {
 
   // Test 2: Concurrent calls with Promise.all - only one applies progression
   await test("Concurrent calls: progression applied exactly once", async () => {
-    const fake = createFakeSupabase([{ id: "ex-2", status: "pending", feel: null, completed_at: null }]);
+    const fake = createFakeDeps([{ id: "ex-2", status: "pending", feel: null, completed_at: null }]);
     const spy = createProgressionSpy();
 
     const [result1, result2] = await Promise.all([
-      finishExerciseCore(fake.client, "user-1", {
+      finishExerciseCore(fake.deps, "user-1", {
         sessionExerciseId: "ex-2",
         feel: "hard",
         skipped: false,
-      }, { applyProgression: spy.fn }),
-      finishExerciseCore(fake.client, "user-1", {
+      }, { applyProgression: spy.fn }, null),
+      finishExerciseCore(fake.deps, "user-1", {
         sessionExerciseId: "ex-2",
         feel: "hard",
         skipped: false,
-      }, { applyProgression: spy.fn }),
+      }, { applyProgression: spy.fn }, null),
     ]);
 
     assertEqual(result1.ok, true, "First concurrent call should succeed");
@@ -185,20 +175,20 @@ async function main() {
 
   // Test 3: Skip then complete - status stays skipped, zero progression calls
   await test("Skip then complete: status stays skipped, no progression", async () => {
-    const fake = createFakeSupabase([{ id: "ex-3", status: "pending", feel: null, completed_at: null }]);
+    const fake = createFakeDeps([{ id: "ex-3", status: "pending", feel: null, completed_at: null }]);
     const spy = createProgressionSpy();
 
-    const result1 = await finishExerciseCore(fake.client, "user-1", {
+    const result1 = await finishExerciseCore(fake.deps, "user-1", {
       sessionExerciseId: "ex-3",
       feel: null,
       skipped: true,
-    }, { applyProgression: spy.fn });
+    }, { applyProgression: spy.fn }, null);
 
-    const result2 = await finishExerciseCore(fake.client, "user-1", {
+    const result2 = await finishExerciseCore(fake.deps, "user-1", {
       sessionExerciseId: "ex-3",
       feel: "right",
       skipped: false,
-    }, { applyProgression: spy.fn });
+    }, { applyProgression: spy.fn }, null);
 
     assertEqual(result1.ok, true, "Skip should succeed");
     assertEqual(result2.ok, true, "Complete after skip should succeed idempotently");
@@ -210,14 +200,14 @@ async function main() {
 
   // Test 4: Already completed - no progression
   await test("Already completed exercise: no progression", async () => {
-    const fake = createFakeSupabase([{ id: "ex-4", status: "completed", feel: "right", completed_at: "2026-10-24T00:00:00Z" }]);
+    const fake = createFakeDeps([{ id: "ex-4", status: "completed", feel: "right", completed_at: "2026-10-24T00:00:00Z" }]);
     const spy = createProgressionSpy();
 
-    const result = await finishExerciseCore(fake.client, "user-1", {
+    const result = await finishExerciseCore(fake.deps, "user-1", {
       sessionExerciseId: "ex-4",
       feel: "hard",
       skipped: false,
-    }, { applyProgression: spy.fn });
+    }, { applyProgression: spy.fn }, null);
 
     assertEqual(result.ok, true, "Should succeed idempotently");
     assertEqual(spy.getCallCount(), 0, "Progression should not be called");
@@ -228,44 +218,44 @@ async function main() {
 
   // Test 5: Three rapid sequential calls
   await test("Three sequential calls: progression applied exactly once", async () => {
-    const fake = createFakeSupabase([{ id: "ex-5", status: "pending", feel: null, completed_at: null }]);
+    const fake = createFakeDeps([{ id: "ex-5", status: "pending", feel: null, completed_at: null }]);
     const spy = createProgressionSpy();
 
-    await finishExerciseCore(fake.client, "user-1", {
+    await finishExerciseCore(fake.deps, "user-1", {
       sessionExerciseId: "ex-5",
       feel: "easy",
-    }, { applyProgression: spy.fn });
+    }, { applyProgression: spy.fn }, null);
 
-    await finishExerciseCore(fake.client, "user-1", {
+    await finishExerciseCore(fake.deps, "user-1", {
       sessionExerciseId: "ex-5",
       feel: "easy",
-    }, { applyProgression: spy.fn });
+    }, { applyProgression: spy.fn }, null);
 
-    await finishExerciseCore(fake.client, "user-1", {
+    await finishExerciseCore(fake.deps, "user-1", {
       sessionExerciseId: "ex-5",
       feel: "easy",
-    }, { applyProgression: spy.fn });
+    }, { applyProgression: spy.fn }, null);
 
     assertEqual(spy.getCallCount(), 1, "Progression should be called exactly once for three calls");
   });
 
   // Test 6: GUARD TEST - Without conditional filter, concurrent calls both apply progression
   await test("Guard test: without conditional filter, concurrent calls both succeed", async () => {
-    const fake = createFakeSupabase(
+    const fake = createFakeDeps(
       [{ id: "ex-6", status: "pending", feel: null, completed_at: null }],
       { skipConditionalFilter: true }, // DISABLE the .not() filter
     );
     const spy = createProgressionSpy();
 
     await Promise.all([
-      finishExerciseCore(fake.client, "user-1", {
+      finishExerciseCore(fake.deps, "user-1", {
         sessionExerciseId: "ex-6",
         feel: "right",
-      }, { applyProgression: spy.fn }),
-      finishExerciseCore(fake.client, "user-1", {
+      }, { applyProgression: spy.fn }, null),
+      finishExerciseCore(fake.deps, "user-1", {
         sessionExerciseId: "ex-6",
         feel: "right",
-      }, { applyProgression: spy.fn }),
+      }, { applyProgression: spy.fn }, null),
     ]);
 
     // Without the conditional filter, both calls succeed and progression runs twice
@@ -280,14 +270,14 @@ async function main() {
 
   // Test 7: Skip doesn't call progression even once
   await test("Skip: progression never called", async () => {
-    const fake = createFakeSupabase([{ id: "ex-7", status: "pending", feel: null, completed_at: null }]);
+    const fake = createFakeDeps([{ id: "ex-7", status: "pending", feel: null, completed_at: null }]);
     const spy = createProgressionSpy();
 
-    const result = await finishExerciseCore(fake.client, "user-1", {
+    const result = await finishExerciseCore(fake.deps, "user-1", {
       sessionExerciseId: "ex-7",
       feel: null,
       skipped: true,
-    }, { applyProgression: spy.fn });
+    }, { applyProgression: spy.fn }, null);
 
     assertEqual(result.ok, true, "Skip should succeed");
     assertEqual(spy.getCallCount(), 0, "Progression should not be called for skip");

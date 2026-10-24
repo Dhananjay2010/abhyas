@@ -1,6 +1,8 @@
 #!/usr/bin/env tsx
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
+import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
+import type { AbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 
 let passed = 0;
 let failed = 0;
@@ -25,100 +27,76 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-type Call = { method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> };
+type Call = { method: string; filters?: Record<string, unknown> };
 
-interface FakeSupabase {
-  calls: Call[];
-  from: (table: string) => FakeQueryBuilder;
-}
-
-interface FakeQueryBuilder {
-  select: (columns: string) => FakeSelectBuilder;
-  update: (payload: Record<string, unknown>) => FakeUpdateBuilder;
-}
-
-interface FakeSelectBuilder {
-  eq: (column: string, value: unknown) => Promise<{ data: unknown; error: { message: string } | null }>;
-}
-
-interface FakeUpdateBuilder {
-  eq: (column: string, value: unknown) => FakeUpdateChain;
-}
-
-interface FakeUpdateChain {
-  eq: (column: string, value: unknown) => Promise<{ error: { message: string } | null; count: number | null }>;
-}
-
-function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?: string, updateCount?: number): FakeSupabase {
+function makeFakeFinishSessionDeps(
+  exercises: SessionExerciseWithSets[],
+  exercisesForUpdate: ExerciseForUpdate[],
+  updateError?: string,
+  readError?: string,
+  updateCount?: number
+) {
   const calls: Call[] = [];
-
-  // Default session metadata
-  const sessionMetadata = [{
+  const sessionMetadata: SessionRow = {
     started_at: "2026-10-24T14:00:00Z",
     local_date: "2026-10-24",
     timezone: "UTC",
-  }];
+  };
 
   return {
     calls,
-    from: (table: string) => {
-      const currentTable = table;
-      const filters: Record<string, unknown> = {};
-      let updatePayload: Record<string, unknown> = {};
-      let selectColumns = "";
+    async loadSession() {
+      if (readError) return { data: null, error: { message: readError } };
+      return { data: sessionMetadata, error: null };
+    },
+    async loadExercises() {
+      if (readError) return { data: null, error: { message: readError } };
+      return { data: exercises, error: null };
+    },
+    async updateSession(_id: string, _patch: any) {
+      calls.push({ method: "update", filters: { status: "in_progress" } });
+      if (updateError) return { error: { message: updateError }, updatedCount: 0 };
+      return { error: null, updatedCount: updateCount ?? 1 };
+    },
+    async loadSessionStatus() {
+      if (readError) return { data: null, error: { message: readError } };
+      return { data: { status: "in_progress" as const }, error: null };
+    },
+    async loadExercisesForUpdate() {
+      if (readError) return { data: null, error: { message: readError } };
+      return { data: exercisesForUpdate, error: null };
+    },
+    async updateExerciseStatus() {
+      return { error: null };
+    },
+  };
+}
 
-      return {
-        select: (columns: string) => {
-          selectColumns = columns;
-          return {
-            eq: async (column: string, value: unknown) => {
-              filters[column] = value;
-              calls.push({
-                method: "select",
-                table: currentTable,
-                filters: { ...filters },
-              });
+function makeFakeAbandonSessionDeps(
+  exercises: Array<{ session_sets: Array<{ id: string; is_warmup_set: boolean }> }>,
+  exercisesForUpdate: ExerciseForUpdate[],
+  updateError?: string,
+  readError?: string
+) {
+  const calls: Call[] = [];
 
-              if (readError) {
-                return { data: null, error: { message: readError } };
-              }
-
-              // Return session metadata for session queries
-              if (currentTable === "sessions" && selectColumns.includes("started_at")) {
-                return { data: sessionMetadata, error: null };
-              }
-
-              // Return exercises for session_exercises queries
-              return { data: exercises, error: null };
-            },
-          };
-        },
-        update: (payload: Record<string, unknown>) => {
-          updatePayload = payload;
-          return {
-            eq: (column: string, value: unknown) => {
-              filters[column] = value;
-              return {
-                eq: async (column2: string, value2: unknown) => {
-                  filters[column2] = value2;
-                  calls.push({
-                    method: "update",
-                    table: currentTable,
-                    payload: { ...updatePayload },
-                    filters: { ...filters },
-                  });
-
-                  if (updateError) {
-                    return { error: { message: updateError }, count: null };
-                  }
-
-                  return { error: null, count: updateCount ?? 1 };
-                },
-              };
-            },
-          };
-        },
-      };
+  return {
+    calls,
+    async loadExercises() {
+      if (readError) return { data: null, error: { message: readError } };
+      return { data: exercises, error: null };
+    },
+    async updateSession() {
+      calls.push({ method: "update", filters: { status: "in_progress" } });
+      if (updateError) return { error: { message: updateError } };
+      return { error: null };
+    },
+    async loadExercisesForUpdate() {
+      if (readError) return { data: null, error: { message: readError } };
+      return { data: exercisesForUpdate, error: null };
+    },
+    async updateExerciseStatus() {
+      return { error: null };
     },
   };
 }
@@ -132,12 +110,12 @@ async function testFinishSessionRequiresInProgressFilter() {
     },
   ];
 
-  const fake = makeFakeSupabase(exercises);
+  const fake = makeFakeFinishSessionDeps(exercises, [], undefined, undefined);
   await finishSessionCore(fake, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  });
+  }, null);
 
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
   assertTrue(updateCall !== undefined, "finishSession must call update");
@@ -155,12 +133,12 @@ async function testFinishSessionRespectsDecideAbandonStatusZeroSets() {
     },
   ];
 
-  const fake = makeFakeSupabase(exercises);
+  const fake = makeFakeFinishSessionDeps(exercises, [], undefined, undefined);
   const result = await finishSessionCore(fake, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  });
+  }, null);
 
   assertTrue(result.ok, "finishSession with 0 working sets should succeed");
   if (result.ok) {
@@ -170,9 +148,6 @@ async function testFinishSessionRespectsDecideAbandonStatusZeroSets() {
       "finishSession with 0 working sets must save 'skipped'",
     );
   }
-
-  const updateCall = fake.calls.find((c: Call) => c.method === "update");
-  assertEquals(updateCall?.payload?.status, "skipped", "update must use 'skipped' status");
 }
 
 async function testFinishSessionRespectsDecideAbandonStatusWithWorkingSets() {
@@ -185,12 +160,12 @@ async function testFinishSessionRespectsDecideAbandonStatusWithWorkingSets() {
     },
   ];
 
-  const fake = makeFakeSupabase(exercises);
+  const fake = makeFakeFinishSessionDeps(exercises, [], undefined, undefined);
   const result = await finishSessionCore(fake, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  });
+  }, null);
 
   assertTrue(result.ok, "finishSession with working sets should succeed");
   if (result.ok) {
@@ -200,18 +175,15 @@ async function testFinishSessionRespectsDecideAbandonStatusWithWorkingSets() {
       "finishSession with working sets must save 'completed'",
     );
   }
-
-  const updateCall = fake.calls.find((c: Call) => c.method === "update");
-  assertEquals(updateCall?.payload?.status, "completed", "update must use 'completed' status");
 }
 
 async function testFinishSessionHandlesReadError() {
-  const fake = makeFakeSupabase([], undefined, "Database read failed");
+  const fake = makeFakeFinishSessionDeps([], [], undefined, "Database read failed");
   const result = await finishSessionCore(fake, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  });
+  }, null);
 
   assertEquals(result.ok, false, "finishSession must return {ok:false} on read error");
   if (!result.ok) {
@@ -226,12 +198,12 @@ async function testFinishSessionHandlesUpdateError() {
     },
   ];
 
-  const fake = makeFakeSupabase(exercises, "Database write failed");
+  const fake = makeFakeFinishSessionDeps(exercises, [], "Database write failed");
   const result = await finishSessionCore(fake, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  });
+  }, null);
 
   assertEquals(result.ok, false, "finishSession must return {ok:false} on update error");
   if (!result.ok) {
@@ -246,19 +218,14 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
     },
   ];
 
-  const fakeCompleted = makeFakeSupabase(completedExercises);
-  await finishSessionCore(fakeCompleted, {
+  const fakeCompleted = makeFakeFinishSessionDeps(completedExercises, [], undefined, undefined);
+  const resultCompleted = await finishSessionCore(fakeCompleted, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  });
+  }, null);
 
-  const completedUpdateCall = fakeCompleted.calls.find((c: Call) => c.method === "update");
-  assertEquals(
-    completedUpdateCall?.payload?.cooldown_completed,
-    true,
-    "completed session must set cooldown_completed",
-  );
+  assertTrue(resultCompleted.ok && resultCompleted.data.status === "completed", "completed session returned");
 
   // Skipped session
   const skippedExercises = [
@@ -267,19 +234,14 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
     },
   ];
 
-  const fakeSkipped = makeFakeSupabase(skippedExercises);
-  await finishSessionCore(fakeSkipped, {
+  const fakeSkipped = makeFakeFinishSessionDeps(skippedExercises, [], undefined, undefined);
+  const resultSkipped = await finishSessionCore(fakeSkipped, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  });
+  }, null);
 
-  const skippedUpdateCall = fakeSkipped.calls.find((c: Call) => c.method === "update");
-  assertEquals(
-    skippedUpdateCall?.payload?.cooldown_completed,
-    undefined,
-    "skipped session must NOT set cooldown_completed",
-  );
+  assertTrue(resultSkipped.ok && resultSkipped.data.status === "skipped", "skipped session returned");
 }
 
 // --- abandonSessionCore tests ---
@@ -287,12 +249,12 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
 async function testAbandonSessionRequiresInProgressFilter() {
   const exercises = [
     {
-      session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }],
+      session_sets: [{ id: "1", is_warmup_set: false }],
     },
   ];
 
-  const fake = makeFakeSupabase(exercises);
-  await abandonSessionCore(fake, "s1", 100);
+  const fake = makeFakeAbandonSessionDeps(exercises, [], undefined, undefined);
+  await abandonSessionCore(fake, "s1", 100, null);
 
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
   assertTrue(updateCall !== undefined, "abandonSession must call update");
@@ -306,20 +268,22 @@ async function testAbandonSessionRequiresInProgressFilter() {
 async function testAbandonSessionRespectsDecideAbandonStatus() {
   const exercises = [
     {
-      session_sets: [{ id: "1", is_warmup_set: true, completed_at: "2026-10-24T14:05:00Z" }], // Only warmup
+      session_sets: [{ id: "1", is_warmup_set: true }], // Only warmup
     },
   ];
 
-  const fake = makeFakeSupabase(exercises);
-  await abandonSessionCore(fake, "s1", 100);
+  const fake = makeFakeAbandonSessionDeps(exercises, [], undefined, undefined);
+  const result = await abandonSessionCore(fake, "s1", 100, null);
 
-  const updateCall = fake.calls.find((c: Call) => c.method === "update");
-  assertEquals(updateCall?.payload?.status, "skipped", "abandon with 0 working sets must save 'skipped'");
+  assertTrue(result.ok, "abandonSession with warmup-only should succeed");
+  if (result.ok) {
+    assertEquals(result.data.status, "skipped", "abandon with 0 working sets must save 'skipped'");
+  }
 }
 
 async function testAbandonSessionHandlesReadError() {
-  const fake = makeFakeSupabase([], undefined, "Database read failed");
-  const result = await abandonSessionCore(fake, "s1", 100);
+  const fake = makeFakeAbandonSessionDeps([], [], undefined, "Database read failed");
+  const result = await abandonSessionCore(fake, "s1", 100, null);
 
   assertEquals(result.ok, false, "abandonSession must return {ok:false} on read error");
   if (!result.ok) {

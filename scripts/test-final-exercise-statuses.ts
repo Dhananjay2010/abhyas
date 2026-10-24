@@ -7,6 +7,8 @@
 
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
+import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
+import type { AbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 
 let passed = 0;
 let failed = 0;
@@ -23,59 +25,73 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-interface FakeSupabase extends SupabaseClient {
-  sessionData: unknown;
-  exercisesData: unknown[];
-  exerciseUpdates: Array<{ id: string; status: string }>;
-}
+type SessionRow = {
+  started_at: string;
+  local_date: string;
+  timezone: string;
+};
 
-function makeFakeSupabase(
-  sessionData: unknown,
-  exercisesData: unknown[],
+type ExerciseRow = {
+  id: string;
+  planned_sets: number;
+  status: string;
+  session_sets: Array<{ id: string; is_warmup_set: boolean; completed_at?: string | null }> | null;
+};
+
+function makeFakeFinishSessionDeps(
+  sessionData: SessionRow | null,
+  exercisesData: ExerciseRow[],
   updateError?: string
-): FakeSupabase {
+) {
   const exerciseUpdates: Array<{ id: string; status: string }> = [];
 
-  const fake = {
-    sessionData,
-    exercisesData,
+  return {
     exerciseUpdates,
-    from: (table: string) => {
-      if (table === "sessions") {
-        return {
-          select: () => ({
-            eq: async () => ({ data: [sessionData], error: null }),
-          }),
-          update: () => ({
-            eq: () => ({
-              eq: async () => ({
-                error: updateError ? { message: updateError } : null,
-                count: updateError ? null : 1,
-              }),
-            }),
-          }),
-        };
-      } else if (table === "session_exercises") {
-        return {
-          select: () => ({
-            eq: async () => ({ data: exercisesData, error: null }),
-          }),
-          update: (payload: { status: string; completed_at?: string }) => {
-            return {
-              eq: (_column: string, value: string) => ({
-                eq: async () => {
-                  fake.exerciseUpdates.push({ id: value, status: payload.status });
-                  return { error: null };
-                },
-              }),
-            };
-          },
-        };
-      }
-      throw new Error(`Unexpected table: ${table}`);
+    async loadSession() {
+      return { data: sessionData, error: null };
+    },
+    async loadExercises() {
+      return { data: exercisesData.map(ex => ({
+        session_sets: ex.session_sets,
+      })), error: null };
+    },
+    async updateSession() {
+      return { error: updateError ? { message: updateError } : null, updatedCount: updateError ? 0 : 1 };
+    },
+    async loadSessionStatus() {
+      return { data: { status: "in_progress" as const }, error: null };
+    },
+    async loadExercisesForUpdate() {
+      return { data: exercisesData, error: null };
+    },
+    async updateExerciseStatus(id: string, status: string) {
+      exerciseUpdates.push({ id, status });
+      return { error: null };
     },
   };
-  return fake;
+}
+
+function makeFakeAbandonSessionDeps(exercisesData: ExerciseRow[]) {
+  const exerciseUpdates: Array<{ id: string; status: string }> = [];
+
+  return {
+    exerciseUpdates,
+    async loadExercises() {
+      return { data: exercisesData.map(ex => ({
+        session_sets: ex.session_sets,
+      })), error: null };
+    },
+    async updateSession() {
+      return { error: null };
+    },
+    async loadExercisesForUpdate() {
+      return { data: exercisesData, error: null };
+    },
+    async updateExerciseStatus(id: string, status: string) {
+      exerciseUpdates.push({ id, status });
+      return { error: null };
+    },
+  };
 }
 
 async function runTests() {
@@ -100,11 +116,12 @@ async function runTests() {
         ],
       },
     ];
-    const fake = makeFakeSupabase(session, exercises);
+    const fake = makeFakeFinishSessionDeps(session, exercises);
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      null,
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -130,11 +147,12 @@ async function runTests() {
         ],
       },
     ];
-    const fake = makeFakeSupabase(session, exercises);
+    const fake = makeFakeFinishSessionDeps(session, exercises);
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      null,
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -156,11 +174,12 @@ async function runTests() {
         session_sets: [],
       },
     ];
-    const fake = makeFakeSupabase(session, exercises);
+    const fake = makeFakeFinishSessionDeps(session, exercises);
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      null,
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -181,12 +200,13 @@ async function runTests() {
         ],
       },
     ];
-    const fake = makeFakeSupabase({}, exercises);
+    const fake = makeFakeAbandonSessionDeps(exercises);
 
     await abandonSessionCore(
       fake,
       "s1",
-      1200
+      1200,
+      null,
     );
 
     assertEquals(fake.exerciseUpdates.length, 1, "One exercise updated");
@@ -226,11 +246,12 @@ async function runTests() {
         session_sets: [],
       },
     ];
-    const fake = makeFakeSupabase(session, exercises);
+    const fake = makeFakeFinishSessionDeps(session, exercises);
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      null,
     );
 
     assertEquals(fake.exerciseUpdates.length, 3, "Three exercises updated");
@@ -258,11 +279,12 @@ async function runTests() {
         ],
       },
     ];
-    const fake = makeFakeSupabase(session, exercises);
+    const fake = makeFakeFinishSessionDeps(session, exercises);
 
     await finishSessionCore(
       fake,
-      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
+      { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true },
+      null,
     );
 
     assertEquals(fake.exerciseUpdates.length, 0, "No updates for already-completed exercises");

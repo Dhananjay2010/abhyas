@@ -6,6 +6,7 @@
  */
 
 import { finishExerciseCore } from "../src/lib/session/finish-exercise";
+import type { FinishExerciseDeps } from "../src/lib/session/finish-exercise-deps";
 
 let passed = 0;
 let failed = 0;
@@ -22,25 +23,14 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-function makeFakeSupabase() {
+function makeFakeDeps() {
   const storedFeel: { value: unknown } = { value: undefined };
   
   return {
     get storedFeel() { return storedFeel.value; },
-    from: (table: string) => {
-      if (table !== "session_exercises") throw new Error(`Unexpected table: ${table}`);
-      return {
-        update: (payload: { feel: unknown; status: string; completed_at: string }) => {
-          storedFeel.value = payload.feel;
-          return {
-            eq: () => ({
-              not: () => ({
-                select: async () => ({ data: [{ id: "ex1" }], error: null }),
-              }),
-            }),
-          };
-        },
-      };
+    updateExercise: async (id: string, patch: { feel: unknown; status: string; completed_at: string }) => {
+      storedFeel.value = patch.feel;
+      return { data: { id }, error: null };
     },
   };
 }
@@ -50,7 +40,7 @@ async function runTests() {
 
   console.log("1. User chooses 'easy' -> feel stored as 'easy'");
   {
-    const fake = makeFakeSupabase();
+    const fake = makeFakeDeps();
     await finishExerciseCore(
       fake,
       "user1",
@@ -59,16 +49,15 @@ async function runTests() {
         feel: "easy",
         skipped: false,
       },
-      {
-        applyProgression: async () => null,
-      },
+      { applyProgression: async () => null },
+      null,
     );
     assertEquals(fake.storedFeel, "easy", "Stores 'easy'");
   }
 
   console.log("\n2. User chooses 'right' -> feel stored as 'right'");
   {
-    const fake = makeFakeSupabase();
+    const fake = makeFakeDeps();
     await finishExerciseCore(
       fake,
       "user1",
@@ -77,16 +66,15 @@ async function runTests() {
         feel: "right",
         skipped: false,
       },
-      {
-        applyProgression: async () => null,
-      },
+      { applyProgression: async () => null },
+      null,
     );
     assertEquals(fake.storedFeel, "right", "Stores 'right'");
   }
 
   console.log("\n3. User chooses 'hard' -> feel stored as 'hard'");
   {
-    const fake = makeFakeSupabase();
+    const fake = makeFakeDeps();
     await finishExerciseCore(
       fake,
       "user1",
@@ -95,16 +83,15 @@ async function runTests() {
         feel: "hard",
         skipped: false,
       },
-      {
-        applyProgression: async () => null,
-      },
+      { applyProgression: async () => null },
+      null,
     );
     assertEquals(fake.storedFeel, "hard", "Stores 'hard'");
   }
 
-  console.log("\n4. User doesn't choose (feel=null) -> feel stored as null");
+  console.log("\n4. User doesn't choose (null) -> feel stored as null");
   {
-    const fake = makeFakeSupabase();
+    const fake = makeFakeDeps();
     await finishExerciseCore(
       fake,
       "user1",
@@ -113,16 +100,15 @@ async function runTests() {
         feel: null,
         skipped: false,
       },
-      {
-        applyProgression: async () => null,
-      },
+      { applyProgression: async () => null },
+      null,
     );
-    assertEquals(fake.storedFeel, null, "Stores null when not chosen");
+    assertEquals(fake.storedFeel, null, "Stores null");
   }
 
-  console.log("\n5. Skipped exercise -> feel stored as provided (can be null)");
+  console.log("\n5. User skips exercise -> feel NOT stored (row not updated)");
   {
-    const fake = makeFakeSupabase();
+    const fake = makeFakeDeps();
     await finishExerciseCore(
       fake,
       "user1",
@@ -131,11 +117,10 @@ async function runTests() {
         feel: null,
         skipped: true,
       },
-      {
-        applyProgression: async () => null,
-      },
+      { applyProgression: async () => null },
+      null,
     );
-    assertEquals(fake.storedFeel, null, "Stores null for skipped");
+    assertEquals(fake.storedFeel, null, "Skipped exercise doesn't store feel");
   }
 
   console.log(`\n✅ Passed: ${passed}`);

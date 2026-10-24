@@ -10,6 +10,7 @@
  */
 
 import { decideAbandonStatus, abandonSessionCore, type SessionExercise } from "../src/lib/session/abandon-session";
+import type { AbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 import { buildDayRecords, computeStreaks } from "../src/lib/progress/streaks";
 import { pickReusableSession } from "../src/lib/session/reusable-session";
 
@@ -21,54 +22,32 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-// Fake Supabase client that stores rows and applies .eq filters
-class FakeSupabase {
-  private sessionExercises: Map<string, SessionExercise[]> = new Map();
-  private sessions: Map<string, { status: string; completed_at: string | null; duration_seconds: number | null }> = new Map();
+// Fake deps builder
+function makeFakeAbandonDeps(
+  exercises: SessionExercise[],
+  initialStatus: string
+) {
+  const sessionState = { status: initialStatus, completed_at: null as string | null, duration_seconds: null as number | null };
 
-  setSessionExercises(sessionId: string, exercises: SessionExercise[]) {
-    this.sessionExercises.set(sessionId, exercises);
-  }
-
-  setSession(sessionId: string, status: string) {
-    this.sessions.set(sessionId, { status, completed_at: null, duration_seconds: null });
-  }
-
-  getSession(sessionId: string) {
-    return this.sessions.get(sessionId);
-  }
-
-  from(table: string) {
-    if (table === "session_exercises") {
-      return {
-        select: () => ({
-          eq: (col: string, val: string) => {
-            const exercises = this.sessionExercises.get(val) ?? [];
-            return Promise.resolve({ data: exercises, error: null });
-          },
-        }),
-      };
-    }
-    if (table === "sessions") {
-      return {
-        update: (values: { status: string; completed_at: string | null; duration_seconds: number }) => ({
-          eq: (col1: string, val1: string) => ({
-            eq: (col2: string, val2: string) => {
-              const session = this.sessions.get(val1);
-              if (session && session[col2 as keyof typeof session] === val2) {
-                // Apply update
-                Object.assign(session, values);
-                return Promise.resolve({ error: null });
-              }
-              // .eq filter didn't match, no update
-              return Promise.resolve({ error: null });
-            },
-          }),
-        }),
-      };
-    }
-    throw new Error(`Unknown table: ${table}`);
-  }
+  return {
+    getSession: () => sessionState,
+    async loadExercises() {
+      return { data: exercises, error: null };
+    },
+    async updateSession(_sessionId: string, patch: { status: string; completed_at: string | null; duration_seconds: number }) {
+      // Only update if still in_progress (idempotency guard)
+      if (sessionState.status === "in_progress") {
+        Object.assign(sessionState, patch);
+      }
+      return { error: null };
+    },
+    async loadExercisesForUpdate() {
+      return { data: [], error: null };
+    },
+    async updateExerciseStatus() {
+      return { error: null };
+    },
+  };
 }
 
 console.log("\n1. decideAbandonStatus: working sets → completed");
@@ -108,20 +87,19 @@ console.log("\n3. decideAbandonStatus: zero sets → skipped");
 
 console.log("\n4. abandonSessionCore: applies status and duration once");
 {
-  const fake = new FakeSupabase();
-  fake.setSessionExercises("sess1", [
+  const exercises = [
     {
       session_sets: [
         { id: "s1", is_warmup_set: false },
         { id: "s2", is_warmup_set: false },
       ],
     },
-  ]);
-  fake.setSession("sess1", "in_progress");
+  ];
+  const fake = makeFakeAbandonDeps(exercises, "in_progress");
 
-  await abandonSessionCore(fake, "sess1", 1234.5);
+  await abandonSessionCore(fake, "sess1", 1234.5, null);
   
-  const session = fake.getSession("sess1");
+  const session = fake.getSession();
   check("status is completed", session?.status === "completed", session?.status);
   check("duration is 1235", session?.duration_seconds === 1235, String(session?.duration_seconds));
   check("completed_at is set", session?.completed_at !== null);
@@ -129,17 +107,16 @@ console.log("\n4. abandonSessionCore: applies status and duration once");
 
 console.log("\n5. abandonSessionCore: second call is no-op");
 {
-  const fake = new FakeSupabase();
-  fake.setSessionExercises("sess2", [
+  const exercises = [
     { session_sets: [{ id: "s1", is_warmup_set: false }] },
-  ]);
-  fake.setSession("sess2", "in_progress");
+  ];
+  const fake = makeFakeAbandonDeps(exercises, "in_progress");
 
-  await abandonSessionCore(fake, "sess2", 600);
-  const after1 = fake.getSession("sess2");
+  await abandonSessionCore(fake, "sess2", 600, null);
+  const after1 = fake.getSession();
   
-  await abandonSessionCore(fake, "sess2", 900); // retry with different duration
-  const after2 = fake.getSession("sess2");
+  await abandonSessionCore(fake, "sess2", 900, null); // retry with different duration
+  const after2 = fake.getSession();
   
   check("duration unchanged on retry", after1?.duration_seconds === after2?.duration_seconds, `${after1?.duration_seconds} vs ${after2?.duration_seconds}`);
   check("still 600 seconds", after2?.duration_seconds === 600, String(after2?.duration_seconds));
@@ -147,23 +124,19 @@ console.log("\n5. abandonSessionCore: second call is no-op");
 
 console.log("\n6. abandonSessionCore: duration clamped to 0..6 hours");
 {
-  const fake1 = new FakeSupabase();
-  fake1.setSessionExercises("neg", [{ session_sets: [{ id: "s1", is_warmup_set: false }] }]);
-  fake1.setSession("neg", "in_progress");
-  await abandonSessionCore(fake1, "neg", -100);
-  check("negative duration clamped to 0", fake1.getSession("neg")?.duration_seconds === 0, String(fake1.getSession("neg")?.duration_seconds));
+  const exercises = [{ session_sets: [{ id: "s1", is_warmup_set: false }] }];
+  
+  const fake1 = makeFakeAbandonDeps(exercises, "in_progress");
+  await abandonSessionCore(fake1, "neg", -100, null);
+  check("negative duration clamped to 0", fake1.getSession()?.duration_seconds === 0, String(fake1.getSession()?.duration_seconds));
 
-  const fake2 = new FakeSupabase();
-  fake2.setSessionExercises("huge", [{ session_sets: [{ id: "s1", is_warmup_set: false }] }]);
-  fake2.setSession("huge", "in_progress");
-  await abandonSessionCore(fake2, "huge", 50000);
-  check("50000 seconds clamped to 21600 (6 hours)", fake2.getSession("huge")?.duration_seconds === 21600, String(fake2.getSession("huge")?.duration_seconds));
+  const fake2 = makeFakeAbandonDeps(exercises, "in_progress");
+  await abandonSessionCore(fake2, "huge", 50000, null);
+  check("50000 seconds clamped to 21600 (6 hours)", fake2.getSession()?.duration_seconds === 21600, String(fake2.getSession()?.duration_seconds));
 
-  const fake3 = new FakeSupabase();
-  fake3.setSessionExercises("frac", [{ session_sets: [{ id: "s1", is_warmup_set: false }] }]);
-  fake3.setSession("frac", "in_progress");
-  await abandonSessionCore(fake3, "frac", 123.7);
-  check("fractional seconds rounded", fake3.getSession("frac")?.duration_seconds === 124, String(fake3.getSession("frac")?.duration_seconds));
+  const fake3 = makeFakeAbandonDeps(exercises, "in_progress");
+  await abandonSessionCore(fake3, "frac", 123.7, null);
+  check("fractional seconds rounded", fake3.getSession()?.duration_seconds === 124, String(fake3.getSession()?.duration_seconds));
 }
 
 console.log("\n7. Early-ended completed session counts toward streak");

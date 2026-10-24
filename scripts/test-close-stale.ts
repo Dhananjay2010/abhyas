@@ -5,7 +5,8 @@
  *   npx tsx scripts/test-close-stale.ts
  */
 
-import { closeStaleSessions, type Client } from "../src/lib/session/close-stale";
+import { closeStaleSessions } from "../src/lib/session/close-stale";
+import type { CloseStaleSessionsDeps, SessionRow, ExerciseWithSets } from "../src/lib/session/close-stale-deps";
 
 let passed = 0;
 let failed = 0;
@@ -32,47 +33,25 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-interface FakeSupabase extends Client {
-  sessionUpdates: Array<{ id: string; status: string; completed_at: string | null; duration_seconds: number }>;
-}
-
-function makeFakeSupabase(
-  sessions: Array<{ id: string; started_at: string }>,
-  exercises: Array<{
-    session_id: string;
-    session_sets: Array<{ id: string; is_warmup_set: boolean; completed_at: string | null }>;
-  }>
-): FakeSupabase {
+function makeFakeDeps(
+  sessions: SessionRow[],
+  exercises: ExerciseWithSets[]
+) {
   const sessionUpdates: Array<{ id: string; status: string; completed_at: string | null; duration_seconds: number }> = [];
 
-  const fake = {
+  return {
     sessionUpdates,
-    from: (table: string) => {
-      if (table === "sessions") {
-        return {
-          select: () => ({
-            in: async () => ({ data: sessions, error: null }),
-          }),
-          update: (payload: { status: string; completed_at: string | null; duration_seconds: number }) => {
-            return {
-              eq: async (_column: string, value: string) => {
-                fake.sessionUpdates.push({ id: value, ...payload });
-                return { error: null };
-              },
-            };
-          },
-        };
-      } else if (table === "session_exercises") {
-        return {
-          select: () => ({
-            in: async () => ({ data: exercises, error: null }),
-          }),
-        };
-      }
-      throw new Error(`Unexpected table: ${table}`);
+    async loadSessions(_ids: string[]) {
+      return sessions;
+    },
+    async loadExercisesWithSets(_sessionIds: string[]) {
+      return exercises;
+    },
+    async updateSession(id: string, patch: { status: string; completed_at: string | null; duration_seconds: number }) {
+      sessionUpdates.push({ id, ...patch });
+      return { error: null };
     },
   };
-  return fake;
 }
 
 async function runTests() {
@@ -87,6 +66,7 @@ async function runTests() {
     const exercises = [
       {
         session_id: "s1",
+        rest_seconds: null,
         session_sets: [
           { id: "set1", is_warmup_set: false, completed_at: new Date("2026-10-23T10:30:00Z").toISOString() },
           { id: "set2", is_warmup_set: false, completed_at: lastSetAt },
@@ -94,7 +74,7 @@ async function runTests() {
       },
     ];
 
-    const fake = makeFakeSupabase(sessions, exercises);
+    const fake = makeFakeDeps(sessions, exercises);
     const completed = await closeStaleSessions(
       fake,
       [{ id: "s1", local_date: "2026-10-23" }],
@@ -115,14 +95,9 @@ async function runTests() {
     const startedAt = new Date("2026-10-23T10:00:00Z").toISOString();
 
     const sessions = [{ id: "s2", started_at: startedAt }];
-    const exercises = [
-      {
-        session_id: "s2",
-        session_sets: [],
-      },
-    ];
+    const exercises: ExerciseWithSets[] = [];
 
-    const fake = makeFakeSupabase(sessions, exercises);
+    const fake = makeFakeDeps(sessions, exercises);
     const completed = await closeStaleSessions(
       fake,
       [{ id: "s2", local_date: "2026-10-23" }],
@@ -144,6 +119,7 @@ async function runTests() {
     const exercises = [
       {
         session_id: "s3",
+        rest_seconds: null,
         session_sets: [
           { id: "warmup1", is_warmup_set: true, completed_at: new Date("2026-10-23T10:15:00Z").toISOString() },
           { id: "warmup2", is_warmup_set: true, completed_at: new Date("2026-10-23T10:20:00Z").toISOString() },
@@ -151,7 +127,7 @@ async function runTests() {
       },
     ];
 
-    const fake = makeFakeSupabase(sessions, exercises);
+    const fake = makeFakeDeps(sessions, exercises);
     const completed = await closeStaleSessions(
       fake,
       [{ id: "s3", local_date: "2026-10-23" }],
@@ -165,10 +141,10 @@ async function runTests() {
 
   console.log("\n4. No stale sessions: no updates");
   {
-    const sessions: Array<{ id: string; started_at: string }> = [];
-    const exercises: Array<{ session_id: string; session_sets: Array<{ id: string; is_warmup_set: boolean; completed_at: string | null }> }> = [];
+    const sessions: SessionRow[] = [];
+    const exercises: ExerciseWithSets[] = [];
 
-    const fake = makeFakeSupabase(sessions, exercises);
+    const fake = makeFakeDeps(sessions, exercises);
     const completed = await closeStaleSessions(
       fake,
       [{ id: "s4", local_date: "2026-10-24" }],
@@ -182,8 +158,8 @@ async function runTests() {
   console.log("\n5. Multiple sessions: mix of completed and skipped");
   {
     const startedAt1 = new Date("2026-10-23T09:00:00Z").toISOString();
-    const lastSet1 = new Date("2026-10-23T09:30:00Z").toISOString();
-    const startedAt2 = new Date("2026-10-23T14:00:00Z").toISOString();
+    const lastSetAt1 = new Date("2026-10-23T09:30:00Z").toISOString();
+    const startedAt2 = new Date("2026-10-23T11:00:00Z").toISOString();
 
     const sessions = [
       { id: "s5a", started_at: startedAt1 },
@@ -192,17 +168,14 @@ async function runTests() {
     const exercises = [
       {
         session_id: "s5a",
+        rest_seconds: null,
         session_sets: [
-          { id: "set1", is_warmup_set: false, completed_at: lastSet1 },
+          { id: "set1", is_warmup_set: false, completed_at: lastSetAt1 },
         ],
-      },
-      {
-        session_id: "s5b",
-        session_sets: [],
       },
     ];
 
-    const fake = makeFakeSupabase(sessions, exercises);
+    const fake = makeFakeDeps(sessions, exercises);
     const completed = await closeStaleSessions(
       fake,
       [
