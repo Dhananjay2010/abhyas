@@ -8,6 +8,7 @@ import {
   type GeneratorInput,
 } from "./generate";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { buildCurrentGenerationInputs } from "./generation-inputs";
 
 type Client = SupabaseClient<Database>;
 
@@ -144,17 +145,11 @@ export async function createBlockForUser(
   };
 
   // Snapshot the inputs that affect plan generation, for staleness detection
-  const generationInputs = {
-    goal: profile.goal!,
-    level: profile.level!,
-    primary_track: profile.primary_track!,
-    days_per_week: profile.days_per_week!,
-    yoga_days_per_week: profile.yoga_days_per_week ?? 0,
-    preferred_session_minutes: profile.preferred_session_minutes ?? 60,
-    has_all_equipment: profile.has_all_equipment ?? false,
-    equipment_ids: equipmentIds.slice().sort(),
-    current_injury_regions: currentInjuryRegions.slice().sort(),
-  };
+  const generationInputs = buildCurrentGenerationInputs(
+    profile,
+    equipmentIds,
+    currentInjuryRegions,
+  );
 
   const plan = generateProgram(input);
 

@@ -6,7 +6,7 @@ import type { Database } from "@/lib/database.types";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
-import { isValidSessionLength } from "@/lib/session-length-options";
+import { isAllowedSessionLength, getSessionLengthErrorMessage } from "@/lib/onboarding/session-length";
 import { ensureGenerationSnapshot } from "@/lib/program/ensure-generation-snapshot";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
@@ -63,8 +63,8 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     return { ok: false, error: "At least one day a week has to be training." };
   }
   if (patch.preferred_session_minutes != null) {
-    if (!isValidSessionLength(patch.preferred_session_minutes)) {
-      return { ok: false, error: "Session length must be 30, 45, 60 or 75 minutes." };
+    if (!isAllowedSessionLength(patch.preferred_session_minutes)) {
+      return { ok: false, error: getSessionLengthErrorMessage() };
     }
   }
 

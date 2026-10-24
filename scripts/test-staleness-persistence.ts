@@ -7,6 +7,8 @@
 
 import { isPlanStale, type ProfileAnswers, type ActiveBlock } from "../src/app/settings/plan-staleness";
 
+export {};
+
 let passed = 0;
 let failed = 0;
 
@@ -127,6 +129,9 @@ test("session minutes change marks plan stale", () => {
   assert(result.stale, "Should be stale (session length changed from 60 to 45)");
   assert(result.reasons.includes("session length changed"), "Should detect session length change");
 });
+
+// TODO: Re-enable Today page tests after Dev 3's PR #32 merges
+// (test-staleness-persistence will validate Today page banner once todayStateInputFromRows is available)
 
 console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

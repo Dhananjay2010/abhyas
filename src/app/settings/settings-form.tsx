@@ -29,7 +29,7 @@ import {
 import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
-import { SESSION_LENGTH_OPTIONS } from "@/lib/session-length-options";
+import { SESSION_LENGTH_OPTIONS } from "@/lib/onboarding/session-length";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -247,60 +247,8 @@ export function SettingsForm({
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 pb-32">
       {error && <ErrorNote>{error}</ErrorNote>}
-
-      {rebuildSuccess && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
-        >
-          Plan rebuilt
-        </div>
-      )}
-
-      {undoToast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 flex items-center justify-between gap-3"
-        >
-          <span className="text-sm text-accent">
-            {undoToast.field === 'level' ? 'Level' : 'Training type'} updated. Your plan will be rebuilt for this when you choose Rebuild.
-          </span>
-          <button
-            onClick={handleUndo}
-            disabled={pending}
-            className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Undo
-          </button>
-        </div>
-      )}
-
-      {/* M2: Reserved space for staleness banner to prevent layout shift */}
-      <div style={{ minHeight: initialPlanStale ? "120px" : "0px" }}>
-        {initialPlanStale && !rebuildSuccess && (
-          <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
-            <p className="text-sm text-accent">
-              Your plan no longer matches these answers. Rebuilding keeps every session
-              you have already logged.
-            </p>
-            <div className="mt-3">
-              <BuildPlanButton 
-                label="Rebuild my block" 
-                currentWeek={currentWeek}
-                showSuccessState={true}
-                onSuccess={() => {
-                  setRebuildSuccess(true);
-                  router.refresh();
-                }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* ---------------- training ---------------- */}
       <Section title="Your training" note="Changing these needs a rebuilt block.">
@@ -773,6 +721,66 @@ export function SettingsForm({
           centimetres for now.
         </p>
       </Section>
+
+      {/* M2: Fixed bottom bar for all status messages - out of flow, no layout shift */}
+      {(initialPlanStale || rebuildSuccess || undoToast) && (
+        <div 
+          className="fixed left-0 right-0 mx-auto w-full max-w-md px-6 bg-surface border-t border-border z-40"
+          style={{
+            bottom: "calc(4rem + env(safe-area-inset-bottom))"
+          }}
+        >
+          <div className="py-4 space-y-3">
+            {rebuildSuccess && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success"
+              >
+                Plan rebuilt
+              </div>
+            )}
+
+            {undoToast && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 flex items-center justify-between gap-3"
+              >
+                <span className="text-sm text-accent">
+                  {undoToast.field === 'level' ? 'Level' : 'Training type'} updated. Your plan will be rebuilt for this when you choose Rebuild.
+                </span>
+                <button
+                  onClick={handleUndo}
+                  disabled={pending}
+                  className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Undo
+                </button>
+              </div>
+            )}
+
+            {initialPlanStale && !rebuildSuccess && (
+              <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
+                <p className="text-sm text-accent">
+                  Your plan no longer matches these answers. Rebuilding keeps every session
+                  you have already logged.
+                </p>
+                <div className="mt-3">
+                  <BuildPlanButton 
+                    label="Rebuild my block" 
+                    currentWeek={currentWeek}
+                    showSuccessState={true}
+                    onSuccess={() => {
+                      setRebuildSuccess(true);
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

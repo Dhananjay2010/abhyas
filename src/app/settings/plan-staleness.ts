@@ -7,35 +7,18 @@
  */
 
 import type { Database } from "@/lib/database.types";
+import type { GenerationInputsSnapshot } from "@/lib/program/generation-inputs";
+import { buildCurrentGenerationInputs } from "@/lib/program/generation-inputs";
 
 type Goal = Database["public"]["Enums"]["fitness_goal"];
 type Level = Database["public"]["Enums"]["fitness_level"];
 type Track = Database["public"]["Enums"]["track_type"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
 
-export type GenerationInputsSnapshot = {
-  goal: Goal;
-  level: Level;
-  primary_track: Track;
-  days_per_week: number;
-  yoga_days_per_week: number;
-  preferred_session_minutes: number;
-  has_all_equipment: boolean;
-  equipment_ids: string[];
-  current_injury_regions: BodyRegion[];
-};
+export type { GenerationInputsSnapshot } from "@/lib/program/generation-inputs";
+export { buildCurrentGenerationInputs } from "@/lib/program/generation-inputs";
 
-export type ProfileAnswers = {
-  goal: Goal | null;
-  level: Level | null;
-  primary_track: Track | null;
-  days_per_week: number | null;
-  yoga_days_per_week: number;
-  preferred_session_minutes: number;
-  has_all_equipment: boolean;
-  equipment_ids: string[];
-  current_injury_regions: BodyRegion[];
-};
+export type ProfileAnswers = GenerationInputsSnapshot;
 
 export type ActiveBlock = {
   generation_inputs: GenerationInputsSnapshot | null;

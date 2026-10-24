@@ -1,75 +1,49 @@
 #!/usr/bin/env tsx
 /**
- * Test session length validation in updateProfileSettings.
- *
+ * Test: Session length validation
+ * 
  * Run: npm run test:session-length-validation
  */
 
-import { SESSION_LENGTH_OPTIONS, isValidSessionLength } from "../src/lib/session-length-options";
+import { SESSION_LENGTH_OPTIONS, isAllowedSessionLength } from "../src/lib/onboarding/session-length";
 
-// Test cases
-const tests: Array<{
-  name: string;
-  input: number | null | string;
-  shouldPass: boolean;
-  expectedError?: string;
-}> = [
-  { name: "30 minutes is valid", input: 30, shouldPass: true },
-  { name: "45 minutes is valid", input: 45, shouldPass: true },
-  { name: "60 minutes is valid", input: 60, shouldPass: true },
-  { name: "75 minutes is valid", input: 75, shouldPass: true },
-  { name: "0 is invalid", input: 0, shouldPass: false, expectedError: "Session length must be 30, 45, 60 or 75 minutes." },
-  { name: "-5 is invalid", input: -5, shouldPass: false, expectedError: "Session length must be 30, 45, 60 or 75 minutes." },
-  { name: "1000 is invalid", input: 1000, shouldPass: false, expectedError: "Session length must be 30, 45, 60 or 75 minutes." },
-  { name: "20 is invalid (not in allowed list)", input: 20, shouldPass: false, expectedError: "Session length must be 30, 45, 60 or 75 minutes." },
-  { name: "90 is invalid", input: 90, shouldPass: false, expectedError: "Session length must be 30, 45, 60 or 75 minutes." },
-];
-
-// Validation logic using shared constant
-function validateSessionLength(value: number | null | string | undefined): { ok: true } | { ok: false; error: string } {
-  if (value === null || value === undefined) {
-    return { ok: true }; // null/undefined means the field isn't being updated
-  }
-
-  if (typeof value === "string") {
-    return { ok: false, error: "Please enter valid numbers." };
-  }
-
-  if (!isValidSessionLength(value)) {
-    return { ok: false, error: "Session length must be 30, 45, 60 or 75 minutes." };
-  }
-
-  return { ok: true };
-}
-
-// Test the shared constant matches expectations
-console.log(`Session length options: ${SESSION_LENGTH_OPTIONS.join(", ")}`);
-if (SESSION_LENGTH_OPTIONS.length !== 4 || !SESSION_LENGTH_OPTIONS.includes(30)) {
-  console.error("✗ SESSION_LENGTH_OPTIONS constant is incorrect");
-  process.exit(1);
-}
+export {};
 
 let passed = 0;
 let failed = 0;
 
-for (const test of tests) {
-  const result = validateSessionLength(test.input);
-  const matches = test.shouldPass ? result.ok : !result.ok && result.error === test.expectedError;
-
-  if (matches) {
-    console.log(`✓ ${test.name}`);
+function test(name: string, fn: () => void) {
+  try {
+    fn();
+    console.log(`✓ ${name}`);
     passed++;
-  } else {
-    console.log(`✗ ${test.name}`);
-    if (test.shouldPass) {
-      console.log(`  Expected: pass, got error: ${result.ok ? "none" : result.error}`);
-    } else {
-      console.log(`  Expected error: "${test.expectedError}"`);
-      console.log(`  Got: ${result.ok ? "pass" : result.error}`);
-    }
+  } catch (e) {
+    console.error(`✗ ${name}`);
+    console.error(`  ${(e as Error).message}`);
     failed++;
   }
 }
 
-console.log(`\n${passed} passed, ${failed} failed`);
+function assert(condition: boolean, message: string) {
+  if (!condition) throw new Error(message);
+}
+
+// Display available options
+console.log(`Session length options: ${SESSION_LENGTH_OPTIONS.join(", ")}`);
+
+SESSION_LENGTH_OPTIONS.forEach((minutes) => {
+  test(`${minutes} minutes is valid`, () => {
+    assert(isAllowedSessionLength(minutes), `${minutes} should be valid`);
+  });
+});
+
+// Test invalid values
+const invalidValues = [0, -5, 1000, 20, 90];
+invalidValues.forEach((value) => {
+  test(`${value} is invalid`, () => {
+    assert(!isAllowedSessionLength(value), `${value} should be invalid`);
+  });
+});
+
+console.log(`\n${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

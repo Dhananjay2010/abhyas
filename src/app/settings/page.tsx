@@ -5,7 +5,7 @@ import { SettingsForm, type SettingsState } from "./settings-form";
 import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
 import { buildTimezoneOptions } from "@/lib/timezone-options";
-import { isPlanStale, type GenerationInputsSnapshot } from "./plan-staleness";
+import { isPlanStale, buildCurrentGenerationInputs, type GenerationInputsSnapshot } from "./plan-staleness";
 import { weekInBlock } from "@/lib/program/prescription";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -42,18 +42,14 @@ export default async function SettingsPage() {
     .filter((i) => i.severity === "current")
     .map((i) => i.body_region);
 
+  const currentInputs = buildCurrentGenerationInputs(
+    profile,
+    equipmentIds,
+    currentInjuryRegions,
+  );
+
   const staleness = isPlanStale(
-    {
-      goal: profile.goal,
-      level: profile.level,
-      primary_track: profile.primary_track,
-      days_per_week: profile.days_per_week,
-      yoga_days_per_week: profile.yoga_days_per_week ?? 0,
-      preferred_session_minutes: profile.preferred_session_minutes ?? 60,
-      has_all_equipment: profile.has_all_equipment ?? false,
-      equipment_ids: equipmentIds,
-      current_injury_regions: currentInjuryRegions,
-    },
+    currentInputs,
     activeBlock
       ? {
           generation_inputs: activeBlock.generation_inputs as GenerationInputsSnapshot | null,

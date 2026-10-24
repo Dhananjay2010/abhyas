@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { buildPlan } from "./actions";
 
@@ -48,7 +48,6 @@ export function BuildPlanButton({
       // Show success state if enabled
       if (showSuccessState) {
         setSuccess(true);
-        setTimeout(() => setSuccess(false), 4000);
       }
       
       // Refresh to get fresh server-rendered isPlanStale
@@ -58,6 +57,14 @@ export function BuildPlanButton({
       if (onSuccess) onSuccess();
     });
   }
+
+  useEffect(() => {
+    // Auto-hide success message after 4s
+    if (success) {
+      const timer = setTimeout(() => setSuccess(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
   if (success) {
     return (
