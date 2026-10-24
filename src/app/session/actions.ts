@@ -680,8 +680,8 @@ export async function findAlternatives(
       if (input.level === "beginner" && e.impact === "high") return false;
       return true;
     })
-    .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack) }))
-    .sort((a, b) => b.k - a.k || tieBreak(a.e.slug) - tieBreak(b.e.slug))
+    .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack), tie: tieBreak(e.slug) }))
+    .sort((a, b) => b.k - a.k || a.tie - b.tie)
     .slice(0, 6)
     .map(({ e }) => ({
       exerciseId: e.id,

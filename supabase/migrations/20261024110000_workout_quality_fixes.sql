@@ -1,6 +1,127 @@
 -- Workout Quality Fixes: Exercise ordering, catalogue data quality, and cool-down stretches
 -- This migration is idempotent (safe to re-run)
 
+-- Part 0: Add missing staple exercises needed for proper plan generation
+-- These fill gaps where beginners have no equipment-free options for key patterns
+
+-- Pike Push-Up: equipment-free vertical press for beginners/intermediates
+INSERT INTO exercises (
+  slug, name, aliases, tracks, category, mechanic, force, 
+  primary_muscles, secondary_muscles, equipment_ids, level_min,
+  movement_pattern, metric, impact, spinal_load, default_rest_seconds,
+  instructions, contraindicated_regions, source, source_licence, is_active
+) VALUES (
+  'pike-push-up',
+  'Pike Push-Up',
+  ARRAY['pike pushup', 'shoulder push-up']::text[],
+  ARRAY['weights', 'bodyweight']::track_type[],
+  'strength',
+  'compound',
+  'push',
+  ARRAY['front_delts', 'triceps']::muscle[],
+  ARRAY['side_delts', 'chest']::muscle[],
+  ARRAY[]::text[],
+  'beginner',
+  'vertical_press',
+  'reps',
+  'low',
+  'none',
+  90,
+  ARRAY[
+    'Start in a downward dog position with hips high',
+    'Keep your legs and back as straight as possible',
+    'Lower your head toward the ground by bending elbows',
+    'Push back up to the starting position',
+    'Focus on shoulders doing the work, not chest'
+  ],
+  ARRAY[]::body_region[],
+  'curated',
+  'public domain',
+  true
+)
+ON CONFLICT (slug) DO UPDATE SET
+  movement_pattern = EXCLUDED.movement_pattern,
+  mechanic = EXCLUDED.mechanic,
+  primary_muscles = EXCLUDED.primary_muscles,
+  equipment_ids = EXCLUDED.equipment_ids,
+  level_min = EXCLUDED.level_min;
+
+-- Doorway Row: equipment-free horizontal pull for beginners
+-- Uses a doorframe for support, needs no equipment
+INSERT INTO exercises (
+  slug, name, aliases, tracks, category, mechanic, force,
+  primary_muscles, secondary_muscles, equipment_ids, level_min,
+  movement_pattern, metric, impact, spinal_load, default_rest_seconds,
+  instructions, contraindicated_regions, source, source_licence, is_active
+) VALUES (
+  'doorway-row',
+  'Doorway Row',
+  ARRAY['door row', 'doorframe row']::text[],
+  ARRAY['bodyweight']::track_type[],
+  'strength',
+  'compound',
+  'pull',
+  ARRAY['lats', 'upper_back']::muscle[],
+  ARRAY['biceps', 'rear_delts']::muscle[],
+  ARRAY[]::text[],
+  'beginner',
+  'horizontal_pull',
+  'reps',
+  'low',
+  'none',
+  120,
+  ARRAY[
+    'Stand in a doorway and grab both sides of the frame',
+    'Walk your feet forward and lean back with straight arms',
+    'Keep your body straight from head to heels',
+    'Pull your chest toward the doorway by bending elbows',
+    'Lower back down with control'
+  ],
+  ARRAY[]::body_region[],
+  'curated',
+  'public domain',
+  true
+)
+ON CONFLICT (slug) DO NOTHING;
+
+-- Glute Bridge: essential hip hinge for beginners
+INSERT INTO exercises (
+  slug, name, aliases, tracks, category, mechanic, force,
+  primary_muscles, secondary_muscles, equipment_ids, level_min,
+  movement_pattern, metric, impact, spinal_load, default_rest_seconds,
+  instructions, contraindicated_regions, source, source_licence, is_active
+) VALUES (
+  'glute-bridge',
+  'Glute Bridge',
+  ARRAY['hip bridge', 'basic bridge']::text[],
+  ARRAY['weights', 'bodyweight']::track_type[],
+  'strength',
+  'compound',
+  'push',
+  ARRAY['glutes', 'hamstrings']::muscle[],
+  ARRAY['lower_back', 'abs']::muscle[],
+  ARRAY[]::text[],
+  'beginner',
+  'hinge',
+  'reps',
+  'low',
+  'none',
+  90,
+  ARRAY[
+    'Lie on your back with knees bent, feet flat on the floor',
+    'Place arms at your sides, palms down',
+    'Push through your heels to lift hips toward ceiling',
+    'Squeeze glutes at the top',
+    'Lower hips back down with control'
+  ],
+  ARRAY[]::body_region[],
+  'curated',
+  'public domain',
+  true
+)
+ON CONFLICT (slug) DO NOTHING;
+
+
 -- Part 1: Fix exercise catalogue data quality issues
 -- These are the exercises found by QA with wrong movement patterns, mechanics, or difficulty
 

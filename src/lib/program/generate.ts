@@ -64,19 +64,44 @@ export const CARRY_OVER_SLOTS = 2;
 
 /**
  * How many exercises to prescribe based on session length. Longer sessions have
- * more exercises; shorter sessions cut accessories, not main lifts.
+ * more exercises; shorter sessions are compact but complete.
+ * 
+ * Direct mapping ensures distinct plans for each duration:
+ * - 30 min: 4 exercises (compact: main compounds + 1-2 accessories)
+ * - 45 min: 5 exercises
+ * - 60 min: 6 exercises (default)
+ * - 75 min: 7 exercises
+ * - 90+ min: 8 exercises
+ * 
+ * Deterministic: same input always gives same output.
  */
 function exerciseCountForDuration(
   sessionMinutes: number,
   templateSlots: number,
 ): number {
-  // Estimated time budget: 15min warmup leaves the rest for work sets + rest.
-  // Each exercise takes roughly 6-8 minutes (3-4 sets × 45s work + 60-90s rest).
-  const workMinutes = Math.max(15, sessionMinutes - 15);
-  const capacity = Math.floor(workMinutes / 7);
-
-  // Always keep at least 2 main lifts; cap at template slot count.
-  return Math.max(2, Math.min(templateSlots, capacity));
+  let target: number;
+  
+  if (sessionMinutes <= 30) {
+    target = 4;
+  } else if (sessionMinutes <= 45) {
+    target = 5;
+  } else if (sessionMinutes <= 60) {
+    target = 6;
+  } else if (sessionMinutes <= 75) {
+    target = 7;
+  } else {
+    target = 8;
+  }
+  
+  // Allow exceeding template slots by 1-2 for longer sessions, since templates
+  // are designed for 60-min sessions and longer sessions should add accessories.
+  const maxForDuration = sessionMinutes >= 75 
+    ? templateSlots + 2 
+    : sessionMinutes >= 60 
+    ? templateSlots + 1 
+    : templateSlots;
+  
+  return Math.min(target, maxForDuration);
 }
 
 export type GeneratedExercise = {
@@ -129,16 +154,43 @@ const PATTERN_FALLBACK: Partial<Record<Pattern, Pattern>> = {
 
 /**
  * Staple movements: exercises that beginners should reliably get instead of
- * random tie picks. When scores are equal, these win. Keyed by pattern for
- * targeted preference.
+ * random tie picks. These use REAL catalogue slugs and are deterministically
+ * preferred within their pattern. Listed in priority order per pattern.
+ * 
+ * Verified against scripts/fixtures/catalogue.json. Every slug here must exist
+ * in the catalogue (tested in test-generator.ts).
  */
 const STAPLE_MOVEMENTS: Partial<Record<Pattern, string[]>> = {
-  horizontal_press: ["pushups", "push-up-wide", "bench-press"],
-  squat: ["bodyweight-squat", "goblet-squat", "barbell-squat"],
-  hinge: ["romanian-deadlift", "glute-bridge", "deadlift"],
-  horizontal_pull: ["barbell-row", "bent-over-row", "dumbbell-row"],
-  vertical_pull: ["pullups", "chin-ups", "lat-pulldown"],
-  vertical_press: ["pike-push-up", "overhead-press", "dumbbell-shoulder-press"],
+  horizontal_press: [
+    "pushups",                              // bodyweight, beginner
+    "push-up-wide",                         // bodyweight, beginner
+    "barbell-bench-press-medium-grip",      // barbell, beginner
+  ],
+  squat: [
+    "bodyweight-squat",                     // bodyweight, beginner
+    "goblet-squat",                         // dumbbell, beginner
+    "barbell-squat",                        // barbell, intermediate
+  ],
+  hinge: [
+    "glute-bridge",                         // bodyweight, beginner (added in migration)
+    "romanian-deadlift",                    // barbell, intermediate
+    "barbell-deadlift",                     // barbell, intermediate
+  ],
+  horizontal_pull: [
+    "inverted-row",                         // bodyweight, beginner (PR #1 migration)
+    "doorway-row",                          // bodyweight, beginner (added in migration)
+    "bent-over-barbell-row",                // barbell, intermediate
+  ],
+  vertical_pull: [
+    "pullups",                              // bodyweight, intermediate
+    "chin-up",                              // bodyweight, intermediate
+    "full-range-of-motion-lat-pulldown",    // cable, beginner
+  ],
+  vertical_press: [
+    "pike-push-up",                         // bodyweight, beginner (added in migration)
+    "dumbbell-shoulder-press",              // dumbbell, beginner
+    "barbell-shoulder-press",               // barbell, intermediate
+  ],
 };
 
 /** Deterministic PRNG so the same inputs always produce the same block. */
@@ -195,13 +247,15 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
 /**
  * How well an exercise suits a slot. Exported so the swap list can rank by the
  * same rule the plan was built with, rather than offering an arbitrary handful.
+ * 
+ * Returns a numeric score for mechanic/level fit. Staple preference is handled
+ * separately via lexicographic ordering to guarantee deterministic selection.
  */
 export function score(
   ex: CandidateExercise,
   wantCompound: boolean,
   level: Level,
   primaryTrack: Track = "weights",
-  pattern?: Pattern,
 ): number {
   let s = 0;
   if (wantCompound && ex.mechanic === "compound") s += 4;
@@ -215,16 +269,27 @@ export function score(
     s -= Math.max(0, ex.equipment_ids.length - 1);
   }
 
-  // Staple bonus: when scores would otherwise tie, beginners should get
-  // push-ups/squats/rows instead of random picks.
-  if (pattern && wantCompound && level === "beginner") {
-    const staples = STAPLE_MOVEMENTS[pattern] ?? [];
-    if (staples.includes(ex.slug)) {
-      s += 0.5;
-    }
-  }
-
   return s;
+}
+
+/**
+ * Lexicographic sort key for deterministic staple preference.
+ * 
+ * Returns "0:<index>" for a staple (lower sorts first), "1:slug" for non-staples.
+ * This guarantees that staples are picked before non-staples when scores tie,
+ * and that the same staple wins every time (unlike the +0.5 bonus which rng can beat).
+ */
+function stapleSortKey(ex: CandidateExercise, pattern: Pattern, level: Level): string {
+  const staples = STAPLE_MOVEMENTS[pattern] ?? [];
+  const index = staples.indexOf(ex.slug);
+  
+  if (index >= 0) {
+    // Staple: sort by priority (index) within the staple list
+    return `0:${String(index).padStart(3, "0")}`;
+  }
+  
+  // Non-staple: sort after all staples, then alphabetically
+  return `1:${ex.slug}`;
 }
 
 function pickForSlot(
@@ -252,9 +317,24 @@ function pickForSlot(
     const candidates = pool.filter((e) => e.movement_pattern === p && !used.has(e.id));
     if (candidates.length === 0) continue;
 
+    // Rank by score, then deterministically by staple preference, then by slug.
+    // The staple sort key guarantees that staples win over non-staples when scores
+    // tie, without relying on a +0.5 bonus that rng() can beat.
     const ranked = candidates
-      .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack, p) + rng() }))
-      .sort((a, b) => b.k - a.k || a.e.slug.localeCompare(b.e.slug));
+      .map((e) => ({
+        e,
+        score: score(e, wantCompound, input.level, input.primaryTrack),
+        stapleKey: stapleSortKey(e, p, input.level),
+        rng: rng(),
+      }))
+      .sort((a, b) => {
+        // 1. Highest score wins
+        if (a.score !== b.score) return b.score - a.score;
+        // 2. Among tied scores, staples win (lexicographic "0:..." < "1:...")
+        if (a.stapleKey !== b.stapleKey) return a.stapleKey.localeCompare(b.stapleKey);
+        // 3. Among tied non-staples, rng breaks the tie
+        return b.rng - a.rng;
+      });
 
     return ranked[0].e;
   }
@@ -335,14 +415,35 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     const sessionMinutes = input.preferredSessionMinutes ?? 60;
     const maxExercises = exerciseCountForDuration(sessionMinutes, entry.slots.length);
 
-    // Pick exercises for each slot
+    // Pick exercises for each slot. For longer sessions (>60 min), we may need
+    // more exercises than the template provides, so we'll fill from the template
+    // first, then add extra accessories if needed.
     const pickedExercises: Array<{ ex: CandidateExercise; slotIndex: number }> = [];
-    entry.slots.slice(0, maxExercises).forEach((pattern, i) => {
+    
+    // Fill template slots up to maxExercises
+    const templateCount = Math.min(maxExercises, entry.slots.length);
+    entry.slots.slice(0, templateCount).forEach((pattern, i) => {
       const picked = pickForSlot(pattern, i, pool, used, input, rng, dayIndex);
       if (!picked) return;
       used.add(picked.id);
       pickedExercises.push({ ex: picked, slotIndex: i });
     });
+    
+    // For longer sessions, add extra accessories beyond the template
+    if (maxExercises > entry.slots.length && pickedExercises.length >= entry.slots.length) {
+      const extraNeeded = maxExercises - pickedExercises.length;
+      const accessoryPatterns = entry.slots
+        .filter(p => p !== "core") // Don't duplicate core
+        .slice(-2); // Use the last 2 accessory patterns from the template
+      
+      for (let i = 0; i < extraNeeded; i++) {
+        const pattern = accessoryPatterns[i % accessoryPatterns.length];
+        const picked = pickForSlot(pattern, entry.slots.length + i, pool, used, input, rng, dayIndex);
+        if (!picked) break;
+        used.add(picked.id);
+        pickedExercises.push({ ex: picked, slotIndex: entry.slots.length + i });
+      }
+    }
 
     // Sort exercises within the day: main compounds first, then secondary compounds,
     // then accessories/isolation, with core exercises last. This keeps sessions

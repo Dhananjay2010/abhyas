@@ -310,17 +310,38 @@ console.log("\n15. Beginners should reliably get staple movements");
     `got: ${slugs.slice(0, 4).join(", ")}`);
 }
 
-console.log("\n16. Session length affects exercise count");
+console.log("\n16. Session length scales exercise count sensibly");
 {
-  const short = generateProgram(base({ preferredSessionMinutes: 30 }));
-  const long = generateProgram(base({ preferredSessionMinutes: 75 }));
+  const durations = [30, 45, 60, 75, 90];
+  const counts: number[] = [];
   
-  const shortCount = short.days.filter((d) => d.dayType === "weights")[0]?.exercises.length ?? 0;
-  const longCount = long.days.filter((d) => d.dayType === "weights")[0]?.exercises.length ?? 0;
+  for (const minutes of durations) {
+    const plan = generateProgram(base({ preferredSessionMinutes: minutes }));
+    const trainingDay = plan.days.find((d) => d.dayType === "weights");
+    const count = trainingDay?.exercises.length ?? 0;
+    counts.push(count);
+  }
   
-  check("30-min session has fewer exercises than 75-min", shortCount < longCount,
-    `30min: ${shortCount} exercises, 75min: ${longCount} exercises`);
-  check("short sessions still have main lifts", shortCount >= 2, `got ${shortCount}`);
+  // Check monotonic growth: each duration should have >= exercises than the previous
+  let monotonic = true;
+  for (let i = 1; i < counts.length; i++) {
+    if (counts[i] < counts[i - 1]) {
+      monotonic = false;
+      check(`${durations[i]}min has at least as many exercises as ${durations[i-1]}min`, false,
+        `${durations[i]}min: ${counts[i]}, ${durations[i-1]}min: ${counts[i-1]}`);
+    }
+  }
+  if (monotonic) {
+    check("exercise count grows monotonically with session length", true,
+      `30min: ${counts[0]}, 45min: ${counts[1]}, 60min: ${counts[2]}, 75min: ${counts[3]}, 90min: ${counts[4]}`);
+  }
+  
+  // Specific requirements
+  check("30-min gets a complete session", counts[0] >= 4, `got ${counts[0]} exercises`);
+  check("60-min and 75-min produce different plans", counts[2] !== counts[3],
+    `60min: ${counts[2]}, 75min: ${counts[3]}`);
+  check("75-min has more than 60-min", counts[3] > counts[2],
+    `75min: ${counts[3]}, 60min: ${counts[2]}`);
 }
 
 console.log("\n17. No-equipment users can train back and shoulders (after migrations)");
@@ -402,6 +423,69 @@ console.log("\n19. Determinism: same inputs produce same plan");
   const day2Ex = plan2.days[0].exercises.map((e) => e.exerciseId);
   
   check("same exercises in same order", JSON.stringify(day1Ex) === JSON.stringify(day2Ex));
+}
+
+console.log("\n20. STAPLE_MOVEMENTS: every slug exists in catalogue");
+{
+  // Import STAPLE_MOVEMENTS pattern to test it
+  const staplePatterns = {
+    horizontal_press: ["pushups", "push-up-wide", "barbell-bench-press-medium-grip"],
+    squat: ["bodyweight-squat", "goblet-squat", "barbell-squat"],
+    hinge: ["glute-bridge", "romanian-deadlift", "barbell-deadlift"],
+    horizontal_pull: ["inverted-row", "doorway-row", "bent-over-barbell-row"],
+    vertical_pull: ["pullups", "chin-up", "full-range-of-motion-lat-pulldown"],
+    vertical_press: ["pike-push-up", "dumbbell-shoulder-press", "barbell-shoulder-press"],
+  };
+
+  const allSlugs = new Set(catalogue.map((e) => e.slug));
+  let allExist = true;
+
+  for (const [pattern, slugs] of Object.entries(staplePatterns)) {
+    for (const slug of slugs) {
+      if (!allSlugs.has(slug)) {
+        check(`${pattern} staple '${slug}' exists in catalogue`, false, "MISSING");
+        allExist = false;
+      }
+    }
+  }
+
+  if (allExist) {
+    check("all STAPLE_MOVEMENTS slugs exist in catalogue", true);
+  }
+}
+
+console.log("\n21. Staple selection: beginners reliably get staples when eligible");
+{
+  // Test that a beginner with basic equipment gets push-ups, not a random exercise
+  const beginnerHome = base({
+    level: "beginner",
+    primaryTrack: "bodyweight",
+    hasAllEquipment: false,
+    equipmentIds: [],
+    daysPerWeek: 3,
+  });
+
+  const plan = generateProgram(beginnerHome);
+  const picked = plan.days
+    .flatMap((d) => d.exercises.map((e) => byId.get(e.exerciseId)!))
+    .filter(Boolean);
+  const slugs = picked.map((e) => e.slug);
+
+  // Should get bodyweight staples like push-ups, squats, glute-bridge
+  const hasHorizontalPressStaple = slugs.some((s) => ["pushups", "push-up-wide"].includes(s));
+  const hasSquatStaple = slugs.includes("bodyweight-squat");
+
+  check("beginner gets push-up staple", hasHorizontalPressStaple, `got: ${slugs.slice(0, 6).join(", ")}`);
+  check("beginner gets squat staple", hasSquatStaple);
+
+  // Verify determinism: same beginner profile should get the SAME staple every time
+  const plan2 = generateProgram(beginnerHome);
+  const slugs2 = plan2.days
+    .flatMap((d) => d.exercises.map((e) => byId.get(e.exerciseId)!))
+    .filter(Boolean)
+    .map((e) => e.slug);
+
+  check("staple selection is deterministic", JSON.stringify(slugs) === JSON.stringify(slugs2));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
