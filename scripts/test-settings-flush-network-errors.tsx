@@ -1,16 +1,16 @@
 #!/usr/bin/env tsx
 /**
- * Test: Settings save flush on unmount and network error handling
+ * Test: Settings save flush on unmount, router.refresh on focus, and network error handling
  * 
  * QA#1: Single-tap controls must save immediately, and unmount must flush pending saves
+ * QA#3: Visibility/focus triggers router.refresh() when idle, throttled to 10s  
  * QA#2: Network errors show inline, never navigate to /offline
- * QA#3: Visibility/focus triggers router.refresh() when idle, throttled to 10s
  */
 
 import "./helpers/setup-jsdom";
 import { mockNextRouter } from "./helpers/setup-jsdom";
 
-import { render, cleanup, act, waitFor } from "@testing-library/react";
+import { render, cleanup, act } from "@testing-library/react";
 import { SettingsForm, type SettingsActions, type SettingsState } from "../src/app/settings/settings-form";
 import type { Result } from "../src/app/settings/actions";
 
@@ -58,7 +58,7 @@ const EQUIPMENT = [
 
 const TIMEZONES = ["America/New_York", "America/Los_Angeles"];
 
-// Test 1: Click 45m -> immediate unmount -> save called
+// Test 1: Click 45m -> immediate unmount -> save fires
 async function test1() {
   console.log("\n📋 Test 1: Click 45m -> immediate unmount -> save fires");
   
@@ -71,27 +71,22 @@ async function test1() {
     updateInjuries: async (patch) => { calls.push({ type: "injuries", patch }); return { ok: true }; },
   };
 
-  const { unmount, container} = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
+  const { unmount, container } = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
 
-  // Find 45m button
   const buttons = Array.from(container.querySelectorAll('button'));
   const button45m = buttons.find(b => b.textContent === "45m");
   assert(!!button45m, "Found 45m button");
 
-  // Click it
   await act(async () => {
     button45m!.click();
   });
 
-  // Give the enqueue a moment to happen (React transition + enqueue)
   await new Promise(r => setTimeout(r, 20));
 
-  // Unmount
   act(() => {
     unmount();
   });
 
-  // Wait for save to complete
   await new Promise(r => setTimeout(r, 500));
 
   const profileCalls = calls.filter(c => c.type === "profile");
@@ -114,9 +109,8 @@ async function test2() {
     updateInjuries: async (patch) => { calls.push({ type: "injuries", patch }); return { ok: true }; },
   };
 
-  const { unmount, container} = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
+  const { unmount, container } = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
 
-  // Find any equipment button (e.g., containing "Dumbbell" or any equipment)
   const buttons = Array.from(container.querySelectorAll('button'));
   const equipButton = buttons.find(b => b.textContent?.toLowerCase().includes("dumbbell") || b.textContent?.toLowerCase().includes("barbell"));
   
@@ -125,17 +119,14 @@ async function test2() {
     return;
   }
 
-  // Click it
   await act(async () => {
     equipButton.click();
   });
 
-  // Immediately unmount
   act(() => {
     unmount();
   });
 
-  // Wait for save to complete
   await new Promise(r => setTimeout(r, 200));
 
   const equipCalls = calls.filter(c => c.type === "equipment");
@@ -146,39 +137,138 @@ async function test2() {
 
 // Test 3: Visibility change triggers router.refresh when idle
 async function test3() {
-  console.log("\n📋 Test 3: Visibility/focus refresh implementation verified in code");
+  console.log("\n📋 Test 3: Visibility change triggers router.refresh() when idle");
   
-  // Note: Full test requires complex next/navigation mocking that conflicts with ESM resolution.
-  // The implementation is verified by code inspection:
-  // - settings-form.tsx imports useRouter from next/navigation
-  // - useEffect sets up visibilitychange and focus listeners
-  // - Calls router.refresh() when idle, throttled to 10s
-  assert(true, "Implementation verified: router.refresh() on visibility/focus when idle, throttled 10s");
+  mockNextRouter.refreshCalls = [];
+  
+  const actions: SettingsActions = {
+    updateProfileSettings: async () => ({ ok: true }),
+    updateSessionSettings: async () => ({ ok: true }),
+    updateEquipment: async () => ({ ok: true }),
+    updateInjuries: async () => ({ ok: true }),
+  };
+
+  render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
+
+  // Simulate visibility change to visible
+  await act(async () => {
+    Object.defineProperty(document, "visibilityState", {
+      writable: true,
+      configurable: true,
+      value: "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+
+  await new Promise(r => setTimeout(r, 100));
+
+  assert(mockNextRouter.refreshCalls.length === 1, `router.refresh() called once on visibility (got ${mockNextRouter.refreshCalls.length} calls)`);
+
+  // Second visibility change within same event should NOT call refresh (throttled)
+  await act(async () => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+
+  await new Promise(r => setTimeout(r, 100));
+
+  assert(mockNextRouter.refreshCalls.length === 1, "router.refresh() not called again within 10s (throttled)");
   
   cleanup();
 }
 
-// Test 4: Implementation verified by code inspection
+// Test 3b: Window focus also triggers router.refresh when idle
+async function test3b() {
+  console.log("\n📋 Test 3b: Window focus triggers router.refresh() when idle");
+  
+  mockNextRouter.refreshCalls = [];
+  
+  const actions: SettingsActions = {
+    updateProfileSettings: async () => ({ ok: true }),
+    updateSessionSettings: async () => ({ ok: true }),
+    updateEquipment: async () => ({ ok: true }),
+    updateInjuries: async () => ({ ok: true }),
+  };
+
+  render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
+
+  // Simulate window focus
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+  });
+
+  await new Promise(r => setTimeout(r, 100));
+
+  assert(mockNextRouter.refreshCalls.length === 1, `router.refresh() called on window focus (got ${mockNextRouter.refreshCalls.length} calls)`);
+  
+  cleanup();
+}
+
+// Test 4: Visibility change does NOT refresh while saves are pending
 async function test4() {
   console.log("\n📋 Test 4: Visibility change does NOT refresh while saves pending");
   
-  // Note: Implementation verified by code inspection:
-  // - Visibility handler checks `!saveQueue.hasPending()` before calling router.refresh()
-  // - When saves are in flight or queued, refresh is skipped
-  assert(true, "Implementation verified: no refresh while saveQueue.hasPending() is true");
+  mockNextRouter.refreshCalls = [];
+  
+  let resolveSave: (value: Result) => void;
+  const hangingPromise = new Promise<Result>((resolve) => {
+    resolveSave = resolve;
+  });
+  
+  const actions: SettingsActions = {
+    updateProfileSettings: async () => hangingPromise,
+    updateSessionSettings: async () => ({ ok: true }),
+    updateEquipment: async () => ({ ok: true }),
+    updateInjuries: async () => ({ ok: true }),
+  };
+
+  const { container } = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
+
+  // Click 45m to start a hanging save
+  const buttons = Array.from(container.querySelectorAll('button'));
+  const button45m = buttons.find(b => b.textContent === "45m");
+  
+  await act(async () => {
+    button45m!.click();
+  });
+
+  await new Promise(r => setTimeout(r, 100));
+
+  // Try visibility change - should NOT refresh because save is pending
+  await act(async () => {
+    Object.defineProperty(document, "visibilityState", {
+      writable: true,
+      configurable: true,
+      value: "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+
+  await new Promise(r => setTimeout(r, 100));
+
+  assert(mockNextRouter.refreshCalls.length === 0, "router.refresh() not called while save pending");
+  
+  // Cleanup: resolve the hanging promise
+  resolveSave!({ ok: true });
+  await new Promise(r => setTimeout(r, 100));
   
   cleanup();
 }
 
-// Test 5: Network failure shows inline error
-async function test5() {
-  console.log("\n📋 Test 5: Network failure shows inline error, no /offline redirect");
+// Test 5a: Network failure (Result with ok:false) shows inline error
+async function test5a() {
+  console.log("\n📋 Test 5a: Network failure (Result {ok:false}) shows inline error, no /offline navigation");
+  
+  mockNextRouter.refreshCalls = [];
+  const pushCalls: string[] = [];
+  const replaceCalls: string[] = [];
+  
+  mockNextRouter.push = (url: string) => { pushCalls.push(url); };
+  mockNextRouter.replace = (url: string) => { replaceCalls.push(url); };
   
   const actions: SettingsActions = {
     updateProfileSettings: async () => {
-      // Simulate network failure with a failed Result
       await new Promise(r => setTimeout(r, 50));
-      return { ok: false, error: "Failed to fetch: You are offline" };
+      return { ok: false, error: "Couldn't save Session length: Failed to fetch" };
     },
     updateSessionSettings: async () => ({ ok: true }),
     updateEquipment: async () => ({ ok: true }),
@@ -191,32 +281,81 @@ async function test5() {
   const buttons = Array.from(container.querySelectorAll('button'));
   const button45m = buttons.find(b => b.textContent === "45m");
   
-  // Suppress console error for this test
+  await act(async () => {
+    button45m!.click();
+  });
+
+  await new Promise(r => setTimeout(r, 500));
+
+  const text = container.textContent || "";
+  assert(text.includes("Session length"), "Inline error text includes 'Session length'");
+  assert(pushCalls.filter(u => u.includes("/offline")).length === 0, "router.push not called with /offline");
+  assert(replaceCalls.filter(u => u.includes("/offline")).length === 0, "router.replace not called with /offline");
+  
+  cleanup();
+}
+
+// Test 5b: Network failure (thrown TypeError) shows inline error
+async function test5b() {
+  console.log("\n📋 Test 5b: Network failure (thrown TypeError) shows inline error, no error boundary");
+  
+  const pushCalls: string[] = [];
+  const replaceCalls: string[] = [];
+  
+  mockNextRouter.push = (url: string) => { pushCalls.push(url); };
+  mockNextRouter.replace = (url: string) => { replaceCalls.push(url); };
+  
+  const actions: SettingsActions = {
+    updateProfileSettings: async () => {
+      await new Promise(r => setTimeout(r, 50));
+      throw new TypeError("Failed to fetch");
+    },
+    updateSessionSettings: async () => ({ ok: true }),
+    updateEquipment: async () => ({ ok: true }),
+    updateInjuries: async () => ({ ok: true }),
+  };
+
+  const { container } = render(<SettingsForm initial={INITIAL_STATE} equipment={EQUIPMENT} timezones={TIMEZONES} actions={actions} />);
+
+  // Click 45m to trigger thrown network error
+  const buttons = Array.from(container.querySelectorAll('button'));
+  const button45m = buttons.find(b => b.textContent === "45m");
+  
+  // Suppress console error and process exit for this test
   const originalError = console.error;
+  const originalExit = process.exit;
   console.error = () => {};
+  // @ts-ignore
+  process.exit = () => {};
+  
+  // Handle unhandled rejection
+  const unhandledRejections: any[] = [];
+  const rejectionHandler = (reason: any) => {
+    unhandledRejections.push(reason);
+  };
+  process.on('unhandledRejection', rejectionHandler);
   
   try {
     await act(async () => {
       button45m!.click();
     });
 
-    // Wait for error to be processed
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 1000));
   } catch (err) {
-    // Expected - error may propagate in test env
+    // Expected in test environment - error may propagate
   } finally {
     console.error = originalError;
+    // @ts-ignore
+    process.exit = originalExit;
+    process.removeListener('unhandledRejection', rejectionHandler);
   }
 
-  // Check that some error indication exists (the hotfix should show named inline errors)
   const text = container.textContent || "";
-  const hasErrorIndication = text.toLowerCase().includes("error") || 
-                             text.toLowerCase().includes("offline") || 
-                             text.toLowerCase().includes("failed") ||
-                             text.toLowerCase().includes("retry");
-  
-  assert(hasErrorIndication, "Error indication shown in UI");
-  assert(!text.includes("/offline"), "No /offline navigation");
+  // Component should still be mounted, showing error
+  assert(text.includes("Session length") || text.toLowerCase().includes("error") || text.toLowerCase().includes("retry"), "Error shown inline (component still mounted)");
+  assert(pushCalls.filter(u => u.includes("/offline")).length === 0, "router.push not called with /offline");
+  assert(replaceCalls.filter(u => u.includes("/offline")).length === 0, "router.replace not called with /offline");
+  assert(!text.includes("Something went wrong"), "No error boundary fallback shown");
   
   cleanup();
 }
@@ -229,8 +368,10 @@ async function test5() {
     await test1();
     await test2();
     await test3();
+    await test3b();
     await test4();
-    await test5();
+    await test5a();
+    await test5b();
     
     console.log(`\n✅ All tests passed! (${passed}/${passed + failed})\n`);
     process.exit(0);
