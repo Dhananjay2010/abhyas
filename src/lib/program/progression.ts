@@ -190,9 +190,13 @@ export function nextBest(
     const w = set.weightKg ?? 0;
     const v = valueOf(set) ?? 0;
     if (bestWeightKg === null || w > bestWeightKg) bestWeightKg = w;
+    // For a hold this is the longest hold, not a rep count. Same column, same
+    // "best so far" meaning, read through `metric`.
     if (bestReps === null || v > bestReps) bestReps = v;
-    // estimated one-rep-max: only weights exercises can do it, and only on an actual
-    // lift -- so timed work never contributes one.
+    // An estimated one-rep max from a hold length is nonsense -- Epley over
+    // seconds would make a 60 s weighted plank look like a triple bodyweight
+    // lift -- so timed work never contributes one. Bodyweight exercises (w=0)
+    // also cannot produce an e1RM.
     if (w > 0 && !isTimed) {
       const e1rm = estimateOneRepMax(w, v);
       if (bestE1rm === null || e1rm > bestE1rm) bestE1rm = e1rm;
@@ -250,6 +254,7 @@ export function evaluateProgression(input: {
   const { sets, plannedSets, repsMax, feel, meta, state, isDeload } = input;
 
   const isTimed = meta.metric === "seconds";
+  /** What this set is measured in: seconds held for a hold, reps otherwise. */
   const valueOf = (set: LoggedSet) => (isTimed ? (set.durationSeconds ?? null) : set.reps);
   const working = sets.filter((set) => {
     const v = valueOf(set);
@@ -294,7 +299,6 @@ export function evaluateProgression(input: {
   }
 
   const heaviest = Math.max(...working.map((s) => s.weightKg ?? 0));
-  const carried = { ...base };
 
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
