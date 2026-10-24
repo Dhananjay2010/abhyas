@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Outbox,
   createLocalStorage,
@@ -43,7 +43,7 @@ export function useSetOutbox<
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryAttemptsRef = useRef(0);
 
-  const flush = async () => {
+  const flush = useCallback(async () => {
     const outbox = outboxRef.current;
     if (!outbox || outbox.pendingCount() === 0 || outbox.isFlushing()) return;
 
@@ -77,9 +77,14 @@ export function useSetOutbox<
                 // Only clear if this clientId was successfully sent
                 if (result.sentClientIds.includes(s.clientId)) {
                   // Remove pending and clientId flags
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                  const { pending: _p, clientId: _c, ...rest } = s;
-                  return rest;
+                  return {
+                    setNumber: s.setNumber,
+                    reps: s.reps,
+                    weightKg: s.weightKg,
+                    durationSeconds: s.durationSeconds,
+                    ...(s.failed !== undefined && { failed: s.failed }),
+                    ...(s.unsaved !== undefined && { unsaved: s.unsaved }),
+                  } as typeof s;
                 }
                 return s;
               }),
@@ -163,7 +168,7 @@ export function useSetOutbox<
         message: mappedMessage,
       });
     }
-  };
+  }, []); // All dependencies are stable: refs, state setters, and navigator
 
   const enqueue = (
     exerciseId: string,
@@ -227,59 +232,6 @@ export function useSetOutbox<
     const storageKey = `abhyas:outbox:${userId}:${sessionId}`;
     const storage = createLocalStorage(storageKey);
     outboxRef.current = new Outbox(storage, sender, storageKey);
-
-    // Migrate old key formats if they exist
-    try {
-      const oldKey1 = `outbox:${sessionId}`;
-      const oldKey2 = `abhyas:outbox:${sessionId}`;
-
-      for (const oldKey of [oldKey1, oldKey2]) {
-        const oldData = localStorage.getItem(oldKey);
-        if (oldData) {
-          try {
-            const oldState = JSON.parse(oldData) as { pending?: unknown[]; failed?: unknown[] };
-            const currentState = storage.get() ?? { pending: [], failed: [] };
-
-            // Merge pending sets
-            if (oldState.pending && Array.isArray(oldState.pending)) {
-              for (const p of oldState.pending) {
-                // Only add if not already in new key (avoid duplicates)
-                const exists = currentState.pending.some(
-                  (s) => s.sessionExerciseId === (p as { sessionExerciseId?: string }).sessionExerciseId &&
-                         s.setNumber === (p as { setNumber?: number }).setNumber
-                );
-                if (!exists) {
-                  currentState.pending.push(p as never);
-                }
-              }
-            }
-
-            // Merge failed sets
-            if (oldState.failed && Array.isArray(oldState.failed)) {
-              for (const f of oldState.failed) {
-                // Only add if not already in new key (avoid duplicates)
-                const exists = currentState.failed.some(
-                  (s) => s.set.sessionExerciseId === (f as { set?: { sessionExerciseId?: string } }).set?.sessionExerciseId &&
-                         s.set.setNumber === (f as { set?: { setNumber?: number } }).set?.setNumber
-                );
-                if (!exists) {
-                  currentState.failed.push(f as never);
-                }
-              }
-            }
-
-            // Save merged state and delete old key
-            storage.set(currentState);
-            localStorage.removeItem(oldKey);
-          } catch {
-            // Invalid JSON in old key, just delete it
-            localStorage.removeItem(oldKey);
-          }
-        }
-      }
-    } catch {
-      // Ignore storage errors
-    }
 
     // Merge pending and failed rows on mount (avoid hydration mismatch)
     const state = storage.get();
@@ -345,8 +297,7 @@ export function useSetOutbox<
         clearTimeout(retryTimerRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [userId, sessionId, flush]);
 
   return {
     syncState,

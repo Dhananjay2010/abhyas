@@ -32,7 +32,7 @@ import {
 import { classifyLogSetOutcome, nextSetNumberFor } from "@/lib/session/outbox";
 import { isQuotaError } from "@/lib/session/quota-error";
 import { mapErrorToUserMessage, countLoggedSets } from "@/lib/session/error-messages";
-import { finishBlockReason, canClearOutbox, undoTargetSetNumber, countSetsWithFlag } from "@/lib/session/sync-helpers";
+import { finishBlockReason, canClearOutbox, canEndSession, undoTargetSetNumber, countSetsWithFlag } from "@/lib/session/sync-helpers";
 import { useSetOutbox, type SyncState } from "./use-set-outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -718,9 +718,12 @@ export function SessionRunner({
       }
 
       if (classification.outcome === "invalid") {
-        // Validation error: map to user-friendly message
-        const mappedError = mapErrorToUserMessage(postgresCode, classification.error);
-        setError(mappedError);
+        // Client validation (no postgresCode): show as-is
+        // Database errors (with postgresCode): map to user-friendly message
+        const errorMessage = postgresCode
+          ? mapErrorToUserMessage(postgresCode, classification.error)
+          : classification.error;
+        setError(errorMessage);
         return;
       }
 
@@ -758,9 +761,15 @@ export function SessionRunner({
         // Clear any previous error banner
         setError(null);
 
-        // Set offline state if network error
+        // Set sync state and schedule retry for transient errors
         if (classification.isNetwork) {
           setSyncState({ type: "offline" });
+        } else {
+          // Non-network transient error (e.g., HTTP 500): show banner and schedule retry
+          setSyncState({ type: "failed", message: "Couldn't sync yet, retrying" });
+          setTimeout(() => {
+            void flushOutbox();
+          }, 15000); // First retry after 15s
         }
 
         // Start rest timer for queued sets too (safe in localStorage)
@@ -1023,7 +1032,7 @@ export function SessionRunner({
                   <span className="text-sm tabular-nums">
                     {logged
                       ? isPending
-                        ? "Waiting to sync"
+                        ? `${describeSet(logged, isTimed)}${logged.weightKg ? ` · ${logged.weightKg} kg` : ""} · Waiting to sync`
                         : isFailed
                           ? `Not saved: ${setWithMeta.failedError || "Error"}`
                           : isUnsaved
@@ -1138,6 +1147,12 @@ export function SessionRunner({
                                 setError(null);
                                 if (classification.isNetwork) {
                                   setSyncState({ type: "offline" });
+                                } else {
+                                  // Non-network transient error: show banner and schedule retry
+                                  setSyncState({ type: "failed", message: "Couldn't sync yet, retrying" });
+                                  setTimeout(() => {
+                                    void flushOutbox();
+                                  }, 15000);
                                 }
                               } catch (enqueueErr) {
                                 // Enqueue failed (quota or other error)
@@ -1172,8 +1187,10 @@ export function SessionRunner({
                                 }
                               }
                             } else {
-                              // invalid: keep as failed with mapped user message
-                              const userMessage = mapErrorToUserMessage(postgresCode, classification.error);
+                              // invalid: client validation (no postgresCode) shows as-is, database errors are mapped
+                              const userMessage = postgresCode
+                                ? mapErrorToUserMessage(postgresCode, classification.error)
+                                : classification.error;
                               setExercises((prev) =>
                                 prev.map((e) =>
                                   e.id === current.id
@@ -1396,8 +1413,17 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              // TODO(#37): before calling abandonSession, check pending/failed in outbox
-              // and call clearOutbox() if any remain.
+              // Flush first
+              await flushOutbox();
+
+              // Check if we can end (no unsynced sets left)
+              if (!canEndSession(pendingCount, lostCount, failedCount)) {
+                const total = pendingCount + lostCount + failedCount;
+                setError(`${total} set${total > 1 ? "s haven't" : " hasn't"} synced yet. Wait for them, or remove them first.`);
+                return;
+              }
+
+              // End session
               if (await run(() => actions.abandonSession(sessionId, elapsed))) {
                 if (onExit) onExit();
                 else router.push("/today");

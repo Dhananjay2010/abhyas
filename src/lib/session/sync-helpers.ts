@@ -1,3 +1,5 @@
+import { isNetworkError } from "./network-error";
+
 /**
  * Pure helper functions for offline sync logic.
  * Each function is testable and mutation-testable.
@@ -42,10 +44,7 @@ export function buildSendResult(
   if ("thrown" in resultOrThrown) {
     const err = resultOrThrown.thrown;
     const message = err instanceof Error ? err.message : "Network error";
-    const isNetwork =
-      (typeof navigator !== "undefined" && navigator.onLine === false) ||
-      (err instanceof Error &&
-        /failed to fetch|network request failed|networkerror|load failed/i.test(err.message));
+    const isNetwork = isNetworkError(err);
     return {
       ok: false,
       permanent: false,
@@ -115,20 +114,32 @@ export function finishBlockReason(
   if (failedCount > 0) {
     reasons.push(`${failedCount} set${failedCount > 1 ? "s weren't" : " wasn't"} accepted`);
   }
-  return reasons.length > 0 ? reasons.join(", ") + ". Fix or remove them before finishing." : null;
+  return reasons.length > 0 ? reasons.join(", ") + ". Wait for them to sync, or fix/remove them first." : null;
 }
 
 /**
  * Can we clear the outbox after finishing the session?
- * Pending sets don't block clearing (they will sync later).
- * Only lost/failed sets block clearing.
+ * Only pending=0, lost=0, and failed=0 allow clearing.
  */
 export function canClearOutbox(
   pendingCount: number,
   lostCount: number,
   failedCount: number,
 ): boolean {
-  return lostCount === 0 && failedCount === 0;
+  return pendingCount === 0 && lostCount === 0 && failedCount === 0;
+}
+
+/**
+ * Can we end the session early?
+ * Returns true only if there are no unsynced sets (pending, lost, or failed).
+ * Ending with unsynced sets would lose data.
+ */
+export function canEndSession(
+  pendingCount: number,
+  lostCount: number,
+  failedCount: number,
+): boolean {
+  return pendingCount === 0 && lostCount === 0 && failedCount === 0;
 }
 
 /**
@@ -147,6 +158,7 @@ export function undoTargetSetNumber(sets: Array<{ setNumber: number }>): number 
  * - 22xxx: Data exceptions (22P02 invalid text, 22003 numeric overflow, etc.)
  * - 23xxx: Integrity constraints (23505 unique, 23514 check, etc.)
  * - 42501: Insufficient privilege
+ * - P0001: raise_exception (custom errors like 'exercise no longer exists')
  *
  * Everything else is transient (retry).
  *
@@ -167,8 +179,8 @@ export function classifyLogSetError(
         ? String((error as { message: unknown }).message)
         : "Database error";
 
-  // Permanent errors: data exceptions (22*), integrity (23*), insufficient privilege (42501)
-  if (code && (code.startsWith("22") || code.startsWith("23") || code === "42501")) {
+  // Permanent errors: data exceptions (22*), integrity (23*), insufficient privilege (42501), P0001 (raise_exception)
+  if (code && (code.startsWith("22") || code.startsWith("23") || code === "42501" || code === "P0001")) {
     return { category: "invalid", postgresCode: code, message };
   }
 
