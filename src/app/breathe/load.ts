@@ -46,6 +46,22 @@ type RecentLog = {
   user_pattern_id: string | null;
 };
 
+/**
+ * Find the pattern that matches a log's key (user_pattern_id ?? pattern_id).
+ *
+ * A practice of your own is keyed by your row; a built-in by the built-in's id,
+ * even when you have retimed it. But when you _have_ retimed it, the log stores
+ * user_pattern_id (the user_breathing_patterns row), so the lookup must check
+ * both p.id (the builtin's id) and p.userPatternId (your timings row).
+ */
+export function findPatternByLogKey(patterns: Pattern[], logKey: string): Pattern | undefined {
+  return patterns.find((p) =>
+    p.kind === "mine"
+      ? p.id === logKey
+      : p.id === logKey || p.userPatternId === logKey,
+  );
+}
+
 export type LoadedPractice = {
   pattern: Pattern;
   prefs: BreathingPrefs;

@@ -26,6 +26,20 @@ async function generateIcons() {
     process.exit(1);
   }
 
+  // Import branding config to get colors
+  let branding;
+  try {
+    const brandingModule = require("../src/lib/branding.ts");
+    branding = brandingModule.branding;
+  } catch {
+    console.warn("Warning: Could not load branding config, using default colors");
+    branding = {
+      colors: {
+        bg: "#0a0c0e",
+      },
+    };
+  }
+
   const sourceFile = path.join(__dirname, "..", "public", "icon-source.svg");
   const iconsDir = path.join(__dirname, "..", "public", "icons");
 
@@ -36,7 +50,8 @@ async function generateIcons() {
 
   const source = fs.readFileSync(sourceFile);
 
-  console.log("Generating PWA icons from icon-source.svg...\n");
+  console.log("Generating PWA icons from icon-source.svg...");
+  console.log(`Using brand colors: ${JSON.stringify(branding.colors)}\n`);
 
   // Standard icons (no safe zone)
   const standardSizes = [
@@ -53,15 +68,25 @@ async function generateIcons() {
 
   // Maskable icons (with safe zone)
   // Android adaptive icons require a 20% safe zone around the content
-  // We add a transparent margin to ensure the icon isn't clipped
+  // We add padding to ensure the icon isn't clipped
   const maskableSizes = [
     { size: 192, name: "icon-192-maskable.png" },
     { size: 512, name: "icon-512-maskable.png" },
   ];
 
+  // Parse brand background color for maskable icon background
+  const bgColorHex = branding.colors.bg;
+  const r = parseInt(bgColorHex.slice(1, 3), 16);
+  const g = parseInt(bgColorHex.slice(3, 5), 16);
+  const b = parseInt(bgColorHex.slice(5, 7), 16);
+  const bgColor = { r, g, b, alpha: 1 };
+
   for (const { size, name } of maskableSizes) {
     const contentSize = Math.floor(size * 0.8); // 80% for content, 20% for safe zone
-    const padding = Math.floor((size - contentSize) / 2);
+    const totalPadding = size - contentSize;
+    // Split padding, ensuring the total adds up exactly
+    const paddingTop = Math.floor(totalPadding / 2);
+    const paddingBottom = totalPadding - paddingTop;
 
     const outputPath = path.join(iconsDir, name);
 
@@ -69,11 +94,11 @@ async function generateIcons() {
     await sharp(source)
       .resize(contentSize, contentSize)
       .extend({
-        top: padding,
-        bottom: padding,
-        left: padding,
-        right: padding,
-        background: { r: 10, g: 12, b: 14, alpha: 1 }, // Match themeColor #0a0c0e
+        top: paddingTop,
+        bottom: paddingBottom,
+        left: paddingTop,
+        right: paddingBottom,
+        background: bgColor,
       })
       .png({ compressionLevel: 9 })
       .toFile(outputPath);
@@ -90,8 +115,72 @@ async function generateIcons() {
   fs.writeFileSync(faviconPath, favicon32);
   console.log(`✓ Generated favicon.ico (32×32 PNG)`);
 
-  console.log("\n✓ All icons generated successfully!");
+  // Generate manifest screenshots
+  // These are deterministic branded placeholders for the install UI
+  console.log("\nGenerating manifest screenshots...\n");
+
+  const screenshotsDir = path.join(__dirname, "..", "public", "screenshots");
+  if (!fs.existsSync(screenshotsDir)) {
+    fs.mkdirSync(screenshotsDir, { recursive: true });
+  }
+
+  // Use brand background color for screenshots
+  const screenshotBgColor = bgColor;
+
+  // Narrow screenshot (phone, portrait)
+  const narrowWidth = 1080;
+  const narrowHeight = 1920;
+  const narrowIconSize = 240;
+  const narrowIconPadding = (narrowWidth - narrowIconSize) / 2;
+
+  await sharp({
+    create: {
+      width: narrowWidth,
+      height: narrowHeight,
+      channels: 4,
+      background: screenshotBgColor,
+    },
+  })
+    .composite([
+      {
+        input: await sharp(source).resize(narrowIconSize, narrowIconSize).toBuffer(),
+        top: Math.floor((narrowHeight - narrowIconSize) / 2),
+        left: Math.floor(narrowIconPadding),
+      },
+    ])
+    .png({ compressionLevel: 9 })
+    .toFile(path.join(screenshotsDir, "screenshot-narrow.png"));
+
+  console.log(`✓ Generated screenshot-narrow.png (${narrowWidth}×${narrowHeight})`);
+
+  // Wide screenshot (desktop, landscape)
+  const wideWidth = 1920;
+  const wideHeight = 1080;
+  const wideIconSize = 200;
+
+  await sharp({
+    create: {
+      width: wideWidth,
+      height: wideHeight,
+      channels: 4,
+      background: screenshotBgColor,
+    },
+  })
+    .composite([
+      {
+        input: await sharp(source).resize(wideIconSize, wideIconSize).toBuffer(),
+        top: Math.floor((wideHeight - wideIconSize) / 2),
+        left: Math.floor((wideWidth - wideIconSize) / 2),
+      },
+    ])
+    .png({ compressionLevel: 9 })
+    .toFile(path.join(screenshotsDir, "screenshot-wide.png"));
+
+  console.log(`✓ Generated screenshot-wide.png (${wideWidth}×${wideHeight})`);
+
+  console.log("\n✓ All icons and screenshots generated successfully!");
   console.log(`  Icons directory: ${iconsDir}`);
+  console.log(`  Screenshots directory: ${screenshotsDir}`);
 }
 
 generateIcons().catch((err) => {
