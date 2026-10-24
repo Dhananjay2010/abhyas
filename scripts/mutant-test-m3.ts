@@ -57,13 +57,20 @@ const mutants: Mutant[] = [
     description: 'Generator ignores lower_back contraindications',
   },
   
-  // Alternatives mutants - these currently SURVIVE and must be fixed  
+  // Alternatives mutants
   {
     name: 'swap-filter-ignore-wrist',
     file: 'src/lib/program/alternatives.ts',
-    original: 'ctx.injuryRegions.includes(region)',
-    mutated: 'ctx.injuryRegions.filter(r => r !== "wrist").includes(region)',
+    original: 'candidate.contraindicated_regions.some((region) =>\n        ctx.injuryRegions.includes(region)\n      )',
+    mutated: 'candidate.contraindicated_regions.some((region) =>\n        region !== "wrist" && ctx.injuryRegions.includes(region)\n      )',
     description: 'Swap filter ignores wrist',
+  },
+  {
+    name: 'swap-filter-ignore-lower-back',
+    file: 'src/lib/program/alternatives.ts',
+    original: 'candidate.contraindicated_regions.some((region) =>\n        ctx.injuryRegions.includes(region)\n      )',
+    mutated: 'candidate.contraindicated_regions.some((region) =>\n        region !== "lower_back" && ctx.injuryRegions.includes(region)\n      )',
+    description: 'Swap filter ignores lower_back',
   },
 ];
 

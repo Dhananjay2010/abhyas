@@ -190,7 +190,60 @@ async function runTest() {
   }
   check("weights swaps 0 wrist violations", weightsSwapViol === 0);
   
-  console.log("\n8. Fixture matches migration");
+  console.log("\n8. Test weights plan+swaps (lower_back only)");
+  const lbInput: GeneratorInput = {
+    userId: "lb", blockNumber: 1, goal: "strength", level: "intermediate", primaryTrack: "weights",
+    daysPerWeek: 4, yogaDaysPerWeek: 0, age: 30, bmi: 23, hasAllEquipment: true, equipmentIds: [],
+    currentInjuryRegions: ["lower_back"], preferredSessionMinutes: 60, catalogue: updated,
+  };
+  const lbPlan = generateProgram(lbInput);
+  const lbIds = lbPlan.days.flatMap(d => d.exercises.map(ex => ex.exerciseId));
+  let lbOnlyViol = 0;
+  for (const id of lbIds) {
+    const ex = updated.find(e => e.id === id);
+    if (ex && RISKY_LOWER_BACK.includes(ex.slug)) lbOnlyViol++;
+  }
+  check("lb plan 0 lower_back violations", lbOnlyViol === 0, lbOnlyViol > 0 ? `Found ${lbOnlyViol}` : "");
+  
+  const lbSwapCtx: AlternativesContext = {
+    level: "intermediate", availableEquipment: null, injuryRegions: ["lower_back"],
+    scoreFn: () => 1, tieBreakFn: (s: string) => hashString(s),
+  };
+  let lbOnlySwapViol = 0;
+  for (const id of lbIds.slice(0, 10)) {
+    const ex = updated.find(e => e.id === id);
+    if (ex) {
+      const swaps = rankAlternatives(ex, updated, lbSwapCtx);
+      for (const sw of swaps) {
+        if (RISKY_LOWER_BACK.includes(sw.slug)) lbOnlySwapViol++;
+      }
+    }
+  }
+  check("lb swaps 0 lower_back violations", lbOnlySwapViol === 0);
+  
+  // Additional: Test swaps for a no-injury plan WITH lower_back filter
+  // This ensures swap filter works even when the original exercise is safe
+  console.log("\n8b. Swap filter test (no-injury plan + lb injury context)");
+  const noInjPlan = generateProgram({
+    userId: "noinj-swap", blockNumber: 1, goal: "strength", level: "intermediate", primaryTrack: "weights",
+    daysPerWeek: 4, yogaDaysPerWeek: 0, age: 30, bmi: 23, hasAllEquipment: true, equipmentIds: [],
+    currentInjuryRegions: [], preferredSessionMinutes: 60, catalogue: updated,
+  });
+  const noInjIds = noInjPlan.days.flatMap(d => d.exercises.map(ex => ex.exerciseId));
+  let swapFilterViol = 0;
+  for (const id of noInjIds.slice(0, 15)) {
+    const ex = updated.find(e => e.id === id);
+    if (ex) {
+      const swaps = rankAlternatives(ex, updated, lbSwapCtx);
+      for (const sw of swaps) {
+        if (RISKY_LOWER_BACK.includes(sw.slug)) swapFilterViol++;
+      }
+    }
+  }
+  check("Swaps for no-injury plan exclude lower_back when filtered", swapFilterViol === 0,
+    swapFilterViol > 0 ? `Found ${swapFilterViol} risky swaps` : "");
+  
+  console.log("\n9. Fixture matches migration");
   let fixtureMismatch = 0;
   for (const ex of catalogueFixture) {
     const e = ex as {slug: string; contraindicated_regions: string[]};
@@ -203,7 +256,7 @@ async function runTest() {
   }
   check("Fixture matches migration", fixtureMismatch === 0);
   
-  console.log("\n9. No-injury baseline");
+  console.log("\n10. No-injury baseline");
   const baselinePath = join(process.cwd(), "scripts/fixtures/m3-baseline-no-injury.json");
   if (existsSync(baselinePath)) {
     const baseline = JSON.parse(readFileSync(baselinePath, 'utf-8')) as {exerciseSlugs: string[]};
