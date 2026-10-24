@@ -31,7 +31,7 @@ function createFakeSessionClient(shouldExist: boolean, shouldThrow = false, hasE
         throw new Error(`Unexpected query: .from("${table}") should not be called for malformed IDs`);
       }
       return {
-        select: (cols: string) => ({
+        select: (_cols: string) => ({
           eq: (col: string, val: string) => {
             eqCalls.push([col, val]);
             return {
