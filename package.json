@@ -16,7 +16,7 @@
     "test:dates": "tsx scripts/test-dates.ts",
     "test:breathing": "tsx scripts/test-breathing.ts",
     "test:branding": "tsx scripts/test-branding.ts",
-    "test:icons": "node scripts/test-icons.ts",
+    "test:icons": "tsx scripts/test-icons.ts",
     "test:delete-account": "tsx scripts/test-delete-account.ts",
     "test:delete-form": "tsx scripts/test-delete-form-error-handling.ts",
     "test:migration-versions": "tsx scripts/test-migration-versions.ts",
