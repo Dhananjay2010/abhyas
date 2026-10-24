@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * YouTube embed with click-to-load poster.
@@ -20,6 +20,16 @@ export function YouTubeEmbed({
   title: string;
 }) {
   const [playing, setPlaying] = useState(false);
+
+  // Set data-video-playing attribute when playing
+  useEffect(() => {
+    if (playing) {
+      document.documentElement.setAttribute("data-video-playing", "true");
+      return () => {
+        document.documentElement.removeAttribute("data-video-playing");
+      };
+    }
+  }, [playing]);
 
   if (playing) {
     return (

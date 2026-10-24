@@ -23,11 +23,14 @@ const nextConfig: NextConfig = {
   },
 
   /**
-   * Expose build ID as a constant environment variable.
+   * Expose build version as a constant environment variable.
    * Evaluated once at build time, not per request.
+   * Used by /api/version and version checking in the client.
    */
   env: {
     NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? String(Date.now()),
+    NEXT_PUBLIC_BUILD_SHA: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
+    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
   },
 
   /**
