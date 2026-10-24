@@ -127,10 +127,12 @@ export function buildDayRecords(input: {
   if (first > today) return [];
 
   // Convert to BlockRange format for blockForDate
+  // L2: ended_on semantics: null = still active (covers today and beyond).
+  // Do NOT fall back to endsOn for active blocks; that incorrectly stops coverage at the planned end.
   const blocks: BlockRange[] = programs.map((p) => ({
     id: p.id,
     started_on: p.startedOn,
-    ended_on: p.endedOn ?? p.endsOn, // Use endedOn if present, else fall back to endsOn for legacy
+    ended_on: p.endedOn ?? null,
   }));
 
   // Map dates to their actual session types.

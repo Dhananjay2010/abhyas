@@ -16,12 +16,14 @@ import {
   type ProgressState,
 } from "@/lib/program/progression";
 import { isBodyweightEquipment } from "@/lib/program/bodyweight";
-import { applyDeload, weekInBlock } from "@/lib/program/prescription";
+import { applyDeload, prescribe } from "@/lib/program/prescription";
+import { cycleWeekFor } from "@/lib/program/block-range";
 import { swapExerciseCore } from "@/lib/session/swap-core";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
+import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -143,7 +145,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const program = (
     await supabase
       .from("programs")
-      .select("id, started_on, deload_week, program_days(id, day_index, day_type, focus, label)")
+      .select("id, started_on, deload_week, week_offset, program_days(id, day_index, day_type, focus, label)")
       .eq("id", rolloverResult.programId)
       .maybeSingle()
   ).data;
@@ -158,7 +160,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const day = (program.program_days ?? []).find((d) => d.day_index === dayIndex);
   if (!day) return { ok: false, error: "No plan for today." };
 
-  const week = weekInBlock(program.started_on, today);
+  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
@@ -425,21 +427,13 @@ async function applyProgression(
     isDeload: sessionRes.data?.is_deload ?? false,
   });
 
-  await supabase.from("exercise_progress").upsert(
-    {
-      user_id: userId,
-      exercise_id: se.exercise_id,
-      current_working_weight_kg: decision.nextWorkingWeightKg,
-      current_target_reps: decision.nextTargetReps,
-      consecutive_failures: decision.consecutiveFailures,
-      last_performed_on: sessionRes.data?.local_date ?? null,
-      best_weight_kg: decision.bestWeightKg,
-      best_reps: decision.bestReps,
-      best_e1rm: decision.bestE1rm,
-      total_sessions: state.totalSessions + 1,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,exercise_id" },
+  await writeExerciseProgressCore(
+    supabase,
+    userId,
+    se.exercise_id,
+    decision,
+    state.totalSessions,
+    sessionRes.data?.local_date ?? null,
   );
 
   // Outgrew a bodyweight variation: upgrade the plan so next time is harder.
@@ -927,7 +921,7 @@ export async function planDay(input: {
 
   const { data: program } = await supabase
     .from("programs")
-    .select("id, started_on, deload_week")
+    .select("id, started_on, deload_week, week_offset")
     .eq("status", "active")
     .maybeSingle();
 
@@ -953,7 +947,7 @@ export async function planDay(input: {
   // the path that creates a session itself; resuming a planned row keeps
   // whatever it was written with, and a null week would have shown "Week 1" on
   // an override day and silently skipped the deload.
-  const week = program ? weekInBlock(program.started_on, input.localDate) : null;
+  const week = program ? cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, input.localDate) : null;
 
   const row = {
     user_id: user.id,

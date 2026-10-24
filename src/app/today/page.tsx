@@ -11,7 +11,7 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
-import { weekInBlock } from "@/lib/program/prescription";
+import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { buildStartedSessionRows, buildTemplateRows } from "@/lib/today/build-today-rows";
 
@@ -35,7 +35,7 @@ export default async function TodayPage() {
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase
       .from("programs")
-      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week, week_offset")
       .eq("status", "active")
       .maybeSingle(),
     // A strength plan with no equipment recorded is a misconfiguration that
@@ -131,7 +131,7 @@ export default async function TodayPage() {
   if (rollover.status === "rolled_over") {
     const { data: fresh } = await supabase
       .from("programs")
-      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week, week_offset")
       .eq("id", rollover.programId)
       .single();
     program = fresh;
@@ -283,7 +283,7 @@ export default async function TodayPage() {
     override !== undefined &&
     (override.actual_type !== (scheduled?.day_type ?? null) ||
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
-  const week = weekInBlock(program.started_on, localToday);
+  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
   const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
