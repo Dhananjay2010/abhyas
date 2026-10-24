@@ -7,6 +7,7 @@ import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
 import { resetProgressionTargets } from "@/lib/program/progression";
+import { shouldResetProgressionTargets } from "@/lib/program/reset-decision";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -81,13 +82,7 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
   if (!result.ok) return result;
 
   // Reset progression targets only after successful update and only if values changed
-  const progressionFieldsChanged =
-    (patch.goal !== undefined && patch.goal !== currentProfile?.goal) ||
-    (patch.level !== undefined && patch.level !== currentProfile?.level) ||
-    (patch.days_per_week !== undefined && patch.days_per_week !== currentProfile?.days_per_week) ||
-    (patch.primary_track !== undefined && patch.primary_track !== currentProfile?.primary_track);
-
-  if (progressionFieldsChanged) {
+  if (shouldResetProgressionTargets(patch, currentProfile)) {
     const resetResult = await resetProgressionTargets(supabase, user.id);
     if (!resetResult.ok) return { ok: false, error: resetResult.error };
   }
