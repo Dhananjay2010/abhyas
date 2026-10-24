@@ -265,6 +265,9 @@ export function createPendingSetController(config: {
   }
 
   function onFocus(): void {
+    if (replayAttempted) {
+      return;
+    }
     const loaded = loadPendingSets(storage, userId, sessionId, deps);
     if (loaded.length > 0) {
       setState({
