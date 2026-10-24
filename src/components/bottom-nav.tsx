@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { activeTab, choosePracticeRoute, PRACTICE_LAST_CHANGE_EVENT, type PracticeType } from "@/lib/nav";
+import { useOfflineError } from "@/contexts/offline-error-context";
 
 /**
  * Bottom navigation icons from Lucide (https://lucide.dev)
@@ -101,6 +102,7 @@ function getLastPracticeServerSnapshot(): PracticeType | null {
 export function BottomNav() {
   const pathname = usePathname();
   const active = activeTab(pathname);
+  const { isOfflineError } = useOfflineError();
   
   const lastPractice = useSyncExternalStore(
     subscribe,
@@ -109,6 +111,8 @@ export function BottomNav() {
   );
 
   if (!active) return null;
+  
+  if (isOfflineError) return null;
 
   // Map /practice to the appropriate destination using choice logic
   const getHref = (tabHref: string) => {
