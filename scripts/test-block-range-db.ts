@@ -919,8 +919,8 @@ async function runTests() {
         split_type: "upper_lower",
         days_per_week: 4,
         primary_track: "weights",
-        goal: "hypertrophy",
-        level: "advanced",
+        goal: "muscle_gain",
+        level: "intermediate",
         ends_on: "2026-11-20",
         deload_week: 4,
         days: [{
@@ -953,7 +953,7 @@ async function runTests() {
         days_per_week: 6,
         primary_track: "weights",
         goal: "strength",
-        level: "advanced",
+        level: "expert",
         ends_on: "2026-11-21",
         deload_week: 4,
         days: [{
