@@ -21,7 +21,7 @@ function Choice({
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`${wide ? "w-full" : "flex-1"} min-h-[44px] rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface`}
+      className={`${wide ? "w-full" : "flex-1"} min-h-[44px] rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent hover:border-accent disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface`}
     >
       {children}
     </button>
@@ -34,7 +34,7 @@ function Choice({
 export function DayPlanInitialChoices({
   isRestDay,
   hideKeepAndRest,
-  intro,
+  buttonLabel,
   onChoosing,
   onKeep,
   onRest,
@@ -42,7 +42,7 @@ export function DayPlanInitialChoices({
 }: {
   isRestDay: boolean;
   hideKeepAndRest: boolean;
-  intro?: string;
+  buttonLabel?: string;
   onChoosing: () => void;
   onKeep: () => void;
   onRest: () => void;
@@ -56,7 +56,7 @@ export function DayPlanInitialChoices({
           onClick={onChoosing}
           className="w-full min-h-[44px] rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface"
         >
-          {intro === "Start your first session now." ? "Start your first session now" : "Pick a workout"}
+          {buttonLabel ?? "Pick a workout"}
         </button>
       </div>
     );

@@ -96,7 +96,7 @@ export function DayPlanPrompt({
         <DayPlanInitialChoices
           isRestDay={isRestDay}
           hideKeepAndRest={hideKeepAndRest}
-          intro={intro}
+          buttonLabel={intro}
           onChoosing={() => setChoosing(true)}
           onKeep={() => choose({ kind: "keep" }, plannedLabel)}
           onRest={() => choose({ kind: "rest" }, "a rest day")}
