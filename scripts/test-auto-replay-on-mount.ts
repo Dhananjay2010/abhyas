@@ -16,6 +16,7 @@ import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 import { storageKey } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
+import { readFileSync } from "node:fs";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();

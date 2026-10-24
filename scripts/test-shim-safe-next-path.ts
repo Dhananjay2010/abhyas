@@ -37,7 +37,7 @@ const protocolRelativeLine = safeNextPathCode.split('\n').find(line =>
   line.includes("startsWith('//')") || line.includes('startsWith("//")')
 );
 assert(
-  protocolRelativeLine &&
+  !!protocolRelativeLine &&
   !protocolRelativeLine.trim().startsWith('//') &&
   /if\s*\(\s*path\.startsWith\s*\(\s*['"]\/{2}['"]/.test(protocolRelativeLine),
   "safeNextPath must have an active if (path.startsWith('//')) check, not if (false)"
