@@ -5,10 +5,11 @@
  * - isAllowedSessionLength accepts only valid integers (30, 45, 60, 75)
  * - Rejects invalid inputs (0, 40, 90, strings, NaN, floats, null)
  * - DEFAULT_SESSION_LENGTH is 45
- * - persistSessionLength validates before database calls
- * - persistSessionLength makes exactly one update call for valid input
- * - persistSessionLength passes through database errors
+ * - persistSessionLength validates before calling writer
+ * - persistSessionLength calls writer exactly once for valid input
+ * - persistSessionLength passes through writer errors
  * - saveSessionLength in actions.ts calls persistSessionLength
+ * - saveSessionLength has no type bypasses (@ts-expect-error, @ts-ignore, as)
  */
 
 import {
@@ -16,6 +17,7 @@ import {
   DEFAULT_SESSION_LENGTH,
   isAllowedSessionLength,
   persistSessionLength,
+  type SessionLengthWriter,
 } from "../src/lib/onboarding/session-length";
 import { readFile } from "fs/promises";
 
@@ -58,35 +60,23 @@ console.log("\n3. isAllowedSessionLength rejects invalid inputs");
   check("rejects large number 1000", !isAllowedSessionLength(1000));
 }
 
-console.log("\n4. persistSessionLength with recording mock client");
+console.log("\n4. persistSessionLength with recording writer");
 {
-  type Call = {
-    table: string;
-    data: { preferred_session_minutes: number };
-    column: string;
-    id: string;
-  };
-
+  type Call = 30 | 45 | 60 | 75;
   const calls: Call[] = [];
 
-  function createMockClient(errorMessage: string | null = null) {
-    return {
-      from: (table: "profiles") => ({
-        update: (data: { preferred_session_minutes: number }) => ({
-          eq: (column: "id", id: string) => {
-            calls.push({ table, data, column, id });
-            return Promise.resolve({ error: errorMessage ? { message: errorMessage } : null });
-          },
-        }),
-      }),
+  function createWriter(errorMessage: string | null = null): SessionLengthWriter {
+    return (minutes: 30 | 45 | 60 | 75) => {
+      calls.push(minutes);
+      return Promise.resolve({ error: errorMessage ? { message: errorMessage } : null });
     };
   }
 
   async function testInvalidInput(input: unknown, label: string) {
     calls.length = 0;
-    const client = createMockClient();
-    const result = await persistSessionLength(client, "u1", input);
-    check(`${label}: zero client calls`, calls.length === 0, `got ${calls.length} calls`);
+    const writer = createWriter();
+    const result = await persistSessionLength(writer, input);
+    check(`${label}: zero writer calls`, calls.length === 0, `got ${calls.length} calls`);
     check(
       `${label}: exact error string`,
       !result.ok && result.error === "Pick 30, 45, 60 or 75 minutes.",
@@ -96,30 +86,23 @@ console.log("\n4. persistSessionLength with recording mock client");
 
   async function testValidInput() {
     calls.length = 0;
-    const client = createMockClient();
-    const result = await persistSessionLength(client, "u1", 45);
-    check("valid input (45): exactly one client call", calls.length === 1, `got ${calls.length} calls`);
+    const writer = createWriter();
+    const result = await persistSessionLength(writer, 45);
+    check("valid input (45): exactly one writer call", calls.length === 1, `got ${calls.length} calls`);
     if (calls.length === 1) {
-      check(
-        "valid input (45): update data",
-        calls[0].data.preferred_session_minutes === 45,
-        `got ${calls[0].data.preferred_session_minutes}`
-      );
-      check("valid input (45): table is profiles", calls[0].table === "profiles");
-      check("valid input (45): eq column is id", calls[0].column === "id");
-      check("valid input (45): eq id is u1", calls[0].id === "u1");
+      check("valid input (45): writer received 45", calls[0] === 45, `got ${calls[0]}`);
     }
     check("valid input (45): result is ok", result.ok, JSON.stringify(result));
   }
 
-  async function testDatabaseError() {
+  async function testWriterError() {
     calls.length = 0;
-    const client = createMockClient("boom");
-    const result = await persistSessionLength(client, "u1", 45);
-    check("database error: client was called", calls.length === 1, `got ${calls.length} calls`);
-    check("database error: result not ok", !result.ok);
+    const writer = createWriter("boom");
+    const result = await persistSessionLength(writer, 45);
+    check("writer error: writer was called", calls.length === 1, `got ${calls.length} calls`);
+    check("writer error: result not ok", !result.ok);
     if (!result.ok) {
-      check("database error: error is boom", result.error === "boom", `got error: ${result.error}`);
+      check("writer error: error is boom", result.error === "boom", `got error: ${result.error}`);
     }
   }
 
@@ -129,20 +112,37 @@ console.log("\n4. persistSessionLength with recording mock client");
     await testInvalidInput(NaN, "invalid input (NaN)");
     await testInvalidInput(45.5, "invalid input (45.5)");
     await testValidInput();
-    await testDatabaseError();
+    await testWriterError();
   }
 
   runTests();
 }
 
-console.log("\n5. Source check: saveSessionLength calls persistSessionLength");
+console.log("\n5. Source check: saveSessionLength calls persistSessionLength and has no type bypasses");
 {
   async function checkSourceFile() {
     try {
       const source = await readFile("src/app/onboarding/actions.ts", "utf-8");
-      const hasPersistCall = source.includes("persistSessionLength(");
+      
       check("actions.ts imports persistSessionLength", source.includes("persistSessionLength"));
-      check("saveSessionLength calls persistSessionLength", hasPersistCall);
+      
+      const saveSessionLengthMatch = source.match(
+        /export async function saveSessionLength[\s\S]*?\n\}/
+      );
+      
+      if (saveSessionLengthMatch) {
+        const saveSessionLengthCode = saveSessionLengthMatch[0];
+        check("saveSessionLength calls persistSessionLength", 
+          saveSessionLengthCode.includes("persistSessionLength("));
+        check("saveSessionLength has no @ts-expect-error", 
+          !saveSessionLengthCode.includes("@ts-expect-error"));
+        check("saveSessionLength has no @ts-ignore", 
+          !saveSessionLengthCode.includes("@ts-ignore"));
+        check("saveSessionLength has no ' as ' cast", 
+          !saveSessionLengthCode.includes(" as "));
+      } else {
+        check("found saveSessionLength function", false, "could not extract function");
+      }
     } catch (error) {
       check(
         "source check failed",

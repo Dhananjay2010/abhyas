@@ -234,7 +234,8 @@ export async function saveSessionLength(minutes: number): Promise<ActionResult> 
   const { supabase, user } = await requireUser();
 
   // TODO: switch to isValidSessionLength from src/lib/session-length-options.ts once PR #54 merges.
-  // @ts-expect-error TS2589: Supabase client type is too complex for structural typing
-  const result: ActionResult = await persistSessionLength(supabase, user.id, minutes);
-  return result;
+  return persistSessionLength(
+    (m) => supabase.from("profiles").update({ preferred_session_minutes: m }).eq("id", user.id),
+    minutes
+  );
 }

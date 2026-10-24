@@ -10,27 +10,19 @@ export function isAllowedSessionLength(n: unknown): n is 30 | 45 | 60 | 75 {
   );
 }
 
-interface MinimalClient {
-  from(table: string): {
-    update(data: Record<string, unknown>): {
-      eq(column: string, id: string): PromiseLike<{ error: { message: string } | null }>;
-    };
-  };
-}
+export type SessionLengthWriter = (
+  minutes: 30 | 45 | 60 | 75
+) => PromiseLike<{ error: { message: string } | null }>;
 
 export async function persistSessionLength(
-  client: MinimalClient,
-  userId: string,
+  write: SessionLengthWriter,
   minutes: unknown
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!isAllowedSessionLength(minutes)) {
     return { ok: false, error: "Pick 30, 45, 60 or 75 minutes." };
   }
 
-  const { error } = await client
-    .from("profiles")
-    .update({ preferred_session_minutes: minutes })
-    .eq("id", userId);
+  const { error } = await write(minutes);
 
   return error ? { ok: false, error: error.message } : { ok: true };
 }
