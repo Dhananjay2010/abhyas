@@ -108,42 +108,14 @@ export function OnboardingFlow({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  // Keep raw DOB input without normalization to prevent Chrome from wiping partial values
   const [dateOfBirth, setDateOfBirth] = useState(initial.dateOfBirth ?? "");
-  
-  // Normalize date input: detect typed digit strings like '01011992' and convert to YYYY-MM-DD
-  const normalizeDateInput = (value: string): string => {
-    if (!value) return value;
-    
-    // If it's already in YYYY-MM-DD format, return as-is
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      // But reject year 0001 and other invalid years
-      const year = parseInt(value.slice(0, 4), 10);
-      if (year < 1900 || year > new Date().getFullYear()) {
-        return "";
-      }
-      return value;
-    }
-    
-    // Handle common typed formats: DDMMYYYY (8 digits)
-    if (/^\d{8}$/.test(value)) {
-      const dd = value.slice(0, 2);
-      const mm = value.slice(2, 4);
-      const yyyy = value.slice(4, 8);
-      const year = parseInt(yyyy, 10);
-      
-      // Reject invalid years
-      if (year < 1900 || year > new Date().getFullYear()) {
-        return "";
-      }
-      
-      return `${yyyy}-${mm}-${dd}`;
-    }
-    
-    return value;
-  };
+  const [dobTouched, setDobTouched] = useState(false);
   const [sex, setSex] = useState<Sex | null>(initial.sex);
   const [heightCm, setHeightCm] = useState(initial.heightCm?.toString() ?? "");
+  const [heightTouched, setHeightTouched] = useState(false);
   const [weightKg, setWeightKg] = useState(initial.weightKg?.toString() ?? "");
+  const [weightTouched, setWeightTouched] = useState(false);
   const [goal, setGoal] = useState<Goal | null>(initial.goal);
   const [level, setLevel] = useState<Level | null>(initial.level);
   const [location, setLocation] = useState<"gym" | "home" | null>(
@@ -156,6 +128,7 @@ export function OnboardingFlow({
   const [yogaDays, setYogaDays] = useState<number | null>(
     initial.yogaDaysPerWeek > 0 ? initial.yogaDaysPerWeek : null
   );
+  const [yogaTouched, setYogaTouched] = useState(false);
   const [hasAllEquipment, setHasAllEquipment] = useState(initial.hasAllEquipment);
   const [selectedEquipment, setSelectedEquipment] = useState<Set<string>>(
     new Set(initial.equipmentIds),
@@ -289,36 +262,72 @@ export function OnboardingFlow({
     const height = Number(heightCm);
     const weight = Number(weightKg);
     
-    // Individual field validation for inline display
+    // Parse date as local date (not UTC) to match server-side validation
+    const parseDateAsLocal = (dateStr: string): Date | null => {
+      if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    };
+    
+    // Compute today in local time
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Min age bounds: today minus 100 years and today minus 16 years (matches server)
+    const maxDateAllowed = new Date(today);
+    maxDateAllowed.setFullYear(today.getFullYear() - MIN_AGE_YEARS);
+    
+    const minDateAllowed = new Date(today);
+    minDateAllowed.setFullYear(today.getFullYear() - 100);
+    
+    // Format for input min/max attributes
+    const formatDateForInput = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const minDate = formatDateForInput(minDateAllowed);
+    const maxDate = formatDateForInput(maxDateAllowed);
+    
+    // Validate DOB
+    const isValidDateOfBirth = (dateStr: string): boolean => {
+      const date = parseDateAsLocal(dateStr);
+      if (!date || isNaN(date.getTime())) return false;
+      
+      // Reject today and future dates
+      if (date >= today) return false;
+      
+      // Check bounds
+      if (date < minDateAllowed || date > maxDateAllowed) return false;
+      
+      return true;
+    };
+    
+    // Show DOB error only after blur or when invalid and not empty
     let dobError: string | null = null;
-    if (dateOfBirth !== "") {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+    if (dobTouched && dateOfBirth !== "" && !isValidDateOfBirth(dateOfBirth)) {
+      const date = parseDateAsLocal(dateOfBirth);
+      if (!date || isNaN(date.getTime())) {
         dobError = "Please enter a valid date";
+      } else if (date >= today) {
+        dobError = "You must be at least 16 years old";
       } else {
-        const date = new Date(dateOfBirth);
-        const year = date.getFullYear();
-        const currentYear = new Date().getFullYear();
-        
-        if (isNaN(date.getTime())) {
-          dobError = "Please enter a valid date";
-        } else if (year < 1900 || year > currentYear) {
-          dobError = `Year must be between 1900 and ${currentYear}`;
-        } else if (date > new Date()) {
-          dobError = "Date cannot be in the future";
-        }
+        dobError = "Please check your date of birth";
       }
     }
     
-    const heightError = heightCm !== "" && (!Number.isFinite(height) || height < 100 || height > 250)
+    const heightError = heightTouched && heightCm !== "" && (!Number.isFinite(height) || height < 100 || height > 250)
       ? "Height should be between 100 and 250 cm"
       : null;
-    const weightError = weightKg !== "" && (!Number.isFinite(weight) || weight < 25 || weight > 300)
+    const weightError = weightTouched && weightKg !== "" && (!Number.isFinite(weight) || weight < 25 || weight > 300)
       ? "Weight should be between 25 and 300 kg"
       : null;
     
     const ready =
       dateOfBirth !== "" && sex !== null && height > 0 && weight > 0 && 
-      !dobError && !heightError && !weightError && !pending;
+      isValidDateOfBirth(dateOfBirth) && !heightError && !weightError && !pending;
 
     return (
       <StepShell
@@ -331,6 +340,14 @@ export function OnboardingFlow({
             <PrimaryButton
               disabled={!ready}
               onClick={() => {
+                // Mark all fields as touched when attempting to continue
+                setDobTouched(true);
+                setHeightTouched(true);
+                setWeightTouched(true);
+                
+                // Only proceed if ready
+                if (!ready) return;
+                
                 // Detect browser timezone on client
                 const browserTimezone =
                   typeof window !== "undefined"
@@ -358,12 +375,13 @@ export function OnboardingFlow({
             <input
               type="date"
               value={dateOfBirth}
-              min="1900-01-01"
-              max={new Date().toISOString().slice(0, 10)}
+              min={minDate}
+              max={maxDate}
               onChange={(e) => {
-                const normalized = normalizeDateInput(e.target.value);
-                setDateOfBirth(normalized);
+                // Keep raw value without normalization to prevent Chrome from wiping partial input
+                setDateOfBirth(e.target.value);
               }}
+              onBlur={() => setDobTouched(true)}
               className={inputClass}
             />
           </Field>
@@ -390,6 +408,7 @@ export function OnboardingFlow({
                 inputMode="decimal"
                 value={heightCm}
                 onChange={(e) => setHeightCm(e.target.value)}
+                onBlur={() => setHeightTouched(true)}
                 placeholder="e.g. 175"
                 min="100"
                 max="250"
@@ -403,6 +422,7 @@ export function OnboardingFlow({
                 inputMode="decimal"
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
+                onBlur={() => setWeightTouched(true)}
                 placeholder="e.g. 70"
                 min="25"
                 max="300"
@@ -589,7 +609,7 @@ export function OnboardingFlow({
         subtitle={`Yoga counts as a training day. Of your ${daysPerWeek} days, some can be yoga instead of training.`}
         footer={
           <>
-            {!yogaValid && (
+            {yogaTouched && !yogaValid && (
               <p className="mb-3 text-sm text-danger" aria-live="polite">
                 Please select how many yoga days you want (or choose &ldquo;No yoga&rdquo;)
               </p>
@@ -597,7 +617,11 @@ export function OnboardingFlow({
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
               disabled={!yogaValid || pending}
-              onClick={() => advance(() => actions.saveProfileFields({ yoga_days_per_week: yogaDays ?? 0 }))}
+              onClick={() => {
+                setYogaTouched(true);
+                if (!yogaValid) return;
+                advance(() => actions.saveProfileFields({ yoga_days_per_week: yogaDays ?? 0 }));
+              }}
             >
               {pending ? "Saving…" : "Continue"}
             </PrimaryButton>
@@ -631,6 +655,13 @@ export function OnboardingFlow({
       (acc[e.category] ??= []).push(e);
       return acc;
     }, {});
+    
+    // Preselect bodyweight equipment for bodyweight track
+    if (isBodyweightOnly && grouped.bodyweight && selectedEquipment.size === 0) {
+      const bodyweightIds = grouped.bodyweight.map((e) => e.id);
+      setSelectedEquipment(new Set(bodyweightIds));
+      setHasAllEquipment(false);
+    }
     
     // Order bodyweight first for home users
     const categories = Object.keys(grouped);
