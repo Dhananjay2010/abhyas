@@ -73,6 +73,21 @@ function createFakeClient(
                       },
                     };
                   },
+                  in(column2: string, values: unknown[]) {
+                    void column2; void values;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve(selectResponse);
+                      },
+                    };
+                  },
+                  single() {
+                    return Promise.resolve({
+                      data: { user_id: "user1", is_deload: false },
+                      error: null,
+                    });
+                  },
                 };
               },
             };
@@ -112,6 +127,38 @@ function createFakeClient(
                 };
               },
             };
+          },
+        };
+      } else if (table === "program_day_exercises") {
+        return {
+          select(query: string) {
+            void query;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return {
+                  order(column: string) {
+                    void column;
+                    return Promise.resolve({ data: [], error: null });
+                  },
+                };
+              },
+            };
+          },
+        };
+      } else if (table === "session_exercises") {
+        return {
+          delete() {
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          insert(data: unknown) {
+            void data;
+            return Promise.resolve({ data: null, error: null });
           },
         };
       }
