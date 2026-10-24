@@ -32,15 +32,10 @@ console.log("1. Swapped-in exercise with 0 working sets on ended session");
   const sessionStatus = "completed" as "completed" | "skipped" | "in_progress";
   const isSwappedIn = true;
 
-  const { label } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets);
-  
-  // Simulate Today page's logic
-  const isEnded = sessionStatus !== "in_progress";
-  const finalLabel = isSwappedIn && workingSetsLogged === 0 && isEnded
-    ? "Swapped in"
-    : label;
+  const { label, strikethrough } = getCompletionDisplay(sessionStatus, workingSetsLogged, plannedSets, isSwappedIn);
 
-  assertEquals(finalLabel, "Swapped in", "Label should be 'Swapped in' for swapped exercise with 0 sets");
+  assertEquals(label, "Swapped in", "Label should be 'Swapped in' for swapped exercise with 0 sets");
+  assertEquals(strikethrough, false, "Swapped-in exercise should not be struck through");
 }
 
 // Test 2: Swapped-in exercise with sets should show partial/completed

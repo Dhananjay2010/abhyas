@@ -29,16 +29,25 @@ export function shouldShowCompletionLabels(status: SessionStatus): boolean {
 /**
  * Get the completion display (label and strikethrough) for an exercise.
  * Returns empty label for in-progress sessions.
+ * 
+ * Handles the "Swapped in" case: if an exercise was swapped in, has 0 sets logged,
+ * and the session ended, show "Swapped in" with no strikethrough.
  */
 export function getCompletionDisplay(
   sessionStatus: SessionStatus,
   workingSetsLogged: number,
   plannedSets: number,
+  isSwappedIn = false,
 ): CompletionDisplay {
   const sessionEnded = shouldShowCompletionLabels(sessionStatus);
 
   if (!sessionEnded) {
     return { label: "", strikethrough: false };
+  }
+
+  // Swapped-in exercise with 0 sets on ended session shows "Swapped in"
+  if (isSwappedIn && workingSetsLogged === 0) {
+    return { label: "Swapped in", strikethrough: false };
   }
 
   const completion = exerciseCompletion(workingSetsLogged, plannedSets);
