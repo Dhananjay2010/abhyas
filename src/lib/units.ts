@@ -357,13 +357,21 @@ export function parseHeight(
   return value;
 }
 
+export type UnitsPreference = "metric" | "imperial";
+
 /**
  * Get the user's units preference with a safe default.
  * Always returns 'metric' or 'imperial', never null/undefined.
+ *
+ * @param units - The stored units value from the user's profile
+ * @param fallback - Fallback value if units is invalid (default: 'metric')
+ *                   In production, pass the gym's defaultUnits from branding config
+ * @returns A valid units preference
  */
 export function getUnitsPreference(
-  units: string | null | undefined
-): "metric" | "imperial" {
-  if (units === "imperial") return "imperial";
-  return "metric";
+  units: string | null | undefined,
+  fallback: UnitsPreference = "metric"
+): UnitsPreference {
+  if (units === "imperial" || units === "metric") return units;
+  return fallback;
 }

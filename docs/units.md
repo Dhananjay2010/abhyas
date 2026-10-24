@@ -32,6 +32,20 @@ Always use the safe accessor, which defaults to metric if the preference is miss
 const units = getUnitsPreference(profile.units);
 ```
 
+For gyms with a per-brand default (configured in branding), pass it as the fallback:
+
+```typescript
+import { getBranding } from "@/lib/branding";
+
+const branding = getBranding();
+const units = getUnitsPreference(profile.units, branding.defaultUnits);
+// Returns profile.units if valid ('metric' or 'imperial')
+// Otherwise returns branding.defaultUnits
+// Falls back to 'metric' if branding.defaultUnits is also invalid
+```
+
+This allows each gym to set their own default units (e.g., US gyms default to imperial, European gyms default to metric), while still respecting each user's personal preference once set.
+
 ### Displaying Values
 
 ```typescript
@@ -69,10 +83,18 @@ const weight_kg = parseWeight(inputValue, units);
 // Height input (metric: single field)
 const height_cm = parseHeight(inputValue, units);
 
-// Height input (imperial: separate feet/inches fields)
-const height_cm = parseHeight(feetInput, units, inchesInput);
+// Height input (imperial: PREFERRED - separate feet/inches fields)
+const height_cm = parseHeight(feetInput, "imperial", inchesInput);
+// This is the recommended UI pattern for imperial height
+// Separate inputs are clearer and less error-prone for users
+// Inches must be < 12 (enforced: 5'12" is rejected, use 6'0")
 
-// Imperial height also accepts string formats:
+// Height input (imperial: ALTERNATIVE - single string field)
+// String parsing is supported but NOT the primary path
+// Use separate fields for better UX; use this only for:
+// - Backwards compatibility
+// - Import/CSV parsing
+// - Advanced users who prefer typing "5'9"
 parseHeight("5'9\"", "imperial");      // ✓
 parseHeight("5' 9\"", "imperial");     // ✓
 parseHeight("5-9", "imperial");        // ✓
@@ -166,6 +188,8 @@ const displayWeight = formatWeight(bodyMetric.weight_kg, units);
 
 ## Client-Side Usage
 
+### Weight Input (Single Field)
+
 ```typescript
 "use client";
 import { useState } from "react";
@@ -181,6 +205,75 @@ function WeightInput({ initialKg, units }: Props) {
       return;
     }
     // Save kg to database
+  };
+
+  return <input type="text" value={value} onChange={(e) => setValue(e.target.value)} />;
+}
+```
+
+### Height Input (Imperial: Split Fields - RECOMMENDED)
+
+```typescript
+"use client";
+import { useState } from "react";
+import { parseHeight, inchesToFeetAndInches, cmToIn } from "@/lib/units";
+
+function HeightInputImperial({ initialCm }: Props) {
+  const initial = inchesToFeetAndInches(cmToIn(initialCm));
+  const [feet, setFeet] = useState(initial.feet.toString());
+  const [inches, setInches] = useState(initial.inches.toString());
+
+  const handleSubmit = () => {
+    const feetNum = parseInt(feet, 10);
+    const inchesNum = parseInt(inches, 10);
+    
+    const cm = parseHeight(feetNum, "imperial", inchesNum);
+    if (cm == null) {
+      // Handle invalid input (e.g. inches >= 12)
+      return;
+    }
+    // Save cm to database
+  };
+
+  return (
+    <div>
+      <input 
+        type="number" 
+        value={feet} 
+        onChange={(e) => setFeet(e.target.value)}
+        placeholder="Feet"
+      />
+      <span>'</span>
+      <input 
+        type="number" 
+        value={inches} 
+        onChange={(e) => setInches(e.target.value)}
+        placeholder="In"
+        max="11"
+      />
+      <span>"</span>
+    </div>
+  );
+}
+```
+
+### Height Input (Metric: Single Field)
+
+```typescript
+"use client";
+import { useState } from "react";
+import { parseHeight, formatHeight } from "@/lib/units";
+
+function HeightInputMetric({ initialCm }: Props) {
+  const [value, setValue] = useState(formatHeight(initialCm, "metric", false));
+
+  const handleSubmit = () => {
+    const cm = parseHeight(value, "metric");
+    if (cm == null) {
+      // Handle invalid input
+      return;
+    }
+    // Save cm to database
   };
 
   return <input type="text" value={value} onChange={(e) => setValue(e.target.value)} />;

@@ -316,6 +316,13 @@ console.log("\n14. Units preference accessor with safe default");
   check("null defaults to metric", getUnitsPreference(null) === "metric");
   check("undefined defaults to metric", getUnitsPreference(undefined) === "metric");
   check("invalid value defaults to metric", getUnitsPreference("invalid") === "metric");
+  
+  // With custom fallback (e.g. from gym branding)
+  check("null with imperial fallback", getUnitsPreference(null, "imperial") === "imperial");
+  check("undefined with imperial fallback", getUnitsPreference(undefined, "imperial") === "imperial");
+  check("invalid with imperial fallback", getUnitsPreference("kg", "imperial") === "imperial");
+  check("valid value ignores fallback", getUnitsPreference("metric", "imperial") === "metric");
+  check("imperial value ignores metric fallback", getUnitsPreference("imperial", "metric") === "imperial");
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
