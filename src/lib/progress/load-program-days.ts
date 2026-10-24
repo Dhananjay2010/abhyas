@@ -12,5 +12,6 @@ export async function loadProgramDays(client: Client) {
   return await client
     .from("program_days")
     .select("program_id, day_index, day_type")
+    .eq("status", "active")
     .order("day_index");
 }
