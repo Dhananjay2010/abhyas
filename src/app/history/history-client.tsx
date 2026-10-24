@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { SessionListItem, SessionType } from "./types";
 import { formatInTimezone } from "@/lib/timezone";
 import { sessionCompletion } from "@/lib/session/session-completion";
-import { formatVolume, kgToLb, type UnitsPreference } from "@/lib/units";
+import { formatVolume, formatTopSet, type UnitsPreference } from "@/lib/units";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {
@@ -192,8 +192,7 @@ export function HistoryClient({
                   details.push(pluralize(item.setCount, "set"));
                 }
                 if (item.topSetWeight) {
-                  const weight = units === "imperial" ? kgToLb(item.topSetWeight) : item.topSetWeight;
-                  details.push(`${Math.round(weight)}${units === "imperial" ? "lb" : "kg"} top`);
+                  details.push(formatTopSet(item.topSetWeight, units));
                 }
                 if (item.volumeKg > 0) details.push(`${formatVolume(item.volumeKg, units)} total`);
               }

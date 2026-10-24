@@ -149,7 +149,7 @@ export default async function ProgressPage() {
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
   // phone, and each lift is its own question anyway. Data is fetched newest-first;
   // the helper reverses it so charts plot chronologically (oldest to newest).
-  // B1/B2/C2: Include all sessions in charts (with deload markers), exclude deloads from headline only
+  // B1/B2/C2: Include all sessions in charts (deload points marked with isDeload flag)
   const deloadDates = new Set(
     (sessionsRes.data ?? [])
       .filter(s => s.is_deload === true)

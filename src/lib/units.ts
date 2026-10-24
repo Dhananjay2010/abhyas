@@ -209,6 +209,20 @@ export function formatVolume(volumeKg: number, units: UnitsPreference = "metric"
 }
 
 /**
+ * Format top set weight for History display.
+ * Converts to user's units and rounds for display.
+ * 
+ * @param weightKg - Weight in kilograms
+ * @param units - 'metric' or 'imperial'
+ * @returns Formatted string like "220lb top" or "100kg top"
+ */
+export function formatTopSet(weightKg: number, units: UnitsPreference = "metric"): string {
+  const weight = units === "imperial" ? kgToLb(weightKg) : weightKg;
+  const label = units === "imperial" ? "lb" : "kg";
+  return `${Math.round(weight)}${label} top`;
+}
+
+/**
  * Get the unit label for weight.
  */
 export function weightLabel(units: string): string {
