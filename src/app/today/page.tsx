@@ -20,8 +20,6 @@ export const dynamic = "force-dynamic";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-import { loadRetiredDays } from "@/lib/load-retired-days";
-
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
