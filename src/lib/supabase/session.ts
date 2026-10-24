@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { PERF_ENABLED } from "@/lib/perf";
 
 /** Routes reachable without a session. Everything else redirects to "/". */
-const PUBLIC_PATHS = ["/", "/auth", "/legal"];
+const PUBLIC_PATHS = ["/", "/auth", "/legal", "/privacy", "/terms"];
 
 /** Dev-only harnesses, never routable in production (the pages 404 there too). */
 const DEV_PATHS = process.env.NODE_ENV === "development" ? ["/dev"] : [];
