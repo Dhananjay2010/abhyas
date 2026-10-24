@@ -8,6 +8,7 @@ import {
   formatClock,
   useBeeper,
   useElapsed,
+  useHydrated,
   useWakeLock,
   vibrate,
   vibrationSupported,
@@ -16,7 +17,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { sessionCompletion } from "@/lib/session/completion";
-import { isNetworkError } from "@/lib/session/network-error";
+import { endEarlyOutcome, type EndEarlyOutcome } from "@/lib/session/end-early";
 import {
   abandonSession,
   deleteSet,
@@ -157,6 +158,8 @@ export function SessionRunner({
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
   const endEarlyTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [endEarlyOfflineError, setEndEarlyOfflineError] = useState(false);
+  const [ending, setEnding] = useState(false);
+  const hydrated = useHydrated();
 
   // Resume where the session actually stopped rather than at the top.
   const firstUnfinished = Math.max(
@@ -395,11 +398,20 @@ export function SessionRunner({
             disabled={busy}
             onClick={async () => {
               const secs = stopElapsed();
-              const ok = await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: true }),
-              );
-              if (ok) setPhase("done");
-              else resumeElapsed();
+              const result = await actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: true });
+              if (!result.ok) {
+                resumeElapsed();
+                setError(result.error ?? "Something went wrong");
+                return;
+              }
+              setError(null);
+              if (result.data.status === "skipped") {
+                await actions.refreshAfterSession();
+                if (onExit) onExit();
+                else router.push("/today");
+              } else {
+                setPhase("done");
+              }
             }}
           >
             Done
@@ -408,11 +420,20 @@ export function SessionRunner({
             disabled={busy}
             onClick={async () => {
               const secs = stopElapsed();
-              const ok = await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: false }),
-              );
-              if (ok) setPhase("done");
-              else resumeElapsed();
+              const result = await actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: false });
+              if (!result.ok) {
+                resumeElapsed();
+                setError(result.error ?? "Something went wrong");
+                return;
+              }
+              setError(null);
+              if (result.data.status === "skipped") {
+                await actions.refreshAfterSession();
+                if (onExit) onExit();
+                else router.push("/today");
+              } else {
+                setPhase("done");
+              }
             }}
           >
             Skip cool-down
@@ -436,7 +457,11 @@ export function SessionRunner({
         title={endedEarly ? "Session ended early" : "Session complete"}
         subtitle={null}
         elapsed={elapsed}
-        onExit={() => (onExit ? onExit() : router.push("/today"))}
+        onExit={async () => {
+          await actions.refreshAfterSession();
+          if (onExit) onExit();
+          else router.push("/today");
+        }}
         wakeLock={wakeLock}
         error={error}
         confirmExit={false}
@@ -688,11 +713,20 @@ export function SessionRunner({
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
         const secs = stopElapsed();
-        const ok = await run(() =>
-          actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: false }),
-        );
-        if (ok) setPhase("done");
-        else resumeElapsed();
+        const result = await actions.finishSession({ sessionId, durationSeconds: secs, cooldownCompleted: false });
+        if (!result.ok) {
+          resumeElapsed();
+          setError(result.error ?? "Something went wrong");
+        } else {
+          setError(null);
+          if (result.data.status === "skipped") {
+            await actions.refreshAfterSession();
+            if (onExit) onExit();
+            else router.push("/today");
+          } else {
+            setPhase("done");
+          }
+        }
       }
     } else {
       setExerciseIndex(next);
@@ -987,37 +1021,43 @@ export function SessionRunner({
               }}
               onConfirm={async () => {
                 const secs = stopElapsed();
+                setEnding(true);
+                let outcome: EndEarlyOutcome;
                 try {
                   const result = await actions.abandonSession(sessionId, secs);
-                  if (!result.ok) {
-                    resumeElapsed();
-                    endEarlyTriggerRef.current?.focus();
-                    return;
-                  }
-                  setConfirming(null);
-                  setEndEarlyOfflineError(false);
-                  if (totalSetsDone === 0) {
+                  outcome = endEarlyOutcome(result, totalSetsDone);
+                } catch (err) {
+                  outcome = endEarlyOutcome({ thrown: err }, totalSetsDone);
+                }
+                setEnding(false);
+
+                switch (outcome) {
+                  case "navigate_today":
+                    setConfirming(null);
+                    setEndEarlyOfflineError(false);
                     await actions.refreshAfterSession();
                     if (onExit) onExit();
                     else router.push("/today");
-                  } else {
+                    break;
+                  case "show_summary":
+                    setConfirming(null);
+                    setEndEarlyOfflineError(false);
                     setEndedEarly(true);
                     setPhase("done");
-                  }
-                } catch (err) {
-                  if (isNetworkError(err)) {
+                    break;
+                  case "show_offline":
                     setEndEarlyOfflineError(true);
                     resumeElapsed();
-                  } else {
+                    break;
+                  case "show_error":
                     setConfirming(null);
                     setEndEarlyOfflineError(false);
                     resumeElapsed();
-                    endEarlyTriggerRef.current?.focus();
-                    setError(err instanceof Error ? err.message : "Something went wrong");
-                  }
+                    setError("Couldn't end the session. Try again.");
+                    break;
                 }
               }}
-              disabled={busy}
+              disabled={busy || ending}
             />
           )}
         </div>
@@ -1026,12 +1066,14 @@ export function SessionRunner({
           {totalSetsDone} of {totalSetsPlanned} sets logged
         </p>
 
-        <CapabilityNote
-          wakeLock={wakeLock}
-          soundEnabled={settings.restSound}
-          soundUnlocked={beeper.unlocked}
-          vibrateEnabled={settings.restVibrate}
-        />
+        {hydrated && (
+          <CapabilityNote
+            wakeLock={wakeLock}
+            soundEnabled={settings.restSound}
+            soundUnlocked={beeper.unlocked}
+            vibrateEnabled={settings.restVibrate}
+          />
+        )}
       </div>
     </Shell>
   );
@@ -1525,7 +1567,7 @@ function EndEarlyConfirm({
       dialog.close();
       returnFocus?.focus();
     };
-  }, [triggerRef, disabled]);
+  }, [triggerRef]);
 
   const handleKeepGoing = () => {
     onCancelRef.current();
@@ -1550,7 +1592,7 @@ function EndEarlyConfirm({
       <p id="end-early-desc" className="mt-2 text-sm text-muted">
         You&apos;ve logged {totalSetsDone} of {totalSetsPlanned} sets.
         {hasNoSets
-          ? " The session can be resumed from Today."
+          ? " You can start it again from Today."
           : " The session can\u2019t be resumed once ended."}
       </p>
       {offlineError && (

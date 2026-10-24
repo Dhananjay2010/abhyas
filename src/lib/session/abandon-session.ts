@@ -60,10 +60,12 @@ export async function abandonSessionCore(
   elapsedSeconds: number,
 ): Promise<Result> {
   // Check if any working sets were logged
-  const { data: exercises } = await supabase
+  const { data: exercises, error: readError } = await supabase
     .from("session_exercises")
     .select("session_sets(id, is_warmup_set)")
     .eq("session_id", sessionId);
+
+  if (readError) return { ok: false, error: readError.message };
 
   const status = decideAbandonStatus(exercises ?? []);
 

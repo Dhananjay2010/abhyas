@@ -16,7 +16,7 @@ import {
 } from "@/lib/program/progression";
 import { applyDeload, prescribe, weekInBlock } from "@/lib/program/prescription";
 import { validateSet } from "@/lib/session/validation";
-import { abandonSessionCore } from "@/lib/session/abandon-session";
+import { abandonSessionCore, decideAbandonStatus } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 
@@ -486,27 +486,41 @@ export async function finishSession(input: {
   sessionId: string;
   durationSeconds: number;
   cooldownCompleted: boolean;
-}): Promise<Result> {
+}): Promise<Result<{ status: "completed" | "skipped" }>> {
   const rateLimit = await checkActionRateLimit("session");
-  if (rateLimit) return rateLimit;
+  if (rateLimit) return rateLimit as Result<{ status: "completed" | "skipped" }>;
   
   const { supabase } = await requireUser();
+
+  // Check if any working sets were logged
+  const { data: exercises, error: readError } = await supabase
+    .from("session_exercises")
+    .select("session_sets(id, is_warmup_set)")
+    .eq("session_id", input.sessionId);
+
+  if (readError) return { ok: false, error: readError.message };
+
+  // Determine if this should be completed or skipped based on working sets
+  const status = decideAbandonStatus(exercises ?? []);
+
   const { error } = await supabase
     .from("sessions")
     .update({
-      status: "completed",
-      completed_at: new Date().toISOString(),
+      status,
+      completed_at: status === "completed" ? new Date().toISOString() : null,
       duration_seconds: input.durationSeconds,
-      cooldown_completed: input.cooldownCompleted,
+      cooldown_completed: status === "completed" ? input.cooldownCompleted : undefined,
     })
-    .eq("id", input.sessionId);
+    .eq("id", input.sessionId)
+    .eq("status", "in_progress");
+
   if (error) return { ok: false, error: error.message };
 
   // Deliberately NOT revalidating here. Revalidating refreshes the session
   // route, whose "completed -> redirect to /today" guard then fires before the
   // client can show the summary, so the user never saw their totals or what
   // progression changed. Today is refreshed when they leave the summary.
-  return { ok: true };
+  return { ok: true, data: { status } };
 }
 
 /**

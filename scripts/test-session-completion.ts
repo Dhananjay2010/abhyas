@@ -7,13 +7,14 @@
  * - Edge cases (0/10, more logged than planned, negative inputs)
  * - endedEarlyFromRows: derive ended_early from status and exercise statuses
  * - elapsedSeconds: pure elapsed calculation
+ * - freezeElapsed: pure freeze helper
  * - Freeze logic: frozen value doesn't change, second stop returns same value
  *
  *   npx tsx scripts/test-session-completion.ts
  */
 
 import { sessionCompletion, endedEarlyFromRows, type ExerciseStatus } from "../src/lib/session/completion";
-import { elapsedSeconds } from "../src/lib/session/device";
+import { elapsedSeconds, freezeElapsed } from "../src/lib/session/device";
 
 let failures = 0;
 
@@ -227,6 +228,18 @@ console.log("\n20. Resume logic: after freeze, time continues from frozen point"
   
   check("frozen at 30s", frozenValue === 30, String(frozenValue));
   check("after resume continues to 70s", resumedValue === 70, String(resumedValue));
+}
+
+console.log("\n21. freezeElapsed: returns frozen value when set");
+{
+  const result = freezeElapsed(60, 0, 999000);
+  check("returns 60 (frozen)", result === 60, String(result));
+}
+
+console.log("\n22. freezeElapsed: calculates elapsed when frozen is null");
+{
+  const result = freezeElapsed(null, 0, 45000);
+  check("returns 45 (calculated)", result === 45, String(result));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * Device capabilities used during a guided session.
@@ -16,6 +16,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * on someone's phone, they can see why without opening a console.
  */
 
+const noopSubscribe = () => () => {};
+
+/**
+ * Returns true after hydration completes, false during SSR.
+ * Prevents hydration mismatches when reading browser APIs during render.
+ */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
+}
+
 export type WakeLockState = {
   supported: boolean;
   active: boolean;
@@ -24,13 +34,13 @@ export type WakeLockState = {
 
 export function useWakeLock(enabled: boolean): WakeLockState {
   const sentinelRef = useRef<WakeLockSentinel | null>(null);
-  // Derived at first render rather than in an effect: it never changes.
-  const [state, setState] = useState<WakeLockState>(() => ({
-    supported: typeof navigator !== "undefined" && "wakeLock" in navigator,
+  const hydrated = useHydrated();
+  const supported = hydrated && typeof navigator !== "undefined" && "wakeLock" in navigator;
+  const [state, setState] = useState<WakeLockState>({
+    supported: false,
     active: false,
     error: null,
-  }));
-  const supported = state.supported;
+  });
 
   useEffect(() => {
     if (!supported || !enabled) return;
@@ -75,7 +85,7 @@ export function useWakeLock(enabled: boolean): WakeLockState {
     };
   }, [enabled, supported]);
 
-  return state;
+  return { ...state, supported };
 }
 
 export type Beeper = {
@@ -157,6 +167,14 @@ export function elapsedSeconds(startMs: number, nowMs: number): number {
   return Math.max(0, Math.floor((nowMs - startMs) / 1000));
 }
 
+/**
+ * Return frozen elapsed if set, otherwise calculate elapsed from startMs to nowMs.
+ * Pure helper for stop() logic.
+ */
+export function freezeElapsed(frozen: number | null, startMs: number, nowMs: number): number {
+  return frozen ?? elapsedSeconds(startMs, nowMs);
+}
+
 export type ElapsedState = {
   elapsed: number;
   stop: () => number;
@@ -195,7 +213,7 @@ export function useElapsed(startedAtIso: string | null): ElapsedState {
 
   const stop = useCallback(() => {
     if (frozenSecondsRef.current === null) {
-      const finalElapsed = elapsedSeconds(start, Date.now());
+      const finalElapsed = freezeElapsed(frozenSecondsRef.current, start, Date.now());
       frozenSecondsRef.current = finalElapsed;
       setFrozenElapsed(finalElapsed);
       setStopped(true);

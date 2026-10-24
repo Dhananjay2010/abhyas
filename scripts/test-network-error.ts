@@ -88,5 +88,12 @@ console.log("\n10. Case insensitive detection");
   check("detected despite uppercase", result === true, String(result));
 }
 
+console.log("\n11. NetworkError message");
+{
+  const error = new TypeError("NetworkError when attempting to fetch resource.");
+  const result = isNetworkError(error);
+  check("detected as network error", result === true, String(result));
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
