@@ -1231,6 +1231,7 @@ export type Database = {
       }
       warmup_exercises: {
         Row: {
+          contraindicated_regions: Database["public"]["Enums"]["body_region"][]
           duration_seconds: number
           equipment_ids: string[]
           id: string
@@ -1243,6 +1244,7 @@ export type Database = {
           type: Database["public"]["Enums"]["warmup_type"]
         }
         Insert: {
+          contraindicated_regions?: Database["public"]["Enums"]["body_region"][]
           duration_seconds?: number
           equipment_ids?: string[]
           id?: string
@@ -1255,6 +1257,7 @@ export type Database = {
           type: Database["public"]["Enums"]["warmup_type"]
         }
         Update: {
+          contraindicated_regions?: Database["public"]["Enums"]["body_region"][]
           duration_seconds?: number
           equipment_ids?: string[]
           id?: string
