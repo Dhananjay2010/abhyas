@@ -4,6 +4,7 @@
  *   npx tsx scripts/test-site-url.ts
  */
 
+import type { MetadataRoute } from "next";
 import { getSiteUrl } from "../src/lib/site-url";
 import sitemap from "../src/app/sitemap";
 import robots from "../src/app/robots";
@@ -30,7 +31,7 @@ console.log("\n2. Integration with sitemap and robots");
   const sitemapData = sitemap();
   const robotsData = robots();
 
-  check("sitemap uses absolute URLs", sitemapData.every((entry: any) => 
+  check("sitemap uses absolute URLs", sitemapData.every((entry: MetadataRoute.Sitemap[number]) => 
     entry.url.startsWith("http://") || entry.url.startsWith("https://")));
   
   check("sitemap URLs have no trailing slash in base", !sitemapData[0].url.endsWith("/"));
