@@ -76,8 +76,10 @@ export function NewVersionHint() {
       attributeFilter: ["data-video-playing"],
     });
 
-    // Check initial state
-    setVideoPlaying(document.documentElement.hasAttribute("data-video-playing"));
+    // Check initial state (defer with queueMicrotask to avoid synchronous setState in effect)
+    queueMicrotask(() => {
+      setVideoPlaying(document.documentElement.hasAttribute("data-video-playing"));
+    });
 
     return () => {
       observer.disconnect();

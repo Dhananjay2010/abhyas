@@ -113,10 +113,13 @@ export function BottomNav() {
 
   // Detect offline fallback marker after hydration
   useEffect(() => {
-    const marker = document.querySelector("[data-offline]");
-    if (marker) {
-      setIsOfflineFallback(true);
-    }
+    // Use queueMicrotask to avoid synchronous setState in effect
+    queueMicrotask(() => {
+      const marker = document.querySelector("[data-offline]");
+      if (marker) {
+        setIsOfflineFallback(true);
+      }
+    });
   }, []);
 
   if (!active) return null;

@@ -148,16 +148,17 @@ async function testServiceWorkerBehavior() {
 
   // Create fake ServiceWorkerGlobalScope
   const fakeCaches = new FakeCaches();
-  const listeners = new Map<string, Array<(event: any) => void>>();
-
-  let capturedResponse: FakeResponse | null = null;
-
+  
   type EventHandler = (event: {
     type: string;
     request?: FakeRequest;
     respondWith?: (response: Promise<FakeResponse>) => void;
     waitUntil?: (promise: Promise<void>) => void;
   }) => void;
+  
+  const listeners = new Map<string, Array<EventHandler>>();
+
+  let capturedResponse: FakeResponse | null = null;
 
   const globalScope = {
     // ServiceWorkerGlobalScope properties
@@ -169,8 +170,7 @@ async function testServiceWorkerBehavior() {
       if (!listeners.has(type)) {
         listeners.set(type, []);
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      listeners.get(type)!.push(handler as any);
+      listeners.get(type)!.push(handler);
     },
     skipWaiting: async () => {
       // No-op
