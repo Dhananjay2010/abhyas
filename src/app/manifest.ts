@@ -10,7 +10,7 @@ import { branding } from "@/lib/branding";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: "/",
+    id: `/?brand=${branding.id}`,
     name: branding.name,
     short_name: branding.shortName,
     description: branding.description,
@@ -43,6 +43,22 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
+      },
+    ],
+    screenshots: [
+      {
+        src: "/screenshots/screenshot-narrow.png",
+        sizes: "1080x1920",
+        type: "image/png",
+        form_factor: "narrow",
+        label: `${branding.name} mobile view`,
+      },
+      {
+        src: "/screenshots/screenshot-wide.png",
+        sizes: "1920x1080",
+        type: "image/png",
+        form_factor: "wide",
+        label: `${branding.name} desktop view`,
       },
     ],
     categories: ["health", "fitness", "lifestyle"],

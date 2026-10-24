@@ -325,7 +325,11 @@ function testManifestUsesConfig() {
   assert(m.display === "standalone", "manifest.display must be 'standalone'");
   assert(m.start_url === "/", "manifest.start_url must be '/'");
   assert(m.scope === "/", "manifest.scope must be '/'");
-  assert(m.id === "/", "manifest.id must be '/' for PWA identity");
+  // ID should be stable and derived from brand ID
+  assert(
+    typeof m.id === "string" && m.id.includes(branding.id),
+    `manifest.id must be stable and include brand ID (got: ${m.id})`
+  );
   // Orientation should not be locked (removed for accessibility)
   assert(
     !m.orientation || m.orientation === "any",
@@ -355,6 +359,32 @@ function testManifestUsesConfig() {
   assert(
     manifestIconSrcs.includes(branding.icons.maskable512),
     "manifest must include branding.icons.maskable512"
+  );
+
+  // Test screenshots array
+  assert(
+    Array.isArray(m.screenshots) && m.screenshots.length >= 2,
+    "manifest.screenshots must have at least 2 screenshots (narrow and wide)"
+  );
+
+  const screenshotFormFactors = m.screenshots?.map((s) => s.form_factor) ?? [];
+  assert(
+    screenshotFormFactors.includes("narrow"),
+    "manifest must include a screenshot with form_factor 'narrow'"
+  );
+  assert(
+    screenshotFormFactors.includes("wide"),
+    "manifest must include a screenshot with form_factor 'wide'"
+  );
+
+  const screenshotSrcs = m.screenshots?.map((s) => s.src) ?? [];
+  assert(
+    screenshotSrcs.some((src) => src.includes("screenshot-narrow")),
+    "manifest must include screenshot-narrow.png"
+  );
+  assert(
+    screenshotSrcs.some((src) => src.includes("screenshot-wide")),
+    "manifest must include screenshot-wide.png"
   );
 
   // Test maskable icons have correct purpose
