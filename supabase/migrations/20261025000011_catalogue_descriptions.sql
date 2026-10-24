@@ -43,7 +43,7 @@ UPDATE exercises SET cue = 'Compound squat movement targeting quads with Barbell
 WHERE slug = 'barbell-squat-to-a-bench' AND cue = 'Compound push movement targeting quads. Barbell, Bench, Rack.';
 
 -- Bench Jump
-UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
+UPDATE exercises SET cue = 'Compound squat movement targeting quads with Bench.'
 WHERE slug = 'bench-jump' AND cue = 'Compound push movement targeting quads. Bench.';
 
 -- Bodyweight Squat
@@ -63,7 +63,7 @@ UPDATE exercises SET cue = 'Isolation squat movement targeting quads with Cable.
 WHERE slug = 'cable-hip-adduction' AND cue = 'Isolation pull movement targeting quads. Cable machine.';
 
 -- Chair Squat
-UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
+UPDATE exercises SET cue = 'Compound squat movement targeting quads with Machine.'
 WHERE slug = 'chair-squat' AND cue = 'Compound push movement targeting quads. Machine.';
 
 -- Dumbbell Seated Box Jump
@@ -103,7 +103,7 @@ UPDATE exercises SET cue = 'Compound squat movement targeting quads with Kettleb
 WHERE slug = 'goblet-squat' AND cue = 'Compound push movement targeting quads. Kettlebell.';
 
 -- Hack Squat
-UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
+UPDATE exercises SET cue = 'Compound squat movement targeting quads with Hack Squat.'
 WHERE slug = 'hack-squat' AND cue = 'Compound push movement targeting quads. Hack squat.';
 
 -- Jefferson Squats
@@ -123,19 +123,19 @@ UPDATE exercises SET cue = 'Compound squat movement targeting glutes with Barbel
 WHERE slug = 'kneeling-squat' AND cue = 'Compound push movement targeting glutes. Barbell, Rack.';
 
 -- Leg Press
-UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
+UPDATE exercises SET cue = 'Compound squat movement targeting quads with Leg Press.'
 WHERE slug = 'leg-press' AND cue = 'Compound push movement targeting quads. Leg press.';
 
 -- Lying Machine Squat
-UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
+UPDATE exercises SET cue = 'Compound squat movement targeting quads with Bench.'
 WHERE slug = 'lying-machine-squat' AND cue = 'Compound push movement targeting quads. Bench, Machine.';
 
 -- Narrow Stance Hack Squats
-UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
+UPDATE exercises SET cue = 'Compound squat movement targeting quads with Hack Squat.'
 WHERE slug = 'narrow-stance-hack-squats' AND cue = 'Compound push movement targeting quads. Hack squat.';
 
 -- Narrow Stance Leg Press
-UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
+UPDATE exercises SET cue = 'Compound squat movement targeting quads with Leg Press.'
 WHERE slug = 'narrow-stance-leg-press' AND cue = 'Compound push movement targeting quads. Leg press.';
 
 -- Narrow Stance Squats
@@ -171,7 +171,7 @@ UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
 WHERE slug = 'scissors-jump' AND cue = 'Compound push movement targeting quads.';
 
 -- Smith Machine Leg Press
-UPDATE exercises SET cue = 'Compound squat movement targeting quads.'
+UPDATE exercises SET cue = 'Compound squat movement targeting quads with Leg Press.'
 WHERE slug = 'smith-machine-leg-press' AND cue = 'Compound push movement targeting quads. Leg press.';
 
 -- Smith Machine Squat
@@ -279,7 +279,7 @@ UPDATE exercises SET cue = 'Compound lunge movement targeting hamstrings with Ke
 WHERE slug = 'lunge-pass-through' AND cue = 'Compound push movement targeting hamstrings. Kettlebell.';
 
 -- Lunge Sprint
-UPDATE exercises SET cue = 'Compound lunge movement targeting quads.'
+UPDATE exercises SET cue = 'Compound lunge movement targeting quads with Machine.'
 WHERE slug = 'lunge-sprint' AND cue = 'Compound push movement targeting quads. Machine.';
 
 -- Smith Machine Pistol Squat
@@ -355,7 +355,7 @@ UPDATE exercises SET cue = 'Compound hinge movement targeting hamstrings with Du
 WHERE slug = 'dumbbell-clean' AND cue = 'Compound pull movement targeting hamstrings. Dumbbells.';
 
 -- Glute Ham Raise
-UPDATE exercises SET cue = 'Compound hinge movement targeting hamstrings.'
+UPDATE exercises SET cue = 'Compound hinge movement targeting hamstrings with Machine.'
 WHERE slug = 'glute-ham-raise' AND cue = 'Compound pull movement targeting hamstrings. Machine.';
 
 -- Good Morning
@@ -379,7 +379,7 @@ UPDATE exercises SET cue = 'Compound hinge movement targeting glutes with Bands.
 WHERE slug = 'hip-lift-with-band' AND cue = 'Compound push movement targeting glutes. Bands.';
 
 -- Hyperextensions With No Hyperextension Bench
-UPDATE exercises SET cue = 'Compound hinge movement targeting lower back.'
+UPDATE exercises SET cue = 'Compound hinge movement targeting lower back with Bench.'
 WHERE slug = 'hyperextensions-with-no-hyperextension-bench' AND cue = 'Compound pull movement targeting lower back. Bench.';
 
 -- Kettlebell Dead Clean
@@ -399,11 +399,11 @@ UPDATE exercises SET cue = 'Isolation hinge movement targeting glutes.'
 WHERE slug = 'leg-lift' AND cue = 'Isolation push movement targeting glutes.';
 
 -- Leverage Deadlift
-UPDATE exercises SET cue = 'Compound hinge movement targeting quads.'
+UPDATE exercises SET cue = 'Compound hinge movement targeting quads with Machine.'
 WHERE slug = 'leverage-deadlift' AND cue = 'Compound pull movement targeting quads. Machine.';
 
 -- Lying Leg Curls
-UPDATE exercises SET cue = 'Isolation hinge movement targeting hamstrings.'
+UPDATE exercises SET cue = 'Isolation hinge movement targeting hamstrings with Bench.'
 WHERE slug = 'lying-leg-curls' AND cue = 'Isolation pull movement targeting hamstrings. Bench, Leg curl.';
 
 -- Natural Glute Ham Raise
@@ -463,7 +463,7 @@ UPDATE exercises SET cue = 'Compound hinge movement targeting glutes with Barbel
 WHERE slug = 'reverse-band-sumo-deadlift' AND cue = 'Compound pull movement targeting hamstrings. Barbell.';
 
 -- Reverse Hyperextension
-UPDATE exercises SET cue = 'Hinge movement targeting hamstrings.'
+UPDATE exercises SET cue = 'Hinge movement targeting hamstrings with Machine.'
 WHERE slug = 'reverse-hyperextension' AND cue = 'pull movement targeting hamstrings. Machine.';
 
 -- Romanian Deadlift
@@ -475,7 +475,7 @@ UPDATE exercises SET cue = 'Compound hinge movement targeting lower back with Ba
 WHERE slug = 'seated-good-mornings' AND cue = 'Compound pull movement targeting lower back. Barbell.';
 
 -- Seated Leg Curl
-UPDATE exercises SET cue = 'Isolation hinge movement targeting hamstrings.'
+UPDATE exercises SET cue = 'Isolation hinge movement targeting hamstrings with Leg Curl Machine.'
 WHERE slug = 'seated-leg-curl' AND cue = 'Isolation pull movement targeting hamstrings. Leg curl.';
 
 -- Single Leg Glute Bridge
@@ -495,7 +495,7 @@ UPDATE exercises SET cue = 'Compound hinge movement targeting hamstrings with Ba
 WHERE slug = 'snatch-pull' AND cue = 'Compound pull movement targeting hamstrings. Barbell.';
 
 -- Standing Leg Curl
-UPDATE exercises SET cue = 'Isolation hinge movement targeting hamstrings.'
+UPDATE exercises SET cue = 'Isolation hinge movement targeting hamstrings with Leg Curl Machine.'
 WHERE slug = 'standing-leg-curl' AND cue = 'Isolation pull movement targeting hamstrings. Leg curl.';
 
 -- Stiff Leg Barbell Good Morning
@@ -535,11 +535,11 @@ UPDATE exercises SET cue = 'Isolation calf movement targeting calves with Barbel
 WHERE slug = 'barbell-seated-calf-raise' AND cue = 'Isolation push movement targeting calves. Barbell.';
 
 -- Calf Press
-UPDATE exercises SET cue = 'Isolation calf movement targeting calves.'
+UPDATE exercises SET cue = 'Isolation calf movement targeting calves with Machine.'
 WHERE slug = 'calf-press' AND cue = 'Isolation push movement targeting calves. Machine.';
 
 -- Calf Press On The Leg Press Machine
-UPDATE exercises SET cue = 'Isolation calf movement targeting calves.'
+UPDATE exercises SET cue = 'Isolation calf movement targeting calves with Leg Press.'
 WHERE slug = 'calf-press-on-the-leg-press-machine' AND cue = 'Isolation push movement targeting calves. Leg press.';
 
 -- Calf Raise On A Dumbbell
@@ -559,7 +559,7 @@ UPDATE exercises SET cue = 'Isolation calf movement targeting calves with Barbel
 WHERE slug = 'rocking-standing-calf-raise' AND cue = 'Isolation push movement targeting calves. Barbell.';
 
 -- Seated Calf Raise
-UPDATE exercises SET cue = 'Isolation calf movement targeting calves.'
+UPDATE exercises SET cue = 'Isolation calf movement targeting calves with Machine.'
 WHERE slug = 'seated-calf-raise' AND cue = 'Isolation push movement targeting calves. Machine.';
 
 -- Smith Machine Calf Raise
@@ -575,7 +575,7 @@ UPDATE exercises SET cue = 'Isolation calf movement targeting calves with Barbel
 WHERE slug = 'standing-barbell-calf-raise' AND cue = 'Isolation push movement targeting calves. Barbell.';
 
 -- Standing Calf Raises
-UPDATE exercises SET cue = 'Isolation calf movement targeting calves.'
+UPDATE exercises SET cue = 'Isolation calf movement targeting calves with Machine.'
 WHERE slug = 'standing-calf-raises' AND cue = 'Isolation push movement targeting calves. Machine.';
 
 -- Standing Dumbbell Calf Raise
@@ -587,7 +587,7 @@ UPDATE exercises SET cue = 'Compound core movement targeting abs.'
 WHERE slug = '3-4-sit-up' AND cue = 'Compound pull movement targeting abs.';
 
 -- Ab Crunch Machine
-UPDATE exercises SET cue = 'Isolation core movement targeting abs.'
+UPDATE exercises SET cue = 'Isolation core movement targeting abs with Machine.'
 WHERE slug = 'ab-crunch-machine' AND cue = 'Isolation pull movement targeting abs. Machine.';
 
 -- Advanced Kettlebell Windmill
@@ -711,11 +711,11 @@ UPDATE exercises SET cue = 'Compound core movement targeting abs with Stability 
 WHERE slug = 'exercise-ball-pull-in' AND cue = 'Compound pull movement targeting abs. Stability ball.';
 
 -- Flat Bench Leg Pull-In
-UPDATE exercises SET cue = 'Compound core movement targeting abs.'
+UPDATE exercises SET cue = 'Compound core movement targeting abs with Bench.'
 WHERE slug = 'flat-bench-leg-pull-in' AND cue = 'Compound pull movement targeting abs. Bench.';
 
 -- Flat Bench Lying Leg Raise
-UPDATE exercises SET cue = 'Isolation core movement targeting abs.'
+UPDATE exercises SET cue = 'Isolation core movement targeting abs with Bench.'
 WHERE slug = 'flat-bench-lying-leg-raise' AND cue = 'Isolation pull movement targeting abs. Bench.';
 
 -- Frog Sit-Ups
@@ -815,7 +815,7 @@ UPDATE exercises SET cue = 'Isolation core movement targeting abs with Barbell.'
 WHERE slug = 'seated-barbell-twist' AND cue = 'Isolation pull movement targeting abs. Barbell.';
 
 -- Seated Flat Bench Leg Pull-In
-UPDATE exercises SET cue = 'Compound core movement targeting abs.'
+UPDATE exercises SET cue = 'Compound core movement targeting abs with Bench.'
 WHERE slug = 'seated-flat-bench-leg-pull-in' AND cue = 'Compound pull movement targeting abs. Bench.';
 
 -- Seated Leg Tucks
@@ -875,19 +875,19 @@ UPDATE exercises SET cue = 'Isolation core movement targeting abs with Medicine 
 WHERE slug = 'weighted-crunches' AND cue = 'Isolation pull movement targeting abs. Medicine ball.';
 
 -- Air Bike
-UPDATE exercises SET cue = 'Compound cardio movement targeting abs.'
+UPDATE exercises SET cue = 'Compound movement targeting abs.'
 WHERE slug = 'air-bike' AND cue = 'Compound pull movement targeting abs.';
 
 -- Chest Push with Run Release
-UPDATE exercises SET cue = 'Compound cardio movement targeting chest with Medicine Ball.'
+UPDATE exercises SET cue = 'Compound movement targeting chest with Medicine Ball.'
 WHERE slug = 'chest-push-with-run-release' AND cue = 'Compound push movement targeting chest. Medicine ball.';
 
 -- Fast Skipping
-UPDATE exercises SET cue = 'Compound cardio movement targeting quads.'
+UPDATE exercises SET cue = 'Compound movement targeting quads with Jump Rope.'
 WHERE slug = 'fast-skipping' AND cue = 'Compound push movement targeting quads. Jump rope.';
 
 -- Wind Sprints
-UPDATE exercises SET cue = 'Compound cardio movement targeting abs.'
+UPDATE exercises SET cue = 'Compound movement targeting abs.'
 WHERE slug = 'wind-sprints' AND cue = 'Compound pull movement targeting abs.';
 
 -- Band Hip Adductions
@@ -907,7 +907,7 @@ UPDATE exercises SET cue = 'Isolation movement targeting traps with Cable.'
 WHERE slug = 'cable-shrugs' AND cue = 'Isolation pull movement targeting traps. Cable machine.';
 
 -- Calf-Machine Shoulder Shrug
-UPDATE exercises SET cue = 'Isolation movement targeting traps.'
+UPDATE exercises SET cue = 'Isolation movement targeting traps with Machine.'
 WHERE slug = 'calf-machine-shoulder-shrug' AND cue = 'Isolation pull movement targeting traps. Machine.';
 
 -- Dumbbell Shrug
@@ -931,7 +931,7 @@ UPDATE exercises SET cue = 'Compound movement targeting adductors.'
 WHERE slug = 'lateral-bound' AND cue = 'Compound push movement targeting adductors.';
 
 -- Leverage Shrug
-UPDATE exercises SET cue = 'Isolation movement targeting traps.'
+UPDATE exercises SET cue = 'Isolation movement targeting traps with Machine.'
 WHERE slug = 'leverage-shrug' AND cue = 'Isolation pull movement targeting traps. Machine.';
 
 -- Middle Back Shrug
@@ -947,9 +947,9 @@ UPDATE exercises SET cue = 'Isolation movement targeting traps with Smith Machin
 WHERE slug = 'smith-machine-behind-the-back-shrug' AND cue = 'Isolation pull movement targeting traps. Smith machine.';
 
 -- Thigh Abductor
-UPDATE exercises SET cue = 'Isolation movement targeting abductors.'
+UPDATE exercises SET cue = 'Isolation movement targeting abductors with Machine.'
 WHERE slug = 'thigh-abductor' AND cue = 'Isolation push movement targeting abductors. Machine.';
 
 -- Thigh Adductor
-UPDATE exercises SET cue = 'Isolation movement targeting adductors.'
+UPDATE exercises SET cue = 'Isolation movement targeting adductors with Machine.'
 WHERE slug = 'thigh-adductor' AND cue = 'Isolation pull movement targeting adductors. Machine.';

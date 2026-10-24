@@ -433,13 +433,14 @@ def build_cue(mechanic, pattern, primary, equipment) -> str:
         not pattern_label or
         pattern_label == 'other' or
         pattern_label == 'static' or
+        pattern_label == 'cardio' or
         (len(primary) == 1 and primary[0] and pattern_label == MUSCLE_LABEL.get(primary[0], ''))
     )
     
     if skip_pattern:
         movement_prefix = (
             mechanic_label if mechanic_label
-            else pattern_label if pattern_label not in ('other', 'static')
+            else pattern_label if pattern_label not in ('other', 'static', 'cardio')
             else ''
         )
     else:

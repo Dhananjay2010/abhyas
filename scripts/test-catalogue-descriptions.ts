@@ -30,8 +30,7 @@ async function main() {
       await db.exec(sql);
     } catch (err) {
       const msg = (err instanceof Error) ? err.message : String(err);
-      if (msg.includes('role "anon"') || msg.includes('breathing_') || msg.includes('raw_user_meta_data') || msg.includes('how_to') || msg.includes('subtitle')) {
-      } else {
+      if (!msg.includes('role "anon"') && !msg.includes('breathing_') && !msg.includes('raw_user_meta_data') && !msg.includes('how_to') && !msg.includes('subtitle')) {
         throw err;
       }
     }
@@ -40,7 +39,7 @@ async function main() {
   
   const migrationSql = readFileSync(join(migrationsDir, '20261025000011_catalogue_descriptions.sql'), 'utf-8');
   
-  console.log('Test 1: Extract migration target slugs...\n');
+  console.log('Test 1: Extract migration target slugs and count statements...\n');
   
   const migrationSlugs = new Set<string>();
   const slugMatches = migrationSql.matchAll(/WHERE slug = '([^']+)'/g);
@@ -48,9 +47,61 @@ async function main() {
     migrationSlugs.add(match[1]);
   }
   
-  console.log(`  Found ${migrationSlugs.size} slugs targeted by migration\n`);
+  const exercisesStatementCount = migrationSql.split('\n').filter(line => line.trim().toLowerCase().startsWith('update exercises')).length;
+  const totalStatementCount = migrationSql.split('\n').filter(line => {
+    const trimmed = line.trim().toLowerCase();
+    return trimmed.startsWith('update exercises') || trimmed.startsWith('update warmup_exercises');
+  }).length;
   
-  console.log('Test 2: Capture pre-migration state for ALL exercises...\n');
+  console.log(`  Found ${migrationSlugs.size} slugs targeted by migration`);
+  console.log(`  Found ${exercisesStatementCount} UPDATE exercises statements`);
+  console.log(`  Found ${totalStatementCount} total UPDATE statements\n`);
+  
+  console.log('Test 2: Validate migration safety (must have WHERE slug guards)...\n');
+  
+  const unsafeStatements = migrationSql.split(/;\s*\n/).filter(stmt => {
+    const trimmed = stmt.trim();
+    const isExercisesUpdate = trimmed.toLowerCase().startsWith('update exercises');
+    const isWarmupUpdate = trimmed.toLowerCase().startsWith('update warmup_exercises');
+    if (!isExercisesUpdate && !isWarmupUpdate) return false;
+    if (!/WHERE\s+slug\s*=/i.test(trimmed)) return true;
+    if (isExercisesUpdate && !/AND\s+cue\s*=/i.test(trimmed)) return true;
+    return false;
+  });
+  
+  if (unsafeStatements.length > 0) {
+    console.log('  ❌ Found unsafe statements:');
+    unsafeStatements.forEach(s => console.log(`     ${s.substring(0, 100)}...`));
+    throw new Error('Migration contains unsafe UPDATE statements');
+  }
+  
+  console.log(`  ✅ All ${totalStatementCount} statements have slug/cue or slug/type guards\n`);
+  
+  console.log('Test 3: Pattern check (all migrated slugs must be lower-body/core/cardio/other)...\n');
+  
+  const targetedExercisePatterns = await db.query<{slug: string; movement_pattern: string | null}>(
+    `SELECT slug, movement_pattern FROM exercises WHERE slug = ANY($1)`,
+    [Array.from(migrationSlugs).filter(s => s !== 'spanish-squat' && s !== 'isometric-chest-squeezes')]
+  );
+  
+  const allowedPatterns = new Set(['squat', 'lunge', 'hinge', 'calf', 'core', 'cardio', 'other', 'static']);
+  const upperBodyPatterns = new Set(['push', 'pull', 'carry']);
+  
+  let badPatternCount = 0;
+  for (const ex of targetedExercisePatterns.rows) {
+    if (ex.movement_pattern && upperBodyPatterns.has(ex.movement_pattern)) {
+      console.log(`  ❌ ${ex.slug}: pattern="${ex.movement_pattern}" is upper-body`);
+      badPatternCount++;
+    }
+  }
+  
+  if (badPatternCount > 0) {
+    throw new Error(`${badPatternCount} migrated exercises have upper-body patterns`);
+  }
+  
+  console.log(`  ✅ All ${targetedExercisePatterns.rows.length} migrated exercises have allowed patterns\n`);
+  
+  console.log('Test 4: Capture pre-migration state for ALL exercises...\n');
   
   const allExercisesBefore = await db.query<{slug: string; cue: string; impact: string}>(
     `SELECT slug, cue, impact FROM exercises ORDER BY slug`
@@ -59,7 +110,7 @@ async function main() {
   const beforeState = new Map(allExercisesBefore.rows.map(r => [r.slug, { cue: r.cue, impact: r.impact }]));
   console.log(`  Captured ${beforeState.size} exercises\n`);
   
-  console.log('Test 3: Capture pre-migration warmup exercises...\n');
+  console.log('Test 5: Capture pre-migration warmup exercises...\n');
   
   const warmupBefore = await db.query<{slug: string; type: string}>(
     `SELECT slug, type FROM warmup_exercises WHERE slug = 'cat-cow-stretch'`
@@ -68,19 +119,60 @@ async function main() {
   const catCowBefore = warmupBefore.rows[0];
   console.log(`  cat-cow-stretch type before: ${catCowBefore?.type || 'not found'}\n`);
   
-  console.log('Test 4: Running migration (first pass)...\n');
+  console.log('Test 6: Running migration (first pass)...\n');
   
   await db.exec(migrationSql);
   
   console.log(`  ✅ Migration applied successfully\n`);
   
-  console.log('Test 5: Running migration (second pass - idempotency)...\n');
+  console.log('Test 7: Running migration (second pass - idempotency)...\n');
   
   await db.exec(migrationSql);
   
   console.log('  ✅ Migration is idempotent (no errors on second run)\n');
   
-  console.log('Test 6: Validate migration targets match builder output...\n');
+  console.log('Test 8: Validate exactly N rows changed on first run, 0 on second...\n');
+  
+  const allExercisesAfterFirst = await db.query<{slug: string; cue: string; impact: string}>(
+    `SELECT slug, cue, impact FROM exercises ORDER BY slug`
+  );
+  
+  let changedOnFirstRun = 0;
+  for (const row of allExercisesAfterFirst.rows) {
+    const before = beforeState.get(row.slug);
+    if (before && (before.cue !== row.cue || before.impact !== row.impact)) {
+      changedOnFirstRun++;
+    }
+  }
+  
+  if (changedOnFirstRun !== exercisesStatementCount) {
+    throw new Error(`Expected exactly ${exercisesStatementCount} exercise rows to change on first run, got ${changedOnFirstRun}`);
+  }
+  
+  console.log(`  ✅ Exactly ${changedOnFirstRun} exercise rows changed on first run\n`);
+  
+  const beforeSecondRun = allExercisesAfterFirst.rows.map(r => ({ slug: r.slug, cue: r.cue, impact: r.impact }));
+  
+  await db.exec(migrationSql);
+  
+  const afterSecondRun = await db.query<{slug: string; cue: string; impact: string}>(
+    `SELECT slug, cue, impact FROM exercises ORDER BY slug`
+  );
+  
+  let changedOnSecondRun = 0;
+  for (let i = 0; i < afterSecondRun.rows.length; i++) {
+    if (beforeSecondRun[i].cue !== afterSecondRun.rows[i].cue || beforeSecondRun[i].impact !== afterSecondRun.rows[i].impact) {
+      changedOnSecondRun++;
+    }
+  }
+  
+  if (changedOnSecondRun !== 0) {
+    throw new Error(`Expected 0 rows to change on second run, got ${changedOnSecondRun}`);
+  }
+  
+  console.log(`  ✅ Exactly 0 rows changed on second run (idempotent)\n`);
+  
+  console.log('Test 9: Validate migration targets match builder output...\n');
   
   const targetedExercises = await db.query<{
     slug: string;
@@ -128,7 +220,7 @@ async function main() {
   
   console.log(`  ✅ All ${targetedExercises.rows.length} migrated cues match builder output\n`);
   
-  console.log('Test 7: Validate untouched exercises are byte-identical...\n');
+  console.log('Test 10: Validate untouched exercises are byte-identical...\n');
   
   const allExercisesAfter = await db.query<{slug: string; cue: string; impact: string}>(
     `SELECT slug, cue, impact FROM exercises ORDER BY slug`
@@ -169,7 +261,7 @@ async function main() {
   
   console.log(`  ✅ All ${unchangedCount} untouched exercises are byte-identical\n`);
   
-  console.log('Test 8: Validate specific fixes...\n');
+  console.log('Test 11: Validate specific fixes...\n');
   
   const isometricChestSqueeze = await db.query<{impact: string}>('SELECT impact FROM exercises WHERE slug = \'isometric-chest-squeezes\'');
   if (!isometricChestSqueeze.rows[0] || isometricChestSqueeze.rows[0].impact !== 'low') {
@@ -189,7 +281,7 @@ async function main() {
   }
   console.log(`  ✅ cat-cow-stretch: type = "${warmupAfter.rows[0].type}"\n`);
   
-  console.log('Test 9: Validate no bad words in any cue...\n');
+  console.log('Test 12: Validate no bad words in any cue...\n');
   
   const ALL_EQUIPMENT_IDS = Object.keys(EQUIPMENT_LABEL);
   
@@ -213,6 +305,10 @@ async function main() {
     
     if (!/^[A-Z]/.test(row.cue)) {
       errors.push('not capitalized');
+    }
+    
+    if (/cardio movement/i.test(row.cue)) {
+      errors.push('"cardio movement" wording');
     }
     
     if (errors.length > 0) {

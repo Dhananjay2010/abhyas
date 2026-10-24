@@ -26,34 +26,30 @@ export const MUSCLE_LABEL: Record<string, string> = {
 export const EQUIPMENT_LABEL: Record<string, string> = {
   barbell: 'Barbell',
   dumbbell: 'Dumbbell',
+  cable_machine: 'Cable',
   kettlebell: 'Kettlebell',
   resistance_band: 'Bands',
   ez_bar: 'EZ Bar',
-  trap_bar: 'Trap Bar',
-  smith_machine: 'Smith Machine',
-  cable_machine: 'Cable',
-  pull_up_bar: 'Pull-up Bar',
-  dip_station: 'Dip Station',
-  squat_rack: 'Squat Rack',
-  leg_press_machine: 'Leg Press',
-  leg_curl_machine: 'Leg Curl Machine',
-  leg_extension_machine: 'Leg Extension Machine',
-  lat_pulldown_machine: 'Lat Pulldown',
-  seated_row_machine: 'Seated Row Machine',
+  machine_generic: 'Machine',
+  leg_press: 'Leg Press',
+  hack_squat: 'Hack Squat',
+  leg_curl: 'Leg Curl Machine',
+  leg_extension: 'Leg Extension Machine',
+  lat_pulldown: 'Lat Pulldown',
+  pec_deck: 'Pec Deck',
   chest_press_machine: 'Chest Press Machine',
-  pec_deck_machine: 'Pec Deck',
-  shoulder_press_machine: 'Shoulder Press Machine',
+  seated_row_machine: 'Seated Row Machine',
+  smith_machine: 'Smith Machine',
+  pull_up_bar: 'Pull-up Bar',
+  dip_bars: 'Dip Station',
+  flat_bench: 'Bench',
   adjustable_bench: 'Bench',
-  stability_ball: 'Stability Ball',
-  ab_wheel: 'Ab Wheel',
+  squat_rack: 'Squat Rack',
   medicine_ball: 'Medicine Ball',
+  stability_ball: 'Stability Ball',
   foam_roller: 'Foam Roller',
-  trx_suspension_trainer: 'TRX',
-  battle_ropes: 'Battle Ropes',
-  plyo_box: 'Plyo Box',
-  glute_ham_developer: 'GHD',
-  preacher_curl_bench: 'Preacher Bench',
-  calf_raise_machine: 'Calf Machine',
+  jump_rope: 'Jump Rope',
+  ab_wheel: 'Ab Wheel',
 };
 
 interface BuildCueParams {
@@ -73,12 +69,13 @@ export function buildCue(params: BuildCueParams): string {
     !patternLabel ||
     patternLabel === 'other' ||
     patternLabel === 'static' ||
+    patternLabel === 'cardio' ||
     (primaryMuscles.length === 1 && primaryMuscles[0] && patternLabel === MUSCLE_LABEL[primaryMuscles[0]]);
   
   const movementPrefix = skipPattern
     ? mechanicLabel
       ? mechanicLabel
-      : patternLabel && patternLabel !== 'other' && patternLabel !== 'static'
+      : patternLabel && patternLabel !== 'other' && patternLabel !== 'static' && patternLabel !== 'cardio'
       ? patternLabel
       : ''
     : mechanicLabel

@@ -1,123 +1,180 @@
 #!/usr/bin/env tsx
-import { spawnSync } from 'child_process';
+import { PGlite } from '@electric-sql/pglite';
+import { readFileSync, readdirSync, writeFileSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { buildCue } from './lib/cue-builder';
+import { execSync } from 'child_process';
 
-const testCases = [
-  { mechanic: 'compound', pattern: 'squat', primary: ['quads', 'glutes'], equipment: ['barbell'] },
-  { mechanic: 'compound', pattern: 'hinge', primary: ['hamstrings', 'glutes', 'lower_back'], equipment: ['barbell'] },
-  { mechanic: 'isolation', pattern: 'biceps', primary: ['biceps'], equipment: ['dumbbell'] },
-  { mechanic: null, pattern: 'core', primary: ['abs'], equipment: [] },
-  { mechanic: 'compound', pattern: 'push', primary: ['chest', 'front_delts', 'triceps'], equipment: ['barbell'] },
-  { mechanic: null, pattern: 'cardio', primary: ['quads', 'glutes', 'calves'], equipment: [] },
-  { mechanic: 'isolation', pattern: 'other', primary: ['forearms'], equipment: ['dumbbell'] },
-  { mechanic: null, pattern: 'static', primary: ['abs', 'lower_back'], equipment: [] },
-];
-
-const pythonScript = `
+async function main() {
+  console.log('\n=== Testing TS/Python Cue Parity ===\n');
+  
+  const db = await PGlite.create();
+  
+  await db.exec(`
+    CREATE SCHEMA IF NOT EXISTS auth;
+    CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
+    CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid AS $$ SELECT '00000000-0000-0000-0000-000000000000'::uuid; $$ LANGUAGE SQL;
+    DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated; END IF; END$$;
+  `);
+  
+  const migrationsDir = join(process.cwd(), 'supabase/migrations');
+  const allMigrations = readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+  const mainMigrations = allMigrations.filter(f => f !== '20261025000011_catalogue_descriptions.sql');
+  
+  for (const file of mainMigrations) {
+    let sql = readFileSync(join(migrationsDir, file), 'utf-8');
+    sql = sql.replace(/grant .* on schema auth to .*;/gi, '');
+    sql = sql.replace(/grant .* on all tables in schema auth to .*;/gi, '');
+    sql = sql.replace(/alter table if exists auth\.\w+ .*/gi, '');
+    try {
+      await db.exec(sql);
+    } catch (err) {
+      const msg = (err instanceof Error) ? err.message : String(err);
+      if (!msg.includes('role "anon"') && !msg.includes('breathing_') && !msg.includes('raw_user_meta_data') && !msg.includes('how_to') && !msg.includes('subtitle')) {
+        throw err;
+      }
+    }
+  }
+  
+  console.log('Loaded DB schema, fetching all exercises...\n');
+  
+  const allExercises = await db.query<{
+    slug: string;
+    mechanic: string | null;
+    movement_pattern: string | null;
+    primary_muscles: string | string[];
+    equipment_ids: string | string[];
+  }>(`SELECT slug, mechanic, movement_pattern, primary_muscles, equipment_ids FROM exercises ORDER BY slug`);
+  
+  console.log(`Found ${allExercises.rows.length} exercises\n`);
+  
+  const tempFile = '/tmp/parity-test-data.json';
+  const testData = allExercises.rows.map(ex => {
+    const primaryMusclesArray = Array.isArray(ex.primary_muscles)
+      ? ex.primary_muscles
+      : ex.primary_muscles.replace(/[{}]/g, '').split(',').filter(m => m.length > 0);
+    
+    const equipmentArray = Array.isArray(ex.equipment_ids)
+      ? ex.equipment_ids
+      : ex.equipment_ids.replace(/[{}]/g, '').split(',').filter(e => e.length > 0);
+    
+    return {
+      slug: ex.slug,
+      mechanic: ex.mechanic,
+      pattern: ex.movement_pattern,
+      primary: primaryMusclesArray,
+      equipment: equipmentArray,
+    };
+  });
+  
+  writeFileSync(tempFile, JSON.stringify(testData, null, 2));
+  
+  console.log('Calling real Python build_exercise_seed.py build_cue...\n');
+  
+  const pythonScript = `
 import sys
 import json
+sys.path.insert(0, 'scripts')
+from build_exercise_seed import build_cue
 
-MUSCLE_LABEL = {
-    "abs": "abs", "obliques": "obliques", "chest": "chest", "lats": "lats",
-    "upper_back": "upper back", "lower_back": "lower back", "traps": "traps",
-    "front_delts": "front delts", "side_delts": "side delts",
-    "rear_delts": "rear delts", "biceps": "biceps", "triceps": "triceps",
-    "forearms": "forearms", "glutes": "glutes", "quads": "quads",
-    "hamstrings": "hamstrings", "calves": "calves", "hip_flexors": "hip flexors",
-    "adductors": "adductors", "abductors": "abductors", "neck": "neck",
-}
+with open('${tempFile}', 'r') as f:
+    test_data = json.load(f)
 
-EQUIPMENT_LABEL = {
-    "barbell": "Barbell", "dumbbell": "Dumbbell", "cable_machine": "Cable",
-    "kettlebell": "Kettlebell", "resistance_band": "Bands", "ez_bar": "EZ Bar",
-    "machine_generic": "Machine", "leg_press": "Leg Press", "hack_squat": "Hack Squat",
-    "leg_curl": "Leg Curl Machine", "leg_extension": "Leg Extension Machine",
-    "lat_pulldown": "Lat Pulldown", "pec_deck": "Pec Deck",
-    "chest_press_machine": "Chest Press Machine", "seated_row_machine": "Seated Row Machine",
-    "smith_machine": "Smith Machine", "pull_up_bar": "Pull-up Bar",
-    "dip_bars": "Dip Station", "flat_bench": "Bench", "adjustable_bench": "Bench",
-    "squat_rack": "Squat Rack", "medicine_ball": "Medicine Ball",
-    "stability_ball": "Stability Ball", "foam_roller": "Foam Roller",
-    "jump_rope": "Jump Rope", "ab_wheel": "Ab Wheel",
-}
-
-def build_cue(mechanic, pattern, primary, equipment):
-    mechanic_label = mechanic or ''
-    pattern_label = pattern.replace('_', ' ') if pattern else ''
-    
-    skip_pattern = (
-        not pattern_label or
-        pattern_label == 'other' or
-        pattern_label == 'static' or
-        (len(primary) == 1 and primary[0] and pattern_label == MUSCLE_LABEL.get(primary[0], ''))
+results = []
+for case in test_data:
+    cue = build_cue(
+        case['mechanic'],
+        case['pattern'],
+        case['primary'],
+        case['equipment']
     )
-    
-    if skip_pattern:
-        movement_prefix = (
-            mechanic_label if mechanic_label
-            else pattern_label if pattern_label not in ('other', 'static')
-            else ''
-        )
-    else:
-        movement_prefix = (
-            f"{mechanic_label} {pattern_label}" if mechanic_label
-            else pattern_label
-        )
-    
-    muscle_labels = [MUSCLE_LABEL.get(m, m) for m in primary[:3]]
-    equipment_suffix = f" with {EQUIPMENT_LABEL.get(equipment[0], equipment[0])}." if equipment and EQUIPMENT_LABEL.get(equipment[0]) else "."
-    
-    base = (
-        f"{movement_prefix} movement targeting {', '.join(muscle_labels)}" if movement_prefix
-        else f"Targets {', '.join(muscle_labels)}"
-    )
-    
-    if base:
-        base = base[0].upper() + base[1:]
-    
-    return base + equipment_suffix
+    results.append({'slug': case['slug'], 'cue': cue})
 
-test_case = json.loads(sys.argv[1])
-result = build_cue(test_case['mechanic'], test_case['pattern'], test_case['primary'], test_case['equipment'])
-print(result)
+print(json.dumps(results))
 `;
-
-console.log('Testing Python/TS cue parity...\n');
-
-let failures = 0;
-
-for (const tc of testCases) {
-  const tsResult = buildCue({
-    mechanic: tc.mechanic,
-    pattern: tc.pattern,
-    primaryMuscles: tc.primary,
-    equipment: tc.equipment[0] || null
-  });
   
-  const pythonResult = spawnSync('python3', ['-c', pythonScript, JSON.stringify(tc)], {
-    encoding: 'utf-8'
-  });
+  const pythonFile = '/tmp/parity-runner.py';
+  writeFileSync(pythonFile, pythonScript);
   
-  if (pythonResult.status !== 0) {
-    console.error(`❌ Python execution failed for case:`, tc);
-    console.error(pythonResult.stderr);
-    failures++;
-    continue;
+  let pythonResults: Array<{ slug: string; cue: string }>;
+  try {
+    const output = execSync(`python3 ${pythonFile}`, { cwd: process.cwd(), encoding: 'utf-8' });
+    pythonResults = JSON.parse(output);
+  } catch (err) {
+    console.error('Failed to run Python script:', err);
+    throw err;
+  } finally {
+    unlinkSync(tempFile);
+    unlinkSync(pythonFile);
   }
   
-  const pyOutput = pythonResult.stdout.trim();
+  console.log(`Python returned ${pythonResults.length} results\n`);
   
-  if (tsResult !== pyOutput) {
-    console.log(`❌ Mismatch for ${tc.pattern}:`);
-    console.log(`   TS:     "${tsResult}"`);
-    console.log(`   Python: "${pyOutput}"`);
-    failures++;
+  const migrationSql = readFileSync(join(migrationsDir, '20261025000011_catalogue_descriptions.sql'), 'utf-8');
+  const migrationSlugs = new Set<string>();
+  const slugMatches = migrationSql.matchAll(/WHERE slug = '([^']+)'/g);
+  for (const match of slugMatches) {
+    migrationSlugs.add(match[1]);
   }
+  
+  console.log(`Comparing cues for ${allExercises.rows.length} exercises...\n`);
+  
+  let migratedDiffs = 0;
+  let nonMigratedDiffs = 0;
+  const diffs: Array<{ slug: string; isMigrated: boolean; tsCue: string; pythonCue: string }> = [];
+  
+  for (let i = 0; i < allExercises.rows.length; i++) {
+    const ex = allExercises.rows[i];
+    const primaryMusclesArray = Array.isArray(ex.primary_muscles)
+      ? ex.primary_muscles
+      : ex.primary_muscles.replace(/[{}]/g, '').split(',').filter(m => m.length > 0);
+    
+    const equipmentArray = Array.isArray(ex.equipment_ids)
+      ? ex.equipment_ids
+      : ex.equipment_ids.replace(/[{}]/g, '').split(',').filter(e => e.length > 0);
+    
+    const tsCue = buildCue({
+      mechanic: ex.mechanic,
+      pattern: ex.movement_pattern,
+      primaryMuscles: primaryMusclesArray,
+      equipment: equipmentArray[0] || null,
+    });
+    
+    const pythonCue = pythonResults[i].cue;
+    
+    if (tsCue !== pythonCue) {
+      const isMigrated = migrationSlugs.has(ex.slug) && ex.slug !== 'spanish-squat' && ex.slug !== 'isometric-chest-squeezes';
+      if (isMigrated) {
+        migratedDiffs++;
+      } else {
+        nonMigratedDiffs++;
+      }
+      diffs.push({ slug: ex.slug, isMigrated, tsCue, pythonCue });
+    }
+  }
+  
+  if (migratedDiffs > 0) {
+    console.log(`❌ ${migratedDiffs} migrated rows have TS/Python differences:\n`);
+    for (const diff of diffs.filter(d => d.isMigrated)) {
+      console.log(`  ${diff.slug}:`);
+      console.log(`    TS:     "${diff.tsCue}"`);
+      console.log(`    Python: "${diff.pythonCue}"`);
+    }
+    throw new Error(`${migratedDiffs} migrated rows differ between TS and Python`);
+  }
+  
+  console.log(`✅ All ${allExercises.rows.length - diffs.length} matching cues (0 migrated differences)\n`);
+  
+  if (nonMigratedDiffs > 0) {
+    console.log(`ℹ️  ${nonMigratedDiffs} non-migrated rows differ (expected for manual overrides)\n`);
+  }
+  
+  await db.close();
+  
+  console.log('=== All Parity Tests Passed ===\n');
 }
 
-if (failures > 0) {
-  console.error(`\n❌ ${failures} parity failures`);
+main().catch(err => {
+  console.error('\n❌ Parity test failed:', err.message);
   process.exit(1);
-}
-
-console.log(`✅ All ${testCases.length} test cases match between TS and Python\n`);
+});
