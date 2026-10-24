@@ -214,6 +214,8 @@ export async function createBlockForUser(
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
     ...buildInjuryFlags(injuriesRes.data ?? []),
+    // M2 QA fix: Fall back to 45 when preferred_session_minutes is NULL
+    // (happens for new users after migration 20261025000021, before they save the step)
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver: options.carryOver,

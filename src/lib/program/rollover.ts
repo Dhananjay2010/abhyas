@@ -4,6 +4,7 @@ import { generateProgram, CARRY_OVER_SLOTS, type GeneratorInput, type CandidateE
 import { ageOn } from "@/lib/onboarding/options";
 import { addDays } from "@/lib/dates";
 import { buildInjuryFlags } from "./injury-regions";
+import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 
 type Client = SupabaseClient<Database>;
 
@@ -164,7 +165,7 @@ async function callRolloverRPC(
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
     ...buildInjuryFlags(injuriesRes.data ?? []),
-    preferredSessionMinutes: profile.preferred_session_minutes ?? 60,
+    preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver,
   };
