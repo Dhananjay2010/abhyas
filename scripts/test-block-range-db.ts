@@ -236,7 +236,7 @@ async function runTests() {
       const { rows: blocks } = await pool.query(
         "SELECT id, status, block_number FROM programs WHERE user_id = $1",
         [userId]
-      );
+      ) as {rows: Array<{id: string; status: string; block_number: number}>};
 
       const activeBlocks = blocks.filter((b) => b.status === "active");
       const completedBlocks = blocks.filter((b) => b.status === "completed");
@@ -290,7 +290,7 @@ async function runTests() {
       const { rows: blocks } = await pool.query(
         "SELECT id, status, week_offset FROM programs WHERE user_id = $1",
         [userId]
-      );
+      ) as {rows: Array<{id: string; status: string; week_offset: number}>};
 
       const activeBlocks = blocks.filter((b) => b.status === "active");
       const supersededBlocks = blocks.filter((b) => b.status === "superseded");
@@ -398,7 +398,7 @@ async function runTests() {
       const { rows: blocks } = await pool.query(
         "SELECT id, status, started_on, ended_on FROM programs WHERE user_id = $1 ORDER BY created_at",
         [userId]
-      );
+      ) as {rows: Array<{id: string; status: string; started_on: string; ended_on: string | null}>};
 
       // Second same-day rebuild with DIFFERENT payload should create 3 blocks total
       check("three blocks total", blocks.length === 3, `${blocks.length} blocks`);
@@ -446,16 +446,16 @@ async function runTests() {
       const { rows: blocks } = await pool.query(
         "SELECT id, started_on, ended_on, status FROM programs WHERE user_id = $1 ORDER BY started_on, created_at",
         [userId]
-      );
+      ) as {rows: Array<{id: string; started_on: string; ended_on: string | null; status: string}>};
 
       const allHaveEndedOn = blocks.filter(b => b.status !== "active").every(b => b.ended_on !== null);
       check("all non-active blocks have ended_on", allHaveEndedOn);
 
       const oldBlock = blocks.find((b) => b.id === oldId);
-      check("old completed block is empty range", oldBlock && oldBlock.ended_on < oldBlock.started_on);
+      check("old completed block is empty range", !!(oldBlock && oldBlock.ended_on && oldBlock.ended_on < oldBlock.started_on));
 
       const abandonedBlock = blocks.find((b) => b.id === abandonedId);
-      check("abandoned block has ended_on", abandonedBlock && abandonedBlock.ended_on !== null);
+      check("abandoned block has ended_on", !!(abandonedBlock && abandonedBlock.ended_on !== null));
 
       const { rows: checkViolations } = await pool.query(`
         SELECT id FROM programs 
@@ -574,7 +574,7 @@ async function runTests() {
       const { rows: blocks } = await pool.query(
         "SELECT id, status, ended_on FROM programs WHERE user_id = $1",
         [userId]
-      );
+      ) as {rows: Array<{id: string; status: string; ended_on: string | null}>};
 
       const activeBlocks = blocks.filter((b) => b.status === "active");
       const nonActiveBlocks = blocks.filter((b) => b.status !== "active");
