@@ -34,8 +34,9 @@ check(
 
 check("['flat_bench','dumbbell'] is NOT bodyweight", !isBodyweightEquipment(["flat_bench", "dumbbell"]), "false");
 check("['barbell'] is NOT bodyweight", !isBodyweightEquipment(["barbell"]), "false");
-check("['cable'] is NOT bodyweight", !isBodyweightEquipment(["cable"]), "false");
+check("['cable_machine'] is NOT bodyweight", !isBodyweightEquipment(["cable_machine"]), "false");
 check("['dumbbell'] is NOT bodyweight", !isBodyweightEquipment(["dumbbell"]), "false");
+check("['pull_up_bar','cable_machine'] is NOT bodyweight", !isBodyweightEquipment(["pull_up_bar", "cable_machine"]), "false");
 
 console.log("\nPull-ups and dips with added weight follow bodyweight rules");
 {

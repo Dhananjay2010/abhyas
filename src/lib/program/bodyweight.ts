@@ -7,7 +7,7 @@
  * a stability ball), the exercise follows bodyweight-with-added-weight rules:
  * smaller steps (1.25 kg or 2.5 kg), never doubled when easy.
  */
-export const BODYWEIGHT_SUPPORT_EQUIPMENT = new Set([
+export const BODYWEIGHT_SUPPORT_EQUIPMENT: ReadonlySet<string> = new Set([
   "pull_up_bar",
   "dip_bars",
   "flat_bench",
