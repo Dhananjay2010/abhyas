@@ -25,16 +25,21 @@ async function requireUser() {
   return { supabase, user };
 }
 
+/**
+ * M5 fix: Call SECURITY DEFINER RPC that sets timestamp server-side.
+ */
 export async function acceptDisclaimer(): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
-  const { supabase, user } = await requireUser();
-  const { error } = await supabase
-    .from("profiles")
-    .update({ disclaimer_accepted_at: new Date().toISOString() })
-    .eq("id", user.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+
+  const { supabase } = await requireUser();
+  // @ts-expect-error - RPC exists in migration but types not yet generated
+  const { error } = await supabase.rpc("accept_disclaimer");
+  if (error) {
+    console.error("acceptDisclaimer RPC failed:", error);
+    return { ok: false, error: "Couldn't save that. Please try again." };
+  }
+  return { ok: true };
 }
 
 export async function saveAboutYou(input: {
@@ -43,22 +48,9 @@ export async function saveAboutYou(input: {
   heightCm: number;
   weightKg: number;
 }): Promise<ActionResult> {
-<<<<<<< HEAD
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
-  const age = ageOn(input.dateOfBirth);
-  if (Number.isNaN(age)) return { ok: false, error: "That date does not look right." };
-  if (age < MIN_AGE_YEARS)
-    return { ok: false, error: `You need to be at least ${MIN_AGE_YEARS} to use Abhyas.` };
-  if (age > 100) return { ok: false, error: "Please check your date of birth." };
-  if (input.heightCm < 100 || input.heightCm > 250)
-    return { ok: false, error: "Height should be between 100 and 250 cm." };
-  if (input.weightKg < 25 || input.weightKg > 300)
-    return { ok: false, error: "Weight should be between 25 and 300 kg." };
 
-=======
->>>>>>> c3a8e82 (feat: harden profile data access and fix auth open redirect)
   const { supabase, user } = await requireUser();
 
   // Fetch timezone first for age validation
@@ -74,10 +66,12 @@ export async function saveAboutYou(input: {
   const dobValidation = validateDateOfBirth(input.dateOfBirth, timezone);
   if (!dobValidation.ok) return { ok: false, error: dobValidation.error };
 
-  if (input.heightCm < 100 || input.heightCm > 250)
-    return { ok: false, error: "Height should be between 100 and 250 cm." };
-  if (input.weightKg < 25 || input.weightKg > 300)
-    return { ok: false, error: "Weight should be between 25 and 300 kg." };
+  // P3-M5: check for NaN and Infinity
+  const heightValidation = validateHeightCm(input.heightCm);
+  if (!heightValidation.ok) return heightValidation;
+
+  const weightValidation = validateWeightKg(input.weightKg);
+  if (!weightValidation.ok) return weightValidation;
 
   const { error: profileError } = await supabase
     .from("profiles")
@@ -87,7 +81,14 @@ export async function saveAboutYou(input: {
       height_cm: input.heightCm,
     })
     .eq("id", user.id);
-  if (profileError) return { ok: false, error: profileError.message };
+  if (profileError) {
+    console.error("saveAboutYou profile update failed:", profileError);
+    // The validation trigger enforces age >= 16; surface that message
+    if (profileError.message?.includes("16 years old")) {
+      return { ok: false, error: profileError.message };
+    }
+    return { ok: false, error: "Couldn't save your information. Please try again." };
+  }
 
   // The first weigh-in doubles as the BMI input for the safety filters. It is
   // dated in the user's timezone, not UTC.
@@ -219,10 +220,12 @@ export async function completeOnboarding(): Promise<ActionResult> {
   const block = await createBlockForUser(supabase, user.id);
   if (!block.ok) return { ok: false, error: block.error };
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ onboarding_completed_at: new Date().toISOString() })
-    .eq("id", user.id);
+  /**
+   * M5 fix: Call SECURITY DEFINER RPC that sets timestamp server-side
+   * and checks prerequisites (disclaimer, DOB, height, goal, level, track, days).
+   */
+  // @ts-expect-error - RPC exists in migration but types not yet generated
+  const { error } = await supabase.rpc("complete_onboarding");
   if (error) return { ok: false, error: error.message };
 
   revalidateTrainingData();

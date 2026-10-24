@@ -89,21 +89,24 @@ export function validateOnboardingFields(fields: ProfileUpdate): ValidationResul
     };
   }
 
-  // Validate specific fields
+  // Validate specific fields (P3-M5: check for NaN/Infinity)
   if (allowed.days_per_week != null) {
-    if (!Number.isInteger(allowed.days_per_week) || allowed.days_per_week < 3 || allowed.days_per_week > 6) {
+    if (!Number.isFinite(allowed.days_per_week) || !Number.isInteger(allowed.days_per_week) || allowed.days_per_week < 3 || allowed.days_per_week > 6) {
       return { ok: false, error: "Days per week must be between 3 and 6." };
     }
   }
 
-  if (allowed.yoga_days_per_week != null && allowed.days_per_week != null) {
-    if (allowed.yoga_days_per_week > allowed.days_per_week - 1) {
+  if (allowed.yoga_days_per_week != null) {
+    if (!Number.isFinite(allowed.yoga_days_per_week) || !Number.isInteger(allowed.yoga_days_per_week)) {
+      return { ok: false, error: "Yoga days per week must be a valid number." };
+    }
+    if (allowed.days_per_week != null && allowed.yoga_days_per_week > allowed.days_per_week - 1) {
       return { ok: false, error: "At least one day a week has to be training." };
     }
   }
 
   if (allowed.preferred_session_minutes != null) {
-    if (!Number.isInteger(allowed.preferred_session_minutes) || allowed.preferred_session_minutes < 15 || allowed.preferred_session_minutes > 120) {
+    if (!Number.isFinite(allowed.preferred_session_minutes) || !Number.isInteger(allowed.preferred_session_minutes) || allowed.preferred_session_minutes < 15 || allowed.preferred_session_minutes > 120) {
       return { ok: false, error: "Session length must be between 15 and 120 minutes." };
     }
   }
@@ -137,21 +140,24 @@ export function validateSettingsFields(fields: ProfileUpdate): ValidationResult 
     };
   }
 
-  // Same validations as onboarding for the fields that overlap
+  // Same validations as onboarding for the fields that overlap (P3-M5: check for NaN/Infinity)
   if (allowed.days_per_week != null) {
-    if (!Number.isInteger(allowed.days_per_week) || allowed.days_per_week < 3 || allowed.days_per_week > 6) {
+    if (!Number.isFinite(allowed.days_per_week) || !Number.isInteger(allowed.days_per_week) || allowed.days_per_week < 3 || allowed.days_per_week > 6) {
       return { ok: false, error: "Days per week must be between 3 and 6." };
     }
   }
 
-  if (allowed.yoga_days_per_week != null && allowed.days_per_week != null) {
-    if (allowed.yoga_days_per_week > allowed.days_per_week - 1) {
+  if (allowed.yoga_days_per_week != null) {
+    if (!Number.isFinite(allowed.yoga_days_per_week) || !Number.isInteger(allowed.yoga_days_per_week)) {
+      return { ok: false, error: "Yoga days per week must be a valid number." };
+    }
+    if (allowed.days_per_week != null && allowed.yoga_days_per_week > allowed.days_per_week - 1) {
       return { ok: false, error: "At least one day a week has to be training." };
     }
   }
 
   if (allowed.preferred_session_minutes != null) {
-    if (!Number.isInteger(allowed.preferred_session_minutes) || allowed.preferred_session_minutes < 15 || allowed.preferred_session_minutes > 120) {
+    if (!Number.isFinite(allowed.preferred_session_minutes) || !Number.isInteger(allowed.preferred_session_minutes) || allowed.preferred_session_minutes < 15 || allowed.preferred_session_minutes > 120) {
       return { ok: false, error: "Session length must be between 15 and 120 minutes." };
     }
   }
