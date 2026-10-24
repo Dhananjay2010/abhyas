@@ -62,6 +62,7 @@
     "test:breathe-retry-idempotency": "tsx scripts/test-breathe-retry-idempotency.ts",
     "test:breathe-duration-rounding": "tsx scripts/test-breathe-duration-rounding.ts",
     "test:breathe-week-count": "tsx scripts/test-breathe-week-count.ts",
+    "test:breathe-backstop": "tsx scripts/test-breathe-backstop.ts",
     "test:breathe-retry-race": "tsx scripts/test-breathe-retry-race.ts",
     "test:breathe-save-once": "tsx scripts/test-breathe-save-once.ts",
     "test:breathe-save-idempotency": "tsx scripts/test-breathe-save-idempotency.ts",
