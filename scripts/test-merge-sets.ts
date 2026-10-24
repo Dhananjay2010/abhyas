@@ -216,50 +216,6 @@ async function main() {
     assertEqual(merged[0].sets.length, 1, "Should keep local set");
   });
 
-  // Test 6: MUTANT TEST - Always take server data only (drops confirmed local saves)
-  await testMerge("MUTANT: always take server → SHOULD FAIL", async () => {
-    const local: TestExercise[] = [
-      {
-        id: "ex-1",
-        name: "Bench",
-        sets: [
-          { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
-          { setNumber: 2, reps: 10, weightKg: 60, durationSeconds: null },
-          { setNumber: 3, reps: 10, weightKg: 60, durationSeconds: null },
-          { setNumber: 4, reps: 12, weightKg: 65, durationSeconds: null }, // Local confirmed
-        ],
-      },
-    ];
-
-    const server: TestExercise[] = [
-      {
-        id: "ex-1",
-        name: "Bench",
-        sets: [
-          { setNumber: 1, reps: 10, weightKg: 60, durationSeconds: null },
-          { setNumber: 2, reps: 10, weightKg: 60, durationSeconds: null },
-          { setNumber: 3, reps: 10, weightKg: 60, durationSeconds: null },
-          // Server doesn't have set 4
-        ],
-      },
-    ];
-
-    // Mutant implementation: always return server data only
-    const mutant = (local: TestExercise[], server: TestExercise[]): TestExercise[] => {
-      return server; // WRONG: drops local confirmed saves
-    };
-
-    const merged = mutant(local, server);
-
-    // This should fail because mutant drops set 4
-    if (merged[0].sets.length === 3) {
-      throw new Error("MUTANT SURVIVED: Dropped local confirmed save (set 4)");
-    }
-
-    // If mutant is killed, this assertion would pass
-    assertEqual(merged[0].sets.length, 4, "Should preserve local set 4");
-  });
-
   // Summary
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
