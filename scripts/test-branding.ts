@@ -234,13 +234,22 @@ function testTimezoneResolution() {
   console.log(`  ✓ Null profile timezone falls back: ${nullFallback}`);
 
   // Profile with database default value, gym has timezone
-  const fallbackTz = resolveTimezoneWithProfile("Asia/Kolkata");
-  const expectedGym = branding.timezone || "Asia/Kolkata";
+  // Profile with stored 'Asia/Kolkata' value (explicit user choice)
+  const kolkataTz = resolveTimezoneWithProfile("Asia/Kolkata");
   assert(
-    fallbackTz === expectedGym,
-    `Profile with default 'Asia/Kolkata' should defer to gym timezone (got: ${fallbackTz}, expected: ${expectedGym})`
+    kolkataTz === "Asia/Kolkata",
+    `Stored 'Asia/Kolkata' should be respected as explicit choice (got: ${kolkataTz})`
   );
-  console.log(`  ✓ Profile default defers to gym timezone when available: ${fallbackTz}`);
+  console.log(`  ✓ Stored Asia/Kolkata wins over gym timezone: ${kolkataTz}`);
+
+  // Profile with NULL value should fall back to gym or fallback
+  const nullTz2 = resolveTimezoneWithProfile(null);
+  const expectedFallback2 = branding.timezone || "Asia/Kolkata";
+  assert(
+    nullTz2 === expectedFallback2,
+    `NULL profile should fall back to gym timezone (got: ${nullTz2}, expected: ${expectedFallback2})`
+  );
+  console.log(`  ✓ NULL profile falls back to gym timezone: ${nullTz2}`);
 }
 
 async function testDayBoundaries() {

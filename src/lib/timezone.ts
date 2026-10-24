@@ -2,15 +2,15 @@
  * Timezone resolution for per-gym branding.
  *
  * Priority order:
- * 1. User's profile timezone (if explicitly set and NOT the database default)
+ * 1. User's profile timezone (if explicitly set)
  * 2. Gym's configured timezone (from branding config)
  * 3. Browser-detected timezone (recorded during onboarding)
  * 4. Fallback to Asia/Kolkata (last resort)
  *
- * Note: The profiles.timezone column defaults to 'Asia/Kolkata' in the database.
- * During onboarding, we overwrite this with browser-detected timezone if available.
- * If a gym has a configured timezone and the profile still has the default value,
- * the gym timezone takes priority over the database default.
+ * Note: The profiles.timezone column is nullable. NULL means "not set yet",
+ * and the application falls back to gym → browser → fallback timezone.
+ * Any stored value (including 'Asia/Kolkata') is treated as an explicit
+ * user preference.
  *
  * SSR-safe: server renders with profile/gym/fallback timezone, client can
  * detect and record browser timezone during onboarding.
@@ -53,14 +53,12 @@ export function getDefaultTimezone(): string {
  * Use this in server components that have access to the user's profile.
  *
  * Priority:
- * 1. User's profile timezone (if set, valid, and NOT the default fallback)
- * 2. Gym's configured timezone (from branding) - wins over database default
+ * 1. User's profile timezone (if set and valid)
+ * 2. Gym's configured timezone (from branding)
  * 3. Asia/Kolkata (fallback)
  *
- * Special handling: If profile timezone equals FALLBACK_TIMEZONE ('Asia/Kolkata')
- * and the gym has a configured timezone, the gym timezone takes priority. This
- * ensures gym-specific timezones work even though the database column defaults
- * to 'Asia/Kolkata'.
+ * NULL or invalid profile timezone falls back to gym timezone, then FALLBACK_TIMEZONE.
+ * Any stored value (including 'Asia/Kolkata') is treated as an explicit preference.
  *
  * @param profileTimezone - The timezone from user's profile (profiles.timezone)
  */
@@ -70,19 +68,12 @@ export function resolveTimezoneWithProfile(
   // Validate profile timezone
   const validated = validateTimezone(profileTimezone);
   
-  // If profile has a valid timezone that's NOT the fallback, use it
-  // (User explicitly set it or it was captured from browser during onboarding)
-  if (validated && validated !== FALLBACK_TIMEZONE) {
+  // If profile has a valid timezone, use it (it's an explicit preference)
+  if (validated) {
     return validated;
   }
   
-  // If profile has the fallback but gym has a configured timezone, prefer gym
-  // (This handles the case where the database default hasn't been updated yet)
-  if (validated === FALLBACK_TIMEZONE && branding.timezone) {
-    return branding.timezone;
-  }
-  
-  // Fall back to default (gym timezone or FALLBACK_TIMEZONE)
+  // Profile is NULL or invalid, fall back to gym timezone or system default
   return getDefaultTimezone();
 }
 
