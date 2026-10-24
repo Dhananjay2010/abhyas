@@ -91,6 +91,16 @@ console.log("\n5. validateDateNotFuture (Pacific/Auckland)");
   check("tomorrow is invalid", !validateDateNotFuture(tomorrowStr, "Pacific/Auckland").valid);
 }
 
+// Test validateDateNotFuture with garbage dates
+console.log("\n5a. validateDateNotFuture (garbage dates)");
+{
+  check("garbage 'abc' is invalid", !validateDateNotFuture("abc", "UTC").valid);
+  check("garbage 'abc' returns 'Invalid date'", validateDateNotFuture("abc", "UTC").error === "Invalid date.");
+  check("garbage '2026-13-01' is invalid", !validateDateNotFuture("2026-13-01", "UTC").valid);
+  check("garbage '2026-02-30' is invalid", !validateDateNotFuture("2026-02-30", "UTC").valid);
+  check("malformed '26-10-15' is invalid", !validateDateNotFuture("26-10-15", "UTC").valid);
+}
+
 // Test validateDateAfterSignup
 console.log("\n6. validateDateAfterSignup (Asia/Kolkata)");
 {
