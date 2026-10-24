@@ -11,7 +11,20 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\nbuildTemplateRows: progressed bodyweight target");
 
-const template = [
+const template: Array<{
+  order_index: number;
+  exercise_id: string | null;
+  exercises: {
+    name: string;
+    cue: string | null;
+    metric: string | null;
+    equipment_ids: string[];
+  } | null;
+  target_sets: number | null;
+  target_reps_min: number | null;
+  target_reps_max: number | null;
+  rest_seconds: number | null;
+}> = [
   {
     order_index: 1,
     exercise_id: "ex-1",
@@ -32,7 +45,7 @@ const progress = new Map([
   ["ex-1", { current_working_weight_kg: null, current_target_reps: 14 }],
 ]);
 
-const rows = buildTemplateRows(template as unknown as TemplateExerciseRow[], progress);
+const rows = buildTemplateRows(template, progress);
 
 check("row exists", rows.length === 1);
 check("repsMax is 14 (progressed), not 12 (planned)", rows[0].repsMax === 14,
@@ -42,7 +55,20 @@ check("WITHOUT effectiveRepsMax, would show 12", rows[0].repsMax !== 12,
 
 console.log("\nbuildTemplateRows: loaded exercise uses planned target");
 
-const template2 = [
+const template2: Array<{
+  order_index: number;
+  exercise_id: string | null;
+  exercises: {
+    name: string;
+    cue: string | null;
+    metric: string | null;
+    equipment_ids: string[];
+  } | null;
+  target_sets: number | null;
+  target_reps_min: number | null;
+  target_reps_max: number | null;
+  rest_seconds: number | null;
+}> = [
   {
     order_index: 1,
     exercise_id: "ex-2",
@@ -63,7 +89,7 @@ const progress2 = new Map([
   ["ex-2", { current_working_weight_kg: 60, current_target_reps: 14 }],
 ]);
 
-const rows2 = buildTemplateRows(template2 as any, progress2);
+const rows2 = buildTemplateRows(template2, progress2);
 
 check("loaded row uses planned max", rows2[0].repsMax === 12,
   `got ${rows2[0].repsMax}, expected 12 for loaded exercise`);
