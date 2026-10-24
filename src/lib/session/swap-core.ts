@@ -5,29 +5,14 @@
 
 import { buildSwapResult } from "./swap-decision";
 import { prescribe } from "../program/prescription";
-
-// Minimal Supabase client interface for testing
-// Models the fluent builder pattern used in swapExerciseCore
-interface TestableSupabaseClient {
-  from(table: string): {
-    select(columns: string): {
-      eq(column: string, value: unknown): {
-        eq(column: string, value: unknown): {
-          maybeSingle(): Promise<{ data: unknown; error: unknown }>;
-        };
-        maybeSingle(): Promise<{ data: unknown; error: unknown }>;
-        single(): Promise<{ data: unknown; error: unknown }>;
-      };
-    };
-    update(data: unknown): {
-      eq(column: string, value: unknown): Promise<{ error: unknown }>;
-    };
-  };
-}
+import type { Database } from "../database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export async function swapExerciseCore(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  deps: { supabase: any; userId: string },
+  deps: {
+    supabase: Pick<SupabaseClient<Database>, "from">;
+    userId: string;
+  },
   input: { sessionExerciseId: string; newExerciseId: string }
 ): Promise<
   | { ok: false; error: string }
@@ -76,14 +61,14 @@ export async function swapExerciseCore(
   if (!current) return { ok: false, error: "Exercise not found" };
 
   const replacement = replacementRes.data as {
-    metric: string;
+    metric: "reps" | "seconds";
     mechanic: string | null;
     movement_pattern: string;
     equipment_ids: string[];
   } | null;
   if (!replacement) return { ok: false, error: "Exercise not found" };
 
-  const metric = replacement.metric || current.metric || "reps";
+  const metric: "reps" | "seconds" = replacement.metric || current.metric || "reps";
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data as { goal: string; level: string } | null;
 
