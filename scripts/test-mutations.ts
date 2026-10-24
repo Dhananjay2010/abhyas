@@ -153,8 +153,54 @@ function runMutation(mutant: Mutant): void {
 console.log("Knee Safety Mutation Testing");
 console.log("─".repeat(60));
 
+// Baseline: ensure tests pass before any mutations
+console.log("\nRunning baseline tests...");
+try {
+  for (const mutant of mutants) {
+    for (const test of mutant.tests) {
+      execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
+    }
+  }
+  console.log("✓ Baseline tests pass\n");
+} catch (err) {
+  console.error("❌ FATAL: Baseline tests fail before mutations");
+  process.exit(1);
+}
+
+// Setup SIGINT/SIGTERM trap to restore files on interrupt
+const backupFiles: string[] = [];
+process.on("SIGINT", () => {
+  console.log("\n\n⚠️  Interrupted - restoring files...");
+  for (const backup of backupFiles) {
+    if (existsSync(backup)) {
+      const file = backup.replace(".backup", "");
+      const original = readFileSync(backup, "utf8");
+      writeFileSync(file, original, "utf8");
+      unlinkSync(backup);
+    }
+  }
+  process.exit(130);
+});
+process.on("SIGTERM", () => {
+  console.log("\n\n⚠️  Terminated - restoring files...");
+  for (const backup of backupFiles) {
+    if (existsSync(backup)) {
+      const file = backup.replace(".backup", "");
+      const original = readFileSync(backup, "utf8");
+      writeFileSync(file, original, "utf8");
+      unlinkSync(backup);
+    }
+  }
+  process.exit(143);
+});
+
 for (const mutant of mutants) {
+  const backupFile = `${mutant.file}.backup`;
+  backupFiles.push(backupFile);
   runMutation(mutant);
+  // Remove from list after successful restore
+  const idx = backupFiles.indexOf(backupFile);
+  if (idx !== -1) backupFiles.splice(idx, 1);
 }
 
 console.log("\n" + "─".repeat(60));
