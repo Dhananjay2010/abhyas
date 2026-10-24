@@ -28,6 +28,22 @@ const FALLBACK_PATTERNS: Partial<Record<MovementPattern, MovementPattern>> = {
 const KNEE_SAFE_LOWER_PATTERNS: MovementPattern[] = ["hinge", "core"];
 
 /**
+ * Dangerous or problematic exercises excluded from swap suggestions.
+ * Applied as a hard filter before ranking.
+ */
+export const EXCLUDED_EXERCISE_SLUGS: ReadonlySet<string> = new Set([
+  // Behind-the-neck variants (dangerous shoulder position)
+  "standing-barbell-press-behind-neck",
+  "wide-grip-pulldown-behind-the-neck",
+  
+  // Wide-grip rear pull-up (behind-the-neck pull-up by standard description)
+  "wide-grip-rear-pull-up",
+  
+  // Barbell Guillotine Bench Press (high-risk, bar lowered to neck)
+  "barbell-guillotine-bench-press",
+]);
+
+/**
  * Build the list of patterns to query for alternatives.
  * Returns [currentPattern, ...fallbackPatterns, ...kneeSafePatterns if applicable]
  */
@@ -136,28 +152,6 @@ function scoreEquipmentFit(current: ExerciseRow, candidate: ExerciseRow): number
 }
 
 /**
- * Check if an exercise is a behind-the-neck variant (dangerous shoulder position)
- */
-function isBehindTheNeck(exercise: ExerciseRow): boolean {
-  const nameLower = exercise.name.toLowerCase();
-  const slugLower = exercise.slug.toLowerCase();
-  return (
-    nameLower.includes("behind-the-neck") ||
-    nameLower.includes("behind the neck") ||
-    slugLower.includes("behind-the-neck")
-  );
-}
-
-/**
- * Get equipment signature for an exercise (for variety grouping)
- * Returns a stable string key representing the equipment combination
- */
-function getEquipmentSignature(exercise: ExerciseRow): string {
-  if (exercise.equipment_ids.length === 0) return "bodyweight";
-  return exercise.equipment_ids.slice().sort().join("+");
-}
-
-/**
  * Rank and filter exercise alternatives.
  * 
  * @param current - The exercise being replaced
@@ -184,13 +178,10 @@ export function rankAlternatives<T extends ExerciseRow>(
     !isIsometric(current) &&
     current.impact !== "high";
   
-  // Is current a dynamic pull (reps-based, compound, not iso/plyo)?
-  const isDynamicPull = 
+  // Is current a compound pull (for pullover exclusion)?
+  const isCompoundPull =
     (current.movement_pattern === "horizontal_pull" || current.movement_pattern === "vertical_pull") &&
-    current.metric === "reps" &&
-    current.mechanic === "compound" &&
-    !isIsometric(current) &&
-    current.impact !== "high";
+    current.mechanic === "compound";
   
   const filtered: Array<{ 
     exercise: T; 
@@ -206,30 +197,33 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 1. Exclude current exercise
     if (candidate.id === current.id) continue;
     
+    // 2. Exclude dangerous/problematic exercises (hard-coded exclusion set)
+    if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) continue;
     
-    // 3. Pattern priority (lower rank = better)
+    // 3. Exclude pullovers when original is a compound pull
+    // Pullovers are shoulder-extension moves and not appropriate substitutes
+    if (isCompoundPull) {
+      const nameLower = candidate.name.toLowerCase();
+      if (nameLower.includes("pullover") || candidate.slug.includes("pullover")) {
+        continue;
+      }
+    }
+    
+    // 4. Pattern priority (lower rank = better)
     const patternRank = patternPriority.indexOf(candidate.movement_pattern);
     if (patternRank === -1) continue; // Not in our pattern list
     
-    // 4. Level check: candidate level must be <= user level
+    // 5. Level check: candidate level must be <= user level
     const candidateLevelRank = LEVEL_ORDER[candidate.level_min];
     if (candidateLevelRank > userLevelRank) continue;
     
-    // 5. Beginners never get high-impact (plyometric) moves
+    // 6. Beginners never get high-impact (plyometric) moves
     if (ctx.level === "beginner" && candidate.impact === "high") continue;
     
-    // 6. For dynamic press, exclude isometric and plyometric
+    // 7. For dynamic press, exclude isometric and plyometric
     if (isDynamicPress) {
       if (isIsometric(candidate)) continue;
       if (candidate.impact === "high") continue;
-    }
-    
-    // 7. For dynamic pull, prefer compound reps-based (exclude isolation and plyometric)
-    if (isDynamicPull) {
-      if (isIsometric(candidate)) continue;
-      if (candidate.impact === "high") continue;
-      // Strongly prefer compound for pulls (isolation straight-arm variants score lower)
-      if (candidate.mechanic === "isolation") continue;
     }
     
     // 8. Injury filtering: exclude if any contraindicated region intersects
@@ -243,8 +237,9 @@ export function rankAlternatives<T extends ExerciseRow>(
     
     // 9. Equipment check: all-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
+      const equipment = ctx.availableEquipment;
       const allAvailable = candidate.equipment_ids.every((id) =>
-        ctx.availableEquipment!.has(id)
+        equipment.has(id)
       );
       if (!allAvailable) continue;
     }
@@ -291,43 +286,22 @@ export function rankAlternatives<T extends ExerciseRow>(
     return a.tieBreak - b.tieBreak;
   });
   
-  // Deduplicate by name
-  const nameDeduped: Array<typeof filtered[0]> = [];
-  const seenNames = new Map<string, boolean>();
+  // Deduplicate AFTER sorting so the best-ranked variant wins
+  const seen = new Map<string, boolean>();
+  const deduplicated: T[] = [];
   
   for (const item of filtered) {
     const normalizedName = normalizeName(item.exercise.name);
     const dedupeKey = `${item.exercise.movement_pattern}:${normalizedName}`;
     
-    if (seenNames.has(dedupeKey)) continue;
-    seenNames.set(dedupeKey, true);
-    nameDeduped.push(item);
+    if (seen.has(dedupeKey)) continue;
+    seen.set(dedupeKey, true);
+    
+    deduplicated.push(item.exercise);
+    
+    // Stop once we have enough
+    if (deduplicated.length >= limit) break;
   }
   
-  // Apply equipment variety as a tie-break within the relevance-sorted list
-  // First pass: prefer exercises with unseen equipment signatures
-  const result: T[] = [];
-  const seenEquipment = new Set<string>();
-  
-  for (const item of nameDeduped) {
-    const sig = getEquipmentSignature(item.exercise);
-    if (!seenEquipment.has(sig)) {
-      result.push(item.exercise);
-      seenEquipment.add(sig);
-      if (result.length >= limit) break;
-    }
-  }
-  
-  // Second pass: fill remaining slots with the next best alternatives (in relevance order)
-  if (result.length < limit) {
-    for (const item of nameDeduped) {
-      // Skip if already added
-      if (result.some(e => e.id === item.exercise.id)) continue;
-      
-      result.push(item.exercise);
-      if (result.length >= limit) break;
-    }
-  }
-  
-  return result;
+  return deduplicated;
 }
