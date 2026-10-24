@@ -16,6 +16,8 @@ import {
 } from "@/lib/onboarding/options";
 import { ErrorNote, OptionCard } from "@/components/ui";
 import { BuildPlanButton } from "@/app/today/build-plan-button";
+import { branding } from "@/lib/branding";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import {
   updateEquipment,
   updateInjuries,
@@ -61,6 +63,7 @@ export type SettingsState = {
   restVibrate: boolean;
   restOverrideSeconds: number | null;
   bodyweightPrompt: "daily" | "weekly" | "never";
+  timezone: string | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -568,10 +571,42 @@ export function SettingsForm({
         </p>
       </Section>
 
+      {/* ---------------- timezone ---------------- */}
+      <Section 
+        title="Timezone" 
+        note="Your local time for day boundaries and workout scheduling."
+      >
+        <Field 
+          label="Your timezone" 
+          hint={`Currently using: ${resolveTimezoneWithProfile(s.timezone)}`}
+        >
+          <select
+            value={s.timezone ?? ""}
+            onChange={(e) => {
+              const v = e.target.value === "" ? null : e.target.value;
+              setS({ ...s, timezone: v });
+              save(() => actions.updateProfileSettings({ timezone: v }));
+            }}
+            className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm disabled:opacity-60"
+            disabled={pending}
+          >
+            <option value="">
+              Use gym default
+              {branding.timezone ? ` (${branding.timezone})` : " (browser detected)"}
+            </option>
+            {Intl.supportedValuesOf("timeZone").map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </Section>
+
       <Section title="Not built yet">
         <p className="text-sm text-muted">
           Light theme and imperial units are in the plan but not implemented, so
-          there is nothing to switch here yet. Abhyas is dark, kilograms and
+          there is nothing to switch here yet. {branding.name} is dark, kilograms and
           centimetres for now.
         </p>
       </Section>

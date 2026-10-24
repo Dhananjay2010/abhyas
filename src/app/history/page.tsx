@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { SessionRow, sessionLabel, type SessionSummary } from "@/components/session-row";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +45,7 @@ export default async function HistoryPage() {
     throw new Error(`Could not load your history: ${sessionsRes.error.message}`);
   }
 
-  const today = localDateString(profile.timezone || "Asia/Kolkata");
+  const today = localDateString(resolveTimezoneWithProfile(profile.timezone));
   /*
     Nothing in the future. A "what about tomorrow?" choice is a `sessions` row
     dated tomorrow, so History -- which has no date filter, because the user's
