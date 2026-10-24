@@ -41,7 +41,7 @@ export default async function TodayPage() {
   // Nothing here depends on anything else here, so all these go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes, openRes, allSessionsRes, inProgressSessionRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes, openRes, allSessionsRes] = await Promise.all([
     // `maybeSingle`, not `single`: a missing row is a state to handle, not an
     // exception. With `single` PostgREST answers "Cannot coerce the result to a
     // single JSON object", which threw during the server render and reached the
@@ -71,8 +71,6 @@ export default async function TodayPage() {
       .not("started_at", "is", null)
       .in("actual_type", ["weights", "bodyweight", "yoga"])
       .limit(1),
-    // In-progress session for day-1, missed-day, and resume decisions
-    getInProgressSession(supabase, user.id, timezone),
   ]);
 
   /*
@@ -117,6 +115,9 @@ export default async function TodayPage() {
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const firstName = profile.display_name?.split(" ")[0] ?? "";
   const localToday = localDateString(timezone);
+
+  // Fetch in-progress session now that timezone is known
+  const inProgressSessionRes = await getInProgressSession(supabase, user.id, timezone);
 
   // A session left open on an earlier day is closed out here. Without this, a
   // workout that was trained but never walked through the summary counted for
