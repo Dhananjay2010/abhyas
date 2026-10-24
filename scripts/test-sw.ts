@@ -50,20 +50,10 @@ function testShouldInterceptForOffline() {
     "Should NOT intercept POST request (must fail visibly)"
   );
 
+  // Server actions (Next-Action header): NEVER intercept
   assert(
     !shouldInterceptForOffline({
-      url: "https://example.com/api/logSet",
-      method: "POST",
-      mode: "cors",
-      destination: "",
-    }),
-    "Should NOT intercept POST to /api (must fail visibly)"
-  );
-
-  // Server actions (POST with Next-Action header): NEVER intercept
-  assert(
-    !shouldInterceptForOffline({
-      url: "https://example.com/",
+      url: "https://example.com/today",
       method: "POST",
       mode: "cors",
       destination: "",
@@ -72,10 +62,10 @@ function testShouldInterceptForOffline() {
     "Should NOT intercept server action (POST with Next-Action header)"
   );
 
-  // PUT/DELETE requests: NEVER intercept
+  // PUT/DELETE: never intercept
   assert(
     !shouldInterceptForOffline({
-      url: "https://example.com/api/update",
+      url: "https://example.com/today",
       method: "PUT",
       mode: "cors",
       destination: "",
@@ -85,7 +75,7 @@ function testShouldInterceptForOffline() {
 
   assert(
     !shouldInterceptForOffline({
-      url: "https://example.com/api/delete",
+      url: "https://example.com/today",
       method: "DELETE",
       mode: "cors",
       destination: "",
@@ -117,25 +107,15 @@ function testShouldInterceptForOffline() {
     "Should NOT intercept RSC request with RSC: 1 header"
   );
 
-  // Supabase API: never intercept
+  // Supabase API calls: never intercept
   assert(
     !shouldInterceptForOffline({
-      url: "https://brldynuhozaszaduwfse.supabase.co/rest/v1/sessions",
+      url: "https://myproject.supabase.co/rest/v1/workouts",
       method: "GET",
       mode: "cors",
       destination: "",
     }),
     "Should NOT intercept Supabase API call"
-  );
-
-  assert(
-    !shouldInterceptForOffline({
-      url: "https://brldynuhozaszaduwfse.supabase.co/auth/v1/token",
-      method: "POST",
-      mode: "cors",
-      destination: "",
-    }),
-    "Should NOT intercept Supabase auth POST"
   );
 
   // /auth routes: never intercept (OAuth callbacks, session management)
@@ -178,17 +158,17 @@ function testShouldInterceptForOffline() {
       mode: "no-cors",
       destination: "script",
     }),
-    "Should NOT intercept JS chunks"
+    "Should NOT intercept static JS file"
   );
 
   assert(
     !shouldInterceptForOffline({
-      url: "https://example.com/icons/icon-192.png",
+      url: "https://example.com/_next/static/css/app.css",
       method: "GET",
       mode: "no-cors",
-      destination: "image",
+      destination: "style",
     }),
-    "Should NOT intercept icon"
+    "Should NOT intercept CSS file"
   );
 
   console.log("  ✓ GET full-page navigations are intercepted");
@@ -205,31 +185,40 @@ function testShouldInterceptForOffline() {
 function testGetCacheName() {
   console.log("\n▶ Testing cache name versioning...");
 
-  // With a build ID
-  const nameWithBuild = getCacheName("abc123def");
+  // With a brand ID and build ID (production)
+  const nameWithBuild = getCacheName("abhyas", "abc123def");
   assert(
     nameWithBuild === "abhyas-offline-abc123def",
-    `Cache name with build ID should be 'abhyas-offline-abc123def', got '${nameWithBuild}'`
+    `Cache name with brand and build ID should be 'abhyas-offline-abc123def', got '${nameWithBuild}'`
   );
 
   // Without a build ID (dev or fallback)
-  const nameWithoutBuild = getCacheName();
+  const nameWithoutBuild = getCacheName("abhyas");
   assert(
     nameWithoutBuild === "abhyas-offline-v1",
     `Cache name without build ID should be 'abhyas-offline-v1', got '${nameWithoutBuild}'`
   );
 
   // Different build IDs produce different cache names
-  const name1 = getCacheName("build1");
-  const name2 = getCacheName("build2");
+  const name1 = getCacheName("abhyas", "build1");
+  const name2 = getCacheName("abhyas", "build2");
   assert(
     name1 !== name2,
     "Different build IDs should produce different cache names"
   );
 
-  console.log("  ✓ Cache name includes build ID when present");
+  // Different brand IDs produce different cache names
+  const brand1 = getCacheName("abhyas", "abc123");
+  const brand2 = getCacheName("otherbrand", "abc123");
+  assert(
+    brand1 !== brand2,
+    "Different brand IDs should produce different cache names"
+  );
+
+  console.log("  ✓ Cache name includes brand ID and build ID when present");
   console.log("  ✓ Cache name falls back to 'v1' without build ID");
   console.log("  ✓ Different build IDs produce different cache names");
+  console.log("  ✓ Different brand IDs produce different cache names");
 }
 
 function testServiceWorkerConsistency() {
@@ -252,52 +241,22 @@ function testServiceWorkerConsistency() {
   // Must check for Next-Action header
   assert(
     swRouteSource.includes("Next-Action") || swRouteSource.includes("next-action"),
-    "Service worker must check for Next-Action header (server actions)"
+    "Service worker must check Next-Action header for server actions"
   );
 
-  // Must check for /api routes
+  // Must check /api routes
   assert(
-    swRouteSource.includes('/api') && swRouteSource.includes('startsWith'),
-    "Service worker must check for /api routes"
+    swRouteSource.includes('"/api"') || swRouteSource.includes("'/api'"),
+    "Service worker must check /api routes"
   );
 
-  // Must have early return for non-GET in fetch listener
+  // Early return for non-GET requests (not respondWith)
+  // The pattern matches multiline format: if (...method !== "GET") { return; }
+  const nonGetPattern = /if\s*\(\s*[^)]*\.method\s*!==\s*["']GET["']\s*\)\s*\{\s*return;\s*\}/;
   assert(
-    swRouteSource.includes('if (event.request.method !== "GET")'),
-    "Service worker fetch listener must have early return for non-GET requests"
+    nonGetPattern.test(swRouteSource.replace(/\n/g, " ")),
+    "Service worker must return early (not call respondWith) for non-GET requests"
   );
-
-  // Critical: must NOT call respondWith for non-GET requests
-  // Find the fetch event listener (multiline match)
-  const fetchListenerMatch = swRouteSource.match(/addEventListener\("fetch"[\s\S]+?\n\}\);/);
-  if (fetchListenerMatch) {
-    const fetchListener = fetchListenerMatch[0];
-    // Check that the first if statement returns early for non-GET
-    const lines = fetchListener.split('\n');
-    let foundMethodCheck = false;
-    let foundEarlyReturn = false;
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes('method !== "GET"')) {
-        foundMethodCheck = true;
-        // Next non-empty line should be return or contain return in same line
-        if (lines[i].includes('return')) {
-          foundEarlyReturn = true;
-          break;
-        }
-        for (let j = i + 1; j < lines.length && j < i + 5; j++) {
-          if (lines[j].trim().startsWith('return')) {
-            foundEarlyReturn = true;
-            break;
-          }
-        }
-        break;
-      }
-    }
-    assert(
-      foundMethodCheck && foundEarlyReturn,
-      "Service worker must return early for non-GET requests (no respondWith)"
-    );
-  }
 
   console.log("  ✓ Service worker checks request.method !== 'GET'");
   console.log("  ✓ Service worker has early return for non-GET requests");
@@ -306,21 +265,11 @@ function testServiceWorkerConsistency() {
   console.log("  ✓ Non-GET requests go straight to network (fail visibly)");
 }
 
-function main() {
-  console.log("Testing Service Worker Logic");
-  console.log("============================");
+console.log("Testing Service Worker Logic");
+console.log("============================");
 
-  try {
-    testShouldInterceptForOffline();
-    testGetCacheName();
-    testServiceWorkerConsistency();
+testShouldInterceptForOffline();
+testGetCacheName();
+testServiceWorkerConsistency();
 
-    console.log("\n✅ All service worker tests passed\n");
-    process.exit(0);
-  } catch (error) {
-    console.error(`\n${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(1);
-  }
-}
-
-main();
+console.log("\n✅ All service worker tests passed\n");

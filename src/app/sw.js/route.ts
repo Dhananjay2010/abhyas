@@ -10,6 +10,8 @@
 
 import { NextResponse } from "next/server";
 
+import { branding } from "@/lib/branding";
+
 /**
  * Get the current build version for cache naming.
  * Uses Vercel commit SHA in production, falls back to a constant for dev.
@@ -22,11 +24,20 @@ function getBuildVersion(): string {
   return "dev";
 }
 
+/**
+ * Derive a brand ID from the brand name for cache naming.
+ * This ensures that different brands on the same origin never collide.
+ */
+function getBrandId(): string {
+  return branding.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
 export async function GET() {
   const buildVersion = getBuildVersion();
+  const brandId = getBrandId();
 
   const script = `/**
- * Service worker for Abhyas PWA.
+ * Service worker for ${branding.name} PWA.
  *
  * Provides a basic offline experience: when the network is unavailable and
  * a navigation request fails, show /offline instead of the browser's
@@ -43,16 +54,16 @@ export async function GET() {
  * but the baseline is safe: offline means offline, with a clear message.
  */
 
-const CACHE_NAME = "abhyas-offline-${buildVersion}";
+const CACHE_NAME = "${brandId}-offline-${buildVersion}";
 const OFFLINE_URL = "/offline";
 
-// Install: cache the offline page and its dependencies
+// Install: cache the offline page
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
-      // Precache the offline page (rendered by Next.js with the root layout)
-      // This includes the CSS and any inline assets
+      // Precache the offline page (rendered by Next.js with inline styles)
+      // The page has inline styles so it works without external CSS files
       await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
       await self.skipWaiting();
     })()

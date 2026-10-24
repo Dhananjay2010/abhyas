@@ -116,12 +116,30 @@ function testOfflinePageComponent() {
     "Offline page should have an <a> link for retry (works without JS)"
   );
 
+  // CRITICAL: Must have inline styles so it works without external CSS
+  assert(
+    source.includes("containerStyle") && source.includes("background:"),
+    "Offline page must have inline styles (containerStyle with background)"
+  );
+
+  assert(
+    source.includes("#0a0c0e") && source.includes("#22c55e"),
+    "Offline page must have brand colors (#0a0c0e background, #22c55e accent) in inline styles"
+  );
+
+  assert(
+    source.includes("style={containerStyle}") || source.includes("style={buttonStyle}"),
+    "Offline page must use inline style objects (not className with external CSS)"
+  );
+
   console.log("  ✓ No <html> tag in component (rendered by layout)");
   console.log("  ✓ No <body> tag in component (rendered by layout)");
   console.log("  ✓ Has default export");
   console.log("  ✓ Has data-hide-nav attribute");
   console.log("  ✓ Uses branding configuration");
   console.log("  ✓ Has retry link (works without JS)");
+  console.log("  ✓ Has inline styles (works without external CSS)");
+  console.log("  ✓ Has brand colors in inline styles");
 }
 
 function testLayoutBottomNav() {

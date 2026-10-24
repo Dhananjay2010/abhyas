@@ -89,9 +89,12 @@ export function shouldInterceptForOffline(request: {
  * or VERCEL_GIT_COMMIT_SHA (from Vercel). If neither is present,
  * fall back to a static version string.
  *
+ * The cache name includes the brand ID to ensure different brands on
+ * the same origin never collide.
+ *
  * This ensures old caches are cleaned up when a new version deploys.
  */
-export function getCacheName(buildId?: string): string {
+export function getCacheName(brandId: string, buildId?: string): string {
   const version = buildId || "v1";
-  return `abhyas-offline-${version}`;
+  return `${brandId}-offline-${version}`;
 }
