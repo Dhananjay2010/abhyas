@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { YogaPlayer, type YogaPlaylist } from "./yoga-player";
+import { PracticeSwitch } from "@/components/practice-switch";
 
 export const dynamic = "force-dynamic";
 
@@ -49,13 +50,16 @@ export default async function YogaPage() {
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
-      <h1 className="text-3xl font-bold tracking-tight">Yoga</h1>
-      <p className="mt-2 mb-8 text-sm text-muted">
-        Work through a series day by day, or pick a single practice.
-      </p>
+      <PracticeSwitch />
+      
+      <div className="mt-6">
+        <h1 className="text-3xl font-bold tracking-tight">Yoga</h1>
+        <p className="mt-2 mb-8 text-sm text-muted">
+          Work through a series day by day, or pick a single practice.
+        </p>
 
-      <YogaPlayer playlists={playlists} channelUrl={channelUrl} />
-
+        <YogaPlayer playlists={playlists} channelUrl={channelUrl} />
+      </div>
     </main>
   );
 }

@@ -50,8 +50,11 @@ test("/dev/settings", "/settings", "Settings tab on /dev/settings");
 test("/dev/charts", "/progress", "Progress tab on /dev/charts");
 test("/dev/breathe", "/practice", "Practice tab on /dev/breathe");
 test("/dev/breathe/some-slug", "/practice", "Practice tab on /dev/breathe/<slug>");
-test("/dev/yoga", "/today", "Today tab on /dev/yoga");
+test("/dev/yoga", "/practice", "Practice tab on /dev/yoga");
 test("/dev/loading-states", "/today", "Today tab on /dev/loading-states");
+
+// Ensure full-screen session pages show no nav
+test("/breathe/physiological-sigh/session", null, "No nav on /breathe/<slug>/session");
 
 // Full-screen routes with no nav
 test("/session/123", null, "No nav on /session/<id>");

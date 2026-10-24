@@ -1,4 +1,38 @@
 /**
+ * Valid practice types that can be stored in localStorage.
+ */
+export type PracticeType = "breathe" | "yoga";
+
+/**
+ * Determines which practice route to open when tapping the Practice tab.
+ * 
+ * @param currentPath - The current pathname
+ * @param lastPractice - The last visited practice from localStorage (or null)
+ * @returns "/breathe" or "/yoga"
+ */
+export function choosePracticeRoute(
+  currentPath: string,
+  lastPractice: PracticeType | null
+): "/breathe" | "/yoga" {
+  // If we're already on a yoga page, stay in yoga
+  if (currentPath === "/yoga" || currentPath.startsWith("/yoga/")) {
+    return "/yoga";
+  }
+
+  // If we're already on a breathe page, stay in breathe
+  if (
+    currentPath === "/breathe" ||
+    currentPath.match(/^\/breathe\/(?:routine|journey)\/[^/]+$/) ||
+    currentPath.match(/^\/breathe\/[^/]+$/)
+  ) {
+    return "/breathe";
+  }
+
+  // Otherwise, use the last visited practice, defaulting to breathe
+  return lastPractice === "yoga" ? "/yoga" : "/breathe";
+}
+
+/**
  * Determines the active tab based on the current pathname.
  * Returns the href of the active tab, or null if no tab should be shown.
  */
@@ -52,7 +86,10 @@ export function activeTab(pathname: string): string | null {
   ) {
     return "/practice";
   }
-  if (pathname === "/dev/yoga" || pathname === "/dev/loading-states") {
+  if (pathname === "/dev/yoga") {
+    return "/practice";
+  }
+  if (pathname === "/dev/loading-states") {
     return "/today";
   }
 

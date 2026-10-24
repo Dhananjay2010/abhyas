@@ -203,8 +203,12 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            setS({ ...s, hasAllEquipment: true, equipmentIds: [] });
-            save(() => actions.updateEquipment({ hasAll: true, equipmentIds: [] }), true);
+            const nextHasAll = !s.hasAllEquipment;
+            setS({ ...s, hasAllEquipment: nextHasAll });
+            save(
+              () => actions.updateEquipment({ hasAll: nextHasAll, equipmentIds: s.equipmentIds }),
+              true,
+            );
           }}
           aria-pressed={s.hasAllEquipment}
           className={`w-full rounded-xl border px-5 py-3 text-left text-sm font-semibold ${

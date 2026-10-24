@@ -2,42 +2,50 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { activeTab } from "@/lib/nav";
+import { useState } from "react";
+import { activeTab, choosePracticeRoute, type PracticeType } from "@/lib/nav";
 
 /**
- * Inline SVG icons for the bottom navigation.
- * Simple, minimal shapes to avoid adding a new icon dependency.
+ * Bottom navigation icons from Lucide (https://lucide.dev)
+ * ISC License - Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022
+ * as part of Feather. All other copyright for Lucide are held by Lucide Contributors 2022.
  */
 const Icons = {
+  // calendar from Lucide
   Today: () => (
-    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="14" height="14" rx="2" />
-      <line x1="3" y1="8" x2="17" y2="8" />
-      <line x1="10" y1="12" x2="10" y2="14" />
+    <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <rect width="18" height="18" x="3" y="4" rx="2" />
+      <path d="M3 10h18" />
     </svg>
   ),
+  // activity from Lucide
   Practice: () => (
-    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="10" cy="10" r="7" />
-      <path d="M10 6v4l2 2" />
+    <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2" />
     </svg>
   ),
+  // history from Lucide (clock-rotate-left)
   History: () => (
-    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 10h7l3-3" />
-      <circle cx="10" cy="10" r="7" />
+    <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l4 2" />
     </svg>
   ),
+  // trending-up from Lucide
   Progress: () => (
-    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3,15 7,11 11,13 17,7" />
-      <polyline points="13,7 17,7 17,11" />
+    <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
     </svg>
   ),
+  // settings from Lucide
   Settings: () => (
-    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="10" cy="10" r="3" />
-      <path d="M16 10a6 6 0 00-.5-2.4l1.7-1-1-1.7-2 .3a6 6 0 00-1.7-1.7l.3-2-1.7-1-1 1.7A6 6 0 008 2.7V1H6v1.7a6 6 0 00-2.4.5l-1-1.7-1.7 1 .3 2a6 6 0 00-1.7 1.7l-2-.3-1 1.7 1.7 1A6 6 0 002 10h-.7v2h.7a6 6 0 00.5 2.4l-1.7 1 1 1.7 2-.3a6 6 0 001.7 1.7l-.3 2 1.7 1 1-1.7A6 6 0 0010 17.3V19h2v-1.7a6 6 0 002.4-.5l1 1.7 1.7-1-.3-2a6 6 0 001.7-1.7l2 .3 1-1.7-1.7-1A6 6 0 0018 10z" />
+    <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   ),
 };
@@ -69,19 +77,25 @@ const TABS = [
 export function BottomNav() {
   const pathname = usePathname();
   const active = activeTab(pathname);
+  
+  // Load last practice from localStorage on mount only
+  const [lastPractice] = useState<PracticeType | null>(() => {
+    if (typeof window === "undefined") return null;
+    
+    try {
+      const stored = localStorage.getItem("practice:last");
+      return stored === "breathe" || stored === "yoga" ? stored : null;
+    } catch {
+      return null;
+    }
+  });
+
   if (!active) return null;
 
-  // Map /practice to the appropriate destination based on current path
+  // Map /practice to the appropriate destination using choice logic
   const getHref = (tabHref: string) => {
     if (tabHref !== "/practice") return tabHref;
-    
-    // If we're on a yoga page, stay in yoga
-    if (pathname === "/yoga" || pathname.startsWith("/yoga/")) {
-      return "/yoga";
-    }
-    
-    // Otherwise default to breathe
-    return "/breathe";
+    return choosePracticeRoute(pathname, lastPractice);
   };
 
   return (

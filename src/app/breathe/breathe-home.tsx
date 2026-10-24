@@ -158,19 +158,24 @@ export function BreatheHome({
 
   return (
     <>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Breathe</h1>
-          <p className="mt-2 text-sm text-muted">{weekLine(stats)}</p>
+      <header className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Breathe</h1>
+            <p className="mt-2 text-sm text-muted">{weekLine(stats)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPrefs(true)}
+            aria-label="Breathing preferences"
+            className="-mr-2 mt-0.5 rounded-xl p-2.5 text-muted transition-colors hover:bg-surface hover:text-fg"
+          >
+            <Icon.Sliders />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowPrefs(true)}
-          aria-label="Breathing preferences"
-          className="-mr-2 mt-0.5 rounded-xl p-2.5 text-muted transition-colors hover:bg-surface hover:text-fg"
-        >
-          <Icon.Sliders />
-        </button>
+        
+        {/* PracticeSwitch will be imported and added by page */}
+        <div id="practice-switch-container" />
       </header>
 
       <WeekStrip days={stats.weekDays} todayIndex={todayIndex} className="mt-6" />
