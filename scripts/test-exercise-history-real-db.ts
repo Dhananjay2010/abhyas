@@ -162,9 +162,9 @@ async function runTests() {
     .from("exercises")
     .select("id, name")
     .order("id")
-    .limit(23);
+    .limit(26);
 
-  if (exError || !exercises || exercises.length < 23) {
+  if (exError || !exercises || exercises.length < 26) {
     console.error("Failed to fetch seeded exercises:", exError);
     return false;
   }
@@ -1329,13 +1329,13 @@ async function runTests() {
       return false;
     }
 
-    // Insert 15 sets, many with same set_number (simulates pagination edge case)
+    // Insert 15 sets with unique set_numbers (tests pagination of large set count)
     const sets = [];
     for (let i = 0; i < 15; i++) {
       sets.push({
         user_id: userIdA,
         session_exercise_id: se1,
-        set_number: Math.floor(i / 3) + 1,  // 1,1,1,2,2,2,3,3,3,4,4,4,5,5,5
+        set_number: i + 1,  // 1,2,3,...,15
         reps: 10 + i,
         weight_kg: 50 + i * 5,
         is_warmup_set: false,
