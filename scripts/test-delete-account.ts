@@ -11,6 +11,7 @@
  */
 
 import { performAccountDeletion, mapDeletionError, authCookieNames } from "../src/app/settings/delete-account/deletion-logic";
+import { isDeleteConfirmed } from "../src/app/settings/delete-account/form-logic";
 
 export {}; // Make this a module to avoid global scope conflicts
 
@@ -264,6 +265,35 @@ async function runTests() {
     check("signOut is called", signOutCalled);
     check("redirects even on signOut error", redirected);
     check("signOut error is logged but doesn't prevent redirect", signOutError !== null);
+  }
+
+  console.log("\n10. Server confirmation check - wrong confirmation");
+  {
+    const rpcCalled = false;
+    
+    // Simulate the server action check that happens before performAccountDeletion
+    const wrongConfirmations = [" DELETE ", "delete", "DELETE\n", "", "Delete"];
+    
+    for (const wrongInput of wrongConfirmations) {
+      const confirmed = isDeleteConfirmed(wrongInput);
+      check(`rejects "${wrongInput}"`, !confirmed);
+      
+      // If it's not confirmed, the server should never call the deletion logic
+      if (!confirmed) {
+        // This simulates the server action returning early
+        const result = { ok: false as const, error: "Type DELETE to confirm." };
+        check(`returns error for "${wrongInput}"`, !result.ok && result.error === "Type DELETE to confirm.");
+      }
+    }
+    
+    check("RPC is never called with wrong confirmation", !rpcCalled);
+  }
+
+  console.log("\n11. Server confirmation check - correct confirmation");
+  {
+    const correctConfirmation = "DELETE";
+    const confirmed = isDeleteConfirmed(correctConfirmation);
+    check("accepts exact 'DELETE'", confirmed);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

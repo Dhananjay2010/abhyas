@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { performAccountDeletion, authCookieNames } from "./deletion-logic";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { isDeleteConfirmed } from "./form-logic";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
@@ -13,8 +14,15 @@ export type Result = { ok: true } | { ok: false; error: string };
  * 
  * Server action wrapper that gets authentication context and delegates
  * to the testable deletion logic.
+ * 
+ * @param confirmation - The user's typed confirmation text (must be exactly "DELETE")
  */
-export async function deleteAccount(): Promise<Result> {
+export async function deleteAccount(confirmation: string): Promise<Result> {
+  // Check confirmation first, before rate limiting or any other checks
+  if (!isDeleteConfirmed(confirmation)) {
+    return { ok: false, error: "Type DELETE to confirm." };
+  }
+
   const rateLimit = await checkActionRateLimit("expensive");
   if (rateLimit) return rateLimit;
 
