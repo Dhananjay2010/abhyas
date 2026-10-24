@@ -318,7 +318,7 @@ export function OnboardingFlow({
         footer={
           <>
             {!validation.valid && validation.reason && (
-              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+              <p className="mb-3 text-sm text-muted" role="alert">{validation.reason}</p>
             )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
@@ -380,7 +380,7 @@ export function OnboardingFlow({
                 inputMode="decimal"
                 value={heightCm}
                 onChange={(e) => setHeightCm(e.target.value)}
-                placeholder="175"
+                placeholder="e.g. 175"
                 min="100"
                 max="250"
                 step="any"
@@ -393,7 +393,7 @@ export function OnboardingFlow({
                 inputMode="decimal"
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
-                placeholder="70"
+                placeholder="e.g. 70"
                 min="25"
                 max="300"
                 step="any"
@@ -416,7 +416,7 @@ export function OnboardingFlow({
         footer={
           <>
             {!validation.valid && validation.reason && (
-              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+              <p className="mb-3 text-sm text-muted" role="alert">{validation.reason}</p>
             )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
@@ -428,7 +428,7 @@ export function OnboardingFlow({
           </>
         }
       >
-        <div className="space-y-3">
+        <div className="space-y-3 pb-safe">
           {GOALS.map((o) => (
             <OptionCard
               key={o.value}
@@ -453,7 +453,7 @@ export function OnboardingFlow({
         footer={
           <>
             {!validation.valid && validation.reason && (
-              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+              <p className="mb-3 text-sm text-muted" role="alert">{validation.reason}</p>
             )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
@@ -489,7 +489,7 @@ export function OnboardingFlow({
         footer={
           <>
             {!validation.valid && validation.reason && (
-              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+              <p className="mb-3 text-sm text-muted" role="alert">{validation.reason}</p>
             )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
@@ -645,6 +645,9 @@ export function OnboardingFlow({
   }
 
   if (current === "equipment") {
+    // If track is bodyweight-only, pre-select bodyweight equipment and skip interaction
+    const isBodyweightOnly = track === "bodyweight";
+    
     const grouped = equipment.reduce<Record<string, EquipmentRow[]>>((acc, e) => {
       (acc[e.category] ??= []).push(e);
       return acc;
@@ -652,6 +655,8 @@ export function OnboardingFlow({
     
     // For home users, put bodyweight equipment first (always visible without scrolling)
     const categoryOrder = orderEquipmentCategories(Object.keys(grouped), location);
+
+    const [showGymMachines, setShowGymMachines] = useState(false);
 
     function toggle(id: string) {
       setHasAllEquipment(false);
@@ -663,17 +668,27 @@ export function OnboardingFlow({
       });
     }
 
+    // Auto-select bodyweight equipment for bodyweight-only track
+    if (isBodyweightOnly && selectedEquipment.size === 0 && !hasAllEquipment) {
+      const bodyweightItems = grouped["bodyweight"] || [];
+      if (bodyweightItems.length > 0) {
+        setSelectedEquipment(new Set(bodyweightItems.map(e => e.id)));
+      }
+    }
+
     const validation = validateEquipmentStep({ hasAllEquipment, selectedEquipment });
 
     return (
       <StepShell
         {...shell}
-        title="What can you actually use?"
-        subtitle="We never suggest an exercise you have no equipment for."
+        title={isBodyweightOnly ? "Bodyweight training confirmed" : "What can you actually use?"}
+        subtitle={isBodyweightOnly 
+          ? "We've selected bodyweight equipment for you. Add anything else you have." 
+          : "We never suggest an exercise you have no equipment for."}
         footer={
           <>
             {!validation.valid && validation.reason && (
-              <p className="mb-3 text-sm text-muted">{validation.reason}</p>
+              <p className="mb-3 text-sm text-muted" role="alert">{validation.reason}</p>
             )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
@@ -724,6 +739,14 @@ export function OnboardingFlow({
           {categoryOrder.map((category) => {
             const items = grouped[category];
             if (!items) return null;
+            
+            // For home users, hide machine category behind a toggle
+            const isMachineCategory = category === "machine";
+            const isHomeUser = location === "home";
+            if (isMachineCategory && isHomeUser && !showGymMachines) {
+              return null;
+            }
+            
             return (
               <div key={category} className="mb-6">
                 <h2 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
@@ -752,6 +775,17 @@ export function OnboardingFlow({
               </div>
             );
           })}
+          
+          {/* Show gym machines toggle for home users */}
+          {location === "home" && grouped["machine"] && !showGymMachines && (
+            <button
+              type="button"
+              onClick={() => setShowGymMachines(true)}
+              className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-muted hover:text-fg transition-colors"
+            >
+              + Show gym machines
+            </button>
+          )}
         </div>
       </StepShell>
     );
@@ -777,7 +811,7 @@ export function OnboardingFlow({
       footer={
         <>
           {!injuriesValidation.valid && injuriesValidation.reason && (
-            <p className="mb-3 text-sm text-muted">{injuriesValidation.reason}</p>
+            <p className="mb-3 text-sm text-muted" role="alert">{injuriesValidation.reason}</p>
           )}
           {error && <ErrorNote>{error}</ErrorNote>}
           <PrimaryButton disabled={!injuriesValidation.valid || pending} onClick={finish}>
