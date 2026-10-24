@@ -49,6 +49,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -195,6 +204,16 @@ jobs:
               RAISE NOTICE 'All seed validation checks passed!';
             END \$\$;
           "
+
+      - name: Run exercise history real-DB tests
+        run: |
+          # Get service role key from Supabase status
+          # Extract the key and remove surrounding quotes
+          export SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SERVICE_ROLE_KEY=' | cut -d '=' -f 2- | tr -d '"')
+          echo "Service role key configured (first 20 chars): ${SUPABASE_SERVICE_ROLE_KEY:0:20}..."
+          npm run test:exercise-history-real-db
+        env:
+          REAL_DB: "1"
 
       - name: Stop Supabase
         if: always()
