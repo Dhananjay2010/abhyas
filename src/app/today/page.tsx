@@ -288,8 +288,11 @@ export default async function TodayPage() {
   const strengthDone = todaySessions.some(
     (s) => s.status === "completed" && isStrength(s.actual_type),
   );
-  const strengthOpen = todaySessions.find(
-    (s) => (s.status === "in_progress" || s.status === "planned") && isStrength(s.actual_type),
+  // Resume detection: include in_progress sessions from any date (not just today)
+  const strengthOpen = allSessions.find(
+    (s) => s.status === "in_progress" && isStrength(s.actual_type),
+  ) ?? todaySessions.find(
+    (s) => s.status === "planned" && isStrength(s.actual_type),
   );
 
   /*
@@ -319,9 +322,13 @@ export default async function TodayPage() {
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
+  const yesterdayStillInProgress = yesterdaySessions.some(
+    (s) => s.status === "in_progress" && isStrength(s.actual_type),
+  );
   const missedYesterday =
     (yesterdayDay?.day_type === "weights" || yesterdayDay?.day_type === "bodyweight") &&
-    !yesterdaySessions.some((s) => s.status === "completed" && isStrength(s.actual_type));
+    !yesterdaySessions.some((s) => s.status === "completed" && isStrength(s.actual_type)) &&
+    !yesterdayStillInProgress;
   // Only worth asking while today is still open to being changed.
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
