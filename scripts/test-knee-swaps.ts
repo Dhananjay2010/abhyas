@@ -10,7 +10,7 @@
  */
 import { readFileSync } from "node:fs";
 import type { CandidateExercise } from "../src/lib/program/generate";
-import { hasAnyKneeInjury, hasPastKneeInjury } from "../src/lib/program/injury-regions";
+import { hasAnyKneeInjury } from "../src/lib/program/injury-regions";
 
 // Type definitions (matching database schema)
 type BodyRegion = "core" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle";
@@ -32,6 +32,14 @@ const EXPECTED_KNEE_SAFE_QUAD_EXERCISES = new Set([
   "spanish-squat",
 ]);
 
+const EXPECTED_KNEE_SAFE_LUNGE_EXERCISES = new Set([
+  "step-up-with-knee-raise",
+  "barbell-step-ups",
+  "dumbbell-step-ups",
+  "split-squat-with-dumbbells",
+  "smith-single-leg-split-squat",
+]);
+
 const EXPECTED_FLOOR_PULL_DEADLIFTS = new Set([
   "cable-deadlifts",
   "leverage-deadlift",
@@ -47,19 +55,28 @@ function isKneeSafe(ex: CandidateExercise): boolean {
     return false;
   }
   
-  // No high-impact jumps
-  if (ex.movement_pattern === "jump") {
+  // No high-impact jumps/plyometrics (by catalogue data: impact + lower-body muscles)
+  if (ex.impact === "high") {
+    const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
+    const isLowerBody = ex.primary_muscles.some(m => lowerBodyMuscles.includes(m));
+    if (isLowerBody) {
+      return false;
+    }
+  }
+  
+  // No sissy squats
+  if (ex.slug.includes("sissy")) {
     return false;
   }
   
   // Squats and lunges must be on allowlist
   if (ex.movement_pattern === "squat" || ex.movement_pattern === "lunge") {
-    if (!EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
+    if (!EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(ex.slug) && !EXPECTED_KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
       return false;
     }
   }
   
-  // No floor-pull deadlifts
+  // No floor-pull deadlifts (for current knee; this test includes both current and past)
   if (EXPECTED_FLOOR_PULL_DEADLIFTS.has(ex.slug)) {
     return false;
   }
@@ -133,7 +150,6 @@ for (const testCase of TEST_CASES) {
   console.log(`\n${testCase.name}`);
   
   const anyKneeInjury = hasAnyKneeInjury(testCase.injuries);
-  const pastKneeInjury = hasPastKneeInjury(testCase.injuries);
   
   check(
     "hasAnyKneeInjury() returns true",

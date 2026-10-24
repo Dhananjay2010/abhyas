@@ -13,7 +13,7 @@
  */
 import { readFileSync } from "node:fs";
 import { generateProgram, type CandidateExercise } from "../src/lib/program/generate";
-import { hasAnyKneeInjury, hasPastKneeInjury, currentInjuryRegions } from "../src/lib/program/injury-regions";
+import { hasAnyKneeInjury, currentInjuryRegions } from "../src/lib/program/injury-regions";
 
 const fixture = "scripts/fixtures/catalogue.json";
 const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
@@ -57,7 +57,6 @@ const homeInput = {
   equipmentIds: ["mat", "pull_up_bar"],
   currentInjuryRegions: currentInjuryRegions(injuries),
   anyKneeInjury: hasAnyKneeInjury(injuries),
-  pastKneeInjury: hasPastKneeInjury(injuries),
   catalogue,
 };
 
