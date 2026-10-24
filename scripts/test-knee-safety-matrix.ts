@@ -21,11 +21,12 @@ import {
   type CandidateExercise,
   type GeneratorInput,
   KNEE_SAFE_QUAD_EXERCISES,
+  FLOOR_PULL_DEADLIFTS,
 } from "../src/lib/program/generate";
 
-const catalogue = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
-) as CandidateExercise[];
+);
 
 const byId = new Map(catalogue.map((e) => [e.id, e]));
 
@@ -58,10 +59,53 @@ function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
 console.log("\nKnee Safety Matrix Test");
 console.log("=======================\n");
 console.log("Knee-safe allowlist (from PR #53):", Array.from(KNEE_SAFE_QUAD_EXERCISES).join(", "));
+console.log("Floor-pull deadlifts (PR #73):", Array.from(FLOOR_PULL_DEADLIFTS).join(", "));
 console.log();
 
-// Test matrix: level × equipment × session length × frequency
-const levels = ["beginner", "intermediate", "expert"] as const;
+// QA-reported issue: Box Squat leaked through on days 1 and 5
+console.log("QA Repro: Box Squat on days 1 and 5 (gym equipment, current knee injury)");
+const qaInput = base({
+  userId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  goal: "general_fitness",
+  level: "intermediate",
+  hasAllEquipment: true,
+  equipmentIds: [],
+  primaryTrack: "weights",
+  daysPerWeek: 5,
+  preferredSessionMinutes: 60,
+  currentInjuryRegions: ["knee"],
+});
+
+const qaPlan = generateProgram(qaInput);
+let qaFailed = false;
+
+for (const day of qaPlan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+  for (const ex of day.exercises) {
+    const exercise = byId.get(ex.exerciseId);
+    if (!exercise) continue;
+    
+    // Check for Box Squat (or any untagged squat/lunge)
+    if ((exercise.movement_pattern === "squat" || exercise.movement_pattern === "lunge") &&
+        !KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug)) {
+      console.log(`  ❌ FAIL: ${day.label} has ${exercise.name} [${exercise.slug}] (untagged ${exercise.movement_pattern})`);
+      qaFailed = true;
+    }
+    
+    // Check for floor-pull deadlifts in main slots
+    if (ex.orderIndex < 4 && FLOOR_PULL_DEADLIFTS.has(exercise.slug)) {
+      console.log(`  ❌ FAIL: ${day.label} slot ${ex.orderIndex + 1} has ${exercise.name} [${exercise.slug}] (floor-pull deadlift)`);
+      qaFailed = true;
+    }
+  }
+}
+
+if (!qaFailed) {
+  console.log("  ✅ PASS: No untagged squat/lunge or floor-pull deadlifts in main slots");
+}
+console.log();
+
+// Test matrix: level × equipment × session length × frequency × seed × goal
+const levels: GeneratorInput["level"][] = ["beginner", "intermediate", "expert"];
 const equipmentProfiles: Array<{ name: string; hasAll: boolean; ids: string[] }> = [
   { name: "gym", hasAll: true, ids: [] },
   { name: "home-dumbbell", hasAll: false, ids: ["dumbbell"] },
@@ -69,37 +113,51 @@ const equipmentProfiles: Array<{ name: string; hasAll: boolean; ids: string[] }>
 ];
 const sessionLengths = [30, 45, 60, 75];
 const frequencies = [2, 3, 4, 5];
+const testSeeds = [
+  "11111111-1111-1111-1111-111111111111",
+  "22222222-2222-2222-2222-222222222222",
+  "33333333-3333-3333-3333-333333333333",
+];
+const goals: GeneratorInput["goal"][] = ["general_fitness", "muscle_gain"];
 
 let profilesTested = 0;
 let profilesPassed = 0;
 
-for (const level of levels) {
-  for (const equipment of equipmentProfiles) {
-    for (const sessionMinutes of sessionLengths) {
-      for (const daysPerWeek of frequencies) {
-        profilesTested++;
-        
-        const profileId = `${level}-${equipment.name}-${daysPerWeek}d-${sessionMinutes}min`;
-        const input = base({
-          userId: `knee-safety-${profileId}`,
-          level,
-          hasAllEquipment: equipment.hasAll,
-          equipmentIds: equipment.ids,
-          primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
-          daysPerWeek,
-          preferredSessionMinutes: sessionMinutes,
-        });
+for (const seed of testSeeds) {
+  for (const goal of goals) {
+    for (const level of levels) {
+      for (const equipment of equipmentProfiles) {
+        for (const sessionMinutes of sessionLengths) {
+          for (const daysPerWeek of frequencies) {
+            profilesTested++;
+            
+            const profileId = `${level}-${equipment.name}-${daysPerWeek}d-${sessionMinutes}min-${goal}-s${seed.substring(0,8)}`;
+            const input = base({
+              userId: seed,
+              goal,
+              level,
+              hasAllEquipment: equipment.hasAll,
+              equipmentIds: equipment.ids,
+              primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
+              daysPerWeek,
+              preferredSessionMinutes: sessionMinutes,
+              currentInjuryRegions: ["knee"],
+            });
+
         
         const plan = generateProgram(input);
         
         let profileFailed = false;
         
         const lowerDays = plan.days.filter(d => 
-          d.focus === "lower" || d.focus === "legs" || d.focus === "full"
+          d.focus === "lower" || d.focus === "legs" || d.focus === "full_body"
         );
         
-        // Skip profiles with no lower days
+        // Fail if profile has no lower/full_body days
         if (lowerDays.length === 0) {
+          check(`${profileId}: has at least one lower/full_body day`, false,
+            "Profile has no lower/full_body days");
+          profileFailed = true;
           continue;
         }
         
@@ -145,8 +203,6 @@ for (const level of levels) {
         
         // Rule 3: Hip-flexion-with-band never in main slots
         for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
-          if (day.exercises.length < 4) continue;
-          
           const mainExercises = day.exercises.slice(0, 4);
           const hasHipFlexionMain = mainExercises.some(e => {
             const ex = byId.get(e.exerciseId);
@@ -222,6 +278,37 @@ for (const level of levels) {
           }
         }
         
+        // Rule 7 (PR #73 follow-up): All squat/lunge pattern exercises must be in KNEE_SAFE_QUAD_EXERCISES
+        for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+          for (const ex of day.exercises) {
+            const exercise = byId.get(ex.exerciseId);
+            if (!exercise) continue;
+            
+            if (exercise.movement_pattern === "squat" || exercise.movement_pattern === "lunge") {
+              if (!KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug)) {
+                check(`${profileId} ${day.label}: squat/lunge in allowlist`, false,
+                  `${exercise.name} [${exercise.slug}] is ${exercise.movement_pattern} but not in allowlist`);
+                profileFailed = true;
+              }
+            }
+          }
+        }
+        
+        // Rule 8 (PR #73 follow-up): Floor-pull deadlifts never in main slots (first 4)
+        for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+          const mainExercises = day.exercises.slice(0, 4);
+          for (const ex of mainExercises) {
+            const exercise = byId.get(ex.exerciseId);
+            if (!exercise) continue;
+            
+            if (FLOOR_PULL_DEADLIFTS.has(exercise.slug)) {
+              check(`${profileId} ${day.label}: no floor-pull deadlift in main slots`, false,
+                `${exercise.name} [${exercise.slug}] in main slots`);
+              profileFailed = true;
+            }
+          }
+        }
+        
         // Rule 7 (Safety from PR #53): Lower_back injury excludes loaded windmill/side-bend
         // Note: This profile matrix tests knee injury, but we'll add a separate lower_back test below
         
@@ -232,6 +319,11 @@ for (const level of levels) {
     }
   }
 }
+  }
+}
+
+check(`All ${profilesTested} knee profiles passed`, profilesPassed === profilesTested,
+  `Only ${profilesPassed} of ${profilesTested} passed`);
 
 console.log(`\nMatrix summary: tested ${profilesTested} profiles, ${profilesPassed} passed\n`);
 
@@ -295,39 +387,62 @@ for (const level of levels) {
 
 console.log(`\nLower_back summary: tested ${lowerBackTested} profiles, ${lowerBackPassed} passed\n`);
 
-// Rule 6: Determinism test
+// Determinism test over the whole matrix
 console.log("Determinism check");
 console.log("─".repeat(60));
 
-const deterministicInput = base({
-  userId: "knee-safety-determinism",
-  level: "beginner",
-  daysPerWeek: 3,
-  preferredSessionMinutes: 45,
-  hasAllEquipment: true,
-});
+let deterministicTests = 0;
+let deterministicFailures = 0;
 
-const plan1 = generateProgram(deterministicInput);
-const plan2 = generateProgram(deterministicInput);
+// Test determinism over the whole matrix
+for (const level of levels) {
+  for (const equipment of equipmentProfiles) {
+    for (const sessionMinutes of [30, 45, 60]) { // Reduced set for speed
+      for (const daysPerWeek of [3, 5]) { // Reduced set for speed
+        deterministicTests++;
+        
+        const profileId = `${level}-${equipment.name}-${daysPerWeek}d-${sessionMinutes}min`;
+        const input = base({
+          userId: `determinism-${profileId}`,
+          level,
+          hasAllEquipment: equipment.hasAll,
+          equipmentIds: equipment.ids,
+          primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
+          daysPerWeek,
+          preferredSessionMinutes: sessionMinutes,
+          currentInjuryRegions: ["knee"],
+        });
+        
+        const plan1 = generateProgram(input);
+        const plan2 = generateProgram(input);
+        
+        const stringify = (plan: ReturnType<typeof generateProgram>) =>
+          JSON.stringify(
+            plan.days.map((d) => ({
+              label: d.label,
+              exercises: d.exercises.map((e) => ({
+                id: e.exerciseId,
+                sets: e.targetSets,
+                repsMin: e.targetRepsMin,
+                repsMax: e.targetRepsMax,
+              })),
+            }))
+          );
+        
+        const isDeterministic = stringify(plan1) === stringify(plan2);
+        if (!isDeterministic) {
+          check(`${profileId}: deterministic`, false, "Plans differ on repeated generation");
+          deterministicFailures++;
+        }
+      }
+    }
+  }
+}
 
-const stringify = (plan: ReturnType<typeof generateProgram>) =>
-  JSON.stringify(
-    plan.days.map((d) => ({
-      label: d.label,
-      exercises: d.exercises.map((e) => ({
-        id: e.exerciseId,
-        sets: e.targetSets,
-        repsMin: e.targetRepsMin,
-        repsMax: e.targetRepsMax,
-      })),
-    }))
-  );
-
-const isDeterministic = stringify(plan1) === stringify(plan2);
 check(
-  "Same input produces same output (deterministic)",
-  isDeterministic,
-  isDeterministic ? "" : "Plans differ on repeated generation"
+  `All ${deterministicTests} profiles are deterministic`,
+  deterministicFailures === 0,
+  deterministicFailures > 0 ? `${deterministicFailures} profiles failed` : ""
 );
 
 console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);

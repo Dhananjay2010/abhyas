@@ -358,6 +358,19 @@ export const KNEE_SAFE_QUAD_EXERCISES: Readonly<Set<string>> = new Set([
 ]);
 
 /**
+ * Floor-pull deadlifts with deep knee flexion, contraindicated for current knee injury.
+ * These variants load the knee significantly during the initial pull from the floor.
+ * For knee-injured users, prefer hip-dominant hinges (RDL, hip thrust, glute bridge).
+ * Exported for testing.
+ */
+export const FLOOR_PULL_DEADLIFTS: Readonly<Set<string>> = new Set([
+  'barbell-deadlift',         // Conventional deadlift
+  'trap-bar-deadlift',        // Trap bar / hex bar deadlift
+  'sumo-deadlift',            // Sumo stance deadlift
+  'deficit-deadlift',         // Deadlift from deficit
+]);
+
+/**
  * QA Pass 10 C2: Derive contraindications from exercise properties.
  * - vertical_press or "overhead" in name → shoulder
  * - spinal_load high or moderate → lower_back
@@ -454,6 +467,17 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     ];
     if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
       return false;
+    }
+    
+    // Additional knee injury rules (PR #73 follow-up):
+    // For current knee injury, squat/lunge pattern exercises are ONLY eligible if in KNEE_SAFE_QUAD_EXERCISES
+    // This prevents untagged variants (split squats, step-ups, pistols) from leaking through
+    if (input.currentInjuryRegions.includes("knee")) {
+      if (ex.movement_pattern === "squat" || ex.movement_pattern === "lunge") {
+        if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
+          return false;
+        }
+      }
     }
   }
 
@@ -782,7 +806,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // H6: Positive selection for knee injuries on Lower/Full days.
     // Reserve first quad/squat slot for knee-safe exercises if user has knee injury.
     const hasKneeInjury = input.currentInjuryRegions.includes("knee");
-    const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full" || entry.focus === "legs";
+    const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
     let firstQuadSlotHandled = false;
     
     entry.slots.slice(0, templateCount).forEach((pattern, i) => {
@@ -1091,25 +1115,82 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // Note: hasKneeInjury and isLowerOrFullDay already declared above
 
     if (hasKneeInjury && isLowerOrFullDay && exercises.length > 0) {
-      // Rule 1: Ensure first exercise is knee-safe quad if any quad/squat/lunge exists
+      // For knee-injured users on lower/full days, first exercise must be knee-safe quad
       const firstEx = pool.find(e => e.id === exercises[0].exerciseId);
-      const hasQuadWork = exercises.some(ex => {
-        const e = pool.find(p => p.id === ex.exerciseId);
-        return e && (e.movement_pattern === "squat" || e.movement_pattern === "lunge" || e.primary_muscles.includes("quads"));
-      });
-
-      if (hasQuadWork && firstEx && !KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug)) {
-        // Find the first knee-safe quad exercise in the list
+      const firstIsKneeSafe = firstEx && KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug);
+      
+      if (!firstIsKneeSafe) {
+        // Try to find a knee-safe quad in the existing exercises to swap to front
         const kneeSafeIndex = exercises.findIndex(ex => {
           const e = pool.find(p => p.id === ex.exerciseId);
           return e && KNEE_SAFE_QUAD_EXERCISES.has(e.slug);
         });
-
+        
         if (kneeSafeIndex > 0) {
           // Swap it to the front
           [exercises[0], exercises[kneeSafeIndex]] = [exercises[kneeSafeIndex], exercises[0]];
-          // Update orderIndex
           exercises.forEach((e, idx) => { e.orderIndex = idx; });
+        } else {
+          // No knee-safe quad exists - try to add one
+          // For knee-injured users, allow reusing knee-safe quads across days if necessary
+          const usedInThisDay = new Set(exercises.map(ex => ex.exerciseId));
+          const kneeSafeOptions = pool
+            .filter(e => {
+              if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+              // Don't check usedInBlock for knee-safe quads on knee-injured lower/full days
+              // This allows exercises like wall-sit to repeat across days for bodyweight users
+              // But do check if it's already used in THIS day
+              if (usedInThisDay.has(e.id)) return false;
+              if (!e.tracks.includes(input.primaryTrack)) return false;
+              if (e.level_min === "expert" && input.level === "beginner") return false;
+              if (e.level_min === "expert" && input.level === "intermediate") return false;
+              if (e.level_min === "intermediate" && input.level === "beginner") return false;
+              
+              // Equipment check
+              if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
+                const altSets = EQUIPMENT_ALTERNATIVES[e.slug];
+                if (altSets) {
+                  const hasValidAlt = altSets.some(altSet => altSet.every(eid => input.equipmentIds.includes(eid)));
+                  if (!hasValidAlt && !e.equipment_ids.every(eid => input.equipmentIds.includes(eid))) {
+                    return false;
+                  }
+                } else if (!e.equipment_ids.every(eid => input.equipmentIds.includes(eid))) {
+                  return false;
+                }
+              }
+              
+              return true;
+            })
+            .sort((a, b) => 
+              score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) - 
+              score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+              a.slug.localeCompare(b.slug)
+            );
+          
+          if (kneeSafeOptions.length > 0) {
+            const added = kneeSafeOptions[0];
+            usedInBlock.add(added.id);
+            const p = prescribe(
+              input.goal,
+              input.level,
+              added.mechanic === "isolation",
+              added.metric ?? "reps",
+              sessionMinutes,
+              added.equipment_ids,
+            );
+            // Insert at the beginning
+            exercises.unshift({
+              exerciseId: added.id,
+              name: added.name,
+              orderIndex: 0,
+              targetSets: p.sets,
+              targetRepsMin: p.repsMin,
+              targetRepsMax: p.repsMax,
+              restSeconds: p.restSeconds,
+            });
+            // Update all orderIndex values
+            exercises.forEach((e, idx) => { e.orderIndex = idx; });
+          }
         }
       }
 
@@ -1156,6 +1237,29 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         if (exercises.length > 4) {
           [exercises[hipFlexionInMain], exercises[4]] = [exercises[4], exercises[hipFlexionInMain]];
           // Update orderIndex
+          exercises.forEach((e, idx) => { e.orderIndex = idx; });
+        }
+      }
+    }
+
+    // Rule 3b (PR #73 follow-up): Floor-pull deadlifts never in main slots for knee injury
+    // Conventional deadlifts with deep knee flexion are contraindicated
+    // Prefer hip-dominant hinges (RDL, hip thrust, glute bridge)
+    if (hasKneeInjury && exercises.length >= 4) {
+      const deadliftInMain = exercises.slice(0, 4).findIndex(ex => {
+        const e = pool.find(p => p.id === ex.exerciseId);
+        return e && FLOOR_PULL_DEADLIFTS.has(e.slug);
+      });
+
+      if (deadliftInMain !== -1) {
+        // Swap it with the first non-main exercise (slot 4 or later)
+        if (exercises.length > 4) {
+          [exercises[deadliftInMain], exercises[4]] = [exercises[4], exercises[deadliftInMain]];
+          // Update orderIndex
+          exercises.forEach((e, idx) => { e.orderIndex = idx; });
+        } else {
+          // If no accessories to swap with, remove it entirely
+          exercises.splice(deadliftInMain, 1);
           exercises.forEach((e, idx) => { e.orderIndex = idx; });
         }
       }
