@@ -56,7 +56,7 @@ async function runTests() {
   {
     const result = canFinish({ pendingSaves: 0, failedSaves: true });
     assertEquals(result.can, false, "Cannot finish with failed");
-    assertTrue(result.reason?.includes("Couldn't save"), "Shows error reason");
+    assertTrue(!!result.reason && result.reason.includes("Couldn't save"), "Shows error reason");
   }
 
   // Test 4: Failed takes precedence
@@ -64,7 +64,7 @@ async function runTests() {
   {
     const result = canFinish({ pendingSaves: 1, failedSaves: true });
     assertEquals(result.can, false, "Cannot finish");
-    assertTrue(result.reason?.includes("Couldn't save"), "Shows error not pending");
+    assertTrue(!!result.reason && result.reason.includes("Couldn't save"), "Shows error not pending");
   }
 
   console.log("\n\nTesting PendingTracker\n");
