@@ -534,14 +534,15 @@ async function runTests() {
       });
       
       // Try to update a session that doesn't belong to this user (use a random UUID)
+      // Use a far future date to avoid overlaps with existing test data
       const fakeSessionId = "00000000-0000-0000-0000-000000000000";
       const result = await updateSessionDateTimeCore(
         userClient,
         userId,
         fakeSessionId,
-        "2026-10-15",
-        "2026-10-15T10:00:00Z",
-        "2026-10-15T11:00:00Z",
+        "2026-12-31",
+        "2026-12-31T10:00:00Z",
+        "2026-12-31T11:00:00Z",
         "Asia/Kolkata",
         signupDate
       );
