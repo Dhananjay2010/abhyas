@@ -1453,15 +1453,31 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               sessionMinutes,
               picked.equipment_ids,
             );
-            exercises.push({
+            
+            // Find the last core exercise to insert before it (core must stay last)
+            const lastCoreIndex = exercises.map((ex, idx) => {
+              const e = pool.find(p => p.id === ex.exerciseId);
+              return e?.movement_pattern === "core" ? idx : -1;
+            }).reduce((max, idx) => Math.max(max, idx), -1);
+            
+            const insertIndex = lastCoreIndex >= 0 ? lastCoreIndex : exercises.length;
+            
+            // Insert at the correct position and update orderIndex for all exercises after it
+            exercises.splice(insertIndex, 0, {
               exerciseId: picked.id,
               name: picked.name,
-              orderIndex: exercises.length,
+              orderIndex: insertIndex,
               targetSets: p.sets,
               targetRepsMin: p.repsMin,
               targetRepsMax: p.repsMax,
               restSeconds: p.restSeconds,
             });
+            
+            // Update orderIndex for exercises after the insertion point
+            for (let j = insertIndex + 1; j < exercises.length; j++) {
+              exercises[j].orderIndex = j;
+            }
+            
             estimate = estimateSessionMinutes({ exercises });
           } else {
             break; // No more accessories available
@@ -1508,15 +1524,30 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             sessionMinutes,
             picked.equipment_ids,
           );
-          exercises.push({
+          
+          // Find the last core exercise to insert before it (core must stay last)
+          const lastCoreIndex = exercises.map((ex, idx) => {
+            const e = pool.find(p => p.id === ex.exerciseId);
+            return e?.movement_pattern === "core" ? idx : -1;
+          }).reduce((max, idx) => Math.max(max, idx), -1);
+          
+          const insertIndex = lastCoreIndex >= 0 ? lastCoreIndex : exercises.length;
+          
+          // Insert at the correct position and update orderIndex for all exercises after it
+          exercises.splice(insertIndex, 0, {
             exerciseId: picked.id,
             name: picked.name,
-            orderIndex: exercises.length,
+            orderIndex: insertIndex,
             targetSets: p.sets,
             targetRepsMin: p.repsMin,
             targetRepsMax: p.repsMax,
             restSeconds: p.restSeconds,
           });
+          
+          // Update orderIndex for exercises after the insertion point
+          for (let j = insertIndex + 1; j < exercises.length; j++) {
+            exercises[j].orderIndex = j;
+          }
         }
       }
     }
