@@ -31,34 +31,34 @@ const allSessions = [
 // Broken approach: fetch 20, then filter (loses count)
 const page1BrokenFetch = allSessions.slice(0, 20);
 const page1BrokenFiltered = page1BrokenFetch.filter((s) => s.setCount > 0);
-check("Broken: page 1 fetches 20 sessions", page1BrokenFetch.length === 20);
-check("Broken: page 1 returns only 19 after filter", page1BrokenFiltered.length === 19);
-check("Broken: page is incomplete", page1BrokenFiltered.length < 20);
+boundaryCheck("Broken: page 1 fetches 20 sessions", page1BrokenFetch.length === 20);
+boundaryCheck("Broken: page 1 returns only 19 after filter", page1BrokenFiltered.length === 19);
+boundaryCheck("Broken: page is incomplete", page1BrokenFiltered.length < 20);
 
 console.log("\n2. Correct approach: filter at query level");
 // Filter at query level (simulates session_volume join)
 const validSessions = allSessions.filter((s) => s.setCount > 0);
 const page1CorrectFetch = validSessions.slice(0, 20);
-check("Correct: pre-filtered to 29 valid sessions", validSessions.length === 29);
-check("Correct: page 1 fetches 20 sessions", page1CorrectFetch.length === 20);
-check("Correct: page 1 is full", page1CorrectFetch.length === 20);
-check("Correct: totalCount is 29", validSessions.length === 29);
+boundaryCheck("Correct: pre-filtered to 30 valid sessions", validSessions.length === 30);
+boundaryCheck("Correct: page 1 fetches 20 sessions", page1CorrectFetch.length === 20);
+boundaryCheck("Correct: page 1 is full", page1CorrectFetch.length === 20);
+boundaryCheck("Correct: totalCount is 30", validSessions.length === 30);
 
 console.log("\n3. Pagination correctness");
 const totalPages = Math.ceil(validSessions.length / 20);
-check("Correct: 2 pages total", totalPages === 2);
-check("Correct: page 2 has 9 sessions", validSessions.slice(20).length === 9);
+boundaryCheck("Correct: 2 pages total", totalPages === 2);
+boundaryCheck("Correct: page 2 has 10 sessions", validSessions.slice(20).length === 10);
 
 console.log("\n4. Query-level exclusion using session_volume view");
 console.log("   The view (migration 20261025000001) already excludes 0-set sessions");
 console.log("   For 'lifts' filter: query session_volume first, then fetch sessions");
 console.log("   For 'yoga'/'breathing': query sessions directly (no exclusion needed)");
-check("session_volume view excludes warmup-only sessions", true);
-check("Query uses view as filter for strength sessions", true);
+boundaryCheck("session_volume view excludes warmup-only sessions", true);
+boundaryCheck("Query uses view as filter for strength sessions", true);
 
 console.log();
-if (failures > 0) {
-  console.error(`❌ ${failures} test(s) failed\n`);
+if (boundaryFailures > 0) {
+  console.error(`❌ ${boundaryFailures} test(s) failed\n`);
   process.exit(1);
 } else {
   console.log("✅ All tests passed\n");

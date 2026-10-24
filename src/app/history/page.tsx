@@ -69,7 +69,13 @@ export default async function HistoryPage({
     query = query.eq("actual_type", "meditation");
   }
 
-  query = query.order("local_date", { ascending: false }).range(offset, offset + limit - 1);
+  // Sort by session time (completed_at, or started_at if not completed) descending,
+  // then by id descending as deterministic tie-breaker
+  query = query
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .order("started_at", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
 
   const { data: sessions, error: sessionsError, count } = await query;
 
