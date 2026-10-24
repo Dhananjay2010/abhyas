@@ -52,11 +52,11 @@ export default async function SettingsPage() {
 
   // Compute timezone list on server to avoid hydration mismatches.
   // Ensure user's current timezone is in the list even if missing from Intl.
-  let timezones = [...Intl.supportedValuesOf("timeZone")];
-  if (profile.timezone && !timezones.includes(profile.timezone)) {
-    timezones.push(profile.timezone);
-    timezones.sort();
-  }
+  const baseTimezones = Intl.supportedValuesOf("timeZone");
+  const timezones =
+    profile.timezone && !baseTimezones.includes(profile.timezone)
+      ? [...baseTimezones, profile.timezone].sort()
+      : baseTimezones;
 
   const { supportEmail } = getSiteInfo();
 
