@@ -35,15 +35,11 @@ type SessionExerciseRow = {
 
 /**
  * Convert program day exercises to session exercise rows.
- *
- * The is_deload parameter is kept for future use but not currently applied
- * (deload handling is owned by another PR).
  */
 export function prepareSessionExercises(
   sessionId: string,
   userId: string,
   programDayExercises: ProgramDayExercise[],
-  _isDeload: boolean,
 ): SessionExerciseRow[] {
   return programDayExercises.map((p) => {
     return {

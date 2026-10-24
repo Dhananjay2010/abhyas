@@ -182,7 +182,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
 
   const planned = plannedRes.data;
   if (planned && planned.length > 0) {
-    const exercises = prepareSessionExercises(session.id, user.id, planned, isDeloadWeek);
+    const exercises = prepareSessionExercises(session.id, user.id, planned);
     const { error } = await supabase.from("session_exercises").insert(exercises);
     if (error) return { ok: false, error: error.message };
   }
@@ -826,7 +826,6 @@ async function ensureSessionExercises(
     sessionId,
     userId,
     planned,
-    session.is_deload ?? false,
   );
   await supabase.from("session_exercises").insert(exercises);
 }

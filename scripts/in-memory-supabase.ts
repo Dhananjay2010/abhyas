@@ -410,7 +410,7 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
     writes,
     store,
     from: (table: string) => ({
-      select: (_columns: string) => createQueryBuilder(table),
+      select: () => createQueryBuilder(table),
       insert: (values: unknown) => createInsertBuilder(table, values),
       update: (values: unknown) => createWriteBuilder(table, "update", values),
       delete: () => createWriteBuilder(table, "delete", null),

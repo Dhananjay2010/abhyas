@@ -250,16 +250,16 @@ export async function repointSessionsAfterRebuild(
       return { error: dayError };
     }
 
-    // Find the session to get user_id and is_deload
+    // Find the session to get user_id
     const session = sessions.find((s) => s.id === r.id);
     if (!session) {
       return { error: { message: `Session ${r.id} not found` } };
     }
 
-    // Fetch session data for is_deload
+    // Fetch session data for user_id
     const { data: sessionData, error: sessionError } = await supabase
       .from("sessions")
-      .select("user_id, is_deload")
+      .select("user_id")
       .eq("id", r.id)
       .single();
 
@@ -267,12 +267,11 @@ export async function repointSessionsAfterRebuild(
       return { error: sessionError };
     }
 
-    // Prepare new session exercises (use session's is_deload from database)
+    // Prepare new session exercises
     const newExercises = prepareSessionExercises(
       r.id,
       sessionData.user_id,
       dayExercises,
-      sessionData.is_deload,
     );
 
     // Read old exercise IDs before inserting new ones
