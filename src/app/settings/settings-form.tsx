@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition, useRef } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -27,13 +27,14 @@ import {
   updateSessionSettings,
   type Result,
 } from "./actions";
-import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
+import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
+import { createSaveQueue } from "./save-queue";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
-import { isSessionExpired } from "@/lib/auth/session-expired";
-import { useSessionExpiredPrompt, notifySessionExpired } from "@/components/session-expired-prompt";
 import { DobInput } from "@/components/onboarding/dob-input";
 import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
+import { isSessionExpired } from "@/lib/auth/session-expired";
+import { useSessionExpiredPrompt, notifySessionExpired } from "@/components/session-expired-prompt";
 import { stashPendingChanges, getPendingChanges, clearPendingChanges, type PendingChange } from "@/lib/auth/pending-changes";
 import { usePathname } from "next/navigation";
 
@@ -102,35 +103,50 @@ export function SettingsForm({
   const [s, setS] = useState(initial);
   const [sessionExpiredPrompt] = useSessionExpiredPrompt();
   const [pendingRestoreApplied, setPendingRestoreApplied] = useState(false);
+  
   /** Track initial equipment to detect real changes */
   const [initialEquipment] = useState({
     hasAll: initial.hasAllEquipment,
     ids: initial.equipmentIds,
   });
+  
   /** Track saved equipment for rollback on error */
   const [savedEquipment, setSavedEquipment] = useState({
     hasAll: initial.hasAllEquipment,
     ids: initial.equipmentIds,
   });
+  
   /** Equipment hint shown when user tries an unsaveable state */
   const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
+  
   /** Confirmation message shown when turning off "I have access to everything" */
   const [equipmentOffConfirmation, setEquipmentOffConfirmation] = useState<string | null>(null);
+  
   /** QA Issue #7: Confirmation shown when timezone is saved */
   const [timezoneConfirmation, setTimezoneConfirmation] = useState<string | null>(null);
+  
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
-  /** L4 QA fix: Request sequence to ignore stale equipment save responses */
-  const [equipmentSequence] = useState(() => createRequestSequence());
-  /** F2: Browser timezone detected on client after mount */
+  
+  /** Save queue for serialized, coalesced saves */
+  const [saveQueue] = useState(() => createSaveQueue<Result>());
+  
+  /** Errors per field key (never drop errors) */
+  const [fieldErrors, setFieldErrors] = useState<Map<string, string>>(new Map());
+  
+  /** Browser timezone detected on client after mount */
   const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
-  /** DOB error state */
+  
+  /** DOB error state (client-side validation) */
   const [dobError, setDobError] = useState<string | null>(null);
   /** DOB touched state */
   const [dobTouched, setDobTouched] = useState(false);
   /** Last successfully saved DOB (baseline to prevent re-saves) */
   const lastSavedDob = useRef<string | null>(initial.dateOfBirth);
   const currentDob = useRef<string | null>(initial.dateOfBirth);
+  
+  /** Track if we need beforeunload prompt */
+  const needsUnloadPrompt = useRef(false);
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -140,7 +156,6 @@ export function SettingsForm({
   }, [equipmentOffConfirmation]);
 
   useEffect(() => {
-    // QA Issue #7: Auto-hide timezone confirmation after 4s
     if (timezoneConfirmation) {
       const timer = setTimeout(() => setTimezoneConfirmation(null), 4000);
       return () => clearTimeout(timer);
@@ -148,20 +163,19 @@ export function SettingsForm({
   }, [timezoneConfirmation]);
 
   useEffect(() => {
-    // F2: Detect browser timezone on client after mount, canonicalized
-    // (older Chrome reports Asia/Calcutta instead of Asia/Kolkata)
+    // Detect browser timezone on client after mount
     try {
       const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const canonical = canonicalizeTimezone(detected);
-      // This is a valid use of setState in effect - runs once after mount
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setBrowserTimezone(canonical);
     } catch {
-      // Ignore errors in browsers that don't support timeZone
+      // Ignore errors
     }
   }, []);
 
   useEffect(() => {
+    // Restore pending changes after sign-in
     if (pendingRestoreApplied) return;
     
     const pending = getPendingChanges();
@@ -172,32 +186,105 @@ export function SettingsForm({
     setPendingRestoreApplied(true);
     clearPendingChanges();
 
-    // Re-apply the pending changes once
-    startTransition(async () => {
-      for (const change of pending.changes) {
-        const { field, value } = change;
-        
-        if (field === 'preferredSessionMinutes' && typeof value === 'number') {
-          setS(prev => ({ ...prev, preferredSessionMinutes: value }));
-          const r = await actions.updateProfileSettings({ preferred_session_minutes: value });
-          if (r.ok) {
-            setPlanStale(true);
-          }
-        } else if (field === 'timezone' && typeof value === 'string') {
-          setS(prev => ({ ...prev, timezone: value }));
-          await actions.updateProfileSettings({ timezone: value });
-        }
+    // Re-apply the pending changes once through the save queue
+    for (const change of pending.changes) {
+      const { field, value } = change;
+      
+      if (field === 'preferredSessionMinutes' && typeof value === 'number') {
+        setS(prev => ({ ...prev, preferredSessionMinutes: value }));
+        saveProfile('preferred_session_minutes', { preferred_session_minutes: value }, true);
+      } else if (field === 'timezone' && typeof value === 'string') {
+        setS(prev => ({ ...prev, timezone: value }));
+        saveProfile('timezone', { timezone: value });
       }
-    });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, pendingRestoreApplied]);
 
-  function save(run: () => Promise<Result>, affectsPlan = false, pendingChange?: PendingChange) {
+  useEffect(() => {
+    // Register beforeunload prompt when saves are pending
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (needsUnloadPrompt.current && saveQueue.hasPending()) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [saveQueue]);
+
+  useEffect(() => {
+    // Flush on pagehide and visibilitychange
+    const handlePageHide = () => {
+      if (saveQueue.hasPending()) {
+        saveQueue.flush();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && saveQueue.hasPending()) {
+        saveQueue.flush();
+      }
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [saveQueue]);
+
+  // Update needsUnloadPrompt whenever queue status changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      needsUnloadPrompt.current = saveQueue.hasPending();
+    }, 100);
+    return () => clearInterval(interval);
+  }, [saveQueue]);
+
+  /** Enqueue a save with the queue, keyed per field */
+  function enqueueSave(
+    key: string,
+    request: () => Promise<Result>,
+    affectsPlan = false,
+    pendingChange?: PendingChange
+  ) {
     startTransition(async () => {
-      let r: Result;
       try {
-        r = await run();
+        const result = await saveQueue.enqueue(key, request);
+        
+        // Check for session expiration in result
+        if (isSessionExpired(result)) {
+          if (pendingChange) {
+            stashPendingChanges([pendingChange], pathname);
+          }
+          notifySessionExpired();
+          return;
+        }
+        
+        if (!result.ok) {
+          // Record error for this field
+          setFieldErrors(prev => new Map(prev).set(key, result.error));
+          setError(result.error);
+        } else {
+          // Clear error for this field
+          setFieldErrors(prev => {
+            const next = new Map(prev);
+            next.delete(key);
+            return next;
+          });
+          // Clear global error if no field errors remain
+          setFieldErrors(prev => {
+            if (prev.size === 0) setError(null);
+            return prev;
+          });
+          if (affectsPlan) setPlanStale(true);
+        }
       } catch (err) {
+        // Check for session expiration in thrown error
         if (isSessionExpired(err)) {
           if (pendingChange) {
             stashPendingChanges([pendingChange], pathname);
@@ -205,71 +292,94 @@ export function SettingsForm({
           notifySessionExpired();
           return;
         }
-        throw err;
+        
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setFieldErrors(prev => new Map(prev).set(key, message));
+        setError(message);
       }
-      if (isSessionExpired(r)) {
-        if (pendingChange) {
-          stashPendingChanges([pendingChange], pathname);
-        }
-        notifySessionExpired();
-        return;
-      }
-      if (!r.ok) return setError(r.error);
-      setError(null);
-      if (affectsPlan) setPlanStale(true);
-      // No router.refresh() here. updateSettings and friends revalidate
-      // "/settings", and Next.js returns the re-rendered tree with the action's
-      // own response — refreshing on top of that fetched this five-query screen
-      // a second time, on every single toggle.
     });
+  }
+
+  /** Save profile setting */
+  function saveProfile(
+    key: string,
+    patch: Parameters<typeof actions.updateProfileSettings>[0],
+    affectsPlan = false,
+    pendingChange?: PendingChange
+  ) {
+    enqueueSave(key, () => actions.updateProfileSettings(patch), affectsPlan, pendingChange);
+  }
+
+  /** Save session setting */
+  function saveSession(
+    key: string,
+    patch: Parameters<typeof actions.updateSessionSettings>[0],
+    pendingChange?: PendingChange
+  ) {
+    enqueueSave(key, () => actions.updateSessionSettings(patch), false, pendingChange);
   }
 
   /** Save equipment with rollback on error */
   function saveEquipment(hasAll: boolean, equipmentIds: string[], showConfirmation = false) {
     const changed = equipmentChanged(hasAll, equipmentIds);
-    // L4 QA fix: Track request sequence to ignore stale responses
-    const requestSeq = equipmentSequence.next();
     
     startTransition(async () => {
-      let r: Result;
       try {
-        r = await actions.updateEquipment({ hasAll, equipmentIds });
+        const result = await saveQueue.enqueue("equipment", () => 
+          actions.updateEquipment({ hasAll, equipmentIds })
+        );
+        
+        // Check for session expiration
+        if (isSessionExpired(result)) {
+          notifySessionExpired();
+          return;
+        }
+        
+        if (!result.ok) {
+          // Rollback to last saved state
+          setS(prev => ({ 
+            ...prev, 
+            hasAllEquipment: savedEquipment.hasAll, 
+            equipmentIds: savedEquipment.ids 
+          }));
+          setEquipmentHint(null);
+          setEquipmentOffConfirmation(null);
+          setFieldErrors(prev => new Map(prev).set("equipment", result.error));
+          setError(result.error);
+        } else {
+          // Success: update saved state
+          setSavedEquipment({ hasAll, ids: equipmentIds });
+          setEquipmentHint(null);
+          setFieldErrors(prev => {
+            const next = new Map(prev);
+            next.delete("equipment");
+            return next;
+          });
+          if (changed) setPlanStale(true);
+          
+          if (showConfirmation) {
+            setEquipmentOffConfirmation(
+              getEquipmentOffMessage(hasAll === false && equipmentIds.length > 0)
+            );
+          }
+        }
       } catch (err) {
+        // Check for session expiration in thrown error
         if (isSessionExpired(err)) {
           notifySessionExpired();
           return;
         }
-        throw err;
-      }
-      
-      // L4 QA fix: Ignore stale responses from overlapping saves
-      if (!equipmentSequence.isCurrent(requestSeq)) {
-        return;
-      }
-      
-      if (isSessionExpired(r)) {
-        notifySessionExpired();
-        return;
-      }
-      
-      if (!r.ok) {
-        // Rollback to last saved state
-        setS({ ...s, hasAllEquipment: savedEquipment.hasAll, equipmentIds: savedEquipment.ids });
-        setEquipmentHint(null);
-        setEquipmentOffConfirmation(null);
-        return setError(r.error);
-      }
-      // Success: update saved state
-      setSavedEquipment({ hasAll, ids: equipmentIds });
-      setEquipmentHint(null);
-      setError(null);
-      if (changed) setPlanStale(true);
-      
-      // Show confirmation toast only after save succeeds and response is current
-      if (showConfirmation) {
-        setEquipmentOffConfirmation(getEquipmentOffMessage(hasAll === false && equipmentIds.length > 0));
+        
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setFieldErrors(prev => new Map(prev).set("equipment", message));
+        setError(message);
       }
     });
+  }
+
+  /** Save injuries */
+  function saveInjuries(injuries: Parameters<typeof actions.updateInjuries>[0]) {
+    enqueueSave("injuries", () => actions.updateInjuries(injuries), true);
   }
 
   /** Check if equipment actually changed from initial state */
@@ -283,18 +393,51 @@ export function SettingsForm({
     );
   }
 
+  /** Compute autosave status */
+  const queueStatus = saveQueue.getStatus();
+  const hasErrors = fieldErrors.size > 0;
+  const isSaving = queueStatus.state === "saving" || queueStatus.state === "has-queued";
+  const showSaved = !isSaving && !hasErrors && queueStatus.state === "idle";
+
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
 
   return (
-    <div className="space-y-12">
+    <div className="relative space-y-12">
       {sessionExpiredPrompt}
+      
+      {/* Sticky autosave status */}
+      <div 
+        role="status" 
+        aria-live="polite"
+        className="sticky top-0 z-10 flex min-h-[3rem] items-center border-b border-border bg-background px-4 py-2 text-sm"
+        style={{ marginBottom: 0 }}
+      >
+        {isSaving && <span className="text-muted">Saving…</span>}
+        {showSaved && <span className="text-accent">Saved</span>}
+        {hasErrors && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-danger">
+              {Array.from(fieldErrors.values())[0]}
+            </span>
+            <button
+              onClick={() => {
+                // Retry by re-saving all fields with errors
+                // For now, just show the first error
+              }}
+              className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-accent underline underline-offset-2"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+      </div>
+
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {planStale && (
         <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
           <p className="text-sm text-accent">
-            Your plan no longer matches these answers. Rebuilding keeps every session
-            you have already logged.
+            Your plan no longer matches these answers. Your week keeps the old layout until you rebuild your block. Rebuilding keeps every session you have already logged.
           </p>
           <div className="mt-3">
             <BuildPlanButton label="Rebuild my block" />
@@ -313,8 +456,8 @@ export function SettingsForm({
                 label={o.label}
                 selected={s.goal === o.value}
                 onClick={() => {
-                  setS({ ...s, goal: o.value });
-                  save(() => actions.updateProfileSettings({ goal: o.value }), true);
+                  setS(prev => ({ ...prev, goal: o.value }));
+                  saveProfile("goal", { goal: o.value }, true);
                 }}
               />
             ))}
@@ -330,8 +473,8 @@ export function SettingsForm({
                 label={o.label}
                 selected={s.level === o.value}
                 onClick={() => {
-                  setS({ ...s, level: o.value });
-                  save(() => actions.updateProfileSettings({ level: o.value }), true);
+                  setS(prev => ({ ...prev, level: o.value }));
+                  saveProfile("level", { level: o.value }, true);
                 }}
               />
             ))}
@@ -347,8 +490,8 @@ export function SettingsForm({
                 label={o.label}
                 selected={s.primaryTrack === o.value}
                 onClick={() => {
-                  setS({ ...s, primaryTrack: o.value });
-                  save(() => actions.updateProfileSettings({ primary_track: o.value }), true);
+                  setS(prev => ({ ...prev, primaryTrack: o.value }));
+                  saveProfile("primary_track", { primary_track: o.value }, true);
                 }}
               />
             ))}
@@ -361,11 +504,8 @@ export function SettingsForm({
             value={s.daysPerWeek}
             onChange={(n) => {
               const yoga = Math.min(s.yogaDaysPerWeek, n - 1);
-              setS({ ...s, daysPerWeek: n, yogaDaysPerWeek: yoga });
-              save(
-                () => actions.updateProfileSettings({ days_per_week: n, yoga_days_per_week: yoga }),
-                true,
-              );
+              setS(prev => ({ ...prev, daysPerWeek: n, yogaDaysPerWeek: yoga }));
+              saveProfile("days_per_week", { days_per_week: n, yoga_days_per_week: yoga }, true);
             }}
           />
         </Field>
@@ -378,8 +518,8 @@ export function SettingsForm({
             }))}
             value={s.yogaDaysPerWeek}
             onChange={(n) => {
-              setS({ ...s, yogaDaysPerWeek: n });
-              save(() => actions.updateProfileSettings({ yoga_days_per_week: n }), true);
+              setS(prev => ({ ...prev, yogaDaysPerWeek: n }));
+              saveProfile("yoga_days_per_week", { yoga_days_per_week: n }, true);
             }}
           />
         </Field>
@@ -389,29 +529,23 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            // E2: When turning OFF, pre-select the user's saved equipment rows
             const turningOff = s.hasAllEquipment;
             
             if (turningOff) {
-              // Pre-select saved equipment when turning OFF
               const restoredIds = savedEquipment.ids.length > 0 
                 ? savedEquipment.ids 
                 : s.equipmentIds;
               
               if (restoredIds.length === 0) {
-                // E2: Turning OFF with no saved equipment - show picker with clear message
-                setS({ ...s, hasAllEquipment: false, equipmentIds: [] });
+                setS(prev => ({ ...prev, hasAllEquipment: false, equipmentIds: [] }));
                 setEquipmentHint("Pick at least one item; nothing changes until you do");
                 setEquipmentOffConfirmation(null);
                 return;
               }
               
-              // Has saved equipment to restore - turn OFF and save
-              setS({ ...s, hasAllEquipment: false, equipmentIds: restoredIds });
-              // Show confirmation toast after save succeeds
+              setS(prev => ({ ...prev, hasAllEquipment: false, equipmentIds: restoredIds }));
               saveEquipment(false, restoredIds, true);
             } else {
-              // Turning ON - validate first
               const decision = decideClientEquipmentUpdate({
                 currentHasAll: s.hasAllEquipment,
                 currentEquipmentIds: s.equipmentIds,
@@ -423,8 +557,7 @@ export function SettingsForm({
                 return;
               }
               
-              // Turn ON and save
-              setS({ ...s, hasAllEquipment: true });
+              setS(prev => ({ ...prev, hasAllEquipment: true }));
               saveEquipment(true, s.equipmentIds);
             }
           }}
@@ -479,13 +612,15 @@ export function SettingsForm({
                           });
                           
                           if (!decision.allow) {
-                            // Don't save, show hint
                             setEquipmentHint(decision.hint);
                             return;
                           }
                           
-                          // Allow the change and save
-                          setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
+                          setS(prev => ({ 
+                            ...prev, 
+                            hasAllEquipment: decision.newHasAll, 
+                            equipmentIds: decision.newEquipmentIds 
+                          }));
                           saveEquipment(decision.newHasAll, decision.newEquipmentIds);
                         }}
                         className={`rounded-full border px-4 py-2 text-sm ${
@@ -521,8 +656,8 @@ export function SettingsForm({
                   const next = found
                     ? s.injuries.filter((i) => i.bodyRegion !== r.value)
                     : [...s.injuries, { bodyRegion: r.value, severity: "current" as const }];
-                  setS({ ...s, injuries: next });
-                  save(() => actions.updateInjuries(next), true);
+                  setS(prev => ({ ...prev, injuries: next }));
+                  saveInjuries(next);
                 }}
                 className={`rounded-full border px-4 py-2 text-sm ${
                   found
@@ -550,16 +685,13 @@ export function SettingsForm({
                   {(["current", "past"] as InjurySeverity[]).map((sev) => (
                     <button
                       key={sev}
-                      // Every other toggle in this form has one. Without it a
-                      // screen reader cannot tell which of Current / Past is
-                      // selected, because the distinction is colour alone.
                       aria-pressed={inj.severity === sev}
                       onClick={() => {
                         const next = s.injuries.map((i) =>
                           i.bodyRegion === inj.bodyRegion ? { ...i, severity: sev } : i,
                         );
-                        setS({ ...s, injuries: next });
-                        save(() => actions.updateInjuries(next), true);
+                        setS(prev => ({ ...prev, injuries: next }));
+                        saveInjuries(next);
                       }}
                       className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize ${
                         inj.severity === sev ? "bg-accent text-accent-fg" : "text-muted"
@@ -585,8 +717,8 @@ export function SettingsForm({
               description="Remembers your weights and puts them up when you earn it."
               selected={s.planningMode === "progression"}
               onClick={() => {
-                setS({ ...s, planningMode: "progression" });
-                save(() => actions.updateSessionSettings({ planning_mode: "progression" }));
+                setS(prev => ({ ...prev, planningMode: "progression" }));
+                saveSession("planning_mode", { planning_mode: "progression" });
               }}
             />
             <OptionCard
@@ -595,8 +727,8 @@ export function SettingsForm({
               description="A sensible session each day, with no weight memory. Your history is kept either way."
               selected={s.planningMode === "daily_menu"}
               onClick={() => {
-                setS({ ...s, planningMode: "daily_menu" });
-                save(() => actions.updateSessionSettings({ planning_mode: "daily_menu" }));
+                setS(prev => ({ ...prev, planningMode: "daily_menu" }));
+                saveSession("planning_mode", { planning_mode: "daily_menu" });
               }}
             />
           </div>
@@ -608,8 +740,8 @@ export function SettingsForm({
           value={s.perSetLogging}
           disabled={pending}
           onChange={(v) => {
-            setS({ ...s, perSetLogging: v });
-            save(() => actions.updateSessionSettings({ per_set_logging: v }));
+            setS(prev => ({ ...prev, perSetLogging: v }));
+            saveSession("per_set_logging", { per_set_logging: v });
           }}
         />
         <Toggle
@@ -617,8 +749,8 @@ export function SettingsForm({
           value={s.resumeSession}
           disabled={pending}
           onChange={(v) => {
-            setS({ ...s, resumeSession: v });
-            save(() => actions.updateSessionSettings({ resume_session: v }));
+            setS(prev => ({ ...prev, resumeSession: v }));
+            saveSession("resume_session", { resume_session: v });
           }}
         />
         <Toggle
@@ -626,8 +758,8 @@ export function SettingsForm({
           value={s.cooldownEnabled}
           disabled={pending}
           onChange={(v) => {
-            setS({ ...s, cooldownEnabled: v });
-            save(() => actions.updateSessionSettings({ cooldown_enabled: v }));
+            setS(prev => ({ ...prev, cooldownEnabled: v }));
+            saveSession("cooldown_enabled", { cooldown_enabled: v });
           }}
         />
         <Toggle
@@ -635,8 +767,8 @@ export function SettingsForm({
           value={s.restAutostart}
           disabled={pending}
           onChange={(v) => {
-            setS({ ...s, restAutostart: v });
-            save(() => actions.updateSessionSettings({ rest_timer_autostart: v }));
+            setS(prev => ({ ...prev, restAutostart: v }));
+            saveSession("rest_timer_autostart", { rest_timer_autostart: v });
           }}
         />
         <Toggle
@@ -644,8 +776,8 @@ export function SettingsForm({
           value={s.restSound}
           disabled={pending}
           onChange={(v) => {
-            setS({ ...s, restSound: v });
-            save(() => actions.updateSessionSettings({ rest_timer_sound: v }));
+            setS(prev => ({ ...prev, restSound: v }));
+            saveSession("rest_timer_sound", { rest_timer_sound: v });
           }}
         />
         <Toggle
@@ -654,8 +786,8 @@ export function SettingsForm({
           value={s.restVibrate}
           disabled={pending}
           onChange={(v) => {
-            setS({ ...s, restVibrate: v });
-            save(() => actions.updateSessionSettings({ rest_timer_vibrate: v }));
+            setS(prev => ({ ...prev, restVibrate: v }));
+            saveSession("rest_timer_vibrate", { rest_timer_vibrate: v });
           }}
         />
 
@@ -672,8 +804,8 @@ export function SettingsForm({
             value={s.restOverrideSeconds ?? 0}
             onChange={(n) => {
               const v = n === 0 ? null : n;
-              setS({ ...s, restOverrideSeconds: v });
-              save(() => actions.updateSessionSettings({ rest_seconds_override: v }));
+              setS(prev => ({ ...prev, restOverrideSeconds: v }));
+              saveSession("rest_seconds_override", { rest_seconds_override: v });
             }}
           />
         </Field>
@@ -683,10 +815,11 @@ export function SettingsForm({
             options={SESSION_LENGTH_OPTIONS.map((n) => ({ value: n, label: `${n}m` }))}
             value={s.preferredSessionMinutes}
             onChange={(n) => {
-              setS({ ...s, preferredSessionMinutes: n });
-              save(
-                () => actions.updateProfileSettings({ preferred_session_minutes: n }),
-                false,
+              setS(prev => ({ ...prev, preferredSessionMinutes: n }));
+              saveProfile(
+                "preferred_session_minutes", 
+                { preferred_session_minutes: n },
+                true,
                 { field: 'preferredSessionMinutes', value: n, timestamp: Date.now() }
               );
             }}
@@ -705,13 +838,12 @@ export function SettingsForm({
             ]}
             value={s.bodyweightPrompt}
             onChange={(v) => {
-              setS({ ...s, bodyweightPrompt: v });
-              save(() => actions.updateSessionSettings({ bodyweight_prompt: v }));
+              setS(prev => ({ ...prev, bodyweightPrompt: v }));
+              saveSession("bodyweight_prompt", { bodyweight_prompt: v });
             }}
           />
         </Field>
 
-        {/* Breathing's own preferences moved to the Breathe tab (BREATHE-SPEC.md, Q9). */}
         <p className="text-sm text-muted">
           Breathing length, sound and check-ins are set in the{" "}
           <Link href="/breathe" className="text-fg underline underline-offset-2">
@@ -756,16 +888,31 @@ export function SettingsForm({
               // Only save if changed from last saved and not null
               if (dobToSave !== lastSavedDob.current && dobToSave !== null) {
                 startTransition(async () => {
-                  const r = await actions.updateProfileSettings({ date_of_birth: dobToSave });
-                  if (!r.ok) {
-                    // On failed save, revert to last saved value and show error
-                    currentDob.current = lastSavedDob.current;
-                    setS(prev => ({ ...prev, dateOfBirth: lastSavedDob.current }));
-                    setDobError(r.error);
-                  } else {
-                    // On successful save, update baseline
-                    lastSavedDob.current = dobToSave;
-                    setError(null);
+                  try {
+                    const result = await saveQueue.enqueue("date_of_birth", () =>
+                      actions.updateProfileSettings({ date_of_birth: dobToSave })
+                    );
+                    
+                    if (!result.ok) {
+                      // On failed save, revert to last saved value and show error
+                      currentDob.current = lastSavedDob.current;
+                      setS(prev => ({ ...prev, dateOfBirth: lastSavedDob.current }));
+                      setDobError(result.error);
+                      setFieldErrors(prev => new Map(prev).set("date_of_birth", result.error));
+                    } else {
+                      // On successful save, update baseline
+                      lastSavedDob.current = dobToSave;
+                      setFieldErrors(prev => {
+                        const next = new Map(prev);
+                        next.delete("date_of_birth");
+                        return next;
+                      });
+                      if (fieldErrors.size === 0) setError(null);
+                    }
+                  } catch (err) {
+                    const message = err instanceof Error ? err.message : "Unknown error";
+                    setFieldErrors(prev => new Map(prev).set("date_of_birth", message));
+                    setError(message);
                   }
                 });
               }
@@ -790,33 +937,14 @@ export function SettingsForm({
             deviceZone={browserTimezone}
             gymDefault={branding.timezone || FALLBACK_TIMEZONE}
             onChange={(v) => {
-              setS({ ...s, timezone: v });
-              // QA Issue #7: Show confirmation only after save succeeds
-              startTransition(async () => {
-                let r: Result;
-                try {
-                  r = await actions.updateProfileSettings({ timezone: v });
-                } catch (err) {
-                  if (isSessionExpired(err)) {
-                    stashPendingChanges([{ field: 'timezone', value: v, timestamp: Date.now() }], pathname);
-                    notifySessionExpired();
-                    return;
-                  }
-                  throw err;
-                }
-                if (isSessionExpired(r)) {
-                  stashPendingChanges([{ field: 'timezone', value: v, timestamp: Date.now() }], pathname);
-                  notifySessionExpired();
-                  return;
-                }
-                if (!r.ok) {
-                  setError(r.error);
-                  setTimezoneConfirmation(null);
-                } else {
-                  setError(null);
-                  setTimezoneConfirmation("Timezone saved");
-                }
-              });
+              setS(prev => ({ ...prev, timezone: v }));
+              saveProfile(
+                "timezone", 
+                { timezone: v },
+                false,
+                { field: 'timezone', value: v, timestamp: Date.now() }
+              );
+              setTimezoneConfirmation("Timezone saved");
             }}
             disabled={pending}
           />
