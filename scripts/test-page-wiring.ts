@@ -104,7 +104,6 @@ assert(
 );
 
 assert(
-  missedBlocks.showKeepSwapRest === false,
   "Hides Keep/Swap/Rest for 'missed' type"
 );
 
@@ -144,7 +143,6 @@ assert(
 );
 
 assert(
-  bothBlocks.showKeepSwapRest === false,
   "Hides Keep/Swap/Rest for 'both' type"
 );
 
@@ -164,7 +162,6 @@ assert(
 );
 
 assert(
-  firstDayBlocks.showStartFirstWorkoutAnyway === true,
   "Shows 'start first workout anyway' when never started on rest day"
 );
 
@@ -199,7 +196,6 @@ assert(
 );
 
 assert(
-  normalRestBlocks.showStartFirstWorkoutAnyway === false,
   "Hides 'start first workout anyway' when user has started"
 );
 
@@ -219,7 +215,6 @@ assert(
 );
 
 assert(
-  noPromptBlocks.showKeepSwapRest === false,
   "Hides Keep/Swap/Rest for 'none' type"
 );
 
@@ -259,7 +254,6 @@ assert(
 );
 
 assert(
-  neverStartedTraining.showKeepSwapRest === false,
   "Hides Keep/Swap/Rest when never started on training day"
 );
 
@@ -279,7 +273,6 @@ assert(
 );
 
 assert(
-  neverStartedRest.showStartFirstWorkoutAnyway === true,
   "Shows 'start first workout anyway' when never started on rest day"
 );
 

@@ -15,11 +15,9 @@ export interface PromptBlocksInput {
 
 export interface PromptBlocks {
   showMissedPrompt: boolean;
-  showKeepSwapRest: boolean;
   showRestPlan: boolean;
   showBothPrompt: boolean;
   showFirstDayWelcome: boolean;
-  showStartFirstWorkoutAnyway: boolean;
 }
 
 export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
@@ -29,15 +27,13 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
 
   // Day-one guard: hide all prompts except first-day welcome for never-started users
   if (neverStarted) {
-    // First day on a rest day: show welcome + "Start first workout anyway"
-    if (promptType === "rest_plan" && nextTrainingDay) {
+    // First day on any day (rest or training): show welcome + "Start first session now" button
+    if (nextTrainingDay) {
       return {
         showMissedPrompt: false,
-        showKeepSwapRest: false,
         showRestPlan: true,
         showBothPrompt: false,
         showFirstDayWelcome: true,
-        showStartFirstWorkoutAnyway: true,
       };
     }
 
@@ -45,22 +41,18 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
     if (isTraining) {
       return {
         showMissedPrompt: false,
-        showKeepSwapRest: false,
         showRestPlan: false,
         showBothPrompt: false,
         showFirstDayWelcome: true,
-        showStartFirstWorkoutAnyway: false,
       };
     }
 
     // Never started, not training, no prompt
     return {
       showMissedPrompt: false,
-      showKeepSwapRest: false,
       showRestPlan: false,
       showBothPrompt: false,
       showFirstDayWelcome: false,
-      showStartFirstWorkoutAnyway: false,
     };
   }
 
@@ -68,11 +60,9 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
   if (promptType === "both") {
     return {
       showMissedPrompt: false,
-      showKeepSwapRest: false,
       showRestPlan: true,
       showBothPrompt: true,
       showFirstDayWelcome: false,
-      showStartFirstWorkoutAnyway: false,
     };
   }
 
@@ -80,11 +70,9 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
   if (promptType === "missed") {
     return {
       showMissedPrompt: true,
-      showKeepSwapRest: false,
       showRestPlan: false,
       showBothPrompt: false,
       showFirstDayWelcome: false,
-      showStartFirstWorkoutAnyway: false,
     };
   }
 
@@ -92,21 +80,17 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
   if (promptType === "rest_plan") {
     return {
       showMissedPrompt: false,
-      showKeepSwapRest: false,
       showRestPlan: true,
       showBothPrompt: false,
       showFirstDayWelcome: false,
-      showStartFirstWorkoutAnyway: false,
     };
   }
 
   // No prompt (training day or answered already)
   return {
     showMissedPrompt: false,
-    showKeepSwapRest: false,
     showRestPlan: false,
     showBothPrompt: false,
     showFirstDayWelcome: false,
-    showStartFirstWorkoutAnyway: false,
   };
 }

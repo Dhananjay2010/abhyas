@@ -95,16 +95,13 @@
     "test:offline-retry-link": "tsx scripts/test-offline-retry-link.ts",
     "test:offline-screen-consistency": "tsx scripts/test-offline-screen-consistency.ts",
     "test:error-boundary-retry": "tsx scripts/test-error-boundary-retry.ts",
-<<<<<<< HEAD
+    "test:session-length": "tsx scripts/test-session-length.ts",
     "test:today-state": "tsx scripts/test-today-state.ts",
     "test:keep-planned-row": "tsx scripts/test-keep-planned-row.ts",
     "test:page-wiring": "tsx scripts/test-page-wiring.ts",
     "test:today-prompts": "tsx scripts/test-today-prompts.ts",
     "test:has-started-any": "tsx scripts/test-has-started-any.ts",
     "test:page-input": "tsx scripts/test-page-input.ts",
-=======
-    "test:session-length": "tsx scripts/test-session-length.ts",
->>>>>>> origin/main
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",

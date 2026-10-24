@@ -731,13 +731,8 @@ export default async function TodayPage() {
         </div>
       </section>
 
-      <div className="mt-10 space-y-3">
+      <div className="mt-10">
         <BuildPlanButton label="Rebuild this block" />
-        <form action="/auth/signout" method="post">
-          <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
-            Sign out
-          </button>
-        </form>
       </div>
 
     </main>

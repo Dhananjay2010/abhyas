@@ -74,8 +74,8 @@ test("Shows exactly one prompt (both)", () => {
   assert(promptCount === 1, `Expected 1 prompt, got ${promptCount}`);
 });
 
-// Test 3: First day on rest day
-console.log("\n=== Test 3: First day on rest day ===\n");
+// Test 3: First day on rest day or any weekday
+console.log("\n=== Test 3: First day on rest day or any weekday ===\n");
 test("Shows exactly one prompt (rest with first day)", () => {
   const blocks = todayPromptBlocks({
     promptType: "rest_plan",
@@ -87,7 +87,6 @@ test("Shows exactly one prompt (rest with first day)", () => {
 
   assert(blocks.showRestPlan === true, "Should show rest plan");
   assert(blocks.showFirstDayWelcome === true, "Should show first day welcome");
-  assert(blocks.showStartFirstWorkoutAnyway === true, "Should show start anyway flag");
   assert(blocks.showBothPrompt === false, "Should not show both prompt");
 
   const promptCount = countVisiblePrompts(blocks);
