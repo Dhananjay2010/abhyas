@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Database } from "@/lib/database.types";
 import type { WarmupItem } from "@/lib/program/warmup";
@@ -140,7 +140,24 @@ export function SessionRunner({
   const router = useRouter();
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
-  const [exercises, setExercises] = useState(initialExercises);
+  
+  // Use reducer to manage exercises with server data merging
+  const [exercises, dispatch] = useReducer(
+    (state: typeof initialExercises, action: { type: 'set'; exercises: typeof initialExercises } | { type: 'merge'; serverData: typeof initialExercises }) => {
+      if (action.type === 'set') {
+        return action.exercises;
+      } else {
+        // Merge server data with current local state
+        return mergeSets(state, action.serverData);
+      }
+    },
+    initialExercises
+  );
+  
+  const setExercises = useCallback((update: typeof initialExercises | ((prev: typeof initialExercises) => typeof initialExercises)) => {
+    const newExercises = typeof update === 'function' ? update(exercises) : update;
+    dispatch({ type: 'set', exercises: newExercises });
+  }, [exercises]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
@@ -236,7 +253,7 @@ export function SessionRunner({
   // (e.g., after router.refresh from useResumeRefresh). This prevents dropping
   // confirmed local saves that haven't landed on the server yet.
   useEffect(() => {
-    setExercises((prevExercises) => mergeSets(prevExercises, initialExercises));
+    dispatch({ type: 'merge', serverData: initialExercises });
   }, [initialExercises]);
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
