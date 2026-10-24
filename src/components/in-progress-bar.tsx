@@ -77,10 +77,11 @@ export function InProgressBar() {
     return null;
   }
 
+  // QA (ii): Keep set count short and always visible at 390px
   const setsText =
     session.workingSetsLogged === 1
-      ? "1 set logged"
-      : `${session.workingSetsLogged} sets logged`;
+      ? "1 set"
+      : `${session.workingSetsLogged} sets`;
 
   return (
     <div
@@ -95,12 +96,14 @@ export function InProgressBar() {
           href={`/session/${session.id}`}
           className="block rounded-lg border border-border bg-accent/10 px-4 py-3 text-sm font-medium text-accent backdrop-blur transition-colors hover:bg-accent/20"
         >
-          <span className="flex items-center justify-between gap-3">
-            <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="truncate">Workout in progress · {session.title}</span>
-              <span className="shrink-0">· {setsText}</span>
+          <span className="flex items-center justify-between gap-2">
+            <span className="min-w-0 flex-1">
+              <span className="truncate block">Workout in progress · {session.title}</span>
             </span>
-            <span className="shrink-0 font-semibold">Resume</span>
+            <span className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+              <span>{setsText}</span>
+              <span className="font-semibold">· Resume</span>
+            </span>
           </span>
         </Link>
       </div>

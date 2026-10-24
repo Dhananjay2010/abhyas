@@ -195,8 +195,13 @@ export function HistoryClient({
                 // Product rule (2026-10-24): zero-set strength sessions show as 'Skipped'
                 const isZeroSetStrength = item.setCount === 0 || item.status === "skipped";
                 
+                // QA (iii): Today's in_progress session shows "In progress", not "Completed"
+                const isTodayInProgress = item.status === "in_progress" && item.localDate === today && !isPastInProgress;
+                
                 if (isZeroSetStrength) {
                   details.push("Skipped");
+                } else if (isTodayInProgress) {
+                  details.push("In progress");
                 } else if (item.endedEarly && item.plannedSets) {
                   // Show completion status or "Ended early" if applicable
                   details.push(`Ended early · ${item.setCount} of ${item.plannedSets} ${item.plannedSets === 1 ? "set" : "sets"}`);
