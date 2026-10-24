@@ -34,6 +34,8 @@ import { isSessionExpired } from "@/lib/auth/session-expired";
 import { useSessionExpiredPrompt, notifySessionExpired } from "@/components/session-expired-prompt";
 import { DobInput } from "@/components/onboarding/dob-input";
 import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
+import { stashPendingChanges, getPendingChanges, clearPendingChanges, type PendingChange } from "@/lib/auth/pending-changes";
+import { usePathname } from "next/navigation";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -94,10 +96,12 @@ export function SettingsForm({
   timezones: string[];
   actions?: SettingsActions;
 }) {
+  const pathname = usePathname();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
   const [sessionExpiredPrompt] = useSessionExpiredPrompt();
+  const [pendingRestoreApplied, setPendingRestoreApplied] = useState(false);
   /** Track initial equipment to detect real changes */
   const [initialEquipment] = useState({
     hasAll: initial.hasAllEquipment,
@@ -157,19 +161,56 @@ export function SettingsForm({
     }
   }, []);
 
-  function save(run: () => Promise<Result>, affectsPlan = false) {
+  useEffect(() => {
+    if (pendingRestoreApplied) return;
+    
+    const pending = getPendingChanges();
+    if (!pending || pending.returnPath !== pathname) {
+      return;
+    }
+
+    setPendingRestoreApplied(true);
+    clearPendingChanges();
+
+    // Re-apply the pending changes once
+    startTransition(async () => {
+      for (const change of pending.changes) {
+        const { field, value } = change;
+        
+        if (field === 'preferredSessionMinutes' && typeof value === 'number') {
+          setS(prev => ({ ...prev, preferredSessionMinutes: value }));
+          const r = await actions.updateProfileSettings({ preferred_session_minutes: value });
+          if (r.ok) {
+            setPlanStale(true);
+          }
+        } else if (field === 'timezone' && typeof value === 'string') {
+          setS(prev => ({ ...prev, timezone: value }));
+          await actions.updateProfileSettings({ timezone: value });
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, pendingRestoreApplied]);
+
+  function save(run: () => Promise<Result>, affectsPlan = false, pendingChange?: PendingChange) {
     startTransition(async () => {
       let r: Result;
       try {
         r = await run();
       } catch (err) {
         if (isSessionExpired(err)) {
+          if (pendingChange) {
+            stashPendingChanges([pendingChange], pathname);
+          }
           notifySessionExpired();
           return;
         }
         throw err;
       }
       if (isSessionExpired(r)) {
+        if (pendingChange) {
+          stashPendingChanges([pendingChange], pathname);
+        }
         notifySessionExpired();
         return;
       }
@@ -643,7 +684,11 @@ export function SettingsForm({
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS({ ...s, preferredSessionMinutes: n });
-              save(() => actions.updateProfileSettings({ preferred_session_minutes: n }));
+              save(
+                () => actions.updateProfileSettings({ preferred_session_minutes: n }),
+                false,
+                { field: 'preferredSessionMinutes', value: n, timestamp: Date.now() }
+              );
             }}
           />
         </Field>
@@ -748,7 +793,22 @@ export function SettingsForm({
               setS({ ...s, timezone: v });
               // QA Issue #7: Show confirmation only after save succeeds
               startTransition(async () => {
-                const r = await actions.updateProfileSettings({ timezone: v });
+                let r: Result;
+                try {
+                  r = await actions.updateProfileSettings({ timezone: v });
+                } catch (err) {
+                  if (isSessionExpired(err)) {
+                    stashPendingChanges([{ field: 'timezone', value: v, timestamp: Date.now() }], pathname);
+                    notifySessionExpired();
+                    return;
+                  }
+                  throw err;
+                }
+                if (isSessionExpired(r)) {
+                  stashPendingChanges([{ field: 'timezone', value: v, timestamp: Date.now() }], pathname);
+                  notifySessionExpired();
+                  return;
+                }
                 if (!r.ok) {
                   setError(r.error);
                   setTimezoneConfirmation(null);
