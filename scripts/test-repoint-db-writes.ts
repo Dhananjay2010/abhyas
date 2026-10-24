@@ -101,9 +101,9 @@ async function runTests() {
     }
   }
 
-  console.log("\nNEW3: 0-set in_progress session IS rebuilt");
+  console.log("\nNEW3/decision (a): 0-set in_progress session is NOT repointed");
   {
-    // Test case 1: in_progress with 0 working sets (only warmup or none) - should rebuild
+    // Test case: in_progress with 0 working sets - should NOT be repointed
     const fake = createInMemorySupabase({
       sessions: [
         {
@@ -145,27 +145,23 @@ async function runTests() {
 
     const session = fake.store.sessions[0];
     
-    // NEW3 CRITICAL: 0-set in_progress session must be repointed
-    check("session program_id updated to new (NEW3)", 
-      session.program_id === "new-program",
-      `expected new-program, got ${session.program_id}`
+    // Decision (a): in_progress sessions are NOT repointed
+    check("session NOT updated (stays on old program)", 
+      session.program_id === "old-program",
+      `expected old-program, got ${session.program_id}`
     );
-    check("session program_day_id updated to new (NEW3)", 
-      session.program_day_id === "new-upper",
-      `expected new-upper, got ${session.program_day_id}`
+    check("session NOT updated (stays on old day)", 
+      session.program_day_id === "old-upper",
+      `expected old-upper, got ${session.program_day_id}`
     );
     
-    // NEW3 CRITICAL: session_exercises must be replaced with new day's exercises
+    // session_exercises should NOT be replaced
     const sessionExercises = fake.store.session_exercises.filter(se => se.session_id === "s1");
     const exerciseIds = sessionExercises.map(se => se.exercise_id).sort();
-    check("session exercises replaced with new program's exercises (NEW3)",
-      JSON.stringify(exerciseIds) === JSON.stringify(["ex3", "ex4"]),
-      `expected ["ex3","ex4"], got ${JSON.stringify(exerciseIds)}`
+    check("session exercises NOT replaced (kept old exercises)",
+      JSON.stringify(exerciseIds) === JSON.stringify(["ex1", "ex2"]),
+      `expected ["ex1","ex2"], got ${JSON.stringify(exerciseIds)}`
     );
-    
-    if (session.program_id === "old-program") {
-      console.log("  CRITICAL: 0-set in_progress session was NOT rebuilt - stayed on old program! (NEW3)");
-    }
   }
 
   console.log("\nNEW3 control: 1+ working set in_progress session is kept");
@@ -360,19 +356,19 @@ async function runTests() {
     await repointSessionsAfterRebuild(fake as never, "user1", "new-program", "2026-10-24");
 
     const session = fake.store.sessions[0];
-    check("session updated to new program", session.program_id === "new-program");
+    check("session NOT updated (stays on old program)", session.program_id === "old-program");
     
-    // Check that session_exercises delete happened (rebuild process)
+    // Check that NO session_exercises operations happened (decision a)
     const deleteWrites = fake.writes.filter(
       (w) => w.table === "session_exercises" && w.operation === "delete"
     );
-    check("session_exercises deleted (rebuild)", deleteWrites.length > 0);
+    check("session_exercises NOT deleted (decision a)", deleteWrites.length === 0);
     
-    // Check if new session_exercises were inserted
+    // Check that NO new session_exercises were inserted
     const insertWrites = fake.writes.filter(
       (w) => w.table === "session_exercises" && w.operation === "insert"
     );
-    check("new session_exercises inserted", insertWrites.length > 0);
+    check("session_exercises NOT inserted (decision a)", insertWrites.length === 0);
   }
 }
 
