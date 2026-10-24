@@ -68,7 +68,7 @@ runMutant(
 runMutant(
   "O1",
   "Swap reads old exercise progress",
-  "src/app/session/actions.ts",
+  "src/lib/session/swap-core.ts",
   "        .eq(\"exercise_id\", input.newExerciseId)",
   "        .eq(\"exercise_id\", current.exercise_id)"
 );
@@ -76,17 +76,17 @@ runMutant(
 runMutant(
   "O2",
   "Swap ignores daily_menu",
-  "src/app/session/actions.ts",
-  "  const remembersWeights = settingsRes.data?.planning_mode !== \"daily_menu\";",
+  "src/lib/session/swap-core.ts",
+  "  const remembersWeights = (settingsRes.data as { planning_mode: string } | null)?.planning_mode !== \"daily_menu\";",
   "  const remembersWeights = true;"
 );
 
 runMutant(
   "O3",
   "Swap ignores deload",
-  "src/app/session/actions.ts",
-  "  const isDeload = !!(sessionRes.data as unknown as { sessions?: { is_deload: boolean } })",
-  "  const isDeload = false; //"
+  "src/lib/session/swap-core.ts",
+  "  const isDeload = !!((sessionRes.data as { sessions?: { is_deload: boolean } }) || {})?.sessions?.is_deload;",
+  "  const isDeload = false;"
 );
 
 runMutant(
@@ -109,16 +109,16 @@ runMutant(
   "O6",
   "Swap Skip button renders when not empty",
   "src/lib/session/swap.ts",
-  "    isEmpty,",
-  "    isEmpty: false,"
+  "  const isEmpty = options.alternatives.length === 0;",
+  "  const isEmpty = false;"
 );
 
 runMutant(
   "O10",
   "Settings always resets progression",
-  "src/app/settings/actions.ts",
+  "src/lib/settings/update-profile-core.ts",
   "  if (shouldResetProgressionTargets(patch, currentProfile)) {",
-  "  if (true || shouldResetProgressionTargets(patch, currentProfile)) {"
+  "  if (true) {"
 );
 
 // ===== Runner & Today =====
@@ -126,25 +126,25 @@ runMutant(
 runMutant(
   "M5",
   "Today ignores progressed target",
-  "src/app/today/page.tsx",
-  "            progressedTarget: progress?.current_target_reps,",
-  "            progressedTarget: null,"
+  "src/lib/program/effective-target.ts",
+  "  return Math.max(plannedMax, progressedTarget ?? plannedMax);",
+  "  return plannedMax;"
 );
 
 runMutant(
   "M6",
   "Runner doesn't apply effectiveRepsMax",
-  "src/app/session/[id]/session-runner.tsx",
-  "                                    repsMax: effectiveMax,",
-  "                                    repsMax: swapped.repsMax ?? current.repsMax,"
+  "src/lib/session/runner-swap-defaults.ts",
+  "    repsMax: effectiveMax,",
+  "    repsMax: swapped.repsMax ?? current.repsMax,"
 );
 
 runMutant(
   "G5",
   "Runner ignores swapped weights",
   "src/lib/program/effective-target.ts",
-  "  if (isBodyweight && usedWeight === null && progressedTarget !== null) {",
-  "  if (false && isBodyweight && usedWeight === null && progressedTarget !== null) {"
+  "  if (!isBodyweight || (usedWeight !== null && usedWeight > 0)) return plannedMax;",
+  "  if (true) return plannedMax;"
 );
 
 // ===== Kettlebell Progression =====
@@ -230,7 +230,7 @@ runMutant(
 runMutant(
   "P1",
   "Page ignores progress weight",
-  "src/app/session/[id]/page.tsx",
+  "src/lib/session/build-runner-init.ts",
   "    const working =",
   "    const working = null; const _working ="
 );
@@ -238,7 +238,7 @@ runMutant(
 runMutant(
   "P2",
   "Page uses wrong progress field",
-  "src/app/session/[id]/page.tsx",
+  "src/lib/session/build-runner-init.ts",
   "        : Number(progress.current_working_weight_kg);",
   "        : Number(progress.current_target_reps); //"
 );
@@ -246,15 +246,15 @@ runMutant(
 runMutant(
   "P3",
   "Runner ignores bodyweight check",
-  "src/app/session/[id]/page.tsx",
-  "    const isBodyweight = isBodyweightEquipment(ex?.equipment_ids);",
+  "src/lib/session/build-runner-init.ts",
+  "    const isBodyweight = isBodyweightEquipment(ex?.equipment_ids ?? []);",
   "    const isBodyweight = false;"
 );
 
 runMutant(
   "P4",
   "Page effectiveRepsMax gets wrong args",
-  "src/app/session/[id]/page.tsx",
+  "src/lib/session/build-runner-init.ts",
   "        progressedTarget: progress?.current_target_reps,",
   "        progressedTarget: null,"
 );
