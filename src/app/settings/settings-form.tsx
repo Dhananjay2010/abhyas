@@ -28,7 +28,7 @@ import {
   type Result,
 } from "./actions";
 import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
-import { createSaveQueue } from "./save-queue";
+import { createSaveQueue, type SupersededResult } from "./save-queue";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
 import { DobInput } from "@/components/onboarding/dob-input";
@@ -130,6 +130,9 @@ export function SettingsForm({
   /** Browser timezone detected on client after mount */
   const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
   
+  /** Track if any save has occurred (for LOW-a: don't show Saved on first load) */
+  const [anySaveOccurred, setAnySaveOccurred] = useState(false);
+  
   /** DOB error state (client-side validation) */
   const [dobError, setDobError] = useState<string | null>(null);
   /** DOB touched state */
@@ -203,12 +206,15 @@ export function SettingsForm({
     };
   }, [saveQueue]);
 
-  // Update needsUnloadPrompt whenever queue status changes
+  // Subscribe to queue status changes for needsUnloadPrompt (LOW-d: use events instead of polling)
   useEffect(() => {
-    const interval = setInterval(() => {
-      needsUnloadPrompt.current = saveQueue.hasPending();
-    }, 100);
-    return () => clearInterval(interval);
+    needsUnloadPrompt.current = saveQueue.hasPending();
+    
+    const unsubscribe = saveQueue.subscribe((status) => {
+      needsUnloadPrompt.current = status.state !== "idle";
+    });
+    
+    return unsubscribe;
   }, [saveQueue]);
 
   /** Enqueue a save with the queue, keyed per field */
@@ -220,6 +226,14 @@ export function SettingsForm({
     startTransition(async () => {
       try {
         const result = await saveQueue.enqueue(key, request);
+        
+        // Handle superseded results (no-op, not an error, not success)
+        if (result && typeof result === "object" && "superseded" in result) {
+          return;
+        }
+        
+        // Mark that a save has occurred (for LOW-a)
+        setAnySaveOccurred(true);
         
         if (!result.ok) {
           // Record error for this field
@@ -274,6 +288,14 @@ export function SettingsForm({
           actions.updateEquipment({ hasAll, equipmentIds })
         );
         
+        // Handle superseded results
+        if (result && typeof result === "object" && "superseded" in result) {
+          return;
+        }
+        
+        // Mark that a save has occurred
+        setAnySaveOccurred(true);
+        
         if (!result.ok) {
           // Rollback to last saved state
           setS(prev => ({ 
@@ -286,7 +308,7 @@ export function SettingsForm({
           setFieldErrors(prev => new Map(prev).set("equipment", result.error));
           setError(result.error);
         } else {
-          // Success: update saved state
+          // Success: update saved state and clear errors (LOW-c)
           setSavedEquipment({ hasAll, ids: equipmentIds });
           setEquipmentHint(null);
           setFieldErrors(prev => {
@@ -294,6 +316,9 @@ export function SettingsForm({
             next.delete("equipment");
             return next;
           });
+          // Clear global error if no field errors remain
+          if (fieldErrors.size <= 1) setError(null);
+          
           if (changed) setPlanStale(true);
           
           if (showConfirmation) {
@@ -326,11 +351,11 @@ export function SettingsForm({
     );
   }
 
-  /** Compute autosave status */
+  /** Compute autosave status (LOW-b: derive from queue state) */
   const queueStatus = saveQueue.getStatus();
   const hasErrors = fieldErrors.size > 0;
   const isSaving = queueStatus.state === "saving" || queueStatus.state === "has-queued";
-  const showSaved = !isSaving && !hasErrors && queueStatus.state === "idle";
+  const showSaved = !isSaving && !hasErrors && queueStatus.state === "idle" && anySaveOccurred;
 
   const maxYoga = Math.max(0, (s.daysPerWeek ?? 3) - 1);
 
@@ -352,8 +377,43 @@ export function SettingsForm({
             </span>
             <button
               onClick={() => {
-                // Retry by re-saving all fields with errors
-                // For now, just show the first error
+                // M1: Retry by re-sending the last failed save for the first errored field
+                const firstErrorKey = Array.from(fieldErrors.keys())[0];
+                if (firstErrorKey) {
+                  startTransition(async () => {
+                    const retryPromise = saveQueue.retry(firstErrorKey);
+                    if (retryPromise) {
+                      try {
+                        const result = await retryPromise;
+                        
+                        // Handle superseded results
+                        if (result && typeof result === "object" && "superseded" in result) {
+                          return;
+                        }
+                        
+                        setAnySaveOccurred(true);
+                        
+                        if (result.ok) {
+                          // Clear the error on success
+                          setFieldErrors(prev => {
+                            const next = new Map(prev);
+                            next.delete(firstErrorKey);
+                            return next;
+                          });
+                          if (fieldErrors.size <= 1) setError(null);
+                        } else {
+                          // Update error if it changed
+                          setFieldErrors(prev => new Map(prev).set(firstErrorKey, result.error));
+                          setError(result.error);
+                        }
+                      } catch (err) {
+                        const message = err instanceof Error ? err.message : "Unknown error";
+                        setFieldErrors(prev => new Map(prev).set(firstErrorKey, message));
+                        setError(message);
+                      }
+                    }
+                  });
+                }
               }}
               className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-accent underline underline-offset-2"
             >
@@ -818,6 +878,13 @@ export function SettingsForm({
                     const result = await saveQueue.enqueue("date_of_birth", () =>
                       actions.updateProfileSettings({ date_of_birth: dobToSave })
                     );
+                    
+                    // Handle superseded results
+                    if (result && typeof result === "object" && "superseded" in result) {
+                      return;
+                    }
+                    
+                    setAnySaveOccurred(true);
                     
                     if (!result.ok) {
                       // On failed save, revert to last saved value and show error
