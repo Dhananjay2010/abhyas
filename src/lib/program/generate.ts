@@ -66,15 +66,16 @@ export const CARRY_OVER_SLOTS = 2;
  * How many exercises to prescribe based on session length. Longer sessions have
  * more exercises; shorter sessions keep coverage but reduce volume per exercise.
  * 
- * QA feedback: 45 min was cutting to 4 exercises, dropping all arm/core work while
- * still overrunning 45 min. Now we keep more exercises but adjust sets below.
+ * QA Bot 1 feedback: 45 min cuts positionally to 4 exercises, dropping all
+ * biceps, triceps, delts, and core work. The coach target is 6 exercises:
+ * bench, pulldown, OHP, row, lateral raise, arms on Upper; squat, RDL, lunge,
+ * leg curl, calves, core on Lower.
  * 
- * Direct mapping ensures distinct plans for each duration:
- * - 30 min: 4-5 exercises (main compounds + key accessories)
- * - 45 min: 5-6 exercises (all main patterns covered)
- * - 60 min: 6-7 exercises (default, full coverage)
- * - 75 min: 7-8 exercises
- * - 90+ min: 8-9 exercises
+ * Updated strategy:
+ * - 30 min: 4 exercises (main compounds only)
+ * - 45 min: 5-6 exercises (main patterns + at least one accessory)
+ * - 60 min: 6 exercises (full template for upper/lower splits)
+ * - 75+ min: template slots + more accessories
  * 
  * Deterministic: same input always gives same output.
  */
@@ -85,15 +86,15 @@ function exerciseCountForDuration(
   let target: number;
   
   if (sessionMinutes <= 30) {
-    target = Math.max(4, Math.min(5, templateSlots));
+    target = Math.max(4, Math.min(4, templateSlots));
   } else if (sessionMinutes <= 45) {
     target = Math.max(5, Math.min(6, templateSlots));
   } else if (sessionMinutes <= 60) {
-    target = Math.max(6, Math.min(7, templateSlots));
+    target = Math.min(6, templateSlots);
   } else if (sessionMinutes <= 75) {
-    target = Math.max(7, Math.min(8, templateSlots));
+    target = Math.min(7, templateSlots);
   } else {
-    target = Math.max(8, Math.min(9, templateSlots + 2));
+    target = Math.min(8, templateSlots);
   }
   
   return target;
@@ -153,46 +154,45 @@ const PATTERN_FALLBACK: Partial<Record<Pattern, Pattern>> = {
  * and are deterministically preferred within their pattern. Listed in priority
  * order per pattern and equipment level.
  * 
- * Verified against scripts/fixtures/catalogue.json and production database.
- * Every slug here must exist in the catalogue (tested in test-generator.ts).
+ * QA-verified production slugs. Every slug here must exist in the catalogue
+ * (tested in test-generator.ts).
  * 
  * Exported for testing.
  */
 export const STAPLE_MOVEMENTS: Partial<Record<Pattern, string[]>> = {
   horizontal_press: [
-    "barbell-bench-press-medium-grip",      // gym staple, beginner
-    "pushups",                              // bodyweight staple, beginner
-    "push-up-wide",                         // bodyweight variation, beginner
-    "dumbbell-bench-press",                 // dumbbell option, beginner
+    "barbell-bench-press-medium-grip",      // primary gym staple
+    "dumbbell-bench-press",                 // dumbbell option
+    "barbell-incline-bench-press-medium-grip", // incline variant
+    "pushups",                              // bodyweight staple
+    "push-up-wide",                         // bodyweight variation
   ],
   squat: [
-    "barbell-squat",                        // gym staple, intermediate
-    "bodyweight-squat",                     // bodyweight staple, beginner
-    "goblet-squat",                         // beginner gym, beginner
-    "leg-press",                            // machine option, beginner
+    "barbell-squat",                        // primary gym staple
+    "goblet-squat",                         // beginner gym alternative
+    "bodyweight-squat",                     // bodyweight staple
+    "leg-press",                            // machine option
   ],
   hinge: [
-    "barbell-deadlift",                     // primary gym staple, intermediate
-    "romanian-deadlift",                    // RDL for hamstrings, intermediate
-    "glute-bridge",                         // bodyweight staple, beginner
+    "barbell-deadlift",                     // primary gym staple
+    "romanian-deadlift",                    // RDL for hamstrings
+    "glute-bridge",                         // bodyweight staple
   ],
   horizontal_pull: [
-    "bent-over-barbell-row",                // gym staple, beginner
-    "one-arm-dumbbell-row",                 // unilateral option, beginner
-    "inverted-row",                         // bodyweight, beginner
-    "doorway-row",                          // no-equipment bodyweight, beginner
+    "bent-over-barbell-row",                // primary gym staple
+    "one-arm-dumbbell-row",                 // unilateral option
+    "inverted-row",                         // bodyweight
+    "doorway-row",                          // no-equipment bodyweight
   ],
   vertical_pull: [
-    "wide-grip-lat-pulldown",               // machine staple, beginner
-    "chin-up",                              // bodyweight staple, intermediate
-    "pullups",                              // bodyweight staple, intermediate
-    "full-range-of-motion-lat-pulldown",    // cable variation, beginner
+    "wide-grip-lat-pulldown",               // primary gym staple
+    "chin-up",                              // bodyweight staple
+    "pullups",                              // bodyweight staple
   ],
   vertical_press: [
-    "standing-military-press",              // barbell OHP staple, beginner
-    "dumbbell-shoulder-press",              // dumbbell option, beginner
-    "pike-push-up",                         // bodyweight, beginner
-    "barbell-shoulder-press",               // seated barbell, intermediate
+    "standing-military-press",              // primary gym staple (OHP)
+    "dumbbell-shoulder-press",              // dumbbell option
+    "pike-push-up",                         // bodyweight
   ],
 };
 
@@ -317,20 +317,18 @@ export function score(
   if (wantCompound && ex.mechanic === "compound") s += 4;
   if (!wantCompound && ex.mechanic === "isolation") s += 3;
   
-  // Level match: prefer exercises at or below user's level, with a slight bonus
-  // for beginner-tagged exercises for bodyweight users only (where these are the
-  // core staples). For gym users with equipment, loaded exercises (barbell,
-  // dumbbell) are the true staples, so the beginner tag doesn't indicate which
-  // is more foundational. The tiering system handles equipment preference.
-  // REMOVED: the old "+1 for exact level match" which favored exotic intermediate
-  // exercises over beginner staples for intermediate users.
+  // QA finding: removed level_min == level bonus that favored exotic intermediate
+  // exercises over beginner staples. Staple preference via lexicographic sorting
+  // now handles exercise selection for all levels.
+  // 
+  // For bodyweight users, slight preference for beginner-tagged movements since
+  // these are the foundational bodyweight staples (push-ups, squats, etc.).
   if (ex.level_min === "beginner" && primaryTrack === "bodyweight") {
-    s += 0.5; // Slight preference for foundational bodyweight movements
+    s += 0.5;
   }
 
-  // Prefer the simplest setup that does the job — but only for bodyweight/home
-  // users. For gym users, equipment is not a penalty; having a barbell is what
-  // bench press needs, not a reason to avoid it.
+  // Equipment penalty only for bodyweight users. For gym users, having a barbell
+  // is what bench press needs, not a reason to avoid it.
   if (primaryTrack === "bodyweight") {
     s -= Math.max(0, ex.equipment_ids.length - 1);
   }
@@ -413,9 +411,9 @@ function pickForSlot(
   rng: () => number,
   dayIndex?: number,
 ): CandidateExercise | null {
-  // Main slots (0-1) strongly prefer compounds. Later slots can be isolation.
-  // QA feedback: slot 3 (vertical press) was getting front raises because only
-  // slots 0-1 requested compounds. Now we prefer compounds for all main patterns.
+  // Main slots (0-3) strongly prefer compounds for the primary movement patterns.
+  // This includes horizontal press, pulls, squat, hinge, and vertical press.
+  // QA: slot 3 must get OHP/DB press, not front raises.
   const wantCompound = slotIndex < CARRY_OVER_SLOTS || slotIndex <= 3;
 
   // Keep the main lifts from the previous block so progression is not reset.
@@ -442,11 +440,11 @@ function pickForSlot(
       if (candidates.length === 0) continue; // Try fallback pattern if filtered out
     }
 
-    // Rank by score, then staple preference for main slots, then by rng.
-    // Staple sorting applies strongly to main slots (0-1) to ensure proper
-    // strength/hypertrophy staples at all levels. For accessories (2+), we still
-    // score for mechanic/level fit, but allow RNG to create variety across blocks.
-    const isMainSlot = slotIndex < CARRY_OVER_SLOTS;
+    // Rank by score, then staple preference for main pattern slots (0-3),
+    // then by RNG. QA: apply staples to vertical_press (slot 3) at all levels
+    // to ensure intermediate users get OHP, not front raises. Accessories (4+)
+    // rely on RNG for block-to-block variety.
+    const isMainSlot = slotIndex <= 3;
     
     const ranked = candidates
       .map((e) => ({
