@@ -22,7 +22,8 @@ export type ExerciseForUpdate = {
 
 export type AbandonSessionDeps = {
   loadExercises(sessionId: string): Promise<{ data: SessionExerciseRow[] | null; error: string | null }>;
-  updateSession(id: string, patch: { status: Database["public"]["Enums"]["session_status"]; completed_at: string | null; duration_seconds: number }): Promise<{ error: string | null }>;
+  updateSession(id: string, patch: { status: Database["public"]["Enums"]["session_status"]; completed_at: string | null; duration_seconds: number }): Promise<{ error: string | null; updatedCount: number }>;
+  loadSessionStatus(id: string): Promise<{ data: { status: "completed" | "skipped" | "in_progress" } | null; error: string | null }>;
   loadExercisesForUpdate(sessionId: string): Promise<{ data: ExerciseForUpdate[] | null; error: string | null }>;
   updateExerciseStatus(id: string, status: Database["public"]["Enums"]["exercise_status"]): Promise<{ error: string | null }>;
 };
@@ -48,13 +49,34 @@ export function makeAbandonSessionDeps(supabase: Client): AbandonSessionDeps {
     },
 
     async updateSession(id, patch) {
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from("sessions")
-        .update(patch)
+        .update(patch, { count: "exact" })
         .eq("id", id)
         .eq("status", "in_progress");
 
-      return { error: error ? error.message : null };
+      return {
+        error: error ? error.message : null,
+        updatedCount: count ?? 0,
+      };
+    },
+
+    async loadSessionStatus(id) {
+      const { data, error } = await supabase
+        .from("sessions")
+        .select("status")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) return { data: null, error: error.message };
+      if (!data) return { data: null, error: null };
+
+      const status = data.status;
+      if (status !== "completed" && status !== "skipped" && status !== "in_progress") {
+        return { data: null, error: `Unexpected status: ${status}` };
+      }
+
+      return { data: { status }, error: null };
     },
 
     async loadExercisesForUpdate(sessionId) {

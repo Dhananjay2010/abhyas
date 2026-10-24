@@ -37,8 +37,12 @@ function makeFakeAbandonDeps(
       // Only update if still in_progress (idempotency guard)
       if (sessionState.status === "in_progress") {
         Object.assign(sessionState, patch);
+        return { error: null, updatedCount: 1 };
       }
-      return { error: null };
+      return { error: null, updatedCount: 0 };
+    },
+    async loadSessionStatus() {
+      return { data: { status: sessionState.status as "completed" | "skipped" | "in_progress" }, error: null };
     },
     async loadExercisesForUpdate() {
       return { data: [], error: null };

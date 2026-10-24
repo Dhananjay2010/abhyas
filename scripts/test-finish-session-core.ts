@@ -87,8 +87,11 @@ function makeFakeAbandonSessionDeps(
     },
     async updateSession() {
       calls.push({ method: "update", filters: { status: "in_progress" } });
-      if (updateError) return { error: updateError };
-      return { error: null };
+      if (updateError) return { error: updateError, updatedCount: 0 };
+      return { error: null, updatedCount: 1 };
+    },
+    async loadSessionStatus() {
+      return { data: { status: "completed" as const }, error: null };
     },
     async loadExercisesForUpdate() {
       if (readError) return { data: null, error: readError };

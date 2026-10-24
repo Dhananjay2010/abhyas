@@ -67,13 +67,28 @@ export async function abandonSessionCore(
 
   // Safety: Only update if status is 'in_progress' to prevent double-accumulation on retry.
   // The client's elapsed time is cumulative (wall clock from started_at).
-  const { error } = await deps.updateSession(sessionId, {
+  const { error, updatedCount } = await deps.updateSession(sessionId, {
     status,
     completed_at: status === "completed" ? new Date().toISOString() : null,
     duration_seconds: clampedDuration,
   });
 
   if (error) return { ok: false, error };
+
+  // If 0 rows were updated, the session was already finished - re-read the actual status
+  if (updatedCount === 0) {
+    const { data: statusData, error: rereadError } = await deps.loadSessionStatus(sessionId);
+
+    if (rereadError) return { ok: false, error: rereadError };
+    if (!statusData) return { ok: false, error: "Session not found on re-read" };
+
+    // The session should be completed or skipped (not in_progress) since update matched 0 rows
+    if (statusData.status === "in_progress") {
+      return { ok: false, error: "Session still in_progress after retry" };
+    }
+
+    return { ok: true, data: { status: statusData.status } };
+  }
 
   // Update exercise statuses based on logged vs planned sets
   const { data: exercisesForStatus, error: exerciseReadError } = await deps.loadExercisesForUpdate(sessionId);

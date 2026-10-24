@@ -83,7 +83,10 @@ function makeFakeAbandonSessionDeps(exercisesData: ExerciseRow[]) {
       })), error: null };
     },
     async updateSession() {
-      return { error: null };
+      return { error: null, updatedCount: 1 };
+    },
+    async loadSessionStatus() {
+      return { data: { status: "completed" as const }, error: null };
     },
     async loadExercisesForUpdate() {
       return { data: exercisesData, error: null };
