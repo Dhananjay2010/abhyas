@@ -132,15 +132,18 @@ export function buildDayRecords(input: {
   const newestFirst = [...ordered].reverse();
 
   // Map dates to their actual session types.
-  // If multiple sessions completed on the same date, prefer one that counts toward
-  // streaks (strength/yoga over breathing).
+  // Only include sessions that count toward streaks (countsTowardStreak enforces the rules).
+  // If multiple qualifying sessions on the same date, prefer the first one.
   const sessionsByDate = new Map<string, SessionType | null>();
   for (const s of completedSessions) {
+    // Only add sessions that pass the streak counting rules
+    if (!countsTowardStreak(s.actual_type, s.status, s.working_set_count)) {
+      continue;
+    }
+    
     const existing = sessionsByDate.get(s.local_date);
-    const existingCounts = existing ? countsTowardStreak(existing, "completed", 1) : false;
-    const newCounts = countsTowardStreak(s.actual_type, s.status, s.working_set_count);
-    // Keep the first qualifying type, or replace non-qualifying with qualifying
-    if (!existing || (!existingCounts && newCounts)) {
+    // Keep the first qualifying session on each date
+    if (!existing) {
       sessionsByDate.set(s.local_date, s.actual_type);
     }
   }
