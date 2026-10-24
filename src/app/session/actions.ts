@@ -29,7 +29,9 @@ type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: string };
+
+const SESSION_EXPIRED_CODE = 'SESSION_EXPIRED';
 
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
@@ -273,21 +275,28 @@ export async function logSet(input: {
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
 
-  const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("session_sets").upsert(
-    {
-      session_exercise_id: input.sessionExerciseId,
-      user_id: user.id,
-      set_number: input.setNumber,
-      reps: input.reps,
-      weight_kg: input.weightKg,
-      duration_seconds: durationSeconds,
-      is_warmup_set: false,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "session_exercise_id,set_number,is_warmup_set" },
-  );
-  return error ? { ok: false, error: error.message } : { ok: true };
+  try {
+    const { supabase, user } = await requireUser();
+    const { error } = await supabase.from("session_sets").upsert(
+      {
+        session_exercise_id: input.sessionExerciseId,
+        user_id: user.id,
+        set_number: input.setNumber,
+        reps: input.reps,
+        weight_kg: input.weightKg,
+        duration_seconds: durationSeconds,
+        is_warmup_set: false,
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: "session_exercise_id,set_number,is_warmup_set" },
+    );
+    return error ? { ok: false, error: error.message } : { ok: true };
+  } catch (err) {
+    if (err instanceof Error && err.message === "Not signed in") {
+      return { ok: false, error: "Not signed in", code: SESSION_EXPIRED_CODE };
+    }
+    throw err;
+  }
 }
 
 export async function deleteSet(

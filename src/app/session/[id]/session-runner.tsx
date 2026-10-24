@@ -29,6 +29,16 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
+import {
+  signInAgainHref,
+  SessionExpiredPrompt,
+} from "@/lib/session/session-expired-shim.js";
+import {
+  logSetWithRetry,
+  replayPendingSets,
+  loadPendingSets,
+  type PendingSet,
+} from "@/lib/session/pending-set-retry";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -143,6 +153,18 @@ export function SessionRunner({
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
+  const [pendingSets, setPendingSets] = useState<PendingSet[]>(() => {
+    if (typeof window === "undefined") return [];
+    const storage = window.localStorage;
+    return loadPendingSets(storage, sessionId);
+  });
+  const [sessionExpired, setSessionExpired] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const storage = window.localStorage;
+    return loadPendingSets(storage, sessionId).length > 0;
+  });
+  const [retrying, setRetrying] = useState(false);
+  const replayAttemptedRef = useRef(false);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -189,6 +211,81 @@ export function SessionRunner({
   );
 
   const wakeLock = useWakeLock(phase !== "done");
+
+  // ---- pending set replay -----------------------------------------------
+  useEffect(() => {
+    const storage = typeof window !== "undefined" ? window.localStorage : null;
+    if (!storage || pendingSets.length === 0 || replayAttemptedRef.current) return;
+
+    replayAttemptedRef.current = true;
+
+    async function attemptReplay() {
+      if (pendingSets.length === 0 || !storage) return;
+
+      setRetrying(true);
+      setError(null);
+
+      const result = await replayPendingSets(actions.logSet, storage, sessionId);
+
+      setRetrying(false);
+
+      if (result.ok) {
+        setPendingSets([]);
+        setSessionExpired(false);
+        
+        const remaining = loadPendingSets(storage, sessionId);
+        setPendingSets(remaining);
+        
+        if (remaining.length === 0) {
+          const allPending = pendingSets;
+          setExercises((prev) => {
+            let updated = prev;
+            for (const set of allPending) {
+              updated = updated.map((e) =>
+                e.id === set.sessionExerciseId
+                  ? {
+                      ...e,
+                      sets: [
+                        ...e.sets.filter((s) => s.setNumber !== set.setNumber),
+                        {
+                          setNumber: set.setNumber,
+                          reps: set.reps,
+                          weightKg: set.weightKg,
+                          durationSeconds: set.durationSeconds,
+                        },
+                      ].sort((a, b) => a.setNumber - b.setNumber),
+                    }
+                  : e
+              );
+            }
+            return updated;
+          });
+        }
+      } else {
+        setError(result.error);
+        const remaining = loadPendingSets(storage, sessionId);
+        setPendingSets(remaining);
+      }
+    }
+
+    attemptReplay();
+  }, [pendingSets, sessionId, actions.logSet, setExercises]);
+
+  useEffect(() => {
+    function onFocus() {
+      const storage = typeof window !== "undefined" ? window.localStorage : null;
+      if (!storage) return;
+
+      const loaded = loadPendingSets(storage, sessionId);
+      if (loaded.length > 0 && pendingSets.length === 0 && !replayAttemptedRef.current) {
+        setPendingSets(loaded);
+        setSessionExpired(true);
+      }
+    }
+
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [sessionId, pendingSets]);
 
   // ---- rest timer -------------------------------------------------------
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
@@ -584,28 +681,66 @@ export function SessionRunner({
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
-    const ok = await run(() =>
-      actions.logSet({
-        sessionExerciseId: current.id,
-        setNumber: nextSetNumber,
-        reps,
-        weightKg,
-        durationSeconds,
-      }),
-    );
-    if (!ok) return;
-    setExercises((prev) =>
-      prev.map((e) =>
-        e.id === current.id
-          ? {
-              ...e,
-              sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
-            }
-          : e,
-      ),
-    );
-    if (settings.restAutostart && nextSetNumber < current.plannedSets) {
-      startRest(restSeconds);
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+
+    const storage = typeof window !== "undefined" ? window.localStorage : null;
+    if (!storage) {
+      busyRef.current = false;
+      setBusy(false);
+      setError("Storage not available");
+      return;
+    }
+
+    const clientId = `${current.id}:${nextSetNumber}:${Date.now()}`;
+
+    try {
+      const result = await logSetWithRetry(
+        actions.logSet,
+        storage,
+        sessionId,
+        {
+          sessionExerciseId: current.id,
+          setNumber: nextSetNumber,
+          reps,
+          weightKg,
+          durationSeconds,
+        },
+        clientId
+      );
+
+      if (result.ok && result.saved) {
+        setError(null);
+        setSessionExpired(false);
+        replayAttemptedRef.current = false;
+        setExercises((prev) =>
+          prev.map((e) =>
+            e.id === current.id
+              ? {
+                  ...e,
+                  sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
+                }
+              : e,
+          ),
+        );
+        if (settings.restAutostart && nextSetNumber < current.plannedSets) {
+          startRest(restSeconds);
+        }
+      } else if (result.ok && result.sessionExpired) {
+        setSessionExpired(true);
+        const loaded = loadPendingSets(storage, sessionId);
+        setPendingSets(loaded);
+        setError(null);
+      } else if (!result.ok) {
+        setError(result.error);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Network error";
+      setError(message);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   }
 
@@ -687,6 +822,73 @@ export function SessionRunner({
       error={error}
     >
       <div onPointerDown={onAnyTap}>
+        {sessionExpired && pendingSets.length > 0 && (
+          <div className="mb-5">
+            <SessionExpiredPrompt href={signInAgainHref(`/session/${sessionId}`)} />
+            <p className="mt-2 text-sm text-muted">
+              {pendingSets.length} {pendingSets.length === 1 ? "set" : "sets"} waiting to save
+            </p>
+            {!retrying && (
+              <div className="mt-3">
+                <button
+                  onClick={async () => {
+                    const storage = typeof window !== "undefined" ? window.localStorage : null;
+                    if (!storage || pendingSets.length === 0) return;
+
+                    setRetrying(true);
+                    setError(null);
+
+                    const result = await replayPendingSets(
+                      actions.logSet,
+                      storage,
+                      sessionId
+                    );
+
+                    setRetrying(false);
+
+                    if (result.ok) {
+                      setPendingSets([]);
+                      setSessionExpired(false);
+                      replayAttemptedRef.current = false;
+                      
+                      const allPending = pendingSets;
+                      setExercises((prev) => {
+                        let updated = prev;
+                        for (const set of allPending) {
+                          updated = updated.map((e) =>
+                            e.id === set.sessionExerciseId
+                              ? {
+                                  ...e,
+                                  sets: [
+                                    ...e.sets.filter((s) => s.setNumber !== set.setNumber),
+                                    {
+                                      setNumber: set.setNumber,
+                                      reps: set.reps,
+                                      weightKg: set.weightKg,
+                                      durationSeconds: set.durationSeconds,
+                                    },
+                                  ].sort((a, b) => a.setNumber - b.setNumber),
+                                }
+                              : e
+                          );
+                        }
+                        return updated;
+                      });
+                    } else {
+                      setError(result.error);
+                      const remaining = loadPendingSets(storage, sessionId);
+                      setPendingSets(remaining);
+                    }
+                  }}
+                  disabled={retrying}
+                  className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"
+                >
+                  {retrying ? "Retrying..." : `Retry saving ${pendingSets.length} ${pendingSets.length === 1 ? "set" : "sets"}`}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         {bannerFor === exerciseIndex && progressNotes.length > 0 && (
           <p className="mb-5 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
             <span className="font-semibold">{progressNotes[progressNotes.length - 1].name}:</span>{" "}
