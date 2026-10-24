@@ -303,16 +303,23 @@ export function OnboardingFlow({
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
               disabled={!ready}
-              onClick={() =>
+              onClick={() => {
+                // Detect browser timezone on client
+                const browserTimezone =
+                  typeof window !== "undefined"
+                    ? Intl.DateTimeFormat().resolvedOptions().timeZone
+                    : undefined;
+                
                 advance(() =>
                   actions.saveAboutYou({
                     dateOfBirth,
                     sex: sex!,
                     heightCm: height,
                     weightKg: weight,
+                    browserTimezone,
                   }),
-                )
-              }
+                );
+              }}
             >
               {pending ? "Saving…" : "Continue"}
             </PrimaryButton>
