@@ -631,7 +631,9 @@
       "You should feel it in the back of your shoulder"
     ],
     "equipment_ids": [],
-    "contraindicated_regions": []
+    "contraindicated_regions": [
+      "shoulder"
+    ]
   },
   {
     "id": "a2e5896c-2255-4120-a8c4-7d1ff39b0023",

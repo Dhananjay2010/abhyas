@@ -90,6 +90,7 @@ const testWarmups: WarmupRowWithoutEquipment[] = [
     target_muscles: ["front_delts"],
     duration_seconds: 60,
     instructions: ["Test"],
+    contraindicated_regions: [],
     // equipment_ids omitted to simulate missing column
   },
   {
@@ -101,6 +102,7 @@ const testWarmups: WarmupRowWithoutEquipment[] = [
     target_muscles: ["front_delts"],
     duration_seconds: 30,
     instructions: ["Test"],
+    contraindicated_regions: [],
     // equipment_ids omitted
   },
 ];
@@ -461,6 +463,75 @@ const avg30 = plan30.days.filter(d => d.dayType === "weights")
 check("20 min vs 30 min: different exercise count or avg time within target ranges", 
   totalEx20 !== totalEx30 || (avg20 >= 15 && avg20 <= 25 && avg30 >= 25 && avg30 <= 35),
   `20min: ${totalEx20} ex, ${avg20.toFixed(0)}min avg; 30min: ${totalEx30} ex, ${avg30.toFixed(0)}min avg`);
+
+// ====================
+// Cool-down with injuries: only exclude contraindicated stretches, not those targeting the region
+// ====================
+
+console.log("\n(b) Cool-down: Upper day with shoulder injury gets upper-body stretches");
+const shoulderCooldown = selectCooldown({
+  stretches: warmups,
+  trainingMuscles: ["chest", "lats", "front_delts"],
+  injuryRegions: ["shoulder"],
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+const upperBodyStretches = shoulderCooldown.filter(s => {
+  const upperRegions = ["shoulder", "neck", "upper_back"];
+  return s.target_regions.some(r => upperRegions.includes(r));
+});
+const lowerOnlyStretches = shoulderCooldown.filter(s => {
+  const lowerRegions = ["hip", "knee", "ankle", "calf"];
+  const upperRegions = ["shoulder", "neck", "upper_back"];
+  return s.target_regions.some(r => lowerRegions.includes(r)) && 
+         !s.target_regions.some(r => upperRegions.includes(r));
+});
+check("Shoulder injury Upper: ≥2 upper-body stretches", upperBodyStretches.length >= 2,
+  `got ${upperBodyStretches.length}: ${upperBodyStretches.map(s => s.name).join(", ")}`);
+check("Shoulder injury Upper: no lower-only stretches", lowerOnlyStretches.length === 0,
+  lowerOnlyStretches.length > 0 ? lowerOnlyStretches.map(s => s.name).join(", ") : "");
+
+console.log("\n(c) Cool-down: Lower day with lower_back+hip gets lower-body stretches");
+const lowerBackCooldown = selectCooldown({
+  stretches: warmups,
+  trainingMuscles: ["quads", "hamstrings", "glutes"],
+  injuryRegions: ["lower_back", "hip"],
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+const lowerBodyStretches = lowerBackCooldown.filter(s => {
+  const lowerRegions = ["hip", "knee", "ankle", "calf", "lower_back"];
+  return s.target_regions.some(r => lowerRegions.includes(r));
+});
+const upperOnlyStretches = lowerBackCooldown.filter(s => {
+  const upperRegions = ["shoulder", "neck", "upper_back"];
+  const lowerRegions = ["hip", "knee", "ankle", "calf", "lower_back"];
+  return s.target_regions.some(r => upperRegions.includes(r)) && 
+         !s.target_regions.some(r => lowerRegions.includes(r));
+});
+check("Lower_back+hip Lower: ≥2 lower-body stretches", lowerBodyStretches.length >= 2,
+  `got ${lowerBodyStretches.length}: ${lowerBodyStretches.map(s => s.name).join(", ")}`);
+check("Lower_back+hip Lower: no upper-only stretches", upperOnlyStretches.length === 0,
+  upperOnlyStretches.length > 0 ? upperOnlyStretches.map(s => s.name).join(", ") : "");
+
+console.log("\n(d) Past knee injury: gets prehab but doesn't exclude squat/lunge drills");
+const pastKneeWarmup = selectWarmup({
+  warmups,
+  trainingMuscles: ["quads", "hamstrings"],
+  injuryRegions: [], // No current injuries
+  prehabRegions: ["knee"], // Past knee injury
+  track: "weights",
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+const kneePrehab = pastKneeWarmup.filter(w => w.phase === "prehab" && w.target_regions.includes("knee"));
+const squatLungeDrills = pastKneeWarmup.filter(w => 
+  w.phase === "mobility" && (w.slug.includes("squat") || w.slug.includes("lunge"))
+);
+check("Past knee injury: gets knee prehab", kneePrehab.length > 0,
+  kneePrehab.length > 0 ? kneePrehab.map(p => p.name).join(", ") : "none");
+check("Past knee injury: allows squat/lunge drills", squatLungeDrills.length > 0 || pastKneeWarmup.some(w => w.slug === "bodyweight-squat"),
+  "no squat/lunge drills excluded by past injury");
 
 // Summary
 console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);

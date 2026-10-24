@@ -158,7 +158,7 @@ SET contraindicated_regions = array_append(contraindicated_regions, 'knee'::body
 WHERE slug IN ('glute-ham-raise', 'natural-glute-ham-raise')
   AND NOT ('knee' = ANY(contraindicated_regions));
 
--- 7. Warmup/cooldown exclusions for knee injury
+-- 7. Warmup/cooldown exclusions for injuries
 -- Add contraindicated_regions column to warmup_exercises if it doesn't exist
 DO $$ 
 BEGIN
@@ -168,12 +168,33 @@ BEGIN
     AND column_name = 'contraindicated_regions'
   ) THEN
     ALTER TABLE warmup_exercises 
-    ADD COLUMN contraindicated_regions body_region[] DEFAULT ARRAY[]::body_region[];
+    ADD COLUMN contraindicated_regions body_region[] DEFAULT ARRAY[]::body_region[] NOT NULL;
   END IF;
 END $$;
 
--- World's greatest stretch and kneeling hip flexor stretch contraindicated for knee
+-- Set any existing nulls to empty array before making NOT NULL
+UPDATE warmup_exercises SET contraindicated_regions = ARRAY[]::body_region[] WHERE contraindicated_regions IS NULL;
+
+-- Make column NOT NULL if not already
+DO $$
+BEGIN
+  ALTER TABLE warmup_exercises ALTER COLUMN contraindicated_regions SET NOT NULL;
+  ALTER TABLE warmup_exercises ALTER COLUMN contraindicated_regions SET DEFAULT ARRAY[]::body_region[];
+EXCEPTION
+  WHEN others THEN NULL;
+END $$;
+
+-- Knee: Aggressive mobility drills
+-- World's greatest stretch: deep lunge loads knee joint
+-- Kneeling hip flexor stretch: body weight on knee
 UPDATE warmup_exercises
 SET contraindicated_regions = array_append(contraindicated_regions, 'knee'::body_region)
 WHERE slug IN ('worlds-greatest', 'hip-flexor-stretch-kneeling')
   AND NOT ('knee' = ANY(contraindicated_regions));
+
+-- Shoulder: Aggressive stretches that load the joint under tension
+-- Cross-body shoulder stretch: internal rotation under load can aggravate shoulder injuries
+UPDATE warmup_exercises
+SET contraindicated_regions = array_append(contraindicated_regions, 'shoulder'::body_region)
+WHERE slug IN ('shoulder-cross-body-stretch')
+  AND NOT ('shoulder' = ANY(contraindicated_regions));

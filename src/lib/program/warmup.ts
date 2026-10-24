@@ -14,7 +14,7 @@ export type WarmupRow = {
   duration_seconds: number;
   instructions: string[];
   equipment_ids: string[];
-  contraindicated_regions?: BodyRegion[];
+  contraindicated_regions: BodyRegion[];
 };
 
 export type WarmupItem = WarmupRow & { phase: "cardio" | "mobility" | "prehab" | "stretch" };
@@ -47,19 +47,23 @@ const CARDIO_EQUIPMENT: Record<string, string> = {
  *
  * Prehab uses BOTH current and past injuries. A past injury does not stop you
  * training a movement (see the generator's eligibility rules), but it is
- * exactly the thing worth warming up properly.
+ * exactly the thing worth warming up properly. Pass prehabRegions separately
+ * from injuryRegions to include past injuries in prehab while excluding only
+ * current injuries from mobility.
  */
 export function selectWarmup(input: {
   warmups: WarmupRow[];
   trainingMuscles: Muscle[];
-  injuryRegions: BodyRegion[];
+  injuryRegions?: BodyRegion[];
+  prehabRegions?: BodyRegion[];
   track: Track;
   availableEquipment: Set<string> | null;
   hasAllEquipment: boolean;
 }): WarmupItem[] {
-  const { warmups, trainingMuscles, injuryRegions, track, availableEquipment, hasAllEquipment } = input;
+  const { warmups, trainingMuscles, injuryRegions = [], prehabRegions = injuryRegions, track, availableEquipment, hasAllEquipment } = input;
   const muscles = new Set(trainingMuscles);
   const regions = new Set(injuryRegions);
+  const prehabRegionSet = new Set(prehabRegions);
 
   // QA Pass 10 (h): Equipment filter helper - ALL-of logic, same as exercises
   const canUseEquipment = (w: WarmupRow) => {
@@ -141,10 +145,11 @@ export function selectWarmup(input: {
   // (gentle activation/stability work for the injury). Mobility that LOADS the
   // injured region is filtered above. Equipment filter ensures BW-only users
   // get appropriate drills.
+  // QA Pass 11: Prehab uses ALL injuries (past and current) - past injuries benefit from warming up.
   const prehab = byType("prehab")
     .filter((w) => {
-      // Only include prehab that targets an injured region
-      const targetsInjury = w.target_regions.some((r) => regions.has(r));
+      // Only include prehab that targets an injured region (using prehabRegions, which includes past injuries)
+      const targetsInjury = w.target_regions.some((r) => prehabRegionSet.has(r));
       if (!targetsInjury) return false;
       
       // Filter by available equipment - prehab uses ALL-of logic (every), consistent with warm-up and cool-down
@@ -196,37 +201,91 @@ export function selectCooldown(input: {
     return equipmentIds.every((e) => availableEquipment.has(e));
   };
 
-  // QA: Filter for stretch exercises ONLY (not mobility/warmup drills), filter out injury contraindications AND equipment
-  const byType = stretches.filter((w) => {
-    const targetsInjury = w.target_regions.some((r) => regions.has(r));
+  // QA Pass 11: Only exclude stretches contraindicated for the injury, not those that merely target it.
+  // A shoulder-injured Upper day should still get upper-body stretches (gentle stretching is therapeutic).
+  const eligible = stretches.filter((w) => {
+    if (w.type !== "stretch") return false;
     const contraindicated = (w.contraindicated_regions ?? []).some((r) => regions.has(r));
-    return w.type === "stretch" && !targetsInjury && !contraindicated && canUseEquipment(w);
+    if (contraindicated) return false;
+    return canUseEquipment(w);
   });
 
-  // Rank stretches by how many of today's muscles they target
-  const ranked = byType
-    .map((w) => ({
-      w,
-      overlap: w.target_muscles.filter((m) => muscles.has(m)).length,
-    }))
+  // Map trained muscles to their regions for padding logic
+  const trainedRegions = new Set<BodyRegion>();
+  for (const muscle of muscles) {
+    // Upper body muscles
+    if (['chest', 'lats', 'front_delts', 'side_delts', 'rear_delts', 'traps', 'biceps', 'triceps', 'forearms'].includes(muscle)) {
+      trainedRegions.add('shoulder');
+      trainedRegions.add('upper_back');
+      trainedRegions.add('neck');
+    }
+    // Lower body muscles
+    if (['quads', 'hamstrings', 'glutes'].includes(muscle)) {
+      trainedRegions.add('hip');
+      trainedRegions.add('knee');
+      trainedRegions.add('lower_back'); // core stability for lower
+    }
+    if (['calves'].includes(muscle)) {
+      trainedRegions.add('ankle');
+    }
+    // Core
+    if (['abs', 'obliques'].includes(muscle)) {
+      trainedRegions.add('lower_back');
+    }
+  }
+
+  // Identify upper vs lower workout for padding logic
+  const upperMuscles = ['chest', 'lats', 'front_delts', 'side_delts', 'rear_delts', 'traps', 'biceps', 'triceps', 'forearms'];
+  const lowerMuscles = ['quads', 'hamstrings', 'glutes', 'calves'];
+  const isUpperDay = trainingMuscles.some(m => upperMuscles.includes(m));
+  const isLowerDay = trainingMuscles.some(m => lowerMuscles.includes(m));
+
+  // Rank stretches: first those targeting injured regions (gentle therapeutic stretch),
+  // then by muscle overlap, then by region overlap with trained regions
+  // Filter out region mismatches: don't pad Upper with lower-only or Lower with upper-only
+  const ranked = eligible
+    .map((w) => {
+      const targetsInjury = w.target_regions.some((r) => regions.has(r));
+      const muscleOverlap = w.target_muscles.filter((m) => muscles.has(m)).length;
+      const regionOverlap = w.target_regions.filter((r) => trainedRegions.has(r)).length;
+      
+      // Check if this stretch is appropriate for the day type
+      const upperOnlyRegions = ['shoulder', 'neck', 'upper_back'];
+      const lowerOnlyRegions = ['hip', 'knee', 'ankle', 'calf'];
+      const isUpperOnlyStretch = w.target_regions.some(r => upperOnlyRegions.includes(r)) &&
+                                 !w.target_regions.some(r => lowerOnlyRegions.includes(r));
+      const isLowerOnlyStretch = w.target_regions.some(r => lowerOnlyRegions.includes(r)) &&
+                                 !w.target_regions.some(r => upperOnlyRegions.includes(r));
+      
+      // Exclude mismatches: upper-only stretch on lower day, or lower-only stretch on upper day
+      const isRegionMismatch = (isUpperDay && isLowerOnlyStretch && muscleOverlap === 0) ||
+                               (isLowerDay && isUpperOnlyStretch && muscleOverlap === 0);
+      
+      return { w, targetsInjury, muscleOverlap, regionOverlap, isRegionMismatch };
+    })
+    .filter(x => !x.isRegionMismatch)
     .sort((a, b) => {
-      if (b.overlap !== a.overlap) return b.overlap - a.overlap;
+      // Prioritize stretches targeting injured regions (gentle therapeutic stretch)
+      if (a.targetsInjury !== b.targetsInjury) return b.targetsInjury ? 1 : -1;
+      // Then by muscle overlap
+      if (b.muscleOverlap !== a.muscleOverlap) return b.muscleOverlap - a.muscleOverlap;
+      // Then by region overlap with trained regions
+      if (b.regionOverlap !== a.regionOverlap) return b.regionOverlap - a.regionOverlap;
       return a.w.slug < b.w.slug ? -1 : a.w.slug > b.w.slug ? 1 : 0;
     })
     .slice(0, 6)
     .map((x) => ({ ...x.w, phase: "stretch" as const }));
 
-  // If no muscle overlap at all, include general full-body stretches.
-  // This happens when byType has stretches but none target today's muscles.
-  // Filter them by contraindications to avoid suggesting a stretch that loads
-  // an injured region.
-  if (ranked.length === 0) {
+  // If we got fewer than 3 stretches, pad with general full-body stretches
+  if (ranked.length < 3) {
     const generalStretches = ["cat-cow-stretch", "childs-pose", "seated-spinal-twist"];
-    const fallback = byType
+    const remaining = eligible
+      .filter((w) => !ranked.some(r => r.id === w.id))
       .filter((w) => generalStretches.includes(w.slug))
-      .slice(0, 3)
+      .slice(0, 6 - ranked.length)
       .map((w) => ({ ...w, phase: "stretch" as const }));
-    return fallback.length > 0 ? fallback : ranked;
+    
+    return [...ranked, ...remaining];
   }
 
   return ranked;
