@@ -62,8 +62,9 @@ console.log("\n2. sitemap.xml generation");
 console.log("\n3. Middleware matcher behavioral tests (using exported config.matcher)");
 {
   // Use the REAL exported config.matcher from proxy
+  // Next.js automatically anchors matcher patterns at the start, so we add ^ for testing
   const configMatcherPattern = config.matcher[0];
-  const regex = new RegExp(configMatcherPattern);
+  const regex = new RegExp("^" + configMatcherPattern);
   
   // These paths MUST match (go through middleware)
   const shouldMatch = [
