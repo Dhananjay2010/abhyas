@@ -20,6 +20,8 @@ export type ProgramDay = {
 export type TrainAnywayInput = {
   /** Today's template day (null if not found, or for rest days) */
   todayDay: TrainAnywayDay | null;
+  /** Yesterday's template day (used when missed) */
+  yesterdayDay: TrainAnywayDay | null;
   /** All upcoming days in the template (Mon-Sun) starting from tomorrow */
   upcomingDays: TrainAnywayDay[];
   /** Whether yesterday was a missed training day */
