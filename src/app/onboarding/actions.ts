@@ -3,10 +3,15 @@
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
-import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
 import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import {
+  validateOnboardingFields,
+  validateDateOfBirth,
+  validateHeightCm,
+  validateWeightKg,
+} from "@/lib/profile/validation";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
@@ -38,6 +43,7 @@ export async function saveAboutYou(input: {
   heightCm: number;
   weightKg: number;
 }): Promise<ActionResult> {
+<<<<<<< HEAD
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
   
@@ -51,18 +57,32 @@ export async function saveAboutYou(input: {
   if (input.weightKg < 25 || input.weightKg > 300)
     return { ok: false, error: "Weight should be between 25 and 300 kg." };
 
+=======
+>>>>>>> c3a8e82 (feat: harden profile data access and fix auth open redirect)
   const { supabase, user } = await requireUser();
 
+  // Fetch timezone first for age validation
   const { data: tzRow } = await supabase
     .from("profiles")
     .select("timezone")
     .eq("id", user.id)
     .single();
+  
+  const timezone = tzRow?.timezone || "Asia/Kolkata";
+
+  // L6 fix: validate age in the user's timezone, not UTC
+  const dobValidation = validateDateOfBirth(input.dateOfBirth, timezone);
+  if (!dobValidation.ok) return { ok: false, error: dobValidation.error };
+
+  if (input.heightCm < 100 || input.heightCm > 250)
+    return { ok: false, error: "Height should be between 100 and 250 cm." };
+  if (input.weightKg < 25 || input.weightKg > 300)
+    return { ok: false, error: "Weight should be between 25 and 300 kg." };
 
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
-      date_of_birth: input.dateOfBirth,
+      date_of_birth: dobValidation.date,
       sex: input.sex,
       height_cm: input.heightCm,
     })
@@ -71,7 +91,7 @@ export async function saveAboutYou(input: {
 
   // The first weigh-in doubles as the BMI input for the safety filters. It is
   // dated in the user's timezone, not UTC.
-  const today = localDateString(tzRow?.timezone || "Asia/Kolkata");
+  const today = localDateString(timezone);
   const { error: weightError } = await supabase
     .from("body_metrics")
     .upsert(
@@ -83,12 +103,22 @@ export async function saveAboutYou(input: {
   return { ok: true };
 }
 
+/**
+ * M5 fix: Allow-list columns and validate values.
+ * Used by onboarding to set goal, level, track, days_per_week, etc.
+ */
 export async function saveProfileFields(fields: ProfileUpdate): Promise<ActionResult> {
+<<<<<<< HEAD
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
   
+=======
+  const validation = validateOnboardingFields(fields);
+  if (!validation.ok) return { ok: false, error: validation.error };
+
+>>>>>>> c3a8e82 (feat: harden profile data access and fix auth open redirect)
   const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("profiles").update(fields).eq("id", user.id);
+  const { error } = await supabase.from("profiles").update(validation.data).eq("id", user.id);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
