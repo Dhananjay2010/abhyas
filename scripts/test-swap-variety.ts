@@ -371,6 +371,30 @@ console.log("\n6. Direct unit tests: each excluded slug");
     check("barbell-guillotine-bench-press excluded", !slugs.includes("barbell-guillotine-bench-press"));
     check("barbell-incline-bench-press-medium-grip present", slugs.includes("barbell-incline-bench-press-medium-grip"));
   }
+  
+  // Test neck-press
+  const neckPressBench = catalogue.find(e => e.slug === "barbell-bench-press-medium-grip");
+  const neckPress = catalogue.find(e => e.slug === "neck-press");
+  const inclineBench = catalogue.find(e => e.slug === "barbell-incline-bench-press-medium-grip");
+  
+  if (neckPressBench && neckPress && inclineBench) {
+    const pool = [neckPressBench, neckPress, inclineBench];
+    const wantCompound = neckPressBench.mechanic !== "isolation";
+    const ctx: AlternativesContext = {
+      level: "intermediate",
+      availableEquipment: null,
+      injuryRegions: [],
+      limit: 5,
+      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+      tieBreakFn: (slug) => hashString(`test:${slug}`),
+    };
+    
+    const alternatives = rankAlternatives(neckPressBench, pool, ctx);
+    const slugs = alternatives.map(e => e.slug);
+    
+    check("neck-press excluded", !slugs.includes("neck-press"));
+    check("barbell-incline-bench-press-medium-grip present (neck-press test)", slugs.includes("barbell-incline-bench-press-medium-grip"));
+  }
 }
 
 console.log("\n7. Pullover scope tests");

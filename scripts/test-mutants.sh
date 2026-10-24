@@ -93,7 +93,18 @@ else
 fi
 echo ""
 
-echo "5. Mutation: Apply pullover filter to every original (drop isPulloverOriginal check)"
+echo "5. Mutation: Remove neck-press from exclusion set"
+git checkout -- "$ALTERNATIVES_FILE"
+sed -i 's/"neck-press",/\/\/ MUTANT: removed/' "$ALTERNATIVES_FILE"
+total_mutations=$((total_mutations + 1))
+if run_tests "Remove neck-press"; then
+  : # failed as expected
+else
+  caught_mutations=$((caught_mutations + 1))
+fi
+echo ""
+
+echo "6. Mutation: Apply pullover filter to every original (drop isPulloverOriginal check)"
 git checkout -- "$ALTERNATIVES_FILE"
 sed -i 's/if (isCompoundPull && !isPulloverOriginal)/if (isCompoundPull)/' "$ALTERNATIVES_FILE"
 total_mutations=$((total_mutations + 1))
@@ -104,7 +115,7 @@ else
 fi
 echo ""
 
-echo "6. Mutation: Drop compound requirement for pullover filter"
+echo "7. Mutation: Drop compound requirement for pullover filter"
 git checkout -- "$ALTERNATIVES_FILE"
 sed -i 's/if (isCompoundPull && !isPulloverOriginal)/if (!isPulloverOriginal)/' "$ALTERNATIVES_FILE"
 total_mutations=$((total_mutations + 1))
@@ -115,7 +126,7 @@ else
 fi
 echo ""
 
-echo "7. Mutation: Apply pullover filter only to vertical pulls"
+echo "8. Mutation: Apply pullover filter only to vertical pulls"
 git checkout -- "$ALTERNATIVES_FILE"
 sed -i 's/(current.movement_pattern === "horizontal_pull" || current.movement_pattern === "vertical_pull")/(current.movement_pattern === "vertical_pull")/' "$ALTERNATIVES_FILE"
 total_mutations=$((total_mutations + 1))
@@ -126,7 +137,7 @@ else
 fi
 echo ""
 
-echo "8. Mutation: Swap ranking order (pattern rank and equipment score)"
+echo "9. Mutation: Swap ranking order (pattern rank and equipment score)"
 git checkout -- "$ALTERNATIVES_FILE"
 sed -i 's/return aData.patternRank - bData.patternRank/return aData.equipmentScore - bData.equipmentScore/' "$ALTERNATIVES_FILE"
 sed -i 's/if (patternCmp !== 0) return patternCmp;/if (patternCmp !== 0) return patternCmp; \/\/ MUTANT: disabled/' "$ALTERNATIVES_FILE"

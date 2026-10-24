@@ -41,6 +41,9 @@ export const EXCLUDED_EXERCISE_SLUGS: ReadonlySet<string> = new Set([
   
   // Barbell Guillotine Bench Press (high-risk, bar lowered to neck)
   "barbell-guillotine-bench-press",
+  
+  // Neck Press (bar lowered to neck, similar risk to guillotine press)
+  "neck-press",
 ]);
 
 /**
