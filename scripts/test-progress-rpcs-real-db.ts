@@ -212,7 +212,8 @@ async function runTests() {
       for (let i = 0; i < sessions.length; i += 100) {
         await adminClient.from("sessions").insert(sessions.slice(i, i + 100));
         await adminClient.from("session_exercises").insert(sessionExercises.slice(i, i + 100));
-        await adminClient.from("session_sets").insert(sets.slice(i, i + 300));
+        // Each batch of 100 sessions has 300 sets (3 per session)
+        await adminClient.from("session_sets").insert(sets.slice(i * 3, (i + 100) * 3));
       }
 
       // Call progress_summary RPC
