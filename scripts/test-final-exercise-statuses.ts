@@ -7,9 +7,7 @@
 
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
-import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 import type { Database } from "../src/lib/database.types";
-import type { AbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 
 let passed = 0;
 let failed = 0;

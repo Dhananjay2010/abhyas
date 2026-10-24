@@ -10,7 +10,6 @@
  */
 
 import { decideAbandonStatus, abandonSessionCore, type SessionExercise } from "../src/lib/session/abandon-session";
-import type { AbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 import { buildDayRecords, computeStreaks } from "../src/lib/progress/streaks";
 import { pickReusableSession } from "../src/lib/session/reusable-session";
 

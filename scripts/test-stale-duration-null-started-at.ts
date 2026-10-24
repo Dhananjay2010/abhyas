@@ -53,7 +53,7 @@ console.log("\n2. Invalid startedAt (null): falls back safely");
     const isValidDuration = Number.isFinite(result.durationSeconds) && result.durationSeconds >= 0;
     check("Duration is not NaN and not negative", isValidDuration, `Got ${result.durationSeconds}`);
     check("endedAt is a valid ISO timestamp", !isNaN(Date.parse(result.endedAt)));
-  } catch (e) {
+  } catch {
     // If it throws, that's also acceptable as a safety mechanism
     check("Function throws safely on null startedAt", true);
   }
@@ -72,7 +72,7 @@ console.log("\n3. Empty string startedAt: falls back safely");
     const isValidDuration = Number.isFinite(result.durationSeconds) && result.durationSeconds >= 0;
     check("Duration is not NaN and not negative", isValidDuration, `Got ${result.durationSeconds}`);
     check("endedAt is a valid ISO timestamp", !isNaN(Date.parse(result.endedAt)));
-  } catch (e) {
+  } catch {
     check("Function throws safely on empty startedAt", true);
   }
 }
@@ -90,7 +90,7 @@ console.log("\n4. Invalid ISO string startedAt: falls back safely");
     const isValidDuration = Number.isFinite(result.durationSeconds) && result.durationSeconds >= 0;
     check("Duration is not NaN and not negative", isValidDuration, `Got ${result.durationSeconds}`);
     check("endedAt is a valid ISO timestamp", !isNaN(Date.parse(result.endedAt)));
-  } catch (e) {
+  } catch {
     check("Function throws safely on invalid startedAt", true);
   }
 }
@@ -108,7 +108,7 @@ console.log("\n5. No sets (skipped): invalid startedAt still handled");
     check("Duration is 0", result.durationSeconds === 0);
     // For skipped, endedAt = startedAt, which might be invalid
     // The important part is no crash and duration is 0
-  } catch (e) {
+  } catch {
     check("Function throws safely on invalid startedAt even when skipped", true);
   }
 }

@@ -10,7 +10,6 @@
  */
 
 import { finishSessionCore } from "../src/lib/session/finish-session";
-import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
 let passed = 0;
 let failed = 0;

@@ -9,7 +9,7 @@
  */
 
 import { finishSessionCore } from "../src/lib/session/finish-session";
-import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
+import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets } from "../src/lib/session/finish-session-deps";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
 import type { AbandonSessionDeps, SessionExerciseRow } from "../src/lib/session/abandon-session-deps";
 

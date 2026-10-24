@@ -6,7 +6,7 @@
  */
 
 import { closeStaleSessions } from "../src/lib/session/close-stale";
-import type { CloseStaleSessionsDeps, SessionRow, ExerciseWithSets } from "../src/lib/session/close-stale-deps";
+import type { SessionRow, ExerciseWithSets } from "../src/lib/session/close-stale-deps";
 
 let passed = 0;
 let failed = 0;
@@ -41,10 +41,10 @@ function makeFakeDeps(
 
   return {
     sessionUpdates,
-    async loadSessions(_ids: string[]) {
+    async loadSessions() {
       return sessions;
     },
-    async loadExercisesWithSets(_sessionIds: string[]) {
+    async loadExercisesWithSets() {
       return exercises;
     },
     async updateSession(id: string, patch: { status: string; completed_at: string | null; duration_seconds: number }) {

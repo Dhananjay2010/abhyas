@@ -6,7 +6,6 @@
  */
 
 import { finishExerciseCore } from "../src/lib/session/finish-exercise";
-import type { FinishExerciseDeps } from "../src/lib/session/finish-exercise-deps";
 
 let passed = 0;
 let failed = 0;

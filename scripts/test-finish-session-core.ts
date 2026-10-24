@@ -1,8 +1,7 @@
 #!/usr/bin/env tsx
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
-import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
-import type { AbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
+import type { SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
 
 let passed = 0;
 let failed = 0;
@@ -52,7 +51,7 @@ function makeFakeFinishSessionDeps(
       if (readError) return { data: null, error: readError };
       return { data: exercises, error: null };
     },
-    async updateSession(_id: string, _patch: unknown) {
+    async updateSession() {
       calls.push({ method: "update", filters: { status: "in_progress" } });
       if (updateError) return { error: updateError, updatedCount: 0 };
       return { error: null, updatedCount: updateCount ?? 1 };
