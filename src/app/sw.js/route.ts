@@ -78,10 +78,35 @@ self.addEventListener("activate", (event) => {
 
 /**
  * Check if a request should be intercepted for offline fallback.
- * Only full-page navigations; never RSC, Supabase, /auth, or static assets.
+ *
+ * CRITICAL: Only GET requests for full-page navigation are intercepted.
+ * All other requests (POST, PUT, DELETE, etc.) and server actions MUST
+ * go straight to the network and fail visibly.
+ *
+ * Never intercepted:
+ * - Non-GET requests (POST, PUT, DELETE, etc.)
+ * - Server actions (POST with Next-Action header)
+ * - RSC requests (Next.js App Router server components)
+ * - API routes (/api/*)
+ * - Auth routes (/auth/*)
+ * - Supabase API calls
+ * - Static assets
  */
 function shouldInterceptForOffline(request) {
+  // NEVER intercept non-GET requests. POSTs and server actions must fail
+  // visibly to the page, not return a cached offline fallback.
+  if (request.method !== "GET") {
+    return false;
+  }
+
   const url = new URL(request.url);
+
+  // Never intercept server actions (POST with Next-Action header).
+  // Check this explicitly even though we already checked method !== "GET",
+  // as a defense-in-depth measure.
+  if (request.headers.get("Next-Action")) {
+    return false;
+  }
 
   // Never intercept Supabase API calls
   if (url.hostname.includes("supabase.co")) {
@@ -93,16 +118,20 @@ function shouldInterceptForOffline(request) {
     return false;
   }
 
+  // Never intercept /api routes
+  if (url.pathname.startsWith("/api")) {
+    return false;
+  }
+
   // Never intercept RSC requests (Next.js App Router server components).
   // These have the RSC: 1 header or _rsc query param and are tied to
-  // specific builds. When they fail, Next.js falls back to a full navigation,
-  // which then hits this handler and gets the offline page.
+  // specific builds. When they fail, Next.js falls back to a full navigation.
   const isRSC = request.headers.get("RSC") === "1" || url.searchParams.has("_rsc");
   if (isRSC) {
     return false;
   }
 
-  // Intercept full-page navigations
+  // Intercept GET requests for full-page navigations
   if (request.mode === "navigate") {
     return true;
   }
@@ -110,8 +139,15 @@ function shouldInterceptForOffline(request) {
   return false;
 }
 
-// Fetch: serve the offline page when a navigation request fails
+// Fetch: serve the offline page when a GET navigation request fails
 self.addEventListener("fetch", (event) => {
+  // Ignore all non-GET requests entirely (no respondWith).
+  // POSTs and server actions go straight to the network and fail visibly.
+  if (event.request.method !== "GET") {
+    return;
+  }
+
+  // Check if this GET request should be intercepted
   if (!shouldInterceptForOffline(event.request)) {
     return;
   }
