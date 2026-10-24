@@ -625,7 +625,11 @@ export function SessionRunner({
 
   const setsDone = current.sets.length;
   const allSetsDone = setsDone >= current.plannedSets;
-  const nextSetNumber = setsDone + 1;
+  // Count pending sets for this exercise to avoid reusing set_number values
+  const pendingSetsForExercise = pendingSetState.pending.filter(
+    (s) => s.sessionExerciseId === current.id
+  ).length;
+  const nextSetNumber = setsDone + pendingSetsForExercise + 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
   const lastWeight =
