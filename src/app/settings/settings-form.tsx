@@ -108,18 +108,7 @@ export function SettingsForm({
     hasAll: initial.hasAllEquipment,
     ids: initial.equipmentIds,
   });
-<<<<<<< HEAD
-  /** L2 QA fix: Track saved session length for rollback on error */
-  const [savedSessionLength, setSavedSessionLength] = useState(initial.preferredSessionMinutes);
-  const savedSessionLengthRef = useRef(initial.preferredSessionMinutes);
-  
-  // Keep ref in sync when saved value changes
-  useEffect(() => {
-    savedSessionLengthRef.current = savedSessionLength;
-  }, [savedSessionLength]);
-=======
-  
->>>>>>> origin/main
+
   /** Equipment hint shown when user tries an unsaveable state */
   const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
   
@@ -993,24 +982,9 @@ export function SettingsForm({
             options={SESSION_LENGTH_OPTIONS.map((n) => ({ value: n, label: `${n}m` }))}
             value={s.preferredSessionMinutes}
             onChange={(n) => {
-<<<<<<< HEAD
-              setS({ ...s, preferredSessionMinutes: n });
-              // L2 QA fix: Rollback on validation error using functional updater to avoid stale closure
-              startTransition(async () => {
-                const r = await actions.updateProfileSettings({ preferred_session_minutes: n });
-                if (!r.ok) {
-                  // Revert to last saved value using ref to avoid stale closure
-                  setS(prev => ({ ...prev, preferredSessionMinutes: savedSessionLengthRef.current }));
-                  return setError(r.error);
-                }
-                // Success: update saved value
-                setSavedSessionLength(n);
-                setError(null);
-              });
-=======
               setS(prev => ({ ...prev, preferredSessionMinutes: n }));
-              saveProfile("preferred_session_minutes", { preferred_session_minutes: n });
->>>>>>> origin/main
+              // M2 L2: Session length affects plan generation
+              saveProfile("preferred_session_minutes", { preferred_session_minutes: n }, true);
             }}
           />
         </Field>
