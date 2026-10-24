@@ -17,7 +17,7 @@ import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { sessionCompletion } from "@/lib/session/completion";
-import { endEarlyOutcome, finishOutcome, type EndEarlyOutcome, type FinishOutcome } from "@/lib/session/end-early";
+import { runFinish, runEndEarly } from "@/lib/session/finish-flow";
 import { focusTrap } from "@/lib/focus-trap";
 import {
   abandonSession,
@@ -304,44 +304,24 @@ export function SessionRunner({
   }
 
   async function finish(cooldownCompleted: boolean) {
-    if (busyRef.current) return;
-    busyRef.current = true;
     setBusy(true);
-    const secs = stopElapsed();
-    let outcome: FinishOutcome;
-    try {
-      const result = await actions.finishSession({
-        sessionId,
-        durationSeconds: secs,
-        cooldownCompleted,
-      });
-      outcome = finishOutcome(result);
-    } catch (err) {
-      outcome = finishOutcome({ thrown: err });
-    }
-    busyRef.current = false;
+    await runFinish(
+      {
+        finishSession: actions.finishSession,
+        abandonSession: actions.abandonSession,
+        refreshAfterSession: actions.refreshAfterSession,
+        stopElapsed,
+        resumeElapsed,
+        setError,
+        setPhase,
+        setEndedEarly,
+        navigate: (path: string) => router.push(path),
+        onExit,
+        inFlight: busyRef,
+      },
+      { sessionId, cooldownCompleted },
+    );
     setBusy(false);
-
-    switch (outcome.action) {
-      case "navigate_today":
-        setError(null);
-        await actions.refreshAfterSession();
-        if (onExit) onExit();
-        else router.push("/today");
-        break;
-      case "show_summary":
-        setError(null);
-        setPhase("done");
-        break;
-      case "show_offline_error":
-        resumeElapsed();
-        setError("You're offline. Your session wasn't finished – try again when you're back online.");
-        break;
-      case "show_error":
-        resumeElapsed();
-        setError("Couldn't finish the session. Try again.");
-        break;
-    }
   }
 
   // ---- warm-up ----------------------------------------------------------
@@ -463,7 +443,9 @@ export function SessionRunner({
         subtitle={null}
         elapsed={elapsed}
         onExit={async () => {
-          await actions.refreshAfterSession();
+          try {
+            await actions.refreshAfterSession();
+          } catch {}
           if (onExit) onExit();
           else router.push("/today");
         }}
@@ -1009,45 +991,28 @@ export function SessionRunner({
                 setEndEarlyOfflineError(false);
               }}
               onConfirm={async () => {
-                if (endingRef.current) return;
-                endingRef.current = true;
-                const secs = stopElapsed();
-                setEnding(true);
-                let outcome: EndEarlyOutcome;
-                try {
-                  const result = await actions.abandonSession(sessionId, secs);
-                  outcome = endEarlyOutcome(result, totalSetsDone);
-                } catch (err) {
-                  outcome = endEarlyOutcome({ thrown: err }, totalSetsDone);
-                }
-                endingRef.current = false;
-                setEnding(false);
-
-                switch (outcome) {
-                  case "navigate_today":
-                    setConfirming(null);
-                    setEndEarlyOfflineError(false);
-                    await actions.refreshAfterSession();
-                    if (onExit) onExit();
-                    else router.push("/today");
-                    break;
-                  case "show_summary":
-                    setConfirming(null);
-                    setEndEarlyOfflineError(false);
-                    setEndedEarly(true);
-                    setPhase("done");
-                    break;
-                  case "show_offline":
-                    setEndEarlyOfflineError(true);
-                    resumeElapsed();
-                    break;
-                  case "show_error":
-                    setConfirming(null);
-                    setEndEarlyOfflineError(false);
-                    resumeElapsed();
-                    setError("Couldn't end the session. Try again.");
-                    break;
-                }
+                await runEndEarly(
+                  {
+                    abandonSession: actions.abandonSession,
+                    refreshAfterSession: actions.refreshAfterSession,
+                    stopElapsed,
+                    resumeElapsed,
+                    setError,
+                    setPhase,
+                    setEndedEarly,
+                    navigate: (path: string) => router.push(path),
+                    onExit,
+                    inFlight: busyRef,
+                  },
+                  {
+                    sessionId,
+                    setsDone: totalSetsDone,
+                    setConfirming,
+                    setOfflineError: setEndEarlyOfflineError,
+                    endingRef,
+                    setEnding,
+                  },
+                );
               }}
               disabled={busy || ending}
             />

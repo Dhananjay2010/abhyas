@@ -1,5 +1,9 @@
 import { isNetworkError } from "./network-error";
 
+type Result<T = undefined> =
+  | ({ ok: true } & (T extends undefined ? object : { data: T }))
+  | { ok: false; error: string };
+
 /**
  * Dependencies needed to run finish/end-early flows.
  * Injected to make the functions pure and testable.
@@ -11,14 +15,14 @@ export interface FinishFlowDeps {
     cooldownCompleted: boolean;
   }) => Promise<{ ok: true; data: { status: "completed" | "skipped" } } | { ok: false; error?: string }>;
   abandonSession: (sessionId: string, elapsedSeconds: number) => Promise<{ ok: true } | { ok: false; error?: string }>;
-  refreshAfterSession: () => Promise<void>;
+  refreshAfterSession: () => Promise<Result<undefined>>;
   stopElapsed: () => number;
   resumeElapsed: () => void;
   setError: (message: string | null) => void;
   setPhase: (phase: "done") => void;
   setEndedEarly: (ended: boolean) => void;
   navigate: (path: string) => void;
-  onExit: (() => void) | null;
+  onExit: (() => void) | null | undefined;
   inFlight: { current: boolean };
 }
 
