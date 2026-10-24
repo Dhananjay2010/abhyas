@@ -9,7 +9,7 @@
  */
 
 import { finishSessionCore } from "../src/lib/session/finish-session";
-import type { FinishSessionDeps, SessionRow } from "../src/lib/session/finish-session-deps";
+import type { SessionRow } from "../src/lib/session/finish-session-deps";
 
 let passed = 0;
 let failed = 0;
