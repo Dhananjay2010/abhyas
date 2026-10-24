@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateSet } from "../actions";
+import { updateSet, deleteSet } from "../actions";
 
 interface SetData {
   session_exercise_id: string;
@@ -27,6 +27,9 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
   const [isPending, startTransition] = useTransition();
   const [editedSets, setEditedSets] = useState<Map<string, SetData>>(new Map());
   const [errors, setErrors] = useState<Map<string, string>>(new Map());
+  const [setToDelete, setSetToDelete] = useState<{ exerciseId: string; setNumber: number } | null>(null);
+  const [showUndo, setShowUndo] = useState(false);
+  const [deletedSet, setDeletedSet] = useState<{ exerciseId: string; setNumber: number } | null>(null);
 
   const handleEdit = () => {
     // Initialize edited sets with current values
@@ -76,6 +79,33 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
 
     const updatedSet = { ...currentSet, [field]: numValue };
     setEditedSets(new Map(editedSets.set(key, updatedSet)));
+  };
+
+  const handleDeleteClick = (sessionExerciseId: string, setNumber: number) => {
+    setSetToDelete({ exerciseId: sessionExerciseId, setNumber });
+  };
+
+  const confirmDelete = () => {
+    if (!setToDelete) return;
+
+    startTransition(async () => {
+      const result = await deleteSet(setToDelete.exerciseId, setToDelete.setNumber);
+      
+      if (result.error) {
+        alert(`Failed to delete set: ${result.error}`);
+      } else {
+        setDeletedSet(setToDelete);
+        setShowUndo(true);
+        setSetToDelete(null);
+        
+        // Hide undo after 5 seconds
+        setTimeout(() => setShowUndo(false), 5000);
+      }
+    });
+  };
+
+  const cancelDelete = () => {
+    setSetToDelete(null);
   };
 
   const handleSave = () => {
@@ -221,6 +251,18 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
                         </div>
                       </>
                     )}
+                    
+                    {/* Delete button with 44px tap target */}
+                    <button
+                      onClick={() => handleDeleteClick(set.session_exercise_id, set.set_number)}
+                      disabled={isPending}
+                      className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded border border-border bg-background text-destructive transition-colors hover:border-destructive hover:bg-destructive/5 disabled:opacity-50"
+                      aria-label="Delete set"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 );
               })}
@@ -228,6 +270,46 @@ export function EditSets({ sessionId, exercises }: EditSetsProps) {
           );
         })}
       </div>
+
+      {/* Delete confirmation dialog */}
+      {setToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-xl">
+            <h3 className="text-lg font-semibold">Delete set?</h3>
+            <p className="mt-2 text-sm text-muted">
+              This will remove the set and update volume, PR status, and streak eligibility.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={cancelDelete}
+                disabled={isPending}
+                className="flex-1 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:border-muted/50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isPending}
+                className="flex-1 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-destructive/90 disabled:opacity-50"
+              >
+                {isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Undo toast */}
+      {showUndo && deletedSet && (
+        <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-border bg-surface px-4 py-3 shadow-xl">
+          <p className="text-sm">
+            Set deleted.{" "}
+            <span className="text-muted">
+              Volume, PR status, and streak updated.
+            </span>
+          </p>
+        </div>
+      )}
 
       <div className="mt-4 flex gap-3">
         <button

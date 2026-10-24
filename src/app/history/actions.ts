@@ -152,3 +152,50 @@ export async function updateSet(
 
   return { success: true };
 }
+
+/**
+ * Delete a single set from a session.
+ * Updates set counts, volume, PR badges, and streak/day eligibility.
+ * Respects RLS: user can only delete their own sets.
+ */
+export async function deleteSet(
+  sessionExerciseId: string,
+  setNumber: number
+) {
+  const { supabase, user } = await getAuthedClient();
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  // Verify ownership through session_exercises
+  const { data: sessionExercise } = await supabase
+    .from("session_exercises")
+    .select("id, session_id, user_id")
+    .eq("id", sessionExerciseId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!sessionExercise) {
+    return { error: "Exercise not found" };
+  }
+
+  // Delete the set (RLS ensures user can only delete their own)
+  const { error } = await supabase
+    .from("session_sets")
+    .delete()
+    .eq("session_exercise_id", sessionExerciseId)
+    .eq("set_number", setNumber)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  // Revalidate History list (updates set counts, volume, PR badges, streak eligibility)
+  // and detail page
+  revalidatePath("/history");
+  revalidatePath(`/history/${sessionExercise.session_id}`);
+  revalidatePath("/progress"); // Streak might have changed
+
+  return { success: true };
+}

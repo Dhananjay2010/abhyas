@@ -94,6 +94,7 @@
     "test:history-sorting": "tsx scripts/test-history-sorting.ts",
     "test:single-point-charts": "tsx scripts/test-single-point-charts.ts",
     "test:zero-set-sessions": "tsx scripts/test-zero-set-sessions.ts",
+    "test:delete-set": "tsx scripts/test-delete-set.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
