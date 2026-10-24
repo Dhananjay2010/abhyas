@@ -556,8 +556,12 @@ function Practice({
             return;
           }
           setSave({ state: "saved" });
+          // Only call onSaved if this is the first successful save (not a retry)
+          const wasAlreadySaved = savedOkRef.current;
           savedOkRef.current = true;
-          onSaved(o.seconds);
+          if (!wasAlreadySaved) {
+            onSaved(o.seconds);
+          }
           const m = pendingMood.current;
           if (m !== null) {
             pendingMood.current = null;

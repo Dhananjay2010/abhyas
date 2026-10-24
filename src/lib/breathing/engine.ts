@@ -313,7 +313,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** Whole cycles closest to the requested minutes. A practice never stops mid-breath. */
 export function cyclesForMinutes(cycle: Cycle, minutes: number, maxCycles: number | null): number {
-  const n = Math.max(1, Math.round((minutes * 60) / cycle.seconds));
+  const n = Math.max(1, Math.ceil((minutes * 60) / cycle.seconds));
   return maxCycles ? Math.min(n, maxCycles) : n;
 }
 
@@ -352,7 +352,7 @@ export function lengthPlan(cycle: Cycle, maxCycles: number | null): LengthPlan {
   const seen = new Set<number>();
   const options: LengthOption[] = [];
   for (const m of MINUTE_CHOICES) {
-    const raw = Math.max(1, Math.floor((m * 60) / cycle.seconds));
+    const raw = Math.max(1, Math.ceil((m * 60) / cycle.seconds));
     // A capped pattern must not offer a "10 min" that quietly runs for three.
     if (maxCycles && raw > maxCycles) continue;
     if (seen.has(raw)) continue;

@@ -236,8 +236,8 @@ console.log("\n9. Length in minutes, and 4-7-8 in breaths with a hard cap (bug B
   const box = buildCycle(BOX);
   const plan = lengthPlan(box, null);
   check("box is chosen in minutes", plan.unit === "minutes");
-  check("cycles are floored to fit labeled duration",
-    plan.options.map((o) => o.cycles).join(",") === "3,11,18,37", plan.options.map((o) => o.cycles).join(","));
+  check("cycles are ceiled to meet or exceed labeled duration",
+    plan.options.map((o) => o.cycles).join(",") === "4,12,19,38", plan.options.map((o) => o.cycles).join(","));
   check("custom goes up to an hour", plan.maxMinutes === 60);
 
   const fse = buildCycle(FOUR_SEVEN_EIGHT);
@@ -257,7 +257,7 @@ console.log("\n9. Length in minutes, and 4-7-8 in breaths with a hard cap (bug B
   check("custom stops at the cap", long.maxMinutes === 5, `${long.maxMinutes}`);
 
   const nadi = lengthPlan(buildCycle(NADI), null);
-  check("Nadi Shodhana's shortest option is one cycle (32s)", nadi.options[0].cycles === 1, `${nadi.options[0].cycles}`);
+  check("Nadi Shodhana's shortest option is two cycles (64s, rounds up from 1 min)", nadi.options[0].cycles === 2, `${nadi.options[0].cycles}`);
 }
 
 console.log("\n10. Where the length starts, and how it reads");

@@ -129,6 +129,27 @@ begin
   )
   select count(*) > 0 from inserted into v_inserted;
 
+  -- Backstop: if the insert conflicted (duplicate log_id), the advisory lock
+  -- wasn't held or didn't prevent the race. We may have created an orphan
+  -- session. Delete it and return the existing session_id from the log.
+  if not v_inserted then
+    -- The log already exists. Find its session_id.
+    declare
+      v_existing_session uuid;
+    begin
+      select session_id into v_existing_session from breathing_logs where id = p_log_id;
+      
+      -- If we created a new session for this call but the log insert conflicted,
+      -- delete the orphan session we created. This happens when the advisory lock
+      -- is missing or fails, and both transactions create separate sessions.
+      if p_session_id is null and v_session is not null and v_session <> v_existing_session then
+        delete from sessions where id = v_session;
+      end if;
+      
+      return v_existing_session;
+    end;
+  end if;
+
   -- Only update the session if the log insert actually happened. If it didn't
   -- (conflict occurred), the session was already updated by the first call.
   if v_inserted then
