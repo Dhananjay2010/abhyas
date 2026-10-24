@@ -288,9 +288,9 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
   results.push(await testRoute('/sitemap.xml', false, 'Public /sitemap.xml'));
   results.push(await testRoute('/manifest.webmanifest', false, 'Public /manifest.webmanifest'));
   
-  // Test that paths with literal $ in URL don't get special treatment
-  // (they should be treated as any other character in the path)
-  results.push(await testRoute('/today$', false, 'Invalid path /today$ (literal $ in URL)'));
+  // Test that paths with literal $ in URL are treated as non-existent routes
+  // The middleware should still run (redirect to sign-in) because /today$ is not a public path
+  results.push(await testRoute('/today$', true, 'Non-existent path /today$ (literal $ in URL should redirect)'));
 
   return results;
 }
