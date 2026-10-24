@@ -57,6 +57,10 @@ async function testSequentialRetry() {
   await client.connect();
 
   try {
+    // Set timeouts to prevent hanging
+    await client.query("SET statement_timeout = '10s'");
+    await client.query("SET lock_timeout = '5s'");
+
     // Get box-breathing pattern id
     const patternResult = await client.query(
       "SELECT id FROM breathing_patterns WHERE slug = 'box-breathing'"

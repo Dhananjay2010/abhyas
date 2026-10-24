@@ -55,8 +55,8 @@ async function testBackstop() {
 
   try {
     // Set statement and lock timeouts to prevent hanging
-    await client.query("SET LOCAL statement_timeout = '15s'");
-    await client.query("SET LOCAL lock_timeout = '10s'");
+    await client.query("SET statement_timeout = '15s'");
+    await client.query("SET lock_timeout = '10s'");
 
     console.log("1. Read migration and create test function without advisory lock");
     

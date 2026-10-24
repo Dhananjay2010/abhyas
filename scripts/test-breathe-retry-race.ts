@@ -59,6 +59,12 @@ async function testConcurrentRace() {
   await client2.connect();
 
   try {
+    // Set timeouts to prevent hanging
+    await client1.query("SET statement_timeout = '10s'");
+    await client1.query("SET lock_timeout = '5s'");
+    await client2.query("SET statement_timeout = '10s'");
+    await client2.query("SET lock_timeout = '5s'");
+
     // Get box-breathing pattern id from seed data
     const patternResult = await client1.query(
       "SELECT id FROM breathing_patterns WHERE slug = 'box-breathing'"
@@ -72,144 +78,162 @@ async function testConcurrentRace() {
     {
       const logId = crypto.randomUUID();
 
-      // Start both transactions
-      await client1.query("BEGIN");
-      await client2.query("BEGIN");
+      try {
+        // Start both transactions
+        await client1.query("BEGIN");
+        await client2.query("BEGIN");
 
-      // Set up RLS context for both
-      await client1.query("SET LOCAL role authenticated");
-      await client1.query(
-        "SELECT set_config('request.jwt.claims', $1, true)",
-        [JSON.stringify({ sub: TEST_USER_ID })]
-      );
-      await client2.query("SET LOCAL role authenticated");
-      await client2.query(
-        "SELECT set_config('request.jwt.claims', $1, true)",
-        [JSON.stringify({ sub: TEST_USER_ID })]
-      );
+        // Set up RLS context for both
+        await client1.query("SET LOCAL role authenticated");
+        await client1.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
+        await client2.query("SET LOCAL role authenticated");
+        await client2.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
 
-      // Run concurrent calls with same log_id
-      const promise1 = client1.query(
-        `SELECT record_breathing_practice(
-          $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          5, 5, 20, 40, false, 3::smallint, 'off',
-          NULL::uuid, NULL::uuid, NULL::smallint
-        ) as session_id`,
-        [logId, FAR_OFF_DATE, PATTERN_ID]
-      );
+        // Run concurrent calls with same log_id
+        // DON'T use Promise.all - it causes deadlock when one holds advisory lock
+        // Instead, start both, then await sequentially
+        const promise1 = client1.query(
+          `SELECT record_breathing_practice(
+            $1::uuid, $2::date, $3::uuid, NULL::uuid,
+            5, 5, 20, 40, false, 3::smallint, 'off',
+            NULL::uuid, NULL::uuid, NULL::smallint
+          ) as session_id`,
+          [logId, FAR_OFF_DATE, PATTERN_ID]
+        );
 
-      // Add a small delay to increase chance of race
-      await new Promise(resolve => setTimeout(resolve, 10));
+        // Add a small delay to increase chance of race
+        await new Promise(resolve => setTimeout(resolve, 10));
 
-      const promise2 = client2.query(
-        `SELECT record_breathing_practice(
-          $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          5, 5, 20, 40, false, 3::smallint, 'off',
-          NULL::uuid, NULL::uuid, NULL::smallint
-        ) as session_id`,
-        [logId, FAR_OFF_DATE, PATTERN_ID]
-      );
+        const promise2 = client2.query(
+          `SELECT record_breathing_practice(
+            $1::uuid, $2::date, $3::uuid, NULL::uuid,
+            5, 5, 20, 40, false, 3::smallint, 'off',
+            NULL::uuid, NULL::uuid, NULL::smallint
+          ) as session_id`,
+          [logId, FAR_OFF_DATE, PATTERN_ID]
+        );
 
-      const [result1, result2] = await Promise.all([promise1, promise2]);
+        // Await them separately to avoid deadlock
+        const result1 = await promise1;
+        const result2 = await promise2;
 
-      await client1.query("COMMIT");
-      await client2.query("COMMIT");
+        await client1.query("COMMIT");
+        await client2.query("COMMIT");
 
-      const sessionId1 = result1.rows[0].session_id;
-      const sessionId2 = result2.rows[0].session_id;
+        const sessionId1 = result1.rows[0].session_id;
+        const sessionId2 = result2.rows[0].session_id;
 
-      check("both calls returned session id", !!(sessionId1 && sessionId2));
-      check("both calls returned SAME session id", sessionId1 === sessionId2, `${sessionId1} vs ${sessionId2}`);
+        check("both calls returned session id", !!(sessionId1 && sessionId2));
+        check("both calls returned SAME session id", sessionId1 === sessionId2, `${sessionId1} vs ${sessionId2}`);
 
-      // Count sessions created
-      const sessionCount = await client1.query(
-        "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
-        [TEST_USER_ID, FAR_OFF_DATE]
-      );
-      check("exactly ONE session created", sessionCount.rows[0].ct === "1");
+        // Count sessions created
+        const sessionCount = await client1.query(
+          "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
+          [TEST_USER_ID, FAR_OFF_DATE]
+        );
+        check("exactly ONE session created", sessionCount.rows[0].ct === "1");
 
-      // Count logs created
-      const logCount = await client1.query(
-        "SELECT COUNT(*) as ct FROM breathing_logs WHERE id = $1",
-        [logId]
-      );
-      check("exactly ONE breathing log", logCount.rows[0].ct === "1");
+        // Count logs created
+        const logCount = await client1.query(
+          "SELECT COUNT(*) as ct FROM breathing_logs WHERE id = $1",
+          [logId]
+        );
+        check("exactly ONE breathing log", logCount.rows[0].ct === "1");
 
-      // Clean up
-      await client1.query("DELETE FROM breathing_logs WHERE id = $1", [logId]);
-      await client1.query("DELETE FROM sessions WHERE user_id = $1 AND local_date = $2", [TEST_USER_ID, FAR_OFF_DATE]);
+        // Clean up
+        await client1.query("DELETE FROM breathing_logs WHERE id = $1", [logId]);
+        await client1.query("DELETE FROM sessions WHERE user_id = $1 AND local_date = $2", [TEST_USER_ID, FAR_OFF_DATE]);
+      } catch (error) {
+        // Roll back on error
+        try { await client1.query("ROLLBACK"); } catch {}
+        try { await client2.query("ROLLBACK"); } catch {}
+        throw error;
+      }
     }
 
     console.log("\n2. Test concurrent calls with planned session (planned row path)");
     {
       const logId = crypto.randomUUID();
 
-      // Create planned meditation session
-      const plannedResult = await client1.query(
-        `INSERT INTO sessions (user_id, local_date, planned_type, status)
-         VALUES ($1, $2, 'meditation', 'planned')
-         RETURNING id`,
-        [TEST_USER_ID, FAR_OFF_DATE]
-      );
-      const plannedSessionId = plannedResult.rows[0].id;
+      try {
+        // Create planned meditation session
+        const plannedResult = await client1.query(
+          `INSERT INTO sessions (user_id, local_date, planned_type, status)
+           VALUES ($1, $2, 'meditation', 'planned')
+           RETURNING id`,
+          [TEST_USER_ID, FAR_OFF_DATE]
+        );
+        const plannedSessionId = plannedResult.rows[0].id;
 
-      // Start both transactions
-      await client1.query("BEGIN");
-      await client2.query("BEGIN");
+        // Start both transactions
+        await client1.query("BEGIN");
+        await client2.query("BEGIN");
 
-      // Set up RLS context
-      await client1.query("SET LOCAL role authenticated");
-      await client1.query(
-        "SELECT set_config('request.jwt.claims', $1, true)",
-        [JSON.stringify({ sub: TEST_USER_ID })]
-      );
-      await client2.query("SET LOCAL role authenticated");
-      await client2.query(
-        "SELECT set_config('request.jwt.claims', $1, true)",
-        [JSON.stringify({ sub: TEST_USER_ID })]
-      );
+        // Set up RLS context
+        await client1.query("SET LOCAL role authenticated");
+        await client1.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
+        await client2.query("SET LOCAL role authenticated");
+        await client2.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
 
-      // Concurrent calls
-      const promise1 = client1.query(
-        `SELECT record_breathing_practice(
-          $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          5, 5, 20, 40, false, 3::smallint, 'off',
-          NULL::uuid, NULL::uuid, NULL::smallint
-        ) as session_id`,
-        [logId, FAR_OFF_DATE, PATTERN_ID]
-      );
+        // Concurrent calls - await separately to avoid deadlock
+        const promise1 = client1.query(
+          `SELECT record_breathing_practice(
+            $1::uuid, $2::date, $3::uuid, NULL::uuid,
+            5, 5, 20, 40, false, 3::smallint, 'off',
+            NULL::uuid, NULL::uuid, NULL::smallint
+          ) as session_id`,
+          [logId, FAR_OFF_DATE, PATTERN_ID]
+        );
 
-      await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, 10));
 
-      const promise2 = client2.query(
-        `SELECT record_breathing_practice(
-          $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          5, 5, 20, 40, false, 3::smallint, 'off',
-          NULL::uuid, NULL::uuid, NULL::smallint
-        ) as session_id`,
-        [logId, FAR_OFF_DATE, PATTERN_ID]
-      );
+        const promise2 = client2.query(
+          `SELECT record_breathing_practice(
+            $1::uuid, $2::date, $3::uuid, NULL::uuid,
+            5, 5, 20, 40, false, 3::smallint, 'off',
+            NULL::uuid, NULL::uuid, NULL::smallint
+          ) as session_id`,
+          [logId, FAR_OFF_DATE, PATTERN_ID]
+        );
 
-      const [result1, result2] = await Promise.all([promise1, promise2]);
+        const result1 = await promise1;
+        const result2 = await promise2;
 
-      await client1.query("COMMIT");
-      await client2.query("COMMIT");
+        await client1.query("COMMIT");
+        await client2.query("COMMIT");
 
-      const sessionId1 = result1.rows[0].session_id;
-      const sessionId2 = result2.rows[0].session_id;
+        const sessionId1 = result1.rows[0].session_id;
+        const sessionId2 = result2.rows[0].session_id;
 
-      check("both calls reused planned session", sessionId1 === plannedSessionId && sessionId2 === plannedSessionId);
+        check("both calls reused planned session", sessionId1 === plannedSessionId && sessionId2 === plannedSessionId);
 
-      // Count sessions - should still be exactly 1 (the planned one)
-      const sessionCount = await client1.query(
-        "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
-        [TEST_USER_ID, FAR_OFF_DATE]
-      );
-      check("still exactly ONE session (planned)", sessionCount.rows[0].ct === "1");
+        // Count sessions - should still be exactly 1 (the planned one)
+        const sessionCount = await client1.query(
+          "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
+          [TEST_USER_ID, FAR_OFF_DATE]
+        );
+        check("still exactly ONE session (planned)", sessionCount.rows[0].ct === "1");
 
-      // Clean up
-      await client1.query("DELETE FROM breathing_logs WHERE id = $1", [logId]);
-      await client1.query("DELETE FROM sessions WHERE user_id = $1 AND local_date = $2", [TEST_USER_ID, FAR_OFF_DATE]);
+        // Clean up
+        await client1.query("DELETE FROM breathing_logs WHERE id = $1", [logId]);
+        await client1.query("DELETE FROM sessions WHERE user_id = $1 AND local_date = $2", [TEST_USER_ID, FAR_OFF_DATE]);
+      } catch (error) {
+        try { await client1.query("ROLLBACK"); } catch {}
+        try { await client2.query("ROLLBACK"); } catch {}
+        throw error;
+      }
     }
 
     console.log("\n3. Test routine step path (second call passes p_session_id)");
@@ -217,80 +241,87 @@ async function testConcurrentRace() {
       const logId1 = crypto.randomUUID();
       const logId2 = crypto.randomUUID();
 
-      // First call creates the session
-      await client1.query("BEGIN");
-      await client1.query("SET LOCAL role authenticated");
-      await client1.query(
-        "SELECT set_config('request.jwt.claims', $1, true)",
-        [JSON.stringify({ sub: TEST_USER_ID })]
-      );
+      try {
+        // First call creates the session
+        await client1.query("BEGIN");
+        await client1.query("SET LOCAL role authenticated");
+        await client1.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
 
-      const result1 = await client1.query(
-        `SELECT record_breathing_practice(
-          $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          5, 5, 20, 40, false, 3::smallint, 'off',
-          NULL::uuid, NULL::uuid, NULL::smallint
-        ) as session_id`,
-        [logId1, FAR_OFF_DATE, PATTERN_ID]
-      );
-      await client1.query("COMMIT");
+        const result1 = await client1.query(
+          `SELECT record_breathing_practice(
+            $1::uuid, $2::date, $3::uuid, NULL::uuid,
+            5, 5, 20, 40, false, 3::smallint, 'off',
+            NULL::uuid, NULL::uuid, NULL::smallint
+          ) as session_id`,
+          [logId1, FAR_OFF_DATE, PATTERN_ID]
+        );
+        await client1.query("COMMIT");
 
-      const sessionId = result1.rows[0].session_id;
-      check("first step created session", !!sessionId);
+        const sessionId = result1.rows[0].session_id;
+        check("first step created session", !!sessionId);
 
-      // Now concurrent calls passing p_session_id (routine step 2)
-      await client1.query("BEGIN");
-      await client2.query("BEGIN");
+        // Now concurrent calls passing p_session_id (routine step 2)
+        await client1.query("BEGIN");
+        await client2.query("BEGIN");
 
-      await client1.query("SET LOCAL role authenticated");
-      await client1.query(
-        "SELECT set_config('request.jwt.claims', $1, true)",
-        [JSON.stringify({ sub: TEST_USER_ID })]
-      );
-      await client2.query("SET LOCAL role authenticated");
-      await client2.query(
-        "SELECT set_config('request.jwt.claims', $1, true)",
-        [JSON.stringify({ sub: TEST_USER_ID })]
-      );
+        await client1.query("SET LOCAL role authenticated");
+        await client1.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
+        await client2.query("SET LOCAL role authenticated");
+        await client2.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
 
-      const promise1 = client1.query(
-        `SELECT record_breathing_practice(
-          $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          5, 5, 20, 40, false, 3::smallint, 'off',
-          $4::uuid, NULL::uuid, 2::smallint
-        ) as session_id`,
-        [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
-      );
+        const promise1 = client1.query(
+          `SELECT record_breathing_practice(
+            $1::uuid, $2::date, $3::uuid, NULL::uuid,
+            5, 5, 20, 40, false, 3::smallint, 'off',
+            $4::uuid, NULL::uuid, 2::smallint
+          ) as session_id`,
+          [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
+        );
 
-      await new Promise(resolve => setTimeout(resolve, 10));
+        await new Promise(resolve => setTimeout(resolve, 10));
 
-      const promise2 = client2.query(
-        `SELECT record_breathing_practice(
-          $1::uuid, $2::date, $3::uuid, NULL::uuid,
-          5, 5, 20, 40, false, 3::smallint, 'off',
-          $4::uuid, NULL::uuid, 2::smallint
-        ) as session_id`,
-        [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
-      );
+        const promise2 = client2.query(
+          `SELECT record_breathing_practice(
+            $1::uuid, $2::date, $3::uuid, NULL::uuid,
+            5, 5, 20, 40, false, 3::smallint, 'off',
+            $4::uuid, NULL::uuid, 2::smallint
+          ) as session_id`,
+          [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
+        );
 
-      const [result2a, result2b] = await Promise.all([promise1, promise2]);
+        const result2a = await promise1;
+        const result2b = await promise2;
 
-      await client1.query("COMMIT");
-      await client2.query("COMMIT");
+        await client1.query("COMMIT");
+        await client2.query("COMMIT");
 
-      check("both routine step calls returned same session", result2a.rows[0].session_id === result2b.rows[0].session_id);
-      check("routine step reused existing session", result2a.rows[0].session_id === sessionId);
+        check("both routine step calls returned same session", result2a.rows[0].session_id === result2b.rows[0].session_id);
+        check("routine step reused existing session", result2a.rows[0].session_id === sessionId);
 
-      // Count sessions - still just 1
-      const sessionCount = await client1.query(
-        "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
-        [TEST_USER_ID, FAR_OFF_DATE]
-      );
-      check("still exactly ONE session for routine", sessionCount.rows[0].ct === "1");
+        // Count sessions - still just 1
+        const sessionCount = await client1.query(
+          "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
+          [TEST_USER_ID, FAR_OFF_DATE]
+        );
+        check("still exactly ONE session for routine", sessionCount.rows[0].ct === "1");
 
-      // Clean up
-      await client1.query("DELETE FROM breathing_logs WHERE session_id = $1", [sessionId]);
-      await client1.query("DELETE FROM sessions WHERE id = $1", [sessionId]);
+        // Clean up
+        await client1.query("DELETE FROM breathing_logs WHERE session_id = $1", [sessionId]);
+        await client1.query("DELETE FROM sessions WHERE id = $1", [sessionId]);
+      } catch (error) {
+        try { await client1.query("ROLLBACK"); } catch {}
+        try { await client2.query("ROLLBACK"); } catch {}
+        throw error;
+      }
     }
 
   } finally {
