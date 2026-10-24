@@ -22,9 +22,9 @@ export type MissedDayInput = {
   date: string;
   /** The program's started_on date */
   programStartedOn: string;
-  /** The user's onboarding completion timestamp */
-  onboardingCompletedAt: string | null;
-  /** The user's timezone (for converting onboarding timestamp to local date) */
+  /** The user's profile created_at timestamp */
+  profileCreatedAt: string | null;
+  /** The user's timezone (for converting timestamps to local dates) */
   timezone: string;
   /** The day template for that weekday */
   templateDayType: DayType | null;
@@ -39,16 +39,19 @@ export type MissedDayInput = {
  *
  * Returns true only when:
  * - The template scheduled strength training (weights or bodyweight)
- * - The date is AFTER program start (signup day itself never missed)
- * - The date is on or after onboarding completion
+ * - The date is after max(profile.created_at as local date, program.started_on)
  * - No choice was made in this program: no Rest/Yoga/Breathing override (planned/in_progress/completed/skipped)
  *   and no completed strength session
+ * 
+ * The "too new to have missed anything" rule is based purely on dates:
+ * - No missed prompt for any date before max(profile.created_at local date, current block's started_on)
+ * - This prevents "missed yesterday" on signup day and after block rebuilds
  */
 export function isMissedTrainingDay(input: MissedDayInput): boolean {
   const {
     date,
     programStartedOn,
-    onboardingCompletedAt,
+    profileCreatedAt,
     timezone,
     templateDayType,
     programId,
@@ -61,23 +64,22 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     return false;
   }
 
-  // Guard 1: Check if the date is before or on the program start (signup day itself never missed)
-  if (date <= programStartedOn) {
-    return false;
-  }
-
-  // Before signup: use max(program start, onboarding completion local date)
-  // This handles cases where program.started_on might be set incorrectly
-  // (e.g., aligned to week start) or where onboarding_completed_at is the
-  // only reliable timestamp we have.
-  let earliestTrainingDate = programStartedOn;
-  if (onboardingCompletedAt) {
-    const onboardingDate = localDateString(timezone, new Date(onboardingCompletedAt));
+  // Guard: "too new to have missed anything"
+  // Base on max(profile created_at as local date, current block's started_on)
+  // This prevents "missed yesterday" on signup day and after block rebuilds
+  let earliestPossibleMissedDate = programStartedOn;
+  
+  if (profileCreatedAt) {
+    const createdAtLocal = localDateString(timezone, new Date(profileCreatedAt));
     // Use the LATER of the two dates (max)
-    earliestTrainingDate = onboardingDate > earliestTrainingDate ? onboardingDate : earliestTrainingDate;
+    earliestPossibleMissedDate = createdAtLocal > earliestPossibleMissedDate 
+      ? createdAtLocal 
+      : earliestPossibleMissedDate;
   }
   
-  if (date < earliestTrainingDate) {
+  // A date can only be missed if it's AFTER the earliest possible missed date
+  // (signup day itself and earlier days are never missed)
+  if (date <= earliestPossibleMissedDate) {
     return false;
   }
 

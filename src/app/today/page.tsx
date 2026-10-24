@@ -19,6 +19,8 @@ import { WelcomeCard } from "@/components/welcome-card";
 import { shouldShowWelcome } from "@/lib/today/welcome";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { decideTodayPrompt } from "@/lib/today/prompt-state";
+import { isTodayAnswered } from "@/lib/today/answered";
+import { nextTrainingDay } from "@/lib/today/next-training-day";
 
 export const dynamic = "force-dynamic";
 
@@ -334,7 +336,7 @@ export default async function TodayPage() {
   const missedYesterday = isMissedTrainingDay({
     date: yesterday,
     programStartedOn: program.started_on,
-    onboardingCompletedAt: profile.onboarding_completed_at,
+    profileCreatedAt: profile.created_at,
     timezone,
     templateDayType: yesterdayDay?.day_type ?? null,
     programId: program.id,
@@ -346,8 +348,13 @@ export default async function TodayPage() {
   });
   
   // Check if today has been answered (any choice made for today in this program)
-  const answeredToday = todaySessions.some(
-    (s) => (s.status === "planned" || ownsPlannedWorkout(s.actual_type)) && s.program_id === program.id
+  const answeredToday = isTodayAnswered(
+    todaySessions.map((s) => ({
+      status: s.status,
+      actual_type: s.actual_type,
+      program_id: s.program_id,
+    })),
+    program.id
   );
 
   // ---- wave 3 -------------------------------------------------------------
@@ -381,33 +388,19 @@ export default async function TodayPage() {
       .then((res) => (res.count ?? 0) > 0),
   ]);
 
-  // Update the prompt decision with hasStartedSession
-  const finalPromptType = decideTodayPrompt({
+  // Decide which prompt(s) to show
+  const promptType = decideTodayPrompt({
     missedYesterday,
     dayType,
-    hasStartedSession,
     answeredToday,
     strengthDone,
     strengthOpen: !!strengthOpen,
   });
 
   // For first-day rest day: find the next training day
-  let nextTrainingDay: { dayName: string; dayIndex: number } | null = null;
-  if (!hasStartedSession && dayType === "rest") {
-    // Find the next training day starting from today
-    for (let offset = 0; offset < 7; offset++) {
-      const checkDate = addDays(localToday, offset);
-      const checkIndex = isoWeekday(checkDate);
-      const checkDay = days?.find((d) => d.day_index === checkIndex);
-      if (checkDay && ownsPlannedWorkout(checkDay.day_type)) {
-        nextTrainingDay = {
-          dayName: DAY_NAMES[checkIndex - 1],
-          dayIndex: checkIndex,
-        };
-        break;
-      }
-    }
-  }
+  const nextTraining = !hasStartedSession && dayType === "rest"
+    ? nextTrainingDay(days ?? [], localToday)
+    : null;
 
   /*
     One shape for the list, whichever source it came from, so the markup below
@@ -586,7 +579,7 @@ export default async function TodayPage() {
       )}
 
       {/* Missed-yesterday prompt */}
-      {finalPromptType === "missed" && (
+      {(promptType === "missed" || promptType === "both") && (
         <DayPlanPrompt
           localDate={localToday}
           dayLabel="Today"
@@ -601,14 +594,14 @@ export default async function TodayPage() {
       )}
 
       {/* Rest day content */}
-      {finalPromptType === "rest_plan" && (
+      {(promptType === "rest_plan" || promptType === "both") && (
         <>
-          {!hasStartedSession && nextTrainingDay ? (
+          {!hasStartedSession && nextTraining ? (
             // First day on a rest day: show next training day
             <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
-              <h3 className="font-semibold">Your first session is {nextTrainingDay.dayName}</h3>
+              <h3 className="font-semibold">Your first session is {nextTraining.dayName}</h3>
               <p className="mt-2 text-sm text-muted">
-                Today is a rest day in your block. You can wait until {nextTrainingDay.dayName}, or start one now.
+                Today is a rest day in your block. You can wait until {nextTraining.dayName}, or start one now.
               </p>
               <DayPlanPrompt
                 localDate={localToday}
@@ -616,7 +609,7 @@ export default async function TodayPage() {
                 plannedLabel="Rest"
                 days={plannable}
                 heading="Start one now"
-                intro="Pick what you'd like to do."
+                intro="Pick a workout."
                 isRestDay={true}
               />
             </div>
@@ -652,7 +645,7 @@ export default async function TodayPage() {
                 plannedLabel="Rest"
                 days={plannable}
                 heading="Or train today anyway"
-                intro="Pick what you'd like to do instead."
+                intro="Pick a workout."
                 isRestDay={true}
               />
             </>

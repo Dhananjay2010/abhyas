@@ -1,14 +1,16 @@
 /**
  * Pure decision function that returns which single prompt (if any) Today shows.
- * Ensures mutual exclusivity: missed, rest-day plan, or none.
+ * Returns "missed", "rest_plan", "both" (rest day with missed yesterday), or "none".
+ * 
+ * The started_on and onboarding checks in isMissedTrainingDay already handle day 1,
+ * so hasStartedSession is NOT needed here.
  */
 
-export type TodayPromptType = "missed" | "rest_plan" | "none";
+export type TodayPromptType = "missed" | "rest_plan" | "both" | "none";
 
 export interface TodayPromptInput {
   missedYesterday: boolean;
   dayType: string | null;
-  hasStartedSession: boolean;
   answeredToday: boolean;
   strengthDone: boolean;
   strengthOpen: boolean;
@@ -18,7 +20,6 @@ export function decideTodayPrompt(input: TodayPromptInput): TodayPromptType {
   const {
     missedYesterday,
     dayType,
-    hasStartedSession,
     answeredToday,
     strengthDone,
     strengthOpen,
@@ -29,20 +30,21 @@ export function decideTodayPrompt(input: TodayPromptInput): TodayPromptType {
     return "none";
   }
 
-  // First day (never started a session) on a rest day gets no missed prompt
-  // This is handled in the rest_plan case below
+  const isRestDay = dayType === "rest";
+  const showMissed = missedYesterday && !answeredToday;
 
-  // Missed yesterday takes priority over rest-day plan
-  if (missedYesterday && !answeredToday) {
-    // But on the first day ever, don't show missed prompt
-    if (!hasStartedSession) {
-      return "none";
-    }
+  // Rest day with missed yesterday: show both (missed prompt + rest content)
+  if (isRestDay && showMissed) {
+    return "both";
+  }
+
+  // Missed yesterday (not on a rest day)
+  if (showMissed) {
     return "missed";
   }
 
-  // Rest day shows the "train anyway" prompt
-  if (dayType === "rest") {
+  // Rest day (no missed yesterday)
+  if (isRestDay) {
     return "rest_plan";
   }
 

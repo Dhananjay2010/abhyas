@@ -955,6 +955,7 @@ export async function planDay(input: {
       is_deload: week !== null && week === program.deload_week,
       status: "planned",
       actual_type: programDay.day_type,
+      planned_type: programDay.day_type,
     });
     
     if (insertError) return { ok: false, error: insertError.message };

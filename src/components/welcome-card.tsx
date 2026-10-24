@@ -55,7 +55,7 @@ export function WelcomeCard({
         
         <div>
           <p className="font-medium mb-2">
-            Training {daysPerWeek} {daysPerWeek === 1 ? "day" : "days"} per week:
+            Training {daysPerWeek} strength {daysPerWeek === 1 ? "day" : "days"} per week:
           </p>
           <div className="flex gap-1">
             {weekSchedule.map((day, idx) => (
