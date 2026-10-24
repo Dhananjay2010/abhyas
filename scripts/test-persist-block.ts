@@ -216,6 +216,7 @@ async function runTests() {
     });
 
     // Test the actual query from persist.ts line 294-299
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: result, error } = await (fake as any)
       .from("programs")
       .select("block_number")
@@ -231,6 +232,7 @@ async function runTests() {
     );
 
     // Verify superseded and retired were filtered out
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: allResults } = await (fake as any)
       .from("programs")
       .select("block_number, status")
