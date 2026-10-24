@@ -14,6 +14,9 @@
  * 1. The current value is NULL (not set yet), OR
  * 2. The user explicitly changed it in this request (e.g., from Settings)
  *
+ * Note: both currentTimezone and incomingTimezone should be in canonical form
+ * (via validateTimezone/canonicalizeTimezone) for accurate comparison.
+ *
  * @param currentTimezone - The timezone currently stored in profiles.timezone (or null)
  * @param incomingTimezone - The timezone from the client (browser or user-selected)
  * @param explicitlyChanged - True if the user explicitly changed the timezone in this request
