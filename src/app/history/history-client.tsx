@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { SessionListItem, SessionType } from "./types";
 import { formatInTimezone } from "@/lib/timezone";
-import { sessionCompletion } from "./session-completion";
+import { sessionCompletion } from "@/lib/session/completion";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {

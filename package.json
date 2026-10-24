@@ -112,6 +112,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "test:superseded-streaks": "tsx scripts/test-superseded-block-streaks.ts",
+    "test:exercise-completion": "tsx scripts/test-exercise-completion.ts",
     "png-chunk-text": "^1.0.0",
     "sharp": "^0.33.5",
     "tailwindcss": "^4",
