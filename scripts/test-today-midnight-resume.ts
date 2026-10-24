@@ -1,8 +1,8 @@
 /**
- * Test Today page resume detection after midnight:
- * - strengthOpen finds in_progress session from yesterday
- * - missedYesterday doesn't fire when yesterday's session is still in_progress
- * - Resume button shown, not Start
+ * Test Today page helpers: session detection, close-stale input, banner text.
+ * - findOpenStrengthSession finds in_progress or planned strength sessions
+ * - todayCloseInput preserves real started_at for close-stale
+ * - creditedBannerText formats banner messages
  * 
  *   npx tsx scripts/test-today-midnight-resume.ts
  */
@@ -11,8 +11,7 @@ import {
   findOpenStrengthSession,
   todayCloseInput,
   creditedBannerText,
-  shouldRedirectSession,
-  type OpenSessionForClose
+  shouldRedirectSession
 } from "../src/lib/today/session-detection";
 
 type SessionRow = {
@@ -94,7 +93,7 @@ console.log("\n10. Test I: shouldRedirectSession keeps in_progress sessions acce
   check("planned does NOT redirect", shouldRedirectSession("planned") === false);
 }
 
-console.log("\n11. todayCloseInput wraps prepareOpenSessions for page use");
+console.log("\n11. todayCloseInput preserves started_at for close-stale");
 {
   const rawRows = [
     { id: "s1", local_date: "2026-10-25", started_at: "2026-10-24T23:30:00Z", actual_type: "weights", status: "in_progress" },

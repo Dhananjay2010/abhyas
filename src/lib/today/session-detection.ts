@@ -1,5 +1,5 @@
 /**
- * Pure helpers for detecting session states on Today page.
+ * Pure helpers for Today page: session detection, close-stale input, and banner text.
  */
 
 export type SessionForDetection = {
@@ -8,13 +8,6 @@ export type SessionForDetection = {
   actual_type: string | null;
   local_date?: string;
   started_at?: string | null;
-};
-
-export type OpenSessionForClose = {
-  id: string;
-  local_date: string;
-  started_at: string | null;
-  actual_type?: string | null;
 };
 
 function isStrength(actualType: string | null): boolean {
