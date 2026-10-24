@@ -54,12 +54,12 @@ export function YouTubeEmbed({
 
       {/* Play button overlay */}
       <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors group-hover:bg-black/40">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-danger transition-transform group-hover:scale-110">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-fg transition-transform group-hover:scale-110">
           {/* Play icon (SVG triangle) */}
           <svg
             viewBox="0 0 24 24"
             fill="none"
-            className="h-8 w-8 text-white"
+            className="h-8 w-8"
             aria-hidden="true"
           >
             <path

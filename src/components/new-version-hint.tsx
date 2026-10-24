@@ -21,6 +21,9 @@ export function NewVersionHint() {
       return;
     }
 
+    // Track if there was a controller at mount (to avoid showing hint on first install)
+    const hadController = !!navigator.serviceWorker.controller;
+
     // Listen for SW updates
     async function checkForUpdates() {
       const registration = await navigator.serviceWorker.ready;
@@ -40,9 +43,11 @@ export function NewVersionHint() {
 
       // Controller changed (new SW took over)
       navigator.serviceWorker.addEventListener("controllerchange", () => {
-        // Only show hint if we didn't trigger the reload ourselves
+        // Only show hint if:
+        // 1. We had a controller at mount (not first install)
+        // 2. We didn't trigger the reload ourselves
         const win = window as Window & { __reloadingForNewVersion?: boolean };
-        if (!win.__reloadingForNewVersion) {
+        if (hadController && !win.__reloadingForNewVersion) {
           setShowHint(true);
         }
       });
@@ -79,6 +84,7 @@ export function NewVersionHint() {
 
   return (
     <div
+      role="status"
       style={{
         position: "fixed",
         top: "env(safe-area-inset-top, 0)",
@@ -92,14 +98,18 @@ export function NewVersionHint() {
         textAlign: "center",
         zIndex: 9999,
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "0.75rem",
       }}
     >
-      New version – tap to refresh
+      <span>New version – tap to refresh</span>
       <button
         onClick={handleRefresh}
         style={{
-          marginLeft: "0.75rem",
-          padding: "0.25rem 0.75rem",
+          padding: "0.5rem 1rem",
+          minHeight: "44px",
           background: branding.colors.accentFg,
           color: branding.colors.accent,
           border: "none",
@@ -110,6 +120,26 @@ export function NewVersionHint() {
         }}
       >
         Refresh
+      </button>
+      <button
+        onClick={() => setShowHint(false)}
+        aria-label="Dismiss"
+        style={{
+          padding: "0.5rem",
+          minHeight: "44px",
+          minWidth: "44px",
+          background: "transparent",
+          color: branding.colors.accentFg,
+          border: "none",
+          fontSize: "1.25rem",
+          lineHeight: 1,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        ×
       </button>
     </div>
   );

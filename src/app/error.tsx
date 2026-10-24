@@ -20,10 +20,14 @@ export default function Error({
   useEffect(() => {
     console.error("Page error:", error);
     
-    if (!isOfflineError(error, online)) {
+    // Capture exception once, using current online status
+    const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+    if (!isOfflineError(error, isOnline)) {
       Sentry.captureException(error);
     }
+  }, [error]);
 
+  useEffect(() => {
     function handleOnline() {
       setOnline(true);
     }
@@ -38,7 +42,7 @@ export default function Error({
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [error, online]);
+  }, []);
 
   const offline = isOfflineError(error, online);
 

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import * as React from "react";
 import { activeTab, choosePracticeRoute, PRACTICE_LAST_CHANGE_EVENT, type PracticeType } from "@/lib/nav";
 
 /**
@@ -108,7 +107,7 @@ export function BottomNav() {
     getLastPracticeSnapshot,
     getLastPracticeServerSnapshot
   );
-  
+
   if (!active) return null;
 
   // Map /practice to the appropriate destination using choice logic
