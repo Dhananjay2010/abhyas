@@ -4,6 +4,7 @@ import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
+import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -26,16 +27,23 @@ export default async function SessionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  
+  if (!isUuid(id)) notFound();
+  
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  const { data: session } = await supabase
+  const { data: session, error: sessionError } = await supabase
     .from("sessions")
     // The pattern is named through its foreign key, so a second link between
     // the two tables (breathing_logs is one) can never make it ambiguous.
     .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance, routine_name, routine_step)")
     .eq("id", id)
     .maybeSingle();
+  
+  if (sessionError) {
+    throw new Error(`Could not load this session: ${sessionError.message}`);
+  }
   if (!session) notFound();
 
   if (session.actual_type === "meditation") {
