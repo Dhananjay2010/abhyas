@@ -5,9 +5,8 @@ import { exerciseCompletion } from "./completion";
 type Client = SupabaseClient<Database>;
 
 export type SessionRow = {
-  started_at: string;
+  started_at: string | null;
   local_date: string;
-  timezone: string;
 };
 
 export type SessionExerciseWithSets = {
@@ -20,7 +19,7 @@ export type SessionExerciseWithSets = {
 
 export type ExerciseForUpdate = {
   id: string;
-  planned_sets: number;
+  planned_sets: number | null;
   status: string;
   session_sets: Array<{
     id: string;
@@ -50,7 +49,7 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
     async loadSession(id) {
       const { data, error } = await supabase
         .from("sessions")
-        .select("started_at, local_date, timezone")
+        .select("started_at, local_date")
         .eq("id", id)
         .maybeSingle();
 
@@ -61,7 +60,6 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
         data: {
           started_at: data.started_at,
           local_date: data.local_date,
-          timezone: data.timezone,
         },
         error: null,
       };
@@ -89,7 +87,7 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
     async updateSession(id, patch) {
       const { error, count } = await supabase
         .from("sessions")
-        .update(patch, { count: "exact" })
+        .update(patch as any, { count: "exact" })
         .eq("id", id)
         .eq("status", "in_progress");
 
@@ -141,7 +139,7 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
     async updateExerciseStatus(id, status) {
       const { error } = await supabase
         .from("session_exercises")
-        .update({ status })
+        .update({ status } as any)
         .eq("id", id);
 
       return { error: error ? error.message : null };

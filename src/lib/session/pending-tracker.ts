@@ -78,9 +78,9 @@ export class PendingTracker {
   }
 
   /**
-   * Clear the recent result.
+   * Clear all recent results.
    */
   clearResults(): void {
-    this.latestResult = null;
+    this.latestResultByType.clear();
   }
 }

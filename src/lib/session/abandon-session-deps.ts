@@ -12,7 +12,7 @@ export type SessionExerciseRow = {
 
 export type ExerciseForUpdate = {
   id: string;
-  planned_sets: number;
+  planned_sets: number | null;
   status: string;
   session_sets: Array<{
     id: string;
@@ -81,7 +81,7 @@ export function makeAbandonSessionDeps(supabase: Client): AbandonSessionDeps {
     async updateExerciseStatus(id, status) {
       const { error } = await supabase
         .from("session_exercises")
-        .update({ status })
+        .update({ status } as any)
         .eq("id", id);
 
       return { error: error ? error.message : null };

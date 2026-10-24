@@ -58,11 +58,16 @@ export async function finishSessionCore(
 
   const now = new Date().toISOString();
 
-  // Check if session is stale
+  // Guard: started_at is required
+  if (!session.started_at) {
+    return { ok: false, error: "Session started_at is null" };
+  }
+
+  // Check if session is stale (use UTC for timezone-agnostic check)
   const stale = isStaleSession({
     startedAt: session.started_at,
     now,
-    timezone: session.timezone,
+    timezone: "UTC",
   });
 
   let status: "completed" | "skipped";
@@ -107,6 +112,11 @@ export async function finishSessionCore(
     if (rereadError) return { ok: false, error: rereadError };
     if (!statusData) return { ok: false, error: "Session not found on re-read" };
 
+    // The session should be completed or skipped (not in_progress) since update matched 0 rows
+    if (statusData.status === "in_progress") {
+      return { ok: false, error: "Session still in_progress after retry" };
+    }
+
     return { ok: true, data: { status: statusData.status } };
   }
 
@@ -122,7 +132,7 @@ export async function finishSessionCore(
     if (ex.status !== "pending") continue;
 
     const workingSets = (ex.session_sets ?? []).filter((s) => !s.is_warmup_set).length;
-    const completion = exerciseCompletion(workingSets, ex.planned_sets);
+    const completion = exerciseCompletion(workingSets, ex.planned_sets ?? 0);
 
     // Map completion status to database enum: "partial" counts as "completed"
     const dbStatus = completion === "completed" || completion === "partial" ? "completed" : "skipped";
