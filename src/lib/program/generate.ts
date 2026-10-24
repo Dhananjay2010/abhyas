@@ -633,12 +633,32 @@ export function wouldViolateConstraints(
   pickedSoFar: Array<{ ex: CandidateExercise; slotIndex: number }>,
   input: GeneratorInput,
 ): boolean {
-  const isMainSlot = slotIndex < 4;
   const hasKneeInjury = input.currentInjuryRegions.includes("knee");
   
-  // Main slots cannot have timed holds
-  if (isMainSlot && candidate.metric === "seconds") {
-    return true;
+  // For timed holds, check if they would end up in a main slot (orderIndex < 4) after sorting
+  if (candidate.metric === "seconds") {
+    // Simulate sorting with this candidate
+    const withCandidate = [...pickedSoFar, { ex: candidate, slotIndex }];
+    const sorted = withCandidate.sort((a, b) => {
+      const aCore = a.ex.movement_pattern === "core";
+      const bCore = b.ex.movement_pattern === "core";
+      if (aCore && !bCore) return 1;
+      if (!aCore && bCore) return -1;
+      
+      const aCompound = a.ex.mechanic === "compound";
+      const bCompound = b.ex.mechanic === "compound";
+      if (aCompound && !bCompound) return -1;
+      if (!aCompound && bCompound) return 1;
+      
+      if (a.slotIndex !== b.slotIndex) return a.slotIndex - b.slotIndex;
+      return a.ex.slug.localeCompare(b.ex.slug);
+    });
+    
+    const candidateIdx = sorted.findIndex(item => item.ex.slug === candidate.slug && item.slotIndex === slotIndex);
+    // If candidate ends up in a main slot (orderIndex < 4), reject it
+    if (candidateIdx < 4) {
+      return true;
+    }
   }
   
   // For knee-injured users, check adjacent hinges in FINAL sorted order
