@@ -10,7 +10,7 @@ import { updateSession } from "@/lib/supabase/session";
 // Note: Next.js compiles the matcher itself; outer anchors (^ and $) are not supported
 export const MIDDLEWARE_MATCHER = "/((?!_next/static(?:/|$)|_next/image(?:/|$)|favicon\\.ico$|manifest\\.webmanifest$|sw\\.js$|robots\\.txt$|sitemap\\.xml$|icons/|screenshots/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)";
 
-export async function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const isServerAction = request.headers.has("Next-Action");
   const result = await updateSession(request);
   
@@ -35,6 +35,8 @@ export async function proxy(request: NextRequest) {
   
   return result;
 }
+
+export { proxy };
 
 export const config = {
   matcher: [
