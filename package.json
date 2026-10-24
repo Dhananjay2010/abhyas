@@ -111,11 +111,7 @@
     "test:dob-field": "tsx scripts/test-dob-field.ts",
     "test:equipment-bodyweight": "tsx scripts/test-equipment-bodyweight.ts",
     "test:inline-errors": "tsx scripts/test-inline-errors.ts",
-    "test:yoga-preselection": "tsx scripts/test-yoga-preselection.ts",
-    "supabase:start": "supabase start",
-    "supabase:stop": "supabase stop",
-    "supabase:status": "supabase status",
-    "supabase:reset": "supabase db reset"
+    "test:yoga-preselection": "tsx scripts/test-yoga-preselection.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
