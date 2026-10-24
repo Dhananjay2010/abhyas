@@ -72,44 +72,56 @@ testStrip(
 );
 
 testStrip(
-  "Title | Something Else",
-  "Title | Something Else",
-  "Preserves pipe separator for non-matching patterns"
+  "Intro | BREATH - A 30 Day Yoga Journey",
+  "Intro",
+  "Strips any series suffix with pipe"
+);
+
+testStrip(
+  "Welcome | Yoga With Adriene",
+  "Welcome",
+  "Strips series author name suffix"
 );
 
 console.log("\nTesting groupVideosByWeek()...\n");
 
 const sampleVideos: YogaVideoForGrouping[] = [
-  { id: "1", title: "Day 0", dayIndex: 0, done: false },
-  { id: "2", title: "Day 1", dayIndex: 1, done: false },
-  { id: "3", title: "Day 7", dayIndex: 7, done: false },
-  { id: "4", title: "Day 8", dayIndex: 8, done: false },
-  { id: "5", title: "Day 14", dayIndex: 14, done: false },
-  { id: "6", title: "Random", dayIndex: null, done: false },
+  { id: "1", title: "Day 1", dayIndex: 1, done: false },
+  { id: "2", title: "Day 7", dayIndex: 7, done: false },
+  { id: "3", title: "Day 8", dayIndex: 8, done: false },
+  { id: "4", title: "Day 14", dayIndex: 14, done: false },
+  { id: "5", title: "Random", dayIndex: null, done: false },
 ];
 
 testGrouping(
   sampleVideos,
-  4,
-  "Week 1 (Day 0–1)",
-  "Groups videos into weeks correctly"
+  3,
+  "Introduction",
+  "Groups videos into weeks with intro first"
 );
 
 testGrouping(
   [{ id: "1", title: "Random", dayIndex: null, done: false }],
   1,
-  "Other videos",
-  "Handles videos without day_index"
+  "Introduction",
+  "Handles videos without day_index as Introduction"
 );
 
 testGrouping([], 0, "", "Handles empty video list");
 
 const week1Only: YogaVideoForGrouping[] = [
-  { id: "1", title: "Day 0", dayIndex: 0, done: false },
-  { id: "2", title: "Day 6", dayIndex: 6, done: false },
+  { id: "1", title: "Day 1", dayIndex: 1, done: false },
+  { id: "2", title: "Day 7", dayIndex: 7, done: false },
 ];
 
-testGrouping(week1Only, 1, "Week 1 (Day 0–6)", "Single week grouping");
+testGrouping(week1Only, 1, "Week 1 (Day 1–7)", "Single week grouping (Day 1-7)");
+
+const weekBoundary: YogaVideoForGrouping[] = [
+  { id: "1", title: "Day 7", dayIndex: 7, done: false },
+  { id: "2", title: "Day 8", dayIndex: 8, done: false },
+];
+
+testGrouping(weekBoundary, 2, "Week 1 (Day 7–7)", "Week boundary: Day 7 is Week 1, Day 8 is Week 2");
 
 console.log(`\n${failures === 0 ? "✓" : "✗"} ${failures === 0 ? "All tests passed" : `${failures} test(s) failed`}`);
 process.exit(failures === 0 ? 0 : 1);

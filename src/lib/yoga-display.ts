@@ -4,12 +4,13 @@
  * 
  * Examples:
  * - "Home - Day 0 - Welcome Home | 30 Days of Yoga" → "Home - Day 0 - Welcome Home"
- * - "Basic Yoga Practice | 30 Days of Yoga" → "Basic Yoga Practice"
+ * - "Basic Yoga Practice | BREATH - A 30 Day Yoga Journey" → "Basic Yoga Practice"
+ * - "Intro | Yoga With Adriene" → "Intro"
  * - "Morning Flow" → "Morning Flow"
  */
 export function stripSeriesSuffix(title: string): string {
-  // Match " | <number> Days of Yoga" or similar patterns at the end
-  return title.replace(/\s*\|\s*\d+\s+Days?\s+of\s+Yoga\s*$/i, "");
+  // Match " | <anything>" at the end to strip any series suffix
+  return title.replace(/\s*\|\s*[^|]+$/, "");
 }
 
 /**
@@ -32,18 +33,18 @@ export type YogaWeekGroup = {
 
 /**
  * Groups yoga videos by week based on their day_index.
- * Day 0-6 = Week 1, Day 7-13 = Week 2, etc.
- * Videos without a day_index go into an "Other videos" group.
+ * Day 1-7 = Week 1, Day 8-14 = Week 2, etc.
+ * Videos without a day_index (intro videos) go into a group at the start.
  */
 export function groupVideosByWeek(videos: YogaVideoForGrouping[]): YogaWeekGroup[] {
   const weekMap = new Map<number, YogaVideoForGrouping[]>();
-  const otherVideos: YogaVideoForGrouping[] = [];
+  const introVideos: YogaVideoForGrouping[] = [];
 
   for (const video of videos) {
     if (video.dayIndex === null) {
-      otherVideos.push(video);
+      introVideos.push(video);
     } else {
-      const weekNumber = Math.floor(video.dayIndex / 7) + 1;
+      const weekNumber = Math.floor((video.dayIndex - 1) / 7) + 1;
       const existing = weekMap.get(weekNumber) ?? [];
       existing.push(video);
       weekMap.set(weekNumber, existing);
@@ -51,6 +52,11 @@ export function groupVideosByWeek(videos: YogaVideoForGrouping[]): YogaWeekGroup
   }
 
   const groups: YogaWeekGroup[] = [];
+  
+  // Add intro videos first if any
+  if (introVideos.length > 0) {
+    groups.push({ label: "Introduction", videos: introVideos });
+  }
   
   // Sort weeks numerically
   const weekNumbers = Array.from(weekMap.keys()).sort((a, b) => a - b);
@@ -66,11 +72,6 @@ export function groupVideosByWeek(videos: YogaVideoForGrouping[]): YogaWeekGroup
     const label = `Week ${weekNum} (Day ${minDay}–${maxDay})`;
     
     groups.push({ label, videos });
-  }
-
-  // Add other videos at the end if any
-  if (otherVideos.length > 0) {
-    groups.push({ label: "Other videos", videos: otherVideos });
   }
 
   return groups;
