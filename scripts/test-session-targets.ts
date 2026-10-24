@@ -1,15 +1,15 @@
 /**
  * Test: Session targets resolution
  *
- * Verifies that resolveSessionTargets correctly applies deload and session-length
- * pacing adjustments to planned exercise targets.
+ * Verifies that resolveSessionTargets correctly applies deload reductions to
+ * planned exercise targets by calling applyDeload.
  *
  * Key invariants:
- * - Deload sets = max(1, round(sets * 0.6)), never exceeding planned sets
- * - 1-set exercises stay at 1 during deload; 0 stays 0
- * - Session-length pacing (≤45min) reduces sets by 1, floor at 2
- * - Non-deload sessions return planned values (modulo session-length pacing)
- * - Deterministic: same inputs always produce same outputs
+ * - Deload sets = min(sets, max(2, round(sets * 0.6)))
+ * - 0 stays 0, 1 stays 1, 2 stays 2, 5 becomes 3
+ * - Deload sets never exceed planned sets
+ * - Non-deload sessions return planned values exactly
+ * - Helper output equals applyDeload output for all cases
  *
  *   npm run test:session-targets
  */
@@ -17,9 +17,12 @@ import { readFileSync } from "node:fs";
 import {
   resolveSessionTargets,
   type PlannedExercise,
-  type SessionContext,
 } from "../src/lib/program/session-targets";
-import type { CandidateExercise } from "../src/lib/program/generate";
+import { applyDeload, type Prescription } from "../src/lib/program/prescription";
+import {
+  generateProgram,
+  type GeneratorInput,
+} from "../src/lib/program/generate";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -27,244 +30,180 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-console.log("\n1. Deload never exceeds normal sets (exhaustive for sets 0-10)");
+console.log("\n1. Direct applyDeload tests: exhaustive for sets 0-10");
 {
   const cases = [
-    { planned: 0, expected: 0 },
-    { planned: 1, expected: 1 },
-    { planned: 2, expected: 1 },
-    { planned: 3, expected: 2 },
-    { planned: 4, expected: 2 },
-    { planned: 5, expected: 3 },
-    { planned: 6, expected: 4 },
-    { planned: 7, expected: 4 },
-    { planned: 8, expected: 5 },
-    { planned: 9, expected: 5 },
-    { planned: 10, expected: 6 },
+    { sets: 0, expected: 0 },
+    { sets: 1, expected: 1 },
+    { sets: 2, expected: 2 },
+    { sets: 3, expected: 2 },
+    { sets: 4, expected: 2 },
+    { sets: 5, expected: 3 },
+    { sets: 6, expected: 4 },
+    { sets: 7, expected: 4 },
+    { sets: 8, expected: 5 },
+    { sets: 9, expected: 5 },
+    { sets: 10, expected: 6 },
   ];
 
-  for (const { planned, expected } of cases) {
-    const result = resolveSessionTargets(
-      { target_sets: planned, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
-      { isDeload: true },
-    );
+  for (const { sets, expected } of cases) {
+    const p: Prescription = { sets, repsMin: 8, repsMax: 12, restSeconds: 90 };
+    const result = applyDeload(p);
     check(
-      `${planned} sets → ${expected} deload sets`,
+      `applyDeload: ${sets} sets → ${expected} sets`,
       result.sets === expected,
       `got ${result.sets}`,
     );
-    check(`${planned} sets: deload ≤ normal`, result.sets <= planned, `${result.sets} > ${planned}`);
+    check(`applyDeload: ${sets} sets never exceeds planned`, result.sets <= sets, `${result.sets} > ${sets}`);
   }
 }
 
-console.log("\n2. Specific deload cases: 1 stays 1, 5 becomes 3");
+console.log("\n2. Mutation testing: bad applyDeload implementations fail");
 {
+  // Test that would FAIL if applyDeload used the old Math.max(2, ...) without the min clamp
+  const oneSet: Prescription = { sets: 1, repsMin: 8, repsMax: 12, restSeconds: 90 };
+  const oneResult = applyDeload(oneSet);
+  check(
+    "Mutation test: 1-set exercise stays at 1 (kills old max(2, ...) rule)",
+    oneResult.sets === 1,
+    `got ${oneResult.sets}`,
+  );
+
+  // Test that would FAIL if applyDeload forgot the min clamp and could exceed planned
+  const twoSet: Prescription = { sets: 2, repsMin: 8, repsMax: 12, restSeconds: 90 };
+  const twoResult = applyDeload(twoSet);
+  check(
+    "Mutation test: 2-set exercise stays at 2 (kills unguarded round(2*0.6)=1)",
+    twoResult.sets === 2,
+    `got ${twoResult.sets}`,
+  );
+
+  // Test that would FAIL if applyDeload returned sets + 5
+  const fiveSet: Prescription = { sets: 5, repsMin: 8, repsMax: 12, restSeconds: 90 };
+  const fiveResult = applyDeload(fiveSet);
+  check(
+    "Mutation test: 5 sets → 3 sets (kills sets+5 or any addition)",
+    fiveResult.sets === 3,
+    `got ${fiveResult.sets}`,
+  );
+  check(
+    "Mutation test: deload result ≤ planned (kills sets+N)",
+    fiveResult.sets <= 5,
+    `${fiveResult.sets} > 5`,
+  );
+}
+
+console.log("\n3. resolveSessionTargets with no deload returns planned values exactly");
+{
+  const cases = [
+    { sets: 0, repsMin: 8, repsMax: 12, rest: 90 },
+    { sets: 1, repsMin: 8, repsMax: 12, rest: 90 },
+    { sets: 2, repsMin: 8, repsMax: 12, rest: 90 },
+    { sets: 3, repsMin: 8, repsMax: 12, rest: 90 },
+    { sets: 4, repsMin: 8, repsMax: 12, rest: 90 },
+    { sets: 5, repsMin: 8, repsMax: 12, rest: 90 },
+    { sets: 10, repsMin: 8, repsMax: 12, rest: 90 },
+    { sets: 4, repsMin: 3, repsMax: 6, rest: 180 },
+    { sets: 3, repsMin: 12, repsMax: 15, rest: 50 },
+  ];
+
+  for (const { sets, repsMin, repsMax, rest } of cases) {
+    const planned: PlannedExercise = {
+      target_sets: sets,
+      target_reps_min: repsMin,
+      target_reps_max: repsMax,
+      rest_seconds: rest,
+    };
+    const result = resolveSessionTargets(planned, { isDeload: false });
+    check(
+      `no deload: ${sets} sets unchanged`,
+      result.sets === sets,
+      `got ${result.sets}`,
+    );
+    check(
+      `no deload: reps ${repsMin}-${repsMax} unchanged`,
+      result.repsMin === repsMin && result.repsMax === repsMax,
+      `got ${result.repsMin}-${result.repsMax}`,
+    );
+    check(
+      `no deload: rest ${rest}s unchanged`,
+      result.restSeconds === rest,
+      `got ${result.restSeconds}`,
+    );
+  }
+}
+
+console.log("\n4. resolveSessionTargets with deload: output ≤ planned for all inputs");
+{
+  for (let sets = 0; sets <= 10; sets++) {
+    const planned: PlannedExercise = {
+      target_sets: sets,
+      target_reps_min: 8,
+      target_reps_max: 12,
+      rest_seconds: 90,
+    };
+    const result = resolveSessionTargets(planned, { isDeload: true });
+    check(
+      `deload: ${sets} sets result ≤ planned`,
+      result.sets <= sets,
+      `${result.sets} > ${sets}`,
+    );
+  }
+
+  // Specific cases from the exhaustive table
   const one = resolveSessionTargets(
     { target_sets: 1, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
     { isDeload: true },
   );
-  check("1-set exercise stays at 1 during deload", one.sets === 1, `got ${one.sets}`);
+  check("deload: 1 set stays at 1", one.sets === 1, `got ${one.sets}`);
+
+  const two = resolveSessionTargets(
+    { target_sets: 2, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
+    { isDeload: true },
+  );
+  check("deload: 2 sets stays at 2", two.sets === 2, `got ${two.sets}`);
 
   const five = resolveSessionTargets(
     { target_sets: 5, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
     { isDeload: true },
   );
-  check("5-set exercise becomes 3 during deload", five.sets === 3, `got ${five.sets}`);
+  check("deload: 5 sets becomes 3", five.sets === 3, `got ${five.sets}`);
 }
 
-console.log("\n3. Non-deload sessions return planned values");
+console.log("\n5. Helper equals applyDeload for every case");
 {
-  const cases = [0, 1, 2, 3, 4, 5, 10];
-  for (const sets of cases) {
-    const result = resolveSessionTargets(
-      { target_sets: sets, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
-      { isDeload: false },
-    );
-    check(`${sets} sets: non-deload unchanged`, result.sets === sets, `got ${result.sets}`);
-    check(`reps range preserved`, result.repsMin === 8 && result.repsMax === 12);
-    check(`rest preserved`, result.restSeconds === 90);
-  }
-}
-
-console.log("\n4. Session-length pacing (≤45 minutes) reduces sets");
-{
-  // Without deload, 45-minute sessions reduce sets by 1 (floor 2)
-  const cases = [
-    { planned: 2, expected: 2 }, // floor
-    { planned: 3, expected: 2 },
-    { planned: 4, expected: 3 },
-    { planned: 5, expected: 4 },
-  ];
-
-  for (const { planned, expected } of cases) {
-    const result = resolveSessionTargets(
-      { target_sets: planned, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
-      { isDeload: false, sessionMinutes: 45 },
-    );
+  for (let sets = 0; sets <= 10; sets++) {
+    const planned: PlannedExercise = {
+      target_sets: sets,
+      target_reps_min: 8,
+      target_reps_max: 12,
+      rest_seconds: 90,
+    };
+    const helperResult = resolveSessionTargets(planned, { isDeload: true });
+    const directResult = applyDeload({
+      sets,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+    });
     check(
-      `45min: ${planned} sets → ${expected} sets`,
-      result.sets === expected,
-      `got ${result.sets}`,
+      `${sets} sets: helper equals applyDeload`,
+      helperResult.sets === directResult.sets &&
+        helperResult.repsMin === directResult.repsMin &&
+        helperResult.repsMax === directResult.repsMax &&
+        helperResult.restSeconds === directResult.restSeconds,
+      `helper ${helperResult.sets}, direct ${directResult.sets}`,
     );
   }
-
-  // 60-minute sessions do not reduce sets
-  const sixty = resolveSessionTargets(
-    { target_sets: 4, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
-    { isDeload: false, sessionMinutes: 60 },
-  );
-  check("60min: sets unchanged", sixty.sets === 4, `got ${sixty.sets}`);
-
-  // 30-minute sessions also reduce (≤45 check)
-  const thirty = resolveSessionTargets(
-    { target_sets: 4, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
-    { isDeload: false, sessionMinutes: 30 },
-  );
-  check("30min: 4 sets → 3 sets", thirty.sets === 3, `got ${thirty.sets}`);
 }
 
-console.log("\n5. Deload combined with session-length pacing");
-{
-  // Session-length pacing is applied BEFORE deload scaling
-  // 45min: 4 sets → 3 sets (pacing), then 3 → 2 (deload 0.6x)
-  const result = resolveSessionTargets(
-    { target_sets: 4, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
-    { isDeload: true, sessionMinutes: 45 },
-  );
-  check(
-    "45min deload: 4 sets → 3 (pacing) → 2 (deload)",
-    result.sets === 2,
-    `got ${result.sets}`,
-  );
-
-  // But the result must never exceed the paced sets (which become the new normal)
-  const paced = resolveSessionTargets(
-    { target_sets: 5, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
-    { isDeload: false, sessionMinutes: 45 },
-  );
-  const pacedDeload = resolveSessionTargets(
-    { target_sets: 5, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
-    { isDeload: true, sessionMinutes: 45 },
-  );
-  check(
-    "45min deload never exceeds paced sets",
-    pacedDeload.sets <= paced.sets,
-    `paced ${paced.sets}, deload ${pacedDeload.sets}`,
-  );
-}
-
-console.log("\n6. Determinism: same inputs produce same outputs");
-{
-  const input: PlannedExercise = {
-    target_sets: 4,
-    target_reps_min: 8,
-    target_reps_max: 12,
-    rest_seconds: 90,
-  };
-  const context: SessionContext = { isDeload: true, sessionMinutes: 45 };
-
-  const results = Array.from({ length: 100 }, () => resolveSessionTargets(input, context));
-  const allEqual = results.every(
-    (r) =>
-      r.sets === results[0].sets &&
-      r.repsMin === results[0].repsMin &&
-      r.repsMax === results[0].repsMax &&
-      r.restSeconds === results[0].restSeconds,
-  );
-  check("100 identical calls produce identical results", allEqual);
-}
-
-console.log("\n7. Invariant sweep: catalogue.json exercises");
-{
-  const fixture = "scripts/fixtures/catalogue.json";
-  const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
-
-  // Test a representative sample of exercises with various set counts
-  const setCounts = [1, 2, 3, 4, 5];
-  const repRanges = [
-    { min: 3, max: 6 },
-    { min: 8, max: 12 },
-    { min: 12, max: 15 },
-  ];
-
-  let tested = 0;
-  let allInvariantsHeld = true;
-
-  for (const exercise of catalogue.slice(0, 50)) {
-    for (const sets of setCounts) {
-      for (const reps of repRanges) {
-        const planned: PlannedExercise = {
-          target_sets: sets,
-          target_reps_min: reps.min,
-          target_reps_max: reps.max,
-          rest_seconds: exercise.default_rest_seconds,
-        };
-
-        // Non-deload: sets unchanged (unless session pacing)
-        const normal = resolveSessionTargets(planned, { isDeload: false });
-        if (normal.sets !== sets) {
-          allInvariantsHeld = false;
-          console.log(
-            `    FAIL: ${exercise.name} (${sets} sets): non-deload changed sets to ${normal.sets}`,
-          );
-        }
-
-        // Deload: never exceeds planned
-        const deload = resolveSessionTargets(planned, { isDeload: true });
-        if (deload.sets > sets) {
-          allInvariantsHeld = false;
-          console.log(
-            `    FAIL: ${exercise.name} (${sets} sets): deload ${deload.sets} > planned ${sets}`,
-          );
-        }
-
-        // Deload: 1-set stays 1, 0 stays 0
-        if (sets === 1 && deload.sets !== 1) {
-          allInvariantsHeld = false;
-          console.log(
-            `    FAIL: ${exercise.name}: 1-set deload became ${deload.sets}`,
-          );
-        }
-        if (sets === 0 && deload.sets !== 0) {
-          allInvariantsHeld = false;
-          console.log(
-            `    FAIL: ${exercise.name}: 0-set deload became ${deload.sets}`,
-          );
-        }
-
-        // Reps and rest unchanged
-        if (
-          normal.repsMin !== reps.min ||
-          normal.repsMax !== reps.max ||
-          deload.repsMin !== reps.min ||
-          deload.repsMax !== reps.max
-        ) {
-          allInvariantsHeld = false;
-          console.log(
-            `    FAIL: ${exercise.name}: reps changed`,
-          );
-        }
-
-        tested++;
-      }
-    }
-  }
-
-  check(
-    `Tested ${tested} exercise/set/rep combinations`,
-    tested === 50 * setCounts.length * repRanges.length,
-    `got ${tested}`,
-  );
-  check("All invariants held across catalogue sweep", allInvariantsHeld);
-}
-
-console.log("\n8. Reps and rest are never modified");
+console.log("\n6. Reps and rest are never modified");
 {
   const cases = [
     { repsMin: 3, repsMax: 6, rest: 180 },
     { repsMin: 8, repsMax: 12, rest: 90 },
     { repsMin: 12, repsMax: 15, rest: 50 },
-    { repsMin: 20, repsMax: 40, rest: 60 }, // hold times
+    { repsMin: 20, repsMax: 40, rest: 60 },
   ];
 
   for (const { repsMin, repsMax, rest } of cases) {
@@ -291,6 +230,131 @@ console.log("\n8. Reps and rest are never modified");
     );
     check(`deload preserves rest ${rest}s`, deload.restSeconds === rest, `got ${deload.restSeconds}`);
   }
+}
+
+console.log("\n7. Invariant over real generateProgram output: profile matrix");
+{
+  const fixture = "scripts/fixtures/catalogue.json";
+  const catalogue = JSON.parse(readFileSync(fixture, "utf8"));
+
+  const profiles: GeneratorInput[] = [
+    {
+      userId: "test-user",
+      blockNumber: 1,
+      goal: "muscle_gain",
+      level: "intermediate",
+      primaryTrack: "weights",
+      daysPerWeek: 4,
+      yogaDaysPerWeek: 0,
+      age: 30,
+      bmi: 23,
+      hasAllEquipment: true,
+      equipmentIds: [],
+      currentInjuryRegions: [],
+      catalogue,
+    },
+    {
+      userId: "test-user",
+      blockNumber: 1,
+      goal: "strength",
+      level: "beginner",
+      primaryTrack: "weights",
+      daysPerWeek: 3,
+      yogaDaysPerWeek: 0,
+      age: 25,
+      bmi: 22,
+      hasAllEquipment: true,
+      equipmentIds: [],
+      currentInjuryRegions: [],
+      catalogue,
+    },
+    {
+      userId: "test-user",
+      blockNumber: 1,
+      goal: "fat_loss",
+      level: "intermediate",
+      primaryTrack: "bodyweight",
+      daysPerWeek: 5,
+      yogaDaysPerWeek: 1,
+      age: 40,
+      bmi: 28,
+      hasAllEquipment: false,
+      equipmentIds: [],
+      currentInjuryRegions: [],
+      catalogue,
+    },
+  ];
+
+  let testedRows = 0;
+  let allInvariantsHeld = true;
+
+  for (const input of profiles) {
+    const plan = generateProgram(input);
+    for (const day of plan.days) {
+      if (day.dayType !== "weights") continue;
+
+      for (const ex of day.exercises) {
+        const planned: PlannedExercise = {
+          target_sets: ex.targetSets,
+          target_reps_min: ex.targetRepsMin,
+          target_reps_max: ex.targetRepsMax,
+          rest_seconds: ex.restSeconds,
+        };
+
+        // Non-deload: output equals planned exactly
+        const normal = resolveSessionTargets(planned, { isDeload: false });
+        if (
+          normal.sets !== ex.targetSets ||
+          normal.repsMin !== ex.targetRepsMin ||
+          normal.repsMax !== ex.targetRepsMax ||
+          normal.restSeconds !== ex.restSeconds
+        ) {
+          allInvariantsHeld = false;
+          console.log(
+            `    FAIL: ${input.goal}/${input.level}/${day.label}: non-deload changed planned`,
+          );
+        }
+
+        // Deload: output ≤ planned
+        const deload = resolveSessionTargets(planned, { isDeload: true });
+        if (deload.sets > ex.targetSets) {
+          allInvariantsHeld = false;
+          console.log(
+            `    FAIL: ${input.goal}/${input.level}/${day.label}: deload ${deload.sets} > planned ${ex.targetSets}`,
+          );
+        }
+
+        // Specific invariants for edge cases
+        if (ex.targetSets === 0 && deload.sets !== 0) {
+          allInvariantsHeld = false;
+          console.log(
+            `    FAIL: ${input.goal}/${input.level}/${day.label}: 0-set deload became ${deload.sets}`,
+          );
+        }
+        if (ex.targetSets === 1 && deload.sets !== 1) {
+          allInvariantsHeld = false;
+          console.log(
+            `    FAIL: ${input.goal}/${input.level}/${day.label}: 1-set deload became ${deload.sets}`,
+          );
+        }
+        if (ex.targetSets === 2 && deload.sets !== 2) {
+          allInvariantsHeld = false;
+          console.log(
+            `    FAIL: ${input.goal}/${input.level}/${day.label}: 2-set deload became ${deload.sets}`,
+          );
+        }
+
+        testedRows++;
+      }
+    }
+  }
+
+  check(
+    `Tested ${testedRows} planned exercise rows from generateProgram`,
+    testedRows > 0,
+    `got ${testedRows}`,
+  );
+  check("All invariants held across profile matrix", allInvariantsHeld);
 }
 
 if (failures === 0) {
