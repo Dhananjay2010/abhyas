@@ -11,19 +11,17 @@
     "generate-icons": "node scripts/generate-icons.js",
     "test:generator": "tsx scripts/test-generator.ts",
     "test:progression": "tsx scripts/test-progression.ts",
-    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:account-deletion",
+    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:account-deletion && npm run test:seed-validity",
     "test:streaks": "tsx scripts/test-streaks.ts",
     "test:dates": "tsx scripts/test-dates.ts",
     "test:breathing": "tsx scripts/test-breathing.ts",
     "test:branding": "tsx scripts/test-branding.ts",
     "test:account-deletion": "tsx scripts/test-account-deletion.ts",
+    "test:seed-validity": "tsx scripts/test-seed-validity.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
-    "supabase:restart": "supabase stop && supabase start",
-    "supabase:reset": "supabase db reset",
     "supabase:status": "supabase status",
-    "supabase:push": "supabase db push",
-    "supabase:diff": "supabase db diff"
+    "supabase:reset": "supabase db reset"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

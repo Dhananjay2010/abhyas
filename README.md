@@ -177,13 +177,12 @@ The project pins the serverless region to **`bom1` (Mumbai)** in `vercel.json` t
 
 ## Development and Test Environments
 
-Abhyas supports **three environment tiers** to keep development and testing isolated from production:
+Abhyas uses **local Supabase** for development and testing, keeping all development work isolated from production:
 
-1. **Local Supabase** (via Supabase CLI) — for development and testing on your machine
-2. **Hosted Dev/Staging Supabase** (optional) — for shared development or preview deployments
-3. **Production Supabase** — the live database (`brldynuhozaszaduwfse`, Mumbai)
+- **Local Supabase** (via Supabase CLI) — for development and testing on your machine
+- **Production Supabase** — the live database (`brldynuhozaszaduwfse`, Mumbai)
 
-**Golden rule:** Never apply migrations to, or connect local/preview environments to, the production Supabase project.
+**Golden rule:** Developers use local Supabase only. Migrations reach production only through the release process (applied by the project owner's coordinator after merge), never through dev scripts or direct database access.
 
 ---
 
@@ -287,14 +286,6 @@ npm run supabase:stop
 
 Docker containers are stopped but not deleted. Your data persists until you run `supabase:reset`.
 
-#### Restarting Local Supabase
-
-```bash
-npm run supabase:restart
-```
-
-Equivalent to `stop` + `start`. Useful after a Docker crash.
-
 #### Checking Status
 
 ```bash
@@ -316,20 +307,19 @@ The local database is seeded with deterministic test data from `supabase/seed.sq
 - **Exercise progress:** Working weights for key lifts (bench: 60kg, squat: 80kg, deadlift: 100kg)
 - **Body metrics:** Weekly weigh-ins
 
-**To use the test data:**
+**Using the test data:**
 
 1. Start local Supabase: `npm run supabase:start`
-2. The seed runs automatically
-3. Open Studio at [http://127.0.0.1:54323](http://127.0.0.1:54323)
-4. Go to **Authentication** → **Users** → **Add user**
-5. Create a user with email `test@example.com` (any password)
-6. Copy the new user's **UUID** from the Users table
-7. Edit `supabase/seed.sql` and replace `00000000-0000-0000-0000-000000000001` with the real UUID
-8. Re-seed: `npm run supabase:reset`
+2. The seed runs automatically and creates a test user
+3. Sign in to your local app with:
+   - Email: `test@example.com`
+   - Password: `testpass123`
 
-**Or** use Google OAuth locally (configure in `supabase/config.toml` under `[auth.external.google]`).
+The seed creates a deterministic test user in `auth.users` with email/password authentication. This works locally regardless of whether Google OAuth is configured.
 
-The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, etc.) and safe to commit.
+If you want to use **Google OAuth locally** instead, configure it in `supabase/config.toml` under `[auth.external.google]` and sign in through the app's Google sign-in flow.
+
+The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, test@example.com) and safe to commit.
 
 ---
 
@@ -342,93 +332,6 @@ npm test
 ```
 
 **Tests do not connect to Supabase** (local or production). If you want to add integration tests in the future, start local Supabase first, set the local env vars, and write tests that connect to the local database.
-
----
-
-### Optional: Hosted Dev/Staging Supabase Project
-
-For **shared development** or **preview deployments**, you may want a hosted Supabase project separate from production. This is entirely optional and depends on your workflow needs.
-
-#### Creating a Dev/Staging Project (if desired)
-
-1. Go to [supabase.com/dashboard](https://supabase.com/dashboard)
-2. Click **New project**
-3. Name it `abhyas-dev` or `abhyas-staging`
-4. Choose the **same region** as production (`ap-south-1`, Mumbai) to keep latency consistent
-5. Set a strong database password (save it in a password manager)
-6. Wait for provisioning (~2 minutes)
-
-#### Applying Migrations to Dev/Staging
-
-Once the project is ready:
-
-```bash
-# Link to the dev/staging project
-npx supabase link --project-ref <dev-project-ref>
-
-# Push all migrations
-npm run supabase:push
-```
-
-**Verify:** Open the dev project's dashboard and check that all tables exist.
-
-#### Seeding the Dev/Staging Database
-
-The `supabase/seed.sql` file only runs on local instances by default. To seed a hosted project:
-
-```bash
-# Connect to the dev database
-psql "postgresql://postgres:<password>@db.<dev-project-ref>.supabase.co:5432/postgres"
-
-# Or use the Supabase Studio SQL Editor:
-# 1. Open the dev project in the dashboard
-# 2. Go to SQL Editor
-# 3. Copy/paste the contents of supabase/seed.sql
-# 4. Run
-```
-
-**Important:** The seed file creates a test user with a fixed UUID. You'll need to create a matching `auth.users` row (via the dashboard or OAuth) and update the UUID in the seed file.
-
----
-
-### Vercel Preview vs Production Environment Variables
-
-Vercel deployments inherit environment variables from the project settings. To keep preview deployments isolated from production:
-
-#### 1. Production Environment Variables
-
-In the **Vercel dashboard** → **Project Settings** → **Environment Variables**, set:
-
-| Variable | Value | Environment |
-|----------|-------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://brldynuhozaszaduwfse.supabase.co` | **Production only** |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `<production-anon-key>` | **Production only** |
-
-These are used **only when deploying to the `main` branch** (the live app).
-
-#### 2. Preview Environment Variables (optional)
-
-If you have a hosted dev/staging project, add **separate variables** for preview deployments:
-
-| Variable | Value | Environment |
-|----------|-------|-------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://<dev-project-ref>.supabase.co` | **Preview only** |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `<dev-anon-key>` | **Preview only** |
-
-Vercel automatically uses **Preview** variables for all non-production deployments (branches, PRs).
-
-**If you don't have a hosted dev project:**
-- Leave preview variables unset, or set them to placeholder values
-- Preview deployments will fail to connect to the database (expected without a dev project)
-
-#### 3. Optional: Performance Debugging Variables
-
-| Variable | Value | Environment |
-|----------|-------|-------------|
-| `PERF_TOKEN` | `<random-secret-string>` | **Preview only** (or Production if needed) |
-| `PERF_DEBUG` | `1` | **Preview only** |
-
-These enable the `/api/diag` endpoint for performance metrics. Not needed for production.
 
 ---
 
@@ -452,27 +355,7 @@ When adding or modifying migrations:
 
    If migrations fail, fix the SQL before committing.
 
-3. **Verify migrations apply cleanly:**
-
-   ```bash
-   npm run supabase:diff
-   ```
-
-   This shows any schema drift between your local database and the migration files.
-
-4. **Production migrations:** After a PR is merged to `main`, the project owner's coordinator applies migrations to production through the Supabase connector. Never apply migrations to production manually.
-
----
-
-### Summary: Environment Configuration Checklist
-
-| Environment | Supabase Project | URL Variable | When to Use |
-|-------------|------------------|--------------|-------------|
-| **Local (your machine)** | Local Supabase CLI | `http://127.0.0.1:54321` | Development, testing, verifying migrations |
-| **Vercel Preview (branches/PRs)** | Hosted dev/staging project (optional) | `https://<dev-ref>.supabase.co` | Shared development, preview deployments, QA |
-| **Vercel Production (`main` branch)** | Production project (`brldynuhozaszaduwfse`) | `https://brldynuhozaszaduwfse.supabase.co` | Live app, real users |
-
-**Golden rule:** Local and preview environments never connect to production. Production migrations are applied by the project owner's coordinator after merge.
+3. **Production migrations:** After a PR is merged to `main`, the project owner's coordinator applies migrations to production through the release process. **Never apply migrations to production manually or via scripts.** Developers use local Supabase only.
 
 ---
 

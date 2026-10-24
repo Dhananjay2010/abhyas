@@ -5,34 +5,97 @@
 -- IMPORTANT: This seed runs AFTER migrations, so all tables and reference data
 -- (equipment, exercises, breathing patterns, etc.) already exist.
 -- 
--- The test user's auth.users row must be created manually via Google OAuth
--- or the Supabase dashboard. This seed only populates the profile and activity data.
+-- The seed creates a local test auth user (test@example.com / password: testpass123)
+-- that can sign in via email/password if local Supabase allows it.
 --
 -- To reset and re-seed: npm run supabase:reset
 
 -- ============================================================
--- TEST USER DATA
+-- TEST AUTH USER
 -- ============================================================
--- This uses a fixed UUID so the seed is deterministic and can be re-run.
--- The actual auth.users row must exist (created via signup or dashboard).
--- If you want to use this seed data, create a test user and replace this UUID
--- with the user's actual UUID from auth.users.
+-- Create a deterministic test user in auth.users with email/password.
+-- Fixed UUID so the seed is idempotent and deterministic.
 
 DO $$
 DECLARE
   test_user_id uuid := '00000000-0000-0000-0000-000000000001';
+  test_email text := 'test@example.com';
+  test_password text := 'testpass123';
+  encrypted_password text;
   test_program_id uuid;
   test_program_day_id uuid;
   test_session_id uuid;
   test_session_exercise_id uuid;
 BEGIN
   
-  -- Only seed if the test user doesn't already have a profile
+  -- Only seed if the test user doesn't already exist
   -- (makes the seed idempotent and safe to re-run)
-  IF EXISTS (SELECT 1 FROM profiles WHERE id = test_user_id) THEN
-    RAISE NOTICE 'Test user profile already exists, skipping seed';
+  IF EXISTS (SELECT 1 FROM auth.users WHERE id = test_user_id) THEN
+    RAISE NOTICE 'Test user already exists (id: %), skipping seed', test_user_id;
     RETURN;
   END IF;
+
+  -- Create auth.users row with encrypted password
+  -- Using pgcrypto's crypt() with bcrypt (bf) and cost factor 10
+  encrypted_password := crypt(test_password, gen_salt('bf', 10));
+  
+  INSERT INTO auth.users (
+    id,
+    instance_id,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    created_at,
+    updated_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    aud,
+    role,
+    confirmation_token,
+    recovery_token,
+    email_change_token_new,
+    email_change
+  ) VALUES (
+    test_user_id,
+    '00000000-0000-0000-0000-000000000000', -- Default instance for local dev
+    test_email,
+    encrypted_password,
+    now(), -- Email already confirmed
+    now(),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"full_name":"Test User"}'::jsonb,
+    'authenticated',
+    'authenticated',
+    '',
+    '',
+    '',
+    ''
+  );
+
+  -- Create auth.identities row for email provider
+  INSERT INTO auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  ) VALUES (
+    test_user_id,
+    test_user_id,
+    jsonb_build_object(
+      'sub', test_user_id::text,
+      'email', test_email
+    ),
+    'email',
+    now(),
+    now(),
+    now()
+  );
+
+  RAISE NOTICE 'Created test auth user: % (password: %)', test_email, test_password;
 
   -- Profile: "Test User" — clearly fake
   INSERT INTO profiles (
@@ -41,7 +104,6 @@ BEGIN
     date_of_birth,
     sex,
     height_cm,
-    weight_kg,
     level,
     goal,
     days_per_week,
@@ -57,7 +119,6 @@ BEGIN
     '1990-01-01',
     'male',
     175,
-    75.0,
     'intermediate',
     'muscle_gain',
     4,
@@ -95,8 +156,8 @@ BEGIN
   );
 
   -- Equipment: home gym setup (barbell, dumbbells, bench, pull-up bar)
-  INSERT INTO user_equipment (user_id, equipment_id, available)
-  SELECT test_user_id, id, true
+  INSERT INTO user_equipment (user_id, equipment_id)
+  SELECT test_user_id, id
   FROM equipment
   WHERE id IN (
     'bodyweight',
@@ -269,7 +330,7 @@ BEGIN
     planned_sets,
     planned_reps_min,
     planned_reps_max,
-    planned_rest_seconds,
+    rest_seconds,
     metric,
     status,
     feel
@@ -353,8 +414,7 @@ BEGIN
     (test_user_id, current_date - interval '7 days', 76.0),
     (test_user_id, current_date, 75.5);
 
-  RAISE NOTICE 'Test user seeded successfully with UUID: %', test_user_id;
-  RAISE NOTICE 'To use this test data, create an auth.users row with this UUID';
-  RAISE NOTICE 'or replace the UUID in this seed file with your test user''s actual UUID';
+  RAISE NOTICE 'Test user seeded successfully';
+  RAISE NOTICE 'Sign in with: % / %', test_email, test_password;
 
 END $$;
