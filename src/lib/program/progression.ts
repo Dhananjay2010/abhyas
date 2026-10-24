@@ -360,7 +360,8 @@ function computeTwoMissWeight(
   currentWeight: number,
   meta: ExerciseMeta,
   equipmentIds: string[],
-  unit: WeightUnit,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _unit: WeightUnit,
 ): number {
   const liftIncrement = incrementFor(meta);
   
@@ -711,7 +712,6 @@ export function evaluateProgression(input: {
   let nextWeight = currentWeight;
   if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
     const isKettlebell = equipmentIds.includes('kettlebell');
-    const liftIncrement = incrementFor(meta);
     let candidateWeight: number;
     let gridStep: number;
     
