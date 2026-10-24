@@ -4,19 +4,21 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && tsx scripts/inject-build-id.ts",
     "start": "next start",
     "lint": "eslint",
     "dev:nvm": "./scripts/dev.sh",
     "generate-icons": "node scripts/generate-icons.js",
     "test:generator": "tsx scripts/test-generator.ts",
     "test:progression": "tsx scripts/test-progression.ts",
-    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:account-deletion",
+    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:account-deletion && npm run test:contrast && npm run test:sw",
     "test:streaks": "tsx scripts/test-streaks.ts",
     "test:dates": "tsx scripts/test-dates.ts",
     "test:breathing": "tsx scripts/test-breathing.ts",
     "test:branding": "tsx scripts/test-branding.ts",
-    "test:account-deletion": "tsx scripts/test-account-deletion.ts"
+    "test:account-deletion": "tsx scripts/test-account-deletion.ts",
+    "test:contrast": "tsx scripts/test-contrast.ts",
+    "test:sw": "tsx scripts/test-sw.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

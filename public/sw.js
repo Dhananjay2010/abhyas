@@ -2,11 +2,11 @@
  * Service worker for Abhyas PWA.
  *
  * Provides a basic offline experience: when the network is unavailable and
- * a navigation request fails, show /offline instead of the browser's default
- * "no internet" page.
+ * a navigation request fails, show /offline.html instead of the browser's
+ * default "no internet" page.
  *
  * This is intentionally conservative:
- * - Only caches the offline page itself
+ * - Only caches the offline page itself (a static HTML file with inlined icon)
  * - Does NOT cache authenticated API responses (Supabase, user data)
  * - Does NOT cache app pages (they depend on user state and database calls)
  * - Does NOT attempt to serve stale content
@@ -14,11 +14,13 @@
  * White-label deployments can extend this with their own caching strategy,
  * but the baseline is safe: offline means offline, with a clear message.
  *
- * Version is auto-incremented on each build to force updates.
+ * Build ID is injected at build time by scripts/inject-build-id.ts.
  */
 
-const CACHE_NAME = "abhyas-offline-v1";
-const OFFLINE_URL = "/offline";
+// XyDO9vC9nYnH1fOsWyas9 is replaced at build time with the Next.js build ID or commit SHA
+const BUILD_ID = "XyDO9vC9nYnH1fOsWyas9";
+const CACHE_NAME = `abhyas-offline-${BUILD_ID}`;
+const OFFLINE_URL = "/offline.html";
 
 // Install: cache the offline page
 self.addEventListener("install", (event) => {
@@ -26,7 +28,6 @@ self.addEventListener("install", (event) => {
     (async () => {
       const cache = await caches.open(CACHE_NAME);
       await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
-      // Skip waiting so the new service worker activates immediately
       await self.skipWaiting();
     })()
   );
@@ -44,27 +45,53 @@ self.addEventListener("activate", (event) => {
           }
         })
       );
-      // Take control of all clients immediately
       await self.clients.claim();
     })()
   );
 });
 
+/**
+ * Check if a request should be intercepted for offline fallback.
+ * Only navigation and RSC requests; never Supabase, /auth, or static assets.
+ */
+function shouldInterceptForOffline(request) {
+  const url = new URL(request.url);
+
+  // Never intercept Supabase API calls
+  if (url.hostname.includes("supabase.co")) {
+    return false;
+  }
+
+  // Never intercept /auth callbacks
+  if (url.pathname.startsWith("/auth")) {
+    return false;
+  }
+
+  // Intercept full-page navigations
+  if (request.mode === "navigate") {
+    return true;
+  }
+
+  // Intercept Next.js RSC data requests (client-side route transitions)
+  if (url.pathname.startsWith("/_next/data/")) {
+    return true;
+  }
+
+  return false;
+}
+
 // Fetch: serve the offline page when a navigation request fails
 self.addEventListener("fetch", (event) => {
-  // Only handle navigation requests (page loads, not API calls or assets)
-  if (event.request.mode !== "navigate") {
+  if (!shouldInterceptForOffline(event.request)) {
     return;
   }
 
   event.respondWith(
     (async () => {
       try {
-        // Try the network first
         const response = await fetch(event.request);
         return response;
       } catch {
-        // Network failed; serve the cached offline page
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(OFFLINE_URL);
         return cachedResponse || new Response("Offline", { status: 503 });
