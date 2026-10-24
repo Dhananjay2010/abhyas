@@ -2,18 +2,19 @@
  * Test: Session deload integration
  *
  * Verifies that startSession and ensureSessionExercises correctly apply
- * deload using resolveSessionTargets.
+ * deload using resolveSessionTargets via the buildSessionExerciseRows helper.
  *
  * Key tests:
  * - Deload week: 5 sets -> 3, 1 -> 1, 2 -> 2
  * - Reps and rest unchanged
- * - ensureSessionExercises writes deloaded rows
+ * - buildSessionExerciseRows (used by both startSession and ensureSessionExercises)
  * - Swap path preserves deloaded set count
  *
  *   npm run test:session-deload-integration
  */
 
 import { resolveSessionTargets } from "../src/lib/program/session-targets";
+import { buildSessionExerciseRows } from "../src/app/session/actions";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -107,44 +108,9 @@ console.log("\n3. Non-deload week returns unchanged values");
   }
 }
 
-console.log("\n4. buildSessionExerciseRows helper (extracted for testing)");
+console.log("\n4. buildSessionExerciseRows production helper (used by startSession & ensureSessionExercises)");
 {
-  // This is the core logic extracted from both startSession and ensureSessionExercises
-  function buildSessionExerciseRows(
-    plannedRows: Array<{
-      exercise_id: string;
-      order_index: number;
-      target_sets: number;
-      target_reps_min: number;
-      target_reps_max: number;
-      rest_seconds: number;
-      metric: string;
-    }>,
-    context: { isDeload: boolean },
-  ) {
-    return plannedRows.map((p) => {
-      const dose = resolveSessionTargets(
-        {
-          target_sets: p.target_sets,
-          target_reps_min: p.target_reps_min,
-          target_reps_max: p.target_reps_max,
-          rest_seconds: p.rest_seconds,
-        },
-        context,
-      );
-      return {
-        exercise_id: p.exercise_id,
-        order_index: p.order_index,
-        planned_sets: dose.sets,
-        planned_reps_min: dose.repsMin,
-        planned_reps_max: dose.repsMax,
-        rest_seconds: dose.restSeconds,
-        metric: p.metric,
-      };
-    });
-  }
-
-  // Test deload application
+  // Test the actual production helper that both startSession and ensureSessionExercises call
   const plannedDeload = [
     {
       exercise_id: "ex1",
@@ -153,7 +119,7 @@ console.log("\n4. buildSessionExerciseRows helper (extracted for testing)");
       target_reps_min: 8,
       target_reps_max: 12,
       rest_seconds: 90,
-      metric: "reps",
+      exercises: { metric: "reps" },
     },
     {
       exercise_id: "ex2",
@@ -162,7 +128,7 @@ console.log("\n4. buildSessionExerciseRows helper (extracted for testing)");
       target_reps_min: 8,
       target_reps_max: 12,
       rest_seconds: 90,
-      metric: "reps",
+      exercises: { metric: "reps" },
     },
     {
       exercise_id: "ex3",
@@ -171,7 +137,7 @@ console.log("\n4. buildSessionExerciseRows helper (extracted for testing)");
       target_reps_min: 8,
       target_reps_max: 12,
       rest_seconds: 90,
-      metric: "reps",
+      exercises: { metric: "reps" },
     },
   ];
 

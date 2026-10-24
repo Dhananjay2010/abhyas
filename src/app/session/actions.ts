@@ -50,6 +50,56 @@ function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metr
 }
 
 /**
+ * Build session exercise rows from planned exercises, applying deload if needed.
+ *
+ * Exported for testing. Production code calls this from startSession and
+ * ensureSessionExercises.
+ */
+export function buildSessionExerciseRows<
+  T extends {
+    exercise_id: string;
+    order_index: number;
+    target_sets: number;
+    target_reps_min: number;
+    target_reps_max: number;
+    rest_seconds: number;
+    exercises: unknown;
+  },
+>(
+  plannedRows: T[],
+  context: { isDeload: boolean },
+): Array<{
+  exercise_id: string;
+  order_index: number;
+  planned_sets: number;
+  planned_reps_min: number;
+  planned_reps_max: number;
+  rest_seconds: number;
+  metric: Database["public"]["Enums"]["exercise_metric"];
+}> {
+  return plannedRows.map((p) => {
+    const dose = resolveSessionTargets(
+      {
+        target_sets: p.target_sets,
+        target_reps_min: p.target_reps_min,
+        target_reps_max: p.target_reps_max,
+        rest_seconds: p.rest_seconds,
+      },
+      context,
+    );
+    return {
+      exercise_id: p.exercise_id,
+      order_index: p.order_index,
+      planned_sets: dose.sets,
+      planned_reps_min: dose.repsMin,
+      planned_reps_max: dose.repsMax,
+      rest_seconds: dose.restSeconds,
+      metric: metricOf(p.exercises),
+    };
+  });
+}
+
+/**
  * Start (or resume) today's session.
  *
  * Resuming matters: people lock their phone mid-workout. If a session for today
@@ -184,31 +234,15 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
 
   const planned = plannedRes.data;
   if (planned && planned.length > 0) {
+    // Week 4 of a block cuts volume; the weight suggestion is reduced
+    // separately when the session is rendered.
+    const rows = buildSessionExerciseRows(planned, { isDeload: isDeloadWeek });
     const { error } = await supabase.from("session_exercises").insert(
-      planned.map((p) => {
-        // Week 4 of a block cuts volume; the weight suggestion is reduced
-        // separately when the session is rendered.
-        const dose = resolveSessionTargets(
-          {
-            target_sets: p.target_sets,
-            target_reps_min: p.target_reps_min,
-            target_reps_max: p.target_reps_max,
-            rest_seconds: p.rest_seconds,
-          },
-          { isDeload: isDeloadWeek },
-        );
-        return {
-          session_id: session.id,
-          user_id: user.id, // corrected by the definer trigger
-          exercise_id: p.exercise_id,
-          order_index: p.order_index,
-          planned_sets: dose.sets,
-          planned_reps_min: dose.repsMin,
-          planned_reps_max: dose.repsMax,
-          rest_seconds: dose.restSeconds,
-          metric: metricOf(p.exercises),
-        };
-      }),
+      rows.map((r) => ({
+        session_id: session.id,
+        user_id: user.id, // corrected by the definer trigger
+        ...r,
+      })),
     );
     if (error) return { ok: false, error: error.message };
   }
@@ -847,29 +881,13 @@ async function ensureSessionExercises(
 
   const isDeload = session.is_deload ?? false;
 
+  const rows = buildSessionExerciseRows(planned, { isDeload });
   await supabase.from("session_exercises").insert(
-    planned.map((p) => {
-      const dose = resolveSessionTargets(
-        {
-          target_sets: p.target_sets,
-          target_reps_min: p.target_reps_min,
-          target_reps_max: p.target_reps_max,
-          rest_seconds: p.rest_seconds,
-        },
-        { isDeload },
-      );
-      return {
-        session_id: sessionId,
-        user_id: userId,
-        exercise_id: p.exercise_id,
-        order_index: p.order_index,
-        planned_sets: dose.sets,
-        planned_reps_min: dose.repsMin,
-        planned_reps_max: dose.repsMax,
-        rest_seconds: dose.restSeconds,
-        metric: metricOf(p.exercises),
-      };
-    }),
+    rows.map((r) => ({
+      session_id: sessionId,
+      user_id: userId,
+      ...r,
+    })),
   );
 }
 
