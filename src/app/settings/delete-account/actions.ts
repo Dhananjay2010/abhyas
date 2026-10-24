@@ -14,6 +14,8 @@ export type Result = { ok: true } | { ok: false; error: string };
  * 3. Deletes the auth.users row
  * 
  * On success, signs the user out and redirects to the landing page.
+ * On failure, returns an error and KEEPS the user signed in so they can
+ * retry or contact support.
  */
 export async function deleteAccount(): Promise<Result> {
   const { supabase, user } = await getAuthedClient();
@@ -28,9 +30,27 @@ export async function deleteAccount(): Promise<Result> {
 
   if (error) {
     console.error("Account deletion error:", error);
+    
+    // Provide user-friendly error messages based on the error type
+    let message = "Failed to delete account. Please try again or contact support.";
+    
+    // If the RPC function doesn't exist (migration not applied yet)
+    if (error.code === "42883" || error.message?.includes("function") || error.message?.includes("does not exist")) {
+      message = "Account deletion is not available yet. The system administrator needs to apply a database migration. Please contact support.";
+    }
+    // If there's a permission issue
+    else if (error.code === "42501" || error.message?.includes("permission")) {
+      message = "Permission denied. Please contact support.";
+    }
+    // If there's a connection issue
+    else if (error.message?.includes("network") || error.message?.includes("timeout")) {
+      message = "Network error. Please check your connection and try again.";
+    }
+    
+    // Return error WITHOUT signing out - user stays logged in to retry
     return { 
       ok: false, 
-      error: "Failed to delete account. Please try again or contact support." 
+      error: message
     };
   }
 
