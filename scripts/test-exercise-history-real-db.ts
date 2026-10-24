@@ -230,17 +230,23 @@ async function runTests() {
     const sessions = [];
     const sessionExercises = [];
     const sets = [];
+    const startDate = new Date("2026-01-01T12:00:00Z");
 
     for (let i = 0; i < 150; i++) {
       const sessionId = randomUUID();
       const seId = randomUUID();
       
+      const sessionDate = new Date(startDate);
+      sessionDate.setDate(startDate.getDate() + i);
+      const isoDate = sessionDate.toISOString();
+      const localDate = isoDate.split("T")[0];
+      
       sessions.push({
         id: sessionId,
         user_id: userIdA,
-        local_date: `2026-${String(Math.floor(i / 30) + 1).padStart(2, '0')}-${String((i % 30) + 1).padStart(2, '0')}`,
+        local_date: localDate,
         status: "completed",
-        completed_at: `2026-${String(Math.floor(i / 30) + 1).padStart(2, '0')}-${String((i % 30) + 1).padStart(2, '0')}T12:00:00Z`,
+        completed_at: isoDate,
       });
 
       sessionExercises.push({
@@ -284,17 +290,23 @@ async function runTests() {
     const sessions = [];
     const sessionExercises = [];
     const sets = [];
+    const startDate = new Date("2025-01-01T12:00:00Z");
 
     for (let i = 0; i < 300; i++) {
       const sessionId = randomUUID();
       const seId = randomUUID();
       
+      const sessionDate = new Date(startDate);
+      sessionDate.setDate(startDate.getDate() + i);
+      const isoDate = sessionDate.toISOString();
+      const localDate = isoDate.split("T")[0];
+      
       sessions.push({
         id: sessionId,
         user_id: userIdA,
-        local_date: `2025-${String(Math.floor(i / 30) + 1).padStart(2, '0')}-${String((i % 30) + 1).padStart(2, '0')}`,
+        local_date: localDate,
         status: "completed",
-        completed_at: `2025-${String(Math.floor(i / 30) + 1).padStart(2, '0')}-${String((i % 30) + 1).padStart(2, '0')}T12:00:00Z`,
+        completed_at: isoDate,
       });
 
       sessionExercises.push({
