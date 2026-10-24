@@ -46,7 +46,6 @@ function makeFakeFinishSessionDeps(
   const session: SessionRow = {
     started_at: new Date(Date.now() - 1800000).toISOString(),
     local_date: new Date().toISOString().slice(0, 10),
-    timezone: "UTC",
   };
 
   return {
@@ -138,9 +137,9 @@ function makeFakeAbandonSessionDeps(exercises: SessionExerciseRow[]): AbandonSes
   console.log("\n2. Skip all, only warm-up sets logged, then Finish");
   {
     const exercises = [
-      { session_sets: [{ id: "w1", is_warmup_set: true }, { id: "w2", is_warmup_set: true }] },
+      { session_sets: [{ id: "w1", is_warmup_set: true, completed_at: null }, { id: "w2", is_warmup_set: true, completed_at: null }] },
       { session_sets: [] },
-      { session_sets: [{ id: "w3", is_warmup_set: true }] },
+      { session_sets: [{ id: "w3", is_warmup_set: true, completed_at: null }] },
     ];
 
     const fake = makeFakeFinishSessionDeps(exercises);
@@ -164,7 +163,7 @@ function makeFakeAbandonSessionDeps(exercises: SessionExerciseRow[]): AbandonSes
   console.log("\n3. End early with 0 working sets");
   {
     const exercises = [
-      { session_sets: [{ id: "w1", is_warmup_set: true }] },
+      { session_sets: [{ id: "w1", is_warmup_set: true, completed_at: null }] },
       { session_sets: [] },
     ];
 
@@ -185,8 +184,8 @@ function makeFakeAbandonSessionDeps(exercises: SessionExerciseRow[]): AbandonSes
   console.log("\n4. Finish with 1+ working sets");
   {
     const exercises = [
-      { session_sets: [{ id: "w1", is_warmup_set: true }] },
-      { session_sets: [{ id: "s1", is_warmup_set: false }] }, // One working set
+      { session_sets: [{ id: "w1", is_warmup_set: true, completed_at: null }] },
+      { session_sets: [{ id: "s1", is_warmup_set: false, completed_at: null }] }, // One working set
       { session_sets: [] },
     ];
 
@@ -211,7 +210,7 @@ function makeFakeAbandonSessionDeps(exercises: SessionExerciseRow[]): AbandonSes
   console.log("\n5. End early with 1+ working sets");
   {
     const exercises = [
-      { session_sets: [{ id: "s1", is_warmup_set: false }, { id: "s2", is_warmup_set: false }] },
+      { session_sets: [{ id: "s1", is_warmup_set: false, completed_at: null }, { id: "s2", is_warmup_set: false, completed_at: null }] },
       { session_sets: [] }, // Not reached
     ];
 

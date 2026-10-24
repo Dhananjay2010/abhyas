@@ -97,7 +97,7 @@ console.log("\n4. abandonSessionCore: applies status and duration once");
   ];
   const fake = makeFakeAbandonDeps(exercises, "in_progress");
 
-  await abandonSessionCore(fake, "sess1", 1234.5, null);
+  await abandonSessionCore(fake, "sess1", 1234.5);
   
   const session = fake.getSession();
   check("status is completed", session?.status === "completed", session?.status);
@@ -112,10 +112,10 @@ console.log("\n5. abandonSessionCore: second call is no-op");
   ];
   const fake = makeFakeAbandonDeps(exercises, "in_progress");
 
-  await abandonSessionCore(fake, "sess2", 600, null);
+  await abandonSessionCore(fake, "sess2", 600);
   const after1 = fake.getSession();
   
-  await abandonSessionCore(fake, "sess2", 900, null); // retry with different duration
+  await abandonSessionCore(fake, "sess2", 900); // retry with different duration
   const after2 = fake.getSession();
   
   check("duration unchanged on retry", after1?.duration_seconds === after2?.duration_seconds, `${after1?.duration_seconds} vs ${after2?.duration_seconds}`);
@@ -127,15 +127,15 @@ console.log("\n6. abandonSessionCore: duration clamped to 0..6 hours");
   const exercises = [{ session_sets: [{ id: "s1", is_warmup_set: false }] }];
   
   const fake1 = makeFakeAbandonDeps(exercises, "in_progress");
-  await abandonSessionCore(fake1, "neg", -100, null);
+  await abandonSessionCore(fake1, "neg", -100);
   check("negative duration clamped to 0", fake1.getSession()?.duration_seconds === 0, String(fake1.getSession()?.duration_seconds));
 
   const fake2 = makeFakeAbandonDeps(exercises, "in_progress");
-  await abandonSessionCore(fake2, "huge", 50000, null);
+  await abandonSessionCore(fake2, "huge", 50000);
   check("50000 seconds clamped to 21600 (6 hours)", fake2.getSession()?.duration_seconds === 21600, String(fake2.getSession()?.duration_seconds));
 
   const fake3 = makeFakeAbandonDeps(exercises, "in_progress");
-  await abandonSessionCore(fake3, "frac", 123.7, null);
+  await abandonSessionCore(fake3, "frac", 123.7);
   check("fractional seconds rounded", fake3.getSession()?.duration_seconds === 124, String(fake3.getSession()?.duration_seconds));
 }
 

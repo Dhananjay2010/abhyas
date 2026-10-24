@@ -40,7 +40,6 @@ function makeFakeFinishSessionDeps(
   const sessionMetadata: SessionRow = {
     started_at: "2026-10-24T14:00:00Z",
     local_date: "2026-10-24",
-    timezone: "UTC",
   };
 
   return {
@@ -115,7 +114,7 @@ async function testFinishSessionRequiresInProgressFilter() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  }, null);
+  });
 
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
   assertTrue(updateCall !== undefined, "finishSession must call update");
@@ -138,7 +137,7 @@ async function testFinishSessionRespectsDecideAbandonStatusZeroSets() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  }, null);
+  });
 
   assertTrue(result.ok, "finishSession with 0 working sets should succeed");
   if (result.ok) {
@@ -165,7 +164,7 @@ async function testFinishSessionRespectsDecideAbandonStatusWithWorkingSets() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  }, null);
+  });
 
   assertTrue(result.ok, "finishSession with working sets should succeed");
   if (result.ok) {
@@ -183,7 +182,7 @@ async function testFinishSessionHandlesReadError() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  }, null);
+  });
 
   assertEquals(result.ok, false, "finishSession must return {ok:false} on read error");
   if (!result.ok) {
@@ -203,7 +202,7 @@ async function testFinishSessionHandlesUpdateError() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  }, null);
+  });
 
   assertEquals(result.ok, false, "finishSession must return {ok:false} on update error");
   if (!result.ok) {
@@ -223,7 +222,7 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  }, null);
+  });
 
   assertTrue(resultCompleted.ok && resultCompleted.data.status === "completed", "completed session returned");
 
@@ -239,7 +238,7 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
-  }, null);
+  });
 
   assertTrue(resultSkipped.ok && resultSkipped.data.status === "skipped", "skipped session returned");
 }
@@ -254,7 +253,7 @@ async function testAbandonSessionRequiresInProgressFilter() {
   ];
 
   const fake = makeFakeAbandonSessionDeps(exercises, [], undefined, undefined);
-  await abandonSessionCore(fake, "s1", 100, null);
+  await abandonSessionCore(fake, "s1", 100);
 
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
   assertTrue(updateCall !== undefined, "abandonSession must call update");
@@ -273,7 +272,7 @@ async function testAbandonSessionRespectsDecideAbandonStatus() {
   ];
 
   const fake = makeFakeAbandonSessionDeps(exercises, [], undefined, undefined);
-  const result = await abandonSessionCore(fake, "s1", 100, null);
+  const result = await abandonSessionCore(fake, "s1", 100);
 
   assertTrue(result.ok, "abandonSession with warmup-only should succeed");
   if (result.ok) {
@@ -283,7 +282,7 @@ async function testAbandonSessionRespectsDecideAbandonStatus() {
 
 async function testAbandonSessionHandlesReadError() {
   const fake = makeFakeAbandonSessionDeps([], [], undefined, "Database read failed");
-  const result = await abandonSessionCore(fake, "s1", 100, null);
+  const result = await abandonSessionCore(fake, "s1", 100);
 
   assertEquals(result.ok, false, "abandonSession must return {ok:false} on read error");
   if (!result.ok) {
