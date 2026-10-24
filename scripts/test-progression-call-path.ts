@@ -399,9 +399,6 @@ console.log("\n11. No equipment info: fallback behavior preserved");
   };
   
   // Helper returns empty equipment_ids when none provided
-  const noEquipEx = { mechanic: "compound", equipment_ids: [] };
-  const inputs = progressionInputsFromExercise(noEquipEx, "metric");
-  
   const decision = evaluateProgression({
     sets: sets(4, 12, 60),
     plannedSets: 4,
