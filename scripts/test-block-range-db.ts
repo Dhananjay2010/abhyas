@@ -393,20 +393,24 @@ async function runTests() {
       });
 
       check("second rebuild succeeds (different payload)", !result2.error, result2.error || "");
-      check("second rebuild creates NEW block", result2.data !== result1.data, `both returned ${result1.data}`);
+      
+      // L4 fix: both rebuilds are on same day as original block (2026-10-15), so both update in place
+      // Result: only 1 block (the original, updated twice), both calls return same id
+      check("both rebuilds return same id (in-place update)", result2.data === result1.data && result1.data === blockId1, `result1=${result1.data}, result2=${result2.data}, original=${blockId1}`);
 
       const { rows: blocks } = await pool.query(
         "SELECT id, status, started_on, ended_on FROM programs WHERE user_id = $1 ORDER BY created_at",
         [userId]
       ) as {rows: Array<{id: string; status: string; started_on: string; ended_on: string | null}>};
 
-      // Second same-day rebuild with DIFFERENT payload should create 3 blocks total
-      check("three blocks total", blocks.length === 3, `${blocks.length} blocks`);
+      // L4 fix: all rebuilds were same-day, so only 1 block (updated in place)
+      check("one block total (updated in place)", blocks.length === 1, `${blocks.length} blocks`);
+      check("block is active", blocks[0]?.status === "active", `status=${blocks[0]?.status}`);
 
       const emptyRanges = blocks.filter(
         (b) => b.ended_on !== null && b.ended_on < b.started_on
       );
-      check("two empty ranges (original + first rebuild)", emptyRanges.length === 2, `${emptyRanges.length}`);
+      check("no empty ranges (L4 fix)", emptyRanges.length === 0, `${emptyRanges.length}`);
 
       console.log("  PASS: Test 4\n");
     }
@@ -729,6 +733,295 @@ async function runTests() {
       check("old block ended_on set correctly", actualEndedOnStr === expectedEndedOn, `expected ${expectedEndedOn}, got ${actualEndedOnStr}`);
 
       console.log("  PASS: Test 9\n");
+    }
+
+    console.log("TEST H2: Late return rollover - starts on p_today, not backdated");
+    {
+      userId = await createTestUser();
+      
+      const blockId1 = randomUUID();
+      await pool.query(`
+        INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, week_offset, status)
+        VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-09-01', '2026-09-28', 4, 0, 'active')
+      `, [blockId1, userId]);
+
+      // User returns 2026-10-24 (26 days late)
+      const payload = {
+        id: randomUUID(),
+        block_number: 2,
+        split_type: "upper_lower",
+        days_per_week: 4,
+        primary_track: "weights",
+        goal: "strength",
+        level: "intermediate",
+        ends_on: "2026-11-20", // app sends p_today + 27
+        deload_week: 4,
+        days: [],
+      };
+
+      const result = await callRPC(pool, userId, "rollover_block", {
+        p_today: "2026-10-24",
+        p_payload: payload,
+      });
+
+      check("rollover succeeded", !result.error, result.error || "");
+
+      const { rows: newBlocks } = await pool.query(
+        "SELECT started_on, ends_on, week_offset FROM programs WHERE user_id = $1 AND status = 'active'",
+        [userId]
+      );
+
+      const actualStartedOn = newBlocks[0]?.started_on;
+      const actualStartedOnStr = actualStartedOn instanceof Date ? actualStartedOn.toISOString().split('T')[0] : actualStartedOn;
+      check("new block starts on p_today (2026-10-24), not 2026-09-29", actualStartedOnStr === "2026-10-24", `got ${actualStartedOnStr}`);
+
+      const actualEndsOn = newBlocks[0]?.ends_on;
+      const actualEndsOnStr = actualEndsOn instanceof Date ? actualEndsOn.toISOString().split('T')[0] : actualEndsOn;
+      check("new block ends 27 days later (2026-11-20)", actualEndsOnStr === "2026-11-20", `got ${actualEndsOnStr}`);
+      
+      const blockLength = actualStartedOnStr && actualEndsOnStr ?
+        Math.floor((new Date(actualEndsOnStr).getTime() - new Date(actualStartedOnStr).getTime()) / (24 * 60 * 60 * 1000)) + 1 : 0;
+      check("block length is 28 days", blockLength === 28, `got ${blockLength} days`);
+      
+      check("week_offset is 0 (Week 1)", newBlocks[0]?.week_offset === 0);
+
+      // Verify old block is completed
+      const { rows: oldBlocks } = await pool.query(
+        "SELECT status, ended_on FROM programs WHERE id = $1",
+        [blockId1]
+      );
+      check("old block status is completed", oldBlocks[0]?.status === "completed");
+
+      console.log("  PASS: Test H2\n");
+    }
+
+    console.log("TEST L1: Rollover idempotency - repeat rollover with same payload id is no-op");
+    {
+      userId = await createTestUser();
+      
+      const blockId1 = randomUUID();
+      const payloadId = randomUUID();
+      await pool.query(`
+        INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, week_offset, status)
+        VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-09-01', '2026-09-28', 4, 0, 'active')
+      `, [blockId1, userId]);
+
+      const payload = {
+        id: payloadId,
+        block_number: 2,
+        split_type: "upper_lower",
+        days_per_week: 4,
+        primary_track: "weights",
+        goal: "strength",
+        level: "intermediate",
+        ends_on: "2026-10-26",
+        deload_week: 4,
+        days: [],
+      };
+
+      // First rollover on 2026-09-29
+      const result1 = await callRPC(pool, userId, "rollover_block", {
+        p_today: "2026-09-29",
+        p_payload: payload,
+      });
+      check("first rollover succeeded", !result1.error);
+
+      // Repeat with same payload id
+      const result2 = await callRPC(pool, userId, "rollover_block", {
+        p_today: "2026-09-29",
+        p_payload: payload,
+      });
+      check("second rollover with same payload id succeeded", !result2.error);
+      check("both calls returned same block id", result1.data === result2.data);
+
+      const { rows: programs } = await pool.query(
+        "SELECT COUNT(*) as count FROM programs WHERE user_id = $1",
+        [userId]
+      );
+      check("only 2 blocks exist (no duplicate from retry)", programs[0]?.count === "2", `got ${programs[0]?.count}`);
+
+      console.log("  PASS: Test L1\n");
+    }
+
+    console.log("TEST L3: Anon role cannot execute RPCs");
+    {
+      const { rows: privileges } = await pool.query(`
+        SELECT
+          has_function_privilege('anon', 'rebuild_block(date,jsonb)', 'execute') as rebuild_exec,
+          has_function_privilege('anon', 'rollover_block(date,jsonb)', 'execute') as rollover_exec,
+          has_function_privilege('anon', 'cycle_week_for(int,date,date)', 'execute') as cycle_week_exec
+      `);
+
+      check("anon cannot execute rebuild_block", privileges[0]?.rebuild_exec === false);
+      check("anon cannot execute rollover_block", privileges[0]?.rollover_exec === false);
+      check("anon cannot execute cycle_week_for", privileges[0]?.cycle_week_exec === false);
+
+      console.log("  PASS: Test L3\n");
+    }
+
+    console.log("TEST L4: Same-day rebuilds do not create empty superseded rows");
+    {
+      userId = await createTestUser();
+      const exerciseId = (await pool.query("SELECT id FROM exercises LIMIT 1")).rows[0]?.id;
+      
+      const blockId1 = randomUUID();
+      const dayId1 = randomUUID();
+      await pool.query(`
+        INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, week_offset, status)
+        VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-10-01', '2026-10-28', 4, 0, 'active')
+      `, [blockId1, userId]);
+      
+      await pool.query(`
+        INSERT INTO program_days (id, program_id, user_id, day_index, day_type, label)
+        VALUES ($1, $2, $3, 1, 'weights', 'Upper')
+      `, [dayId1, blockId1, userId]);
+
+      // Create a session linked to the original block
+      const sessionId = randomUUID();
+      await pool.query(`
+        INSERT INTO sessions (id, user_id, program_id, program_day_id, local_date, week_in_block, is_deload, planned_type, actual_type, status)
+        VALUES ($1, $2, $3, $4, '2026-10-15', 3, false, 'weights', 'weights', 'completed')
+      `, [sessionId, userId, blockId1, dayId1]);
+
+      // First rebuild on 2026-10-15 (same day as session)
+      const payload1 = {
+        id: randomUUID(),
+        block_number: 1,
+        split_type: "ppl",
+        days_per_week: 6,
+        primary_track: "weights",
+        goal: "strength",
+        level: "intermediate",
+        ends_on: "2026-11-20",
+        deload_week: 4,
+        days: [{
+          day_index: 1,
+          day_type: "weights",
+          focus: null,
+          label: "Push",
+          exercises: [{
+            exercise_id: exerciseId,
+            order_index: 0,
+            target_sets: 4,
+            target_reps_min: 6,
+            target_reps_max: 10,
+            rest_seconds: 120,
+          }],
+        }],
+      };
+
+      const result1 = await callRPC(pool, userId, "rebuild_block", {
+        p_today: "2026-10-15",
+        p_payload: payload1,
+      });
+      check("first rebuild succeeded", !result1.error, result1.error || "");
+
+      // Second rebuild same day with different payload id
+      const payload2 = {
+        id: randomUUID(),
+        block_number: 1,
+        split_type: "upper_lower",
+        days_per_week: 4,
+        primary_track: "weights",
+        goal: "muscle_gain",
+        level: "intermediate",
+        ends_on: "2026-11-20",
+        deload_week: 4,
+        days: [{
+          day_index: 1,
+          day_type: "weights",
+          focus: null,
+          label: "Upper",
+          exercises: [{
+            exercise_id: exerciseId,
+            order_index: 0,
+            target_sets: 3,
+            target_reps_min: 8,
+            target_reps_max: 12,
+            rest_seconds: 90,
+          }],
+        }],
+      };
+
+      const result2 = await callRPC(pool, userId, "rebuild_block", {
+        p_today: "2026-10-15",
+        p_payload: payload2,
+      });
+      check("second same-day rebuild succeeded", !result2.error, result2.error || "");
+
+      // Third rebuild next day
+      const payload3 = {
+        id: randomUUID(),
+        block_number: 1,
+        split_type: "ppl",
+        days_per_week: 6,
+        primary_track: "weights",
+        goal: "strength",
+        level: "expert",
+        ends_on: "2026-11-21",
+        deload_week: 4,
+        days: [{
+          day_index: 1,
+          day_type: "weights",
+          focus: null,
+          label: "Push",
+          exercises: [{
+            exercise_id: exerciseId,
+            order_index: 0,
+            target_sets: 5,
+            target_reps_min: 5,
+            target_reps_max: 8,
+            rest_seconds: 180,
+          }],
+        }],
+      };
+
+      const result3 = await callRPC(pool, userId, "rebuild_block", {
+        p_today: "2026-10-16",
+        p_payload: payload3,
+      });
+      check("third rebuild (next day) succeeded", !result3.error, result3.error || "");
+
+      // L4 assertions
+      const { rows: emptyRows } = await pool.query(
+        "SELECT id, started_on, ended_on FROM programs WHERE user_id = $1 AND ended_on IS NOT NULL AND ended_on < started_on",
+        [userId]
+      );
+      check("zero programs with ended_on < started_on", emptyRows.length === 0, `got ${emptyRows.length}`);
+
+      const { rows: activeRows } = await pool.query(
+        "SELECT id FROM programs WHERE user_id = $1 AND status = 'active'",
+        [userId]
+      );
+      check("exactly one active block", activeRows.length === 1, `got ${activeRows.length}`);
+
+      const { rows: sessionCheck } = await pool.query(
+        "SELECT s.id, s.program_id, p.id as program_exists FROM sessions s LEFT JOIN programs p ON s.program_id = p.id WHERE s.user_id = $1",
+        [userId]
+      );
+      const allSessionsLinked = sessionCheck.every(row => row.program_exists !== null);
+      check("all sessions linked to valid programs", allSessionsLinked, `${sessionCheck.length} sessions, linked: ${sessionCheck.filter(r => r.program_exists).length}`);
+
+      console.log("  PASS: Test L4\n");
+    }
+
+    console.log("TEST: Functions have search_path set");
+    {
+      const { rows: configs } = await pool.query(`
+        SELECT
+          p.proname,
+          array_to_string(p.proconfig, ',') as config
+        FROM pg_proc p
+        WHERE p.proname IN ('rebuild_block', 'rollover_block', 'cycle_week_for')
+        ORDER BY p.proname
+      `);
+
+      for (const row of configs) {
+        const hasSearchPath = row.config && row.config.includes("search_path=");
+        check(`${row.proname} has search_path set`, hasSearchPath, `config=${row.config || "none"}`);
+      }
+
+      console.log("  PASS: search_path test\n");
     }
 
     await pool.end();
