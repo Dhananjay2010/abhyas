@@ -43,6 +43,11 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* Hide bottom nav when offline page is shown */
+body:has([data-offline]) [data-bottom-nav] {
+  display: none;
+}
+
 /* Nothing in a guided session should be accidentally selectable mid-set. */
 button {
   -webkit-tap-highlight-color: transparent;

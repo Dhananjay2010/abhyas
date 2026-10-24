@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, startTransition } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { isOfflineError } from "@/lib/offline-error";
 import { branding } from "@/lib/branding";
 
 export default function GlobalError({
@@ -11,10 +12,47 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [online, setOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+
   useEffect(() => {
     console.error("Global error:", error);
-    Sentry.captureException(error);
+    
+    // Capture exception once, using current online status
+    const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+    if (!isOfflineError(error, isOnline)) {
+      Sentry.captureException(error);
+    }
   }, [error]);
+
+  useEffect(() => {
+    function handleOnline() {
+      setOnline(true);
+    }
+    function handleOffline() {
+      setOnline(false);
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  const offline = isOfflineError(error, online);
+
+  function handleReset() {
+    startTransition(() => {
+      reset();
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+    });
+  }
 
   return (
     <html lang="en">
@@ -62,7 +100,7 @@ export default function GlobalError({
             border: none;
             border-radius: 0.75rem;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: opacity 0.2s;
           }
           button:hover {
             background: ${branding.colors.accentHover};
@@ -71,12 +109,23 @@ export default function GlobalError({
       </head>
       <body>
         <main>
-          <h1>Application Error</h1>
-          <p>A critical error occurred. Please refresh the page.</p>
-          {error.digest && (
-            <p className="digest">Error ID: {error.digest}</p>
+          {offline ? (
+            <>
+              <h1>You&apos;re offline</h1>
+              <p>
+                This page needs an internet connection. Check your connection and try again.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1>Application Error</h1>
+              <p>A critical error occurred. Please refresh the page.</p>
+              {error.digest && (
+                <p className="digest">Error ID: {error.digest}</p>
+              )}
+            </>
           )}
-          <button onClick={reset}>Try again</button>
+          <button onClick={handleReset}>Try again</button>
         </main>
       </body>
     </html>
