@@ -11,11 +11,11 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 import { resolveDay } from "../src/lib/program/day-plan";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+if (!SUPABASE_SERVICE_KEY) {
+  console.error("Missing SUPABASE_SERVICE_ROLE_KEY");
   process.exit(1);
 }
 
