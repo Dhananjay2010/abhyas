@@ -106,15 +106,7 @@ export default async function SessionPage({
   const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
 
   const exercises: RunnerExercise[] = rows.map((r) => {
-    const ex = r.exercises as unknown as {
-      id: string;
-      name: string;
-      cue: string | null;
-      movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-      mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
-      primary_muscles: Muscle[];
-      equipment_ids: string[];
-    };
+    const ex = r.exercises;
     const progress = remembersWeights ? progressByExercise.get(ex?.id ?? "") : undefined;
     const working =
       progress?.current_working_weight_kg === null || progress === undefined
@@ -136,7 +128,12 @@ export default async function SessionPage({
       primaryMuscles: ex?.primary_muscles ?? [],
       plannedSets: r.planned_sets ?? 3,
       repsMin: r.planned_reps_min ?? 8,
-      repsMax: effectiveRepsMax(r.planned_reps_max ?? 12, progress?.current_target_reps, working),
+      repsMax: effectiveRepsMax({
+        plannedMax: r.planned_reps_max ?? 12,
+        progressedTarget: progress?.current_target_reps,
+        isBodyweight,
+        usedWeight: working,
+      }),
       restSeconds: r.rest_seconds ?? 90,
       status: r.status,
       feel: r.feel,

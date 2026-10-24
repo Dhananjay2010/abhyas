@@ -845,5 +845,58 @@ console.log("\nGuard checks: loaded squats and unloaded bodyweight unchanged");
     loadedSquatDeloadFloor === 5, `${loadedSquatDeloadFloor}`);
 }
 
+console.log("\neffectiveRepsMax unification: page and evaluator agree on target");
+{
+  // (a) Loaded lift with currentTargetReps 14, repsMax 12, all sets at 12 reps progresses.
+  const loadedLift = run({
+    meta: BENCH,
+    sets: sets(4, 12, 60),
+    state: fresh({ currentWorkingWeightKg: 60, currentTargetReps: 14 }),
+  });
+  check("loaded bench 60 kg, progressed target 14, succeeds at 12 reps (planned target)",
+    loadedLift.outcome === "progressed" && loadedLift.nextWorkingWeightKg === 62.5,
+    `outcome=${loadedLift.outcome}, next=${loadedLift.nextWorkingWeightKg}`);
+
+  // (b) Non-bodyweight move logged with no weight, currentTargetReps 14, succeeds at 12.
+  const nonBodyweightNoWeight = run({
+    meta: BENCH,
+    sets: sets(4, 12, null),
+    state: fresh({ currentWorkingWeightKg: 5, currentTargetReps: 14 }),
+  });
+  check("non-bodyweight move logged with no weight succeeds at 12 (planned target)",
+    nonBodyweightNoWeight.outcome === "progressed" && nonBodyweightNoWeight.nextWorkingWeightKg === 5,
+    `outcome=${nonBodyweightNoWeight.outcome}, next=${nonBodyweightNoWeight.nextWorkingWeightKg}`);
+
+  // (c) Bodyweight with no weight, currentTargetReps 10, repsMax 12, succeeds at 10 reps.
+  const bodyweightNoWeight = run({
+    meta: PUSHUP,
+    sets: sets(4, 10, null),
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 10 }),
+  });
+  check("bodyweight with no weight, progressed target 10, succeeds at 10 reps (progressed target)",
+    bodyweightNoWeight.outcome === "progressed" && bodyweightNoWeight.nextTargetReps === 12,
+    `outcome=${bodyweightNoWeight.outcome}, next=${bodyweightNoWeight.nextTargetReps}`);
+
+  // Guard: using progressed target for all exercises must fail.
+  const loadedWrongTarget = run({
+    meta: BENCH,
+    sets: sets(4, 12, 60),
+    state: fresh({ currentWorkingWeightKg: 60, currentTargetReps: 14 }),
+  });
+  check("loaded bench must NOT require 14 reps (progressed target) for success",
+    loadedWrongTarget.outcome === "progressed",
+    `outcome=${loadedWrongTarget.outcome}`);
+
+  // Guard: dropping isBodyweight condition must fail.
+  const bodyweightWrongTarget = run({
+    meta: PUSHUP,
+    sets: sets(4, 10, null),
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 10 }),
+  });
+  check("bodyweight must succeed at progressed target 10, NOT planned 12",
+    bodyweightWrongTarget.outcome === "progressed",
+    `outcome=${bodyweightWrongTarget.outcome}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

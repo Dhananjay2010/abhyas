@@ -256,10 +256,12 @@ export function evaluateProgression(input: {
   // Success requires the full set count AND the top of the rep range on each.
   // For unloaded bodyweight moves, use the progressed target if available.
   const completedAllSets = working.length >= plannedSets;
-  const target =
-    heaviest === 0 && meta.isBodyweight
-      ? effectiveRepsMax(repsMax, state.currentTargetReps, heaviest)
-      : repsMax;
+  const target = effectiveRepsMax({
+    plannedMax: repsMax,
+    progressedTarget: state.currentTargetReps,
+    isBodyweight: meta.isBodyweight,
+    usedWeight: heaviest,
+  });
   const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= target);
   const succeeded = completedAllSets && hitTopOfRange;
 

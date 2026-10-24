@@ -15,29 +15,38 @@ console.log("\neffectiveRepsMax: timer and success check target");
 
 // Loaded exercises: always use planned, never progressed.
 check("loaded lift uses planned target",
-  effectiveRepsMax(12, 14, 60) === 12, `${effectiveRepsMax(12, 14, 60)}`);
+  effectiveRepsMax({ plannedMax: 12, progressedTarget: 14, isBodyweight: false, usedWeight: 60 }) === 12,
+  `${effectiveRepsMax({ plannedMax: 12, progressedTarget: 14, isBodyweight: false, usedWeight: 60 })}`);
 check("loaded lift with null progressed uses planned",
-  effectiveRepsMax(12, null, 60) === 12, `${effectiveRepsMax(12, null, 60)}`);
+  effectiveRepsMax({ plannedMax: 12, progressedTarget: null, isBodyweight: false, usedWeight: 60 }) === 12,
+  `${effectiveRepsMax({ plannedMax: 12, progressedTarget: null, isBodyweight: false, usedWeight: 60 })}`);
 
 // Bodyweight with added weight: treated as loaded, use planned.
 check("bodyweight with added weight uses planned target",
-  effectiveRepsMax(12, 14, 10) === 12, `${effectiveRepsMax(12, 14, 10)}`);
+  effectiveRepsMax({ plannedMax: 12, progressedTarget: 14, isBodyweight: true, usedWeight: 10 }) === 12,
+  `${effectiveRepsMax({ plannedMax: 12, progressedTarget: 14, isBodyweight: true, usedWeight: 10 })}`);
 
 // Unloaded bodyweight: use progressed if available, otherwise planned.
 check("unloaded bodyweight with progressed 14 uses 14",
-  effectiveRepsMax(12, 14, null) === 14, `${effectiveRepsMax(12, 14, null)}`);
+  effectiveRepsMax({ plannedMax: 12, progressedTarget: 14, isBodyweight: true, usedWeight: null }) === 14,
+  `${effectiveRepsMax({ plannedMax: 12, progressedTarget: 14, isBodyweight: true, usedWeight: null })}`);
 check("unloaded bodyweight with progressed 14 uses 14 (0 weight)",
-  effectiveRepsMax(12, 14, 0) === 14, `${effectiveRepsMax(12, 14, 0)}`);
+  effectiveRepsMax({ plannedMax: 12, progressedTarget: 14, isBodyweight: true, usedWeight: 0 }) === 14,
+  `${effectiveRepsMax({ plannedMax: 12, progressedTarget: 14, isBodyweight: true, usedWeight: 0 })}`);
 check("unloaded bodyweight with null progressed uses planned 12",
-  effectiveRepsMax(12, null, null) === 12, `${effectiveRepsMax(12, null, null)}`);
+  effectiveRepsMax({ plannedMax: 12, progressedTarget: null, isBodyweight: true, usedWeight: null }) === 12,
+  `${effectiveRepsMax({ plannedMax: 12, progressedTarget: null, isBodyweight: true, usedWeight: null })}`);
 check("unloaded bodyweight with undefined progressed uses planned 12",
-  effectiveRepsMax(12, undefined, null) === 12, `${effectiveRepsMax(12, undefined, null)}`);
+  effectiveRepsMax({ plannedMax: 12, progressedTarget: undefined, isBodyweight: true, usedWeight: null }) === 12,
+  `${effectiveRepsMax({ plannedMax: 12, progressedTarget: undefined, isBodyweight: true, usedWeight: null })}`);
 
 // Hold (metric: seconds): same logic, different numbers.
 check("hold with progressed 50s uses 50",
-  effectiveRepsMax(45, 50, null) === 50, `${effectiveRepsMax(45, 50, null)}`);
+  effectiveRepsMax({ plannedMax: 45, progressedTarget: 50, isBodyweight: true, usedWeight: null }) === 50,
+  `${effectiveRepsMax({ plannedMax: 45, progressedTarget: 50, isBodyweight: true, usedWeight: null })}`);
 check("weighted hold uses planned 45s",
-  effectiveRepsMax(45, 50, 20) === 45, `${effectiveRepsMax(45, 50, 20)}`);
+  effectiveRepsMax({ plannedMax: 45, progressedTarget: 50, isBodyweight: true, usedWeight: 20 }) === 45,
+  `${effectiveRepsMax({ plannedMax: 45, progressedTarget: 50, isBodyweight: true, usedWeight: 20 })}`);
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
