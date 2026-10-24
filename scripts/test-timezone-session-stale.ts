@@ -37,7 +37,7 @@ class FakeSupabase {
   private sessions = new Map<string, SessionRow>();
   private sessionExercises = new Map<string, SessionExercise[]>();
 
-  setSession(id: string, status: string, startedAt: string) {
+  setSession(id: string, status: string, _startedAt: string) {
     this.sessions.set(id, {
       id,
       status,
@@ -110,7 +110,7 @@ console.log("\n1. Timezone shift doesn't close active session (10 minutes ago)")
     { id: "sess1", local_date: "2026-10-24", started_at: tenMinutesAgo },
   ];
 
-  await closeStaleSessionsCore(fake as any, open, now);
+  await closeStaleSessionsCore(fake as unknown as Parameters<typeof closeStaleSessionsCore>[0], open, now);
   
   const session = fake.getSession("sess1");
   check("session still in_progress", session?.status === "in_progress");
@@ -136,7 +136,7 @@ console.log("\n2. Inactivity beyond threshold closes session");
     { id: "sess2", local_date: "2026-10-24", started_at: sevenHoursAgo },
   ];
 
-  await closeStaleSessionsCore(fake as any, open, now);
+  await closeStaleSessionsCore(fake as unknown as Parameters<typeof closeStaleSessionsCore>[0], open, now);
   
   const session = fake.getSession("sess2");
   check("session closed", session?.status === "completed", session?.status);
@@ -199,7 +199,7 @@ console.log("\n5. Session from yesterday with recent activity stays open");
     { id: "sess3", local_date: "2026-10-24", started_at: "2026-10-24T23:00:00Z" },
   ];
 
-  await closeStaleSessionsCore(fake as any, open, now);
+  await closeStaleSessionsCore(fake as unknown as Parameters<typeof closeStaleSessionsCore>[0], open, now);
   
   const session = fake.getSession("sess3");
   check("session still in_progress despite old local_date", session?.status === "in_progress");
@@ -232,7 +232,7 @@ console.log("\n7. Multiple sessions: only stale ones closed");
     { id: "stale", local_date: "2026-10-24", started_at: staleActivity },
   ];
 
-  const closed = await closeStaleSessionsCore(fake as any, open, now);
+  const closed = await closeStaleSessionsCore(fake as unknown as Parameters<typeof closeStaleSessionsCore>[0], open, now);
   
   check("1 session closed", closed === 1, String(closed));
   check("recent session still in_progress", fake.getSession("recent")?.status === "in_progress");
@@ -251,7 +251,7 @@ console.log("\n8. Session with no started_at is skipped");
     { id: "nostart", local_date: "2026-10-24", started_at: null },
   ];
 
-  const closed = await closeStaleSessionsCore(fake as any, open, now);
+  const closed = await closeStaleSessionsCore(fake as unknown as Parameters<typeof closeStaleSessionsCore>[0], open, now);
   
   check("no sessions closed when started_at is null", closed === 0);
 }
@@ -274,7 +274,7 @@ console.log("Mutant A: auto-close reverts to local_date comparison");
     { id: "ma", local_date: "2026-10-24", started_at: "2026-10-24T23:00:00Z" },
   ];
 
-  await closeStaleSessionsCore(fake as any, open, now);
+  await closeStaleSessionsCore(fake as unknown as Parameters<typeof closeStaleSessionsCore>[0], open, now);
   
   const session = fake.getSession("ma");
   if (session?.status !== "in_progress") {
@@ -300,7 +300,7 @@ console.log("\nMutant B: threshold is inverted (closes if < 6 hours)");
     { id: "mb", local_date: "2026-10-24", started_at: tenMinutesAgo },
   ];
 
-  await closeStaleSessionsCore(fake as any, open, now);
+  await closeStaleSessionsCore(fake as unknown as Parameters<typeof closeStaleSessionsCore>[0], open, now);
   
   const session = fake.getSession("mb");
   if (session?.status !== "in_progress") {
