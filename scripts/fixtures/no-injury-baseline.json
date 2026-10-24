@@ -1,0 +1,1687 @@
+{
+  "baseline-01": {
+    "profile": {
+      "goal": "general_fitness",
+      "level": "beginner",
+      "track": "bodyweight",
+      "daysPerWeek": 3,
+      "hasAllEquipment": false,
+      "equipmentCount": 0
+    },
+    "plan": {
+      "blockNumber": 1,
+      "splitType": "full_body",
+      "daysPerWeek": 3,
+      "deloadWeek": 4,
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "bodyweight",
+          "label": "Full Body A",
+          "focus": "full_body",
+          "exercises": [
+            {
+              "exerciseId": "ca8285ce-526a-4f3b-9ad6-7fa6c5f3e9e9",
+              "slug": "bodyweight-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "cfd27413-3a70-4546-bb40-3c5936e11542",
+              "slug": "pushups",
+              "pattern": "horizontal_press",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "7e6e45a7-a096-43ae-a313-c8c1bc95f6f7",
+              "slug": "doorway-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 2,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "1b243c57-e152-4ecc-aa76-dcdb5303f089",
+              "slug": "3-4-sit-up",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "a528fe5e-3c6e-4737-ba7f-c961304d0dac",
+              "slug": "table-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 4,
+              "targetSets": 2,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "bodyweight",
+          "label": "Full Body B",
+          "focus": "full_body",
+          "exercises": [
+            {
+              "exerciseId": "eb87e64a-e162-463e-8b0f-58054ebc97c4",
+              "slug": "glute-bridge",
+              "pattern": "hinge",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "b499f879-e000-478a-a7ef-eaf195fc6649",
+              "slug": "pike-push-up",
+              "pattern": "vertical_press",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "7e6e45a7-a096-43ae-a313-c8c1bc95f6f7",
+              "slug": "doorway-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 2,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "1b243c57-e152-4ecc-aa76-dcdb5303f089",
+              "slug": "3-4-sit-up",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "bodyweight",
+          "label": "Full Body C",
+          "focus": "full_body",
+          "exercises": [
+            {
+              "exerciseId": "2a3e20d3-41d5-4bd7-86bd-b40f02648e1c",
+              "slug": "step-up-with-knee-raise",
+              "pattern": "lunge",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "cfd27413-3a70-4546-bb40-3c5936e11542",
+              "slug": "pushups",
+              "pattern": "horizontal_press",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "7e6e45a7-a096-43ae-a313-c8c1bc95f6f7",
+              "slug": "doorway-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 2,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "1b243c57-e152-4ecc-aa76-dcdb5303f089",
+              "slug": "3-4-sit-up",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        }
+      ]
+    }
+  },
+  "baseline-02": {
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "beginner",
+      "track": "bodyweight",
+      "daysPerWeek": 4,
+      "hasAllEquipment": false,
+      "equipmentCount": 0
+    },
+    "plan": {
+      "blockNumber": 1,
+      "splitType": "upper_lower",
+      "daysPerWeek": 4,
+      "deloadWeek": 4,
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "bodyweight",
+          "label": "Upper",
+          "focus": "upper",
+          "exercises": [
+            {
+              "exerciseId": "cfd27413-3a70-4546-bb40-3c5936e11542",
+              "slug": "pushups",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "7e6e45a7-a096-43ae-a313-c8c1bc95f6f7",
+              "slug": "doorway-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "b499f879-e000-478a-a7ef-eaf195fc6649",
+              "slug": "pike-push-up",
+              "pattern": "vertical_press",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "a528fe5e-3c6e-4737-ba7f-c961304d0dac",
+              "slug": "table-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "56da0170-c26b-4980-b0e2-1153c4a25cff",
+              "slug": "body-tricep-press",
+              "pattern": "triceps",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "bodyweight",
+          "label": "Lower",
+          "focus": "lower",
+          "exercises": [
+            {
+              "exerciseId": "ca8285ce-526a-4f3b-9ad6-7fa6c5f3e9e9",
+              "slug": "bodyweight-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "eb87e64a-e162-463e-8b0f-58054ebc97c4",
+              "slug": "glute-bridge",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "2a3e20d3-41d5-4bd7-86bd-b40f02648e1c",
+              "slug": "step-up-with-knee-raise",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "1b243c57-e152-4ecc-aa76-dcdb5303f089",
+              "slug": "3-4-sit-up",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "cc7b813b-f1d8-4016-87cd-c037fef05580",
+              "slug": "alternate-heel-touchers",
+              "pattern": "core",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "bodyweight",
+          "label": "Upper",
+          "focus": "upper",
+          "exercises": [
+            {
+              "exerciseId": "cfd27413-3a70-4546-bb40-3c5936e11542",
+              "slug": "pushups",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "7e6e45a7-a096-43ae-a313-c8c1bc95f6f7",
+              "slug": "doorway-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "b499f879-e000-478a-a7ef-eaf195fc6649",
+              "slug": "pike-push-up",
+              "pattern": "vertical_press",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "a528fe5e-3c6e-4737-ba7f-c961304d0dac",
+              "slug": "table-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "d8921b27-c91d-43e4-9bac-285a2430afa5",
+              "slug": "standing-towel-triceps-extension",
+              "pattern": "triceps",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "bodyweight",
+          "label": "Lower",
+          "focus": "lower",
+          "exercises": [
+            {
+              "exerciseId": "ca8285ce-526a-4f3b-9ad6-7fa6c5f3e9e9",
+              "slug": "bodyweight-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "eb87e64a-e162-463e-8b0f-58054ebc97c4",
+              "slug": "glute-bridge",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "2a3e20d3-41d5-4bd7-86bd-b40f02648e1c",
+              "slug": "step-up-with-knee-raise",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "1b243c57-e152-4ecc-aa76-dcdb5303f089",
+              "slug": "3-4-sit-up",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "22ad8c7f-65aa-468f-8bd1-91da537eb0c2",
+              "slug": "tuck-crunch",
+              "pattern": "core",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        }
+      ]
+    }
+  },
+  "baseline-03": {
+    "profile": {
+      "goal": "general_fitness",
+      "level": "intermediate",
+      "track": "weights",
+      "daysPerWeek": 3,
+      "hasAllEquipment": true,
+      "equipmentCount": 0
+    },
+    "plan": {
+      "blockNumber": 1,
+      "splitType": "full_body",
+      "daysPerWeek": 3,
+      "deloadWeek": 4,
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "label": "Full Body A",
+          "focus": "full_body",
+          "exercises": [
+            {
+              "exerciseId": "d0b5aacb-dad8-4157-8852-61b9bca5d15d",
+              "slug": "barbell-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+              "slug": "barbell-bench-press-medium-grip",
+              "pattern": "horizontal_press",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 2,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "1cc72b1a-aeab-4c4e-92b6-2f1471a01fbc",
+              "slug": "barbell-ab-rollout",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "57329635-e09b-43a6-bc09-87308eae6c9c",
+              "slug": "alternating-kettlebell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "weights",
+          "label": "Full Body B",
+          "focus": "full_body",
+          "exercises": [
+            {
+              "exerciseId": "77b7533e-3c66-4fba-98b5-0910f39bc155",
+              "slug": "barbell-deadlift",
+              "pattern": "hinge",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+              "slug": "standing-military-press",
+              "pattern": "vertical_press",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "4cf28621-247c-4d1a-a8ff-a17c5b6e6a9f",
+              "slug": "wide-grip-lat-pulldown",
+              "pattern": "vertical_pull",
+              "orderIndex": 2,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "1cc72b1a-aeab-4c4e-92b6-2f1471a01fbc",
+              "slug": "barbell-ab-rollout",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "f902c26f-3b48-47af-8d8d-8e0ac56d42ac",
+              "slug": "bent-arm-barbell-pullover",
+              "pattern": "vertical_pull",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "label": "Full Body C",
+          "focus": "full_body",
+          "exercises": [
+            {
+              "exerciseId": "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+              "slug": "barbell-lunge",
+              "pattern": "lunge",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+              "slug": "barbell-bench-press-medium-grip",
+              "pattern": "horizontal_press",
+              "orderIndex": 1,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 2,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "8f0865e5-9a42-43c7-aa96-14030726f010",
+              "slug": "barbell-seated-calf-raise",
+              "pattern": "calf",
+              "orderIndex": 3,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "c1ca354d-ef1e-4c7c-8588-c5d917e03450",
+              "slug": "barbell-rear-delt-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        }
+      ]
+    }
+  },
+  "baseline-04": {
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "intermediate",
+      "track": "weights",
+      "daysPerWeek": 4,
+      "hasAllEquipment": true,
+      "equipmentCount": 0
+    },
+    "plan": {
+      "blockNumber": 1,
+      "splitType": "upper_lower",
+      "daysPerWeek": 4,
+      "deloadWeek": 4,
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "label": "Upper",
+          "focus": "upper",
+          "exercises": [
+            {
+              "exerciseId": "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+              "slug": "barbell-bench-press-medium-grip",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "4cf28621-247c-4d1a-a8ff-a17c5b6e6a9f",
+              "slug": "wide-grip-lat-pulldown",
+              "pattern": "vertical_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+              "slug": "standing-military-press",
+              "pattern": "vertical_press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "73d61212-721c-417c-b830-188f376bd76e",
+              "slug": "machine-triceps-extension",
+              "pattern": "triceps",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "346acc10-03e9-41ae-9991-a62ea87bca3d",
+              "slug": "preacher-curl",
+              "pattern": "biceps",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "label": "Lower",
+          "focus": "lower",
+          "exercises": [
+            {
+              "exerciseId": "d0b5aacb-dad8-4157-8852-61b9bca5d15d",
+              "slug": "barbell-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "77b7533e-3c66-4fba-98b5-0910f39bc155",
+              "slug": "barbell-deadlift",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+              "slug": "barbell-lunge",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "8f0865e5-9a42-43c7-aa96-14030726f010",
+              "slug": "barbell-seated-calf-raise",
+              "pattern": "calf",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "22ad8c7f-65aa-468f-8bd1-91da537eb0c2",
+              "slug": "tuck-crunch",
+              "pattern": "core",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "weights",
+          "label": "Upper",
+          "focus": "upper",
+          "exercises": [
+            {
+              "exerciseId": "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+              "slug": "barbell-bench-press-medium-grip",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "4cf28621-247c-4d1a-a8ff-a17c5b6e6a9f",
+              "slug": "wide-grip-lat-pulldown",
+              "pattern": "vertical_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+              "slug": "standing-military-press",
+              "pattern": "vertical_press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "dc445529-893c-473e-bb96-eef56d71dae9",
+              "slug": "tricep-dumbbell-kickback",
+              "pattern": "triceps",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "b10dfffc-c082-4631-b349-6625c6521fb8",
+              "slug": "reverse-barbell-preacher-curls",
+              "pattern": "biceps",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "label": "Lower",
+          "focus": "lower",
+          "exercises": [
+            {
+              "exerciseId": "d0b5aacb-dad8-4157-8852-61b9bca5d15d",
+              "slug": "barbell-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "77b7533e-3c66-4fba-98b5-0910f39bc155",
+              "slug": "barbell-deadlift",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+              "slug": "barbell-lunge",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "8f0865e5-9a42-43c7-aa96-14030726f010",
+              "slug": "barbell-seated-calf-raise",
+              "pattern": "calf",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "7cff641f-b7f3-44f9-b189-e4624a7047bd",
+              "slug": "janda-sit-up",
+              "pattern": "core",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        }
+      ]
+    }
+  },
+  "baseline-05": {
+    "profile": {
+      "goal": "strength",
+      "level": "intermediate",
+      "track": "weights",
+      "daysPerWeek": 5,
+      "hasAllEquipment": true,
+      "equipmentCount": 0
+    },
+    "plan": {
+      "blockNumber": 1,
+      "splitType": "ppl",
+      "daysPerWeek": 5,
+      "deloadWeek": 4,
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "label": "Push",
+          "focus": "push",
+          "exercises": [
+            {
+              "exerciseId": "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+              "slug": "barbell-bench-press-medium-grip",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+              "slug": "standing-military-press",
+              "pattern": "vertical_press",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "7304c1a7-8dfc-4741-b4c4-9f2b784c7c9e",
+              "slug": "barbell-incline-shoulder-raise",
+              "pattern": "lateral_delt",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "e170a498-eaff-474b-bad5-6b35f1fcbd31",
+              "slug": "lying-close-grip-barbell-triceps-press-to-chin",
+              "pattern": "triceps",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "label": "Pull",
+          "focus": "pull",
+          "exercises": [
+            {
+              "exerciseId": "4cf28621-247c-4d1a-a8ff-a17c5b6e6a9f",
+              "slug": "wide-grip-lat-pulldown",
+              "pattern": "vertical_pull",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "89aa56dc-17b2-4a34-967d-2a0f354707b2",
+              "slug": "back-flyes-with-bands",
+              "pattern": "rear_delt",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "8315732c-77eb-4331-be5f-aede55c5e27b",
+              "slug": "zottman-preacher-curl",
+              "pattern": "biceps",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "weights",
+          "label": "Legs",
+          "focus": "legs",
+          "exercises": [
+            {
+              "exerciseId": "d0b5aacb-dad8-4157-8852-61b9bca5d15d",
+              "slug": "barbell-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "77b7533e-3c66-4fba-98b5-0910f39bc155",
+              "slug": "barbell-deadlift",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+              "slug": "barbell-lunge",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "1bd92eb9-0d8c-4cca-bcc3-6a30ea7fba36",
+              "slug": "crunches",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "label": "Upper",
+          "focus": "upper",
+          "exercises": [
+            {
+              "exerciseId": "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+              "slug": "barbell-bench-press-medium-grip",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "4cf28621-247c-4d1a-a8ff-a17c5b6e6a9f",
+              "slug": "wide-grip-lat-pulldown",
+              "pattern": "vertical_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+              "slug": "standing-military-press",
+              "pattern": "vertical_press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "weights",
+          "label": "Lower",
+          "focus": "lower",
+          "exercises": [
+            {
+              "exerciseId": "d0b5aacb-dad8-4157-8852-61b9bca5d15d",
+              "slug": "barbell-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "77b7533e-3c66-4fba-98b5-0910f39bc155",
+              "slug": "barbell-deadlift",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+              "slug": "barbell-lunge",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "1786def8-e0b7-4a6e-ae7e-88a00bc8d4a6",
+              "slug": "oblique-crunches",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        }
+      ]
+    }
+  },
+  "baseline-06": {
+    "profile": {
+      "goal": "strength",
+      "level": "expert",
+      "track": "weights",
+      "daysPerWeek": 5,
+      "hasAllEquipment": true,
+      "equipmentCount": 0
+    },
+    "plan": {
+      "blockNumber": 1,
+      "splitType": "ppl",
+      "daysPerWeek": 5,
+      "deloadWeek": 4,
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "label": "Push",
+          "focus": "push",
+          "exercises": [
+            {
+              "exerciseId": "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+              "slug": "barbell-bench-press-medium-grip",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+              "slug": "standing-military-press",
+              "pattern": "vertical_press",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "7304c1a7-8dfc-4741-b4c4-9f2b784c7c9e",
+              "slug": "barbell-incline-shoulder-raise",
+              "pattern": "lateral_delt",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "09ceda78-2cec-4be7-9180-c538705e2f6b",
+              "slug": "dumbbell-tricep-extension-pronated-grip",
+              "pattern": "triceps",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "label": "Pull",
+          "focus": "pull",
+          "exercises": [
+            {
+              "exerciseId": "4cf28621-247c-4d1a-a8ff-a17c5b6e6a9f",
+              "slug": "wide-grip-lat-pulldown",
+              "pattern": "vertical_pull",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "89aa56dc-17b2-4a34-967d-2a0f354707b2",
+              "slug": "back-flyes-with-bands",
+              "pattern": "rear_delt",
+              "orderIndex": 2,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "c59b1474-f91a-4c76-b4c9-2bd0576b6a30",
+              "slug": "cable-preacher-curl",
+              "pattern": "biceps",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "weights",
+          "label": "Legs",
+          "focus": "legs",
+          "exercises": [
+            {
+              "exerciseId": "d0b5aacb-dad8-4157-8852-61b9bca5d15d",
+              "slug": "barbell-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "77b7533e-3c66-4fba-98b5-0910f39bc155",
+              "slug": "barbell-deadlift",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+              "slug": "barbell-lunge",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "ecd9817c-6a4c-4c6f-95ab-ac9d6f37f8b9",
+              "slug": "advanced-kettlebell-windmill",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "label": "Upper",
+          "focus": "upper",
+          "exercises": [
+            {
+              "exerciseId": "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+              "slug": "barbell-bench-press-medium-grip",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "4cf28621-247c-4d1a-a8ff-a17c5b6e6a9f",
+              "slug": "wide-grip-lat-pulldown",
+              "pattern": "vertical_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+              "slug": "standing-military-press",
+              "pattern": "vertical_press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "weights",
+          "label": "Lower",
+          "focus": "lower",
+          "exercises": [
+            {
+              "exerciseId": "d0b5aacb-dad8-4157-8852-61b9bca5d15d",
+              "slug": "barbell-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "77b7533e-3c66-4fba-98b5-0910f39bc155",
+              "slug": "barbell-deadlift",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+              "slug": "barbell-lunge",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 3,
+              "targetRepsMax": 6
+            },
+            {
+              "exerciseId": "1786def8-e0b7-4a6e-ae7e-88a00bc8d4a6",
+              "slug": "oblique-crunches",
+              "pattern": "core",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        }
+      ]
+    }
+  },
+  "baseline-07": {
+    "profile": {
+      "goal": "muscle_gain",
+      "level": "intermediate",
+      "track": "weights",
+      "daysPerWeek": 4,
+      "hasAllEquipment": false,
+      "equipmentCount": 3
+    },
+    "plan": {
+      "blockNumber": 1,
+      "splitType": "upper_lower",
+      "daysPerWeek": 4,
+      "deloadWeek": 4,
+      "days": [
+        {
+          "dayIndex": 1,
+          "dayType": "weights",
+          "label": "Upper",
+          "focus": "upper",
+          "exercises": [
+            {
+              "exerciseId": "cfd27413-3a70-4546-bb40-3c5936e11542",
+              "slug": "pushups",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "f902c26f-3b48-47af-8d8d-8e0ac56d42ac",
+              "slug": "bent-arm-barbell-pullover",
+              "pattern": "vertical_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+              "slug": "standing-military-press",
+              "pattern": "vertical_press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "a8ed754c-ef7f-448c-8689-a601390544fd",
+              "slug": "body-up",
+              "pattern": "triceps",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "346acc10-03e9-41ae-9991-a62ea87bca3d",
+              "slug": "preacher-curl",
+              "pattern": "biceps",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 2,
+          "dayType": "weights",
+          "label": "Lower",
+          "focus": "lower",
+          "exercises": [
+            {
+              "exerciseId": "ca8285ce-526a-4f3b-9ad6-7fa6c5f3e9e9",
+              "slug": "bodyweight-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "77b7533e-3c66-4fba-98b5-0910f39bc155",
+              "slug": "barbell-deadlift",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+              "slug": "barbell-lunge",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "8f0865e5-9a42-43c7-aa96-14030726f010",
+              "slug": "barbell-seated-calf-raise",
+              "pattern": "calf",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "579fdd27-c338-4f01-9f56-1bfec2c2b9bf",
+              "slug": "reverse-crunch",
+              "pattern": "core",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 3,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 4,
+          "dayType": "weights",
+          "label": "Upper",
+          "focus": "upper",
+          "exercises": [
+            {
+              "exerciseId": "cfd27413-3a70-4546-bb40-3c5936e11542",
+              "slug": "pushups",
+              "pattern": "horizontal_press",
+              "orderIndex": 0,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "f902c26f-3b48-47af-8d8d-8e0ac56d42ac",
+              "slug": "bent-arm-barbell-pullover",
+              "pattern": "vertical_pull",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+              "slug": "standing-military-press",
+              "pattern": "vertical_press",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+              "slug": "bent-over-barbell-row",
+              "pattern": "horizontal_pull",
+              "orderIndex": 3,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "eadf68b9-c6e2-4a4d-b576-f885ec67e136",
+              "slug": "standing-overhead-barbell-triceps-extension",
+              "pattern": "triceps",
+              "orderIndex": 4,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "13edfbc6-f144-4962-8b27-a31c053ce99a",
+              "slug": "wide-grip-standing-barbell-curl",
+              "pattern": "biceps",
+              "orderIndex": 5,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 5,
+          "dayType": "weights",
+          "label": "Lower",
+          "focus": "lower",
+          "exercises": [
+            {
+              "exerciseId": "ca8285ce-526a-4f3b-9ad6-7fa6c5f3e9e9",
+              "slug": "bodyweight-squat",
+              "pattern": "squat",
+              "orderIndex": 0,
+              "targetSets": 5,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "77b7533e-3c66-4fba-98b5-0910f39bc155",
+              "slug": "barbell-deadlift",
+              "pattern": "hinge",
+              "orderIndex": 1,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+              "slug": "barbell-lunge",
+              "pattern": "lunge",
+              "orderIndex": 2,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "8f0865e5-9a42-43c7-aa96-14030726f010",
+              "slug": "barbell-seated-calf-raise",
+              "pattern": "calf",
+              "orderIndex": 3,
+              "targetSets": 3,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            },
+            {
+              "exerciseId": "6926adc6-ec30-4a2d-b3a3-3a1c0d014066",
+              "slug": "frog-sit-ups",
+              "pattern": "core",
+              "orderIndex": 4,
+              "targetSets": 4,
+              "targetRepsMin": 8,
+              "targetRepsMax": 12
+            }
+          ]
+        },
+        {
+          "dayIndex": 6,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        },
+        {
+          "dayIndex": 7,
+          "dayType": "rest",
+          "label": "Rest",
+          "focus": null,
+          "exercises": []
+        }
+      ]
+    }
+  }
+}

@@ -171,7 +171,8 @@
     "test:catalogue-knee-jumps": "tsx scripts/test-catalogue-knee-jumps.ts",
     "test:past-knee-coordinator": "tsx scripts/test-past-knee-coordinator.ts",
     "test:knee-swaps": "tsx scripts/test-knee-swaps.ts",
-    "test:knee-safety-matrix": "tsx scripts/test-knee-safety-matrix.ts"
+    "test:knee-safety-matrix": "tsx scripts/test-knee-safety-matrix.ts",
+    "test:no-injury-baseline": "tsx scripts/test-no-injury-baseline.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
