@@ -134,12 +134,18 @@ export function HistoryClient({
         <>
           <ul className="mt-6 space-y-2">
             {items.map((item) => {
-              const timeLabel =
-                item.completedAt && item.localDate === today
-                  ? formatTime(item.completedAt, timezone)
-                  : item.localDate === today
-                    ? "Today"
-                    : longDate(item.localDate);
+              // Format time label with timezone-aware time for same-day sessions
+              let timeLabel = "";
+              if (item.localDate === today && item.completedAt) {
+                timeLabel = `Today · ${formatTime(item.completedAt, timezone)}`;
+              } else if (item.localDate === today) {
+                timeLabel = "Today";
+              } else if (item.completedAt) {
+                // For older sessions, show date + time
+                timeLabel = `${longDate(item.localDate)} · ${formatTime(item.completedAt, timezone)}`;
+              } else {
+                timeLabel = longDate(item.localDate);
+              }
 
               const durationLabel = formatMinutes(item.durationSeconds);
 
@@ -173,27 +179,51 @@ export function HistoryClient({
                 if (item.volumeKg > 0) details.push(`${Math.round(item.volumeKg)}kg total`);
               }
 
+              // Yoga rows are non-interactive (yoga detail view is owned by PR #19)
+              // Breathing and strength sessions link to their detail pages
+              const isYoga = item.actualType === "yoga";
+              const isInteractive = !isYoga;
+
+              const content = (
+                <div className="flex-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-semibold">{label}</span>
+                    <span className="shrink-0 text-xs text-muted">{timeLabel}</span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <p className="text-xs text-muted">{details.join(" · ")}</p>
+                    {item.hasPR && (
+                      <span className="rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent">
+                        PR
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+
               return (
                 <li key={item.id}>
-                  <Link
-                    href={`/history/${item.id}`}
-                    className="flex min-h-[44px] items-center rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-muted/50"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="font-semibold">{label}</span>
-                        <span className="shrink-0 text-xs text-muted">{timeLabel}</span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2">
-                        <p className="text-xs text-muted">{details.join(" · ")}</p>
-                        {item.hasPR && (
-                          <span className="rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent">
-                            PR
-                          </span>
-                        )}
-                      </div>
+                  {isInteractive ? (
+                    <Link
+                      href={`/history/${item.id}`}
+                      className="flex min-h-[44px] items-center rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-muted/50"
+                    >
+                      {content}
+                      <svg
+                        className="ml-2 h-5 w-5 shrink-0 text-muted"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  ) : (
+                    <div className="flex min-h-[44px] items-center rounded-xl border border-border bg-surface px-4 py-3">
+                      {content}
+                      {/* TODO: Link to yoga detail once PR #19 lands */}
                     </div>
-                  </Link>
+                  )}
                 </li>
               );
             })}

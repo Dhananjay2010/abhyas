@@ -53,28 +53,29 @@ interface SetRow {
 }
 
 /**
- * Detect which sessions on the current page had PRs.
+ * Detect which sessions on the current page had PRs and count their working sets.
  * 
  * Strategy:
  * 1. Query sessions first (ordered by completed_at DESC on sessions table)
  * 2. Get all session IDs needed for full prior history
  * 3. Fetch sets for those sessions, ordered by set.completed_at ASC (chronological)
  * 4. Group and detect PRs
+ * 5. Count working sets for current page sessions (reusing already-fetched data)
  * 
  * @param supabase - Authenticated client
  * @param userId - User ID
  * @param sessionIds - Session IDs to check (the current page)
  * @param oldestCompletedAt - completed_at of the OLDEST session on the page
- * @returns Set of session IDs that had at least one PR
+ * @returns Object with PR flags and set counts for current page sessions
  */
 export async function detectSessionPRs(
   supabase: TypedSupabase,
   userId: string,
   sessionIds: string[],
   oldestCompletedAt: string | null
-): Promise<Set<string>> {
+): Promise<{ sessionsWithPRs: Set<string>; setCountsBySession: Map<string, number> }> {
   if (sessionIds.length === 0 || !oldestCompletedAt) {
-    return new Set();
+    return { sessionsWithPRs: new Set(), setCountsBySession: new Map() };
   }
 
   // Step 1: Get all completed sessions up to and including the oldest on the current page
@@ -91,12 +92,12 @@ export async function detectSessionPRs(
 
   if (sessionsError || !historicalSessions) {
     console.error("Failed to fetch sessions for PR detection:", sessionsError);
-    return new Set();
+    return { sessionsWithPRs: new Set(), setCountsBySession: new Map() };
   }
 
   const historicalSessionIds = historicalSessions.map((s) => s.id);
   if (historicalSessionIds.length === 0) {
-    return new Set();
+    return { sessionsWithPRs: new Set(), setCountsBySession: new Map() };
   }
 
   // Step 2: Fetch all sets for these sessions
@@ -213,5 +214,21 @@ export async function detectSessionPRs(
     }
   }
 
-  return sessionsWithPRs;
+  // Count working sets for current page sessions (reuse already-fetched data)
+  const { countWorkingSets } = await import("@/lib/session/count-sets");
+  const setCountsBySession = new Map<string, number>();
+  
+  for (const sessionId of sessionIds) {
+    const sessionSets = allSets.filter(
+      (s) => (s as unknown as SetRow).session_exercises.session_id === sessionId
+    );
+    const count = countWorkingSets(sessionSets.map(s => ({
+      is_warmup_set: s.is_warmup_set,
+      reps: s.reps,
+      duration_seconds: s.duration_seconds
+    })));
+    setCountsBySession.set(sessionId, count);
+  }
+
+  return { sessionsWithPRs, setCountsBySession };
 }

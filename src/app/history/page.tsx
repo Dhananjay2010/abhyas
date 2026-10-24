@@ -5,7 +5,6 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
-import { countWorkingSets } from "@/lib/session/count-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -101,18 +100,35 @@ export default async function HistoryPage({
     exercisesBySession.set(ex.session_id, list);
   }
 
-  // Get all sets for these session_exercises to calculate top sets and count working sets
+  // Detect which sessions had PRs at the time AND get set counts
+  // This fetches all historical data needed for PR detection and reuses it for counting
+  // Pass the OLDEST session's completed_at so we fetch full prior history
+  const oldestCompletedAt = sessions?.[sessions.length - 1]?.completed_at ?? null;
+  const { sessionsWithPRs, setCountsBySession } = await detectSessionPRs(
+    supabase,
+    user.id,
+    sessionIds,
+    oldestCompletedAt
+  );
+
+  // Get all sets for these session_exercises to calculate top sets only
+  // (set counts already computed by detectSessionPRs above)
   const sessionExerciseIds = (sessionExercises ?? []).map((se) => se.id);
-  const { data: allSets } = await supabase
-    .from("session_sets")
-    .select("session_exercise_id, reps, weight_kg, duration_seconds, is_warmup_set")
-    .in(
-      "session_exercise_id",
-      sessionExerciseIds.length ? sessionExerciseIds : ["00000000-0000-0000-0000-000000000000"]
-    );
+  const allSets: Array<{ session_exercise_id: string; reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }> = [];
+  const chunkSize = 100;
+  
+  for (let i = 0; i < sessionExerciseIds.length; i += chunkSize) {
+    const chunk = sessionExerciseIds.slice(i, i + chunkSize);
+    const { data } = await supabase
+      .from("session_sets")
+      .select("session_exercise_id, reps, weight_kg, duration_seconds, is_warmup_set")
+      .in("session_exercise_id", chunk)
+      .eq("is_warmup_set", false);  // Only need working sets for top set calculation
+    if (data) allSets.push(...data);
+  }
 
   const setsByExercise = new Map<string, Array<{ reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }>>();
-  for (const set of allSets ?? []) {
+  for (const set of allSets) {
     const list = setsByExercise.get(set.session_exercise_id) ?? [];
     list.push(set);
     setsByExercise.set(set.session_exercise_id, list);
@@ -121,24 +137,13 @@ export default async function HistoryPage({
   // Get exercise history helpers
   const { findTopSet } = await import("@/lib/exercise-history/calculations");
 
-  // Detect which sessions had PRs at the time
-  // Pass the OLDEST session's completed_at so we fetch full prior history
-  const oldestCompletedAt = sessions?.[sessions.length - 1]?.completed_at ?? null;
-  const sessionsWithPRs = await detectSessionPRs(
-    supabase,
-    user.id,
-    sessionIds,
-    oldestCompletedAt
-  );
-
   const items: SessionListItem[] = (sessions ?? []).map((s) => {
     const vol = volumeById.get(s.id);
     const isBreathing = s.actual_type === "meditation";
     const exercises = exercisesBySession.get(s.id) ?? [];
 
-    // Count working sets for this session (both reps-based and timed)
-    const allSessionSets = exercises.flatMap((ex) => setsByExercise.get(ex.id) ?? []);
-    const workingSetCount = countWorkingSets(allSessionSets);
+    // Get working set count from detectSessionPRs (already computed)
+    const workingSetCount = setCountsBySession.get(s.id) ?? 0;
 
     // Calculate top set weight for strength sessions
     let topSetWeight: number | null = null;
