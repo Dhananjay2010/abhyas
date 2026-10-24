@@ -44,6 +44,14 @@ async function main() {
 
   const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // Auth as test user (from seed.sql: test@example.com / testpass123)
+  const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+    email: "test@example.com",
+    password: "testpass123",
+  });
+
+  check("Test user authentication", !authErr && authData.user !== null, authErr?.message);
+
   // Get test user profile
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
@@ -51,7 +59,7 @@ async function main() {
     .eq("id", TEST_USER_ID)
     .single();
 
-  check("Test user profile exists", !profileErr && profile !== null);
+  check("Test user profile exists", !profileErr && profile !== null, profileErr?.message);
   
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const today = localDateString(timezone);
