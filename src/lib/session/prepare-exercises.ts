@@ -43,7 +43,7 @@ export function prepareSessionExercises(
   sessionId: string,
   userId: string,
   programDayExercises: ProgramDayExercise[],
-  isDeload: boolean,
+  _isDeload: boolean,
 ): SessionExerciseRow[] {
   return programDayExercises.map((p) => {
     return {
