@@ -879,6 +879,7 @@ export function SessionRunner({
                                   metric: swapped.metric,
                                   repsMin: swapped.repsMin ?? e.repsMin,
                                   repsMax: swapped.repsMax ?? e.repsMax,
+                                  isBodyweight: swapped.equipmentIds.length === 0,
                                 }
                               : e,
                           ),

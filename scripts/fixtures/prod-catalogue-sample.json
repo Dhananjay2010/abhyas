@@ -1,0 +1,3634 @@
+[
+  {
+    "id": "f4b476d8-95f5-421d-9160-9346a22ce01e",
+    "slug": "alternating-floor-press",
+    "name": "Alternating Floor Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "kettlebell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "57329635-e09b-43a6-bc09-87308eae6c9c",
+    "slug": "alternating-kettlebell-row",
+    "name": "Alternating Kettlebell Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats"
+    ],
+    "equipment_ids": [
+      "kettlebell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "004ca1e0-01d0-4a2e-99ac-7e439c14dcb1",
+    "slug": "alternating-renegade-row",
+    "name": "Alternating Renegade Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "biceps",
+      "chest",
+      "lats",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "kettlebell"
+    ],
+    "level_min": "expert",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "807ac37e-441c-4b2c-8cf2-44b35c50d292",
+    "slug": "around-the-worlds",
+    "name": "Around The Worlds",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "dumbbell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+    "slug": "barbell-bench-press-medium-grip",
+    "name": "Barbell Bench Press - Medium Grip",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "30f25990-2eb2-4a4a-afb4-6c3db5926c52",
+    "slug": "barbell-guillotine-bench-press",
+    "name": "Barbell Guillotine Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "25e1a1b6-7a57-4f7f-93ec-84c1e1e957e8",
+    "slug": "barbell-incline-bench-press-medium-grip",
+    "name": "Barbell Incline Bench Press - Medium Grip",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "c1ca354d-ef1e-4c7c-8588-c5d917e03450",
+    "slug": "barbell-rear-delt-row",
+    "name": "Barbell Rear Delt Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "rear_delts"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "upper_back"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "4b38b6f3-9329-43eb-80e6-828598455945",
+    "slug": "bench-dips",
+    "name": "Bench Dips",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "dip_bars",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "elbow",
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "fa5021e2-740d-4d27-b358-34e5356bbe6c",
+    "slug": "bench-press-powerlifting",
+    "name": "Bench Press - Powerlifting",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "forearms",
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "a4eb357a-45a9-49f3-920d-2a3c2e65db56",
+    "slug": "bench-press-with-bands",
+    "name": "Bench Press - With Bands",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "flat_bench",
+      "resistance_band"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "2265e501-dc57-4e26-8ad5-db970d2caca8",
+    "slug": "bench-press-with-chains",
+    "name": "Bench Press with Chains",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "expert",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "f67365d3-9efe-4e3a-9c21-cc7258bca44f",
+    "slug": "bent-arm-dumbbell-pullover",
+    "name": "Bent-Arm Dumbbell Pullover",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "lats",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "dumbbell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+    "slug": "bent-over-barbell-row",
+    "name": "Bent Over Barbell Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "lower_back"
+    ],
+    "impact": "low",
+    "spinal_load": "high",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "503a6f6c-c479-4958-94ca-bf50e95d5dd6",
+    "slug": "bent-over-one-arm-long-bar-row",
+    "name": "Bent Over One-Arm Long Bar Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "lower_back",
+      "traps"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "lower_back"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "91bb36f5-e7a7-4905-b851-6d5affd6f17b",
+    "slug": "bent-over-two-arm-long-bar-row",
+    "name": "Bent Over Two-Arm Long Bar Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "lower_back"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "785bd8e0-b142-4153-8b0b-0e44400f7aba",
+    "slug": "bent-over-two-dumbbell-row",
+    "name": "Bent Over Two-Dumbbell Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "lower_back"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "f6cf8c56-2fd8-4668-9161-197754ed5d75",
+    "slug": "bent-over-two-dumbbell-row-with-palms-in",
+    "name": "Bent Over Two-Dumbbell Row With Palms In",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats"
+    ],
+    "equipment_ids": [
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "lower_back"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "0e2e409d-b967-4539-989c-903ab0cd9b71",
+    "slug": "bodyweight-flyes",
+    "name": "Bodyweight Flyes",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "ez_bar"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "302196d2-0181-4bf0-a978-29ed00fda01e",
+    "slug": "butterfly",
+    "name": "Butterfly",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment_ids": [
+      "machine_generic"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "8c152487-9a03-4c59-b178-dbb37b65d65a",
+    "slug": "cable-chest-press",
+    "name": "Cable Chest Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "d0e3c741-fd80-49ad-adaf-6cdb4277d245",
+    "slug": "cable-crossover",
+    "name": "Cable Crossover",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "b28d5dfd-4dd3-4426-b8e7-ccfc4e893d36",
+    "slug": "cable-iron-cross",
+    "name": "Cable Iron Cross",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "b2513dc7-8197-425a-8494-3b1ec2903547",
+    "slug": "cable-rope-rear-delt-rows",
+    "name": "Cable Rope Rear-Delt Rows",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "upper_back"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "6a8f22c8-bb93-4704-9884-8e0ebf8595d6",
+    "slug": "chest-push-from-3-point-stance",
+    "name": "Chest Push from 3 point stance",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "medicine_ball"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "high",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "plyometric"
+  },
+  {
+    "id": "fba11f97-24b5-4909-913f-827fa670a1a5",
+    "slug": "chest-push-multiple-response",
+    "name": "Chest Push (multiple response)",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "medicine_ball"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "high",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "plyometric"
+  },
+  {
+    "id": "8579efdd-bf0b-4a14-8fd6-cbe080fe5134",
+    "slug": "chest-push-single-response",
+    "name": "Chest Push (single response)",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "medicine_ball"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "high",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "plyometric"
+  },
+  {
+    "id": "1f72703d-d7fb-422d-9593-fa7969954760",
+    "slug": "chin-up",
+    "name": "Chin-Up",
+    "movement_pattern": "vertical_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "forearms",
+      "upper_back"
+    ],
+    "equipment_ids": [
+      "pull_up_bar"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "c2fd38fb-09ea-41a4-ba07-d02874bc35bb",
+    "slug": "clock-push-up",
+    "name": "Clock Push-Up",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "709c1217-62a9-4321-9ef2-cc16e5139ed0",
+    "slug": "close-grip-barbell-bench-press",
+    "name": "Close-Grip Barbell Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "elbow",
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "ef0b6dc5-d500-43b3-a469-60df3fed962f",
+    "slug": "close-grip-push-up-off-of-a-dumbbell",
+    "name": "Close-Grip Push-Up off of a Dumbbell",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "chest",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "elbow",
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "f310eaaf-a169-4914-b7f3-902fdb41552c",
+    "slug": "cross-over-with-bands",
+    "name": "Cross Over - With Bands",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "resistance_band"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "c25142ff-9cb3-4aa3-ada5-541dd79e7581",
+    "slug": "decline-barbell-bench-press",
+    "name": "Decline Barbell Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "c275d670-4488-45e7-a4a3-e9dd7a1b9496",
+    "slug": "decline-dumbbell-bench-press",
+    "name": "Decline Dumbbell Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "dumbbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "5e745087-d9fb-4338-8400-f4ebdbcadf3f",
+    "slug": "decline-dumbbell-flyes",
+    "name": "Decline Dumbbell Flyes",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment_ids": [
+      "adjustable_bench",
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "e65515db-67d1-4a45-8d88-fe340fb579da",
+    "slug": "decline-smith-press",
+    "name": "Decline Smith Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "smith_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "17f56a1e-180d-4e09-9f37-5ba78aaeb6a2",
+    "slug": "dip-machine",
+    "name": "Dip Machine",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "dip_bars",
+      "machine_generic"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "elbow",
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "abfcfbbd-4a32-4e61-81f9-256e8b589443",
+    "slug": "dips-triceps-version",
+    "name": "Dips - Triceps Version",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "dip_bars"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "elbow",
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "88b4ca77-e3ca-417f-88f9-0d30b5c14e9f",
+    "slug": "dumbbell-bench-press",
+    "name": "Dumbbell Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "dumbbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "b0ca1601-217a-422d-a635-9dddf7fa5a70",
+    "slug": "dumbbell-bench-press-with-neutral-grip",
+    "name": "Dumbbell Bench Press with Neutral Grip",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "dumbbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "f37cdb1d-887e-4b0f-b29f-9bffb9fba14d",
+    "slug": "dumbbell-flyes",
+    "name": "Dumbbell Flyes",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment_ids": [
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "5e54bd40-e400-4852-80f4-0dbb52599d33",
+    "slug": "dumbbell-incline-row",
+    "name": "Dumbbell Incline Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "forearms",
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "599414ef-fdc5-4557-8e04-8813ceab6eff",
+    "slug": "dumbbell-one-arm-upright-row",
+    "name": "Dumbbell One-Arm Upright Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "side_delts",
+      "traps"
+    ],
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment_ids": [
+      "dumbbell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "a145fec7-289d-4540-bec1-9c6bf5d4408d",
+    "slug": "elevated-cable-rows",
+    "name": "Elevated Cable Rows",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats"
+    ],
+    "secondary_muscles": [
+      "upper_back",
+      "traps"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "e15e0a62-82df-458a-b1a4-e56e0a187569",
+    "slug": "extended-range-one-arm-kettlebell-floor-press",
+    "name": "Extended Range One-Arm Kettlebell Floor Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "kettlebell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "1ce08337-74cc-460a-96d3-0f7ba642d236",
+    "slug": "face-pull",
+    "name": "Face Pull",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "rear_delts"
+    ],
+    "secondary_muscles": [
+      "upper_back"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "c9805f81-e5f7-4ae9-a34a-84a7a09498df",
+    "slug": "flat-bench-cable-flyes",
+    "name": "Flat Bench Cable Flyes",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment_ids": [
+      "cable_machine",
+      "flat_bench"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "23075d9c-880b-488b-b6e7-0e87860c4308",
+    "slug": "front-raise-and-pullover",
+    "name": "Front Raise And Pullover",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "lats",
+      "front_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "c71ade80-1506-45dd-a8cd-0fc25c6bf538",
+    "slug": "hammer-grip-incline-db-bench-press",
+    "name": "Hammer Grip Incline DB Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "dumbbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "94916d36-28e3-40a2-8b5b-e892652b398c",
+    "slug": "incline-bench-pull",
+    "name": "Incline Bench Pull",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "bc9f8337-7434-4d9f-875a-845bb8f68747",
+    "slug": "incline-cable-chest-press",
+    "name": "Incline Cable Chest Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "ae7392cf-068d-48bc-afb6-65e9dd895d68",
+    "slug": "incline-cable-flye",
+    "name": "Incline Cable Flye",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "cable_machine"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "fd2bc274-a016-4121-967c-cf7c84a2ba5d",
+    "slug": "incline-dumbbell-bench-with-palms-facing-in",
+    "name": "Incline Dumbbell Bench With Palms Facing In",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "dumbbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "1785fd4a-6419-4bfd-a7f4-ff5159497022",
+    "slug": "incline-dumbbell-flyes",
+    "name": "Incline Dumbbell Flyes",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "dfdc91b7-35a6-4c59-8724-b6adf3c7b968",
+    "slug": "incline-dumbbell-flyes-with-a-twist",
+    "name": "Incline Dumbbell Flyes - With A Twist",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "4dc9358d-b118-4e51-a6de-ae449b301183",
+    "slug": "incline-dumbbell-press",
+    "name": "Incline Dumbbell Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "348719cb-2506-4df0-8adb-29af2dd063fb",
+    "slug": "incline-push-up",
+    "name": "Incline Push-Up",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "b3d2b130-73eb-4b21-84a5-b79db0a42adc",
+    "slug": "incline-push-up-close-grip",
+    "name": "Incline Push-Up Close-Grip",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "adjustable_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "elbow",
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "5596ef03-4710-49c8-8067-3ae6c201084c",
+    "slug": "incline-push-up-medium",
+    "name": "Incline Push-Up Medium",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "f22b61f6-95da-4412-99bd-29a0f175ad85",
+    "slug": "incline-push-up-reverse-grip",
+    "name": "Incline Push-Up Reverse Grip",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "4002293a-3705-49a8-a799-87f025a0d437",
+    "slug": "incline-push-up-wide",
+    "name": "Incline Push-Up Wide",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "932b29d6-a520-4773-bf7c-9ed2e28f1512",
+    "slug": "inverted-row",
+    "name": "Inverted Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats",
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "rear_delts"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "5118559c-b7ee-49e9-af6f-68a92b1260b0",
+    "slug": "isometric-chest-squeezes",
+    "name": "Isometric Chest Squeezes",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "seconds",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "high",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "plyometric"
+  },
+  {
+    "id": "92ba15ba-39cd-4b45-93fb-9527f5adcf87",
+    "slug": "isometric-wipers",
+    "name": "Isometric Wipers",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "seconds",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "9d02f0fe-eb1d-4b87-b395-d2c797c84ed3",
+    "slug": "kneeling-high-pulley-row",
+    "name": "Kneeling High Pulley Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "upper_back"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "ab4b6dc9-afd9-4e9b-81f2-0b4a6287eb2e",
+    "slug": "kneeling-single-arm-high-pulley-row",
+    "name": "Kneeling Single-Arm High Pulley Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "upper_back"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "e7c761c9-c87b-43df-9de0-d61f4b4989b4",
+    "slug": "leg-over-floor-press",
+    "name": "Leg-Over Floor Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "kettlebell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "9674bd8e-fed8-4f8e-9d6b-a93b4d6480cc",
+    "slug": "leverage-chest-press",
+    "name": "Leverage Chest Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "chest_press_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "3d6c453b-32ab-4e69-9b97-9fe4dff7b0bb",
+    "slug": "leverage-decline-chest-press",
+    "name": "Leverage Decline Chest Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "chest_press_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "cf509a6f-7efe-4324-b3f6-2b085bbb331b",
+    "slug": "leverage-high-row",
+    "name": "Leverage High Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "lats"
+    ],
+    "equipment_ids": [
+      "machine_generic"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "9c0494f8-f173-4ce7-a0e9-b429fafb266b",
+    "slug": "leverage-incline-chest-press",
+    "name": "Leverage Incline Chest Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "chest_press_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "62dcb6e5-33fb-4292-829a-04563b8207f7",
+    "slug": "leverage-iso-row",
+    "name": "Leverage Iso Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "upper_back"
+    ],
+    "equipment_ids": [
+      "machine_generic"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "b8529f18-b792-4dd6-a9c4-bdb20430864d",
+    "slug": "low-cable-crossover",
+    "name": "Low Cable Crossover",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "2e4318f2-a81b-4fd6-87e3-887bf525fceb",
+    "slug": "low-pulley-row-to-neck",
+    "name": "Low Pulley Row To Neck",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "upper_back",
+      "traps"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "neck"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "92038998-235d-4bb2-a106-8983ef5262bd",
+    "slug": "lying-cambered-barbell-row",
+    "name": "Lying Cambered Barbell Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "traps"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "lower_back"
+    ],
+    "impact": "low",
+    "spinal_load": "high",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "68fe5f04-130e-4817-a894-4e4dd4b9d9e7",
+    "slug": "lying-t-bar-row",
+    "name": "Lying T-Bar Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats"
+    ],
+    "equipment_ids": [
+      "flat_bench",
+      "machine_generic"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "a1f0bc73-f341-4875-8a70-8a74c81abf15",
+    "slug": "machine-bench-press",
+    "name": "Machine Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "flat_bench",
+      "machine_generic"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "4ee7d11b-28ad-4dde-bd87-4d0755c09de8",
+    "slug": "medicine-ball-chest-pass",
+    "name": "Medicine Ball Chest Pass",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "medicine_ball"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "high",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "plyometric"
+  },
+  {
+    "id": "ede324a4-4e65-4a0f-9462-210e2cc604d8",
+    "slug": "neck-press",
+    "name": "Neck Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "neck"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "fe4e9289-6129-47c0-b6c1-9d3845487fd3",
+    "slug": "one-arm-dumbbell-bench-press",
+    "name": "One Arm Dumbbell Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "dumbbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "35af9ef1-c993-4236-b450-6efed18360b5",
+    "slug": "one-arm-dumbbell-row",
+    "name": "One-Arm Dumbbell Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "6b46321d-7cf7-435d-9b0a-f5200d12c714",
+    "slug": "one-arm-flat-bench-dumbbell-flye",
+    "name": "One-Arm Flat Bench Dumbbell Flye",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment_ids": [
+      "dumbbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "0df9aff9-b6ad-40b8-9e37-2b62065e47ea",
+    "slug": "one-arm-kettlebell-floor-press",
+    "name": "One-Arm Kettlebell Floor Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "triceps"
+    ],
+    "equipment_ids": [
+      "kettlebell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "89ad9f27-0580-41e6-9f6e-19fbc10fe1ec",
+    "slug": "one-arm-kettlebell-row",
+    "name": "One-Arm Kettlebell Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats"
+    ],
+    "equipment_ids": [
+      "kettlebell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "5cd71016-b158-48b9-85be-08643f94315d",
+    "slug": "one-arm-long-bar-row",
+    "name": "One-Arm Long Bar Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "92f1fa10-9887-4875-a7d3-ab6af612fbe8",
+    "slug": "plank",
+    "name": "Plank",
+    "movement_pattern": "core",
+    "mechanic": "isolation",
+    "metric": "seconds",
+    "primary_muscles": [
+      "abs"
+    ],
+    "secondary_muscles": [],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "7088ea99-aaee-4e7e-9b42-af657818d807",
+    "slug": "plyo-kettlebell-pushups",
+    "name": "Plyo Kettlebell Pushups",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "kettlebell"
+    ],
+    "level_min": "expert",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "high",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "be73081d-c634-42f4-b07b-03405a3dee7d",
+    "slug": "plyo-push-up",
+    "name": "Plyo Push-up",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "high",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "plyometric"
+  },
+  {
+    "id": "4da4ccd2-c9a6-44a6-a5eb-b3f118fc48bc",
+    "slug": "push-up-to-side-plank",
+    "name": "Push Up to Side Plank",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "0a836663-d024-4f49-bb13-4fd0d73ab46b",
+    "slug": "push-up-wide",
+    "name": "Push-Up Wide",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "abs",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "be27a49d-c836-4e2f-855f-17dbcbd76401",
+    "slug": "push-ups-close-triceps-position",
+    "name": "Push-Ups - Close Triceps Position",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "8f4b2450-486d-431c-9198-d05f2013068a",
+    "slug": "push-ups-with-feet-elevated",
+    "name": "Push-Ups With Feet Elevated",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "13affcc7-c7a4-4049-85ad-0700897df2f8",
+    "slug": "push-ups-with-feet-on-an-exercise-ball",
+    "name": "Push-Ups With Feet On An Exercise Ball",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "stability_ball"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "cfd27413-3a70-4546-bb40-3c5936e11542",
+    "slug": "pushups",
+    "name": "Pushups",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "f00e8b92-51a1-47e6-8973-8b31574c784f",
+    "slug": "pushups-close-and-wide-hand-positions",
+    "name": "Pushups (Close and Wide Hand Positions)",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "26fa5b2b-3432-47bc-b24b-a357924a5a56",
+    "slug": "reverse-band-bench-press",
+    "name": "Reverse Band Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "forearms",
+      "lats",
+      "upper_back",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "fa6dd092-32a7-4773-b0dd-d0cafae431d6",
+    "slug": "reverse-grip-bent-over-rows",
+    "name": "Reverse Grip Bent-Over Rows",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "lower_back"
+    ],
+    "impact": "low",
+    "spinal_load": "high",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "aff4a0e1-082d-4e3e-acd5-b633dbb43db6",
+    "slug": "reverse-triceps-bench-press",
+    "name": "Reverse Triceps Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "5de8c98d-d31f-4918-b428-030188d42a09",
+    "slug": "seated-cable-rows",
+    "name": "Seated Cable Rows",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "cc8e92c2-5f63-4fd2-9991-ad446727ddbd",
+    "slug": "seated-one-arm-cable-pulley-rows",
+    "name": "Seated One-arm Cable Pulley Rows",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "traps"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "b163a5fc-53c1-499d-904d-29afcdf17ec0",
+    "slug": "shotgun-row",
+    "name": "Shotgun Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "upper_back"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "cd0759fa-7b30-4bd4-9d70-724f04f3f013",
+    "slug": "single-arm-cable-crossover",
+    "name": "Single-Arm Cable Crossover",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "isolation",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "bdb30467-97fe-4653-8095-5ba3e4519f5c",
+    "slug": "single-arm-push-up",
+    "name": "Single-Arm Push-Up",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "wrist"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "449cc079-f1bf-4a23-91fe-441e9ecf2dfa",
+    "slug": "smith-machine-bench-press",
+    "name": "Smith Machine Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "flat_bench",
+      "smith_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "c870679c-0aed-48fb-ae41-7d323f5dbaea",
+    "slug": "smith-machine-bent-over-row",
+    "name": "Smith Machine Bent Over Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "smith_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "lower_back"
+    ],
+    "impact": "low",
+    "spinal_load": "high",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "fa077e82-b57d-4528-ba09-6f28bc2483c0",
+    "slug": "smith-machine-close-grip-bench-press",
+    "name": "Smith Machine Close-Grip Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "triceps"
+    ],
+    "secondary_muscles": [
+      "chest",
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "flat_bench",
+      "smith_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "elbow",
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "405fa1c3-c3d0-4219-beb0-3c1babbadebf",
+    "slug": "smith-machine-decline-press",
+    "name": "Smith Machine Decline Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "smith_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "f13728e1-9fd2-4335-826a-b571830d5a9f",
+    "slug": "smith-machine-incline-bench-press",
+    "name": "Smith Machine Incline Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "flat_bench",
+      "smith_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "37486cd4-9232-438c-925f-50592a55e147",
+    "slug": "smith-machine-one-arm-upright-row",
+    "name": "Smith Machine One-Arm Upright Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "side_delts",
+      "traps"
+    ],
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment_ids": [
+      "smith_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "99a7484c-f7f0-45d6-88ae-f5cdcd78ac3b",
+    "slug": "smith-machine-upright-row",
+    "name": "Smith Machine Upright Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "traps"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "upper_back",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "smith_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "09ed5305-e396-4d1c-8241-86bc7b116519",
+    "slug": "standing-cable-chest-press",
+    "name": "Standing Cable Chest Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "high",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "b3de60db-a499-40f8-80f9-7b7d1e8d6acd",
+    "slug": "standing-dumbbell-upright-row",
+    "name": "Standing Dumbbell Upright Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "traps"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "dumbbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "e4a05057-cea4-4e67-a6ab-03ea4f7b10a6",
+    "slug": "straight-arm-dumbbell-pullover",
+    "name": "Straight-Arm Dumbbell Pullover",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "lats",
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "dumbbell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "d58f5903-6b94-4eb6-8898-a5bd0d28bc98",
+    "slug": "straight-bar-bench-mid-rows",
+    "name": "Straight Bar Bench Mid Rows",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "2c5eaa52-3c33-4bbb-89f4-4f7f3912df8c",
+    "slug": "t-bar-row-with-handle",
+    "name": "T-Bar Row with Handle",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "a528fe5e-3c6e-4737-ba7f-c961304d0dac",
+    "slug": "table-row",
+    "name": "Table Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "lats",
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 75,
+    "category": "strength"
+  },
+  {
+    "id": "053eccf7-a45d-43c4-9de6-b80795b752d8",
+    "slug": "two-arm-kettlebell-row",
+    "name": "Two-Arm Kettlebell Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "upper_back"
+    ],
+    "secondary_muscles": [
+      "biceps",
+      "lats"
+    ],
+    "equipment_ids": [
+      "kettlebell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "49e237d4-c790-47d5-8a89-315e1901a11d",
+    "slug": "upright-barbell-row",
+    "name": "Upright Barbell Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "secondary_muscles": [
+      "traps"
+    ],
+    "equipment_ids": [
+      "barbell"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "lower_back"
+    ],
+    "impact": "low",
+    "spinal_load": "high",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "a4a11505-d7fa-48f9-8099-1fc255eddf49",
+    "slug": "upright-cable-row",
+    "name": "Upright Cable Row",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "traps"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "cable_machine"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "5d68b519-2e1e-435f-b452-375f3a7a58f2",
+    "slug": "upright-row-with-bands",
+    "name": "Upright Row - With Bands",
+    "movement_pattern": "horizontal_pull",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "traps"
+    ],
+    "secondary_muscles": [
+      "side_delts"
+    ],
+    "equipment_ids": [
+      "resistance_band"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "3e4664d6-03fb-48f9-bf86-f7ed7a52b021",
+    "slug": "wide-grip-barbell-bench-press",
+    "name": "Wide-Grip Barbell Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "6f8a6f1f-98b6-4ba1-8ca9-b620ecb77741",
+    "slug": "wide-grip-decline-barbell-bench-press",
+    "name": "Wide-Grip Decline Barbell Bench Press",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "barbell",
+      "flat_bench"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [
+      "shoulder"
+    ],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  },
+  {
+    "id": "b23c38d4-2512-4de4-a447-35107cd26d65",
+    "slug": "wide-grip-decline-barbell-pullover",
+    "name": "Wide-Grip Decline Barbell Pullover",
+    "movement_pattern": "horizontal_press",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "chest"
+    ],
+    "secondary_muscles": [
+      "front_delts",
+      "side_delts",
+      "triceps"
+    ],
+    "equipment_ids": [
+      "adjustable_bench",
+      "barbell"
+    ],
+    "level_min": "intermediate",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "low",
+    "tracks": [
+      "weights"
+    ],
+    "default_rest_seconds": 120,
+    "category": "strength"
+  }
+]

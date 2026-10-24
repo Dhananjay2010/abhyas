@@ -4,9 +4,8 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
-import { ageOn } from "@/lib/onboarding/options";
-import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import { rankAlternatives } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import {
   describePersonalBest,
@@ -587,11 +586,9 @@ export async function findAlternatives(
   const pattern = replacing?.movement_pattern;
   if (!pattern) return { ok: false, error: "This exercise has no movement pattern" };
 
-  const [profileRes, weightRes, equipmentRes, injuriesRes, siblingsRes, poolRes] =
+  const [profileRes, equipmentRes, injuriesRes, siblingsRes, poolRes] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
-      supabase.from("body_metrics").select("weight_kg")
-        .order("recorded_on", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("user_equipment").select("equipment_id"),
       supabase.from("user_injuries").select("body_region, severity"),
       supabase.from("session_exercises").select("exercise_id").eq("session_id", current.session_id),
@@ -605,70 +602,50 @@ export async function findAlternatives(
   const profile = profileRes.data;
   if (!profile) return { ok: false, error: "Profile not found" };
 
-  const weightKg = weightRes.data?.weight_kg ?? null;
-  const bmi =
-    weightKg && profile.height_cm
-      ? Number(weightKg) / (Number(profile.height_cm) / 100) ** 2
-      : null;
-
   const alreadyInSession = new Set(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
   );
 
-  const input = {
-    userId: user.id,
-    blockNumber: 1,
-    goal: profile.goal!,
+  const availableEquipment = profile.has_all_equipment 
+    ? null 
+    : new Set((equipmentRes.data ?? []).map((r) => r.equipment_id));
+  
+  const currentInjuryRegions = (injuriesRes.data ?? [])
+    .filter((i) => i.severity === "current")
+    .map((i) => i.body_region);
+
+  const pool = (poolRes.data ?? []) as unknown as Array<{
+    id: string;
+    slug: string;
+    name: string;
+    cue: string | null;
+    metric: Database["public"]["Enums"]["exercise_metric"];
+    movement_pattern: MovementPattern;
+    primary_muscles: Database["public"]["Enums"]["muscle"][];
+    level_min: Database["public"]["Enums"]["fitness_level"];
+    impact: Database["public"]["Enums"]["impact_level"];
+    contraindicated_regions: Database["public"]["Enums"]["body_region"][];
+    equipment_ids: string[];
+  }>;
+
+  const currentExercise = pool.find((e) => e.id === current.exercise_id);
+  if (!currentExercise) return { ok: false, error: "Current exercise not found in pool" };
+
+  const candidates = pool.filter((e) => !alreadyInSession.has(e.id));
+
+  const ranked = rankAlternatives(currentExercise, candidates, {
     level: profile.level!,
-    primaryTrack: profile.primary_track!,
-    daysPerWeek: profile.days_per_week ?? 3,
-    yogaDaysPerWeek: profile.yoga_days_per_week ?? 0,
-    age: profile.date_of_birth ? ageOn(profile.date_of_birth) : null,
-    bmi,
-    hasAllEquipment: profile.has_all_equipment ?? false,
-    equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: (injuriesRes.data ?? [])
-      .filter((i) => i.severity === "current")
-      .map((i) => i.body_region),
-    catalogue: [] as CandidateExercise[],
-  };
+    availableEquipment,
+    injuryRegions: currentInjuryRegions,
+    limit: 6,
+  });
 
-  /*
-    Ranked, not simply the first six rows the database happened to return.
-
-    This used to `.slice(0, 6)` an unordered query, so the same handful came
-    back every time — and because that order is effectively the order the
-    catalogue was seeded in, it was alphabetical: a core slot with 57 eligible
-    exercises offered the same six names beginning with A and B, and nothing
-    else in the catalogue was reachable from the swap list at all.
-
-    Ranking by the generator's own `score`, with the mechanic of the exercise
-    being replaced, means a swap offers what the planner itself would have
-    considered for that slot: a compound for a compound, and the simplest setup
-    that does the job.
-
-    Ties are broken by a hash of the slug against this session exercise rather
-    than alphabetically. Scores bunch up hard — every equipment-free isolation
-    core movement scores identically — so an alphabetical tie-break just moved
-    the same problem one step along: the list became the first six A-to-C names
-    instead of the first six overall, and a plank was still unreachable. The
-    hash keeps the list stable for a given exercise, so it does not reshuffle
-    under the user between taps, while different slots surface different work.
-  */
-  const wantCompound = replacing?.mechanic !== "isolation";
-  const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
-  const alternatives = ((poolRes.data ?? []) as unknown as CandidateExercise[])
-    .filter((e) => !alreadyInSession.has(e.id))
-    .filter((e) => isEligible(e, { ...input, catalogue: [] }))
-    .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack) }))
-    .sort((a, b) => b.k - a.k || tieBreak(a.e.slug) - tieBreak(b.e.slug))
-    .slice(0, 6)
-    .map(({ e }) => ({
-      exerciseId: e.id,
-      name: e.name,
-      cue: (e as unknown as { cue: string | null }).cue ?? null,
-      metric: e.metric ?? ("reps" as const),
-    }));
+  const alternatives = ranked.map((e) => ({
+    exerciseId: e.id,
+    name: e.name,
+    cue: e.cue ?? null,
+    metric: e.metric ?? ("reps" as const),
+  }));
 
   return { ok: true, data: alternatives };
 }
@@ -678,6 +655,7 @@ export type SwapResult = {
   metric: Database["public"]["Enums"]["exercise_metric"];
   repsMin: number | null;
   repsMax: number | null;
+  equipmentIds: string[];
 };
 
 export async function swapExercise(input: {
@@ -700,10 +678,14 @@ export async function swapExercise(input: {
       include holds, deliberately -- making a plank reachable from the swap list
       was the point of ranking that list. Without carrying the metric the
       session went on asking for reps while the screen named a plank.
+      
+      equipment_ids is also needed: when the session loads, isBodyweight is 
+      derived from whether equipment_ids is empty, and without it here a barbell
+      exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
     */
     supabase
       .from("exercises")
-      .select("metric, mechanic")
+      .select("metric, mechanic, equipment_ids")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
@@ -712,7 +694,9 @@ export async function swapExercise(input: {
   const current = currentRes.data;
   if (!current) return { ok: false, error: "Exercise not found" };
 
-  const metric = metricOf(replacementRes.data);
+  const replacement = replacementRes.data;
+  const metric = metricOf(replacement);
+  const equipmentIds = (replacement as { equipment_ids?: string[] } | null)?.equipment_ids ?? [];
   const profile = profileRes.data;
 
   /*
@@ -756,7 +740,7 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax } };
+    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds } };
 }
 
 
