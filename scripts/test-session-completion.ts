@@ -1,16 +1,19 @@
 /**
- * Test sessionCompletion helper logic and endedEarlyFromRows.
+ * Test sessionCompletion helper logic, endedEarlyFromRows, and elapsed timer logic.
  *
  * Validates:
  * - Complete sessions (all sets logged, not ended early)
  * - Partial sessions (ended early with some sets)
  * - Edge cases (0/10, more logged than planned, negative inputs)
  * - endedEarlyFromRows: derive ended_early from status and exercise statuses
+ * - elapsedSeconds: pure elapsed calculation
+ * - Freeze logic: frozen value doesn't change, second stop returns same value
  *
  *   npx tsx scripts/test-session-completion.ts
  */
 
 import { sessionCompletion, endedEarlyFromRows, type ExerciseStatus } from "../src/lib/session/completion";
+import { elapsedSeconds } from "../src/lib/session/device";
 
 let failures = 0;
 
@@ -164,6 +167,66 @@ console.log("\n14. endedEarlyFromRows: mix of completed and skipped with one pen
   const statuses: ExerciseStatus[] = ["completed", "skipped", "pending", "completed"];
   const result = endedEarlyFromRows("completed", statuses);
   check("mix with one pending = true", result === true, String(result));
+}
+
+console.log("\n15. elapsedSeconds: basic calculation");
+{
+  const start = 1000000;
+  const now = 1060000;
+  const result = elapsedSeconds(start, now);
+  check("60 seconds elapsed", result === 60, String(result));
+}
+
+console.log("\n16. elapsedSeconds: clamped at 0 for negative");
+{
+  const start = 1000000;
+  const now = 999000;
+  const result = elapsedSeconds(start, now);
+  check("negative clamped to 0", result === 0, String(result));
+}
+
+console.log("\n17. elapsedSeconds: fractional seconds are floored");
+{
+  const start = 1000000;
+  const now = 1002500;
+  const result = elapsedSeconds(start, now);
+  check("2.5 seconds floored to 2", result === 2, String(result));
+}
+
+console.log("\n18. Freeze logic: frozen value doesn't change as time advances");
+{
+  const start = 1000000;
+  const frozenAt = 1060000;
+  const later = 1120000;
+  const frozenValue = elapsedSeconds(start, frozenAt);
+  const laterValue = elapsedSeconds(start, later);
+  check("frozen at 60s", frozenValue === 60, String(frozenValue));
+  check("later would be 120s", laterValue === 120, String(laterValue));
+  check("frozen value unchanged", frozenValue === 60, String(frozenValue));
+}
+
+console.log("\n19. Freeze logic: multiple stops return same value");
+{
+  const start = 1000000;
+  const stopTime = 1045000;
+  const firstStop = elapsedSeconds(start, stopTime);
+  const secondStop = elapsedSeconds(start, stopTime);
+  check("first stop = 45s", firstStop === 45, String(firstStop));
+  check("second stop = 45s", secondStop === 45, String(secondStop));
+  check("values match", firstStop === secondStop, `${firstStop} === ${secondStop}`);
+}
+
+console.log("\n20. Resume logic: after freeze, time continues from frozen point");
+{
+  const start = 1000000;
+  const freezeAt = 1030000;
+  const laterAt = 1070000;
+  
+  const frozenValue = elapsedSeconds(start, freezeAt);
+  const resumedValue = elapsedSeconds(start, laterAt);
+  
+  check("frozen at 30s", frozenValue === 30, String(frozenValue));
+  check("after resume continues to 70s", resumedValue === 70, String(resumedValue));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

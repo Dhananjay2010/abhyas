@@ -224,10 +224,10 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   //
   // Nothing goes stale as a result. The session's own screen is fetched fresh
   // by the navigation that follows; Today is refreshed by
-  // `refreshAfterSession()` when the user comes back, and by `abandonSession`
-  // if they quit. The worst case is that returning to Today within the client
-  // cache's window shows "Start session" instead of "Resume session" — and
-  // pressing it finds this very session and resumes it.
+  // `refreshAfterSession()` when the user comes back. The worst case is that
+  // returning to Today within the client cache's window shows "Start session"
+  // instead of "Resume session" — and pressing it finds this very session and
+  // resumes it.
   return { ok: true, data: { sessionId: session.id } };
 }
 

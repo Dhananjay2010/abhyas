@@ -149,43 +149,59 @@ export function vibrate(pattern: number | number[]) {
   }
 }
 
+/**
+ * Calculate elapsed seconds from start to now, clamped at 0.
+ * Pure function for testability.
+ */
+export function elapsedSeconds(startMs: number, nowMs: number): number {
+  return Math.max(0, Math.floor((nowMs - startMs) / 1000));
+}
+
 export type ElapsedState = {
   elapsed: number;
   stop: () => number;
   resume: () => void;
 };
 
-/** Counts elapsed seconds, resilient to the tab being backgrounded. */
+/**
+ * Counts elapsed seconds, resilient to the tab being backgrounded.
+ *
+ * Starts from null to avoid hydration mismatches (React error #418).
+ * Renders a stable placeholder derived from started_at until the first tick.
+ */
 export function useElapsed(startedAtIso: string | null): ElapsedState {
-  // Lazy state initialisers run once and are the sanctioned place for a clock
-  // read; a ref would be impure during render.
   const [start] = useState(() =>
     startedAtIso ? new Date(startedAtIso).getTime() : Date.now(),
   );
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState<number | null>(null);
   const [stopped, setStopped] = useState(false);
   const [frozenElapsed, setFrozenElapsed] = useState<number | null>(null);
   const frozenSecondsRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (stopped) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const tick = () => setNow(Date.now());
+    tick();
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [stopped]);
 
-  const elapsed = stopped && frozenElapsed !== null
-    ? frozenElapsed
-    : Math.max(0, Math.floor((now - start) / 1000));
+  const elapsed =
+    stopped && frozenElapsed !== null
+      ? frozenElapsed
+      : now !== null
+        ? elapsedSeconds(start, now)
+        : 0;
 
   const stop = useCallback(() => {
-    if (!stopped) {
-      const finalElapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
+    if (frozenSecondsRef.current === null) {
+      const finalElapsed = elapsedSeconds(start, Date.now());
       frozenSecondsRef.current = finalElapsed;
       setFrozenElapsed(finalElapsed);
       setStopped(true);
     }
     return frozenSecondsRef.current ?? 0;
-  }, [stopped, start]);
+  }, [start]);
 
   const resume = useCallback(() => {
     setStopped(false);

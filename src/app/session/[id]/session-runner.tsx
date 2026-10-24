@@ -15,6 +15,7 @@ import {
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
+import { sessionCompletion } from "@/lib/session/completion";
 import {
   abandonSession,
   deleteSet,
@@ -153,6 +154,7 @@ export function SessionRunner({
   */
   const [bannerFor, setBannerFor] = useState<number | null>(null);
   const [loadingAlternatives, setLoadingAlternatives] = useState(false);
+  const endEarlyTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Resume where the session actually stopped rather than at the top.
   const firstUnfinished = Math.max(
@@ -444,6 +446,14 @@ export function SessionRunner({
           <Stat
             label="Exercises"
             value={`${exercises.filter((e) => e.status === "completed").length} of ${exercises.length}`}
+          />
+          <Stat
+            label="Completion"
+            value={sessionCompletion({
+              loggedSets: totalSetsDone,
+              plannedSets: totalSetsPlanned,
+              endedEarly,
+            }).label}
           />
         </div>
         {/*
@@ -955,20 +965,32 @@ export function SessionRunner({
               Skip this exercise
             </GhostButton>
           )}
-          {confirming === "end_early" ? (
+          <GhostButton
+            buttonRef={endEarlyTriggerRef}
+            disabled={busy}
+            onClick={() => setConfirming("end_early")}
+          >
+            End session early
+          </GhostButton>
+          {confirming === "end_early" && (
             <EndEarlyConfirm
               totalSetsDone={totalSetsDone}
               totalSetsPlanned={totalSetsPlanned}
-              onCancel={() => setConfirming(null)}
+              triggerRef={endEarlyTriggerRef}
+              onCancel={() => {
+                setConfirming(null);
+              }}
               onConfirm={async () => {
                 setConfirming(null);
                 const secs = stopElapsed();
                 const ok = await run(() => actions.abandonSession(sessionId, secs));
                 if (!ok) {
                   resumeElapsed();
+                  endEarlyTriggerRef.current?.focus();
                   return;
                 }
                 if (totalSetsDone === 0) {
+                  await actions.refreshAfterSession();
                   if (onExit) onExit();
                   else router.push("/today");
                 } else {
@@ -978,10 +1000,6 @@ export function SessionRunner({
               }}
               disabled={busy}
             />
-          ) : (
-            <GhostButton disabled={busy} onClick={() => setConfirming("end_early")}>
-              End session early
-            </GhostButton>
           )}
         </div>
 
@@ -1325,13 +1343,16 @@ function GhostButton({
   children,
   onClick,
   disabled = false,
+  buttonRef,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  buttonRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <button
+      ref={buttonRef}
       onClick={onClick}
       disabled={disabled}
       className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg disabled:opacity-60"
@@ -1387,25 +1408,27 @@ function CapabilityNote({
  * Uses a native <dialog> element opened with showModal() for proper a11y:
  * - modal semantics with backdrop
  * - Escape key support via cancel event
- * - focus trap built-in
+ * - focus trap with Tab/Shift+Tab cycling
  * - focus management: initial focus on "Keep going", returns to trigger on close
  */
 function EndEarlyConfirm({
   totalSetsDone,
   totalSetsPlanned,
+  triggerRef,
   onCancel,
   onConfirm,
   disabled = false,
 }: {
   totalSetsDone: number;
   totalSetsPlanned: number;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
   onCancel: () => void;
   onConfirm: () => void;
   disabled?: boolean;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const keepGoingRef = useRef<HTMLButtonElement>(null);
+  const endSessionRef = useRef<HTMLButtonElement>(null);
   const onCancelRef = useRef(onCancel);
   const onConfirmRef = useRef(onConfirm);
 
@@ -1427,14 +1450,49 @@ function EndEarlyConfirm({
       onCancelRef.current();
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+
+      const focusableButtons = [keepGoingRef.current, endSessionRef.current].filter(
+        (btn): btn is HTMLButtonElement => btn !== null && !btn.disabled,
+      );
+
+      if (focusableButtons.length === 0) return;
+
+      const activeElement = document.activeElement;
+      const currentIndex = focusableButtons.findIndex((btn) => btn === activeElement);
+
+      if (
+        currentIndex === -1 ||
+        !dialog.contains(activeElement) ||
+        activeElement === document.body
+      ) {
+        e.preventDefault();
+        focusableButtons[0].focus();
+        return;
+      }
+
+      if (e.shiftKey) {
+        e.preventDefault();
+        const prevIndex = (currentIndex - 1 + focusableButtons.length) % focusableButtons.length;
+        focusableButtons[prevIndex].focus();
+      } else {
+        e.preventDefault();
+        const nextIndex = (currentIndex + 1) % focusableButtons.length;
+        focusableButtons[nextIndex].focus();
+      }
+    };
+
     dialog.addEventListener("cancel", handleCancel);
+    dialog.addEventListener("keydown", handleKeyDown);
 
     return () => {
       dialog.removeEventListener("cancel", handleCancel);
+      dialog.removeEventListener("keydown", handleKeyDown);
       dialog.close();
       returnFocus?.focus();
     };
-  }, []);
+  }, [triggerRef, disabled]);
 
   const handleKeepGoing = () => {
     onCancelRef.current();
@@ -1444,7 +1502,7 @@ function EndEarlyConfirm({
     onConfirmRef.current();
   };
 
-  const noSetsMessage = totalSetsDone === 0;
+  const hasNoSets = totalSetsDone === 0;
 
   return (
     <dialog
@@ -1458,7 +1516,7 @@ function EndEarlyConfirm({
       </p>
       <p id="end-early-desc" className="mt-2 text-sm text-muted">
         You&apos;ve logged {totalSetsDone} of {totalSetsPlanned} sets.
-        {noSetsMessage
+        {hasNoSets
           ? " The session can be resumed from Today."
           : " The session can\u2019t be resumed once ended."}
       </p>
@@ -1471,6 +1529,7 @@ function EndEarlyConfirm({
           Keep going
         </button>
         <button
+          ref={endSessionRef}
           disabled={disabled}
           onClick={handleEndSession}
           className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60 min-h-11"
