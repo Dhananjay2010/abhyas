@@ -39,6 +39,7 @@ function makeFakeFinishSessionDeps(
   const sessionMetadata: SessionRow = {
     started_at: "2026-10-24T14:00:00Z",
     local_date: "2026-10-24",
+    timezone: "UTC",
   };
 
   return {

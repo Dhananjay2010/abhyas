@@ -27,6 +27,7 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
 type SessionRow = {
   started_at: string;
   local_date: string;
+  timezone: string;
 };
 
 type ExerciseRow = {
@@ -102,6 +103,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
+      timezone: "UTC",
     };
     const exercises = [
       {
@@ -134,6 +136,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
+      timezone: "UTC",
     };
     const exercises = [
       {
@@ -164,6 +167,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
+      timezone: "UTC",
     };
     const exercises = [
       {
@@ -219,6 +223,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
+      timezone: "UTC",
     };
     const exercises = [
       {
@@ -268,6 +273,7 @@ async function runTests() {
     const session = {
       started_at: new Date(Date.now() - 1800000).toISOString(),
       local_date: "2026-10-24",
+      timezone: "UTC",
     };
     const exercises = [
       {

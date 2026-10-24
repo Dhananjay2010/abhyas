@@ -45,6 +45,7 @@ function makeFakeFinishSessionDeps(
   const session: SessionRow = {
     started_at: new Date(Date.now() - 1800000).toISOString(),
     local_date: new Date().toISOString().slice(0, 10),
+    timezone: "UTC",
   };
 
   return {

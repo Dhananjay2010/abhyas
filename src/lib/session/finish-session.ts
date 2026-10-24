@@ -65,11 +65,11 @@ export async function finishSessionCore(
     return { ok: false, error: "Session started_at is null" };
   }
 
-  // Check if session is stale (use UTC for timezone-agnostic check)
+  // Check if session is stale
   const stale = isStaleSession({
     startedAt: session.started_at,
     now,
-    timezone: "UTC",
+    timezone: session.timezone,
   });
 
   let status: "completed" | "skipped";

@@ -6,6 +6,7 @@ type Client = SupabaseClient<Database>;
 export type SessionRow = {
   started_at: string | null;
   local_date: string;
+  timezone: string;
 };
 
 export type SessionExerciseWithSets = {
@@ -49,17 +50,21 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
     async loadSession(id) {
       const { data, error } = await supabase
         .from("sessions")
-        .select("started_at, local_date")
+        .select("started_at, local_date, user_id, profiles!inner(timezone)")
         .eq("id", id)
         .maybeSingle();
 
       if (error) return { data: null, error: error.message };
       if (!data) return { data: null, error: null };
+      
+      const profile = data.profiles as unknown as { timezone: string | null };
+      const timezone = profile?.timezone || "UTC";
 
       return {
         data: {
           started_at: data.started_at,
           local_date: data.local_date,
+          timezone,
         },
         error: null,
       };
