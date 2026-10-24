@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -120,8 +120,8 @@ export function SettingsForm({
   const [injurySequence] = useState(() => createRequestSequence());
   /** Autosave status */
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
-  /** Track pending saves for debounce flush */
-  const [pendingSaveCount, setPendingSaveCount] = useState(0);
+  /** Track pending saves count with ref (doesn't need to trigger re-renders) */
+  const pendingSaveCount = useRef(0);
   /** Debounce timers */
   const [debounceTimers] = useState<{ [key: string]: NodeJS.Timeout }>({});
   /** F2: Browser timezone detected on client after mount */
@@ -179,19 +179,6 @@ export function SettingsForm({
     };
   }, [debounceTimers]);
 
-  function save(run: () => Promise<Result>, affectsPlan = false) {
-    startTransition(async () => {
-      const r = await run();
-      if (!r.ok) return setError(r.error);
-      setError(null);
-      if (affectsPlan) setPlanStale(true);
-      // No router.refresh() here. updateSettings and friends revalidate
-      // "/settings", and Next.js returns the re-rendered tree with the action's
-      // own response — refreshing on top of that fetched this five-query screen
-      // a second time, on every single toggle.
-    });
-  }
-
   /** Save with request sequence and autosave status tracking */
   function saveWithSequence(
     sequence: ReturnType<typeof createRequestSequence>,
@@ -199,13 +186,13 @@ export function SettingsForm({
     affectsPlan = false
   ) {
     const requestSeq = sequence.next();
-    setPendingSaveCount((c) => c + 1);
+    pendingSaveCount.current += 1;
     setAutosaveStatus("saving");
 
     startTransition(async () => {
       const r = await run();
       
-      setPendingSaveCount((c) => Math.max(0, c - 1));
+      pendingSaveCount.current = Math.max(0, pendingSaveCount.current - 1);
 
       // Ignore stale responses
       if (!sequence.isCurrent(requestSeq)) {
@@ -222,10 +209,9 @@ export function SettingsForm({
       if (affectsPlan) setPlanStale(true);
       
       // Show "Saved" only if no other saves are pending
-      setPendingSaveCount((c) => {
-        if (c === 0) setAutosaveStatus("saved");
-        return c;
-      });
+      if (pendingSaveCount.current === 0) {
+        setAutosaveStatus("saved");
+      }
     });
   }
 
@@ -250,13 +236,13 @@ export function SettingsForm({
     // L4 QA fix: Track request sequence to ignore stale responses
     const requestSeq = equipmentSequence.next();
     
-    setPendingSaveCount((c) => c + 1);
+    pendingSaveCount.current += 1;
     setAutosaveStatus("saving");
     
     startTransition(async () => {
       const r = await actions.updateEquipment({ hasAll, equipmentIds });
       
-      setPendingSaveCount((c) => Math.max(0, c - 1));
+      pendingSaveCount.current = Math.max(0, pendingSaveCount.current - 1);
       
       // L4 QA fix: Ignore stale responses from overlapping saves
       if (!equipmentSequence.isCurrent(requestSeq)) {
@@ -284,10 +270,9 @@ export function SettingsForm({
       }
       
       // Show "Saved" only if no other saves are pending
-      setPendingSaveCount((c) => {
-        if (c === 0) setAutosaveStatus("saved");
-        return c;
-      });
+      if (pendingSaveCount.current === 0) {
+        setAutosaveStatus("saved");
+      }
     });
   }
 

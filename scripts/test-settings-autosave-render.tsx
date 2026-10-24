@@ -84,10 +84,11 @@ async function runTests() {
   // Test 1: Quick clicks 4,5,3,4 with out-of-order responses
   await test("Days per week: 4→5→3→4 with out-of-order responses", async () => {
     type Resolver = (result: Result) => void;
-    const pendingCalls: Array<{ patch: any; resolve: Resolver }> = [];
+    type ProfilePatch = Parameters<typeof actions.updateProfileSettings>[0];
+    const pendingCalls: Array<{ patch: ProfilePatch; resolve: Resolver }> = [];
     
     // Spy that captures calls and returns controllable promises
-    const updateProfileSettings = (patch: any): Promise<Result> => {
+    const updateProfileSettings = (patch: ProfilePatch): Promise<Result> => {
       return new Promise<Result>((resolve) => {
         pendingCalls.push({ patch, resolve });
       });
@@ -100,7 +101,7 @@ async function runTests() {
       updateInjuries: async () => ({ ok: true }),
     };
     
-    const { getByLabelText, getByRole } = render(
+    const { getByRole } = render(
       <SettingsForm
         initial={initialState}
         equipment={equipment}
@@ -124,7 +125,6 @@ async function runTests() {
     const days3Button = findDayButton(3);
     const days4Button = findDayButton(4);
     const days5Button = findDayButton(5);
-    const days6Button = findDayButton(6);
     
     // Find autosave status
     const statusElement = getByRole("status");
@@ -216,9 +216,10 @@ async function runTests() {
   // Test 2: Rapid session length changes 30→75→45→60
   await test("Session length: 30→75→45→60 with out-of-order responses", async () => {
     type Resolver = (result: Result) => void;
-    const pendingCalls: Array<{ patch: any; resolve: Resolver }> = [];
+    type ProfilePatch = Parameters<typeof actions.updateProfileSettings>[0];
+    const pendingCalls: Array<{ patch: ProfilePatch; resolve: Resolver }> = [];
     
-    const updateProfileSettings = (patch: any): Promise<Result> => {
+    const updateProfileSettings = (patch: ProfilePatch): Promise<Result> => {
       return new Promise<Result>((resolve) => {
         pendingCalls.push({ patch, resolve });
       });
@@ -231,7 +232,7 @@ async function runTests() {
       updateInjuries: async () => ({ ok: true }),
     };
     
-    const { getByLabelText, getByRole } = render(
+    const { getByRole } = render(
       <SettingsForm
         initial={initialState}
         equipment={equipment}
