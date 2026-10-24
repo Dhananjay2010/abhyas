@@ -167,6 +167,7 @@ type WriteBuilder = {
 type InsertBuilder = {
   select: (columns: string) => InsertBuilder;
   single: () => Promise<{ data: Row; error: null }>;
+  order: (column: string, opts?: { ascending?: boolean }) => InsertBuilder;
   then: (resolve: (value: { data: Row[]; error: null }) => void) => void;
 };
 
@@ -330,7 +331,10 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
     return builder;
   }
 
-  function createInsertBuilder(table: string, values: unknown): InsertBuilder {
+  function createInsertBuilder(table: string, values: unknown, selectedColumns?: string[]): InsertBuilder {
+    let selectCols = selectedColumns;
+    let orderCol: string | undefined;
+
     const execute = () => {
       if (!store[table]) {
         store[table] = [];
@@ -341,6 +345,16 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
       // Validate columns on first row
       if (rows.length > 0 && typeof rows[0] === "object" && rows[0] !== null) {
         validateColumns(table, Object.keys(rows[0] as Record<string, unknown>));
+      }
+
+      // Validate order column is in select list
+      if (orderCol && selectCols) {
+        const colList = selectCols.flatMap((c) => c.split(",").map((x) => x.trim()));
+        if (!colList.includes(orderCol)) {
+          throw new Error(
+            `Cannot order by "${orderCol}" - column not in select list: ${selectCols.join(", ")}`
+          );
+        }
       }
 
       const insertedRows = rows.map((v, i) => {
@@ -354,8 +368,14 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
     };
 
     const builder: InsertBuilder = {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      select: (_columns: string) => builder,
+      select: (columns: string) => {
+        selectCols = [columns];
+        return builder;
+      },
+      order: (column: string, _opts?: { ascending?: boolean }) => {
+        orderCol = column;
+        return builder;
+      },
       single: async () => {
         const result = execute();
         return { data: Array.isArray(result.data) ? result.data[0] : result.data, error: null };

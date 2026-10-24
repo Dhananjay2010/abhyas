@@ -167,7 +167,7 @@ async function runTests() {
           focus: "Legs, Glutes, Core",
         },
       ])
-      .select("id, label")
+      .select("id, label, day_index")
       .order("day_index");
 
     if (oldDaysError || !oldDays || oldDays.length !== 2) {
@@ -253,7 +253,7 @@ async function runTests() {
           focus: "Legs, Glutes, Core",
         },
       ])
-      .select("id, label")
+      .select("id, label, day_index")
       .order("day_index");
 
     if (newDaysError || !newDays || newDays.length !== 2) {
