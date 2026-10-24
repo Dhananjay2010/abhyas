@@ -13,6 +13,7 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { exerciseCompletion } from "@/lib/session/completion";
 
 export const dynamic = "force-dynamic";
 
@@ -338,7 +339,7 @@ export default async function TodayPage() {
           // `metric` from the session row, not from `exercises`: it records the
           // unit the session was RUN in. Reading the catalogue's current metric
           // rendered a plank prescribed in reps last week as "2 x 8-12s".
-          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue)")
+          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue), session_sets!session_sets_session_exercise_id_fkey(set_type)")
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
@@ -359,7 +360,8 @@ export default async function TodayPage() {
     repsMin: number | null;
     repsMax: number | null;
     restSeconds: number | null;
-    skipped: boolean;
+    completionLabel: string;
+    strikethrough: boolean;
     swappedIn: boolean;
   };
 
@@ -389,22 +391,34 @@ export default async function TodayPage() {
       name: string;
       cue: string | null;
     } | null;
+    session_sets: Array<{
+      set_type: string | null;
+    }>;
   }> | null;
 
   const todayExercises: TodayRow[] =
     actual && actual.length > 0
-      ? actual.map((r) => ({
-          key: `s${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.metric ?? null,
-          sets: r.planned_sets,
-          repsMin: r.planned_reps_min,
-          repsMax: r.planned_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: r.status === "skipped",
-          swappedIn: r.swapped_from_exercise_id !== null,
-        }))
+      ? actual.map((r) => {
+          const workingSetsLogged = (r.session_sets ?? []).filter(
+            (s) => s.set_type === "working",
+          ).length;
+          const plannedSets = r.planned_sets ?? 0;
+          const completion = exerciseCompletion({ workingSetsLogged, plannedSets });
+
+          return {
+            key: `s${r.order_index}`,
+            name: r.exercises?.name ?? "",
+            cue: r.exercises?.cue ?? null,
+            metric: r.metric ?? null,
+            sets: r.planned_sets,
+            repsMin: r.planned_reps_min,
+            repsMax: r.planned_reps_max,
+            restSeconds: r.rest_seconds,
+            completionLabel: completion.label,
+            strikethrough: completion.strikethrough,
+            swappedIn: r.swapped_from_exercise_id !== null,
+          };
+        })
       : template.map((r) => ({
           key: `p${r.order_index}`,
           name: r.exercises?.name ?? "",
@@ -414,7 +428,8 @@ export default async function TodayPage() {
           repsMin: r.target_reps_min,
           repsMax: r.target_reps_max,
           restSeconds: r.rest_seconds,
-          skipped: false,
+          completionLabel: "",
+          strikethrough: false,
           swappedIn: false,
         }));
 
@@ -627,7 +642,7 @@ export default async function TodayPage() {
                 className="rounded-xl border border-border bg-surface px-4 py-3.5"
               >
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
+                  <span className={`font-semibold ${row.strikethrough ? "text-muted line-through" : ""}`}>
                     {row.name}
                   </span>
                   <span className="shrink-0 text-sm tabular-nums text-accent">
@@ -635,9 +650,9 @@ export default async function TodayPage() {
                     {row.metric === "seconds" ? "s" : ""}
                   </span>
                 </div>
-                {(row.swappedIn || row.skipped) && (
+                {(row.swappedIn || row.completionLabel) && (
                   <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
-                    {row.skipped ? "Skipped" : "Swapped in"}
+                    {row.completionLabel || (row.swappedIn ? "Swapped in" : "")}
                   </p>
                 )}
                 {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}

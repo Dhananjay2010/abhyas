@@ -51,3 +51,55 @@ export function sessionCompletion(params: {
     label: "Complete",
   };
 }
+
+/**
+ * Exercise completion status helper.
+ *
+ * Determines whether an exercise is done, partial, or skipped based on the
+ * number of working sets logged vs planned. Partial means 1+ working sets
+ * logged but fewer than planned. Skipped means 0 working sets.
+ *
+ * Pure function that derives completion from set counts with no schema changes.
+ * Exported for use by History, Progress, and other screens that need to show
+ * exercise completion state.
+ */
+
+export type ExerciseCompletionKind = "done" | "partial" | "skipped";
+
+export type ExerciseCompletion = {
+  kind: ExerciseCompletionKind;
+  label: string;
+  strikethrough: boolean;
+};
+
+export function exerciseCompletion(params: {
+  workingSetsLogged: number;
+  plannedSets: number;
+}): ExerciseCompletion {
+  const { workingSetsLogged, plannedSets } = params;
+
+  const clampedLogged = Math.max(0, workingSetsLogged);
+  const clampedPlanned = Math.max(0, plannedSets);
+
+  if (clampedLogged === 0) {
+    return {
+      kind: "skipped",
+      label: "Skipped",
+      strikethrough: true,
+    };
+  }
+
+  if (clampedLogged >= clampedPlanned) {
+    return {
+      kind: "done",
+      label: "",
+      strikethrough: false,
+    };
+  }
+
+  return {
+    kind: "partial",
+    label: `Partly done · ${clampedLogged} of ${clampedPlanned} sets`,
+    strikethrough: false,
+  };
+}
