@@ -87,6 +87,7 @@
     "test:prepare-session-exercises": "tsx scripts/test-prepare-session-exercises.ts",
     "test:repoint-matching": "tsx scripts/test-repoint-matching.ts",
     "test:repoint-fake-client": "tsx scripts/test-repoint-fake-client.ts",
+    "test:mutants": "tsx scripts/test-mutants.ts",
     "test:deload-paths": "tsx scripts/test-deload-paths.ts",
     "test:exercise-history": "tsx scripts/test-exercise-history.ts",
     "test:exercise-history-queries": "tsx scripts/test-exercise-history-queries.ts",
