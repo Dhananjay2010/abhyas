@@ -69,7 +69,8 @@ export function DayPlanPrompt({
             setSettled(null);
             setChoosing(true);
           }}
-          className="mt-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg"
+          className="mt-2 min-h-[44px] text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-success/10"
+          aria-label="Change your plan for this day"
         >
           Change it
         </button>
@@ -123,7 +124,8 @@ export function DayPlanPrompt({
           </Choice>
           <button
             onClick={() => setChoosing(false)}
-            className="w-full py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg"
+            className="w-full min-h-[44px] py-2 text-sm text-muted underline underline-offset-2 transition-colors hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface"
+            aria-label="Cancel and go back"
           >
             Never mind
           </button>
@@ -157,9 +159,10 @@ function Choice({
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm font-medium transition-colors hover:text-fg disabled:opacity-50 ${
+      className={`min-h-[44px] rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm font-medium transition-colors hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 ${
         wide ? "w-full text-left" : "text-center"
       }`}
+      aria-label={typeof children === "string" ? children : undefined}
     >
       {children}
     </button>
