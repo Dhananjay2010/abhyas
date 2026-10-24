@@ -234,9 +234,9 @@ console.log("\n4. Rebuilt at week 3: sessions still count");
   check("streak is 3 (rest days don't break it)", streaks.current === 3, `${streaks.current}`);
 }
 
-console.log("\n5. Mid-block rebuild with GAP causes phantom training days (REGRESSION TEST)");
+console.log("\n5. Mid-block rebuild with GAP + M3: gap days inherit schedule");
 {
-  // CRITICAL: This MUST FAIL on main and PASS on branch.
+  // M3 followup: Gap days now inherit the previous block's schedule.
   //
   // Bug scenario: Block rebuilt early, user took break, resumed later.
   // - Block A: Mon/Wed/Fri training, started Oct 1, PLANNED end Nov 5
@@ -244,12 +244,13 @@ console.log("\n5. Mid-block rebuild with GAP causes phantom training days (REGRE
   // - GAP: User took 5 days off (Oct 11-15)
   // - Block B: Tue/Thu/Sat training, started Oct 16
   //
-  // BUG on main: Uses endsOn (Nov 5) for blockA, so Oct 12/14 (Mon/Wed in the GAP)
-  // are assigned to blockA and marked as TRAINING days. These uncompleted "phantom"
-  // training days break the streak. Streak should be 2, but shows as 0.
+  // BUG on pre-PR#74 main: Used endsOn (Nov 5) for blockA, so Oct 12/14 (Mon/Wed in the GAP)
+  // were incorrectly assigned to blockA coverage.
   //
-  // Branch fix: Uses ended_on (Oct 10), so Oct 12/14 have no block (default to rest).
-  // Streak of 2 is preserved because rest days don't break streaks.
+  // PR#74 fix: Used ended_on (Oct 10), so Oct 12/14 had no block (defaulted to rest).
+  //
+  // M3 fix: Gap days inherit blockA's schedule. Oct 12 (Mon) and Oct 14 (Wed) are training days.
+  // Missed training days break the streak, so streak drops from 3 to 2 after the gap.
   
   const programs = [
     {
@@ -305,18 +306,19 @@ console.log("\n5. Mid-block rebuild with GAP causes phantom training days (REGRE
     today: "2026-10-20",
   });
 
-  // Critical: Oct 12 and 14 (GAP days) must be REST, not blockA training
+  // M3: Oct 12 and 14 (GAP days) inherit blockA's schedule (Mon/Wed = weights)
   const oct12 = dayRecords.find((d) => d.localDate === "2026-10-12"); // Mon
   const oct14 = dayRecords.find((d) => d.localDate === "2026-10-14"); // Wed
   
-  check("Oct 12 (gap) is rest, not blockA training", oct12?.dayType === "rest", `${oct12?.dayType}`);
-  check("Oct 14 (gap) is rest, not blockA training", oct14?.dayType === "rest", `${oct14?.dayType}`);
+  check("M3: Oct 12 (gap Mon) inherits blockA training schedule", oct12?.dayType === "weights", `${oct12?.dayType}`);
+  check("M3: Oct 14 (gap Wed) inherits blockA training schedule", oct14?.dayType === "weights", `${oct14?.dayType}`);
 
   const streaks = computeStreaks(dayRecords, "2026-10-20");
   
-  // Expected: streak 5 (all sessions, gap didn't break it because gap days are rest)
-  // Main's bug: streak 0 (phantom training days Oct 12/14 broke it)
-  check("streak is 5 (phantom days didn't break it)", streaks.current === 5, `streak=${streaks.current}`);
+  // M3: Streak breaks at Oct 12 (first missed training day in gap), then restarts at Oct 17
+  // Expected: streak 2 (just the 2 most recent sessions: Oct 17 & Oct 20)
+  // Pre-PR#74 bug: streak 0 (endsOn Nov 5 caused phantom coverage, Oct 12/14 broke streak)
+  check("M3: streak is 2 (gap training days broke it)", streaks.current === 2, `streak=${streaks.current}`);
   check("total sessions is 5", streaks.totalSessions === 5, `${streaks.totalSessions}`);
 }
 

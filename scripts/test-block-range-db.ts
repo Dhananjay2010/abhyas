@@ -248,7 +248,7 @@ async function runTests() {
       console.log("  PASS: Test 1\n");
     }
 
-    console.log("TEST 2: Rebuild, 8 concurrent callers (same payload)");
+    console.log("TEST 2: M1 - Mid-block rebuild concurrent callers (same payload)");
     {
       userId = await createTestUser();
       
@@ -258,7 +258,7 @@ async function runTests() {
         VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-10-01', '2026-10-28', 4, 0, 'active')
       `, [blockId1, userId]);
 
-      // Same payload for all concurrent calls (simulates duplicate/retry requests)
+      // M1: Mid-block rebuild (Oct 15 <= ends_on Oct 28)
       const payload = {
         id: randomUUID(),
         block_number: 1,
@@ -297,7 +297,7 @@ async function runTests() {
 
       check("exactly ONE active block", activeBlocks.length === 1, `${activeBlocks.length}`);
       check("exactly ONE superseded block", supersededBlocks.length === 1, `${supersededBlocks.length}`);
-      check("new block has week_offset = 2", activeBlocks[0]?.week_offset === 2, `offset=${activeBlocks[0]?.week_offset}`);
+      check("M1: week_offset preserved (0)", activeBlocks[0]?.week_offset === 0, `offset=${activeBlocks[0]?.week_offset}`);
 
       console.log("  PASS: Test 2\n");
     }
@@ -670,7 +670,7 @@ async function runTests() {
       console.log("  PASS: Test 8\n");
     }
 
-    console.log("TEST 9: week_offset preserves cycle week across rebuild");
+    console.log("TEST 9: M1 - Mid-block rebuild preserves dates and week boundaries");
     {
       userId = await createTestUser();
       
@@ -680,7 +680,7 @@ async function runTests() {
         VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-10-01', '2026-10-28', 4, 0, 'active')
       `, [blockId1, userId]);
 
-      // Rebuild in week 3 (day 15 = Oct 15)
+      // M1: Rebuild mid-block (Oct 15 <= ends_on Oct 28)
       const payload = {
         id: randomUUID(),
         block_number: 1,
@@ -689,7 +689,7 @@ async function runTests() {
         primary_track: "weights",
         goal: "strength",
         level: "intermediate",
-        ends_on: "2026-10-28",
+        ends_on: "2026-11-15",  // payload ends_on IGNORED for mid-block
         deload_week: 4,
         days: [],
       };
@@ -706,7 +706,10 @@ async function runTests() {
         [userId]
       );
 
-      check("new block has week_offset = 2", newBlocks[0]?.week_offset === 2, `offset=${newBlocks[0]?.week_offset}`);
+      // M1: Mid-block preserves started_on, ends_on, week_offset
+      check("M1: started_on preserved (2026-10-01)", newBlocks[0]?.started_on?.toISOString().startsWith('2026-10-01'), `started_on=${newBlocks[0]?.started_on?.toISOString().split('T')[0]}`);
+      check("M1: ends_on preserved (2026-10-28)", newBlocks[0]?.ends_on?.toISOString().startsWith('2026-10-28'), `ends_on=${newBlocks[0]?.ends_on?.toISOString().split('T')[0]}`);
+      check("M1: week_offset preserved (0)", newBlocks[0]?.week_offset === 0, `offset=${newBlocks[0]?.week_offset}`);
 
       // Verify cycle week calculation: Oct 15 should be week 3
       const { rows: weekResult } = await pool.query(
@@ -716,7 +719,7 @@ async function runTests() {
 
       check("cycleWeekFor gives week 3 for rebuild day", weekResult[0]?.week === 3, `week=${weekResult[0]?.week}`);
       
-      // Check that ends_on is preserved from payload (payload has ends_on = 2026-10-28)
+      // M1 preserves ends_on from OLD block, not payload
       const expectedEndsOn = "2026-10-28";
       const actualEndsOn = newBlocks[0]?.ends_on;
       const actualEndsOnStr = actualEndsOn instanceof Date ? actualEndsOn.toISOString().split('T')[0] : actualEndsOn;
