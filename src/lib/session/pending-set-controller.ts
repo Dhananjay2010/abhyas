@@ -76,7 +76,6 @@ export function createPendingSetController(config: {
 
   let replayPromise: Promise<void> | null = null;
   let replayAttempted = false;
-  let lastReplayWasAuthError = false;
 
   function setState(partial: Partial<PendingSetState>) {
     state = { ...state, ...partial };
