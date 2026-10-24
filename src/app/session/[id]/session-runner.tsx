@@ -204,10 +204,10 @@ export function SessionRunner({
   const restoredRestExerciseId = draft.restore?.restExerciseId;
   const shouldRestoreRest =
     restoredRestMs > 0 && restoredRestExerciseId === current?.id;
-  const [restEndsAt, setRestEndsAt] = useState<number | null>(
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(() =>
     shouldRestoreRest ? Date.now() + restoredRestMs : null,
   );
-  const [restRemaining, setRestRemaining] = useState(
+  const [restRemaining, setRestRemaining] = useState(() =>
     shouldRestoreRest ? Math.round(restoredRestMs / 1000) : 0,
   );
   const firedRef = useRef(false);

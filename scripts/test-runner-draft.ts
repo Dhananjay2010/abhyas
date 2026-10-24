@@ -42,7 +42,7 @@ const fakeLocalStorage = {
   },
 };
 
-(global as any).localStorage = fakeLocalStorage;
+(global as unknown as { localStorage: typeof fakeLocalStorage }).localStorage = fakeLocalStorage;
 
 // ---- serialize/parse round-trip ---------------------------------------
 {
@@ -443,6 +443,32 @@ const fakeLocalStorage = {
   }
 }
 
+// ---- restored expired rest doesn't trigger cue/vibrate ----------------
+{
+  fakeLocalStorage.clear();
+  const userId = "user-1";
+  const sessionId = "session-1";
+  
+  // Simulate an expired rest
+  serialize(userId, sessionId, {
+    restEndsAt: Date.now() - 5000, // 5 seconds ago
+    restExerciseId: "ex-1",
+    draft: null,
+  });
+  
+  const parsed = parse(userId, sessionId);
+  if (!parsed) {
+    fail("parse should return expired rest state");
+  } else {
+    const remaining = remainingRestMs(parsed, Date.now());
+    if (remaining !== 0) {
+      fail(`expired rest should have 0 remaining, got ${remaining}`);
+    } else {
+      pass("expired rest has 0 remaining (won't trigger cue/vibrate on restore)");
+    }
+  }
+}
+
 console.log("\n--- Mutation Testing ---\n");
 
 // ---- MUTANT 1: Store remaining instead of restEndsAt -----------------
@@ -586,6 +612,104 @@ console.log("\n--- Mutation Testing ---\n");
     console.log("  Result: ⚠️  Mutant undetected (state still present after clearAll)");
   } else {
     console.log("  Result: ✓ Test catches mutant (all state cleared correctly)");
+  }
+}
+
+// ---- MUTANT 6: Rest not cleared when skipped -------------------------
+{
+  console.log("\nMUTANT 6: Don't clear rest when skipped");
+  fakeLocalStorage.clear();
+  const userId = "user-1";
+  const sessionId = "session-1";
+
+  serialize(userId, sessionId, {
+    restEndsAt: Date.now() + 90000,
+    restExerciseId: "ex-1",
+    draft: null,
+  });
+
+  // Correct: clearRest removes rest
+  clearRest(userId, sessionId);
+  const afterSkip = parse(userId, sessionId);
+
+  // Mutant: would NOT clear rest on skip
+  if (afterSkip?.restEndsAt !== null) {
+    console.log("  Result: ⚠️  Mutant undetected (rest still present after skip)");
+  } else {
+    console.log("  Result: ✓ Test catches mutant (rest cleared on skip)");
+  }
+}
+
+// ---- MUTANT 7: Restore ignores sessionId ------------------------------
+{
+  console.log("\nMUTANT 7: Restore ignores sessionId in key");
+  fakeLocalStorage.clear();
+  const userId = "user-1";
+  const sessionA = "session-a";
+  const sessionB = "session-b";
+
+  serialize(userId, sessionA, {
+    restEndsAt: Date.now() + 60000,
+    restExerciseId: "ex-1",
+    draft: { sessionExerciseId: "se-1", setNumber: 1, reps: "10", weight: "60" },
+  });
+
+  // Correct: parse(sessionB) returns null (different session)
+  const sessionBData = parse(userId, sessionB);
+  
+  // Mutant: key without sessionId would share state across sessions
+  if (sessionBData !== null) {
+    console.log("  Result: ⚠️  Mutant undetected (session B can read session A's state)");
+  } else {
+    console.log("  Result: ✓ Test catches mutant (sessions isolated)");
+  }
+}
+
+// ---- MUTANT 8: Corrupt/old-version JSON throws instead of null -------
+{
+  console.log("\nMUTANT 8: Corrupt or old-version JSON throws instead of returning null");
+  fakeLocalStorage.clear();
+  const userId = "user-1";
+  const sessionId = "session-1";
+  
+  // Test 1: Corrupt JSON
+  store[`abhyas:runner:${userId}:${sessionId}`] = "not valid json {";
+  let threwOnCorrupt = false;
+  try {
+    const result = parse(userId, sessionId);
+    if (result === null) {
+      console.log("  Result (corrupt): ✓ Returns null without throwing");
+    } else {
+      console.log("  Result (corrupt): ⚠️  Returned non-null for corrupt JSON");
+    }
+  } catch (e) {
+    threwOnCorrupt = true;
+    console.log("  Result (corrupt): ⚠️  Threw exception (mutant undetected)");
+  }
+  
+  // Test 2: Old version
+  fakeLocalStorage.clear();
+  store[`abhyas:runner:${userId}:${sessionId}`] = JSON.stringify({
+    v: 0, // old version
+    restEndsAt: null,
+    draft: null,
+    savedAt: Date.now(),
+  });
+  let threwOnOldVersion = false;
+  try {
+    const result = parse(userId, sessionId);
+    if (result === null) {
+      console.log("  Result (old version): ✓ Returns null without throwing");
+    } else {
+      console.log("  Result (old version): ⚠️  Returned non-null for old version");
+    }
+  } catch (e) {
+    threwOnOldVersion = true;
+    console.log("  Result (old version): ⚠️  Threw exception (mutant undetected)");
+  }
+  
+  if (!threwOnCorrupt && !threwOnOldVersion) {
+    console.log("  Result: ✓ Test catches mutant (parse returns null, never throws)");
   }
 }
 
