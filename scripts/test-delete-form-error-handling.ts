@@ -1,10 +1,14 @@
 /**
  * Unit tests for delete-account form error handling.
  * 
- * Tests that the form properly catches and handles errors thrown from
- * the deleteAccount action (e.g. network failures) instead of letting
- * them escape to the error boundary.
+ * Tests the REAL deleteErrorMessage function from form-logic.ts to verify:
+ * - Success results return null
+ * - Error results return the error message
+ * - Thrown errors return a fixed friendly message (no raw exception text)
+ * - Technical details are logged but not shown to users
  */
+
+import { deleteErrorMessage } from "../src/app/settings/delete-account/form-logic";
 
 export {}; // Make this a module to avoid global scope conflicts
 
@@ -18,82 +22,53 @@ function check(label: string, ok: boolean, detail = "") {
 console.log("\nDelete form error handling tests");
 console.log("=================================\n");
 
-/**
- * Simulate the error handling logic from delete-account-form.tsx
- */
-async function simulateFormSubmit(
-  deleteAccountFn: () => Promise<{ ok: boolean; error?: string }>
-): Promise<{ error: string | null }> {
-  let error: string | null = null;
-  
-  try {
-    const result = await deleteAccountFn();
-    if (!result.ok) {
-      error = result.error ?? "Unknown error";
-    }
-  } catch (err) {
-    // This is the critical catch block that prevents error boundary escalation
-    error =
-      err instanceof Error && err.message
-        ? `An error occurred: ${err.message}`
-        : "An unexpected error occurred. Please try again.";
-  }
-  
-  return { error };
-}
-
-async function runTests() {
+function runTests() {
   console.log("1. Successful deletion (no error)");
   {
-    const result = await simulateFormSubmit(async () => ({ ok: true }));
-    check("no error is set", result.error === null);
+    const error = deleteErrorMessage({ ok: true });
+    check("no error is returned", error === null);
   }
 
   console.log("\n2. Action returns error result");
   {
-    const result = await simulateFormSubmit(async () => ({
+    const error = deleteErrorMessage({
       ok: false,
       error: "Permission denied. Please contact support.",
-    }));
-    check("error is set from result", result.error === "Permission denied. Please contact support.");
+    });
+    check("error is returned from result", error === "Permission denied. Please contact support.");
   }
 
   console.log("\n3. Action throws Error with message");
   {
-    const result = await simulateFormSubmit(async () => {
-      throw new Error("Network timeout");
-    });
-    check("error is caught", result.error !== null);
-    check("error includes message", result.error?.includes("Network timeout") || false);
-    check("error is user-friendly", result.error?.startsWith("An error occurred:") || false);
+    const error = deleteErrorMessage({ thrown: new Error("Network timeout") });
+    check("error is a fixed friendly message", error === "Couldn't reach the server. Check your connection and try again.");
+    check("error does NOT contain raw exception", !error?.includes("Network timeout"));
   }
 
   console.log("\n4. Action throws non-Error object");
   {
-    const result = await simulateFormSubmit(async () => {
-      throw "string error";
-    });
-    check("error is caught", result.error !== null);
-    check("generic message is used", result.error === "An unexpected error occurred. Please try again.");
+    const error = deleteErrorMessage({ thrown: "string error" });
+    check("error is the fixed friendly message", error === "Couldn't reach the server. Check your connection and try again.");
   }
 
   console.log("\n5. Action throws Error without message");
   {
-    const result = await simulateFormSubmit(async () => {
-      throw new Error();
-    });
-    check("error is caught", result.error !== null);
-    check("generic message is used", result.error === "An unexpected error occurred. Please try again.");
+    const error = deleteErrorMessage({ thrown: new Error() });
+    check("error is the fixed friendly message", error === "Couldn't reach the server. Check your connection and try again.");
   }
 
-  console.log("\n6. Fetch rejection (network failure simulation)");
+  console.log("\n6. Fetch rejection (TypeError)");
   {
-    const result = await simulateFormSubmit(async () => {
-      // Simulate fetch() rejecting due to network failure
-      throw new TypeError("Failed to fetch");
-    });
-    check("error is caught", result.error !== null);
-    check("error mentions fetch failure", result.error?.includes("Failed to fetch") || false);
+    const error = deleteErrorMessage({ thrown: new TypeError("Failed to fetch") });
+    check("error is the fixed friendly message", error === "Couldn't reach the server. Check your connection and try again.");
+    check("error does NOT expose TypeError", !error?.includes("TypeError"));
+    check("error does NOT expose 'Failed to fetch'", !error?.includes("Failed to fetch"));
+  }
+
+  console.log("\n7. Generic thrown object");
+  {
+    const error = deleteErrorMessage({ thrown: { code: 500, detail: "Internal error" } });
+    check("error is the fixed friendly message", error === "Couldn't reach the server. Check your connection and try again.");
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

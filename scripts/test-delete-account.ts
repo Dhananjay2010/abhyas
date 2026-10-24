@@ -100,7 +100,8 @@ async function runTests() {
     });
     
     check("returns error", !result.ok);
-    check("error mentions migration needed", result.ok === false && result.error.includes("database migration"));
+    check("error mentions function not available", result.ok === false && result.error.includes("isn't available right now"));
+    check("error includes support contact", result.ok === false && result.error.includes("support@example.com"));
     check("keeps user signed in (no signOut call)", !signedOut);
   }
 
@@ -172,14 +173,26 @@ async function runTests() {
 
   console.log("\n7. Error mapping (pure function)");
   {
+    const msg42883 = mapDeletionError({ code: "42883" });
     check(
-      "migration not applied error",
-      mapDeletionError({ code: "42883" }).includes("database migration")
+      "42883 error is user-friendly",
+      msg42883.includes("isn't available right now")
     );
     check(
-      "function not found error",
-      mapDeletionError({ message: "function does not exist" }).includes("database migration")
+      "42883 error includes support contact",
+      msg42883.includes("support@example.com")
     );
+    check(
+      "42883 error does NOT mention migrations",
+      !msg42883.toLowerCase().includes("migration")
+    );
+    
+    const msgFnNotExist = mapDeletionError({ message: "function does not exist" });
+    check(
+      "function not found is user-friendly",
+      msgFnNotExist.includes("isn't available")
+    );
+    
     check(
       "permission error by code",
       mapDeletionError({ code: "42501" }).includes("Permission denied")

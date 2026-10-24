@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { deleteAccount } from "./actions";
+import { deleteErrorMessage } from "./form-logic";
 import { ErrorNote, inputClass, PrimaryButton } from "@/components/ui";
 
 const CONFIRMATION_WORD = "DELETE";
@@ -21,17 +22,15 @@ export function DeleteAccountForm() {
     startTransition(async () => {
       try {
         const result = await deleteAccount();
-        if (!result.ok) {
-          setError(result.error);
+        const errorMsg = deleteErrorMessage(result);
+        if (errorMsg) {
+          setError(errorMsg);
         }
         // If successful, the action redirects to the landing page after sign out
       } catch (err) {
         // Catch any thrown errors (e.g. fetch failures) to prevent hitting error boundary
-        setError(
-          err instanceof Error && err.message
-            ? `An error occurred: ${err.message}`
-            : "An unexpected error occurred. Please try again."
-        );
+        const errorMsg = deleteErrorMessage({ thrown: err });
+        setError(errorMsg);
       }
     });
   }

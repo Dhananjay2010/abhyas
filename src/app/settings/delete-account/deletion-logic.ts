@@ -5,6 +5,8 @@
  * injected dependencies, making them testable without mocking Next.js or Supabase.
  */
 
+import { getSiteInfo } from "@/lib/legal/site-info";
+
 export type Result = { ok: true } | { ok: false; error: string };
 
 export interface DeletionDeps {
@@ -17,19 +19,24 @@ export interface DeletionDeps {
 /**
  * Map database/RPC errors to user-friendly messages.
  * Exported for testing.
+ * 
+ * Technical details are logged to the console; users see friendly messages.
  */
 export function mapDeletionError(error: { code?: string; message?: string }): string {
+  const { supportEmail } = getSiteInfo();
+  
   // If there's a permission issue (check first, before function-related checks)
   if (error.code === "42501" || error.message?.includes("permission denied")) {
     return "Permission denied. Please contact support.";
   }
 
   // If the RPC function doesn't exist (migration not applied yet)
+  // Don't tell users about database migrations - they can't fix it
   if (
     error.code === "42883" ||
     error.message?.includes("does not exist")
   ) {
-    return "Account deletion is not available yet. The system administrator needs to apply a database migration. Please contact support.";
+    return `Account deletion isn't available right now. Please contact support at ${supportEmail}.`;
   }
 
   // If there's a connection issue
