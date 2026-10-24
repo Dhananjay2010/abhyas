@@ -4,7 +4,7 @@
  * 
  * Behavioral test verifying that:
  * - Pending sets exist before clear
- * - Calling removeItem(storageKey(userId)) clears the user's pending sets
+ * - Calling clearAllPendingSetsForUser(storage, userId) clears the user's pending sets
  * - loadPendingSets returns empty array after clear
  */
 
@@ -12,6 +12,7 @@ import {
   storageKey,
   savePendingSet,
   loadPendingSets,
+  clearAllPendingSetsForUser,
   type Storage,
 } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
@@ -74,16 +75,15 @@ savePendingSet(storage, userId, sessionId, {
 const beforeClear = loadPendingSets(storage, userId, sessionId, deps);
 assertEqual(beforeClear.length, 1, "Pending set exists before clear");
 
-// Simulate sign-out clear: storage.removeItem(storageKey(userId))
-const key = storageKey(userId);
-storage.removeItem(key);
+// Simulate sign-out clear: clearAllPendingSetsForUser(storage, userId)
+clearAllPendingSetsForUser(storage, userId);
 
 // Verify it's gone
 const afterClear = loadPendingSets(storage, userId, sessionId, deps);
-assertEqual(afterClear.length, 0, "Pending sets cleared after removeItem(storageKey(userId))");
+assertEqual(afterClear.length, 0, "Pending sets cleared after clearAllPendingSetsForUser");
 
 // Verify storage key is actually removed
-const storageValue = storage.getItem(key);
+const storageValue = storage.getItem(storageKey(userId));
 assert(storageValue === null, "Storage key removed from storage");
 
 // Save another set to verify storage still works

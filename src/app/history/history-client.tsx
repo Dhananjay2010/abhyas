@@ -120,7 +120,7 @@ export function HistoryClient({
 
       {/* Error banner (QA Bot 3 M3) */}
       {hasErrors && (
-        <p className="mt-4 rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-4 py-2 text-sm text-[var(--color-danger)]">
+        <p className="mt-4 rounded-lg border-[var(--color-destructive)]/50 bg-[var(--color-destructive)]/10 px-4 py-2 text-sm text-[var(--color-destructive)]">
           Couldn&apos;t load some stats
         </p>
       )}
@@ -147,13 +147,15 @@ export function HistoryClient({
               // M2: Detect past-day in_progress sessions
               const isPastInProgress = item.status === "in_progress" && item.localDate !== today;
 
-              // Format time for all rows through formatSessionDateTime
+              // TZ-2: Format date and time consistently (both from started_at or local_date)
               let timeLabel = "";
               if (isPastInProgress) {
                 timeLabel = `Unfinished from ${longDate(item.localDate)}`;
+              } else if (item.localDate === today) {
+                timeLabel = "Today";
               } else {
-                // Use formatSessionDateTime for all rows (including today) to get proper time display
-                timeLabel = formatSessionDateTime(item.startedAt, item.localDate, timezone, today);
+                // Use TZ-2 formatter: date and time both from started_at in current zone
+                timeLabel = formatSessionDateTime(item.startedAt, item.localDate, timezone);
               }
 
               // Item 9: Duration - never show "0 min" for NULL duration

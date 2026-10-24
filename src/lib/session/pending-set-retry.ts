@@ -272,6 +272,16 @@ export function clearPendingSet(
 }
 
 /**
+ * Clear all pending sets for a user (used on sign-out).
+ */
+export function clearAllPendingSetsForUser(
+  storage: Storage,
+  userId: string
+): void {
+  storage.removeItem(storageKey(userId));
+}
+
+/**
  * Check if an error is a unique violation (23505) or server "already saved" result.
  */
 export function isDuplicateError(errOrResponse: unknown): boolean {

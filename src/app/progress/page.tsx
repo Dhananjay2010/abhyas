@@ -224,28 +224,24 @@ export default async function ProgressPage() {
   // For yoga and breathing members, compute stats from completed sessions
   const isYogaOrBreathing = primaryTrack === "yoga" || primaryTrack === "meditation";
   let yogaStats = null;
-  let yogaStatsError = !!sessionsRes.error;
+  let yogaStatsError = false;
   if (isYogaOrBreathing) {
-    if (sessionsRes.error) {
-      console.error("Failed to load sessions for yoga stats:", sessionsRes.error);
-    } else {
-      try {
-        const { computeYogaStats } = await import("@/lib/progress/yoga-stats");
-        // Filter to completed yoga or breathing sessions
-        const yogaBreathingSessions = (sessionsRes.data ?? [])
-          .filter((s) => 
-            s.status === "completed" && 
-            (s.actual_type === "yoga" || s.actual_type === "meditation")
-          )
-          .map((s) => ({
-            local_date: s.local_date,
-            duration_seconds: s.duration_seconds,
-          }));
-        yogaStats = computeYogaStats(yogaBreathingSessions, today);
-      } catch (error) {
-        console.error("Failed to compute yoga stats:", error);
-        yogaStatsError = true;
-      }
+    try {
+      const { computeYogaStats } = await import("@/lib/progress/yoga-stats");
+      // Filter to completed yoga or breathing sessions
+      const yogaBreathingSessions = (sessionsRes.data ?? [])
+        .filter((s) => 
+          s.status === "completed" && 
+          (s.actual_type === "yoga" || s.actual_type === "meditation")
+        )
+        .map((s) => ({
+          local_date: s.local_date,
+          duration_seconds: s.duration_seconds,
+        }));
+      yogaStats = computeYogaStats(yogaBreathingSessions, today);
+    } catch (error) {
+      console.error("Failed to compute yoga stats:", error);
+      yogaStatsError = true;
     }
   }
 
@@ -338,16 +334,14 @@ export default async function ProgressPage() {
       </section>
       
       {(progressQueryFailed || setCountsError || yogaStatsError) && (
-        <p className="mt-3 rounded-lg border border-[var(--color-danger)]/50 bg-[var(--color-danger)]/10 px-4 py-2 text-sm text-[var(--color-danger)]">
+        <p className="mt-3 rounded-lg border border-[var(--color-destructive)]/50 bg-[var(--color-destructive)]/10 px-4 py-2 text-sm text-[var(--color-destructive)]">
           Couldn&apos;t load some stats
         </p>
       )}
       
-      {!isYogaOrBreathing && (
-        <p className="mt-3 text-xs text-muted">
-          Your streak counts scheduled training days you trained. Missing one resets it. Breathe sessions don&apos;t count.
-        </p>
-      )}
+      <p className="mt-3 text-xs text-muted">
+        Your streak counts scheduled training days you trained. Missing one resets it. Breathe sessions don&apos;t count.
+      </p>
 
       {!hasAnything && (
         <p className="mt-8 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">

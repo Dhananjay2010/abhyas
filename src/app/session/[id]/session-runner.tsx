@@ -36,6 +36,7 @@ import {
   type PendingSetState,
 } from "@/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
+import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -516,7 +517,7 @@ export function SessionRunner({
         </ul>
         <div className="mt-10 space-y-3">
           <BigButton
-            disabled={busy || pendingSetState.pending.length > 0}
+            disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
             onClick={async () => {
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
@@ -524,12 +525,10 @@ export function SessionRunner({
               setPhase("done");
             }}
           >
-            {pendingSetState.pending.length > 0 
-              ? `Saving ${pendingSetState.pending.length} ${pendingSetState.pending.length === 1 ? "set" : "sets"}…`
-              : "Done"}
+            {getFinishButtonText(pendingSetState.pending.length)}
           </BigButton>
           <GhostButton
-            disabled={busy || pendingSetState.pending.length > 0}
+            disabled={isFinishDisabled(pendingSetState.pending.length, busy)}
             onClick={async () => {
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),

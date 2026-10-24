@@ -4,6 +4,7 @@
 
 import {
   createPendingSetController,
+  canReplayForStatus,
   type LogSetFunction,
   type PendingSetState,
 } from "../src/lib/session/pending-set-controller";
@@ -564,6 +565,67 @@ async function testReplayedSetsReported() {
   assert(finalState.pending.length === 0, "Pending sets cleared");
 }
 
+async function testReplayIntoEndedSessionRefused() {
+  console.log("\n--- Replay into ended session refused/dropped ---");
+
+  const storage = createStorage();
+  const sessionId = "session-ended";
+
+  storage.setItem(
+    storageKey("test-user-id"),
+    JSON.stringify({
+      [sessionId]: [
+        {
+          sessionExerciseId: "ex-11",
+          setNumber: 1,
+          reps: 10,
+          weightKg: 50,
+          durationSeconds: null,
+          clientId: "client-13",
+        },
+      ],
+    })
+  );
+
+  let logSetCalled = false;
+  const logSet: LogSetFunction = async () => {
+    logSetCalled = true;
+    return { ok: true };
+  };
+
+  const states: PendingSetState[] = [];
+  const controller = createPendingSetController({
+    userId: "test-user-id",
+    deps: createPendingSetDeps(),
+    storage,
+    logSet,
+    sessionId,
+    sessionStatus: "completed",
+    onChange: (state) => states.push(state),
+  });
+
+  await controller.replay();
+
+  assert(!logSetCalled, "logSet not called for ended session");
+  const finalState = states[states.length - 1];
+  assertEqual(finalState.pending.length, 0, "Pending sets cleared when session ended");
+  assert(!finalState.expired, "Not marked expired when session ended");
+
+  const remaining = storage.getItem(storageKey("test-user-id"));
+  const parsed = remaining ? JSON.parse(remaining) : {};
+  assert(!parsed[sessionId] || parsed[sessionId].length === 0, "Storage cleared for ended session");
+}
+
+function testCanReplayForStatusHelper() {
+  console.log("\n--- canReplayForStatus helper ---");
+
+  assert(canReplayForStatus("in_progress"), "Can replay for in_progress session");
+  assert(!canReplayForStatus("completed"), "Cannot replay for completed session");
+  assert(!canReplayForStatus("ended"), "Cannot replay for ended session");
+  assert(!canReplayForStatus("cancelled"), "Cannot replay for cancelled session");
+  assert(!canReplayForStatus(""), "Cannot replay for empty session status");
+}
+
 async function main() {
   console.log("Testing pending-set controller\n");
 
@@ -578,6 +640,8 @@ async function main() {
   await testThrownSessionExpired();
   await testThrownSessionExpiredInReplay();
   await testReplayedSetsReported();
+  await testReplayIntoEndedSessionRefused();
+  testCanReplayForStatusHelper();
 
   console.log(
     exitCode === 0 ? "\n✅ All tests passed" : "\n❌ Some tests failed"

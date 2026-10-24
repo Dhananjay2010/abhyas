@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { signOutAction } from "@/lib/auth/signout";
-import { storageKey } from "@/lib/session/pending-set-retry";
+import { clearAllPendingSetsForUser } from "@/lib/session/pending-set-retry";
 
 export function SignOutButton({ userId }: { userId: string }) {
   const [pending, startTransition] = useTransition();
@@ -10,7 +10,7 @@ export function SignOutButton({ userId }: { userId: string }) {
 
   async function handleSignOut() {
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(storageKey(userId));
+      clearAllPendingSetsForUser(window.localStorage, userId);
     }
     
     startTransition(async () => {

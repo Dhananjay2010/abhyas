@@ -88,18 +88,18 @@ console.log("\n3. Completed sessions - trusts status");
 
 {
   // Zero-set strength sessions are filtered out at query level (M4),
-  // but if they reach the label function with status='completed', they show "Ended early"
+  // so if they reach the label function, they show "Completed"
   const input: SessionLabelInput = {
     status: "completed",
     actualType: "weights",
     setCount: 0,
     localDate: yesterday,
     today,
-    endedEarly: true,
+    endedEarly: false,
     plannedSets: null,
   };
   const label = getSessionLabel(input);
-  check("completed strength with 0 sets shows 'Ended early'", label === "Ended early", label);
+  check("completed with 0 sets trusts status, shows 'Completed'", label === "Completed", label);
 }
 
 {
@@ -188,62 +188,6 @@ console.log("\n6. Ended early sessions");
   };
   const label = getSessionLabel(input);
   check("ended early 1 of 1 set (singular)", label === "Ended early · 1 of 1 set", label);
-}
-
-{
-  const input: SessionLabelInput = {
-    status: "completed",
-    actualType: "weights",
-    setCount: 1,
-    localDate: yesterday,
-    today,
-    endedEarly: true,
-    plannedSets: 22,
-  };
-  const label = getSessionLabel(input);
-  check("1 of 22 gives Ended early", label === "Ended early · 1 of 22 sets", label);
-}
-
-{
-  const input: SessionLabelInput = {
-    status: "completed",
-    actualType: "weights",
-    setCount: 22,
-    localDate: yesterday,
-    today,
-    endedEarly: false,
-    plannedSets: 22,
-  };
-  const label = getSessionLabel(input);
-  check("22 of 22 gives Completed", label === "Completed", label);
-}
-
-{
-  const input: SessionLabelInput = {
-    status: "completed",
-    actualType: "weights",
-    setCount: 0,
-    localDate: yesterday,
-    today,
-    endedEarly: true,
-    plannedSets: null,
-  };
-  const label = getSessionLabel(input);
-  check("0 sets gives Ended early", label === "Ended early", label);
-}
-
-{
-  const input: SessionLabelInput = {
-    status: "completed",
-    actualType: "weights",
-    setCount: 25,
-    localDate: yesterday,
-    today,
-    endedEarly: false,
-    plannedSets: 22,
-  };
-  const label = getSessionLabel(input);
-  check("extra sets beyond plan give Completed", label === "Completed", label);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

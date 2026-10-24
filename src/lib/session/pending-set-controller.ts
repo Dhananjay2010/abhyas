@@ -27,6 +27,14 @@ export type LogSetFunction = (input: {
   durationSeconds?: number | null;
 }) => Promise<Result>;
 
+/**
+ * Helper: Can we replay pending sets for this session status?
+ * Only allow replay if the session is still in progress.
+ */
+export function canReplayForStatus(sessionStatus: string): boolean {
+  return sessionStatus === "in_progress";
+}
+
 export type PendingSetState = {
   pending: PendingSet[];
   expired: boolean;
@@ -83,7 +91,7 @@ export function createPendingSetController(config: {
   }
 
   function load(): void {
-    if (sessionStatus !== "in_progress") {
+    if (!canReplayForStatus(sessionStatus)) {
       clearPendingSets(storage, userId, sessionId, deps);
       setState({
         pending: [],
@@ -191,7 +199,7 @@ export function createPendingSetController(config: {
       return;
     }
 
-    if (sessionStatus !== "in_progress") {
+    if (!canReplayForStatus(sessionStatus)) {
       clearPendingSets(storage, userId, sessionId, deps);
       setState({
         pending: [],

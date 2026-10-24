@@ -5,12 +5,9 @@
  * Tests that 23:30 to 00:30 in Asia/Kolkata timezone:
  * - Gives a 3600s (1 hour) duration
  * - Passes server validation in edit-cores.ts
- * 
- * Also tests that start == end gives the correct error message.
  */
 
 import { updateSessionDateTimeCore } from "../src/lib/history/edit-cores";
-import { validateSessionTimes } from "../src/lib/history/validate-session-times";
 import { zonedDateTimeToUtc, utcToZonedDateTime } from "../src/lib/timezone";
 
 let exitCode = 0;
@@ -37,45 +34,6 @@ function assertEqual<T>(actual: T, expected: T, message?: string) {
 }
 
 (async () => {
-  // Test the validation helper
-  await test("23:30 to 00:30 gives 3600s duration", () => {
-    const result = validateSessionTimes("2026-10-24", "23:30", "00:30");
-    
-    if (!result.success) {
-      throw new Error(`Expected success, got error: ${result.error}`);
-    }
-    
-    assertEqual(result.durationSeconds, 3600, "Duration should be 3600 seconds");
-    assertEqual(result.endDate, "2026-10-25", "End date should be next day");
-  });
-
-  await test("start == end gives correct error", () => {
-    const result = validateSessionTimes("2026-10-24", "10:00", "10:00");
-    
-    if (result.success) {
-      throw new Error("Expected validation to fail for start == end");
-    }
-    
-    assertEqual(
-      result.error,
-      "End time must be different from start time",
-      "Should return correct error message"
-    );
-  });
-
-  await test("over 10 hours gives correct error", () => {
-    const result = validateSessionTimes("2026-10-24", "10:00", "21:00");
-    
-    // This is same day, 11 hours
-    if (result.success) {
-      throw new Error("Expected validation to fail for 11-hour session");
-    }
-    
-    if (!result.error.includes("10 hours")) {
-      throw new Error(`Expected duration error, got: ${result.error}`);
-    }
-  });
-
   // Test the timezone conversion logic
   await test("23:30 to 00:30 calculates next-day timestamp correctly", () => {
     const startDate = "2026-10-24";

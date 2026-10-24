@@ -2,12 +2,24 @@
 /**
  * Test: Session finish guard
  * 
- * Behavioral test of a pure helper function that determines
+ * Behavioral test of pure helper functions that determine
  * whether the session can be finished based on pending set count.
  * 
- * The session-runner uses this to disable the Finish button
+ * The session-runner uses these to disable the Finish button
  * and show "Saving N sets..." while sets are pending.
  */
+
+import {
+  canFinishSession,
+  isFinishDisabled,
+  getFinishButtonText,
+} from "../src/lib/session/finish-guard";
+
+import {
+  canFinishSession,
+  isFinishDisabled,
+  getFinishButtonText,
+} from "../src/lib/session/finish-guard";
 
 let exitCode = 0;
 
@@ -29,31 +41,6 @@ function assertEqual<T>(actual: T, expected: T, message: string): void {
   } else {
     console.log(`✓ ${message}`);
   }
-}
-
-/**
- * Pure helper: Can the session be finished?
- * Returns false if there are pending sets waiting to save.
- */
-export function canFinishSession(pendingCount: number): boolean {
-  return pendingCount === 0;
-}
-
-/**
- * Derive finish button disabled state from pending sets and busy flag.
- */
-export function isFinishDisabled(pendingCount: number, busy: boolean): boolean {
-  return busy || pendingCount > 0;
-}
-
-/**
- * Get finish button text based on pending sets.
- */
-export function getFinishButtonText(pendingCount: number): string {
-  if (pendingCount > 0) {
-    return `Saving ${pendingCount} ${pendingCount === 1 ? "set" : "sets"}…`;
-  }
-  return "Done";
 }
 
 console.log("Testing session finish guard\n");
