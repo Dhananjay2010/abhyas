@@ -78,7 +78,10 @@ async function runTests() {
       ends_on: "2026-11-16",
       status: "active",
       split_type: "ppl",
-      weeks: 4,
+      days_per_week: 6,
+      primary_track: "strength",
+      goal: "muscle_gain",
+      level: "intermediate",
     })
     .select("id")
     .single();
