@@ -24,10 +24,6 @@ type SessionRow = {
   started_at: string | null;
 };
 
-function isStrength(t: string | null): boolean {
-  return t === "weights" || t === "bodyweight";
-}
-
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;

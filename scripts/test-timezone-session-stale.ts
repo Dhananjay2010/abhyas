@@ -97,7 +97,7 @@ console.log("\n1. Timezone shift doesn't close active session (10 minutes ago)")
     { id: "sess1", local_date: "2026-10-24", started_at: tenMinutesAgo, actual_type: "weights" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("sess1");
   check("session still in_progress", session?.status === "in_progress");
@@ -123,7 +123,7 @@ console.log("\n2. Inactivity beyond threshold closes session");
     { id: "sess2", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("sess2");
   check("session closed", session?.status === "completed", session?.status);
@@ -186,7 +186,7 @@ console.log("\n5. Session from yesterday with recent activity stays open");
     { id: "sess3", local_date: "2026-10-24", started_at: "2026-10-24T23:00:00Z", actual_type: "weights" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-25");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("sess3");
   check("session still in_progress despite old local_date", session?.status === "in_progress");
@@ -219,7 +219,7 @@ console.log("\n7. Multiple sessions: only stale ones closed");
     { id: "stale", local_date: "2026-10-24", started_at: staleActivity, actual_type: "weights" },
   ];
 
-  const closed = await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  const closed = await closeStaleSessionsCore(fake, open, now);
   
   check("1 session closed", closed === 1, String(closed));
   check("recent session still in_progress", fake.getSession("recent")?.status === "in_progress");
@@ -238,7 +238,7 @@ console.log("\n8. Session with no started_at is skipped");
     { id: "nostart", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
   ];
 
-  const closed = await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  const closed = await closeStaleSessionsCore(fake, open, now);
   
   check("no sessions closed when started_at is null", closed === 0);
 }
@@ -261,7 +261,7 @@ console.log("\n9. Midnight crossing: session started 23:43, last set 23:55, load
   ]);
   
   const open: OpenSession[] = [{ id: "midnight", local_date: "2026-10-24", started_at: started, actual_type: "weights" }];
-  await closeStaleSessionsCore(fake, open, loadTime, "2026-10-25");
+  await closeStaleSessionsCore(fake, open, loadTime);
   
   const session = fake.getSession("midnight");
   check("session still in_progress after midnight", session?.status === "in_progress");
@@ -285,7 +285,7 @@ console.log("\n10. Same session loaded 6 hours later is closed with ended_at at 
   ]);
   
   const open: OpenSession[] = [{ id: "stale-morning", local_date: "2026-10-24", started_at: started, actual_type: "weights" }];
-  await closeStaleSessionsCore(fake, open, loadTime, "2026-10-25");
+  await closeStaleSessionsCore(fake, open, loadTime);
   
   const session = fake.getSession("stale-morning");
   check("session closed", session?.status === "completed");
@@ -310,7 +310,7 @@ console.log("\n11. Boundary: exactly 6h (21600s) is stale");
   ]);
   
   const open: OpenSession[] = [{ id: "boundary", local_date: "2026-10-24", started_at: exactly6hAgo, actual_type: "weights" }];
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("boundary");
   check("session closed at exactly 6h", session?.status === "completed");
@@ -333,7 +333,7 @@ console.log("\n12. Boundary: 21599s (1s under 6h) is still active");
   ]);
   
   const open: OpenSession[] = [{ id: "just-under", local_date: "2026-10-24", started_at: just21599sAgo, actual_type: "weights" }];
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("just-under");
   check("session still active 1s under threshold", session?.status === "in_progress");
@@ -361,7 +361,7 @@ console.log("\n13. Newer-session rule: session with newer started_at closes olde
     { id: "newer", local_date: "2026-10-24", started_at: newerStarted, actual_type: "weights" },
   ];
   
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   check("older session closed by newer-session rule", fake.getSession("older")?.status === "completed");
   check("newer session remains open", fake.getSession("newer")?.status === "in_progress");
@@ -389,7 +389,7 @@ console.log("\n14. Newer-session rule: closes session only minutes old if newer 
     { id: "two-min-old", local_date: "2026-10-24", started_at: twoMinutesAgo, actual_type: "weights" },
   ];
   
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   check("5-minute-old session closed despite recent activity", fake.getSession("five-min-old")?.status === "completed");
   check("2-minute-old session (newer) remains open", fake.getSession("two-min-old")?.status === "in_progress");
@@ -426,7 +426,7 @@ console.log("\n15. Newer Breathe session does NOT close strength session");
     { id: "breathe", local_date: "2026-10-24", started_at: twoMinutesAgo, actual_type: "breathe" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   check("strength session NOT closed by newer Breathe", fake.getSession("strength")?.status === "in_progress");
   check("breathe session remains open", fake.getSession("breathe")?.status === "in_progress");
@@ -444,7 +444,7 @@ console.log("\n17. Planned row dated before today becomes skipped");
     { id: "planned-yesterday", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
   ];
   
-  await closeStaleSessionsCore(fake, open, now, "2026-10-25");
+  await closeStaleSessionsCore(fake, open, now);
   
   check("planned row from yesterday marked skipped", fake.getSession("planned-yesterday")?.status === "skipped");
 }
@@ -461,7 +461,7 @@ console.log("\n18. Planned row for today remains open");
     { id: "planned-today", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
   ];
   
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   check("planned row for today stays planned", fake.getSession("planned-today")?.status === "planned");
 }
@@ -483,7 +483,7 @@ console.log("\n19. Race condition: already-completed session not overwritten by 
   ];
   
   // The stale logic would normally close this, but the update should not overwrite completed status
-  const credited = await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  const credited = await closeStaleSessionsCore(fake, open, now);
   
   check("race: session stays completed (not overwritten)", fake.getSession("race")?.status === "completed");
   check("race: credited count is 0 (no actual update)", credited === 0);
@@ -519,7 +519,7 @@ console.log("\n20. credited count reaches caller when sessions are closed");
     { id: "old2", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights" },
   ];
 
-  const credited = await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  const credited = await closeStaleSessionsCore(fake, open, now);
   
   check("credited count is 2", credited === 2);
   check("old1 is completed", fake.getSession("old1")?.status === "completed");
@@ -546,7 +546,7 @@ console.log("\n21. Null started_at with sets uses first set time as fallback");
     { id: "no-start", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("no-start");
   check("session with null started_at closed using set time", session?.status === "completed");
@@ -576,7 +576,7 @@ console.log("\n22. Duration capped at 6 hours (21600 seconds)");
     { id: "long", local_date: "2026-10-24", started_at: tenHoursAgo, actual_type: "weights" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("long");
   const expectedDuration = (Date.parse(sevenHoursAgo) - Date.parse(tenHoursAgo)) / 1000;
@@ -607,7 +607,7 @@ console.log("\n23. Duration capped when it would exceed 6 hours");
     { id: "verylong", local_date: "2026-10-24", started_at: twentyHoursAgo, actual_type: "weights" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("verylong");
   check("duration capped at 21600 seconds", session?.duration_seconds === 21600);
@@ -636,7 +636,7 @@ console.log("\n24. null started_at with sets: uses first set's time");
     { id: "nostime", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("nostime");
   check("session closed", session?.status === "completed");
@@ -656,7 +656,7 @@ console.log("\n25. null started_at with no sets: closes with duration 0");
     { id: "empty", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
   ];
 
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("empty");
   check("session closed as skipped", session?.status === "skipped");

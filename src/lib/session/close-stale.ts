@@ -57,17 +57,16 @@ export type OpenSession = {
 export async function closeStaleSessions(
   supabase: Client,
   open: OpenSession[],
-  today: string,
+  _today: string,
 ): Promise<number> {
   const deps = buildCloseStaleDeps(supabase);
-  return closeStaleSessionsCore(deps, open, Date.now(), today);
+  return closeStaleSessionsCore(deps, open, Date.now());
 }
 
 export async function closeStaleSessionsCore(
   deps: CloseStaleDeps,
   open: OpenSession[],
   nowMs: number,
-  today: string,
 ): Promise<number> {
   if (open.length === 0) return 0;
 

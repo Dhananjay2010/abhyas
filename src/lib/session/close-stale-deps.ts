@@ -1,8 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
-
-type Client = SupabaseClient<Database>;
-
 export type SessionExerciseRow = {
   session_id: string;
   session_sets: Array<{
