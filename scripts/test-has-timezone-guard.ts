@@ -5,6 +5,7 @@
  *   npx tsx scripts/test-has-timezone-guard.ts
  */
 
+(function runTests() {
 let passed = 0;
 let failed = 0;
 
@@ -94,3 +95,4 @@ if (failed > 0) {
 }
 
 console.log("\n✨ All hasTimezone guard tests passed!");
+})();
