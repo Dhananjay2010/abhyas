@@ -201,6 +201,201 @@ console.log("\n4. Fallback pattern filter at :672 catches excluded slugs");
   failCount += fallbackFails;
 }
 
+console.log("\n5. Strategy 3 and other guards: 90-min sessions with pull-up bar, cable, and gym");
+{
+  // Test Strategy 3 top-up, BW pull force-add, post-pacing BW, across 90-min sessions
+  // These hit the code paths where excluded slugs leaked through before
+  const EXCLUDED = [
+    "standing-barbell-press-behind-neck",
+    "wide-grip-pulldown-behind-the-neck",
+    "wide-grip-rear-pull-up",
+    "barbell-guillotine-bench-press",
+    "neck-press",
+    "low-pulley-row-to-neck",
+  ];
+  
+  const equipment90Profiles = [
+    { name: "pull-up-bar", ids: ["pull_up_bar"], hasAll: false },
+    { name: "cable", ids: ["cable_machine"], hasAll: false },
+    { name: "gym", ids: [], hasAll: true },
+  ];
+  
+  const levels: Array<"beginner" | "intermediate" | "expert"> = ["beginner", "intermediate", "expert"];
+  const daysOptions = [2, 3, 5];
+  const injuries: Array<Array<"lower_back" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "hip" | "knee" | "ankle" | "core">> = [
+    [],
+    ["neck"],
+    ["shoulder"],
+  ];
+  
+  let strategy3Checks = 0;
+  let strategy3Fails = 0;
+  
+  for (const eqProfile of equipment90Profiles) {
+    for (const level of levels) {
+      for (const days of daysOptions) {
+        for (const injurySet of injuries) {
+          const input: GeneratorInput = {
+            userId: `s3-${eqProfile.name}-${level}-${days}d-inj${injurySet.length}`,
+            blockNumber: 1,
+            level,
+            equipmentIds: eqProfile.ids,
+            hasAllEquipment: eqProfile.hasAll,
+            goal: "muscle_gain",
+            currentInjuryRegions: injurySet,
+            age: 30,
+            bmi: null,
+            daysPerWeek: days,
+            yogaDaysPerWeek: 0,
+            primaryTrack: "weights",
+            preferredSessionMinutes: 90,
+            catalogue,
+          };
+          
+          const program = generateProgram(input);
+          const allExerciseSlugs = program.days.flatMap(day => 
+            day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+          );
+          
+          const foundExcluded = allExerciseSlugs.filter(slug => EXCLUDED.includes(slug));
+          if (foundExcluded.length > 0) {
+            console.log(`  ✗ ${input.userId}: found ${foundExcluded.join(", ")}`);
+            strategy3Fails++;
+          }
+          strategy3Checks++;
+        }
+      }
+    }
+  }
+  
+  console.log(`  ${strategy3Fails === 0 ? "✓" : "✗"} ${strategy3Checks - strategy3Fails}/${strategy3Checks} Strategy 3 plans clean`);
+  passCount += strategy3Checks - strategy3Fails;
+  failCount += strategy3Fails;
+}
+
+console.log("\n6. Block-2 rollover: excluded slugs not carried over");
+{
+  const EXCLUDED = [
+    "standing-barbell-press-behind-neck",
+    "wide-grip-pulldown-behind-the-neck",
+    "wide-grip-rear-pull-up",
+    "barbell-guillotine-bench-press",
+    "neck-press",
+    "low-pulley-row-to-neck",
+  ];
+  
+  // Generate block 1 with 90-min gym to get a program
+  const block1Input: GeneratorInput = {
+    userId: "rollover-test",
+    blockNumber: 1,
+    level: "intermediate",
+    equipmentIds: [],
+    hasAllEquipment: true,
+    goal: "muscle_gain",
+    currentInjuryRegions: [],
+    age: 30,
+    bmi: null,
+    daysPerWeek: 3,
+    yogaDaysPerWeek: 0,
+    primaryTrack: "weights",
+    preferredSessionMinutes: 90,
+    catalogue,
+  };
+  
+  const block1 = generateProgram(block1Input);
+  
+  // Generate block 2 with the same settings
+  const block2Input: GeneratorInput = {
+    ...block1Input,
+    userId: "rollover-test-b2",
+    blockNumber: 2,
+    carryOver: {}, // Will populate from block 1
+  };
+  
+  // Extract carry-over from block 1
+  for (let dayIdx = 0; dayIdx < block1.days.length; dayIdx++) {
+    const day = block1.days[dayIdx];
+    for (let exIdx = 0; exIdx < Math.min(2, day.exercises.length); exIdx++) {
+      const ex = day.exercises[exIdx];
+      const exData = catalogue.find(e => e.id === ex.exerciseId);
+      if (exData) {
+        const key = `${dayIdx}:${exData.movement_pattern}`;
+        block2Input.carryOver![key] = ex.exerciseId;
+      }
+    }
+  }
+  
+  const block2 = generateProgram(block2Input);
+  const block2Slugs = block2.days.flatMap(day => 
+    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+  );
+  
+  const foundExcluded = block2Slugs.filter(slug => EXCLUDED.includes(slug));
+  if (foundExcluded.length > 0) {
+    console.log(`  ✗ Block 2 rollover: found ${foundExcluded.join(", ")}`);
+    failCount++;
+  } else {
+    passCount++;
+  }
+  check("block-2 rollover clean", foundExcluded.length === 0);
+}
+
+console.log("\n7. Carry-over guard: excluded kept main lift not kept");
+{
+  const EXCLUDED = [
+    "standing-barbell-press-behind-neck",
+    "wide-grip-pulldown-behind-the-neck",
+    "wide-grip-rear-pull-up",
+    "barbell-guillotine-bench-press",
+    "neck-press",
+    "low-pulley-row-to-neck",
+  ];
+  
+  // Find an excluded exercise in the catalogue
+  const excludedEx = catalogue.find(e => EXCLUDED.includes(e.slug));
+  if (!excludedEx) {
+    console.log(`  ✗ No excluded exercise found in catalogue`);
+    failCount++;
+  } else {
+    // Inject it as a carried-over main lift
+    const carryOver = {
+      "0:vertical_pull": excludedEx.id, // Assuming day 0, vertical_pull pattern
+    };
+    
+    const input: GeneratorInput = {
+      userId: "carryover-excluded-test",
+      blockNumber: 2,
+      level: "intermediate",
+      equipmentIds: [],
+      hasAllEquipment: true,
+      goal: "muscle_gain",
+      currentInjuryRegions: [],
+      age: 30,
+      bmi: null,
+      daysPerWeek: 3,
+      yogaDaysPerWeek: 0,
+      primaryTrack: "weights",
+      preferredSessionMinutes: 75,
+      catalogue,
+      carryOver,
+    };
+    
+    const program = generateProgram(input);
+    const allSlugs = program.days.flatMap(day => 
+      day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+    );
+    
+    const hasExcluded = allSlugs.includes(excludedEx.slug);
+    if (hasExcluded) {
+      console.log(`  ✗ Carry-over guard failed: ${excludedEx.slug} was kept`);
+      failCount++;
+    } else {
+      passCount++;
+    }
+    check("excluded kept main lift not kept", !hasExcluded);
+  }
+}
+
 console.log(`\n${failCount === 0 ? "✓" : "✗"} ${passCount}/${passCount + failCount} checks passed`);
 
 if (failCount > 0) {

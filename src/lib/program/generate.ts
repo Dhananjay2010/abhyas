@@ -593,7 +593,7 @@ function pickForSlot(
     const kept = input.carryOver[`${dayIndex}:${pattern}`];
     if (kept && !used.has(kept)) {
       const match = pool.find((e) => e.id === kept);
-      if (match) return match;
+      if (match && !EXCLUDED_EXERCISE_SLUGS.has(match.slug)) return match;
     }
   }
 
@@ -902,6 +902,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           .filter(e => {
             if (e.movement_pattern !== "horizontal_pull" && e.movement_pattern !== "vertical_pull") return false;
             if (usedInBlock.has(e.id)) return false;
+            if (EXCLUDED_EXERCISE_SLUGS.has(e.slug)) return false;
             return isEligible(e, input);
           })
           .sort((a, b) => 
@@ -1261,7 +1262,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             .filter((e) => 
               e.movement_pattern === pattern &&
               !usedInBlock.has(e.id) &&
-              isEligible(e, input)
+              isEligible(e, input) &&
+              !EXCLUDED_EXERCISE_SLUGS.has(e.slug)
             )
             .sort((a, b) => 
               score(b, true, input.level, input.primaryTrack) -
@@ -1316,7 +1318,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           .filter(e => 
             (e.movement_pattern === "horizontal_pull" || e.movement_pattern === "vertical_pull") &&
             !usedInBlock.has(e.id) &&
-            isEligible(e, input)
+            isEligible(e, input) &&
+            !EXCLUDED_EXERCISE_SLUGS.has(e.slug)
           )
           .sort((a, b) => 
             score(b, true, input.level, input.primaryTrack) -

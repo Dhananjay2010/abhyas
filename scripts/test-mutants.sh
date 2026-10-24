@@ -353,12 +353,83 @@ cp /tmp/exclusions.ts.backup "$EXCLUSIONS_FILE"
 cp /tmp/generate.ts.backup "$GENERATE_FILE"
 echo ""
 
+echo "15. Mutation: Remove Strategy 3 accessory exclusion filter"
+cp "$ALTERNATIVES_FILE" /tmp/alternatives.ts.backup
+cp "$EXCLUSIONS_FILE" /tmp/exclusions.ts.backup
+cp "$GENERATE_FILE" /tmp/generate.ts.backup
+sed -i '/!EXCLUDED_EXERCISE_SLUGS\.has(e\.slug)/d' "$GENERATE_FILE"
+sed -i 's/isEligible(e, input) &&$/isEligible(e, input)/' "$GENERATE_FILE"
+verify_mutation "$GENERATE_FILE" "Strategy 3: Add another accessory exercise" "Strategy 3 comment still present"
+total_mutations=$((total_mutations + 1))
+if run_tests "Remove Strategy 3 filter"; then
+  caught_mutations=$((caught_mutations + 1))
+else
+  survived_mutations=$((survived_mutations + 1))
+fi
+cp /tmp/alternatives.ts.backup "$ALTERNATIVES_FILE"
+cp /tmp/exclusions.ts.backup "$EXCLUSIONS_FILE"
+cp /tmp/generate.ts.backup "$GENERATE_FILE"
+echo ""
+
+echo "16. Mutation: Remove bodyweight-pull force-add exclusion check"
+cp "$ALTERNATIVES_FILE" /tmp/alternatives.ts.backup
+cp "$EXCLUSIONS_FILE" /tmp/exclusions.ts.backup
+cp "$GENERATE_FILE" /tmp/generate.ts.backup
+sed -i '/if (EXCLUDED_EXERCISE_SLUGS\.has(e\.slug)) return false;/d' "$GENERATE_FILE"
+verify_mutation "$GENERATE_FILE" "Force-add a bodyweight pull exercise" "BW force-add comment still present"
+total_mutations=$((total_mutations + 1))
+if run_tests "Remove BW force-add filter"; then
+  caught_mutations=$((caught_mutations + 1))
+else
+  survived_mutations=$((survived_mutations + 1))
+fi
+cp /tmp/alternatives.ts.backup "$ALTERNATIVES_FILE"
+cp /tmp/exclusions.ts.backup "$EXCLUSIONS_FILE"
+cp /tmp/generate.ts.backup "$GENERATE_FILE"
+echo ""
+
+echo "17. Mutation: Remove post-pacing bodyweight-pull exclusion filter"
+cp "$ALTERNATIVES_FILE" /tmp/alternatives.ts.backup
+cp "$EXCLUSIONS_FILE" /tmp/exclusions.ts.backup
+cp "$GENERATE_FILE" /tmp/generate.ts.backup
+sed -i '/!EXCLUDED_EXERCISE_SLUGS\.has(e\.slug)/d' "$GENERATE_FILE"
+# Remove one of the && on the isEligible line for post-pacing (this is the second occurrence)
+sed -i '0,/isEligible(e, input) &&$/! s/isEligible(e, input) &&$/isEligible(e, input)/' "$GENERATE_FILE"
+verify_mutation "$GENERATE_FILE" "!usedInBlock.has(e.id)" "post-pacing check still present"
+total_mutations=$((total_mutations + 1))
+if run_tests "Remove post-pacing BW filter"; then
+  caught_mutations=$((caught_mutations + 1))
+else
+  survived_mutations=$((survived_mutations + 1))
+fi
+cp /tmp/alternatives.ts.backup "$ALTERNATIVES_FILE"
+cp /tmp/exclusions.ts.backup "$EXCLUSIONS_FILE"
+cp /tmp/generate.ts.backup "$GENERATE_FILE"
+echo ""
+
+echo "18. Mutation: Remove carry-over exclusion guard"
+cp "$ALTERNATIVES_FILE" /tmp/alternatives.ts.backup
+cp "$EXCLUSIONS_FILE" /tmp/exclusions.ts.backup
+cp "$GENERATE_FILE" /tmp/generate.ts.backup
+sed -i 's/if (match && !EXCLUDED_EXERCISE_SLUGS\.has(match\.slug)) return match;/if (match) return match;/' "$GENERATE_FILE"
+verify_mutation "$GENERATE_FILE" "if (match) return match;" "carry-over guard removed"
+total_mutations=$((total_mutations + 1))
+if run_tests "Remove carry-over guard"; then
+  caught_mutations=$((caught_mutations + 1))
+else
+  survived_mutations=$((survived_mutations + 1))
+fi
+cp /tmp/alternatives.ts.backup "$ALTERNATIVES_FILE"
+cp /tmp/exclusions.ts.backup "$EXCLUSIONS_FILE"
+cp /tmp/generate.ts.backup "$GENERATE_FILE"
+echo ""
+
 # Note: :826 filter in generateProgram is not tested as a separate mutant.
 # KNEE_SAFE_QUAD_EXERCISES has no overlap with EXCLUDED_EXERCISE_SLUGS,
 # so removing that filter alone cannot change any plan output. The filter is kept for
 # defense-in-depth but does not require its own mutant.
 
-echo "15. Mutation: Remove all exclusion filters (pickForSlot and rankAlternatives)"
+echo "19. Mutation: Remove all exclusion filters (pickForSlot and rankAlternatives)"
 cp "$ALTERNATIVES_FILE" /tmp/alternatives.ts.backup
 cp "$EXCLUSIONS_FILE" /tmp/exclusions.ts.backup
 cp "$GENERATE_FILE" /tmp/generate.ts.backup
