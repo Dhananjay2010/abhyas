@@ -106,10 +106,11 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\n1. markSessionDone returns true when status guard matches");
 {
-  const fake = new FakeSupabaseClient() as any;
+  const fake = new FakeSupabaseClient();
   fake.setSession("sess1", "in_progress");
   
-  const deps = buildCloseStaleDeps(fake);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deps = buildCloseStaleDeps(fake as any);
   const result = await deps.markSessionDone("sess1", "completed", "2026-10-24T10:00:00Z", 3600);
   
   check("updated in_progress session", result === true);
@@ -120,10 +121,11 @@ console.log("\n1. markSessionDone returns true when status guard matches");
 
 console.log("\n2. markSessionDone returns false when status guard blocks (race condition)");
 {
-  const fake = new FakeSupabaseClient() as any;
+  const fake = new FakeSupabaseClient();
   fake.setSession("race", "completed");
   
-  const deps = buildCloseStaleDeps(fake);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deps = buildCloseStaleDeps(fake as any);
   const result = await deps.markSessionDone("race", "completed", "2026-10-24T10:00:00Z", 3600);
   
   check("did not update completed session", result === false);
@@ -132,9 +134,10 @@ console.log("\n2. markSessionDone returns false when status guard blocks (race c
 
 console.log("\n3. markSessionDone returns false for non-existent session");
 {
-  const fake = new FakeSupabaseClient() as any;
+  const fake = new FakeSupabaseClient();
   
-  const deps = buildCloseStaleDeps(fake);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deps = buildCloseStaleDeps(fake as any);
   const result = await deps.markSessionDone("missing", "completed", "2026-10-24T10:00:00Z", 3600);
   
   check("did not update missing session", result === false);
@@ -142,7 +145,7 @@ console.log("\n3. markSessionDone returns false for non-existent session");
 
 console.log("\n4. fetchSessionExercises calls correct table and columns");
 {
-  const fake = new FakeSupabaseClient() as any;
+  const fake = new FakeSupabaseClient();
   fake.setSessionExercises("sess1", [
     {
       session_id: "sess1",
@@ -152,7 +155,8 @@ console.log("\n4. fetchSessionExercises calls correct table and columns");
     }
   ]);
   
-  const deps = buildCloseStaleDeps(fake);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deps = buildCloseStaleDeps(fake as any);
   const result = await deps.fetchSessionExercises(["sess1"]);
   
   check("fetched session exercises", result.length === 1);
@@ -162,11 +166,12 @@ console.log("\n4. fetchSessionExercises calls correct table and columns");
 
 console.log("\n5. markPlannedSkipped only affects planned sessions");
 {
-  const fake = new FakeSupabaseClient() as any;
+  const fake = new FakeSupabaseClient();
   fake.setSession("planned1", "planned");
   fake.setSession("in_progress1", "in_progress");
   
-  const deps = buildCloseStaleDeps(fake);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deps = buildCloseStaleDeps(fake as any);
   await deps.markPlannedSkipped("planned1");
   
   check("planned session becomes skipped", fake.getSession("planned1")?.status === "skipped");
