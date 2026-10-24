@@ -2567,7 +2567,7 @@ async function testLogSetCore() {
         throw new Error(`Unexpected table: ${table}`);
       }
       return {
-        upsert: async (data: unknown, options: { onConflict: string }) => {
+        upsert: async (data: unknown) => {
           const row = data as {
             session_exercise_id: string;
             set_number: number;
@@ -2652,6 +2652,64 @@ async function testLogSetCore() {
   console.log("✓ logSetCore: idempotent upsert, replay overwrites, exactly one row exists");
 }
 
+// ---- Test logSetCore 23505 handling (c) ----------------------------------
+async function testLogSetCore23505() {
+  const { logSetCore } = await import("../src/lib/session/log-set-core");
+  
+  // Create a fake client that returns 23505 on the second call
+  let callCount = 0;
+  const fakeClient = {
+    from: () => {
+      return {
+        upsert: async () => {
+          callCount++;
+          if (callCount === 2) {
+            // Second call returns 23505 (another process already wrote this)
+            return { 
+              data: null, 
+              error: { 
+                code: '23505', 
+                message: 'duplicate key value violates unique constraint "session_sets_pkey"' 
+              } 
+            };
+          }
+          return { data: null, error: null };
+        },
+      };
+    },
+  } as unknown as Parameters<typeof logSetCore>[0];
+  
+  // First call succeeds
+  const result1 = await logSetCore(fakeClient, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    userId: "user1",
+  });
+  
+  if (!result1.ok) {
+    throw new Error(`First call should succeed: ${result1.error}`);
+  }
+  
+  // Second call gets 23505 - should be treated as success (idempotent)
+  const result2 = await logSetCore(fakeClient, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    userId: "user1",
+  });
+  
+  if (!result2.ok) {
+    throw new Error(`Second call with 23505 should be treated as success (idempotent), got error: ${result2.error}`);
+  }
+  
+  console.log("✓ logSetCore: 23505 treated as success (idempotent replay)");
+}
+
 // ---- Test createOutboxController (a) -------------------------------------
 async function testCreateOutboxController() {
   const { createOutboxController } = await import("../src/lib/session/outbox-controller");
@@ -2716,6 +2774,7 @@ async function main() {
   console.log("Testing offline-safe set logging...\n");
 
   await testLogSetCore();
+  await testLogSetCore23505();
   await testCreateOutboxController();
   await testQueueAndFlush();
   await testClientSideDedup();
