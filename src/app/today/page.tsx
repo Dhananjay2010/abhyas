@@ -14,13 +14,10 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { isMissedTrainingDay } from "@/lib/today/missed-day";
 import { WelcomeCard } from "@/components/welcome-card";
 import { shouldShowWelcome } from "@/lib/today/welcome";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
-import { decideTodayPrompt } from "@/lib/today/prompt-state";
-import { isTodayAnswered } from "@/lib/today/answered";
-import { nextTrainingDay } from "@/lib/today/next-training-day";
+import { buildTodayState } from "@/lib/today/build-state";
 
 export const dynamic = "force-dynamic";
 
@@ -293,7 +290,6 @@ export default async function TodayPage() {
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
   const week = weekInBlock(program.started_on, localToday);
   const isDeload = week === program.deload_week;
-  const isTraining = dayType === "weights" || dayType === "bodyweight";
 
   const strengthDone = todaySessions.some(
     (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type),
@@ -320,52 +316,62 @@ export default async function TodayPage() {
       ? override
       : undefined;
 
-  /*
-    Yesterday was a training day and nothing was completed on it. SPEC section 7
-    asks the same question in that case, about today rather than tomorrow --
-    the point being that a missed day should prompt a decision rather than
-    quietly becoming a hole in the week.
+  // Check if user has started any strength or yoga session (for welcome card and first-day logic)
+  const hasStartedAnyRes = await supabase
+    .from("sessions")
+    .select("id", { count: "exact", head: true })
+    .not("started_at", "is", null)
+    .in("actual_type", ["weights", "bodyweight", "yoga"])
+    .limit(1);
+  const hasStartedAny = (hasStartedAnyRes.count ?? 0) > 0;
 
-    Now uses the pure function that checks against program started_on and
-    onboarding completion date to prevent "missed yesterday" on day 1.
-  */
+  // Use pure state builder to derive all prompt logic
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
   
-  const missedYesterday = isMissedTrainingDay({
-    date: yesterday,
-    programStartedOn: program.started_on,
-    profileCreatedAt: profile.created_at,
+  const todayState = buildTodayState({
+    profile: {
+      created_at: profile.created_at,
+      timezone: profile.timezone,
+    },
+    program: {
+      id: program.id,
+      started_on: program.started_on,
+    },
+    days: days ?? [],
+    sessions: {
+      today: todaySessions.map((s) => ({
+        status: s.status,
+        actual_type: s.actual_type,
+        program_id: s.program_id,
+        started_at: s.started_at,
+      })),
+      yesterday: yesterdaySessions.map((s) => ({
+        status: s.status,
+        actual_type: s.actual_type,
+        program_id: s.program_id,
+      })),
+    },
     timezone,
-    templateDayType: yesterdayDay?.day_type ?? null,
-    programId: program.id,
-    sessions: yesterdaySessions.map((s) => ({
-      actual_type: s.actual_type,
-      status: s.status,
-      program_id: s.program_id,
-    })),
+    localToday,
+    yesterday,
+    dayType,
+    strengthDone,
+    strengthOpen: !!strengthOpen,
+    hasStartedSession: hasStartedAny,
   });
-  
-  // Check if today has been answered (any choice made for today in this program)
-  const answeredToday = isTodayAnswered(
-    todaySessions.map((s) => ({
-      status: s.status,
-      actual_type: s.actual_type,
-      program_id: s.program_id,
-    })),
-    program.id
-  );
+
+  const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
 
   // ---- wave 3 -------------------------------------------------------------
   // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
   // The prompt offers "Swap the day", which needs the strength/bodyweight options.
   // The session's own exercises are loaded only when a workout has been started.
-  // Also check if user has ever started a session (for welcome card visibility).
   const needsPlannableDays = 
     (dayType === "rest" || missedYesterday) && !strengthDone && !strengthOpen;
   
-  const [plannable, performedRows, hasStartedSession] = await Promise.all([
+  const [plannable, performedRows] = await Promise.all([
     needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
     performed
       ? supabase
@@ -377,30 +383,7 @@ export default async function TodayPage() {
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
-    // Check if user has started any strength or yoga session (for welcome card)
-    // Breathing doesn't count as "starting training"
-    supabase
-      .from("sessions")
-      .select("id", { count: "exact", head: true })
-      .not("started_at", "is", null)
-      .in("actual_type", ["weights", "bodyweight", "yoga"])
-      .limit(1)
-      .then((res) => (res.count ?? 0) > 0),
   ]);
-
-  // Decide which prompt(s) to show
-  const promptType = decideTodayPrompt({
-    missedYesterday,
-    dayType,
-    answeredToday,
-    strengthDone,
-    strengthOpen: !!strengthOpen,
-  });
-
-  // For first-day rest day: find the next training day
-  const nextTraining = !hasStartedSession && dayType === "rest"
-    ? nextTrainingDay(days ?? [], localToday)
-    : null;
 
   /*
     One shape for the list, whichever source it came from, so the markup below
@@ -421,7 +404,7 @@ export default async function TodayPage() {
     swappedIn: boolean;
   };
 
-  const template = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
+  const template = (todayState.isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
     order_index: number;
     target_sets: number | null;
     target_reps_min: number | null;
@@ -559,7 +542,7 @@ export default async function TodayPage() {
       )}
 
       {/* Welcome card - shown once after onboarding, before first session */}
-      {shouldShowWelcome(hasStartedSession, hasDismissedWelcome) && (
+      {shouldShowWelcome(hasStartedAny, hasDismissedWelcome) && (
         <WelcomeCard
           blockNumber={program.block_number}
           daysPerWeek={days?.filter((d) => ownsPlannedWorkout(d.day_type)).length ?? 0}
@@ -578,8 +561,8 @@ export default async function TodayPage() {
         />
       )}
 
-      {/* Missed-yesterday prompt */}
-      {(promptType === "missed" || promptType === "both") && (
+      {/* Missed-yesterday prompt (not on a rest day) */}
+      {promptType === "missed" && (
         <DayPlanPrompt
           localDate={localToday}
           dayLabel="Today"
@@ -593,10 +576,50 @@ export default async function TodayPage() {
         />
       )}
 
-      {/* Rest day content */}
-      {(promptType === "rest_plan" || promptType === "both") && (
+      {/* Rest day with missed yesterday: unified prompt */}
+      {promptType === "both" && (
         <>
-          {!hasStartedSession && nextTraining ? (
+          <p className="mt-6 text-muted">
+            Rest is part of the training. Your body builds strength while recovering.
+          </p>
+          <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
+            <h3 className="font-semibold">Active recovery</h3>
+            <p className="mt-1 text-sm text-muted">
+              Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
+            </p>
+            <div className="mt-4 flex gap-3">
+              <Link
+                href="/yoga"
+                className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+              >
+                Yoga
+              </Link>
+              <Link
+                href="/breathe"
+                className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+              >
+                Breathe
+              </Link>
+            </div>
+          </div>
+          <DayPlanPrompt
+            localDate={localToday}
+            dayLabel="Today"
+            plannedLabel="Rest"
+            days={plannable}
+            heading={`You missed yesterday: ${labelForDayType(
+              yesterdayDay?.day_type ?? "rest",
+              yesterdayDay?.label ?? null,
+            )} did not happen. Today is Rest.`}
+            isRestDay={true}
+          />
+        </>
+      )}
+
+      {/* Rest day content (without missed yesterday) */}
+      {promptType === "rest_plan" && (
+        <>
+          {!hasStartedAny && nextTraining ? (
             // First day on a rest day: show next training day
             <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
               <h3 className="font-semibold">Your first session is {nextTraining.dayName}</h3>

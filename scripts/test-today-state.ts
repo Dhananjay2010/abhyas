@@ -11,10 +11,11 @@
 
 import { isMissedTrainingDay } from "../src/lib/today/missed-day";
 import { decideTodayPrompt } from "../src/lib/today/prompt-state";
-import { isTodayAnswered, type TodaySession } from "../src/lib/today/answered";
+import { isTodayAnswered } from "../src/lib/today/answered";
 import { nextTrainingDay } from "../src/lib/today/next-training-day";
 import { isoWeekday } from "../src/lib/dates";
 import type { Database } from "../src/lib/database.types";
+import { buildTodayState } from "../src/lib/today/build-state";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
@@ -441,11 +442,13 @@ console.log("\n=== Test 11: nextTrainingDay helper ===\n");
 const days3 = Object.entries(TEMPLATE_3DAY).map(([idx, type]) => ({
   day_index: Number(idx),
   day_type: type,
+  label: null,
 }));
 
 const days4 = Object.entries(TEMPLATE_4DAY).map(([idx, type]) => ({
   day_index: Number(idx),
   day_type: type,
+  label: null,
 }));
 
 // Signup on Saturday 2026-10-24 → Monday 2026-10-26
@@ -474,6 +477,133 @@ const nextFromSat4 = nextTrainingDay(days4, "2026-10-24");
 assert(
   nextFromSat4?.dayName === "Monday" && nextFromSat4?.dayIndex === 1,
   "4-day plan: Signup on Saturday 2026-10-24 gives Monday"
+);
+
+console.log("\n=== Test 12: buildTodayState pure function ===\n");
+
+// Test that buildTodayState correctly derives all state
+const buildStateResult = buildTodayState({
+  profile: {
+    created_at: "2026-10-20T10:00:00Z",
+    timezone: "UTC",
+  },
+  program: {
+    id: TEST_PROGRAM_ID,
+    started_on: "2026-10-20",
+  },
+  days: days3,
+  sessions: {
+    today: [],
+    yesterday: [],
+  },
+  timezone: "UTC",
+  localToday: "2026-10-23", // Fri (training day)
+  yesterday: "2026-10-22", // Thu (rest day)
+  dayType: "weights",
+  strengthDone: false,
+  strengthOpen: false,
+  hasStartedSession: false,
+});
+
+assert(
+  buildStateResult.promptType === "none",
+  "buildTodayState: training day with no missed yesterday returns 'none'"
+);
+assert(
+  !buildStateResult.missedYesterday,
+  "buildTodayState: rest day yesterday not missed"
+);
+assert(
+  buildStateResult.isTraining,
+  "buildTodayState: correctly identifies training day"
+);
+
+// Test that page.tsx mutations would be caught
+// Mutation 1: page.tsx setting answeredToday = false
+const mutationTest1 = buildTodayState({
+  profile: {
+    created_at: "2026-10-20T10:00:00Z",
+    timezone: "UTC",
+  },
+  program: {
+    id: TEST_PROGRAM_ID,
+    started_on: "2026-10-20",
+  },
+  days: days3,
+  sessions: {
+    today: [{ status: "planned", actual_type: "rest", program_id: TEST_PROGRAM_ID, started_at: null }],
+    yesterday: [],
+  },
+  timezone: "UTC",
+  localToday: "2026-10-23",
+  yesterday: "2026-10-22",
+  dayType: "weights",
+  strengthDone: false,
+  strengthOpen: false,
+  hasStartedSession: false,
+});
+
+assert(
+  mutationTest1.answeredToday,
+  "buildTodayState detects answered=true from sessions (mutation 1 caught)"
+);
+
+console.log("\n=== Test 13: Timezone UTC vs IST boundary ===\n");
+
+// created_at: 2026-10-22T19:00Z (00:30 IST on Fri 10-23)
+// started_on: 2026-10-20
+// date: 2026-10-23 (Fri) with weights template
+// timezone: Asia/Kolkata
+// This MUST NOT be missed (slicing UTC date would incorrectly mark it missed)
+const timezoneResult = isMissedTrainingDay({
+  date: "2026-10-23", // Fri (training day)
+  programStartedOn: "2026-10-20",
+  profileCreatedAt: "2026-10-22T19:00:00Z", // 00:30 IST on Fri 10-23
+  timezone: "Asia/Kolkata",
+  programId: TEST_PROGRAM_ID,
+  templateDayType: "weights",
+  sessions: [],
+});
+
+assert(
+  !timezoneResult,
+  "Timezone test: created_at 2026-10-22T19:00Z (00:30 IST Fri 10-23) with date 2026-10-23 is NOT missed"
+);
+
+console.log("\n=== Test 14: 'both' state renders single prompt ===\n");
+
+// Test the 'both' state to ensure it returns the correct prompt type
+// 2026-10-24 is Sat (rest day), 2026-10-23 is Fri (training day)
+const bothStateTest = buildTodayState({
+  profile: {
+    created_at: "2026-10-20T10:00:00Z",
+    timezone: "UTC",
+  },
+  program: {
+    id: TEST_PROGRAM_ID,
+    started_on: "2026-10-20",
+  },
+  days: days3,
+  sessions: {
+    today: [],
+    yesterday: [],
+  },
+  timezone: "UTC",
+  localToday: "2026-10-24", // Sat (rest day)
+  yesterday: "2026-10-23", // Fri (training day that was missed)
+  dayType: "rest",
+  strengthDone: false,
+  strengthOpen: false,
+  hasStartedSession: true,
+});
+
+assert(
+  bothStateTest.promptType === "both",
+  "'both' state: rest day with missed training yesterday returns 'both'"
+);
+assert(
+  bothStateTest.missedYesterday,
+  "'both' state: correctly identifies missed yesterday"
 );
 
 console.log("\n==================================================");
