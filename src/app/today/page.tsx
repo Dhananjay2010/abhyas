@@ -21,6 +21,7 @@ import { TodayPrompts } from "@/components/today/today-prompts";
 import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
 import { getWeekRowLabel } from "@/lib/today/week-display";
 import { WarmupSection } from "@/components/today/warmup-section";
+import { findFirstTrainingDay } from "@/lib/today/first-training-day";
 
 export const dynamic = "force-dynamic";
 
@@ -354,12 +355,16 @@ export default async function TodayPage() {
   const todayState = buildTodayState(stateInput);
   const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
 
+  // Find first training day in plan for first-session offer
+  const firstTrainingDay = !hasStartedAny && days ? findFirstTrainingDay(days) : null;
+
   const promptBlocks = todayPromptBlocks({
     promptType,
     missedYesterday,
     hasStartedAny,
     nextTrainingDay: nextTraining,
     isTraining,
+    firstTrainingDay,
   });
 
   // ---- wave 3 -------------------------------------------------------------
@@ -564,6 +569,7 @@ export default async function TodayPage() {
         yesterdayDay={yesterdayDay ? { day_type: yesterdayDay.day_type, label: yesterdayDay.label } : null}
         nextTraining={nextTraining}
         isTraining={isTraining}
+        firstTrainingDay={firstTrainingDay}
       />
 
       {dayType === "yoga" && (

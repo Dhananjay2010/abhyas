@@ -16,6 +16,7 @@ type Props = {
   yesterdayDay: { day_type: DayType; label: string | null } | null;
   nextTraining: { dayName: string; dayIndex: number } | null;
   isTraining: boolean;
+  firstTrainingDay: { dayIndex: number; dayType: DayType; label: string | null; programDayId: string } | null;
 };
 
 export function TodayPrompts({
@@ -27,6 +28,7 @@ export function TodayPrompts({
   yesterdayDay,
   nextTraining,
   isTraining,
+  firstTrainingDay,
 }: Props) {
   return (
     <>
@@ -98,7 +100,24 @@ export function TodayPrompts({
       {/* Rest day content (without missed yesterday) */}
       {promptBlocks.showRestPlan && !promptBlocks.showBothPrompt && (
         <>
-          {promptBlocks.showFirstDayWelcome && nextTraining ? (
+          {promptBlocks.showFirstSessionOffer && firstTrainingDay ? (
+            // NEW: First-session offer for brand-new user on rest day
+            // Show "Your first session is <day 1 label>" with "Start it now" button that starts plan day 1
+            <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
+              <h3 className="font-semibold">
+                Your first session is {firstTrainingDay.label || "Day 1"}
+              </h3>
+              <p className="mt-2 text-sm text-muted">
+                Today is a rest day in your block. Start your first training session now.
+              </p>
+              <Link
+                href={`/session/start?programDayId=${firstTrainingDay.programDayId}&date=${localToday}`}
+                className="mt-4 block rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+              >
+                Start it now
+              </Link>
+            </div>
+          ) : promptBlocks.showFirstDayWelcome && nextTraining ? (
             // First day on a rest day: show next training day
             <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
               <h3 className="font-semibold">Your first session is {nextTraining.dayName}</h3>

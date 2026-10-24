@@ -1,6 +1,8 @@
 /**
  * Pure function to decide which prompt blocks render on Today.
  * Returns which UI blocks to show: missed prompt, Keep/Swap/Rest, first-day welcome, etc.
+ * 
+ * NEW: First-session offer for brand-new users on rest days
  */
 
 import type { TodayPromptType } from "./prompt-state";
@@ -11,6 +13,7 @@ export interface PromptBlocksInput {
   hasStartedAny: boolean;
   nextTrainingDay: { dayName: string; dayIndex: number } | null;
   isTraining: boolean;
+  firstTrainingDay?: { dayIndex: number; label: string | null } | null;
 }
 
 export interface PromptBlocks {
@@ -18,15 +21,30 @@ export interface PromptBlocks {
   showRestPlan: boolean;
   showBothPrompt: boolean;
   showFirstDayWelcome: boolean;
+  showFirstSessionOffer: boolean;
 }
 
 export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
-  const { promptType, hasStartedAny, nextTrainingDay, isTraining } = input;
+  const { promptType, hasStartedAny, nextTrainingDay, isTraining, firstTrainingDay } = input;
 
   const neverStarted = !hasStartedAny;
 
   // Day-one guard: hide all prompts except first-day welcome for never-started users
   if (neverStarted) {
+    // NEW: First-session offer on rest day: show "Your first session is <day 1>" with "Start it now"
+    const showFirstSessionOffer = !isTraining && !!firstTrainingDay;
+    
+    // First day on a rest day with first training day available
+    if (showFirstSessionOffer) {
+      return {
+        showMissedPrompt: false,
+        showRestPlan: true,
+        showBothPrompt: false,
+        showFirstDayWelcome: true,
+        showFirstSessionOffer: true,
+      };
+    }
+    
     // First day on any day (rest or training): show welcome + "Start first session now" button
     if (nextTrainingDay) {
       return {
@@ -34,6 +52,7 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
         showRestPlan: true,
         showBothPrompt: false,
         showFirstDayWelcome: true,
+        showFirstSessionOffer: false,
       };
     }
 
@@ -44,6 +63,7 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
         showRestPlan: false,
         showBothPrompt: false,
         showFirstDayWelcome: true,
+        showFirstSessionOffer: false,
       };
     }
 
@@ -53,6 +73,7 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
       showRestPlan: false,
       showBothPrompt: false,
       showFirstDayWelcome: false,
+      showFirstSessionOffer: false,
     };
   }
 
@@ -63,6 +84,7 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
       showRestPlan: true,
       showBothPrompt: true,
       showFirstDayWelcome: false,
+      showFirstSessionOffer: false,
     };
   }
 
@@ -73,6 +95,7 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
       showRestPlan: false,
       showBothPrompt: false,
       showFirstDayWelcome: false,
+      showFirstSessionOffer: false,
     };
   }
 
@@ -83,6 +106,7 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
       showRestPlan: true,
       showBothPrompt: false,
       showFirstDayWelcome: false,
+      showFirstSessionOffer: false,
     };
   }
 
@@ -92,5 +116,6 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
     showRestPlan: false,
     showBothPrompt: false,
     showFirstDayWelcome: false,
+    showFirstSessionOffer: false,
   };
 }
