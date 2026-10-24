@@ -29,7 +29,7 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
-import { Outbox, createLocalStorage, type OutboxSender } from "@/lib/session/outbox";
+import { Outbox, createLocalStorage, mergePendingSets, type OutboxSender } from "@/lib/session/outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -134,7 +134,21 @@ export function SessionRunner({
   const router = useRouter();
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
-  const [exercises, setExercises] = useState(initialExercises);
+  
+  // Merge pending sets from outbox before initializing exercises
+  const [exercises, setExercises] = useState(() => {
+    try {
+      const storage = createLocalStorage(`outbox:${sessionId}`);
+      const state = storage.get();
+      if (state && state.pending.length > 0) {
+        return mergePendingSets(initialExercises, state.pending);
+      }
+    } catch {
+      // Storage unavailable, continue without merge
+    }
+    return initialExercises;
+  });
+  
   const [error, setError] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [progressNotes, setProgressNotes] = useState<
@@ -269,12 +283,28 @@ export function SessionRunner({
     setSyncStatus("Syncing...");
     const result = await outbox.flush();
 
-    if (result.sent > 0) {
-      // Sets successfully synced
+    if (result.sentClientIds.length > 0) {
+      // Clear pending flag on successfully synced sets
+      setExercises((prev) =>
+        prev.map((e) => ({
+          ...e,
+          sets: e.sets.map((s) => {
+            const pending = (s as unknown as { pending?: boolean; clientId?: string }).pending;
+            if (!pending) return s;
+            // Remove pending flag (set is now saved)
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { pending: _removed, ...rest } = s as unknown as { pending: boolean };
+            return rest as typeof s;
+          }),
+        })),
+      );
+    }
+
+    if (outbox.pendingCount() === 0) {
+      // All sets synced
       setSyncStatus(null);
     } else if (result.stopped) {
       setSyncStatus("Sync failed, will retry");
-      setTimeout(() => setSyncStatus(null), 3000);
     } else {
       setSyncStatus(null);
     }
@@ -291,22 +321,24 @@ export function SessionRunner({
             reps: set.reps,
             weightKg: set.weightKg,
             durationSeconds: set.durationSeconds,
-            clientId: set.clientId,
           });
           if (result.ok) {
             return { ok: true };
           }
-          // Validation errors are permanent (4xx-like)
-          const isPermanent = result.error?.includes("Invalid") || 
-                             result.error?.includes("must be") ||
-                             result.error?.includes("required");
+          // Structured error code: only 'invalid' is permanent
+          const isPermanent: boolean = 
+            "data" in result && 
+            result.data != null && 
+            typeof result.data === "object" && 
+            "code" in result.data && 
+            result.data.code === "invalid";
           return {
             ok: false,
             permanent: isPermanent,
             error: result.error ?? "Failed to save set",
           };
         } catch (err) {
-          // Network errors are transient
+          // Network errors or thrown errors are transient
           return {
             ok: false,
             permanent: false,
@@ -366,6 +398,7 @@ export function SessionRunner({
         wakeLock={wakeLock}
         error={error}
         syncStatus={syncStatus}
+        onRetrySync={flushOutbox}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
@@ -431,6 +464,7 @@ export function SessionRunner({
         wakeLock={wakeLock}
         error={error}
         syncStatus={syncStatus}
+        onRetrySync={flushOutbox}
       >
         <p className="text-muted">
           Ease down and stretch what you trained. Hold each for about 30 seconds,
@@ -495,6 +529,7 @@ export function SessionRunner({
         wakeLock={wakeLock}
         error={error}
         syncStatus={syncStatus}
+        onRetrySync={flushOutbox}
         confirmExit={false}
       >
         <div className="space-y-3">
@@ -598,6 +633,7 @@ export function SessionRunner({
         wakeLock={wakeLock}
         error={error}
         syncStatus={syncStatus}
+        onRetrySync={flushOutbox}
       >
         <p className="text-muted">
           This session has no exercises. That usually means the plan could not
@@ -657,19 +693,17 @@ export function SessionRunner({
     if (!outbox) return;
 
     // Try to save immediately
-    const clientId = Outbox.generateClientId();
-    const ok = await run(() =>
+    const result = await run(() =>
       actions.logSet({
         sessionExerciseId: current.id,
         setNumber: nextSetNumber,
         reps,
         weightKg,
         durationSeconds,
-        clientId,
       }),
     );
 
-    if (ok) {
+    if (result) {
       // Saved immediately - add to local state as completed
       setExercises((prev) =>
         prev.map((e) =>
@@ -684,8 +718,33 @@ export function SessionRunner({
       if (settings.restAutostart && nextSetNumber < current.plannedSets) {
         startRest(restSeconds);
       }
-    } else {
-      // Failed - queue for later and show as pending
+      return;
+    }
+
+    // Failed - check if it was a validation error
+    const lastResult = await actions.logSet({
+      sessionExerciseId: current.id,
+      setNumber: nextSetNumber,
+      reps,
+      weightKg,
+      durationSeconds,
+    });
+
+    if (
+      !lastResult.ok && 
+      "data" in lastResult && 
+      lastResult.data && 
+      typeof lastResult.data === "object" && 
+      "code" in lastResult.data && 
+      lastResult.data.code === "invalid"
+    ) {
+      // Validation error: show error, don't queue
+      setError(lastResult.error ?? "Invalid set data");
+      return;
+    }
+
+    // Network or other transient error: queue for later
+    try {
       outbox.enqueue({
         sessionExerciseId: current.id,
         setNumber: nextSetNumber,
@@ -706,7 +765,6 @@ export function SessionRunner({
                     reps,
                     weightKg,
                     durationSeconds,
-                    // Mark as pending in an extensible way (for rendering)
                     pending: true,
                   } as LoggedSet & { pending?: boolean },
                 ],
@@ -715,13 +773,17 @@ export function SessionRunner({
         ),
       );
 
-      // Show offline status - accessible via role=status
+      // Clear any previous error and show offline status
+      setError(null);
       setSyncStatus("Saved offline, will sync when online");
-      setTimeout(() => {
-        if (outbox.pendingCount() > 0) setSyncStatus(null);
-      }, 3000);
-
       // Don't start rest timer for a pending set - it's not durably saved yet
+    } catch (err) {
+      if (err instanceof Error && err.message === "QUOTA_EXCEEDED") {
+        // Quota exceeded: show clear error, keep values
+        setError("Couldn't save offline. Keep this screen open and retry.");
+      } else {
+        setError("Failed to save set. Please try again.");
+      }
     }
   }
 
@@ -743,10 +805,13 @@ export function SessionRunner({
     // Block finishing while sets are pending sync
     const outbox = outboxRef.current;
     if (outbox && outbox.pendingCount() > 0) {
+      const count = outbox.pendingCount();
       setError(
-        `${outbox.pendingCount()} set${outbox.pendingCount() > 1 ? "s" : ""} still syncing. ` +
+        `${count} set${count > 1 ? "s" : ""} still syncing. ` +
         "Wait for sync to complete, or check your connection.",
       );
+      // Trigger manual retry
+      void flushOutbox();
       return;
     }
 
@@ -812,6 +877,7 @@ export function SessionRunner({
       wakeLock={wakeLock}
       error={error}
       syncStatus={syncStatus}
+      onRetrySync={flushOutbox}
     >
       <div onPointerDown={onAnyTap}>
         {bannerFor === exerciseIndex && progressNotes.length > 0 && (
@@ -1317,6 +1383,7 @@ function Shell({
   wakeLock,
   error,
   syncStatus,
+  onRetrySync,
   confirmExit = true,
   children,
 }: {
@@ -1327,6 +1394,7 @@ function Shell({
   wakeLock: { active: boolean };
   error: string | null;
   syncStatus?: string | null;
+  onRetrySync?: () => void;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
   children: React.ReactNode;
@@ -1399,12 +1467,26 @@ function Shell({
       )}
 
       {syncStatus && (
-        <p
+        <div
           role="status"
           className="mt-4 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent"
         >
-          {syncStatus}
-        </p>
+          <div className="flex items-center justify-between gap-3">
+            <span>{syncStatus}</span>
+            {syncStatus.includes("Sync failed") || syncStatus.includes("Saved offline") ? (
+              <button
+                onClick={() => {
+                  if (typeof onRetrySync === "function") {
+                    onRetrySync();
+                  }
+                }}
+                className="text-xs underline underline-offset-2"
+              >
+                Retry now
+              </button>
+            ) : null}
+          </div>
+        </div>
       )}
 
       <div className="mt-8">{children}</div>

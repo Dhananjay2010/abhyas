@@ -3,14 +3,15 @@
  *
  * When a set save fails or the device is offline, the set is queued locally
  * with a client-generated idempotency key. On reconnect, queued sets are
- * retried in order, and the server deduplicates using the idempotency key.
+ * retried in order. The existing upsert onConflict is idempotent: replaying
+ * the same exercise+setNumber overwrites with identical values.
  *
  * Testable: storage and sender are injected, so tests can run against fake
  * implementations without touching localStorage or the network.
  */
 
 export type QueuedSet = {
-  clientId: string; // UUID, generated once per set
+  clientId: string; // UUID, client-side only (not sent to server)
   sessionExerciseId: string;
   setNumber: number;
   reps: number | null;
@@ -30,7 +31,50 @@ export type OutboxState = {
 };
 
 /**
- * Result of a send attempt: success, permanent error (4xx), or transient error.
+ * Merge pending sets from the outbox into exercises.
+ *
+ * After a reload, exercises come from the server without pending sets,
+ * so nextSetNumber would reuse a queued set's number. This merges
+ * pending sets back into the exercises array before computing nextSetNumber.
+ *
+ * Pure function for testability.
+ */
+export function mergePendingSets<
+  T extends {
+    id: string;
+    sets: Array<{ setNumber: number; pending?: boolean }>;
+  },
+>(exercises: T[], pending: QueuedSet[]): T[] {
+  if (pending.length === 0) return exercises;
+
+  return exercises.map((ex) => {
+    const pendingForExercise = pending.filter((p) => p.sessionExerciseId === ex.id);
+    if (pendingForExercise.length === 0) return ex;
+
+    const merged = [...ex.sets];
+    for (const p of pendingForExercise) {
+      // Check if this set number is already in the list (including pending)
+      const existing = merged.find((s) => s.setNumber === p.setNumber);
+      if (!existing) {
+        merged.push({
+          setNumber: p.setNumber,
+          reps: p.reps,
+          weightKg: p.weightKg,
+          durationSeconds: p.durationSeconds,
+          pending: true,
+        } as T["sets"][number]);
+      }
+    }
+
+    // Sort by set number
+    merged.sort((a, b) => a.setNumber - b.setNumber);
+
+    return { ...ex, sets: merged };
+  });
+}
+
+/**
+ * Result of a send attempt: success, permanent error (validation), or transient error.
  */
 export type SendResult =
   | { ok: true }
@@ -49,7 +93,7 @@ export interface OutboxStorage {
  * Sender interface - the actual network call, injectable for testing.
  */
 export interface OutboxSender {
-  send(set: QueuedSet): Promise<SendResult>;
+  send(set: Omit<QueuedSet, "clientId" | "queuedAt" | "retries">): Promise<SendResult>;
 }
 
 /**
@@ -71,15 +115,13 @@ export function createLocalStorage(key: string): OutboxStorage {
       if (typeof window === "undefined") return;
       try {
         localStorage.setItem(key, JSON.stringify(state));
-      } catch {
-        // Storage quota exceeded - drop oldest pending sets
-        const pruned = { ...state, pending: state.pending.slice(-10) };
-        try {
-          localStorage.setItem(key, JSON.stringify(pruned));
-        } catch {
-          // Still failing - clear the outbox entirely
-          localStorage.removeItem(key);
+      } catch (err) {
+        // Quota exceeded: DON'T delete data. Keep the state in memory
+        // and surface the error to the user.
+        if (err instanceof Error && err.name === "QuotaExceededError") {
+          throw new Error("QUOTA_EXCEEDED");
         }
+        throw err;
       }
     },
   };
@@ -89,13 +131,15 @@ export function createLocalStorage(key: string): OutboxStorage {
  * The outbox: queue, flush, and query pending sets.
  */
 export class Outbox {
+  private flushInFlight = false;
+
   constructor(
     private storage: OutboxStorage,
     private sender: OutboxSender,
   ) {}
 
   /**
-   * Generate a client UUID for a new set.
+   * Generate a client UUID for a new set (client-side dedup only).
    */
   static generateClientId(): string {
     // crypto.randomUUID() is available in modern browsers and Node 19+
@@ -114,6 +158,16 @@ export class Outbox {
    * Queue a set for later delivery.
    */
   enqueue(set: Omit<QueuedSet, "clientId" | "queuedAt" | "retries">): string {
+    const state = this.storage.get() ?? { pending: [], failed: [] };
+
+    // Client-side dedup: check if this exercise+setNumber is already queued
+    const existing = state.pending.find(
+      (s) => s.sessionExerciseId === set.sessionExerciseId && s.setNumber === set.setNumber,
+    );
+    if (existing) {
+      return existing.clientId; // Already queued, return existing clientId
+    }
+
     const clientId = Outbox.generateClientId();
     const queued: QueuedSet = {
       ...set,
@@ -122,9 +176,16 @@ export class Outbox {
       retries: 0,
     };
 
-    const state = this.storage.get() ?? { pending: [], failed: [] };
     state.pending.push(queued);
-    this.storage.set(state);
+    try {
+      this.storage.set(state);
+    } catch (err) {
+      if (err instanceof Error && err.message === "QUOTA_EXCEEDED") {
+        // Rethrow so caller can handle
+        throw err;
+      }
+      throw err;
+    }
 
     return clientId;
   }
@@ -166,45 +227,63 @@ export class Outbox {
   /**
    * Flush the outbox: send all pending sets in order.
    *
-   * Returns the number of sets successfully sent. Stops on the first transient
-   * error (preserving order), but skips permanently failed sets (moving them to
-   * the failed list).
+   * Returns the clientIds of successfully sent sets and whether flush stopped early.
+   * Stops on the first transient error (preserving order), but skips permanently
+   * failed sets (moving them to the failed list).
+   *
+   * Guarded against concurrent calls: only one flush runs at a time.
    */
-  async flush(): Promise<{ sent: number; stopped: boolean }> {
-    const state = this.storage.get();
-    if (!state || state.pending.length === 0) {
-      return { sent: 0, stopped: false };
+  async flush(): Promise<{ sentClientIds: string[]; stopped: boolean }> {
+    // Concurrency guard: if a flush is already in flight, return immediately
+    if (this.flushInFlight) {
+      return { sentClientIds: [], stopped: false };
     }
 
-    let sent = 0;
-    const stillPending: QueuedSet[] = [];
-
-    for (const set of state.pending) {
-      const result = await this.sender.send(set);
-
-      if (result.ok) {
-        sent++;
-        // Successfully sent - don't re-queue
-      } else if (result.permanent) {
-        // Permanent error (4xx validation) - move to failed list, don't retry
-        state.failed.push({
-          set,
-          error: result.error,
-          failedAt: Date.now(),
-        });
-      } else {
-        // Transient error (network, 5xx) - stop here, keep this and all
-        // remaining sets in the queue (preserving order)
-        stillPending.push({ ...set, retries: set.retries + 1 });
-        stillPending.push(...state.pending.slice(state.pending.indexOf(set) + 1));
-        this.storage.set({ ...state, pending: stillPending });
-        return { sent, stopped: true };
+    this.flushInFlight = true;
+    try {
+      const state = this.storage.get();
+      if (!state || state.pending.length === 0) {
+        return { sentClientIds: [], stopped: false };
       }
-    }
 
-    // All sets processed (either sent or moved to failed)
-    this.storage.set({ ...state, pending: stillPending });
-    return { sent, stopped: false };
+      const sentClientIds: string[] = [];
+      const stillPending: QueuedSet[] = [];
+
+      for (const set of state.pending) {
+        const result = await this.sender.send({
+          sessionExerciseId: set.sessionExerciseId,
+          setNumber: set.setNumber,
+          reps: set.reps,
+          weightKg: set.weightKg,
+          durationSeconds: set.durationSeconds,
+        });
+
+        if (result.ok) {
+          sentClientIds.push(set.clientId);
+          // Successfully sent - don't re-queue
+        } else if (result.permanent) {
+          // Permanent error (validation) - move to failed list, don't retry
+          state.failed.push({
+            set,
+            error: result.error,
+            failedAt: Date.now(),
+          });
+        } else {
+          // Transient error (network, 5xx) - stop here, keep this and all
+          // remaining sets in the queue (preserving order)
+          stillPending.push({ ...set, retries: set.retries + 1 });
+          stillPending.push(...state.pending.slice(state.pending.indexOf(set) + 1));
+          this.storage.set({ ...state, pending: stillPending });
+          return { sentClientIds, stopped: true };
+        }
+      }
+
+      // All sets processed (either sent or moved to failed)
+      this.storage.set({ ...state, pending: stillPending });
+      return { sentClientIds, stopped: false };
+    } finally {
+      this.flushInFlight = false;
+    }
   }
 
   /**

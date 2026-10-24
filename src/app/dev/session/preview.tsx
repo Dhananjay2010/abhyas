@@ -8,7 +8,7 @@ import {
   type SessionActions,
 } from "@/app/session/[id]/session-runner";
 
-const ok = async () => ({ ok: true }) as const;
+const ok = async () => ({ ok: true, data: {} }) as const;
 
 const STUB: SessionActions = {
   markWarmupDone: ok,

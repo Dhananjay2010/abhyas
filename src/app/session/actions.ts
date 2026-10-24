@@ -275,53 +275,40 @@ export async function logSet(input: {
   weightKg: number | null;
   /** Seconds held, for a `seconds` exercise. Its `reps` stays null. */
   durationSeconds?: number | null;
-  /** Client-generated idempotency key for offline-safe logging. */
-  clientId?: string | null;
-}): Promise<Result> {
+}): Promise<
+  | { ok: true; data: { code?: string } }
+  | { ok: false; error: string; data?: { code?: string } }
+> {
   const rateLimit = await checkActionRateLimit("session");
-  if (rateLimit) return rateLimit;
+  if (rateLimit) {
+    // Rate limit returns ActionResult, extract error
+    return { ok: false, error: "error" in rateLimit ? String(rateLimit.error) : "Rate limit exceeded" };
+  }
   
   const durationSeconds = input.durationSeconds ?? null;
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
-  if (invalid) return { ok: false, error: invalid };
-
-  const { supabase, user } = await requireUser();
-
-  // When a client_id is provided, use it for idempotent deduplication.
-  // The unique index on (user_id, client_id) ensures replays are no-ops.
-  // 
-  // Note: client_id was added by migration 20261024230000_set_client_id.sql
-  // and is not yet in the generated types. Using 'as any' to bypass type checking.
-  const payload: Record<string, unknown> = {
-    session_exercise_id: input.sessionExerciseId,
-    user_id: user.id,
-    set_number: input.setNumber,
-    reps: input.reps,
-    weight_kg: input.weightKg,
-    duration_seconds: durationSeconds,
-    is_warmup_set: false,
-    completed_at: new Date().toISOString(),
-  };
-  if (input.clientId) {
-    payload.client_id = input.clientId;
+  if (invalid) {
+    // Validation error includes code
+    return { ok: false, error: invalid, data: { code: "invalid" } };
   }
 
-  // When client_id is present, prefer it for conflict resolution (client-based
-  // deduplication). Otherwise fall back to the set-number-based conflict
-  // (legacy behavior for non-idempotent calls).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = input.clientId
-    ? await supabase.from("session_sets").insert(payload as any).select().maybeSingle()
-    : await supabase.from("session_sets").upsert(
-        payload as any,
-        { onConflict: "session_exercise_id,set_number,is_warmup_set" },
-      );
-
-  return error
-    ? error.code === "23505" // unique_violation - duplicate client_id
-      ? { ok: true } // Already inserted, idempotency worked
-      : { ok: false, error: error.message }
-    : { ok: true };
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("session_sets").upsert(
+    {
+      session_exercise_id: input.sessionExerciseId,
+      user_id: user.id,
+      set_number: input.setNumber,
+      reps: input.reps,
+      weight_kg: input.weightKg,
+      duration_seconds: durationSeconds,
+      is_warmup_set: false,
+      completed_at: new Date().toISOString(),
+    },
+    { onConflict: "session_exercise_id,set_number,is_warmup_set" },
+  );
+  return error 
+    ? { ok: false, error: error.message } 
+    : { ok: true, data: {} };
 }
 
 export async function deleteSet(
