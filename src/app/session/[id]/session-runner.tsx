@@ -28,6 +28,7 @@ import {
   swapExercise,
   type Alternative,
   type SwapResult,
+  type SetConflictResult,
 } from "../actions";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -139,6 +140,7 @@ export function SessionRunner({
   const beeper = useBeeper(settings.restSound);
   const [exercises, setExercises] = useState(initialExercises);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
@@ -225,6 +227,34 @@ export function SessionRunner({
     setRestRemaining(seconds);
   }, []);
 
+  // Fresh data on resume: refresh when the component mounts or when the page
+  // becomes visible again (visibilitychange) or comes back from bfcache (pageshow)
+  useEffect(() => {
+    // Refresh on mount to ensure we have fresh data
+    router.refresh();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    };
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        // Page was restored from bfcache
+        router.refresh();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [router]);
+
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
 
@@ -302,6 +332,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
@@ -366,6 +397,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
@@ -427,6 +459,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
         confirmExit={false}
       >
         <div className="space-y-3">
@@ -529,6 +562,7 @@ export function SessionRunner({
         onExit={() => (onExit ? onExit() : router.push("/today"))}
         wakeLock={wakeLock}
         error={error}
+        message={message}
       >
         <p className="text-muted">
           This session has no exercises. That usually means the plan could not
@@ -584,28 +618,62 @@ export function SessionRunner({
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
-    const ok = await run(() =>
-      actions.logSet({
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const result = await actions.logSet({
         sessionExerciseId: current.id,
         setNumber: nextSetNumber,
         reps,
         weightKg,
         durationSeconds,
-      }),
-    );
-    if (!ok) return;
-    setExercises((prev) =>
-      prev.map((e) =>
-        e.id === current.id
-          ? {
-              ...e,
-              sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
-            }
-          : e,
-      ),
-    );
-    if (settings.restAutostart && nextSetNumber < current.plannedSets) {
-      startRest(restSeconds);
+      });
+
+      if (!result.ok) {
+        if ("reason" in result && result.reason === "set_exists") {
+          setExercises((prev) =>
+            prev.map((e) =>
+              e.id === current.id
+                ? { ...e, sets: result.savedSets }
+                : e,
+            ),
+          );
+          const nextUnfinishedIndex = exercises.findIndex(
+            (e, i) => i >= exerciseIndex && e.status === "pending" && e.sets.length < e.plannedSets,
+          );
+          if (nextUnfinishedIndex !== -1 && nextUnfinishedIndex !== exerciseIndex) {
+            setExerciseIndex(nextUnfinishedIndex);
+          }
+          setMessage("That set was already saved. Showing your latest sets.");
+          setError(null);
+          return;
+        }
+        setError("error" in result ? (result.error ?? "Something went wrong") : "Failed");
+        return;
+      }
+
+      setError(null);
+      setMessage(null);
+      setExercises((prev) =>
+        prev.map((e) =>
+          e.id === current.id
+            ? {
+                ...e,
+                sets: [...e.sets, { setNumber: nextSetNumber, reps, weightKg, durationSeconds }],
+              }
+            : e,
+        ),
+      );
+      if (settings.restAutostart && nextSetNumber < current.plannedSets) {
+        startRest(restSeconds);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Network error. Check your connection.";
+      setError(errorMessage);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   }
 
@@ -685,6 +753,7 @@ export function SessionRunner({
       onExit={() => (onExit ? onExit() : router.push("/today"))}
       wakeLock={wakeLock}
       error={error}
+        message={message}
     >
       <div onPointerDown={onAnyTap}>
         {bannerFor === exerciseIndex && progressNotes.length > 0 && (
