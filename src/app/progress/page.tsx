@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
 import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
+import { buildStrengthCharts } from "@/lib/progress/strength-charts";
 import { localDateString } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
 import { LogWeight } from "./log-weight";
@@ -124,21 +125,12 @@ export default async function ProgressPage() {
     .map((v) => ({ label: shortDate(v.local_date), value: Number(v.volume_kg) }));
 
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
-  // phone, and each lift is its own question anyway.
-  const byExercise = new Map<string, { name: string; points: Point[] }>();
-  for (const row of strengthRes.data ?? []) {
-    if (!row.exercise_id || !row.local_date || row.best_e1rm === null) continue;
-    const entry = byExercise.get(row.exercise_id) ?? {
-      name: row.exercise_name ?? "Exercise",
-      points: [] as Point[],
-    };
-    entry.points.push({ label: shortDate(row.local_date), value: Number(row.best_e1rm) });
-    byExercise.set(row.exercise_id, entry);
-  }
-  const strengthCharts = [...byExercise.values()]
-    .filter((e) => e.points.length >= 2)
-    .sort((a, b) => b.points.length - a.points.length)
-    .slice(0, 6);
+  // phone, and each lift is its own question anyway. Reverse data since it was
+  // fetched newest-first.
+  const strengthCharts = buildStrengthCharts(
+    [...(strengthRes.data ?? [])].reverse(),
+    shortDate
+  ).slice(0, 6);
 
   const totalVolume = volumeRows.reduce((n, v) => n + Number(v.volume_kg), 0);
   const hasAnything = weights.length > 0 || volumeRows.length > 0;
