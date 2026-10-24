@@ -12,7 +12,7 @@ import {
   accessibleTextColor,
   meetsWCAG_AA,
 } from "../src/lib/contrast";
-import { branding } from "../src/lib/branding";
+import { branding, getAllBrands } from "../src/lib/branding";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -186,51 +186,70 @@ function testBrandColorCompliance() {
 function testAllBrandsContrastRequirements() {
   console.log("\n▶ Testing all brands meet contrast requirements...");
 
-  // Test the current active brand
-  const bg = branding.colors.bg;
-  const surface = branding.colors.surface;
-  const surface2 = branding.colors.surface2;
-  const border = branding.colors.border;
-  const muted = branding.colors.muted;
-
-  // Border requirements: at least 3:1 against bg, surface, and surface-2
-  const borderVsBg = contrastRatio(border, bg);
-  const borderVsSurface = contrastRatio(border, surface);
-  const borderVsSurface2 = contrastRatio(border, surface2);
+  // Test every brand, not just the active one
+  const allBrands = getAllBrands();
 
   assert(
-    borderVsBg >= 3.0,
-    `Brand ${branding.id}: border vs bg must be >= 3:1 (got ${borderVsBg.toFixed(2)}:1)`
-  );
-  assert(
-    borderVsSurface >= 3.0,
-    `Brand ${branding.id}: border vs surface must be >= 3:1 (got ${borderVsSurface.toFixed(2)}:1)`
-  );
-  assert(
-    borderVsSurface2 >= 3.0,
-    `Brand ${branding.id}: border vs surface2 must be >= 3:1 (got ${borderVsSurface2.toFixed(2)}:1)`
+    allBrands.length > 0,
+    "getAllBrands() must return at least one brand"
   );
 
-  // Muted requirements: at least 4.5:1 against surface and bg
-  const mutedVsBg = contrastRatio(muted, bg);
-  const mutedVsSurface = contrastRatio(muted, surface);
+  console.log(`  Testing ${allBrands.length} brand(s)...`);
 
-  assert(
-    mutedVsBg >= 4.5,
-    `Brand ${branding.id}: muted vs bg must be >= 4.5:1 (got ${mutedVsBg.toFixed(2)}:1)`
-  );
-  assert(
-    mutedVsSurface >= 4.5,
-    `Brand ${branding.id}: muted vs surface must be >= 4.5:1 (got ${mutedVsSurface.toFixed(2)}:1)`
-  );
+  for (const brand of allBrands) {
+    const bg = brand.colors.bg;
+    const surface = brand.colors.surface;
+    const surface2 = brand.colors.surface2;
+    const border = brand.colors.border;
+    const muted = brand.colors.muted;
 
-  console.log(`  ✓ Brand ${branding.id}: border ${border}`);
-  console.log(`    - vs bg (${bg}): ${borderVsBg.toFixed(2)}:1 (>= 3:1)`);
-  console.log(`    - vs surface (${surface}): ${borderVsSurface.toFixed(2)}:1 (>= 3:1)`);
-  console.log(`    - vs surface2 (${surface2}): ${borderVsSurface2.toFixed(2)}:1 (>= 3:1)`);
-  console.log(`  ✓ Brand ${branding.id}: muted ${muted}`);
-  console.log(`    - vs bg (${bg}): ${mutedVsBg.toFixed(2)}:1 (>= 4.5:1)`);
-  console.log(`    - vs surface (${surface}): ${mutedVsSurface.toFixed(2)}:1 (>= 4.5:1)`);
+    // Border requirements: at least 3:1 against bg, surface, and surface-2
+    const borderVsBg = contrastRatio(border, bg);
+    const borderVsSurface = contrastRatio(border, surface);
+    const borderVsSurface2 = contrastRatio(border, surface2);
+
+    assert(
+      borderVsBg >= 3.0,
+      `Brand ${brand.id}: border vs bg must be >= 3:1 (got ${borderVsBg.toFixed(2)}:1)`
+    );
+    assert(
+      borderVsSurface >= 3.0,
+      `Brand ${brand.id}: border vs surface must be >= 3:1 (got ${borderVsSurface.toFixed(2)}:1)`
+    );
+    assert(
+      borderVsSurface2 >= 3.0,
+      `Brand ${brand.id}: border vs surface2 must be >= 3:1 (got ${borderVsSurface2.toFixed(2)}:1)`
+    );
+
+    // Muted requirements: at least 4.5:1 against bg, surface, and surface2
+    const mutedVsBg = contrastRatio(muted, bg);
+    const mutedVsSurface = contrastRatio(muted, surface);
+    const mutedVsSurface2 = contrastRatio(muted, surface2);
+
+    assert(
+      mutedVsBg >= 4.5,
+      `Brand ${brand.id}: muted vs bg must be >= 4.5:1 (got ${mutedVsBg.toFixed(2)}:1)`
+    );
+    assert(
+      mutedVsSurface >= 4.5,
+      `Brand ${brand.id}: muted vs surface must be >= 4.5:1 (got ${mutedVsSurface.toFixed(2)}:1)`
+    );
+    assert(
+      mutedVsSurface2 >= 4.5,
+      `Brand ${brand.id}: muted vs surface2 must be >= 4.5:1 (got ${mutedVsSurface2.toFixed(2)}:1)`
+    );
+
+    console.log(`  ✓ Brand ${brand.id}: border ${border}`);
+    console.log(`    - vs bg (${bg}): ${borderVsBg.toFixed(2)}:1 (>= 3:1)`);
+    console.log(`    - vs surface (${surface}): ${borderVsSurface.toFixed(2)}:1 (>= 3:1)`);
+    console.log(`    - vs surface2 (${surface2}): ${borderVsSurface2.toFixed(2)}:1 (>= 3:1)`);
+    console.log(`  ✓ Brand ${brand.id}: muted ${muted}`);
+    console.log(`    - vs bg (${bg}): ${mutedVsBg.toFixed(2)}:1 (>= 4.5:1)`);
+    console.log(`    - vs surface (${surface}): ${mutedVsSurface.toFixed(2)}:1 (>= 4.5:1)`);
+    console.log(`    - vs surface2 (${surface2}): ${mutedVsSurface2.toFixed(2)}:1 (>= 4.5:1)`);
+  }
+
+  console.log(`  ✓ All ${allBrands.length} brand(s) meet contrast requirements`);
 }
 
 function main() {

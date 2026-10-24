@@ -201,6 +201,14 @@ const brands: Record<string, Brand> = {
   example,
 };
 
+/**
+ * Get all registered brands for testing and validation.
+ * Returns a read-only array of all brand configurations.
+ */
+export function getAllBrands(): readonly Brand[] {
+  return Object.values(brands);
+}
+
 // ---------------------------------------------------------------------------
 // Brand selection and validation
 // ---------------------------------------------------------------------------
@@ -209,7 +217,11 @@ const brands: Record<string, Brand> = {
  * Valid IANA timezone names.
  * A subset of commonly used timezones. Add more as needed.
  * Full list: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+ * 
+ * Note: Currently unused by validateTimezone (which uses Intl.DateTimeFormat directly).
+ * Kept for reference and future use by Dev 1's timezone canonicalization work.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const VALID_TIMEZONES = new Set([
   "UTC",
   "America/New_York",
