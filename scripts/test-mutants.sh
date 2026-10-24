@@ -97,9 +97,14 @@ verify_mutation() {
   local file="$1"
   local pattern="$2"
   local description="$3"
-  
-  if ! grep -q "$pattern" "$file"; then
-    echo "  ✗ FATAL: Mutation did not change the file (pattern not found: $description)"
+  local backup="/tmp/$(basename "$file").backup"
+
+  if cmp -s "$file" "$backup"; then
+    echo "  ✗ FATAL: Mutation did not change the file ($description)"
+    exit 2
+  fi
+  if ! grep -qF -- "$pattern" "$file"; then
+    echo "  ✗ FATAL: Mutation marker not found ($description)"
     exit 2
   fi
 }
@@ -348,8 +353,8 @@ cp /tmp/exclusions.ts.backup "$EXCLUSIONS_FILE"
 cp /tmp/generate.ts.backup "$GENERATE_FILE"
 echo ""
 
-# Note: :826 filter is not tested as a separate mutant.
-# The knee-safe set (hinge, core patterns) has no overlap with EXCLUDED_EXERCISE_SLUGS,
+# Note: :826 filter in generateProgram is not tested as a separate mutant.
+# KNEE_SAFE_QUAD_EXERCISES has no overlap with EXCLUDED_EXERCISE_SLUGS,
 # so removing that filter alone cannot change any plan output. The filter is kept for
 # defense-in-depth but does not require its own mutant.
 

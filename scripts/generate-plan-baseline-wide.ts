@@ -20,6 +20,16 @@ const EQUIPMENT_PROFILES: Record<string, { ids: string[]; hasAll: boolean; track
   "dumbbells-only": { ids: ["dumbbell"], hasAll: false, track: "weights" },
 };
 
+const idToSlug = new Map(catalogue.map((e) => [e.id, e.slug]));
+const EXCLUDED = new Set([
+  "standing-barbell-press-behind-neck",
+  "wide-grip-pulldown-behind-the-neck",
+  "wide-grip-rear-pull-up",
+  "barbell-guillotine-bench-press",
+  "neck-press",
+  "low-pulley-row-to-neck",
+]);
+
 const LEVELS: Array<"beginner" | "intermediate" | "expert"> = ["beginner", "intermediate", "expert"];
 const DAYS = [2, 3, 4, 5, 6];
 const MINUTES = [30, 45, 60, 75];
@@ -33,6 +43,8 @@ const results: Array<{
   minutes: number;
   age: number;
   sha256: string;
+  slugs: string[];
+  hadExcluded: boolean;
 }> = [];
 
 let count = 0;
@@ -72,6 +84,8 @@ for (const [equipmentName, { ids, hasAll, track }] of Object.entries(EQUIPMENT_P
           const canonical = JSON.stringify(exercises);
           const sha256 = createHash("sha256").update(canonical).digest("hex");
           
+          const slugs = exercises.map((id) => idToSlug.get(id) ?? id);
+          
           results.push({
             userId,
             level,
@@ -80,6 +94,8 @@ for (const [equipmentName, { ids, hasAll, track }] of Object.entries(EQUIPMENT_P
             minutes,
             age,
             sha256,
+            slugs,
+            hadExcluded: slugs.some((slug) => EXCLUDED.has(slug)),
           });
         }
       }

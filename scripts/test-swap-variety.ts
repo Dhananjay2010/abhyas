@@ -27,150 +27,162 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\n1. Oracle check: Lat Pulldown (wide-grip-lat-pulldown, full gym)");
 {
-  const current = catalogue.find((e) => e.slug === "wide-grip-lat-pulldown");
-  check("exercise found", !!current);
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
+
+  const current = find("wide-grip-lat-pulldown");
   
-  if (current) {
-    const patterns = buildPatternList(current.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
-    const wantCompound = current.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(current, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    // Oracle computed with production scoring at 7c6edda5
-    const expected = [
-      "one-arm-lat-pulldown",
-      "v-bar-pulldown",
-      "underhand-cable-pulldowns",
-      "close-grip-front-lat-pulldown",
-      "full-range-of-motion-lat-pulldown",
-    ];
-    
-    console.log(`  Got: ${slugs.join(", ")}`);
-    check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
-    check("no pullovers", slugs.every(s => !s.includes("pullover")));
-  }
+  const patterns = buildPatternList(current.movement_pattern, false);
+  const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+  
+  const wantCompound = current.mechanic !== "isolation";
+  const ctx: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
+  };
+  
+  const alternatives = rankAlternatives(current, pool, ctx);
+  const slugs = alternatives.map(e => e.slug);
+  
+  // Oracle computed with production scoring at 7c6edda5
+  const expected = [
+    "one-arm-lat-pulldown",
+    "v-bar-pulldown",
+    "underhand-cable-pulldowns",
+    "close-grip-front-lat-pulldown",
+    "full-range-of-motion-lat-pulldown",
+  ];
+  
+  console.log(`  Got: ${slugs.join(", ")}`);
+  check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
+  check("no pullovers", slugs.every(s => !s.includes("pullover")));
 }
 
 console.log("\n2. Oracle check: Barbell Bench Press (barbell-bench-press-medium-grip, full gym)");
 {
-  const current = catalogue.find((e) => e.slug === "barbell-bench-press-medium-grip");
-  check("exercise found", !!current);
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
+
+  const current = find("barbell-bench-press-medium-grip");
   
-  if (current) {
-    const patterns = buildPatternList(current.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
-    const wantCompound = current.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(current, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    // Oracle computed with production scoring at 7c6edda5
-    const expected = [
-      "decline-barbell-bench-press",
-      "barbell-incline-bench-press-medium-grip",
-      "wide-grip-barbell-bench-press",
-      "reverse-triceps-bench-press",
-      "reverse-band-bench-press",
-    ];
-    
-    console.log(`  Got: ${slugs.join(", ")}`);
-    check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
-    check("no guillotine", !slugs.includes("barbell-guillotine-bench-press"));
-    check("no neck-press", !slugs.includes("neck-press"));
-  }
+  const patterns = buildPatternList(current.movement_pattern, false);
+  const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+  
+  const wantCompound = current.mechanic !== "isolation";
+  const ctx: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
+  };
+  
+  const alternatives = rankAlternatives(current, pool, ctx);
+  const slugs = alternatives.map(e => e.slug);
+  
+  // Oracle computed with production scoring at 7c6edda5
+  const expected = [
+    "decline-barbell-bench-press",
+    "barbell-incline-bench-press-medium-grip",
+    "wide-grip-barbell-bench-press",
+    "reverse-triceps-bench-press",
+    "reverse-band-bench-press",
+  ];
+  
+  console.log(`  Got: ${slugs.join(", ")}`);
+  check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
+  check("no guillotine", !slugs.includes("barbell-guillotine-bench-press"));
+  check("no neck-press", !slugs.includes("neck-press"));
 }
 
 console.log("\n3. Oracle check: Barbell Squat (barbell-squat, full gym)");
 {
-  const current = catalogue.find((e) => e.slug === "barbell-squat");
-  check("exercise found", !!current);
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
+
+  const current = find("barbell-squat");
   
-  if (current) {
-    const patterns = buildPatternList(current.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
-    const wantCompound = current.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(current, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    // Oracle computed with production scoring at 7c6edda5
-    const expected = [
-      "wide-stance-barbell-squat",
-      "reverse-band-box-squat",
-      "front-squat-clean-grip",
-      "box-squat",
-      "barbell-hack-squat",
-    ];
-    
-    console.log(`  Got: ${slugs.join(", ")}`);
-    check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
-  }
+  const patterns = buildPatternList(current.movement_pattern, false);
+  const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+  
+  const wantCompound = current.mechanic !== "isolation";
+  const ctx: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
+  };
+  
+  const alternatives = rankAlternatives(current, pool, ctx);
+  const slugs = alternatives.map(e => e.slug);
+  
+  // Oracle computed with production scoring at 7c6edda5
+  const expected = [
+    "wide-stance-barbell-squat",
+    "reverse-band-box-squat",
+    "front-squat-clean-grip",
+    "box-squat",
+    "barbell-hack-squat",
+  ];
+  
+  console.log(`  Got: ${slugs.join(", ")}`);
+  check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
 }
 
 console.log("\n4. Oracle check: Seated Cable Rows (seated-cable-rows, full gym)");
 {
-  const current = catalogue.find((e) => e.slug === "seated-cable-rows");
-  check("exercise found", !!current);
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
+
+  const current = find("seated-cable-rows");
   
-  if (current) {
-    const patterns = buildPatternList(current.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
-    const wantCompound = current.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(current, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    // Oracle computed with production scoring at 7c6edda5
-    const expected = [
-      "seated-one-arm-cable-pulley-rows",
-      "kneeling-single-arm-high-pulley-row",
-      "cable-rope-rear-delt-rows",
-      "kneeling-high-pulley-row",
-      "shotgun-row",
-    ];
-    
-    console.log(`  Got: ${slugs.join(", ")}`);
-    check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
-    check("no pullovers", slugs.every(s => !s.includes("pullover")));
-  }
+  const patterns = buildPatternList(current.movement_pattern, false);
+  const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+  
+  const wantCompound = current.mechanic !== "isolation";
+  const ctx: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
+  };
+  
+  const alternatives = rankAlternatives(current, pool, ctx);
+  const slugs = alternatives.map(e => e.slug);
+  
+  // Oracle computed with production scoring at 7c6edda5
+  const expected = [
+    "seated-one-arm-cable-pulley-rows",
+    "kneeling-single-arm-high-pulley-row",
+    "cable-rope-rear-delt-rows",
+    "kneeling-high-pulley-row",
+    "shotgun-row",
+  ];
+  
+  console.log(`  Got: ${slugs.join(", ")}`);
+  check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
+  check("no pullovers", slugs.every(s => !s.includes("pullover")));
 }
 
 console.log("\n5. Behind-the-neck catalogue scan: all behind-the-neck exercises must be excluded");
@@ -191,310 +203,301 @@ console.log("\n5. Behind-the-neck catalogue scan: all behind-the-neck exercises 
 
 console.log("\n6. Lat Pulldown swap test: no behind-the-neck variants offered");
 {
-  const current = catalogue.find((e) => e.slug === "wide-grip-lat-pulldown");
-  check("lat pulldown found", !!current);
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
+
+  const current = find("wide-grip-lat-pulldown");
   
-  if (current) {
-    const patterns = buildPatternList(current.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
-    const wantCompound = current.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 20,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(current, pool, ctx);
-    
-    const behindTheNeckPattern = /behind.{0,1}the.{0,1}neck|behind.{0,1}neck/i;
-    const hasBehindTheNeck = alternatives.some(e => 
-      behindTheNeckPattern.test(e.name) || behindTheNeckPattern.test(e.slug)
-    );
-    
-    console.log(`  Checked ${alternatives.length} alternatives`);
-    check("no behind-the-neck in swaps", !hasBehindTheNeck);
-  }
+  const patterns = buildPatternList(current.movement_pattern, false);
+  const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+  
+  const wantCompound = current.mechanic !== "isolation";
+  const ctx: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 20,
+    scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
+  };
+  
+  const alternatives = rankAlternatives(current, pool, ctx);
+  
+  const behindTheNeckPattern = /behind.{0,1}the.{0,1}neck|behind.{0,1}neck/i;
+  const hasBehindTheNeck = alternatives.some(e => 
+    behindTheNeckPattern.test(e.name) || behindTheNeckPattern.test(e.slug)
+  );
+  
+  console.log(`  Checked ${alternatives.length} alternatives`);
+  check("no behind-the-neck in swaps", !hasBehindTheNeck);
 }
 
 console.log("\n7. Direct unit tests: each excluded slug");
 {
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
+
   // Test standing-barbell-press-behind-neck
-  const press = catalogue.find(e => e.slug === "barbell-shoulder-press");
-  const btnek = catalogue.find(e => e.slug === "standing-barbell-press-behind-neck");
-  const dbPress = catalogue.find(e => e.slug === "dumbbell-shoulder-press");
+  const press = find("barbell-shoulder-press");
+  const btnek = find("standing-barbell-press-behind-neck");
+  const dbPress = find("dumbbell-shoulder-press");
   
-  if (press && btnek && dbPress) {
-    const pool = [press, btnek, dbPress];
-    const wantCompound = press.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(press, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("standing-barbell-press-behind-neck excluded", !slugs.includes("standing-barbell-press-behind-neck"));
-    check("dumbbell-shoulder-press present", slugs.includes("dumbbell-shoulder-press"));
-  }
+  const pool1 = [press, btnek, dbPress];
+  const wantCompound1 = press.mechanic !== "isolation";
+  const ctx1: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound1, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives1 = rankAlternatives(press, pool1, ctx1);
+  const slugs1 = alternatives1.map(e => e.slug);
+  
+  check("standing-barbell-press-behind-neck excluded", !slugs1.includes("standing-barbell-press-behind-neck"));
+  check("dumbbell-shoulder-press present", slugs1.includes("dumbbell-shoulder-press"));
   
   // Test wide-grip-pulldown-behind-the-neck
-  const latPull = catalogue.find(e => e.slug === "wide-grip-lat-pulldown");
-  const btneck = catalogue.find(e => e.slug === "wide-grip-pulldown-behind-the-neck");
-  const closeLat = catalogue.find(e => e.slug === "close-grip-front-lat-pulldown");
+  const latPull = find("wide-grip-lat-pulldown");
+  const btneck = find("wide-grip-pulldown-behind-the-neck");
+  const closeLat = find("close-grip-front-lat-pulldown");
   
-  if (latPull && btneck && closeLat) {
-    const pool = [latPull, btneck, closeLat];
-    const wantCompound = latPull.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(latPull, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("wide-grip-pulldown-behind-the-neck excluded", !slugs.includes("wide-grip-pulldown-behind-the-neck"));
-    check("close-grip-front-lat-pulldown present", slugs.includes("close-grip-front-lat-pulldown"));
-  }
+  const pool2 = [latPull, btneck, closeLat];
+  const wantCompound2 = latPull.mechanic !== "isolation";
+  const ctx2: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound2, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives2 = rankAlternatives(latPull, pool2, ctx2);
+  const slugs2 = alternatives2.map(e => e.slug);
+  
+  check("wide-grip-pulldown-behind-the-neck excluded", !slugs2.includes("wide-grip-pulldown-behind-the-neck"));
+  check("close-grip-front-lat-pulldown present", slugs2.includes("close-grip-front-lat-pulldown"));
   
   // Test wide-grip-rear-pull-up
-  const pullUp = catalogue.find(e => e.slug === "pullups");
-  const rearPullUp = catalogue.find(e => e.slug === "wide-grip-rear-pull-up");
-  const chinUp = catalogue.find(e => e.slug === "chin-up");
+  const pullUp = find("pullups");
+  const rearPullUp = find("wide-grip-rear-pull-up");
+  const chinUp = find("chin-up");
   
-  if (pullUp && rearPullUp && chinUp) {
-    const pool = [pullUp, rearPullUp, chinUp];
-    const wantCompound = pullUp.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(pullUp, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("wide-grip-rear-pull-up excluded", !slugs.includes("wide-grip-rear-pull-up"));
-    check("chin-up present", slugs.includes("chin-up"));
-  }
+  const pool3 = [pullUp, rearPullUp, chinUp];
+  const wantCompound3 = pullUp.mechanic !== "isolation";
+  const ctx3: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound3, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives3 = rankAlternatives(pullUp, pool3, ctx3);
+  const slugs3 = alternatives3.map(e => e.slug);
+  
+  check("wide-grip-rear-pull-up excluded", !slugs3.includes("wide-grip-rear-pull-up"));
+  check("chin-up present", slugs3.includes("chin-up"));
   
   // Test barbell-guillotine-bench-press
-  const bench = catalogue.find(e => e.slug === "barbell-bench-press-medium-grip");
-  const guillotine = catalogue.find(e => e.slug === "barbell-guillotine-bench-press");
-  const incline = catalogue.find(e => e.slug === "barbell-incline-bench-press-medium-grip");
+  const bench = find("barbell-bench-press-medium-grip");
+  const guillotine = find("barbell-guillotine-bench-press");
+  const incline = find("barbell-incline-bench-press-medium-grip");
   
-  if (bench && guillotine && incline) {
-    const pool = [bench, guillotine, incline];
-    const wantCompound = bench.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(bench, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("barbell-guillotine-bench-press excluded", !slugs.includes("barbell-guillotine-bench-press"));
-    check("barbell-incline-bench-press-medium-grip present", slugs.includes("barbell-incline-bench-press-medium-grip"));
-  }
+  const pool4 = [bench, guillotine, incline];
+  const wantCompound4 = bench.mechanic !== "isolation";
+  const ctx4: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound4, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives4 = rankAlternatives(bench, pool4, ctx4);
+  const slugs4 = alternatives4.map(e => e.slug);
+  
+  check("barbell-guillotine-bench-press excluded", !slugs4.includes("barbell-guillotine-bench-press"));
+  check("barbell-incline-bench-press-medium-grip present", slugs4.includes("barbell-incline-bench-press-medium-grip"));
   
   // Test neck-press
-  const neckPressBench = catalogue.find(e => e.slug === "barbell-bench-press-medium-grip");
-  const neckPress = catalogue.find(e => e.slug === "neck-press");
-  const inclineBench = catalogue.find(e => e.slug === "barbell-incline-bench-press-medium-grip");
+  const neckPressBench = find("barbell-bench-press-medium-grip");
+  const neckPress = find("neck-press");
+  const inclineBench = find("barbell-incline-bench-press-medium-grip");
   
-  if (neckPressBench && neckPress && inclineBench) {
-    const pool = [neckPressBench, neckPress, inclineBench];
-    const wantCompound = neckPressBench.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(neckPressBench, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("neck-press excluded", !slugs.includes("neck-press"));
-    check("barbell-incline-bench-press-medium-grip present (neck-press test)", slugs.includes("barbell-incline-bench-press-medium-grip"));
-  }
+  const pool5 = [neckPressBench, neckPress, inclineBench];
+  const wantCompound5 = neckPressBench.mechanic !== "isolation";
+  const ctx5: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound5, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives5 = rankAlternatives(neckPressBench, pool5, ctx5);
+  const slugs5 = alternatives5.map(e => e.slug);
+  
+  check("neck-press excluded", !slugs5.includes("neck-press"));
+  check("barbell-incline-bench-press-medium-grip present (neck-press test)", slugs5.includes("barbell-incline-bench-press-medium-grip"));
   
   // Test low-pulley-row-to-neck
-  const seatedRow = catalogue.find(e => e.slug === "seated-cable-rows");
-  const lowPulleyRowToNeck = catalogue.find(e => e.slug === "low-pulley-row-to-neck");
-  const shotgunRow = catalogue.find(e => e.slug === "shotgun-row");
+  const seatedRow = find("seated-cable-rows");
+  const lowPulleyRowToNeck = find("low-pulley-row-to-neck");
+  const shotgunRow = find("shotgun-row");
   
-  if (seatedRow && lowPulleyRowToNeck && shotgunRow) {
-    const pool = [seatedRow, lowPulleyRowToNeck, shotgunRow];
-    const wantCompound = seatedRow.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(seatedRow, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("low-pulley-row-to-neck excluded", !slugs.includes("low-pulley-row-to-neck"));
-    check("shotgun-row present", slugs.includes("shotgun-row"));
-  }
+  const pool6 = [seatedRow, lowPulleyRowToNeck, shotgunRow];
+  const wantCompound6 = seatedRow.mechanic !== "isolation";
+  const ctx6: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound6, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives6 = rankAlternatives(seatedRow, pool6, ctx6);
+  const slugs6 = alternatives6.map(e => e.slug);
+  
+  check("low-pulley-row-to-neck excluded", !slugs6.includes("low-pulley-row-to-neck"));
+  check("shotgun-row present", slugs6.includes("shotgun-row"));
 }
 
 console.log("\n8. Pullover scope tests");
 {
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
+
   // Test (a): Press original with pullover in same pattern
   // front-raise-and-pullover is horizontal_press, so it can be in bench pool
-  const bench = catalogue.find(e => e.slug === "barbell-bench-press-medium-grip");
-  const frontRaisePullover = catalogue.find(e => e.slug === "front-raise-and-pullover");
-  const incline = catalogue.find(e => e.slug === "barbell-incline-bench-press-medium-grip");
+  const bench = find("barbell-bench-press-medium-grip");
+  const frontRaisePullover = find("front-raise-and-pullover");
+  const incline = find("barbell-incline-bench-press-medium-grip");
   
-  if (bench && frontRaisePullover && incline) {
-    const pool = [bench, frontRaisePullover, incline];
-    const wantCompound = bench.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(bench, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("press original can get pullover", slugs.includes("front-raise-and-pullover"));
-  }
+  const pool1 = [bench, frontRaisePullover, incline];
+  const wantCompound1 = bench.mechanic !== "isolation";
+  const ctx1: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound1, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives1 = rankAlternatives(bench, pool1, ctx1);
+  const slugs1 = alternatives1.map(e => e.slug);
+  
+  check("press original can get pullover", slugs1.includes("front-raise-and-pullover"));
   
   // Test (b): Isolation pull CAN get pullover
-  const straightArm = catalogue.find(e => e.slug === "straight-arm-pulldown");
-  const bentArmPullover = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
-  const latRaise = catalogue.find(e => e.slug === "v-bar-pulldown");
+  const straightArm = find("straight-arm-pulldown");
+  const bentArmPullover = find("bent-arm-barbell-pullover");
+  const latRaise = find("v-bar-pulldown");
   
-  if (straightArm && bentArmPullover && latRaise) {
-    const pool = [straightArm, bentArmPullover, latRaise];
-    const wantCompound = straightArm.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(straightArm, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("isolation pull can get pullover", slugs.includes("bent-arm-barbell-pullover"));
-  }
+  const pool2 = [straightArm, bentArmPullover, latRaise];
+  const wantCompound2 = straightArm.mechanic !== "isolation";
+  const ctx2: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound2, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives2 = rankAlternatives(straightArm, pool2, ctx2);
+  const slugs2 = alternatives2.map(e => e.slug);
+  
+  check("isolation pull can get pullover", slugs2.includes("bent-arm-barbell-pullover"));
   
   // Test (c): Compound vertical pull CANNOT get pullover
-  const latPull = catalogue.find(e => e.slug === "wide-grip-lat-pulldown");
-  const pulloverForTest = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
-  const validAlt = catalogue.find(e => e.slug === "close-grip-front-lat-pulldown");
+  const latPull = find("wide-grip-lat-pulldown");
+  const pulloverForTest = find("bent-arm-barbell-pullover");
+  const validAlt = find("close-grip-front-lat-pulldown");
   
-  if (latPull && pulloverForTest && validAlt) {
-    const pool = [latPull, pulloverForTest, validAlt];
-    const wantCompound = latPull.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(latPull, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("compound vertical pull cannot get pullover", !slugs.includes("bent-arm-barbell-pullover"));
-    check("valid alternative present", slugs.includes("close-grip-front-lat-pulldown"));
-  }
+  const pool3 = [latPull, pulloverForTest, validAlt];
+  const wantCompound3 = latPull.mechanic !== "isolation";
+  const ctx3: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound3, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives3 = rankAlternatives(latPull, pool3, ctx3);
+  const slugs3 = alternatives3.map(e => e.slug);
+  
+  check("compound vertical pull cannot get pullover", !slugs3.includes("bent-arm-barbell-pullover"));
+  check("valid alternative present", slugs3.includes("close-grip-front-lat-pulldown"));
   
   // Test (d): Compound HORIZONTAL pull also CANNOT get pullover (catches mutation 9)
-  const cableRow = catalogue.find(e => e.slug === "seated-cable-rows");
-  const pulloverForHoriz = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
-  const validHorizAlt = catalogue.find(e => e.slug === "kneeling-single-arm-high-pulley-row");
+  const cableRow = find("seated-cable-rows");
+  const pulloverForHoriz = find("bent-arm-barbell-pullover");
+  const validHorizAlt = find("kneeling-single-arm-high-pulley-row");
   
-  if (cableRow && pulloverForHoriz && validHorizAlt) {
-    const pool = [cableRow, pulloverForHoriz, validHorizAlt];
-    const wantCompound = cableRow.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(cableRow, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("compound horizontal pull cannot get pullover", !slugs.includes("bent-arm-barbell-pullover"));
-    check("valid horizontal alt present", slugs.includes("kneeling-single-arm-high-pulley-row"));
-  }
+  const pool4 = [cableRow, pulloverForHoriz, validHorizAlt];
+  const wantCompound4 = cableRow.mechanic !== "isolation";
+  const ctx4: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound4, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives4 = rankAlternatives(cableRow, pool4, ctx4);
+  const slugs4 = alternatives4.map(e => e.slug);
+  
+  check("compound horizontal pull cannot get pullover", !slugs4.includes("bent-arm-barbell-pullover"));
+  check("valid horizontal alt present", slugs4.includes("kneeling-single-arm-high-pulley-row"));
   
   // Test (e): Pullover original CAN get other pullovers
-  const originalPullover = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
+  const originalPullover = find("bent-arm-barbell-pullover");
   
-  if (originalPullover) {
-    // Create a synthetic pullover in the same pattern
-    const syntheticPullover = {
-      ...originalPullover,
-      id: "test-pullover-id",
-      slug: "test-pullover",
-      name: "Test Pullover",
-    };
-    const validAlt2 = catalogue.find(e => e.slug === "close-grip-front-lat-pulldown");
-    
-    if (validAlt2) {
-      const pool = [originalPullover, syntheticPullover, validAlt2];
-      const wantCompound = originalPullover.mechanic !== "isolation";
-      const ctx: AlternativesContext = {
-        level: "intermediate",
-        availableEquipment: null,
-        injuryRegions: [],
-        limit: 5,
-        scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-        tieBreakFn: (slug) => hashString(`test:${slug}`),
-      };
-      
-      const alternatives = rankAlternatives(originalPullover, pool, ctx);
-      const slugs = alternatives.map(e => e.slug);
-      
-      check("pullover original can get other pullovers", slugs.includes("test-pullover"));
-    }
-  }
+  // Create a synthetic pullover in the same pattern
+  const syntheticPullover = {
+    ...originalPullover,
+    id: "test-pullover-id",
+    slug: "test-pullover",
+    name: "Test Pullover",
+  };
+  const validAlt2 = find("close-grip-front-lat-pulldown");
+  
+  const pool5 = [originalPullover, syntheticPullover, validAlt2];
+  const wantCompound5 = originalPullover.mechanic !== "isolation";
+  const ctx5: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: (e) => score(e, wantCompound5, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test:${slug}`),
+  };
+  
+  const alternatives5 = rankAlternatives(originalPullover, pool5, ctx5);
+  const slugs5 = alternatives5.map(e => e.slug);
+  
+  check("pullover original can get other pullovers", slugs5.includes("test-pullover"));
 }
 
 console.log("\n9. Horizontal pull never gets a pullover (catches mutation 9)");

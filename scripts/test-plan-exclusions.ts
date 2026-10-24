@@ -159,7 +159,8 @@ console.log("\n4. Fallback pattern filter at :672 catches excluded slugs");
   let fallbackChecks = 0;
   let fallbackFails = 0;
   
-  for (const level of ["intermediate", "expert"] as const) {
+  const fallbackLevels: GeneratorInput["level"][] = ["intermediate", "expert"];
+  for (const level of fallbackLevels) {
     for (const days of [2, 3, 4, 5, 6]) {
       for (const seed of [1, 2, 3]) {
         const input: GeneratorInput = {
