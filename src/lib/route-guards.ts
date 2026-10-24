@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { cache } from "react";
 import { isUuid } from "./ids";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPractice } from "@/app/breathe/load";
@@ -59,7 +58,7 @@ export async function checkBreatheRoute(
   supabase: SupabaseClient,
   userId: string,
   slug: string,
-  loader: typeof loadPractice = cache(loadPractice),
+  loader: typeof loadPractice = loadPractice,
 ): Promise<"ok" | "not_found"> {
   const loaded = await loader(supabase, userId, slug);
   return loaded ? "ok" : "not_found";

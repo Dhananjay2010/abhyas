@@ -11,9 +11,7 @@ export default async function PracticePage({ params }: { params: Promise<{ slug:
   if (!user) redirect("/");
 
   const loaded = await loadPractice(supabase, user.id, slug);
-  if (!loaded) {
-    notFound();
-  }
+  if (!loaded) notFound();
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">

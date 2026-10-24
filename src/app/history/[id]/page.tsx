@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { isUuid } from "@/lib/ids";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
 
@@ -26,6 +27,7 @@ export default async function SessionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
 
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
@@ -41,9 +43,7 @@ export default async function SessionDetailPage({
   if (sessionError) {
     throw new Error(`Could not load this session: ${sessionError.message}`);
   }
-  if (!session) {
-    notFound();
-  }
+  if (!session) notFound();
 
   if (session.actual_type === "meditation") {
     const pattern = session.breathing_patterns as unknown as { name: string; slug: string } | null;

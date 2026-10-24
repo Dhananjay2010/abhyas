@@ -25,18 +25,18 @@ function check(label: string, ok: boolean, detail = "") {
 
 function createFakeSessionClient(shouldExist: boolean, shouldThrow = false, hasError = false) {
   const eqCalls: Array<[string, string]> = [];
-  return {
-    from: () => {
+  const client = {
+    from: (table: string) => {
       if (shouldThrow) {
-        throw new Error("Unexpected query: .from() should not be called for malformed IDs");
+        throw new Error(`Unexpected query: .from("${table}") should not be called for malformed IDs`);
       }
       return {
-        select: () => ({
+        select: (cols: string) => ({
           eq: (col: string, val: string) => {
             eqCalls.push([col, val]);
             return {
-              eq: (col: string, val: string) => {
-                eqCalls.push([col, val]);
+              eq: (col2: string, val2: string) => {
+                eqCalls.push([col2, val2]);
                 return {
                   maybeSingle: async () => ({
                     data: shouldExist ? { id: "550e8400-e29b-41d4-a716-446655440000" } : null,
@@ -51,6 +51,7 @@ function createFakeSessionClient(shouldExist: boolean, shouldThrow = false, hasE
     },
     _eqCalls: eqCalls,
   };
+  return client;
 }
 
 async function runTests() {
@@ -60,7 +61,7 @@ async function runTests() {
     check("valid v1 UUID", isUuid("C56A4180-65AA-42EC-A945-5FD21DEC0538"));
     check("lowercase", isUuid("c56a4180-65aa-42ec-a945-5fd21dec0538"));
     check("mixed case", isUuid("C56A4180-65aa-42ec-A945-5FD21DEC0538"));
-    
+
     check("rejects empty string", !isUuid(""));
     check("rejects 'null'", !isUuid("null"));
     check("rejects 'undefined'", !isUuid("undefined"));
@@ -71,6 +72,13 @@ async function runTests() {
     check("rejects too long", !isUuid("550e8400-e29b-41d4-a716-446655440000-extra"));
     check("rejects non-hex characters", !isUuid("550e8400-e29b-41d4-a716-44665544000g"));
     check("rejects SQL injection attempt", !isUuid("'; DROP TABLE sessions; --"));
+
+    // Edge cases
+    check("UUID with uppercase and invalid char", !isUuid("C56A4180-65AA-42EC-A945-5FD21DEC053Z"));
+    check("UUID with spaces", !isUuid("550e8400 e29b 41d4 a716 446655440000"));
+    check("UUID-like but wrong segments", !isUuid("550e8400-e29-b41d4-a716-446655440000"));
+    check("All zeros is valid", isUuid("00000000-0000-0000-0000-000000000000"));
+    check("All Fs is valid", isUuid("ffffffff-ffff-ffff-ffff-ffffffffffff"));
   }
 
   console.log("\n2. checkSessionRoute validates and queries");
@@ -111,24 +119,7 @@ async function runTests() {
     check("checkSessionRoute throws when maybeSingle returns error", errorThrown);
   }
 
-  console.log("\n3. checkHistoryRoute is an alias for checkSessionRoute");
-  {
-    const userId = "550e8400-e29b-41d4-a716-446655440000";
-    const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
-    const noQueryClient = createFakeSessionClient(false, true) as unknown as SupabaseClient;
-    
-    check(
-      "valid UUID that exists returns 'ok'",
-      (await guardHistoryRoute(existingClient, userId, "550e8400-e29b-41d4-a716-446655440000")) === undefined,
-    );
-    
-    check(
-      "malformed ID returns 'not_found' without query",
-      (await checkSessionRoute(noQueryClient, userId, "not-a-uuid")) === "not_found",
-    );
-  }
-
-  console.log("\n4. checkBreatheRoute validates slugs with injected loader");
+  console.log("\n3. checkBreatheRoute validates slugs with injected loader");
   {
     const userId = "550e8400-e29b-41d4-a716-446655440000";
     const fakeSupabase = {} as unknown as SupabaseClient;
@@ -196,16 +187,7 @@ async function runTests() {
     );
   }
 
-  console.log("\n5. Edge cases that should fail validation");
-  {
-    check("UUID with uppercase and invalid char", !isUuid("C56A4180-65AA-42EC-A945-5FD21DEC053Z"));
-    check("UUID with spaces", !isUuid("550e8400 e29b 41d4 a716 446655440000"));
-    check("UUID-like but wrong segments", !isUuid("550e8400-e29-b41d4-a716-446655440000"));
-    check("All zeros is valid", isUuid("00000000-0000-0000-0000-000000000000"));
-    check("All Fs is valid", isUuid("ffffffff-ffff-ffff-ffff-ffffffffffff"));
-  }
-
-  console.log("\n6. guardSessionRoute throws notFound() for invalid input");
+  console.log("\n4. guardSessionRoute throws notFound() for invalid input");
   {
     const userId = "550e8400-e29b-41d4-a716-446655440000";
     const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
@@ -238,7 +220,7 @@ async function runTests() {
     }
   }
 
-  console.log("\n7. guardHistoryRoute is an alias");
+  console.log("\n5. guardHistoryRoute is an alias");
   {
     const userId = "550e8400-e29b-41d4-a716-446655440000";
     const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
@@ -262,7 +244,7 @@ async function runTests() {
     }
   }
 
-  console.log("\n8. Layout structure prevents streaming before guard runs");
+  console.log("\n6. Layout structure prevents streaming before guard runs");
   {
     const fs = await import("fs/promises");
     const path = await import("path");
@@ -303,40 +285,68 @@ async function runTests() {
     }
   }
 
-  console.log("\n9. Not-found pages render exactly one nav");
+  console.log("\n7. Wiring tests: guards, NotFoundContent, and BottomNav");
   {
     const fs = await import("fs/promises");
-    
-    const notFoundPaths = [
-      "src/app/not-found.tsx",
-      "src/app/session/not-found.tsx",
+
+    // Test that each layout calls its guard
+    const layoutTests = [
+      { path: "src/app/session/[id]/layout.tsx", guard: "guardSessionRoute" },
+      { path: "src/app/history/[id]/layout.tsx", guard: "guardHistoryRoute" },
+      { path: "src/app/breathe/[slug]/layout.tsx", guard: "guardBreatheRoute" },
     ];
-    
-    for (const nfPath of notFoundPaths) {
+
+    for (const { path, guard } of layoutTests) {
       try {
-        const content = await fs.readFile(nfPath, "utf-8");
-        const navCount = (content.match(/<BottomNav/g) || []).length;
+        const content = await fs.readFile(path, "utf-8");
         check(
-          `${nfPath} doesn't render BottomNav`,
-          navCount === 0,
-          navCount > 0 ? `found ${navCount} BottomNav renders, should rely on root layout` : "",
+          `${path} calls ${guard}`,
+          content.includes(`await ${guard}(`),
         );
       } catch (err) {
-        check(`${nfPath} exists`, false, `${err}`);
+        check(`${path} exists`, false, `${err}`);
       }
     }
-    
-    // Check that root layout renders exactly one BottomNav
+
+    // Test that NotFoundContent renders BottomNav with forNotFound
     try {
-      const layoutContent = await fs.readFile("src/app/layout.tsx", "utf-8");
-      const navCount = (layoutContent.match(/<BottomNav/g) || []).length;
+      const nfContent = await fs.readFile("src/components/not-found-content.tsx", "utf-8");
       check(
-        "Root layout renders exactly one BottomNav",
-        navCount === 1,
-        navCount !== 1 ? `found ${navCount}` : "",
+        "NotFoundContent renders {user && <BottomNav forNotFound />}",
+        nfContent.includes("{user && <BottomNav forNotFound />}") ||
+        (nfContent.includes("{user") && nfContent.includes("<BottomNav forNotFound")),
       );
     } catch (err) {
-      check("Root layout exists", false, `${err}`);
+      check("not-found-content.tsx exists", false, `${err}`);
+    }
+
+    // Test that BottomNav gates forNotFound on needsNotFoundNav
+    try {
+      const bnContent = await fs.readFile("src/components/bottom-nav.tsx", "utf-8");
+      check(
+        "BottomNav gates forNotFound on needsNotFoundNav",
+        bnContent.includes("forNotFound && needsNotFoundNav"),
+      );
+    } catch (err) {
+      check("bottom-nav.tsx exists", false, `${err}`);
+    }
+
+    // Test that both pages have the isUuid early return
+    const pageTests = [
+      "src/app/session/[id]/page.tsx",
+      "src/app/history/[id]/page.tsx",
+    ];
+
+    for (const pagePath of pageTests) {
+      try {
+        const content = await fs.readFile(pagePath, "utf-8");
+        check(
+          `${pagePath} contains isUuid early return`,
+          content.includes("if (!isUuid(id)) notFound();"),
+        );
+      } catch (err) {
+        check(`${pagePath} exists`, false, `${err}`);
+      }
     }
   }
 

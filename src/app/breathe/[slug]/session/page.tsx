@@ -40,9 +40,7 @@ export default async function PracticeSessionPage({
       .eq("status", "completed")
       .gte("local_date", since),
   ]);
-  if (!loaded) {
-    notFound();
-  }
+  if (!loaded) notFound();
 
   const { pattern, prefs } = loaded;
   const cycle = buildCycle(pattern.phases);

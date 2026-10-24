@@ -187,8 +187,6 @@ function testLayoutBottomNav() {
   console.log("  ✓ BottomNav uses activeTab() for nav visibility");
   console.log("  ✓ BottomNav returns null when activeTab returns null");
   console.log("  ✓ /offline handled by activeTab() in src/lib/nav.ts (tested in test-nav.ts)");
-  console.log("  ✓ BottomNav hides nav on /offline (activeTab returns null, not user area)");
-  console.log("  ✓ /offline check in activeTab() tested in test-nav.ts");
 }
 
 function main() {

@@ -4,6 +4,7 @@ import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { isUuid } from "@/lib/ids";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 
@@ -17,6 +18,7 @@ export default async function SessionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  if (!isUuid(id)) notFound();
 
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
@@ -71,9 +73,7 @@ export default async function SessionPage({
   }
 
   const session = sessionRes.data;
-  if (!session) {
-    notFound();
-  }
+  if (!session) notFound();
   if (session.status === "completed") redirect("/today");
 
   const rows = session.session_exercises ?? [];
