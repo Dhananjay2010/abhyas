@@ -123,6 +123,7 @@
     "test:plan-no-injury-match": "tsx scripts/test-plan-no-injury-match.ts",
     "test:swap-variety": "tsx scripts/test-swap-variety.ts",
     "test:swap-path-exclusions": "tsx scripts/test-swap-path-exclusions.ts",
+    "test:guard-mutants": "tsx scripts/test-guard-mutants.ts",
     "test:dob-field": "tsx scripts/test-dob-field.ts",
     "test:equipment-bodyweight": "tsx scripts/test-equipment-bodyweight.ts",
     "test:inline-errors": "tsx scripts/test-inline-errors.ts",

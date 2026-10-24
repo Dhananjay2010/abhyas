@@ -30,6 +30,10 @@ if ! npx tsx "$SCRIPT_DIR/test-swap-path-exclusions.ts" &>/dev/null; then
   echo "✗ Baseline test-swap-path-exclusions.ts failed"
   exit 1
 fi
+if ! npx tsx "$SCRIPT_DIR/test-guard-mutants.ts" &>/dev/null; then
+  echo "✗ Baseline test-guard-mutants.ts failed"
+  exit 1
+fi
 echo "✓ Baseline tests passed"
 echo ""
 
@@ -82,6 +86,11 @@ run_tests() {
   
   if ! npx tsx "$SCRIPT_DIR/test-swap-path-exclusions.ts" &>/dev/null; then
     echo "  ✓ test-swap-path-exclusions.ts failed (caught)"
+    caught=1
+  fi
+  
+  if ! npx tsx "$SCRIPT_DIR/test-guard-mutants.ts" &>/dev/null; then
+    echo "  ✓ test-guard-mutants.ts failed (caught)"
     caught=1
   fi
   
@@ -392,10 +401,11 @@ echo "17. Mutation: Remove post-pacing bodyweight-pull exclusion filter"
 cp "$ALTERNATIVES_FILE" /tmp/alternatives.ts.backup
 cp "$EXCLUSIONS_FILE" /tmp/exclusions.ts.backup
 cp "$GENERATE_FILE" /tmp/generate.ts.backup
-sed -i '/!EXCLUDED_EXERCISE_SLUGS\.has(e\.slug)/d' "$GENERATE_FILE"
-# Remove one of the && on the isEligible line for post-pacing (this is the second occurrence)
-sed -i '0,/isEligible(e, input) &&$/! s/isEligible(e, input) &&$/isEligible(e, input)/' "$GENERATE_FILE"
-verify_mutation "$GENERATE_FILE" "!usedInBlock.has(e.id)" "post-pacing check still present"
+# Remove line with !EXCLUDED_EXERCISE_SLUGS.has(e.slug) and fix the && on the previous line
+# Use line number 1321-1322 (isEligible line and exclusion check line)
+sed -i '1321s/ &&$//' "$GENERATE_FILE"
+sed -i '1322d' "$GENERATE_FILE"
+verify_mutation "$GENERATE_FILE" "!usedInBlock.has(e.id)" "post-pacing context still present"
 total_mutations=$((total_mutations + 1))
 if run_tests "Remove post-pacing BW filter"; then
   caught_mutations=$((caught_mutations + 1))
