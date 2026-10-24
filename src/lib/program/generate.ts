@@ -918,8 +918,30 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             // Apply shared constraint checker (will exclude timed holds from main slots, check adjacent hinges)
             if (wouldViolateConstraints(e, i, pickedExercises, input)) return false;
             
-            // Use isEligible for level, track, equipment checks (same logic as pickForSlot)
-            return isEligible(e, input);
+            // Manual eligibility checks (level, track, equipment) WITHOUT contraindications
+            // Track check
+            if (input.primaryTrack === "bodyweight" && !e.tracks.includes("bodyweight")) return false;
+            
+            // Level check
+            if (e.level_min === "expert" && input.level === "beginner") return false;
+            if (e.level_min === "intermediate" && input.level === "beginner") return false;
+            if (e.level_min === "intermediate" && input.level === "beginner") return false; // duplicate but harmless
+            
+            // Equipment check (same logic as isEligible but isolated here)
+            if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
+              const available = new Set(input.equipmentIds);
+              const alternatives = EQUIPMENT_ALTERNATIVES[e.slug];
+              if (alternatives) {
+                const hasValidAlternative = alternatives.some(altSet =>
+                  altSet.every(eq => available.has(eq))
+                );
+                if (!hasValidAlternative) return false;
+              } else {
+                if (!e.equipment_ids.every(eq => available.has(eq))) return false;
+              }
+            }
+            
+            return true;
           })
           .map(e => ({
             e,
