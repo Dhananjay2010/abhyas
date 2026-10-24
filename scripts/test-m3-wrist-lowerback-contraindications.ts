@@ -105,7 +105,8 @@ async function runTest() {
   // Insert with tags MINUS what migration adds (baseline)
   for (const ex of affected) {
     if (!isExerciseRecord(ex)) {
-      const slug = isSlugRecord(ex) ? ex.slug : 'unknown';
+      const item: unknown = ex;
+      const slug = (typeof item === 'object' && item !== null && 'slug' in item && typeof item.slug === 'string') ? item.slug : 'unknown';
       check(`Exercise record valid`, false, `slug ${slug} failed isExerciseRecord`);
       continue;
     }
