@@ -76,10 +76,18 @@ async function scenario(
   const u = userEvent.setup({ document });
   render(<Parent init={init} inlineOnChange={inline} />);
   
+  // Per-scenario timeout (30 seconds)
+  const timeoutId = setTimeout(() => {
+    check(false, `${name}: TIMEOUT after 30s`);
+    process.exit(1);
+  }, 30000);
+  
   try {
     await fn(u);
   } catch (e) {
     check(false, `${name}: threw ${e}`);
+  } finally {
+    clearTimeout(timeoutId);
   }
   
   cleanup();
@@ -196,6 +204,7 @@ async function runTests() {
     });
     
     // Scenario 3: Transient partial states
+    // Scenario 5: Transient invalid dates (month 0, day 0) must emit null
     await scenario("transient", null, inline, async (u) => {
       await u.click(q("Day"));
       await u.keyboard("1");
@@ -205,8 +214,18 @@ async function runTests() {
       await u.keyboard("1990");
       
       check(
-        true,
-        `${tag} INFO day '1' month '0' year 1990 -> parent ${parentVal} (emitted ${JSON.stringify(emitted)})`
+        q("Day").value === "1" && q("Month").value === "0" && q("Year").value === "1990",
+        `${tag} L2 inputs show day '1' month '0' year '1990' (got '${q("Day").value}'/'${q("Month").value}'/'${q("Year").value}')`
+      );
+      
+      check(
+        parentVal === null,
+        `${tag} L2 month 0 is invalid -> parent null (got ${parentVal})`
+      );
+      
+      check(
+        !emitted.some(v => v && v.includes("-00-")),
+        `${tag} L2 no invalid ISO like '1990-00-01' emitted (emitted: ${JSON.stringify(emitted)})`
       );
     });
   }
