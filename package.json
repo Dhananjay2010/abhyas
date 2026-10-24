@@ -118,7 +118,7 @@
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:reset": "supabase db reset",
-    "test:onboarding-chrome-dob": "TZ=Asia/Kolkata tsx scripts/test-dob-logic.ts && TZ=America/Los_Angeles tsx scripts/test-dob-logic.ts && tsx scripts/test-dob-input-render.tsx",
+    "test:onboarding-chrome-dob": "TZ=Asia/Kolkata tsx scripts/test-dob-logic.ts && TZ=America/Los_Angeles tsx scripts/test-dob-logic.ts && tsx scripts/test-dob-input-render.tsx && tsx scripts/test-dob-input-controlled.tsx",
     "test:equipment-bodyweight-preselect": "tsx scripts/test-equipment-bodyweight-preselect.ts",
     "test:onboarding-inline-errors": "tsx scripts/test-onboarding-inline-errors.ts",
     "test:units-apostrophe-rounding": "tsx scripts/test-units-apostrophe-rounding.ts",
