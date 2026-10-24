@@ -57,17 +57,52 @@ export function isSessionExpired(errOrResponse: unknown): boolean {
 }
 
 /**
+ * Safe next path validation (minimal shim).
+ */
+function safeNextPath(path: string): string {
+  return path.startsWith('/') ? path : '/today';
+}
+
+/**
  * Build a sign-in redirect URL with next parameter.
  */
 export function signInAgainHref(nextPath: string): string {
-  const safePath = nextPath.startsWith('/') ? nextPath : '/today';
+  const safePath = safeNextPath(nextPath);
   return `/?next=${encodeURIComponent(safePath)}`;
+}
+
+let sessionExpiredState = false;
+
+/**
+ * Notify that session has expired.
+ */
+export function notifySessionExpired(): void {
+  sessionExpiredState = true;
+}
+
+/**
+ * Reset session expired state.
+ */
+export function resetSessionExpiredState(): void {
+  sessionExpiredState = false;
+}
+
+/**
+ * Hook to check if session expired prompt should show.
+ */
+export function useSessionExpiredPrompt(): boolean {
+  return sessionExpiredState;
 }
 
 /**
  * Session expired prompt component (minimal implementation).
+ * Uses window.location.pathname to build the sign-in redirect URL.
  */
-export function SessionExpiredPrompt({ href }: { href: string }) {
+export function SessionExpiredPrompt() {
+  const href = typeof window !== 'undefined' 
+    ? signInAgainHref(window.location.pathname)
+    : '/?next=%2Ftoday';
+
   return (
     <div
       role="alert"

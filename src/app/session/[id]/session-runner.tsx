@@ -29,10 +29,7 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
-import {
-  signInAgainHref,
-  SessionExpiredPrompt,
-} from "@/lib/session/session-expired-shim";
+import { SessionExpiredPrompt } from "@/lib/session/session-expired-shim";
 import {
   createPendingSetController,
   type PendingSetState,
@@ -797,7 +794,7 @@ export function SessionRunner({
       <div onPointerDown={onAnyTap}>
         {pendingSetState.expired && pendingSetState.pending.length > 0 && (
           <div className="mb-5">
-            <SessionExpiredPrompt href={signInAgainHref(`/session/${sessionId}`)} />
+            <SessionExpiredPrompt />
             <p className="mt-2 text-sm text-muted">
               {pendingSetState.pending.length}{" "}
               {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
