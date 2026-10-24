@@ -26,6 +26,8 @@ import {
   StepShell,
   inputClass,
 } from "@/components/ui";
+import { INJURY_STATUS_COPY } from "@/lib/onboarding/copy";
+import { orderEquipmentCategories } from "@/lib/onboarding/equipment-order";
 import {
   acceptDisclaimer,
   completeOnboarding,
@@ -125,7 +127,7 @@ export function OnboardingFlow({
   const [selectedEquipment, setSelectedEquipment] = useState<Set<string>>(
     new Set(initial.equipmentIds),
   );
-  const [injuries, setInjuries] = useState<Map<BodyRegion, InjurySeverity>>(
+  const [injuries, setInjuries] = useState<Map<BodyRegion, InjurySeverity | null>>(
     new Map(initial.injuries.map((i) => [i.bodyRegion, i.severity])),
   );
 
@@ -167,10 +169,20 @@ export function OnboardingFlow({
 
   function finish() {
     setError(null);
+    
+    // Check all injuries have a severity selected
+    const incomplete = [...injuries.entries()].filter(([, severity]) => severity === null);
+    if (incomplete.length > 0) {
+      setError("Please choose Current or Past for each selected injury.");
+      return;
+    }
+    
     startTransition(async () => {
       try {
         const saved = await actions.saveInjuries(
-          [...injuries.entries()].map(([bodyRegion, severity]) => ({ bodyRegion, severity })),
+          [...injuries.entries()]
+            .filter(([, severity]) => severity !== null)
+            .map(([bodyRegion, severity]) => ({ bodyRegion, severity: severity! })),
         );
         if (!saved.ok) return setError(saved.error);
 
@@ -575,6 +587,9 @@ export function OnboardingFlow({
       (acc[e.category] ??= []).push(e);
       return acc;
     }, {});
+    
+    // For home users, put bodyweight equipment first (always visible without scrolling)
+    const categoryOrder = orderEquipmentCategories(Object.keys(grouped), location);
 
     function toggle(id: string) {
       setHasAllEquipment(false);
@@ -639,33 +654,37 @@ export function OnboardingFlow({
         )}
 
         <div className={hasAllEquipment ? "pointer-events-none opacity-40" : ""}>
-          {Object.entries(grouped).map(([category, items]) => (
-            <div key={category} className="mb-6">
-              <h2 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
-                {CATEGORY_LABELS[category] ?? category}
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {items.map((e) => {
-                  const on = selectedEquipment.has(e.id);
-                  return (
-                    <button
-                      key={e.id}
-                      type="button"
-                      onClick={() => toggle(e.id)}
-                      aria-pressed={on}
-                      className={`rounded-full border px-4 py-2 text-sm transition-colors ${
-                        on
-                          ? "border-accent bg-accent/10 text-accent"
-                          : "border-border bg-surface text-muted hover:text-fg"
-                      }`}
-                    >
-                      {e.name}
-                    </button>
-                  );
-                })}
+          {categoryOrder.map((category) => {
+            const items = grouped[category];
+            if (!items) return null;
+            return (
+              <div key={category} className="mb-6">
+                <h2 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
+                  {CATEGORY_LABELS[category] ?? category}
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {items.map((e) => {
+                    const on = selectedEquipment.has(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => toggle(e.id)}
+                        aria-pressed={on}
+                        className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                          on
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-border bg-surface text-muted hover:text-fg"
+                        }`}
+                      >
+                        {e.name}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </StepShell>
     );
@@ -676,7 +695,7 @@ export function OnboardingFlow({
     setInjuries((prev) => {
       const next = new Map(prev);
       if (next.has(region)) next.delete(region);
-      else next.set(region, "current");
+      else next.set(region, null); // User must choose current/past
       return next;
     });
   }
@@ -733,21 +752,32 @@ export function OnboardingFlow({
               <span className="text-sm font-medium">
                 {BODY_REGIONS.find((r) => r.value === region)?.label}
               </span>
-              <div className="flex gap-1 rounded-lg bg-surface-2 p-1">
-                {(["current", "past"] as InjurySeverity[]).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() =>
-                      setInjuries((prev) => new Map(prev).set(region, s))
-                    }
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
-                      severity === s ? "bg-accent text-accent-fg" : "text-muted"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-1 rounded-lg bg-surface-2 p-1">
+                  {(["current", "past"] as InjurySeverity[]).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() =>
+                        setInjuries((prev) => new Map(prev).set(region, s))
+                      }
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                        severity === s 
+                          ? "bg-accent text-accent-fg" 
+                          : severity === null 
+                            ? "bg-danger/10 text-danger border border-danger/30"
+                            : "text-muted"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted leading-relaxed">
+                  {severity === "current" && INJURY_STATUS_COPY.current}
+                  {severity === "past" && INJURY_STATUS_COPY.past}
+                  {severity === null && "Choose Current or Past"}
+                </p>
               </div>
             </div>
           ))}
