@@ -4,6 +4,7 @@ import { getCachedEquipment } from "@/lib/supabase/cached-queries";
 import { SettingsForm, type SettingsState } from "./settings-form";
 import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
+import { buildTimezoneOptions } from "@/lib/timezone-options";
 
 export const dynamic = "force-dynamic";
 
@@ -50,13 +51,9 @@ export default async function SettingsPage() {
     timezone: profile.timezone,
   };
 
-  // Compute timezone list on server to avoid hydration mismatches.
-  // Ensure user's current timezone is in the list even if missing from Intl.
-  const baseTimezones = Intl.supportedValuesOf("timeZone");
-  const timezones =
-    profile.timezone && !baseTimezones.includes(profile.timezone)
-      ? [...baseTimezones, profile.timezone].sort()
-      : baseTimezones;
+  // F1: Build timezone list with canonical aliases (FALLBACK_TIMEZONE, Europe/Kyiv, UTC, etc.)
+  // Always includes the user's stored timezone.
+  const timezones = buildTimezoneOptions(profile.timezone);
 
   const { supportEmail } = getSiteInfo();
 

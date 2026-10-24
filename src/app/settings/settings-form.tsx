@@ -17,7 +17,7 @@ import {
 import { ErrorNote, OptionCard } from "@/components/ui";
 import { BuildPlanButton } from "@/app/today/build-plan-button";
 import { branding } from "@/lib/branding";
-import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { resolveTimezoneWithProfile, FALLBACK_TIMEZONE } from "@/lib/timezone";
 import {
   updateEquipment,
   updateInjuries,
@@ -106,6 +106,8 @@ export function SettingsForm({
   const [planStale, setPlanStale] = useState(false);
   /** L4 QA fix: Request sequence to ignore stale equipment save responses */
   const [equipmentSequence] = useState(() => createRequestSequence());
+  /** F2: Browser timezone detected on client after mount */
+  const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -113,6 +115,18 @@ export function SettingsForm({
       return () => clearTimeout(timer);
     }
   }, [equipmentOffConfirmation]);
+
+  useEffect(() => {
+    // F2: Detect browser timezone on client after mount
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      // This is a valid use of setState in effect - runs once after mount
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBrowserTimezone(detected);
+    } catch {
+      // Ignore errors in browsers that don't support timeZone
+    }
+  }, []);
 
   function save(run: () => Promise<Result>, affectsPlan = false) {
     startTransition(async () => {
@@ -271,28 +285,43 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            const decision = decideClientEquipmentUpdate({
-              currentHasAll: s.hasAllEquipment,
-              currentEquipmentIds: s.equipmentIds,
-              action: "toggle",
-            });
+            // E2: When turning OFF, pre-select the user's saved equipment rows
+            const turningOff = s.hasAllEquipment;
             
-            if (!decision.allow) {
-              // Don't save, just show picker with hint and confirmation
-              setS({ ...s, hasAllEquipment: false });
-              setEquipmentHint(decision.hint);
-              setEquipmentOffConfirmation(getEquipmentOffMessage(false));
-              return;
-            }
-            
-            // Allow the toggle and save
-            const turningOff = s.hasAllEquipment && !decision.newHasAll;
-            setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
-            saveEquipment(decision.newHasAll, decision.newEquipmentIds);
-            
-            // Show confirmation only when turning OFF
             if (turningOff) {
+              // Pre-select saved equipment when turning OFF
+              const restoredIds = savedEquipment.ids.length > 0 
+                ? savedEquipment.ids 
+                : s.equipmentIds;
+              
+              if (restoredIds.length === 0) {
+                // E2: Turning OFF with no saved equipment - show picker with clear message
+                setS({ ...s, hasAllEquipment: false, equipmentIds: [] });
+                setEquipmentHint("Pick at least one item; nothing changes until you do");
+                setEquipmentOffConfirmation(null);
+                return;
+              }
+              
+              // Has saved equipment to restore - turn OFF and save
+              setS({ ...s, hasAllEquipment: false, equipmentIds: restoredIds });
+              saveEquipment(false, restoredIds);
               setEquipmentOffConfirmation(getEquipmentOffMessage(true));
+            } else {
+              // Turning ON - validate first
+              const decision = decideClientEquipmentUpdate({
+                currentHasAll: s.hasAllEquipment,
+                currentEquipmentIds: s.equipmentIds,
+                action: "toggle",
+              });
+              
+              if (!decision.allow) {
+                setEquipmentHint(decision.hint);
+                return;
+              }
+              
+              // Turn ON and save
+              setS({ ...s, hasAllEquipment: true });
+              saveEquipment(true, s.equipmentIds);
             }
           }}
           aria-pressed={s.hasAllEquipment}
@@ -604,9 +633,15 @@ export function SettingsForm({
             disabled={pending}
           >
             <option value="">
-              Use gym default
-              {branding.timezone ? ` (${branding.timezone})` : " (browser detected)"}
+              Gym default ({branding.timezone || FALLBACK_TIMEZONE})
             </option>
+            {browserTimezone && 
+             browserTimezone !== (branding.timezone || FALLBACK_TIMEZONE) && 
+             browserTimezone !== s.timezone && (
+              <option value={browserTimezone}>
+                Use this device&apos;s zone ({browserTimezone})
+              </option>
+            )}
             {timezones.map((tz) => (
               <option key={tz} value={tz}>
                 {tz}
