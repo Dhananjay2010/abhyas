@@ -1,32 +1,10 @@
 /**
  * Session expiry detection shim.
  * 
- * This module provides minimal local implementations of the session-expired
- * contract from PR #105 until that PR merges. Once #105 lands, swap these
- * imports for the real ones:
- * 
- * In session-runner.tsx, replace line 30-32:
- *   import {
- *     SESSION_EXPIRED_CODE,
- *     isSessionExpired,
- *     signInAgainHref,
- *   } from "@/lib/session/session-expired-shim";
- *   import { SessionExpiredPrompt } from "@/lib/session/session-expired-shim";
- * 
- * With:
- *   import {
- *     SESSION_EXPIRED_CODE,
- *     isSessionExpired,
- *     signInAgainHref,
- *   } from "@/lib/auth/session-expired";
- *   import { SessionExpiredPrompt } from "@/components/session-expired-prompt";
- * 
- * In pending-set-retry.ts, replace line 10:
- *   import { SESSION_EXPIRED_CODE, isSessionExpired } from "./session-expired-shim";
- * 
- * With:
- *   import { SESSION_EXPIRED_CODE, isSessionExpired } from "@/lib/auth/session-expired";
+ * Minimal local stub for session-expired functionality.
  */
+
+import { safeNextPath } from "@/lib/safe-next-path";
 
 export const SESSION_EXPIRED_CODE = 'SESSION_EXPIRED';
 
@@ -57,27 +35,6 @@ export function isSessionExpired(errOrResponse: unknown): boolean {
 }
 
 /**
- * Safe next path validation - checks for open redirects.
- */
-function safeNextPath(path: string, fallback = '/today'): string {
-  if (!path || typeof path !== 'string') return fallback;
-  if (path.length > 512) return fallback;
-  if (path.startsWith('//')) return fallback;
-  if (path.startsWith('/\\')) return fallback;
-  if (path.startsWith('\\')) return fallback;
-  if (path.includes('://')) return fallback;
-  
-  // Reject encoded slashes/backslashes in path (before ? or #)
-  const pathPart = path.split(/[?#]/)[0];
-  if (pathPart.match(/%2[fF]/)) return fallback;
-  if (pathPart.match(/%5[cC]/)) return fallback;
-  if (pathPart.includes('\x00') || /[\x00-\x1F]/.test(pathPart)) return fallback;
-  if (pathPart.includes('\\')) return fallback;
-  
-  return path.startsWith('/') ? path : fallback;
-}
-
-/**
  * Build a sign-in redirect URL with next parameter.
  */
 export function signInAgainHref(nextPath: string): string {
@@ -86,27 +43,6 @@ export function signInAgainHref(nextPath: string): string {
 }
 
 let sessionExpiredState = false;
-
-/**
- * Notify that session has expired.
- */
-export function notifySessionExpired(): void {
-  sessionExpiredState = true;
-}
-
-/**
- * Reset session expired state.
- */
-export function resetSessionExpiredState(): void {
-  sessionExpiredState = false;
-}
-
-/**
- * Hook to check if session expired prompt should show.
- */
-export function useSessionExpiredPrompt(): boolean {
-  return sessionExpiredState;
-}
 
 /**
  * Session expired prompt component (minimal implementation).
