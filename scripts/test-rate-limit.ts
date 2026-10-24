@@ -15,9 +15,9 @@ import {
   checkRateLimit,
   getClientIp,
   createRateLimitKey,
-  createTestLimiters,
   type RateLimitType,
 } from "../src/lib/rate-limit/index";
+import { createTestLimiters } from "../src/lib/rate-limit/testing";
 
 let failures = 0;
 
@@ -35,28 +35,36 @@ async function runTests() {
     check("remaining is Infinity", result.remaining === Infinity);
   }
 
-  console.log("\n2. IP extraction from headers");
+  console.log("\n2. IP extraction from headers (correct precedence)");
   {
+    // x-vercel-forwarded-for has highest priority
     const req1 = new Request("https://example.com", {
-      headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" },
-    });
-    check("extracts first IP from x-forwarded-for", getClientIp(req1) === "1.2.3.4");
-
-    const req2 = new Request("https://example.com", {
-      headers: { "x-real-ip": "9.10.11.12" },
-    });
-    check("extracts IP from x-real-ip", getClientIp(req2) === "9.10.11.12");
-
-    const req3 = new Request("https://example.com");
-    check("falls back to 127.0.0.1", getClientIp(req3) === "127.0.0.1");
-
-    const req4 = new Request("https://example.com", {
       headers: {
-        "x-forwarded-for": "1.2.3.4",
-        "x-real-ip": "9.10.11.12",
+        "x-vercel-forwarded-for": "1.1.1.1",
+        "x-real-ip": "2.2.2.2",
+        "x-forwarded-for": "3.3.3.3, 4.4.4.4",
       },
     });
-    check("prefers x-forwarded-for over x-real-ip", getClientIp(req4) === "1.2.3.4");
+    check("prefers x-vercel-forwarded-for over all others", getClientIp(req1) === "1.1.1.1");
+
+    // x-real-ip is second priority
+    const req2 = new Request("https://example.com", {
+      headers: {
+        "x-real-ip": "9.10.11.12",
+        "x-forwarded-for": "5.6.7.8",
+      },
+    });
+    check("prefers x-real-ip over x-forwarded-for", getClientIp(req2) === "9.10.11.12");
+
+    // x-forwarded-for is third (first IP in chain)
+    const req3 = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" },
+    });
+    check("extracts first IP from x-forwarded-for", getClientIp(req3) === "1.2.3.4");
+
+    // 127.0.0.1 fallback for local dev
+    const req4 = new Request("https://example.com");
+    check("falls back to 127.0.0.1 (local dev)", getClientIp(req4) === "127.0.0.1");
   }
 
   console.log("\n3. Rate limit key generation");
@@ -144,11 +152,11 @@ async function runTests() {
 
   console.log("\n8. Fail-open on timeout (simulated)");
   {
-    // Test that checkRateLimit times out slow responses
+    // Test that checkRateLimit times out slow responses (500ms timeout)
     const slowLimiter = {
       auth: {
         limit: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 5000)); // 5s > 2s timeout
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // 1s > 500ms timeout
           return { success: true, limit: 60, remaining: 59, reset: Date.now(), pending: Promise.resolve() };
         },
       },
@@ -160,6 +168,38 @@ async function runTests() {
     const result = await checkRateLimit("test-key", "auth", slowLimiter as unknown as ReturnType<typeof createTestLimiters>);
     check("request succeeds despite timeout", result.success === true);
     check("limit is Infinity on timeout", result.limit === Infinity);
+  }
+
+  console.log("\n9. Timer is cleared (no leak)");
+  {
+    // Track active timers
+    const originalSetTimeout = global.setTimeout;
+    const originalClearTimeout = global.clearTimeout;
+    const activeTimers = new Set<NodeJS.Timeout>();
+
+    global.setTimeout = ((fn: () => void, ms: number) => {
+      const id = originalSetTimeout(fn, ms);
+      activeTimers.add(id);
+      return id;
+    }) as typeof setTimeout;
+
+    global.clearTimeout = ((id: NodeJS.Timeout) => {
+      activeTimers.delete(id);
+      return originalClearTimeout(id);
+    }) as typeof clearTimeout;
+
+    const testLimiters = createTestLimiters({
+      default: { limit: 5, window: "1 m" },
+    });
+
+    // Make a successful call
+    await checkRateLimit("timer-test", "default", testLimiters);
+
+    // Restore original functions
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+
+    check("timer was cleared after successful call", activeTimers.size === 0);
   }
 
   if (failures > 0) {

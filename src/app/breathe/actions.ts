@@ -302,8 +302,8 @@ type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 /** Breathing preferences. They save as they are touched, like the Settings screen. */
 export async function updateBreathingPrefs(patch: PrefsPatch): Promise<Result> {
   const invalid = validatePrefs(patch);
-  if (invalid) return { ok: false, error: invalid};
-  
+  if (invalid) return { ok: false, error: invalid };
+
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
 

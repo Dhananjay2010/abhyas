@@ -11,7 +11,7 @@ delete process.env.UPSTASH_REDIS_REST_URL;
 delete process.env.UPSTASH_REDIS_REST_TOKEN;
 
 import { withRateLimit } from "../src/lib/rate-limit/route-handler";
-import { createTestLimiters } from "../src/lib/rate-limit/index";
+import { createTestLimiters } from "../src/lib/rate-limit/testing";
 
 let failures = 0;
 
@@ -28,7 +28,7 @@ async function runTests() {
     });
 
     let handlerCalled = false;
-    const mockHandler = async (_request: Request) => {
+    const mockHandler = async () => {
       handlerCalled = true;
       return new Response("OK", { status: 200 });
     };
@@ -55,7 +55,7 @@ async function runTests() {
     });
 
     let callCount = 0;
-    const mockHandler = async (_request: Request) => {
+    const mockHandler = async () => {
       callCount++;
       return new Response("OK", { status: 200 });
     };

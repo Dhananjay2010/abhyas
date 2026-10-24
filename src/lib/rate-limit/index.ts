@@ -73,7 +73,7 @@ const limiters: RateLimiters | null = redis
     }
   : null;
 
-const RATE_LIMIT_TIMEOUT_MS = 2000;
+const RATE_LIMIT_TIMEOUT_MS = 500;
 
 /**
  * Check rate limit for a given identifier and limit type.
@@ -82,6 +82,9 @@ const RATE_LIMIT_TIMEOUT_MS = 2000;
  * 
  * **Fails open**: On any error or timeout, allows the request and logs a warning.
  * This prevents Upstash outages from breaking the app (e.g., logSet mid-workout).
+ * 
+ * Timeout is 500ms. Upstash REST is usually <50ms, so this catches real stalls
+ * without adding noticeable latency to normal operations.
  */
 export async function checkRateLimit(
   identifier: string,
@@ -99,12 +102,14 @@ export async function checkRateLimit(
     };
   }
 
+  let timeoutId: NodeJS.Timeout | null = null;
+
   try {
     const limiter = activeLimiters[type];
     
     // Race the limit check against a timeout
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Rate limit check timeout")), RATE_LIMIT_TIMEOUT_MS);
+      timeoutId = setTimeout(() => reject(new Error("Rate limit check timeout")), RATE_LIMIT_TIMEOUT_MS);
     });
     
     const result = await Promise.race([
@@ -135,25 +140,43 @@ export async function checkRateLimit(
       remaining: Infinity,
       reset: Date.now(),
     };
+  } finally {
+    // Always clear the timeout to prevent leaks
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
 /**
  * Extract client IP from request headers.
  * 
- * Vercel provides x-forwarded-for and x-real-ip.
- * Falls back to a placeholder for local dev.
+ * On Vercel, prefers x-vercel-forwarded-for (most accurate), then x-real-ip,
+ * then the first entry of x-forwarded-for.
+ * 
+ * Falls back to 127.0.0.1 for local dev. This puts all header-less requests
+ * in one bucket locally, which is fine for development.
  */
 export function getClientIp(request: Request): string {
+  // Vercel's own header, most accurate
+  const vercelForwarded = request.headers.get("x-vercel-forwarded-for");
+  if (vercelForwarded) {
+    const ip = vercelForwarded.trim();
+    if (ip) return ip;
+  }
+
+  // x-real-ip is next best
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return realIp;
+
+  // x-forwarded-for as fallback (first IP in chain)
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     const ip = forwarded.split(",")[0].trim();
     if (ip) return ip;
   }
 
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) return realIp;
-
+  // Local dev fallback - all requests without headers share one bucket
   return "127.0.0.1";
 }
 
@@ -169,76 +192,3 @@ export function createRateLimitKey(ip: string, userId?: string): string {
   return userId ?? ip;
 }
 
-/**
- * Create test limiters for use in tests.
- * Uses an in-memory Map backend instead of Redis.
- */
-export function createTestLimiters(config: {
-  auth?: { limit: number; window: string };
-  session?: { limit: number; window: string };
-  expensive?: { limit: number; window: string };
-  default?: { limit: number; window: string };
-}): RateLimiters {
-  // Create an in-memory Map to act as the backend
-  const memory = new Map<string, { count: number; reset: number }>();
-  
-  const createMemoryLimiter = (limit: number, windowMs: number): Ratelimit => {
-    return {
-      limit: async (key: string) => {
-        const now = Date.now();
-        const entry = memory.get(key);
-        
-        if (!entry || entry.reset < now) {
-          memory.set(key, { count: 1, reset: now + windowMs });
-          return {
-            success: true,
-            limit,
-            remaining: limit - 1,
-            reset: now + windowMs,
-            pending: Promise.resolve(),
-          };
-        }
-        
-        entry.count += 1;
-        const success = entry.count <= limit;
-        
-        return {
-          success,
-          limit,
-          remaining: Math.max(0, limit - entry.count),
-          reset: entry.reset,
-          pending: Promise.resolve(),
-        };
-      },
-      resetKey: async () => {},
-      getRemaining: async () => ({ success: true, limit: 0, remaining: 0, reset: 0, pending: Promise.resolve() }),
-      blockUntilReady: async () => {},
-    } as unknown as Ratelimit;
-  };
-  
-  const parseWindow = (window: string): number => {
-    const match = window.match(/^(\d+)\s*(m|s|h)$/);
-    if (!match) throw new Error(`Invalid window format: ${window}`);
-    const value = parseInt(match[1], 10);
-    const unit = match[2];
-    if (unit === "s") return value * 1000;
-    if (unit === "m") return value * 60 * 1000;
-    if (unit === "h") return value * 60 * 60 * 1000;
-    throw new Error(`Unknown unit: ${unit}`);
-  };
-  
-  return {
-    auth: config.auth
-      ? createMemoryLimiter(config.auth.limit, parseWindow(config.auth.window))
-      : createMemoryLimiter(60, 600000),
-    session: config.session
-      ? createMemoryLimiter(config.session.limit, parseWindow(config.session.window))
-      : createMemoryLimiter(100, 60000),
-    expensive: config.expensive
-      ? createMemoryLimiter(config.expensive.limit, parseWindow(config.expensive.window))
-      : createMemoryLimiter(10, 60000),
-    default: config.default
-      ? createMemoryLimiter(config.default.limit, parseWindow(config.default.window))
-      : createMemoryLimiter(30, 60000),
-  };
-}

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { checkRateLimit, getClientIp, createRateLimitKey, type RateLimitType } from "./index";
+import type { Ratelimit } from "@upstash/ratelimit";
 
-type RateLimiters = Awaited<ReturnType<typeof import("./index").createTestLimiters>>;
+type RateLimiters = Record<RateLimitType, Ratelimit>;
 
 /**
  * Wrapper for Next.js route handlers that applies rate limiting.
