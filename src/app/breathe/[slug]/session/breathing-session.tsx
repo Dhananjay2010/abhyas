@@ -613,7 +613,7 @@ function Practice({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [requestPause]);
 
-  // Space pauses and resumes; Escape pauses or dismisses confirmation.
+  // Space pauses and resumes; Escape pauses or dismisses/resumes dialogs.
   useEffect(() => {
     if (stage !== "running") return;
     const onKey = (e: KeyboardEvent) => {
@@ -622,6 +622,10 @@ function Practice({
       e.preventDefault();
       if (e.key === "Escape" && backPressed) {
         setBackPressed(false);
+        return;
+      }
+      if (e.key === "Escape" && paused) {
+        setPaused(false);
         return;
       }
       if (!paused) requestPause();
