@@ -6,9 +6,13 @@
 const STORAGE_KEY = 'abhyas_pending_settings';
 const MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 
+export type SaveType = 'profile' | 'session' | 'equipment' | 'injuries';
+
 export interface PendingChange {
-  field: string;
-  value: unknown;
+  key: string;
+  type: SaveType;
+  patch: unknown;
+  affectsPlan?: boolean;
   timestamp: number;
 }
 
@@ -39,8 +43,10 @@ export function stashPendingChanges(changes: PendingChange[], returnPath: string
   try {
     const payload: PendingChangesPayload = {
       changes: changes.map(ch => ({
-        field: ch.field,
-        value: ch.value,
+        key: ch.key,
+        type: ch.type,
+        patch: ch.patch,
+        affectsPlan: ch.affectsPlan,
         timestamp: ch.timestamp || Date.now()
       })),
       returnPath

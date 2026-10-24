@@ -179,8 +179,8 @@ export function SettingsForm({
   
   /** Track retry metadata for each key (M1 fix #2) */
   const retryMetadata = useRef<Map<string, {
-    type: 'profile' | 'session';
-    patch: Parameters<typeof actions.updateProfileSettings>[0] | Parameters<typeof actions.updateSessionSettings>[0];
+    type: 'profile' | 'session' | 'equipment' | 'injuries';
+    patch: unknown;
     affectsPlan?: boolean;
   }>>(new Map());
   
@@ -233,16 +233,19 @@ export function SettingsForm({
 
     clearPendingChanges();
 
-    // Apply changes through the save queue
+    // Re-apply each stashed save through the appropriate save function
     for (const change of pending.changes) {
-      const { field, value } = change;
+      const { key, type, patch, affectsPlan } = change;
       
-      if (field === "preferredSessionMinutes" && typeof value === "number") {
-        setS(prev => ({ ...prev, preferredSessionMinutes: value }));
-        saveProfile("preferred_session_minutes", { preferred_session_minutes: value });
-      } else if (field === "timezone" && (typeof value === "string" || value === null)) {
-        setS(prev => ({ ...prev, timezone: value }));
-        saveProfile("timezone", { timezone: value });
+      if (type === 'profile' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
+        saveProfile(key, patch as Parameters<typeof actions.updateProfileSettings>[0], affectsPlan);
+      } else if (type === 'session' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
+        saveSession(key, patch as Parameters<typeof actions.updateSessionSettings>[0]);
+      } else if (type === 'equipment' && patch && typeof patch === 'object' && !Array.isArray(patch) && 'hasAll' in patch && 'equipmentIds' in patch) {
+        const equipPatch = patch as { hasAll: boolean; equipmentIds: string[] };
+        saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
+      } else if (type === 'injuries' && Array.isArray(patch)) {
+        saveInjuries(patch as Parameters<typeof actions.updateInjuries>[0]);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -391,15 +394,16 @@ export function SettingsForm({
         
         // Check for session expiration in result
         if (isSessionExpired(result)) {
-          // Stash pending changes for supported fields
-          const changes: PendingChange[] = [];
-          if (key === "preferred_session_minutes") {
-            changes.push({ field: "preferredSessionMinutes", value: s.preferredSessionMinutes, timestamp: Date.now() });
-          } else if (key === "timezone") {
-            changes.push({ field: "timezone", value: s.timezone, timestamp: Date.now() });
-          }
-          if (changes.length > 0) {
-            stashPendingChanges(changes, pathname);
+          // Stash this save using retry metadata
+          const metadata = retryMetadata.current.get(key);
+          if (metadata) {
+            stashPendingChanges([{
+              key,
+              type: metadata.type,
+              patch: metadata.patch,
+              affectsPlan: metadata.affectsPlan,
+              timestamp: Date.now()
+            }], pathname);
           }
           notifySessionExpired();
           return;
@@ -438,15 +442,16 @@ export function SettingsForm({
       } catch (err) {
         // Check for session expiration in thrown error
         if (isSessionExpired(err)) {
-          // Stash pending changes for supported fields
-          const changes: PendingChange[] = [];
-          if (key === "preferred_session_minutes") {
-            changes.push({ field: "preferredSessionMinutes", value: s.preferredSessionMinutes, timestamp: Date.now() });
-          } else if (key === "timezone") {
-            changes.push({ field: "timezone", value: s.timezone, timestamp: Date.now() });
-          }
-          if (changes.length > 0) {
-            stashPendingChanges(changes, pathname);
+          // Stash this save using retry metadata
+          const metadata = retryMetadata.current.get(key);
+          if (metadata) {
+            stashPendingChanges([{
+              key,
+              type: metadata.type,
+              patch: metadata.patch,
+              affectsPlan: metadata.affectsPlan,
+              timestamp: Date.now()
+            }], pathname);
           }
           notifySessionExpired();
           return;
@@ -546,6 +551,12 @@ export function SettingsForm({
   function saveEquipment(hasAll: boolean, equipmentIds: string[], showConfirmation = false) {
     const changed = equipmentChanged(hasAll, equipmentIds);
     
+    // Store retry metadata
+    retryMetadata.current.set("equipment", {
+      type: 'equipment',
+      patch: { hasAll, equipmentIds }
+    });
+    
     startTransition(async () => {
       try {
         const result = await saveQueue.enqueue("equipment", () => 
@@ -559,6 +570,15 @@ export function SettingsForm({
         
         // Check for session expiration in result
         if (isSessionExpired(result)) {
+          const metadata = retryMetadata.current.get("equipment");
+          if (metadata) {
+            stashPendingChanges([{
+              key: "equipment",
+              type: metadata.type,
+              patch: metadata.patch,
+              timestamp: Date.now()
+            }], pathname);
+          }
           notifySessionExpired();
           return;
         }
@@ -601,6 +621,15 @@ export function SettingsForm({
       } catch (err) {
         // Check for session expiration in thrown error
         if (isSessionExpired(err)) {
+          const metadata = retryMetadata.current.get("equipment");
+          if (metadata) {
+            stashPendingChanges([{
+              key: "equipment",
+              type: metadata.type,
+              patch: metadata.patch,
+              timestamp: Date.now()
+            }], pathname);
+          }
           notifySessionExpired();
           return;
         }
@@ -615,6 +644,11 @@ export function SettingsForm({
 
   /** Save injuries */
   function saveInjuries(injuries: Parameters<typeof actions.updateInjuries>[0]) {
+    // Store retry metadata
+    retryMetadata.current.set("injuries", {
+      type: 'injuries',
+      patch: injuries
+    });
     enqueueSave("injuries", () => actions.updateInjuries(injuries), true);
   }
 
@@ -655,13 +689,18 @@ export function SettingsForm({
                 <span className="text-danger">{errorMsg}</span>
                 <button
                   onClick={() => {
-                    // M1 fix #2: Retry through saveProfile/saveSession
+                    // M1 fix #2: Retry through appropriate save function
                     const metadata = retryMetadata.current.get(key);
                     if (metadata) {
-                      if (metadata.type === 'profile') {
-                        saveProfile(key, metadata.patch, metadata.affectsPlan);
-                      } else if (metadata.type === 'session') {
-                        saveSession(key, metadata.patch);
+                      if (metadata.type === 'profile' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
+                        saveProfile(key, metadata.patch as Parameters<typeof actions.updateProfileSettings>[0], metadata.affectsPlan);
+                      } else if (metadata.type === 'session' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
+                        saveSession(key, metadata.patch as Parameters<typeof actions.updateSessionSettings>[0]);
+                      } else if (metadata.type === 'equipment' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch) && 'hasAll' in metadata.patch && 'equipmentIds' in metadata.patch) {
+                        const equipPatch = metadata.patch as { hasAll: boolean; equipmentIds: string[] };
+                        saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
+                      } else if (metadata.type === 'injuries' && Array.isArray(metadata.patch)) {
+                        saveInjuries(metadata.patch as Parameters<typeof actions.updateInjuries>[0]);
                       }
                     }
                   }}

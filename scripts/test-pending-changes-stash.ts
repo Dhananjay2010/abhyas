@@ -65,7 +65,7 @@ function beforeEach() {
 test('stashPendingChanges stores change in sessionStorage', () => {
   beforeEach();
   const changes: PendingChange[] = [
-    { field: 'preferredSessionMinutes', value: 60, timestamp: Date.now() }
+    { key: 'preferred_session_minutes', type: 'profile', patch: { preferred_session_minutes: 60 }, timestamp: Date.now() }
   ];
   const result = stashPendingChanges(changes, '/settings');
   assert(result === true, 'stashPendingChanges should return true');
@@ -74,8 +74,8 @@ test('stashPendingChanges stores change in sessionStorage', () => {
   assert(stored !== null, 'getPendingChanges should return stored data');
   assert(stored!.returnPath === '/settings', 'returnPath should match');
   assert(stored!.changes.length === 1, 'should have 1 change');
-  assert(stored!.changes[0].field === 'preferredSessionMinutes', 'field should match');
-  assert(stored!.changes[0].value === 60, 'value should match');
+  assert(stored!.changes[0].key === 'preferred_session_minutes', 'key should match');
+  assert(stored!.changes[0].type === 'profile', 'type should match');
 });
 
 test('getPendingChanges returns null when nothing stashed', () => {
@@ -89,7 +89,7 @@ test('getPendingChanges filters expired changes (> 10 min)', () => {
   const now = Date.now();
   const elevenMinutesAgo = now - (11 * 60 * 1000);
   const changes: PendingChange[] = [
-    { field: 'preferredSessionMinutes', value: 60, timestamp: elevenMinutesAgo }
+    { key: 'preferred_session_minutes', type: 'profile', patch: { preferred_session_minutes: 60 }, timestamp: elevenMinutesAgo }
   ];
   stashPendingChanges(changes, '/settings');
   
@@ -102,7 +102,7 @@ test('getPendingChanges keeps recent changes (< 10 min)', () => {
   const now = Date.now();
   const fiveMinutesAgo = now - (5 * 60 * 1000);
   const changes: PendingChange[] = [
-    { field: 'preferredSessionMinutes', value: 60, timestamp: fiveMinutesAgo }
+    { key: 'preferred_session_minutes', type: 'profile', patch: { preferred_session_minutes: 60 }, timestamp: fiveMinutesAgo }
   ];
   stashPendingChanges(changes, '/settings');
   
@@ -114,7 +114,7 @@ test('getPendingChanges keeps recent changes (< 10 min)', () => {
 test('clearPendingChanges removes stashed data', () => {
   beforeEach();
   const changes: PendingChange[] = [
-    { field: 'preferredSessionMinutes', value: 60, timestamp: Date.now() }
+    { key: 'preferred_session_minutes', type: 'profile', patch: { preferred_session_minutes: 60 }, timestamp: Date.now() }
   ];
   stashPendingChanges(changes, '/settings');
   
@@ -127,14 +127,15 @@ test('clearPendingChanges removes stashed data', () => {
 test('Multiple changes can be stashed', () => {
   beforeEach();
   const changes: PendingChange[] = [
-    { field: 'preferredSessionMinutes', value: 60, timestamp: Date.now() },
-    { field: 'timezone', value: 'Asia/Kolkata', timestamp: Date.now() }
+    { key: 'preferred_session_minutes', type: 'profile', patch: { preferred_session_minutes: 60 }, timestamp: Date.now() },
+    { key: 'timezone', type: 'profile', patch: { timezone: 'Asia/Kolkata' }, timestamp: Date.now() },
+    { key: 'equipment', type: 'equipment', patch: { hasAll: false, equipmentIds: ['barbell'] }, timestamp: Date.now() }
   ];
   stashPendingChanges(changes, '/settings');
   
   const stored = getPendingChanges();
   assert(stored !== null, 'should return stored data');
-  assert(stored!.changes.length === 2, 'should have 2 changes');
+  assert(stored!.changes.length === 3, 'should have 3 changes');
 });
 
 console.log('\n==========================================');
