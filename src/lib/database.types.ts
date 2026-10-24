@@ -1347,6 +1347,28 @@ export type Database = {
       }
     }
     Views: {
+      exercise_history: {
+        Row: {
+          completed_at: string | null
+          exercise_id: string | null
+          exercise_status: Database["public"]["Enums"]["exercise_status"] | null
+          local_date: string | null
+          metric: Database["public"]["Enums"]["exercise_metric"] | null
+          session_exercise_id: string | null
+          session_id: string | null
+          session_status: Database["public"]["Enums"]["session_status"] | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_exercises_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercise_strength_history: {
         Row: {
           best_e1rm: number | null

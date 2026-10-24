@@ -10,7 +10,7 @@ import {
   detectPersonalRecords,
   detectSetPRs,
   type SetData,
-  type PRType,
+  type PersonalRecord,
 } from "../src/lib/exercise-history/calculations";
 
 let failures = 0;
@@ -349,7 +349,6 @@ console.log("\n18. Epley formula validation with known values");
 {
   // Known 1RM = 100kg
   // Expected reps at different weights (approximate)
-  const known1RM = 100;
   
   // 95% of 1RM should be around 2 reps
   const at95pct = calculateEpley1RM(2, 95);
