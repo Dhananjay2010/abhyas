@@ -5,7 +5,12 @@
  * Tests the extracted shouldRefreshOnEvent and attachResumeRefresh functions.
  */
 
-import { shouldRefreshOnEvent, attachResumeRefresh } from "../src/lib/session/use-resume-refresh";
+import {
+  shouldRefreshOnEvent,
+  attachResumeRefresh,
+  type DocumentLike,
+  type WindowLike,
+} from "../src/lib/session/use-resume-refresh";
 
 let passed = 0;
 let failed = 0;
