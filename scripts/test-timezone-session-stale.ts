@@ -5,7 +5,6 @@
  * - startSession returns existing in_progress session id
  * - startSession handles 23505 (unique constraint) gracefully
  * - logSet rejects writes to completed sessions
- * - Mutant tests verify all critical paths
  * 
  *   npx tsx scripts/test-timezone-session-stale.ts
  */
@@ -283,87 +282,6 @@ console.log("\n10. Same session loaded 6 hours later is closed with ended_at at 
   check("session closed", session?.status === "completed");
   const endedAtMatch = session?.completed_at && new Date(session.completed_at).getTime() === Date.parse(lastSet);
   check("ended_at matches last set", !!endedAtMatch, `${session?.completed_at} vs ${lastSet}`);
-}
-
-console.log("\n=== MUTANT TESTS ===\n");
-
-console.log("Mutant A: auto-close reverts to local_date comparison");
-{
-  // This mutant would close a session from yesterday even if active 10 min ago
-  const fake = new FakeCloseStaleDeps();
-  const now = Date.parse("2026-10-25T00:15:00Z");
-  const tenMinutesAgo = new Date(now - 10 * 60 * 1000).toISOString();
-  
-  fake.setSession("ma", "in_progress");
-  fake.setSessionExercises("ma", [
-    { session_id: "ma", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: tenMinutesAgo }] },
-  ]);
-
-  const open: OpenSession[] = [
-    { id: "ma", local_date: "2026-10-24", started_at: "2026-10-24T23:00:00Z" },
-  ];
-
-  await closeStaleSessionsCore(fake, open, now);
-  
-  const session = fake.getSession("ma");
-  if (session?.status !== "in_progress") {
-    console.log("  MUTANT KILLED: Session was closed despite recent activity");
-  } else {
-    console.log("  ok   Mutant A killed: session still in_progress");
-  }
-}
-
-console.log("\nMutant B: threshold is inverted (closes if < 6 hours)");
-{
-  // This mutant would close sessions that are still fresh
-  const fake = new FakeCloseStaleDeps();
-  const now = Date.parse("2026-10-24T15:10:00Z");
-  const tenMinutesAgo = new Date(now - 10 * 60 * 1000).toISOString();
-  
-  fake.setSession("mb", "in_progress");
-  fake.setSessionExercises("mb", [
-    { session_id: "mb", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: tenMinutesAgo }] },
-  ]);
-
-  const open: OpenSession[] = [
-    { id: "mb", local_date: "2026-10-24", started_at: tenMinutesAgo },
-  ];
-
-  await closeStaleSessionsCore(fake, open, now);
-  
-  const session = fake.getSession("mb");
-  if (session?.status !== "in_progress") {
-    console.log("  MUTANT KILLED: Fresh session was closed");
-  } else {
-    console.log("  ok   Mutant B killed: fresh session still in_progress");
-  }
-}
-
-console.log("\nMutant C: ended_at calculation ignores last set");
-{
-  // This mutant would set ended_at = started_at even when sets were logged
-  const startedAt = "2026-10-24T14:00:00Z";
-  const lastSetCompletedAt = "2026-10-24T15:30:00Z";
-  
-  const finish = resolveStaleFinish({
-    startedAt,
-    lastSetCompletedAt,
-    workingSetCount: 3,
-  });
-
-  const endedAtTime = Date.parse(finish.endedAt);
-  const startTime = Date.parse(startedAt);
-  const lastSetTime = Date.parse(lastSetCompletedAt);
-
-  if (endedAtTime === startTime) {
-    console.log("  MUTANT KILLED: ended_at incorrectly set to started_at");
-    failures++;
-  } else if (endedAtTime === lastSetTime) {
-    console.log("  ok   Mutant C killed: ended_at correctly set to last set time");
-  } else {
-    console.log(`  FAIL Unexpected ended_at: ${finish.endedAt} (${endedAtTime} vs start ${startTime} vs last ${lastSetTime})`);
-    failures++;
-  }
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
