@@ -324,7 +324,10 @@ export default async function TodayPage() {
       : undefined;
 
   // Check if user has started any strength or yoga session (for welcome card and first-day logic)
-  const hasStartedAny = hasStartedAnySession({ sessions: allSessionsRes.data ?? [] });
+  // If the query failed, assume they HAVE started (safer fallback - show normal Today, not brand-new welcome)
+  const hasStartedAny = allSessionsRes.error
+    ? true
+    : hasStartedAnySession({ sessions: allSessionsRes.data ?? [] });
 
   // Use pure helpers to derive all prompt logic
   const yesterdayIndex = isoWeekday(yesterday);
