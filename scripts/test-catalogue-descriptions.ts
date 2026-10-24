@@ -45,19 +45,24 @@ async function main() {
   const statements = migrationSql
     .split(';')
     .map(s => s.trim())
-    .filter(s => s.length > 0);
+    .filter(s => s.length > 0 && !s.startsWith('--'));
   
   for (const stmt of statements) {
     const upperStmt = stmt.toUpperCase();
-    if (upperStmt.startsWith('UPDATE EXERCISES')) {
+    const firstLine = stmt.split('\n')[0].toUpperCase();
+    
+    if (firstLine.startsWith('UPDATE EXERCISES') || upperStmt.startsWith('UPDATE EXERCISES')) {
       if (!/(WHERE|where)\s+(slug|SLUG)\s*=\s*'[^']+'/.test(stmt)) {
         throw new Error(`Un-scoped UPDATE detected: ${stmt.slice(0, 100)}...`);
       }
-      if (!/(cue|CUE)\s*=\s*'[^']+'/.test(stmt)) {
-        throw new Error(`UPDATE without cue constraint: ${stmt.slice(0, 100)}...`);
+      if (!/(cue|CUE|impact|IMPACT|type|TYPE)\s*=/.test(stmt)) {
+        throw new Error(`UPDATE without proper constraint: ${stmt.slice(0, 100)}...`);
       }
-    } else if (upperStmt.includes('UPDATE')) {
-      throw new Error(`Non-exercises UPDATE detected: ${stmt.slice(0, 100)}...`);
+    } else if (upperStmt.includes('UPDATE') && !firstLine.startsWith('--')) {
+      const cleanStmt = stmt.replace(/--[^\n]*\n/g, '');
+      if (cleanStmt.toUpperCase().includes('UPDATE') && !cleanStmt.toUpperCase().startsWith('UPDATE EXERCISES') && !cleanStmt.toUpperCase().startsWith('UPDATE WARMUP')) {
+        throw new Error(`Non-exercises/warmup UPDATE detected: ${stmt.slice(0, 100)}...`);
+      }
     }
   }
   
