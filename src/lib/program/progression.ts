@@ -400,6 +400,15 @@ function computeTwoMissWeight(
     const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
     const minAllowed = rawReduced - liftIncrement;
     reduced = Math.max(snapped, minAllowed);
+    
+    // With equipment: snap to equipment grid to ensure loadability
+    if (equipmentIds.length > 0) {
+      const equipSnapped = roundToGrid(reduced, equipmentIds, 'kg', roundingGrid, 'down');
+      // Only apply if it doesn't violate the "at most one increment below 90%" cap
+      if (equipSnapped >= minAllowed - 0.001) {
+        reduced = equipSnapped;
+      }
+    }
   }
   
   // Never raise
@@ -674,12 +683,21 @@ export function evaluateProgression(input: {
       
       reduced = bells[targetIndex];
     } else {
-      // Standard equipment: use 2.5 kg grid (1.25 kg for isolation)
+      // Standard equipment or no equipment: use 2.5 kg grid (1.25 kg for isolation)
       const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
       const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
       // Never drop more than one lift increment below the 90% value
       const minAllowed = rawReduced - liftIncrement;
       reduced = Math.max(snapped, minAllowed);
+      
+      // With equipment: snap to equipment grid to ensure loadability
+      if (equipmentIds && unit) {
+        const equipSnapped = roundToGrid(reduced, equipmentIds, unit, roundingGrid, 'down');
+        // Only apply if it doesn't violate the "at most one increment below 90%" cap
+        if (equipSnapped >= minAllowed - 0.001) {
+          reduced = equipSnapped;
+        }
+      }
     }
     
     // Never RAISE on back-off
@@ -806,7 +824,10 @@ export function suggestedWeight(
   const w = state.currentWorkingWeightKg;
   if (w === null || w <= 0) return null;
   
-  // Non-deload: return current weight unchanged (hold outcome)
+  // Non-deload: return current weight as-is
+  // Progression logic already ensures loadable values for increases
+  // Decreases may be off-grid due to rounding, but that's acceptable
+  // Holds keep exact weight
   if (!isDeload) {
     return w;
   }
