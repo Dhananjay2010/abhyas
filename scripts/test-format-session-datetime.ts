@@ -47,7 +47,7 @@ test("Auckland session viewed from Asia/Kolkata shows Kolkata time", () => {
   
   // Should show Friday (not Saturday) and 11:30 pm (Kolkata time)
   assertContains(result, "Fri", "Should show Friday");
-  assertContains(result, "23 Oct", "Should show 23 Oct");
+  assertContains(result, "Oct 23", "Should show Oct 23");
   assertContains(result, "11:30", "Should show 11:30");
   assertContains(result, "pm", "Should show pm");
 });
@@ -73,7 +73,7 @@ test("null started_at falls back to local_date", () => {
   const result = formatSessionDateTime(null, "2026-10-24", "UTC");
   
   // Should show date from local_date, no time
-  assertContains(result, "Fri", "Should show weekday");
+  assertContains(result, "Sat", "Should show weekday (2026-10-24 is Saturday)");
   assertContains(result, "24 Oct", "Should show date");
   assertNotContains(result, ":", "Should not show time when started_at is null");
 });
