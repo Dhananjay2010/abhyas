@@ -60,7 +60,13 @@ console.log("\n1. Baseline: gym, 4 days, muscle gain");
   check("4 training days", training.length === 4, `got ${training.length}`);
   check("3 rest days", plan.days.filter((d) => d.dayType === "rest").length === 3);
   check("every training day has exercises", training.every((d) => d.exercises.length > 0));
-  check("no exercise repeats in the block", new Set(picked.map((e) => e.id)).size === picked.length);
+  // QA Pass 10 H2: Main slots can repeat across days (barbell bench on both Upper days is allowed)
+  // Only accessories need block-wide uniqueness. Check that per-day uniqueness holds.
+  const perDayUnique = training.every(day => {
+    const dayIds = day.exercises.map(e => e.exerciseId);
+    return new Set(dayIds).size === dayIds.length;
+  });
+  check("no exercise repeats within each day", perDayUnique);
   check("upper/lower split", plan.splitType === "upper_lower", plan.splitType);
   const reps = plan.days.flatMap((d) => d.exercises).every((e) => e.targetRepsMin >= 8);
   check("muscle-gain rep range applied", reps);
@@ -214,9 +220,12 @@ console.log("\n11. Block rollover carries the main lifts and rotates accessories
   const rotated = a1.size - shared;
   check("accessories rotate", rotated > 0, `${rotated} of ${a1.size} changed`);
 
-  check("no exercise repeats within block 2",
-    new Set(block2.days.flatMap((d) => d.exercises.map((e) => e.exerciseId))).size ===
-      block2.days.flatMap((d) => d.exercises).length);
+  // QA Pass 10 H2: Main slots can repeat across days, check per-day uniqueness only
+  const block2PerDayUnique = block2.days.every(day => {
+    const dayIds = day.exercises.map(e => e.exerciseId);
+    return new Set(dayIds).size === dayIds.length;
+  });
+  check("no exercise repeats within each day (block 2)", block2PerDayUnique);
 
   // A carried lift that is no longer allowed must not survive.
   const injured = generateProgram(
@@ -277,9 +286,12 @@ console.log("\n13. No training day is ever empty");
   const empty = noKit.days.filter((d) => d.dayType === "weights" && d.exercises.length === 0);
   check("6-day gym plan with no equipment has no empty day", empty.length === 0,
     empty.map((d) => d.label).join(", "));
-  check("and still no duplicates",
-    new Set(noKit.days.flatMap((d) => d.exercises.map((e) => e.exerciseId))).size ===
-      noKit.days.flatMap((d) => d.exercises).length);
+  // QA Pass 10 H2: Main slots can repeat across days, check per-day uniqueness only
+  const noKitPerDayUnique = noKit.days.every(day => {
+    const dayIds = day.exercises.map(e => e.exerciseId);
+    return new Set(dayIds).size === dayIds.length;
+  });
+  check("no exercise repeats within each day", noKitPerDayUnique);
 }
 
 console.log("\n14. Gym users should get proper main lifts (equipment scoring fix)");

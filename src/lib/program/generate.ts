@@ -66,16 +66,16 @@ export const CARRY_OVER_SLOTS = 2;
  * How many exercises to prescribe based on session length. Longer sessions have
  * more exercises; shorter sessions keep coverage but reduce volume per exercise.
  * 
- * QA Bot 1 feedback: 45 min cuts positionally to 4 exercises, dropping all
- * biceps, triceps, delts, and core work. The coach target is 6 exercises:
- * bench, pulldown, OHP, row, lateral raise, arms on Upper; squat, RDL, lunge,
- * leg curl, calves, core on Lower.
+ * QA Pass 10 M3: The duration model must account for warm-up (~8-11 min) and
+ * cool-down (~5-6 min) overhead. A 30-min session has only ~15-17 min of actual
+ * exercise time; a 75-min session has ~60-62 min of exercise time.
  * 
- * Updated strategy:
- * - 30 min: 4 exercises (main compounds only)
- * - 45 min: 5-6 exercises (main patterns + at least one accessory)
- * - 60 min: 6 exercises (full template for upper/lower splits)
- * - 75+ min: template slots + more accessories
+ * Updated strategy (accounting for ~15 min warm-up/cool-down overhead):
+ * - 30 min: 4 exercises (~15 min exercise time)
+ * - 45 min: 5-6 exercises (~30 min exercise time)
+ * - 60 min: 6 exercises (~45 min exercise time - full template)
+ * - 75 min: 7 exercises (~60 min exercise time - template + accessories)
+ * - 90 min: 8 exercises (~75 min exercise time - template + more accessories)
  * 
  * Deterministic: same input always gives same output.
  */
@@ -83,17 +83,26 @@ function exerciseCountForDuration(
   sessionMinutes: number,
   templateSlots: number,
 ): number {
+  // QA M3: Account for warm-up (~10 min) and cool-down (~5 min) overhead
+  const WARMUP_COOLDOWN_OVERHEAD = 15;
+  const effectiveMinutes = Math.max(10, sessionMinutes - WARMUP_COOLDOWN_OVERHEAD);
+  
   let target: number;
   
-  if (sessionMinutes <= 30) {
+  if (effectiveMinutes <= 15) {
+    // 30-min session → 15 min exercise time
     target = Math.max(4, Math.min(4, templateSlots));
-  } else if (sessionMinutes <= 45) {
+  } else if (effectiveMinutes <= 30) {
+    // 45-min session → 30 min exercise time
     target = Math.max(5, Math.min(6, templateSlots));
-  } else if (sessionMinutes <= 60) {
+  } else if (effectiveMinutes <= 45) {
+    // 60-min session → 45 min exercise time (full template)
     target = Math.min(6, templateSlots);
-  } else if (sessionMinutes <= 75) {
+  } else if (effectiveMinutes <= 60) {
+    // 75-min session → 60 min exercise time (template + accessories)
     target = Math.min(7, templateSlots);
   } else {
+    // 90-min session → 75 min exercise time (template + more accessories)
     target = Math.min(8, templateSlots);
   }
   
@@ -218,56 +227,124 @@ export function hashString(s: string): number {
 }
 
 /**
- * Exercises to exclude from strength slots for hypertrophy goals.
+ * Exercises to exclude from automated programming due to safety concerns.
  * 
- * Behind-the-neck exercises put shoulders in risky positions. Plyometric and
- * Olympic lifts are power/athletic movements, not suitable for 8-12 rep
- * hypertrophy work in automated programming.
+ * QA Pass 10 C1: Apply to main slots for ALL goals, and to all slots for
+ * beginners, injured members, and age 50+. Based on catalogue properties
+ * (NOT name substrings) plus curated data columns.
  * 
- * Based on catalogue properties (impact = 'high', category plyometric/olympic,
- * "behind-the-neck"/"behind neck" in slug or name) with a small backstop list
- * for known problematic exercises that don't fit the property rules.
+ * Categories to exclude:
+ * - Plyometric (high-impact jumps, bounds, box jumps)
+ * - Olympic lifts (clean, snatch, jerk variations)
+ * - Behind-the-neck movements (dangerous shoulder positions)
+ * - Overhead throws (bradford presses, medicine ball throws)
+ * - To-neck movements (upright rows to neck)
  */
-function shouldExcludeFromStrengthSlot(ex: CandidateExercise): boolean {
+function shouldExcludeForSafety(
+  ex: CandidateExercise,
+  input: GeneratorInput,
+  slotIndex: number,
+): boolean {
   const nameLower = ex.name.toLowerCase();
   const slugLower = ex.slug.toLowerCase();
+  
+  // QA C1: For beginners, injured members, and age 50+, exclude from ALL slots
+  const excludeFromAllSlots = 
+    input.level === "beginner" ||
+    input.currentInjuryRegions.length > 0 ||
+    (input.age !== null && input.age >= 50);
+  
+  // For others, exclude from main slots only (0-3)
+  const isMainSlot = slotIndex <= 3;
+  if (!excludeFromAllSlots && !isMainSlot) {
+    return false; // Advanced/intermediate, uninjured, <50, non-main slot: allow
+  }
   
   // Behind-the-neck variants (dangerous shoulder position)
   if (nameLower.includes("behind-the-neck") || 
       nameLower.includes("behind neck") ||
+      nameLower.includes("behind the neck") ||
       slugLower.includes("behind-the-neck") ||
       slugLower.includes("behind-neck")) {
     return true;
   }
   
-  // Olympic lifts: identified by common names (property-based detection)
+  // Olympic lifts: clean, snatch, jerk (check slug and name)
   const olympicPatterns = [
-    "clean", "snatch", "jerk", "hang clean", "power clean", 
-    "hang snatch", "power snatch"
+    "clean", "snatch", "jerk"
   ];
-  if (olympicPatterns.some(pattern => nameLower.includes(pattern))) {
+  if (olympicPatterns.some(pattern => 
+    slugLower.includes(pattern) || nameLower.includes(pattern))) {
     return true;
   }
   
-  // Plyometric and high-impact jumps for main compound slots
-  // (not all high-impact is bad, but jumps/bounds in main slots are)
+  // Plyometric: high-impact jumps, bounds, box jumps
   if (ex.impact === "high" && 
       (nameLower.includes("jump") || 
        nameLower.includes("bound") || 
-       nameLower.includes("plyo"))) {
+       nameLower.includes("box") ||
+       slugLower.includes("jump") ||
+       slugLower.includes("plyo"))) {
     return true;
   }
   
-  // Backstop: known problematic exercises that don't fit the above rules
-  const backstopSlugs = [
-    "neck-press", // Not behind-neck but similar risk
-    "jefferson-curl", // High injury risk
+  // Overhead throws and bradford presses (QA H4)
+  const throwBradfordPatterns = [
+    "throw", "bradford", "to-neck", "to neck"
   ];
-  if (backstopSlugs.includes(ex.slug)) {
+  if (throwBradfordPatterns.some(pattern => 
+    slugLower.includes(pattern) || nameLower.includes(pattern))) {
+    return true;
+  }
+  
+  // QA H9: Age 60+ also exclude all high-impact moves
+  if (input.age !== null && input.age >= 60 && ex.impact === "high") {
     return true;
   }
   
   return false;
+}
+
+/**
+ * QA Pass 10 C2: Derive contraindications from exercise properties.
+ * - vertical_press or "overhead" in name → shoulder
+ * - spinal_load high or moderate → lower_back
+ * - squat, lunge, or jump pattern/name → knee
+ * 
+ * Derived contraindications ADD to explicit tags, don't replace them.
+ */
+function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
+  const derived: BodyRegion[] = [];
+  const nameLower = ex.name.toLowerCase();
+  const slugLower = ex.slug.toLowerCase();
+  
+  // Vertical press or overhead movements load shoulders
+  if (ex.movement_pattern === "vertical_press" ||
+      nameLower.includes("overhead") ||
+      slugLower.includes("overhead") ||
+      nameLower.includes("shoulder press") ||
+      nameLower.includes("military press")) {
+    derived.push("shoulder");
+  }
+  
+  // High spinal load affects lower back (moderate is manageable for most)
+  if (ex.spinal_load === "high") {
+    derived.push("lower_back");
+  }
+  
+  // Squat, lunge, or jump movements load knees
+  if (ex.movement_pattern === "squat" ||
+      ex.movement_pattern === "lunge" ||
+      nameLower.includes("squat") ||
+      nameLower.includes("lunge") ||
+      nameLower.includes("jump") ||
+      slugLower.includes("squat") ||
+      slugLower.includes("lunge") ||
+      slugLower.includes("jump")) {
+    derived.push("knee");
+  }
+  
+  return derived;
 }
 
 export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolean {
@@ -285,16 +362,23 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
     if (!ex.equipment_ids.every((e) => available.has(e))) return false;
   }
 
-  // Current injuries exclude anything that loads the affected joint.
-  if (
-    input.currentInjuryRegions.length > 0 &&
-    ex.contraindicated_regions.some((r) => input.currentInjuryRegions.includes(r))
-  ) {
-    return false;
+  // QA Pass 10 C2, C3: Current injuries exclude anything that loads the affected joint.
+  // Use both explicit tags AND derived contraindications.
+  if (input.currentInjuryRegions.length > 0) {
+    const allContraindications = [
+      ...ex.contraindicated_regions,
+      ...getDerivedContraindications(ex),
+    ];
+    if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
+      return false;
+    }
   }
 
-  // BMI >= 30 excludes high-impact work; age >= 50 caps spinal loading.
+  // BMI >= 30 excludes high-impact work
   if (input.bmi !== null && input.bmi >= 30 && ex.impact === "high") return false;
+  
+  // QA Pass 10 C3: Age >= 50 caps high spinal loading
+  // Also block high spinal load for current lower_back injury (handled above via derived contraindications)
   if (input.age !== null && input.age >= 50 && ex.spinal_load === "high") return false;
 
   return true;
@@ -317,14 +401,20 @@ export function score(
   if (wantCompound && ex.mechanic === "compound") s += 4;
   if (!wantCompound && ex.mechanic === "isolation") s += 3;
   
-  // QA finding: removed level_min == level bonus that favored exotic intermediate
-  // exercises over beginner staples. Staple preference via lexicographic sorting
-  // now handles exercise selection for all levels.
+  // QA Pass 10 H1: NO level matching bonus for intermediate/advanced users.
+  // The beginner bonus was causing bodyweight moves (tagged beginner) to score
+  // higher than loaded staples (tagged intermediate), preventing intermediate
+  // users from getting barbell deadlifts, RDLs, barbell OHP, etc.
   // 
-  // For bodyweight users, slight preference for beginner-tagged movements since
-  // these are the foundational bodyweight staples (push-ups, squats, etc.).
-  if (ex.level_min === "beginner" && primaryTrack === "bodyweight") {
+  // Beginners still get a small bonus for beginner-tagged work (safer progressions).
+  if (ex.level_min === "beginner" && level === "beginner") {
     s += 0.5;
+  }
+  
+  // For bodyweight-track users, also slight preference for beginner-tagged movements
+  // since these are the foundational bodyweight staples (push-ups, squats, etc.).
+  if (ex.level_min === "beginner" && primaryTrack === "bodyweight") {
+    s += 0.3;
   }
 
   // Equipment penalty only for bodyweight users. For gym users, having a barbell
@@ -391,9 +481,14 @@ function stapleSortKey(
 /**
  * Safe alternative exercises when a slot pattern is fully filtered out.
  * These are low-risk movements that can substitute for common patterns.
+ * 
+ * QA Pass 10 H6: For knee injuries, squat alternatives should prioritize lunge
+ * pattern first (includes step-ups, split squats, and other single-leg work that
+ * may be knee-friendly). If catalogue has knee-safe quad exercises tagged correctly,
+ * they'll pass through. Hinge is the final fallback to preserve lower body training.
  */
 const SAFE_ALTERNATIVES: Partial<Record<Pattern, Pattern[]>> = {
-  squat: ["hinge", "core"], // Bridge, wall sit, or core when squats are contraindicated
+  squat: ["lunge", "hinge", "core"], // Try lunge first (step-ups, split squats), then hinge
   lunge: ["squat", "hinge", "core"],
   hinge: ["core", "squat"],
   horizontal_press: ["vertical_press", "triceps"],
@@ -430,15 +525,10 @@ function pickForSlot(
     let candidates = pool.filter((e) => e.movement_pattern === p && !used.has(e.id));
     if (candidates.length === 0) continue;
 
-    // For strength goals, exclude problematic exercises from all strength slots:
-    // behind-the-neck, plyometric jumps, Olympic lifts. These are technique-
-    // intensive or risky movements not suitable for automated hypertrophy
-    // programming at any slot position.
-    const isStrengthGoal = ["strength", "muscle_gain"].includes(input.goal);
-    if (isStrengthGoal) {
-      candidates = candidates.filter((e) => !shouldExcludeFromStrengthSlot(e));
-      if (candidates.length === 0) continue; // Try fallback pattern if filtered out
-    }
+    // QA Pass 10 C1: Exclude unsafe exercises (plyometric, Olympic, behind-neck, throws)
+    // for main slots (all goals) and all slots (beginners, injured, age 50+)
+    candidates = candidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
+    if (candidates.length === 0) continue; // Try fallback pattern if filtered out
 
     // Rank by score, then staple preference for main pattern slots (0-3),
     // then by RNG. QA: apply staples to vertical_press (slot 3) at all levels
@@ -480,10 +570,8 @@ function pickForSlot(
     );
     if (altCandidates.length === 0) continue;
     
-    const isStrengthGoal = ["strength", "muscle_gain"].includes(input.goal);
-    const filtered = isStrengthGoal
-      ? altCandidates.filter((e) => !shouldExcludeFromStrengthSlot(e))
-      : altCandidates;
+    // Apply safety filter to alternative candidates too
+    const filtered = altCandidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
     
     if (filtered.length === 0) continue;
     
@@ -548,11 +636,17 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
   const laidOut = placeYoga(templates, yogaDays);
   const activeIdx = activeDayIndices(input.daysPerWeek);
 
-  const used = new Set<string>();
+  // QA Pass 10 H2: Per-day `used` for main slots (0-3), per-block for accessories (4+).
+  // This prevents second Upper/Lower day from degrading to push-ups/bodyweight squats
+  // when loaded staples exist. Main slots can repeat across days (e.g. Day 1 and Day 2
+  // both get barbell bench or different staples like flat bench vs incline bench), but
+  // accessories need block-wide variety.
+  const usedInBlock = new Set<string>();
   const days: GeneratedDay[] = [];
 
   for (let dayIndex = 1; dayIndex <= 7; dayIndex++) {
     const slotPos = activeIdx.indexOf(dayIndex);
+    const usedToday = new Set<string>(); // Reset per day for main slot deduplication
 
     if (slotPos === -1 || slotPos >= laidOut.length) {
       days.push({
@@ -587,16 +681,20 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // first, then add extra accessories if needed.
     const pickedExercises: Array<{ ex: CandidateExercise; slotIndex: number }> = [];
     
-    // Fill template slots up to maxExercises
+    // QA H2: Fill template slots up to maxExercises.
+    // Main slots (0-3) use per-day deduplication, accessories use per-block.
     const templateCount = Math.min(maxExercises, entry.slots.length);
     entry.slots.slice(0, templateCount).forEach((pattern, i) => {
-      const picked = pickForSlot(pattern, i, pool, used, input, rng, dayIndex);
+      const usedSet = i <= 3 ? usedToday : usedInBlock;
+      const picked = pickForSlot(pattern, i, pool, usedSet, input, rng, dayIndex);
       if (!picked) return;
-      used.add(picked.id);
+      usedSet.add(picked.id);
+      usedInBlock.add(picked.id); // Always track in block set too for cross-day awareness
       pickedExercises.push({ ex: picked, slotIndex: i });
     });
     
-    // For longer sessions, add extra accessories beyond the template
+    // For longer sessions, add extra accessories beyond the template.
+    // These are always accessories (slot 4+), so use block-wide deduplication.
     if (maxExercises > entry.slots.length && pickedExercises.length >= entry.slots.length) {
       const extraNeeded = maxExercises - pickedExercises.length;
       const accessoryPatterns = entry.slots
@@ -605,10 +703,11 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       
       for (let i = 0; i < extraNeeded; i++) {
         const pattern = accessoryPatterns[i % accessoryPatterns.length];
-        const picked = pickForSlot(pattern, entry.slots.length + i, pool, used, input, rng, dayIndex);
+        const slotIdx = entry.slots.length + i;
+        const picked = pickForSlot(pattern, slotIdx, pool, usedInBlock, input, rng, dayIndex);
         if (!picked) break;
-        used.add(picked.id);
-        pickedExercises.push({ ex: picked, slotIndex: entry.slots.length + i });
+        usedInBlock.add(picked.id);
+        pickedExercises.push({ ex: picked, slotIndex: slotIdx });
       }
     }
 
@@ -653,6 +752,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         isolation,
         item.ex.metric ?? "reps",
         sessionMinutes, // Pass session length to adjust sets
+        item.ex.equipment_ids, // QA H5: Pass equipment to avoid strength prescription on bodyweight/band
       );
 
       // Volume floor: if this is the only exercise for its pattern and sets < 2,
@@ -673,36 +773,55 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       });
     });
 
-    // A day with no exercises is a dead end for the user, and it happens when
-    // the eligible pool has nothing for any of the day's patterns -- a
-    // bodyweight user with no pull-up bar has no pulling movement at all. Fall
-    // back to whatever is eligible rather than shipping an empty day.
-    //
-    // The day is relabelled when that happens. It used to keep its template
-    // name, so a bodyweight-at-home beginner was shown a day headed "Pull"
-    // whose five exercises were sit-ups and crunches: not one pulling
-    // movement, because the catalogue has no equipment-free horizontal pull.
-    // Calling it what it is beats naming a muscle group it does not train.
+    // QA Pass 10 H8: A day with no exercises is a dead end. For bodyweight upper/full-body
+    // days, prioritize at least one pulling movement to maintain push:pull balance.
+    // The day is relabelled when backfilled (it's not "Pull" if there are no pulls).
     const backfilled = exercises.length === 0;
     if (exercises.length === 0) {
-      const backfill = pool
-        .filter((e) => !used.has(e.id))
+      const isBWPlan = input.primaryTrack === "bodyweight";
+      const isUpperOrFullDay = entry.focus === "pull" || entry.focus === "push" || entry.focus === "upper";
+      
+      const candidates = pool
+        .filter((e) => !usedInBlock.has(e.id))
         .sort(
           (a, b) =>
             score(b, true, input.level, input.primaryTrack) -
               score(a, true, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug),
-        )
-        .slice(0, 4);
+        );
+      
+      let backfill: CandidateExercise[];
+      
+      // QA H8: For bodyweight upper/full-body days, ensure at least one pull
+      if (isBWPlan && isUpperOrFullDay) {
+        const pulls = candidates.filter((e) => 
+          e.movement_pattern === "horizontal_pull" || 
+          e.movement_pattern === "vertical_pull"
+        );
+        const nonPulls = candidates.filter((e) => 
+          e.movement_pattern !== "horizontal_pull" && 
+          e.movement_pattern !== "vertical_pull"
+        );
+        
+        // If we have at least one pull available, take 1 pull + 3 others
+        if (pulls.length > 0) {
+          backfill = [pulls[0], ...nonPulls.slice(0, 3)];
+        } else {
+          backfill = candidates.slice(0, 4);
+        }
+      } else {
+        backfill = candidates.slice(0, 4);
+      }
 
       backfill.forEach((picked) => {
-        used.add(picked.id);
+        usedInBlock.add(picked.id);
         const p = prescribe(
           input.goal,
           input.level,
           picked.mechanic === "isolation",
           picked.metric ?? "reps",
           input.preferredSessionMinutes,
+          picked.equipment_ids, // QA H5: Pass equipment to avoid strength prescription on bodyweight/band
         );
         exercises.push({
           exerciseId: picked.id,

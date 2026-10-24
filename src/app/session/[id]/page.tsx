@@ -184,6 +184,7 @@ export default async function SessionPage({
   const cooldown = selectCooldown({
     stretches: allWarmupRows,
     trainingMuscles,
+    injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region), // QA H7
   });
 
   const s = settingsRes.data;

@@ -5,13 +5,14 @@
 -- Part 1: Fix shoulder contraindications for overhead and end-range movements
 
 -- Pullover: loaded end-range shoulder flexion under stretch
+-- QA M6: Use only REAL prod slugs (dumbbell-pullover, barbell-pullover, cable-pullover don't exist)
 UPDATE exercises
 SET contraindicated_regions = 
   CASE 
     WHEN 'shoulder' = ANY(contraindicated_regions) THEN contraindicated_regions
     ELSE array_append(contraindicated_regions, 'shoulder'::body_region)
   END
-WHERE slug IN ('straight-arm-dumbbell-pullover', 'dumbbell-pullover', 'barbell-pullover', 'cable-pullover')
+WHERE slug IN ('straight-arm-dumbbell-pullover')
   AND NOT ('shoulder' = ANY(contraindicated_regions));
 
 -- Overhead front raises: loaded full flexion to overhead
@@ -29,19 +30,21 @@ WHERE slug IN (
   AND NOT ('shoulder' = ANY(contraindicated_regions));
 
 -- Seated dumbbell press: should be tagged shoulder like other overhead presses
+-- QA M6: dumbbell-seated-shoulder-press doesn't exist in prod, only seated-dumbbell-press
 UPDATE exercises
 SET contraindicated_regions = 
   CASE 
     WHEN 'shoulder' = ANY(contraindicated_regions) THEN contraindicated_regions
     ELSE array_append(contraindicated_regions, 'shoulder'::body_region)
   END
-WHERE slug IN ('seated-dumbbell-press', 'dumbbell-seated-shoulder-press')
+WHERE slug IN ('seated-dumbbell-press')
   AND NOT ('shoulder' = ANY(contraindicated_regions));
 
 
 -- Part 2: Fix lower back contraindications for spinal flexion exercises
 
 -- Crunches: repeated spinal flexion, problematic for acute lower back injury
+-- QA M6: 'crunch' slug doesn't exist in prod; use real slugs
 UPDATE exercises
 SET contraindicated_regions = 
   CASE 
@@ -50,10 +53,7 @@ SET contraindicated_regions =
   END
 WHERE slug IN (
   'crunch-hands-overhead',
-  'oblique-crunches',
   'decline-crunch',
-  'reverse-crunch',
-  'crunch',
   'air-bike'
 )
   AND NOT ('lower_back' = ANY(contraindicated_regions));
@@ -67,16 +67,8 @@ SET equipment_ids = ARRAY['pull_up_bar']::text[]
 WHERE slug IN ('inverted-row')
   AND equipment_ids = ARRAY[]::text[];
 
--- Table row needs a table (keep existing DB tag if present, otherwise set it)
-UPDATE exercises
-SET equipment_ids = 
-  CASE 
-    WHEN 'dumbbell' = ANY(equipment_ids) THEN equipment_ids
-    ELSE ARRAY['dumbbell']::text[]
-  END
-WHERE slug = 'table-row'
-  AND NOT ('table' = ANY(equipment_ids))
-  AND array_length(equipment_ids, 1) IS NULL;
+-- QA M1: table-row is a bodyweight exercise, needs NO equipment
+-- (This will be reverted in 140000 migration since table-row should be empty equipment)
 
 
 -- Part 4: Fix rows tagged as isolation (should be compound)
@@ -95,27 +87,22 @@ WHERE slug IN (
 -- Part 5: Fix movement pattern misclassifications
 
 -- Pullover is a lat/serratus movement, not a press
+-- QA M6: Use only REAL prod slugs
 UPDATE exercises
 SET movement_pattern = 'horizontal_pull'
 WHERE slug IN (
-  'straight-arm-dumbbell-pullover',
-  'dumbbell-pullover',
-  'barbell-pullover',
-  'cable-pullover'
+  'straight-arm-dumbbell-pullover'
 )
   AND movement_pattern = 'horizontal_press';
 
 -- Snatches are Olympic lifts (hinge/power), not shoulder presses
+-- QA M6: Use only REAL prod slugs (kettlebell-, dumbbell-, barbell-, hang-, power-snatch don't exist)
 UPDATE exercises
 SET movement_pattern = 'hinge'
 WHERE slug IN (
   'one-arm-kettlebell-split-snatch',
   'double-kettlebell-snatch',
-  'kettlebell-snatch',
-  'dumbbell-snatch',
-  'barbell-snatch',
-  'hang-snatch',
-  'power-snatch'
+  'one-arm-kettlebell-snatch'
 )
   AND movement_pattern = 'vertical_press';
 

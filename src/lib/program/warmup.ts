@@ -77,10 +77,15 @@ export function selectWarmup(input: {
     cardioPool.find((w) => canUse(w.slug)) ??
     cardioPool[0];
 
+  // QA Pass 10 H7: Filter mobility pool by injuries BEFORE ranking
+  const mobilityPool = byType("mobility").filter((w) => {
+    // Exclude any warmup that targets an injured region
+    return !w.target_regions.some((r) => regions.has(r));
+  });
+  
   // 2. Five minutes of mobility for what is about to be trained. Exercises that
   //    hit more of today's muscles come first; a general spine drill backfills.
   //    QA: Always include at least one dynamic mobility drill, not just cardio.
-  const mobilityPool = byType("mobility");
   const mobilityRanked = mobilityPool
     .map((w) => ({
       w,
@@ -136,16 +141,24 @@ export function warmupSeconds(items: WarmupItem[]): number {
  * Select 5-6 stretch exercises for the cool-down, prioritizing muscles that
  * were actually trained in the session. Static stretches with timed holds,
  * not the dynamic mobility work from the warm-up.
+ * 
+ * QA Pass 10 H7: Filter by current injuries to avoid stretches that load
+ * contraindicated regions.
  */
 export function selectCooldown(input: {
   stretches: WarmupRow[];
   trainingMuscles: Muscle[];
+  injuryRegions?: BodyRegion[];
 }): WarmupItem[] {
-  const { stretches, trainingMuscles } = input;
+  const { stretches, trainingMuscles, injuryRegions = [] } = input;
   const muscles = new Set(trainingMuscles);
+  const regions = new Set(injuryRegions);
 
-  // Filter for stretch exercises
-  const byType = stretches.filter((w) => w.type === "stretch");
+  // QA H7: Filter for stretch exercises AND filter out injury contraindications
+  const byType = stretches.filter((w) => 
+    w.type === "stretch" && 
+    !w.target_regions.some((r) => regions.has(r))
+  );
 
   // Rank stretches by how many of today's muscles they target
   const ranked = byType
