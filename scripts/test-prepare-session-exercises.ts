@@ -7,7 +7,7 @@
  *
  * npm run test:prepare-session-exercises
  */
-import { prepareSessionExercises } from "../src/app/session/actions";
+import { prepareSessionExercises } from "../src/lib/session/prepare-exercises";
 
 type ProgramDayExercise = {
   exercise_id: string;

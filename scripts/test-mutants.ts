@@ -26,8 +26,9 @@ function runTest(testCommand: string): { passed: boolean; output: string } {
       cwd: "/workspace",
     });
     return { passed: true, output };
-  } catch (error: any) {
-    return { passed: false, output: error.stdout || error.stderr || String(error) };
+  } catch (error: unknown) {
+    const err = error as { stdout?: string; stderr?: string };
+    return { passed: false, output: err.stdout || err.stderr || String(error) };
   }
 }
 
@@ -174,8 +175,8 @@ console.log("\n=== Mutation Testing ===\n");
   try {
     applyMutant(
       "/workspace/src/lib/program/repoint-sessions.ts",
-      `  if (session.local_date < today) return "delete";`,
-      `  if (session.local_date > today) return "delete"; // MUTANT: reversed`,
+      `  if (session.local_date < today) return "ignore";`,
+      `  if (session.local_date > today) return "ignore"; // MUTANT: reversed`,
     );
 
     const result = runTest("npm run test:repoint-matching");
@@ -198,7 +199,7 @@ console.log("\n=== Mutation Testing ===\n");
 
   try {
     applyMutant(
-      "/workspace/src/app/session/actions.ts",
+      "/workspace/src/lib/session/prepare-exercises.ts",
       `  return programDayExercises.map((p) => {
     const dose = isDeload
       ? applyDeload({
@@ -237,7 +238,7 @@ console.log("\n=== Mutation Testing ===\n");
       output: result.output.split("\n").slice(-5).join("\n"),
     });
   } finally {
-    revertFile("/workspace/src/app/session/actions.ts");
+    revertFile("/workspace/src/lib/session/prepare-exercises.ts");
   }
 }
 

@@ -73,19 +73,19 @@ export function matchNewDay(
 }
 
 /**
- * Decide whether a session should be kept, updated, or deleted after a rebuild.
+ * Decide whether a session should be kept, updated, deleted, or ignored after a rebuild.
  *
  * Returns:
  * - "keep": session has logged sets, don't touch it
- * - "update": planned session with no sets, should be re-pointed
- * - "delete": planned session before today, don't re-point
+ * - "update": planned session with no sets today or later, should be re-pointed
+ * - "ignore": planned session before today, don't re-point but don't delete either
  */
 export function decideRepointAction(
   session: { has_sets: boolean; local_date: string },
   today: string,
-): "keep" | "update" | "delete" {
+): "keep" | "update" | "ignore" {
   if (session.has_sets) return "keep";
-  if (session.local_date < today) return "delete";
+  if (session.local_date < today) return "ignore";
   return "update";
 }
 
@@ -125,8 +125,14 @@ export function planRepointSessions(
 
   for (const session of oldSessions) {
     const action = decideRepointAction(session, today);
-    if (action === "keep" || action === "delete") {
-      if (action === "delete") toDelete.push(session.id);
+    if (action === "keep" || action === "ignore") {
+      continue;
+    }
+
+    // Non-training types (rest, yoga, meditation) don't have program_days,
+    // so there's nothing to re-point.
+    const chosenType = session.actual_type ?? session.planned_type;
+    if (chosenType === "rest" || chosenType === "yoga" || chosenType === "meditation") {
       continue;
     }
 

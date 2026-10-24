@@ -9,7 +9,10 @@
  * npm run test:repoint-fake-client
  */
 import { repointSessionsAfterRebuild } from "../src/lib/program/repoint-sessions";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types";
 
+type Client = SupabaseClient<Database>;
 type SupabaseError = { message: string; code?: string };
 type SupabaseResponse<T> = {
   data: T | null;
@@ -27,13 +30,29 @@ function check(label: string, ok: boolean, detail = "") {
  * Create a fake Supabase client that returns controlled responses.
  */
 function createFakeClient(
-  selectResponse: SupabaseResponse<any>,
-  newDaysResponse: SupabaseResponse<any>,
+  selectResponse: SupabaseResponse<unknown>,
+  newDaysResponse: SupabaseResponse<unknown>,
   updateErrors: SupabaseError[] = [],
   deleteError: SupabaseError | null = null,
-) {
+): {
+  from: (table: string) => {
+    select?: (query: string) => {
+      eq: (column: string, value: unknown) => {
+        eq?: (column2: string, value2: unknown) => {
+          gte?: (column3: string, value3: unknown) => Promise<SupabaseResponse<unknown>>;
+        };
+        order?: (column: string) => Promise<SupabaseResponse<unknown>>;
+      };
+    };
+    update?: (data: unknown) => {
+      eq: (column: string, value: unknown) => Promise<SupabaseResponse<unknown>>;
+    };
+    delete?: () => {
+      in: (column: string, values: unknown[]) => Promise<SupabaseResponse<unknown>>;
+    };
+  };
+} {
   let updateCallCount = 0;
-  let deleteCallCount = 0;
 
   return {
     from(table: string) {
@@ -41,11 +60,11 @@ function createFakeClient(
         return {
           select(query: string) {
             return {
-              eq(column: string, value: any) {
+              eq(column: string, value: unknown) {
                 return {
-                  eq(column2: string, value2: any) {
+                  eq(column2: string, value2: unknown) {
                     return {
-                      gte(column3: string, value3: any) {
+                      gte(column3: string, value3: unknown) {
                         return Promise.resolve(selectResponse);
                       },
                     };
@@ -54,9 +73,9 @@ function createFakeClient(
               },
             };
           },
-          update(data: any) {
+          update(data: unknown) {
             return {
-              eq(column: string, value: any) {
+              eq(column: string, value: unknown) {
                 const error = updateErrors[updateCallCount] || null;
                 updateCallCount++;
                 return Promise.resolve({ data: null, error });
@@ -65,8 +84,7 @@ function createFakeClient(
           },
           delete() {
             return {
-              in(column: string, values: any[]) {
-                deleteCallCount++;
+              in(column: string, values: unknown[]) {
                 return Promise.resolve({ data: null, error: deleteError });
               },
             };
@@ -76,7 +94,7 @@ function createFakeClient(
         return {
           select(query: string) {
             return {
-              eq(column: string, value: any) {
+              eq(column: string, value: unknown) {
                 return {
                   order(column: string) {
                     return Promise.resolve(newDaysResponse);
@@ -89,7 +107,7 @@ function createFakeClient(
       }
       throw new Error(`Unexpected table: ${table}`);
     },
-  } as any;
+  };
 }
 
 console.log("\n1. Error on sessions select returns {ok: false}");
@@ -99,7 +117,7 @@ console.log("\n1. Error on sessions select returns {ok: false}");
     { data: [], error: null },
   );
 
-  repointSessionsAfterRebuild(client, "user1", "program1", "2026-10-24")
+  repointSessionsAfterRebuild(client as unknown as Client, "user1", "program1", "2026-10-24")
     .then((result) => {
       check("returns ok: false", result.ok === false);
       check("error message included", result.error?.includes("Database connection failed") ?? false);
@@ -113,7 +131,7 @@ console.log("\n2. Error on program_days select returns {ok: false}");
     { data: null, error: { message: "Failed to fetch program days", code: "FETCH_ERROR" } },
   );
 
-  repointSessionsAfterRebuild(client, "user1", "program1", "2026-10-24")
+  repointSessionsAfterRebuild(client as unknown as Client, "user1", "program1", "2026-10-24")
     .then((result) => {
       check("returns ok: false", result.ok === false);
       check("error message included", result.error?.includes("Failed to fetch program days") ?? false);
@@ -144,7 +162,7 @@ console.log("\n3. Error on update returns {ok: false}");
     [{ message: "Update failed: permission denied", code: "PERMISSION_DENIED" }],
   );
 
-  repointSessionsAfterRebuild(client, "user1", "program1", "2026-10-24")
+  repointSessionsAfterRebuild(client as unknown as Client, "user1", "program1", "2026-10-24")
     .then((result) => {
       check("returns ok: false", result.ok === false);
       check("error indicates update failure", result.error?.includes("session updates failed") ?? false);
@@ -176,7 +194,7 @@ console.log("\n4. Error on delete returns {ok: false}");
     { message: "Delete failed: row locked", code: "ROW_LOCKED" },
   );
 
-  repointSessionsAfterRebuild(client, "user1", "program1", "2026-10-24")
+  repointSessionsAfterRebuild(client as unknown as Client, "user1", "program1", "2026-10-24")
     .then((result) => {
       check("returns ok: false", result.ok === false);
       check("error indicates delete failure", result.error?.includes("session updates failed") ?? false);
@@ -190,7 +208,7 @@ console.log("\n5. Empty sessions list returns {ok: true}");
     { data: [{ id: "new-day", day_index: 1, day_type: "weights", label: "Upper" }], error: null },
   );
 
-  repointSessionsAfterRebuild(client, "user1", "program1", "2026-10-24")
+  repointSessionsAfterRebuild(client as unknown as Client, "user1", "program1", "2026-10-24")
     .then((result) => {
       check("returns ok: true for empty sessions", result.ok === true);
     });
@@ -216,7 +234,7 @@ console.log("\n6. Empty new days list returns {ok: true}");
     { data: [], error: null },
   );
 
-  repointSessionsAfterRebuild(client, "user1", "program1", "2026-10-24")
+  repointSessionsAfterRebuild(client as unknown as Client, "user1", "program1", "2026-10-24")
     .then((result) => {
       check("returns ok: true for empty new days", result.ok === true);
     });
@@ -245,7 +263,7 @@ console.log("\n7. Successful re-point returns {ok: true}");
     },
   );
 
-  repointSessionsAfterRebuild(client, "user1", "program1", "2026-10-24")
+  repointSessionsAfterRebuild(client as unknown as Client, "user1", "program1", "2026-10-24")
     .then((result) => {
       check("returns ok: true on success", result.ok === true);
       check("no error on success", result.error === undefined);

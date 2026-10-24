@@ -12,15 +12,15 @@ import { matchNewDay, decideRepointAction } from "../src/lib/program/repoint-ses
 type NewProgramDay = {
   id: string;
   day_index: number;
-  day_type: "weights" | "bodyweight" | "rest";
+  day_type: "weights" | "bodyweight" | "rest" | "yoga" | "meditation";
   label: string | null;
 };
 
 type OldSession = {
   old_day_label: string | null;
   old_day_index: number | null;
-  actual_type: "weights" | "bodyweight" | "rest" | null;
-  planned_type: "weights" | "bodyweight" | "rest" | null;
+  actual_type: "weights" | "bodyweight" | "rest" | "yoga" | "meditation" | null;
+  planned_type: "weights" | "bodyweight" | "rest" | "yoga" | "meditation" | null;
 };
 
 let failures = 0;
@@ -33,7 +33,7 @@ function check(label: string, ok: boolean, detail = "") {
 function day(
   id: string,
   day_index: number,
-  day_type: "weights" | "bodyweight" | "rest",
+  day_type: "weights" | "bodyweight" | "rest" | "yoga" | "meditation",
   label: string | null = null,
 ): NewProgramDay {
   return { id, day_index, day_type, label };
@@ -42,8 +42,8 @@ function day(
 function session(
   label: string | null,
   day_index: number | null,
-  actual_type: "weights" | "bodyweight" | "rest" | null,
-  planned_type: "weights" | "bodyweight" | "rest" | null,
+  actual_type: "weights" | "bodyweight" | "rest" | "yoga" | "meditation" | null,
+  planned_type: "weights" | "bodyweight" | "rest" | "yoga" | "meditation" | null,
 ): OldSession {
   return {
     old_day_label: label,
@@ -189,12 +189,12 @@ console.log("\n13. Planned session in the future is updated");
   check("planned session in future is updated", action === "update");
 }
 
-console.log("\n14. Planned session in the past is deleted");
+console.log("\n14. Planned session in the past is ignored (not re-pointed)");
 {
   const pastSession = { has_sets: false, local_date: "2026-10-23" };
   const action = decideRepointAction(pastSession, "2026-10-24");
 
-  check("planned session in past is deleted", action === "delete");
+  check("planned session in past is ignored", action === "ignore");
 }
 
 console.log("\n15. Session with sets in the past is kept (not deleted)");
