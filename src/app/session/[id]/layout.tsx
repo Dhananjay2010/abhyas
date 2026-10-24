@@ -9,8 +9,7 @@ export default async function SessionLayout({
   params: Promise<{ id: string }>;
   children: React.ReactNode;
 }) {
-  const { id } = await params;
-  
+  const { id } = await params;  
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 

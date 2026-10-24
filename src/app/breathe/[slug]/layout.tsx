@@ -9,8 +9,7 @@ export default async function BreathePatternLayout({
   params: Promise<{ slug: string }>;
   children: React.ReactNode;
 }) {
-  const { slug } = await params;
-  
+  const { slug } = await params;  
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 

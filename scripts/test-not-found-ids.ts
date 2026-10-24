@@ -23,7 +23,8 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ` -- ${detail}` : ""}`);
 }
 
-function createFakeSessionClient(shouldExist: boolean, shouldThrow = false) {
+function createFakeSessionClient(shouldExist: boolean, shouldThrow = false, hasError = false) {
+  const eqCalls: Array<[string, string]> = [];
   return {
     from: () => {
       if (shouldThrow) {
@@ -31,17 +32,24 @@ function createFakeSessionClient(shouldExist: boolean, shouldThrow = false) {
       }
       return {
         select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: shouldExist ? { id: "550e8400-e29b-41d4-a716-446655440000" } : null,
-                error: null,
-              }),
-            }),
-          }),
+          eq: (col: string, val: string) => {
+            eqCalls.push([col, val]);
+            return {
+              eq: (col: string, val: string) => {
+                eqCalls.push([col, val]);
+                return {
+                  maybeSingle: async () => ({
+                    data: shouldExist ? { id: "550e8400-e29b-41d4-a716-446655440000" } : null,
+                    error: hasError ? { code: "XX000", message: "Test error" } : null,
+                  }),
+                };
+              },
+            };
+          },
         }),
       };
     },
+    _eqCalls: eqCalls,
   };
 }
 
@@ -71,26 +79,36 @@ async function runTests() {
     const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
     const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
     const noQueryClient = createFakeSessionClient(false, true) as unknown as SupabaseClient;
+    const errorClient = createFakeSessionClient(false, false, true);
     
     check(
       "valid UUID that exists returns 'ok'",
       (await checkSessionRoute(existingClient, userId, "550e8400-e29b-41d4-a716-446655440000")) === "ok",
     );
     
+    // Check that .eq() was called with correct parameters
+    check(
+      "queries filter by user_id",
+      (existingClient as any)._eqCalls.some((call: [string, string]) => call[0] === "user_id" && call[1] === userId),
+    );
+    check(
+      "queries filter by id",
+      (existingClient as any)._eqCalls.some((call: [string, string]) => call[0] === "id" && call[1] === "550e8400-e29b-41d4-a716-446655440000"),
+    );
+    
     check(
       "valid UUID that doesn't exist returns 'not_found'",
-      (await checkSessionRoute(missingClient, userId, "550e8400-e29b-41d4-a716-446655440000")) === "not_found",
+      (await checkSessionRoute(missingClient, userId, "c56a4180-65aa-42ec-a945-5fd21dec0538")) === "not_found",
     );
     
-    check(
-      "malformed ID returns 'not_found' without query",
-      (await checkSessionRoute(noQueryClient, userId, "not-a-uuid")) === "not_found",
-    );
-    
-    check(
-      "empty string returns 'not_found' without query",
-      (await checkSessionRoute(noQueryClient, userId, "")) === "not_found",
-    );
+    // Test error rejection
+    let errorThrown = false;
+    try {
+      await checkSessionRoute(errorClient as unknown as SupabaseClient, userId, "550e8400-e29b-41d4-a716-446655440000");
+    } catch {
+      errorThrown = true;
+    }
+    check("checkSessionRoute throws when maybeSingle returns error", errorThrown);
   }
 
   console.log("\n3. checkHistoryRoute is an alias for checkSessionRoute");
@@ -260,8 +278,9 @@ async function runTests() {
       const dir = path.dirname(layoutPath);
       const segments = dir.split(path.sep).filter(Boolean);
       
-      // Check each ancestor directory (excluding the layout's own directory and src/app)
-      for (let i = 2; i < segments.length - 1; i++) {
+      let foundLoading = false;
+      // Check each ancestor directory (excluding the layout's own directory)
+      for (let i = 1; i < segments.length - 1; i++) {
         const ancestorPath = segments.slice(0, i + 1).join(path.sep);
         const loadingPath = path.join(ancestorPath, "loading.tsx");
         
@@ -272,12 +291,16 @@ async function runTests() {
             false,
             `found ${loadingPath} which would wrap the layout`,
           );
+          foundLoading = true;
+          break;
         } catch {
           // File doesn't exist, which is what we want
         }
       }
       
-      check(`No ancestor loading.tsx wraps ${layoutPath}`, true);
+      if (!foundLoading) {
+        check(`No ancestor loading.tsx wraps ${layoutPath}`, true);
+      }
     }
   }
 

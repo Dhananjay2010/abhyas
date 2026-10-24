@@ -119,3 +119,14 @@ export function activeTab(pathname: string): string | null {
   // No tab active for other routes (session pages, onboarding, etc.)
   return null;
 }
+
+/**
+ * Check if a pathname needs bottom nav on its 404 page.
+ * True when activeTab returns null (no tab would show on valid page).
+ * 
+ * @param pathname - The current pathname
+ * @returns true if this path needs nav on 404, false otherwise
+ */
+export function needsNotFoundNav(pathname: string): boolean {
+  return activeTab(pathname) === null;
+}

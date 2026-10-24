@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
-import { activeTab, choosePracticeRoute, PRACTICE_LAST_CHANGE_EVENT, type PracticeType } from "@/lib/nav";
+import { activeTab, choosePracticeRoute, needsNotFoundNav, PRACTICE_LAST_CHANGE_EVENT, type PracticeType } from "@/lib/nav";
 
 /**
  * Bottom navigation icons from Lucide (https://lucide.dev)
@@ -98,24 +98,37 @@ function getLastPracticeServerSnapshot(): PracticeType | null {
   return null;
 }
 
-/**
- * Check if pathname is in a signed-in user area where we should show nav
- * even on 404 pages (so users can navigate away).
- */
-function isUserAreaPath(pathname: string): boolean {
-  return (
-    pathname.startsWith("/session/") ||
-    pathname.startsWith("/history/") ||
-    pathname.startsWith("/breathe/") ||
-    pathname.startsWith("/yoga/") ||
-    pathname === "/today" ||
-    pathname === "/progress" ||
-    pathname === "/settings"
-  );
-}
-
-export function BottomNav() {
+export function BottomNav({ forNotFound }: { forNotFound?: boolean } = {}) {
   const pathname = usePathname();
+  
+  if (forNotFound) {
+    if (!needsNotFoundNav(pathname)) return null;
+    // Render nav with no tab highlighted
+    return (
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
+        <ul className="mx-auto flex max-w-md">
+          {TABS.map((t) => {
+            const Icon = t.Icon;
+            return (
+              <li key={t.href} className="flex-1">
+                <Link
+                  href={t.href === "/practice" ? "/breathe" : t.href}
+                  className="relative flex flex-col items-center gap-1 px-1 pt-2.5 text-center text-muted transition-colors"
+                  style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
+                >
+                  <Icon />
+                  <span className="text-[11px] font-medium leading-none">
+                    {t.label}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    );
+  }
+  
   const active = activeTab(pathname);
   
   const lastPractice = useSyncExternalStore(
@@ -123,10 +136,7 @@ export function BottomNav() {
     getLastPracticeSnapshot,
     getLastPracticeServerSnapshot
   );
-
-  // Show nav on pages where a tab is active, OR on potential 404s in signed-in areas
-  const shouldShow = active !== null || isUserAreaPath(pathname);
-  if (!shouldShow) return null;
+  if (!active) return null;
 
   // Map /practice to the appropriate destination using choice logic
   const getHref = (tabHref: string) => {
@@ -139,8 +149,7 @@ export function BottomNav() {
       <ul className="mx-auto flex max-w-md">
         {TABS.map((t) => {
           const href = getHref(t.href);
-          // Only highlight tab if we have a valid active route (not on 404 pages)
-          const isActive = active !== null && active === t.href;
+          const isActive = active === t.href;
           const Icon = t.Icon;
           return (
             <li key={t.href} className="flex-1">
