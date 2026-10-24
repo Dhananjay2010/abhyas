@@ -716,6 +716,17 @@ async function runTests() {
     {
       console.log("\n7. Zero-set completed session appears in History (change 6)");
 
+      // First, capture the current total_count before adding the zero-set session
+      const { data: beforeData } = await supabaseA.rpc("get_history_page", {
+        p_user: userIdA,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 100,
+        p_offset: 0,
+      });
+      const beforeRows = beforeData as HistoryPageRow[];
+      const countBeforeZeroSet = beforeRows[0]?.total_count ?? 0;
+
       // Create a completed weights session with 0 working sets
       const zeroSetSessionId = randomUUID();
       const { error: insertError } = await adminClient.from("sessions").insert({
@@ -754,11 +765,11 @@ async function runTests() {
             includesZeroSet,
             `session found: ${includesZeroSet}`);
 
-          // Verify total_count includes it
+          // Verify total_count includes it (should be 1 more than before)
           const totalCount = historyRows[0]?.total_count ?? 0;
           check("total_count includes zero-set session",
-            totalCount > oldTotalCount,
-            `old: ${oldTotalCount}, new: ${totalCount}`);
+            totalCount > countBeforeZeroSet,
+            `before: ${countBeforeZeroSet}, after: ${totalCount}`);
         }
       }
     }
