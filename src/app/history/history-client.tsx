@@ -147,14 +147,12 @@ export function HistoryClient({
               // M2: Detect past-day in_progress sessions
               const isPastInProgress = item.status === "in_progress" && item.localDate !== today;
 
-              // TZ-2: Format date and time consistently (both from started_at or local_date)
+              // Format time for all rows through formatSessionDateTime
               let timeLabel = "";
               if (isPastInProgress) {
                 timeLabel = `Unfinished from ${longDate(item.localDate)}`;
-              } else if (item.localDate === today) {
-                timeLabel = "Today";
               } else {
-                // Use TZ-2 formatter: date and time both from started_at in current zone
+                // Use formatSessionDateTime for all rows (including today) to get proper time display
                 timeLabel = formatSessionDateTime(item.startedAt, item.localDate, timezone, today);
               }
 

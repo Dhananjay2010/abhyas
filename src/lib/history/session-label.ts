@@ -53,13 +53,12 @@ export function getSessionLabel(input: SessionLabelInput): string {
 
   // Priority 4: completed sessions
   // Trust the status - completed shows "Completed" or "Ended early"
-  // (Zero-set strength sessions are excluded by the History page query)
   if (endedEarly && plannedSets && plannedSets > 0) {
     return `Ended early · ${setCount} of ${plannedSets} ${plannedSets === 1 ? "set" : "sets"}`;
   }
   
-  // Special case: 0 working sets = ended early (no plan shown)
-  if (setCount === 0 && (actualType === "weights" || actualType === "bodyweight" || actualType === null)) {
+  // 0 working sets on strength = ended early (when endedEarly flag is set)
+  if (endedEarly && setCount === 0 && (actualType === "weights" || actualType === "bodyweight" || actualType === null)) {
     return "Ended early";
   }
 

@@ -113,6 +113,7 @@ export default async function HistoryPage({
 
   const exercisesBySession = new Map<string, Array<{ id: string; exercise_id: string; metric: string }>>();
   const plannedSetsBySession = new Map<string, number>();
+  const hasPendingExerciseBySession = new Map<string, boolean>();
   
   for (const ex of sessionExercises ?? []) {
     // Only add completed exercises for top set calculation
@@ -122,12 +123,17 @@ export default async function HistoryPage({
       exercisesBySession.set(ex.session_id, list);
     }
     
-    // Sum planned_sets across ALL session_exercises for endedEarly detection
-    if (ex.planned_sets && ex.planned_sets > 0) {
+    // Sum planned_sets only over 'pending' or 'completed' exercises (exclude 'skipped' and 'swapped_out')
+    if ((ex.status === "pending" || ex.status === "completed") && ex.planned_sets && ex.planned_sets > 0) {
       plannedSetsBySession.set(
         ex.session_id,
         (plannedSetsBySession.get(ex.session_id) ?? 0) + ex.planned_sets
       );
+    }
+    
+    // Track if any exercise is still pending
+    if (ex.status === "pending") {
+      hasPendingExerciseBySession.set(ex.session_id, true);
     }
   }
 
@@ -213,15 +219,19 @@ export default async function HistoryPage({
       );
 
     const plannedSets = plannedSetsBySession.get(s.id);
+    const hasPendingExercise = hasPendingExerciseBySession.get(s.id) ?? false;
+    const hasNoExercises = exercises.length === 0;
+    
     // A completed strength session counts as ended early when:
-    // 1. It has fewer working sets than planned, OR
-    // 2. It has 0 working sets (regardless of planned count)
+    // 1. At least one exercise is still 'pending' AND logged working sets < planned, OR
+    // 2. It has 0 working sets (no exercises or all pending with 0 sets)
     const isStrength = !isBreathing && s.actual_type !== "yoga";
     const endedEarly = 
-      (plannedSets !== undefined && 
+      (hasPendingExercise && 
+       plannedSets !== undefined && 
        plannedSets > 0 && 
        workingSetCount < plannedSets) ||
-      (isStrength && s.status === "completed" && workingSetCount === 0);
+      (isStrength && s.status === "completed" && workingSetCount === 0 && (hasPendingExercise || hasNoExercises));
 
     return {
       id: s.id,

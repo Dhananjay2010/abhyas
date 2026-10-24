@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo } from "react";
 import { updateSessionDateTime } from "../actions";
 import { utcToZonedDateTime, zonedDateTimeToUtc } from "@/lib/timezone";
 import { localDateString } from "@/lib/dates";
+import { validateSessionTimes } from "@/lib/history/validate-session-times";
 
 interface EditSessionProps {
   sessionId: string;
@@ -53,8 +54,7 @@ export function EditSession({
       return;
     }
     
-    // Import and use the validation helper
-    const { validateSessionTimes } = require("@/lib/history/validate-session-times");
+    // Validate session times
     const validation = validateSessionTimes(editedDate, editedStartTime, editedEndTime);
     
     if (!validation.success) {

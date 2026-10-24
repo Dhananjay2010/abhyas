@@ -65,8 +65,9 @@ test("first page", () => {
 });
 
 test("empty total pages (0) handles beyond correctly", () => {
-  // When totalPages is 0, page should still be clamped to 1
-  assertEqual(parsePageParam("5", 0), 5);
+  // When totalPages is 0, page should be clamped to 1, not MAX_SAFE_PAGE
+  assertEqual(parsePageParam("5", 0), 1);
+  assertEqual(parsePageParam("999999999999", 0), 1);
 });
 
 test("float string → truncated integer", () => {
@@ -77,9 +78,10 @@ test("huge overflow → capped to safe max and then to totalPages", () => {
   assertEqual(parsePageParam("999999999999", 5), 5);
 });
 
-test("huge overflow with no totalPages → capped to safe max", () => {
+test("huge overflow with totalPages > MAX_SAFE_PAGE → capped to MAX_SAFE_PAGE", () => {
   const MAX_SAFE_PAGE = 1_000_000;
-  assertEqual(parsePageParam("999999999999", 0), MAX_SAFE_PAGE);
+  // With totalPages=2000000 (> MAX_SAFE_PAGE), huge input is capped to MAX_SAFE_PAGE
+  assertEqual(parsePageParam("999999999999", 2000000), MAX_SAFE_PAGE);
 });
 
 console.log("\nparsePageParam tests complete");

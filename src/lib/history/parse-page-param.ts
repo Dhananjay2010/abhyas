@@ -6,6 +6,7 @@
  * - Zero or negative (0, -1) → clamp to 1
  * - Beyond total pages → clamp to last page
  * - Overflow values (999999999999) → clamp to safe max
+ * - Empty history (totalPages=0) + huge page → clamp to 1
  * 
  * @param pageParam - Raw page param from URL (can be undefined, string, or number)
  * @param totalPages - Total number of pages available
@@ -30,6 +31,11 @@ export function parsePageParam(
   
   // Cap at safe maximum first
   const safeParsed = Math.min(parsed, MAX_SAFE_PAGE);
+  
+  // Empty history (totalPages=0) → page 1
+  if (totalPages === 0) {
+    return 1;
+  }
   
   if (totalPages > 0 && safeParsed > totalPages) {
     return totalPages;
