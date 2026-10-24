@@ -9,19 +9,19 @@
  * - Works with injectable window target for testing
  */
 
-type EventListener = (event: Event) => void;
+type OnlineEventListener = (event: Event) => void;
 
 class MockEventTarget {
-  private listeners = new Map<string, Set<EventListener>>();
+  private listeners = new Map<string, Set<OnlineEventListener>>();
 
-  addEventListener(type: string, listener: EventListener) {
+  addEventListener(type: string, listener: OnlineEventListener) {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, new Set());
     }
     this.listeners.get(type)!.add(listener);
   }
 
-  removeEventListener(type: string, listener: EventListener) {
+  removeEventListener(type: string, listener: OnlineEventListener) {
     this.listeners.get(type)?.delete(listener);
   }
 
@@ -33,7 +33,7 @@ class MockEventTarget {
     return true;
   }
 
-  hasListener(type: string, listener: EventListener): boolean {
+  hasListener(type: string, listener: OnlineEventListener): boolean {
     return this.listeners.get(type)?.has(listener) ?? false;
   }
 
@@ -63,7 +63,7 @@ function simulateOnlineRefresh(
   };
 }
 
-async function main() {
+async function runTests() {
   console.log("Testing OnlineRefresh online event handling...\n");
 
   const target = new MockEventTarget();
@@ -119,7 +119,7 @@ async function main() {
   console.log("\n✓ All OnlineRefresh tests passed");
 }
 
-main().catch((err) => {
+runTests().catch((err) => {
   console.error("✗ Test failed:", err.message);
   process.exit(1);
 });
