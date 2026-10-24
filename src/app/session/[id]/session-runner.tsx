@@ -20,6 +20,7 @@ import { sessionCompletion } from "@/lib/session/completion";
 import { runFinish, runEndEarly } from "@/lib/session/finish-flow";
 import { endEarlyConfirmTitle, sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { focusTrap } from "@/lib/focus-trap";
+import { formatNumber } from "@/lib/format";
 import {
   abandonSession,
   deleteSet,
@@ -470,7 +471,7 @@ export function SessionRunner({
         <div className="space-y-3">
           <Stat label="Time" value={formatClock(elapsed)} />
           <Stat label="Sets logged" value={`${totalSetsDone}`} />
-          {volume > 0 && <Stat label="Total volume" value={`${Math.round(volume)} kg`} />}
+          {volume > 0 && <Stat label="Total volume" value={`${formatNumber(Math.round(volume))} kg`} />}
           <Stat
             label="Exercises"
             value={`${exercises.filter((e) => e.status === "completed").length} of ${exercises.length}`}

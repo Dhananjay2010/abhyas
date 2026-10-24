@@ -1,4 +1,5 @@
 import { decideAbandonStatus, type SessionExercise } from "./abandon-session";
+import { finishTimestamp } from "./finish-timestamp";
 
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
@@ -36,6 +37,9 @@ interface SupabaseUpdateChain {
  * Product rule: If the user logged at least one working set, the session counts
  * as completed (not skipped). Only a session with no working sets at all is marked skipped.
  * Warm-up sets don't count as training.
+ *
+ * For stale sessions (past-day or >3h idle), the duration is capped at the last
+ * logged set + buffer to prevent recording unrealistic times.
  */
 export async function finishSessionCore(
   supabase: SupabaseClient,
@@ -45,10 +49,24 @@ export async function finishSessionCore(
     cooldownCompleted: boolean;
   },
 ): Promise<Result<{ status: "completed" | "skipped" }>> {
-  // Check if any working sets were logged
+  // Query session metadata for stale detection
+  const { data: sessionData, error: sessionError } = await supabase
+    .from("sessions")
+    .select("started_at, local_date, timezone")
+    .eq("id", params.sessionId);
+
+  if (sessionError) return { ok: false, error: sessionError.message };
+
+  const session = Array.isArray(sessionData) && sessionData.length > 0
+    ? (sessionData[0] as { started_at: string; local_date: string; timezone: string })
+    : null;
+
+  if (!session) return { ok: false, error: "Session not found" };
+
+  // Check if any working sets were logged and get last set timestamp
   const { data: exercises, error: readError } = await supabase
     .from("session_exercises")
-    .select("session_sets(id, is_warmup_set)")
+    .select("session_sets(id, is_warmup_set, completed_at)")
     .eq("session_id", params.sessionId);
 
   if (readError) return { ok: false, error: readError.message };
@@ -56,15 +74,47 @@ export async function finishSessionCore(
   // Determine if this should be completed or skipped based on working sets
   const status = decideAbandonStatus((exercises ?? []) as SessionExercise[]);
 
+  // Find the last logged set (warmup or working)
+  let lastSetCompletedAt: string | null = null;
+  for (const exercise of (exercises ?? []) as SessionExercise[]) {
+    for (const set of exercise.session_sets ?? []) {
+      if (set.completed_at && (!lastSetCompletedAt || set.completed_at > lastSetCompletedAt)) {
+        lastSetCompletedAt = set.completed_at;
+      }
+    }
+  }
+
+  // Calculate proper ended_at timestamp (handles stale sessions)
+  const now = new Date().toISOString();
+  const endedAt = finishTimestamp({
+    startedAt: session.started_at,
+    lastSetCompletedAt,
+    now,
+    timezone: session.timezone,
+    sessionLocalDate: session.local_date,
+    plannedRestSeconds: 60, // Default buffer
+  });
+
+  // Calculate duration in seconds
+  let durationSeconds: number;
+  if (endedAt) {
+    const startMs = new Date(session.started_at).getTime();
+    const endMs = new Date(endedAt).getTime();
+    durationSeconds = Math.floor((endMs - startMs) / 1000);
+  } else {
+    // No sets and stale: use 0 duration
+    durationSeconds = 0;
+  }
+
   // Clamp duration to sane range: 0 to 6 hours
-  const clampedDuration = Math.max(0, Math.min(21600, Math.round(params.durationSeconds)));
+  const clampedDuration = Math.max(0, Math.min(21600, Math.round(durationSeconds)));
 
   // Safety: Only update if status is 'in_progress' to prevent double-application on retry.
   const { error, count } = await supabase
     .from("sessions")
     .update({
       status,
-      completed_at: status === "completed" ? new Date().toISOString() : null,
+      completed_at: status === "completed" ? (endedAt ?? now) : null,
       duration_seconds: clampedDuration,
       cooldown_completed: status === "completed" ? params.cooldownCompleted : undefined,
     })
