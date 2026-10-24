@@ -66,7 +66,7 @@ export function SessionActions({ sessionId }: SessionActionsProps) {
           >
             <h2 className="text-xl font-bold">Delete Session?</h2>
             <p className="mt-2 text-sm text-muted">
-              This will permanently delete this session and all its data. You'll have 5 seconds to
+              This will permanently delete this session and all its data. You&apos;ll have 5 seconds to
               undo.
             </p>
             <div className="mt-6 flex gap-3">

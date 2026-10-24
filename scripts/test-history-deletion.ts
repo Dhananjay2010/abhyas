@@ -12,7 +12,6 @@
  */
 
 import {
-  buildDayRecords,
   computeStreaks,
   type DayRecord,
 } from "../src/lib/progress/streaks";

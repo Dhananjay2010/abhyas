@@ -118,7 +118,7 @@ export default async function HistoryPage({
   }
 
   // Get exercise history to detect PRs
-  const { detectPersonalRecords, findTopSet } = await import("@/lib/exercise-history/calculations");
+  const { findTopSet } = await import("@/lib/exercise-history/calculations");
 
   const items: SessionListItem[] = (sessions ?? []).map((s) => {
     const vol = volumeById.get(s.id);

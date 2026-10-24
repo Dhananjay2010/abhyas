@@ -2,9 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
 import type { SessionListItem, SessionType } from "./types";
-import { SessionRow } from "@/components/session-row";
 import { formatInTimezone } from "@/lib/timezone";
 
 interface HistoryClientProps {

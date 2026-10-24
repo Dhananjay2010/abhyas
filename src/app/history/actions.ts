@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { localDateString } from "@/lib/dates";
-import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 /**
  * Mark a session as deleted (soft delete).

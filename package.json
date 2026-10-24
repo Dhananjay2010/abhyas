@@ -31,16 +31,13 @@
     "test:finish-exercise-idempotency": "tsx scripts/test-finish-exercise-idempotency.ts",
     "test:sentry": "tsx scripts/test-sentry.ts",
     "test:seed-validity": "tsx scripts/test-seed-validity.ts",
-<<<<<<< HEAD
-    "test:exercise-history": "tsx scripts/test-exercise-history.ts",
-    "test:history-deletion": "tsx scripts/test-history-deletion.ts",
-=======
     "test:nav": "tsx scripts/test-nav.ts",
     "test:yoga-display": "tsx scripts/test-yoga-display.ts",
     "test:breathe-colors": "tsx scripts/test-breathe-colors.ts",
     "test:equipment-toggle": "tsx scripts/test-equipment-toggle.ts",
     "test:practice-choice": "tsx scripts/test-practice-choice.ts",
->>>>>>> origin/main
+    "test:exercise-history": "tsx scripts/test-exercise-history.ts",
+    "test:history-deletion": "tsx scripts/test-history-deletion.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
