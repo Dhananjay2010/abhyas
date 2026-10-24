@@ -24,36 +24,34 @@ export class FakeSupabaseClient {
   }
 
   from(table: string) {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this;
     const currentTable = table;
     let currentMethod = "";
     const currentFilters: Array<{ column: string; value: unknown }> = [];
 
-    return {
-      select(_columns?: string) {
+    const chainable = {
+      select: (_columns?: string) => {
         currentMethod = "select";
-        return this;
+        return chainable;
       },
 
-      eq(column: string, value: unknown) {
+      eq: (column: string, value: unknown) => {
         currentFilters.push({ column, value });
-        return this;
+        return chainable;
       },
 
-      in(column: string, values: unknown[]) {
+      in: (column: string, values: unknown[]) => {
         currentFilters.push({ column, value: values });
-        return this;
+        return chainable;
       },
 
-      single() {
-        self.calls.push({
+      single: () => {
+        this.calls.push({
           table: currentTable,
           method: currentMethod,
           filters: currentFilters,
         });
 
-        const rows = self.data.get(currentTable) || [];
+        const rows = this.data.get(currentTable) || [];
         const filtered = rows.filter((row) =>
           currentFilters.every((f) => row[f.column] === f.value)
         );
@@ -65,13 +63,13 @@ export class FakeSupabaseClient {
         });
       },
 
-      maybeSingle() {
-        return this.single();
+      maybeSingle: () => {
+        return chainable.single();
       },
 
-      update(data: Row) {
+      update: (data: Row) => {
         currentMethod = "update";
-        self.calls.push({
+        this.calls.push({
           table: currentTable,
           method: currentMethod,
           filters: currentFilters,
@@ -90,9 +88,9 @@ export class FakeSupabaseClient {
         };
       },
 
-      insert(data: Row | Row[]) {
+      insert: (data: Row | Row[]) => {
         currentMethod = "insert";
-        self.calls.push({
+        this.calls.push({
           table: currentTable,
           method: currentMethod,
           filters: currentFilters,
@@ -105,9 +103,9 @@ export class FakeSupabaseClient {
         });
       },
 
-      upsert(data: Row | Row[]) {
+      upsert: (data: Row | Row[]) => {
         currentMethod = "upsert";
-        self.calls.push({
+        this.calls.push({
           table: currentTable,
           method: currentMethod,
           filters: currentFilters,
@@ -120,5 +118,7 @@ export class FakeSupabaseClient {
         });
       },
     };
+
+    return chainable;
   }
 }

@@ -6,11 +6,23 @@
 import { buildSwapResult } from "./swap-decision";
 import { prescribe } from "../program/prescription";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClient = any;
+interface QueryBuilder {
+  eq(column: string, value: string): this;
+  maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+  single(): Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+}
+
+interface TableBuilder {
+  select(columns: string): QueryBuilder;
+  update(data: Record<string, unknown>): { eq(column: string, value: string): Promise<{ error: { message: string } | null }> };
+}
+
+interface TestableSupabaseClient {
+  from(table: string): TableBuilder;
+}
 
 export async function swapExerciseCore(
-  deps: { supabase: SupabaseClient; userId: string },
+  deps: { supabase: TestableSupabaseClient; userId: string },
   input: { sessionExerciseId: string; newExerciseId: string }
 ): Promise<
   | { ok: false; error: string }

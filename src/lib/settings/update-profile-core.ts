@@ -5,11 +5,22 @@
 import { shouldResetProgressionTargets } from "../program/reset-decision";
 import { resetProgressionTargets } from "../program/progression";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClient = any;
+interface QueryBuilder {
+  eq(column: string, value: string): this;
+  single(): Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+}
+
+interface TableBuilder {
+  select(columns: string): QueryBuilder;
+  update(data: Record<string, unknown>): { eq(column: string, value: string): Promise<{ error: { message: string } | null }> };
+}
+
+interface TestableSupabaseClient {
+  from(table: string): TableBuilder;
+}
 
 export async function updateProfileCore(
-  deps: { supabase: SupabaseClient; userId: string },
+  deps: { supabase: TestableSupabaseClient; userId: string },
   patch: Record<string, unknown>
 ) {
   const { supabase, userId } = deps;
@@ -24,7 +35,7 @@ export async function updateProfileCore(
   } | null;
 
   if (shouldResetProgressionTargets(patch, currentProfile)) {
-    const resetResult = await resetProgressionTargets(supabase as Parameters<typeof resetProgressionTargets>[0], userId);
+    const resetResult = await resetProgressionTargets(supabase as unknown as Parameters<typeof resetProgressionTargets>[0], userId);
     if (!resetResult.ok) return { ok: false, error: resetResult.error };
   }
 
