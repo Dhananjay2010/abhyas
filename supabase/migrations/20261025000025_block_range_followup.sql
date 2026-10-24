@@ -5,6 +5,21 @@
 -- NO DATA DELETION: marks invalid completed programs as superseded
 
 -- ============================================================
+-- Add 'superseded' to program_status enum (if not already present)
+-- ============================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum e
+    JOIN pg_type t ON e.enumtypid = t.oid
+    WHERE t.typname = 'program_status' AND e.enumlabel = 'superseded'
+  ) THEN
+    ALTER TYPE program_status ADD VALUE 'superseded';
+    RAISE NOTICE 'Added superseded to program_status enum';
+  END IF;
+END$$;
+
+-- ============================================================
 -- LOW/advisor: cycle_week_for SECURITY INVOKER (not DEFINER)
 -- LOW: Clamp to week 1 for dates before started_on
 -- ============================================================
@@ -81,8 +96,15 @@ END$$;
 -- - pg_advisory_xact_lock (unified lock)
 -- - Idempotency check (same payload id)
 -- - Same-day in-place update (program.id preserved)
--- - Exception handler for unique_violation
+-- - Exception handler for unique_violation (narrowed: only concurrent win if expected id exists)
 -- - SECURITY INVOKER + SET search_path = ''
+--
+-- SUPERSEDED BLOCKS:
+-- Mid-block different-day rebuilds (started_on < p_today <= ends_on) create overlapping
+-- ranges: old block gets status='superseded' with ended_on=p_today-1, new block gets
+-- same started_on. App code MUST filter .neq('status', 'superseded') so blockForDate
+-- and streaks see only one block per date. Superseded blocks preserve history only
+-- (sessions can still reference their program_days via superseded rows).
 -- ============================================================
 CREATE OR REPLACE FUNCTION rebuild_block(
   p_today date,
@@ -289,10 +311,19 @@ BEGIN
   RETURN v_new_program_id;
 EXCEPTION
   WHEN unique_violation THEN
-    -- Another concurrent call won; return the active block it created
+    -- Only treat as concurrent win if an active program with expected id exists
+    -- Otherwise this might be an RLS policy failure silently caught by the handler
     SELECT id INTO v_new_program_id
     FROM public.programs
-    WHERE user_id = v_user_id AND status = 'active';
+    WHERE user_id = v_user_id 
+    AND status = 'active'
+    AND id = (p_payload->>'id')::uuid;
+    
+    IF v_new_program_id IS NULL THEN
+      -- Not a concurrent win - re-raise the original error
+      RAISE;
+    END IF;
+    
     RETURN v_new_program_id;
 END;
 $$;
