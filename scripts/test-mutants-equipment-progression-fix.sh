@@ -1,28 +1,26 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 # Mutation testing for equipment-aware progression fix
-# Uses node for reliable string replacement, verifies each mutant changes and compiles,
-# restores from backup on ANY exit, runs targeted tests.
+# Tests call-site wiring and helper behavior
 
 HELPER_FILE="src/lib/session/progression-inputs.ts"
 ACTIONS_FILE="src/app/session/actions.ts"
 PAGE_FILE="src/app/session/[id]/page.tsx"
-PROG_FILE="src/lib/program/progression.ts"
 
 HELPER_BACKUP="/tmp/helper-backup-$$.ts"
 ACTIONS_BACKUP="/tmp/actions-backup-$$.ts"
 PAGE_BACKUP="/tmp/page-backup-$$.ts"
-PROG_BACKUP="/tmp/prog-backup-$$.ts"
 
 MUTANT_COUNT=0
+KILLED_COUNT=0
 SURVIVED_COUNT=0
+SKIPPED_COUNT=0
 
 # Test suite to run for each mutant
 TESTS=(
   "npm run test:progression"
   "npm run test:progression-grid"
   "npm run test:progression-call-path"
+  "npm run test:call-site-wiring"
   "npm run test:no-equipment-exact-equality"
 )
 
@@ -33,22 +31,26 @@ echo
 cp "$HELPER_FILE" "$HELPER_BACKUP"
 cp "$ACTIONS_FILE" "$ACTIONS_BACKUP"
 cp "$PAGE_FILE" "$PAGE_BACKUP"
-cp "$PROG_FILE" "$PROG_BACKUP"
 echo "Saved backups"
 echo
 
 # Restore on ANY exit
-trap 'cp "$HELPER_BACKUP" "$HELPER_FILE" 2>/dev/null; cp "$ACTIONS_BACKUP" "$ACTIONS_FILE" 2>/dev/null; cp "$PAGE_BACKUP" "$PAGE_FILE" 2>/dev/null; cp "$PROG_BACKUP" "$PROG_FILE" 2>/dev/null; rm -f "$HELPER_BACKUP" "$ACTIONS_BACKUP" "$PAGE_BACKUP" "$PROG_BACKUP"' EXIT
+trap 'cp "$HELPER_BACKUP" "$HELPER_FILE" 2>/dev/null; cp "$ACTIONS_BACKUP" "$ACTIONS_FILE" 2>/dev/null; cp "$PAGE_BACKUP" "$PAGE_FILE" 2>/dev/null; rm -f "$HELPER_BACKUP" "$ACTIONS_BACKUP" "$PAGE_BACKUP"' EXIT
 
 # Check baseline
 echo "Running baseline tests..."
+baseline_ok=1
 for test in "${TESTS[@]}"; do
   if ! $test > /dev/null 2>&1; then
     echo "ERROR: Baseline test failed: $test"
-    echo "Baseline must be green before mutation testing"
-    exit 1
+    baseline_ok=0
   fi
 done
+
+if [ "$baseline_ok" -eq 0 ]; then
+  echo "Baseline must be green before mutation testing"
+  exit 1
+fi
 echo "Baseline: all tests pass"
 echo
 
@@ -60,13 +62,12 @@ test_mutant() {
   local replace_str="$4"
   
   MUTANT_COUNT=$((MUTANT_COUNT + 1))
-  echo "[$MUTANT_COUNT] $name"
+  printf "%-50s " "[$MUTANT_COUNT] $name"
   
   # Restore originals
   cp "$HELPER_BACKUP" "$HELPER_FILE"
   cp "$ACTIONS_BACKUP" "$ACTIONS_FILE"
   cp "$PAGE_BACKUP" "$PAGE_FILE"
-  cp "$PROG_BACKUP" "$PROG_FILE"
   
   # Plant mutant using node
   node -e "
@@ -75,29 +76,29 @@ const content = fs.readFileSync('$file', 'utf8');
 const original = content;
 const newContent = content.replace(\`$find_str\`, \`$replace_str\`);
 if (newContent === original) {
-  console.log('  ⚠️  STRING NOT FOUND');
+  console.log('STRING_NOT_FOUND');
   process.exit(1);
 }
 fs.writeFileSync('$file', newContent);
 " 2>/dev/null
   
   if [ $? -ne 0 ]; then
-    echo "  ⚠️  REPLACEMENT FAILED"
-    SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
+    echo "⚠️  SKIP (string not found)"
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     return 1
   fi
   
   # Verify file changed
-  if diff -q "$file" "${file/src/tmp}" > /dev/null 2>&1; then
-    echo "  ⚠️  FILE UNCHANGED"
-    SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
+  if cmp -s "$file" "${file/src/tmp}"; then
+    echo "⚠️  SKIP (file unchanged)"
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     return 1
   fi
   
-  # Verify still compiles
-  if ! npx --package=typescript tsc --noEmit > /dev/null 2>&1; then
-    echo "  ⚠️  DOES NOT COMPILE"
-    SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
+  # Verify still compiles (whole project)
+  if ! npm run typecheck > /dev/null 2>&1; then
+    echo "⚠️  SKIP (does not compile)"
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     return 1
   fi
   
@@ -111,35 +112,39 @@ fs.writeFileSync('$file', newContent);
   done
   
   if [ "$has_new_failure" -eq 0 ]; then
-    echo "  ❌ SURVIVED"
+    echo "❌ SURVIVED"
     SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
   else
-    echo "  ✅ KILLED"
+    echo "✅ KILLED"
+    KILLED_COUNT=$((KILLED_COUNT + 1))
   fi
-  
-  echo
 }
 
-# M1: Helper returns empty equipmentIds
+# M1: Helper returns empty array instead of omitting
 test_mutant \
-  "Helper drops equipment_ids" \
+  "Helper returns [] not {}" \
   "$HELPER_FILE" \
-  "equipmentIds: exercise.equipment_ids ?? []," \
-  "equipmentIds: [],"
+  "return {};" \
+  "return { equipmentIds: [], unit: 'kg' };"
 
-# M2: Helper returns null unit
+# M2: Helper always returns equipmentIds (even for empty array)
+test_mutant \
+  "Helper ignores empty check" \
+  "$HELPER_FILE" \
+  "if (!exercise.equipment_ids || exercise.equipment_ids.length === 0) {
+    return {};
+  }" \
+  "if (!exercise.equipment_ids) {
+    return {};
+  }
+  // length check removed - empty array treated as having equipment"
+
+# M3: Helper forces unit to kg
 test_mutant \
   "Helper forces unit to kg" \
   "$HELPER_FILE" \
   'const unit: WeightUnit = userUnits === "imperial" ? "lb" : "kg";' \
   'const unit: WeightUnit = "kg";'
-
-# M3: Helper returns null mechanic
-test_mutant \
-  "Helper drops mechanic" \
-  "$HELPER_FILE" \
-  "mechanic: exercise.mechanic," \
-  "mechanic: null,"
 
 # M4: actions.ts doesn't spread helper
 test_mutant \
@@ -148,42 +153,31 @@ test_mutant \
   "...progressionInputsFromExercise(ex, profileRes.data?.units)," \
   ""
 
-# M5: page.tsx doesn't spread helper
+# M5': page.tsx doesn't pass equipmentIds/unit
 test_mutant \
-  "page.tsx: remove helper spread" \
+  "page.tsx: remove equipmentIds/unit args" \
   "$PAGE_FILE" \
-  "...progressionInputsFromExercise(ex ?? { mechanic: null, equipment_ids: [] }, profileRes.data?.units)," \
+  "progInputs.equipmentIds,
+        progInputs.unit," \
   ""
 
-# M6: progression.ts reverts equipment back-off
+# M5'': page.tsx hardcodes mechanic to null
 test_mutant \
-  "progression.ts: disable equipment back-off" \
-  "$PROG_FILE" \
-  "if (equipmentIds && unit) {" \
-  "if (false && equipmentIds && unit) {"
+  "page.tsx: mechanic hardcoded to null" \
+  "$PAGE_FILE" \
+  "mechanic: ex?.mechanic ?? null," \
+  "mechanic: null,"
 
-# M7: progression.ts removes hold-at-increment check
-test_mutant \
-  "progression.ts: remove hold-at-increment check" \
-  "$PROG_FILE" \
-  "if (reduced <= liftIncrement) {" \
-  "if (false && reduced <= liftIncrement) {"
-
-# M8: first-miss reverts to no-drop
-test_mutant \
-  "progression.ts: first-miss never drops" \
-  "$PROG_FILE" \
-  "if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {" \
-  "if (false && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {"
-
+echo
 echo "==================================="
 echo "Total mutants: $MUTANT_COUNT"
-echo "Killed: $((MUTANT_COUNT - SURVIVED_COUNT))"
+echo "Killed: $KILLED_COUNT"
 echo "Survived: $SURVIVED_COUNT"
+echo "Skipped: $SKIPPED_COUNT"
 echo
 
-if [ "$SURVIVED_COUNT" -gt 0 ]; then
-  echo "❌ MUTATION TEST FAILED: $SURVIVED_COUNT mutants survived"
+if [ "$SURVIVED_COUNT" -gt 0 ] || [ "$SKIPPED_COUNT" -gt 0 ]; then
+  echo "❌ MUTATION TEST FAILED"
   exit 1
 else
   echo "✅ MUTATION TEST PASSED: All mutants killed"

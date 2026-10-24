@@ -120,7 +120,7 @@ export default async function SessionPage({
         ? null
         : Number(progress.current_working_weight_kg);
     const isBodyweight = (ex?.equipment_ids ?? []).length === 0;
-    const progInputs = progressionInputsFromExercise(ex ?? { mechanic: null, equipment_ids: [] }, profileRes.data?.units);
+    const progInputs = progressionInputsFromExercise(ex ?? { equipment_ids: [] }, profileRes.data?.units);
     return {
       id: r.id,
       exerciseId: ex?.id ?? "",

@@ -78,7 +78,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // active program's id, so the program is fetched with all seven of its days
   // embedded and the right one is picked once the timezone is known.
   const [profileRes, openRes, settingsRes] = await Promise.all([
-    supabase.from("profiles").select("timezone, primary_track, units").eq("id", user.id).single(),
+    supabase.from("profiles").select("timezone, primary_track").eq("id", user.id).single(),
     supabase
       .from("sessions")
       // `skipped` is in here so that an attempt ended early can be picked up
