@@ -121,32 +121,33 @@ begin
     raise exception 'Not authenticated';
   end if;
 
-  -- Lock the active block
+  -- Serialize concurrent calls per user with advisory lock
+  perform pg_advisory_xact_lock(hashtext('rebuild:' || v_user_id::text));
+
+  -- Re-read the active block after acquiring lock
   select id, started_on, week_offset
   into v_old_block
   from programs
-  where user_id = v_user_id and status = 'active'
-  for update;
+  where user_id = v_user_id and status = 'active';
 
   if not found then
     raise exception 'No active block to rebuild';
   end if;
+
+  -- IDEMPOTENT: if an active block already started on p_today with the SAME payload id, return it
+  -- This handles retries and concurrent calls with the same payload
+  if v_old_block.started_on = p_today and v_old_block.id = (p_payload->>'id')::uuid then
+    return v_old_block.id;
+  end if;
+  
+  -- If started_on = p_today but DIFFERENT payload id, this is an intentional same-day rebuild
+  -- Continue to supersede and create new block
 
   -- Compute new week_offset: carry over the current cycle week
   v_new_week_offset := (
     v_old_block.week_offset +
     floor((p_today - v_old_block.started_on) / 7)
   );
-
-  -- IDEMPOTENT: if an active block already covers p_today AND has same payload id, return it
-  -- (This handles concurrent calls with the same payload)
-  if v_old_block.started_on = p_today and v_old_block.id = (p_payload->>'id')::uuid then
-    -- This is a retry with the same payload - return the existing block
-    return v_old_block.id;
-  end if;
-  
-  -- If started_on = p_today but payload id is DIFFERENT, this is a second same-day rebuild.
-  -- Continue to supersede the current block and create a new one.
 
   -- Retire the old block as 'superseded'
   -- For same-day second rebuild, ended_on = started_on - 1 (empty range)
@@ -243,12 +244,14 @@ begin
     raise exception 'Not authenticated';
   end if;
 
-  -- Lock the active block
+  -- Serialize concurrent calls per user with advisory lock
+  perform pg_advisory_xact_lock(hashtext('rollover:' || v_user_id::text));
+
+  -- Re-read the active block after acquiring lock
   select id, started_on, ends_on
   into v_old_block
   from programs
-  where user_id = v_user_id and status = 'active'
-  for update;
+  where user_id = v_user_id and status = 'active';
 
   if not found then
     raise exception 'No active block to roll over';
@@ -332,27 +335,6 @@ begin
   end loop;
 
   return v_new_program_id;
-exception
-  when unique_violation then
-    -- Another concurrent call won; return the active block it created
-    select id into v_new_program_id
-    from programs
-    where user_id = v_user_id and status = 'active';
-    return v_new_program_id;
-  when raise_exception then
-    -- If we get "No active block to rebuild", another concurrent call already rebuilt
-    -- Return the current active block
-    if sqlerrm = 'No active block to rebuild' then
-      select id into v_new_program_id
-      from programs
-      where user_id = v_user_id and status = 'active';
-      if v_new_program_id is null then
-        raise;
-      end if;
-      return v_new_program_id;
-    else
-      raise;
-    end if;
 end;
 $$;
 

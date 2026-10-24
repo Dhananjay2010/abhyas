@@ -220,7 +220,7 @@ async function runTests() {
       console.log("  PASS: Test 1\n");
     }
 
-    console.log("TEST 2: Rebuild, 8 concurrent callers with distinct payload ids");
+    console.log("TEST 2: Rebuild, 8 concurrent callers (same payload)");
     {
       userId = await createTestUser();
       
@@ -230,6 +230,7 @@ async function runTests() {
         VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-10-01', '2026-10-28', 4, 0, 'active')
       `, [blockId1, userId]);
 
+      // Same payload for all concurrent calls (simulates duplicate/retry requests)
       const payload = {
         id: randomUUID(),
         block_number: 1,
@@ -246,7 +247,7 @@ async function runTests() {
       const promises = Array.from({ length: 8 }, () =>
         callRPC(pool, userId, "rebuild_block", {
           p_today: "2026-10-15",
-          p_payload: { ...payload, id: randomUUID() },
+          p_payload: payload, // Same payload for all
         })
       );
 
@@ -267,7 +268,7 @@ async function runTests() {
       const supersededBlocks = blocks.filter((b) => b.status === "superseded");
 
       check("exactly ONE active block", activeBlocks.length === 1, `${activeBlocks.length}`);
-      check("old blocks superseded with ended_on", supersededBlocks.length >= 1, `${supersededBlocks.length}`);
+      check("exactly ONE superseded block", supersededBlocks.length === 1, `${supersededBlocks.length}`);
       check("new block has week_offset = 2", activeBlocks[0]?.week_offset === 2, `offset=${activeBlocks[0]?.week_offset}`);
 
       console.log("  PASS: Test 2\n");
