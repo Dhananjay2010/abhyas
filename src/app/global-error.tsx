@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import * as Sentry from "@sentry/nextjs";
+import { branding } from "@/lib/branding";
 
 export default function GlobalError({
   error,
@@ -22,8 +23,8 @@ export default function GlobalError({
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: #0a0c0e;
-            color: #e5e7eb;
+            background: ${branding.colors.bg};
+            color: ${branding.colors.fg};
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -42,20 +43,21 @@ export default function GlobalError({
           }
           p {
             margin-top: 1rem;
-            color: #9ca3af;
+            color: ${branding.colors.muted};
             line-height: 1.5;
           }
           .digest {
             margin-top: 0.5rem;
             font-family: ui-monospace, monospace;
             font-size: 0.75rem;
-            color: #6b7280;
+            color: ${branding.colors.muted};
+            opacity: 0.7;
           }
           button {
             margin-top: 1.5rem;
             padding: 0.75rem 1.5rem;
-            background: #f97316;
-            color: white;
+            background: ${branding.colors.accent};
+            color: ${branding.colors.accentFg};
             font-weight: 600;
             border: none;
             border-radius: 0.75rem;
@@ -63,7 +65,7 @@ export default function GlobalError({
             transition: background 0.2s;
           }
           button:hover {
-            background: #ea580c;
+            background: ${branding.colors.accentHover};
           }
         `}</style>
       </head>
