@@ -24,7 +24,8 @@ function assertTrue(condition: boolean, message: string, detail?: string) {
 }
 
 // Mock Supabase client with a rest_seconds field in exercise query
-function makeFakeClient(restSeconds: number | null) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makeFakeClient(restSeconds: number | null): any {
   return {
     from: (table: string) => {
       if (table === "sessions") {
@@ -95,7 +96,7 @@ function makeFakeClient(restSeconds: number | null) {
     rpc: () => ({
       throwOnError: () => ({ data: null, error: null }),
     }),
-  } as any;
+  };
 }
 
 async function runTests() {
