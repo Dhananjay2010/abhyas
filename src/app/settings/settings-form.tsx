@@ -253,7 +253,7 @@ export function SettingsForm({
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {/* ---------------- training ---------------- */}
-      <Section title="Your training" note="Changes here update your plan.">
+      <Section title="Your training" note="Changes here apply when you update your plan.">
         <Field label="Goal" saved={savedField === "goal"}>
           <div className="space-y-2">
             {GOALS.map((o) => (
