@@ -40,14 +40,13 @@ export type TrainAnywayInput = {
  * - For blocks with no strength days, return empty array (yoga/breathe handled separately)
  */
 export function trainAnywayOptions(input: TrainAnywayInput): TrainAnywayDay[] {
-  const { todayDay, upcomingDays, missedYesterday } = input;
+  const { yesterdayDay, upcomingDays, missedYesterday } = input;
 
   const result: TrainAnywayDay[] = [];
 
   // If yesterday was missed, offer yesterday's workout first
-  // (only if today's template has a training day - that represents yesterday's missed workout)
-  if (missedYesterday && todayDay && isTrainingDay(todayDay.day_type)) {
-    result.push(todayDay);
+  if (missedYesterday && yesterdayDay && isTrainingDay(yesterdayDay.day_type)) {
+    result.push(yesterdayDay);
   }
 
   // Then offer the next 2 distinct upcoming training days
@@ -89,9 +88,11 @@ export function buildTrainAnywayDays({
   missedYesterday: boolean;
 }): PlannableDay[] {
   const todayIndex = isoWeekday(localToday);
+  const yesterdayIndex = todayIndex === 1 ? 7 : todayIndex - 1;
   
-  // Build today's day info
+  // Build today's and yesterday's day info
   const todayDay = allDays.find((d) => d.day_index === todayIndex) || null;
+  const yesterdayDay = allDays.find((d) => d.day_index === yesterdayIndex) || null;
   
   // Build upcoming days array (tomorrow through end of week, then next week)
   const upcomingDays: TrainAnywayDay[] = [];
@@ -113,6 +114,11 @@ export function buildTrainAnywayDays({
       day_index: todayDay.day_index,
       day_type: todayDay.day_type,
       label: todayDay.label,
+    } : null,
+    yesterdayDay: yesterdayDay ? {
+      day_index: yesterdayDay.day_index,
+      day_type: yesterdayDay.day_type,
+      label: yesterdayDay.label,
     } : null,
     upcomingDays,
     missedYesterday,
