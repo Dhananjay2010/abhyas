@@ -14,33 +14,11 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { resolveSessionTargets } from "@/lib/program/session-targets";
+import { loadReducibleFor } from "@/lib/session/load-reducible";
 
 export const dynamic = "force-dynamic";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-/**
- * Equipment that supports bodyweight exercises but doesn't add external load.
- */
-const BODYWEIGHT_ONLY_EQUIPMENT = new Set([
-  "pull_up_bar",
-  "dip_bars",
-  "bench",
-  "flat_bench",
-  "incline_bench",
-  "decline_bench",
-  "stability_ball",
-  "mat",
-  "none",
-]);
-
-/**
- * Check if exercise is bodyweight-only (not progressively loadable).
- */
-function isBodyweightOnly(equipmentIds: string[]): boolean {
-  if (equipmentIds.length === 0) return true;
-  return equipmentIds.every(id => BODYWEIGHT_ONLY_EQUIPMENT.has(id));
-}
 
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
@@ -433,7 +411,7 @@ export default async function TodayPage() {
       : template.map((r) => {
           const metric = r.exercises?.metric ?? "reps";
           const equipmentIds = r.exercises?.equipment_ids ?? [];
-          const loadReducible = !isBodyweightOnly(equipmentIds) && metric === "reps";
+          const loadReducible = loadReducibleFor(equipmentIds, metric);
           
           // Apply deload transformation if needed
           const dose = isDeload && r.target_sets != null && r.target_reps_min != null && r.target_reps_max != null && r.rest_seconds != null
