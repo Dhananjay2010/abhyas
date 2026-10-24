@@ -123,12 +123,39 @@ export function splitLabelFor(daysPerWeek: number, yogaDays: number): string {
 
 export const MIN_AGE_YEARS = 16;
 
-export function ageOn(dateOfBirth: string, on: Date = new Date()): number {
-  const dob = new Date(`${dateOfBirth}T00:00:00`);
-  let age = on.getFullYear() - dob.getFullYear();
+/**
+ * Calculate age as of a given date.
+ *
+ * L6 fix: when `timezone` is provided, `on` is interpreted in that timezone
+ * instead of UTC. This matters for age gates: a user in IST signing up at
+ * 02:00 IST should see "today" as their local date, not yesterday UTC.
+ */
+export function ageOn(dateOfBirth: string, on: Date = new Date(), timezone?: string): number {
+  const dob = new Date(`${dateOfBirth}T00:00:00Z`); // Parse as UTC
+  
+  let compareDate: Date;
+  if (timezone) {
+    // Get the date components in the user's timezone
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts = fmt.formatToParts(on);
+    const year = parseInt(parts.find((p) => p.type === "year")?.value ?? "0", 10);
+    const month = parseInt(parts.find((p) => p.type === "month")?.value ?? "0", 10);
+    const day = parseInt(parts.find((p) => p.type === "day")?.value ?? "0", 10);
+    compareDate = new Date(Date.UTC(year, month - 1, day));
+  } else {
+    // Original behavior: use UTC
+    compareDate = new Date(Date.UTC(on.getUTCFullYear(), on.getUTCMonth(), on.getUTCDate()));
+  }
+
+  let age = compareDate.getUTCFullYear() - dob.getUTCFullYear();
   const beforeBirthday =
-    on.getMonth() < dob.getMonth() ||
-    (on.getMonth() === dob.getMonth() && on.getDate() < dob.getDate());
+    compareDate.getUTCMonth() < dob.getUTCMonth() ||
+    (compareDate.getUTCMonth() === dob.getUTCMonth() && compareDate.getUTCDate() < dob.getUTCDate());
   if (beforeBirthday) age -= 1;
   return age;
 }

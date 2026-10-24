@@ -3,10 +3,15 @@
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
-import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
 import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import {
+  validateOnboardingFields,
+  validateDateOfBirth,
+  validateHeightCm,
+  validateWeightKg,
+} from "@/lib/profile/validation";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
@@ -20,16 +25,21 @@ async function requireUser() {
   return { supabase, user };
 }
 
+/**
+ * M5 fix: Call SECURITY DEFINER RPC that sets timestamp server-side.
+ */
 export async function acceptDisclaimer(): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
-  const { supabase, user } = await requireUser();
-  const { error } = await supabase
-    .from("profiles")
-    .update({ disclaimer_accepted_at: new Date().toISOString() })
-    .eq("id", user.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+
+  const { supabase } = await requireUser();
+  // @ts-expect-error - RPC exists in migration but types not yet generated
+  const { error } = await supabase.rpc("accept_disclaimer");
+  if (error) {
+    console.error("acceptDisclaimer RPC failed:", error);
+    return { ok: false, error: "Couldn't save that. Please try again." };
+  }
+  return { ok: true };
 }
 
 export async function saveAboutYou(input: {
@@ -40,38 +50,49 @@ export async function saveAboutYou(input: {
 }): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
-  const age = ageOn(input.dateOfBirth);
-  if (Number.isNaN(age)) return { ok: false, error: "That date does not look right." };
-  if (age < MIN_AGE_YEARS)
-    return { ok: false, error: `You need to be at least ${MIN_AGE_YEARS} to use Abhyas.` };
-  if (age > 100) return { ok: false, error: "Please check your date of birth." };
-  if (input.heightCm < 100 || input.heightCm > 250)
-    return { ok: false, error: "Height should be between 100 and 250 cm." };
-  if (input.weightKg < 25 || input.weightKg > 300)
-    return { ok: false, error: "Weight should be between 25 and 300 kg." };
 
   const { supabase, user } = await requireUser();
 
+  // Fetch timezone first for age validation
   const { data: tzRow } = await supabase
     .from("profiles")
     .select("timezone")
     .eq("id", user.id)
     .single();
+  
+  const timezone = tzRow?.timezone || "Asia/Kolkata";
+
+  // L6 fix: validate age in the user's timezone, not UTC
+  const dobValidation = validateDateOfBirth(input.dateOfBirth, timezone);
+  if (!dobValidation.ok) return { ok: false, error: dobValidation.error };
+
+  // P3-M5: check for NaN and Infinity
+  const heightValidation = validateHeightCm(input.heightCm);
+  if (!heightValidation.ok) return heightValidation;
+
+  const weightValidation = validateWeightKg(input.weightKg);
+  if (!weightValidation.ok) return weightValidation;
 
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
-      date_of_birth: input.dateOfBirth,
+      date_of_birth: dobValidation.date,
       sex: input.sex,
       height_cm: input.heightCm,
     })
     .eq("id", user.id);
-  if (profileError) return { ok: false, error: profileError.message };
+  if (profileError) {
+    console.error("saveAboutYou profile update failed:", profileError);
+    // The validation trigger enforces age >= 16; surface that message
+    if (profileError.message?.includes("16 years old")) {
+      return { ok: false, error: profileError.message };
+    }
+    return { ok: false, error: "Couldn't save your information. Please try again." };
+  }
 
   // The first weigh-in doubles as the BMI input for the safety filters. It is
   // dated in the user's timezone, not UTC.
-  const today = localDateString(tzRow?.timezone || "Asia/Kolkata");
+  const today = localDateString(timezone);
   const { error: weightError } = await supabase
     .from("body_metrics")
     .upsert(
@@ -83,13 +104,24 @@ export async function saveAboutYou(input: {
   return { ok: true };
 }
 
+/**
+ * M5 fix: Allow-list columns and validate values.
+ * Used by onboarding to set goal, level, track, days_per_week, etc.
+ */
 export async function saveProfileFields(fields: ProfileUpdate): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
+
+  const validation = validateOnboardingFields(fields);
+  if (!validation.ok) return { ok: false, error: validation.error };
+
   const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("profiles").update(fields).eq("id", user.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  const { error } = await supabase.from("profiles").update(validation.data).eq("id", user.id);
+  if (error) {
+    console.error("saveProfileFields update failed:", error);
+    return { ok: false, error: "Couldn't save your settings. Please try again." };
+  }
+  return { ok: true };
 }
 
 export async function saveEquipment(input: {
@@ -167,7 +199,10 @@ export async function completeOnboarding(): Promise<ActionResult> {
     )
     .eq("id", user.id)
     .single();
-  if (readError) return { ok: false, error: readError.message };
+  if (readError) {
+    console.error("completeOnboarding profile read failed:", readError);
+    return { ok: false, error: "Couldn't load your profile. Please try again." };
+  }
 
   const missing = Object.entries({
     "the disclaimer": profile.disclaimer_accepted_at,
@@ -184,16 +219,30 @@ export async function completeOnboarding(): Promise<ActionResult> {
   if (missing.length > 0)
     return { ok: false, error: `Still missing: ${missing.join(", ")}.` };
 
-  // Build the first block before marking onboarding done, so a user never lands
-  // on Today with a completed profile and no plan.
-  const block = await createBlockForUser(supabase, user.id);
-  if (!block.ok) return { ok: false, error: block.error };
+  /**
+   * M5 fix: Call SECURITY DEFINER RPC that sets timestamp server-side
+   * and checks prerequisites (disclaimer, DOB, height, goal, level, track, days).
+   * Run this BEFORE creating the block so that if the RPC fails, the user can
+   * retry without creating duplicate blocks.
+   */
+  // @ts-expect-error - RPC exists in migration but types not yet generated
+  const { error } = await supabase.rpc("complete_onboarding");
+  if (error) {
+    console.error("completeOnboarding RPC failed:", error);
+    // The RPC enforces age >= 16; surface that message but hide other DB errors
+    if (error.message?.includes("16 years old")) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: "Couldn't complete onboarding. Please try again." };
+  }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ onboarding_completed_at: new Date().toISOString() })
-    .eq("id", user.id);
-  if (error) return { ok: false, error: error.message };
+  // Build the first block after marking onboarding done. If block creation fails,
+  // the user can rebuild from Today or Settings (onboarding is already complete).
+  const block = await createBlockForUser(supabase, user.id);
+  if (!block.ok) {
+    console.error("completeOnboarding block creation failed:", block.error);
+    return { ok: false, error: block.error };
+  }
 
   revalidateTrainingData();
   return { ok: true };

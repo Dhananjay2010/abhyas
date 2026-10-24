@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { validateSettingsFields } from "@/lib/profile/validation";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -41,26 +42,22 @@ export async function updateSessionSettings(patch: SettingsUpdate): Promise<Resu
  * Profile fields. Goal, level, days per week and track all change what the
  * generator would produce, so the caller is told the plan is now stale rather
  * than the block being silently rebuilt underneath them.
+ *
+ * M5 fix: Allow-list columns to prevent mass assignment.
  */
 export async function updateProfileSettings(patch: ProfileUpdate): Promise<Result> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
+
+  const validation = validateSettingsFields(patch);
+  if (!validation.ok) return { ok: false, error: validation.error };
+
   const { supabase, user } = await requireUser();
-
-  if (patch.days_per_week != null && (patch.days_per_week < 3 || patch.days_per_week > 6)) {
-    return { ok: false, error: "Days per week must be between 3 and 6." };
+  const { error } = await supabase.from("profiles").update(validation.data).eq("id", user.id);
+  if (error) {
+    console.error("updateProfileSettings update failed:", error);
+    return { ok: false, error: "Couldn't save your settings. Please try again." };
   }
-  if (
-    patch.yoga_days_per_week != null &&
-    patch.days_per_week != null &&
-    patch.yoga_days_per_week > patch.days_per_week - 1
-  ) {
-    return { ok: false, error: "At least one day a week has to be training." };
-  }
-
-  const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
-  if (error) return { ok: false, error: error.message };
   revalidatePath("/settings");
   revalidatePath("/today");
   return { ok: true };
