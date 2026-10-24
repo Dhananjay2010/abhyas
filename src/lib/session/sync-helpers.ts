@@ -25,6 +25,9 @@ export function nextRetryDelay(attempts: number): number {
 /**
  * Build a SendResult from a logSet result or thrown error.
  * Includes mapped user-friendly error message and permanent flag.
+ *
+ * Client validation errors (code="invalid", no postgresCode) are passed through as-is.
+ * Database errors are mapped to user-friendly messages.
  */
 export function buildSendResult(
   resultOrThrown:
@@ -59,6 +62,17 @@ export function buildSendResult(
   // Failure with code
   const postgresCode = resultOrThrown.data?.postgresCode;
   const isPermanent = resultOrThrown.data?.code === "invalid";
+
+  // Client validation errors: show as-is (don't map)
+  if (isPermanent && !postgresCode) {
+    return {
+      ok: false,
+      permanent: true,
+      error: resultOrThrown.error,
+    };
+  }
+
+  // Database errors: map to user-friendly message
   return {
     ok: false,
     permanent: isPermanent,

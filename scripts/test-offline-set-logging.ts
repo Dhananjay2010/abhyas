@@ -1239,28 +1239,37 @@ function testBuildSendResult() {
     throw new Error("Success should return ok: true");
   }
 
-  // Invalid (permanent) with postgresCode
+  // Client validation error (code="invalid", no postgresCode): NOT mapped
+  result = buildSendResult(
+    { ok: false, error: "Reps must be positive", data: { code: "invalid" } },
+    mapper
+  );
+  if (result.ok || !result.permanent || result.error !== "Reps must be positive") {
+    throw new Error("Client validation error should be passed through as-is");
+  }
+
+  // Database error (invalid with postgresCode): mapped
   result = buildSendResult(
     { ok: false, error: "bad value", data: { code: "invalid", postgresCode: "22P02" } },
     mapper
   );
   if (result.ok || !result.permanent || result.error !== "Check numbers") {
-    throw new Error("Invalid with 22P02 should be permanent with mapped error");
+    throw new Error("Database invalid with 22P02 should be mapped");
   }
 
-  // Transient error
+  // Transient error: mapped
   result = buildSendResult({ ok: false, error: "timeout", data: {} }, mapper);
   if (result.ok || result.permanent || result.error !== "timeout") {
     throw new Error("Transient error should be permanent: false");
   }
 
-  // Network error (thrown)
+  // Network error (thrown): mapped
   result = buildSendResult({ thrown: new TypeError("Failed to fetch") }, mapper);
   if (result.ok || result.permanent || !result.network) {
     throw new Error("Thrown network error should have network: true");
   }
 
-  console.log("✓ buildSendResult: constructs SendResult from action outcome");
+  console.log("✓ buildSendResult: validation errors as-is, database errors mapped");
 }
 
 // ---- finishBlockReason helper --------------------------------------------
