@@ -21,9 +21,10 @@ async function testVersionEndpoint() {
   console.log("\n▶ Testing /api/version endpoint exists...");
 
   const routePath = join(__dirname, "..", "src", "app", "api", "version", "route.ts");
+  const fs = await import("fs");
   
   assert(
-    require("fs").existsSync(routePath),
+    fs.existsSync(routePath),
     "/api/version route must exist at src/app/api/version/route.ts"
   );
 

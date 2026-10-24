@@ -110,6 +110,7 @@ export function OfflineScreen({ fullPage = false }: OfflineScreenProps) {
 
             {/* Fallback link for users without JavaScript */}
             <noscript>
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
               <a href="/" style={noscriptLinkStyle}>
                 Go home
               </a>

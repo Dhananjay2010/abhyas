@@ -50,12 +50,10 @@ export function getRedirectOrigin(request: Request): string {
   // Build allowlist: only the brand site host
   const brandSiteUrl = new URL(branding.siteUrl);
   const brandSiteHost = brandSiteUrl.hostname; // hostname without port
-  const brandSitePort = brandSiteUrl.port || (brandSiteUrl.protocol === "https:" ? "443" : "80");
   
   // Parse forwarded host (may include port)
   const forwardedUrl = new URL(`http://${forwardedHost}`);
   const forwardedHostname = forwardedUrl.hostname;
-  const forwardedPort = forwardedUrl.port || "80"; // x-forwarded-host doesn't have protocol, assume 80 if no port
   
   // ONLY trust x-forwarded headers when the forwarded hostname matches the brand hostname (case-insensitive)
   // Port mismatch is tolerated: default port (80/443) vs explicit port, or http vs https default.
