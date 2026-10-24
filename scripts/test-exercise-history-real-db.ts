@@ -162,9 +162,9 @@ async function runTests() {
     .from("exercises")
     .select("id, name")
     .order("id")
-    .limit(26);
+    .limit(27);
 
-  if (exError || !exercises || exercises.length < 26) {
+  if (exError || !exercises || exercises.length < 27) {
     console.error("Failed to fetch seeded exercises:", exError);
     return false;
   }
@@ -180,6 +180,7 @@ async function runTests() {
   const exerciseL1 = exercises[23].id;  // Test L1: Set paging (isolated, unused by other tests)
   const exerciseL2 = exercises[24].id;  // Test L2: Bodyweight handling (isolated)
   const exerciseL6 = exercises[25].id;  // Test L6: Paging boundary logic (isolated)
+  const exercisePaging = exercises[26].id;  // Test: Paging tie-break with same set_number
   console.log(`Using ${exercises.length} seeded exercises (dedicated per scenario)\n`);
 
   console.log("1. Out-of-order sessions (insertion order ≠ completion order)");
@@ -1494,6 +1495,86 @@ async function runTests() {
     check("L6: No duplicate sessions across pages",
       uniqueSessionIds.size === sessionCount,
       `got ${uniqueSessionIds.size} unique, expected ${sessionCount}`);
+  }
+
+  // Paging tie-break test: warm-up and working set with same set_number
+  console.log("\nPaging tie-break: same set_number for warm-up and working set");
+  {
+    const s1 = randomUUID();
+    const se1 = randomUUID();
+
+    // Create a session with warm-up and working sets sharing set_numbers
+    const { error: sessionErr } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2024-05-01", status: "completed", actual_type: "weights", completed_at: new Date("2024-05-01T10:00:00Z").toISOString() },
+    ]);
+    if (sessionErr) {
+      check("Paging: Insert test session", false, `error: ${sessionErr.message}`);
+      return false;
+    }
+
+    const { error: seErr } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercisePaging, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (seErr) {
+      check("Paging: Insert session_exercise", false, `error: ${seErr.message}`);
+      return false;
+    }
+
+    // Insert sets: warm-ups and working sets that share set_numbers
+    // This tests the tie-break on id when set_number is the same
+    const sets = [];
+    for (let i = 1; i <= 5; i++) {
+      // Warm-up set
+      sets.push({
+        user_id: userIdA,
+        session_exercise_id: se1,
+        set_number: i,
+        reps: 5,
+        weight_kg: 20 + i * 5,
+        is_warmup_set: true,
+      });
+      // Working set with same set_number
+      sets.push({
+        user_id: userIdA,
+        session_exercise_id: se1,
+        set_number: i,
+        reps: 8,
+        weight_kg: 60 + i * 10,
+        is_warmup_set: false,
+      });
+    }
+
+    const { error: setsErr } = await adminClient.from("session_sets").insert(sets);
+    if (setsErr) {
+      check("Paging: Insert sets with tie-break scenario", false, `error: ${setsErr.message}`);
+      return false;
+    }
+
+    // Query via getExerciseHistory (uses paged query with ORDER BY session_exercise_id, set_number, id)
+    const history = await getExerciseHistory(supabaseA, userIdA, exercisePaging, { limit: 10 });
+
+    check("Paging: History returns one session", history.sessions.length === 1);
+
+    const session = history.sessions[0];
+    if (session) {
+      // Working sets only (warm-ups excluded by query)
+      check("Paging: 5 working sets returned (warm-ups excluded)",
+        session.sets.length === 5,
+        `got ${session.sets.length}`);
+
+      // Verify all working sets present with correct weights
+      const weights = session.sets.map(s => s.weight_kg).sort((a, b) => (a ?? 0) - (b ?? 0));
+      const expectedWeights = [70, 80, 90, 100, 110];
+      check("Paging: All working sets retrieved (no duplicates, none missing)",
+        JSON.stringify(weights) === JSON.stringify(expectedWeights),
+        `got ${weights.join(", ")}`);
+
+      // Verify deterministic order by set_number
+      const setNumbers = session.sets.map(s => weights.indexOf(s.weight_kg ?? 0) + 1);
+      check("Paging: Sets in deterministic order (by set_number, id tie-break)",
+        setNumbers.every((n, i) => n === i + 1),
+        `got set order matching weights`);
+    }
   }
 
   if (failures > 0) {

@@ -15,7 +15,11 @@ import { useId, useState } from "react";
  * dark-mode lightness band and clears 3:1 contrast against the surface.
  */
 
-export type Point = { label: string; value: number };
+export type Point = {
+  label: string;
+  value: number;
+  isDeload?: boolean;
+};
 
 const PAD = { top: 10, right: 8, bottom: 20, left: 34 };
 
@@ -115,6 +119,7 @@ export function LineChart({
   const first = points[0];
   const last = points[points.length - 1];
   const shown = active === null ? points.length - 1 : active;
+  const deloadCount = points.filter(p => p.isDeload).length;
 
   return (
     <div>
@@ -122,7 +127,7 @@ export function LineChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full touch-none"
         role="img"
-        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, ending at ${formatValue(last.value, unit)}.`}
+        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, ending at ${formatValue(last.value, unit)}${deloadCount > 0 ? `. ${deloadCount} deload ${deloadCount === 1 ? 'week' : 'weeks'} marked` : ''}.`}
         onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - rect.left) / rect.width) * width;
@@ -158,6 +163,24 @@ export function LineChart({
           strokeLinejoin="round"
           strokeLinecap="round"
         />
+
+        {/* Deload markers: hollow circles with muted stroke */}
+        {points.map((p, i) =>
+          p.isDeload ? (
+            <circle
+              key={`deload-${i}`}
+              cx={x(i)}
+              cy={y(p.value)}
+              r="4"
+              fill="var(--color-surface)"
+              stroke="var(--color-muted)"
+              strokeWidth="1.5"
+              opacity="0.7"
+            >
+              <title>Deload week</title>
+            </circle>
+          ) : null
+        )}
 
         {/* Crosshair for the touched point */}
         <line
@@ -224,7 +247,7 @@ export function BarChart({
   const max = Math.max(...points.map((p) => p.value), 1);
   const innerW = width - PAD.left - PAD.right;
   const innerH = height - PAD.top - PAD.bottom;
-  
+
   // For single-point data, show a narrow bar instead of filling the whole plot
   const slot = points.length === 1 ? 30 : innerW / points.length;
   const barW = Math.max(3, slot - 2);
