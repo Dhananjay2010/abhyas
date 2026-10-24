@@ -1,6 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
-import { PAST_KNEE_LUNGE_EXERCISES, KNEE_SAFE_LUNGE_EXERCISES } from "@/lib/program/generate";
+import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -225,17 +225,8 @@ export function rankAlternatives<T extends ExerciseRow>(
     }
     
     // 6. Injury filtering: exclude if any contraindicated region intersects
-    // PR #73: For current knee + knee-safe lunge exercises, skip knee contraindication check
-    // These exercises are marked as contraindicated but are actually safe
-    const isKneeSafeLunge = hasKneeInjury && 
-                           candidate.movement_pattern === "lunge" && 
-                           KNEE_SAFE_LUNGE_EXERCISES.has(candidate.slug);
-    const contraindicationsToCheck = isKneeSafeLunge
-      ? candidate.contraindicated_regions.filter(r => r !== "knee")
-      : candidate.contraindicated_regions;
-    
     if (
-      contraindicationsToCheck.some((region) =>
+      candidate.contraindicated_regions.some((region) =>
         ctx.injuryRegions.includes(region)
       )
     ) {

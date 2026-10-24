@@ -519,15 +519,7 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
       ...ex.contraindicated_regions,
       ...getDerivedContraindications(ex),
     ];
-    
-    // PR #73: For current knee + lunge pattern, skip generic knee contraindication check
-    // The lunge-specific logic below handles knee-safe lunge exercises
-    const isCurrentKneeLunge = input.currentInjuryRegions.includes("knee") && ex.movement_pattern === "lunge";
-    const contraindicationsToCheck = isCurrentKneeLunge 
-      ? allContraindications.filter(r => r !== "knee")
-      : allContraindications;
-    
-    if (contraindicationsToCheck.some((r) => input.currentInjuryRegions.includes(r))) {
+    if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
       return false;
     }
     
@@ -884,6 +876,17 @@ function pickForSlot(
   }
   
   return null;
+}
+
+/**
+ * Calculate the number of main slots for a day template.
+ * Main slots are all slots BEFORE core (core is always last in template).
+ * Returns the count of main slots, which determines where timed holds should NOT go.
+ */
+export function getMainSlotCount(templateSlots: Pattern[]): number {
+  const coreIndex = templateSlots.indexOf("core");
+  if (coreIndex === -1) return templateSlots.length;
+  return coreIndex;
 }
 
 export function generateProgram(input: GeneratorInput): GeneratedProgram {
@@ -1846,18 +1849,13 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }
       
       // D2 fix: Ensure no timed holds (metric="seconds") landed in main slots after sort
-      // Skip Wall Sit (already handled by first block for current knee users)
       // Use template's actual main slot count instead of hardcoded 4
-      // Calculate main slot count from template (slots before core)
-      const coreSlotIndex = entry.slots.indexOf("core");
-      const mainSlotCount = coreSlotIndex === -1 ? entry.slots.length : coreSlotIndex;
+      const mainSlotCount = getMainSlotCount(entry.slots);
       
       const timedHoldInMain = exercises.findIndex((ex, idx) => {
         if (idx >= mainSlotCount) return false; // Only check main slots
         const e = byId.get(ex.exerciseId);
         if (!e || e.metric !== "seconds") return false;
-        // Skip wall-sit for current knee users (already handled by first block with core ordering)
-        if (hasCurrentKnee && e.slug === "wall-sit") return false;
         return true;
       });
       

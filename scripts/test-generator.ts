@@ -12,7 +12,6 @@ import { readFileSync } from "node:fs";
 import {
   generateProgram,
   STAPLE_MOVEMENTS,
-  KNEE_SAFE_LUNGE_EXERCISES,
   type CandidateExercise,
   type GeneratorInput,
 } from "../src/lib/program/generate";
@@ -76,8 +75,7 @@ console.log("\n1. Baseline: gym, 4 days, muscle gain");
 console.log("\n2. Knee injury must remove every knee-loading exercise");
 {
   const { picked } = allPicked(base({ currentInjuryRegions: ["knee"] }));
-  // Exception: KNEE_SAFE_LUNGE_EXERCISES are allowed even though marked as contraindicated
-  const bad = picked.filter((e) => e.contraindicated_regions.includes("knee") && !KNEE_SAFE_LUNGE_EXERCISES.has(e.slug));
+  const bad = picked.filter((e) => e.contraindicated_regions.includes("knee"));
   check("no knee-contraindicated exercise", bad.length === 0, bad.map((b) => b.name).join(", "));
 }
 

@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import {
   generateProgram,
   isEligible,
-  KNEE_SAFE_LUNGE_EXERCISES,
+  getMainSlotCount,
   type CandidateExercise,
   type GeneratorInput,
 } from "../src/lib/program/generate";
@@ -33,12 +33,21 @@ const EXPECTED_KNEE_SAFE_QUAD_EXERCISES = new Set([
   "spanish-squat",
 ]);
 
+// Hard-coded expected knee-safe lunge exercises (for current knee) - independent oracle
+const EXPECTED_KNEE_SAFE_LUNGE_EXERCISES = new Set([
+  "step-up-with-knee-raise",
+  "barbell-step-ups",
+  "dumbbell-step-ups",
+  "split-squat-with-dumbbells",
+  "smith-single-leg-split-squat",
+]);
+
 /**
  * D1 fix: Compute the number of main slots for this profile's day template.
  * Main slots are all slots BEFORE core (core is always last in template).
- * Import real template data; no hardcoded slot counts.
+ * Import real template data and use exported getMainSlotCount from generate.ts.
  */
-function getMainSlotCount(daysPerWeek: number, yogaDaysPerWeek: number, dayIndex: number): number {
+function getMainSlotCountForDay(daysPerWeek: number, yogaDaysPerWeek: number, dayIndex: number): number {
   const trainingDays = Math.max(1, daysPerWeek - Math.min(yogaDaysPerWeek, daysPerWeek - 1));
   const templates = templatesFor(trainingDays);
   const laidOut = placeYoga(templates, yogaDaysPerWeek);
@@ -54,15 +63,8 @@ function getMainSlotCount(daysPerWeek: number, yogaDaysPerWeek: number, dayIndex
     return 0;
   }
   
-  // Count non-core slots (main lifts)
-  const coreIndex = entry.slots.indexOf("core");
-  if (coreIndex === -1) {
-    // No core in template (e.g., PUSH, PULL) - all slots are main
-    return entry.slots.length;
-  }
-  
-  // Main slots = everything before core
-  return coreIndex;
+  // Use exported function from generate.ts
+  return getMainSlotCount(entry.slots);
 }
 
 // Hard-coded expected floor-pull deadlifts (independent test oracle)
@@ -107,15 +109,6 @@ const EXPECTED_PAST_KNEE_LUNGE_EXERCISES = new Set([
   "single-leg-leg-extension",
   "wall-sit",
   "spanish-squat",
-]);
-
-// Hard-coded KNEE_SAFE_LUNGE_EXERCISES for CURRENT knee (independent test oracle)
-const EXPECTED_KNEE_SAFE_LUNGE_EXERCISES = new Set([
-  "step-up-with-knee-raise",
-  "barbell-step-ups",
-  "dumbbell-step-ups",
-  "split-squat-with-dumbbells",
-  "smith-single-leg-split-squat",
 ]);
 
 // Load real catalogue
@@ -483,7 +476,6 @@ for (const seed of testSeeds) {
             }
             
             // Rule 4: All exercises respect contraindicated_regions (CURRENT KNEE ONLY - past knee is in anyKneeInjury not currentInjuryRegions)
-            // EXCEPTION: KNEE_SAFE_LUNGE_EXERCISES are allowed even though they're marked as contraindicated
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               for (const ex of day.exercises) {
@@ -491,8 +483,7 @@ for (const seed of testSeeds) {
                 if (!exercise) continue;
                 
                 // Check explicit contraindications
-                // Exception: KNEE_SAFE_LUNGE_EXERCISES are allowed even though contraindicated
-                if (exercise.contraindicated_regions.includes("knee") && !KNEE_SAFE_LUNGE_EXERCISES.has(exercise.slug)) {
+                if (exercise.contraindicated_regions.includes("knee")) {
                   check(`${profileId} ${day.label}: ${exercise.name} not contraindicated for knee`, false,
                     "Explicitly contraindicated");
                   profileFailed = true;
@@ -518,7 +509,7 @@ for (const seed of testSeeds) {
             }
             
             // Rule 6 (PR #73 follow-up): Squat/lunge pattern restrictions
-            // CURRENT knee: Squats must be in EXPECTED_KNEE_SAFE_QUAD_EXERCISES, lunges in KNEE_SAFE_LUNGE_EXERCISES
+            // CURRENT knee: Squats must be in EXPECTED_KNEE_SAFE_QUAD_EXERCISES, lunges must be in EXPECTED_KNEE_SAFE_LUNGE_EXERCISES
             // PAST knee: Lunge must be in EXPECTED_PAST_KNEE_LUNGE_EXERCISES, but squats are allowed
             if (severity.label === "current-knee") {
               for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
@@ -533,7 +524,7 @@ for (const seed of testSeeds) {
                       profileFailed = true;
                     }
                   } else if (exercise.movement_pattern === "lunge") {
-                    if (!KNEE_SAFE_LUNGE_EXERCISES.has(exercise.slug)) {
+                    if (!EXPECTED_KNEE_SAFE_LUNGE_EXERCISES.has(exercise.slug)) {
                       check(`${profileId} ${day.label}: lunge in allowlist`, false,
                         `${exercise.name} [${exercise.slug}] is lunge but not in allowlist`);
                       profileFailed = true;
@@ -567,7 +558,7 @@ for (const seed of testSeeds) {
             //         as long as they're before core
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
-              const mainSlotCount = getMainSlotCount(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
+              const mainSlotCount = getMainSlotCountForDay(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
               const nonCoreCount = day.exercises.filter(ex => {
                 const e = byId.get(ex.exerciseId);
                 return e?.movement_pattern !== "core";
@@ -597,7 +588,7 @@ for (const seed of testSeeds) {
             // Wall Sit must sit BEFORE first core exercise (not after last core)
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
-              const mainSlotCount = getMainSlotCount(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
+              const mainSlotCount = getMainSlotCountForDay(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
               const wallSitIndex = day.exercises.findIndex(ex => {
                 const e = byId.get(ex.exerciseId);
                 return e?.slug === "wall-sit";
@@ -639,7 +630,7 @@ for (const seed of testSeeds) {
             // SCOPE: Only check main slots; accessory area ordering is less strict
             // D1 fix: Use template's actual main slot count, not hardcoded 4
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
-              const mainSlotCount = getMainSlotCount(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
+              const mainSlotCount = getMainSlotCountForDay(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
               const isLowerOrLegsDay = day.focus === "lower" || day.focus === "legs" || day.focus === "full_body";
               
               for (let i = 0; i < Math.min(mainSlotCount, day.exercises.length); i++) {
@@ -671,7 +662,7 @@ for (const seed of testSeeds) {
             // This is acceptable: core should be last among main slots, but non-core accessories can follow
             // D1 fix: Use template's actual main slot count, not hardcoded 4
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
-              const mainSlotCount = getMainSlotCount(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
+              const mainSlotCount = getMainSlotCountForDay(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
               const lastCoreIndex = day.exercises.map((ex, idx) => {
                 const e = byId.get(ex.exerciseId);
                 return e?.movement_pattern === "core" ? idx : -1;

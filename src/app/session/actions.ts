@@ -5,7 +5,8 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
-import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
+import { rankAlternatives } from "@/lib/program/alternatives";
+import { getSwapPatterns } from "@/lib/program/swap-patterns";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isEligible, score, hashString, buildInjuryFlags, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
@@ -658,10 +659,7 @@ export async function findAlternatives(
   const wantCompound = replacing?.mechanic !== "isolation";
   const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
   
-  // Build pattern list (current + fallbacks + knee-safe if applicable)
-  const hasKneeInjury = input.anyKneeInjury;
-  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
-  const patterns = buildPatternList(pattern, hasKneeInjury, hasCurrentKnee);
+  const patterns = getSwapPatterns(pattern, input);
   
   // Helper to cast Supabase rows to typed pool rows
   type PoolRow = CandidateExercise & { cue: string | null };
