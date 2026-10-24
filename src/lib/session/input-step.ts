@@ -9,23 +9,23 @@ export type WeightUnit = 'kg' | 'lb';
  * Standard kettlebell weights in kg.
  * These follow the international competition standard progression.
  */
-const KETTLEBELL_WEIGHTS_KG = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
+export const KETTLEBELL_WEIGHTS_KG = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
 
 /**
  * Standard kettlebell weights in lb.
  * Based on conventional US retail offerings: 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80 lb.
  * Source: Common US gym and retail standards (Rogue, Kettlebell Kings, etc.)
  */
-const KETTLEBELL_WEIGHTS_LB = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80];
+export const KETTLEBELL_WEIGHTS_LB = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80];
 
 /**
  * Returns the weight step increment for given equipment.
  * 
  * Equipment-specific steps:
  * - barbell: 2.5 kg / 5 lb (smallest standard plate)
- * - dumbbell: 2 kg / 5 lb (typical increments)
+ * - dumbbell: 2.5 kg / 5 lb (standard gym increments)
  * - kettlebell: uses nextWeight ladder, not a fixed step
- * - machine/cable: 5 kg / 10 lb (stack increments)
+ * - machine/cable: 2.5 kg / 5 lb (aligned with barbell)
  * - bodyweight added load: 2.5 kg / 5 lb (dip belt / weighted vest)
  * 
  * Multi-equipment exercises: uses the largest increment (most conservative choice).
@@ -46,11 +46,11 @@ export function stepFor(equipmentIds: string[], unit: WeightUnit): number {
 
   for (const id of equipmentIds) {
     if (machineIds.includes(id) || id === 'cable_machine') {
-      steps.push(unit === 'kg' ? 5 : 10);
+      steps.push(unit === 'kg' ? 2.5 : 5);
     } else if (id === 'barbell' || id === 'ez_bar' || id === 'trap_bar') {
       steps.push(unit === 'kg' ? 2.5 : 5);
     } else if (id === 'dumbbell') {
-      steps.push(unit === 'kg' ? 2 : 5);
+      steps.push(unit === 'kg' ? 2.5 : 5);
     }
   }
 
@@ -92,24 +92,49 @@ export function nextWeight(
 
   if (isKettlebell) {
     const bells = unit === 'kg' ? KETTLEBELL_WEIGHTS_KG : KETTLEBELL_WEIGHTS_LB;
+    const minBell = bells[0];
+    const maxBell = bells[bells.length - 1];
     
     if (direction === 1) {
+      // Below min: go up to the first bell
+      if (current < minBell) {
+        return minBell;
+      }
       // Find the next bell heavier than current
       const next = bells.find(w => w > current);
-      return next !== undefined ? next : bells[bells.length - 1];
+      return next !== undefined ? next : maxBell;
     } else {
+      // At or below min: stay at current (component will disable -)
+      if (current <= minBell) {
+        return current;
+      }
       // Find the previous bell lighter than current (no mutation)
       const prev = [...bells].reverse().find(w => w < current);
-      return prev !== undefined ? prev : bells[0];
+      return prev !== undefined ? prev : minBell;
     }
   }
 
   // Standard equipment: step-based
   const step = stepFor(equipmentIds, unit);
-  const result = current + (direction * step);
   
-  // Snap to grid and clamp at 0
-  const snapped = Math.round(result / step) * step;
+  // Check if current value is on-grid (within float tolerance)
+  const currentOnGrid = Math.round(current / step) * step;
+  const isOnGrid = Math.abs(current - currentOnGrid) < 0.001;
+  
+  if (isOnGrid) {
+    // On-grid: move one step in the direction
+    const result = current + (direction * step);
+    return round2(Math.max(0, result));
+  }
+  
+  // Off-grid: snap to the nearest grid point in the direction
+  let snapped: number;
+  if (direction === 1) {
+    snapped = Math.ceil(current / step) * step;
+  } else {
+    snapped = Math.floor(current / step) * step;
+  }
+  
   return round2(Math.max(0, snapped));
 }
 
@@ -133,4 +158,18 @@ export function nextReps(
 ): number {
   const result = current + (direction * REPS_STEP);
   return Math.max(options.min, Math.min(options.max, result));
+}
+
+/**
+ * Returns the kettlebell weight bounds for a given unit.
+ * 
+ * @param unit - Weight unit ('kg' or 'lb')
+ * @returns Object with min and max kettlebell weights
+ */
+export function kettlebellBounds(unit: WeightUnit): { min: number; max: number } {
+  const bells = unit === 'kg' ? KETTLEBELL_WEIGHTS_KG : KETTLEBELL_WEIGHTS_LB;
+  return {
+    min: bells[0],
+    max: bells[bells.length - 1],
+  };
 }

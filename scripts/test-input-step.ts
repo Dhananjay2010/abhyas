@@ -11,7 +11,7 @@
  * - Multi-equipment rule (largest increment)
  */
 
-import { stepFor, nextWeight, nextReps, REPS_STEP } from '../src/lib/session/input-step';
+import { stepFor, nextWeight, nextReps, REPS_STEP, KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB } from '../src/lib/session/input-step';
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = '') {
@@ -19,40 +19,40 @@ function check(label: string, ok: boolean, detail = '') {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${label}${detail ? `  -- ${detail}` : ''}`);
 }
 
-console.log('\n1. stepFor returns correct increments by equipment type');
+console.log('\n1. stepFor returns correct increments by equipment type (MEDIUM 2)');
 {
   check('barbell kg is 2.5', stepFor(['barbell'], 'kg') === 2.5);
   check('barbell lb is 5', stepFor(['barbell'], 'lb') === 5);
   
-  check('dumbbell kg is 2', stepFor(['dumbbell'], 'kg') === 2);
+  check('dumbbell kg is 2.5 (FIXED from 2)', stepFor(['dumbbell'], 'kg') === 2.5);
   check('dumbbell lb is 5', stepFor(['dumbbell'], 'lb') === 5);
   
-  check('leg_press kg is 5', stepFor(['leg_press'], 'kg') === 5);
-  check('leg_press lb is 10', stepFor(['leg_press'], 'lb') === 10);
+  check('leg_press kg is 2.5 (FIXED from 5)', stepFor(['leg_press'], 'kg') === 2.5);
+  check('leg_press lb is 5 (FIXED from 10)', stepFor(['leg_press'], 'lb') === 5);
   
-  check('cable_machine kg is 5', stepFor(['cable_machine'], 'kg') === 5);
-  check('cable_machine lb is 10', stepFor(['cable_machine'], 'lb') === 10);
+  check('cable_machine kg is 2.5 (FIXED from 5)', stepFor(['cable_machine'], 'kg') === 2.5);
+  check('cable_machine lb is 5 (FIXED from 10)', stepFor(['cable_machine'], 'lb') === 5);
   
   check('ez_bar kg is 2.5', stepFor(['ez_bar'], 'kg') === 2.5);
   check('trap_bar lb is 5', stepFor(['trap_bar'], 'lb') === 5);
   
-  check('smith_machine kg is 5', stepFor(['smith_machine'], 'kg') === 5);
-  check('lat_pulldown lb is 10', stepFor(['lat_pulldown'], 'lb') === 10);
+  check('smith_machine kg is 2.5 (FIXED from 5)', stepFor(['smith_machine'], 'kg') === 2.5);
+  check('lat_pulldown lb is 5 (FIXED from 10)', stepFor(['lat_pulldown'], 'lb') === 5);
   
   check('unknown equipment defaults to 2.5 kg', stepFor(['bodyweight'], 'kg') === 2.5);
   check('unknown equipment defaults to 5 lb', stepFor(['resistance_band'], 'lb') === 5);
 }
 
-console.log('\n2. Multi-equipment: largest increment wins');
+console.log('\n2. Multi-equipment: largest increment wins (MEDIUM 2)');
 {
-  check('barbell + dumbbell uses barbell step (2.5 kg)', 
+  check('barbell + dumbbell uses 2.5 kg (both same now)', 
     stepFor(['barbell', 'dumbbell'], 'kg') === 2.5);
   
-  check('dumbbell + machine uses machine step (5 kg)',
-    stepFor(['dumbbell', 'leg_press'], 'kg') === 5);
+  check('dumbbell + machine uses 2.5 kg (both same now)',
+    stepFor(['dumbbell', 'leg_press'], 'kg') === 2.5);
   
-  check('barbell + cable uses cable step (5 kg)',
-    stepFor(['barbell', 'cable_machine'], 'kg') === 5);
+  check('barbell + cable uses 2.5 kg (both same now)',
+    stepFor(['barbell', 'cable_machine'], 'kg') === 2.5);
 }
 
 console.log('\n3. nextWeight with standard equipment (step-based)');
@@ -63,14 +63,36 @@ console.log('\n3. nextWeight with standard equipment (step-based)');
   check('dumbbell increase from 10 lb', nextWeight(10, 1, ['dumbbell'], 'lb') === 15);
   check('dumbbell decrease from 10 lb', nextWeight(10, -1, ['dumbbell'], 'lb') === 5);
   
-  check('machine increase from 50 kg', nextWeight(50, 1, ['leg_press'], 'kg') === 55);
-  check('machine decrease from 50 kg', nextWeight(50, -1, ['leg_press'], 'kg') === 45);
+  check('machine increase from 50 kg (now 2.5 step)', nextWeight(50, 1, ['leg_press'], 'kg') === 52.5);
+  check('machine decrease from 50 kg (now 2.5 step)', nextWeight(50, -1, ['leg_press'], 'kg') === 47.5);
   
   check('clamps at 0', nextWeight(2, -1, ['barbell'], 'kg') === 0);
   check('zero stays at zero on decrease', nextWeight(0, -1, ['barbell'], 'kg') === 0);
 }
 
-console.log('\n4. nextWeight with float drift prevention');
+console.log('\n4. nextWeight with off-grid snapping (MEDIUM 2)');
+{
+  // On-grid: one tap moves one increment, and up then down returns to start
+  check('22.5 kg up → 25 kg', nextWeight(22.5, 1, ['barbell'], 'kg') === 25);
+  check('25 kg down → 22.5 kg (reversibility)', nextWeight(25, -1, ['barbell'], 'kg') === 22.5);
+  
+  // Off-grid: snap to nearest grid point in the direction
+  check('23 kg up → 25 kg (snap up)', nextWeight(23, 1, ['barbell'], 'kg') === 25);
+  check('23 kg down → 22.5 kg (snap down)', nextWeight(23, -1, ['barbell'], 'kg') === 22.5);
+  
+  check('21 kg up → 22.5 kg (snap up)', nextWeight(21, 1, ['barbell'], 'kg') === 22.5);
+  check('21 kg down → 20 kg (snap down)', nextWeight(21, -1, ['barbell'], 'kg') === 20);
+  
+  // Verify reversibility from on-grid positions
+  check('20 kg up → 22.5 kg', nextWeight(20, 1, ['barbell'], 'kg') === 22.5);
+  check('22.5 kg down → 20 kg', nextWeight(22.5, -1, ['barbell'], 'kg') === 20);
+  
+  // Test with different equipment
+  check('12 lb (off-grid) up → 15 lb', nextWeight(12, 1, ['dumbbell'], 'lb') === 15);
+  check('12 lb (off-grid) down → 10 lb', nextWeight(12, -1, ['dumbbell'], 'lb') === 10);
+}
+
+console.log('\n6. nextWeight with float drift prevention');
 {
   // Repeated small steps can accumulate drift
   let weight = 0;
@@ -85,7 +107,19 @@ console.log('\n4. nextWeight with float drift prevention');
   check('stepping from 0.1 snaps to grid', stepped === 2.5, `got ${stepped}`);
 }
 
-console.log('\n5. Kettlebell ladder in kg');
+console.log('\n7. Kettlebell weights arrays are exported');
+{
+  check('KETTLEBELL_WEIGHTS_KG is exported and has 12 bells', 
+    KETTLEBELL_WEIGHTS_KG.length === 12);
+  check('KETTLEBELL_WEIGHTS_LB is exported and has 14 bells',
+    KETTLEBELL_WEIGHTS_LB.length === 14);
+  check('kg array starts at 4 kg', KETTLEBELL_WEIGHTS_KG[0] === 4);
+  check('kg array ends at 32 kg', KETTLEBELL_WEIGHTS_KG[KETTLEBELL_WEIGHTS_KG.length - 1] === 32);
+  check('lb array starts at 5 lb', KETTLEBELL_WEIGHTS_LB[0] === 5);
+  check('lb array ends at 80 lb', KETTLEBELL_WEIGHTS_LB[KETTLEBELL_WEIGHTS_LB.length - 1] === 80);
+}
+
+console.log('\n8. Kettlebell ladder in kg');
 {
   check('4 kg → 6 kg', nextWeight(4, 1, ['kettlebell'], 'kg') === 6);
   check('6 kg → 8 kg', nextWeight(6, 1, ['kettlebell'], 'kg') === 8);
@@ -98,7 +132,7 @@ console.log('\n5. Kettlebell ladder in kg');
   check('6 kg → 4 kg (down)', nextWeight(6, -1, ['kettlebell'], 'kg') === 4);
 }
 
-console.log('\n6. Kettlebell ladder in lb');
+console.log('\n9. Kettlebell ladder in lb');
 {
   check('10 lb → 15 lb', nextWeight(10, 1, ['kettlebell'], 'lb') === 15);
   check('35 lb → 40 lb', nextWeight(35, 1, ['kettlebell'], 'lb') === 40);
@@ -109,7 +143,7 @@ console.log('\n6. Kettlebell ladder in lb');
   check('15 lb → 10 lb (down)', nextWeight(15, -1, ['kettlebell'], 'lb') === 10);
 }
 
-console.log('\n7. Kettlebell between-bell values');
+console.log('\n10. Kettlebell between-bell values');
 {
   check('7 kg (between 6 and 8) up → 8 kg', nextWeight(7, 1, ['kettlebell'], 'kg') === 8);
   check('7 kg (between 6 and 8) down → 6 kg', nextWeight(7, -1, ['kettlebell'], 'kg') === 6);
@@ -121,19 +155,22 @@ console.log('\n7. Kettlebell between-bell values');
   check('17 lb (between 15 and 20) down → 15 lb', nextWeight(17, -1, ['kettlebell'], 'lb') === 15);
 }
 
-console.log('\n8. Kettlebell clamps at ends');
+console.log('\n11. Kettlebell clamps at ends (LOW a)');
 {
   check('at max (32 kg), increase stays at 32 kg', nextWeight(32, 1, ['kettlebell'], 'kg') === 32);
   check('above max (35 kg), increase stays at 32 kg', nextWeight(35, 1, ['kettlebell'], 'kg') === 32);
   
-  check('at min (4 kg), decrease stays at 4 kg', nextWeight(4, -1, ['kettlebell'], 'kg') === 4);
-  check('below min (2 kg), decrease stays at 4 kg', nextWeight(2, -1, ['kettlebell'], 'kg') === 4);
+  check('at min (4 kg), decrease stays at 4 kg (FIXED)', nextWeight(4, -1, ['kettlebell'], 'kg') === 4);
+  check('below min (2 kg), increase goes to 4 kg (FIXED)', nextWeight(2, 1, ['kettlebell'], 'kg') === 4);
+  check('below min (2 kg), decrease stays at 2 kg (FIXED)', nextWeight(2, -1, ['kettlebell'], 'kg') === 2);
   
   check('at max (80 lb), increase stays at 80 lb', nextWeight(80, 1, ['kettlebell'], 'lb') === 80);
-  check('at min (5 lb), decrease stays at 5 lb', nextWeight(5, -1, ['kettlebell'], 'lb') === 5);
+  check('at min (5 lb), decrease stays at 5 lb (FIXED)', nextWeight(5, -1, ['kettlebell'], 'lb') === 5);
+  check('below min (3 lb), increase goes to 5 lb (FIXED)', nextWeight(3, 1, ['kettlebell'], 'lb') === 5);
+  check('below min (3 lb), decrease stays at 3 lb (FIXED)', nextWeight(3, -1, ['kettlebell'], 'lb') === 3);
 }
 
-console.log('\n9. Kettlebell ladder immutability (no mutation of shared constant)');
+console.log('\n12. Kettlebell ladder immutability (no mutation of shared constant)');
 {
   // Call decrease twice, then increase - ladder should work correctly throughout
   const start = 20;
@@ -151,7 +188,7 @@ console.log('\n9. Kettlebell ladder immutability (no mutation of shared constant
   check('ladder unchanged: 20 kg → 18 kg still works', freshDown === 18);
 }
 
-console.log('\n10. nextReps logic');
+console.log('\n13. nextReps logic');
 {
   check('REPS_STEP is 1', REPS_STEP === 1);
   
@@ -165,7 +202,30 @@ console.log('\n10. nextReps logic');
   check('decrease from min stays at min', nextReps(1, -1, { min: 1, max: 20 }) === 1);
 }
 
-console.log('\n11. Race condition: step from typed value, not stale prop');
+console.log('\n13. Imperial unit stepping (MEDIUM 2, with src/lib/units.ts)');
+{
+  // 5 lb step matches 2.5 kg × 2.2046 ≈ 5.51 lb (practical gym increment)
+  check('barbell imperial: 100 lb → 105 lb', nextWeight(100, 1, ['barbell'], 'lb') === 105);
+  check('barbell imperial: 105 lb → 100 lb', nextWeight(105, -1, ['barbell'], 'lb') === 100);
+  
+  check('dumbbell imperial: 20 lb → 25 lb', nextWeight(20, 1, ['dumbbell'], 'lb') === 25);
+  check('dumbbell imperial: 25 lb → 20 lb', nextWeight(25, -1, ['dumbbell'], 'lb') === 20);
+  
+  // Off-grid snapping in imperial (same rules as metric)
+  check('102 lb (off-grid) up → 105 lb', nextWeight(102, 1, ['barbell'], 'lb') === 105);
+  check('102 lb (off-grid) down → 100 lb', nextWeight(102, -1, ['barbell'], 'lb') === 100);
+  
+  check('103 lb (off-grid) up → 105 lb', nextWeight(103, 1, ['barbell'], 'lb') === 105);
+  check('103 lb (off-grid) down → 100 lb', nextWeight(103, -1, ['barbell'], 'lb') === 100);
+  
+  // Reversibility check
+  let weight = 100;
+  const up = nextWeight(weight, 1, ['barbell'], 'lb');
+  const down = nextWeight(up, -1, ['barbell'], 'lb');
+  check('imperial reversibility: 100 lb → 105 lb → 100 lb', down === weight);
+}
+
+console.log('\n15. Race condition: step from typed value, not stale prop (MEDIUM 1)');
 {
   // Simulates the user typing '62' and tapping + before blur commits it.
   // The component should step from 62, not from the stale value.
@@ -173,9 +233,9 @@ console.log('\n11. Race condition: step from typed value, not stale prop');
   const typedValue = 62;
   
   // Step from the typed value (what the component now does)
-  // 62 + 2.5 = 64.5, snapped to grid = 65
+  // 62 is off-grid (62 / 2.5 = 24.8), so it snaps to next grid point = 62.5
   const correctNext = nextWeight(typedValue, 1, ['barbell'], 'kg');
-  check('steps from typed 62 (snaps to 65)', correctNext === 65, `got ${correctNext}`);
+  check('steps from typed 62 (snaps to 62.5, the next grid point)', correctNext === 62.5, `got ${correctNext}`);
   
   // Wrong behavior would step from stale prop
   const wrongNext = nextWeight(staleprop, 1, ['barbell'], 'kg');
