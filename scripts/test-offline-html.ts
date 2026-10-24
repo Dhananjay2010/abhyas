@@ -178,7 +178,8 @@ function testLayoutBottomNav() {
   assert(
     bottomNavSource.includes("activeTab(pathname)") &&
     (bottomNavSource.includes("if (!active) return null") ||
-     bottomNavSource.includes("if (!active && !(forNotFound")),
+     bottomNavSource.includes("if (!active && !(forNotFound") ||
+     bottomNavSource.includes("if (forNotFound ? !")),
     'BottomNav must use activeTab() and return null when inactive'
   );
 
