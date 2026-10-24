@@ -21,7 +21,7 @@ export type ExerciseWithSets = {
 export type CloseStaleSessionsDeps = {
   loadSessions(ids: string[]): Promise<SessionRow[]>;
   loadExercisesWithSets(sessionIds: string[]): Promise<ExerciseWithSets[]>;
-  updateSession(id: string, patch: { status: string; completed_at: string | null; duration_seconds: number }): Promise<{ error: string | null }>;
+  updateSession(id: string, patch: { status: Database["public"]["Enums"]["session_status"]; completed_at: string | null; duration_seconds: number }): Promise<{ error: string | null }>;
 };
 
 export function makeCloseStaleSessionsDeps(supabase: Client): CloseStaleSessionsDeps {

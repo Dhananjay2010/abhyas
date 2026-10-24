@@ -19,6 +19,7 @@ import { applyDeload, prescribe } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
+import { makeAbandonSessionDeps } from "@/lib/session/abandon-session-deps";
 import { finishSessionCore } from "@/lib/session/finish-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
@@ -309,6 +310,7 @@ export async function deleteSet(
 }
 
 import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+import { makeFinishExerciseDeps } from "@/lib/session/finish-exercise-deps";
 
 export type { ProgressionFeedback };
 
@@ -332,7 +334,7 @@ export async function finishExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  return finishExerciseCore(supabase, user.id, input, { applyProgression });
+  return finishExerciseCore(makeFinishExerciseDeps(supabase), user.id, input, { applyProgression }, supabase);
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];
@@ -535,7 +537,7 @@ export async function abandonSession(
   if (rateLimit) return rateLimit;
 
   const { supabase } = await requireUser();
-  const result = await abandonSessionCore(supabase, sessionId, elapsedSeconds);
+  const result = await abandonSessionCore(makeAbandonSessionDeps(supabase), sessionId, elapsedSeconds);
   return result;
 }
 

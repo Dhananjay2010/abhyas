@@ -87,7 +87,7 @@ export async function abandonSessionCore(
     if (ex.status !== "pending") continue;
 
     const workingSets = (ex.session_sets ?? []).filter((s) => !s.is_warmup_set).length;
-    const completion = exerciseCompletion(workingSets, ex.planned_sets);
+    const completion = exerciseCompletion(workingSets, ex.planned_sets ?? 0);
 
     // Map completion status to database enum: "partial" counts as "completed"
     const dbStatus = completion === "completed" || completion === "partial" ? "completed" : "skipped";

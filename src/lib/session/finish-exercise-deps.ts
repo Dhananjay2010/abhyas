@@ -7,7 +7,7 @@ type SetFeel = Database["public"]["Enums"]["set_feel"];
 export type FinishExerciseDeps = {
   updateExercise(
     id: string,
-    patch: { status: string; feel: SetFeel | null; completed_at: string }
+    patch: { status: Database["public"]["Enums"]["exercise_status"]; feel: SetFeel | null; completed_at: string }
   ): Promise<{ data: { id: string } | null; error: string | null }>;
 };
 

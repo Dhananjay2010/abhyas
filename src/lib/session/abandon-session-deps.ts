@@ -13,7 +13,7 @@ export type SessionExerciseRow = {
 export type ExerciseForUpdate = {
   id: string;
   planned_sets: number | null;
-  status: string;
+  status: Database["public"]["Enums"]["exercise_status"];
   session_sets: Array<{
     id: string;
     is_warmup_set: boolean;
@@ -22,9 +22,9 @@ export type ExerciseForUpdate = {
 
 export type AbandonSessionDeps = {
   loadExercises(sessionId: string): Promise<{ data: SessionExerciseRow[] | null; error: string | null }>;
-  updateSession(id: string, patch: { status: string; completed_at: string | null; duration_seconds: number }): Promise<{ error: string | null }>;
+  updateSession(id: string, patch: { status: Database["public"]["Enums"]["session_status"]; completed_at: string | null; duration_seconds: number }): Promise<{ error: string | null }>;
   loadExercisesForUpdate(sessionId: string): Promise<{ data: ExerciseForUpdate[] | null; error: string | null }>;
-  updateExerciseStatus(id: string, status: string): Promise<{ error: string | null }>;
+  updateExerciseStatus(id: string, status: Database["public"]["Enums"]["exercise_status"]): Promise<{ error: string | null }>;
 };
 
 export function makeAbandonSessionDeps(supabase: Client): AbandonSessionDeps {
@@ -81,7 +81,7 @@ export function makeAbandonSessionDeps(supabase: Client): AbandonSessionDeps {
     async updateExerciseStatus(id, status) {
       const { error } = await supabase
         .from("session_exercises")
-        .update({ status } as any)
+        .update({ status })
         .eq("id", id);
 
       return { error: error ? error.message : null };
