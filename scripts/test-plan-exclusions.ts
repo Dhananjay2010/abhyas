@@ -1,134 +1,129 @@
 /**
- * Test for excluded exercise slugs in generated plans.
+ * Test that excluded exercises never appear in generated plans.
  * 
- * Requirements (QA Task U3 + L-8 HIGH + Review fix #4):
- * - Excluded exercises must never appear in generated plans
- * - Must use profiles that ACTUALLY generate these moves on origin/main
- * - Must fail when the pickForSlot exclusion filter is removed (catches mutation 12)
- * - Must use hard-coded literal slug lists (not imported constants)
- * 
- *   npm run test:plan-exclusions
+ * Uses probe profiles that DID generate excluded exercises on origin/main,
+ * verifies they no longer appear in HEAD.
  */
 
-import { readFileSync } from "fs";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
-// Hard-coded list of excluded slugs (must match exclusions.ts but defined independently for test isolation)
+const catalogue: CandidateExercise[] = require("./fixtures/catalogue.json");
+const mainBaseline: Array<{
+  name: string;
+  userId: string;
+  slugs: string[];
+  expectedSlug: string;
+  foundExpected: boolean;
+}> = require("./fixtures/main-baseline-exclusions.json");
+
 const EXCLUDED_SLUGS = [
+  "neck-press",
+  "barbell-guillotine-bench-press",
+  "low-pulley-row-to-neck",
   "standing-barbell-press-behind-neck",
   "wide-grip-pulldown-behind-the-neck",
   "wide-grip-rear-pull-up",
-  "barbell-guillotine-bench-press",
-  "neck-press",
-  "low-pulley-row-to-neck",
 ];
 
-const catalogue: CandidateExercise[] = JSON.parse(
-  readFileSync("scripts/fixtures/catalogue.json", "utf8")
-);
-
-// Build a map from exerciseId to slug for lookup
 const idToSlug = new Map(catalogue.map(e => [e.id, e.slug]));
 
+let passCount = 0;
 let failCount = 0;
 
-function check(label: string, condition: boolean, detail?: string) {
+function check(name: string, condition: boolean, failMsg?: string): void {
   if (condition) {
-    console.log(`  ✓ ${label}`);
+    console.log(`  ✓ ${name}`);
+    passCount++;
   } else {
-    console.log(`  ✗ ${label}${detail ? ` (${detail})` : ""}`);
+    console.log(`  ✗ ${name}${failMsg ? ": " + failMsg : ""}`);
     failCount++;
   }
 }
 
-// Profiles that generate excluded exercises on origin/main (found via probe):
-// - neck-press: barbell-bench, lower_back injury, expert, muscle_gain, 2d, 90min
-// - barbell-guillotine-bench-press: barbell-bench, no injuries, expert, strength, 3d, 90min
-// - low-pulley-row-to-neck: cable-machine, no injuries, intermediate, muscle_gain, 2d, 90min
-
-console.log("\n1. neck-press profile (barbell+bench, lower_back injury, expert, muscle_gain, 2d, 90min)");
-{
-  const input: GeneratorInput = {
-    userId: "test-neck-press",
-    blockNumber: 1,
-    level: "expert",
+// Profile definitions matching main baseline
+const profiles: Array<{
+  name: string;
+  userId: string;
+  level: "beginner" | "intermediate" | "expert";
+  equipmentIds: string[];
+  hasAllEquipment: boolean;
+  goal: "fat_loss" | "muscle_gain" | "strength" | "general_fitness" | "flexibility_stress";
+  injuries: Array<"lower_back" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "hip" | "knee" | "ankle" | "core">;
+  days: number;
+  minutes: number;
+  primaryTrack: "weights" | "bodyweight";
+  expectedSlug: string;
+}> = [
+  {
+    name: "probe-1279",
+    userId: "probe-1279",
+    level: "intermediate",
     equipmentIds: ["barbell", "squat_rack", "flat_bench"],
     hasAllEquipment: false,
-    goal: "muscle_gain",
-    currentInjuryRegions: ["lower_back"],
-    age: null,
-    bmi: null,
-    daysPerWeek: 2,
-    yogaDaysPerWeek: 0,
-    primaryTrack: "weights",
-    preferredSessionMinutes: 90,
-    catalogue,
-  };
-  
-  const program = generateProgram(input);
-  const allExerciseSlugs = program.days.flatMap(day => 
-    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
-  );
-  
-  const foundNeckPress = allExerciseSlugs.includes("neck-press");
-  check("neck-press not in plan", !foundNeckPress, foundNeckPress ? "FOUND IN PLAN" : undefined);
-  
-  // Check all 6 while we're here
-  for (const excludedSlug of EXCLUDED_SLUGS.filter(s => s !== "neck-press")) {
-    const found = allExerciseSlugs.includes(excludedSlug);
-    check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
-  }
-}
-
-console.log("\n2. barbell-guillotine-bench-press profile (barbell+bench, no injuries, expert, strength, 3d, 90min)");
-{
-  const input: GeneratorInput = {
-    userId: "test-guillotine",
-    blockNumber: 1,
-    level: "expert",
-    equipmentIds: ["barbell", "squat_rack", "flat_bench"],
-    hasAllEquipment: false,
+    injuries: ["neck"],
     goal: "strength",
-    currentInjuryRegions: [],
-    age: null,
-    bmi: null,
-    daysPerWeek: 3,
-    yogaDaysPerWeek: 0,
+    days: 2,
+    minutes: 75,
     primaryTrack: "weights",
-    preferredSessionMinutes: 90,
-    catalogue,
-  };
-  
-  const program = generateProgram(input);
-  const allExerciseSlugs = program.days.flatMap(day => 
-    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
-  );
-  
-  const foundGuillotine = allExerciseSlugs.includes("barbell-guillotine-bench-press");
-  check("barbell-guillotine-bench-press not in plan", !foundGuillotine, foundGuillotine ? "FOUND IN PLAN" : undefined);
-  
-  for (const excludedSlug of EXCLUDED_SLUGS.filter(s => s !== "barbell-guillotine-bench-press")) {
-    const found = allExerciseSlugs.includes(excludedSlug);
-    check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
-  }
-}
-
-console.log("\n3. low-pulley-row-to-neck profile (cable-machine, no injuries, intermediate, muscle_gain, 2d, 90min)");
-{
-  const input: GeneratorInput = {
-    userId: "test-low-pulley",
-    blockNumber: 1,
+    expectedSlug: "barbell-guillotine-bench-press",
+  },
+  {
+    name: "probe-1705",
+    userId: "probe-1705",
+    level: "intermediate",
+    equipmentIds: ["barbell", "squat_rack", "flat_bench"],
+    hasAllEquipment: false,
+    injuries: ["shoulder", "knee"],
+    goal: "muscle_gain",
+    days: 2,
+    minutes: 90,
+    primaryTrack: "weights",
+    expectedSlug: "neck-press",
+  },
+  {
+    name: "probe-2755",
+    userId: "probe-2755",
     level: "intermediate",
     equipmentIds: ["cable_machine"],
     hasAllEquipment: false,
+    injuries: [],
     goal: "muscle_gain",
-    currentInjuryRegions: [],
+    days: 2,
+    minutes: 90,
+    primaryTrack: "weights",
+    expectedSlug: "low-pulley-row-to-neck",
+  },
+];
+
+// Test each profile
+for (let i = 0; i < profiles.length; i++) {
+  const profile = profiles[i];
+  const baseline = mainBaseline[i];
+  
+  console.log(`\n${i + 1}. ${profile.name} (expected: ${profile.expectedSlug})`);
+  
+  // Verify baseline contained the excluded slug
+  check(
+    `main baseline contained ${profile.expectedSlug}`,
+    baseline.slugs.includes(profile.expectedSlug),
+    baseline.slugs.includes(profile.expectedSlug) ? undefined : "not found in baseline"
+  );
+  
+  // Generate with HEAD's code
+  const input: GeneratorInput = {
+    userId: profile.userId,
+    blockNumber: 1,
+    level: profile.level,
+    equipmentIds: profile.equipmentIds,
+    hasAllEquipment: profile.hasAllEquipment,
+    goal: profile.goal,
+    currentInjuryRegions: profile.injuries,
     age: null,
     bmi: null,
-    daysPerWeek: 2,
+    daysPerWeek: profile.days,
     yogaDaysPerWeek: 0,
-    primaryTrack: "weights",
-    preferredSessionMinutes: 90,
+    primaryTrack: profile.primaryTrack,
+    preferredSessionMinutes: profile.minutes,
     catalogue,
   };
   
@@ -137,20 +132,19 @@ console.log("\n3. low-pulley-row-to-neck profile (cable-machine, no injuries, in
     day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
   );
   
-  const foundLowPulley = allExerciseSlugs.includes("low-pulley-row-to-neck");
-  check("low-pulley-row-to-neck not in plan", !foundLowPulley, foundLowPulley ? "FOUND IN PLAN" : undefined);
-  
-  for (const excludedSlug of EXCLUDED_SLUGS.filter(s => s !== "low-pulley-row-to-neck")) {
+  // Check that none of the 6 excluded slugs appear
+  for (const excludedSlug of EXCLUDED_SLUGS) {
     const found = allExerciseSlugs.includes(excludedSlug);
-    check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
+    check(
+      `${excludedSlug} not in HEAD plan`,
+      !found,
+      found ? "FOUND IN PLAN" : undefined
+    );
   }
 }
 
-console.log("");
-if (failCount === 0) {
-  console.log("✓ All tests passed\n");
-  process.exit(0);
-} else {
-  console.log(`✗ ${failCount} test(s) failed\n`);
+console.log(`\n${failCount === 0 ? "✓" : "✗"} ${passCount}/${passCount + failCount} checks passed`);
+
+if (failCount > 0) {
   process.exit(1);
 }
