@@ -199,6 +199,42 @@ export async function persistBlock(
 }
 
 /**
+ * Core rebuild logic: call rebuild RPC, then repoint sessions.
+ * Extracted for testability - takes a client parameter.
+ */
+export async function rebuildBlockCore(
+  supabase: Client,
+  userId: string,
+  today: string,
+  plan: ReturnType<typeof generateProgram>,
+  input: GeneratorInput,
+): Promise<BuildResult> {
+  const result = await callBlockRPC(supabase, "rebuild", today, plan, input);
+  if (!result.ok) return result;
+
+  // Re-point sessions AFTER the rebuild RPC succeeds
+  const repointResult = await repointSessionsAfterRebuild(
+    supabase,
+    userId,
+    result.programId,
+    today,
+  );
+  if (!repointResult.ok) {
+    console.error("Failed to re-point sessions after rebuild:", repointResult.error);
+  }
+
+  const trainingDays = plan.days.filter((d) => d.dayType !== "rest");
+
+  return {
+    ok: true,
+    programId: result.programId,
+    blockNumber: plan.blockNumber,
+    trainingDays: trainingDays.length,
+    totalExercises: plan.days.flatMap((d) => d.exercises).length,
+  };
+}
+
+/**
  * Generate and persist a 4-week block for the user.
  *
  * Any existing active program is marked completed first, so the partial unique
@@ -334,27 +370,7 @@ export async function createBlockForUser(
 
   // For rebuild mode, use the rebuild_block RPC
   if (rebuildOf) {
-    const result = await callBlockRPC(supabase, "rebuild", today, plan, input);
-    if (!result.ok) return result;
-
-    // Re-point sessions AFTER the rebuild RPC succeeds
-    const repointResult = await repointSessionsAfterRebuild(
-      supabase,
-      userId,
-      result.programId,
-      today,
-    );
-    if (!repointResult.ok) {
-      console.error("Failed to re-point sessions after rebuild:", repointResult.error);
-    }
-
-    return {
-      ok: true,
-      programId: result.programId,
-      blockNumber: plan.blockNumber,
-      trainingDays: trainingDays.length,
-      totalExercises: plan.days.flatMap((d) => d.exercises).length,
-    };
+    return rebuildBlockCore(supabase, userId, today, plan, input);
   }
 
   // For first builds, use the legacy insert path
