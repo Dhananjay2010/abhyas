@@ -3,6 +3,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
@@ -192,7 +193,7 @@ export default async function SessionPage({
   // "What about tomorrow?" needs the block's own days to offer as alternatives,
   // and what tomorrow already is. Read after the session itself so a slow
   // answer here can never delay the screen the user is waiting on.
-  const tomorrow = await nextDayPlan(supabase, profileRes.data?.timezone ?? "Asia/Kolkata");
+  const tomorrow = await nextDayPlan(supabase, resolveTimezoneWithProfile(profileRes.data?.timezone));
 
   return (
     <SessionRunner

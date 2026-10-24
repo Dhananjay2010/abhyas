@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { addDays, isoWeekday, localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import {
   INTENTS,
   PREFS_COLUMNS,
@@ -109,7 +110,7 @@ export default async function BreathePage({
     .map((routine) => resolveRoutine(routine, patterns))
     .filter((r): r is ResolvedRoutine => r !== null);
 
-  const timezone = profileRes.data?.timezone || "Asia/Kolkata";
+  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
   const today = localDateString(timezone);
   const stats = breathingStats(
     (practicesRes.data ?? []).map((s) => ({

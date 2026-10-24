@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { addDays, isoWeekday, localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { buildCycle, initialCycles } from "@/lib/breathing/engine";
 import { parseSessionSearch } from "@/lib/breathing/pattern";
 import { breathingStats } from "@/lib/breathing/stats";
@@ -55,7 +56,7 @@ export default async function PracticeSessionPage({
     cycleSeconds: cycle.seconds,
   });
 
-  const today = localDateString(profileRes.data?.timezone || "Asia/Kolkata");
+  const today = localDateString(resolveTimezoneWithProfile(profileRes.data?.timezone));
   const stats = breathingStats(
     (weekRes.data ?? []).map((s) => ({ localDate: s.local_date, seconds: s.duration_seconds ?? 0 })),
     today,
