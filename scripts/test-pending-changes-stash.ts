@@ -4,33 +4,7 @@
  * Must fail on main: module src/lib/auth/pending-changes.ts doesn't exist
  */
 
-// Mock sessionStorage and window
-const mockSessionStorage = {
-  _data: {} as Record<string, string>,
-  getItem(key: string): string | null {
-    return this._data[key] ?? null;
-  },
-  setItem(key: string, value: string): void {
-    this._data[key] = value;
-  },
-  removeItem(key: string): void {
-    delete this._data[key];
-  },
-  clear(): void {
-    this._data = {};
-  },
-  get length(): number {
-    return Object.keys(this._data).length;
-  },
-  key(index: number): string | null {
-    return Object.keys(this._data)[index] ?? null;
-  }
-};
-
-(global as unknown as { window: { sessionStorage: typeof mockSessionStorage } }).window = {
-  sessionStorage: mockSessionStorage
-};
-
+import './helpers/setup-jsdom';
 import { stashPendingChanges, getPendingChanges, clearPendingChanges, type PendingChange } from '../src/lib/auth/pending-changes';
 
 console.log('Testing pending changes stash and re-apply');
@@ -59,7 +33,7 @@ function assert(condition: boolean, message: string) {
 beforeEach();
 function beforeEach() {
   clearPendingChanges();
-  mockSessionStorage.clear();
+  window.sessionStorage.clear();
 }
 
 test('stashPendingChanges stores change in sessionStorage', () => {

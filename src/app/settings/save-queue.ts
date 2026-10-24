@@ -110,9 +110,7 @@ export function createSaveQueue<T>() {
         item.reject(error);
         // Store for retry on thrown error too
         lastFailed.set(key, item.request);
-        // Don't rethrow - we've already rejected the promise via item.reject
-        // Rethrowing creates an unhandled rejection (L2)
-        return undefined as unknown as T;
+        throw error;
       } finally {
         // Remove from in-flight
         inFlight.delete(key);
@@ -124,6 +122,10 @@ export function createSaveQueue<T>() {
       }
     })();
 
+    // Attach a catch handler to prevent unhandled rejection (L2)
+    // The caller's promise (via item.reject) still receives the error
+    promise.catch(() => {});
+    
     inFlight.set(key, promise);
   }
 
