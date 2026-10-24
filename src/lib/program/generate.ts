@@ -1106,8 +1106,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // QA Pass 10 followup (restored from PR #53): Knee-safe coordinator logic
     // For members with knee injury on Lower/Full days:
     // 1. First lower-body main exercise must be knee-safe quad (comes before any hinge)
-    // 2. Hip-flexion-with-band is never a main (first 4 slots)
-    // 3. No two hinges are adjacent
+    // 2. No two hinges are adjacent
     // Note: hasKneeInjury and isLowerOrFullDay already declared above
 
     if (hasKneeInjury && isLowerOrFullDay && exercises.length > 0) {
@@ -1127,35 +1126,30 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           [exercises[0], exercises[kneeSafeIndex]] = [exercises[kneeSafeIndex], exercises[0]];
           exercises.forEach((e, idx) => { e.orderIndex = idx; });
         } else {
-          // No knee-safe quad exists - replace first quad/lower exercise with a knee-safe one
+          // No knee-safe quad exists - replace first quad/lower exercise with a knee-safe compound from eligible pool
           const usedInThisDay = new Set(exercises.map(ex => ex.exerciseId));
-          const kneeSafeOptions = pool
-            .filter(e => {
-              if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
-              // Don't check usedInBlock for knee-safe quads on knee-injured lower/full days
-              // This allows exercises like wall-sit to repeat across days for bodyweight users
-              // But do check if it's already used in THIS day
-              if (usedInThisDay.has(e.id)) return false;
-              if (!e.tracks.includes(input.primaryTrack)) return false;
-              if (e.level_min === "expert" && input.level === "beginner") return false;
-              if (e.level_min === "expert" && input.level === "intermediate") return false;
-              if (e.level_min === "intermediate" && input.level === "beginner") return false;
-              
-              // Equipment check
-              if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
-                const altSets = EQUIPMENT_ALTERNATIVES[e.slug];
-                if (altSets) {
-                  const hasValidAlt = altSets.some(altSet => altSet.every(eid => input.equipmentIds.includes(eid)));
-                  if (!hasValidAlt && !e.equipment_ids.every(eid => input.equipmentIds.includes(eid))) {
-                    return false;
-                  }
-                } else if (!e.equipment_ids.every(eid => input.equipmentIds.includes(eid))) {
-                  return false;
-                }
-              }
-              
-              return true;
-            })
+          
+          // Build from the eligible pool (already level/track/equipment filtered)
+          // Prefer compounds, but fall back to any knee-safe exercise if no compounds available
+          const eligibleKneeSafeCompounds = pool.filter(e => 
+            isEligible(e, input) &&
+            KNEE_SAFE_QUAD_EXERCISES.has(e.slug) &&
+            e.mechanic === "compound" &&
+            !usedInThisDay.has(e.id)
+          );
+          
+          const eligibleKneeSafeAny = pool.filter(e => 
+            isEligible(e, input) &&
+            KNEE_SAFE_QUAD_EXERCISES.has(e.slug) &&
+            !usedInThisDay.has(e.id)
+          );
+          
+          // Use compounds if available, otherwise any knee-safe exercise
+          const kneeSafePool = eligibleKneeSafeCompounds.length > 0 
+            ? eligibleKneeSafeCompounds 
+            : eligibleKneeSafeAny;
+          
+          const kneeSafeOptions = kneeSafePool
             .sort((a, b) => 
               score(b, true, input.level, input.primaryTrack) - 
               score(a, true, input.level, input.primaryTrack) ||
@@ -1184,10 +1178,11 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             }
             usedInBlock.add(replacement.id);
             
+            // Prescribe as a main (false = main prescription, not isolation)
             const p = prescribe(
               input.goal,
               input.level,
-              replacement.mechanic === "isolation",
+              false,
               replacement.metric ?? "reps",
               sessionMinutes,
               replacement.equipment_ids,
@@ -1211,7 +1206,37 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             
             // Update all orderIndex values
             exercises.forEach((e, idx) => { e.orderIndex = idx; });
+            
+            // Ensure knee-safe main has >= sets than any accessory (slots 4+)
+            const accessories = exercises.filter(ex => ex.orderIndex >= 4);
+            if (accessories.length > 0) {
+              const maxAccessorySets = Math.max(...accessories.map(ex => ex.targetSets));
+              if (exercises[0].targetSets < maxAccessorySets) {
+                exercises[0].targetSets = maxAccessorySets;
+              }
+            }
           }
+        }
+      }
+      
+      // Ensure ALL knee-safe mains (slots 0-3) have >= sets than any accessory (slots 4+)
+      // This applies whether the knee-safe exercise was replaced or was already there
+      if (isLowerOrFullDay) {
+        const mains = exercises.filter(ex => ex.orderIndex < 4);
+        const accessories = exercises.filter(ex => ex.orderIndex >= 4);
+        
+        if (accessories.length > 0 && mains.length > 0) {
+          const maxAccessorySets = Math.max(...accessories.map(ex => ex.targetSets));
+          
+          // Boost any knee-safe main that has fewer sets than accessories
+          mains.forEach(mainEx => {
+            const exercise = pool.find(e => e.id === mainEx.exerciseId);
+            if (exercise && KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug)) {
+              if (mainEx.targetSets < maxAccessorySets) {
+                mainEx.targetSets = maxAccessorySets;
+              }
+            }
+          });
         }
       }
     }

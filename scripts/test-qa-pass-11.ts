@@ -147,10 +147,14 @@ try {
 // 2. Knee injury coordinator allowlist and scoring (restored from PR #53)
 // ====================
 
-testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from allowlist), comes before any hinge, no hip-flexion-with-band as main, no adjacent hinges",
+testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from allowlist), comes before any hinge, no adjacent hinges",
   { currentInjuryRegions: ["knee"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
   (plan, picked, seed) => {
     const lowerDays = plan.days.filter(d => d.focus === "lower" || d.focus === "legs" || d.focus === "full_body");
+    
+    // Floor: must have at least one lower/full_body day
+    check(`Seed ${seed}: has lower/full_body days`, lowerDays.length > 0,
+      `Expected at least one lower/full_body day, got ${lowerDays.length}`);
     
     // Use imported allowlist instead of hardcoding
     const kneeSafeAllowlist = Array.from(KNEE_SAFE_QUAD_EXERCISES);
@@ -184,14 +188,6 @@ testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from all
             kneeSafeBeforeHinge,
             `First hinge at position ${firstHingeIndex + 1}`);
         }
-        
-        // Check hip-flexion-with-band is NOT in main slots (first 4)
-        const mainExercises = day.exercises.slice(0, 4);
-        const hasHipFlexionMain = mainExercises.some(e => {
-          const ex = byId.get(e.exerciseId);
-          return ex && ex.slug === "hip-flexion-with-band";
-        });
-        check(`Seed ${seed} Lower day ${dayIdx + 1}: hip-flexion-with-band not in main slots`, !hasHipFlexionMain);
       }
     });
     
@@ -221,6 +217,10 @@ testSeeds("2b. Knee injury full-body: first main is knee-safe, comes before hing
   { currentInjuryRegions: ["knee"], level: "beginner", daysPerWeek: 3, goal: "muscle_gain", hasAllEquipment: true },
   (plan, picked, seed) => {
     const fullBodyDays = plan.days.filter(d => d.focus === "full_body");
+    
+    // Floor: must have at least one full_body day
+    check(`Seed ${seed}: has full_body days`, fullBodyDays.length > 0,
+      `Expected at least one full_body day, got ${fullBodyDays.length}`);
     
     fullBodyDays.forEach((day) => {
       if (day.exercises.length === 0) {

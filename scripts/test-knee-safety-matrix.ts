@@ -318,6 +318,28 @@ for (const seed of testSeeds) {
               }
             }
             
+            // Rule 8 (PR #73 follow-up): Every main exercise (slots 0-3) has >= sets than every accessory/core (slots 4+)
+            for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+              const mains = day.exercises.filter(ex => ex.orderIndex < 4);
+              const accessories = day.exercises.filter(ex => ex.orderIndex >= 4);
+              
+              if (accessories.length > 0 && mains.length > 0) {
+                const minMainSets = Math.min(...mains.map(ex => ex.targetSets));
+                const maxAccessorySets = Math.max(...accessories.map(ex => ex.targetSets));
+                
+                if (minMainSets < maxAccessorySets) {
+                  const minMainEx = mains.find(ex => ex.targetSets === minMainSets);
+                  const maxAccessoryEx = accessories.find(ex => ex.targetSets === maxAccessorySets);
+                  const minMainExercise = minMainEx ? byId.get(minMainEx.exerciseId) : undefined;
+                  const maxAccessoryExercise = maxAccessoryEx ? byId.get(maxAccessoryEx.exerciseId) : undefined;
+                  
+                  check(`${profileId} ${day.label}: main sets >= accessory sets`, false,
+                    `Main ${minMainExercise?.name || "?"} has ${minMainSets} sets < accessory ${maxAccessoryExercise?.name || "?"} has ${maxAccessorySets} sets`);
+                  profileFailed = true;
+                }
+              }
+            }
+            
             if (!profileFailed) {
               profilesPassed++;
             }
