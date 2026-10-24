@@ -26,6 +26,7 @@ import {
   countSetsWithFlag,
 } from "../src/lib/session/sync-helpers";
 import { isQuotaError } from "../src/lib/session/quota-error";
+import { deriveOutboxBanner } from "../src/lib/session/outbox-banner";
 import { readFileSync } from "fs";
 
 // ---- Fake storage --------------------------------------------------------
@@ -2279,8 +2280,6 @@ async function testM7_OnlineListenerFlush() {
 
 // ---- M9 & M12: Outbox Banner Derivation ---------------------------------
 function testM9M12_OutboxBannerDerivation() {
-  const { deriveOutboxBanner } = require("../src/lib/session/outbox-banner");
-
   // Test 1: offline + pending -> offline banner
   const offline = deriveOutboxBanner({ online: false, pending: 3, failed: 1 });
   if (offline.kind !== "offline") {

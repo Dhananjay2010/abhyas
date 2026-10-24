@@ -1420,7 +1420,7 @@ export function SessionRunner({
                 end: async () => {
                   return await run(() => actions.abandonSession(sessionId, elapsed));
                 },
-                onBlockReason: (reason) => {
+                onBlockReason: () => {
                   const total = pendingCount + lostCount + failedCount;
                   setError(`${total} set${total > 1 ? "s haven't" : " hasn't"} synced yet. Wait for them, or remove them first.`);
                 },
