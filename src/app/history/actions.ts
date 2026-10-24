@@ -296,7 +296,10 @@ export async function deleteSet(
   sessionExerciseId: string,
   setNumber: number,
   deleteSessionIfEmpty: boolean = false
-) {
+): Promise<
+  | { success: true; sessionDeleted?: boolean; redirect?: string }
+  | { success: false; error: string; message?: string }
+> {
   const { supabase, user } = await getAuthedClient();
   if (!user) {
     return { success: false, error: "Not authenticated" };

@@ -272,7 +272,7 @@ async function runTests() {
         .eq("set_number", 1)
         .select("id");
 
-      check("Delete operation succeeded", deletedRows && deletedRows.length > 0);
+      check("Delete operation succeeded", !!(deletedRows && deletedRows.length > 0));
 
       // Verify session still exists but has 0 sets
       const { data: session } = await adminClient
