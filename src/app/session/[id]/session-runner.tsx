@@ -30,18 +30,6 @@ import {
   type SwapResult,
 } from "../actions";
 
-/**
- * Hide the bottom nav when the session runner is active (full-screen).
- */
-function useHideBottomNav() {
-  useEffect(() => {
-    document.body.classList.add("session-runner-active");
-    return () => {
-      document.body.classList.remove("session-runner-active");
-    };
-  }, []);
-}
-
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
   markWarmupDone: typeof markWarmupDone;
@@ -142,9 +130,6 @@ export function SessionRunner({
   actions?: SessionActions;
   onExit?: () => void;
 }) {
-  // Hide the bottom nav for the full-screen runner
-  useHideBottomNav();
-  
   const router = useRouter();
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);

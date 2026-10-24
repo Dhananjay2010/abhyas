@@ -85,8 +85,3 @@ button {
     animation: none;
   }
 }
-
-/* Hide bottom nav when the session runner is active (full-screen). */
-body.session-runner-active .session-nav {
-  display: none;
-}
