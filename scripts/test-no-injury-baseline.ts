@@ -15,7 +15,7 @@ const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
 );
 
-const baseline: Record<string, unknown> = JSON.parse(
+const baseline: Record<string, { profile: unknown; plan: unknown }> = JSON.parse(
   readFileSync("scripts/fixtures/no-injury-baseline.json", "utf8")
 );
 
@@ -38,7 +38,7 @@ console.log(`Loaded ${Object.keys(baseline).length} baseline plans from main`);
 console.log();
 
 for (const [userId, baselineData] of Object.entries(baseline)) {
-  const profile = baselineData.profile;
+  const profile = (baselineData as any).profile;
   console.log(`\n${userId}: ${profile.goal} ${profile.level} ${profile.track} ${profile.daysPerWeek}d`);
   
   const input: GeneratorInput = {
@@ -64,21 +64,21 @@ for (const [userId, baselineData] of Object.entries(baseline)) {
   // Check split type matches
   check(
     `Split type: ${plan.splitType}`,
-    plan.splitType === baselineData.plan.splitType,
-    plan.splitType !== baselineData.plan.splitType ? `Expected ${baselineData.plan.splitType}` : undefined
+    plan.splitType === (baselineData as any).plan.splitType,
+    plan.splitType !== (baselineData as any).plan.splitType ? `Expected ${(baselineData as any).plan.splitType}` : undefined
   );
   
   // Check number of days matches
   check(
     `Days: ${plan.days.length}`,
-    plan.days.length === baselineData.plan.days.length,
-    plan.days.length !== baselineData.plan.days.length ? `Expected ${baselineData.plan.days.length}` : undefined
+    plan.days.length === (baselineData as any).plan.days.length,
+    plan.days.length !== (baselineData as any).plan.days.length ? `Expected ${(baselineData as any).plan.days.length}` : undefined
   );
   
   // Check each day
-  for (let dayIdx = 0; dayIdx < Math.min(plan.days.length, baselineData.plan.days.length); dayIdx++) {
+  for (let dayIdx = 0; dayIdx < Math.min(plan.days.length, (baselineData as any).plan.days.length); dayIdx++) {
     const day = plan.days[dayIdx];
-    const baselineDay = baselineData.plan.days[dayIdx];
+    const baselineDay = (baselineData as any).plan.days[dayIdx];
     
     // Check day type and focus
     const dayMatch = day.dayType === baselineDay.dayType && day.focus === baselineDay.focus;

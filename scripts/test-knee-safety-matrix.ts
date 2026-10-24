@@ -221,7 +221,7 @@ for (const seed of testSeeds) {
                 primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
                 daysPerWeek,
                 preferredSessionMinutes: sessionMinutes,
-                currentInjuryRegions: severity.currentRegions,
+                currentInjuryRegions: severity.currentRegions as Array<"neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core">,
                 anyKneeInjury: severity.anyKnee,
               });
             
@@ -764,7 +764,7 @@ for (const seed of testSeeds) {
                 primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
                 daysPerWeek,
                 preferredSessionMinutes: sessionMinutes,
-                currentInjuryRegions: severity.currentRegions,
+                currentInjuryRegions: severity.currentRegions as Array<"neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core">,
                 anyKneeInjury: severity.anyKnee,
               });
               
