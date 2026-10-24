@@ -1,12 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
 
 type Client = SupabaseClient<Database>;
 
-export type OpenSession = { id: string; local_date: string };
+/**
+ * Stale session threshold: 6 hours of inactivity (no logged sets).
+ * A session inactive for longer than this is auto-closed.
+ */
+export const STALE_INACTIVITY_THRESHOLD_SECONDS = 21600;
+
+export type OpenSession = { 
+  id: string; 
+  local_date: string;
+  started_at: string | null;
+};
 
 /**
- * Close out sessions left open on an earlier day.
+ * Close out sessions left open after extended inactivity.
  *
  * Nothing used to do this, and the consequence was worse than untidy history.
  * Both `session_volume` and the streak calculation require
@@ -24,9 +35,12 @@ export type OpenSession = { id: string; local_date: string };
  * clever — a fraction of planned sets, a minimum duration — would be an
  * arbitrary line that is harder to explain than to defend.
  *
- * `completed_at` is set so the row looks like any other finished session.
- * `duration_seconds` is deliberately left null: we do not know how long it took,
- * and inventing a number would be worse than showing none.
+ * Sessions are identified by ELAPSED TIME since the last logged set (or started_at
+ * if there are no sets yet), not by local_date comparison. A session inactive for
+ * more than STALE_INACTIVITY_THRESHOLD_SECONDS is closed, regardless of timezone.
+ *
+ * `completed_at` and `duration_seconds` are set by resolveStaleFinish based on
+ * the last logged set.
  *
  * Safe to call on every load of Today. With nothing stale it makes no database
  * call at all.
@@ -37,38 +51,125 @@ export type OpenSession = { id: string; local_date: string };
 export async function closeStaleSessions(
   supabase: Client,
   open: OpenSession[],
-  today: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _today: string,
 ): Promise<number> {
-  const stale = open.filter((s) => s.local_date < today);
-  if (stale.length === 0) return 0;
+  return closeStaleSessionsCore(supabase, open, Date.now());
+}
 
-  const ids = stale.map((s) => s.id);
+export async function closeStaleSessionsCore(
+  supabase: Client,
+  open: OpenSession[],
+  nowMs: number,
+): Promise<number> {
+  if (open.length === 0) return 0;
 
-  // Warm-up sets do not count as having trained; they are logged against the
-  // same exercises, so they have to be filtered out rather than counted.
+  const ids = open.map((s) => s.id);
+
+  // Fetch session exercises with their sets to determine:
+  // 1. Whether the session has working sets (completed vs skipped)
+  // 2. The last set's completed_at to calculate ended_at
   const { data: rows } = await supabase
     .from("session_exercises")
-    .select("session_id, session_sets(id, is_warmup_set)")
+    .select("session_id, session_sets(id, is_warmup_set, completed_at)")
     .in("session_id", ids);
 
   const trained = new Set<string>();
+  const lastSetCompletedAt = new Map<string, string | null>();
+
   for (const row of rows ?? []) {
-    const sets = (row.session_sets ?? []) as { is_warmup_set: boolean }[];
-    if (sets.some((x) => !x.is_warmup_set)) trained.add(row.session_id);
+    const sets = (row.session_sets ?? []) as Array<{ 
+      id: string; 
+      is_warmup_set: boolean; 
+      completed_at: string | null; 
+    }>;
+    
+    // Check if session has working sets
+    if (sets.some((x) => !x.is_warmup_set)) {
+      trained.add(row.session_id);
+    }
+
+    // Find the latest completed_at across ALL sets (warmup + working)
+    const latestSet = sets
+      .filter((s) => s.completed_at !== null)
+      .sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""))[0];
+    
+    if (latestSet?.completed_at) {
+      const existing = lastSetCompletedAt.get(row.session_id);
+      if (!existing || latestSet.completed_at > existing) {
+        lastSetCompletedAt.set(row.session_id, latestSet.completed_at);
+      }
+    }
   }
 
-  const completed = ids.filter((id) => trained.has(id));
-  const abandoned = ids.filter((id) => !trained.has(id));
+  // Identify truly stale sessions based on elapsed time
+  const stale: string[] = [];
+  const byId = new Map(open.map((s) => [s.id, s]));
+
+  for (const id of ids) {
+    const session = byId.get(id);
+    if (!session?.started_at) continue;
+
+    const lastActivity = lastSetCompletedAt.get(id) ?? session.started_at;
+    const lastActivityMs = Date.parse(lastActivity);
+    const elapsedSeconds = (nowMs - lastActivityMs) / 1000;
+
+    if (elapsedSeconds > STALE_INACTIVITY_THRESHOLD_SECONDS) {
+      stale.push(id);
+    }
+  }
+
+  if (stale.length === 0) return 0;
+
+  const completed = stale.filter((id) => trained.has(id));
+  const abandoned = stale.filter((id) => !trained.has(id));
 
   await Promise.all([
     completed.length > 0
-      ? supabase
-          .from("sessions")
-          .update({ status: "completed", completed_at: new Date().toISOString() })
-          .in("id", completed)
+      ? Promise.all(
+          completed.map(async (id) => {
+            const session = byId.get(id);
+            if (!session?.started_at) return;
+
+            const workingSetCount = trained.has(id) ? 1 : 0;
+            const input: StaleFinishInput = {
+              startedAt: session.started_at,
+              lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
+              workingSetCount,
+            };
+
+            const finish = resolveStaleFinish(input);
+            await supabase
+              .from("sessions")
+              .update({
+                status: finish.status,
+                completed_at: finish.endedAt,
+                duration_seconds: finish.durationSeconds,
+              })
+              .eq("id", id);
+          }),
+        )
       : Promise.resolve(),
     abandoned.length > 0
-      ? supabase.from("sessions").update({ status: "skipped" }).in("id", abandoned)
+      ? Promise.all(
+          abandoned.map(async (id) => {
+            const session = byId.get(id);
+            if (!session?.started_at) return;
+
+            const input: StaleFinishInput = {
+              startedAt: session.started_at,
+              lastSetCompletedAt: null,
+              workingSetCount: 0,
+            };
+
+            const finish = resolveStaleFinish(input);
+            await supabase.from("sessions").update({ 
+              status: finish.status,
+              completed_at: finish.endedAt,
+              duration_seconds: finish.durationSeconds,
+            }).eq("id", id);
+          }),
+        )
       : Promise.resolve(),
   ]);
 

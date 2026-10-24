@@ -80,6 +80,10 @@ export default async function SessionPage({
 
   const session = sessionRes.data;
   if (!session) notFound();
+  
+  // Only redirect completed sessions. An in_progress session stays accessible
+  // regardless of timezone changes: a user who switches to a zone where it's
+  // the next day can still resume their active session.
   if (session.status === "completed") redirect("/today");
 
   const rows = session.session_exercises ?? [];

@@ -161,6 +161,15 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
   const isDeloadWeek = week === program.deload_week;
 
+  // Before creating a new session, ensure the user does not already have an
+  // in_progress session (regardless of local_date). This prevents duplicate
+  // sessions when a timezone change makes today's date differ from an active
+  // session's local_date.
+  const inProgressSession = (openRes.data ?? []).find((s) => s.status === "in_progress");
+  if (inProgressSession) {
+    return { ok: true, data: { sessionId: inProgressSession.id } };
+  }
+
   // ---- wave 2 -------------------------------------------------------------
   // Creating the session and reading what to put in it are independent: both
   // need only the day, which wave one already produced.
@@ -191,8 +200,19 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   ]);
 
   const session = sessionRes.data;
-  if (sessionRes.error || !session) {
-    return { ok: false, error: sessionRes.error?.message ?? "Could not start the session" };
+  if (sessionRes.error) {
+    // Error 23505 is a unique constraint violation. Once migration 20261025000022
+    // is applied, this indicates an existing in_progress session. Return it.
+    if (sessionRes.error.code === "23505") {
+      const existing = (openRes.data ?? []).find((s) => s.status === "in_progress");
+      if (existing) {
+        return { ok: true, data: { sessionId: existing.id } };
+      }
+    }
+    return { ok: false, error: sessionRes.error.message };
+  }
+  if (!session) {
+    return { ok: false, error: "Could not start the session" };
   }
 
   const planned = plannedRes.data;
@@ -274,6 +294,19 @@ export async function logSet(input: {
   if (invalid) return { ok: false, error: invalid };
 
   const { supabase, user } = await requireUser();
+
+  // Reject writes to sessions that are no longer in_progress
+  const { data: sessionExercise } = await supabase
+    .from("session_exercises")
+    .select("sessions!inner(status)")
+    .eq("id", input.sessionExerciseId)
+    .maybeSingle();
+
+  const sessionStatus = (sessionExercise as { sessions: { status: string } } | null)?.sessions?.status;
+  if (sessionStatus && sessionStatus !== "in_progress") {
+    return { ok: false, error: "This session has ended." };
+  }
+
   const { error } = await supabase.from("session_sets").upsert(
     {
       session_exercise_id: input.sessionExerciseId,
