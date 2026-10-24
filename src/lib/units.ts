@@ -120,14 +120,16 @@ export function feetAndInchesToInches(feet: number, inches: number): number {
  * @param kg - Weight in kilograms (canonical storage format)
  * @param units - 'metric' or 'imperial'
  * @param includeLabel - Whether to include unit label (default: true)
+ * @param emptyValue - Value to return for missing/invalid input (default: em dash "—")
  */
 export function formatWeight(
   kg: number | null | undefined,
   units: string,
-  includeLabel = true
+  includeLabel = true,
+  emptyValue = "—"
 ): string {
-  if (kg == null || kg < 0 || !Number.isFinite(kg)) {
-    return includeLabel ? (units === "imperial" ? "0 lb" : "0 kg") : "0";
+  if (kg == null || kg <= 0 || !Number.isFinite(kg)) {
+    return emptyValue;
   }
 
   if (units === "imperial") {
@@ -149,14 +151,16 @@ export function formatWeight(
  * @param cm - Height in centimeters (canonical storage format)
  * @param units - 'metric' or 'imperial'
  * @param includeLabel - Whether to include unit label (default: true)
+ * @param emptyValue - Value to return for missing/invalid input (default: em dash "—")
  */
 export function formatHeight(
   cm: number | null | undefined,
   units: string,
-  includeLabel = true
+  includeLabel = true,
+  emptyValue = "—"
 ): string {
-  if (cm == null || cm < 0 || !Number.isFinite(cm)) {
-    return includeLabel ? (units === "imperial" ? `0'0"` : "0 cm") : "0";
+  if (cm == null || cm <= 0 || !Number.isFinite(cm)) {
+    return emptyValue;
   }
 
   if (units === "imperial") {
@@ -196,6 +200,8 @@ export function heightLabel(units: string): string {
  * This ensures round-trip stability: display → input → storage → display
  * produces the same value unless the user changed it.
  *
+ * Rejects absurd values: weight must be between 0.1 and 500 kg (0.2–1100 lb).
+ *
  * @param input - User input string or number
  * @param units - 'metric' or 'imperial'
  * @returns Weight in kg, or null for invalid input
@@ -206,17 +212,33 @@ export function parseWeight(
 ): number | null {
   if (input == null || input === "") return null;
 
-  const value = typeof input === "string" ? parseFloat(input.trim()) : input;
+  let value: number;
 
-  if (!Number.isFinite(value) || value < 0) return null;
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    // Allow optional trailing unit: "70kg", "154.5 lb", "154.5lb"
+    const match = trimmed.match(/^(\d+\.?\d*)\s*(kg|lb|lbs)?$/i);
+    if (!match) return null;
+    value = Number(match[1]);
+  } else {
+    value = input;
+  }
 
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  let kg: number;
   if (units === "imperial") {
     // Round to 0.5 lb to match display format, then convert
     const roundedLb = roundLbToHalf(value);
-    return lbToKg(roundedLb);
+    kg = lbToKg(roundedLb);
+  } else {
+    kg = value;
   }
 
-  return value;
+  // Reject absurd values: 0.1 to 500 kg (0.2 to ~1100 lb)
+  if (kg < 0.1 || kg > 500) return null;
+
+  return kg;
 }
 
 /**
@@ -230,6 +252,8 @@ export function parseWeight(
  *   - Two separate numbers (feet and inches)
  *
  * Imperial parsing rounds to whole inches to match display format.
+ * Rejects absurd values: height must be between 50 and 272 cm (~1'8" to 8'11").
+ * Rejects inches >= 12 in split-input form.
  *
  * @param input - User input (string for imperial, number for metric)
  * @param units - 'metric' or 'imperial'
@@ -250,14 +274,21 @@ export function parseHeight(
       const inches = inputInches;
       if (!Number.isFinite(feet) || !Number.isFinite(inches)) return null;
       if (feet < 0 || inches < 0) return null;
+      // Reject inches >= 12 in split form
+      if (inches >= 12) return null;
       const totalInches = feetAndInchesToInches(feet, inches);
-      return inToCm(totalInches);
+      const cm = inToCm(totalInches);
+      // Reject absurd values: 50 to 272 cm
+      if (cm < 50 || cm > 272) return null;
+      return cm;
     }
 
     // If numeric input without separate inches, treat as total inches
     if (typeof input === "number") {
       if (!Number.isFinite(input) || input < 0) return null;
-      return inToCm(input);
+      const cm = inToCm(input);
+      if (cm < 50 || cm > 272) return null;
+      return cm;
     }
 
     // Parse string formats: "5'9\"", "5' 9\"", "5 9", "5-9"
@@ -270,8 +301,12 @@ export function parseHeight(
       if (feetInchMatch) {
         const feet = parseInt(feetInchMatch[1], 10);
         const inches = parseInt(feetInchMatch[2], 10);
+        // Reject inches >= 12 in split form
+        if (inches >= 12) return null;
         const totalInches = feetAndInchesToInches(feet, inches);
-        return inToCm(totalInches);
+        const cm = inToCm(totalInches);
+        if (cm < 50 || cm > 272) return null;
+        return cm;
       }
 
       // Try with dash separator: "5-9"
@@ -279,23 +314,46 @@ export function parseHeight(
       if (dashMatch) {
         const feet = parseInt(dashMatch[1], 10);
         const inches = parseInt(dashMatch[2], 10);
+        // Reject inches >= 12 in split form
+        if (inches >= 12) return null;
         const totalInches = feetAndInchesToInches(feet, inches);
-        return inToCm(totalInches);
+        const cm = inToCm(totalInches);
+        if (cm < 50 || cm > 272) return null;
+        return cm;
       }
 
-      // Single number treated as total inches
-      const value = parseFloat(str);
-      if (Number.isFinite(value) && value >= 0) {
-        return inToCm(value);
+      // Single number treated as total inches (strict parsing)
+      const match = str.match(/^(\d+\.?\d*)\s*(in|inch|inches)?$/i);
+      if (match) {
+        const value = Number(match[1]);
+        if (Number.isFinite(value) && value >= 0) {
+          const cm = inToCm(value);
+          if (cm < 50 || cm > 272) return null;
+          return cm;
+        }
       }
     }
 
     return null;
   }
 
-  // Metric: single number in cm
-  const value = typeof input === "string" ? parseFloat(input.trim()) : input;
-  if (!Number.isFinite(value) || value < 0) return null;
+  // Metric: single number in cm (strict parsing)
+  let value: number;
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    // Allow optional trailing unit: "175cm", "175 cm"
+    const match = trimmed.match(/^(\d+\.?\d*)\s*(cm)?$/i);
+    if (!match) return null;
+    value = Number(match[1]);
+  } else {
+    value = input;
+  }
+
+  if (!Number.isFinite(value) || value <= 0) return null;
+
+  // Reject absurd values: 50 to 272 cm
+  if (value < 50 || value > 272) return null;
+
   return value;
 }
 

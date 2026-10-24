@@ -39,16 +39,24 @@ const units = getUnitsPreference(profile.units);
 const displayWeight = formatWeight(profile.weight_kg, units);
 // Metric:   "70 kg"
 // Imperial: "154.5 lb" (rounded to nearest 0.5 lb)
+// Missing:  "—" (em dash)
 
 // Height: automatically converts and formats
 const displayHeight = formatHeight(profile.height_cm, units);
 // Metric:   "175 cm"
 // Imperial: "5'9"" (feet and inches)
+// Missing:  "—" (em dash)
 
 // Without unit labels (for form inputs):
 const weightValue = formatWeight(profile.weight_kg, units, false);
 // Metric:   "70"
 // Imperial: "154.5"
+
+// Custom empty value for missing data:
+const weightDisplay = formatWeight(profile.weight_kg, units, true, "");
+// Missing:  "" (empty string)
+const weightNA = formatWeight(profile.weight_kg, units, true, "N/A");
+// Missing:  "N/A"
 ```
 
 ### Parsing User Input
@@ -65,10 +73,24 @@ const height_cm = parseHeight(inputValue, units);
 const height_cm = parseHeight(feetInput, units, inchesInput);
 
 // Imperial height also accepts string formats:
-parseHeight("5'9\"", "imperial");   // ✓
-parseHeight("5' 9\"", "imperial");  // ✓
-parseHeight("5-9", "imperial");     // ✓
-parseHeight("69", "imperial");      // ✓ (total inches)
+parseHeight("5'9\"", "imperial");      // ✓
+parseHeight("5' 9\"", "imperial");     // ✓
+parseHeight("5-9", "imperial");        // ✓
+parseHeight("69 inches", "imperial");  // ✓ (total inches)
+
+// Optional unit suffixes are accepted:
+parseWeight("70kg", "metric");         // ✓
+parseWeight("154.5 lb", "imperial");   // ✓
+parseHeight("175cm", "metric");        // ✓
+parseHeight("69 in", "imperial");      // ✓
+
+// Strict parsing - these are REJECTED:
+parseWeight("70abc", "metric");        // ✗ (trailing garbage)
+parseHeight("5'12\"", "imperial");     // ✗ (inches >= 12)
+parseWeight("0", "metric");            // ✗ (absurd: too small)
+parseWeight("600", "metric");          // ✗ (absurd: >500 kg)
+parseHeight("30", "metric");           // ✗ (absurd: <50 cm)
+parseHeight("300", "metric");          // ✗ (absurd: >272 cm)
 ```
 
 ### Unit Labels
@@ -111,15 +133,24 @@ Inches are rounded to **whole inches**, with proper carry at 12:
 - 71.6 inches → 6'0" (carry)
 - 72.0 inches → 6'0"
 
+In split-input form (separate feet/inches fields), inches >= 12 are rejected to enforce proper input (use 6'0" not 5'12").
+
 ### Invalid Input Handling
 
 All parsing functions return `null` for invalid input:
 - Empty strings
-- Negative numbers
+- Zero or negative numbers
 - `null` or `undefined`
-- Non-numeric strings
+- Non-numeric strings or trailing garbage
+- Absurd values (weight >500 kg, height outside 50–272 cm)
+- Imperial inches >= 12 in split-input form
 
 All conversion functions return `0` for invalid input.
+
+All formatting functions return an em dash `"—"` (or a custom empty value) for missing/invalid input:
+- `null` or `undefined`
+- Zero or negative numbers
+- `NaN`
 
 ## Server-Side Usage
 
@@ -168,9 +199,12 @@ The test suite covers:
 - Weight and height conversion in both directions
 - Rounding edge cases (0.5 lb increments, 12-inch carry)
 - Round-trip stability
-- Invalid input handling
-- Display formatting
-- Input parsing (all supported formats)
+- Invalid input handling (null, negative, absurd values)
+- Display formatting (including em dash for missing values)
+- Input parsing (all supported formats, strict parsing, unit suffixes)
+- Rejection of trailing garbage ("70abc")
+- Rejection of inches >= 12 in split form
+- Rejection of absurd values (weight >500 kg, height outside 50–272 cm)
 
 ## Future Work (Out of Scope for This PR)
 

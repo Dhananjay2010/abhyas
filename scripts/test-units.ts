@@ -118,9 +118,12 @@ console.log("\n6. Weight display formatting");
   check("imperial: rounds to 0.5", formatWeight(69.9, "imperial") === "154 lb");
   check("metric without label", formatWeight(70, "metric", false) === "70");
   check("imperial without label", formatWeight(70, "imperial", false) === "154.5");
-  check("null weight: metric", formatWeight(null, "metric") === "0 kg");
-  check("null weight: imperial", formatWeight(null, "imperial") === "0 lb");
-  check("negative returns 0", formatWeight(-10, "metric") === "0 kg");
+  check("null weight: em dash", formatWeight(null, "metric") === "—");
+  check("undefined weight: em dash", formatWeight(undefined, "imperial") === "—");
+  check("negative returns em dash", formatWeight(-10, "metric") === "—");
+  check("zero returns em dash", formatWeight(0, "metric") === "—");
+  check("custom empty value", formatWeight(null, "metric", true, "") === "");
+  check("custom empty value: N/A", formatWeight(null, "imperial", true, "N/A") === "N/A");
 }
 
 console.log("\n7. Height display formatting");
@@ -131,9 +134,11 @@ console.log("\n7. Height display formatting");
   check("imperial: 183 cm → 6'0\"", formatHeight(183, "imperial") === `6'0"`);
   check("imperial: 180 cm → 5'11\"", formatHeight(180, "imperial") === `5'11"`);
   check("metric without label", formatHeight(175, "metric", false) === "175");
-  check("null height: metric", formatHeight(null, "metric") === "0 cm");
-  check("null height: imperial", formatHeight(null, "imperial") === `0'0"`);
-  check("negative returns 0", formatHeight(-10, "imperial") === `0'0"`);
+  check("null height: em dash", formatHeight(null, "metric") === "—");
+  check("undefined height: em dash", formatHeight(undefined, "imperial") === "—");
+  check("negative returns em dash", formatHeight(-10, "imperial") === "—");
+  check("zero returns em dash", formatHeight(0, "metric") === "—");
+  check("custom empty value", formatHeight(null, "metric", true, "") === "");
 }
 
 console.log("\n8. Weight input parsing");
@@ -156,6 +161,25 @@ console.log("\n8. Weight input parsing");
   check("negative returns null", parseWeight("-10", "metric") === null);
   check("non-numeric returns null", parseWeight("abc", "metric") === null);
   check("number input works", parseWeight(70, "metric") === 70);
+
+  // Strict parsing: reject trailing garbage
+  check("trailing garbage rejected", parseWeight("70abc", "metric") === null);
+  check("trailing text rejected", parseWeight("70 hello", "metric") === null);
+
+  // Optional unit suffixes accepted
+  check("'70kg' accepted", parseWeight("70kg", "metric") === 70);
+  check("'70 kg' accepted", parseWeight("70 kg", "metric") === 70);
+  check("'154.5 lb' accepted", parseWeight("154.5 lb", "imperial") != null);
+  check("'154.5lb' accepted", parseWeight("154.5lb", "imperial") != null);
+  check("'154.5 lbs' accepted", parseWeight("154.5 lbs", "imperial") != null);
+
+  // Absurd values rejected
+  check("0 kg rejected", parseWeight("0", "metric") === null);
+  check("0.05 kg rejected (too small)", parseWeight("0.05", "metric") === null);
+  check("501 kg rejected (too large)", parseWeight("501", "metric") === null);
+  check("1200 lb rejected (~544 kg)", parseWeight("1200", "imperial") === null);
+  check("0.1 kg accepted (edge)", parseWeight("0.1", "metric") === 0.1);
+  check("500 kg accepted (edge)", parseWeight("500", "metric") === 500);
 }
 
 console.log("\n9. Height input parsing");
@@ -182,13 +206,37 @@ console.log("\n9. Height input parsing");
   const imperialSeparate = parseHeight(5, "imperial", 9);
   check("imperial: separate inputs (5, 9) parse", imperialSeparate != null && approxEqual(imperialSeparate, 175, 1));
 
-  const imperial69 = parseHeight("69", "imperial");
-  check("imperial: '69' as total inches parses", imperial69 != null && approxEqual(imperial69, 175, 1));
+  const imperial69 = parseHeight("69 inches", "imperial");
+  check("imperial: '69 inches' as total inches parses", imperial69 != null && approxEqual(imperial69, 175, 1));
 
   check("empty string returns null", parseHeight("", "metric") === null);
   check("null input returns null", parseHeight(null, "metric") === null);
   check("negative returns null", parseHeight("-10", "metric") === null);
   check("invalid format returns null", parseHeight("abc", "imperial") === null);
+
+  // Strict parsing: reject trailing garbage
+  check("metric: trailing garbage rejected", parseHeight("175abc", "metric") === null);
+  check("imperial: trailing garbage rejected", parseHeight("69abc", "imperial") === null);
+
+  // Optional unit suffixes accepted
+  check("'175cm' accepted", parseHeight("175cm", "metric") === 175);
+  check("'175 cm' accepted", parseHeight("175 cm", "metric") === 175);
+  check("'69 in' accepted", parseHeight("69 in", "imperial") != null);
+
+  // Reject inches >= 12 in split form
+  check("5'12\" rejected (inches >= 12)", parseHeight("5'12\"", "imperial") === null);
+  check("5'13\" rejected", parseHeight("5'13\"", "imperial") === null);
+  check("5-12 rejected", parseHeight("5-12", "imperial") === null);
+  check("separate (5, 12) rejected", parseHeight(5, "imperial", 12) === null);
+  check("separate (5, 11) accepted", parseHeight(5, "imperial", 11) != null);
+
+  // Absurd values rejected
+  check("metric: 49 cm rejected (too short)", parseHeight("49", "metric") === null);
+  check("metric: 273 cm rejected (too tall)", parseHeight("273", "metric") === null);
+  check("metric: 50 cm accepted (edge)", parseHeight("50", "metric") === 50);
+  check("metric: 272 cm accepted (edge)", parseHeight("272", "metric") === 272);
+  check("imperial: 1'6\" (~46 cm) rejected", parseHeight("1'6\"", "imperial") === null);
+  check("imperial: 9'0\" (~274 cm) rejected", parseHeight("9'0\"", "imperial") === null);
 }
 
 console.log("\n10. Round-trip stability: weight");
