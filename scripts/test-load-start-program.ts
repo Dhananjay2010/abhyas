@@ -1,78 +1,151 @@
 import { strict as assert } from "node:assert";
-import { loadStartProgram, type ProgramWithDays } from "../src/lib/session/load-start-program";
+import { loadStartProgram, createSupabaseDeps, type ProgramWithDays, type LoadStartProgramDeps } from "../src/lib/session/load-start-program";
 
 (async () => {
-  const programs: Record<string, ProgramWithDays | null> = {
-    "prog-1": {
-      id: "prog-1",
-      started_on: "2026-10-20",
-      deload_week: 4,
-      week_offset: 0,
-      program_days: [
-        {
-          id: "day-1",
-          day_index: 1,
-          day_type: "weights",
-          focus: "upper",
-          label: "Upper Body",
-        },
-        {
-          id: "day-2",
-          day_index: 2,
-          day_type: "rest",
-          focus: null,
-          label: null,
-        },
-      ],
-    },
-    "prog-empty-days": {
-      id: "prog-empty-days",
-      started_on: "2026-10-20",
-      deload_week: 4,
-      week_offset: 0,
-      program_days: [],
-    },
-  };
-
-  let fetchedPrograms: string[] = [];
-
-  const deps = {
-    async fetchProgram(programId: string) {
-      fetchedPrograms.push(programId);
-      return programs[programId] ?? null;
-    },
-  };
-
   console.log("✓ setup complete");
 
-  fetchedPrograms = [];
-  const result1 = await loadStartProgram(deps, "prog-1", 1);
+  let queryCalls: Array<{ select: string; filters: Array<{ field: string; value: string }> }> = [];
+
+  const mockClient = {
+    from: (table: string) => {
+      let selectClause = "";
+      const filters: Array<{ field: string; value: string }> = [];
+      
+      return {
+        select: (clause: string) => {
+          selectClause = clause;
+          return {
+            eq: (field: string, value: any) => {
+              filters.push({ field, value });
+              return {
+                eq: (field2: string, value2: any) => {
+                  filters.push({ field: field2, value: value2 });
+                  return {
+                    maybeSingle: async () => {
+                      queryCalls.push({ select: selectClause, filters });
+                      
+                      if (table === "programs") {
+                        const hasStatusFilter = filters.some(f => f.field === "program_days.status" && f.value === "active");
+                        
+                        if (filters.some(f => f.field === "id" && f.value === "prog-1")) {
+                          const programDays = hasStatusFilter 
+                            ? [{ id: "day-1", day_index: 1, day_type: "weights", focus: "upper", label: "Upper Body" }]
+                            : [
+                                { id: "day-1", day_index: 1, day_type: "weights", focus: "upper", label: "Upper Body" },
+                                { id: "day-superseded", day_index: 3, day_type: "weights", focus: "lower", label: "Lower Body" }
+                              ];
+                          
+                          return {
+                            data: {
+                              id: "prog-1",
+                              started_on: "2026-10-20",
+                              deload_week: 4,
+                              week_offset: 0,
+                              program_days: programDays
+                            }
+                          };
+                        }
+                      }
+                      return { data: null };
+                    }
+                  };
+                },
+                maybeSingle: async () => {
+                  queryCalls.push({ select: selectClause, filters });
+                  
+                  if (table === "programs" && filters.some(f => f.field === "id" && f.value === "prog-1")) {
+                    const hasStatusFilter = filters.some(f => f.field === "program_days.status" && f.value === "active");
+                    const programDays = hasStatusFilter 
+                      ? [{ id: "day-1", day_index: 1, day_type: "weights", focus: "upper", label: "Upper Body" }]
+                      : [
+                          { id: "day-1", day_index: 1, day_type: "weights", focus: "upper", label: "Upper Body" },
+                          { id: "day-superseded", day_index: 3, day_type: "weights", focus: "lower", label: "Lower Body" }
+                        ];
+                    
+                    return {
+                      data: {
+                        id: "prog-1",
+                        started_on: "2026-10-20",
+                        deload_week: 4,
+                        week_offset: 0,
+                        program_days: programDays
+                      }
+                    };
+                  }
+                  return { data: null };
+                }
+              };
+            }
+          };
+        }
+      };
+    }
+  };
+
+  queryCalls = [];
+  const result1 = await loadStartProgram(createSupabaseDeps(mockClient as any), "prog-1", 1);
   assert(result1.ok, "load should succeed for active day");
   assert.equal(result1.program.id, "prog-1");
   assert.equal(result1.dayId, "day-1");
-  assert(fetchedPrograms.includes("prog-1"), "program was fetched");
+  
+  const lastQuery = queryCalls[queryCalls.length - 1];
+  assert(lastQuery.filters.some(f => f.field === "program_days.status" && f.value === "active"), "status filter must be applied on program_days");
   console.log("✓ loads active day successfully");
   console.log("✓ program_days filtered by status='active'");
 
-  const result2 = await loadStartProgram(deps, "prog-1", 3);
-  assert(!result2.ok, "day index with no matching active day should fail");
+  queryCalls = [];
+  const result2 = await loadStartProgram(createSupabaseDeps(mockClient as any), "prog-1", 3);
+  assert(!result2.ok, "day index with superseded status should not be picked when filter is applied");
   assert.equal(result2.error, "No plan for today.");
   console.log("✓ superseded day is not picked");
 
-  const result3 = await loadStartProgram(deps, "prog-1", 7);
+  queryCalls = [];
+  const result3 = await loadStartProgram(createSupabaseDeps(mockClient as any), "prog-1", 7);
   assert(!result3.ok, "day index with no active day should fail");
   assert.equal(result3.error, "No plan for today.");
   console.log("✓ day with no active entry returns 'No plan for today.'");
 
-  const result4 = await loadStartProgram(deps, "prog-missing", 1);
+  const mockClientEmpty = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null })
+          })
+        })
+      })
+    })
+  };
+
+  const result4 = await loadStartProgram(createSupabaseDeps(mockClientEmpty as any), "prog-missing", 1);
   assert(!result4.ok, "missing program should fail");
   assert.equal(result4.error, "No plan for today.");
   console.log("✓ missing program returns 'No plan for today.'");
 
-  const result5 = await loadStartProgram(deps, "prog-empty-days", 1);
-  assert(!result5.ok, "program with no active days should fail");
+  const mockClientEmptyDays = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: {
+                id: "prog-empty",
+                started_on: "2026-10-20",
+                deload_week: 4,
+                week_offset: 0,
+                program_days: []
+              }
+            })
+          })
+        })
+      })
+    })
+  };
+
+  const result5 = await loadStartProgram(createSupabaseDeps(mockClientEmptyDays as any), "prog-empty", 1);
+  assert(!result5.ok, "program with empty active days list should fail");
   assert.equal(result5.error, "No plan for today.");
-  console.log("✓ program with empty days list returns 'No plan for today.'");
+  console.log("✓ program with empty active days list returns 'No plan for today.'");
 
   console.log("\nAll load-start-program tests passed.");
 })();
