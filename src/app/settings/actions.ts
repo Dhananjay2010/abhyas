@@ -87,10 +87,12 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
 
   if (!result.ok) return result;
 
-  // Reset progression targets only after successful update and only if values changed
+  // Reset progression targets only after successful update and only if primary_track changed
   if (shouldResetProgressionTargets(patch, currentProfile)) {
     const resetResult = await resetProgressionTargets(supabase, user.id);
-    if (!resetResult.ok) return { ok: false, error: resetResult.error };
+    if (!resetResult.ok) {
+      console.error("Failed to reset progression targets after successful profile update:", resetResult.error);
+    }
   }
 
   revalidatePath("/settings");

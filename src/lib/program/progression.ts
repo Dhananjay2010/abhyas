@@ -142,12 +142,12 @@ const KETTLEBELL_SIZES = [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 3
  *
  * Standard bells: 4,6,8,10,12,14,16,18,20,22,24,26,28,32,36,40,44,48 kg.
  * Returns the smallest bell strictly above `from` for standard bells.
- * For non-standard weights (e.g., 17 kg, 40 kg from other equipment), snaps up to next bell.
- * At 48 kg (top bell), holds at 48.
+ * For non-standard weights (e.g., 17 kg), snaps up to next bell.
+ * Above 48 kg (top standard bell), holds at the current weight.
  */
 function nextKettlebellAbove(from: number): number | null {
-  // At top bell: hold
-  if (from >= 48) return 48;
+  // Above top bell: hold at current weight
+  if (from >= 48) return from;
 
   // Find next bell above (works for both standard and non-standard weights)
   for (const size of KETTLEBELL_SIZES) {

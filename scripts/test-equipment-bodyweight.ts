@@ -117,6 +117,25 @@ assert(homeOrder[0] === "bodyweight", "Bodyweight is first for home users");
 const gymOrder = orderCategories(["free_weight", "machine", "bodyweight"], "gym");
 assert(gymOrder[0] === "free_weight", "Gym users keep original order");
 
+// Test 7: Bodyweight equipment detection
+import { isBodyweightEquipment } from "../src/lib/program/bodyweight";
+
+assert(isBodyweightEquipment(["bodyweight"]), "bodyweight equipment is bodyweight");
+assert(isBodyweightEquipment(["yoga_mat"]), "yoga_mat is bodyweight");
+assert(isBodyweightEquipment(["jump_rope"]), "jump_rope is bodyweight");
+assert(isBodyweightEquipment(["pull_up_bar"]), "pull_up_bar is bodyweight");
+assert(isBodyweightEquipment(["dip_bars"]), "dip_bars is bodyweight");
+assert(isBodyweightEquipment(["flat_bench"]), "flat_bench is bodyweight");
+assert(isBodyweightEquipment(["adjustable_bench"]), "adjustable_bench is bodyweight");
+assert(isBodyweightEquipment(["stability_ball"]), "stability_ball is bodyweight");
+assert(isBodyweightEquipment(["bodyweight", "yoga_mat"]), "bodyweight + yoga_mat is bodyweight");
+assert(isBodyweightEquipment(["pull_up_bar", "jump_rope"]), "pull_up_bar + jump_rope is bodyweight");
+assert(!isBodyweightEquipment(["barbell"]), "barbell is not bodyweight");
+assert(!isBodyweightEquipment(["dumbbell"]), "dumbbell is not bodyweight");
+assert(!isBodyweightEquipment(["kettlebell"]), "kettlebell is not bodyweight");
+assert(!isBodyweightEquipment(["bodyweight", "barbell"]), "bodyweight + barbell is not bodyweight");
+assert(!isBodyweightEquipment(["yoga_mat", "dumbbell"]), "yoga_mat + dumbbell is not bodyweight");
+
 if (failures === 0) {
   console.log("\nALL CHECKS PASSED\n");
   process.exit(0);

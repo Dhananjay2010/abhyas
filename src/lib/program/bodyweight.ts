@@ -8,6 +8,9 @@
  * smaller steps (1.25 kg or 2.5 kg), never doubled when easy.
  */
 export const BODYWEIGHT_SUPPORT_EQUIPMENT: ReadonlySet<string> = new Set([
+  "bodyweight",
+  "yoga_mat",
+  "jump_rope",
   "pull_up_bar",
   "dip_bars",
   "flat_bench",
