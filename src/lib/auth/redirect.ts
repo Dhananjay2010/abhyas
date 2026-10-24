@@ -79,8 +79,8 @@ export function buildRedirectQuery(
  * cookies (like refreshed auth tokens) onto a different response object.
  */
 export function copyCookies(
-  from: { cookies: { getAll(): Array<{ name: string; value: string }>; get(name: string): any } },
-  to: { cookies: { set(name: string, value: string, options?: any): void } },
+  from: { cookies: { getAll(): Array<{ name: string; value: string }>; get(name: string): { name: string; value: string; path?: string; domain?: string; maxAge?: number; expires?: Date | number; httpOnly?: boolean; secure?: boolean; sameSite?: "strict" | "lax" | "none" | boolean } | undefined } },
+  to: { cookies: { set(name: string, value: string, options?: { path?: string; domain?: string; maxAge?: number; expires?: Date | number; httpOnly?: boolean; secure?: boolean; sameSite?: "strict" | "lax" | "none" | boolean }): void } },
 ): void {
   from.cookies.getAll().forEach(({ name, value }) => {
     const cookie = from.cookies.get(name);
