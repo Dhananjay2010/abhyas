@@ -183,6 +183,56 @@ function testBrandColorCompliance() {
   console.log(`  ✓ Muted text (${brandMuted} on ${brandBg}): ${mutedContrast.toFixed(2)}:1`);
 }
 
+function testAllBrandsContrastRequirements() {
+  console.log("\n▶ Testing all brands meet contrast requirements...");
+
+  // Test the current active brand
+  const bg = branding.colors.bg;
+  const surface = branding.colors.surface;
+  const surface2 = branding.colors.surface2;
+  const border = branding.colors.border;
+  const muted = branding.colors.muted;
+
+  // Border requirements: at least 3:1 against bg, surface, and surface-2
+  const borderVsBg = contrastRatio(border, bg);
+  const borderVsSurface = contrastRatio(border, surface);
+  const borderVsSurface2 = contrastRatio(border, surface2);
+
+  assert(
+    borderVsBg >= 3.0,
+    `Brand ${branding.id}: border vs bg must be >= 3:1 (got ${borderVsBg.toFixed(2)}:1)`
+  );
+  assert(
+    borderVsSurface >= 3.0,
+    `Brand ${branding.id}: border vs surface must be >= 3:1 (got ${borderVsSurface.toFixed(2)}:1)`
+  );
+  assert(
+    borderVsSurface2 >= 3.0,
+    `Brand ${branding.id}: border vs surface2 must be >= 3:1 (got ${borderVsSurface2.toFixed(2)}:1)`
+  );
+
+  // Muted requirements: at least 4.5:1 against surface and bg
+  const mutedVsBg = contrastRatio(muted, bg);
+  const mutedVsSurface = contrastRatio(muted, surface);
+
+  assert(
+    mutedVsBg >= 4.5,
+    `Brand ${branding.id}: muted vs bg must be >= 4.5:1 (got ${mutedVsBg.toFixed(2)}:1)`
+  );
+  assert(
+    mutedVsSurface >= 4.5,
+    `Brand ${branding.id}: muted vs surface must be >= 4.5:1 (got ${mutedVsSurface.toFixed(2)}:1)`
+  );
+
+  console.log(`  ✓ Brand ${branding.id}: border ${border}`);
+  console.log(`    - vs bg (${bg}): ${borderVsBg.toFixed(2)}:1 (>= 3:1)`);
+  console.log(`    - vs surface (${surface}): ${borderVsSurface.toFixed(2)}:1 (>= 3:1)`);
+  console.log(`    - vs surface2 (${surface2}): ${borderVsSurface2.toFixed(2)}:1 (>= 3:1)`);
+  console.log(`  ✓ Brand ${branding.id}: muted ${muted}`);
+  console.log(`    - vs bg (${bg}): ${mutedVsBg.toFixed(2)}:1 (>= 4.5:1)`);
+  console.log(`    - vs surface (${surface}): ${mutedVsSurface.toFixed(2)}:1 (>= 4.5:1)`);
+}
+
 function main() {
   console.log("Testing Contrast Calculation");
   console.log("============================");
@@ -192,6 +242,7 @@ function main() {
     testAccessibleTextColor();
     testWCAG_AA();
     testBrandColorCompliance();
+    testAllBrandsContrastRequirements();
 
     console.log("\n✅ All contrast tests passed\n");
     process.exit(0);
