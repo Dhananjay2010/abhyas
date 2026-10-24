@@ -602,16 +602,33 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       return a.ex.slug.localeCompare(b.ex.slug);
     });
 
-    // Convert sorted picks to GeneratedExercise with correct orderIndex
+    // Convert sorted picks to GeneratedExercise with correct orderIndex.
+    // Apply volume floor: ensure each pattern gets minimum working sets (at least 2)
+    // even when session length cuts exercises or sets.
+    const patternSets = new Map<Pattern, number>();
+    for (const item of ordered) {
+      patternSets.set(
+        item.ex.movement_pattern,
+        (patternSets.get(item.ex.movement_pattern) || 0) + 1
+      );
+    }
+
     ordered.forEach((item, orderIndex) => {
       const isolation = item.ex.mechanic === "isolation";
-      const p: Prescription = prescribe(
+      let p: Prescription = prescribe(
         input.goal,
         input.level,
         isolation,
         item.ex.metric ?? "reps",
         sessionMinutes, // Pass session length to adjust sets
       );
+
+      // Volume floor: if this is the only exercise for its pattern and sets < 2,
+      // boost to minimum of 2 sets so the pattern gets working volume.
+      const patternCount = patternSets.get(item.ex.movement_pattern) || 1;
+      if (patternCount === 1 && p.sets < 2) {
+        p = { ...p, sets: 2 };
+      }
 
       exercises.push({
         exerciseId: item.ex.id,

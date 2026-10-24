@@ -826,5 +826,47 @@ console.log("\n25. P3 regression: intermediate dumbbells with shoulder injury");
   );
 }
 
+console.log("\n26. Volume floor: short sessions maintain minimum sets per pattern");
+{
+  // When 45-min or 30-min cuts reduce exercises/sets, each trained pattern must
+  // still get at least 2 sets (the prescription minimum for working volume).
+  const profiles = [
+    { minutes: 45, days: 4, label: "45-min 4-day" },
+    { minutes: 30, days: 3, label: "30-min 3-day" },
+  ];
+
+  for (const { minutes, days, label } of profiles) {
+    const plan = generateProgram(
+      base({
+        goal: "muscle_gain",
+        level: "intermediate",
+        daysPerWeek: days,
+        preferredSessionMinutes: minutes,
+      })
+    );
+
+    for (const day of plan.days) {
+      if (day.dayType !== "weights" || day.exercises.length === 0) continue;
+
+      // Count sets per pattern on this day
+      const patternSets = new Map<string, number>();
+      for (const ex of day.exercises) {
+        const exercise = byId.get(ex.exerciseId)!;
+        const pattern = exercise.movement_pattern;
+        patternSets.set(pattern, (patternSets.get(pattern) || 0) + ex.targetSets);
+      }
+
+      // Check that every pattern gets at least 2 sets
+      for (const [pattern, sets] of patternSets.entries()) {
+        check(
+          `${label} ${day.label}: ${pattern} gets ≥2 sets`,
+          sets >= 2,
+          `got ${sets} sets`
+        );
+      }
+    }
+  }
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
