@@ -15,6 +15,7 @@ import {
 } from "@/lib/program/progression";
 import { applyDeload, prescribe, weekInBlock } from "@/lib/program/prescription";
 import { validateSet } from "@/lib/session/validation";
+import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -522,18 +523,30 @@ export async function finishSession(input: {
   return { ok: true };
 }
 
-export async function abandonSession(sessionId: string): Promise<Result> {
+/**
+ * End a session early.
+ *
+ * If the user logged at least one working set, the session counts as completed
+ * (g2 fix). Only a session with no working sets at all is marked skipped.
+ * Warm-up sets don't count as training.
+ *
+ * Safety note: Completed sessions are NOT resumable (startSession only resumes
+ * planned/in_progress/skipped). This is intentional - a session with working sets
+ * logged counts toward streak/days trained and shows in History as completed, not
+ * skipped. The tradeoff: user cannot resume after early end if they had sets.
+ * Alternative would be a new status like "partial" that's resumable but counts.
+ */
+export async function abandonSession(
+  sessionId: string,
+  elapsedSeconds: number,
+): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase } = await requireUser();
-  const { error } = await supabase
-    .from("sessions")
-    .update({ status: "skipped" })
-    .eq("id", sessionId);
-  if (error) return { ok: false, error: error.message };
-  revalidateTrainingData();
-  return { ok: true };
+  const result = await abandonSessionCore(supabase, sessionId, elapsedSeconds);
+  if (result.ok) revalidateTrainingData();
+  return result;
 }
 
 /**
