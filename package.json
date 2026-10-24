@@ -137,7 +137,8 @@
     "test:session-length-validation": "tsx scripts/test-session-length-validation.ts",
     "test:session-length-migration": "tsx scripts/test-session-length-migration.ts",
     "test:robots-sitemap": "tsx scripts/test-robots-sitemap.ts",
-    "test:node-version": "tsx scripts/test-node-version.ts"
+    "test:node-version": "tsx scripts/test-node-version.ts",
+    "test:today-rows": "tsx scripts/test-today-rows.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

@@ -13,8 +13,7 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { effectiveRepsMax } from "@/lib/program/effective-target";
-import { isBodyweightEquipment } from "@/lib/program/bodyweight";
+import { buildStartedSessionRows, buildTemplateRows } from "@/lib/today/build-today-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -412,44 +411,8 @@ export default async function TodayPage() {
 
   const todayExercises: TodayRow[] =
     actual && actual.length > 0
-      ? actual.map((r) => {
-          const progress = r.exercise_id ? progressByExercise.get(r.exercise_id) : undefined;
-          const isBodyweight = isBodyweightEquipment(r.exercises?.equipment_ids ?? []);
-          const workingWeightKg =
-            progress?.current_working_weight_kg === null || !progress
-              ? null
-              : Number(progress.current_working_weight_kg);
-          const effectiveMax = effectiveRepsMax({
-            plannedMax: r.planned_reps_max ?? 12,
-            progressedTarget: progress?.current_target_reps,
-            isBodyweight,
-            usedWeight: workingWeightKg,
-          });
-          return {
-            key: `s${r.order_index}`,
-            name: r.exercises?.name ?? "",
-            cue: r.exercises?.cue ?? null,
-            metric: r.metric ?? null,
-            sets: r.planned_sets,
-            repsMin: r.planned_reps_min,
-            repsMax: effectiveMax,
-            restSeconds: r.rest_seconds,
-            skipped: r.status === "skipped",
-            swappedIn: r.swapped_from_exercise_id !== null,
-          };
-        })
-      : template.map((r) => ({
-          key: `p${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.exercises?.metric ?? null,
-          sets: r.target_sets,
-          repsMin: r.target_reps_min,
-          repsMax: r.target_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: false,
-          swappedIn: false,
-        }));
+      ? buildStartedSessionRows(actual, progressByExercise)
+      : buildTemplateRows(template);
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
