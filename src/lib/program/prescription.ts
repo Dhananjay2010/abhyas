@@ -102,10 +102,40 @@ export function prescribe(
   return { ...base, sets };
 }
 
-/** Week 4 of every block is a deload: less volume, nothing near failure. */
+/**
+ * Week 4 of every block is a deload: less volume, nothing near failure.
+ *
+ * Input contract:
+ * - sets must be a finite number >= 0
+ * - Non-finite values (NaN, Infinity, -Infinity) throw RangeError
+ * - Negative values throw RangeError
+ * - Validation occurs BEFORE rounding to catch negative fractional values
+ * - After validation passes, non-integers are rounded to nearest integer
+ *
+ * For all valid inputs >= 0, output equals: min(sets, max(2, round(sets * 0.6)))
+ * where 0 stays 0, 1 stays 1, 2 stays 2, and 5 becomes 3.
+ */
 export function applyDeload(p: Prescription): Prescription {
+  // Normalize -0 to 0
+  const sets = p.sets === 0 ? 0 : p.sets;
+  
+  // Validate BEFORE rounding to catch -0.4, -0.5, etc.
+  if (!Number.isFinite(sets)) {
+    throw new RangeError(
+      `applyDeload: sets must be finite, got ${p.sets}`
+    );
+  }
+  
+  if (sets < 0) {
+    throw new RangeError(
+      `applyDeload: sets must be >= 0, got ${p.sets}`
+    );
+  }
+
+  const rounded = Math.round(sets);
+
   return {
-    sets: Math.min(p.sets, Math.max(2, Math.round(p.sets * 0.6))),
+    sets: Math.min(rounded, Math.max(2, Math.round(rounded * 0.6))),
     repsMin: p.repsMin,
     repsMax: p.repsMax,
     restSeconds: p.restSeconds,
