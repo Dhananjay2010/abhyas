@@ -27,8 +27,29 @@ function assertTrue(condition: boolean, message: string) {
 
 type Call = { method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function makeFakeSupabase(exercises: any[], updateError?: string, readError?: string): any {
+interface FakeSupabase {
+  calls: Call[];
+  from: (table: string) => FakeQueryBuilder;
+}
+
+interface FakeQueryBuilder {
+  select: (columns: string) => FakeSelectBuilder;
+  update: (payload: Record<string, unknown>) => FakeUpdateBuilder;
+}
+
+interface FakeSelectBuilder {
+  eq: (column: string, value: unknown) => Promise<{ data: unknown; error: { message: string } | null }>;
+}
+
+interface FakeUpdateBuilder {
+  eq: (column: string, value: unknown) => FakeUpdateChain;
+}
+
+interface FakeUpdateChain {
+  eq: (column: string, value: unknown) => Promise<{ error: { message: string } | null; count: number | null }>;
+}
+
+function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?: string, updateCount?: number): FakeSupabase {
   const calls: Call[] = [];
 
   return {
@@ -39,9 +60,9 @@ function makeFakeSupabase(exercises: any[], updateError?: string, readError?: st
       let updatePayload: Record<string, unknown> = {};
 
       return {
-        select: () => {
+        select: (columns: string) => {
           return {
-            eq: (column: string, value: unknown) => {
+            eq: async (column: string, value: unknown) => {
               filters[column] = value;
               calls.push({
                 method: "select",
@@ -63,7 +84,7 @@ function makeFakeSupabase(exercises: any[], updateError?: string, readError?: st
             eq: (column: string, value: unknown) => {
               filters[column] = value;
               return {
-                eq: (column2: string, value2: unknown) => {
+                eq: async (column2: string, value2: unknown) => {
                   filters[column2] = value2;
                   calls.push({
                     method: "update",
@@ -73,10 +94,10 @@ function makeFakeSupabase(exercises: any[], updateError?: string, readError?: st
                   });
 
                   if (updateError) {
-                    return { error: { message: updateError } };
+                    return { error: { message: updateError }, count: null };
                   }
 
-                  return { error: null };
+                  return { error: null, count: updateCount ?? 1 };
                 },
               };
             },

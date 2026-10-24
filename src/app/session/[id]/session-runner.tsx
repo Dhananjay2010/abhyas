@@ -18,6 +18,7 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { sessionCompletion } from "@/lib/session/completion";
 import { runFinish, runEndEarly } from "@/lib/session/finish-flow";
+import { endEarlyConfirmTitle, sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { focusTrap } from "@/lib/focus-trap";
 import {
   abandonSession,
@@ -143,6 +144,7 @@ export function SessionRunner({
   const beeper = useBeeper(settings.restSound);
   const [exercises, setExercises] = useState(initialExercises);
   const [error, setError] = useState<string | null>(null);
+  const [needsFinishRetry, setNeedsFinishRetry] = useState(false);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
@@ -305,6 +307,7 @@ export function SessionRunner({
 
   async function finish(cooldownCompleted: boolean) {
     setBusy(true);
+    setNeedsFinishRetry(false);
     await runFinish(
       {
         finishSession: actions.finishSession,
@@ -321,6 +324,9 @@ export function SessionRunner({
       },
       { sessionId, cooldownCompleted },
     );
+    if (busyRef.current === false && error !== null && !cooldownCompleted) {
+      setNeedsFinishRetry(true);
+    }
     setBusy(false);
   }
 
@@ -437,9 +443,10 @@ export function SessionRunner({
       (n, e) => n + e.sets.reduce((m, s) => m + (s.reps ?? 0) * (s.weightKg ?? 0), 0),
       0,
     );
+    const summaryTitle = sessionSummaryTitle(endedEarly);
     return (
       <Shell
-        title={endedEarly ? "Session ended early" : "Session complete"}
+        title={summaryTitle}
         subtitle={null}
         elapsed={elapsed}
         onExit={async () => {
@@ -979,6 +986,11 @@ export function SessionRunner({
           >
             End session early
           </GhostButton>
+          {needsFinishRetry && error && (
+            <BigButton disabled={busy} onClick={() => finish(false)}>
+              Try again
+            </BigButton>
+          )}
           {confirming === "end_early" && (
             <EndEarlyConfirm
               totalSetsDone={totalSetsDone}
@@ -1505,22 +1517,22 @@ function EndEarlyConfirm({
   };
 
   const hasNoSets = totalSetsDone === 0;
+  const titleText = endEarlyConfirmTitle(totalSetsDone, totalSetsPlanned);
 
   return (
     <dialog
       ref={dialogRef}
       aria-labelledby="end-early-title"
       aria-describedby="end-early-desc"
-      className="rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
+      className="max-w-[390px] rounded-xl border border-border bg-surface-2 px-4 py-4 backdrop:bg-bg/80"
     >
       <p id="end-early-title" className="text-sm font-medium">
-        End this session?
+        {titleText}
       </p>
       <p id="end-early-desc" className="mt-2 text-sm text-muted">
-        You&apos;ve logged {totalSetsDone} of {totalSetsPlanned} sets.
         {hasNoSets
-          ? " You can start it again from Today."
-          : " The session can\u2019t be resumed once ended."}
+          ? "You can start it again from Today."
+          : "The session can\u2019t be resumed once ended."}
       </p>
       {offlineError && (
         <p role="alert" className="mt-3 text-sm text-danger">
@@ -1542,7 +1554,7 @@ function EndEarlyConfirm({
           onClick={handleEndSession}
           className="flex-1 rounded-lg bg-surface px-4 py-3 text-sm font-semibold text-danger transition-colors hover:bg-surface-2 disabled:opacity-60 min-h-11"
         >
-          End session
+          End now
         </button>
       </div>
     </dialog>

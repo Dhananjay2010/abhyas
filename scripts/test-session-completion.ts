@@ -1,11 +1,10 @@
 /**
- * Test sessionCompletion helper logic, endedEarlyFromRows, and elapsed timer logic.
+ * Test sessionCompletion helper logic and elapsed timer logic.
  *
  * Validates:
  * - Complete sessions (all sets logged, not ended early)
  * - Partial sessions (ended early with some sets)
  * - Edge cases (0/10, more logged than planned, negative inputs)
- * - endedEarlyFromRows: derive ended_early from status and exercise statuses
  * - elapsedSeconds: pure elapsed calculation
  * - freezeElapsed: pure freeze helper
  * - Freeze logic: frozen value doesn't change, second stop returns same value
@@ -13,7 +12,7 @@
  *   npx tsx scripts/test-session-completion.ts
  */
 
-import { sessionCompletion, endedEarlyFromRows, type ExerciseStatus } from "../src/lib/session/completion";
+import { sessionCompletion } from "../src/lib/session/completion";
 import { elapsedSeconds, freezeElapsed } from "../src/lib/session/device";
 
 let failures = 0;
@@ -119,7 +118,7 @@ console.log("\n8. Negative inputs are clamped to zero");
     endedEarly: false,
   });
   check("negative loggedSets clamped", result.label === "0/10 sets", result.label);
-  
+
   const result2 = sessionCompletion({
     loggedSets: 5,
     plannedSets: -10,
@@ -128,49 +127,7 @@ console.log("\n8. Negative inputs are clamped to zero");
   check("negative plannedSets clamped", result2.kind === "complete", result2.kind);
 }
 
-console.log("\n9. endedEarlyFromRows: completed with pending exercise");
-{
-  const statuses: ExerciseStatus[] = ["completed", "completed", "pending"];
-  const result = endedEarlyFromRows("completed", statuses);
-  check("completed + pending exercise = true", result === true, String(result));
-}
-
-console.log("\n10. endedEarlyFromRows: completed with all completed");
-{
-  const statuses: ExerciseStatus[] = ["completed", "completed", "completed"];
-  const result = endedEarlyFromRows("completed", statuses);
-  check("completed + all completed = false", result === false, String(result));
-}
-
-console.log("\n11. endedEarlyFromRows: completed with all skipped");
-{
-  const statuses: ExerciseStatus[] = ["skipped", "skipped"];
-  const result = endedEarlyFromRows("completed", statuses);
-  check("completed + all skipped = false", result === false, String(result));
-}
-
-console.log("\n12. endedEarlyFromRows: in_progress is false");
-{
-  const statuses: ExerciseStatus[] = ["completed", "pending"];
-  const result = endedEarlyFromRows("in_progress", statuses);
-  check("in_progress status = false", result === false, String(result));
-}
-
-console.log("\n13. endedEarlyFromRows: skipped status is false");
-{
-  const statuses: ExerciseStatus[] = ["skipped"];
-  const result = endedEarlyFromRows("skipped", statuses);
-  check("skipped status = false", result === false, String(result));
-}
-
-console.log("\n14. endedEarlyFromRows: mix of completed and skipped with one pending");
-{
-  const statuses: ExerciseStatus[] = ["completed", "skipped", "pending", "completed"];
-  const result = endedEarlyFromRows("completed", statuses);
-  check("mix with one pending = true", result === true, String(result));
-}
-
-console.log("\n15. elapsedSeconds: basic calculation");
+console.log("\n9. elapsedSeconds: basic calculation");
 {
   const start = 1000000;
   const now = 1060000;
@@ -178,7 +135,7 @@ console.log("\n15. elapsedSeconds: basic calculation");
   check("60 seconds elapsed", result === 60, String(result));
 }
 
-console.log("\n16. elapsedSeconds: clamped at 0 for negative");
+console.log("\n10. elapsedSeconds: clamped at 0 for negative");
 {
   const start = 1000000;
   const now = 999000;
@@ -186,7 +143,7 @@ console.log("\n16. elapsedSeconds: clamped at 0 for negative");
   check("negative clamped to 0", result === 0, String(result));
 }
 
-console.log("\n17. elapsedSeconds: fractional seconds are floored");
+console.log("\n11. elapsedSeconds: fractional seconds are floored");
 {
   const start = 1000000;
   const now = 1002500;
@@ -194,7 +151,7 @@ console.log("\n17. elapsedSeconds: fractional seconds are floored");
   check("2.5 seconds floored to 2", result === 2, String(result));
 }
 
-console.log("\n18. Freeze logic: frozen value doesn't change as time advances");
+console.log("\n12. Freeze logic: frozen value doesn't change as time advances");
 {
   const start = 1000000;
   const frozenAt = 1060000;
@@ -206,7 +163,7 @@ console.log("\n18. Freeze logic: frozen value doesn't change as time advances");
   check("frozen value unchanged", frozenValue === 60, String(frozenValue));
 }
 
-console.log("\n19. Freeze logic: multiple stops return same value");
+console.log("\n13. Freeze logic: multiple stops return same value");
 {
   const start = 1000000;
   const stopTime = 1045000;
@@ -217,26 +174,26 @@ console.log("\n19. Freeze logic: multiple stops return same value");
   check("values match", firstStop === secondStop, `${firstStop} === ${secondStop}`);
 }
 
-console.log("\n20. Resume logic: after freeze, time continues from frozen point");
+console.log("\n14. Resume logic: after freeze, time continues from frozen point");
 {
   const start = 1000000;
   const freezeAt = 1030000;
   const laterAt = 1070000;
-  
+
   const frozenValue = elapsedSeconds(start, freezeAt);
   const resumedValue = elapsedSeconds(start, laterAt);
-  
+
   check("frozen at 30s", frozenValue === 30, String(frozenValue));
   check("after resume continues to 70s", resumedValue === 70, String(resumedValue));
 }
 
-console.log("\n21. freezeElapsed: returns frozen value when set");
+console.log("\n15. freezeElapsed: returns frozen value when set");
 {
   const result = freezeElapsed(60, 0, 999000);
   check("returns 60 (frozen)", result === 60, String(result));
 }
 
-console.log("\n22. freezeElapsed: calculates elapsed when frozen is null");
+console.log("\n16. freezeElapsed: calculates elapsed when frozen is null");
 {
   const result = freezeElapsed(null, 0, 45000);
   check("returns 45 (calculated)", result === 45, String(result));

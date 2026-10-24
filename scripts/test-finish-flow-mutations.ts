@@ -271,7 +271,7 @@ async function testFinishSessionCoreStatusFilter(): Promise<boolean> {
   const fake = {
     from: () => ({
       select: () => ({
-        eq: () => ({
+        eq: async () => ({
           data: [{ session_sets: [{ id: "1", is_warmup_set: false }] }],
           error: null,
         }),
@@ -280,9 +280,9 @@ async function testFinishSessionCoreStatusFilter(): Promise<boolean> {
         eq: (column: string, value: unknown) => {
           calls.push({ column, value });
           return {
-            eq: (column2: string, value2: unknown) => {
+            eq: async (column2: string, value2: unknown) => {
               calls.push({ column: column2, value: value2 });
-              return { error: null };
+              return { error: null, count: 1 };
             },
           };
         },
@@ -290,7 +290,7 @@ async function testFinishSessionCoreStatusFilter(): Promise<boolean> {
     }),
   };
 
-  await finishSessionCore(fake, {
+  await finishSessionCore(fake as unknown as import("../src/lib/session/finish-session").SupabaseClient, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
@@ -308,7 +308,7 @@ async function testFinishSessionCoreRespectsZeroSets(): Promise<boolean> {
   const fake = {
     from: () => ({
       select: () => ({
-        eq: () => ({
+        eq: async () => ({
           data: [{ session_sets: [{ id: "1", is_warmup_set: true }] }], // Only warmup
           error: null,
         }),
@@ -317,14 +317,14 @@ async function testFinishSessionCoreRespectsZeroSets(): Promise<boolean> {
         savedStatus = payload.status as string;
         return {
           eq: () => ({
-            eq: () => ({ error: null }),
+            eq: async () => ({ error: null, count: 1 }),
           }),
         };
       },
     }),
   };
 
-  const result = await finishSessionCore(fake, {
+  const result = await finishSessionCore(fake as unknown as import("../src/lib/session/finish-session").SupabaseClient, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
@@ -339,15 +339,20 @@ async function testFinishSessionCoreReadError(): Promise<boolean> {
   const fake = {
     from: () => ({
       select: () => ({
-        eq: () => ({
+        eq: async () => ({
           data: null,
           error: { message: "Read failed" },
+        }),
+      }),
+      update: () => ({
+        eq: () => ({
+          eq: async () => ({ error: null, count: 1 }),
         }),
       }),
     }),
   };
 
-  const result = await finishSessionCore(fake, {
+  const result = await finishSessionCore(fake as unknown as import("../src/lib/session/finish-session").SupabaseClient, {
     sessionId: "s1",
     durationSeconds: 100,
     cooldownCompleted: true,
@@ -363,7 +368,7 @@ async function testAbandonSessionCoreStatusFilter(): Promise<boolean> {
   const fake = {
     from: () => ({
       select: () => ({
-        eq: () => ({
+        eq: async () => ({
           data: [{ session_sets: [{ id: "1", is_warmup_set: false }] }],
           error: null,
         }),
@@ -372,9 +377,9 @@ async function testAbandonSessionCoreStatusFilter(): Promise<boolean> {
         eq: (column: string, value: unknown) => {
           calls.push({ column, value });
           return {
-            eq: (column2: string, value2: unknown) => {
+            eq: async (column2: string, value2: unknown) => {
               calls.push({ column: column2, value: value2 });
-              return { error: null };
+              return { error: null, count: 1 };
             },
           };
         },
@@ -382,7 +387,7 @@ async function testAbandonSessionCoreStatusFilter(): Promise<boolean> {
     }),
   };
 
-  await abandonSessionCore(fake, "s1", 100);
+  await abandonSessionCore(fake as unknown as import("../src/lib/session/abandon-session").SupabaseClient, "s1", 100);
 
   const hasStatusFilter = calls.some((c) => c.column === "status" && c.value === "in_progress");
   return hasStatusFilter;
@@ -393,15 +398,20 @@ async function testAbandonSessionCoreReadError(): Promise<boolean> {
   const fake = {
     from: () => ({
       select: () => ({
-        eq: () => ({
+        eq: async () => ({
           data: null,
           error: { message: "Read failed" },
+        }),
+      }),
+      update: () => ({
+        eq: () => ({
+          eq: async () => ({ error: null, count: 1 }),
         }),
       }),
     }),
   };
 
-  const result = await abandonSessionCore(fake, "s1", 100);
+  const result = await abandonSessionCore(fake as unknown as import("../src/lib/session/abandon-session").SupabaseClient, "s1", 100);
   return !result.ok && result.error === "Read failed";
 }
 

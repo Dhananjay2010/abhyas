@@ -53,7 +53,7 @@ console.log("\n4. All end-early operations use runEndEarly from finish-flow");
 console.log("\n5. EndEarlyConfirm has disabled={busy || ending}");
 {
   const content = fs.readFileSync("src/app/session/[id]/session-runner.tsx", "utf-8");
-  
+
   // Find the EndEarlyConfirm component usage
   const endEarlyConfirmMatch = content.match(/<EndEarlyConfirm[\s\S]*?\/>/);
   if (endEarlyConfirmMatch) {

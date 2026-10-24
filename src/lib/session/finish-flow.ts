@@ -41,7 +41,7 @@ export async function runFinish(
   deps.inFlight.current = true;
 
   const durationSeconds = deps.stopElapsed();
-  
+
   try {
     const result = await deps.finishSession({
       sessionId: params.sessionId,

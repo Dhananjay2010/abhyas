@@ -1,4 +1,4 @@
-import { decideAbandonStatus } from "./abandon-session";
+import { decideAbandonStatus, type SessionExercise } from "./abandon-session";
 
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
@@ -6,8 +6,24 @@ export type Result<T = undefined> =
 
 // Minimal Supabase client interface
 export interface SupabaseClient {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  from: (table: string) => any;
+  from: (table: string) => SupabaseQueryBuilder;
+}
+
+interface SupabaseQueryBuilder {
+  select: (columns: string) => SupabaseSelectBuilder;
+  update: (data: Record<string, unknown>) => SupabaseUpdateBuilder;
+}
+
+interface SupabaseSelectBuilder {
+  eq: (column: string, value: unknown) => Promise<{ data: unknown; error: { message: string } | null }>;
+}
+
+interface SupabaseUpdateBuilder {
+  eq: (column: string, value: unknown) => SupabaseUpdateChain;
+}
+
+interface SupabaseUpdateChain {
+  eq: (column: string, value: unknown) => Promise<{ error: { message: string } | null; count: number | null }>;
 }
 
 /**
@@ -38,13 +54,13 @@ export async function finishSessionCore(
   if (readError) return { ok: false, error: readError.message };
 
   // Determine if this should be completed or skipped based on working sets
-  const status = decideAbandonStatus(exercises ?? []);
+  const status = decideAbandonStatus((exercises ?? []) as SessionExercise[]);
 
   // Clamp duration to sane range: 0 to 6 hours
   const clampedDuration = Math.max(0, Math.min(21600, Math.round(params.durationSeconds)));
 
   // Safety: Only update if status is 'in_progress' to prevent double-application on retry.
-  const { error } = await supabase
+  const { error, count } = await supabase
     .from("sessions")
     .update({
       status,
@@ -56,6 +72,22 @@ export async function finishSessionCore(
     .eq("status", "in_progress"); // Only finish once
 
   if (error) return { ok: false, error: error.message };
+
+  // If 0 rows were updated, the session was already finished - re-read the actual status
+  if (count === 0) {
+    const { data: session, error: rereadError } = await supabase
+      .from("sessions")
+      .select("status")
+      .eq("id", params.sessionId);
+
+    if (rereadError) return { ok: false, error: rereadError.message };
+
+    const actualStatus = Array.isArray(session) && session.length > 0
+      ? (session[0] as { status: string }).status
+      : "skipped";
+
+    return { ok: true, data: { status: actualStatus as "completed" | "skipped" } };
+  }
 
   return { ok: true, data: { status } };
 }
