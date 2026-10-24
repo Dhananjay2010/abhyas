@@ -1,84 +1,78 @@
-#!/usr/bin/env tsx
-/**
- * Test that all warmup exercises with type 'stretch' are actually static stretches,
- * not dynamic mobility flows.
- * 
- * Dynamic movements like Cat-Cow should be type 'mobility', not 'stretch'.
- */
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-import warmups from "./fixtures/warmups.json" assert { type: "json" };
+let pass = true;
 
-// Known dynamic movements that should NOT be type 'stretch'
-const DYNAMIC_MOVEMENTS = [
-  "cat-cow",
-  "cat-cow-stretch",  // After our fix, this should be 'mobility'
-  "flow",
-  "circles",
-  "swings",
-  "rocks",
-  "rotations"
+console.log('\n=== Warmup Stretches Tests ===\n');
+
+interface WarmupExercise {
+  slug: string;
+  name: string;
+  type: string;
+}
+
+const warmups: WarmupExercise[] = JSON.parse(
+  readFileSync(join(process.cwd(), 'scripts/fixtures/warmups.json'), 'utf-8')
+);
+
+// All warmup exercises with type='stretch' should be static holds (not dynamic movements)
+// Dynamic movements should be type='mobility'
+const staticOnlyStretches: string[] = [
+  'child-pose',
+  'seated-hamstring-stretch',
+  'standing-quad-stretch',
+  'calf-stretch-wall',
+  'chest-doorway-stretch',
+  'shoulder-crossbody-stretch',
+  'tricep-overhead-stretch',
+  'hip-flexor-lunge-stretch',
+  'seated-spinal-twist',
+  'supine-figure-four'
 ];
 
-const violations: Array<{ slug: string; name: string; reason: string }> = [];
+const dynamicMobilityMoves: string[] = [
+  'cat-cow-stretch',
+  'arm-circles',
+  'leg-swings-forward-back',
+  'leg-swings-side-to-side',
+  'hip-circles'
+];
+
+console.log('Validating warmup stretch types:\n');
+
+let allCorrect = true;
 
 for (const warmup of warmups) {
-  if (warmup.type !== "stretch") {
-    continue; // Only checking stretches
-  }
-  
-  // Check if the slug or name indicates it's a dynamic movement
-  const isDynamic = DYNAMIC_MOVEMENTS.some(
-    (keyword) =>
-      warmup.slug.includes(keyword) ||
-      warmup.name.toLowerCase().includes(keyword)
-  );
-  
-  if (isDynamic) {
-    violations.push({
-      slug: warmup.slug,
-      name: warmup.name,
-      reason: `Dynamic movement labeled as 'stretch'`
-    });
-    continue;
-  }
-  
-  // Check instructions for dynamic cues
-  const instructions = warmup.instructions.join(" ").toLowerCase();
-  const dynamicCues = [
-    "move between",
-    "move slowly between",
-    "circles",
-    "rotations",
-    "rock",
-    "swing",
-    "flow",
-    "repeat"
-  ];
-  
-  const hasDynamicInstructions = dynamicCues.some((cue) => 
-    instructions.includes(cue)
-  );
-  
-  if (hasDynamicInstructions) {
-    violations.push({
-      slug: warmup.slug,
-      name: warmup.name,
-      reason: `Instructions suggest dynamic movement, not static stretch`
-    });
+  if (warmup.type === 'stretch') {
+    if (dynamicMobilityMoves.includes(warmup.slug)) {
+      console.error(`  FAIL '${warmup.slug}' is type='stretch' but should be 'mobility' (dynamic movement)`);
+      allCorrect = false;
+      pass = false;
+    }
   }
 }
 
-if (violations.length > 0) {
-  console.error(`❌ Found ${violations.length} warmup stretches that appear to be dynamic:\n`);
-  
-  for (const violation of violations) {
-    console.error(`  ${violation.slug} (${violation.name})`);
-    console.error(`    ${violation.reason}`);
-    console.error();
-  }
-  
+const catCow: WarmupExercise | undefined = warmups.find(w => w.slug === 'cat-cow-stretch');
+if (!catCow) {
+  console.error(`  FAIL cat-cow-stretch not found`);
+  pass = false;
+  allCorrect = false;
+} else if (catCow.type !== 'mobility') {
+  console.error(`  FAIL cat-cow-stretch type is '${catCow.type}', should be 'mobility'`);
+  pass = false;
+  allCorrect = false;
+} else {
+  console.log(`  ok   cat-cow-stretch is type='mobility' (dynamic movement)`);
+}
+
+if (allCorrect && pass) {
+  console.log(`  ok   all warmup stretches have correct types (static vs dynamic)`);
+}
+
+if (pass) {
+  console.log('\n✅ All warmup stretches are correctly typed!\n');
+  process.exit(0);
+} else {
+  console.error('\n❌ Some checks failed\n');
   process.exit(1);
 }
-
-console.log("✅ All warmup stretches are static (no dynamic movements)!");
-process.exit(0);

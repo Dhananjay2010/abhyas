@@ -7710,7 +7710,7 @@
     "equipment_ids": [],
     "level_min": "beginner",
     "contraindicated_regions": [],
-    "impact": "high",
+    "impact": "low",
     "spinal_load": "none",
     "tracks": [
       "weights",
