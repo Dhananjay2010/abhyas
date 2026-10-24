@@ -7,10 +7,10 @@
  *   npx tsx scripts/test-zero-set-page-boundary.ts
  */
 
-let failures = 0;
+let boundaryFailures = 0;
 
-function check(label: string, ok: boolean, detail = "") {
-  if (!ok) failures++;
+function boundaryCheck(label: string, ok: boolean, detail = "") {
+  if (!ok) boundaryFailures++;
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
