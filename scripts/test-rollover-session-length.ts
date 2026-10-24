@@ -6,6 +6,7 @@
  *   npm run test:rollover-session-length
  */
 
+import { readFileSync } from "fs";
 import { DEFAULT_SESSION_LENGTH } from "../src/lib/onboarding/session-length";
 
 let failures = 0;
@@ -21,8 +22,7 @@ check("DEFAULT_SESSION_LENGTH is 45", DEFAULT_SESSION_LENGTH === 45, `got ${DEFA
 console.log("\n2. Rollover.ts imports and uses DEFAULT_SESSION_LENGTH");
 {
   // Read the file and verify it imports DEFAULT_SESSION_LENGTH
-  const fs = require("fs");
-  const rolloverContent = fs.readFileSync("src/lib/program/rollover.ts", "utf-8");
+  const rolloverContent = readFileSync("src/lib/program/rollover.ts", "utf-8");
   
   const hasImport = rolloverContent.includes('import { DEFAULT_SESSION_LENGTH }');
   check("Rollover imports DEFAULT_SESSION_LENGTH", hasImport);
