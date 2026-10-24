@@ -23,6 +23,7 @@ import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
+import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -276,11 +277,6 @@ export async function logSet(input: {
   const { supabase, user } = await requireUser();
 
   // Reject writes to sessions that are no longer in_progress or don't exist
-  const { 
-    buildLogSetValidationDeps, 
-    validateSessionForLogSet 
-  } = await import("@/lib/session/log-set-validation");
-  
   const validationDeps = buildLogSetValidationDeps(supabase);
   const validationResult = await validateSessionForLogSet(validationDeps, input.sessionExerciseId);
   

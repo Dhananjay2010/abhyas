@@ -11,7 +11,7 @@ import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
-import { todayCloseInput, creditedBannerText } from "@/lib/today/session-detection";
+import { todayCloseInput, creditedBannerText, findOpenStrengthSession } from "@/lib/today/session-detection";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -290,7 +290,6 @@ export default async function TodayPage() {
     (s) => s.status === "completed" && isStrength(s.actual_type),
   );
   // Resume detection: include in_progress sessions from any date (not just today)
-  const { findOpenStrengthSession } = await import("@/lib/today/session-detection");
   const strengthOpen = findOpenStrengthSession(allSessions, todaySessions);
 
   /*
