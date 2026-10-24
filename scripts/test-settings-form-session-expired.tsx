@@ -16,16 +16,16 @@
 import './helpers/setup-jsdom';
 
 // Additional jsdom setup for Next.js components
-if (typeof (global as any).self === 'undefined') {
-  (global as any).self = global;
+if (typeof (global as unknown as { self?: unknown }).self === 'undefined') {
+  (global as unknown as { self: typeof global }).self = global;
 }
-if (typeof (global as any).requestIdleCallback === 'undefined') {
-  (global as any).requestIdleCallback = (cb: () => void) => setTimeout(cb, 0);
-  (global as any).cancelIdleCallback = (id: number) => clearTimeout(id);
+if (typeof (global as unknown as { requestIdleCallback?: unknown }).requestIdleCallback === 'undefined') {
+  (global as unknown as { requestIdleCallback: (cb: () => void) => NodeJS.Timeout; cancelIdleCallback: (id: NodeJS.Timeout) => void }).requestIdleCallback = (cb: () => void) => setTimeout(cb, 0);
+  (global as unknown as { cancelIdleCallback: (id: NodeJS.Timeout) => void }).cancelIdleCallback = (id: NodeJS.Timeout) => clearTimeout(id);
 }
 
 // Mock pathname value
-let mockPathname = '/settings';
+const mockPathname = '/settings';
 
 // Create mock functions
 const mockUsePathname = () => mockPathname;
@@ -40,6 +40,7 @@ function MockLink({ children, href }: { children: React.ReactNode; href: string 
 }
 
 // Patch Module.prototype.require BEFORE any imports that use next/navigation
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 
@@ -176,7 +177,7 @@ async function runTests(): Promise<TestResult[]> {
   {
     resetSessionExpiredState();
     const actions: SettingsActions = {
-      updateSessionSettings: async () => ({ ok: false, code: SESSION_EXPIRED_CODE } as any),
+      updateSessionSettings: async () => ({ ok: false, error: 'Session expired', code: SESSION_EXPIRED_CODE } as { ok: false; error: string; code: string }),
       updateProfileSettings: async () => ({ ok: true }),
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
@@ -420,8 +421,8 @@ async function main() {
   console.log('==========================================\n');
 
   // Catch unhandled promise rejections from React transitions
-  const rejections: any[] = [];
-  const rejectHandler = (reason: any) => {
+  const rejections: unknown[] = [];
+  const rejectHandler = (reason: unknown) => {
     rejections.push(reason);
   };
   process.on('unhandledRejection', rejectHandler);

@@ -27,7 +27,7 @@ const mockSessionStorage = {
   }
 };
 
-(global as any).window = {
+(global as unknown as { window: { sessionStorage: typeof mockSessionStorage } }).window = {
   sessionStorage: mockSessionStorage
 };
 
