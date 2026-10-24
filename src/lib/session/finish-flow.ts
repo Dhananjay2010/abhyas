@@ -77,40 +77,58 @@ export async function runFinish(
 }
 
 /**
- * End the session early ("skip rest of workout" button) and navigate away on success.
- * 
- * Returns false if the abandon failed, true otherwise.
+ * Run the end-early flow (End session early button).
+ * Pure function with dependency injection for testability.
  */
 export async function runEndEarly(
-  deps: FinishFlowDeps,
-  args: {
+  deps: Omit<FinishFlowDeps, "finishSession">,
+  params: {
     sessionId: string;
-    durationSeconds: number;
+    setsDone: number;
+    setConfirming: (value: null) => void;
+    setOfflineError: (value: boolean) => void;
+    endingRef: { current: boolean };
+    setEnding: (value: boolean) => void;
   },
-): Promise<boolean> {
-  if (deps.inFlight.current) return false;
-  deps.inFlight.current = true;
+): Promise<void> {
+  if (params.endingRef.current) return;
+  params.endingRef.current = true;
+  params.setEnding(true);
+
+  const durationSeconds = deps.stopElapsed();
 
   try {
-    const result = await deps.abandonSession({
-      sessionId: args.sessionId,
-      durationSeconds: args.durationSeconds,
-    });
+    const result = await deps.abandonSession(params.sessionId, durationSeconds);
 
-    if (result.ok) {
-      deps.setError(null);
-      deps.setEndedEarly(true);
-      deps.setPhase("done");
-      deps.onExit?.();
-      await deps.refreshAfterSession();
-      return true;
-    } else {
-      // Abandon failed
-      deps.setError(result.error ?? "Failed to end the session early. Check your network and try again.");
-      return false;
+    if (!result.ok) {
+      deps.resumeElapsed();
+      params.setConfirming(null);
+      params.setOfflineError(false);
+      deps.setError("Couldn't end the session. Try again.");
+      params.endingRef.current = false;
+      params.setEnding(false);
+      return;
     }
-  } finally {
-    deps.inFlight.current = false;
+
+    params.setConfirming(null);
+    params.setOfflineError(false);
+
+    // Always show summary, even for 0 sets
+    deps.setEndedEarly(true);
+    params.endingRef.current = false;
+    params.setEnding(false);
+    deps.setPhase("done");
+  } catch (err) {
+    deps.resumeElapsed();
+    if (isNetworkError(err)) {
+      params.setOfflineError(true);
+    } else {
+      params.setConfirming(null);
+      params.setOfflineError(false);
+      deps.setError("Couldn't end the session. Try again.");
+    }
+    params.endingRef.current = false;
+    params.setEnding(false);
   }
 }
 
