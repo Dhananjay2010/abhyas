@@ -203,9 +203,9 @@ console.log("\nMutant E: 23505 error is not handled");
 
 console.log("\n=== logSet TESTS ===\n");
 
-console.log("\n5. logSet rejects writes to completed sessions with SESSION_ENDED code");
+console.log("5. logSet rejects writes to completed sessions with SESSION_ENDED code");
 {
-  const sessionStatus = "completed";
+  const sessionStatus: string = "completed";
   const result = sessionStatus !== "in_progress" 
     ? { ok: false as const, code: "SESSION_ENDED", error: "This session has ended." }
     : { ok: true as const };
@@ -216,7 +216,7 @@ console.log("\n5. logSet rejects writes to completed sessions with SESSION_ENDED
 
 console.log("\n6. logSet rejects writes to skipped sessions with SESSION_ENDED code");
 {
-  const sessionStatus = "skipped";
+  const sessionStatus: string = "skipped";
   const result = sessionStatus !== "in_progress" 
     ? { ok: false as const, code: "SESSION_ENDED", error: "This session has ended." }
     : { ok: true as const };
@@ -227,7 +227,7 @@ console.log("\n6. logSet rejects writes to skipped sessions with SESSION_ENDED c
 
 console.log("\n7. logSet allows writes to in_progress sessions");
 {
-  const sessionStatus = "in_progress";
+  const sessionStatus: string = "in_progress";
   const result = sessionStatus !== "in_progress" 
     ? { ok: false as const, code: "SESSION_ENDED", error: "This session has ended." }
     : { ok: true as const };
@@ -237,5 +237,3 @@ console.log("\n7. logSet allows writes to in_progress sessions");
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
-
-})();
