@@ -307,8 +307,8 @@ async function testStaleEntriesPruned() {
 
   const result = loadAllPendingSets(storage);
 
-  assert(!result["old-session"], "Stale session (>7 days) is pruned");
-  assert(result["recent-session"], "Recent session is kept");
+  assert(result["old-session"] === undefined, "Stale session (>7 days) is pruned");
+  assert(result["recent-session"] !== undefined, "Recent session is kept");
   assertEqual(result["recent-session"]?.length, 1, "Recent session has correct data");
 }
 
