@@ -8,7 +8,6 @@ import {
   calculateSetVolume,
   findTopSet,
   detectPersonalRecords,
-  detectSetPRs,
   type SetData,
   type PersonalRecord,
 } from "../src/lib/exercise-history/calculations";
@@ -194,77 +193,13 @@ console.log("\n9. PR detection - time-based exercise");
   );
 }
 
-console.log("\n10. Real-time PR detection as sets are logged");
-{
-  // Simulating a progressive session where PRs are achieved
-  const session: SetData[] = [
-    set(8, 100),   // First set: all PRs (first time)
-    set(8, 100),   // Same as before: no new PRs
-    set(9, 100),   // More reps: new most_reps and best_e1rm PRs
-    set(6, 110),   // Heavier: new heaviest_weight and best_e1rm PRs
-  ];
-  
-  // First set - everything is a PR
-  check("first set: 3 PRs", detectSetPRs(session, 0, "reps").length === 3);
-  check("first set: has heaviest_weight", detectSetPRs(session, 0, "reps").includes("heaviest_weight"));
-  check("first set: has best_e1rm", detectSetPRs(session, 0, "reps").includes("best_e1rm"));
-  check("first set: has most_reps", detectSetPRs(session, 0, "reps").includes("most_reps"));
-  
-  // Second set - no PRs (same as first)
-  check("second set: no new PRs", detectSetPRs(session, 1, "reps").length === 0);
-  
-  // Third set - more reps (9 vs 8)
-  const thirdSetPRs = detectSetPRs(session, 2, "reps");
-  check("third set: 2 PRs", thirdSetPRs.length === 2, `got ${thirdSetPRs.join(", ")}`);
-  check("third set: most_reps PR", thirdSetPRs.includes("most_reps"));
-  check("third set: best_e1rm PR", thirdSetPRs.includes("best_e1rm"));
-  
-  // Fourth set - heavier weight
-  const fourthSetPRs = detectSetPRs(session, 3, "reps");
-  check("fourth set: 2 PRs", fourthSetPRs.length === 2, `got ${fourthSetPRs.join(", ")}`);
-  check("fourth set: heaviest_weight PR", fourthSetPRs.includes("heaviest_weight"));
-  check("fourth set: best_e1rm PR", fourthSetPRs.includes("best_e1rm"));
-}
-
-console.log("\n11. Real-time PR detection - bodyweight");
-{
-  const session: SetData[] = [
-    set(10, 0),
-    set(12, 0),  // PR
-    set(11, 0),  // No PR
-    set(15, 0),  // PR
-  ];
-  
-  check("bodyweight first set: 1 PR", detectSetPRs(session, 0, "reps").length === 1);
-  check("12 reps: is a PR", detectSetPRs(session, 1, "reps").length === 1);
-  check("11 reps: not a PR", detectSetPRs(session, 2, "reps").length === 0);
-  check("15 reps: is a PR", detectSetPRs(session, 3, "reps").length === 1);
-}
-
-console.log("\n12. Real-time PR detection - time-based");
-{
-  const session: SetData[] = [
-    set(null, null, 30),
-    set(null, null, 45),  // PR
-    set(null, null, 40),  // No PR
-    set(null, null, 60),  // PR
-  ];
-  
-  check("time-based first set: 1 PR", detectSetPRs(session, 0, "seconds").length === 1);
-  check("45s: is a PR", detectSetPRs(session, 1, "seconds").includes("longest_duration"));
-  check("40s: not a PR", detectSetPRs(session, 2, "seconds").length === 0);
-  check("60s: is a PR", detectSetPRs(session, 3, "seconds").includes("longest_duration"));
-}
-
-console.log("\n13. Edge cases and invalid inputs");
+console.log("\n10. Edge cases and invalid inputs");
 {
   check("negative reps: null 1RM", calculateEpley1RM(-5, 100) === null);
   check("negative weight: null 1RM", calculateEpley1RM(10, -50) === null);
-  check("detectSetPRs with invalid index returns []", detectSetPRs([set(10, 50)], 5, "reps").length === 0);
-  check("detectSetPRs with negative index returns []", detectSetPRs([set(10, 50)], -1, "reps").length === 0);
 }
 
-console.log("\n14. Mixed weight scenario (transitioning from bodyweight to weighted)");
+console.log("\n11. Mixed weight scenario (transitioning from bodyweight to weighted)");
 {
   // User starts with bodyweight, then adds weight
   const history: SetData[] = [
@@ -286,7 +221,7 @@ console.log("\n14. Mixed weight scenario (transitioning from bodyweight to weigh
   );
 }
 
-console.log("\n15. Realistic bench press progression");
+console.log("\n12. Realistic bench press progression");
 {
   // 4-week progression on bench press
   const week1 = [set(8, 60), set(8, 60), set(7, 60)];
@@ -308,7 +243,7 @@ console.log("\n15. Realistic bench press progression");
   );
 }
 
-console.log("\n16. Realistic bodyweight pull-ups progression");
+console.log("\n13. Realistic bodyweight pull-ups progression");
 {
   const pullups: SetData[] = [
     // Week 1
@@ -330,7 +265,7 @@ console.log("\n16. Realistic bodyweight pull-ups progression");
   );
 }
 
-console.log("\n17. Realistic plank hold progression");
+console.log("\n14. Realistic plank hold progression");
 {
   const planks: SetData[] = [
     // Week 1
@@ -349,7 +284,7 @@ console.log("\n17. Realistic plank hold progression");
   check("longest: 60s", prs[0]?.value === 60);
 }
 
-console.log("\n18. Epley formula validation with known values");
+console.log("\n15. Epley formula validation with known values");
 {
   // Known 1RM = 100kg
   // Expected reps at different weights (approximate)
@@ -374,6 +309,43 @@ console.log("\n18. Epley formula validation with known values");
     !!(at70pct && at70pct > 97 && at70pct < 99),
     `got ${at70pct}`
   );
+}
+
+console.log("\n16. Weighted rep PR rule edge cases");
+{
+  // Case 1: 100×5 / 80×8 / 80×9 -> 80×9 IS a PR
+  const case1: SetData[] = [
+    set(5, 100, null),
+    set(8, 80, null),
+    set(9, 80, null),
+  ];
+  const prs1 = detectPersonalRecords(case1, "reps");
+  const mostReps1 = prs1.find(pr => pr.type === "most_reps");
+  check("100×5 / 80×8 / 80×9: 80×9 IS a rep PR", 
+    mostReps1?.value === 9 && mostReps1?.set.weight_kg === 80,
+    `got ${mostReps1?.set.weight_kg}×${mostReps1?.value}`);
+
+  // Case 2: 100×5 / 110×3 -> 110×3 is NOT a rep PR (no earlier set at 110)
+  const case2: SetData[] = [
+    set(5, 100, null),
+    set(3, 110, null),
+  ];
+  const prs2 = detectPersonalRecords(case2, "reps");
+  const mostReps2 = prs2.find(pr => pr.type === "most_reps");
+  check("100×5 / 110×3: currentPRs.most_reps is baseline 100×5 (110×3 not a rep PR)", 
+    mostReps2?.value === 5 && mostReps2?.set.weight_kg === 100,
+    `got ${mostReps2 ? mostReps2.set.weight_kg + '×' + mostReps2.value : 'none'}`);
+
+  // Case 3: 100×5 / 100×5 -> tie is NOT a PR, baseline remains
+  const case3: SetData[] = [
+    set(5, 100, null),
+    set(5, 100, null),
+  ];
+  const prs3 = detectPersonalRecords(case3, "reps");
+  const mostReps3 = prs3.find(pr => pr.type === "most_reps");
+  check("100×5 / 100×5: currentPRs.most_reps is baseline 100×5 (tie not a PR)", 
+    mostReps3?.value === 5 && mostReps3?.set.weight_kg === 100,
+    `got ${mostReps3 ? mostReps3.set.weight_kg + '×' + mostReps3.value : 'none'}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
