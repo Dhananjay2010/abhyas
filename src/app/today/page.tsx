@@ -11,7 +11,7 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
-import { weekInBlock } from "@/lib/program/prescription";
+import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isSessionOverride } from "@/lib/program/detect-override";
 import { resolveTodayDays } from "@/lib/resolve-today-days";
@@ -36,7 +36,7 @@ export default async function TodayPage() {
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase
       .from("programs")
-      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week, week_offset")
       .eq("status", "active")
       .maybeSingle(),
     // A strength plan with no equipment recorded is a misconfiguration that
@@ -131,7 +131,7 @@ export default async function TodayPage() {
   if (rollover.status === "rolled_over") {
     const { data: fresh } = await supabase
       .from("programs")
-      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week, week_offset")
       .eq("id", rollover.programId)
       .single();
     program = fresh;
@@ -205,9 +205,6 @@ export default async function TodayPage() {
   const allSessions = sessionsRes.data ?? [];
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
 
-  // Resolve all days (active + retired from old blocks).
-  const allDays = await resolveTodayDays(supabase, days ?? [], allSessions);
-
   const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
 
   /*
@@ -260,22 +257,30 @@ export default async function TodayPage() {
         (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9) ||
         (b.created_at ?? "").localeCompare(a.created_at ?? ""),
     )[0];
-
-  // The session's own program day, which may be from the active block or a
-  // retired one (after a rebuild). `allDays` includes both, so labels are
-  // correct after a mid-session rebuild: the header and "Your week" label come
-  // from the day the session was planned with, not from what the new block says.
   const overrideDay = override?.program_day_id
-    ? allDays.find((d) => d.id === override.program_day_id)
+    ? days?.find((d) => d.id === override.program_day_id)
     : undefined;
 
   const today = overrideDay ?? scheduled;
   const dayType = override?.actual_type ?? scheduled?.day_type ?? null;
   const dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
+  /*
+    Only worth explaining when it actually differs from what the block said.
 
+    This compared program-day ids alone, which is wrong in the one case where
+    the id cannot be resolved: a rebuild replaces `program_days`, so every
+    session from before it points at a day of the retired block. `overrideDay`
+    is then undefined, the id comparison says "differs", and Today announced
+    "You chose this for today, so it replaces the Legs your block had
+    scheduled" -- on a Legs day, about a session nobody had chosen anything for.
+
+    So the type is checked first, which is what a rest, yoga or breathing
+    override changes, and the day ids only when the override's day is one this
+    block still has. An unresolvable id says nothing either way, and the label
+    on screen is the block's own in that case anyway.
+  */
   const overrideDiffers = isSessionOverride(override, overrideDay, scheduled, todayIndex);
-
-  const week = weekInBlock(program.started_on, localToday);
+  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
   const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
@@ -431,9 +436,8 @@ export default async function TodayPage() {
         x.actual_type !== null,
     );
     if (!sess?.actual_type) continue;
-    // Use allDays to find retired program days after a rebuild.
     const chosenDay = sess.program_day_id
-      ? allDays.find((pd) => pd.id === sess.program_day_id)
+      ? days?.find((pd) => pd.id === sess.program_day_id)
       : undefined;
     const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
     if (label !== d.label) chosenByDayIndex.set(d.day_index, label);

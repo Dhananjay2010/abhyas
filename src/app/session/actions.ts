@@ -15,12 +15,13 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "@/lib/program/progression";
-import { prescribe, weekInBlock } from "@/lib/program/prescription";
+import { applyDeload, prescribe } from "@/lib/program/prescription";
+import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
-import { prepareSessionExercises, metricOf } from "@/lib/session/prepare-exercises";
+import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -34,6 +35,20 @@ async function requireUser() {
   const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
+}
+
+/**
+ * The metric to stamp on a session exercise, from an embedded `exercises` row.
+ *
+ * PostgREST types a to-one embed as either an object or an array depending on
+ * how it infers the relationship, and the shape is not worth arguing with at
+ * four call sites. `reps` is the safe default: it is the column default too,
+ * and it is what every exercise was before `metric` existed.
+ */
+function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metric"] {
+  const row = Array.isArray(embedded) ? embedded[0] : embedded;
+  const m = (row as { metric?: string } | null | undefined)?.metric;
+  return m === "seconds" ? "seconds" : "reps";
 }
 
 /**
@@ -128,7 +143,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const program = (
     await supabase
       .from("programs")
-      .select("id, started_on, deload_week, program_days(id, day_index, day_type, focus, label)")
+      .select("id, started_on, deload_week, week_offset, program_days(id, day_index, day_type, focus, label)")
       .eq("id", rolloverResult.programId)
       .maybeSingle()
   ).data;
@@ -143,7 +158,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const day = (program.program_days ?? []).find((d) => d.day_index === dayIndex);
   if (!day) return { ok: false, error: "No plan for today." };
 
-  const week = weekInBlock(program.started_on, today);
+  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
@@ -182,8 +197,36 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
 
   const planned = plannedRes.data;
   if (planned && planned.length > 0) {
-    const exercises = prepareSessionExercises(session.id, user.id, planned);
-    const { error } = await supabase.from("session_exercises").insert(exercises);
+    const { error } = await supabase.from("session_exercises").insert(
+      planned.map((p) => {
+        // Week 4 of a block cuts volume; the weight suggestion is reduced
+        // separately when the session is rendered.
+        const dose = isDeloadWeek
+          ? applyDeload({
+              sets: p.target_sets,
+              repsMin: p.target_reps_min,
+              repsMax: p.target_reps_max,
+              restSeconds: p.rest_seconds,
+            })
+          : {
+              sets: p.target_sets,
+              repsMin: p.target_reps_min,
+              repsMax: p.target_reps_max,
+              restSeconds: p.rest_seconds,
+            };
+        return {
+          session_id: session.id,
+          user_id: user.id, // corrected by the definer trigger
+          exercise_id: p.exercise_id,
+          order_index: p.order_index,
+          planned_sets: dose.sets,
+          planned_reps_min: dose.repsMin,
+          planned_reps_max: dose.repsMax,
+          rest_seconds: dose.restSeconds,
+          metric: metricOf(p.exercises),
+        };
+      }),
+    );
     if (error) return { ok: false, error: error.message };
   }
 
@@ -381,21 +424,13 @@ async function applyProgression(
     isDeload: sessionRes.data?.is_deload ?? false,
   });
 
-  await supabase.from("exercise_progress").upsert(
-    {
-      user_id: userId,
-      exercise_id: se.exercise_id,
-      current_working_weight_kg: decision.nextWorkingWeightKg,
-      current_target_reps: decision.nextTargetReps,
-      consecutive_failures: decision.consecutiveFailures,
-      last_performed_on: sessionRes.data?.local_date ?? null,
-      best_weight_kg: decision.bestWeightKg,
-      best_reps: decision.bestReps,
-      best_e1rm: decision.bestE1rm,
-      total_sessions: state.totalSessions + 1,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,exercise_id" },
+  await writeExerciseProgressCore(
+    supabase,
+    userId,
+    se.exercise_id,
+    decision,
+    state.totalSessions,
+    sessionRes.data?.local_date ?? null,
   );
 
   // Outgrew a bodyweight variation: upgrade the plan so next time is harder.
@@ -790,9 +825,6 @@ export async function swapExercise(input: {
  *
  * Idempotent: it does nothing when rows already exist, so it is safe to call
  * on every resume.
- *
- * Applies deload if the session is in a deload week, so train-anyway and
- * tomorrow-choice sessions get the correct volume.
  */
 async function ensureSessionExercises(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
@@ -805,7 +837,7 @@ async function ensureSessionExercises(
   // when they have already been waiting once.
   const { data: session } = await supabase
     .from("sessions")
-    .select("program_day_id, actual_type, is_deload, session_exercises(id)")
+    .select("program_day_id, actual_type, session_exercises(id)")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -822,12 +854,19 @@ async function ensureSessionExercises(
     .order("order_index");
   if (!planned || planned.length === 0) return;
 
-  const exercises = prepareSessionExercises(
-    sessionId,
-    userId,
-    planned,
+  await supabase.from("session_exercises").insert(
+    planned.map((p) => ({
+      session_id: sessionId,
+      user_id: userId,
+      exercise_id: p.exercise_id,
+      order_index: p.order_index,
+      planned_sets: p.target_sets,
+      planned_reps_min: p.target_reps_min,
+      planned_reps_max: p.target_reps_max,
+      rest_seconds: p.rest_seconds,
+      metric: metricOf(p.exercises),
+    })),
   );
-  await supabase.from("session_exercises").insert(exercises);
 }
 
 // ---------------------------------------------------------------------------
@@ -944,7 +983,7 @@ export async function planDay(input: {
 
   const { data: program } = await supabase
     .from("programs")
-    .select("id, started_on, deload_week")
+    .select("id, started_on, deload_week, week_offset")
     .eq("status", "active")
     .maybeSingle();
 
@@ -970,7 +1009,7 @@ export async function planDay(input: {
   // the path that creates a session itself; resuming a planned row keeps
   // whatever it was written with, and a null week would have shown "Week 1" on
   // an override day and silently skipped the deload.
-  const week = program ? weekInBlock(program.started_on, input.localDate) : null;
+  const week = program ? cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, input.localDate) : null;
 
   const row = {
     user_id: user.id,
