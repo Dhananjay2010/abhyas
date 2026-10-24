@@ -337,25 +337,9 @@ const { data, error } = await supabase.auth.signInWithPassword({
 
 This gives you a valid session for the seeded user without adding login UI to the app.
 
-**Option 2: Sign in with Google, then use the seeded data**
+**Option 2: Sign in with Google and create your own data**
 
-Configure Google OAuth in `supabase/config.toml` under `[auth.external.google]` with local redirect URLs, then sign in through the app's Google sign-in button. After signing in, re-point the seeded data to your own user id:
-
-```sql
--- Get your user id after signing in with Google
-SELECT id, email FROM auth.users;
-
--- Update seeded data to point to your user id (replace 'your-actual-uuid')
-UPDATE profiles SET id = 'your-actual-uuid' 
-WHERE id = '00000000-0000-0000-0000-000000000001';
-
-UPDATE user_equipment SET user_id = 'your-actual-uuid' 
-WHERE user_id = '00000000-0000-0000-0000-000000000001';
-
--- Do the same for programs, sessions, exercise_progress, body_metrics, etc.
-```
-
-Or simply use your own account and create data through the app's normal onboarding and workout flows.
+Configure Google OAuth in `supabase/config.toml` under `[auth.external.google]` with local redirect URLs, then sign in through the app's Google sign-in button. Use your own account and create data through the app's normal onboarding and workout flows. The seeded test user is for programmatic and server-side testing (Options 1 and 3).
 
 **Option 3: Use the seeded user programmatically**
 
