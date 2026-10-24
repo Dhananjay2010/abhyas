@@ -1,3 +1,4 @@
+#!/usr/bin/env tsx
 /**
  * Route-level test for /sitemap.xml and /robots.txt
  * 
@@ -8,17 +9,75 @@
  * - Tests with NEXT_PUBLIC_SITE_URL unset and set
  * - Exercises the proxy/middleware to catch auth issues
  * 
+ * Safety features to prevent hangs:
+ * - 90s hard overall timeout
+ * - Process groups (detached spawn + kill -pid)
+ * - Bounded readiness polling
+ * - Signal handlers (SIGINT/SIGTERM)
+ * - Explicit process.exit
+ * - Random free port (port 0)
+ * 
  * Usage:
  *   npx tsx scripts/test-sitemap-route.ts
  */
 
-import { spawn } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import { promisify } from "util";
 import * as net from "net";
 
 const sleep = promisify(setTimeout);
 
 let failures = 0;
+let activeServer: ChildProcess | null = null;
+
+// Hard 90s timeout to prevent hangs
+const OVERALL_TIMEOUT_MS = 90_000;
+let overallTimeoutHandle: NodeJS.Timeout | null = null;
+
+function killProcessGroup(proc: ChildProcess) {
+  if (!proc.pid) return;
+  try {
+    // Kill entire process group with -pid
+    process.kill(-proc.pid, 'SIGTERM');
+    setTimeout(() => {
+      try {
+        process.kill(-proc.pid!, 'SIGKILL');
+      } catch {
+        // Already dead
+      }
+    }, 2000);
+  } catch (e) {
+    // Process may already be dead
+    try {
+      proc.kill('SIGKILL');
+    } catch {
+      // Ignore
+    }
+  }
+}
+
+function cleanup() {
+  if (overallTimeoutHandle) {
+    clearTimeout(overallTimeoutHandle);
+  }
+  if (activeServer) {
+    killProcessGroup(activeServer);
+    activeServer = null;
+  }
+}
+
+// Signal handlers
+process.on('SIGINT', () => {
+  console.error('\nReceived SIGINT, cleaning up...');
+  cleanup();
+  process.exit(130);
+});
+
+process.on('SIGTERM', () => {
+  console.error('\nReceived SIGTERM, cleaning up...');
+  cleanup();
+  process.exit(143);
+});
 
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
@@ -51,14 +110,17 @@ async function startServer(): Promise<ServerProcess> {
   const port = await findFreePort();
   const baseUrl = `http://localhost:${port}`;
 
-  const serverProcess = spawn("npm", ["start"], {
+  const serverProcess = spawn("npx", ["next", "start", "-p", String(port)], {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      PORT: String(port),
+      NODE_ENV: "production",
     },
     stdio: ["ignore", "pipe", "pipe"],
+    detached: true, // Create process group
   });
+
+  activeServer = serverProcess;
 
   let output = "";
   serverProcess.stdout?.on("data", (data) => {
@@ -68,26 +130,33 @@ async function startServer(): Promise<ServerProcess> {
     output += data.toString();
   });
 
-  await sleep(3000);
+  // Bounded readiness polling: max 30 attempts * 500ms = 15s
+  const MAX_READINESS_ATTEMPTS = 30;
+  let ready = false;
 
-  for (let i = 0; i < 20; i++) {
-    try {
-      const response = await fetch(`${baseUrl}/robots.txt`);
-      if (response.ok) {
-        return { process: serverProcess, port, baseUrl };
-      }
-    } catch {
-      // Server not ready yet
+  for (let i = 0; i < MAX_READINESS_ATTEMPTS; i++) {
+    // Check if stdout indicates server started
+    if (output.includes('Local:') || output.includes('started server on')) {
+      await sleep(500); // Brief stabilization delay
+      ready = true;
+      break;
     }
     await sleep(500);
   }
 
-  serverProcess.kill();
-  throw new Error(`Server failed to start after 13s. Output:\n${output}`);
+  if (!ready) {
+    killProcessGroup(serverProcess);
+    throw new Error(`Server failed to start after ${MAX_READINESS_ATTEMPTS * 500}ms. Output:\n${output}`);
+  }
+
+  return { process: serverProcess, port, baseUrl };
 }
 
 function stopServer(server: ServerProcess) {
-  server.process.kill();
+  killProcessGroup(server.process);
+  if (activeServer === server.process) {
+    activeServer = null;
+  }
 }
 
 async function testSitemapXml(baseUrl: string, expectedBaseUrl?: string): Promise<void> {
@@ -167,6 +236,13 @@ async function testProxyBehavior(baseUrl: string): Promise<void> {
 }
 
 async function runTests() {
+  // Start 90s hard timeout
+  overallTimeoutHandle = setTimeout(() => {
+    console.error('\n❌ Test exceeded 90s timeout, killing server...');
+    cleanup();
+    process.exit(1);
+  }, OVERALL_TIMEOUT_MS);
+
   console.log("\nRoute-level tests for sitemap.xml and robots.txt");
   console.log("=".repeat(60));
   console.log("\nNote: Reuses build from CI (or `npm run build` run before this test)");
@@ -183,6 +259,7 @@ async function runTests() {
       failures++;
     } finally {
       if (server) stopServer(server);
+      await sleep(1000); // Let server fully die
     }
   }
 
@@ -197,6 +274,7 @@ async function runTests() {
       failures++;
     } finally {
       if (server) stopServer(server);
+      await sleep(1000);
     }
   }
 
@@ -211,16 +289,18 @@ async function runTests() {
       failures++;
     } finally {
       if (server) stopServer(server);
+      await sleep(1000);
     }
   }
 
-  await sleep(1000);
+  cleanup(); // Clear timeout
 
   if (failures > 0) {
     console.error(`\n❌ ${failures} test(s) failed\n`);
     process.exit(1);
   } else {
     console.log("\n✅ All route-level tests passed\n");
+    process.exit(0);
   }
 }
 
