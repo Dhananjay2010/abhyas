@@ -83,19 +83,22 @@ begin
     'user_breathing_patterns',
     'user_journey_progress'
   ] loop
-    execute format('revoke all on public.%I from anon', user_table);
+    -- Guard with to_regclass so partial database doesn't fail
+    if to_regclass('public.' || user_table) is not null then
+      execute format('revoke all on public.%I from anon', user_table);
+    end if;
   end loop;
 end $$;
 
--- Reference tables: check if logged-out pages need SELECT
+-- Reference tables and views: check if logged-out pages need SELECT
 -- Currently, the landing page is static and doesn't query the database,
 -- so anon doesn't need SELECT on reference tables either.
 -- Revoke for defense in depth.
 do $$
 declare
-  ref_table text;
+  ref_item text;
 begin
-  foreach ref_table in array array[
+  foreach ref_item in array array[
     'equipment',
     'exercises',
     'exercise_media',
@@ -105,9 +108,14 @@ begin
     'breathing_routines',
     'breathing_journeys',
     'yoga_playlists',
-    'yoga_videos'
+    'yoga_videos',
+    'exercise_strength_history',
+    'session_volume'
   ] loop
-    execute format('revoke all on public.%I from anon', ref_table);
+    -- Guard with to_regclass so partial database doesn't fail
+    if to_regclass('public.' || ref_item) is not null then
+      execute format('revoke all on public.%I from anon', ref_item);
+    end if;
   end loop;
 end $$;
 
@@ -119,22 +127,10 @@ end $$;
 alter default privileges in schema public
   revoke all on tables from anon;
 
+-- Future functions: revoke execute from anon only (NOT public, to avoid silently
+-- removing authenticated access from all future RPCs)
 alter default privileges in schema public
-  revoke execute on functions from anon, public;
+  revoke execute on functions from anon;
 
 -- Grant to authenticated as needed (per-function, not blanket)
 -- Note: specific function grants are handled in their respective migrations
-
--- ============================================================
--- 5. AUDIT SUMMARY (for PR body documentation)
--- ============================================================
-
-comment on schema public is
-  'Abhyas schema. Security model: '
-  '- RLS enabled on all user tables '
-  '- Anon has NO table or function privileges '
-  '- Authenticated has table-level SELECT/INSERT/UPDATE/DELETE on user tables (constrained by RLS) '
-  '- Column-level UPDATE restrictions on profiles (see 20261024120000) '
-  '- SECURITY DEFINER functions use search_path="" and check auth.uid() '
-  '- Views use security_invoker=on '
-  '- Reference tables grant SELECT to authenticated only';

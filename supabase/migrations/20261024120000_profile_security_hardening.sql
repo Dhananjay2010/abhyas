@@ -104,21 +104,6 @@ comment on function public.complete_onboarding() is
 -- 3. DB CONSTRAINTS (NOT VALID, idempotent)
 -- ============================================================
 
--- Age constraint: date_of_birth must be at least 16 years before today
-do $$
-begin
-  if not exists (
-    select 1 from pg_constraint
-    where conname = 'profiles_minimum_age_check'
-    and conrelid = 'public.profiles'::regclass
-  ) then
-    alter table public.profiles
-      add constraint profiles_minimum_age_check
-      check (date_of_birth is null or date_of_birth <= current_date - interval '16 years')
-      not valid;
-  end if;
-end $$;
-
 -- Height constraint: P3-M5: must be finite and in range 100-250, or null
 do $$
 begin
@@ -179,15 +164,26 @@ begin
 end $$;
 
 -- ============================================================
--- 4. TIMEZONE VALIDATION TRIGGER
+-- 4. PROFILE VALIDATION TRIGGER (age & timezone)
 -- ============================================================
 
-create or replace function public.validate_profile_timezone()
+create or replace function public.validate_profile_fields()
 returns trigger
 language plpgsql
+security definer
+set search_path = ''
 as $$
 begin
-  -- Only validate if timezone actually changed
+  -- Age validation: date_of_birth must be at least 16 years before today
+  -- Moved from CHECK constraint because current_date is not immutable
+  if new.date_of_birth is distinct from old.date_of_birth then
+    if new.date_of_birth is not null 
+       and new.date_of_birth > current_date - interval '16 years' then
+      raise exception 'You must be at least 16 years old to use Abhyas';
+    end if;
+  end if;
+
+  -- Timezone validation: only when timezone actually changed
   if new.timezone is distinct from old.timezone then
     if new.timezone is null or trim(new.timezone) = '' then
       raise exception 'timezone cannot be null or empty';
@@ -203,11 +199,13 @@ begin
 end;
 $$;
 
-drop trigger if exists profiles_validate_timezone on public.profiles;
-create trigger profiles_validate_timezone
-  before insert or update of timezone on public.profiles
+revoke all on function public.validate_profile_fields() from public, anon, authenticated;
+
+drop trigger if exists profiles_validate_fields on public.profiles;
+create trigger profiles_validate_fields
+  before insert or update of date_of_birth, timezone on public.profiles
   for each row
-  execute function public.validate_profile_timezone();
+  execute function public.validate_profile_fields();
 
 -- ============================================================
 -- 5. COLUMN-LEVEL UPDATE GRANTS
@@ -240,9 +238,6 @@ grant update (
 -- Note: disclaimer_accepted_at and onboarding_completed_at are NOT in the grant list
 -- They can only be set through the SECURITY DEFINER RPCs above
 
-comment on constraint profiles_minimum_age_check on public.profiles is
-  'M5: Enforces minimum age of 16 years. NOT VALID (grandfathers existing rows).';
-
 comment on constraint profiles_height_check on public.profiles is
   'P3-M5: Prevents NaN and enforces height range 100-250. NOT VALID.';
 
@@ -255,5 +250,6 @@ comment on constraint profiles_yoga_days_range on public.profiles is
 comment on constraint profiles_at_least_one_training_day on public.profiles is
   'M5: At least one training day required (yoga cannot be all days). NOT VALID.';
 
-comment on function public.validate_profile_timezone() is
-  'M5: Validates timezone against pg_timezone_names. Only checks when changed.';
+comment on function public.validate_profile_fields() is
+  'M5: Validates age (16+) and timezone (pg_timezone_names). Only checks when changed. '
+  'Age check moved from CHECK constraint because current_date is not immutable.';
