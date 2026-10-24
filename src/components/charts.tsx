@@ -96,7 +96,10 @@ export function LineChart({
           {formatValue(points[0].value, unit)}
         </p>
         <p className="mt-1 text-xs text-muted">
-          {points[0].label} — one entry so far, so there is no trend to draw yet.
+          {points[0].label}
+        </p>
+        <p className="mt-2 text-xs text-muted">
+          Log more sessions to see a trend.
         </p>
       </div>
     );
@@ -221,8 +224,9 @@ export function BarChart({
   const max = Math.max(...points.map((p) => p.value), 1);
   const innerW = width - PAD.left - PAD.right;
   const innerH = height - PAD.top - PAD.bottom;
-  // 2px gap between adjacent bars, per the mark spec.
-  const slot = innerW / points.length;
+  
+  // For single-point data, show a narrow bar instead of filling the whole plot
+  const slot = points.length === 1 ? 30 : innerW / points.length;
   const barW = Math.max(3, slot - 2);
   const shown = active === null ? points.length - 1 : active;
 
@@ -287,6 +291,12 @@ export function BarChart({
         <span className="font-semibold">{formatValue(points[shown].value, unit)}</span>{" "}
         <span className="text-muted">· {points[shown].label}</span>
       </p>
+
+      {points.length === 1 && (
+        <p className="mt-2 text-xs text-muted">
+          Log more sessions to see a trend.
+        </p>
+      )}
 
       <ValueTable points={points} unit={unit} caption={title} />
     </div>
