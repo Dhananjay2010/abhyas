@@ -6,7 +6,15 @@
  */
 
 /** Routes reachable without a session. Everything else redirects to "/". */
-export const PUBLIC_PATHS = ["/", "/auth", "/legal", "/privacy", "/terms"];
+export const PUBLIC_PATHS = [
+  "/",
+  "/auth",
+  "/legal",
+  "/privacy",
+  "/terms",
+  "/sw.js",
+  "/offline",
+];
 
 /** Dev-only harnesses, never routable in production (the pages 404 there too). */
 export const DEV_PATHS = process.env.NODE_ENV === "development" ? ["/dev"] : [];
@@ -26,9 +34,13 @@ export const PROBE_PATHS = process.env.PERF_TOKEN ? ["/api/diag"] : [];
  *
  * Matches exact paths and subpaths with a "/" separator to prevent
  * accidental exposure of similar paths like /privacyfoo or /termsXYZ.
+ * Special-cases "/" to match only exactly (not "//anything").
  */
 export function isPublicPath(pathname: string): boolean {
-  return [...PUBLIC_PATHS, ...DEV_PATHS, ...PROBE_PATHS].some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
+  return [...PUBLIC_PATHS, ...DEV_PATHS, ...PROBE_PATHS].some((p) => {
+    if (p === "/") {
+      return pathname === "/";
+    }
+    return pathname === p || pathname.startsWith(`${p}/`);
+  });
 }

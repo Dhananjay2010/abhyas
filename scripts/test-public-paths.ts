@@ -24,6 +24,8 @@ console.log("\n1. Exact public paths should be accessible");
   check("/legal", isPublicPath("/legal"));
   check("/privacy", isPublicPath("/privacy"));
   check("/terms", isPublicPath("/terms"));
+  check("/sw.js", isPublicPath("/sw.js"));
+  check("/offline", isPublicPath("/offline"));
 }
 
 console.log("\n2. Public path subpaths should be accessible");
@@ -54,6 +56,8 @@ console.log("\n4. Prefix matching should NOT expose similar-looking paths");
   check("/authorization should be protected", !isPublicPath("/authorization"));
   check("/legalese should be protected", !isPublicPath("/legalese"));
   check("/today should be protected", !isPublicPath("/today"));
+  check("/sw.jsx should be protected", !isPublicPath("/sw.jsx"));
+  check("/offlinefoo should be protected", !isPublicPath("/offlinefoo"));
 }
 
 console.log("\n5. Edge cases");
@@ -61,9 +65,17 @@ console.log("\n5. Edge cases");
   check("/privacy/ with trailing slash", isPublicPath("/privacy/"));
   check("/terms/ with trailing slash", isPublicPath("/terms/"));
   check("/auth/ with trailing slash", isPublicPath("/auth/"));
-  check("// should be public (root)", isPublicPath("//"));
   check("/PRIVACY uppercase should be protected", !isPublicPath("/PRIVACY"));
   check("/Terms mixed case should be protected", !isPublicPath("/Terms"));
+}
+
+console.log("\n6. Double-slash edge cases (/ must not match //* via prefix rule)");
+{
+  check("/ is public", isPublicPath("/"));
+  check("/today is protected", !isPublicPath("/today"));
+  check("// should be protected", !isPublicPath("//"));
+  check("//today should be protected", !isPublicPath("//today"));
+  check("//auth should be protected", !isPublicPath("//auth"));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
