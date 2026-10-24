@@ -9,10 +9,7 @@
  * npm run test:repoint-fake-client
  */
 import { repointSessionsAfterRebuild } from "../src/lib/program/repoint-sessions";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../src/lib/database.types";
 
-type Client = SupabaseClient<Database>;
 type SupabaseError = { message: string; code?: string };
 type SupabaseResponse<T> = {
   data: T | null;
