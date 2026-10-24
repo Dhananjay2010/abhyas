@@ -69,32 +69,3 @@ export function creditedBannerText(credited: number): string | null {
 export function shouldRedirectSession(status: string): boolean {
   return status === "completed";
 }
-
-export type TodayPageData = {
-  /** Input for closeStaleSessions: preserves real started_at from query */
-  closeStaleInput: Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null; status: string }>;
-  /** Open strength session for resume button: searches all sessions, not just today */
-  strengthOpen: SessionForDetection | undefined;
-  /** Banner text for credited sessions */
-  creditedBanner: string | null;
-};
-
-/**
- * Prepare Today page data from raw query results.
- * Centralizes the three key derivations for testability:
- * - c2: credited banner uses the real credited count
- * - e1: resume finder receives all sessions (not just today's)
- * - f2: close-stale receives real started_at (not derived from local_date)
- */
-export function prepareTodayPageData(
-  openSessions: Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null; status: string }> | null,
-  allSessions: SessionForDetection[],
-  todaySessions: SessionForDetection[],
-  creditedCount: number
-): TodayPageData {
-  return {
-    closeStaleInput: todayCloseInput(openSessions),
-    strengthOpen: findOpenStrengthSession(allSessions, todaySessions),
-    creditedBanner: creditedBannerText(creditedCount),
-  };
-}

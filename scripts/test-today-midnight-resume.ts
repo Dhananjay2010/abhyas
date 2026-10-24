@@ -11,8 +11,7 @@ import {
   findOpenStrengthSession,
   todayCloseInput,
   creditedBannerText,
-  shouldRedirectSession,
-  prepareTodayPageData
+  shouldRedirectSession
 } from "../src/lib/today/session-detection";
 
 type SessionRow = {
@@ -117,44 +116,6 @@ console.log("\n12. creditedBannerText generates correct message for Today page")
   check("1 credited returns singular", creditedBannerText(1) === "A session you had left open has been counted — you had logged sets in it.");
   check("2 credited returns plural", creditedBannerText(2) === "2 sessions you had left open have been counted — you had logged sets in them.");
   check("5 credited returns plural", creditedBannerText(5)?.startsWith("5 sessions") === true);
-}
-
-console.log("\n13. prepareTodayPageData: page wiring for c2, e1, f2");
-{
-  // c2: credited banner uses the real credited count (2)
-  // e1: resume finder receives all sessions (including yesterday's in_progress)
-  // f2: close-stale receives real started_at (not derived from local_date)
-  
-  const openSessions = [
-    { id: "open1", local_date: "2026-10-24", started_at: "2026-10-24T10:00:00Z", actual_type: "weights", status: "in_progress" },
-    { id: "open2", local_date: "2026-10-25", started_at: null, actual_type: "bodyweight", status: "in_progress" },
-  ];
-  
-  const allSessions: SessionRow[] = [
-    { id: "yesterday", status: "in_progress", actual_type: "weights", local_date: "2026-10-24", started_at: "2026-10-24T23:30:00Z" },
-    { id: "today", status: "planned", actual_type: "bodyweight", local_date: "2026-10-25", started_at: null },
-  ];
-  
-  const todaySessions: SessionRow[] = [
-    { id: "today", status: "planned", actual_type: "bodyweight", local_date: "2026-10-25", started_at: null },
-  ];
-  
-  const creditedCount = 2;
-  
-  const pageData = prepareTodayPageData(openSessions, allSessions, todaySessions, creditedCount);
-  
-  // f2: close-stale input preserves real started_at
-  check("closeStaleInput has 2 sessions", pageData.closeStaleInput.length === 2);
-  check("f2: real started_at preserved (not null)", pageData.closeStaleInput[0].started_at === "2026-10-24T10:00:00Z");
-  check("f2: null started_at preserved", pageData.closeStaleInput[1].started_at === null);
-  
-  // e1: strengthOpen uses allSessions (finds yesterday's in_progress)
-  check("e1: strengthOpen found", pageData.strengthOpen !== undefined);
-  check("e1: strengthOpen is yesterday's in_progress", pageData.strengthOpen?.id === "yesterday");
-  
-  // c2: creditedBanner uses the real count (2)
-  check("c2: creditedBanner is not null", pageData.creditedBanner !== null);
-  check("c2: creditedBanner shows 2 sessions", pageData.creditedBanner?.startsWith("2 sessions") === true);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

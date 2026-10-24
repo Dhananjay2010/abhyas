@@ -11,7 +11,7 @@ import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
-import { todayCloseInput, creditedBannerText, findOpenStrengthSession } from "@/lib/today/session-detection";
+import { loadTodaySessionState } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -93,11 +93,6 @@ export default async function TodayPage() {
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const firstName = profile.display_name?.split(" ")[0] ?? "";
   const localToday = localDateString(timezone);
-
-  // A session left open on an earlier day is closed out here. Without this, a
-  // workout that was trained but never walked through the summary counted for
-  // nothing at all — see lib/session/close-stale.ts. No-op on a normal day.
-  const credited = await closeStaleSessions(supabase, todayCloseInput(openRes.data), localToday);
 
   // A four-week block that has run its course rolls over here, on load. Handing
   // it the block we just read makes the common case — the block is current —
@@ -204,6 +199,17 @@ export default async function TodayPage() {
   const allSessions = sessionsRes.data ?? [];
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
 
+  // Load session state: closes stale sessions and prepares view data (c2, e1, f2)
+  const sessionState = await loadTodaySessionState(
+    {
+      fetchOpenSessions: () => Promise.resolve(openRes.data),
+      closeStale: (input, today) => closeStaleSessions(supabase, input, today),
+    },
+    allSessions,
+    todaySessions,
+    localToday
+  );
+
   const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
 
   /*
@@ -289,8 +295,8 @@ export default async function TodayPage() {
   const strengthDone = todaySessions.some(
     (s) => s.status === "completed" && isStrength(s.actual_type),
   );
-  // Resume detection: include in_progress sessions from any date (not just today)
-  const strengthOpen = findOpenStrengthSession(allSessions, todaySessions);
+  // Resume detection: from loader (searches all sessions, not just today)
+  const strengthOpen = sessionState.strengthOpen;
 
   /*
     The day's workout, once it is a thing that happened rather than a thing that
@@ -472,9 +478,9 @@ export default async function TodayPage() {
         </p>
       )}
 
-      {credited > 0 && (
+      {sessionState.creditedBanner && (
         <p className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-          {creditedBannerText(credited)}
+          {sessionState.creditedBanner}
         </p>
       )}
 
