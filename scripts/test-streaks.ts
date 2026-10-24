@@ -251,5 +251,50 @@ console.log("\n12. Skipped sessions don't count");
   check("skipped doesn't count toward days trained", s.totalSessions === 2, `${s.totalSessions}`);
 }
 
+console.log("\n13. Same date with yoga + breathing: yoga wins");
+{
+  // Multiple sessions on same date: prefer the qualifying one
+  const records = buildDayRecords({
+    programs: [{ id: "p1", startedOn: "2026-09-08", endsOn: "2026-10-05" }],
+    dayTypesByProgram: {
+      p1: { 1: "weights", 2: "yoga", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" },
+    },
+    completedSessions: [
+      { local_date: "2026-09-08", actual_type: "weights" },
+      { local_date: "2026-09-09", actual_type: "yoga" },
+      { local_date: "2026-09-09", actual_type: "meditation" }, // same day, breathing later
+      { local_date: "2026-09-10", actual_type: "weights" },
+    ],
+    today: "2026-09-10",
+  });
+  const s = computeStreaks(records, "2026-09-10");
+  check("yoga+breathing day: streak is 3", s.current === 3, `${s.current}`);
+  check("yoga+breathing day: days trained is 3", s.totalSessions === 3, `${s.totalSessions}`);
+  check("yoga+breathing day: streak and days trained agree", s.current === s.totalSessions);
+}
+
+console.log("\n14. Breathe-only on scheduled training day breaks streak");
+{
+  // Breathing on a template rest day: OK. Breathing on a scheduled weights day: breaks.
+  const records = buildDayRecords({
+    programs: [{ id: "p1", startedOn: "2026-09-08", endsOn: "2026-10-05" }],
+    dayTypesByProgram: {
+      // Monday weights, Tuesday weights, Wednesday rest, Thursday weights
+      p1: { 1: "weights", 2: "weights", 3: "rest", 4: "weights", 5: "rest", 6: "rest", 7: "rest" },
+    },
+    completedSessions: [
+      { local_date: "2026-09-08", actual_type: "weights" }, // Mon weights: good
+      { local_date: "2026-09-09", actual_type: "meditation" }, // Tue breathing on training day: BREAKS
+      { local_date: "2026-09-10", actual_type: "meditation" }, // Wed breathing on rest day: OK
+      { local_date: "2026-09-11", actual_type: "weights" }, // Thu weights: restart
+    ],
+    today: "2026-09-11",
+  });
+  const s = computeStreaks(records, "2026-09-11");
+  check("breathe-only on training day breaks streak", s.current === 1, `${s.current}`);
+  check("breathe-only on training day: days trained is 2", s.totalSessions === 2, `${s.totalSessions}`);
+  check("longest streak before break was 1", s.longest === 1, `${s.longest}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

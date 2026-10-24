@@ -1,7 +1,5 @@
 import type { Database } from "@/lib/database.types";
 
-type SessionStatus = Database["public"]["Enums"]["session_status"];
-
 export type SessionSet = {
   id: string;
   is_warmup_set: boolean;
@@ -71,6 +69,9 @@ export async function abandonSessionCore(
 
   const status = decideAbandonStatus(exercises ?? []);
 
+  // Clamp duration to sane range: 0 to 6 hours
+  const clampedDuration = Math.max(0, Math.min(21600, Math.round(elapsedSeconds)));
+
   // Safety: Only update if status is 'in_progress' to prevent double-accumulation on retry.
   // The client's elapsed time is cumulative (wall clock from started_at).
   const { error } = await supabase
@@ -78,7 +79,7 @@ export async function abandonSessionCore(
     .update({
       status,
       completed_at: status === "completed" ? new Date().toISOString() : null,
-      duration_seconds: Math.round(elapsedSeconds),
+      duration_seconds: clampedDuration,
     })
     .eq("id", sessionId)
     .eq("status", "in_progress"); // Only abandon once

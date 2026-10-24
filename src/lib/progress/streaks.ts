@@ -57,13 +57,19 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
     const d = days[i];
     if (d.localDate > today) continue;
     
-    // If completed, check actual session type (handles "train anyway")
-    if (d.completed && d.actualSessionType) {
-      if (countsTowardStreak(d.actualSessionType)) {
-        current++;
-      }
-      // Breathe-only days don't count but don't break the streak either
+    // If completed with a qualifying session type, count it
+    if (d.completed && d.actualSessionType && countsTowardStreak(d.actualSessionType)) {
+      current++;
       continue;
+    }
+    
+    // Breathe-only on a template rest day: doesn't break streak
+    // Breathe-only on a scheduled training day (not today): breaks streak
+    if (d.completed && d.actualSessionType && !countsTowardStreak(d.actualSessionType)) {
+      // It's a breathe-only day. Treat it like no session: rest days OK, training days break.
+      if (d.localDate === today) continue; // Today incomplete is not a failure
+      if (RESTFUL.has(d.dayType)) continue; // Template rest day with breathing
+      break; // Scheduled training day with only breathing: breaks streak
     }
     
     // Not completed: rest days don't break streak, training days do
@@ -78,13 +84,18 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
   for (const d of days) {
     if (d.localDate > today) break;
     
-    // If completed, check actual session type
-    if (d.completed && d.actualSessionType) {
-      if (countsTowardStreak(d.actualSessionType)) {
-        run++;
-        if (run > longest) longest = run;
-      }
-      // Breathe-only days don't count but don't break the streak
+    // If completed with a qualifying session type, count it
+    if (d.completed && d.actualSessionType && countsTowardStreak(d.actualSessionType)) {
+      run++;
+      if (run > longest) longest = run;
+      continue;
+    }
+    
+    // Breathe-only: treat it like no session
+    if (d.completed && d.actualSessionType && !countsTowardStreak(d.actualSessionType)) {
+      if (d.localDate === today) continue;
+      if (RESTFUL.has(d.dayType)) continue; // Rest day with breathing
+      run = 0; // Training day with only breathing: breaks streak
       continue;
     }
     
@@ -133,10 +144,16 @@ export function buildDayRecords(input: {
   // the session the user had just finished.
   const newestFirst = [...ordered].reverse();
 
-  // Map dates to their actual session types
+  // Map dates to their actual session types.
+  // If multiple sessions completed on the same date, prefer one that counts toward
+  // streaks (strength/yoga over breathing).
   const sessionsByDate = new Map<string, SessionType | null>();
   for (const s of completedSessions) {
-    sessionsByDate.set(s.local_date, s.actual_type);
+    const existing = sessionsByDate.get(s.local_date);
+    // Keep the first qualifying type, or replace non-qualifying with qualifying
+    if (!existing || (!countsTowardStreak(existing) && countsTowardStreak(s.actual_type))) {
+      sessionsByDate.set(s.local_date, s.actual_type);
+    }
   }
 
   return dateRange(first, today).map((date) => {

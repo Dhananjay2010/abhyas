@@ -1,102 +1,19 @@
 /**
  * Test that ending a session early with working sets is handled correctly:
- * - Marked as completed (not skipped)
- * - Has real duration > 0
- * - Counts toward streak and days trained
- * - Not re-offered by Today's startSession
- * 
- * And that a session with no working sets:
- * - Is marked as skipped
- * - Is resumable/re-offerable
+ * - decideAbandonStatus returns "completed" when working sets exist
+ * - abandonSessionCore applies status + duration only once (idempotent)
+ * - Duration is clamped to 0..6 hours
+ * - Early-ended completed sessions count toward streak
+ * - Completed sessions are not re-offered by pickReusableSession
  * 
  *   npx tsx scripts/test-abandon-session.ts
  */
 
-// Mock types matching the actual database types
-type SessionStatus = "planned" | "in_progress" | "completed" | "skipped" | "rest";
-type DayType = "weights" | "bodyweight" | "yoga" | "rest" | "active_recovery" | "meditation";
+import { decideAbandonStatus, abandonSessionCore, type SessionExercise, type SupabaseClient } from "../src/lib/session/abandon-session";
+import { buildDayRecords, computeStreaks } from "../src/lib/progress/streaks";
+import { pickReusableSession } from "../src/lib/session/reusable-session";
 
-type SessionSet = {
-  id: string;
-  is_warmup_set: boolean;
-};
-
-type SessionExercise = {
-  id: string;
-  session_sets: SessionSet[];
-};
-
-type Session = {
-  id: string;
-  status: SessionStatus;
-  actual_type: DayType | null;
-  duration_seconds: number | null;
-  completed_at: string | null;
-  local_date: string;
-};
-
-// Simulate the abandonSession logic
-function simulateAbandonSession(
-  session: Session,
-  exercises: SessionExercise[],
-  elapsedSeconds: number
-): Session {
-  // Only proceed if session is in_progress
-  if (session.status !== "in_progress") {
-    return session; // No change
-  }
-
-  // Check if any working sets were logged
-  const hasWorkingSets = exercises.some((ex) =>
-    ex.session_sets.some((s) => !s.is_warmup_set)
-  );
-
-  const newStatus = hasWorkingSets ? "completed" : "skipped";
-
-  return {
-    ...session,
-    status: newStatus,
-    completed_at: hasWorkingSets ? new Date().toISOString() : null,
-    duration_seconds: Math.round(elapsedSeconds),
-  };
-}
-
-// Simulate startSession logic for checking if day is re-offered
-function canStartSession(todaySessions: Session[], resumeEnabled: boolean): {
-  canStart: boolean;
-  reason: string;
-} {
-  const existing = resumeEnabled
-    ? todaySessions.find((s) => s.status === "planned" || s.status === "in_progress") ??
-      // A skipped STRENGTH session can be resumed (not yoga/breathe)
-      todaySessions.find(
-        (s) => s.status === "skipped" && 
-        (s.actual_type === "weights" || s.actual_type === "bodyweight")
-      )
-    : todaySessions.find((s) => s.status === "planned");
-
-  if (existing) {
-    return { canStart: false, reason: "Would resume existing session" };
-  }
-
-  // Check if day is already completed
-  const completed = todaySessions.find(
-    (s) => s.status === "completed" && 
-    (s.actual_type === "weights" || s.actual_type === "bodyweight")
-  );
-
-  if (completed) {
-    return { canStart: false, reason: "Day already completed" };
-  }
-
-  return { canStart: true, reason: "Day is available" };
-}
-
-// Check if session counts toward streak
-function countsTowardStreak(sessionType: DayType | null): boolean {
-  if (!sessionType) return false;
-  return sessionType === "weights" || sessionType === "bodyweight" || sessionType === "yoga";
-}
+(async () => {
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -104,185 +21,208 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-console.log("\n1. Session ended early with working sets");
-{
-  const session: Session = {
-    id: "s1",
-    status: "in_progress",
-    actual_type: "weights",
-    duration_seconds: null,
-    completed_at: null,
-    local_date: "2026-10-24",
-  };
+// Fake Supabase client that stores rows and applies .eq filters
+class FakeSupabase {
+  private sessionExercises: Map<string, SessionExercise[]> = new Map();
+  private sessions: Map<string, { status: string; completed_at: string | null; duration_seconds: number | null }> = new Map();
 
+  setSessionExercises(sessionId: string, exercises: SessionExercise[]) {
+    this.sessionExercises.set(sessionId, exercises);
+  }
+
+  setSession(sessionId: string, status: string) {
+    this.sessions.set(sessionId, { status, completed_at: null, duration_seconds: null });
+  }
+
+  getSession(sessionId: string) {
+    return this.sessions.get(sessionId);
+  }
+
+  from(table: string) {
+    if (table === "session_exercises") {
+      return {
+        select: () => ({
+          eq: (col: string, val: string) => {
+            const exercises = this.sessionExercises.get(val) ?? [];
+            return Promise.resolve({ data: exercises, error: null });
+          },
+        }),
+      };
+    }
+    if (table === "sessions") {
+      return {
+        update: (values: { status: string; completed_at: string | null; duration_seconds: number }) => ({
+          eq: (col1: string, val1: string) => ({
+            eq: (col2: string, val2: string) => {
+              const session = this.sessions.get(val1);
+              if (session && session[col2 as keyof typeof session] === val2) {
+                // Apply update
+                Object.assign(session, values);
+                return Promise.resolve({ error: null });
+              }
+              // .eq filter didn't match, no update
+              return Promise.resolve({ error: null });
+            },
+          }),
+        }),
+      };
+    }
+    throw new Error(`Unknown table: ${table}`);
+  }
+}
+
+console.log("\n1. decideAbandonStatus: working sets → completed");
+{
   const exercises: SessionExercise[] = [
     {
-      id: "e1",
       session_sets: [
-        { id: "set1", is_warmup_set: false },
-        { id: "set2", is_warmup_set: false },
-        { id: "set3", is_warmup_set: false },
-      ],
-    },
-    {
-      id: "e2",
-      session_sets: [
-        { id: "set4", is_warmup_set: false },
-        { id: "set5", is_warmup_set: false },
-        { id: "set6", is_warmup_set: false },
+        { id: "s1", is_warmup_set: true },
+        { id: "s2", is_warmup_set: false }, // working set
       ],
     },
   ];
-
-  const elapsed = 420; // 7 minutes
-  const result = simulateAbandonSession(session, exercises, elapsed);
-
-  check("marked as completed, not skipped", result.status === "completed", result.status);
-  check("has real duration > 0", result.duration_seconds === 420, `${result.duration_seconds}s`);
-  check("has completed_at timestamp", result.completed_at !== null);
-  check("counts toward streak", countsTowardStreak(result.actual_type));
-
-  // Check Today behavior
-  const todayCheck = canStartSession([result], true);
-  check("not re-offered by Today", !todayCheck.canStart, todayCheck.reason);
+  const status = decideAbandonStatus(exercises);
+  check("6 working sets → completed", status === "completed", status);
 }
 
-console.log("\n2. Session ended early with no working sets (warmup only)");
+console.log("\n2. decideAbandonStatus: warm-up only → skipped");
 {
-  const session: Session = {
-    id: "s2",
-    status: "in_progress",
-    actual_type: "weights",
-    duration_seconds: null,
-    completed_at: null,
-    local_date: "2026-10-24",
-  };
-
   const exercises: SessionExercise[] = [
     {
-      id: "e1",
       session_sets: [
-        { id: "set1", is_warmup_set: true },
-        { id: "set2", is_warmup_set: true },
+        { id: "s1", is_warmup_set: true },
+        { id: "s2", is_warmup_set: true },
       ],
     },
   ];
-
-  const elapsed = 120; // 2 minutes
-  const result = simulateAbandonSession(session, exercises, elapsed);
-
-  check("marked as skipped", result.status === "skipped", result.status);
-  check("has duration recorded", result.duration_seconds === 120, `${result.duration_seconds}s`);
-  check("no completed_at", result.completed_at === null);
-  check("does not count toward streak", !countsTowardStreak(result.actual_type) || result.status !== "completed");
-
-  // Check Today behavior
-  const todayCheck = canStartSession([result], true);
-  check("is resumable (can't start new)", !todayCheck.canStart, todayCheck.reason);
+  const status = decideAbandonStatus(exercises);
+  check("warm-up only → skipped", status === "skipped", status);
 }
 
-console.log("\n3. Session ended with zero sets");
+console.log("\n3. decideAbandonStatus: zero sets → skipped");
 {
-  const session: Session = {
-    id: "s3",
-    status: "in_progress",
-    actual_type: "weights",
-    duration_seconds: null,
-    completed_at: null,
-    local_date: "2026-10-24",
-  };
-
-  const exercises: SessionExercise[] = []; // No exercises with sets
-
-  const elapsed = 30; // 30 seconds
-  const result = simulateAbandonSession(session, exercises, elapsed);
-
-  check("marked as skipped", result.status === "skipped", result.status);
-  check("has duration recorded", result.duration_seconds === 30, `${result.duration_seconds}s`);
-  check("no completed_at", result.completed_at === null);
-
-  // Check Today behavior
-  const todayCheck = canStartSession([result], true);
-  check("is resumable (can't start new)", !todayCheck.canStart, todayCheck.reason);
+  const exercises: SessionExercise[] = [{ session_sets: [] }];
+  const status = decideAbandonStatus(exercises);
+  check("zero sets → skipped", status === "skipped", status);
 }
 
-console.log("\n4. Multiple scenarios for streak and days trained");
+console.log("\n4. abandonSessionCore: applies status and duration once");
 {
-  // Scenario A: Early end with sets
-  const completedEarly: Session = {
-    id: "s4",
-    status: "completed",
-    actual_type: "weights",
-    duration_seconds: 300,
-    completed_at: new Date().toISOString(),
-    local_date: "2026-10-24",
-  };
+  const fake = new FakeSupabase();
+  fake.setSessionExercises("sess1", [
+    {
+      session_sets: [
+        { id: "s1", is_warmup_set: false },
+        { id: "s2", is_warmup_set: false },
+      ],
+    },
+  ]);
+  fake.setSession("sess1", "in_progress");
 
-  // Scenario B: Skipped (no sets)
-  const skipped: Session = {
-    id: "s5",
-    status: "skipped",
-    actual_type: "weights",
-    duration_seconds: 60,
-    completed_at: null,
-    local_date: "2026-10-25",
-  };
-
-  const sessions = [completedEarly, skipped];
-  const daysTrained = sessions.filter(
-    (s) => s.status === "completed" && countsTowardStreak(s.actual_type)
-  ).length;
-
-  check("early-end session counts as day trained", daysTrained === 1, `${daysTrained} days`);
-  check("skipped session does not count", daysTrained === 1, `${daysTrained} days`);
-}
-
-console.log("\n5. History display expectations");
-{
-  const completedEarly: Session = {
-    id: "s6",
-    status: "completed",
-    actual_type: "weights",
-    duration_seconds: 420,
-    completed_at: new Date().toISOString(),
-    local_date: "2026-10-24",
-  };
-
-  const skipped: Session = {
-    id: "s7",
-    status: "skipped",
-    actual_type: "weights",
-    duration_seconds: 60,
-    completed_at: null,
-    local_date: "2026-10-25",
-  };
-
-  check("completed early shows duration in history", 
-    completedEarly.status === "completed" && completedEarly.duration_seconds !== null && completedEarly.duration_seconds > 0,
-    `${completedEarly.duration_seconds}s`);
+  await abandonSessionCore(fake as unknown as SupabaseClient, "sess1", 1234.5);
   
-  check("completed early shows completed_at", completedEarly.completed_at !== null);
-  
-  // Note: Skipped sessions CAN have duration, but UI may show "—" for skipped
-  check("skipped has duration recorded", skipped.duration_seconds !== null && skipped.duration_seconds > 0);
-  check("skipped has no completed_at", skipped.completed_at === null);
+  const session = fake.getSession("sess1");
+  check("status is completed", session?.status === "completed", session?.status);
+  check("duration is 1235", session?.duration_seconds === 1235, String(session?.duration_seconds));
+  check("completed_at is set", session?.completed_at !== null);
 }
 
-console.log("\n6. Resume disabled behavior");
+console.log("\n5. abandonSessionCore: second call is no-op");
 {
-  const skipped: Session = {
-    id: "s8",
-    status: "skipped",
-    actual_type: "weights",
-    duration_seconds: 60,
-    completed_at: null,
-    local_date: "2026-10-24",
-  };
+  const fake = new FakeSupabase();
+  fake.setSessionExercises("sess2", [
+    { session_sets: [{ id: "s1", is_warmup_set: false }] },
+  ]);
+  fake.setSession("sess2", "in_progress");
 
-  // With resume disabled, skipped sessions are NOT resumed
-  const todayCheck = canStartSession([skipped], false);
-  check("skipped not resumed when resume disabled", todayCheck.canStart, todayCheck.reason);
+  await abandonSessionCore(fake as unknown as SupabaseClient, "sess2", 600);
+  const after1 = fake.getSession("sess2");
+  
+  await abandonSessionCore(fake as unknown as SupabaseClient, "sess2", 900); // retry with different duration
+  const after2 = fake.getSession("sess2");
+  
+  check("duration unchanged on retry", after1?.duration_seconds === after2?.duration_seconds, `${after1?.duration_seconds} vs ${after2?.duration_seconds}`);
+  check("still 600 seconds", after2?.duration_seconds === 600, String(after2?.duration_seconds));
+}
+
+console.log("\n6. abandonSessionCore: duration clamped to 0..6 hours");
+{
+  const fake1 = new FakeSupabase();
+  fake1.setSessionExercises("neg", [{ session_sets: [{ id: "s1", is_warmup_set: false }] }]);
+  fake1.setSession("neg", "in_progress");
+  await abandonSessionCore(fake1 as unknown as SupabaseClient, "neg", -100);
+  check("negative duration clamped to 0", fake1.getSession("neg")?.duration_seconds === 0, String(fake1.getSession("neg")?.duration_seconds));
+
+  const fake2 = new FakeSupabase();
+  fake2.setSessionExercises("huge", [{ session_sets: [{ id: "s1", is_warmup_set: false }] }]);
+  fake2.setSession("huge", "in_progress");
+  await abandonSessionCore(fake2 as unknown as SupabaseClient, "huge", 50000);
+  check("50000 seconds clamped to 21600 (6 hours)", fake2.getSession("huge")?.duration_seconds === 21600, String(fake2.getSession("huge")?.duration_seconds));
+
+  const fake3 = new FakeSupabase();
+  fake3.setSessionExercises("frac", [{ session_sets: [{ id: "s1", is_warmup_set: false }] }]);
+  fake3.setSession("frac", "in_progress");
+  await abandonSessionCore(fake3 as unknown as SupabaseClient, "frac", 123.7);
+  check("fractional seconds rounded", fake3.getSession("frac")?.duration_seconds === 124, String(fake3.getSession("frac")?.duration_seconds));
+}
+
+console.log("\n7. Early-ended completed session counts toward streak");
+{
+  const records = buildDayRecords({
+    programs: [{ id: "p1", startedOn: "2026-09-08", endsOn: "2026-10-05" }],
+    dayTypesByProgram: {
+      p1: { 1: "weights", 2: "rest", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" },
+    },
+    completedSessions: [
+      // Monday weights, abandoned early but had working sets so it's completed
+      { local_date: "2026-09-08", actual_type: "weights" },
+    ],
+    today: "2026-09-08",
+  });
+  
+  const s = computeStreaks(records, "2026-09-08");
+  check("early-ended completed session: streak is 1", s.current === 1, `${s.current}`);
+  check("early-ended completed session: days trained is 1", s.totalSessions === 1, `${s.totalSessions}`);
+}
+
+console.log("\n8. pickReusableSession: completed strength session not re-offered");
+{
+  const todayRows = [
+    { id: "sess1", status: "completed" as const, actual_type: "weights" as const },
+  ];
+  const reusable = pickReusableSession(todayRows as unknown as Parameters<typeof pickReusableSession>[0], true);
+  check("completed session not reused", reusable === undefined, reusable ? `got ${reusable.id}` : "");
+}
+
+console.log("\n9. pickReusableSession: skipped strength session IS reused when resume enabled");
+{
+  const todayRows = [
+    { id: "sess2", status: "skipped" as const, actual_type: "weights" as const },
+  ];
+  const reusable = pickReusableSession(todayRows as unknown as Parameters<typeof pickReusableSession>[0], true);
+  check("skipped strength session is reused", reusable?.id === "sess2", reusable?.id);
+}
+
+console.log("\n10. pickReusableSession: skipped yoga session NOT reused");
+{
+  const todayRows = [
+    { id: "sess3", status: "skipped" as const, actual_type: "yoga" as const },
+  ];
+  const reusable = pickReusableSession(todayRows as unknown as Parameters<typeof pickReusableSession>[0], true);
+  check("skipped yoga not reused", reusable === undefined, reusable ? `got ${reusable.id}` : "");
+}
+
+console.log("\n11. pickReusableSession: resume disabled → only planned reused");
+{
+  const todayRows = [
+    { id: "sess4", status: "in_progress" as const, actual_type: "weights" as const },
+    { id: "sess5", status: "planned" as const, actual_type: "weights" as const },
+  ];
+  const reusable = pickReusableSession(todayRows as unknown as Parameters<typeof pickReusableSession>[0], false);
+  check("resume disabled: only planned", reusable?.id === "sess5", reusable?.id);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
+
+})();
