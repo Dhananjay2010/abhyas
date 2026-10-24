@@ -1,7 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { addDays, localDateString } from "@/lib/dates";
 import {
