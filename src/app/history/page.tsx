@@ -21,14 +21,10 @@ export default async function HistoryPage({
   if (!user) redirect("/");
 
   const params = await searchParams;
-  const filter = (params.filter as SessionType) || "lifts";
-  const page = parseInt(params.page || "1", 10);
-  const limit = 20;
-  const offset = (page - 1) * limit;
 
   const profileRes = await supabase
     .from("profiles")
-    .select("timezone, onboarding_completed_at, units")
+    .select("timezone, onboarding_completed_at, units, primary_track")
     .eq("id", user.id)
     .single();
 
@@ -40,6 +36,13 @@ export default async function HistoryPage({
   const today = localDateString(timezone);
   const units = getUnitsPreference(profile.units);
 
+  // Default filter based on member's primary track (QA M-4)
+  const { getDefaultFilter } = await import("@/lib/history/default-filter");
+  const defaultFilter = getDefaultFilter(profile.primary_track);
+  const filter = (params.filter as SessionType) || defaultFilter;
+  
+  const limit = 20;
+
   // Get ordered session IDs and total count from single RPC
   // @ts-expect-error - RPC function not in generated types yet
   const { data: pageData, error: pageError } = await supabase.rpc("get_history_page", {
@@ -47,17 +50,46 @@ export default async function HistoryPage({
     p_filter: filter,
     p_today: today,
     p_limit: limit,
-    p_offset: offset,
+    p_offset: 0, // Will be set after page validation
   });
 
   if (pageError) {
-    throw new Error(`Could not load your history: ${pageError.message}`);
+    console.error("Failed to load history page:", pageError);
   }
 
   type PageRow = { session_id: string | null; total_count: number };
-  const pageRows = (pageData ?? []) as unknown as PageRow[];
-  const sessionIds = pageRows.map((r) => r.session_id).filter((id): id is string => id !== null);
+  const pageRows = pageError ? [] : ((pageData ?? []) as unknown as PageRow[]);
   const count = pageRows.length > 0 ? Number(pageRows[0].total_count) : 0;
+
+  // Parse and validate page param (QA Bot 3 M4)
+  const { parsePageParam } = await import("@/lib/history/parse-page-param");
+  const totalPages = Math.ceil(count / limit);
+  const page = parsePageParam(params.page, totalPages);
+  const offset = (page - 1) * limit;
+
+  // If page param was invalid or beyond range, refetch with corrected offset
+  const needsRefetch = params.page !== undefined && (
+    parseInt(params.page, 10) !== page ||
+    isNaN(parseInt(params.page, 10))
+  );
+
+  let finalPageData = pageData;
+  let finalPageError = pageError;
+  if (!pageError && needsRefetch) {
+    // @ts-expect-error - RPC function not in generated types yet
+    const refetch = await supabase.rpc("get_history_page", {
+      p_user: user.id,
+      p_filter: filter,
+      p_today: today,
+      p_limit: limit,
+      p_offset: offset,
+    });
+    finalPageData = refetch.data;
+    finalPageError = refetch.error;
+  }
+
+  const finalPageRows = finalPageError ? [] : ((finalPageData ?? []) as unknown as PageRow[]);
+  const sessionIds = finalPageRows.map((r) => r.session_id).filter((id): id is string => id !== null);
 
   // Fetch session details for the IDs returned by RPC
   const { data: sessions, error: sessionsError } = await supabase
@@ -81,27 +113,35 @@ export default async function HistoryPage({
     .in("id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
 
   if (sessionsError) {
-    throw new Error(`Could not load session details: ${sessionsError.message}`);
+    console.error("Failed to load session details:", sessionsError);
   }
 
   // Re-sort sessions in JS to match RPC order
-  const sessionById = new Map(sessions.map((s) => [s.id, s]));
+  const sessionById = new Map((sessions ?? []).map((s) => [s.id, s]));
   const orderedSessions = sessionIds.map((id) => sessionById.get(id)).filter(Boolean) as typeof sessions;
 
-  // Get volume data for strength sessions
-  const { data: volumeData } = await supabase
+  // Get volume data for strength sessions (QA Bot 3 M3: handle errors silently)
+  const { data: volumeData, error: volumeError } = await supabase
     .from("session_volume")
     .select("session_id, volume_kg, set_count")
     .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
 
+  if (volumeError) {
+    console.error("Failed to load session volume:", volumeError);
+  }
+
   const volumeById = new Map((volumeData ?? []).map((v) => [v.session_id, v]));
 
-  // Get session exercises to find top sets and PRs, and to calculate planned sets
-  const { data: sessionExercises } = await supabase
+  // Get session exercises to find top sets and PRs, and to calculate planned sets (QA Bot 3 M3: handle errors silently)
+  const { data: sessionExercises, error: exercisesError } = await supabase
     .from("session_exercises")
     .select("id, session_id, exercise_id, metric, planned_sets")
     .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"])
     .eq("status", "completed");
+
+  if (exercisesError) {
+    console.error("Failed to load session exercises:", exercisesError);
+  }
 
   const exercisesBySession = new Map<string, Array<{ id: string; exercise_id: string; metric: string }>>();
   const plannedSetsBySession = new Map<string, number>();
@@ -133,17 +173,23 @@ export default async function HistoryPage({
 
   // Get all sets for these session_exercises to calculate top sets only
   // (set counts already computed by detectSessionPRs above)
+  // QA Bot 3 M3: handle errors silently
   const sessionExerciseIds = (sessionExercises ?? []).map((se) => se.id);
   const allSets: Array<{ session_exercise_id: string; reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }> = [];
   const chunkSize = 100;
+  let setsError = null;
   
   for (let i = 0; i < sessionExerciseIds.length; i += chunkSize) {
     const chunk = sessionExerciseIds.slice(i, i + chunkSize);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("session_sets")
       .select("session_exercise_id, reps, weight_kg, duration_seconds, is_warmup_set")
       .in("session_exercise_id", chunk)
       .eq("is_warmup_set", false);  // Only need working sets for top set calculation
+    if (error) {
+      setsError = error;
+      console.error("Failed to load session sets:", error);
+    }
     if (data) allSets.push(...data);
   }
 
@@ -229,6 +275,9 @@ export default async function HistoryPage({
   // For lifts, filtering already happened at SQL level via session_volume join
   // For yoga/breathing, no filtering needed (they don't have zero-set issues)
 
+  // Collect error flags (QA Bot 3 M3)
+  const hasErrors = !!(finalPageError || sessionsError || volumeError || exercisesError || setsError);
+
   return (
     <HistoryClient
       items={items}
@@ -238,6 +287,7 @@ export default async function HistoryPage({
       today={today}
       timezone={timezone}
       units={units}
+      hasErrors={hasErrors}
     />
   );
 }
