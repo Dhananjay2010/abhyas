@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
-import { buildCloseStaleDeps, type CloseStaleDeps } from "./close-stale-deps";
+import { buildCloseStaleDeps } from "./close-stale-deps";
+import type { CloseStaleDeps } from "./close-stale-deps";
+
+export type { CloseStaleDeps };
 
 type Client = SupabaseClient<Database>;
 
