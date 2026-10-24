@@ -113,6 +113,33 @@ if (noShortChains) {
   console.log(`  ok   no chains with fewer than 2 exercises`);
 }
 
+// Test 6: Unknown slug throws error
+console.log('\n6. Unknown slug error handling');
+const syntheticChainsWithUnknown: Readonly<Record<string, readonly string[]>> = {
+  "test-chain": ["pushups", "this-slug-does-not-exist-xyz"]
+};
+
+let threwError = false;
+let errorMessage = '';
+
+try {
+  findNonBodyweightSlugs(syntheticChainsWithUnknown, catalogue);
+} catch (err) {
+  threwError = true;
+  errorMessage = (err instanceof Error) ? err.message : String(err);
+}
+
+if (!threwError) {
+  console.error(`  FAIL findNonBodyweightSlugs should throw on unknown slug`);
+  pass = false;
+} else if (!errorMessage.includes('this-slug-does-not-exist-xyz') || !errorMessage.includes('not found')) {
+  console.error(`  FAIL error message should contain slug name and "not found", got: "${errorMessage}"`);
+  pass = false;
+} else {
+  console.log(`  ok   findNonBodyweightSlugs throws on unknown slug`);
+  console.log(`  ok   error message contains slug name and "not found"`);
+}
+
 if (pass) {
   console.log('\n✅ All progression chain checks passed!\n');
   process.exit(0);
