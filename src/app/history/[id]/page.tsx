@@ -4,6 +4,7 @@ import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
+import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +28,7 @@ export default async function SessionDetailPage({
 }) {
   const { id } = await params;
   
-  // Validate UUID format before querying
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
-    notFound();
-  }
+  if (!isUuid(id)) notFound();
   
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");

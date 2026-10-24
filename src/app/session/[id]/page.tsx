@@ -5,6 +5,7 @@ import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
+import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +18,7 @@ export default async function SessionPage({
 }) {
   const { id } = await params;
   
-  // Validate UUID format before querying
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
-    notFound();
-  }
+  if (!isUuid(id)) notFound();
   
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");

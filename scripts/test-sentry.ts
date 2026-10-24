@@ -11,12 +11,13 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type * as Sentry from "@sentry/nextjs";
 
-// Import the REAL functions we're testing from the shared module
+// Import the REAL functions we're testing from the shared modules
 import {
   scrubPII,
   scrubEmailsFromString,
   scrubTokensFromURL,
 } from "../src/lib/sentry/scrub";
+import { isUuid } from "../src/lib/ids";
 
 // Instrumentation file structure tests
 
@@ -41,6 +42,31 @@ test("instrumentation-client.ts exports onRouterTransitionStart", async () => {
   const instrumentationClient = await import("../src/instrumentation-client");
   
   strictEqual(typeof instrumentationClient.onRouterTransitionStart, "function", "onRouterTransitionStart must be exported");
+});
+
+// UUID validation tests
+
+test("isUuid accepts valid v4 UUID", () => {
+  strictEqual(isUuid("550e8400-e29b-41d4-a716-446655440000"), true);
+  strictEqual(isUuid("6ba7b810-9dad-11d1-80b4-00c04fd430c8"), true);
+});
+
+test("isUuid accepts uppercase UUID", () => {
+  strictEqual(isUuid("550E8400-E29B-41D4-A716-446655440000"), true);
+  strictEqual(isUuid("AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE"), true);
+});
+
+test("isUuid rejects invalid UUID formats", () => {
+  strictEqual(isUuid("not-a-uuid"), false);
+  strictEqual(isUuid("550e8400-e29b-41d4-a716"), false);
+  strictEqual(isUuid("550e8400e29b41d4a716446655440000"), false); // no hyphens
+  strictEqual(isUuid("550e8400-e29b-41d4-a716-446655440000-extra"), false);
+});
+
+test("isUuid rejects empty and SQL-injection-like strings", () => {
+  strictEqual(isUuid(""), false);
+  strictEqual(isUuid("' OR 1=1 --"), false);
+  strictEqual(isUuid("1; DROP TABLE sessions;"), false);
 });
 
 // PII Scrubbing tests - testing the REAL exported functions
