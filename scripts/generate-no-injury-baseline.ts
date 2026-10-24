@@ -16,7 +16,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const WORKTREE_PATH = "/tmp/abhyas-main-worktree";
@@ -59,8 +59,6 @@ interface BaselineEntry {
     }>;
   };
 }
-
-type Baseline = Record<string, BaselineEntry>;
 
 console.log("Generating no-injury baseline from origin/main");
 console.log("─".repeat(60));
