@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { updateSessionDateTime } from "../actions";
 import { utcToZonedDateTime, zonedDateTimeToUtc } from "@/lib/timezone";
+import { localDateString } from "@/lib/dates";
 
 interface EditSessionProps {
   sessionId: string;
@@ -10,9 +11,17 @@ interface EditSessionProps {
   startedAt: string | null;
   completedAt: string | null;
   timezone: string;
+  signupDate: string;
 }
 
-export function EditSession({ sessionId, localDate, startedAt, completedAt, timezone }: EditSessionProps) {
+export function EditSession({ 
+  sessionId, 
+  localDate, 
+  startedAt, 
+  completedAt, 
+  timezone,
+  signupDate,
+}: EditSessionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +33,20 @@ export function EditSession({ sessionId, localDate, startedAt, completedAt, time
   const [editedDate, setEditedDate] = useState(localDate);
   const [editedStartTime, setEditedStartTime] = useState(startZoned?.time || "");
   const [editedEndTime, setEditedEndTime] = useState(endZoned?.time || "");
+
+  // Calculate date picker limits
+  const [minDate, setMinDate] = useState<string>("");
+  const [maxDate, setMaxDate] = useState<string>("");
+
+  useEffect(() => {
+    // Calculate min date from signup date
+    const signupLocalDate = utcToZonedDateTime(signupDate, timezone).date;
+    setMinDate(signupLocalDate);
+    
+    // Calculate max date as today
+    const today = localDateString(timezone);
+    setMaxDate(today);
+  }, [signupDate, timezone]);
 
   const handleSave = () => {
     setError(null);
@@ -89,7 +112,7 @@ export function EditSession({ sessionId, localDate, startedAt, completedAt, time
     <div className="mt-4 rounded-lg border border-border bg-surface p-4">
       <h3 className="text-sm font-medium">Edit Session</h3>
       {error && (
-        <div className="mt-2 rounded bg-red-500/10 px-3 py-2 text-sm text-red-600">
+        <div className="mt-2 rounded bg-[rgb(var(--destructive-rgb)/0.1)] px-3 py-2 text-sm text-[rgb(var(--destructive-rgb))]">
           {error}
         </div>
       )}
@@ -100,6 +123,8 @@ export function EditSession({ sessionId, localDate, startedAt, completedAt, time
             type="date"
             value={editedDate}
             onChange={(e) => setEditedDate(e.target.value)}
+            min={minDate}
+            max={maxDate}
             className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
           />
         </div>
