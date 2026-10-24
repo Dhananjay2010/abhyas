@@ -48,7 +48,7 @@ import { MOODS, moodLabel, type Pattern, type SessionOptions } from "@/lib/breat
 import type { ResolvedStep, Routine } from "@/lib/breathing/routine";
 import { GLOW_BG, HALO_BG, ORB_BG, SESSION_BG } from "@/lib/breathing/theme";
 import { formatClock, useWakeLock, vibrate } from "@/lib/session/device";
-import { formatDuration } from "@/lib/format-duration";
+import { formatDuration, formatWeekDuration } from "@/lib/format-duration";
 import { focusTrap } from "@/lib/focus-trap";
 import {
   rateBreathingPractice,
@@ -1073,7 +1073,7 @@ function Practice({
   }
 
   if (stage === "finished" && outcome) {
-    const weekMinutes = formatDuration(week.seconds);
+    const weekMinutes = formatWeekDuration(week.seconds);
     // A routine's summary is the whole thing, not just its last step.
     const seconds = before.seconds + outcome.seconds;
     const breaths = before.breaths + outcome.breaths;
@@ -1208,6 +1208,8 @@ function Practice({
         {announce}
       </p>
 
+      {/* Main session content - inert when pause dialog is open */}
+      <div inert={paused && !backPressed ? (true as any) : undefined}>
       <header
         className="relative mx-auto w-full max-w-md shrink-0 px-6"
         style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
@@ -1385,6 +1387,8 @@ function Practice({
           </>
         )}
       </footer>
+      </div>
+      {/* End of inert content */}
 
       {needsTap && (
         <div
