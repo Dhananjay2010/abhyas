@@ -61,11 +61,13 @@ function longDate(iso: string): string {
 }
 
 function formatTime(isoTimestamp: string, timezone: string): string {
-  return formatInTimezone(new Date(isoTimestamp), timezone, {
+  const formatted = formatInTimezone(new Date(isoTimestamp), timezone, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
   });
+  // Convert AM/PM to lowercase am/pm
+  return formatted.replace(/\sAM$/, " am").replace(/\sPM$/, " pm");
 }
 
 export function HistoryClient({
