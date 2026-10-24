@@ -1117,7 +1117,9 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     });
     
     // H6: After slot assignment, ensure Lower/Full days for knee-injured users have at least 1 quad exercise
-    if (hasKneeInjury && isLowerOrFullDay) {
+    const hasPastKnee = input.anyKneeInjury && !input.currentInjuryRegions.includes("knee");
+    
+    if ((hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {
       const hasQuadWork = pickedExercises.some(p => p.ex.primary_muscles.includes("quads"));
       if (!hasQuadWork) {
         // PR #73 Task 3a: For CURRENT knee, skip wall-sit if no accessory slots available
@@ -1125,10 +1127,13 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         const totalSlots = maxExercises;
         const hasAccessorySlots = totalSlots > 4;
         
+        // Select appropriate list: KNEE_SAFE_QUAD_EXERCISES for current, PAST_KNEE_LUNGE_EXERCISES for past
+        const allowedSlugs = hasPastKnee ? PAST_KNEE_LUNGE_EXERCISES : KNEE_SAFE_QUAD_EXERCISES;
+        
         // Force-add a knee-safe quad exercise (including wall-sit as accessory)
         const kneeSafeOptions = pool
           .filter(e => {
-            if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+            if (!allowedSlugs.has(e.slug)) return false;
             // PR #73 Task 3a: Skip wall-sit for current-knee if no accessory slots
             if (hasCurrentKneeLocal && e.slug === "wall-sit" && !hasAccessorySlots) return false;
             if (!e.primary_muscles.includes("quads")) return false;
