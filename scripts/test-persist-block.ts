@@ -133,23 +133,11 @@ async function runTests() {
 
     check("persistBlock succeeded", result.ok);
 
-    // Find the new program and new Lower day
-    const newProgram = fake.store.programs?.[0];
-    const newLowerDay = fake.store.program_days?.find((d) => d.label === "Lower" && d.program_id === newProgram?.id);
-    
-    check("new program created", !!newProgram);
-    check("new Lower day created", !!newLowerDay);
-
-    // CRITICAL: Assert session was repointed to new program and day
+    // persistBlock no longer calls repoint (rebuild path uses RPC now)
+    // Session should NOT be repointed
     const session = fake.store.sessions[0];
-    check("session program_id points to NEW program (repoint called)", 
-      session.program_id === newProgram?.id,
-      `expected ${newProgram?.id}, got ${session.program_id}`
-    );
-    check("session program_day_id points to NEW Lower day (repoint called)", 
-      session.program_day_id === newLowerDay?.id,
-      `expected ${newLowerDay?.id}, got ${session.program_day_id}`
-    );
+    check("session NOT repointed by persistBlock", session.program_id === "old-program");
+    check("session day NOT repointed by persistBlock", session.program_day_id === "old-lower-day");
   }
 
   console.log("\nX1/X2: 0-set in_progress session rebuilt on rebuild");
