@@ -56,23 +56,31 @@ function testValidBrandsLoad() {
 
   // Test default brand
   try {
-    execSync(
+    const result = execSync(
       `NEXT_PUBLIC_BRAND=default npx tsx -e "import('./src/lib/branding').then(m => { if (m.branding.id !== 'default') throw new Error('Wrong brand'); })"`,
       { encoding: "utf-8", stdio: "pipe" }
     );
     console.log("  ✓ Default brand loads successfully");
   } catch (error) {
+    const e = error as { stderr?: Buffer; stdout?: Buffer; message?: string };
+    console.error("    Default brand test failed:");
+    console.error("    stdout:", e.stdout?.toString() || "(empty)");
+    console.error("    stderr:", e.stderr?.toString() || "(empty)");
     throw new Error("Default brand should load successfully");
   }
 
   // Test example brand
   try {
-    execSync(
+    const result = execSync(
       `NEXT_PUBLIC_BRAND=example npx tsx -e "import('./src/lib/branding').then(m => { if (m.branding.id !== 'example') throw new Error('Wrong brand'); })"`,
       { encoding: "utf-8", stdio: "pipe" }
     );
     console.log("  ✓ Example brand loads successfully");
   } catch (error) {
+    const e = error as { stderr?: Buffer; stdout?: Buffer; message?: string };
+    console.error("    Example brand test failed:");
+    console.error("    stdout:", e.stdout?.toString() || "(empty)");
+    console.error("    stderr:", e.stderr?.toString() || "(empty)");
     throw new Error("Example brand should load successfully");
   }
 }
