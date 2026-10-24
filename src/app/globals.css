@@ -48,6 +48,11 @@ body:has([data-offline]) [data-bottom-nav] {
   display: none;
 }
 
+/* Add extra bottom padding for the in-progress bar */
+body:has([data-in-progress-bar]) main {
+  padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+}
+
 /* Nothing in a guided session should be accidentally selectable mid-set. */
 button {
   -webkit-tap-highlight-color: transparent;
