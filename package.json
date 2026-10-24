@@ -187,7 +187,12 @@
     "test:load-start-program": "tsx scripts/test-load-start-program.ts",
     "test:load-plan-day": "tsx scripts/test-load-plan-day.ts",
     "test:today-refetch": "tsx scripts/test-today-refetch.ts",
-    "test:update-session-core": "tsx scripts/test-update-session-core.ts"
+    "test:update-session-core": "tsx scripts/test-update-session-core.ts",
+    "test:sign-in-again-href": "tsx scripts/test-sign-in-again-href.ts",
+    "test:settings-form-session-expired": "tsx scripts/test-settings-form-session-expired.tsx",
+    "test:settings-user-stash-isolation": "tsx scripts/test-settings-user-stash-isolation.tsx",
+    "test:pending-changes-stash": "tsx scripts/test-pending-changes-stash.ts",
+    "test:today-signout-clears-stash": "tsx scripts/test-today-signout-clears-stash.tsx"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

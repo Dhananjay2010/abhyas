@@ -3,6 +3,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
+import { SignOutForm } from "./signout-form";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { addDays, isoWeekday, localDateString } from "@/lib/dates";
@@ -81,11 +82,9 @@ export default async function TodayPage() {
           You are signed in, but your profile could not be created. This is our
           problem, not yours.
         </p>
-        <form action="/auth/signout" method="post" className="mt-8">
-          <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
-            Sign out and try again
-          </button>
-        </form>
+        <div className="mt-8">
+          <SignOutForm label="Sign out and try again" />
+        </div>
       </main>
     );
   }
@@ -737,11 +736,7 @@ export default async function TodayPage() {
 
       <div className="mt-10 space-y-3">
         <BuildPlanButton label="Rebuild this block" />
-        <form action="/auth/signout" method="post">
-          <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
-            Sign out
-          </button>
-        </form>
+        <SignOutForm label="Sign out" />
       </div>
 
     </main>
