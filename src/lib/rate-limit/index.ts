@@ -149,7 +149,7 @@ export async function checkRateLimit(
 }
 
 /**
- * Extract client IP from request headers.
+ * Extract client IP from a headers object.
  * 
  * On Vercel, prefers x-vercel-forwarded-for (most accurate), then x-real-ip,
  * then the first entry of x-forwarded-for.
@@ -157,20 +157,20 @@ export async function checkRateLimit(
  * Falls back to 127.0.0.1 for local dev. This puts all header-less requests
  * in one bucket locally, which is fine for development.
  */
-export function getClientIp(request: Request): string {
+export function getClientIpFromHeaders(headers: { get(name: string): string | null }): string {
   // Vercel's own header, most accurate (can be comma-separated list)
-  const vercelForwarded = request.headers.get("x-vercel-forwarded-for");
+  const vercelForwarded = headers.get("x-vercel-forwarded-for");
   if (vercelForwarded) {
     const ip = vercelForwarded.split(",")[0].trim();
     if (ip) return ip;
   }
 
   // x-real-ip is next best
-  const realIp = request.headers.get("x-real-ip");
+  const realIp = headers.get("x-real-ip");
   if (realIp) return realIp;
 
   // x-forwarded-for as fallback (first IP in chain)
-  const forwarded = request.headers.get("x-forwarded-for");
+  const forwarded = headers.get("x-forwarded-for");
   if (forwarded) {
     const ip = forwarded.split(",")[0].trim();
     if (ip) return ip;
@@ -178,6 +178,15 @@ export function getClientIp(request: Request): string {
 
   // Local dev fallback - all requests without headers share one bucket
   return "127.0.0.1";
+}
+
+/**
+ * Extract client IP from request headers.
+ * 
+ * Convenience wrapper around getClientIpFromHeaders for Request objects.
+ */
+export function getClientIp(request: Request): string {
+  return getClientIpFromHeaders(request.headers);
 }
 
 /**

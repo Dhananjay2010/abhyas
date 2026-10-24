@@ -14,6 +14,7 @@ delete process.env.UPSTASH_REDIS_REST_TOKEN;
 import {
   checkRateLimit,
   getClientIp,
+  getClientIpFromHeaders,
   createRateLimitKey,
   type RateLimitType,
 } from "../src/lib/rate-limit/index";
@@ -76,7 +77,39 @@ async function runTests() {
     check("falls back to 127.0.0.1 (local dev)", getClientIp(req4) === "127.0.0.1");
   }
 
-  console.log("\n3. Rate limit key generation");
+  console.log("\n3. getClientIpFromHeaders (generic headers interface)");
+  {
+    // Mock Next.js headers() return type
+    const mockHeaders = (headers: Record<string, string>) => ({
+      get: (name: string) => headers[name.toLowerCase()] ?? null,
+    });
+
+    // x-vercel-forwarded-for with comma-separated list
+    const headers1 = mockHeaders({
+      "x-vercel-forwarded-for": "10.0.0.1, 10.0.0.2",
+      "x-real-ip": "192.168.1.1",
+    });
+    check("extracts first IP from x-vercel-forwarded-for list", getClientIpFromHeaders(headers1) === "10.0.0.1");
+
+    // x-real-ip fallback
+    const headers2 = mockHeaders({
+      "x-real-ip": "172.16.0.1",
+      "x-forwarded-for": "8.8.8.8",
+    });
+    check("prefers x-real-ip", getClientIpFromHeaders(headers2) === "172.16.0.1");
+
+    // x-forwarded-for fallback (comma-separated)
+    const headers3 = mockHeaders({
+      "x-forwarded-for": "203.0.113.1, 198.51.100.1",
+    });
+    check("extracts first IP from x-forwarded-for", getClientIpFromHeaders(headers3) === "203.0.113.1");
+
+    // Empty headers
+    const headers4 = mockHeaders({});
+    check("falls back to 127.0.0.1", getClientIpFromHeaders(headers4) === "127.0.0.1");
+  }
+
+  console.log("\n4. Rate limit key generation");
   {
     check("uses IP when no user ID", createRateLimitKey("1.2.3.4") === "1.2.3.4");
     check("uses userId when provided", createRateLimitKey("1.2.3.4", "user-123") === "user-123");
@@ -86,7 +119,7 @@ async function runTests() {
     );
   }
 
-  console.log("\n4. Test limiter enforces limits");
+  console.log("\n5. Test limiter enforces limits");
   {
     const testLimiters = createTestLimiters({
       default: { limit: 3, window: "1 m" },
@@ -107,7 +140,7 @@ async function runTests() {
     check("retryAfter is set", blocked.retryAfter !== undefined && blocked.retryAfter > 0);
   }
 
-  console.log("\n5. Different rate limit types work");
+  console.log("\n6. Different rate limit types work");
   {
     const testLimiters = createTestLimiters({
       auth: { limit: 2, window: "1 m" },
@@ -123,7 +156,7 @@ async function runTests() {
     }
   }
 
-  console.log("\n6. Separate keys have separate buckets");
+  console.log("\n7. Separate keys have separate buckets");
   {
     const testLimiters = createTestLimiters({
       default: { limit: 2, window: "1 m" },
@@ -140,7 +173,7 @@ async function runTests() {
     check("user2 is not blocked", user2First.success === true);
   }
 
-  console.log("\n7. Fail-open on error (simulated)");
+  console.log("\n8. Fail-open on error (simulated)");
   {
     // Test that checkRateLimit handles errors gracefully
     const faultyLimiter = {
@@ -159,7 +192,7 @@ async function runTests() {
     check("limit is Infinity on error", result.limit === Infinity);
   }
 
-  console.log("\n8. Fail-open on timeout (simulated)");
+  console.log("\n9. Fail-open on timeout (simulated)");
   {
     // Test that checkRateLimit times out slow responses (500ms timeout)
     const slowLimiter = {
@@ -179,7 +212,7 @@ async function runTests() {
     check("limit is Infinity on timeout", result.limit === Infinity);
   }
 
-  console.log("\n9. Timer is cleared (no leak)");
+  console.log("\n10. Timer is cleared (no leak)");
   {
     // Track active timers
     const originalSetTimeout = global.setTimeout;

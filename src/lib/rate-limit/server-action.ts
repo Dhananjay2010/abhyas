@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { checkRateLimit, createRateLimitKey, type RateLimitType } from "./index";
+import { checkRateLimit, createRateLimitKey, getClientIpFromHeaders, type RateLimitType } from "./index";
 import { getSessionUser } from "@/lib/supabase/auth";
 
 type ActionResult<T = unknown> =
@@ -30,21 +30,7 @@ export async function checkActionRateLimit(
   type: RateLimitType = "default",
 ): Promise<ActionResult | null> {
   const headersList = await headers();
-
-  // Extract IP using same logic as getClientIp but from Next.js headers()
-  const vercelForwarded = headersList.get("x-vercel-forwarded-for");
-  const realIp = headersList.get("x-real-ip");
-  const forwarded = headersList.get("x-forwarded-for");
-
-  let ip = "127.0.0.1";
-  if (vercelForwarded) {
-    ip = vercelForwarded.trim();
-  } else if (realIp) {
-    ip = realIp;
-  } else if (forwarded) {
-    const parsed = forwarded.split(",")[0].trim();
-    if (parsed) ip = parsed;
-  }
+  const ip = getClientIpFromHeaders(headersList);
 
   // Key by userId for authenticated users, IP for unauthenticated
   // getSessionUser is cached per request, so this doesn't duplicate work
