@@ -274,10 +274,10 @@ async function testServiceWorkerBehavior() {
 
   console.log("  ✓ fetch event listener registered");
 
-  // Simulate navigate fetch for /session/abc123 while offline
-  console.log("\n▶ Simulating navigation fetch for /session/abc123 while offline...");
+  // Simulate navigate fetch for /today while offline
+  console.log("\n▶ Simulating navigation fetch for /today while offline...");
 
-  const originalUrl = "http://localhost/session/abc123";
+  const originalUrl = "http://localhost/today";
   const fetchEvent = {
     type: "fetch",
     request: new FakeRequest(originalUrl, {
@@ -322,7 +322,7 @@ async function testServiceWorkerBehavior() {
     "Request URL must remain the original URL (not rewritten to /offline)"
   );
 
-  console.log("  ✓ Served under original URL (/session/abc123, not /offline)");
+  console.log("  ✓ Served under original URL (/today, not /offline)");
 
   // Test that non-navigate requests are not intercepted
   console.log("\n▶ Testing non-navigate request is not intercepted...");
@@ -354,6 +354,37 @@ async function testServiceWorkerBehavior() {
   );
 
   console.log("  ✓ Non-navigate request not intercepted (correct)");
+
+  // Test that /session/* routes are not intercepted (client-side cache)
+  console.log("\n▶ Testing /session/* route is not intercepted...");
+
+  capturedResponse = null;
+
+  const sessionFetchEvent = {
+    type: "fetch",
+    request: new FakeRequest("http://localhost/session/abc123", {
+      method: "GET",
+      mode: "navigate",
+    }),
+    respondWith: (responsePromise: Promise<FakeResponse>) => {
+      responsePromise.then((response) => {
+        capturedResponse = response;
+      });
+    },
+  };
+
+  for (const handler of fetchHandlers) {
+    await handler(sessionFetchEvent);
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  assert(
+    capturedResponse === null,
+    "/session/* routes must not be intercepted (client-side cache handles offline)"
+  );
+
+  console.log("  ✓ /session/* route not intercepted (client-side cache)");
 
   // Verify POST requests are not intercepted
   console.log("\n▶ Testing POST request is not intercepted...");

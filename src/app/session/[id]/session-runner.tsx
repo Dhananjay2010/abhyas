@@ -375,7 +375,6 @@ export function SessionRunner({
         onRetrySync={flushOutbox}
         pendingCount={pendingCount}
         showOfflineIndicator={showOfflineIndicator}
-        showOfflineIndicator={showOfflineIndicator}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
