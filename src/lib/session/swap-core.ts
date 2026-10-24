@@ -6,15 +6,19 @@
 import { buildSwapResult } from "./swap-decision";
 import { prescribe } from "../program/prescription";
 
-interface EqChain {
-  eq(column: string, value: unknown): this;
-  maybeSingle(): Promise<{ data: unknown; error: unknown }>;
-  single(): Promise<{ data: unknown; error: unknown }>;
-}
-
+// Minimal Supabase client interface for testing
+// Models the fluent builder pattern used in swapExerciseCore
 interface TestableSupabaseClient {
   from(table: string): {
-    select(columns: string): EqChain;
+    select(columns: string): {
+      eq(column: string, value: unknown): {
+        eq(column: string, value: unknown): {
+          maybeSingle(): Promise<{ data: unknown; error: unknown }>;
+        };
+        maybeSingle(): Promise<{ data: unknown; error: unknown }>;
+        single(): Promise<{ data: unknown; error: unknown }>;
+      };
+    };
     update(data: unknown): {
       eq(column: string, value: unknown): Promise<{ error: unknown }>;
     };
@@ -22,7 +26,8 @@ interface TestableSupabaseClient {
 }
 
 export async function swapExerciseCore(
-  deps: { supabase: TestableSupabaseClient; userId: string },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  deps: { supabase: any; userId: string },
   input: { sessionExerciseId: string; newExerciseId: string }
 ): Promise<
   | { ok: false; error: string }
