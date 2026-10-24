@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
+import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -8,6 +9,7 @@ export type AlternativesContext = {
   level: Database["public"]["Enums"]["fitness_level"];
   availableEquipment: Set<string> | null;
   injuryRegions: Database["public"]["Enums"]["body_region"][];
+  anyKneeInjury?: boolean;
   limit?: number;
   scoreFn: (exercise: ExerciseRow) => number;
   tieBreakFn: (slug: string) => number;
@@ -158,9 +160,16 @@ export function rankAlternatives<T extends ExerciseRow>(
   const limit = ctx.limit ?? 5;
   const userLevelRank = LEVEL_ORDER[ctx.level];
   const hasKneeInjury = ctx.injuryRegions.includes("knee");
+  const hasPastKnee = (ctx.anyKneeInjury ?? false) && !hasKneeInjury;
   
   // Build priority order: same pattern, then fallback, then knee-safe
-  const patternPriority = buildPatternList(current.movement_pattern, hasKneeInjury);
+  // For past-knee lunge swaps, we need squat pattern (the 4-list are squat pattern)
+  let patternPriority: MovementPattern[];
+  if (hasPastKnee && current.movement_pattern === "lunge") {
+    patternPriority = ["lunge", "squat"]; // Must include squat for the 4-list
+  } else {
+    patternPriority = buildPatternList(current.movement_pattern, ctx.anyKneeInjury ?? false);
+  }
   
   // Is current a dynamic press (reps-based, not iso/plyo)?
   const isDynamicPress = 
@@ -186,6 +195,13 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 2. Pattern priority (lower rank = better)
     const patternRank = patternPriority.indexOf(candidate.movement_pattern);
     if (patternRank === -1) continue; // Not in our pattern list
+    
+    // 2b. Past-knee lunge swaps: ONLY allow the 4-exercise quad list
+    if (hasPastKnee && current.movement_pattern === "lunge") {
+      if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+        continue;
+      }
+    }
     
     // 3. Level check: candidate level must be <= user level
     const candidateLevelRank = LEVEL_ORDER[candidate.level_min];
@@ -274,6 +290,18 @@ export function rankAlternatives<T extends ExerciseRow>(
     
     // Stop once we have enough
     if (deduplicated.length >= limit) break;
+  }
+  
+  // Fallback for past-knee lunge swaps: if empty, add bodyweight options from the 4-list
+  if (deduplicated.length === 0 && hasPastKnee && current.movement_pattern === "lunge") {
+    const bodyweightFallbacks = ["wall-sit", "spanish-squat"];
+    for (const slug of bodyweightFallbacks) {
+      const fallback = candidates.find(c => c.slug === slug);
+      if (fallback && fallback.equipment_ids.length === 0) {
+        deduplicated.push(fallback);
+        if (deduplicated.length >= limit) break;
+      }
+    }
   }
   
   return deduplicated;

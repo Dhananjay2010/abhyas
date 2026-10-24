@@ -706,6 +706,7 @@ export async function findAlternatives(
       level: input.level,
       availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
       injuryRegions: input.currentInjuryRegions,
+      anyKneeInjury: input.anyKneeInjury,
       limit: 5,
       scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
       tieBreakFn: tieBreak,
