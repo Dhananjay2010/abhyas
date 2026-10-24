@@ -27,8 +27,6 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
-import { resolveAuth } from "@/lib/session/auth-result";
-
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string; code?: string };
@@ -281,7 +279,7 @@ export async function logSet(input: {
       return { user };
     },
     async () => {
-      const { supabase, user } = await requireUser();
+      const { supabase } = await requireUser();
       const { error } = await supabase.from("session_sets").upsert(
         {
           session_exercise_id: input.sessionExerciseId,
@@ -316,8 +314,6 @@ export async function deleteSet(
     .eq("is_warmup_set", false);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
-
-import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 
 export type { ProgressionFeedback };
 

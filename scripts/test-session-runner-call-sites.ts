@@ -56,6 +56,8 @@ const expiredState = {
   pending: [{ sessionExerciseId: "ex-1" }],
   expired: true,
   error: null,
+  retrying: false,
+  replayed: [],
 };
 check("Shows 'expired' when expired=true and no error", getPendingUiMode(expiredState) === "expired");
 
@@ -63,6 +65,8 @@ const expiredWithError = {
   pending: [{ sessionExerciseId: "ex-1" }],
   expired: true,
   error: "Network timeout",
+  retrying: false,
+  replayed: [],
 };
 check("Shows 'expired' when expired=true even with error (keeps sign-in visible)", getPendingUiMode(expiredWithError) === "expired");
 
@@ -70,6 +74,8 @@ const errorOnly = {
   pending: [{ sessionExerciseId: "ex-1" }],
   expired: false,
   error: "Server error",
+  retrying: false,
+  replayed: [],
 };
 check("Shows 'replay-error' when not expired but has error", getPendingUiMode(errorOnly) === "replay-error");
 
