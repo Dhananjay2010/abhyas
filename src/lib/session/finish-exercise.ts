@@ -12,22 +12,17 @@ export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
 
-// Minimal Supabase client interface needed by the core function
+// Minimal Supabase client interface needed by the core function.
+// Uses `any` to avoid type conflicts with the actual Supabase client.
 export interface SupabaseClient {
-  from: (table: string) => {
-    update: (payload: unknown) => {
-      eq: (col: string, val: unknown) => {
-        not: (col: string, op: string, values: string) => {
-          select: (columns: string) => Promise<{ data: unknown[] | null; error: { message: string } | null }>;
-        };
-      };
-    };
-  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  from: (table: string) => any;
 }
 
 export interface FinishExerciseDeps {
   applyProgression: (
-    supabase: SupabaseClient,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
     userId: string,
     sessionExerciseId: string,
     feel: SetFeel | null,
