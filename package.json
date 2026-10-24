@@ -11,25 +11,11 @@
     "generate-icons": "node scripts/generate-icons.js",
     "test:generator": "tsx scripts/test-generator.ts",
     "test:progression": "tsx scripts/test-progression.ts",
-<<<<<<< HEAD
     "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:delete-account && npm run test:delete-form && npm run test:migration-versions && npm run test:public-paths && npm run test:rate-limit && npm run test:rate-limit-endpoint && npm run test:signout && npm run test:finish-exercise-idempotency && npm run test:sentry && npm run test:seed-validity && npm run test:profile-validation && npm run test:onboarding-completion && npm run test:body-weight-validation",
-=======
-<<<<<<< HEAD
-    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:delete-account && npm run test:delete-form && npm run test:migration-versions && npm run test:public-paths && npm run test:rate-limit && npm run test:rate-limit-endpoint && npm run test:signout && npm run test:finish-exercise-idempotency && npm run test:sentry && npm run test:profile-validation && npm run test:onboarding-completion && npm run test:body-weight-validation",
-=======
-<<<<<<< HEAD
-    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:delete-account && npm run test:delete-form && npm run test:migration-versions && npm run test:public-paths && npm run test:rate-limit && npm run test:rate-limit-endpoint && npm run test:signout && npm run test:finish-exercise-idempotency && npm run test:profile-validation && npm run test:onboarding-completion && npm run test:body-weight-validation",
-=======
-    "test:public-paths": "tsx scripts/test-public-paths.ts",
-    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:account-deletion && npm run test:public-paths && npm run test:profile-validation && npm run test:onboarding-completion",
->>>>>>> 9b0e581 (fix: add avatar_url to grant, error mapping, RPC-before-block order, grant-match test)
->>>>>>> d853799 (fix: add avatar_url to grant, error mapping, RPC-before-block order, grant-match test)
->>>>>>> 5f7c724 (fix: add avatar_url to grant, error mapping, RPC-before-block order, grant-match test)
     "test:streaks": "tsx scripts/test-streaks.ts",
     "test:dates": "tsx scripts/test-dates.ts",
     "test:breathing": "tsx scripts/test-breathing.ts",
     "test:branding": "tsx scripts/test-branding.ts",
-<<<<<<< HEAD
     "test:delete-account": "tsx scripts/test-delete-account.ts",
     "test:delete-form": "tsx scripts/test-delete-form-error-handling.ts",
     "test:migration-versions": "tsx scripts/test-migration-versions.ts",
@@ -42,20 +28,11 @@
     "test:seed-validity": "tsx scripts/test-seed-validity.ts",
     "test:profile-validation": "tsx scripts/test-profile-validation.ts",
     "test:onboarding-completion": "tsx scripts/test-onboarding-completion.ts",
-<<<<<<< HEAD
     "test:body-weight-validation": "tsx scripts/test-body-weight-validation.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:reset": "supabase db reset"
-=======
-    "test:body-weight-validation": "tsx scripts/test-body-weight-validation.ts"
-=======
-    "test:account-deletion": "tsx scripts/test-account-deletion.ts",
-    "test:profile-validation": "tsx scripts/test-profile-validation.ts",
-    "test:onboarding-completion": "tsx scripts/test-onboarding-completion.ts"
->>>>>>> 9b0e581 (fix: add avatar_url to grant, error mapping, RPC-before-block order, grant-match test)
->>>>>>> 5f7c724 (fix: add avatar_url to grant, error mapping, RPC-before-block order, grant-match test)
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

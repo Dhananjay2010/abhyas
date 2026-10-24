@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { validateWeightKg } from "@/lib/profile/validation";
 
 export type LogWeightResult = { ok: true } | { ok: false; error: string };
 
 export async function logBodyWeight(weightKg: number): Promise<LogWeightResult> {
-  if (!Number.isFinite(weightKg) || weightKg < 25 || weightKg > 300) {
-    return { ok: false, error: "Weight should be between 25 and 300 kg." };
-  }
+  const weightValidation = validateWeightKg(weightKg);
+  if (!weightValidation.ok) return weightValidation;
 
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;

@@ -163,6 +163,21 @@ begin
   end if;
 end $$;
 
+-- Weight constraint on body_metrics: P3-M5: must be finite and in range 25-300, or null
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'body_metrics_weight_check'
+    and conrelid = 'public.body_metrics'::regclass
+  ) then
+    alter table public.body_metrics
+      add constraint body_metrics_weight_check
+      check (weight_kg is null or (weight_kg <> 'NaN'::numeric and weight_kg between 25 and 300))
+      not valid;
+  end if;
+end $$;
+
 -- ============================================================
 -- 4. PROFILE VALIDATION TRIGGER (age & timezone)
 -- ============================================================
@@ -254,6 +269,9 @@ comment on constraint profiles_yoga_days_range on public.profiles is
 
 comment on constraint profiles_at_least_one_training_day on public.profiles is
   'M5: At least one training day required (yoga cannot be all days). NOT VALID.';
+
+comment on constraint body_metrics_weight_check on public.body_metrics is
+  'P3-M5: Prevents NaN and enforces weight range 25-300. NOT VALID.';
 
 comment on function public.validate_profile_fields() is
   'M5: Validates age (16+) and timezone (pg_timezone_names). Only checks when changed. '
