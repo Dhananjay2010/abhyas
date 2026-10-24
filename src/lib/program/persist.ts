@@ -167,11 +167,11 @@ export async function createBlockForUser(
   }
 
   // Retire any previous active block before inserting the new one.
-  // Rebuilds mark the old plan as "superseded" (replaced by changed settings),
-  // while rollovers mark it "completed" (ran its four weeks).
+  // Mark the old plan as "completed" regardless of whether it's a rebuild
+  // (replaced by changed settings) or rollover (ran its four weeks).
   await supabase
     .from("programs")
-    .update({ status: options.mode === "rebuild" ? "superseded" : "completed" })
+    .update({ status: "completed" })
     .eq("user_id", userId)
     .eq("status", "active");
 

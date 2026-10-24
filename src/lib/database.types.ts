@@ -756,6 +756,7 @@ export type Database = {
           days_per_week?: number
           deload_week?: number
           ends_on?: string
+          generation_inputs?: Json | null
           goal?: Database["public"]["Enums"]["fitness_goal"]
           id?: string
           level?: Database["public"]["Enums"]["fitness_level"]
