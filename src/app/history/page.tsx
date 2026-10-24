@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { getUnitsPreference } from "@/lib/units";
 import { SessionRow, sessionLabel, type SessionSummary } from "@/components/session-row";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function HistoryPage() {
   const [profileRes, sessionsRes, volumeRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("timezone, onboarding_completed_at")
+      .select("timezone, onboarding_completed_at, units_preference")
       .eq("id", user.id)
       .single(),
     supabase
@@ -46,6 +47,7 @@ export default async function HistoryPage() {
   }
 
   const today = localDateString(resolveTimezoneWithProfile(profile.timezone));
+  const units = getUnitsPreference(profile.units_preference);
   /*
     Nothing in the future. A "what about tomorrow?" choice is a `sessions` row
     dated tomorrow, so History -- which has no date filter, because the user's
@@ -120,7 +122,7 @@ export default async function HistoryPage() {
             };
             return (
               <li key={s.id}>
-                <SessionRow s={summary} today={today} />
+                <SessionRow s={summary} today={today} units={units} />
               </li>
             );
           })}

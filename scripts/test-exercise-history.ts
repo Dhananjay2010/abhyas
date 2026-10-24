@@ -363,7 +363,7 @@ console.log("\n17. Rep PR baseline from first session's top set (Task A)");
     `got ${mostRepsR9 ? mostRepsR9.set.weight_kg + '×' + mostRepsR9.value : 'none'}`);
 
   // Multi-set first session: [80×10, 100×5], then 100×8 -> currentPRs.most_reps = 100×8
-  // This tests that when first session has multiple sets, we use the top one (100×5) as baseline
+  // Baseline is 100×5 (highest weight), not 80×10 (even though 80×10 has higher e1RM)
   const multiSet1: SetData[] = [
     set(10, 80, null),
     set(5, 100, null),
@@ -375,7 +375,17 @@ console.log("\n17. Rep PR baseline from first session's top set (Task A)");
     mostRepsMulti1?.value === 8 && mostRepsMulti1?.set.weight_kg === 100,
     `got ${mostRepsMulti1 ? mostRepsMulti1.set.weight_kg + '×' + mostRepsMulti1.value : 'none'}`);
 
-  // Note: "First session only [80×10, 100×5]" test is in real DB tests where session boundaries exist
+  // Baseline ordering: highest weight wins, even if lower e1RM
+  // [100×3, 90×10] baseline is 100×3 (weight 100 > 90), not 90×10 (e1RM 120 > 110)
+  const weightVsE1RM: SetData[] = [
+    set(3, 100, null),
+    set(10, 90, null),
+  ];
+  const prsWeightVsE1RM = detectPersonalRecords(weightVsE1RM, "reps");
+  const mostRepsWeightVsE1RM = prsWeightVsE1RM.find(pr => pr.type === "most_reps");
+  check("First session [100×3, 90×10]: baseline is 100×3 (highest weight), not 90×10 (highest e1RM)",
+    mostRepsWeightVsE1RM?.value === 3 && mostRepsWeightVsE1RM?.set.weight_kg === 100,
+    `got ${mostRepsWeightVsE1RM ? mostRepsWeightVsE1RM.set.weight_kg + '×' + mostRepsWeightVsE1RM.value : 'none'}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

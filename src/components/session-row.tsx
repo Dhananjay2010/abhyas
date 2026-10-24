@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatVolume, getUnitsPreference, type UnitsPreference } from "@/lib/units";
 
 export type SessionSummary = {
   id: string;
@@ -70,7 +71,7 @@ function longDate(iso: string): string {
 const breathCount = (n: number, pumps?: boolean) =>
   `${n} ${pumps ? (n === 1 ? "pump" : "pumps") : n === 1 ? "breath" : "breaths"}`;
 
-export function SessionRow({ s, today }: { s: SessionSummary; today: string }) {
+export function SessionRow({ s, today, units = "metric" }: { s: SessionSummary; today: string; units?: UnitsPreference }) {
   const minutes = s.durationSeconds ? Math.round(s.durationSeconds / 60) : null;
   const details = s.breathing
     ? [
@@ -81,9 +82,9 @@ export function SessionRow({ s, today }: { s: SessionSummary; today: string }) {
     : [
         STATUS_LABEL[s.status] ?? s.status,
         s.isDeload ? "deload" : null,
-        minutes !== null ? `${minutes} min` : null,
-        s.setCount > 0 ? `${s.setCount} sets` : null,
-        s.volumeKg > 0 ? `${Math.round(s.volumeKg)} kg` : null,
+        minutes !== null ? `${minutes === 1 ? "1 min" : `${minutes} min`}` : null,
+        s.setCount > 0 ? `${s.setCount} ${s.setCount === 1 ? "set" : "sets"}` : null,
+        s.volumeKg > 0 ? formatVolume(s.volumeKg, units) : null,
       ].filter(Boolean);
 
   return (
