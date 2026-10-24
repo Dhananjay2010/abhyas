@@ -2,6 +2,9 @@
  * Test date helpers used in close-stale.ts
  * 
  *   npx tsx scripts/test-date-helpers.ts
+ * 
+ * Timezone-independent: all timestamps use explicit UTC (Z suffix).
+ * Passes with TZ=UTC and TZ=Asia/Kolkata.
  */
 
 import { parseIsoMs, secondsSinceIso } from "../src/lib/dates";
