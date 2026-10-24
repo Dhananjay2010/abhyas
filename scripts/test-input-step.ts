@@ -133,7 +133,25 @@ console.log('\n8. Kettlebell clamps at ends');
   check('at min (5 lb), decrease stays at 5 lb', nextWeight(5, -1, ['kettlebell'], 'lb') === 5);
 }
 
-console.log('\n9. nextReps logic');
+console.log('\n9. Kettlebell ladder immutability (no mutation of shared constant)');
+{
+  // Call decrease twice, then increase - ladder should work correctly throughout
+  const start = 20;
+  const down1 = nextWeight(start, -1, ['kettlebell'], 'kg');
+  check('first decrease: 20 kg → 18 kg', down1 === 18);
+  
+  const down2 = nextWeight(down1, -1, ['kettlebell'], 'kg');
+  check('second decrease: 18 kg → 16 kg', down2 === 16);
+  
+  const up = nextWeight(down2, 1, ['kettlebell'], 'kg');
+  check('increase after two decreases: 16 kg → 18 kg', up === 18);
+  
+  // Verify the ladder still works from the original starting point
+  const freshDown = nextWeight(start, -1, ['kettlebell'], 'kg');
+  check('ladder unchanged: 20 kg → 18 kg still works', freshDown === 18);
+}
+
+console.log('\n10. nextReps logic');
 {
   check('REPS_STEP is 1', REPS_STEP === 1);
   
@@ -145,6 +163,32 @@ console.log('\n9. nextReps logic');
   
   check('increase from max stays at max', nextReps(20, 1, { min: 1, max: 20 }) === 20);
   check('decrease from min stays at min', nextReps(1, -1, { min: 1, max: 20 }) === 1);
+}
+
+console.log('\n11. Race condition: step from typed value, not stale prop');
+{
+  // Simulates the user typing '62' and tapping + before blur commits it.
+  // The component should step from 62, not from the stale value.
+  const staleprop = 50;
+  const typedValue = 62;
+  
+  // Step from the typed value (what the component now does)
+  // 62 + 2.5 = 64.5, snapped to grid = 65
+  const correctNext = nextWeight(typedValue, 1, ['barbell'], 'kg');
+  check('steps from typed 62 (snaps to 65)', correctNext === 65, `got ${correctNext}`);
+  
+  // Wrong behavior would step from stale prop
+  const wrongNext = nextWeight(staleprop, 1, ['barbell'], 'kg');
+  check('stepping from stale 50 would give 52.5', wrongNext === 52.5, `got ${wrongNext}`);
+  check('correct result differs from wrong result', correctNext !== wrongNext);
+  
+  // Same for reps
+  const typedReps = 10;
+  const staleReps = 8;
+  const correctRepsNext = nextReps(typedReps, 1, { min: 1, max: 20 });
+  const wrongRepsNext = nextReps(staleReps, 1, { min: 1, max: 20 });
+  check('reps: steps from typed 10, not stale 8', correctRepsNext === 11, `got ${correctRepsNext}`);
+  check('reps: wrong would be 9', wrongRepsNext === 9, `got ${wrongRepsNext}`);
 }
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} FAILURES`}\n`);

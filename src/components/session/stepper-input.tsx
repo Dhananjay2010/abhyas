@@ -9,6 +9,7 @@ export interface StepperInputProps {
   nextFn?: (current: number, direction: 1 | -1) => number;
   min: number;
   max: number;
+  kind: 'weight' | 'reps';
   unit?: string;
   'aria-label': string;
   disabled?: boolean;
@@ -30,30 +31,21 @@ export function StepperInput({
   nextFn,
   min,
   max,
+  kind,
   unit,
   'aria-label': ariaLabel,
   disabled = false,
 }: StepperInputProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [displayValue, setDisplayValue] = useState(String(value));
+  const [announcement, setAnnouncement] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleDecrease = () => {
-    if (disabled || value <= min) return;
-    
-    const next = nextFn
-      ? nextFn(value, -1)
-      : Math.max(min, value - (step ?? 1));
-    onChange(next);
-  };
-
-  const handleIncrease = () => {
-    if (disabled || value >= max) return;
-    
-    const next = nextFn
-      ? nextFn(value, 1)
-      : Math.min(max, value + (step ?? 1));
-    onChange(next);
+  const parseValue = (str: string): number => {
+    if (kind === 'reps') {
+      return parseInt(str, 10);
+    }
+    return parseFloat(str);
   };
 
   const handleFocus = () => {
@@ -67,7 +59,7 @@ export function StepperInput({
 
   const handleBlur = () => {
     setIsEditing(false);
-    const parsed = parseFloat(displayValue);
+    const parsed = parseValue(displayValue);
     
     if (isNaN(parsed)) {
       // Invalid input: revert to current value
@@ -87,16 +79,67 @@ export function StepperInput({
     }
   };
 
+  const handleDecrease = () => {
+    if (disabled) return;
+
+    let current = value;
+    
+    // If user is editing, step from the typed value
+    if (isEditing) {
+      const parsed = parseValue(displayValue);
+      if (!isNaN(parsed)) {
+        current = Math.max(min, Math.min(max, parsed));
+      }
+    }
+
+    if (current <= min) return;
+    
+    const next = nextFn
+      ? nextFn(current, -1)
+      : current - (step ?? 1);
+    
+    // Clamp nextFn results to bounds
+    const clamped = Math.max(min, Math.min(max, next));
+    onChange(clamped);
+    setAnnouncement(`${clamped}${unit ? ' ' + unit : ''}`);
+  };
+
+  const handleIncrease = () => {
+    if (disabled) return;
+
+    let current = value;
+    
+    // If user is editing, step from the typed value
+    if (isEditing) {
+      const parsed = parseValue(displayValue);
+      if (!isNaN(parsed)) {
+        current = Math.max(min, Math.min(max, parsed));
+      }
+    }
+
+    if (current >= max) return;
+    
+    const next = nextFn
+      ? nextFn(current, 1)
+      : current + (step ?? 1);
+    
+    // Clamp nextFn results to bounds
+    const clamped = Math.max(min, Math.min(max, next));
+    onChange(clamped);
+    setAnnouncement(`${clamped}${unit ? ' ' + unit : ''}`);
+  };
+
   const atMin = value <= min;
   const atMax = value >= max;
 
-  const inputMode = unit === 'reps' ? 'numeric' : 'decimal';
+  const inputMode = kind === 'reps' ? 'numeric' : 'decimal';
 
   return (
     <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={handleDecrease}
+        onPointerDown={(e) => e.preventDefault()}
         disabled={disabled || atMin}
         aria-label={`Decrease ${ariaLabel.toLowerCase()}`}
         className="flex items-center justify-center w-11 h-11 rounded-lg border border-border bg-surface-2 text-fg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface active:bg-surface transition-colors"
@@ -139,6 +182,7 @@ export function StepperInput({
       <button
         type="button"
         onClick={handleIncrease}
+        onPointerDown={(e) => e.preventDefault()}
         disabled={disabled || atMax}
         aria-label={`Increase ${ariaLabel.toLowerCase()}`}
         className="flex items-center justify-center w-11 h-11 rounded-lg border border-border bg-surface-2 text-fg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface active:bg-surface transition-colors"
@@ -159,6 +203,25 @@ export function StepperInput({
           <path d="M12 5v14" />
         </svg>
       </button>
+
+      {/* Screen reader announcement for button changes */}
+      <span
+        aria-live="polite"
+        className="sr-only"
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: '0',
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: '0',
+        }}
+      >
+        {announcement}
+      </span>
     </div>
   );
 }

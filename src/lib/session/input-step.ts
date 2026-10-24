@@ -98,9 +98,8 @@ export function nextWeight(
       const next = bells.find(w => w > current);
       return next !== undefined ? next : bells[bells.length - 1];
     } else {
-      // Find the previous bell lighter than current
-      const prev = bells.reverse().find(w => w < current);
-      bells.reverse(); // restore original order
+      // Find the previous bell lighter than current (no mutation)
+      const prev = [...bells].reverse().find(w => w < current);
       return prev !== undefined ? prev : bells[0];
     }
   }

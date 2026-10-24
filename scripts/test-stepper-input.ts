@@ -53,12 +53,14 @@ console.log('\n4. Disabled state at bounds');
     source.includes('disabled={disabled || atMax}'));
 }
 
-console.log('\n5. inputMode is conditional');
+console.log('\n5. inputMode is driven by kind prop');
 {
-  check('inputMode uses conditional logic', 
-    source.includes("const inputMode = unit === 'reps' ? 'numeric' : 'decimal'"));
+  check('inputMode uses kind prop', 
+    source.includes("const inputMode = kind === 'reps' ? 'numeric' : 'decimal'"));
   check('input element uses inputMode',
     source.includes('inputMode={inputMode}'));
+  check('kind prop exists in interface',
+    source.includes("kind: 'weight' | 'reps'"));
 }
 
 console.log('\n6. No hardcoded hex colors (theme tokens only)');
@@ -85,7 +87,7 @@ console.log('\n7. Uses theme tokens from globals.css');
   }
 }
 
-console.log('\n8. Button click handlers do not open keyboard');
+console.log('\n8. Button click handlers do not open keyboard or steal focus');
 {
   check('decrease uses onClick, not onMouseDown/onTouchStart',
     source.includes('onClick={handleDecrease}'));
@@ -93,6 +95,10 @@ console.log('\n8. Button click handlers do not open keyboard');
     source.includes('onClick={handleIncrease}'));
   check('buttons are type="button" (not submit)',
     source.match(/type="button"/g)?.length === 2);
+  check('decrease has onPointerDown preventDefault',
+    source.includes('onPointerDown={(e) => e.preventDefault()}'));
+  check('both buttons have onPointerDown preventDefault',
+    source.match(/onPointerDown=\{.*preventDefault.*\}/g)?.length === 2);
 }
 
 console.log('\n9. Invalid input handling on blur');
@@ -105,7 +111,41 @@ console.log('\n9. Invalid input handling on blur');
     source.includes('const clamped = Math.max(min, Math.min(max, parsed))'));
 }
 
-console.log('\n10. Component structure');
+console.log('\n10. Screen reader support');
+{
+  check('has aria-live="polite" span',
+    source.includes('aria-live="polite"'));
+  check('aria-live span uses sr-only class',
+    source.includes('className="sr-only"'));
+  check('announcement state exists',
+    source.includes('[announcement, setAnnouncement]'));
+}
+
+console.log('\n11. Race condition fix: step from typed value when editing');
+{
+  check('parseValue helper exists',
+    source.includes('const parseValue = (str: string): number'));
+  check('parseValue uses parseInt for reps',
+    source.includes("if (kind === 'reps')") && source.includes('parseInt(str, 10)'));
+  check('handleDecrease checks isEditing',
+    source.includes('if (isEditing)'));
+  const isEditingMatches = source.match(/if \(isEditing\)/g);
+  check('handleIncrease checks isEditing',
+    isEditingMatches !== null && isEditingMatches.length >= 2);
+  check('steps from parsed displayValue when editing',
+    source.includes('parseValue(displayValue)'));
+}
+
+console.log('\n12. nextFn results are clamped');
+{
+  check('handleDecrease clamps nextFn result',
+    source.includes('const clamped = Math.max(min, Math.min(max, next))'));
+  const clampMatches = source.match(/Math\.max\(min, Math\.min\(max, next\)\)/g);
+  check('handleIncrease also clamps',
+    clampMatches !== null && clampMatches.length >= 2);
+}
+
+console.log('\n13. Component structure');
 {
   check("exports 'use client' directive", source.startsWith("'use client'"));
   check('exports StepperInput function', source.includes('export function StepperInput'));
@@ -113,6 +153,7 @@ console.log('\n10. Component structure');
   check('has value prop', source.includes('value: number'));
   check('has onChange prop', source.includes('onChange: (value: number) => void'));
   check('has min and max props', source.includes('min: number') && source.includes('max: number'));
+  check('has kind prop', source.includes("kind: 'weight' | 'reps'"));
 }
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} FAILURES`}\n`);
