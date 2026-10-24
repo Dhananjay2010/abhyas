@@ -42,32 +42,6 @@ export function findOpenStrengthSession(
 }
 
 /**
- * Check if any of yesterday's sessions are still in_progress strength sessions.
- */
-export function isYesterdayStillInProgress(
-  yesterdaySessions: SessionForDetection[]
-): boolean {
-  return yesterdaySessions.some(
-    (s) => s.status === "in_progress" && isStrength(s.actual_type)
-  );
-}
-
-/**
- * Prepare open sessions for closeStaleSessions.
- * Ensures real started_at values are preserved, not derived from local_date.
- */
-export function prepareOpenSessions(
-  sessions: OpenSessionForClose[]
-): OpenSessionForClose[] {
-  return sessions.map(s => ({
-    id: s.id,
-    local_date: s.local_date,
-    started_at: s.started_at,
-    ...(s.actual_type !== undefined && { actual_type: s.actual_type })
-  }));
-}
-
-/**
  * Build the input for closeStaleSessions from Today page's open sessions query.
  */
 export function todayCloseInput(

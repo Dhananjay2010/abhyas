@@ -81,7 +81,7 @@ export default async function SessionPage({
   const session = sessionRes.data;
   if (!session) notFound();
   
-  // Only redirect completed/skipped sessions. An in_progress session stays accessible
+  // Only redirect completed sessions. An in_progress session stays accessible
   // regardless of timezone changes: a user who switches to a zone where it's
   // the next day can still resume their active session.
   const { shouldRedirectSession } = await import("@/lib/today/session-detection");
