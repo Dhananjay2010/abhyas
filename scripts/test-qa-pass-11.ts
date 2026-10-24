@@ -208,7 +208,7 @@ testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from all
 // REVERTED_WITH_53_GENERATOR: Tests for PR #53 generator pacing logic
 // ====================
 // These tests verify pacing behavior introduced in PR #53 (merge commit 66cdf5c) that was
-// reverted in PR #65 due to HIGH regression (1-set rows, stacked duplicates).
+// reverted in PR #67 due to HIGH regression (1-set rows, stacked duplicates).
 // The pre-PR#53 generator does not have:
 // - The "add exercises first, then sets" pacing strategy
 // - The post-pacing push/pull balance that can reduce sets to 1
@@ -216,11 +216,11 @@ testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from all
 // Kept for reference and future restoration when the forward fix lands.
 // See: uploads/report-bot1-pr53.md
 
-if (false) {  // SKIPPED - reverted with PR #53 generator (PR #65)
+if (false) {  // SKIPPED - reverted with PR #53 generator (PR #67)
   console.log("\n[SKIPPED] REVERTED_WITH_53_GENERATOR tests:");
   console.log("  - 3. Pacing: exercise-first strategy with level caps");
   console.log("These tests are preserved but skipped because they test behavior from");
-  console.log("PR #53 that was reverted in PR #65. See PR #65 body for details.\n");
+  console.log("PR #53 that was reverted in PR #67. See PR #67 body for details.\n");
 
   // ====================
   // 3. MEDIUM pacing: exercise first, then sets, with level caps
@@ -348,32 +348,157 @@ testSeeds("6. Upright rows: all variants have min reps >= 8 (gym advanced streng
 );
 
 // ====================
-// 7. LOWs
+// 7. Safety exclusions (restored from PR #53)
 // ====================
 
-// (c) Beginners get no high-impact plyometric
-testSeeds("7c. Beginners get no high-impact plyometric (Knee Tuck Jump, etc.)",
-  { level: "beginner", daysPerWeek: 3, preferredSessionMinutes: 30, hasAllEquipment: false, equipmentIds: [] },
-  (plan, picked, seed) => {
-    const highImpact = picked.filter(e => e.impact === "high");
-    check(`Seed ${seed}: beginner has no high-impact moves`, highImpact.length === 0,
-      highImpact.length > 0 ? highImpact.map(e => e.name).join(", ") : "");
-  }
-);
+// 7c. Beginners get no high-impact plyometric (restored from PR #53)
+console.log("\n7c. Beginners: no high-impact plyometric moves (matrix test)");
+const beginnerLevels = ["beginner"] as const;
+const equipmentSets: Array<{ name: string; hasAll: boolean; ids: string[]; track: "weights" | "bodyweight" }> = [
+  { name: "gym", hasAll: true, ids: [], track: "weights" },
+  { name: "home-dumbbell", hasAll: false, ids: ["dumbbell"], track: "weights" },
+  { name: "bodyweight", hasAll: false, ids: [], track: "bodyweight" },
+];
+const durations = [30, 45, 60, 75];
 
-// (d) Advanced Kettlebell Windmill contraindicated for lower_back
-testSeeds("7d. Lower_back injury excludes kettlebell windmill and loaded side bends",
-  { currentInjuryRegions: ["lower_back"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
-  (plan, picked, seed) => {
-    const windmills = picked.filter(e => 
-      (e.name.toLowerCase().includes("windmill") || e.slug.includes("windmill") ||
-       e.name.toLowerCase().includes("side bend") || e.slug.includes("side-bend")) &&
-      e.equipment_ids.length > 0
-    );
-    check(`Seed ${seed}: lower_back injury has no loaded windmill/side-bend`, windmills.length === 0,
-      windmills.length > 0 ? windmills.map(e => e.name).join(", ") : "");
+let beginnerTestCount = 0;
+let beginnerFailCount = 0;
+
+for (const level of beginnerLevels) {
+  for (const equipment of equipmentSets) {
+    for (const duration of durations) {
+      for (const days of [3, 4, 5]) {
+        beginnerTestCount++;
+        const testInput = base({
+          userId: `beginner-impact-${equipment.name}-${duration}-${days}d`,
+          level,
+          primaryTrack: equipment.track,
+          hasAllEquipment: equipment.hasAll,
+          equipmentIds: equipment.ids,
+          daysPerWeek: days,
+          preferredSessionMinutes: duration,
+        });
+        
+        const { picked } = allPicked(testInput);
+        const highImpact = picked.filter(e => e.impact === "high");
+        
+        if (highImpact.length > 0) {
+          check(`Beginner ${equipment.name} ${days}d ${duration}min: no high-impact`, false,
+            highImpact.map(e => e.name).join(", "));
+          beginnerFailCount++;
+        }
+      }
+    }
   }
-);
+}
+
+if (beginnerFailCount === 0) {
+  check(`All ${beginnerTestCount} beginner profiles: no high-impact moves`, true);
+}
+
+// QA repro cases for beginner high-impact
+console.log("\n7c. QA repro: beginner/gym/general/3d/60min Full Body B slot 4");
+const qa7c1 = generateProgram(base({
+  userId: "qa-7c-1",
+  level: "beginner",
+  goal: "general_fitness",
+  primaryTrack: "weights",
+  hasAllEquipment: true,
+  daysPerWeek: 3,
+  preferredSessionMinutes: 60,
+}));
+const fb_b_day = qa7c1.days.find(d => d.label === "Full Body B");
+if (fb_b_day && fb_b_day.exercises.length >= 4) {
+  const slot4Ex = byId.get(fb_b_day.exercises[3].exerciseId)!;
+  const isHighImpact = slot4Ex.impact === "high";
+  check(`Full Body B slot 4: not high-impact`, !isHighImpact,
+    isHighImpact ? `Got ${slot4Ex.name} (impact=${slot4Ex.impact})` : "");
+}
+
+console.log("\n7c. QA repro: beginner/gym/5d/30min/shoulder-injury Push slot 2");
+const qa7c2 = generateProgram(base({
+  userId: "qa-7c-2",
+  level: "beginner",
+  primaryTrack: "weights",
+  hasAllEquipment: true,
+  daysPerWeek: 5,
+  preferredSessionMinutes: 30,
+  currentInjuryRegions: ["shoulder"],
+}));
+const push_day = qa7c2.days.find(d => d.label === "Push");
+if (push_day && push_day.exercises.length >= 2) {
+  const slot2Ex = byId.get(push_day.exercises[1].exerciseId)!;
+  const isHighImpact = slot2Ex.impact === "high";
+  check(`Push slot 2: not high-impact`, !isHighImpact,
+    isHighImpact ? `Got ${slot2Ex.name} (impact=${slot2Ex.impact})` : "");
+}
+
+// 7d. Lower_back injury excludes windmill and loaded side bends (restored from PR #53)
+console.log("\n7d. Lower_back injury: no windmill/loaded side-bend (matrix test)");
+const levels = ["beginner", "intermediate", "expert"] as const;
+
+let lowerBackTestCount = 0;
+let lowerBackFailCount = 0;
+
+for (const level of levels) {
+  for (const equipment of equipmentSets) {
+    for (const duration of durations) {
+      for (const days of [3, 4, 5]) {
+        lowerBackTestCount++;
+        const testInput = base({
+          userId: `lower-back-${level}-${equipment.name}-${duration}-${days}d`,
+          level,
+          primaryTrack: equipment.track,
+          hasAllEquipment: equipment.hasAll,
+          equipmentIds: equipment.ids,
+          daysPerWeek: days,
+          preferredSessionMinutes: duration,
+          currentInjuryRegions: ["lower_back"],
+        });
+        
+        const { picked } = allPicked(testInput);
+        const windmills = picked.filter(e => 
+          (e.name.toLowerCase().includes("windmill") || e.slug.includes("windmill") ||
+           e.name.toLowerCase().includes("side bend") || e.slug.includes("side-bend")) &&
+          e.equipment_ids.length > 0
+        );
+        
+        if (windmills.length > 0) {
+          check(`${level} ${equipment.name} ${days}d ${duration}min lower_back: no loaded windmill/side-bend`, false,
+            windmills.map(e => e.name).join(", "));
+          lowerBackFailCount++;
+        }
+      }
+    }
+  }
+}
+
+if (lowerBackFailCount === 0) {
+  check(`All ${lowerBackTestCount} lower_back profiles: no loaded windmill/side-bend`, true);
+}
+
+// QA repro case for lower_back windmill
+console.log("\n7d. QA repro: intermediate/gym/4d/45min/lower_back Lower slot 4");
+const qa7d = generateProgram(base({
+  userId: "qa-7d",
+  level: "intermediate",
+  primaryTrack: "weights",
+  hasAllEquipment: true,
+  daysPerWeek: 4,
+  preferredSessionMinutes: 45,
+  currentInjuryRegions: ["lower_back"],
+}));
+const lower_day = qa7d.days.find(d => d.label === "Lower A" || d.label === "Lower B");
+if (lower_day && lower_day.exercises.length >= 4) {
+  const slot4Ex = byId.get(lower_day.exercises[3].exerciseId)!;
+  const isWindmill = (slot4Ex.name.toLowerCase().includes("windmill") || 
+                      slot4Ex.slug.includes("windmill") ||
+                      slot4Ex.name.toLowerCase().includes("side bend") || 
+                      slot4Ex.slug.includes("side-bend")) &&
+                     slot4Ex.equipment_ids.length > 0;
+  check(`Lower slot 4: not loaded windmill/side-bend`, !isWindmill,
+    isWindmill ? `Got ${slot4Ex.name}` : "");
+}
 
 // ====================
 // Additional contraindications from injury-deload-yoga report

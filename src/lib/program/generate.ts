@@ -384,6 +384,13 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
     derived.push("lower_back");
   }
   
+  // QA Pass 10 followup (restored from PR #53): Loaded lateral-flexion moves (kettlebell windmill, etc.) contraindicated for lower_back
+  if ((nameLower.includes("windmill") || slugLower.includes("windmill") ||
+       nameLower.includes("side bend") || slugLower.includes("side-bend")) &&
+      ex.equipment_ids.length > 0) {
+    derived.push("lower_back");
+  }
+  
   // H6: Squat, lunge, or jump movements load knees UNLESS they're in the knee-safe list
   if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
     if (ex.movement_pattern === "squat" ||
@@ -456,6 +463,9 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   // QA Pass 10 C3: Age >= 50 caps high spinal loading
   // Also block high spinal load for current lower_back injury (handled above via derived contraindications)
   if (input.age !== null && input.age >= 50 && ex.spinal_load === "high") return false;
+
+  // QA Pass 10 followup (restored from PR #53): Beginners get no high-impact plyometric moves (knee tuck jump, etc.)
+  if (input.level === "beginner" && ex.impact === "high") return false;
 
   return true;
 }

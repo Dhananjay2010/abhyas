@@ -206,6 +206,25 @@ for (const level of levels) {
           }
         }
         
+        // Rule 6 (Safety from PR #53): Beginners get no high-impact exercises
+        if (level === "beginner") {
+          for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+            for (const ex of day.exercises) {
+              const exercise = byId.get(ex.exerciseId);
+              if (!exercise) continue;
+              
+              if (exercise.impact === "high") {
+                check(`${profileId} ${day.label}: beginner has no high-impact`, false,
+                  `${exercise.name} has impact=high`);
+                profileFailed = true;
+              }
+            }
+          }
+        }
+        
+        // Rule 7 (Safety from PR #53): Lower_back injury excludes loaded windmill/side-bend
+        // Note: This profile matrix tests knee injury, but we'll add a separate lower_back test below
+        
         if (!profileFailed) {
           profilesPassed++;
         }
@@ -215,6 +234,66 @@ for (const level of levels) {
 }
 
 console.log(`\nMatrix summary: tested ${profilesTested} profiles, ${profilesPassed} passed\n`);
+
+// Additional safety test: Lower_back injury excludes loaded windmill/side-bend (PR #53)
+console.log("Lower_back Safety Test (PR #53 restoration)");
+console.log("─".repeat(60));
+
+let lowerBackTested = 0;
+let lowerBackPassed = 0;
+
+for (const level of levels) {
+  for (const equipment of equipmentProfiles) {
+    for (const sessionMinutes of sessionLengths) {
+      for (const daysPerWeek of frequencies) {
+        lowerBackTested++;
+        
+        const profileId = `${level}-${equipment.name}-${daysPerWeek}d-${sessionMinutes}min-lowerback`;
+        const input = base({
+          userId: `lower-back-safety-${profileId}`,
+          level,
+          hasAllEquipment: equipment.hasAll,
+          equipmentIds: equipment.ids,
+          primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
+          daysPerWeek,
+          preferredSessionMinutes: sessionMinutes,
+          currentInjuryRegions: ["lower_back"],
+        });
+        
+        const plan = generateProgram(input);
+        
+        let profileFailed = false;
+        
+        // Check: no loaded windmill or side-bend exercises
+        for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+          for (const ex of day.exercises) {
+            const exercise = byId.get(ex.exerciseId);
+            if (!exercise) continue;
+            
+            const nameLower = exercise.name.toLowerCase();
+            const slugLower = exercise.slug.toLowerCase();
+            const isLoadedWindmillOrSideBend = 
+              (nameLower.includes("windmill") || slugLower.includes("windmill") ||
+               nameLower.includes("side bend") || slugLower.includes("side-bend")) &&
+              exercise.equipment_ids.length > 0;
+            
+            if (isLoadedWindmillOrSideBend) {
+              check(`${profileId} ${day.label}: no loaded windmill/side-bend`, false,
+                `Got ${exercise.name}`);
+              profileFailed = true;
+            }
+          }
+        }
+        
+        if (!profileFailed) {
+          lowerBackPassed++;
+        }
+      }
+    }
+  }
+}
+
+console.log(`\nLower_back summary: tested ${lowerBackTested} profiles, ${lowerBackPassed} passed\n`);
 
 // Rule 6: Determinism test
 console.log("Determinism check");
