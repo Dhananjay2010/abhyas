@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { branding } from "@/lib/branding";
 import { DeleteAccountForm } from "./delete-account-form";
 
 export const metadata = {
-  title: "Delete Account — Abhyas",
+  title: `Delete Account — ${branding.name}`,
 };
 
 export const dynamic = "force-dynamic";
