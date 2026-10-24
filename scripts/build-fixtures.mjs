@@ -54,6 +54,9 @@ async function main() {
   
   console.log('\nLoading base data...');
   
+  // Clear exercises table to reload from clean base catalogue
+  await db.exec('DELETE FROM exercises; DELETE FROM warmup_exercises;');
+  
   const toArray = (arr) => {
     if (!arr || arr.length === 0) return '{}';
     return `{${arr.map(v => `"${v.replace(/"/g, '\\"')}"`).join(',')}}`;
@@ -81,7 +84,7 @@ async function main() {
         ex.spinal_load, toArray(ex.tracks), ex.default_rest_seconds, ex.category || 'strength'
       ]);
     } catch (err) {
-      console.error(`    Error inserting ${ex.slug}: ${err.message}`);
+      console.error(`    Error inserting ${ex.slug}: ${err.message.split('\n')[0]}`);
     }
   }
   
@@ -132,24 +135,38 @@ async function main() {
     ORDER BY slug
   `);
   
-  const exercises = exResult.rows.map(row => ({
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    movement_pattern: row.movement_pattern,
-    mechanic: row.mechanic,
-    metric: row.metric,
-    primary_muscles: Array.isArray(row.primary_muscles) ? row.primary_muscles : [],
-    secondary_muscles: Array.isArray(row.secondary_muscles) ? row.secondary_muscles : [],
-    equipment_ids: Array.isArray(row.equipment_ids) ? row.equipment_ids : [],
-    level_min: row.level_min,
-    contraindicated_regions: Array.isArray(row.contraindicated_regions) ? row.contraindicated_regions : [],
-    impact: row.impact,
-    spinal_load: row.spinal_load,
-    tracks: Array.isArray(row.tracks) ? row.tracks : [],
-    default_rest_seconds: row.default_rest_seconds,
-    category: row.category,
-  }));
+  const exercises = exResult.rows.map(row => {
+    // Parse Postgres array literals to JS arrays
+    const parseArray = (val) => {
+      if (Array.isArray(val)) return val;
+      if (!val) return [];
+      if (typeof val === 'string') {
+        // Parse Postgres array literal "{foo,bar}" to ['foo', 'bar']
+        if (val === '{}') return [];
+        return val.replace(/[{}]/g, '').split(',');
+      }
+      return [];
+    };
+    
+    return {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      movement_pattern: row.movement_pattern,
+      mechanic: row.mechanic,
+      metric: row.metric,
+      primary_muscles: parseArray(row.primary_muscles),
+      secondary_muscles: parseArray(row.secondary_muscles),
+      equipment_ids: parseArray(row.equipment_ids),
+      level_min: row.level_min,
+      contraindicated_regions: parseArray(row.contraindicated_regions),
+      impact: row.impact,
+      spinal_load: row.spinal_load,
+      tracks: parseArray(row.tracks),
+      default_rest_seconds: row.default_rest_seconds,
+      category: row.category,
+    };
+  });
   
   writeFileSync('scripts/fixtures/catalogue.json', JSON.stringify(exercises, null, 2) + '\n');
   console.log(`\n✓ Wrote ${exercises.length} exercises to scripts/fixtures/catalogue.json`);
@@ -161,16 +178,28 @@ async function main() {
     ORDER BY slug
   `);
   
-  const warmupsFinal = warmupResult.rows.map(row => ({
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    type: row.type,
-    target_regions: Array.isArray(row.target_regions) ? row.target_regions : [],
-    target_muscles: Array.isArray(row.target_muscles) ? row.target_muscles : [],
-    duration_seconds: row.duration_seconds,
-    instructions: Array.isArray(row.instructions) ? row.instructions : [],
-  }));
+  const warmupsFinal = warmupResult.rows.map(row => {
+    const parseArray = (val) => {
+      if (Array.isArray(val)) return val;
+      if (!val) return [];
+      if (typeof val === 'string') {
+        if (val === '{}') return [];
+        return val.replace(/[{}]/g, '').split(',');
+      }
+      return [];
+    };
+    
+    return {
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      type: row.type,
+      target_regions: parseArray(row.target_regions),
+      target_muscles: parseArray(row.target_muscles),
+      duration_seconds: row.duration_seconds,
+      instructions: parseArray(row.instructions),
+    };
+  });
   
   writeFileSync('scripts/fixtures/warmups.json', JSON.stringify(warmupsFinal, null, 2) + '\n');
   console.log(`✓ Wrote ${warmupsFinal.length} warmup exercises to scripts/fixtures/warmups.json`);
