@@ -258,17 +258,33 @@ async function runTests() {
         `got ${setCountsData?.map((r: any) => r.set_count).join(", ")}`);
     }
 
-    console.log("\n3. get_history_count with date filtering");
+    console.log("\n3. get_history_count with date filtering and yoga sessions");
     {
-      // Add one yoga session for user A
-      const yogaSessionId = randomUUID();
+      // Add two yoga sessions for user A:
+      // 1. Normal yoga session with completed_at
+      const yogaSessionId1 = randomUUID();
       await adminClient.from("sessions").insert({
-        id: yogaSessionId,
+        id: yogaSessionId1,
         user_id: userIdA,
         local_date: "2026-10-24",
         status: "completed",
         actual_type: "yoga",
         completed_at: "2026-10-24T12:00:00Z",
+        duration_seconds: 600,
+      });
+
+      // 2. Completed yoga session with 0 sets, NULL started_at, and duration
+      // This tests the QA issue: completed yoga should NOT show as "Skipped"
+      const yogaSessionId2 = randomUUID();
+      await adminClient.from("sessions").insert({
+        id: yogaSessionId2,
+        user_id: userIdA,
+        local_date: "2026-10-23",
+        status: "completed",
+        actual_type: "yoga",
+        duration_seconds: 360,
+        started_at: null,
+        completed_at: "2026-10-23T14:30:00Z",
       });
 
       // Count lifts (should be 260)
@@ -283,15 +299,35 @@ async function runTests() {
       check("lifts count = 260", liftsCount === 260,
         `got ${liftsCount}`);
 
-      // Count yoga (should be 1)
+      // Count yoga (should be 2 now)
       const { data: yogaCount } = await supabaseA.rpc("get_history_count", {
         p_user: userIdA,
         p_filter: "yoga",
         p_today: "2026-10-24",
       });
 
-      check("yoga count = 1", yogaCount === 1,
+      check("yoga count = 2 (includes 0-set completed yoga)", yogaCount === 2,
         `got ${yogaCount}`);
+
+      // Verify the 0-set yoga session can be fetched in history query
+      const { data: yogaSessions, error: yogaFetchError } = await supabaseA
+        .from("sessions")
+        .select("id, local_date, status, actual_type, duration_seconds")
+        .eq("user_id", userIdA)
+        .eq("actual_type", "yoga")
+        .lte("local_date", "2026-10-24")
+        .or(`status.eq.completed,and(status.eq.in_progress,local_date.eq.2026-10-24)`)
+        .order("local_date", { ascending: false });
+
+      check("yoga history query succeeds", !yogaFetchError,
+        yogaFetchError ? `error: ${yogaFetchError.message}` : "");
+      check("fetched 2 yoga sessions", yogaSessions?.length === 2,
+        `got ${yogaSessions?.length}`);
+      
+      const zeroSetYoga = yogaSessions?.find((s: any) => s.id === yogaSessionId2);
+      check("0-set completed yoga session is in results", 
+        zeroSetYoga?.status === "completed",
+        `found session with status=${zeroSetYoga?.status}`);
 
       // Test date filtering: count only up to 2025-06-30 (first ~180 days)
       const { data: dateFilteredCount } = await supabaseA.rpc("get_history_count", {

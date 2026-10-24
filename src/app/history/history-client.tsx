@@ -177,12 +177,24 @@ export function HistoryClient({
                 if (item.breathing.breaths) {
                   details.push(pluralize(item.breathing.breaths, item.breathing.pumps ? "pump" : "breath"));
                 }
+              } else if (item.actualType === "yoga") {
+                // For yoga sessions, trust the status field
+                if (item.status === "skipped") {
+                  details.push("Skipped");
+                } else if (item.status === "in_progress" && item.localDate === today) {
+                  details.push("In progress");
+                } else {
+                  details.push("Completed");
+                  if (durationLabel) details.push(durationLabel);
+                }
               } else {
-                // Product rule (2026-10-24): zero-set strength sessions show as 'Skipped'
-                const isZeroSetStrength = item.setCount === 0 || item.status === "skipped";
+                // Strength sessions (weights/bodyweight/null)
+                const isStrength = item.actualType === "weights" || item.actualType === "bodyweight" || !item.actualType;
+                const isZeroSetStrength = isStrength && item.setCount === 0;
+                const isSkipped = item.status === "skipped";
                 const isInProgress = item.status === "in_progress" && item.localDate === today;
                 
-                if (isZeroSetStrength) {
+                if (isSkipped || isZeroSetStrength) {
                   details.push("Skipped");
                 } else if (isInProgress) {
                   details.push("In progress");
@@ -195,7 +207,7 @@ export function HistoryClient({
                 if (item.isDeload) details.push("deload");
                 if (durationLabel) details.push(durationLabel);
                 // Only show set count if not already shown in "ended early" label or skipped
-                if (!item.endedEarly && !isZeroSetStrength && item.setCount > 0) {
+                if (!item.endedEarly && !isZeroSetStrength && !isSkipped && item.setCount > 0) {
                   details.push(pluralize(item.setCount, "set"));
                 }
                 if (item.topSetWeight) {

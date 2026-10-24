@@ -203,6 +203,7 @@ begin
   end if;
 
   -- Count sessions based on filter, excluding zero-set strength and skipped
+  -- Status filter: completed OR (in_progress AND today only)
   -- NULL actual_type is treated as strength
   if p_filter = 'lifts' then
     -- For strength sessions, only count those with working sets (in session_volume)
@@ -212,7 +213,7 @@ begin
     inner join session_volume sv on sv.session_id = s.id
     where s.user_id = p_user
       and s.local_date <= p_today
-      and s.status <> 'skipped'
+      and (s.status = 'completed' or (s.status = 'in_progress' and s.local_date = p_today))
       and (s.actual_type is null or s.actual_type in ('weights', 'bodyweight'));
   elsif p_filter = 'yoga' then
     select count(*)
@@ -220,7 +221,7 @@ begin
     from sessions s
     where s.user_id = p_user
       and s.local_date <= p_today
-      and s.status <> 'skipped'
+      and (s.status = 'completed' or (s.status = 'in_progress' and s.local_date = p_today))
       and s.actual_type = 'yoga';
   elsif p_filter = 'breathing' then
     select count(*)
@@ -228,7 +229,7 @@ begin
     from sessions s
     where s.user_id = p_user
       and s.local_date <= p_today
-      and s.status <> 'skipped'
+      and (s.status = 'completed' or (s.status = 'in_progress' and s.local_date = p_today))
       and s.actual_type = 'meditation';
   else
     v_count := 0;
