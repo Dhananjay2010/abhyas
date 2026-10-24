@@ -79,14 +79,18 @@ export async function closeStaleSessionsCore(
   const rows = await deps.fetchSessionExercises(ids);
 
   const trained = new Set<string>();
+  const workingSetCounts = new Map<string, number>();
   const lastSetCompletedAt = new Map<string, string | null>();
 
   for (const row of rows) {
     const sets = row.session_sets ?? [];
     
-    // Check if session has working sets
-    if (sets.some((x) => !x.is_warmup_set)) {
+    // Count working sets (non-warmup sets)
+    const workingSets = sets.filter((x) => !x.is_warmup_set);
+    if (workingSets.length > 0) {
       trained.add(row.session_id);
+      const existingCount = workingSetCounts.get(row.session_id) ?? 0;
+      workingSetCounts.set(row.session_id, existingCount + workingSets.length);
     }
 
     // Find the latest completed_at across ALL sets (warmup + working)
@@ -160,7 +164,7 @@ export async function closeStaleSessionsCore(
       const session = byId.get(id);
       if (!session?.started_at) return false;
 
-      const workingSetCount = trained.has(id) ? 1 : 0;
+      const workingSetCount = workingSetCounts.get(id) ?? 0;
       const input: StaleFinishInput = {
         startedAt: session.started_at,
         lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
