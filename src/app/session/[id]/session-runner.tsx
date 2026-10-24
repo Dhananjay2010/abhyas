@@ -290,14 +290,24 @@ export function SessionRunner({
   }, 0), [exercises]);
 
   // Clear finish-block and quota errors when sync completes
+  const prevCountsRef = useRef({ pending: pendingCount, lost: lostCount, failed: failedCount });
   useEffect(() => {
-    if (pendingCount === 0 && lostCount === 0 && failedCount === 0) {
-      // Only clear errors that look like finish-block or quota errors
-      if (error && (error.includes("still syncing") || error.includes("couldn't be saved") || error.includes("weren't accepted") || error.includes("out of space"))) {
-        setError(null);
-      }
+    const prev = prevCountsRef.current;
+    const allClear = pendingCount === 0 && lostCount === 0 && failedCount === 0;
+    const wasNotClear = prev.pending > 0 || prev.lost > 0 || prev.failed > 0;
+    
+    // Only clear when transitioning from "not clear" to "all clear"
+    if (allClear && wasNotClear) {
+      setError((currentError) => {
+        if (currentError && (currentError.includes("still syncing") || currentError.includes("couldn't be saved") || currentError.includes("weren't accepted") || currentError.includes("out of space"))) {
+          return null;
+        }
+        return currentError;
+      });
     }
-  }, [pendingCount, lostCount, failedCount, error]);
+    
+    prevCountsRef.current = { pending: pendingCount, lost: lostCount, failed: failedCount };
+  }, [pendingCount, lostCount, failedCount]);
 
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it

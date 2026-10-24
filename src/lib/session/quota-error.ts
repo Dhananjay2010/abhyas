@@ -1,10 +1,10 @@
 /**
  * Detect quota exceeded errors across browsers.
- * 
+ *
  * Chrome: DOMException with code 22
  * Firefox: DOMException with code 1014
  * Safari: DOMException with name 'QuotaExceededError' or 'NS_ERROR_DOM_QUOTA_REACHED'
- * 
+ *
  * Pure function for testability.
  */
 export function isQuotaError(error: unknown): boolean {

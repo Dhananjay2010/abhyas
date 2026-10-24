@@ -35,12 +35,12 @@ export type OutboxState = {
 
 /**
  * Classify Postgres error codes as permanent (don't retry) or transient.
- * 
+ *
  * Permanent errors:
  * - 22xxx: Data exception (numeric overflow, string too long, etc.)
  * - 23xxx: Integrity constraint violation (foreign key, unique, etc.)
  * - 42501: Insufficient privilege
- * 
+ *
  * Pure function for testability.
  */
 export function isPostgresPermanentError(code: string | null | undefined): boolean {
@@ -58,7 +58,7 @@ export function isPostgresPermanentError(code: string | null | undefined): boole
 export type LogSetOutcome = "saved" | "invalid" | "queue";
 
 export function classifyLogSetOutcome(
-  resultOrThrown: 
+  resultOrThrown:
     | { ok: true; data: { code?: string } }
     | { ok: false; error: string; data?: { code?: string } }
     | { thrown: unknown }
@@ -95,7 +95,7 @@ export function classifyLogSetOutcome(
 
 /**
  * Compute the next set number for an exercise.
- * 
+ *
  * Takes all sets (including failed and unsaved) to avoid collisions.
  * Pure function for testability.
  */
@@ -106,11 +106,11 @@ export function nextSetNumberFor(sets: Array<{ setNumber: number }>): number {
 
 /**
  * Merge pending sets from the outbox into exercises.
- * 
+ *
  * After a reload, exercises come from the server without pending sets,
  * so nextSetNumber would reuse a queued set's number. This merges
  * pending sets back into the exercises array before computing nextSetNumber.
- * 
+ *
  * Pure function for testability.
  */
 export function mergePendingSets<
@@ -354,7 +354,7 @@ export class Outbox {
         // Re-read storage before each send to catch removals (S1a)
         const currentState = this.storage.get();
         if (!currentState) break;
-        
+
         // Skip if this set was removed during flush
         const stillPending = currentState.pending.find((s) => s.clientId === set.clientId);
         if (!stillPending) continue;

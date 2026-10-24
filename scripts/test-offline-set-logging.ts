@@ -13,7 +13,8 @@
 
 import { Outbox, mergePendingSets, nextSetNumberFor, isPostgresPermanentError, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
 import { isNetworkError } from "../src/lib/session/network-error";
-import { mapErrorToUserMessage, getRetryDelay } from "../src/lib/session/error-messages";
+import { mapErrorToUserMessage, getRetryDelay, countLoggedSets } from "../src/lib/session/error-messages";
+import { isQuotaError } from "../src/lib/session/quota-error";
 
 // ---- Fake storage --------------------------------------------------------
 class FakeStorage implements OutboxStorage {
@@ -1019,8 +1020,8 @@ async function testMaxRetries() {
     throw new Error(`Expected 1 failed set, got ${state.failed.length}`);
   }
   
-  if (!state.failed[0].error.includes("10 retries")) {
-    throw new Error(`Expected '10 retries' in error, got: ${state.failed[0].error}`);
+  if (!state.failed[0].error.includes("multiple attempts")) {
+    throw new Error(`Expected 'multiple attempts' in error, got: ${state.failed[0].error}`);
   }
 
   console.log("✓ M2: Set goes to failed after 10 retries");
@@ -1217,6 +1218,108 @@ function testNetworkErrorExcludesCodingBugs() {
   console.log("✓ isNetworkError excludes coding bug TypeErrors");
 }
 
+// ---- isQuotaError cross-browser ------------------------------------------
+function testQuotaErrorDetection() {
+  // Chrome: code 22
+  const chromeError = new DOMException("QuotaExceededError", "QuotaExceededError");
+  Object.defineProperty(chromeError, 'code', { value: 22 });
+  if (!isQuotaError(chromeError)) {
+    throw new Error("Chrome quota error (code 22) should be detected");
+  }
+
+  // Firefox: code 1014
+  const firefoxError = new DOMException("NS_ERROR_DOM_QUOTA_REACHED", "NS_ERROR_DOM_QUOTA_REACHED");
+  Object.defineProperty(firefoxError, 'code', { value: 1014 });
+  if (!isQuotaError(firefoxError)) {
+    throw new Error("Firefox quota error (code 1014) should be detected");
+  }
+
+  // Safari: name QuotaExceededError
+  const safariError = new DOMException("QuotaExceededError", "QuotaExceededError");
+  if (!isQuotaError(safariError)) {
+    throw new Error("Safari quota error (name) should be detected");
+  }
+
+  // Safari alt: NS_ERROR_DOM_QUOTA_REACHED
+  const safariAltError = new DOMException("NS_ERROR_DOM_QUOTA_REACHED", "NS_ERROR_DOM_QUOTA_REACHED");
+  if (!isQuotaError(safariAltError)) {
+    throw new Error("Safari alt quota error should be detected");
+  }
+
+  // Non-DOMException should not be detected
+  const regularError = new Error("Out of memory");
+  if (isQuotaError(regularError)) {
+    throw new Error("Regular Error should not be quota error");
+  }
+
+  console.log("✓ isQuotaError detects Chrome, Firefox, Safari quota errors");
+}
+
+// ---- countLoggedSets helper ----------------------------------------------
+function testCountLoggedSets() {
+  // Counts saved and pending, excludes failed/unsaved
+  const exercises = [
+    {
+      sets: [
+        { setNumber: 1 }, // saved
+        { setNumber: 2, pending: true }, // pending (counted)
+        { setNumber: 3, failed: true }, // failed (not counted)
+        { setNumber: 4, unsaved: true }, // unsaved (not counted)
+      ],
+    },
+    {
+      sets: [
+        { setNumber: 1 }, // saved
+        { setNumber: 2 }, // saved
+      ],
+    },
+  ];
+
+  const count = countLoggedSets(exercises);
+  if (count !== 4) {
+    throw new Error(`Expected 4 logged sets (2 saved + 1 pending + 2 saved), got ${count}`);
+  }
+
+  // Empty case
+  if (countLoggedSets([]) !== 0) {
+    throw new Error("Empty exercises should return 0");
+  }
+
+  // All failed/unsaved
+  const allBad = [{ sets: [{ setNumber: 1, failed: true }, { setNumber: 2, unsaved: true }] }];
+  if (countLoggedSets(allBad) !== 0) {
+    throw new Error("All failed/unsaved should return 0");
+  }
+
+  console.log("✓ countLoggedSets excludes failed/unsaved, counts pending");
+}
+
+// ---- Error mapping coverage ----------------------------------------------
+function testErrorMappingCoverage() {
+  // Test all required mappings
+  if (mapErrorToUserMessage("22P02") !== "Not saved, check the numbers") {
+    throw new Error("22P02 mapping failed");
+  }
+
+  if (mapErrorToUserMessage("23505") !== "Not saved, tap Retry") {
+    throw new Error("23505 should map to default (not invalid)");
+  }
+
+  if (mapErrorToUserMessage("42501") !== "Not saved, please sign in again") {
+    throw new Error("42501 mapping failed");
+  }
+
+  if (mapErrorToUserMessage(null, "Failed after 10 retries") !== "Not saved after multiple attempts") {
+    throw new Error("Max retries mapping failed");
+  }
+
+  if (mapErrorToUserMessage(null, "Failed to execute 'setItem' on 'Storage': Setting the value of 'key' exceeded the quota.") !== "Not saved, out of space") {
+    throw new Error("Quota error in message should be detected");
+  }
+
+  console.log("✓ Error mapping covers all required cases");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -1244,6 +1347,9 @@ async function main() {
   testErrorMessageMapping();
   testRetryBackoff();
   testNetworkErrorExcludesCodingBugs();
+  testQuotaErrorDetection();
+  testCountLoggedSets();
+  testErrorMappingCoverage();
 
   console.log("\n✓ All offline set logging tests passed");
 }
