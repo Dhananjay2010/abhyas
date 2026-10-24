@@ -286,7 +286,8 @@ const equipmentProfiles: Array<{ name: string; hasAll: boolean; ids: string[] }>
 const sessionLengths = [30, 45, 60, 75];
 const frequencies = [2, 3, 4, 5];
 const goals: GeneratorInput["goal"][] = ["general_fitness", "muscle_gain"];
-const injurySeverities: Array<{ label: string; currentRegions: string[]; anyKnee: boolean }> = [
+type BodyRegion = "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
+const injurySeverities: Array<{ label: string; currentRegions: BodyRegion[]; anyKnee: boolean }> = [
   { label: "current-knee", currentRegions: ["knee"], anyKnee: true },
   { label: "past-knee", currentRegions: [], anyKnee: true },
 ];
@@ -313,7 +314,7 @@ for (const seed of testSeeds) {
                 primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
                 daysPerWeek,
                 preferredSessionMinutes: sessionMinutes,
-                currentInjuryRegions: severity.currentRegions as Array<"neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core">,
+                currentInjuryRegions: severity.currentRegions,
                 anyKneeInjury: severity.anyKnee,
               });
             
@@ -966,7 +967,7 @@ for (const seed of testSeeds) {
                 primaryTrack: equipment.name === "bodyweight" ? "bodyweight" : "weights",
                 daysPerWeek,
                 preferredSessionMinutes: sessionMinutes,
-                currentInjuryRegions: severity.currentRegions as Array<"neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core">,
+                currentInjuryRegions: severity.currentRegions,
                 anyKneeInjury: severity.anyKnee,
               });
               

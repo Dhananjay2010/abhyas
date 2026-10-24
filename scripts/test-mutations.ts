@@ -103,15 +103,6 @@ const mutants: Mutant[] = [
     tests: ["test:knee-swaps"],
   },
 
-  // 5c. Drop past-knee never-empty swap fallback
-  {
-    name: "Drop past-knee never-empty swap fallback",
-    file: "src/lib/program/alternatives.ts",
-    pattern: /\/\/ Fallback for past-knee lunge swaps: if empty, add bodyweight options from the 4-list\n\s+if \(deduplicated\.length === 0 && hasPastKnee && current\.movement_pattern === "lunge"\) {/,
-    mutate: '// Fallback for past-knee lunge swaps: if empty, add bodyweight options from the 4-list\n  if (deduplicated.length === 0 && !hasPastKnee && current.movement_pattern === "lunge") {',
-    tests: ["test:swap-mutations"],
-  },
-
   // 5d. Unsafe-lunge list check (checking if truly equivalent to contraindication check)
   {
     name: "Drop unsafe-lunge list check (deficit lunges, pistols)",

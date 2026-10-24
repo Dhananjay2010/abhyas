@@ -4,16 +4,21 @@ console.log("Testing injury-regions helpers");
 console.log("=====================================\n");
 
 // Test cases
-const testCases = [
+const testCases: Array<{
+  name: string;
+  injuries: InjuryRow[];
+  expectedCurrent: string[];
+  expectedAnyKnee: boolean;
+}> = [
   {
     name: "Current knee only",
-    injuries: [{ region: "knee", severity: "current" }] as InjuryRow[],
+    injuries: [{ region: "knee", severity: "current" }],
     expectedCurrent: ["knee"],
     expectedAnyKnee: true,
   },
   {
     name: "Past knee only",
-    injuries: [{ region: "knee", severity: "past" }] as InjuryRow[],
+    injuries: [{ region: "knee", severity: "past" }],
     expectedCurrent: [],
     expectedAnyKnee: true,
   },
@@ -22,7 +27,7 @@ const testCases = [
     injuries: [
       { region: "knee", severity: "current" },
       { region: "knee", severity: "past" },
-    ] as InjuryRow[],
+    ],
     expectedCurrent: ["knee"],
     expectedAnyKnee: true,
   },
@@ -31,13 +36,13 @@ const testCases = [
     injuries: [
       { region: "shoulder", severity: "current" },
       { region: "knee", severity: "past" },
-    ] as InjuryRow[],
+    ],
     expectedCurrent: ["shoulder"],
     expectedAnyKnee: true,
   },
   {
     name: "Past shoulder only (no knee)",
-    injuries: [{ region: "shoulder", severity: "past" }] as InjuryRow[],
+    injuries: [{ region: "shoulder", severity: "past" }],
     expectedCurrent: [],
     expectedAnyKnee: false,
   },
@@ -46,13 +51,13 @@ const testCases = [
     injuries: [
       { region: "knee", severity: "current" },
       { region: "lower_back", severity: "current" },
-    ] as InjuryRow[],
+    ],
     expectedCurrent: ["knee", "lower_back"],
     expectedAnyKnee: true,
   },
   {
     name: "No injuries",
-    injuries: [] as InjuryRow[],
+    injuries: [],
     expectedCurrent: [],
     expectedAnyKnee: false,
   },

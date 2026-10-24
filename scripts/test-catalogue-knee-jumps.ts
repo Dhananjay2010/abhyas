@@ -12,7 +12,9 @@ import { readFileSync } from "node:fs";
 import type { CandidateExercise } from "../src/lib/program/generate";
 
 const fixture = "scripts/fixtures/catalogue.json";
-const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
+const rawCatalogue: unknown = JSON.parse(readFileSync(fixture, "utf8"));
+if (!Array.isArray(rawCatalogue)) throw new Error("Catalogue must be an array");
+const catalogue: CandidateExercise[] = rawCatalogue;
 
 let passed = 0;
 let failed = 0;

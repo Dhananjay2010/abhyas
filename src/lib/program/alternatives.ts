@@ -300,17 +300,5 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (deduplicated.length >= limit) break;
   }
   
-  // Fallback for past-knee lunge swaps: if empty, add bodyweight options from the 4-list
-  if (deduplicated.length === 0 && hasPastKnee && current.movement_pattern === "lunge") {
-    const bodyweightFallbacks = ["wall-sit", "spanish-squat"];
-    for (const slug of bodyweightFallbacks) {
-      const fallback = candidates.find(c => c.slug === slug);
-      if (fallback && fallback.equipment_ids.length === 0) {
-        deduplicated.push(fallback);
-        if (deduplicated.length >= limit) break;
-      }
-    }
-  }
-  
   return deduplicated;
 }

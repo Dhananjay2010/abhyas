@@ -19,7 +19,9 @@ import { generateProgram, type CandidateExercise, KNEE_SAFE_LUNGE_EXERCISES } fr
 import { hasAnyKneeInjury, currentInjuryRegions } from "../src/lib/program/injury-regions";
 
 const fixture = "scripts/fixtures/catalogue.json";
-const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
+const rawCatalogue: unknown = JSON.parse(readFileSync(fixture, "utf8"));
+if (!Array.isArray(rawCatalogue)) throw new Error("Catalogue must be an array");
+const catalogue: CandidateExercise[] = rawCatalogue;
 
 type BodyRegion = "core" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle";
 interface InjuryRow {
@@ -68,13 +70,13 @@ console.log("─".repeat(60));
 
 // Test 1: Home bodyweight past-knee (no jumps in plan)
 console.log("\n1. Home bodyweight past-knee (no banned moves in plan)");
-const injuries = [{ region: "knee" as BodyRegion, severity: "past" as const }];
+const injuries: InjuryRow[] = [{ region: "knee", severity: "past" }];
 const homeInput = {
   userId: "test-user",
   blockNumber: 1,
-  goal: "general_fitness" as const,
-  level: "intermediate" as const,
-  primaryTrack: "bodyweight" as const,
+  goal: "general_fitness",
+  level: "intermediate",
+  primaryTrack: "bodyweight",
   daysPerWeek: 3,
   yogaDaysPerWeek: 0,
   age: 35,
@@ -84,7 +86,7 @@ const homeInput = {
   currentInjuryRegions: currentInjuryRegions(injuries),
   anyKneeInjury: hasAnyKneeInjury(injuries),
   catalogue,
-};
+} satisfies Parameters<typeof generateProgram>[0];
 
 const homePlan = generateProgram(homeInput);
 const homeExercises = homePlan.days.flatMap(d => d.exercises.map(ex => catalogue.find(e => e.id === ex.exerciseId))).filter(Boolean);
@@ -106,12 +108,12 @@ check("Bodyweight squat allowed", homeSquats.length > 0, "Not found in plan");
 console.log("\n2. Gym past-knee (allows squat/deadlift, bans pistols/deficits)");
 const gymInput = {
   ...homeInput,
-  goal: "muscle_gain" as const,
+  goal: "muscle_gain",
   daysPerWeek: 4,
-  primaryTrack: "weights" as const,
+  primaryTrack: "weights",
   hasAllEquipment: true,
   equipmentIds: [],
-};
+} satisfies Parameters<typeof generateProgram>[0];
 
 const gymPlan = generateProgram(gymInput);
 const gymExercises = gymPlan.days.flatMap(d => d.exercises.map(ex => catalogue.find(e => e.id === ex.exerciseId))).filter(Boolean);

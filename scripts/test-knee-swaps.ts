@@ -39,7 +39,9 @@ interface InjuryRow {
 }
 
 const fixture = "scripts/fixtures/catalogue.json";
-const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
+const rawCatalogue: unknown = JSON.parse(readFileSync(fixture, "utf8"));
+if (!Array.isArray(rawCatalogue)) throw new Error("Catalogue must be an array");
+const catalogue: CandidateExercise[] = rawCatalogue;
 
 // Hard-coded test oracle (independent of generator)
 const BANNED_FOR_KNEE = new Set([
