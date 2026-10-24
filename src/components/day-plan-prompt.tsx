@@ -124,27 +124,3 @@ export function DayPlanPrompt({
     </section>
   );
 }
-
-function Choice({
-  children,
-  onClick,
-  disabled,
-  wide = false,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  wide?: boolean;
-}) {
-  return (
-    <button
-      disabled={disabled}
-      onClick={onClick}
-      className={`min-h-[44px] rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm font-medium transition-colors hover:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 ${
-        wide ? "w-full text-left" : "text-center"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
