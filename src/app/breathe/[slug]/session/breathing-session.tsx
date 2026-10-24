@@ -148,6 +148,7 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
   const leavingRef = useRef(false);
   const finishedRef = useRef(false);
   const pauseRef = useRef<() => void>(() => {});
+  const backTriggeredRef = useRef(false);
   const { homeHref, run, journey } = props;
 
   // The session the first step opened, and a queue so two steps never race to
@@ -171,8 +172,9 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
   //
   // An extra history entry with the same URL sits on top of the practice.
   // Pressing back pops only that entry: nothing navigates, the popstate
-  // handler shows a confirmation dialog, and the entry goes back on.
-  // Once the practice has finished, back simply leaves.
+  // handler opens the pause sheet, and the entry goes back on. Leaving is a
+  // deliberate choice from the sheet. Once the practice has finished, back
+  // simply leaves.
   useEffect(() => {
     const guard = () =>
       window.history.pushState({ [GUARD_KEY]: true }, "", window.location.href);
@@ -188,14 +190,13 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
         else router.replace(homeHref);
         return;
       }
-      // Show confirmation dialog instead of pausing
-      if (!paused) requestPause();
-      setBackPressed(true);
+      backTriggeredRef.current = true;
+      pauseRef.current();
       guard();
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [fromApp, router, homeHref, paused, requestPause]);
+  }, [fromApp, router, homeHref]);
 
   const registerPause = useCallback((fn: () => void) => {
     pauseRef.current = fn;
@@ -325,6 +326,7 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
       dayNote={dayNote}
       before={tally}
       registerPause={registerPause}
+      backTriggeredRef={backTriggeredRef}
       onFinished={onFinished}
       onSaved={onSaved}
       onAgain={onAgain}
@@ -355,6 +357,7 @@ type PracticeProps = Omit<SessionProps, "actions" | "homeHref" | "pattern" | "ru
   /** What the earlier steps added up to, for the summary at the end. */
   before: Tally;
   registerPause: (fn: () => void) => void;
+  backTriggeredRef: React.MutableRefObject<boolean>;
   onFinished: (finished: boolean) => void;
   onSaved: (seconds: number) => void;
   onAgain: () => void;
@@ -385,6 +388,7 @@ function Practice({
   dayNote,
   before,
   registerPause,
+  backTriggeredRef,
   onFinished,
   onSaved,
   onAgain,
@@ -462,14 +466,14 @@ function Practice({
       step: stepIndex,
     };
     sessionStorage.setItem(storageKey, JSON.stringify(state));
-    
-    return () => {
-      // Clear on unmount if finished
-      if (stage === "finished") {
-        sessionStorage.removeItem(storageKey);
-      }
-    };
   }, [stage, pattern.slug, clock, options.cycles, stepIndex, storageKey]);
+
+  // Clear session storage when practice is finished
+  useEffect(() => {
+    if (stage === "finished") {
+      sessionStorage.removeItem(storageKey);
+    }
+  }, [stage, storageKey]);
 
   const shapeRef = useRef<ShapeHandle>(null);
   const glowRef = useRef<HTMLDivElement>(null);
@@ -598,6 +602,14 @@ function Practice({
     });
     setPaused(true);
   }, [clock, settle, total, cycle, options.cycles]);
+
+  // Detect back button pause and show confirmation dialog
+  useEffect(() => {
+    if (paused && backTriggeredRef.current) {
+      backTriggeredRef.current = false;
+      setBackPressed(true);
+    }
+  }, [paused, backTriggeredRef]);
 
   useEffect(() => {
     registerPause(requestPause);
