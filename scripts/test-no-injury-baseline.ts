@@ -10,6 +10,7 @@
  */
 import { readFileSync } from "node:fs";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import type { Database } from "../src/lib/database.types";
 
 const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
@@ -31,6 +32,9 @@ interface BaselinePlan {
       exercises: Array<{
         exerciseId: string;
         slug: string;
+        targetSets?: number;
+        targetRepsMin?: number;
+        targetRepsMax?: number;
       }>;
     }>;
   };
@@ -65,9 +69,9 @@ for (const [userId, baselineData] of Object.entries(baseline)) {
   const input: GeneratorInput = {
     userId,
     blockNumber: 1,
-    goal: profile.goal,
-    level: profile.level,
-    primaryTrack: profile.track,
+    goal: profile.goal as Database["public"]["Enums"]["fitness_goal"],
+    level: profile.level as Database["public"]["Enums"]["fitness_level"],
+    primaryTrack: profile.track as Database["public"]["Enums"]["track_type"],
     daysPerWeek: profile.daysPerWeek,
     yogaDaysPerWeek: 0,
     age: 30,
