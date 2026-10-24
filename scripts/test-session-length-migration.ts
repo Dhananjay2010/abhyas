@@ -1,13 +1,17 @@
 /**
- * Test session length migration 20261025000016.
+ * Test migration 20261025000016_session_minutes_check.sql with real Postgres (PGlite).
  *
  * Validates:
- * - Migration maps non-conforming values correctly
- * - Constraint enforces only {30, 45, 60, 75}
- * - NULL values are allowed
+ * - Value mapping (37→30, 38→45, 52→45, 53→60, 67→60, 68→75, 90→75, 20→30, null→null, 45→45, 60→60)
+ * - Idempotency (running twice is safe)
+ * - Constraint enforcement (50 rejected, null allowed)
  *
  *   npm run test:session-length-migration
  */
+
+import { PGlite } from "@electric-sql/pglite";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 let failures = 0;
 
@@ -16,104 +20,189 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-console.log("\n1. Migration value mapping rules");
-{
-  // Mapping logic from migration:
-  //   <=37  → 30
-  //   38-52 → 45
-  //   53-67 → 60
-  //   >=68  → 75
+async function runTest() {
+  console.log("\nInitializing PGlite database...");
+  const db = new PGlite();
   
-  function getMappedValue(input: number): number {
-    if (input <= 37) return 30;
-    if (input >= 38 && input <= 52) return 45;
-    if (input >= 53 && input <= 67) return 60;
-    if (input >= 68) return 75;
-    return input;  // Should never happen
+  // Create profiles table with preferred_session_minutes
+  await db.exec(`
+    CREATE TABLE profiles (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      preferred_session_minutes INTEGER
+    );
+  `);
+  
+  console.log("\n1. Insert test data");
+  {
+    await db.exec(`
+      INSERT INTO profiles (id, preferred_session_minutes) VALUES
+        ('00000000-0000-0000-0000-000000000001', 37),
+        ('00000000-0000-0000-0000-000000000002', 38),
+        ('00000000-0000-0000-0000-000000000003', 52),
+        ('00000000-0000-0000-0000-000000000004', 53),
+        ('00000000-0000-0000-0000-000000000005', 67),
+        ('00000000-0000-0000-0000-000000000006', 68),
+        ('00000000-0000-0000-0000-000000000007', 90),
+        ('00000000-0000-0000-0000-000000000008', 20),
+        ('00000000-0000-0000-0000-000000000009', NULL),
+        ('00000000-0000-0000-0000-000000000010', 45),
+        ('00000000-0000-0000-0000-000000000011', 60);
+    `);
+    
+    const result = await db.query("SELECT COUNT(*) FROM profiles");
+    const count = parseInt(result.rows[0].count);
+    check("11 profiles inserted", count === 11, `got ${count}`);
   }
   
-  // Test boundary values
-  check("1 maps to 30", getMappedValue(1) === 30);
-  check("30 maps to 30 (no change)", getMappedValue(30) === 30);
-  check("37 maps to 30 (boundary)", getMappedValue(37) === 30);
-  check("38 maps to 45 (boundary)", getMappedValue(38) === 45);
-  check("45 maps to 45 (no change)", getMappedValue(45) === 45);
-  check("50 maps to 45 (QA case)", getMappedValue(50) === 45);
-  check("52 maps to 45 (boundary)", getMappedValue(52) === 45);
-  check("53 maps to 60 (boundary)", getMappedValue(53) === 60);
-  check("60 maps to 60 (no change)", getMappedValue(60) === 60);
-  check("67 maps to 60 (boundary)", getMappedValue(67) === 60);
-  check("68 maps to 75 (boundary)", getMappedValue(68) === 75);
-  check("75 maps to 75 (no change)", getMappedValue(75) === 75);
-  check("90 maps to 75 (QA case)", getMappedValue(90) === 75);
-  check("100 maps to 75", getMappedValue(100) === 75);
-  check("120 maps to 75", getMappedValue(120) === 75);
-}
-
-console.log("\n2. Constraint enforcement");
-{
-  const allowedValues = [30, 45, 60, 75];
-  
-  function isConstraintSatisfied(value: number | null): boolean {
-    if (value === null) return true;
-    return allowedValues.includes(value);
+  console.log("\n2. Apply migration 20261025000016_session_minutes_check.sql");
+  {
+    const migrationPath = join(process.cwd(), "supabase", "migrations", "20261025000016_session_minutes_check.sql");
+    const migration = readFileSync(migrationPath, "utf-8");
+    
+    await db.exec(migration);
+    check("Migration applied successfully", true);
   }
   
-  check("NULL satisfies constraint", isConstraintSatisfied(null));
-  check("30 satisfies constraint", isConstraintSatisfied(30));
-  check("45 satisfies constraint", isConstraintSatisfied(45));
-  check("60 satisfies constraint", isConstraintSatisfied(60));
-  check("75 satisfies constraint", isConstraintSatisfied(75));
-  check("50 violates constraint", !isConstraintSatisfied(50));
-  check("90 violates constraint", !isConstraintSatisfied(90));
-  check("0 violates constraint", !isConstraintSatisfied(0));
-  check("100 violates constraint", !isConstraintSatisfied(100));
-}
-
-console.log("\n3. Idempotency");
-{
-  // Migration should be idempotent - running it twice should have same effect
-  // This is ensured by:
-  // 1. UPDATE only affects rows WHERE preferred_session_minutes IS NOT NULL AND NOT IN (30,45,60,75)
-  // 2. DROP CONSTRAINT IF EXISTS before adding
-  
-  check("Migration has DROP CONSTRAINT IF EXISTS (manual verification)", true);
-  check("UPDATE uses WHERE clause to skip already-conforming values (manual verification)", true);
-}
-
-console.log("\n4. Tie-breaking rule");
-{
-  // User said: "an exact tie goes to the larger value"
-  // The boundaries are defined by midpoints:
-  // 30-45 midpoint = 37.5, so <=37 → 30, >=38 → 45
-  // 45-60 midpoint = 52.5, so <=52 → 45, >=53 → 60
-  // 60-75 midpoint = 67.5, so <=67 → 60, >=68 → 75
-  
-  function getMappedValue(input: number): number {
-    if (input <= 37) return 30;
-    if (input >= 38 && input <= 52) return 45;
-    if (input >= 53 && input <= 67) return 60;
-    if (input >= 68) return 75;
-    return input;
+  console.log("\n3. Verify value mapping");
+  {
+    const result = await db.query(`
+      SELECT id, preferred_session_minutes 
+      FROM profiles 
+      ORDER BY id
+    `);
+    
+    const values = Object.fromEntries(
+      result.rows.map((r: any) => [r.id, r.preferred_session_minutes])
+    );
+    
+    check("37 → 30", values["00000000-0000-0000-0000-000000000001"] === 30);
+    check("38 → 45", values["00000000-0000-0000-0000-000000000002"] === 45);
+    check("52 → 45", values["00000000-0000-0000-0000-000000000003"] === 45);
+    check("53 → 60", values["00000000-0000-0000-0000-000000000004"] === 60);
+    check("67 → 60", values["00000000-0000-0000-0000-000000000005"] === 60);
+    check("68 → 75", values["00000000-0000-0000-0000-000000000006"] === 75);
+    check("90 → 75", values["00000000-0000-0000-0000-000000000007"] === 75);
+    check("20 → 30", values["00000000-0000-0000-0000-000000000008"] === 30);
+    check("NULL → NULL", values["00000000-0000-0000-0000-000000000009"] === null);
+    check("45 → 45 (no change)", values["00000000-0000-0000-0000-000000000010"] === 45);
+    check("60 → 60 (no change)", values["00000000-0000-0000-0000-000000000011"] === 60);
   }
   
-  // Actual midpoints would be fractional, but we round down for <=, up for >=
-  check("37 (just below midpoint) → 30", getMappedValue(37) === 30);
-  check("38 (just above midpoint) → 45", getMappedValue(38) === 45);
-  check("52 (just below midpoint) → 45", getMappedValue(52) === 45);
-  check("53 (just above midpoint) → 60", getMappedValue(53) === 60);
-  check("67 (just below midpoint) → 60", getMappedValue(67) === 60);
-  check("68 (just above midpoint) → 75", getMappedValue(68) === 75);
+  console.log("\n4. Test idempotency (run migration again)");
+  {
+    const migrationPath = join(process.cwd(), "supabase", "migrations", "20261025000016_session_minutes_check.sql");
+    const migration = readFileSync(migrationPath, "utf-8");
+    
+    await db.exec(migration);
+    check("Migration runs again without error", true);
+    
+    // Verify values unchanged
+    const result = await db.query(`
+      SELECT id, preferred_session_minutes 
+      FROM profiles 
+      WHERE id = '00000000-0000-0000-0000-000000000001'
+    `);
+    
+    check("37→30 still 30 after second run", result.rows[0].preferred_session_minutes === 30);
+  }
+  
+  console.log("\n5. Test constraint enforcement");
+  {
+    // Try to insert invalid value (50)
+    try {
+      await db.exec(`
+        INSERT INTO profiles (id, preferred_session_minutes) 
+        VALUES ('00000000-0000-0000-0000-000000000099', 50)
+      `);
+      check("50 is rejected by constraint", false);
+    } catch (error: any) {
+      const isCheckViolation = error.message.includes("check constraint") || 
+                               error.message.includes("session_minutes_check") ||
+                               error.message.includes("violates");
+      check("50 is rejected by constraint", isCheckViolation);
+    }
+    
+    // Try to insert NULL (allowed)
+    try {
+      await db.exec(`
+        INSERT INTO profiles (id, preferred_session_minutes) 
+        VALUES ('00000000-0000-0000-0000-000000000098', NULL)
+      `);
+      check("NULL is allowed", true);
+    } catch (error) {
+      check("NULL is allowed", false);
+    }
+    
+    // Try to insert valid value (30)
+    try {
+      await db.exec(`
+        INSERT INTO profiles (id, preferred_session_minutes) 
+        VALUES ('00000000-0000-0000-0000-000000000097', 30)
+      `);
+      check("30 is allowed", true);
+    } catch (error) {
+      check("30 is allowed", false);
+    }
+    
+    // Try to insert valid value (75)
+    try {
+      await db.exec(`
+        INSERT INTO profiles (id, preferred_session_minutes) 
+        VALUES ('00000000-0000-0000-0000-000000000096', 75)
+      `);
+      check("75 is allowed", true);
+    } catch (error) {
+      check("75 is allowed", false);
+    }
+    
+    // Try to update to invalid value (90)
+    try {
+      await db.exec(`
+        UPDATE profiles 
+        SET preferred_session_minutes = 90 
+        WHERE id = '00000000-0000-0000-0000-000000000010'
+      `);
+      check("Update to 90 is rejected", false);
+    } catch (error: any) {
+      const isCheckViolation = error.message.includes("check constraint") || 
+                               error.message.includes("session_minutes_check") ||
+                               error.message.includes("violates");
+      check("Update to 90 is rejected", isCheckViolation);
+    }
+  }
+  
+  console.log("\n6. Verify final state");
+  {
+    const result = await db.query(`
+      SELECT preferred_session_minutes, COUNT(*) as count
+      FROM profiles
+      WHERE preferred_session_minutes IS NOT NULL
+      GROUP BY preferred_session_minutes
+      ORDER BY preferred_session_minutes
+    `);
+    
+    const counts = Object.fromEntries(
+      result.rows.map((r: any) => [r.preferred_session_minutes, parseInt(r.count)])
+    );
+    
+    check("Has 30-minute profiles", counts[30] >= 1);
+    check("Has 45-minute profiles", counts[45] >= 1);
+    check("Has 60-minute profiles", counts[60] >= 1);
+    check("Has 75-minute profiles", counts[75] >= 1);
+    check("No other values present", Object.keys(counts).every(k => [30, 45, 60, 75].includes(parseInt(k))));
+  }
+  
+  await db.close();
 }
 
-console.log("\n5. Migration file structure");
-{
-  // Verify the migration has the correct version number
-  check("Migration file is 20261025000016_session_minutes_check.sql (manual verification)", true);
-  check("Migration has three steps: UPDATE, DROP CONSTRAINT, ADD CONSTRAINT (manual verification)", true);
-}
-
-console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
-process.exit(failures === 0 ? 0 : 1);
+runTest()
+  .then(() => {
+    console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
+    process.exit(failures === 0 ? 0 : 1);
+  })
+  .catch((error) => {
+    console.error("\nTest failed with error:", error);
+    process.exit(1);
+  });
 
 export {};

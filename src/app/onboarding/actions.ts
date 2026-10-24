@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
@@ -239,7 +240,6 @@ export async function saveSessionLength(minutes: number): Promise<ActionResult> 
   );
   
   if (result.ok) {
-    const { revalidatePath } = await import("next/cache");
     revalidatePath("/today");
     revalidatePath("/settings");
   }

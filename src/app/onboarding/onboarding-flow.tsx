@@ -357,8 +357,10 @@ export function OnboardingFlow({
       if (!date || isNaN(date.getTime())) {
         dobError = "Please enter a valid date";
       } else if (date >= today) {
+        dobError = "Date can't be in the future";
+      } else if (date > maxDateAllowed) {
         dobError = "You must be at least 16 years old";
-      } else if (date < minDateAllowed || date > maxDateAllowed) {
+      } else if (date < minDateAllowed) {
         dobError = "Please check your date of birth";
       }
     }
@@ -419,7 +421,7 @@ export function OnboardingFlow({
         }
       >
         <div className="space-y-5">
-          <fieldset>
+          <fieldset aria-describedby={dobError ? "dob-error" : undefined}>
             <legend className="text-sm font-medium text-fg">Date of birth</legend>
             <div className="mt-2 flex gap-2">
               <input
@@ -505,7 +507,7 @@ export function OnboardingFlow({
               />
             </div>
             {dobError && (
-              <p className="mt-1.5 text-sm text-danger" aria-live="polite">
+              <p id="dob-error" className="mt-1.5 text-sm text-danger" aria-live="polite">
                 {dobError}
               </p>
             )}
