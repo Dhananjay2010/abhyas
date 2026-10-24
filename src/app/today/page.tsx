@@ -23,6 +23,7 @@ import { getWeekRowLabel } from "@/lib/today/week-display";
 import { WarmupSection } from "@/components/today/warmup-section";
 import { findFirstTrainingDay } from "@/lib/today/first-training-day";
 import { countWorkingSets } from "@/lib/session/count-sets";
+import { buildTodayView } from "@/lib/today/page-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -349,8 +350,6 @@ export default async function TodayPage() {
     override !== undefined &&
     (override.actual_type !== (scheduled?.day_type ?? null) ||
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
-  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
-  const isDeload = week === program.deload_week;
 
   const strengthDone = todaySessions.some(
     (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type),
@@ -383,6 +382,46 @@ export default async function TodayPage() {
     ? null
     : hasStartedAnySession({ sessions: allSessionsRes.data ?? [] });
 
+  /*
+    One-day overrides across this week, keyed by weekday so "Your week" can show
+    them. Without this the list rendered the block's template labels only, so a
+    choice made last night was invisible until the day arrived: the user picked
+    Rest for tomorrow and the week still said Push. Only a difference is
+    recorded -- "keep the plan" writes no row, and a swap that happens to match
+    the template is not news.
+  */
+  const chosenByDayIndex = new Map<number, string>();
+  for (const d of days ?? []) {
+    // The next time this weekday comes round, which is today for today.
+    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
+    const sess = allSessions.find(
+      (x) =>
+        x.local_date === date &&
+        (x.status === "planned" || x.status === "in_progress") &&
+        x.actual_type !== null,
+    );
+    if (!sess?.actual_type) continue;
+    const chosenDay = sess.program_day_id
+      ? days?.find((pd) => pd.id === sess.program_day_id)
+      : undefined;
+    const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
+    if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
+  }
+
+  // Build today view using pure helper (week, isDeload, firstTrainingDay, weekRowsWithChoices)
+  const todayView = buildTodayView({
+    program: {
+      started_on: program.started_on,
+      week_offset: program.week_offset,
+      deload_week: program.deload_week,
+    },
+    localToday,
+    days: days ?? [],
+    hasStartedAny: hasStartedAny ?? false, // Treat null (error) as false for view building
+    chosenByDayIndex,
+  });
+  const { week, isDeload, firstTrainingDay, weekRowsWithChoices } = todayView;
+
   // Use pure helpers to derive all prompt logic
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
@@ -411,9 +450,9 @@ export default async function TodayPage() {
   const todayState = buildTodayState(stateInput);
   const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
 
-  // Find first training day in plan for first-session offer
-  // Only show if we know they haven't started (not null/unknown)
-  const firstTrainingDay = hasStartedAny === false && days ? findFirstTrainingDay(days) : null;
+  // Override firstTrainingDay from todayView when hasStartedAny is null (error state)
+  // In error state, hide first-session offer (firstTrainingDay = null)
+  const firstTrainingDayForPrompt = hasStartedAny === null ? null : firstTrainingDay;
 
   const promptBlocks = todayPromptBlocks({
     promptType,
@@ -421,7 +460,7 @@ export default async function TodayPage() {
     hasStartedAny,
     nextTrainingDay: nextTraining,
     isTraining,
-    firstTrainingDay,
+    firstTrainingDay: firstTrainingDayForPrompt,
   });
 
   // ---- wave 3 -------------------------------------------------------------
@@ -534,32 +573,6 @@ export default async function TodayPage() {
           skipped: false,
           swappedIn: false,
         }));
-
-  /*
-    One-day overrides across this week, keyed by weekday so "Your week" can show
-    them. Without this the list rendered the block's template labels only, so a
-    choice made last night was invisible until the day arrived: the user picked
-    Rest for tomorrow and the week still said Push. Only a difference is
-    recorded -- "keep the plan" writes no row, and a swap that happens to match
-    the template is not news.
-  */
-  const chosenByDayIndex = new Map<number, string>();
-  for (const d of days ?? []) {
-    // The next time this weekday comes round, which is today for today.
-    const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
-    const sess = allSessions.find(
-      (x) =>
-        x.local_date === date &&
-        (x.status === "planned" || x.status === "in_progress") &&
-        x.actual_type !== null,
-    );
-    if (!sess?.actual_type) continue;
-    const chosenDay = sess.program_day_id
-      ? days?.find((pd) => pd.id === sess.program_day_id)
-      : undefined;
-    const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
-    if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
-  }
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-36">
@@ -705,26 +718,25 @@ export default async function TodayPage() {
           Your week
         </h2>
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface text-sm">
-          {(days ?? []).map((d) => {
-            const { label, isChoice } = getWeekRowLabel(d, chosenByDayIndex);
+          {weekRowsWithChoices.map((row) => {
             return (
               <li
-                key={d.day_index}
+                key={row.dayIndex}
                 className={`flex justify-between gap-4 px-4 py-3 ${
-                  d.day_index === todayIndex ? "bg-surface-2" : ""
+                  row.dayIndex === todayIndex ? "bg-surface-2" : ""
                 }`}
               >
-                <span className={d.day_index === todayIndex ? "font-semibold" : "text-muted"}>
-                  {DAY_NAMES[d.day_index - 1]}
+                <span className={row.dayIndex === todayIndex ? "font-semibold" : "text-muted"}>
+                  {DAY_NAMES[row.dayIndex - 1]}
                 </span>
-                {isChoice ? (
+                {row.isChoice ? (
                   <span className="text-right">
-                    <span className="font-medium text-accent">{label}</span>
+                    <span className="font-medium text-accent">{row.label}</span>
                     <span className="block text-xs text-muted">your choice</span>
                   </span>
                 ) : (
-                  <span className={d.day_type === "rest" ? "text-muted" : "font-medium"}>
-                    {label}
+                  <span className={days?.find(d => d.day_index === row.dayIndex)?.day_type === "rest" ? "text-muted" : "font-medium"}>
+                    {row.label}
                   </span>
                 )}
               </li>
