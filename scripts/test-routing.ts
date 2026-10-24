@@ -9,6 +9,7 @@ import robots from "../src/app/robots";
 import sitemap from "../src/app/sitemap";
 import { getSiteUrl } from "../src/lib/site-url";
 import { routeDecision, PROTECTED_PREFIXES } from "../src/lib/supabase/session";
+import { isPublicPath } from "../src/lib/supabase/public-paths";
 import { MIDDLEWARE_MATCHER, config } from "../src/proxy";
 
 let failures = 0;
@@ -62,59 +63,100 @@ console.log("\n3. sitemap.xml generation");
   }));
 }
 
-console.log("\n4. Middleware matcher pattern");
+console.log("\n4. Middleware matcher - exact file anchoring (QA requirement)");
 {
-  // Test the real matcher constant directly
+  // Test the real matcher constant as a RegExp (how Next.js applies it)
   const regex = new RegExp(MIDDLEWARE_MATCHER);
 
-  // Verify constant matches config literal (Next.js requires static config)
+  // Verify constant matches config literal
   const configLiteral = config.matcher[0];
-  // The constant has ^ prefix, config literal doesn't (Next.js adds it)
   const constantWithoutAnchor = MIDDLEWARE_MATCHER.replace(/^\^/, "");
   check("MIDDLEWARE_MATCHER matches config.matcher literal", constantWithoutAnchor === configLiteral);
 
-  // Files that should bypass middleware (NOT matched by the pattern)
+  // Critical: Each static file must match EXACTLY at root, not in subdirs or with suffixes
+  const exactTests = [
+    {
+      exact: "/sw.js",
+      mustGoThrough: ["/foo/sw.js", "/sw.jsx", "/swXjs"],
+    },
+    {
+      exact: "/robots.txt",
+      mustGoThrough: ["/foo/robots.txt", "/robots.txt.bak", "/robotsXtxt"],
+    },
+    {
+      exact: "/sitemap.xml",
+      mustGoThrough: ["/foo/sitemap.xml", "/sitemap.xml.gz", "/sitemapXxml"],
+    },
+    {
+      exact: "/favicon.ico",
+      mustGoThrough: ["/foo/favicon.ico", "/favicon.icox", "/faviconXico"],
+    },
+    {
+      exact: "/manifest.webmanifest",
+      mustGoThrough: ["/foo/manifest.webmanifest", "/manifest.webmanifest.bak", "/manifestXwebmanifest"],
+    },
+  ];
+
+  for (const { exact, mustGoThrough } of exactTests) {
+    const matches = regex.test(exact);
+    check(`"${exact}" EXACTLY bypasses`, !matches, `matched=${matches}`);
+    
+    for (const path of mustGoThrough) {
+      const m = regex.test(path);
+      check(`"${path}" goes through (not "${exact}")`, m, `matched=${m}`);
+    }
+  }
+
+  // Other standard exclusions
   const shouldBypass = [
     "/_next/static/chunks/main.js",
     "/_next/image",
-    "/favicon.ico",
-    "/manifest.webmanifest",
-    "/sw.js",
-    "/robots.txt",
-    "/sitemap.xml",
     "/icons/icon-192.png",
     "/logo.svg",
-    "/hero.png",
   ];
 
-  // Similar-looking files that SHOULD go through middleware (matched by pattern)
-  const shouldMatch = [
+  const shouldGoThrough = [
     "/",
     "/today",
-    "/sw.jsx",          // Not sw.js
-    "/robots.txt.bak",  // Not exact match
-    "/favicon.icox",    // Not exact match
-    "/sitemap.xml.gz",  // Not exact match
     "/unknown-route",
     "/api/diag",
   ];
 
-  // Pattern uses negative lookahead: matches paths that DON'T match the exclusions
-  // So: shouldBypass paths should NOT match, shouldMatch paths SHOULD match
   for (const path of shouldBypass) {
     const matches = regex.test(path);
-    check(`"${path}" bypasses middleware`, !matches, `pattern matched: ${matches}`);
+    check(`"${path}" bypasses`, !matches, `matched=${matches}`);
   }
 
-  for (const path of shouldMatch) {
+  for (const path of shouldGoThrough) {
     const matches = regex.test(path);
-    check(`"${path}" goes through middleware`, matches, `pattern matched: ${matches}`);
+    check(`"${path}" goes through`, matches, `matched=${matches}`);
   }
 }
 
-console.log("\n5. Route decision logic (deny-by-default)");
+console.log("\n5. isPublicPath - exact matching, no prefix collision");
 {
-  // Mock request for testing redirect URLs
+  // Exact files are public
+  check("isPublicPath('/sw.js') = true", isPublicPath("/sw.js"));
+  check("isPublicPath('/robots.txt') = true", isPublicPath("/robots.txt"));
+  check("isPublicPath('/sitemap.xml') = true", isPublicPath("/sitemap.xml"));
+
+  // Similar paths must NOT match
+  check("isPublicPath('/sw.jsx') = false", !isPublicPath("/sw.jsx"));
+  check("isPublicPath('/sw.json') = false", !isPublicPath("/sw.json"));
+  check("isPublicPath('/foo/sw.js') = false", !isPublicPath("/foo/sw.js"));
+  check("isPublicPath('/robots.txt.bak') = false", !isPublicPath("/robots.txt.bak"));
+  check("isPublicPath('/foo/robots.txt') = false", !isPublicPath("/foo/robots.txt"));
+  check("isPublicPath('/sitemap.xml.gz') = false", !isPublicPath("/sitemap.xml.gz"));
+  check("isPublicPath('/foo/sitemap.xml') = false", !isPublicPath("/foo/sitemap.xml"));
+
+  // Normal public paths still work
+  check("isPublicPath('/') = true", isPublicPath("/"));
+  check("isPublicPath('/terms') = true", isPublicPath("/terms"));
+  check("isPublicPath('/privacy') = true", isPublicPath("/privacy"));
+}
+
+console.log("\n6. Route decision logic (deny-by-default)");
+{
   const mockRequest = (pathname: string) => ({
     nextUrl: {
       clone: () => ({
@@ -125,7 +167,7 @@ console.log("\n5. Route decision logic (deny-by-default)");
     },
   }) as any;
 
-  // Test all public paths pass through for signed-out users
+  // Test all public paths pass
   check("public / passes", routeDecision("/", false, mockRequest("/")).kind === "pass");
   check("public /auth/callback passes", routeDecision("/auth/callback", false, mockRequest("/auth/callback")).kind === "pass");
   check("public /legal passes", routeDecision("/legal", false, mockRequest("/legal")).kind === "pass");
@@ -136,7 +178,11 @@ console.log("\n5. Route decision logic (deny-by-default)");
   check("public /robots.txt passes", routeDecision("/robots.txt", false, mockRequest("/robots.txt")).kind === "pass");
   check("public /sitemap.xml passes", routeDecision("/sitemap.xml", false, mockRequest("/sitemap.xml")).kind === "pass");
 
-  // Test protected routes redirect
+  // Similar paths must NOT be public
+  check("/sw.jsx → notFound", routeDecision("/sw.jsx", false, mockRequest("/sw.jsx")).kind === "notFound");
+  check("/foo/sw.js → notFound", routeDecision("/foo/sw.js", false, mockRequest("/foo/sw.js")).kind === "notFound");
+
+  // Protected routes redirect
   for (const prefix of PROTECTED_PREFIXES) {
     const decision1 = routeDecision(prefix, false, mockRequest(prefix));
     check(`protected ${prefix} redirects`, decision1.kind === "redirect");
@@ -149,16 +195,16 @@ console.log("\n5. Route decision logic (deny-by-default)");
     check(`protected ${prefix}/sub redirects`, decision2.kind === "redirect");
   }
 
-  // Test unknown paths return 404
-  check("unknown /xyz returns notFound", routeDecision("/xyz", false, mockRequest("/xyz")).kind === "notFound");
-  check("unknown /fake-page returns notFound", routeDecision("/fake-page", false, mockRequest("/fake-page")).kind === "notFound");
+  // Unknown paths return 404
+  check("unknown /xyz → notFound", routeDecision("/xyz", false, mockRequest("/xyz")).kind === "notFound");
+  check("unknown /fake-page → notFound", routeDecision("/fake-page", false, mockRequest("/fake-page")).kind === "notFound");
 
-  // Test signed-in users always pass
+  // Signed-in users always pass
   check("signed-in /today passes", routeDecision("/today", true, mockRequest("/today")).kind === "pass");
   check("signed-in /xyz passes", routeDecision("/xyz", true, mockRequest("/xyz")).kind === "pass");
 }
 
-console.log("\n6. 404 HTML response and redirect URL structure");
+console.log("\n7. 404 HTML response and redirect URL structure");
 {
   const mockRequest = (pathname: string) => ({
     nextUrl: {
@@ -172,17 +218,17 @@ console.log("\n6. 404 HTML response and redirect URL structure");
 
   // Test notFound decision
   const notFoundDecision = routeDecision("/unknown-path", false, mockRequest("/unknown-path"));
-  check("unknown path triggers notFound decision", notFoundDecision.kind === "notFound");
-  check("notFound paths get HTML response", true, "HTML generation tested manually via curl");
+  check("unknown path → notFound", notFoundDecision.kind === "notFound");
+  check("HTML response tested via curl", true);
 
   // Test redirect URL structure
   const redirectDecision = routeDecision("/today", false, mockRequest("/today"));
-  check("redirect decision returns structured result", redirectDecision.kind === "redirect");
+  check("redirect returns structured result", redirectDecision.kind === "redirect");
   if (redirectDecision.kind === "redirect") {
     const isURLLike = redirectDecision.to && typeof redirectDecision.to.pathname === "string" && typeof redirectDecision.to.search === "string";
-    check("redirect.to is URL-like object", isURLLike);
-    check("redirect.to.pathname is /", redirectDecision.to.pathname === "/");
-    check("redirect.to has no query string", redirectDecision.to.search === "");
+    check("redirect.to is URL-like", isURLLike);
+    check("redirect.to.pathname = /", redirectDecision.to.pathname === "/");
+    check("redirect.to.search empty", redirectDecision.to.search === "");
   }
 }
 
