@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { PERF_ENABLED } from "@/lib/perf";
 
 /** Routes reachable without a session. Everything else redirects to "/". */
-const PUBLIC_PATHS = ["/", "/auth", "/legal"];
+const PUBLIC_PATHS = ["/", "/auth", "/legal", "/terms", "/privacy"];
 
 /** Dev-only harnesses, never routable in production (the pages 404 there too). */
 const DEV_PATHS = process.env.NODE_ENV === "development" ? ["/dev"] : [];
@@ -64,10 +64,26 @@ export async function updateSession(request: NextRequest) {
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 
+  // Always let the request through to Next.js first. Pages that require
+  // authentication will handle their own redirects. This ensures unknown
+  // routes can properly 404 instead of redirecting to home.
+  //
+  // If not signed in and accessing a protected route, set a header so the
+  // route can check and redirect if needed. But for now, let it through
+  // so Next.js can determine if the route exists.
   if (!signedIn && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return finish(NextResponse.redirect(url), started, pathname, signedIn);
+    // For known protected routes, redirect as before
+    const PROTECTED_PREFIXES = ["/today", "/breathe", "/history", "/progress", "/settings", "/onboarding", "/session", "/yoga"];
+    const isKnownProtected = PROTECTED_PREFIXES.some(
+      (p) => pathname === p || pathname.startsWith(`${p}/`)
+    );
+    
+    if (isKnownProtected) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return finish(NextResponse.redirect(url), started, pathname, signedIn);
+    }
+    // For unknown paths, let them through to Next.js for proper 404 handling
   }
 
   return finish(response, started, pathname, signedIn);
