@@ -7,6 +7,8 @@ import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { resolveAuth } from "@/lib/session/auth-result";
+import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
 import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
 import {
@@ -279,7 +281,7 @@ export async function logSet(input: {
       return { user };
     },
     async () => {
-      const { supabase } = await requireUser();
+      const { supabase, user } = await requireUser();
       const { error } = await supabase.from("session_sets").upsert(
         {
           session_exercise_id: input.sessionExerciseId,

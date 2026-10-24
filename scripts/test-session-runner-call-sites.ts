@@ -53,7 +53,7 @@ check("Returns 0 for exercise with no pending", countForEx3 === 0);
 console.log("\n--- Break 7b: Runner must use getPendingUiMode to show correct prompt ---");
 
 const expiredState = {
-  pending: [{ sessionExerciseId: "ex-1" }],
+  pending: [{ sessionExerciseId: "ex-1", setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null, clientId: "c1" }],
   expired: true,
   error: null,
   retrying: false,
@@ -62,7 +62,7 @@ const expiredState = {
 check("Shows 'expired' when expired=true and no error", getPendingUiMode(expiredState) === "expired");
 
 const expiredWithError = {
-  pending: [{ sessionExerciseId: "ex-1" }],
+  pending: [{ sessionExerciseId: "ex-1", setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null, clientId: "c1" }],
   expired: true,
   error: "Network timeout",
   retrying: false,
@@ -71,7 +71,7 @@ const expiredWithError = {
 check("Shows 'expired' when expired=true even with error (keeps sign-in visible)", getPendingUiMode(expiredWithError) === "expired");
 
 const errorOnly = {
-  pending: [{ sessionExerciseId: "ex-1" }],
+  pending: [{ sessionExerciseId: "ex-1", setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null, clientId: "c1" }],
   expired: false,
   error: "Server error",
   retrying: false,
