@@ -70,6 +70,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-23")], // Fri = weights
     sessions: [],
+  hasStartedAny: true,
   }),
   "Signup Saturday 2026-10-24: yesterday Friday (training day) is NOT missed"
 );
@@ -87,17 +88,18 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-23")], // Fri = weights
     sessions: [],
+  hasStartedAny: true,
   }),
   "Block rebuilt today (2026-10-24): yesterday (Fri) is NOT missed even though created_at earlier"
 );
 
-console.log("\n=== Guard Test 3: Day 3 after signup, training day missed ===\n");
+console.log("\n=== Guard Test 3: Day 3 after signup, never started (NEW BEHAVIOR) ===\n");
 
 // Signup Tue 2026-10-20, today is Fri 2026-10-23 (day 4)
-// Wed 2026-10-21 was a training day and was missed
-// User has never started a session, but the missed prompt should still show
+// Wed 2026-10-21 was a training day but user has never started ANY session
+// NEW BEHAVIOR: Never-started users do NOT get missed prompts (day-one guard)
 assert(
-  isMissedTrainingDay({
+  !isMissedTrainingDay({
     date: "2026-10-21", // Wed (day 2, training day in 3-day plan)
     programStartedOn: "2026-10-20", // Tue (signup day)
     profileCreatedAt: "2026-10-20T10:00:00Z", // Tue signup
@@ -105,8 +107,9 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-21")], // Wed = weights
     sessions: [],
+    hasStartedAny: false,
   }),
-  "Day 3 after signup: training day (Wed) after signup CAN be missed even if never started"
+  "Day 3 after signup, never started: day-one guard suppresses missed prompt"
 );
 
 console.log("\n=== Guard Test 4: Timezone conversion ===\n");
@@ -123,6 +126,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-23")], // Fri = weights
     sessions: [],
+  hasStartedAny: true,
   }),
   "Timezone: UTC timestamp after local midnight - Fri before local Sat signup is NOT missed"
 );
@@ -140,6 +144,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: "weights",
     sessions: [{ actual_type: "meditation", status: "completed", program_id: null }],
+  hasStartedAny: true,
   }),
   "Anytime breathing (program_id null) does NOT settle a missed strength day"
 );
@@ -154,6 +159,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: "weights",
     sessions: [{ actual_type: "rest", status: "planned", program_id: TEST_PROGRAM_ID }],
+  hasStartedAny: true,
   }),
   "Planned Rest for this program settles the day (not missed)"
 );
@@ -170,6 +176,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: "weights",
     sessions: [{ actual_type: "weights", status: "skipped", program_id: TEST_PROGRAM_ID }],
+  hasStartedAny: true,
   }),
   "Skipped weights session: still counts as missed"
 );
@@ -184,6 +191,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: "weights",
     sessions: [{ actual_type: "weights", status: "planned", program_id: TEST_PROGRAM_ID }],
+  hasStartedAny: true,
   }),
   "Planned weights session (never started): still counts as missed"
 );
@@ -201,6 +209,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-26")], // Mon = weights
     sessions: [],
+  hasStartedAny: true,
   }),
   "Signup day with weights template: should NOT be missed (must fail if <= becomes <)"
 );
@@ -216,6 +225,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: "rest",
     sessions: [],
+  hasStartedAny: true,
   }),
   "Day before signup: should NOT be missed (fails if date <= started_on guard removed)"
 );
@@ -233,6 +243,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: TEMPLATE_4DAY[isoWeekday("2026-10-20")], // Tue = weights in 4-day
     sessions: [],
+  hasStartedAny: true,
   }),
   "Rebuilt block: dates before new block's started_on are NOT missed"
 );
@@ -248,6 +259,7 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-23")], // Fri = weights
     sessions: [],
+  hasStartedAny: true,
   }),
   "Rebuilt block: training day after new block's started_on CAN be missed"
 );
@@ -403,13 +415,26 @@ assert(
   "Training day with no issues shows no prompt"
 );
 
-console.log("\n=== Test 10: hasStartedSession removal bugs ===\n");
+console.log("\n=== Test 10: Day-one guard (NEW BEHAVIOR) ===\n");
 
-// Bug (a): User who never started should see missed on day 3 for a missed training day
-// The fix removed hasStartedSession, so the started_on and onboarding guards handle day 1.
-// But we need to verify that days AFTER signup CAN be missed even if never started.
+// NEW BEHAVIOR: User who never started does NOT see missed prompts (day-one guard)
+// This is the friendlier onboarding experience - no nagging until first session starts.
 // Signup Tue 10-20, check Fri 10-23 (day 4, training day in 3-day plan), no sessions.
-// This SHOULD be flagged as missed because it's after signup (date > started_on).
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-23", // Fri (training day, 3 days after Tue signup)
+    programStartedOn: "2026-10-20", // Tue (signup day)
+    profileCreatedAt: "2026-10-20T10:00:00Z",
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-23")], // Fri = weights
+    sessions: [],
+    hasStartedAny: false,
+  }),
+  "User who never started: day-one guard suppresses missed prompts"
+);
+
+// Once user HAS started at least one session, missed prompts work normally
 assert(
   isMissedTrainingDay({
     date: "2026-10-23", // Fri (training day, 3 days after Tue signup)
@@ -419,8 +444,9 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-23")], // Fri = weights
     sessions: [],
+    hasStartedAny: true,
   }),
-  "User who never started: day 4 training day (after signup) CAN be missed"
+  "User who HAS started before: missed prompt works normally"
 );
 
 // Bug (b): Rest day with missed yesterday loses rest content
@@ -602,6 +628,7 @@ const timezoneResult = isMissedTrainingDay({
   programId: TEST_PROGRAM_ID,
   templateDayType: "weights",
   sessions: [],
+  hasStartedAny: true,
 });
 
 assert(

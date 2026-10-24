@@ -10,6 +10,7 @@ export interface PromptBlocksInput {
   missedYesterday: boolean;
   hasStartedAny: boolean;
   nextTrainingDay: { dayName: string; dayIndex: number } | null;
+  isTraining: boolean;
 }
 
 export interface PromptBlocks {
@@ -22,9 +23,46 @@ export interface PromptBlocks {
 }
 
 export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
-  const { promptType, hasStartedAny, nextTrainingDay } = input;
+  const { promptType, hasStartedAny, nextTrainingDay, isTraining } = input;
 
   const neverStarted = !hasStartedAny;
+
+  // Day-one guard: hide all prompts except first-day welcome for never-started users
+  if (neverStarted) {
+    // First day on a rest day: show welcome + "Start first workout anyway"
+    if (promptType === "rest_plan" && nextTrainingDay) {
+      return {
+        showMissedPrompt: false,
+        showKeepSwapRest: false,
+        showRestPlan: true,
+        showBothPrompt: false,
+        showFirstDayWelcome: true,
+        showStartFirstWorkoutAnyway: true,
+      };
+    }
+
+    // First day on a training day: show welcome (exercises will render normally)
+    if (isTraining) {
+      return {
+        showMissedPrompt: false,
+        showKeepSwapRest: false,
+        showRestPlan: false,
+        showBothPrompt: false,
+        showFirstDayWelcome: true,
+        showStartFirstWorkoutAnyway: false,
+      };
+    }
+
+    // Never started, not training, no prompt
+    return {
+      showMissedPrompt: false,
+      showKeepSwapRest: false,
+      showRestPlan: false,
+      showBothPrompt: false,
+      showFirstDayWelcome: false,
+      showStartFirstWorkoutAnyway: false,
+    };
+  }
 
   // "both" state: rest day with missed yesterday
   if (promptType === "both") {
@@ -52,19 +90,6 @@ export function todayPromptBlocks(input: PromptBlocksInput): PromptBlocks {
 
   // Rest day (no missed yesterday)
   if (promptType === "rest_plan") {
-    // First day on a rest day: show next training day
-    if (neverStarted && nextTrainingDay) {
-      return {
-        showMissedPrompt: false,
-        showKeepSwapRest: false,
-        showRestPlan: true,
-        showBothPrompt: false,
-        showFirstDayWelcome: true,
-        showStartFirstWorkoutAnyway: true,
-      };
-    }
-
-    // Normal rest day
     return {
       showMissedPrompt: false,
       showKeepSwapRest: false,

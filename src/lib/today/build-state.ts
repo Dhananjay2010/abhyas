@@ -109,6 +109,7 @@ export function buildTodayState(input: BuildTodayStateInput): BuildTodayStateOut
       status: s.status,
       program_id: s.program_id,
     })),
+    hasStartedAny: hasStartedSession,
   });
 
   // Check if today has been answered

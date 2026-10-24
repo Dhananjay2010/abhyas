@@ -32,6 +32,8 @@ export type MissedDayInput = {
   programId: string;
   /** Sessions for that date */
   sessions: Array<{ actual_type: DayType | null; status: string; program_id: string | null }>;
+  /** Whether the user has ever started any training session */
+  hasStartedAny: boolean;
 };
 
 /**
@@ -56,7 +58,13 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     templateDayType,
     programId,
     sessions,
+    hasStartedAny,
   } = input;
+
+  // Day-one guard: user has never started any training, so can't have missed anything
+  if (!hasStartedAny) {
+    return false;
+  }
 
   // Not a strength training day in the template
   // Use the shared rule: only weights/bodyweight count

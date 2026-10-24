@@ -95,6 +95,7 @@ const missedBlocks = todayPromptBlocks({
   missedYesterday: true,
   hasStartedAny: true,
   nextTrainingDay: null,
+  isTraining: true,
 });
 
 assert(
@@ -124,6 +125,7 @@ const bothBlocks = todayPromptBlocks({
   missedYesterday: true,
   hasStartedAny: true,
   nextTrainingDay: null,
+  isTraining: false,
 });
 
 assert(
@@ -153,6 +155,7 @@ const firstDayBlocks = todayPromptBlocks({
   missedYesterday: false,
   hasStartedAny: false,
   nextTrainingDay: { dayName: "Monday", dayIndex: 1 },
+  isTraining: false,
 });
 
 assert(
@@ -182,6 +185,7 @@ const normalRestBlocks = todayPromptBlocks({
   missedYesterday: false,
   hasStartedAny: true,
   nextTrainingDay: null,
+  isTraining: false,
 });
 
 assert(
@@ -206,6 +210,7 @@ const noPromptBlocks = todayPromptBlocks({
   missedYesterday: false,
   hasStartedAny: true,
   nextTrainingDay: null,
+  isTraining: false,
 });
 
 assert(
@@ -231,6 +236,96 @@ assert(
 assert(
   noPromptBlocks.showFirstDayWelcome === false,
   "Hides first day welcome for 'none' type"
+);
+
+console.log("\n=== Test 7: Day-one - never started on training day ===\n");
+
+const neverStartedTraining = todayPromptBlocks({
+  promptType: "none",
+  missedYesterday: false,
+  hasStartedAny: false,
+  nextTrainingDay: null,
+  isTraining: true,
+});
+
+assert(
+  neverStartedTraining.showFirstDayWelcome === true,
+  "Shows first day welcome when never started on training day"
+);
+
+assert(
+  neverStartedTraining.showMissedPrompt === false,
+  "Hides missed prompt when never started on training day"
+);
+
+assert(
+  neverStartedTraining.showKeepSwapRest === false,
+  "Hides Keep/Swap/Rest when never started on training day"
+);
+
+console.log("\n=== Test 8: Day-one - never started on rest day ===\n");
+
+const neverStartedRest = todayPromptBlocks({
+  promptType: "rest_plan",
+  missedYesterday: false,
+  hasStartedAny: false,
+  nextTrainingDay: { dayName: "Monday", dayIndex: 1 },
+  isTraining: false,
+});
+
+assert(
+  neverStartedRest.showFirstDayWelcome === true,
+  "Shows first day welcome when never started on rest day"
+);
+
+assert(
+  neverStartedRest.showStartFirstWorkoutAnyway === true,
+  "Shows 'start first workout anyway' when never started on rest day"
+);
+
+assert(
+  neverStartedRest.showMissedPrompt === false,
+  "Hides missed prompt when never started on rest day"
+);
+
+console.log("\n=== Test 9: Day-one - one completed session then missed ===\n");
+
+const oneThenMissed = todayPromptBlocks({
+  promptType: "missed",
+  missedYesterday: true,
+  hasStartedAny: true,
+  nextTrainingDay: null,
+  isTraining: true,
+});
+
+assert(
+  oneThenMissed.showMissedPrompt === true,
+  "Shows missed prompt after one completed session"
+);
+
+assert(
+  oneThenMissed.showFirstDayWelcome === false,
+  "Hides first day welcome after one completed session"
+);
+
+console.log("\n=== Test 10: Day-one - never started suppresses missed prompt ===\n");
+
+const neverStartedSuppressesMissed = todayPromptBlocks({
+  promptType: "missed",
+  missedYesterday: true,
+  hasStartedAny: false,
+  nextTrainingDay: null,
+  isTraining: true,
+});
+
+assert(
+  neverStartedSuppressesMissed.showMissedPrompt === false,
+  "Suppresses missed prompt when never started (day-one guard)"
+);
+
+assert(
+  neverStartedSuppressesMissed.showFirstDayWelcome === true,
+  "Shows first day welcome instead of missed prompt when never started"
 );
 
 console.log("\n==================================================");

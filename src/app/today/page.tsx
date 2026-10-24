@@ -361,6 +361,7 @@ export default async function TodayPage() {
     missedYesterday,
     hasStartedAny,
     nextTrainingDay: nextTraining,
+    isTraining,
   });
 
   // ---- wave 3 -------------------------------------------------------------
@@ -613,6 +614,16 @@ export default async function TodayPage() {
             isRestDay={true}
           />
         </>
+      )}
+
+      {/* First-day welcome on a training day */}
+      {promptBlocks.showFirstDayWelcome && isTraining && (
+        <div className="mb-4 rounded-xl border border-border bg-surface-2 p-5">
+          <h3 className="font-semibold">Welcome to your first workout!</h3>
+          <p className="mt-2 text-sm text-muted">
+            Ready to begin? Start your first training session below.
+          </p>
+        </div>
       )}
 
       {/* Rest day content (without missed yesterday) */}
