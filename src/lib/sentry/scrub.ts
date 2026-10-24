@@ -50,11 +50,30 @@ export function scrubPII(event: Sentry.ErrorEvent): Sentry.ErrorEvent | null {
 
     if (event.request.query_string) {
       if (typeof event.request.query_string === "string") {
+        // Parse as query string, redact sensitive params, rebuild
         event.request.query_string = scrubEmailsFromString(event.request.query_string);
+        try {
+          const params = new URLSearchParams(event.request.query_string);
+          const sensitiveParams = ["code", "token", "access_token", "refresh_token", "apikey", "api_key", "auth"];
+          for (const param of sensitiveParams) {
+            if (params.has(param)) {
+              params.set(param, "[Redacted]");
+            }
+          }
+          event.request.query_string = params.toString();
+        } catch {
+          // If parsing fails, leave it as-is after email scrubbing
+        }
       } else {
+        // Object or array of pairs - redact by key
+        const sensitiveParams = ["code", "token", "access_token", "refresh_token", "apikey", "api_key", "auth"];
         const scrubbed: Record<string, string> = {};
         for (const [key, value] of Object.entries(event.request.query_string)) {
-          scrubbed[key] = typeof value === "string" ? scrubEmailsFromString(value) : String(value);
+          if (sensitiveParams.includes(key.toLowerCase())) {
+            scrubbed[key] = "[Redacted]";
+          } else {
+            scrubbed[key] = typeof value === "string" ? scrubEmailsFromString(value) : String(value);
+          }
         }
         event.request.query_string = scrubbed as unknown as typeof event.request.query_string;
       }

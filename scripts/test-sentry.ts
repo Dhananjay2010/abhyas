@@ -232,6 +232,60 @@ test("scrubPII scrubs code param from auth callback URL", () => {
   match(result?.request?.url ?? "", /code=%5BRedacted%5D/);
 });
 
+test("scrubPII scrubs tokens from query_string when it's a string", () => {
+  const event = {
+    request: {
+      query_string: "code=abc123&token=secret&other=value&access_token=xyz",
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  const qs = result?.request?.query_string as string;
+  match(qs, /code=%5BRedacted%5D/);
+  match(qs, /token=%5BRedacted%5D/);
+  match(qs, /access_token=%5BRedacted%5D/);
+  match(qs, /other=value/);
+});
+
+test("scrubPII scrubs tokens from query_string when it's an object", () => {
+  const event = {
+    request: {
+      query_string: {
+        code: "abc123",
+        token: "secret",
+        refresh_token: "refresh",
+        apikey: "key123",
+        api_key: "key456",
+        auth: "authtoken",
+        other: "value",
+      },
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  const qs = result?.request?.query_string as Record<string, string>;
+  strictEqual(qs.code, "[Redacted]");
+  strictEqual(qs.token, "[Redacted]");
+  strictEqual(qs.refresh_token, "[Redacted]");
+  strictEqual(qs.apikey, "[Redacted]");
+  strictEqual(qs.api_key, "[Redacted]");
+  strictEqual(qs.auth, "[Redacted]");
+  strictEqual(qs.other, "value");
+});
+
+test("scrubPII scrubs emails from query_string object values", () => {
+  const event = {
+    request: {
+      query_string: {
+        email: "user@example.com",
+        name: "John",
+      },
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  const qs = result?.request?.query_string as Record<string, string>;
+  strictEqual(qs.email, "[email]");
+  strictEqual(qs.name, "John");
+});
+
 test("scrubPII removes hash from URL", () => {
   const event = {
     request: {
