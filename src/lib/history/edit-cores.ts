@@ -115,7 +115,7 @@ export async function updateSessionDateTimeCore(
     }
   }
 
-  const { error } = await supabase
+  const { data: updatedRows, error } = await supabase
     .from("sessions")
     .update({
       local_date: localDate,
@@ -124,11 +124,17 @@ export async function updateSessionDateTimeCore(
       duration_seconds: durationSeconds,
     })
     .eq("id", sessionId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id");
 
   if (error) {
     console.error("Database error updating session:", error);
     return { success: false, error: "Failed to update session. Please try again." };
+  }
+
+  // Check if the session exists and belongs to the user (0 rows = revoked auth or wrong user)
+  if (!updatedRows || updatedRows.length === 0) {
+    return { success: false, error: "Couldn't save — please sign in again" };
   }
 
   return { success: true };

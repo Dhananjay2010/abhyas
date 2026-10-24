@@ -3,6 +3,7 @@ import { clockLabel } from "@/components/session-row";
 import { GUIDANCE_OPTIONS, moodLabel } from "@/lib/breathing/pattern";
 import { branding } from "@/lib/branding";
 import { Stat } from "./stat";
+import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 
 export type BreathingLog = {
   pattern_name: string;
@@ -18,13 +19,6 @@ export type BreathingLog = {
   routine_name: string | null;
   routine_step: number | null;
 };
-
-function longDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-GB", {
-    weekday: "long", day: "numeric", month: "long", timeZone: "UTC",
-  }).format(new Date(Date.UTC(y, m - 1, d)));
-}
 
 /** "Tones", "Ocean", "Voice", "Off" -- read from the same list the player offers. */
 const guidanceLabel = (v: string) => GUIDANCE_OPTIONS.find((g) => g.value === v)?.label ?? null;
@@ -42,6 +36,8 @@ export function BreathingDetail({
   slug,
   isRoutine = false,
   localDate,
+  startedAt,
+  timezone,
   seconds,
   logs,
 }: {
@@ -50,6 +46,8 @@ export function BreathingDetail({
   slug: string | null;
   isRoutine?: boolean;
   localDate: string;
+  startedAt: string | null;
+  timezone: string;
   seconds: number | null;
   /** Empty for a practice recorded before breathing_logs existed. */
   logs: BreathingLog[];
@@ -63,6 +61,9 @@ export function BreathingDetail({
   const sound = first ? guidanceLabel(first.guidance) : null;
   const endedEarly = logs.find((l) => l.ended_early) ?? null;
 
+  // TZ-2: Format date and time consistently
+  const dateTimeLabel = formatSessionDateTime(startedAt, localDate, timezone);
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
       <Link href="/history" className="text-sm text-muted underline underline-offset-2">
@@ -71,7 +72,7 @@ export function BreathingDetail({
 
       <h1 className="mt-4 text-3xl font-bold tracking-tight">{name}</h1>
       <p className="mt-1 text-sm text-muted">
-        {longDate(localDate)} · {isRoutine ? "Breathing routine" : "Breathing"}
+        {dateTimeLabel} · {isRoutine ? "Breathing routine" : "Breathing"}
       </p>
 
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">
