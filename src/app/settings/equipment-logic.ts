@@ -94,3 +94,27 @@ export function decideClientEquipmentUpdate(input: {
   
   return { allow: false, hint: "" };
 }
+
+/**
+ * Returns the confirmation message to show when turning off "I have access to everything".
+ * @param wasSaved - true if equipment was just saved, false if showing the picker
+ */
+export function getEquipmentOffMessage(wasSaved: boolean): string {
+  return wasSaved
+    ? "Saved. Your plan will use only the equipment you pick."
+    : "Showing your saved equipment. Pick what you have.";
+}
+
+/**
+ * L4 QA fix: Request sequence tracker to ignore stale save responses.
+ * Prevents overlapping saves where the first fails from rolling back the screen
+ * while the DB keeps the second save's result.
+ */
+export function createRequestSequence() {
+  let counter = 0;
+  
+  return {
+    next: () => ++counter,
+    isCurrent: (seq: number) => seq === counter,
+  };
+}

@@ -26,7 +26,7 @@ This document explains how to customize Abhyas for per-gym white-label deploymen
        bg: "#0a0a0a",           // Page background
        surface: "#1a1a1a",      // Cards, panels
        surface2: "#262626",     // Secondary surfaces
-       border: "#404040",       // Border color
+       border: "#607280",       // Border color
        fg: "#fafafa",           // Primary text
        muted: "#a3a3a3",        // Secondary text
        success: "#22c55e",      // Success states
@@ -91,7 +91,7 @@ All colors must be **6-digit hex codes** (`#RRGGBB`):
 | `bg` | Page background | `#0a0c0e` |
 | `surface` | Elevated surfaces (cards, modals) | `#151a1f` |
 | `surface2` | Secondary surfaces (inputs, nested cards) | `#1d242b` |
-| `border` | Border color | `#2a333c` |
+| `border` | Border color | `#607280` |
 | `fg` | Primary text color | `#ecf1f6` |
 | `muted` | Secondary/muted text | `#93a1ae` |
 | `success` | Success messages, confirmations | `#4ade80` |
@@ -402,6 +402,70 @@ NEXT_PUBLIC_BRAND=powerhouse
 ```
 
 Deploy as normal. The build will validate the brand configuration and fail if any required fields are missing or invalid.
+
+## Self-Hosting Behind a Reverse Proxy
+
+When running `next start` behind a reverse proxy (e.g., nginx, Apache, or cloud load balancer), OAuth callbacks may fail because the app sees `localhost` as the request host instead of your public domain.
+
+### Solution: TRUST_PROXY Environment Variable
+
+Set `TRUST_PROXY=1` to enable proxy header trust:
+
+```bash
+TRUST_PROXY=1
+```
+
+**How it works:**
+- When `TRUST_PROXY=1`, the app trusts `x-forwarded-host` and `x-forwarded-proto` headers
+- The forwarded host MUST match your brand's `siteUrl` host (e.g., `yourgym.com`)
+- The forwarded protocol must be `http` or `https`
+- Requests with a non-matching forwarded host are rejected (uses request's own host/protocol)
+
+**Security:**
+- The app ONLY trusts forwarded headers when the forwarded host matches the brand host
+- This prevents open redirects even with `TRUST_PROXY=1`
+- Do NOT set `TRUST_PROXY=1` unless you are behind a reverse proxy
+
+**Default behavior (TRUST_PROXY not set):**
+- Forwarded headers from `localhost`/`127.x`/`::1` are ignored (always uses request's own origin)
+- Forwarded headers from other hosts are only trusted if the forwarded host matches the brand host
+
+**Example nginx configuration:**
+
+```nginx
+server {
+  listen 80;
+  server_name yourgym.com;
+
+  location / {
+    proxy_pass http://localhost:3100;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+  }
+}
+```
+
+**Example systemd service file:**
+
+```ini
+[Unit]
+Description=Abhyas Yoga App
+After=network.target
+
+[Service]
+Type=simple
+User=abhyas
+WorkingDirectory=/opt/abhyas
+Environment="NODE_ENV=production"
+Environment="NEXT_PUBLIC_BRAND=your-gym-id"
+Environment="TRUST_PROXY=1"
+ExecStart=/usr/bin/npm start
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
 
 ## Architecture Notes
 

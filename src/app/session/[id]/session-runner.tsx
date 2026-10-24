@@ -117,6 +117,7 @@ export function SessionRunner({
   warmupAlreadyDone,
   startedAt,
   warmup,
+  cooldown,
   exercises: initialExercises,
   settings,
   tomorrow,
@@ -129,6 +130,7 @@ export function SessionRunner({
   warmupAlreadyDone: boolean;
   startedAt: string | null;
   warmup: WarmupItem[];
+  cooldown: WarmupItem[];
   exercises: RunnerExercise[];
   settings: RunnerSettings;
   /** What tomorrow is, so the summary can ask about it. Null with no block. */
@@ -420,21 +422,19 @@ export function SessionRunner({
         error={error}
       >
         <p className="text-muted">
-          Ease down and stretch what you trained. Hold each for about 30 seconds,
-          breathing slowly. Nothing should be sharp.
+          Static stretches for what you trained. Hold each for 30 seconds,
+          breathing slowly and evenly. Nothing should be sharp.
         </p>
         <ul className="mt-6 space-y-2">
-          {warmup
-            .filter((w) => w.phase === "mobility")
-            .slice(0, 4)
-            .map((w) => (
-              <li
-                key={w.id}
-                className="rounded-xl border border-border bg-surface px-4 py-3 font-medium"
-              >
-                {w.name}
-              </li>
-            ))}
+          {cooldown.map((w) => (
+            <li
+              key={w.id}
+              className="rounded-xl border border-border bg-surface px-4 py-3"
+            >
+              <div className="font-medium">{w.name}</div>
+              <div className="mt-1 text-sm text-muted">Hold for {w.duration_seconds}s</div>
+            </li>
+          ))}
         </ul>
         <div className="mt-10 space-y-3">
           <BigButton disabled={busy} onClick={() => finish(true)}>
