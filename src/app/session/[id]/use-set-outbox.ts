@@ -42,7 +42,7 @@ export function useSetOutbox<
   const [unsavedCount, setUnsavedCount] = useState(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryAttemptsRef = useRef(0);
-  const flushRef = useRef<() => Promise<void>>();
+  const flushRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   const flush = useCallback(async () => {
     const outbox = outboxRef.current;
