@@ -195,6 +195,7 @@ export function SessionPreview() {
         // rather than changing the rules half way through it.
         key={`${runId}:${perSetLogging}:${cooldownEnabled}:${startFinished}`}
         sessionId="00000000-0000-0000-0000-000000000000"
+        userId="00000000-0000-0000-0000-000000000001"
         isDeload={false}
         week={2}
         warmupAlreadyDone={false}

@@ -15,6 +15,7 @@ import {
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
+import { useRunnerDraft } from "@/lib/session/use-runner-draft";
 import {
   abandonSession,
   deleteSet,
@@ -108,6 +109,7 @@ const FEELS: { value: Feel; label: string }[] = [
 
 export function SessionRunner({
   sessionId,
+  userId,
   isDeload,
   week,
   warmupAlreadyDone,
@@ -121,6 +123,7 @@ export function SessionRunner({
   onExit,
 }: {
   sessionId: string;
+  userId: string;
   isDeload: boolean;
   week: number;
   warmupAlreadyDone: boolean;
@@ -190,9 +193,23 @@ export function SessionRunner({
 
   const wakeLock = useWakeLock(phase !== "done");
 
+  const current = exercises[exerciseIndex];
+  const nextSetNumber = (current?.sets.length ?? 0) + 1;
+
+  // ---- draft persistence ------------------------------------------------
+  const draft = useRunnerDraft(userId, sessionId, current?.id, nextSetNumber);
+
   // ---- rest timer -------------------------------------------------------
-  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
-  const [restRemaining, setRestRemaining] = useState(0);
+  const restoredRestMs = draft.restore?.remainingRestMs ?? 0;
+  const restoredRestExerciseId = draft.restore?.restExerciseId;
+  const shouldRestoreRest =
+    restoredRestMs > 0 && restoredRestExerciseId === current?.id;
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(
+    shouldRestoreRest ? Date.now() + restoredRestMs : null,
+  );
+  const [restRemaining, setRestRemaining] = useState(
+    shouldRestoreRest ? Math.round(restoredRestMs / 1000) : 0,
+  );
   const firedRef = useRef(false);
 
   useEffect(() => {
@@ -213,7 +230,7 @@ export function SessionRunner({
     return () => clearInterval(t);
   }, [restEndsAt, beeper, settings.restSound, settings.restVibrate]);
 
-  const startRest = useCallback((seconds: number) => {
+  const startRest = useCallback((seconds: number, exerciseId: string) => {
     setRestEndsAt(Date.now() + seconds * 1000);
     /*
       Seeded here rather than left to the effect's first tick. The panel renders
@@ -223,12 +240,12 @@ export function SessionRunner({
       The remaining time at the moment a rest starts is exactly `seconds`.
     */
     setRestRemaining(seconds);
-  }, []);
+    draft.onRestStart(seconds, exerciseId);
+  }, [draft]);
 
   // Audio must be unlocked inside a real gesture; every tap is a chance.
   const onAnyTap = useCallback(() => beeper.unlock(), [beeper]);
 
-  const current = exercises[exerciseIndex];
   const restSeconds = settings.restOverrideSeconds ?? current?.restSeconds ?? 90;
 
   const totalSetsPlanned = useMemo(
@@ -389,6 +406,7 @@ export function SessionRunner({
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
               );
+              draft.onSessionEnd();
               setPhase("done");
             }}
           >
@@ -400,6 +418,7 @@ export function SessionRunner({
               await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
               );
+              draft.onSessionEnd();
               setPhase("done");
             }}
           >
@@ -547,7 +566,6 @@ export function SessionRunner({
 
   const setsDone = current.sets.length;
   const allSetsDone = setsDone >= current.plannedSets;
-  const nextSetNumber = setsDone + 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
   const lastWeight =
@@ -604,8 +622,9 @@ export function SessionRunner({
           : e,
       ),
     );
+    draft.onSetLogged();
     if (settings.restAutostart && nextSetNumber < current.plannedSets) {
-      startRest(restSeconds);
+      startRest(restSeconds, current.id);
     }
   }
 
@@ -621,6 +640,7 @@ export function SessionRunner({
       ),
     );
     setRestEndsAt(null);
+    draft.onRestEnd();
   }
 
   async function onFinishExercise(feel: Feel | null, skipped = false) {
@@ -661,6 +681,7 @@ export function SessionRunner({
       ),
     );
     setRestEndsAt(null);
+    draft.onRestEnd();
 
     const next = exercises.findIndex((e, i) => i > exerciseIndex && e.status === "pending");
     setBannerFor(next === -1 ? null : next);
@@ -670,6 +691,7 @@ export function SessionRunner({
         await run(() =>
           actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
         );
+        draft.onSessionEnd();
         setPhase("done");
       }
     } else {
@@ -729,7 +751,10 @@ export function SessionRunner({
               {formatClock(restRemaining)}
             </span>
             <button
-              onClick={() => setRestEndsAt(null)}
+              onClick={() => {
+                setRestEndsAt(null);
+                draft.onRestEnd();
+              }}
               className="rounded-lg px-3 py-1.5 text-sm text-accent underline"
             >
               Skip
@@ -803,9 +828,11 @@ export function SessionRunner({
             targetSeconds={current.repsMax}
             defaultWeight={lastWeight}
             defaultReps={defaultReps}
+            restoredDraft={draft.restore?.draft}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}
             onLog={onLogSet}
+            onDraftChange={draft.onDraftChange}
             onHoldComplete={() => {
               if (settings.restSound) beeper.beep();
               if (settings.restVibrate) vibrate([180, 90, 180]);
@@ -949,6 +976,7 @@ export function SessionRunner({
             disabled={busy}
             onClick={async () => {
               if (await run(() => actions.abandonSession(sessionId, elapsed))) {
+                draft.onSessionEnd();
                 if (onExit) onExit();
                 else router.push("/today");
               }
@@ -997,9 +1025,11 @@ function SetEntry({
   targetSeconds,
   defaultWeight,
   defaultReps,
+  restoredDraft,
   setNumber,
   isBodyweight,
   onLog,
+  onDraftChange,
   onHoldComplete,
   disabled = false,
 }: {
@@ -1011,6 +1041,8 @@ function SetEntry({
   defaultWeight: number | null;
   /** Null on the first set of an exercise, so it has to be entered. */
   defaultReps: number | null;
+  /** Restored draft from localStorage, or null/undefined if none. */
+  restoredDraft: { reps: string; weight: string; seconds?: string } | null | undefined;
   setNumber: number;
   /** True for bodyweight exercises: changes weight label and default. */
   isBodyweight: boolean;
@@ -1019,6 +1051,8 @@ function SetEntry({
     weightKg: number | null,
     durationSeconds?: number | null,
   ) => void;
+  /** Call when inputs change (debounced internally by the hook). */
+  onDraftChange: (reps: string, weight: string, seconds?: string) => void;
   /** Beep and buzz when a hold reaches zero, as the rest timer does. */
   onHoldComplete: () => void;
   disabled?: boolean;
@@ -1026,13 +1060,21 @@ function SetEntry({
   const isTimed = metric === "seconds";
 
   // Remounted per set via a key at the call site, so the fields reset naturally
-  // rather than being reset from an effect.
-  const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
+  // rather than being reset from an effect. Restored draft takes precedence over defaults.
+  const [reps, setReps] = useState(
+    restoredDraft?.reps ?? (defaultReps !== null ? String(defaultReps) : ""),
+  );
   // For bodyweight exercises, only prefill if the last set actually used added weight.
   const shouldPrefillWeight = !isBodyweight || (defaultWeight !== null && defaultWeight > 0);
   const [weight, setWeight] = useState(
-    shouldPrefillWeight && defaultWeight !== null ? String(defaultWeight) : "",
+    restoredDraft?.weight ??
+      (shouldPrefillWeight && defaultWeight !== null ? String(defaultWeight) : ""),
   );
+
+  // Update draft when inputs change (debounced by the hook).
+  const updateDraft = (newReps: string, newWeight: string) => {
+    onDraftChange(newReps, newWeight, isTimed ? newReps : undefined);
+  };
 
   /**
    * The hold timer.
@@ -1136,7 +1178,10 @@ function SetEntry({
             min={0}
             max={999}
             value={reps}
-            onChange={(e) => setReps(e.target.value)}
+            onChange={(e) => {
+              setReps(e.target.value);
+              updateDraft(e.target.value, weight);
+            }}
             className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-4 text-center text-2xl font-semibold tabular-nums outline-none focus:border-accent"
           />
         </label>
@@ -1149,7 +1194,10 @@ function SetEntry({
             min={0}
             max={999}
             value={weight}
-            onChange={(e) => setWeight(e.target.value)}
+            onChange={(e) => {
+              setWeight(e.target.value);
+              updateDraft(reps, e.target.value);
+            }}
             placeholder="—"
             className="mt-1 w-full rounded-xl border border-border bg-surface px-4 py-4 text-center text-2xl font-semibold tabular-nums outline-none placeholder:text-muted/50 focus:border-accent"
           />
