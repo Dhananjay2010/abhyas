@@ -1767,7 +1767,7 @@ function Shell({
       </header>
 
       {showOfflineIndicator && (
-        <div className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-center text-sm text-yellow-700 dark:text-yellow-300">
+        <div className="mt-4 rounded-lg border border-border bg-surface px-3 py-2 text-center text-sm text-muted">
           Offline — sets will save when you&apos;re back
         </div>
       )}
