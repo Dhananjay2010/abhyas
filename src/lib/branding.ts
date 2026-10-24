@@ -136,7 +136,7 @@ const abhyas: Brand = {
     bg: "#0a0c0e",
     surface: "#151a1f",
     surface2: "#1d242b",
-    border: "#2a333c",
+    border: "#607280",
     fg: "#ecf1f6",
     muted: "#93a1ae",
     success: "#4ade80",
@@ -174,7 +174,7 @@ const example: Brand = {
     bg: "#0a0a0a",
     surface: "#1a1a1a",
     surface2: "#262626",
-    border: "#404040",
+    border: "#707070",
     fg: "#fafafa",
     muted: "#a3a3a3",
     success: "#22c55e",
@@ -201,15 +201,18 @@ const brands: Record<string, Brand> = {
   example,
 };
 
+/**
+ * Get all registered brands for testing and validation.
+ * Returns a read-only array of all brand configurations.
+ */
+export function getAllBrands(): readonly Brand[] {
+  return Object.values(brands);
+}
+
 // ---------------------------------------------------------------------------
 // Brand selection and validation
 // ---------------------------------------------------------------------------
 
-/**
- * Valid IANA timezone names.
- * A subset of commonly used timezones. Add more as needed.
- * Full list: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
- */
 /**
  * Validate and canonicalize a timezone string.
  * Delegates to canonicalizeTimezone for validation and normalization.
