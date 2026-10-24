@@ -169,7 +169,8 @@
     "test:session-length-ui": "tsx scripts/test-session-length-ui.tsx",
     "test:session-length-explicit-save-migration": "tsx scripts/test-session-length-explicit-save-migration.ts",
     "test:session-length-plan-stale": "tsx scripts/test-session-length-plan-stale.tsx",
-    "test:settings-flush-network-errors": "tsx scripts/test-settings-flush-network-errors.tsx"
+    "test:settings-flush-network-errors": "tsx scripts/test-settings-flush-network-errors.tsx",
+    "test:m3-wrist": "tsx scripts/test-m3-wrist-lowerback-contraindications.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
