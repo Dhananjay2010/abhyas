@@ -503,8 +503,10 @@ testSeeds('(h) Bodyweight-only user gets no equipment warmups/cooldowns',
     });
     
     const cooldownWithEquipment = cooldown.filter(w => w.equipment_ids.length > 0);
+    const hasBandPullApart = cooldown.some(w => w.slug === "band-pull-apart");
     check(`Seed ${seed}: Bodyweight cooldown needs no equipment`, cooldownWithEquipment.length === 0,
       cooldownWithEquipment.map(w => `${w.name}[${w.equipment_ids}]`).join(', '));
+    check(`Seed ${seed}: Cooldown excludes band-pull-apart`, !hasBandPullApart);
   }
 );
 
