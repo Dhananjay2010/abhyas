@@ -215,16 +215,31 @@ export function formatVolume(volumeKg: number, units: UnitsPreference = "metric"
 
 /**
  * Format top set weight for History display.
- * Converts to user's units and rounds for display.
+ * Converts to user's units and shows up to one decimal place.
+ * Trailing .0 is dropped (22.5kg shows as "22.5kg", 23.0kg shows as "23kg").
  * 
  * @param weightKg - Weight in kilograms
  * @param units - 'metric' or 'imperial'
- * @returns Formatted string like "220lb top" or "100kg top"
+ * @returns Formatted string like "22.5kg top" or "220lb top"
  */
 export function formatTopSet(weightKg: number, units: UnitsPreference = "metric"): string {
-  const weight = units === "imperial" ? kgToLb(weightKg) : weightKg;
+  let weight = weightKg;
+  if (units === "imperial") {
+    weight = kgToLb(weightKg);
+  }
+  
+  // Round to 1 decimal place
+  const rounded = Math.round(weight * 10) / 10;
+  // Format: drop trailing .0, otherwise show 1 decimal
+  const numStr = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  
+  // Add thousands separators
+  const [intPart, decPart] = numStr.split(".");
+  const withSeparators = Number(intPart).toLocaleString("en-US");
+  const formatted = decPart ? `${withSeparators}.${decPart}` : withSeparators;
+  
   const label = units === "imperial" ? "lb" : "kg";
-  return `${Math.round(weight)}${label} top`;
+  return `${formatted} ${label} top`;
 }
 
 /**
