@@ -329,7 +329,7 @@ export default async function TodayPage() {
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
-  
+
   const todayState = buildTodayState({
     profile: {
       created_at: profile.created_at,
@@ -368,9 +368,9 @@ export default async function TodayPage() {
   // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
   // The prompt offers "Swap the day", which needs the strength/bodyweight options.
   // The session's own exercises are loaded only when a workout has been started.
-  const needsPlannableDays = 
+  const needsPlannableDays =
     (dayType === "rest" || missedYesterday) && !strengthDone && !strengthOpen;
-  
+
   const [plannable, performedRows] = await Promise.all([
     needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
     performed

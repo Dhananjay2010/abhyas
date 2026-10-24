@@ -25,12 +25,13 @@ export function nextTrainingDay(
   days: ProgramDay[],
   localToday: string
 ): { dayName: string; dayIndex: number } | null {
-  // Scan forward up to 7 days to find the next training day
-  for (let offset = 0; offset < 7; offset++) {
+  // Scan forward from tomorrow to find the next training day
+  // (offset 1 not 0: when today is overridden to rest, we want the next day, not today)
+  for (let offset = 1; offset < 8; offset++) {
     const checkDate = addDays(localToday, offset);
     const checkIndex = isoWeekday(checkDate);
     const checkDay = days.find((d) => d.day_index === checkIndex);
-    
+
     if (checkDay && ownsPlannedWorkout(checkDay.day_type as "weights" | "bodyweight" | null)) {
       return {
         dayName: DAY_NAMES[checkIndex - 1],
@@ -38,6 +39,6 @@ export function nextTrainingDay(
       };
     }
   }
-  
+
   return null;
 }

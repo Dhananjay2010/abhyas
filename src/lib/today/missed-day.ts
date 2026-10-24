@@ -42,7 +42,7 @@ export type MissedDayInput = {
  * - The date is after max(profile.created_at as local date, program.started_on)
  * - No choice was made in this program: no Rest/Yoga/Breathing override (planned/in_progress/completed/skipped)
  *   and no completed strength session
- * 
+ *
  * The "too new to have missed anything" rule is based purely on dates:
  * - No missed prompt for any date before max(profile.created_at local date, current block's started_on)
  * - This prevents "missed yesterday" on signup day and after block rebuilds
@@ -68,15 +68,15 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
   // Base on max(profile created_at as local date, current block's started_on)
   // This prevents "missed yesterday" on signup day and after block rebuilds
   let earliestPossibleMissedDate = programStartedOn;
-  
+
   if (profileCreatedAt) {
     const createdAtLocal = localDateString(timezone, new Date(profileCreatedAt));
     // Use the LATER of the two dates (max)
-    earliestPossibleMissedDate = createdAtLocal > earliestPossibleMissedDate 
-      ? createdAtLocal 
+    earliestPossibleMissedDate = createdAtLocal > earliestPossibleMissedDate
+      ? createdAtLocal
       : earliestPossibleMissedDate;
   }
-  
+
   // A date can only be missed if it's AFTER the earliest possible missed date
   // (signup day itself and earlier days are never missed)
   if (date <= earliestPossibleMissedDate) {

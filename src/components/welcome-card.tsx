@@ -52,7 +52,7 @@ export function WelcomeCard({
           Your plan runs for <strong>{blockLength} weeks</strong>. Week {deloadWeek} is lighter (a deload), then you
           start the next block with heavier weights.
         </p>
-        
+
         <div>
           <p className="font-medium mb-2">
             Training {daysPerWeek} strength {daysPerWeek === 1 ? "day" : "days"} per week:

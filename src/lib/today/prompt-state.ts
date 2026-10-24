@@ -1,7 +1,7 @@
 /**
  * Pure decision function that returns which single prompt (if any) Today shows.
  * Returns "missed", "rest_plan", "both" (rest day with missed yesterday), or "none".
- * 
+ *
  * The started_on and onboarding checks in isMissedTrainingDay already handle day 1,
  * so hasStartedSession is NOT needed here.
  */

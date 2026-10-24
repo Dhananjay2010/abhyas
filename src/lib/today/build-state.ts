@@ -1,6 +1,6 @@
 /**
  * Pure state builder for the Today page.
- * 
+ *
  * Consolidates all Today logic inputs and derives:
  * - promptType: which prompt to show ("missed", "rest_plan", "both", "none")
  * - missedYesterday: whether yesterday was missed
@@ -8,7 +8,7 @@
  * - isTraining: whether today is a strength training day
  * - todayExercises: the exercises to display
  * - nextTrainingDay: for first-day rest day
- * 
+ *
  * All date/timezone handling and decision logic lives here, not in page.tsx.
  */
 
@@ -27,20 +27,20 @@ export interface BuildTodayStateInput {
     created_at: string | null;
     timezone: string | null;
   };
-  
+
   // Program data
   program: {
     id: string;
     started_on: string;
   };
-  
+
   // Days (template)
   days: Array<{
     day_index: number;
     day_type: DayType;
     label: string | null;
   }>;
-  
+
   // Sessions data
   sessions: {
     today: Array<{
@@ -55,15 +55,15 @@ export interface BuildTodayStateInput {
       program_id: string | null;
     }>;
   };
-  
+
   // Current date and timezone
   timezone: string;
   localToday: string;
   yesterday: string;
-  
+
   // Derived day info
   dayType: DayType | null;
-  
+
   // Session state
   strengthDone: boolean;
   strengthOpen: boolean;

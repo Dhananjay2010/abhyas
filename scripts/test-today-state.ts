@@ -452,9 +452,9 @@ const days4 = Object.entries(TEMPLATE_4DAY).map(([idx, type]) => ({
 }));
 
 // Signup on Saturday 2026-10-24 → Monday 2026-10-26
-const nextFromSat = nextTrainingDay(days3, "2026-10-24");
+const nextFromSatRest = nextTrainingDay(days3, "2026-10-24");
 assert(
-  nextFromSat?.dayName === "Monday" && nextFromSat?.dayIndex === 1,
+  nextFromSatRest?.dayName === "Monday" && nextFromSatRest?.dayIndex === 1,
   "Signup on Saturday 2026-10-24 (Sat) gives Monday"
 );
 
@@ -465,11 +465,13 @@ assert(
   "Signup on Sunday 2026-10-25 (Sun) gives Monday"
 );
 
-// Signup on Monday 2026-10-26 (training day) → Monday (today)
-const nextFromMon = nextTrainingDay(days3, "2026-10-26");
+// Rest override on a template training day (Mon) → next training day (Wed)
+// Mon 2026-10-26 is a training day in 3-day template, but user tapped Rest
+// nextTrainingDay must return Wednesday (offset 1+), never today
+const nextFromMonOverride = nextTrainingDay(days3, "2026-10-26");
 assert(
-  nextFromMon?.dayName === "Monday" && nextFromMon?.dayIndex === 1,
-  "Signup on training day (Monday 2026-10-26) gives Monday (today)"
+  nextFromMonOverride?.dayName === "Wednesday" && nextFromMonOverride?.dayIndex === 3,
+  "Rest override on template training day (Mon) gives next training day (Wed), not today"
 );
 
 // 4-day plan check: Signup on Saturday 2026-10-24 → Monday 2026-10-26
@@ -546,6 +548,43 @@ const mutationTest1 = buildTodayState({
 assert(
   mutationTest1.answeredToday,
   "buildTodayState detects answered=true from sessions (mutation 1 caught)"
+);
+
+// Test buildTodayState with today overridden to rest
+const restOverrideTest = buildTodayState({
+  profile: {
+    created_at: "2026-10-20T10:00:00Z",
+    timezone: "UTC",
+  },
+  program: {
+    id: TEST_PROGRAM_ID,
+    started_on: "2026-10-20",
+  },
+  days: days3,
+  sessions: {
+    today: [{ status: "planned", actual_type: "rest", program_id: TEST_PROGRAM_ID, started_at: null }],
+    yesterday: [],
+  },
+  timezone: "UTC",
+  localToday: "2026-10-24", // Sat (training day in 3-day template)
+  yesterday: "2026-10-23", // Fri
+  dayType: "rest", // Overridden to rest
+  strengthDone: false,
+  strengthOpen: false,
+  hasStartedSession: false,
+});
+
+assert(
+  restOverrideTest.promptType === "rest_plan",
+  "buildTodayState: rest override on training day returns 'rest_plan' (shows rest content)"
+);
+assert(
+  !restOverrideTest.isTraining,
+  "buildTodayState: rest override is not a training day"
+);
+assert(
+  restOverrideTest.nextTrainingDay?.dayName === "Monday",
+  "buildTodayState: rest override on Sat gives Monday as next training day, not today"
 );
 
 console.log("\n=== Test 13: Timezone UTC vs IST boundary ===\n");
