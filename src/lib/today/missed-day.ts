@@ -60,18 +60,19 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     return false;
   }
 
-  // Before program started
-  if (date < programStartedOn) {
-    return false;
-  }
-
-  // Before onboarding completed (if we have that date)
-  // Convert the UTC timestamp to the user's local date
+  // Before signup: use max(program start, onboarding completion local date)
+  // This handles cases where program.started_on might be set incorrectly
+  // (e.g., aligned to week start) or where onboarding_completed_at is the
+  // only reliable timestamp we have.
+  let earliestTrainingDate = programStartedOn;
   if (onboardingCompletedAt) {
     const onboardingDate = localDateString(timezone, new Date(onboardingCompletedAt));
-    if (date < onboardingDate) {
-      return false;
-    }
+    // Use the LATER of the two dates (max)
+    earliestTrainingDate = onboardingDate > earliestTrainingDate ? onboardingDate : earliestTrainingDate;
+  }
+  
+  if (date < earliestTrainingDate) {
+    return false;
   }
 
   // Check if any choice was made for this day:

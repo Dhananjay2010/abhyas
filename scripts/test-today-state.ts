@@ -399,6 +399,41 @@ assert(
   "Signup yesterday (Mon training day), program starts today (Tue): yesterday should NOT be missed (before program start)"
 );
 
+console.log("\n=== Test 16: Real-world Saturday signup (ISO Kolkata, Monday-aligned program) ===\n");
+
+// QA bug reproduction: Saturday 2026-10-25 signup in Asia/Kolkata
+// If program.started_on is set to Monday 2026-10-20 (week-aligned),
+// and onboarding_completed_at is Saturday 2026-10-25,
+// yesterday (Friday 2026-10-24) should NOT be missed.
+//
+// This test uses the actual shapes createBlockForUser writes:
+// - program.started_on might be aligned to Monday (hypothetical bug)
+// - profile.onboarding_completed_at is the UTC timestamp of signup
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-24", // Friday (yesterday)
+    programStartedOn: "2026-10-20", // Monday (week-aligned, 5 days before signup)
+    onboardingCompletedAt: "2026-10-25T04:30:00Z", // Saturday 10:00 AM IST
+    timezone: "Asia/Kolkata",
+    templateDayType: "weights", // 3-day plan, Friday is training
+    sessions: [],
+  }),
+  "Saturday signup (Kolkata): Friday before signup should NOT be missed (even with Monday-aligned program)"
+);
+
+// Day 2: Sunday 2026-10-26 checking Saturday 2026-10-25
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-25", // Saturday (yesterday, signup day)
+    programStartedOn: "2026-10-20", // Monday
+    onboardingCompletedAt: "2026-10-25T04:30:00Z", // Saturday 10:00 AM IST
+    timezone: "Asia/Kolkata",
+    templateDayType: "rest", // 3-day plan, Saturday is rest
+    sessions: [],
+  }),
+  "Day 2 after Saturday signup: Saturday (signup day) should NOT be missed (rest day anyway)"
+);
+
 console.log("\n==================================================");
 console.log(`📊 Test Results: ${passedTests}/${totalTests} passed`);
 
