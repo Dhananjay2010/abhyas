@@ -253,15 +253,7 @@ export class Outbox {
     };
 
     state.pending.push(queued);
-    try {
-      this.storage.set(state);
-    } catch (err) {
-      if (err instanceof Error && err.message === "QUOTA_EXCEEDED") {
-        // Rethrow so caller can handle
-        throw err;
-      }
-      throw err;
-    }
+    this.storage.set(state);
 
     return clientId;
   }

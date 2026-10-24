@@ -8,7 +8,7 @@ import {
 } from "@/lib/session/outbox";
 import * as actions from "../actions";
 
-type SyncState =
+export type SyncState =
   | { type: "idle" }
   | { type: "syncing" }
   | { type: "offline" }
@@ -206,8 +206,8 @@ export function useSetOutbox<
       },
     };
 
-    const storage = createLocalStorage(`outbox:${sessionId}`);
-    outboxRef.current = new Outbox(storage, sender, `outbox:${sessionId}`);
+    const storage = createLocalStorage(`abhyas:outbox:${sessionId}`);
+    outboxRef.current = new Outbox(storage, sender, `abhyas:outbox:${sessionId}`);
 
     // Merge pending and failed rows on mount (avoid hydration mismatch)
     const state = storage.get();

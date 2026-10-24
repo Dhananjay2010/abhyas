@@ -31,6 +31,7 @@ import {
 } from "../actions";
 import { classifyLogSetOutcome, nextSetNumberFor } from "@/lib/session/outbox";
 import { isQuotaError } from "@/lib/session/quota-error";
+import { mapErrorToUserMessage } from "@/lib/session/error-messages";
 import { useSetOutbox } from "./use-set-outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -593,6 +594,11 @@ export function SessionRunner({
   const allSetsDone = setsDone >= current.plannedSets;
   const nextSetNumber = nextSetNumberFor(current.sets);
   
+  // Find the highest actually logged setNumber (for undo targeting)
+  const lastLoggedSetNumber = current.sets.length > 0
+    ? Math.max(...current.sets.map((s) => s.setNumber))
+    : 0;
+  
   // B1b: Block logging if any failed or unsaved rows exist
   const hasFailedOrUnsaved = current.sets.some((s) => {
     const meta = s as unknown as { failed?: boolean; unsaved?: boolean };
@@ -771,7 +777,7 @@ export function SessionRunner({
           setError(
             classification.isNetwork
               ? "You're offline and this phone is out of space. Tap Retry on the set when you're back online."
-              : "Couldn't save offline. Keep this screen open.",
+              : "Out of space. Keep this screen open.",
           );
         } else {
           setError("Failed to save set. Please try again.");
@@ -792,7 +798,8 @@ export function SessionRunner({
     
     // B1c: Only remove matching local row (same setNumber AND pending/failed/unsaved)
     if (setWithMeta?.pending || setWithMeta?.failed || setWithMeta?.unsaved) {
-      // S1c: Defensively call deleteSet in case server saved it but response was lost
+      // S1c: Defensively call deleteSet in case server saved it but response was lost.
+      // Fire-and-forget: we optimistically remove from UI/outbox regardless of server outcome.
       if (setWithMeta.pending || setWithMeta.failed) {
         void actions.deleteSet(current.id, setNumber).catch(() => {});
       }
@@ -1030,6 +1037,7 @@ export function SessionRunner({
                           setBusy(true);
                           try {
                             let classification;
+                            let postgresCode: string | undefined;
                             try {
                               const result = await actions.logSet({
                                 sessionExerciseId: current.id,
@@ -1039,6 +1047,10 @@ export function SessionRunner({
                                 durationSeconds: logged.durationSeconds,
                               });
                               classification = classifyLogSetOutcome(result);
+                              // Extract Postgres error code if available
+                              if (!result.ok && result.data && "postgresCode" in result.data) {
+                                postgresCode = result.data.postgresCode as string | undefined;
+                              }
                             } catch (thrown) {
                               // Network or other thrown error
                               classification = classifyLogSetOutcome({ thrown });
@@ -1141,7 +1153,8 @@ export function SessionRunner({
                                 }
                               }
                             } else {
-                              // invalid: keep as failed with message
+                              // invalid: keep as failed with mapped user message
+                              const userMessage = mapErrorToUserMessage(postgresCode, classification.error);
                               setExercises((prev) =>
                                 prev.map((e) =>
                                   e.id === current.id
@@ -1153,7 +1166,7 @@ export function SessionRunner({
                                                 ...s,
                                                 failed: true,
                                                 unsaved: false,
-                                                failedError: classification.error ?? "Invalid",
+                                                failedError: userMessage,
                                               } as typeof s
                                             : s,
                                         ),
@@ -1173,7 +1186,7 @@ export function SessionRunner({
                         Retry
                       </button>
                     )}
-                    {logged && (isFailed || isUnsaved || n === setsDone) && (
+                    {logged && (isFailed || isUnsaved || n === lastLoggedSetNumber) && (
                       <button
                         // S1b: Disable Undo on pending rows while syncing
                         disabled={busy || (isPending && isFlushing())}
@@ -1364,6 +1377,8 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
+              // TODO(#37): before calling abandonSession, check pending/failed in outbox
+              // and call clearOutbox() if any remain.
               if (await run(() => actions.abandonSession(sessionId, elapsed))) {
                 if (onExit) onExit();
                 else router.push("/today");
@@ -1709,7 +1724,7 @@ function Shell({
         >
           <div className="flex items-center justify-between gap-3">
             <span>
-              {syncState.type === "syncing" && "Syncing..."}
+              {syncState.type === "syncing" && "Syncing…"}
               {syncState.type === "offline" && "Saved on this phone – will sync when you're back online"}
               {syncState.type === "failed" && syncState.message}
               {syncState.type === "quota" && "Couldn't save offline. Keep this screen open."}

@@ -288,7 +288,10 @@ export async function logSet(input: {
     return { 
       ok: false, 
       error: error.message, 
-      data: permanent ? { code: "invalid" } : undefined 
+      data: { 
+        code: permanent ? "invalid" : error.code || undefined,
+        postgresCode: error.code
+      } 
     };
   }
   
