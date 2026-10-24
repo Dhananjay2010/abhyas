@@ -221,12 +221,12 @@ export function SessionRunner({
     if (!controller) return;
 
     function handleFocus() {
-      controller.onFocus();
+      controllerRef.current?.onFocus();
     }
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
-        controller.onFocus();
+        controllerRef.current?.onFocus();
       }
     }
 

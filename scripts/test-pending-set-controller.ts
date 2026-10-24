@@ -171,8 +171,8 @@ async function testMutantE_UnresolvedPromise() {
   const storage = createStorage();
   const sessionId = "session-789";
 
-  let resolveLogSet: ((value: Result) => void) | null = null;
-  const logSet: LogSetFunction = async () => {
+  let resolveLogSet!: (value: Result) => void;
+  const logSet: LogSetFunction = () => {
     return new Promise<Result>((resolve) => {
       resolveLogSet = resolve;
     });
@@ -199,9 +199,7 @@ async function testMutantE_UnresolvedPromise() {
 
   assert(!states.some((s) => s.pending.length === 0), "Not marked as saved while promise unresolved");
 
-  if (resolveLogSet) {
-    resolveLogSet({ ok: true });
-  }
+  resolveLogSet({ ok: true });
 
   const result = await submitPromise;
   assertEqual(result.status, "saved", "Marked as saved only after promise resolves");
@@ -213,20 +211,22 @@ async function testMutantF_ServerSideAuth() {
   const noUser = async () => ({ user: null });
   const hasUser = async () => ({ user: { id: "user-123" } });
 
-  const noUserResult = await resolveAuth(noUser, async () => ({ ok: true }));
+  const noUserResult = await resolveAuth(noUser, async (): Promise<Result> => ({ ok: true }));
 
   assert(!noUserResult.ok, "Returns failure when no user");
-  assertEqual(
-    noUserResult.code,
-    SESSION_EXPIRED_CODE,
-    "Returns SESSION_EXPIRED code"
-  );
-  assert(
-    typeof noUserResult.error === "string",
-    "Error is string, not thrown exception"
-  );
+  if (!noUserResult.ok) {
+    assertEqual(
+      noUserResult.code,
+      SESSION_EXPIRED_CODE,
+      "Returns SESSION_EXPIRED code"
+    );
+    assert(
+      typeof noUserResult.error === "string",
+      "Error is string, not thrown exception"
+    );
+  }
 
-  const hasUserResult = await resolveAuth(hasUser, async () => ({ ok: true }));
+  const hasUserResult = await resolveAuth(hasUser, async (): Promise<Result> => ({ ok: true }));
 
   assert(hasUserResult.ok, "Returns success when user exists");
 }
@@ -391,7 +391,9 @@ async function testNetworkErrorKeepsPending() {
   });
 
   assertEqual(result.status, "failed", "Returns failed status");
-  assertEqual(result.error, "Network timeout", "Error message preserved");
+  if (result.status === "failed") {
+    assertEqual(result.error, "Network timeout", "Error message preserved");
+  }
   assert(
     !states[states.length - 1].pending.length,
     "Non-auth failure doesn't persist to storage"
