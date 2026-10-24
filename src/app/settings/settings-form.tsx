@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, useRef } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -19,6 +19,7 @@ import { ErrorNote, OptionCard } from "@/components/ui";
 import { BuildPlanButton } from "@/app/today/build-plan-button";
 import { branding } from "@/lib/branding";
 import { resolveTimezoneWithProfile, FALLBACK_TIMEZONE } from "@/lib/timezone";
+import { getTodayIsoInTimezone } from "@/lib/dates/today-iso";
 import {
   updateEquipment,
   updateInjuries,
@@ -29,6 +30,8 @@ import {
 import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
+import { DobInput } from "@/components/onboarding/dob-input";
+import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -67,6 +70,7 @@ export type SettingsState = {
   restOverrideSeconds: number | null;
   bodyweightPrompt: "daily" | "weekly" | "never";
   timezone: string | null;
+  dateOfBirth: string | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -113,6 +117,13 @@ export function SettingsForm({
   const [equipmentSequence] = useState(() => createRequestSequence());
   /** F2: Browser timezone detected on client after mount */
   const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
+  /** DOB error state */
+  const [dobError, setDobError] = useState<string | null>(null);
+  /** DOB touched state */
+  const [dobTouched, setDobTouched] = useState(false);
+  /** Last successfully saved DOB (baseline to prevent re-saves) */
+  const lastSavedDob = useRef<string | null>(initial.dateOfBirth);
+  const currentDob = useRef<string | null>(initial.dateOfBirth);
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -632,6 +643,60 @@ export function SettingsForm({
           </Link>
           .
         </p>
+      </Section>
+
+      {/* ---------------- profile ---------------- */}
+      <Section title="Profile" note="Your personal information.">
+        <Field label="Date of birth" hint="Must be at least 16 years old">
+          <DobInput
+            value={s.dateOfBirth}
+            onChange={(iso) => {
+              currentDob.current = iso;
+              setS(prev => ({ ...prev, dateOfBirth: iso }));
+              if (dobTouched) {
+                const todayIso = getTodayIsoInTimezone(s.timezone ?? null);
+                const err = iso ? validateDob(iso, todayIso) : null;
+                setDobError(err ? getDobErrorMessage(err) : null);
+              }
+            }}
+            onBlur={() => {
+              setDobTouched(true);
+              const dobToSave = currentDob.current;
+              const todayIso = getTodayIsoInTimezone(s.timezone ?? null);
+              
+              // Incomplete DOB (null from partial input) - don't save, show error
+              if (dobToSave === null && lastSavedDob.current !== null) {
+                setDobError("Enter your full date of birth");
+                return;
+              }
+              
+              const err = dobToSave ? validateDob(dobToSave, todayIso) : null;
+              if (err) {
+                setDobError(getDobErrorMessage(err));
+                return;
+              }
+              
+              setDobError(null);
+              // Only save if changed from last saved and not null
+              if (dobToSave !== lastSavedDob.current && dobToSave !== null) {
+                startTransition(async () => {
+                  const r = await actions.updateProfileSettings({ date_of_birth: dobToSave });
+                  if (!r.ok) {
+                    // On failed save, revert to last saved value and show error
+                    currentDob.current = lastSavedDob.current;
+                    setS(prev => ({ ...prev, dateOfBirth: lastSavedDob.current }));
+                    setDobError(r.error);
+                  } else {
+                    // On successful save, update baseline
+                    lastSavedDob.current = dobToSave;
+                    setError(null);
+                  }
+                });
+              }
+            }}
+            error={dobTouched ? dobError ?? undefined : undefined}
+          />
+        </Field>
       </Section>
 
       {/* ---------------- timezone ---------------- */}

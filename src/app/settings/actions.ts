@@ -7,6 +7,7 @@ import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
 import { isAllowedSessionLength } from "@/lib/onboarding/session-length";
+import { getTodayIsoInTimezone } from "@/lib/dates/today-iso";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -67,13 +68,31 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     }
   }
 
+  // Only fetch timezone when validating DOB (avoid extra roundtrip for timezone-only/other saves)
+  let profile: { timezone: string | null } | null = null;
+  if (patch.date_of_birth !== undefined) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("timezone")
+      .eq("id", user.id)
+      .single();
+    profile = data;
+  }
+
   // Validate and update with testable logic
+  // Settings context: requireDob=true rejects null DOB after onboarding
   const result = await validateAndUpdateProfile(patch, {
     updateProfile: async (validatedPatch) => {
       const { error } = await supabase.from("profiles").update(validatedPatch).eq("id", user.id);
       if (error) return { ok: false, error: error.message };
       return { ok: true };
     },
+    getTodayIso: () => {
+      // Use patch timezone if being set, else stored profile timezone, else gym default
+      const timezone = patch.timezone ?? profile?.timezone ?? null;
+      return getTodayIsoInTimezone(timezone);
+    },
+    requireDob: true, // Settings context: DOB required after onboarding
   });
 
   if (!result.ok) return result;
