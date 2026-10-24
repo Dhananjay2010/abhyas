@@ -856,10 +856,16 @@ async function testEnqueueDuringFlush() {
 async function testNetworkErrorDetection() {
   const { isNetworkError } = await import("../src/lib/session/network-error");
 
-  // TypeError is the standard fetch network error
+  // TypeError with "Failed to fetch" message (network error)
   const typeError = new TypeError("Failed to fetch");
   if (!isNetworkError(typeError)) {
-    throw new Error("TypeError should be detected as network error");
+    throw new Error("TypeError('Failed to fetch') should be detected as network error");
+  }
+
+  // Plain TypeError (coding bug) should NOT be network error
+  const codingBug = new TypeError("x.map is not a function");
+  if (isNetworkError(codingBug)) {
+    throw new Error("TypeError('x.map is not a function') should NOT be network error");
   }
 
   // Error with "Failed to fetch" message
@@ -904,7 +910,8 @@ async function testNetworkErrorDetection() {
     throw new Error("String error should NOT be detected as network error");
   }
 
-  console.log("✓ Network error detection: TypeError detected");
+  console.log("✓ Network error detection: TypeError('Failed to fetch') detected");
+  console.log("✓ Network error detection: TypeError('x.map...') excluded (coding bug)");
   console.log("✓ Network error detection: 'Failed to fetch' message detected");
   console.log("✓ Network error detection: 'network request failed' message detected");
   console.log("✓ Network error detection: 'NetworkError' message detected");

@@ -1,36 +1,15 @@
 /**
- * Detect network errors from fetch failures or thrown exceptions.
- * 
- * Returns true if the error is a network connectivity issue (offline, timeout,
- * DNS failure, etc.), false for application errors (validation, auth, etc.).
- * 
- * Pure function for testability.
+ * True when a thrown error means "the request never reached the server":
+ * the browser reports offline, or a fetch failed at the network layer.
+ * Deliberately NOT every TypeError — a coding bug must surface as an error, not "you're offline".
  */
+const NETWORK_MESSAGES = ["failed to fetch", "network request failed", "networkerror", "load failed"];
+
 export function isNetworkError(error: unknown): boolean {
-  // TypeError is the standard thrown error for network failures in fetch
-  if (error instanceof TypeError) {
-    return true;
-  }
-
-  // Check error message for common network failure strings
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-    if (
-      message.includes("failed to fetch") ||
-      message.includes("network request failed") ||
-      message.includes("networkerror") ||
-      message.includes("load failed")
-    ) {
-      return true;
-    }
-  }
-
-  // Check if browser reports offline
-  if (typeof navigator !== "undefined" && navigator.onLine === false) {
-    return true;
-  }
-
-  return false;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return NETWORK_MESSAGES.some((m) => message.includes(m));
 }
 
 /**
