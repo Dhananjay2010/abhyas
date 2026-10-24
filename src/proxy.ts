@@ -5,7 +5,8 @@ import { updateSession } from "@/lib/supabase/session";
 // Uses negative lookahead to exclude static assets and specific files
 // Must start with ^ to match from beginning of string only
 // Extension wildcards use [^/]* to match only root-level files (not /foo/logo.svg)
-export const MIDDLEWARE_MATCHER = "^/((?!_next/static|_next/image|favicon\\.ico(?:/|$)|manifest\\.webmanifest(?:/|$)|sw\\.js(?:/|$)|robots\\.txt(?:/|$)|sitemap\\.xml(?:/|$)|icons/|[^/]*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)";
+// screenshots/ excluded for PWA manifest (PR #8)
+export const MIDDLEWARE_MATCHER = "^/((?!_next/static|_next/image|favicon\\.ico(?:/|$)|manifest\\.webmanifest(?:/|$)|sw\\.js(?:/|$)|robots\\.txt(?:/|$)|sitemap\\.xml(?:/|$)|icons/|screenshots/|[^/]*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)";
 
 export async function proxy(request: NextRequest) {
   return await updateSession(request);
@@ -13,6 +14,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico(?:/|$)|manifest\\.webmanifest(?:/|$)|sw\\.js(?:/|$)|robots\\.txt(?:/|$)|sitemap\\.xml(?:/|$)|icons/|[^/]*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico(?:/|$)|manifest\\.webmanifest(?:/|$)|sw\\.js(?:/|$)|robots\\.txt(?:/|$)|sitemap\\.xml(?:/|$)|icons/|screenshots/|[^/]*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

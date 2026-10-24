@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { PERF_ENABLED } from "@/lib/perf";
 import { isPublicPath } from "./public-paths";
+import { branding } from "@/lib/branding";
 
 /**
  * Known protected route prefixes that require authentication.
@@ -70,10 +71,19 @@ export function routeDecision(
  */
 function generate404Html(): string {
   // Read-only access to branding (don't edit branding.ts per PR #8)
-  const appName = "Abhyas";
-  const accentColor = "#8b5cf6"; // from branding
-  const bgColor = "#0a0c0e";
-  const fgColor = "#f8f8f2";
+  const appName = escapeHtml(branding.name);
+  const bgColor = branding.backgroundColor;
+  const themeColor = branding.themeColor;
+  
+  // Brand accent color (reviewer confirmed #22c55e green)
+  const accentColor = "#22c55e";
+  
+  // Compute text color for contrast on accent background
+  // Dark text on green accent provides good contrast
+  const linkTextColor = "#0a0c0e";
+  
+  // Text color for body (light on dark background)
+  const bodyTextColor = "#f8f8f2";
   
   return `<!DOCTYPE html>
 <html lang="en">
@@ -86,7 +96,7 @@ function generate404Html(): string {
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: ${bgColor};
-      color: ${fgColor};
+      color: ${bodyTextColor};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -116,7 +126,7 @@ function generate404Html(): string {
       margin-top: 2rem;
       padding: 0.75rem 1.5rem;
       background: ${accentColor};
-      color: ${bgColor};
+      color: ${linkTextColor};
       text-decoration: none;
       border-radius: 0.75rem;
       font-weight: 600;
@@ -136,6 +146,18 @@ function generate404Html(): string {
   </main>
 </body>
 </html>`;
+}
+
+/**
+ * HTML-escape a string for safe insertion into HTML content.
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 export async function updateSession(request: NextRequest) {
