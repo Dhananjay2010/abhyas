@@ -39,6 +39,7 @@ import {
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
+import { registerFocusRetry } from "@/lib/session/focus-retry";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -188,26 +189,23 @@ export function SessionRunner({
   useEffect(() => {
     if (!controller) return;
 
-    // Trigger on mount
-    controller.onFocus();
-
-    const handleFocus = () => {
-      controller.onFocus();
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        controller.onFocus();
-      }
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
+    return registerFocusRetry(
+      (type, handler) => {
+        if (type === "focus") {
+          window.addEventListener(type, handler);
+        } else {
+          document.addEventListener(type, handler);
+        }
+      },
+      (type, handler) => {
+        if (type === "focus") {
+          window.removeEventListener(type, handler);
+        } else {
+          document.removeEventListener(type, handler);
+        }
+      },
+      () => controller.onFocus()
+    );
   }, [controller]);
   /*
     Which exercise screen the "what just changed" banner belongs on.
