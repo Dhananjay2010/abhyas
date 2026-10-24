@@ -12,6 +12,7 @@ import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export default async function TodayPage() {
   }
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
-  const timezone = profile.timezone || "Asia/Kolkata";
+  const timezone = resolveTimezoneWithProfile(profile.timezone);
   const firstName = profile.display_name?.split(" ")[0] ?? "";
   const localToday = localDateString(timezone);
 
