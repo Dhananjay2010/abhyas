@@ -168,7 +168,7 @@ async function testRunFinishGenericErrorCopy(): Promise<boolean> {
 
 // Mutant 6: Remove try/catch around refreshAfterSession in runFinish
 async function testRunFinishRefreshThrowDoesntBlock(): Promise<boolean> {
-  let navigated = false;
+  let phaseDone = false;
   const inFlight = { current: false };
 
   const deps: FinishFlowDeps = {
@@ -180,17 +180,17 @@ async function testRunFinishRefreshThrowDoesntBlock(): Promise<boolean> {
     stopElapsed: () => 100,
     resumeElapsed: () => {},
     setError: () => {},
-    setPhase: () => {},
-    setEndedEarly: () => {},
-    navigate: () => {
-      navigated = true;
+    setPhase: () => {
+      phaseDone = true;
     },
+    setEndedEarly: () => {},
+    navigate: () => {},
     onExit: null,
     inFlight,
   };
 
   await runFinish(deps, { sessionId: "s1", cooldownCompleted: true });
-  return navigated;
+  return phaseDone;
 }
 
 // Mutant 7: Remove endingRef guard in runEndEarly
@@ -481,7 +481,7 @@ async function testAbandonSessionCoreRespectsZeroSets(): Promise<boolean> {
 
   await testMutant(
     "Remove try/catch around refreshAfterSession in runFinish",
-    "test:finish-flow (refreshAfterSession throw still navigates)",
+    "test:finish-flow (refreshAfterSession throw still shows summary)",
     testRunFinishRefreshThrowDoesntBlock,
   );
 
