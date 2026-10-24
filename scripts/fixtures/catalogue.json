@@ -4451,7 +4451,7 @@
     "category": "strength"
   },
   {
-    "id": "a08def2b-7423-4abf-9adc-bd96120db998",
+    "id": "c31edeee-70a6-416f-b330-3e6b3e9c9eba",
     "slug": "doorway-row",
     "name": "Doorway Row",
     "movement_pattern": "horizontal_pull",
@@ -6575,7 +6575,7 @@
     "category": "strength"
   },
   {
-    "id": "306c443c-cb16-429d-af9b-e7fda78c0faa",
+    "id": "9ac92311-d495-40ff-8aeb-0c9ae60965bf",
     "slug": "glute-bridge",
     "name": "Glute Bridge",
     "movement_pattern": "hinge",
