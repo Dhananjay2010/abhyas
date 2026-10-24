@@ -15,19 +15,25 @@ export default async function LandingPage({
   const { supabase, user } = await getAuthedClient();
 
   if (user) {
-    // If there's a next parameter, redirect to it after validating
-    if (next) {
-      const safePath = safeNextPath(next);
-      redirect(safePath);
-    }
-
-    // Otherwise, use the default onboarding vs today routing
+    // Check if onboarding is complete
     const { data: profile } = await supabase
       .from("profiles")
       .select("onboarding_completed_at")
       .eq("id", user.id)
       .single();
-    redirect(profile?.onboarding_completed_at ? "/today" : "/onboarding");
+
+    // If onboarding is not complete, go to onboarding (don't skip it with next)
+    if (!profile?.onboarding_completed_at) {
+      redirect("/onboarding");
+    }
+
+    // Onboarding is complete - redirect to next if present, otherwise to today
+    if (next) {
+      const safePath = safeNextPath(next);
+      redirect(safePath);
+    }
+
+    redirect("/today");
   }
 
   return (

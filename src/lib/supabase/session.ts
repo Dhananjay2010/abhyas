@@ -47,9 +47,19 @@ export async function updateSession(request: NextRequest) {
 
   if (!signedIn && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
-    const originalPath = pathname + (request.nextUrl.search || '');
     url.pathname = "/";
-    url.search = `?next=${encodeURIComponent(originalPath)}`;
+    
+    // Don't add ?next for the root path, /api/*, or non-GET requests
+    const shouldAddNext = 
+      pathname !== '/' &&
+      !pathname.startsWith('/api/') &&
+      request.method === 'GET';
+    
+    if (shouldAddNext) {
+      const originalPath = pathname + (request.nextUrl.search || '');
+      url.search = `?next=${encodeURIComponent(originalPath)}`;
+    }
+    
     return finish(NextResponse.redirect(url), started, pathname, signedIn);
   }
 

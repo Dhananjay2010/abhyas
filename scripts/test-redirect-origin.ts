@@ -196,7 +196,7 @@ function runTests(): TestResult[] {
     }
   }
 
-  // Test 8: Localhost ignores x-forwarded headers (not in brand allowlist)
+  // Test 8: Localhost ignores x-forwarded headers (forwarded host not brand host)
   {
     const request = new Request('http://localhost:3000/auth/callback', {
       headers: {
@@ -206,13 +206,13 @@ function runTests(): TestResult[] {
     });
     const origin = getRedirectOrigin(request);
     if (origin === 'http://localhost:3000') {
-      results.push({ passed: true, message: 'Localhost ignores x-forwarded headers (not in brand allowlist)' });
+      results.push({ passed: true, message: 'Localhost ignores x-forwarded headers (forwarded host is brand host)' });
     } else {
-      results.push({ passed: false, message: `Localhost with forwarded headers: expected http://localhost:3000, got ${origin}` });
+      results.push({ passed: false, message: `Localhost with forwarded brand host: expected http://localhost:3000, got ${origin}` });
     }
   }
 
-  // Test 9: Brand host trusts x-forwarded headers
+  // Test 9: Brand host in request trusts x-forwarded headers when forwarded host is brand host
   {
     const request = new Request('http://internal.vercel.com/auth/callback', {
       headers: {
@@ -222,9 +222,57 @@ function runTests(): TestResult[] {
     });
     const origin = getRedirectOrigin(request);
     if (origin === 'https://abhyas-indol.vercel.app') {
-      results.push({ passed: true, message: 'Brand host trusts x-forwarded headers' });
+      results.push({ passed: true, message: 'Brand host in forwarded-host: trusts x-forwarded headers' });
     } else {
       results.push({ passed: false, message: `Brand host with forwarded headers: expected https://abhyas-indol.vercel.app, got ${origin}` });
+    }
+  }
+
+  // Test 10: Request host == forwarded host (not brand) uses request origin
+  {
+    const request = new Request('https://staging.example.com/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'http',
+        'x-forwarded-host': 'staging.example.com',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'https://staging.example.com') {
+      results.push({ passed: true, message: 'Forwarded host == request host (not brand): uses request origin (ignores forwarded proto)' });
+    } else {
+      results.push({ passed: false, message: `Forwarded host == request host: expected https://staging.example.com, got ${origin}` });
+    }
+  }
+
+  // Test 11: IPv6 localhost (::1) ignores x-forwarded headers
+  {
+    const request = new Request('http://[::1]:3000/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'http://[::1]:3000') {
+      results.push({ passed: true, message: 'IPv6 localhost [::1] ignores x-forwarded headers' });
+    } else {
+      results.push({ passed: false, message: `IPv6 localhost [::1]: expected http://[::1]:3000, got ${origin}` });
+    }
+  }
+
+  // Test 12: 127.x.x.x ignores x-forwarded headers
+  {
+    const request = new Request('http://127.0.0.1:3000/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'http://127.0.0.1:3000') {
+      results.push({ passed: true, message: '127.0.0.1 ignores x-forwarded headers' });
+    } else {
+      results.push({ passed: false, message: `127.0.0.1: expected http://127.0.0.1:3000, got ${origin}` });
     }
   }
 

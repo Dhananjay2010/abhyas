@@ -92,14 +92,39 @@ function runTests(): TestResult[] {
     });
   }
 
-  // Test 7: Landing page maintains existing onboarding vs today routing when no next
+  // Test 7: Landing page checks onboarding_completed_at
   {
-    const hasDefaultRouting = /profile\?.onboarding_completed_at[\s\S]*?\?[\s\S]*?\/today[\s\S]*?:[\s\S]*?\/onboarding/.test(pageContent);
+    const checksOnboarding = /profile\?.onboarding_completed_at/.test(pageContent);
     results.push({
-      passed: hasDefaultRouting,
-      message: hasDefaultRouting
-        ? 'Landing page maintains default onboarding vs today routing'
-        : 'Landing page changed default routing behavior'
+      passed: checksOnboarding,
+      message: checksOnboarding
+        ? 'Landing page checks onboarding_completed_at'
+        : 'Landing page does not check onboarding_completed_at'
+    });
+  }
+
+  // Test 8: Landing page redirects to /onboarding when not complete
+  {
+    const redirectsToOnboarding = /!profile\?.onboarding_completed_at[\s\S]*?redirect\(['"]\/onboarding['"]\)/.test(pageContent);
+    results.push({
+      passed: redirectsToOnboarding,
+      message: redirectsToOnboarding
+        ? 'Landing page redirects to /onboarding when onboarding not complete (does not skip with next)'
+        : 'Landing page does not properly protect onboarding'
+    });
+  }
+
+  // Test 9: Landing page only redirects to next after onboarding is complete
+  {
+    // Check that next redirect comes after onboarding check
+    const onboardingCheckPos = pageContent.indexOf('!profile?.onboarding_completed_at');
+    const nextRedirectPos = pageContent.indexOf('if (next)');
+    const passed = onboardingCheckPos !== -1 && nextRedirectPos !== -1 && nextRedirectPos > onboardingCheckPos;
+    results.push({
+      passed,
+      message: passed
+        ? 'Landing page only uses next parameter after verifying onboarding is complete'
+        : 'Landing page may allow next to skip onboarding'
     });
   }
 

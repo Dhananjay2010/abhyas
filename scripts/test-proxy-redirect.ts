@@ -3,11 +3,13 @@
  * Test: Proxy redirect building for unauthenticated requests
  * 
  * Verifies that when an unauthenticated user tries to access a protected page,
- * the proxy redirects to /?next=<encoded-path> so the redirect can continue
- * after sign-in.
+ * the proxy redirects appropriately:
+ * - Adds ?next for protected pages (GET requests)
+ * - Does NOT add ?next for root path, /api/*, or non-GET requests
  */
 
-import { NextRequest } from 'next/server';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 interface TestResult {
   passed: boolean;
@@ -17,61 +19,62 @@ interface TestResult {
 function runTests(): TestResult[] {
   const results: TestResult[] = [];
 
-  // Test 1: Simple protected path redirects with next parameter
+  const sessionPath = join(process.cwd(), 'src/lib/supabase/session.ts');
+  const sessionContent = readFileSync(sessionPath, 'utf-8');
+
+  // Test 1: Proxy adds ?next for protected GET requests
   {
-    const url = 'http://localhost:3000/settings';
-    const expectedNext = '/settings';
-    
+    const hasNextLogic = /const originalPath.*pathname.*search/.test(sessionContent);
     results.push({
-      passed: true,
-      message: `Protected path /settings should redirect to /?next=${encodeURIComponent(expectedNext)}`
+      passed: hasNextLogic,
+      message: hasNextLogic
+        ? 'Proxy builds next parameter from pathname + search'
+        : 'Proxy does not build next parameter correctly'
     });
   }
 
-  // Test 2: Protected path with query params preserves them in next
+  // Test 2: Proxy checks for root path
   {
-    const path = '/history';
-    const search = '?id=123&filter=completed';
-    const expectedNext = `${path}${search}`;
-    
+    const checksRoot = /pathname\s*!==\s*['"]\/['"]/.test(sessionContent);
     results.push({
-      passed: true,
-      message: `Protected path ${path}${search} should redirect to /?next=${encodeURIComponent(expectedNext)}`
+      passed: checksRoot,
+      message: checksRoot
+        ? 'Proxy checks that pathname is not root (/)'
+        : 'Proxy does not check for root path'
     });
   }
 
-  // Test 3: Protected path with fragment (fragment is not sent to server, so this is theoretical)
+  // Test 3: Proxy checks for /api/* paths
   {
-    const path = '/today';
-    const expectedNext = '/today';
-    
+    const checksApi = /pathname\.startsWith\(['"]\/api\/['"]\)/.test(sessionContent);
     results.push({
-      passed: true,
-      message: `Protected path ${path} should redirect to /?next=${encodeURIComponent(expectedNext)}`
+      passed: checksApi,
+      message: checksApi
+        ? 'Proxy checks for /api/* paths'
+        : 'Proxy does not check for /api/* paths'
     });
   }
 
-  // Test 4: Deep nested path
+  // Test 4: Proxy checks request method
   {
-    const path = '/session/abc123';
-    const search = '?from=history';
-    const expectedNext = `${path}${search}`;
-    
+    const checksMethod = /request\.method\s*===\s*['"]GET['"]/.test(sessionContent);
     results.push({
-      passed: true,
-      message: `Protected nested path ${path}${search} should redirect to /?next=${encodeURIComponent(expectedNext)}`
+      passed: checksMethod,
+      message: checksMethod
+        ? 'Proxy checks that request method is GET'
+        : 'Proxy does not check request method'
     });
   }
 
-  // Test 5: Path with special characters that need encoding
+  // Test 5: Proxy conditionally adds next parameter
   {
-    const path = '/breathe/box-breathing';
-    const search = '?duration=300&variant=4-7-8';
-    const expectedNext = `${path}${search}`;
-    
+    const conditionalNext = /if\s*\(\s*shouldAddNext\s*\)/.test(sessionContent) ||
+                            /shouldAddNext[\s\S]*?url\.search/.test(sessionContent);
     results.push({
-      passed: true,
-      message: `Path with special chars should redirect to /?next=${encodeURIComponent(expectedNext)}`
+      passed: conditionalNext,
+      message: conditionalNext
+        ? 'Proxy conditionally adds ?next based on checks'
+        : 'Proxy does not conditionally add ?next'
     });
   }
 
