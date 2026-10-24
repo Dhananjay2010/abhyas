@@ -875,7 +875,7 @@ console.log("\n27. Gym user: main slots get loaded compound staples, not bodywei
   // never bodyweight novelty variants like clock push-up or archer push-up.
   // Test across multiple blocks to ensure determinism.
   
-  const isLoadedExercise = (ex: any) => ex.equipment_ids.length > 0;
+  const isLoadedExercise = (ex: CandidateExercise) => ex.equipment_ids.length > 0;
   
   for (let blockNum = 1; blockNum <= 3; blockNum++) {
     const plan = generateProgram(
@@ -936,9 +936,10 @@ console.log("\n28. No-equipment user: bodyweight exercises fine in main slots");
       const ex = byId.get(day.exercises[i].exerciseId)!;
       
       // All main exercises for bodyweight-track users should be bodyweight or pull-up bar
+      const requiresOnlyPullupBar = ex.equipment_ids.length === 1 && ex.equipment_ids[0] === "pull_up_bar";
       check(
         `Bodyweight-track ${day.label} slot ${i}: bodyweight or minimal equipment`,
-        ex.equipment_ids.length === 0 || (ex.equipment_ids.length === 1 && ex.equipment_ids[0] === "pull_up_bar"),
+        ex.equipment_ids.length === 0 || requiresOnlyPullupBar,
         `got ${ex.slug} requiring ${ex.equipment_ids.join(", ") || "no equipment"}`
       );
     }
