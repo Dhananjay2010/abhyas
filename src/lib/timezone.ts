@@ -2,16 +2,22 @@
  * Timezone resolution for per-gym branding.
  *
  * Priority order:
- * 1. Gym's configured timezone (from branding config)
- * 2. User's browser timezone (client-side detection via Intl API)
- * 3. Fallback to Asia/Kolkata (existing default)
+ * 1. User's profile timezone (profiles.timezone)
+ * 2. Gym's configured timezone (from branding config)
+ * 3. Browser-detected timezone (recorded during onboarding)
+ * 4. Fallback to Asia/Kolkata (last resort)
  *
- * SSR-safe: server renders with gym/fallback timezone, client hydrates with
- * detected timezone. Components that display timezone-sensitive dates must
- * handle this gracefully (e.g., suppressHydrationWarning on date strings).
+ * SSR-safe: server renders with profile/gym/fallback timezone, client can
+ * detect and record browser timezone during onboarding.
  */
 
 import { branding, validateTimezone } from "./branding";
+
+/**
+ * Last-resort timezone fallback when all other methods fail.
+ * Chosen for backwards compatibility with existing data.
+ */
+export const FALLBACK_TIMEZONE = "Asia/Kolkata";
 
 /**
  * Detect the user's timezone from their browser.
@@ -29,30 +35,12 @@ export function detectBrowserTimezone(): string | null {
 
 /**
  * Get the default timezone for this gym deployment.
- * Returns the brand's configured timezone, or Asia/Kolkata if not set.
+ * Returns the brand's configured timezone, or the fallback if not set.
  * This is the timezone used during SSR and as a fallback when browser
  * detection fails.
  */
 export function getDefaultTimezone(): string {
-  return branding.timezone || "Asia/Kolkata";
-}
-
-/**
- * Resolve the effective timezone for the current context.
- *
- * Client-side: uses browser-detected timezone if available, falls back to
- * gym default, then Asia/Kolkata.
- *
- * Server-side: uses gym default or Asia/Kolkata (browser detection unavailable).
- *
- * This function is safe for both SSR and client rendering, but be aware that
- * the result may differ between server and client. Components displaying
- * timezone-sensitive dates should use suppressHydrationWarning.
- */
-export function resolveTimezone(): string {
-  const browser = detectBrowserTimezone();
-  if (browser) return browser;
-  return getDefaultTimezone();
+  return branding.timezone || FALLBACK_TIMEZONE;
 }
 
 /**
@@ -62,7 +50,7 @@ export function resolveTimezone(): string {
  * Priority:
  * 1. User's profile timezone (if set and valid)
  * 2. Gym's configured timezone (from branding)
- * 3. Asia/Kolkata (existing default)
+ * 3. Asia/Kolkata (fallback)
  *
  * @param profileTimezone - The timezone from user's profile (profiles.timezone)
  */

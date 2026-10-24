@@ -101,7 +101,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     supabase.from("user_settings").select("resume_session").eq("user_id", user.id).maybeSingle(),
   ]);
 
-  const timezone = profileRes.data?.timezone || "Asia/Kolkata";
+  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
   const today = localDateString(timezone);
   const resumeEnabled = settingsRes.data?.resume_session ?? true;
 
@@ -862,7 +862,8 @@ export async function planDay(input: {
     .select("timezone")
     .eq("id", user.id)
     .single();
-  const today = localDateString(profile?.timezone || "Asia/Kolkata");
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
+  const today = localDateString(timezone);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.localDate)) {
     return { ok: false, error: "That is not a date." };

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
@@ -32,7 +33,8 @@ export async function markYogaVideoDone(videoId: string): Promise<Result> {
     .select("timezone")
     .eq("id", user.id)
     .single();
-  const today = localDateString(profile?.timezone || "Asia/Kolkata");
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
+  const today = localDateString(timezone);
 
   // Append without duplicating, so re-marking the same video is harmless.
   const { data: existing } = await supabase

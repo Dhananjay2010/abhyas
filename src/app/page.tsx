@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { SignInButton } from "./sign-in-button";
 import { Footer } from "@/components/footer";
+import { branding } from "@/lib/branding";
 
 export default async function LandingPage({
   searchParams,
@@ -27,10 +28,9 @@ export default async function LandingPage({
         <p lang="hi" className="text-base font-medium text-accent">
           अभ्यास
         </p>
-        <h1 className="mt-3 text-5xl font-bold tracking-tight">Abhyas</h1>
+        <h1 className="mt-3 text-5xl font-bold tracking-tight">{branding.name}</h1>
         <p className="mt-5 text-lg leading-relaxed text-muted">
-          One hour a day. We tell you exactly what to train, guide you through
-          it with timers, and make next week harder than this one.
+          {branding.description}
         </p>
 
         <ul className="mt-10 space-y-4 text-sm text-muted">

@@ -3,8 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
-import { BrandThemeInjector } from "@/components/brand-theme-injector";
-import { branding } from "@/lib/branding";
+import { branding, getBrandCssVariables } from "@/lib/branding";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -50,10 +49,20 @@ export const viewport: Viewport = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Inject brand CSS variables on the server to avoid flash of default theme.
+  // NEXT_PUBLIC_BRAND is build-time, so no hydration mismatch.
+  const brandCssVars = getBrandCssVariables(branding);
+
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `:root { ${brandCssVars} }`,
+          }}
+        />
+      </head>
       <body className="font-sans antialiased">
-        <BrandThemeInjector />
         <ServiceWorkerRegistration />
         {children}
         {/*

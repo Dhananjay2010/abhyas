@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export type LogWeightResult = { ok: true } | { ok: false; error: string };
 
@@ -21,10 +22,11 @@ export async function logBodyWeight(weightKg: number): Promise<LogWeightResult> 
     .single();
 
   // One weigh-in per local day; logging again replaces it.
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const { error } = await supabase.from("body_metrics").upsert(
     {
       user_id: user.id,
-      recorded_on: localDateString(profile?.timezone || "Asia/Kolkata"),
+      recorded_on: localDateString(timezone),
       weight_kg: weightKg,
     },
     { onConflict: "user_id,recorded_on" },

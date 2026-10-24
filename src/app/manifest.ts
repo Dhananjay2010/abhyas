@@ -10,6 +10,7 @@ import { branding } from "@/lib/branding";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: branding.name,
     short_name: branding.shortName,
     description: branding.description,
@@ -18,7 +19,6 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: branding.colors.bg,
     theme_color: branding.colors.bg,
-    orientation: "portrait",
     icons: [
       {
         src: branding.icons.icon192,

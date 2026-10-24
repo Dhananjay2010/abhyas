@@ -65,6 +65,11 @@ export type Brand = {
    * @see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
    */
   timezone?: string;
+  /**
+   * Logo image URL (relative to /public/ or absolute).
+   * Shown in the app header/landing page. If not set, the text name is shown.
+   */
+  logo?: string;
   /** Brand color palette */
   colors: BrandColors;
   /**
@@ -104,6 +109,7 @@ const abhyas: Brand = {
     "One hour a day. Abhyas tells you exactly what to train, guides you through it, and makes next week harder than this one.",
   siteUrl: "https://abhyas-indol.vercel.app",
   // No timezone set — falls back to browser detection
+  // No logo set — shows text name
   colors: {
     accent: "#ff9a2e",
     accentHover: "#e8850c",
@@ -140,6 +146,7 @@ const example: Brand = {
     "Your personalized training coach. FitCore builds your program, guides every session, and tracks your progress.",
   siteUrl: "https://example-gym.com",
   timezone: "America/New_York",
+  logo: "/icons/icon-192.png", // Example: uses same icon as logo
   colors: {
     accent: "#3b82f6", // blue
     accentHover: "#2563eb",
@@ -367,21 +374,21 @@ export const backgroundColor = branding.colors.bg;
 
 /**
  * Get CSS variable declarations for the active brand's colors.
- * Used to inject theme tokens into the document.
+ * Returns a string suitable for inline <style> injection.
  */
 export function getBrandCssVariables(brand: Brand = branding): string {
-  return `
-    --color-accent: ${brand.colors.accent};
-    --color-accent-hover: ${brand.colors.accentHover};
-    --color-accent-fg: ${brand.colors.accentFg};
-    --color-bg: ${brand.colors.bg};
-    --color-surface: ${brand.colors.surface};
-    --color-surface-2: ${brand.colors.surface2};
-    --color-border: ${brand.colors.border};
-    --color-fg: ${brand.colors.fg};
-    --color-muted: ${brand.colors.muted};
-    --color-success: ${brand.colors.success};
-    --color-danger: ${brand.colors.danger};
-    --color-chart: ${brand.colors.chart};
-  `.trim();
+  return [
+    `--color-accent: ${brand.colors.accent};`,
+    `--color-accent-hover: ${brand.colors.accentHover};`,
+    `--color-accent-fg: ${brand.colors.accentFg};`,
+    `--color-bg: ${brand.colors.bg};`,
+    `--color-surface: ${brand.colors.surface};`,
+    `--color-surface-2: ${brand.colors.surface2};`,
+    `--color-border: ${brand.colors.border};`,
+    `--color-fg: ${brand.colors.fg};`,
+    `--color-muted: ${brand.colors.muted};`,
+    `--color-success: ${brand.colors.success};`,
+    `--color-danger: ${brand.colors.danger};`,
+    `--color-chart: ${brand.colors.chart};`,
+  ].join(" ");
 }

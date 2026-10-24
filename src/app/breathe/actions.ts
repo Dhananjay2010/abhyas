@@ -48,7 +48,8 @@ export async function recordBreathingPractice(
     .select("timezone")
     .eq("id", user.id)
     .single();
-  const today = localDateString(profile?.timezone || "Asia/Kolkata");
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
+  const today = localDateString(timezone);
 
   const { data, error } = await supabase.rpc("record_breathing_practice", {
     p_log_id: input.logId,
@@ -111,11 +112,12 @@ export async function recordJourneyDay(input: {
     .eq("id", user.id)
     .single();
 
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
   const { data, error } = await supabase.rpc("advance_journey_day", {
     p_journey_id: input.journeyId,
     p_day: input.day,
     // The day this counts towards is the user's own date, never the browser's.
-    p_local_date: localDateString(profile?.timezone || "Asia/Kolkata"),
+    p_local_date: localDateString(timezone),
     p_log_id: input.logId,
   });
   if (error) return { ok: false, error: error.message };
