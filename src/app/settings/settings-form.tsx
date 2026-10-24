@@ -399,13 +399,19 @@ export function SettingsForm({
           // Stash this save using retry metadata
           const metadata = retryMetadata.current.get(key);
           if (metadata) {
-            stashPendingChanges([{
+            // Accumulate with existing pending changes
+            const existing = getPendingChanges();
+            const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+            const newChange = {
               key,
               type: metadata.type,
               patch: metadata.patch,
               affectsPlan: metadata.affectsPlan,
               timestamp: Date.now()
-            }], pathname);
+            };
+            // Replace if same key exists, otherwise append
+            const merged = existingChanges.filter(ch => ch.key !== key).concat(newChange);
+            stashPendingChanges(merged, pathname);
           }
           notifySessionExpired();
           return;
@@ -447,13 +453,19 @@ export function SettingsForm({
           // Stash this save using retry metadata
           const metadata = retryMetadata.current.get(key);
           if (metadata) {
-            stashPendingChanges([{
+            // Accumulate with existing pending changes
+            const existing = getPendingChanges();
+            const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+            const newChange = {
               key,
               type: metadata.type,
               patch: metadata.patch,
               affectsPlan: metadata.affectsPlan,
               timestamp: Date.now()
-            }], pathname);
+            };
+            // Replace if same key exists, otherwise append
+            const merged = existingChanges.filter(ch => ch.key !== key).concat(newChange);
+            stashPendingChanges(merged, pathname);
           }
           notifySessionExpired();
           return;
@@ -574,12 +586,18 @@ export function SettingsForm({
         if (isSessionExpired(result)) {
           const metadata = retryMetadata.current.get("equipment");
           if (metadata) {
-            stashPendingChanges([{
+            // Accumulate with existing pending changes
+            const existing = getPendingChanges();
+            const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+            const newChange = {
               key: "equipment",
               type: metadata.type,
               patch: metadata.patch,
               timestamp: Date.now()
-            }], pathname);
+            };
+            // Replace if same key exists, otherwise append
+            const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+            stashPendingChanges(merged, pathname);
           }
           notifySessionExpired();
           return;
@@ -625,12 +643,18 @@ export function SettingsForm({
         if (isSessionExpired(err)) {
           const metadata = retryMetadata.current.get("equipment");
           if (metadata) {
-            stashPendingChanges([{
+            // Accumulate with existing pending changes
+            const existing = getPendingChanges();
+            const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+            const newChange = {
               key: "equipment",
               type: metadata.type,
               patch: metadata.patch,
               timestamp: Date.now()
-            }], pathname);
+            };
+            // Replace if same key exists, otherwise append
+            const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+            stashPendingChanges(merged, pathname);
           }
           notifySessionExpired();
           return;

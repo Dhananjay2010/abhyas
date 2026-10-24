@@ -413,28 +413,213 @@ async function runTests(): Promise<TestResult[]> {
     }
   }
 
-  // Test 6: Multiple field types can be stashed (profile + session + equipment)
+  // Test 6a: Form stashes toggle + equipment when actions return SESSION_EXPIRED result
   {
     resetSessionExpiredState();
     clearPendingChanges();
     
-    // Verify we can stash multiple different field types with exact patches
+    const testState: SettingsState = {
+      ...initialState,
+      hasAllEquipment: false,
+      equipmentIds: []
+    };
+    
+    const actions: SettingsActions = {
+      updateSessionSettings: async () => ({
+        ok: false,
+        error: 'Session expired',
+        code: SESSION_EXPIRED_CODE
+      } as { ok: false; error: string; code: string }),
+      updateProfileSettings: async () => ({ ok: true }),
+      updateEquipment: async () => ({
+        ok: false,
+        error: 'Session expired',
+        code: SESSION_EXPIRED_CODE
+      } as { ok: false; error: string; code: string }),
+      updateInjuries: async () => ({ ok: true }),
+    };
+
+    const { container } = render(
+      <SettingsForm
+        initial={testState}
+        equipment={equipment}
+        timezones={timezones}
+        actions={actions}
+      />
+    );
+
+    // Click cool-down toggle (3rd toggle, index 2)
+    const toggles = container.querySelectorAll('[role="switch"]');
+    const coolDownToggle = toggles[2]; // Cool-down block toggle
+    
+    if (!coolDownToggle) {
+      results.push({
+        passed: false,
+        message: 'Test 6a: FAILED - Could not find cool-down toggle (index 2)'
+      });
+    } else {
+      await userEvent.click(coolDownToggle as HTMLElement);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Click equipment chip (will also return SESSION_EXPIRED)
+      // Find all unpressed buttons, look for equipment chip (should contain equipment name like "Barbell")
+      const allUnpressedButtons = container.querySelectorAll('button[aria-pressed="false"]');
+      let equipmentChip = null;
+      for (const btn of Array.from(allUnpressedButtons)) {
+        if (btn.textContent?.includes('Barbell')) {
+          equipmentChip = btn;
+          break;
+        }
+      }
+      
+      if (equipmentChip) {
+        await userEvent.click(equipmentChip as HTMLElement);
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // Both saves should have stashed
+      const pending = getPendingChanges();
+      const hasBoth = pending !== null && pending.changes.length >= 2;
+      const hasSession = pending?.changes.some(ch => ch.type === 'session');
+      const hasEquipment = pending?.changes.some(ch => ch.type === 'equipment');
+      
+      const sessionChange = pending?.changes.find(ch => ch.type === 'session');
+      const equipmentChange = pending?.changes.find(ch => ch.type === 'equipment');
+      
+      const sessionPatchValid = sessionChange && 
+        typeof sessionChange.patch === 'object' && 
+        sessionChange.patch !== null &&
+        'cooldown_enabled' in sessionChange.patch;
+      
+      const equipmentPatchValid = equipmentChange && 
+        typeof equipmentChange.patch === 'object' && 
+        equipmentChange.patch !== null &&
+        'hasAll' in equipmentChange.patch &&
+        'equipmentIds' in equipmentChange.patch;
+
+      clearPendingChanges();
+
+      const passed = hasBoth && hasSession === true && hasEquipment === true &&
+                     sessionPatchValid === true && equipmentPatchValid === true;
+
+      results.push({
+        passed,
+        message: passed
+          ? 'Test 6a: Form stashes toggle + equipment when actions return SESSION_EXPIRED result'
+          : `Test 6a: FAILED - hasBoth: ${hasBoth}, hasSession: ${hasSession}, hasEquip: ${hasEquipment}, sessionPatch: ${sessionPatchValid}, equipPatch: ${equipmentPatchValid}, sessionPatchKeys: ${sessionChange ? Object.keys(sessionChange.patch as object).join(',') : 'none'}`
+      });
+    }
+  }
+
+  // Test 6b: Form stashes toggle + equipment when actions throw SESSION_EXPIRED error
+  {
+    resetSessionExpiredState();
+    clearPendingChanges();
+    
+    const testState: SettingsState = {
+      ...initialState,
+      hasAllEquipment: false,
+      equipmentIds: []
+    };
+    
+    const actions: SettingsActions = {
+      updateSessionSettings: async () => {
+        throw new Error(`${SESSION_EXPIRED_CODE}: Your session has expired`);
+      },
+      updateProfileSettings: async () => ({ ok: true }),
+      updateEquipment: async () => {
+        throw new Error(`${SESSION_EXPIRED_CODE}: Your session has expired`);
+      },
+      updateInjuries: async () => ({ ok: true }),
+    };
+
+    const { container } = render(
+      <SettingsForm
+        initial={testState}
+        equipment={equipment}
+        timezones={timezones}
+        actions={actions}
+      />
+    );
+
+    // Click cool-down toggle (3rd toggle, index 2)
+    const toggles = container.querySelectorAll('[role="switch"]');
+    const coolDownToggle = toggles[2]; // Cool-down block toggle
+    
+    if (!coolDownToggle) {
+      results.push({
+        passed: false,
+        message: 'Test 6b: FAILED - Could not find cool-down toggle (index 2)'
+      });
+    } else {
+      await userEvent.click(coolDownToggle as HTMLElement);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Click equipment chip (will also throw SESSION_EXPIRED)
+      // Find all unpressed buttons, look for equipment chip (should contain equipment name like "Barbell")
+      const allUnpressedButtons = container.querySelectorAll('button[aria-pressed="false"]');
+      let equipmentChip = null;
+      for (const btn of Array.from(allUnpressedButtons)) {
+        if (btn.textContent?.includes('Barbell')) {
+          equipmentChip = btn;
+          break;
+        }
+      }
+      
+      if (equipmentChip) {
+        await userEvent.click(equipmentChip as HTMLElement);
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // Both saves should have stashed
+      const pending = getPendingChanges();
+      const hasBoth = pending !== null && pending.changes.length >= 2;
+      const hasSession = pending?.changes.some(ch => ch.type === 'session');
+      const hasEquipment = pending?.changes.some(ch => ch.type === 'equipment');
+      
+      const sessionChange = pending?.changes.find(ch => ch.type === 'session');
+      const equipmentChange = pending?.changes.find(ch => ch.type === 'equipment');
+      
+      const sessionPatchValid = sessionChange && 
+        typeof sessionChange.patch === 'object' && 
+        sessionChange.patch !== null &&
+        'cooldown_enabled' in sessionChange.patch;
+      
+      const equipmentPatchValid = equipmentChange && 
+        typeof equipmentChange.patch === 'object' && 
+        equipmentChange.patch !== null &&
+        'hasAll' in equipmentChange.patch &&
+        'equipmentIds' in equipmentChange.patch;
+
+      clearPendingChanges();
+
+      const passed = hasBoth && hasSession === true && hasEquipment === true &&
+                     sessionPatchValid === true && equipmentPatchValid === true;
+
+      results.push({
+        passed,
+        message: passed
+          ? 'Test 6b: Form stashes toggle + equipment when actions throw SESSION_EXPIRED error'
+          : `Test 6b: FAILED - hasBoth: ${hasBoth}, hasSession: ${hasSession}, hasEquip: ${hasEquipment}, sessionPatch: ${sessionPatchValid}, equipPatch: ${equipmentPatchValid}`
+      });
+    }
+  }
+
+  // Test 7: Stashed changes persist and can be retrieved (restoration tested manually)
+  {
+    resetSessionExpiredState();
+    clearPendingChanges();
+    
+    // Verify stashing multiple changes works
     stashPendingChanges([
       {
-        key: 'session:cool_down_enabled',
+        key: 'cooldown_enabled',
         type: 'session',
-        patch: { cool_down_enabled: false },
+        patch: { cooldown_enabled: false },
         timestamp: Date.now()
       },
       {
-        key: 'profile:preferred_session_minutes',
-        type: 'profile',
-        patch: { preferred_session_minutes: 60 },
-        affectsPlan: true,
-        timestamp: Date.now()
-      },
-      {
-        key: 'equipment:selected',
+        key: 'equipment',
         type: 'equipment',
         patch: { hasAll: false, equipmentIds: ['barbell'] },
         timestamp: Date.now()
@@ -442,41 +627,21 @@ async function runTests(): Promise<TestResult[]> {
     ], '/settings');
     
     const pending = getPendingChanges();
-    const hasThreeChanges = pending !== null && pending.changes.length === 3;
-    const hasSession = pending?.changes.some(ch => ch.type === 'session');
-    const hasProfile = pending?.changes.some(ch => ch.type === 'profile');
-    const hasEquipment = pending?.changes.some(ch => ch.type === 'equipment');
+    const hasStashedChanges = pending !== null && pending.changes.length === 2 && pending.returnPath === '/settings';
+    const hasSession = pending?.changes.some(ch => ch.type === 'session' && ch.key === 'cooldown_enabled') ?? false;
+    const hasEquipment = pending?.changes.some(ch => ch.type === 'equipment' && ch.key === 'equipment') ?? false;
     
-    const sessionChange = pending?.changes.find(ch => ch.type === 'session');
-    const profileChange = pending?.changes.find(ch => ch.type === 'profile');
-    const equipmentChange = pending?.changes.find(ch => ch.type === 'equipment');
-    
-    const sessionPatchValid = sessionChange && 
-      typeof sessionChange.patch === 'object' && 
-      sessionChange.patch !== null &&
-      'cool_down_enabled' in sessionChange.patch;
-    
-    const profilePatchValid = profileChange && 
-      typeof profileChange.patch === 'object' && 
-      profileChange.patch !== null &&
-      'preferred_session_minutes' in profileChange.patch;
-    
-    const equipmentPatchValid = equipmentChange && 
-      typeof equipmentChange.patch === 'object' && 
-      equipmentChange.patch !== null &&
-      'hasAll' in equipmentChange.patch &&
-      'equipmentIds' in equipmentChange.patch;
-
+    // Clear for next test
     clearPendingChanges();
+    const clearedOk = getPendingChanges() === null;
 
-    const passed = hasThreeChanges && hasSession === true && hasProfile === true && hasEquipment === true &&
-                   sessionPatchValid === true && profilePatchValid === true && equipmentPatchValid === true;
+    const passed = hasStashedChanges && hasSession && hasEquipment && clearedOk;
 
     results.push({
       passed,
       message: passed
-        ? 'Test 6: Multiple field types (profile + session + equipment) can be stashed with exact patches'
-        : `Test 6: FAILED - has3: ${hasThreeChanges}, hasSession: ${hasSession}, hasProfile: ${hasProfile}, hasEquip: ${hasEquipment}, sessionPatch: ${sessionPatchValid}, profilePatch: ${profilePatchValid}, equipPatch: ${equipmentPatchValid}`
+        ? 'Test 7: Stashed changes persist and can be retrieved (restoration tested manually)'
+        : `Test 7: FAILED - hasStashed: ${hasStashedChanges}, hasSession: ${hasSession}, hasEquip: ${hasEquipment}, clearedOk: ${clearedOk}`
     });
   }
 
