@@ -26,7 +26,7 @@ Object.defineProperty(global, "self", { value: dom.window, writable: true, confi
 // Mock next/navigation for tests
 import { createRequire } from "module";
 const testRequire = createRequire(import.meta.url);
-const Module = testRequire("module") as typeof import("module");
+const Module = testRequire("module") as typeof import("module") & { _load: any };
 const originalLoad = Module._load;
 
 // Track router.refresh calls for tests
@@ -40,7 +40,7 @@ export const mockNextRouter = {
   refreshCalls: [] as number[],
 };
 
-(Module as { _load: typeof originalLoad })._load = function (request: string, parent: NodeModule, isMain: boolean) {
+Module._load = function (request: string, parent: NodeModule, isMain: boolean) {
   if (request === "next/navigation") {
     return {
       useRouter: () => ({

@@ -31,7 +31,7 @@ function assert(condition: boolean, message: string) {
 const INITIAL_STATE: SettingsState = {
   goal: "strength",
   level: "beginner",
-  primaryTrack: "both",
+  primaryTrack: "weights",
   daysPerWeek: 3,
   yogaDaysPerWeek: 0,
   preferredSessionMinutes: 30,
