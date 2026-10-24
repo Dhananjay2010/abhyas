@@ -727,17 +727,17 @@ async function runTests() {
       const beforeRows = beforeData as HistoryPageRow[];
       const countBeforeZeroSet = beforeRows[0]?.total_count ?? 0;
 
-      // Create a completed weights session with 0 working sets
+      // Create a completed weights session with 0 working sets (use recent date to appear in first page)
       const zeroSetSessionId = randomUUID();
       const { error: insertError } = await adminClient.from("sessions").insert({
         id: zeroSetSessionId,
         user_id: userIdA,
-        local_date: "2024-10-15",
+        local_date: "2026-10-20",
         status: "completed",
         actual_type: "weights",
         duration_seconds: 1800,
-        started_at: "2024-10-15T10:00:00Z",
-        completed_at: "2024-10-15T10:30:00Z",
+        started_at: "2026-10-20T10:00:00Z",
+        completed_at: "2026-10-20T10:30:00Z",
       });
 
       if (insertError) {
