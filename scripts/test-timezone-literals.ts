@@ -35,6 +35,7 @@ function testNoHardcodedTimezoneInAppCode() {
     "src/lib/timezone-canonical.ts",  // Canonicalization helper with examples
     "src/lib/timezone-patch.ts",  // Settings validation helper with examples
     "src/lib/timezone-options.ts",  // Comments explaining deduplication behavior
+    "src/app/settings/settings-form.tsx",  // Comment explaining client canonicalization
   ];
 
   const violations: string[] = [];

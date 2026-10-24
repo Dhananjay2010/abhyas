@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { canonicalizeTimezone } from "@/lib/timezone-canonical";
 
 /**
  * (c) Searchable timezone picker that works at 390px.
@@ -76,7 +77,16 @@ export function TimezonePicker({
       return;
     }
     
-    // Check if it's a valid timezone from the list
+    // Canonicalize input and check if the canonical value is in the list
+    // This allows 'asia/calcutta', 'Asia/Calcutta', 'utc' to work
+    const canonical = canonicalizeTimezone(trimmed);
+    if (canonical && timezones.includes(canonical)) {
+      onChange(canonical);
+      setIsValid(true);
+      return;
+    }
+    
+    // Also accept if typed value is already in the list (exact match)
     if (timezones.includes(trimmed)) {
       onChange(trimmed);
       setIsValid(true);
@@ -95,9 +105,10 @@ export function TimezonePicker({
   };
 
   // Build datalist with special options first, then all timezones (b)
+  // Don't list device zone twice - it's already in timezones (canonicalized)
   const datalistOptions: string[] = [];
   if (deviceZone) {
-    datalistOptions.push(`Use this device's zone (${deviceZone})`, deviceZone);
+    datalistOptions.push(`Use this device's zone (${deviceZone})`);
   }
   datalistOptions.push(`Gym default (${gymDefault})`);
   datalistOptions.push(...timezones);

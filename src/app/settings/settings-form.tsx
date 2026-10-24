@@ -27,6 +27,7 @@ import {
 } from "./actions";
 import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
 import { TimezonePicker } from "./timezone-picker";
+import { canonicalizeTimezone } from "@/lib/timezone-canonical";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -118,12 +119,14 @@ export function SettingsForm({
   }, [equipmentOffConfirmation]);
 
   useEffect(() => {
-    // F2: Detect browser timezone on client after mount
+    // F2: Detect browser timezone on client after mount, canonicalized
+    // (older Chrome reports Asia/Calcutta instead of Asia/Kolkata)
     try {
       const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const canonical = canonicalizeTimezone(detected);
       // This is a valid use of setState in effect - runs once after mount
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBrowserTimezone(detected);
+      setBrowserTimezone(canonical);
     } catch {
       // Ignore errors in browsers that don't support timeZone
     }
@@ -143,7 +146,7 @@ export function SettingsForm({
   }
 
   /** Save equipment with rollback on error */
-  function saveEquipment(hasAll: boolean, equipmentIds: string[]) {
+  function saveEquipment(hasAll: boolean, equipmentIds: string[], showConfirmation = false) {
     const changed = equipmentChanged(hasAll, equipmentIds);
     // L4 QA fix: Track request sequence to ignore stale responses
     const requestSeq = equipmentSequence.next();
@@ -160,6 +163,7 @@ export function SettingsForm({
         // Rollback to last saved state
         setS({ ...s, hasAllEquipment: savedEquipment.hasAll, equipmentIds: savedEquipment.ids });
         setEquipmentHint(null);
+        setEquipmentOffConfirmation(null);
         return setError(r.error);
       }
       // Success: update saved state
@@ -167,6 +171,11 @@ export function SettingsForm({
       setEquipmentHint(null);
       setError(null);
       if (changed) setPlanStale(true);
+      
+      // Show confirmation toast only after save succeeds and response is current
+      if (showConfirmation) {
+        setEquipmentOffConfirmation(getEquipmentOffMessage(hasAll === false && equipmentIds.length > 0));
+      }
     });
   }
 
@@ -305,8 +314,8 @@ export function SettingsForm({
               
               // Has saved equipment to restore - turn OFF and save
               setS({ ...s, hasAllEquipment: false, equipmentIds: restoredIds });
-              saveEquipment(false, restoredIds);
-              setEquipmentOffConfirmation(getEquipmentOffMessage(true));
+              // Show confirmation toast after save succeeds
+              saveEquipment(false, restoredIds, true);
             } else {
               // Turning ON - validate first
               const decision = decideClientEquipmentUpdate({

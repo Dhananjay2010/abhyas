@@ -12,6 +12,8 @@
  * See docs/white-label.md for deployment and customization guide.
  */
 
+import { canonicalizeTimezone } from "./timezone-canonical";
+
 /**
  * Brand color configuration.
  * All colors must be valid 6-digit hex codes (#RRGGBB).
@@ -223,11 +225,6 @@ export function getAllBrands(): readonly Brand[] {
  */
 export function validateTimezone(tz: string | null | undefined): string | null {
   if (!tz) return null;
-  
-  // Delegate to canonicalizeTimezone for validation and canonicalization
-  // Dynamic import to avoid circular dependency
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { canonicalizeTimezone } = require("./timezone-canonical");
   return canonicalizeTimezone(tz);
 }
 
