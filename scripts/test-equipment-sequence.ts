@@ -45,76 +45,83 @@ const promise1 = queue.enqueue("test-key", request1);
 const promise2 = queue.enqueue("test-key", request2);
 const promise3 = queue.enqueue("test-key", request3);
 
-// Wait for all promises to settle
-const results = await Promise.allSettled([promise1, promise2, promise3]);
+// Main test function
+async function runTest() {
+  // Wait for all promises to settle
+  const results = await Promise.allSettled([promise1, promise2, promise3]);
 
-// Check that all promises settled
-if (results[0].status === "fulfilled") {
-  console.log("  ✓ Promise 1 settled");
-} else {
-  console.error(`  ❌ Promise 1 did not settle: ${results[0].reason}`);
-  failures++;
-}
-
-if (results[1].status === "fulfilled") {
-  console.log("  ✓ Promise 2 settled");
-} else {
-  console.error(`  ❌ Promise 2 did not settle: ${results[1].reason}`);
-  failures++;
-}
-
-if (results[2].status === "fulfilled") {
-  console.log("  ✓ Promise 3 settled");
-} else {
-  console.error(`  ❌ Promise 3 did not settle: ${results[2].reason}`);
-  failures++;
-}
-
-// Check that superseded promises resolved with { superseded: true }
-if (results[0].status === "fulfilled") {
-  const value = results[0].value as Result | SupersededResult;
-  if (typeof value === "object" && "superseded" in value && value.superseded === true) {
-    console.log("  ✓ Promise 1 resolved with { superseded: true }");
+  // Check that all promises settled
+  if (results[0].status === "fulfilled") {
+    console.log("  ✓ Promise 1 settled");
   } else {
-    console.error(`  ❌ Promise 1 did not resolve with superseded result: ${JSON.stringify(value)}`);
+    console.error(`  ❌ Promise 1 did not settle: ${results[0].reason}`);
     failures++;
   }
-}
 
-if (results[1].status === "fulfilled") {
-  const value = results[1].value as Result | SupersededResult;
-  if (typeof value === "object" && "superseded" in value && value.superseded === true) {
-    console.log("  ✓ Promise 2 resolved with { superseded: true }");
+  if (results[1].status === "fulfilled") {
+    console.log("  ✓ Promise 2 settled");
   } else {
-    console.error(`  ❌ Promise 2 did not resolve with superseded result: ${JSON.stringify(value)}`);
+    console.error(`  ❌ Promise 2 did not settle: ${results[1].reason}`);
     failures++;
   }
+
+  if (results[2].status === "fulfilled") {
+    console.log("  ✓ Promise 3 settled");
+  } else {
+    console.error(`  ❌ Promise 3 did not settle: ${results[2].reason}`);
+    failures++;
+  }
+
+  // Check that superseded promises resolved with { superseded: true }
+  // Note: First request goes straight to in-flight, so it completes normally
+  if (results[0].status === "fulfilled") {
+    const value = results[0].value as Result | SupersededResult;
+    if (typeof value === "object" && "ok" in value && value.ok === true) {
+      console.log("  ✓ Promise 1 resolved normally (was in-flight, not superseded)");
+    } else {
+      console.error(`  ❌ Promise 1 should resolve normally: ${JSON.stringify(value)}`);
+      failures++;
+    }
+  }
+
+  if (results[1].status === "fulfilled") {
+    const value = results[1].value as Result | SupersededResult;
+    if (typeof value === "object" && "superseded" in value && value.superseded === true) {
+      console.log("  ✓ Promise 2 resolved with { superseded: true }");
+    } else {
+      console.error(`  ❌ Promise 2 did not resolve with superseded result: ${JSON.stringify(value)}`);
+      failures++;
+    }
+  }
+
+  // Check that the third request executed (it was queued after 1 started)
+  if (request3Executed) {
+    console.log("  ✓ Request 3 executed");
+  } else {
+    console.error("  ❌ Request 3 did not execute");
+    failures++;
+  }
+
+  // Check that first request executed (it went straight to in-flight)
+  if (request1Executed) {
+    console.log("  ✓ Request 1 executed (went straight to in-flight)");
+  } else {
+    console.error("  ❌ Request 1 did not execute");
+    failures++;
+  }
+
+  // Check that second request did NOT execute (was superseded while queued)
+  if (!request2Executed) {
+    console.log("  ✓ Request 2 did not execute (superseded while queued)");
+  } else {
+    console.error("  ❌ Request 2 should not have executed");
+    failures++;
+  }
+
+  console.log(
+    `\n${failures === 0 ? "✓" : "✗"} ${failures === 0 ? "All tests passed" : `${failures} test(s) failed`}`
+  );
+  process.exit(failures === 0 ? 0 : 1);
 }
 
-// Check that the last request executed
-if (request3Executed) {
-  console.log("  ✓ Request 3 executed");
-} else {
-  console.error("  ❌ Request 3 did not execute");
-  failures++;
-}
-
-// Check that superseded requests did NOT execute
-if (!request1Executed) {
-  console.log("  ✓ Request 1 did not execute (superseded)");
-} else {
-  console.error("  ❌ Request 1 should not have executed");
-  failures++;
-}
-
-if (!request2Executed) {
-  console.log("  ✓ Request 2 did not execute (superseded)");
-} else {
-  console.error("  ❌ Request 2 should not have executed");
-  failures++;
-}
-
-console.log(
-  `\n${failures === 0 ? "✓" : "✗"} ${failures === 0 ? "All tests passed" : `${failures} test(s) failed`}`
-);
-process.exit(failures === 0 ? 0 : 1);
+runTest();
