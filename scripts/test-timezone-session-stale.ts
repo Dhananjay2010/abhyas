@@ -614,6 +614,55 @@ console.log("\n23. Duration capped when it would exceed 6 hours");
   check("session marked completed", session?.status === "completed");
 }
 
+console.log("\n24. null started_at with sets: uses first set's time");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T20:00:00Z");
+  const eightHoursAgo = new Date(now - 8 * 3600 * 1000).toISOString();
+  const sevenHoursAgo = new Date(now - 7 * 3600 * 1000).toISOString();
+  
+  fake.setSession("nostime", "in_progress");
+  fake.setSessionExercises("nostime", [
+    {
+      session_id: "nostime",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: eightHoursAgo },
+        { id: "set2", is_warmup_set: false, completed_at: sevenHoursAgo },
+      ],
+    },
+  ]);
+
+  const open: OpenSession[] = [
+    { id: "nostime", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  const session = fake.getSession("nostime");
+  check("session closed", session?.status === "completed");
+  check("duration calculated from first set", session?.duration_seconds !== null);
+  check("ended_at is based on first set", session?.completed_at === eightHoursAgo);
+}
+
+console.log("\n25. null started_at with no sets: closes with duration 0");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T20:00:00Z");
+  
+  fake.setSession("empty", "in_progress");
+  fake.setSessionExercises("empty", []);
+
+  const open: OpenSession[] = [
+    { id: "empty", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  const session = fake.getSession("empty");
+  check("session closed as skipped", session?.status === "skipped");
+  check("duration is 0", session?.duration_seconds === 0);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
 

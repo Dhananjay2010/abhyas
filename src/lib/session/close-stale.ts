@@ -80,7 +80,7 @@ export async function closeStaleSessionsCore(
 
   const trained = new Set<string>();
   const workingSetCounts = new Map<string, number>();
-  const lastSetCompletedAt = new Map<string, string | null>();
+  const firstSetCompletedAt = new Map<string, string | null>();
 
   for (const row of rows) {
     const sets = row.session_sets ?? [];
@@ -93,15 +93,15 @@ export async function closeStaleSessionsCore(
       workingSetCounts.set(row.session_id, existingCount + workingSets.length);
     }
 
-    // Find the latest completed_at across ALL sets (warmup + working)
-    const latestSet = sets
+    // Find the earliest completed_at across ALL sets (warmup + working)
+    const earliestSet = sets
       .filter((s) => s.completed_at !== null)
-      .sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""))[0];
+      .sort((a, b) => (a.completed_at ?? "").localeCompare(b.completed_at ?? ""))[0];
     
-    if (latestSet?.completed_at) {
-      const existing = lastSetCompletedAt.get(row.session_id);
-      if (!existing || latestSet.completed_at > existing) {
-        lastSetCompletedAt.set(row.session_id, latestSet.completed_at);
+    if (earliestSet?.completed_at) {
+      const existing = firstSetCompletedAt.get(row.session_id);
+      if (!existing || earliestSet.completed_at < existing) {
+        firstSetCompletedAt.set(row.session_id, earliestSet.completed_at);
       }
     }
   }
@@ -131,12 +131,10 @@ export async function closeStaleSessionsCore(
     // Planned rows (no started_at) dated before today become skipped
     if (!session?.started_at) {
       // If there are logged sets, use the first set's time as started_at fallback
-      const fallbackStartedAt = lastSetCompletedAt.get(id);
+      const fallbackStartedAt = firstSetCompletedAt.get(id);
       if (!fallbackStartedAt) {
-        // No started_at and no sets - only mark as stale if dated before today
-        if (session && session.local_date < today) {
-          stale.push(id);
-        }
+        // No started_at and no sets - mark as stale regardless of date
+        stale.push(id);
         continue;
       }
       // Has sets but no started_at - use set time for staleness check
@@ -148,7 +146,7 @@ export async function closeStaleSessionsCore(
       continue;
     }
 
-    const lastActivity = lastSetCompletedAt.get(id) ?? session.started_at;
+    const lastActivity = firstSetCompletedAt.get(id) ?? session.started_at;
     const elapsedSeconds = secondsSinceIso(lastActivity, nowMs);
 
     // A session is stale if:
@@ -176,13 +174,13 @@ export async function closeStaleSessionsCore(
       const session = byId.get(id);
       
       // If started_at is null, use the first set's completed_at as a fallback
-      const startedAt = session?.started_at ?? lastSetCompletedAt.get(id);
+      const startedAt = session?.started_at ?? firstSetCompletedAt.get(id);
       if (!startedAt) return false;
 
       const workingSetCount = workingSetCounts.get(id) ?? 0;
       const input: StaleFinishInput = {
         startedAt,
-        lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
+        lastSetCompletedAt: firstSetCompletedAt.get(id) ?? null,
         workingSetCount,
       };
 
@@ -204,12 +202,29 @@ export async function closeStaleSessionsCore(
     ...abandoned.map(async (id) => {
       const session = byId.get(id);
       
-      // Planned rows (no started_at) are marked skipped separately
+      // Sessions with no started_at and no sets: close with duration null
       if (!session?.started_at) {
+        const firstSetTime = firstSetCompletedAt.get(id);
+        if (!firstSetTime) {
+          // No started_at, no sets - mark skipped with duration null
+          try {
+            await deps.markSessionDone(id, "skipped", new Date(nowMs).toISOString(), 0);
+          } catch (error) {
+            console.error(`Failed to mark empty session ${id} as skipped:`, error);
+          }
+          return false;
+        }
+        // Has sets - use first set time
+        const input: StaleFinishInput = {
+          startedAt: firstSetTime,
+          lastSetCompletedAt: firstSetTime,
+          workingSetCount: 0,
+        };
+        const finish = resolveStaleFinish(input);
         try {
-          await deps.markPlannedSkipped(id);
+          await deps.markSessionDone(id, finish.status, finish.endedAt, finish.durationSeconds);
         } catch (error) {
-          console.error(`Failed to mark planned session ${id} as skipped:`, error);
+          console.error(`Failed to mark abandoned session ${id} as done:`, error);
         }
         return false;
       }
