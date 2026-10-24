@@ -135,7 +135,9 @@ export function OnboardingFlow({
     initial.primaryTrack && initial.primaryTrack !== "weights" ? initial.primaryTrack : null,
   );
   const [daysPerWeek, setDaysPerWeek] = useState<number | null>(initial.daysPerWeek);
-  const [yogaDays, setYogaDays] = useState(initial.yogaDaysPerWeek);
+  const [yogaDays, setYogaDays] = useState<number | null>(
+    initial.yogaDaysPerWeek > 0 ? initial.yogaDaysPerWeek : null
+  );
   const [sessionLength, setSessionLength] = useState<number | null>(
     initial.sessionLengthMinutes ?? 45,
   );
@@ -606,6 +608,7 @@ export function OnboardingFlow({
 
   if (current === "mix") {
     const max = (daysPerWeek ?? 3) - 1;
+    const validation = validateMixStep({ yogaDaysPerWeek: yogaDays });
     return (
       <StepShell
         {...shell}
@@ -613,10 +616,13 @@ export function OnboardingFlow({
         subtitle={`Yoga counts as a training day. Of your ${daysPerWeek} days, some can be yoga instead of training.`}
         footer={
           <>
+            {!validation.valid && validation.reason && (
+              <p className="mb-3 text-sm text-muted" role="alert">{validation.reason}</p>
+            )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
-              disabled={pending}
-              onClick={() => advance(() => actions.saveProfileFields({ yoga_days_per_week: yogaDays }))}
+              disabled={!validation.valid || pending}
+              onClick={() => advance(() => actions.saveProfileFields({ yoga_days_per_week: yogaDays ?? 0 }))}
             >
               {pending ? "Saving…" : "Continue"}
             </PrimaryButton>
