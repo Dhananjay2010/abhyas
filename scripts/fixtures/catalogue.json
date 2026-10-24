@@ -4451,7 +4451,7 @@
     "category": "strength"
   },
   {
-    "id": "14b7c3a0-aedf-458d-baa6-85f5212f4763",
+    "id": "fd6a6860-2487-458c-a16b-25841fa81808",
     "slug": "doorway-row",
     "name": "Doorway Row",
     "movement_pattern": "horizontal_pull",
@@ -6575,7 +6575,7 @@
     "category": "strength"
   },
   {
-    "id": "f57d6a9c-6661-4f24-a471-5dcaaa580223",
+    "id": "29b13658-56d2-4bde-ac25-df73fe22eb99",
     "slug": "glute-bridge",
     "name": "Glute Bridge",
     "movement_pattern": "hinge",
@@ -12579,7 +12579,7 @@
       "lower_back"
     ],
     "impact": "low",
-    "spinal_load": "high",
+    "spinal_load": "low",
     "tracks": [
       "weights"
     ],
