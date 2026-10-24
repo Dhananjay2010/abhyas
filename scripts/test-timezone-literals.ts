@@ -31,6 +31,7 @@ function testNoHardcodedTimezoneInAppCode() {
   const allowedFiles = [
     "src/lib/timezone.ts",
     "src/lib/branding.ts",
+    "src/lib/timezone-write.ts",  // Documentation comments only
   ];
 
   const violations: string[] = [];

@@ -39,8 +39,8 @@ function testManifestId() {
   }
 
   // Verify other manifest basics
-  assert(m.name && m.name.length > 0, "Manifest must have a name");
-  assert(m.short_name && m.short_name.length > 0, "Manifest must have a short_name");
+  assert(Boolean(m.name && m.name.length > 0), "Manifest must have a name");
+  assert(Boolean(m.short_name && m.short_name.length > 0), "Manifest must have a short_name");
   assert(m.start_url === "/", "Manifest start_url must be '/'");
   assert(m.scope === "/", "Manifest scope must be '/'");
 
