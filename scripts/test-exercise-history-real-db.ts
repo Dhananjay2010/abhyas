@@ -8,11 +8,14 @@
  * - Heavy user with >1000 sets
  * - Batch queries with uneven history
  * - RLS: user B cannot see user A's history
+ * - M1: PR detection (60 → 62.5 → 65 kg progression, QA scenarios A-E)
+ * - M2: Unfinished exercises (2 of 3 sets logged, then ended early)
+ * - L1: getLastPerformance skips warm-up-only rows
  * 
- * Run: supabase start && npm run test:exercise-history-real-db
+ * Run: supabase start && REAL_DB=1 npm run test:exercise-history-real-db
  * 
- * In CI: set REAL_DB=1 to require a running database (fails if unavailable).
- * Locally: skips gracefully if Supabase is not running.
+ * In CI: REAL_DB=1 is set to require a running database (fails if unavailable).
+ * Locally: skips gracefully if REAL_DB=1 is not set.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -46,19 +49,21 @@ async function testDatabaseConnection() {
 }
 
 async function runTests() {
+  // L3 fix: skip unless REAL_DB=1
+  if (process.env.REAL_DB !== "1") {
+    console.log("\n⏭️  Skipping real DB tests (REAL_DB=1 not set)");
+    console.log("   Set REAL_DB=1 to run these tests against a local Supabase instance\n");
+    return true;
+  }
+
   console.log("Checking Supabase connection...");
   
   const isAvailable = await testDatabaseConnection();
   
   if (!isAvailable) {
-    if (process.env.REAL_DB === "1") {
-      console.error("\n❌ REAL_DB=1 but Supabase is not available");
-      console.error("   Set REAL_DB=1 only when Supabase is required\n");
-      return false;
-    }
-    console.log("\n⏭️  Skipping real DB tests (Supabase not available)");
-    console.log("   Run `supabase start` to enable these tests\n");
-    return true;
+    console.error("\n❌ REAL_DB=1 but Supabase is not available");
+    console.error("   Run `supabase start` to enable these tests\n");
+    return false;
   }
 
   console.log("✓ Connected to Supabase\n");
@@ -117,6 +122,10 @@ async function runTests() {
   const userIdA = authDataA.user.id;
   const userIdB = authDataB.user.id;
   console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
+
+  // L3 fix: cleanup in finally block
+  let cleanupNeeded = true;
+  try {
 
   // Create separate authenticated clients for user queries (sign in to get JWTs)
   // Use a fresh anon client for each user to avoid session conflicts
@@ -430,13 +439,153 @@ async function runTests() {
       `user B queried exercise_history for user A and got ${viewData?.length || 0} rows`);
   }
 
+  console.log("\n8. M1: PR detection - QA scenario B (60 → 62.5 → 65 kg, 3 sets each)");
+  {
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const s3 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+    const se3 = randomUUID();
+
+    const { error: e1 } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-01", status: "completed", completed_at: "2026-10-01T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-03", status: "completed", completed_at: "2026-10-03T10:00:00Z" },
+      { id: s3, user_id: userIdA, local_date: "2026-10-05", status: "completed", completed_at: "2026-10-05T10:00:00Z" },
+    ]);
+    if (e1) { console.error("M1 insert sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exerciseA, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exerciseA, metric: "reps", status: "completed", order_index: 0 },
+      { id: se3, user_id: userIdA, session_id: s3, exercise_id: exerciseA, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (e2) { console.error("M1 insert session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 8, weight_kg: 60 },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 2, reps: 8, weight_kg: 60 },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 3, reps: 8, weight_kg: 60 },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 8, weight_kg: 62.5 },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 2, reps: 8, weight_kg: 62.5 },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 3, reps: 8, weight_kg: 62.5 },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 1, reps: 8, weight_kg: 65 },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 2, reps: 8, weight_kg: 65 },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 3, reps: 8, weight_kg: 65 },
+    ]);
+    if (e3) { console.error("M1 insert sets failed:", e3); return false; }
+
+    const history = await getExerciseHistory(supabaseA, userIdA, exerciseA, { limit: 10 });
+
+    // Newest first, so [s3, s2, s1]
+    check("M1: returns 3 sessions", history.sessions.length === 3, `got ${history.sessions.length}`);
+    const [sess3, sess2, sess1] = history.sessions;
+
+    check("M1 s1: first session gets PRs", sess1?.prs.length === 3, `got ${sess1?.prs.length}`);
+    check("M1 s2: beats s1 (62.5 > 60)", 
+      sess2?.prs.some(pr => pr.type === "heaviest_weight") && sess2?.prs.some(pr => pr.type === "best_e1rm"),
+      `s2 prs: ${sess2?.prs.map(p => p.type).join(", ")}`);
+    check("M1 s3: beats s2 (65 > 62.5)", 
+      sess3?.prs.some(pr => pr.type === "heaviest_weight") && sess3?.prs.some(pr => pr.type === "best_e1rm"),
+      `s3 prs: ${sess3?.prs.map(p => p.type).join(", ")}`);
+  }
+
+  console.log("\n9. M2: Unfinished exercise (2 of 3 sets logged, then ended early)");
+  {
+    const sessionId = randomUUID();
+    const seId = randomUUID();
+
+    const { error: e1 } = await adminClient.from("sessions").insert({
+      id: sessionId,
+      user_id: userIdA,
+      local_date: "2026-10-26",
+      status: "completed",
+      completed_at: "2026-10-26T10:00:00Z",
+    });
+    if (e1) { console.error("M2 insert session failed:", e1); return false; }
+
+    // Exercise is pending (not completed), but session is completed
+    const { error: e2 } = await adminClient.from("session_exercises").insert({
+      id: seId,
+      user_id: userIdA,
+      session_id: sessionId,
+      exercise_id: exerciseB,
+      metric: "reps",
+      status: "pending",
+      order_index: 0,
+    });
+    if (e2) { console.error("M2 insert session_exercise failed:", e2); return false; }
+
+    // Only 2 of 3 planned sets logged
+    const { error: e3 } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: seId, set_number: 1, reps: 8, weight_kg: 80 },
+      { user_id: userIdA, session_exercise_id: seId, set_number: 2, reps: 7, weight_kg: 80 },
+    ]);
+    if (e3) { console.error("M2 insert sets failed:", e3); return false; }
+
+    const lastPerf = await getLastPerformance(supabaseA, userIdA, exerciseB);
+
+    check("M2: unfinished exercise appears in history", lastPerf !== null);
+    check("M2: has correct date", lastPerf?.date === "2026-10-26");
+    check("M2: has 2 sets logged", lastPerf?.sets.length === 2, `got ${lastPerf?.sets.length}`);
+  }
+
+  console.log("\n10. L1: getLastPerformance skips warm-up-only rows");
+  {
+    const s1 = randomUUID();
+    const s2 = randomUUID();
+    const se1 = randomUUID();
+    const se2 = randomUUID();
+
+    const { error: e1 } = await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-10-27", status: "completed", completed_at: "2026-10-27T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-10-28", status: "completed", completed_at: "2026-10-28T10:00:00Z" },
+    ]);
+    if (e1) { console.error("L1 insert sessions failed:", e1); return false; }
+
+    const { error: e2 } = await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exerciseC, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exerciseC, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    if (e2) { console.error("L1 insert session_exercises failed:", e2); return false; }
+
+    const { error: e3 } = await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100 },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 5, weight_kg: 40, is_warmup_set: true },
+    ]);
+    if (e3) { console.error("L1 insert sets failed:", e3); return false; }
+
+    // The view should exclude se2 (warm-up-only row)
+    const lastPerf = await getLastPerformance(supabaseA, userIdA, exerciseC);
+
+    check("L1: returns older row with working sets", lastPerf !== null);
+    check("L1: returns the 2026-10-27 row (not warm-up-only 2026-10-28)", 
+      lastPerf?.date === "2026-10-27",
+      `got date ${lastPerf?.date}`);
+    check("L1: has 100kg working set", lastPerf?.sets[0]?.weight_kg === 100);
+  }
+
   if (failures > 0) {
     console.log(`\n❌ ${failures} FAILURES\n`);
     return false;
   }
 
   console.log("\n✅ All real DB tests passed\n");
+  cleanupNeeded = false;
   return true;
+  } finally {
+    // L3 fix: cleanup test users and their data
+    if (cleanupNeeded) {
+      console.log("\nCleaning up test users...");
+      try {
+        await adminClient.auth.admin.deleteUser(userIdA);
+        await adminClient.auth.admin.deleteUser(userIdB);
+        console.log("✓ Test users deleted\n");
+      } catch (cleanupError) {
+        console.error("Warning: cleanup failed:", cleanupError);
+      }
+    }
+  }
 }
 
 runTests()
