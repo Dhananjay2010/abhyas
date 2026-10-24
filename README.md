@@ -100,6 +100,325 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## Development and Test Environments
+
+Abhyas supports **three environment tiers** to keep development and testing isolated from production:
+
+1. **Local Supabase** (via Supabase CLI) — for development and testing on your machine
+2. **Hosted Dev/Staging Supabase** (optional) — for shared development or preview deployments
+3. **Production Supabase** — the live database (`brldynuhozaszaduwfse`, Mumbai)
+
+**Golden rule:** Never apply migrations to, or connect local/preview environments to, the production Supabase project.
+
+---
+
+### Local Supabase Setup
+
+The **Supabase CLI** runs a complete Supabase stack locally (Postgres, Auth, Storage, Studio) in Docker containers. All migrations apply automatically, and you get a fresh database that matches production's schema.
+
+#### Prerequisites
+
+- **Docker Desktop** (or Docker Engine + Docker Compose)
+- **Supabase CLI** (install globally):
+
+```bash
+npm install -g supabase
+```
+
+Verify installation:
+
+```bash
+supabase --version
+# Should print: supabase 1.x.x or later
+```
+
+#### Start Local Supabase
+
+```bash
+npm run supabase:start
+```
+
+This command:
+- Starts Docker containers for Postgres, Auth, Storage, Studio, and more
+- Applies all migrations from `supabase/migrations/` to a fresh local database
+- Seeds the database with test data from `supabase/seed.sql`
+- Prints local URLs and API keys
+
+**Sample output:**
+
+```
+Started supabase local development setup.
+
+         API URL: http://127.0.0.1:54321
+     GraphQL URL: http://127.0.0.1:54321/graphql/v1
+  S3 Storage URL: http://127.0.0.1:54321/storage/v1/s3
+          DB URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      Studio URL: http://127.0.0.1:54323
+    Inbucket URL: http://127.0.0.1:54324
+      JWT secret: super-secret-jwt-token-with-at-least-32-characters-long
+        anon key: eyJhbG...your-local-anon-key...
+service_role key: eyJhbG...your-local-service-role-key...
+   S3 Access Key: 625729a08b95bf1b7ff351a663f...
+   S3 Secret Key: 850181e4652dd023b7a98c58ae0...
+       S3 Region: local
+```
+
+**Copy the `anon key`** and **`API URL`** to your `.env.local`:
+
+```bash
+# .env.local
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...your-local-anon-key...
+```
+
+Now run the dev server:
+
+```bash
+npm run dev:nvm
+```
+
+Your app connects to the **local Supabase instance**, not production.
+
+#### Exploring the Local Database
+
+Open **Supabase Studio** (the local dashboard) at [http://127.0.0.1:54323](http://127.0.0.1:54323).
+
+You can:
+- Browse tables and data (Table Editor)
+- Run SQL queries (SQL Editor)
+- View auth users (Authentication)
+- Test storage buckets (Storage)
+
+#### Resetting the Local Database
+
+To wipe the local database and re-apply all migrations + seed data:
+
+```bash
+npm run supabase:reset
+```
+
+This is useful when:
+- You want to start fresh
+- You've added new migrations and want to verify they apply cleanly
+- The local database is in a bad state
+
+**Warning:** This deletes all local data. It does not touch production.
+
+#### Stopping Local Supabase
+
+```bash
+npm run supabase:stop
+```
+
+Docker containers are stopped but not deleted. Your data persists until you run `supabase:reset`.
+
+#### Restarting Local Supabase
+
+```bash
+npm run supabase:restart
+```
+
+Equivalent to `stop` + `start`. Useful after a Docker crash.
+
+#### Checking Status
+
+```bash
+npm run supabase:status
+```
+
+Prints the status of all local services (running, stopped, or not started).
+
+---
+
+### Test Data (Seed File)
+
+The local database is seeded with deterministic test data from `supabase/seed.sql`:
+
+- **Test user profile:** "Test User" (UUID: `00000000-0000-0000-0000-000000000001`)
+- **Equipment:** Home gym setup (barbell, dumbbells, bench, pull-up bar)
+- **Program:** 4-day Upper/Lower split, block 1, week 3
+- **Session history:** One completed workout from 2 days ago
+- **Exercise progress:** Working weights for key lifts (bench: 60kg, squat: 80kg, deadlift: 100kg)
+- **Body metrics:** Weekly weigh-ins
+
+**To use the test data:**
+
+1. Start local Supabase: `npm run supabase:start`
+2. The seed runs automatically
+3. Open Studio at [http://127.0.0.1:54323](http://127.0.0.1:54323)
+4. Go to **Authentication** → **Users** → **Add user**
+5. Create a user with email `test@example.com` (any password)
+6. Copy the new user's **UUID** from the Users table
+7. Edit `supabase/seed.sql` and replace `00000000-0000-0000-0000-000000000001` with the real UUID
+8. Re-seed: `npm run supabase:reset`
+
+**Or** use Google OAuth locally (configure in `supabase/config.toml` under `[auth.external.google]`).
+
+The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, etc.) and safe to commit.
+
+---
+
+### Running Tests Against Local Supabase
+
+All tests in this project are **deterministic unit tests** that do not require a database connection. They test core logic (block generation, progression, streaks, etc.) with mocked data.
+
+```bash
+npm test
+```
+
+**Tests do not connect to Supabase** (local or production). If you want to add integration tests later:
+
+1. Start local Supabase: `npm run supabase:start`
+2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the local values
+3. Run your integration tests: `npm run test:integration` (not yet implemented)
+
+The `npm run test:local` alias is reserved for this future workflow.
+
+---
+
+### Optional: Hosted Dev/Staging Supabase Project
+
+For **shared development** or **preview deployments**, you may want a hosted Supabase project separate from production.
+
+#### Creating a Dev/Staging Project
+
+1. Go to [supabase.com/dashboard](https://supabase.com/dashboard)
+2. Click **New project**
+3. Name it `abhyas-dev` or `abhyas-staging`
+4. Choose the **same region** as production (`ap-south-1`, Mumbai) to keep latency consistent
+5. Set a strong database password (save it in a password manager)
+6. Wait for provisioning (~2 minutes)
+
+#### Applying Migrations
+
+Once the project is ready:
+
+```bash
+# Link to the dev/staging project
+npx supabase link --project-ref <dev-project-ref>
+
+# Push all migrations
+npm run supabase:push
+```
+
+**Verify:** Open the dev project's dashboard and check that all tables exist.
+
+#### Seeding the Dev/Staging Database
+
+The `supabase/seed.sql` file only runs on local instances by default. To seed a hosted project:
+
+```bash
+# Connect to the dev database
+psql "postgresql://postgres:<password>@db.<dev-project-ref>.supabase.co:5432/postgres"
+
+# Or use the Supabase Studio SQL Editor:
+# 1. Open the dev project in the dashboard
+# 2. Go to SQL Editor
+# 3. Copy/paste the contents of supabase/seed.sql
+# 4. Run
+```
+
+**Important:** The seed file creates a test user with a fixed UUID. You'll need to create a matching `auth.users` row (via the dashboard or OAuth) and update the UUID in the seed file.
+
+---
+
+### Vercel Preview vs Production Environment Variables
+
+Vercel deployments inherit environment variables from the project settings. To keep preview deployments isolated from production:
+
+#### 1. Production Environment Variables
+
+In the **Vercel dashboard** → **Project Settings** → **Environment Variables**, set:
+
+| Variable | Value | Environment |
+|----------|-------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://brldynuhozaszaduwfse.supabase.co` | **Production only** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `<production-anon-key>` | **Production only** |
+
+These are used **only when deploying to the `main` branch** (the live app).
+
+#### 2. Preview Environment Variables
+
+Add **separate variables** for preview deployments:
+
+| Variable | Value | Environment |
+|----------|-------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://<dev-project-ref>.supabase.co` | **Preview only** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `<dev-anon-key>` | **Preview only** |
+
+Vercel automatically uses **Preview** variables for all non-production deployments (branches, PRs).
+
+**If you don't have a hosted dev project yet:**
+- Leave preview variables unset
+- Preview deployments will fail to connect to the database (expected)
+- Or set preview variables to the **local Supabase values** (they won't work remotely, but the build will succeed)
+
+#### 3. Optional: Performance Debugging Variables
+
+| Variable | Value | Environment |
+|----------|-------|-------------|
+| `PERF_TOKEN` | `<random-secret-string>` | **Preview only** (or Production if needed) |
+| `PERF_DEBUG` | `1` | **Preview only** |
+
+These enable the `/api/diag` endpoint for performance metrics. Not needed for production.
+
+#### 4. Verifying Environment Variables
+
+After setting variables in Vercel:
+
+1. Push a branch (e.g. `git push origin my-feature`)
+2. Vercel creates a preview deployment
+3. Check the deployment logs for the Supabase URL being used
+4. Open the preview URL and verify the database connection
+
+**Preview deployments should never touch production data.**
+
+---
+
+### Migration Safety
+
+When adding or modifying migrations:
+
+1. **Never edit existing migration files.** If a schema change is needed, create a **new migration file**:
+
+   ```bash
+   npx supabase migration new <description>
+   ```
+
+   This creates a new file: `supabase/migrations/<timestamp>_<description>.sql`
+
+2. **Test locally first:**
+
+   ```bash
+   npm run supabase:reset  # Apply all migrations to a fresh local DB
+   ```
+
+   If migrations fail, fix the SQL before committing.
+
+3. **Verify migrations apply cleanly:**
+
+   ```bash
+   npm run supabase:diff
+   ```
+
+   This shows any schema drift between your local database and the migration files.
+
+4. **Never apply migrations to production manually.** Migrations are applied via CI/CD or by the team lead only.
+
+---
+
+### Summary: Environment Configuration Checklist
+
+| Environment | Supabase Project | URL Variable | When to Use |
+|-------------|------------------|--------------|-------------|
+| **Local (your machine)** | Local Supabase CLI | `http://127.0.0.1:54321` | Development, testing, verifying migrations |
+| **Vercel Preview (branches/PRs)** | Hosted dev/staging project (optional) | `https://<dev-ref>.supabase.co` | Shared development, preview deployments, QA |
+| **Vercel Production (`main` branch)** | Production project (`brldynuhozaszaduwfse`) | `https://brldynuhozaszaduwfse.supabase.co` | Live app, real users |
+
+**Golden rule:** Local and preview environments never connect to production. Production never runs untested migrations.
+
+---
+
 ## Testing
 
 The project uses custom test scripts (not Jest or Vitest) for deterministic unit tests of core logic:

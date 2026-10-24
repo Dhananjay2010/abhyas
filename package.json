@@ -15,7 +15,15 @@
     "test:streaks": "tsx scripts/test-streaks.ts",
     "test:dates": "tsx scripts/test-dates.ts",
     "test:breathing": "tsx scripts/test-breathing.ts",
-    "test:branding": "tsx scripts/test-branding.ts"
+    "test:branding": "tsx scripts/test-branding.ts",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:restart": "supabase stop && supabase start",
+    "supabase:reset": "supabase db reset",
+    "supabase:status": "supabase status",
+    "supabase:push": "supabase db push",
+    "supabase:diff": "supabase db diff",
+    "test:local": "npm test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
