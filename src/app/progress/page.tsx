@@ -6,6 +6,7 @@ import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-c
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
+import { getUnitsPreference } from "@/lib/units";
 import { LogWeight } from "./log-weight";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export default async function ProgressPage() {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("timezone, onboarding_completed_at")
+      .select("timezone, onboarding_completed_at, units")
       .eq("id", user.id)
       .single(),
     // Fetch recent data descending, reverse for processing. NEVER order
@@ -66,7 +67,7 @@ export default async function ProgressPage() {
       .order("created_at"),
     supabase
       .from("sessions")
-      .select("id, local_date, status, actual_type")
+      .select("id, local_date, status, actual_type, is_deload")
       .order("local_date", { ascending: false })
       .limit(500),
     supabase.from("program_days").select("program_id, day_index, day_type"),
@@ -78,6 +79,7 @@ export default async function ProgressPage() {
 
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const today = localDateString(timezone);
+  const units = getUnitsPreference(profile.units);
 
   // ---- streaks -----------------------------------------------------------
   // Across every block, not just the active one: a streak that reset because a
@@ -147,9 +149,16 @@ export default async function ProgressPage() {
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
   // phone, and each lift is its own question anyway. Data is fetched newest-first;
   // the helper reverses it so charts plot chronologically (oldest to newest).
+  // B1: Exclude deload weeks from strength charts
+  const deloadDates = new Set(
+    (sessionsRes.data ?? [])
+      .filter(s => s.is_deload === true)
+      .map(s => s.local_date)
+  );
   const strengthCharts = buildStrengthChartsFromDescendingRows(
-    strengthRes.data ?? [],
-    shortDate
+    (strengthRes.data ?? []).filter(row => !deloadDates.has(row.local_date)),
+    shortDate,
+    units
   ).slice(0, 6);
 
   const totalVolume = volumeRows.reduce((n, v) => n + Number(v.volume_kg), 0);
