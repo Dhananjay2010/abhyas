@@ -7,8 +7,6 @@
  * double-saves.
  */
 
-import { isSessionExpired } from "./session-expired-shim";
-
 export type PendingSet = {
   sessionExerciseId: string;
   setNumber: number;

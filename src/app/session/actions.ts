@@ -27,7 +27,7 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
-import { SESSION_EXPIRED_CODE, resolveAuth } from "@/lib/session/auth-result";
+import { resolveAuth } from "@/lib/session/auth-result";
 
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
