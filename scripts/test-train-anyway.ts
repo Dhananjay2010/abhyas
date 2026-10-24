@@ -9,7 +9,7 @@
  * - For blocks with no strength days, offer nothing (yoga/breathe handled elsewhere)
  */
 
-import { trainAnywayOptions, type TrainAnywayInput, type TrainAnywayDay } from "../src/lib/today/train-anyway";
+import { trainAnywayOptions, type TrainAnywayDay } from "../src/lib/today/train-anyway";
 import type { Database } from "../src/lib/database.types";
 
 type DayType = Database["public"]["Enums"]["day_type"];
