@@ -240,22 +240,23 @@ const VALID_TIMEZONES = new Set([
 ]);
 
 /**
- * Validate a timezone string.
+ * Validate a timezone string using Intl.DateTimeFormat.
  * Returns the timezone if valid, null otherwise.
- * Only accepts full IANA timezone names (e.g., "America/New_York"),
- * not abbreviations (e.g., "EST").
+ * Accepts any timezone that Intl recognizes, including IANA zones
+ * (America/New_York, America/Port-au-Prince, Etc/GMT+5) and abbreviations (EST, PST).
  */
 export function validateTimezone(tz: string | null | undefined): string | null {
   if (!tz) return null;
-  // Check against our known-good list first (fast path)
-  if (VALID_TIMEZONES.has(tz)) return tz;
-  // Fall back to Intl validation (catches valid zones we haven't listed)
-  // Reject abbreviations and non-standard names by requiring format: Region/City or UTC
-  if (!/^(UTC|[A-Z][a-z]+\/[A-Za-z_]+(?:\/[A-Za-z_]+)?)$/.test(tz)) {
+  
+  // Sanity check: reject strings with dots or path separators to prevent traversal
+  // Also reject spaces and other obvious non-timezone characters
+  if (/[.\s]|\.\./.test(tz)) {
     return null;
   }
+  
+  // Validate via Intl (authoritative check - trusts the platform's timezone database)
   try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    new Intl.DateTimeFormat(undefined, { timeZone: tz });
     return tz;
   } catch {
     return null;
@@ -353,7 +354,7 @@ function validateBrand(brand: Brand): void {
 
 /**
  * Select the active brand based on NEXT_PUBLIC_BRAND environment variable.
- * Falls back to 'default' if not set or invalid.
+ * Throws if the brand is not found (fails the build).
  * Validates the selected brand on first access.
  */
 function selectBrand(): Brand {
@@ -361,12 +362,10 @@ function selectBrand(): Brand {
   const brand = brands[brandId];
 
   if (!brand) {
-    console.warn(
-      `NEXT_PUBLIC_BRAND="${brandId}" not found in brand registry. Falling back to default.`
+    const validIds = Object.keys(brands).join(", ");
+    throw new Error(
+      `NEXT_PUBLIC_BRAND="${brandId}" not found in brand registry. Valid brand ids: ${validIds}`
     );
-    const fallback = brands.default;
-    validateBrand(fallback);
-    return fallback;
   }
 
   try {

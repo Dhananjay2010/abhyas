@@ -4,6 +4,7 @@ import { BarChart, LineChart, StatTile, type Point } from "@/components/charts";
 import { buildDayRecords, computeStreaks } from "@/lib/progress/streaks";
 import { buildStrengthChartsFromDescendingRows } from "@/lib/progress/strength-charts";
 import { localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
 import { LogWeight } from "./log-weight";
 
@@ -75,7 +76,7 @@ export default async function ProgressPage() {
   if (!profile) redirect("/");
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
-  const timezone = profile.timezone || "Asia/Kolkata";
+  const timezone = resolveTimezoneWithProfile(profile.timezone);
   const today = localDateString(timezone);
 
   // ---- streaks -----------------------------------------------------------

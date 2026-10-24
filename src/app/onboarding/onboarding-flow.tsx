@@ -35,6 +35,7 @@ import {
   saveProfileFields,
   type ActionResult,
 } from "./actions";
+import { branding } from "@/lib/branding";
 
 type StepId =
   | "disclaimer"
@@ -208,7 +209,7 @@ export function OnboardingFlow({
       >
         <div className="space-y-4 text-sm leading-relaxed text-muted">
           <p>
-            Abhyas gives general fitness guidance. It is{" "}
+            {branding.name} gives general fitness guidance. It is{" "}
             <strong className="text-fg">not medical advice</strong>, and it is not a
             substitute for a doctor or a qualified trainer.
           </p>
@@ -221,7 +222,7 @@ export function OnboardingFlow({
             fine. Sharp is not.
           </p>
           <p>
-            You must be at least {MIN_AGE_YEARS} years old to use Abhyas. You train at your
+            You must be at least {MIN_AGE_YEARS} years old to use {branding.name}. You train at your
             own risk.
           </p>
           <p className="pt-2 border-t border-border">

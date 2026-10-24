@@ -34,7 +34,14 @@ export default async function LandingPage({
           </p>
         )}
         <div className="mt-3">
-          <BrandLogo className="h-12" />
+          {branding.logo ? (
+            <>
+              <BrandLogo className="h-12 w-auto object-contain" />
+              <h1 className="mt-2 text-sm font-medium text-muted">{branding.name}</h1>
+            </>
+          ) : (
+            <h1 className="text-5xl font-bold tracking-tight">{branding.name}</h1>
+          )}
         </div>
         <p className="mt-5 text-lg leading-relaxed text-muted">
           {branding.description}

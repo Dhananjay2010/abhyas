@@ -10,7 +10,7 @@ import { branding } from "@/lib/branding";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: `/?brand=${branding.id}`,
+    id: branding.id === "default" ? "/" : `/?brand=${branding.id}`,
     name: branding.name,
     short_name: branding.shortName,
     description: branding.description,
