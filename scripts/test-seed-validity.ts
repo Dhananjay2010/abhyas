@@ -1,5 +1,4 @@
 #!/usr/bin/env tsx
-export {};
 /**
  * Test: Validate seed.sql references against migrations
  * 

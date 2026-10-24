@@ -1,4 +1,3 @@
-export {};
 /**
  * Exercises the block generator against the real catalogue.
  *

@@ -1,4 +1,3 @@
-export {};
 /**
  * Calendar arithmetic must not depend on the server's timezone.
  *

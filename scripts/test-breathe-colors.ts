@@ -1,4 +1,3 @@
-export {};
 /**
  * Checks that Breathe component files don't have hard-coded hex colors.
  * Primary action buttons should use theme tokens (bg-accent, text-accent-fg, etc.).

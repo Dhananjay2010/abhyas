@@ -1,4 +1,3 @@
-export {};
 /**
  * Test rate limiting on protected endpoints using the REAL wrapper and limiter.
  *

@@ -1,4 +1,3 @@
-export {};
 /**
  * Tests for Sentry integration setup and PII scrubbing.
  *

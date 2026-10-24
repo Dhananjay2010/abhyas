@@ -1,4 +1,3 @@
-export {};
 /**
  * Test rate limiting logic using the REAL limiter with in-memory backend.
  *
