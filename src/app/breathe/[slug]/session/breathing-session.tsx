@@ -512,7 +512,7 @@ function Practice({
   const guardedSave = useMemo(
     () =>
       createSaveOnce(
-        (o: Outcome) =>
+        (o: Outcome, guidance: "off" | "tones" | "ocean" | "voice") =>
           actions.recordBreathingPractice({
             logId,
             patternId: pattern.kind === "mine" ? null : pattern.id,
@@ -523,7 +523,7 @@ function Practice({
             seconds: o.seconds,
             endedEarly: o.endedEarly,
             moodBefore,
-            guidance: soundOnRef.current ? modeRef.current : "off",
+            guidance,
             routineId: routine?.id ?? null,
             routineStep: routine ? stepIndex + 1 : null,
           })
@@ -534,7 +534,8 @@ function Practice({
   const doSave = useCallback(
     (o: Outcome) => {
       setSave({ state: "saving" });
-      guardedSave(o).then(
+      const guidance = soundOnRef.current ? modeRef.current : "off";
+      guardedSave(o, guidance).then(
         (r) => {
           if (!r) {
             // After success, guardedSave returns undefined (no-op)

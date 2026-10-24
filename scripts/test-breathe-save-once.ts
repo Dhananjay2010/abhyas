@@ -118,7 +118,7 @@ async function runTests() {
       error2 = e as Error;
     }
 
-    check("both calls failed", error1 && error2);
+    check("both calls failed", !!(error1 && error2));
     check("fn called once during concurrent failure", callCount === 1, `callCount=${callCount}`);
 
     // After failure clears, retry should work

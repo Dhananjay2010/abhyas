@@ -7,13 +7,13 @@
  * @param fn The save function to guard
  * @returns A wrapped function with the same signature
  */
-export function createSaveOnce<T extends (...args: any[]) => Promise<any>>(
+export function createSaveOnce<T extends (...args: never[]) => Promise<unknown>>(
   fn: T
 ): T {
-  let inFlightPromise: Promise<any> | null = null;
+  let inFlightPromise: Promise<unknown> | null = null;
   let succeeded = false;
 
-  return ((...args: any[]) => {
+  return ((...args: never[]) => {
     // If already succeeded, return a resolved promise (no-op)
     if (succeeded) {
       return Promise.resolve();
