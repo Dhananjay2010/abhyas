@@ -176,7 +176,7 @@ function assertTrue(condition: boolean, msg: string) {
 async function main() {
   console.log("Testing logSetCore with recording fake client\n");
 
-  // Test 1: Mutant (a) - insert is called, not upsert
+  // Test 1: Insert is called, not upsert
   await testLogSetCore("Insert is called, not upsert", async () => {
     const fake = createRecordingFakeClient([]);
     await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
@@ -191,7 +191,7 @@ async function main() {
     assertEqualCore(fake.wasInsertCalled(), true, "Insert should be called");
   });
 
-  // Test 2: Mutant (d) - is_warmup_set: false filter is applied on lookup
+  // Test 2: is_warmup_set: false filter is applied on lookup
   await testLogSetCore("is_warmup_set: false filter on existing set lookup", async () => {
     const fake = createRecordingFakeClient([
       {
@@ -222,7 +222,7 @@ async function main() {
     assertEqualCore(lookupFilter!.is_warmup_set, false, "Should filter on is_warmup_set: false");
   });
 
-  // Test 3: Mutant (e) - 23505 handling re-reads and returns conflict
+  // Test 3: 23505 handling re-reads and returns conflict
   await testLogSetCore("23505 race: re-read and return conflict", async () => {
     // Simulate race: initial lookup finds nothing, insert returns 23505, re-read finds different values
     const racedSet = {

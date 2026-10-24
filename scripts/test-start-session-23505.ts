@@ -2,7 +2,7 @@
 /**
  * Test startSession handles 23505 unique violation on insert path
  * 
- * Mutant: startSession 23505 not handled - should be KILLED by this test
+ * Regression: startSession 23505 not handled - should be caught by this test
  */
 
 export {}; // Make this a module

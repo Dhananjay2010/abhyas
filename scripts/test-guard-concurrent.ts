@@ -5,7 +5,7 @@
  * Tests that createConcurrentGuard ensures two concurrent calls produce exactly ONE execution.
  * This prevents double-tap issues where two rapid button presses would trigger two server writes.
  *
- * Mutant (c): If busyRef lock is removed, both calls execute and produce TWO writes.
+ * Regression: If busyRef lock is removed, both calls execute and produce TWO writes.
  */
 
 import { createConcurrentGuard } from "../src/lib/session/guard-concurrent";
@@ -58,8 +58,8 @@ async function main() {
     assertEqual(busyRef.current, false, "busyRef should be reset after completion");
   });
 
-  // Test 2: Concurrent calls - only first one executes (Mutant c)
-  await testGuard("Mutant (c): Two concurrent calls produce exactly ONE execution", async () => {
+  // Test 2: Concurrent calls - only first one executes
+  await testGuard("Two concurrent calls produce exactly ONE execution", async () => {
     let executions = 0;
     const busyRef = { current: false };
 
@@ -73,7 +73,7 @@ async function main() {
     const [result1, result2] = await Promise.all([guarded(), guarded()]);
 
     // First call should succeed, second should be rejected
-    assertEqual(executions, 1, "Mutant check: Should execute exactly ONCE, not twice");
+    assertEqual(executions, 1, "Should execute exactly ONCE, not twice");
     assertEqual(result1, "success", "First call should succeed");
     assertEqual(result2, undefined, "Second call should be rejected (return undefined)");
     assertEqual(busyRef.current, false, "busyRef should be reset after completion");

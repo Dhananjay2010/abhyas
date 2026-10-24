@@ -5,7 +5,7 @@
  * Tests that the resume path (merge action) actually calls mergeSets
  * to prevent dropping confirmed local saves when router.refresh brings stale server data.
  *
- * Mutant (b): If mergeSets is not called in the reducer, local sets are lost on resume.
+ * Regression: If mergeSets is not called in the reducer, local sets are lost on resume.
  */
 
 import { exercisesReducer } from "../src/lib/session/exercises-reducer";
@@ -143,9 +143,9 @@ async function main() {
     assertEqual(result[0].sets[3].setNumber, 4, "Should have set 4");
   });
 
-  // Test 4: Mutant verification - if mergeSets not called, local set 3 would be lost
+  // Test 4: Resume path preserves local confirmed saves via mergeSets
   // This test documents the expected behavior: local set survives merge
-  await testReducer("Mutant (b): resume path preserves local confirmed saves via mergeSets", () => {
+  await testReducer("Resume path preserves local confirmed saves via mergeSets", () => {
     const localState: TestExercise[] = [
       {
         id: "ex-1",
@@ -176,7 +176,7 @@ async function main() {
 
     // If mergeSets is NOT called (mutant), result would have only 2 sets (from server)
     // With mergeSets called (correct), result keeps local set 3
-    assertEqual(result[0].sets.length, 3, "Mutant check: mergeSets must be called to keep local set 3");
+    assertEqual(result[0].sets.length, 3, "mergeSets must be called to keep local set 3");
     assertEqual(result[0].sets[2].weightKg, 110, "Local set 3's weight must be preserved");
   });
 
