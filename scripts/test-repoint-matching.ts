@@ -173,20 +173,20 @@ console.log("\n11. Sessions with logged sets are kept");
   check("session with sets is kept", action === "keep");
 }
 
-console.log("\n12. Planned session today is updated");
+console.log("\n12. Planned session today is rebuilt");
 {
   const sessionToday = { has_sets: false, local_date: "2026-10-24" };
   const action = decideRepointAction(sessionToday, "2026-10-24");
 
-  check("planned session today is updated", action === "update");
+  check("planned session today is rebuilt", action === "rebuild");
 }
 
-console.log("\n13. Planned session in the future is updated");
+console.log("\n13. Planned session in the future is rebuilt");
 {
   const futureSession = { has_sets: false, local_date: "2026-10-25" };
   const action = decideRepointAction(futureSession, "2026-10-24");
 
-  check("planned session in future is updated", action === "update");
+  check("planned session in future is rebuilt", action === "rebuild");
 }
 
 console.log("\n14. Planned session in the past is ignored (not re-pointed)");
