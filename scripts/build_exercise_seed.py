@@ -456,7 +456,7 @@ def build_cue(mechanic, pattern, primary, equipment) -> str:
         else f"Targets {', '.join(muscle_labels)}"
     )
     
-    if not mechanic and base:
+    if base:
         base = base[0].upper() + base[1:]
     
     return base + equipment_suffix

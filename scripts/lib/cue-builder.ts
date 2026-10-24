@@ -2,6 +2,7 @@ export const MUSCLE_LABEL: Record<string, string> = {
   abs: 'abs',
   obliques: 'obliques',
   lower_back: 'lower back',
+  upper_back: 'upper back',
   quads: 'quads',
   hamstrings: 'hamstrings',
   glutes: 'glutes',
@@ -10,12 +11,16 @@ export const MUSCLE_LABEL: Record<string, string> = {
   lats: 'lats',
   traps: 'traps',
   shoulders: 'shoulders',
+  front_delts: 'front delts',
+  side_delts: 'side delts',
+  rear_delts: 'rear delts',
   biceps: 'biceps',
   triceps: 'triceps',
   forearms: 'forearms',
   hip_flexors: 'hip flexors',
   adductors: 'adductors',
   abductors: 'abductors',
+  neck: 'neck',
 };
 
 export const EQUIPMENT_LABEL: Record<string, string> = {
@@ -92,7 +97,7 @@ export function buildCue(params: BuildCueParams): string {
     ? `${movementPrefix} movement targeting ${muscleLabels.join(', ')}`
     : `Targets ${muscleLabels.join(', ')}`;
   
-  if (!mechanic && base.length > 0) {
+  if (base.length > 0) {
     base = base.charAt(0).toUpperCase() + base.slice(1);
   }
   

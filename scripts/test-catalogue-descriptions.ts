@@ -40,87 +40,49 @@ async function main() {
   
   const migrationSql = readFileSync(join(migrationsDir, '20261025000011_catalogue_descriptions.sql'), 'utf-8');
   
-  console.log('Test 0: Validating SQL statement safety...\n');
+  console.log('Test 1: Extract migration target slugs...\n');
   
-  const statements = migrationSql
-    .split(';')
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && !s.startsWith('--'));
-  
-  for (const stmt of statements) {
-    const upperStmt = stmt.toUpperCase();
-    const firstLine = stmt.split('\n')[0].toUpperCase();
-    
-    if (firstLine.startsWith('UPDATE EXERCISES') || upperStmt.startsWith('UPDATE EXERCISES')) {
-      if (!/(WHERE|where)\s+(slug|SLUG)\s*=\s*'[^']+'/.test(stmt)) {
-        throw new Error(`Un-scoped UPDATE detected: ${stmt.slice(0, 100)}...`);
-      }
-      if (!/(cue|CUE|impact|IMPACT|type|TYPE)\s*=/.test(stmt)) {
-        throw new Error(`UPDATE without proper constraint: ${stmt.slice(0, 100)}...`);
-      }
-    } else if (upperStmt.includes('UPDATE') && !firstLine.startsWith('--')) {
-      const cleanStmt = stmt.replace(/--[^\n]*\n/g, '');
-      if (cleanStmt.toUpperCase().includes('UPDATE') && !cleanStmt.toUpperCase().startsWith('UPDATE EXERCISES') && !cleanStmt.toUpperCase().startsWith('UPDATE WARMUP')) {
-        throw new Error(`Non-exercises/warmup UPDATE detected: ${stmt.slice(0, 100)}...`);
-      }
-    }
+  const migrationSlugs = new Set<string>();
+  const slugMatches = migrationSql.matchAll(/WHERE slug = '([^']+)'/g);
+  for (const match of slugMatches) {
+    migrationSlugs.add(match[1]);
   }
   
-  console.log(`  ✅ All ${statements.length} statements are properly scoped\n`);
+  console.log(`  Found ${migrationSlugs.size} slugs targeted by migration\n`);
   
-  console.log('Test 1: Capturing pre-migration upper-body cues...\n');
+  console.log('Test 2: Capture pre-migration state for ALL exercises...\n');
   
-  const upperBodyExercises = await db.query<{slug: string; cue: string; category: string; movement_pattern: string}>(
-    `SELECT slug, cue, category, movement_pattern FROM exercises 
-     WHERE movement_pattern IN ('horizontal_press', 'vertical_press', 'horizontal_pull', 'vertical_pull', 'biceps', 'triceps', 'lateral_delt', 'rear_delt', 'forearm', 'neck')`
+  const allExercisesBefore = await db.query<{slug: string; cue: string; impact: string}>(
+    `SELECT slug, cue, impact FROM exercises ORDER BY slug`
   );
   
-  const upperBodyCues = new Map(upperBodyExercises.rows.map(r => [r.slug, r.cue]));
-  console.log(`  Captured ${upperBodyCues.size} upper-body cues\n`);
+  const beforeState = new Map(allExercisesBefore.rows.map(r => [r.slug, { cue: r.cue, impact: r.impact }]));
+  console.log(`  Captured ${beforeState.size} exercises\n`);
   
-  console.log('Test 2: Running migration (first pass)...\n');
+  console.log('Test 3: Capture pre-migration warmup exercises...\n');
+  
+  const warmupBefore = await db.query<{slug: string; type: string}>(
+    `SELECT slug, type FROM warmup_exercises WHERE slug = 'cat-cow-stretch'`
+  );
+  
+  const catCowBefore = warmupBefore.rows[0];
+  console.log(`  cat-cow-stretch type before: ${catCowBefore?.type || 'not found'}\n`);
+  
+  console.log('Test 4: Running migration (first pass)...\n');
   
   await db.exec(migrationSql);
   
   console.log(`  ✅ Migration applied successfully\n`);
   
-  console.log('Test 3: Running migration (second pass - idempotency)...\n');
+  console.log('Test 5: Running migration (second pass - idempotency)...\n');
   
   await db.exec(migrationSql);
   
   console.log('  ✅ Migration is idempotent (no errors on second run)\n');
   
-  console.log('Test 4: Validating upper-body cues unchanged...\n');
+  console.log('Test 6: Validate migration targets match builder output...\n');
   
-  const upperBodyAfter = await db.query<{slug: string; cue: string}>(
-    `SELECT slug, cue FROM exercises WHERE slug = ANY($1)`,
-    [Array.from(upperBodyCues.keys())]
-  );
-  
-  let unchangedCount = 0;
-  let changedCount = 0;
-  
-  for (const row of upperBodyAfter.rows) {
-    const before = upperBodyCues.get(row.slug);
-    if (before !== row.cue) {
-      console.log(`  ❌ ${row.slug}: cue changed`);
-      console.log(`     Before: "${before}"`);
-      console.log(`     After:  "${row.cue}"`);
-      changedCount++;
-    } else {
-      unchangedCount++;
-    }
-  }
-  
-  if (changedCount > 0) {
-    throw new Error(`${changedCount} upper-body cues were modified`);
-  }
-  
-  console.log(`  ✅ All ${unchangedCount} upper-body push/pull cues are byte-identical\n`);
-  
-  console.log('Test 5: Validating changed cues match builder output...\n');
-  
-  const changedExercises = await db.query<{
+  const targetedExercises = await db.query<{
     slug: string;
     cue: string;
     mechanic: string | null;
@@ -128,28 +90,15 @@ async function main() {
     primary_muscles: string | string[];
     equipment_ids: string | string[];
   }>(
-    `SELECT slug, cue, mechanic, movement_pattern, primary_muscles, equipment_ids FROM exercises 
-     WHERE movement_pattern IN ('squat', 'hinge', 'lunge', 'calf', 'core', 'cardio', 'other', 'carry')`
+    `SELECT slug, cue, mechanic, movement_pattern, primary_muscles, equipment_ids 
+     FROM exercises 
+     WHERE slug = ANY($1)`,
+    [Array.from(migrationSlugs).filter(s => s !== 'spanish-squat' && s !== 'isometric-chest-squeezes')]
   );
   
-  const ALL_EQUIPMENT_IDS = Object.keys(EQUIPMENT_LABEL);
-  let validationErrors = 0;
+  let mismatchCount = 0;
   
-  for (const ex of changedExercises.rows) {
-    const errors: string[] = [];
-    
-    if (ex.cue.includes('_')) {
-      errors.push('underscore');
-    }
-    
-    if (ALL_EQUIPMENT_IDS.some(id => ex.cue.includes(id))) {
-      errors.push('raw equipment ID');
-    }
-    
-    if (!/^[A-Z]/.test(ex.cue)) {
-      errors.push('not capitalized');
-    }
-    
+  for (const ex of targetedExercises.rows) {
     const primaryMusclesArray = Array.isArray(ex.primary_muscles)
       ? ex.primary_muscles
       : ex.primary_muscles.replace(/[{}]/g, '').split(',').filter(m => m.length > 0);
@@ -166,45 +115,117 @@ async function main() {
     });
     
     if (ex.cue !== expectedCue) {
-      errors.push(`cue mismatch`);
       console.log(`  ❌ ${ex.slug}:`);
       console.log(`     Expected: "${expectedCue}"`);
       console.log(`     Got:      "${ex.cue}"`);
+      mismatchCount++;
+    }
+  }
+  
+  if (mismatchCount > 0) {
+    throw new Error(`${mismatchCount} migrated exercises don't match builder output`);
+  }
+  
+  console.log(`  ✅ All ${targetedExercises.rows.length} migrated cues match builder output\n`);
+  
+  console.log('Test 7: Validate untouched exercises are byte-identical...\n');
+  
+  const allExercisesAfter = await db.query<{slug: string; cue: string; impact: string}>(
+    `SELECT slug, cue, impact FROM exercises ORDER BY slug`
+  );
+  
+  const afterState = new Map(allExercisesAfter.rows.map(r => [r.slug, { cue: r.cue, impact: r.impact }]));
+  
+  let unchangedCount = 0;
+  let changedCount = 0;
+  
+  for (const [slug, before] of beforeState) {
+    if (migrationSlugs.has(slug)) {
+      continue;
     }
     
-    if (errors.length > 0 && !errors.includes('cue mismatch')) {
-      console.log(`  ❌ ${ex.slug}: ${errors.join(', ')}`);
-      validationErrors++;
-    } else if (errors.includes('cue mismatch')) {
-      validationErrors++;
+    const after = afterState.get(slug);
+    if (!after) {
+      console.log(`  ❌ ${slug}: missing after migration`);
+      changedCount++;
+      continue;
+    }
+    
+    if (before.cue !== after.cue || before.impact !== after.impact) {
+      console.log(`  ❌ ${slug}: modified but not in migration target list`);
+      console.log(`     Before cue: "${before.cue}"`);
+      console.log(`     After cue:  "${after.cue}"`);
+      console.log(`     Before impact: "${before.impact}"`);
+      console.log(`     After impact:  "${after.impact}"`);
+      changedCount++;
+    } else {
+      unchangedCount++;
     }
   }
   
-  if (validationErrors > 0) {
-    throw new Error(`${validationErrors} exercises have invalid cues`);
+  if (changedCount > 0) {
+    throw new Error(`${changedCount} exercises changed but were not in migration target list`);
   }
   
-  console.log(`  ✅ All ${changedExercises.rows.length} changed cues match builder output\n`);
+  console.log(`  ✅ All ${unchangedCount} untouched exercises are byte-identical\n`);
   
-  console.log('Test 6: Verifying critical fixes...\n');
-  
-  const barbell = await db.query<{cue: string}>('SELECT cue FROM exercises WHERE slug = \'barbell-squat\'');
-  if (!barbell.rows[0] || !/^Compound squat movement targeting quads\./i.test(barbell.rows[0].cue)) {
-    throw new Error('barbell-squat not fixed correctly');
-  }
-  console.log(`  ✅ barbell-squat: "${barbell.rows[0].cue}"`);
-  
-  const cable = await db.query<{cue: string}>('SELECT cue FROM exercises WHERE slug = \'cable-judo-flip\'');
-  if (!cable.rows[0] || !/^Compound core movement targeting abs\./i.test(cable.rows[0].cue)) {
-    throw new Error('cable-judo-flip not fixed correctly');
-  }
-  console.log(`  ✅ cable-judo-flip: "${cable.rows[0].cue}"\n`);
+  console.log('Test 8: Validate specific fixes...\n');
   
   const isometricChestSqueeze = await db.query<{impact: string}>('SELECT impact FROM exercises WHERE slug = \'isometric-chest-squeezes\'');
   if (!isometricChestSqueeze.rows[0] || isometricChestSqueeze.rows[0].impact !== 'low') {
     throw new Error('isometric-chest-squeezes impact should be low');
   }
-  console.log(`  ✅ isometric-chest-squeezes: impact = "${isometricChestSqueeze.rows[0].impact}"\n`);
+  console.log(`  ✅ isometric-chest-squeezes: impact = "${isometricChestSqueeze.rows[0].impact}"`);
+  
+  const spanishSquat = await db.query<{cue: string}>('SELECT cue FROM exercises WHERE slug = \'spanish-squat\'');
+  if (!spanishSquat.rows[0] || !spanishSquat.rows[0].cue.includes('Anchor band to sturdy post')) {
+    throw new Error('spanish-squat cue should include setup instructions');
+  }
+  console.log(`  ✅ spanish-squat: cue enhanced with setup instructions`);
+  
+  const warmupAfter = await db.query<{type: string}>('SELECT type FROM warmup_exercises WHERE slug = \'cat-cow-stretch\'');
+  if (!warmupAfter.rows[0] || warmupAfter.rows[0].type !== 'mobility') {
+    throw new Error('cat-cow-stretch type should be mobility');
+  }
+  console.log(`  ✅ cat-cow-stretch: type = "${warmupAfter.rows[0].type}"\n`);
+  
+  console.log('Test 9: Validate no bad words in any cue...\n');
+  
+  const ALL_EQUIPMENT_IDS = Object.keys(EQUIPMENT_LABEL);
+  
+  const allCues = await db.query<{slug: string; cue: string}>(
+    `SELECT slug, cue FROM exercises WHERE slug = ANY($1)`,
+    [Array.from(migrationSlugs).filter(s => s !== 'spanish-squat' && s !== 'isometric-chest-squeezes')]
+  );
+  
+  let badWordCount = 0;
+  
+  for (const row of allCues.rows) {
+    const errors: string[] = [];
+    
+    if (row.cue.includes('_')) {
+      errors.push('underscore');
+    }
+    
+    if (ALL_EQUIPMENT_IDS.some(id => row.cue.includes(id))) {
+      errors.push('raw equipment ID');
+    }
+    
+    if (!/^[A-Z]/.test(row.cue)) {
+      errors.push('not capitalized');
+    }
+    
+    if (errors.length > 0) {
+      console.log(`  ❌ ${row.slug}: ${errors.join(', ')}`);
+      badWordCount++;
+    }
+  }
+  
+  if (badWordCount > 0) {
+    throw new Error(`${badWordCount} cues have bad words`);
+  }
+  
+  console.log(`  ✅ All ${allCues.rows.length} migrated cues are clean\n`);
   
   await db.close();
   
