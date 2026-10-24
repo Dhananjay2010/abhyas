@@ -50,7 +50,7 @@ async function runTest() {
     `);
     
     const result = await db.query("SELECT COUNT(*) FROM profiles");
-    const count = parseInt(result.rows[0].count);
+    const count = parseInt((result.rows[0] as { count: string }).count);
     check("11 profiles inserted", count === 11, `got ${count}`);
   }
   
@@ -72,7 +72,7 @@ async function runTest() {
     `);
     
     const values = Object.fromEntries(
-      result.rows.map((r: any) => [r.id, r.preferred_session_minutes])
+      result.rows.map((r) => [(r as { id: string }).id, (r as { preferred_session_minutes: number | null }).preferred_session_minutes])
     );
     
     check("37 → 30", values["00000000-0000-0000-0000-000000000001"] === 30);
@@ -103,7 +103,7 @@ async function runTest() {
       WHERE id = '00000000-0000-0000-0000-000000000001'
     `);
     
-    check("37→30 still 30 after second run", result.rows[0].preferred_session_minutes === 30);
+    check("37→30 still 30 after second run", (result.rows[0] as { preferred_session_minutes: number }).preferred_session_minutes === 30);
   }
   
   console.log("\n5. Test constraint enforcement");
@@ -115,10 +115,10 @@ async function runTest() {
         VALUES ('00000000-0000-0000-0000-000000000099', 50)
       `);
       check("50 is rejected by constraint", false);
-    } catch (error: any) {
-      const isCheckViolation = error.message.includes("check constraint") || 
-                               error.message.includes("session_minutes_check") ||
-                               error.message.includes("violates");
+    } catch (error: unknown) {
+      const isCheckViolation = (error as Error).message.includes("check constraint") || 
+                               (error as Error).message.includes("session_minutes_check") ||
+                               (error as Error).message.includes("violates");
       check("50 is rejected by constraint", isCheckViolation);
     }
     
@@ -163,10 +163,10 @@ async function runTest() {
         WHERE id = '00000000-0000-0000-0000-000000000010'
       `);
       check("Update to 90 is rejected", false);
-    } catch (error: any) {
-      const isCheckViolation = error.message.includes("check constraint") || 
-                               error.message.includes("session_minutes_check") ||
-                               error.message.includes("violates");
+    } catch (error: unknown) {
+      const isCheckViolation = (error as Error).message.includes("check constraint") || 
+                               (error as Error).message.includes("session_minutes_check") ||
+                               (error as Error).message.includes("violates");
       check("Update to 90 is rejected", isCheckViolation);
     }
   }
@@ -182,7 +182,7 @@ async function runTest() {
     `);
     
     const counts = Object.fromEntries(
-      result.rows.map((r: any) => [r.preferred_session_minutes, parseInt(r.count)])
+      result.rows.map((r) => [(r as { preferred_session_minutes: number }).preferred_session_minutes, parseInt((r as { count: string }).count)])
     );
     
     check("Has 30-minute profiles", counts[30] >= 1);
