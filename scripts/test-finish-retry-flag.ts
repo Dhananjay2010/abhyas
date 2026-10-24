@@ -9,7 +9,7 @@
  *   npx tsx scripts/test-finish-retry-flag.ts
  */
 
-import { runFinish } from "../src/lib/session/finish-flow";
+import { runFinish, shouldShowFinishRetry } from "../src/lib/session/finish-flow";
 import type { FinishFlowDeps } from "../src/lib/session/finish-flow";
 
 let passed = 0;
@@ -145,72 +145,34 @@ async function runTests() {
     assertEquals(succeeded, false, "runFinish should return false when already in flight");
   }
 
-  console.log("\n5. Simulated session-runner: needsFinishRetry is set after failure");
+  console.log("\n5. shouldShowFinishRetry returns true after failure without cooldown");
   {
-    // Simulate the session-runner logic
-    let needsFinishRetry = false;
+    const succeeded = false;
     const cooldownCompleted = false;
 
-    const deps: FinishFlowDeps = {
-      finishSession: async () => ({ ok: false, error: "Save failed" }),
-      abandonSession: async () => ({ ok: true }),
-      refreshAfterSession: async () => ({ ok: true }),
-      stopElapsed: () => 1800,
-      resumeElapsed: () => {},
-      setError: () => {},
-      setPhase: () => {},
-      setEndedEarly: () => {},
-      navigate: () => {},
-      onExit: null,
-      inFlight: { current: false },
-    };
+    const result = shouldShowFinishRetry(succeeded, cooldownCompleted);
 
-    needsFinishRetry = false;
-    const succeeded = await runFinish(deps, {
-      sessionId: "s1",
-      cooldownCompleted,
-    });
-
-    // This is the session-runner logic
-    if (!succeeded && !cooldownCompleted) {
-      needsFinishRetry = true;
-    }
-
-    assertEquals(needsFinishRetry, true, "needsFinishRetry should be set to true after failure");
+    assertEquals(result, true, "shouldShowFinishRetry should return true after failure without cooldown");
   }
 
-  console.log("\n6. Simulated session-runner: needsFinishRetry is not set on cooldown path");
+  console.log("\n6. shouldShowFinishRetry returns false on cooldown path");
   {
-    // On cooldown path, we don't set needsFinishRetry even on failure
-    let needsFinishRetry = false;
+    const succeeded = false;
     const cooldownCompleted = true;
 
-    const deps: FinishFlowDeps = {
-      finishSession: async () => ({ ok: false, error: "Save failed" }),
-      abandonSession: async () => ({ ok: true }),
-      refreshAfterSession: async () => ({ ok: true }),
-      stopElapsed: () => 1800,
-      resumeElapsed: () => {},
-      setError: () => {},
-      setPhase: () => {},
-      setEndedEarly: () => {},
-      navigate: () => {},
-      onExit: null,
-      inFlight: { current: false },
-    };
+    const result = shouldShowFinishRetry(succeeded, cooldownCompleted);
 
-    needsFinishRetry = false;
-    const succeeded = await runFinish(deps, {
-      sessionId: "s1",
-      cooldownCompleted,
-    });
+    assertEquals(result, false, "shouldShowFinishRetry should return false on cooldown path");
+  }
 
-    // This is the session-runner logic
-    if (!succeeded && !cooldownCompleted) {
-      needsFinishRetry = true;
-    }
+  console.log("\n7. shouldShowFinishRetry returns false on success");
+  {
+    const succeeded = true;
+    const cooldownCompleted = false;
 
-    assertEquals(needsFinishRetry, false, "needsFinishRetry should NOT be set on cooldown path");
+    const result = shouldShowFinishRetry(succeeded, cooldownCompleted);
+
+    assertEquals(result, false, "shouldShowFinishRetry should return false on success");
   }
 
   // Summary

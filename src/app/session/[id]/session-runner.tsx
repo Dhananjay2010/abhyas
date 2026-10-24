@@ -6,6 +6,7 @@ import type { Database } from "@/lib/database.types";
 import type { WarmupItem } from "@/lib/program/warmup";
 import {
   formatClock,
+  getRunnerClockElapsed,
   useBeeper,
   useElapsed,
   useHydrated,
@@ -17,7 +18,7 @@ import { withBusyGuard } from "@/lib/session/busy-guard";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { runFinish, runEndEarly } from "@/lib/session/finish-flow";
+import { runFinish, runEndEarly, shouldShowFinishRetry } from "@/lib/session/finish-flow";
 import { endEarlyConfirmTitle, sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { focusTrap } from "@/lib/focus-trap";
 import { formatNumber } from "@/lib/format";
@@ -119,6 +120,7 @@ export function SessionRunner({
   week,
   warmupAlreadyDone,
   startedAt,
+  timezone,
   warmup,
   cooldown,
   exercises: initialExercises,
@@ -132,6 +134,7 @@ export function SessionRunner({
   week: number;
   warmupAlreadyDone: boolean;
   startedAt: string | null;
+  timezone: string;
   warmup: WarmupItem[];
   cooldown: WarmupItem[];
   exercises: RunnerExercise[];
@@ -142,7 +145,8 @@ export function SessionRunner({
   onExit?: () => void;
 }) {
   const router = useRouter();
-  const { elapsed, stop: stopElapsed, resume: resumeElapsed } = useElapsed(startedAt);
+  const { elapsed: rawElapsed, stop: stopElapsed, resume: resumeElapsed } = useElapsed(startedAt);
+  const elapsed = getRunnerClockElapsed(rawElapsed, startedAt, timezone);
   const beeper = useBeeper(settings.restSound);
   const [exercises, setExercises] = useState(initialExercises);
   const [error, setError] = useState<string | null>(null);
@@ -344,9 +348,7 @@ export function SessionRunner({
       },
       { sessionId, cooldownCompleted },
     );
-    if (!succeeded && !cooldownCompleted) {
-      setNeedsFinishRetry(true);
-    }
+    setNeedsFinishRetry(shouldShowFinishRetry(succeeded, cooldownCompleted));
     setBusy(false);
   }
 

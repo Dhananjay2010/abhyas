@@ -94,7 +94,7 @@ export async function finishSessionCore(
 
     status = staleFinish.status;
     endedAt = staleFinish.endedAt;
-    durationSeconds = staleFinish.durationSeconds;
+    durationSeconds = staleFinish.durationSeconds ?? 0; // null becomes 0
   } else {
     // Normal finish: use now and client-provided duration
     status = decideAbandonStatus(exercises ?? []);

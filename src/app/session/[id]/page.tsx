@@ -214,7 +214,8 @@ export default async function SessionPage({
   // "What about tomorrow?" needs the block's own days to offer as alternatives,
   // and what tomorrow already is. Read after the session itself so a slow
   // answer here can never delay the screen the user is waiting on.
-  const tomorrow = await nextDayPlan(supabase, resolveTimezoneWithProfile(profileRes.data?.timezone));
+  const timezone = resolveTimezoneWithProfile(profileRes.data?.timezone);
+  const tomorrow = await nextDayPlan(supabase, timezone);
 
   return (
     <SessionRunner
@@ -223,6 +224,7 @@ export default async function SessionPage({
       week={session.week_in_block ?? 1}
       warmupAlreadyDone={session.warmup_completed}
       startedAt={session.started_at}
+      timezone={timezone}
       warmup={warmup}
       cooldown={cooldown}
       exercises={exercises}
