@@ -27,6 +27,7 @@ import {
   getUnitsPreference,
   isValidHeightCm,
   isValidWeightKg,
+  isValidDateOfBirth,
 } from "../src/lib/units";
 
 let failures = 0;
@@ -365,8 +366,6 @@ console.log("\n16. Weight validation (isValidWeightKg)");
 
 console.log("\n8. Date of birth validation (isValidDateOfBirth)");
 {
-  const { isValidDateOfBirth } = require("../src/lib/units");
-  
   // Valid dates
   check("Valid date: 1990-05-15", isValidDateOfBirth("1990-05-15"));
   check("Valid date: 1900-01-01 (lower bound)", isValidDateOfBirth("1900-01-01"));
@@ -382,9 +381,9 @@ console.log("\n8. Date of birth validation (isValidDateOfBirth)");
   check("Rejects invalid format (MM/DD/YYYY)", !isValidDateOfBirth("01/15/1990"));
   check("Rejects invalid format (no dashes)", !isValidDateOfBirth("19900515"));
   check("Rejects empty string", !isValidDateOfBirth(""));
-  check("Rejects null", !isValidDateOfBirth(null as any));
-  check("Rejects undefined", !isValidDateOfBirth(undefined as any));
-  check("Rejects non-string", !isValidDateOfBirth(12345 as any));
+  check("Rejects null", !isValidDateOfBirth(null as unknown as string));
+  check("Rejects undefined", !isValidDateOfBirth(undefined as unknown as string));
+  check("Rejects non-string", !isValidDateOfBirth(12345 as unknown as string));
   check("Rejects year 10000 (5 digits)", !isValidDateOfBirth("10000-01-01"));
   check("Rejects 2-digit year", !isValidDateOfBirth("90-05-15"));
   check("Rejects malformed", !isValidDateOfBirth("not-a-date"));
