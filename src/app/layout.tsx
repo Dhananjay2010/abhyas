@@ -43,6 +43,7 @@ export const viewport: Viewport = {
   themeColor: branding.colors.bg,
   width: "device-width",
   initialScale: 1,
+  // Zoom re-enabled (i10/k6): removed maximumScale for accessibility (WCAG 1.4.4)
   viewportFit: "cover",
 };
 
