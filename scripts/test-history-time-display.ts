@@ -25,11 +25,13 @@ const timezone = "America/New_York";
 
 // Helper to format time like the History client does
 function formatTime(isoTimestamp: string, tz: string): string {
-  return formatInTimezone(new Date(isoTimestamp), tz, {
+  const formatted = formatInTimezone(new Date(isoTimestamp), tz, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
   });
+  // Convert AM/PM to lowercase am/pm (matches app behavior)
+  return formatted.replace(/\sAM$/, " am").replace(/\sPM$/, " pm");
 }
 
 function longDate(iso: string): string {
