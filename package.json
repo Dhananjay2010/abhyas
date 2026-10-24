@@ -16,6 +16,7 @@
     "test:revert-53-regression": "tsx scripts/test-revert-53-regression.ts",
     "test:progression": "tsx scripts/test-progression.ts",
     "test:progression-grid": "tsx scripts/test-progression-grid.ts",
+    "test:progression-call-path": "tsx scripts/test-progression-call-path.ts",
     "test:input-step": "tsx scripts/test-input-step.ts",
     "test:stepper-input": "tsx scripts/test-stepper-input.ts",
     "test:load-grid": "tsx scripts/test-load-grid.ts",
