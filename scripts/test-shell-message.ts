@@ -21,7 +21,6 @@ function Shell({
   wakeLock,
   error,
   message,
-  confirmExit = true,
   children,
 }: {
   title: string;
@@ -31,7 +30,6 @@ function Shell({
   wakeLock: { active: boolean };
   error: string | null;
   message?: string | null;
-  confirmExit?: boolean;
   children: React.ReactNode;
 }) {
   const formatClock = (ms: number) => {
