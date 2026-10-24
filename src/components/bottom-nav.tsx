@@ -51,11 +51,11 @@ const Icons = {
 };
 
 const TABS = [
-  { href: "/today", label: "Today", icon: Icons.Today },
-  { href: "/practice", label: "Practice", icon: Icons.Practice },
-  { href: "/history", label: "History", icon: Icons.History },
-  { href: "/progress", label: "Progress", icon: Icons.Progress },
-  { href: "/settings", label: "Settings", icon: Icons.Settings },
+  { href: "/today", label: "Today", Icon: Icons.Today },
+  { href: "/practice", label: "Practice", Icon: Icons.Practice },
+  { href: "/history", label: "History", Icon: Icons.History },
+  { href: "/progress", label: "Progress", Icon: Icons.Progress },
+  { href: "/settings", label: "Settings", Icon: Icons.Settings },
 ];
 
 /**
@@ -100,13 +100,6 @@ function getLastPracticeServerSnapshot(): PracticeType | null {
 
 export function BottomNav() {
   const pathname = usePathname();
-<<<<<<< HEAD
-  
-  // Hide nav on /offline (no network, so no navigation possible)
-  if (pathname === "/offline") return null;
-  
-  const active = ACTIVE_FOR.find(([test]) => test(pathname))?.[1];
-=======
   const active = activeTab(pathname);
   
   const lastPractice = useSyncExternalStore(
@@ -114,8 +107,6 @@ export function BottomNav() {
     getLastPracticeSnapshot,
     getLastPracticeServerSnapshot
   );
-
->>>>>>> origin/main
   if (!active) return null;
 
   // Map /practice to the appropriate destination using choice logic
@@ -128,10 +119,9 @@ export function BottomNav() {
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
       <ul className="mx-auto flex max-w-md">
         {TABS.map((t) => {
-          const Icon = t.icon;
           const href = getHref(t.href);
           const isActive = active === t.href;
-          
+          const Icon = t.Icon;
           return (
             <li key={t.href} className="flex-1">
               <Link
@@ -145,13 +135,14 @@ export function BottomNav() {
                 // the "Block N starts today" message, because the rollover would
                 // already have happened in a prefetch they never asked for.
                 aria-current={isActive ? "page" : undefined}
-                className={`flex flex-col items-center gap-1 px-1 pt-2 text-center text-xs font-medium transition-colors ${
+                // px-1: five labels have to fit a 375px screen.
+                className={`flex flex-col items-center gap-1 px-1 pt-2.5 text-center transition-colors ${
                   isActive ? "text-accent" : "text-muted"
                 }`}
                 style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
               >
                 <Icon />
-                <span>{t.label}</span>
+                <span className="text-[11px] font-medium leading-none">{t.label}</span>
               </Link>
             </li>
           );

@@ -163,8 +163,12 @@ function testOfflinePageComponent() {
 }
 
 function testLayoutBottomNav() {
-  console.log("\n▶ Testing bottom nav /offline handling...");
+  console.log("\n▶ Testing bottom nav offline handling...");
 
+  // BottomNav uses activeTab() from nav.ts to determine if nav should show
+  // The offline check is tested in scripts/test-nav.ts (activeTab('/offline') === null)
+  // This just confirms BottomNav respects that return value
+  
   const bottomNavPath = path.join(__dirname, "..", "src", "components", "bottom-nav.tsx");
   
   assert(
@@ -174,26 +178,15 @@ function testLayoutBottomNav() {
 
   const bottomNavSource = fs.readFileSync(bottomNavPath, "utf-8");
 
-  // BottomNav should check for /offline pathname and return null
+  // BottomNav should use activeTab() and return null if !active
   assert(
-    bottomNavSource.includes('pathname === "/offline"') && bottomNavSource.includes("return null"),
-    'BottomNav must return null when pathname === "/offline"'
+    bottomNavSource.includes("activeTab(pathname)") && bottomNavSource.includes("if (!active) return null"),
+    'BottomNav must use activeTab() and return null when activeTab returns null'
   );
 
-  // Verify /offline is not in ACTIVE_FOR (it's a full-screen fallback, not a tabbed page)
-  const activeForMatches = bottomNavSource.match(/ACTIVE_FOR.*?=.*?\[[\s\S]*?\];/);
-  if (activeForMatches) {
-    const activeForBlock = activeForMatches[0];
-    // Count how many times "/offline" appears - should be 0 in ACTIVE_FOR, only in the early check
-    const offlineInActiveFor = (activeForBlock.match(/["']\/offline["']/g) || []).length;
-    assert(
-      offlineInActiveFor === 0,
-      "/offline should not be in ACTIVE_FOR array (handled by early return)"
-    );
-  }
-
-  console.log('  ✓ BottomNav returns null for pathname === "/offline"');
-  console.log("  ✓ /offline not in ACTIVE_FOR (correctly excluded)");
+  console.log("  ✓ BottomNav uses activeTab() for nav visibility");
+  console.log("  ✓ BottomNav returns null when activeTab returns null");
+  console.log("  ✓ /offline handled by activeTab() in src/lib/nav.ts (tested in test-nav.ts)");
 }
 
 function main() {
