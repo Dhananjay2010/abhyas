@@ -11,6 +11,7 @@ import {
   generateProgram,
   type CandidateExercise,
   type GeneratorInput,
+  estimateSessionMinutes,
 } from "../src/lib/program/generate";
 import { selectWarmup, selectCooldown, type WarmupRow } from "../src/lib/program/warmup";
 
@@ -415,42 +416,29 @@ testSeeds("H9: Age 62 gets NO high-impact, plyometric, or throws",
 // M3: Session duration within target ± 5 min
 // ====================
 
-function estimateSessionMinutes(plan: ReturnType<typeof generateProgram>): number {
-  const WARMUP_COOLDOWN = 15; // ~10 min warmup + ~5 min cooldown
-  const trainingDays = plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight");
-  
-  if (trainingDays.length === 0) return WARMUP_COOLDOWN;
-  
-  const avgExerciseTime = trainingDays.map(day => {
-    const totalSets = day.exercises.reduce((sum, e) => sum + e.targetSets, 0);
-    const avgRepsPerSet = day.exercises.reduce((sum, e) => sum + (e.targetRepsMin + e.targetRepsMax) / 2, 0) / (day.exercises.length || 1);
-    const avgRestPerSet = day.exercises.reduce((sum, e) => sum + e.restSeconds, 0) / (day.exercises.length || 1);
-    
-    // Rough estimate: 3 sec per rep + rest time
-    const timePerSet = (avgRepsPerSet * 3 + avgRestPerSet) / 60; // minutes
-    return totalSets * timePerSet;
-  }).reduce((sum, t) => sum + t, 0) / trainingDays.length;
-  
-  return WARMUP_COOLDOWN + avgExerciseTime;
-}
-
 testSeeds("M3: 30-min session stays within 30 ± 5 min",
   { preferredSessionMinutes: 30, daysPerWeek: 4 },
   (plan, picked, seed) => {
-    const estimated = estimateSessionMinutes(plan);
-    const withinRange = estimated >= 25 && estimated <= 35;
+    const trainingDays = plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight");
+    const avgEstimate = trainingDays.length > 0
+      ? trainingDays.reduce((sum, day) => sum + estimateSessionMinutes(day), 0) / trainingDays.length
+      : 0;
+    const withinRange = avgEstimate >= 25 && avgEstimate <= 35;
     check(`Seed ${seed}: 30-min session within range`, withinRange,
-      `estimated ${estimated.toFixed(0)} min`);
+      `estimated ${avgEstimate.toFixed(0)} min`);
   }
 );
 
 testSeeds("M3: 75-min session stays within 75 ± 5 min",
   { preferredSessionMinutes: 75, daysPerWeek: 4 },
   (plan, picked, seed) => {
-    const estimated = estimateSessionMinutes(plan);
-    const withinRange = estimated >= 70 && estimated <= 80;
+    const trainingDays = plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight");
+    const avgEstimate = trainingDays.length > 0
+      ? trainingDays.reduce((sum, day) => sum + estimateSessionMinutes(day), 0) / trainingDays.length
+      : 0;
+    const withinRange = avgEstimate >= 70 && avgEstimate <= 80;
     check(`Seed ${seed}: 75-min session within range`, withinRange,
-      `estimated ${estimated.toFixed(0)} min`);
+      `estimated ${avgEstimate.toFixed(0)} min`);
   }
 );
 
@@ -534,10 +522,13 @@ testSeeds('(i) M3: Female beginner fat loss bodyweight 3d 45min within ±5min',
     bmi: 32, // fat_loss goal
   },
   (plan, picked, seed) => {
-    const estimated = estimateSessionMinutes(plan);
-    const withinRange = estimated >= 40 && estimated <= 50;
+    const trainingDays = plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight");
+    const avgEstimate = trainingDays.length > 0
+      ? trainingDays.reduce((sum, day) => sum + estimateSessionMinutes(day), 0) / trainingDays.length
+      : 0;
+    const withinRange = avgEstimate >= 40 && avgEstimate <= 50;
     check(`Seed ${seed}: Female beginner 45-min session within range`, withinRange,
-      `estimated ${estimated.toFixed(0)} min`);
+      `estimated ${avgEstimate.toFixed(0)} min`);
     
     // Also check that plan has variety
     check(`Seed ${seed}: Has at least 10 exercises`, picked.length >= 10,

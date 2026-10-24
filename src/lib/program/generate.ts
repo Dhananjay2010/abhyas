@@ -65,28 +65,28 @@ export const CARRY_OVER_SLOTS = 2;
 
 /**
  * M3: Estimate total session duration in minutes for a generated day.
- * Accounts for warm-up, exercise work time (sets × avg_reps × 4 sec + rest), and cool-down.
+ * Accounts for warm-up, exercise work time (sets × avg_reps × tempo + rest), and cool-down.
  * 
- * - Warm-up: ~8-11 min (call it 10 min)
+ * - Warm-up: ~10 min
  * - Per exercise: sets × (avg_reps × 4 sec + rest_seconds) / 60
- * - Cool-down: ~5-6 min (call it 5 min)
+ * - Cool-down: ~5 min
  * 
  * Used by generator to ensure actual session length stays within ±5 min of target.
  */
 export function estimateSessionMinutes(
-  exercises: Array<{
+  day: { exercises: Array<{
     targetSets: number;
     targetRepsMin: number | null;
     targetRepsMax: number | null;
     restSeconds: number;
-  }>
+  }> }
 ): number {
   const WARMUP_MINUTES = 10;
   const COOLDOWN_MINUTES = 5;
   const SECONDS_PER_REP = 4; // Tempo: 2 sec concentric, 2 sec eccentric
   
   let exerciseMinutes = 0;
-  for (const ex of exercises) {
+  for (const ex of day.exercises) {
     const avgReps = ex.targetRepsMax !== null && ex.targetRepsMin !== null
       ? (ex.targetRepsMin + ex.targetRepsMax) / 2
       : 8; // Default for holds or missing data
@@ -762,27 +762,48 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // H6: Positive selection for knee injuries on Lower/Full days.
     // Reserve first quad/squat slot for knee-safe exercises if user has knee injury.
     const hasKneeInjury = input.currentInjuryRegions.includes("knee");
-    const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full";
-    let firstSquatSlotHandled = false;
+    const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full" || entry.focus === "legs";
+    let firstQuadSlotHandled = false;
     
     entry.slots.slice(0, templateCount).forEach((pattern, i) => {
       const usedSet = i <= 3 ? usedToday : usedInBlock;
       
-      // H6: For knee injuries on Lower/Full days, reserve first squat slot for knee-safe moves
-      if (hasKneeInjury && isLowerOrFullDay && pattern === "squat" && !firstSquatSlotHandled) {
-        firstSquatSlotHandled = true;
+      // H6: For knee injuries on Lower/Full days, reserve first squat/quad slot for knee-safe moves
+      const isQuadPattern = pattern === "squat" || pattern === "lunge";
+      if (hasKneeInjury && isLowerOrFullDay && isQuadPattern && !firstQuadSlotHandled) {
+        firstQuadSlotHandled = true;
         
-        // Find knee-safe quad exercises
+        // Find knee-safe quad exercises - bypass normal contraindication checks for these
         const kneeSafeCandidates = pool
-          .filter(e => 
-            KNEE_SAFE_QUAD_EXERCISES.has(e.slug) &&
-            !usedSet.has(e.id) &&
-            isEligible(e, input)
-          )
+          .filter(e => {
+            if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+            if (!e.primary_muscles.includes("quads")) return false;
+            if (usedSet.has(e.id)) return false;
+            
+            // Check basic eligibility without contraindications
+            if (e.level_min === "expert" && input.level === "beginner") return false;
+            if (e.level_min === "intermediate" && input.level === "beginner") return false;
+            if (!e.tracks.includes(input.primaryTrack)) return false;
+            
+            // Equipment check (same logic as isEligible)
+            if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
+              const altSets = EQUIPMENT_ALTERNATIVES[e.slug];
+              if (altSets) {
+                const hasAny = e.equipment_ids.every((eid: string) => input.equipmentIds.includes(eid)) ||
+                              altSets.some((altSet: string[]) => altSet.every((aid: string) => input.equipmentIds.includes(aid)));
+                if (!hasAny) return false;
+              } else {
+                const hasAll = e.equipment_ids.every((eid: string) => input.equipmentIds.includes(eid));
+                if (!hasAll) return false;
+              }
+            }
+            
+            return true;
+          })
           .map(e => ({
             e,
             score: score(e, i < 4, input.level, input.primaryTrack),
-            stapleKey: stapleSortKey(e, "squat", input.hasAllEquipment, input.primaryTrack),
+            stapleKey: stapleSortKey(e, pattern, input.hasAllEquipment, input.primaryTrack),
             rng: rng(),
           }))
           .sort((a, b) => {
@@ -954,6 +975,218 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           restSeconds: p.restSeconds,
         });
       });
+    }
+
+    // M3: Adjust volume to hit target session length (±5 min)
+    if (input.preferredSessionMinutes && exercises.length > 0) {
+      const targetMin = input.preferredSessionMinutes;
+      const lowerBound = targetMin - 5;
+      const upperBound = targetMin + 5;
+      const minExercises = Math.max(4, Math.floor(entry.slots.length * 0.8)); // Allow dropping to 80% of template, minimum 4
+      
+      // Iteratively adjust volume to hit target ±5 min
+      let estimate = estimateSessionMinutes({ exercises });
+      let iterations = 0;
+      const MAX_ITERATIONS = 30; // Safety limit
+      
+      // First pass: if over target, drop accessories or reduce sets (but never below minimum)
+      while (estimate > upperBound && iterations < MAX_ITERATIONS) {
+        iterations++;
+        
+        // Strategy 1: Drop an accessory if we have more than minimum, preferring duplicates
+        if (exercises.length > minExercises) {
+          const patternsSeen = new Set<string>();
+          const patternCounts = new Map<string, number>();
+          let dropIndex = -1;
+          
+          // Count patterns
+          for (const ex of exercises) {
+            const candidate = pool.find(e => e.id === ex.exerciseId);
+            if (candidate) {
+              patternCounts.set(candidate.movement_pattern, (patternCounts.get(candidate.movement_pattern) || 0) + 1);
+            }
+          }
+          
+          // Find the first duplicate from the end (prefer dropping duplicates)
+          for (let i = exercises.length - 1; i >= 0; i--) {
+            const ex = pool.find(e => e.id === exercises[i].exerciseId);
+            if (ex) {
+              const count = patternCounts.get(ex.movement_pattern) || 0;
+              if (count > 1) {
+                // Only drop if this pattern has duplicates
+                dropIndex = i;
+                break;
+              }
+            }
+          }
+          
+          // If no duplicates, drop the last exercise UNLESS it's core (keep variety)
+          if (dropIndex === -1) {
+            for (let i = exercises.length - 1; i >= 0; i--) {
+              const ex = pool.find(e => e.id === exercises[i].exerciseId);
+              if (ex && ex.movement_pattern !== "core") {
+                dropIndex = i;
+                break;
+              }
+            }
+            // If only core is droppable, drop it as last resort
+            if (dropIndex === -1) {
+              dropIndex = exercises.length - 1;
+            }
+          }
+          
+          exercises.splice(dropIndex, 1);
+          // Reindex remaining exercises
+          exercises.forEach((e, idx) => { e.orderIndex = idx; });
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        // Strategy 2: Reduce sets on accessories (down to 2 minimum)
+        const accessories = exercises
+          .map((ex, idx) => ({ ex, idx }))
+          .filter(({ idx, ex }) => idx >= 4 && ex.targetSets > 2);
+        
+        if (accessories.length > 0) {
+          accessories[0].ex.targetSets--;
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        // Strategy 3: Reduce sets on main exercises (down to 2 minimum)
+        const mains = exercises
+          .map((ex, idx) => ({ ex, idx }))
+          .filter(({ ex }) => ex.targetSets > 2);
+        
+        if (mains.length > 0) {
+          mains[mains.length - 1].ex.targetSets--; // Reduce last exercise first
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        break; // Can't reduce further
+      }
+      
+      // Second pass: if under target, add sets or exercises
+      while (estimate < lowerBound && iterations < MAX_ITERATIONS) {
+        iterations++;
+        
+        // Strategy 1: Add a set to accessories (slots 4+, up to 4 sets max)
+        const accessories = exercises
+          .map((ex, idx) => ({ ex, idx }))
+          .filter(({ idx }) => idx >= 4 && exercises[idx].targetSets < 4);
+        
+        if (accessories.length > 0) {
+          // Deterministic: pick first accessory that can take another set
+          accessories[0].ex.targetSets++;
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        // Strategy 2: Add a set to main exercises (up to 5 sets max for main lifts)
+        const mainExercises = exercises
+          .map((ex, idx) => ({ ex, idx }))
+          .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < 5);
+        
+        if (mainExercises.length > 0) {
+          mainExercises[0].ex.targetSets++;
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        // Strategy 3: Add another accessory exercise
+        const accessoryPatterns = entry.slots.slice(-2); // Last 2 patterns
+        if (accessoryPatterns.length > 0) {
+          const pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
+          const candidates = pool
+            .filter((e) => 
+              e.movement_pattern === pattern &&
+              !usedInBlock.has(e.id) &&
+              isEligible(e, input)
+            )
+            .sort((a, b) => 
+              score(b, true, input.level, input.primaryTrack) -
+              score(a, true, input.level, input.primaryTrack) ||
+              a.slug.localeCompare(b.slug)
+            );
+          
+          if (candidates.length > 0) {
+            const picked = candidates[0];
+            usedInBlock.add(picked.id);
+            const p = prescribe(
+              input.goal,
+              input.level,
+              picked.mechanic === "isolation",
+              picked.metric ?? "reps",
+              sessionMinutes,
+              picked.equipment_ids,
+            );
+            exercises.push({
+              exerciseId: picked.id,
+              name: picked.name,
+              orderIndex: exercises.length,
+              targetSets: p.sets,
+              targetRepsMin: p.repsMin,
+              targetRepsMax: p.repsMax,
+              restSeconds: p.restSeconds,
+            });
+            estimate = estimateSessionMinutes({ exercises });
+          } else {
+            break; // No more accessories available
+          }
+        } else {
+          break; // No accessory patterns to work with
+        }
+      }
+    }
+
+    // QA Pass 10 H8: For bodyweight upper/full-body days, ensure at least one pull for balance
+    // This check happens AFTER M3 pacing to ensure the pull isn't dropped
+    const isBWCheck = input.primaryTrack === "bodyweight";
+    const isUpperOrFullCheck = entry.focus === "upper" || entry.focus === "pull" || entry.focus === "push";
+    
+    if (isBWCheck && isUpperOrFullCheck && exercises.length > 0) {
+      const hasPull = exercises.some(ex => {
+        const candidate = pool.find(e => e.id === ex.exerciseId);
+        return candidate && (candidate.movement_pattern === "horizontal_pull" || candidate.movement_pattern === "vertical_pull");
+      });
+      
+      // If no pull exists after pacing, add one
+      if (!hasPull) {
+        const pullCandidates = pool
+          .filter(e => 
+            (e.movement_pattern === "horizontal_pull" || e.movement_pattern === "vertical_pull") &&
+            !usedInBlock.has(e.id) &&
+            isEligible(e, input)
+          )
+          .sort((a, b) => 
+            score(b, true, input.level, input.primaryTrack) -
+            score(a, true, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
+        
+        if (pullCandidates.length > 0) {
+          const picked = pullCandidates[0];
+          usedInBlock.add(picked.id);
+          const p = prescribe(
+            input.goal,
+            input.level,
+            picked.mechanic === "isolation",
+            picked.metric ?? "reps",
+            sessionMinutes,
+            picked.equipment_ids,
+          );
+          exercises.push({
+            exerciseId: picked.id,
+            name: picked.name,
+            orderIndex: exercises.length,
+            targetSets: p.sets,
+            targetRepsMin: p.repsMin,
+            targetRepsMax: p.repsMax,
+            restSeconds: p.restSeconds,
+          });
+        }
+      }
     }
 
     days.push({

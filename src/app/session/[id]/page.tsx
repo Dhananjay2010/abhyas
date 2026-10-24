@@ -171,17 +171,21 @@ export default async function SessionPage({
 
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
   // Equipment_ids added in migration 140500 but DB types not regenerated yet
-  const allWarmupRows = ((warmupsRes.data ?? []) as any[]).map((w) => ({
-    id: w.id,
-    slug: w.slug,
-    name: w.name,
-    type: w.type,
-    target_regions: w.target_regions,
-    target_muscles: w.target_muscles,
-    duration_seconds: w.duration_seconds,
-    instructions: w.instructions,
-    equipment_ids: w.equipment_ids ?? [],
-  })) as WarmupRow[];
+  type WarmupData = Record<string, unknown>;
+  const allWarmupRows = ((warmupsRes.data ?? []) as unknown[]).map((w: unknown) => {
+    const data = w as WarmupData;
+    return {
+      id: data.id as string,
+      slug: data.slug as string,
+      name: data.name as string,
+      type: data.type as string,
+      target_regions: data.target_regions as string[],
+      target_muscles: data.target_muscles as string[],
+      duration_seconds: data.duration_seconds as number,
+      instructions: data.instructions as string[],
+      equipment_ids: (data.equipment_ids as string[] | undefined) ?? [],
+    };
+  }) as WarmupRow[];
   
   const warmup = selectWarmup({
     warmups: allWarmupRows,
