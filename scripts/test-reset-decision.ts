@@ -11,7 +11,7 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-console.log("\nReset decision: fields that trigger reset");
+console.log("\nReset decision: only primary_track triggers reset");
 {
   const current = {
     goal: "hypertrophy",
@@ -20,16 +20,16 @@ console.log("\nReset decision: fields that trigger reset");
     primary_track: "barbell",
   };
 
-  check("goal change triggers reset",
-    shouldResetProgressionTargets({ goal: "strength" }, current) === true);
+  check("goal change does NOT trigger reset",
+    shouldResetProgressionTargets({ goal: "strength" }, current) === false);
   
-  check("level change triggers reset",
-    shouldResetProgressionTargets({ level: "advanced" }, current) === true);
+  check("level change does NOT trigger reset",
+    shouldResetProgressionTargets({ level: "advanced" }, current) === false);
   
-  check("days_per_week change triggers reset",
-    shouldResetProgressionTargets({ days_per_week: 3 }, current) === true);
+  check("days_per_week change does NOT trigger reset",
+    shouldResetProgressionTargets({ days_per_week: 3 }, current) === false);
   
-  check("primary_track change triggers reset",
+  check("primary_track change DOES trigger reset",
     shouldResetProgressionTargets({ primary_track: "kettlebell" }, current) === true);
 }
 
@@ -86,12 +86,12 @@ console.log("\nReset decision: multiple changes");
     primary_track: "barbell",
   };
 
-  check("multiple progression fields trigger reset",
+  check("multiple non-track fields don't trigger reset",
     shouldResetProgressionTargets({
       goal: "strength",
       level: "advanced",
       age: 35,
-    }, current) === true);
+    }, current) === false);
   
   check("only non-progression fields don't trigger reset",
     shouldResetProgressionTargets({
@@ -118,8 +118,8 @@ console.log("\nReset decision: undefined vs null");
   check("undefined field in patch is ignored",
     shouldResetProgressionTargets({ goal: undefined }, current) === false);
   
-  check("null vs string counts as change",
-    shouldResetProgressionTargets({ goal: null as unknown as string }, current) === true);
+  check("null goal doesn't trigger reset (only primary_track does)",
+    shouldResetProgressionTargets({ goal: null as unknown as string }, current) === false);
 }
 
 console.log("\nMutation guard: O10 (settings always resets)");
@@ -141,11 +141,11 @@ console.log("\nMutation guard: O10 (settings always resets)");
     shouldResetProgressionTargets(nonProgressionChange, current) === false,
     "age/weight should NOT reset");
   
-  const progressionChange = { goal: "strength" };
+  const trackChange = { primary_track: "kettlebell" as const };
   
-  check("progression changes do trigger reset",
-    shouldResetProgressionTargets(progressionChange, current) === true,
-    "goal change SHOULD reset");
+  check("primary_track change does trigger reset",
+    shouldResetProgressionTargets(trackChange, current) === true,
+    "primary_track change SHOULD reset");
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
