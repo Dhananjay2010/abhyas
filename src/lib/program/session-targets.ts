@@ -24,12 +24,14 @@ export type PlannedExercise = Pick<
  *
  * Rep/hold trim (L2 deload):
  * When context.loadReducible is explicitly false AND context.isDeload is true,
- * AND the sets were not cut (deload sets === planned sets), trim reps or holds:
+ * AND the sets were not cut (deload sets === planned sets), AND context.metric
+ * is provided, trim reps or holds:
  * - Reps (metric "reps"): multiply min/max by 2/3, round, minimum 1, preserve min ≤ max
  * - Holds (metric "seconds"): multiply by 2/3, round to nearest 5s, minimum 10s
  *
  * When context.loadReducible is omitted (undefined), behaviour is exactly as before,
- * ensuring existing callers remain unchanged.
+ * ensuring existing callers remain unchanged. When context.metric is omitted, trim
+ * is skipped to avoid incorrectly trimming holds as reps.
  */
 export function resolveSessionTargets(
   planned: PlannedExercise,
@@ -51,11 +53,13 @@ export function resolveSessionTargets(
   // Apply rep/hold trim only when:
   // 1. loadReducible is explicitly false (not undefined)
   // 2. Sets were not cut (deload sets === planned sets)
+  // 3. metric is provided (to avoid trimming holds as reps)
   if (
     context.loadReducible === false &&
-    deloaded.sets === planned.target_sets
+    deloaded.sets === planned.target_sets &&
+    context.metric !== undefined
   ) {
-    const metric = context.metric ?? "reps";
+    const metric = context.metric;
 
     if (metric === "seconds") {
       // Holds: multiply by 2/3, round to nearest 5s, minimum 10s
@@ -69,17 +73,20 @@ export function resolveSessionTargets(
       );
       return {
         ...deloaded,
-        repsMin: trimmedMin,
-        repsMax: trimmedMax,
+        repsMin: Math.min(trimmedMin, planned.target_reps_min),
+        repsMax: Math.min(trimmedMax, planned.target_reps_max),
       };
     } else {
       // Reps: multiply by 2/3, round, minimum 1, preserve min ≤ max
-      const trimmedMin = Math.max(1, Math.round((deloaded.repsMin * 2) / 3));
-      const trimmedMax = Math.max(1, Math.round((deloaded.repsMax * 2) / 3));
+      const trimmedMinBeforeCap = Math.max(1, Math.round((deloaded.repsMin * 2) / 3));
+      const trimmedMaxBeforeCap = Math.max(1, Math.round((deloaded.repsMax * 2) / 3));
+      // Cap after applying floor to ensure 0 becomes 1
+      const trimmedMin = Math.min(trimmedMinBeforeCap, Math.max(1, planned.target_reps_min));
+      const trimmedMax = Math.min(Math.max(trimmedMinBeforeCap, trimmedMaxBeforeCap), Math.max(1, planned.target_reps_max));
       return {
         ...deloaded,
         repsMin: trimmedMin,
-        repsMax: Math.max(trimmedMin, trimmedMax),
+        repsMax: trimmedMax,
       };
     }
   }

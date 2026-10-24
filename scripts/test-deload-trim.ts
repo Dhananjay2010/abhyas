@@ -1,18 +1,20 @@
 /**
  * Test: Deload input validation and rep/hold trim
  *
- * L3: applyDeload must reject non-finite values and values < 1
- * L2: On deload rows where sets aren't cut AND loadReducible is false,
- *     trim reps/holds by ~1/3
+ * L3: applyDeload must reject non-finite values and negative values
+ * L2: On deload rows where sets aren't cut AND loadReducible is false
+ *     AND metric is provided, trim reps/holds by ~1/3
  *
  * Key invariants:
- * - applyDeload throws on NaN, Infinity, -Infinity, and values < 1
- * - applyDeload rounds non-integers before validation
- * - All valid integers >= 1 produce the same result as before
- * - Rep trim: multiply by 2/3, round, minimum 1, preserve min ≤ max
- * - Hold trim: multiply by 2/3, round to nearest 5s, minimum 10s
- * - Trim only applies when sets weren't cut AND loadReducible === false
+ * - applyDeload throws on NaN, Infinity, -Infinity, and negative values
+ * - applyDeload validates BEFORE rounding (catches -0.4, -0.5, etc.)
+ * - 0 is allowed for backward compatibility
+ * - All valid integers >= 0 produce the same result as before
+ * - Rep trim: multiply by 2/3, round, minimum 1, preserve min ≤ max, cap at planned
+ * - Hold trim: multiply by 2/3, round to nearest 5s, minimum 10s, cap at planned
+ * - Trim only applies when sets weren't cut AND loadReducible === false AND metric is provided
  * - loadReducible undefined preserves exact backward compatibility
+ * - metric undefined skips trim (prevents trimming holds as reps)
  *
  *   npm run test:deload-trim
  */
@@ -72,6 +74,8 @@ console.log("\n2. applyDeload: bad input validation");
     { value: Infinity, label: "Infinity" },
     { value: -Infinity, label: "-Infinity" },
     { value: -1, label: "-1" },
+    { value: -0.4, label: "-0.4" },
+    { value: -0.5, label: "-0.5" },
   ];
 
   for (const { value, label } of badInputs) {
@@ -226,6 +230,33 @@ console.log("\n5. Rep trim: minimum of 1 preserved");
     "Rep trim: min ≤ max preserved",
     result.repsMin <= result.repsMax,
     `${result.repsMin} > ${result.repsMax}`
+  );
+
+  // Critical: 0-rep case to catch floor mutant
+  const plannedZero: PlannedExercise = {
+    target_sets: 2,
+    target_reps_min: 0,
+    target_reps_max: 1,
+    rest_seconds: 60,
+  };
+
+  const resultZero = resolveSessionTargets(plannedZero, {
+    isDeload: true,
+    loadReducible: false,
+    metric: "reps",
+  });
+
+  // 0 * 2/3 = 0 → must become 1 (minimum)
+  // 1 * 2/3 = 0.67 → must become 1 (minimum)
+  check(
+    "Rep trim: 0 becomes 1 (floor mutant killer)",
+    resultZero.repsMin === 1,
+    `got ${resultZero.repsMin}`
+  );
+  check(
+    "Rep trim: 0-1 becomes 1-1",
+    resultZero.repsMin === 1 && resultZero.repsMax === 1,
+    `got ${resultZero.repsMin}-${resultZero.repsMax}`
   );
 }
 
@@ -437,6 +468,79 @@ console.log("\n12. Edge case: min > max after trim is corrected");
     "Edge: 5 → 3",
     result.repsMin === 3 && result.repsMax === 3,
     `got ${result.repsMin}-${result.repsMax}`
+  );
+}
+
+console.log("\n13. Metric undefined: trim is skipped (footgun prevention)");
+{
+  // Without metric, a 40s hold would be trimmed as reps (40 * 2/3 = 27)
+  const plannedHold: PlannedExercise = {
+    target_sets: 2,
+    target_reps_min: 40,
+    target_reps_max: 40,
+    rest_seconds: 60,
+  };
+
+  const resultNoMetric = resolveSessionTargets(plannedHold, {
+    isDeload: true,
+    loadReducible: false,
+    // metric omitted
+  });
+
+  check(
+    "Metric undefined: hold not trimmed as reps",
+    resultNoMetric.repsMin === 40 && resultNoMetric.repsMax === 40,
+    `got ${resultNoMetric.repsMin}-${resultNoMetric.repsMax}, expected 40-40 (not 27-27)`
+  );
+
+  // Same test with reps
+  const plannedReps: PlannedExercise = {
+    target_sets: 2,
+    target_reps_min: 8,
+    target_reps_max: 12,
+    rest_seconds: 60,
+  };
+
+  const resultRepsNoMetric = resolveSessionTargets(plannedReps, {
+    isDeload: true,
+    loadReducible: false,
+    // metric omitted
+  });
+
+  check(
+    "Metric undefined: reps not trimmed",
+    resultRepsNoMetric.repsMin === 8 && resultRepsNoMetric.repsMax === 12,
+    `got ${resultRepsNoMetric.repsMin}-${resultRepsNoMetric.repsMax}`
+  );
+}
+
+console.log("\n14. Trimmed values never exceed planned (cap)");
+{
+  // Edge case: if formula somehow produces values > planned, they're capped
+  // This is defensive; the formula shouldn't exceed, but let's verify the cap works
+  const planned: PlannedExercise = {
+    target_sets: 2,
+    target_reps_min: 1,
+    target_reps_max: 1,
+    rest_seconds: 60,
+  };
+
+  const result = resolveSessionTargets(planned, {
+    isDeload: true,
+    loadReducible: false,
+    metric: "reps",
+  });
+
+  // 1 * 2/3 = 0.67 → 1 (floor), capped at planned 1
+  check(
+    "Cap: trimmed min ≤ planned min",
+    result.repsMin <= planned.target_reps_min,
+    `${result.repsMin} > ${planned.target_reps_min}`
+  );
+  check(
+    "Cap: trimmed max ≤ planned max",
+    result.repsMax <= planned.target_reps_max,
+    `${result.repsMax} > ${planned.target_reps_max}`
   );
 }
 
