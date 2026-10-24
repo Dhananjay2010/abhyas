@@ -51,7 +51,11 @@ function check(label: string, ok: boolean, detail = "") {
 
 async function testBackstop() {
   const client = new Client({ connectionString: DATABASE_URL });
+  const client1 = new Client({ connectionString: DATABASE_URL });
+  const client2 = new Client({ connectionString: DATABASE_URL });
   await client.connect();
+  await client1.connect();
+  await client2.connect();
 
   try {
     // Set statement and lock timeouts to prevent hanging
@@ -82,9 +86,9 @@ async function testBackstop() {
     
     check("advisory lock line found and removed", functionBody !== originalBody && !functionBody.includes(lockLine));
     
-    // Create the test function in pg_temp schema
+    // Create the test function in public schema with unique name
     await client.query(`
-      CREATE OR REPLACE FUNCTION pg_temp.record_breathing_practice_no_lock(
+      CREATE OR REPLACE FUNCTION public.record_breathing_practice_no_lock(
         p_log_id          uuid,
         p_local_date      date,
         p_pattern_id      uuid,
@@ -149,7 +153,7 @@ async function testBackstop() {
         // Now call the test function without advisory lock
         // This simulates the "second" caller that arrives after the first already inserted
         const result = await client.query(
-          `SELECT pg_temp.record_breathing_practice_no_lock($1::uuid, $2::date, $3::uuid, NULL::uuid, 5, 5, 20, 40, false, 3::smallint, 'off', NULL::uuid, NULL::uuid, NULL::smallint) as session_id`,
+          `SELECT public.record_breathing_practice_no_lock($1::uuid, $2::date, $3::uuid, NULL::uuid, 5, 5, 20, 40, false, 3::smallint, 'off', NULL::uuid, NULL::uuid, NULL::smallint) as session_id`,
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
         
@@ -177,91 +181,172 @@ async function testBackstop() {
       }
     }
     
-    console.log("\n3. Test backstop with orphan session created (simulated race)");
+    console.log("\n3. Test backstop with real concurrent calls (no-lock variant)");
     {
-      await client.query("BEGIN");
+      await client1.query("BEGIN");
+      await client2.query("BEGIN");
       
       try {
-        await client.query("SET LOCAL role authenticated");
-        await client.query(
+        // Set RLS context for both
+        await client1.query("SET LOCAL role authenticated");
+        await client1.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
+        await client2.query("SET LOCAL role authenticated");
+        await client2.query(
           "SELECT set_config('request.jwt.claims', $1, true)",
           [JSON.stringify({ sub: TEST_USER_ID })]
         );
         
-        const patternResult = await client.query(
+        const patternResult = await client1.query(
           "SELECT id FROM breathing_patterns WHERE slug = 'box-breathing'"
         );
         const PATTERN_ID = patternResult.rows[0].id;
         
         const logId = crypto.randomUUID();
         
-        // Create the "winner" session+log
-        const winnerSession = await client.query(
-          `INSERT INTO sessions (user_id, local_date, planned_type, actual_type, status, started_at, completed_at, duration_seconds, breathing_pattern_id)
-           VALUES ($1, $2, 'meditation', 'meditation', 'completed', now() - interval '40 seconds', now(), 40, $3)
-           RETURNING id`,
-          [TEST_USER_ID, FAR_OFF_DATE, PATTERN_ID]
-        );
-        const winnerSessionId = winnerSession.rows[0].id;
-        
-        await client.query(
-          `INSERT INTO breathing_logs (id, user_id, session_id, pattern_id, user_pattern_id, pattern_name, routine_id, routine_name, routine_step, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, guidance)
-           VALUES ($1, $2, $3, $4, NULL, 'Box Breathing', NULL, NULL, NULL, 5, 5, 20, 40, false, 3, 'off')`,
-          [logId, TEST_USER_ID, winnerSessionId, PATTERN_ID]
+        // Client1 calls the no-lock variant and keeps transaction open
+        const promise1 = client1.query(
+          `SELECT public.record_breathing_practice_no_lock($1::uuid, $2::date, $3::uuid, NULL::uuid, 5, 5, 20, 40, false, 3::smallint, 'off', NULL::uuid, NULL::uuid, NULL::smallint) as session_id`,
+          [logId, FAR_OFF_DATE, PATTERN_ID]
         );
         
-        // Create an orphan session (simulating the "loser" in the race)
-        const orphanSession = await client.query(
-          `INSERT INTO sessions (user_id, local_date, planned_type, actual_type, status, started_at, completed_at, duration_seconds, breathing_pattern_id)
-           VALUES ($1, $2, 'meditation', 'meditation', 'completed', now() - interval '40 seconds', now(), 40, $3)
-           RETURNING id`,
-          [TEST_USER_ID, FAR_OFF_DATE, PATTERN_ID]
+        // Wait a bit for client1 to insert
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Client2 calls the no-lock variant - will hit ON CONFLICT and trigger backstop
+        const promise2 = client2.query(
+          `SELECT public.record_breathing_practice_no_lock($1::uuid, $2::date, $3::uuid, NULL::uuid, 5, 5, 20, 40, false, 3::smallint, 'off', NULL::uuid, NULL::uuid, NULL::smallint) as session_id`,
+          [logId, FAR_OFF_DATE, PATTERN_ID]
         );
-        const orphanSessionId = orphanSession.rows[0].id;
         
-        check("created orphan session", orphanSessionId !== winnerSessionId);
+        // Get results
+        const result1 = await promise1;
+        await client1.query("COMMIT");
         
-        // Verify we have 2 sessions before the backstop runs
-        const beforeCount = await client.query(
+        const result2 = await promise2;
+        await client2.query("COMMIT");
+        
+        const session1 = result1.rows[0].session_id;
+        const session2 = result2.rows[0].session_id;
+        
+        check("backstop: both returned session ids", !!(session1 && session2));
+        check("backstop: both returned SAME session id", session1 === session2, `${session1} vs ${session2}`);
+        
+        // Verify exactly one session exists (backstop deleted the orphan)
+        const sessionCount = await client.query(
           "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
           [TEST_USER_ID, FAR_OFF_DATE]
         );
-        check("two sessions exist before backstop", beforeCount.rows[0].ct === "2");
+        check("backstop: exactly ONE session remains", sessionCount.rows[0].ct === "1");
         
-        // Simulate the backstop logic: detect conflict, delete orphan, return winner
-        // (This is what happens inside the function's backstop when v_inserted is false)
-        const existingLog = await client.query(
-          "SELECT session_id FROM breathing_logs WHERE id = $1",
+        // Verify exactly one log exists
+        const logCount = await client.query(
+          "SELECT COUNT(*) as ct FROM breathing_logs WHERE id = $1",
           [logId]
         );
-        const existingSessionId = existingLog.rows[0].session_id;
+        check("backstop: exactly ONE log", logCount.rows[0].ct === "1");
         
-        // Delete the orphan (the one we just created that's not in the log)
-        if (orphanSessionId !== existingSessionId) {
-          await client.query("DELETE FROM sessions WHERE id = $1", [orphanSessionId]);
-        }
+        // Clean up
+        await client.query("DELETE FROM breathing_logs WHERE id = $1", [logId]);
+        await client.query("DELETE FROM sessions WHERE user_id = $1 AND local_date = $2", [TEST_USER_ID, FAR_OFF_DATE]);
         
-        // Verify only one session remains
-        const afterCount = await client.query(
-          "SELECT COUNT(*) as ct FROM sessions WHERE user_id = $1 AND local_date = $2",
+      } catch (error) {
+        try { await client1.query("ROLLBACK"); } catch {}
+        try { await client2.query("ROLLBACK"); } catch {}
+        throw error;
+      }
+    }
+    
+    console.log("\n4. Test planned session survives backstop");
+    {
+      await client1.query("BEGIN");
+      await client2.query("BEGIN");
+      
+      try {
+        // Set RLS context for both
+        await client1.query("SET LOCAL role authenticated");
+        await client1.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
+        await client2.query("SET LOCAL role authenticated");
+        await client2.query(
+          "SELECT set_config('request.jwt.claims', $1, true)",
+          [JSON.stringify({ sub: TEST_USER_ID })]
+        );
+        
+        const patternResult = await client1.query(
+          "SELECT id FROM breathing_patterns WHERE slug = 'box-breathing'"
+        );
+        const PATTERN_ID = patternResult.rows[0].id;
+        
+        // Create a planned session
+        const plannedResult = await client.query(
+          `INSERT INTO sessions (user_id, local_date, planned_type, status)
+           VALUES ($1, $2, 'meditation', 'planned')
+           RETURNING id`,
           [TEST_USER_ID, FAR_OFF_DATE]
         );
-        check("backstop deleted orphan, one session remains", afterCount.rows[0].ct === "1");
+        const plannedSessionId = plannedResult.rows[0].id;
         
-        // Verify the remaining session is the winner
-        const remaining = await client.query(
-          "SELECT id FROM sessions WHERE user_id = $1 AND local_date = $2",
-          [TEST_USER_ID, FAR_OFF_DATE]
+        const logId = crypto.randomUUID();
+        
+        // Client1 calls no-lock variant - finds and reuses planned session
+        const promise1 = client1.query(
+          `SELECT public.record_breathing_practice_no_lock($1::uuid, $2::date, $3::uuid, NULL::uuid, 5, 5, 20, 40, false, 3::smallint, 'off', NULL::uuid, NULL::uuid, NULL::smallint) as session_id`,
+          [logId, FAR_OFF_DATE, PATTERN_ID]
         );
-        check("remaining session is the winner", remaining.rows[0].id === winnerSessionId);
         
-      } finally {
-        await client.query("ROLLBACK");
+        // Wait for client1 to insert log
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Client2 calls no-lock variant - hits ON CONFLICT, triggers backstop
+        const promise2 = client2.query(
+          `SELECT public.record_breathing_practice_no_lock($1::uuid, $2::date, $3::uuid, NULL::uuid, 5, 5, 20, 40, false, 3::smallint, 'off', NULL::uuid, NULL::uuid, NULL::smallint) as session_id`,
+          [logId, FAR_OFF_DATE, PATTERN_ID]
+        );
+        
+        const result1 = await promise1;
+        await client1.query("COMMIT");
+        
+        const result2 = await promise2;
+        await client2.query("COMMIT");
+        
+        const session1 = result1.rows[0].session_id;
+        const session2 = result2.rows[0].session_id;
+        
+        check("planned: both returned session ids", !!(session1 && session2));
+        check("planned: both returned SAME session id", session1 === session2);
+        check("planned: returned the planned session", session1 === plannedSessionId);
+        
+        // Verify the planned session still exists (NOT deleted by backstop)
+        const sessionCheck = await client.query(
+          "SELECT id FROM sessions WHERE id = $1",
+          [plannedSessionId]
+        );
+        check("planned: original planned session survives", sessionCheck.rows.length === 1);
+        
+        // Clean up
+        await client.query("DELETE FROM breathing_logs WHERE id = $1", [logId]);
+        await client.query("DELETE FROM sessions WHERE id = $1", [plannedSessionId]);
+        
+      } catch (error) {
+        try { await client1.query("ROLLBACK"); } catch {}
+        try { await client2.query("ROLLBACK"); } catch {}
+        throw error;
       }
     }
     
   } finally {
+    // Clean up the test function
+    try {
+      await client.query("DROP FUNCTION IF EXISTS public.record_breathing_practice_no_lock CASCADE");
+    } catch {}
     await client.end();
+    await client1.end();
+    await client2.end();
   }
 }
 

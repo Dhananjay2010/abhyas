@@ -52,18 +52,49 @@ function check(label: string, ok: boolean, detail = "") {
   );
 }
 
+// Helper to poll pg_locks until client2 is waiting on the advisory lock
+async function waitForLockContention(
+  pollingClient: Client,
+  blockedPid: number,
+  timeoutMs = 1000
+): Promise<void> {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    const result = await pollingClient.query(
+      `SELECT granted FROM pg_locks 
+       WHERE locktype = 'advisory' 
+       AND pid = $1 
+       AND NOT granted`,
+      [blockedPid]
+    );
+    if (result.rows.length > 0) {
+      // Client2 is waiting on the advisory lock
+      return;
+    }
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  throw new Error(`Client2 never blocked on advisory lock after ${timeoutMs}ms`);
+}
+
 async function testConcurrentRace() {
   const client1 = new Client({ connectionString: DATABASE_URL });
   const client2 = new Client({ connectionString: DATABASE_URL });
+  const client3 = new Client({ connectionString: DATABASE_URL });
   await client1.connect();
   await client2.connect();
+  await client3.connect();
 
   try {
     // Set timeouts to prevent hanging
-    await client1.query("SET statement_timeout = '10s'");
-    await client1.query("SET lock_timeout = '5s'");
-    await client2.query("SET statement_timeout = '10s'");
-    await client2.query("SET lock_timeout = '5s'");
+    // Lock timeout must be longer than contention detection + query time
+    await client1.query("SET statement_timeout = '20s'");
+    await client1.query("SET lock_timeout = '15s'");
+    await client2.query("SET statement_timeout = '20s'");
+    await client2.query("SET lock_timeout = '15s'");
+
+    // Get client2's PID for pg_locks polling
+    const pidResult = await client2.query("SELECT pg_backend_pid() as pid");
+    const client2Pid = pidResult.rows[0].pid;
 
     // Get box-breathing pattern id from seed data
     const patternResult = await client1.query(
@@ -105,9 +136,7 @@ async function testConcurrentRace() {
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
 
-        // Small delay to encourage race
-        await new Promise(resolve => setTimeout(resolve, 10));
-
+        // Start client2's call
         const promise2 = client2.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
@@ -117,11 +146,14 @@ async function testConcurrentRace() {
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
 
-        // Await and commit client1 first, releasing the advisory lock
+        // Wait until client2 is actually blocked on the advisory lock
+        await waitForLockContention(client3, client2Pid);
+
+        // Commit client1 (waits for promise1 to complete, then releases lock)
         const result1 = await promise1;
         await client1.query("COMMIT");
 
-        // Now client2 can proceed (lock released)
+        // Client2 can now proceed
         const result2 = await promise2;
         await client2.query("COMMIT");
 
@@ -196,8 +228,6 @@ async function testConcurrentRace() {
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
 
-        await new Promise(resolve => setTimeout(resolve, 10));
-
         const promise2 = client2.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
@@ -207,11 +237,14 @@ async function testConcurrentRace() {
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
 
-        // Await and commit client1 first, releasing the advisory lock
+        // Wait until client2 is actually blocked on the advisory lock
+        await waitForLockContention(client3, client2Pid);
+
+        // Now commit client1, releasing the advisory lock
         const result1 = await promise1;
         await client1.query("COMMIT");
 
-        // Now client2 can proceed (lock released)
+        // Client2 can now proceed
         const result2 = await promise2;
         await client2.query("COMMIT");
 
@@ -288,8 +321,6 @@ async function testConcurrentRace() {
           [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
         );
 
-        await new Promise(resolve => setTimeout(resolve, 10));
-
         const promise2 = client2.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
@@ -299,11 +330,14 @@ async function testConcurrentRace() {
           [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
         );
 
-        // Await and commit client1 first, releasing the advisory lock
+        // Wait until client2 is actually blocked on the advisory lock
+        await waitForLockContention(client3, client2Pid);
+
+        // Now commit client1, releasing the advisory lock
         const result2a = await promise1;
         await client1.query("COMMIT");
 
-        // Now client2 can proceed (lock released)
+        // Client2 can now proceed
         const result2b = await promise2;
         await client2.query("COMMIT");
 
@@ -330,6 +364,7 @@ async function testConcurrentRace() {
   } finally {
     await client1.end();
     await client2.end();
+    await client3.end();
   }
 }
 

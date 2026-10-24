@@ -32,6 +32,7 @@ declare
   v_routine text;
   v_session uuid;
   v_inserted boolean;
+  v_created boolean := false;
 begin
   if v_user is null then
     raise exception 'record_breathing_practice: not signed in';
@@ -105,6 +106,7 @@ begin
         now() - make_interval(secs => p_seconds), now(), p_seconds, p_pattern_id
       )
       returning id into v_session;
+      v_created := true;
     end if;
   end if;
 
@@ -142,7 +144,8 @@ begin
       -- If we created a new session for this call but the log insert conflicted,
       -- delete the orphan session we created. This happens when the advisory lock
       -- is missing or fails, and both transactions create separate sessions.
-      if p_session_id is null and v_session is not null and v_session <> v_existing_session then
+      -- Only delete if we actually created it (not a reused planned session).
+      if v_created and v_session <> v_existing_session then
         delete from sessions where id = v_session;
       end if;
       
