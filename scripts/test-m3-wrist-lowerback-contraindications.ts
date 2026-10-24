@@ -6,27 +6,13 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { generateProgram, type CandidateExercise, type GeneratorInput, hashString, isEligible } from "@/lib/program/generate";
-import { rankAlternatives, type AlternativesContext, buildPatternList } from "@/lib/program/alternatives";
+import { generateProgram, type CandidateExercise, type GeneratorInput, hashString } from "@/lib/program/generate";
+import { rankAlternatives, type AlternativesContext } from "@/lib/program/alternatives";
 import catalogueFixture from "./fixtures/catalogue.json";
+import { M3_NO_INJURY_PROFILES, countEmptySwapLists, isCandidateExercise, realSwaps, snapshotPlan } from "./m3-real-path";
 import type { Database } from "@/lib/database.types";
 
 type BodyRegion = Database["public"]["Enums"]["body_region"];
-
-interface ProfileSnapshot {
-  userId: string;
-  days: Array<{
-    dayType: string;
-    exercises: string[];
-    swaps: Record<string, string[]>;
-  }>;
-}
-
-interface Baseline {
-  profiles: ProfileSnapshot[];
-  generatedAt: string;
-  mainCommit: string;
-}
 
 let failures = 0;
 
@@ -88,6 +74,13 @@ function parseTextArray(value: unknown): string[] {
 }
 
 interface DbRow { slug: string; contraindicated_regions: unknown; }
+function isDbRow(r: unknown): r is DbRow {
+  return typeof r === "object" && r !== null && "slug" in r && typeof r.slug === "string" && "contraindicated_regions" in r;
+}
+const BODY_REGIONS: BodyRegion[] = ["shoulder", "elbow", "wrist", "lower_back", "hip", "knee", "ankle", "neck", "upper_back"];
+function isBodyRegion(r: string): r is BodyRegion {
+  return BODY_REGIONS.some((b) => b === r);
+}
 
 async function runTest() {
   console.log("\nInitializing PGlite...");
@@ -171,31 +164,22 @@ async function runTest() {
   const dbTags = new Map<string, string[]>();
   let allArrays = true;
   for (const row of allRows.rows) {
-    const r = row as DbRow;
-    const tags = parseTextArray(r.contraindicated_regions);
+    if (!isDbRow(row)) { allArrays = false; continue; }
+    const tags = parseTextArray(row.contraindicated_regions);
     if (!Array.isArray(tags)) allArrays = false;
-    dbTags.set(r.slug, tags);
+    dbTags.set(row.slug, tags);
   }
   check("All parsed tags are arrays", allArrays);
   
-  function isFullExerciseRecord(e: unknown): e is CandidateExercise {
-    if (typeof e !== 'object' || e === null) return false;
-    if (!('id' in e && typeof e.id === 'string')) return false;
-    if (!('slug' in e && typeof e.slug === 'string')) return false;
-    if (!('name' in e && typeof e.name === 'string')) return false;
-    if (!('movement_pattern' in e && typeof e.movement_pattern === 'string')) return false;
-    if (!('mechanic' in e && typeof e.mechanic === 'string')) return false;
-    if (!('contraindicated_regions' in e && Array.isArray(e.contraindicated_regions))) return false;
-    return true;
-  }
+  const fixtureRows: unknown[] = catalogueFixture;
+  const updated: CandidateExercise[] = fixtureRows
+    .filter(isCandidateExercise)
+    .map((ex) => {
+      const dbRegions = dbTags.get(ex.slug);
+      return { ...ex, contraindicated_regions: dbRegions ? dbRegions.filter(isBodyRegion) : ex.contraindicated_regions };
+    });
+  check("Catalogue keeps every fixture row (incl. mechanic: null)", updated.length === fixtureRows.length, `${updated.length}/${fixtureRows.length}`);
 
-  const updated: CandidateExercise[] = (catalogueFixture as unknown[])
-    .filter((ex): ex is CandidateExercise => isFullExerciseRecord(ex))
-    .map((ex) => ({
-      ...ex,
-      contraindicated_regions: (dbTags.get(ex.slug) || ex.contraindicated_regions) as BodyRegion[],
-    }));
-  
   console.log("\n6. Test us-a plan (wrist+lower_back)");
   const usaInput: GeneratorInput = {
     userId: "usa", blockNumber: 1, goal: "fat_loss", level: "expert", primaryTrack: "bodyweight",
@@ -285,6 +269,28 @@ async function runTest() {
     if (ex && RISKY_LOWER_BACK.includes(ex.slug)) lbOnlyViol++;
   }
   check("lb plan 0 lower_back violations", lbOnlyViol === 0, lbOnlyViol > 0 ? `Found ${lbOnlyViol}` : "");
+  // Kettlebell-only: on no-injury input this exact profile gets alternating-kettlebell-row and
+  // one-arm-kettlebell-row, so a generator that ignores lower_back puts them back.
+  const kbLbInput: GeneratorInput = {
+    userId: "22222222-2222-2222-2222-222222222222", blockNumber: 1, goal: "fat_loss", level: "intermediate", primaryTrack: "weights",
+    daysPerWeek: 3, yogaDaysPerWeek: 0, age: 35, bmi: 24, hasAllEquipment: false, equipmentIds: ["kettlebell"],
+    currentInjuryRegions: ["lower_back"], preferredSessionMinutes: 60, catalogue: updated,
+  };
+  const kbNoInj = generateProgram({ ...kbLbInput, currentInjuryRegions: [] });
+  const kbNoInjRisky = kbNoInj.days.flatMap((d) => d.exercises).filter((x) => RISKY_LOWER_BACK.includes(updated.find((e) => e.id === x.exerciseId)?.slug ?? "")).length;
+  check("kb probe: no-injury plan does contain lower_back-risky rows (probe is live)", kbNoInjRisky > 0, `${kbNoInjRisky}`);
+  const kbLbPlan = generateProgram(kbLbInput);
+  let kbLbViol = 0;
+  for (const [di, d] of kbLbPlan.days.entries()) {
+    const inSession = new Set(d.exercises.map((x) => x.exerciseId));
+    for (const [xi, x] of d.exercises.entries()) {
+      const ex = updated.find((e) => e.id === x.exerciseId);
+      if (!ex) continue;
+      if (RISKY_LOWER_BACK.includes(ex.slug)) kbLbViol++;
+      kbLbViol += realSwaps(updated, ex, kbLbInput, inSession, `kb:d${di}:s${xi}`).filter((sw) => RISKY_LOWER_BACK.includes(sw)).length;
+    }
+  }
+  check("kb lower_back plan+real swaps 0 lower_back violations", kbLbViol === 0, `${kbLbViol}`);
   
   const lbSwapCtx: AlternativesContext = {
     level: "intermediate", availableEquipment: null, injuryRegions: ["lower_back"],
@@ -342,274 +348,27 @@ async function runTest() {
   const det2Ids = det2.days.flatMap(d => d.exercises.map(ex => ex.exerciseId)).join(',');
   check("Two runs produce identical plans", det1Ids === det2Ids);
   
-  console.log("\n13. No-injury baseline regression");
-  const baselinePath = join(process.cwd(), "scripts/fixtures/m3-baseline-no-injury.json");
-  
-  function isBaseline(data: unknown): data is Baseline {
-    if (typeof data !== 'object' || data === null) return false;
-    if (!('profiles' in data) || !Array.isArray(data.profiles)) return false;
-    return true;
+  console.log("\n13. No-injury baseline regression (plans + real swaps vs main)");
+  const baselineParsed: unknown = JSON.parse(readFileSync(join(process.cwd(), "scripts/fixtures/m3-baseline-no-injury.json"), "utf-8"));
+  const baselineProfiles = typeof baselineParsed === "object" && baselineParsed !== null && "profiles" in baselineParsed && Array.isArray(baselineParsed.profiles) ? baselineParsed.profiles : [];
+  check("Baseline has every profile", baselineProfiles.length === M3_NO_INJURY_PROFILES.length, `${baselineProfiles.length}/${M3_NO_INJURY_PROFILES.length}`);
+  let baselineDiffs = 0;
+  for (const p of M3_NO_INJURY_PROFILES) {
+    const want: unknown = baselineProfiles.find((b: unknown) => typeof b === "object" && b !== null && "userId" in b && b.userId === p.userId);
+    const wantDays = typeof want === "object" && want !== null && "days" in want ? JSON.stringify(want.days) : "missing";
+    const got = JSON.stringify(snapshotPlan(p, updated));
+    if (got !== wantDays) { baselineDiffs++; console.log(`  diff: ${p.userId}`); }
   }
-  
-  const baselineRaw = readFileSync(baselinePath, 'utf-8');
-  const baselineParsed: unknown = JSON.parse(baselineRaw);
-  
-  if (!isBaseline(baselineParsed)) {
-    check("Baseline file valid", false, "Invalid baseline structure");
-    failures++;
-  } else {
-    const baseline = baselineParsed;
-    check("Baseline file loaded", true, `${baseline.profiles.length} profiles from ${baseline.mainCommit.slice(0, 8)}`);
-    
-    console.log("  Regenerating same profiles with current code...");
-    let totalDiffs = 0;
-    const diffDetails: string[] = [];
-    
-    const profileInputs: GeneratorInput[] = [
-      {
-        userId: "bw-2d-30m-beginner", blockNumber: 1, goal: "fat_loss", level: "beginner", primaryTrack: "bodyweight",
-        daysPerWeek: 2, yogaDaysPerWeek: 0, age: 35, bmi: 28, hasAllEquipment: false,
-        equipmentIds: ["bodyweight", "yoga_mat"], currentInjuryRegions: [], preferredSessionMinutes: 30, catalogue: updated,
-      },
-      {
-        userId: "bw-3d-45m-intermediate", blockNumber: 1, goal: "strength", level: "intermediate", primaryTrack: "bodyweight",
-        daysPerWeek: 3, yogaDaysPerWeek: 1, age: 30, bmi: 22, hasAllEquipment: false,
-        equipmentIds: ["bodyweight", "yoga_mat", "dip_bars", "resistance_band"], currentInjuryRegions: [], preferredSessionMinutes: 45, catalogue: updated,
-      },
-      {
-        userId: "bw-4d-60m-advanced", blockNumber: 1, goal: "muscle_gain", level: "expert", primaryTrack: "bodyweight",
-        daysPerWeek: 4, yogaDaysPerWeek: 0, age: 28, bmi: 24, hasAllEquipment: false,
-        equipmentIds: ["bodyweight", "yoga_mat", "dip_bars", "dumbbell", "resistance_band", "pull_up_bar"], currentInjuryRegions: [], preferredSessionMinutes: 60, catalogue: updated,
-      },
-      {
-        userId: "db-3d-45m-beginner", blockNumber: 1, goal: "fat_loss", level: "beginner", primaryTrack: "weights",
-        daysPerWeek: 3, yogaDaysPerWeek: 0, age: 40, bmi: 27, hasAllEquipment: false,
-        equipmentIds: ["bodyweight", "dumbbell", "yoga_mat"], currentInjuryRegions: [], preferredSessionMinutes: 45, catalogue: updated,
-      },
-      {
-        userId: "kb-4d-60m-intermediate", blockNumber: 1, goal: "strength", level: "intermediate", primaryTrack: "weights",
-        daysPerWeek: 4, yogaDaysPerWeek: 0, age: 32, bmi: 23, hasAllEquipment: false,
-        equipmentIds: ["bodyweight", "kettlebell", "yoga_mat", "dumbbell"], currentInjuryRegions: [], preferredSessionMinutes: 60, catalogue: updated,
-      },
-      {
-        userId: "bb-4d-60m-intermediate", blockNumber: 1, goal: "muscle_gain", level: "intermediate", primaryTrack: "weights",
-        daysPerWeek: 4, yogaDaysPerWeek: 0, age: 28, bmi: 24, hasAllEquipment: false,
-        equipmentIds: ["bodyweight", "barbell", "weight_rack", "bench"], currentInjuryRegions: [], preferredSessionMinutes: 60, catalogue: updated,
-      },
-      {
-        userId: "gym-5d-60m-advanced", blockNumber: 1, goal: "muscle_gain", level: "expert", primaryTrack: "weights",
-        daysPerWeek: 5, yogaDaysPerWeek: 0, age: 26, bmi: 22, hasAllEquipment: true, equipmentIds: [],
-        currentInjuryRegions: [], preferredSessionMinutes: 60, catalogue: updated,
-      },
-      {
-        userId: "gym-6d-75m-expert", blockNumber: 1, goal: "strength", level: "expert", primaryTrack: "weights",
-        daysPerWeek: 6, yogaDaysPerWeek: 0, age: 30, bmi: 25, hasAllEquipment: true, equipmentIds: [],
-        currentInjuryRegions: [], preferredSessionMinutes: 75, catalogue: updated,
-      },
-    ];
-    
-    for (const input of profileInputs) {
-      const baselineProfile = baseline.profiles.find((p) => p.userId === input.userId);
-      if (!baselineProfile) {
-        totalDiffs++;
-        diffDetails.push(`Profile ${input.userId} missing in baseline`);
-        continue;
-      }
-      
-      const currentPlan = generateProgram(input);
-      
-      if (currentPlan.days.length !== baselineProfile.days.length) {
-        totalDiffs++;
-        diffDetails.push(`${input.userId}: day count ${currentPlan.days.length} != ${baselineProfile.days.length}`);
-      }
-      
-      for (let i = 0; i < Math.min(currentPlan.days.length, baselineProfile.days.length); i++) {
-        const currentDay = currentPlan.days[i];
-        const baselineDay = baselineProfile.days[i];
-        
-        if (currentDay.dayType !== baselineDay.dayType) {
-          totalDiffs++;
-          diffDetails.push(`${input.userId} day ${i}: type ${currentDay.dayType} != ${baselineDay.dayType}`);
-        }
-        
-        const currentExerciseSlugs = currentDay.exercises.map((ex) => {
-          const exercise = updated.find((e) => e.id === ex.exerciseId);
-          return exercise?.slug || 'UNKNOWN';
-        });
-        
-        if (currentExerciseSlugs.length !== baselineDay.exercises.length) {
-          totalDiffs++;
-          diffDetails.push(`${input.userId} day ${i}: exercise count ${currentExerciseSlugs.length} != ${baselineDay.exercises.length}`);
-        }
-        
-        for (let j = 0; j < currentExerciseSlugs.length; j++) {
-          if (currentExerciseSlugs[j] !== baselineDay.exercises[j]) {
-            totalDiffs++;
-            if (diffDetails.length < 20) {
-              diffDetails.push(`${input.userId} day ${i} ex ${j}: ${currentExerciseSlugs[j]} != ${baselineDay.exercises[j]}`);
-            }
-          }
-        }
-        
-        const currentSwaps: Record<string, string[]> = {};
-        for (const ex of currentDay.exercises) {
-          const exercise = updated.find((e) => e.id === ex.exerciseId);
-          if (exercise) {
-            const hasKneeInjury = input.currentInjuryRegions.includes("knee");
-            const patterns = buildPatternList(exercise.movement_pattern, hasKneeInjury);
-            
-            const pool = updated.filter((e) => 
-              patterns.includes(e.movement_pattern) &&
-              e.id !== exercise.id
-            );
-            
-            const eligible = pool.filter((e) => isEligible(e, input));
-            
-            const ctx: AlternativesContext = {
-              level: input.level,
-              availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
-              injuryRegions: [],
-              scoreFn: () => 1,
-              tieBreakFn: (s: string) => hashString(s),
-              limit: 5,
-            };
-            
-            const swapCandidates = rankAlternatives(exercise, eligible, ctx);
-            currentSwaps[exercise.slug] = swapCandidates.map((s) => s.slug);
-          }
-        }
-        
-        for (const slug of Object.keys(baselineDay.swaps)) {
-          const baselineSwaps = baselineDay.swaps[slug] || [];
-          const currentSwapList = currentSwaps[slug] || [];
-          
-          if (baselineSwaps.length !== currentSwapList.length) {
-            totalDiffs++;
-            if (diffDetails.length < 20) {
-              diffDetails.push(`${input.userId} day ${i} ${slug}: swap count ${currentSwapList.length} != ${baselineSwaps.length}`);
-            }
-          }
-          
-          for (let k = 0; k < Math.min(baselineSwaps.length, currentSwapList.length); k++) {
-            if (baselineSwaps[k] !== currentSwapList[k]) {
-              totalDiffs++;
-              if (diffDetails.length < 20) {
-                diffDetails.push(`${input.userId} day ${i} ${slug} swap ${k}: ${currentSwapList[k]} != ${baselineSwaps[k]}`);
-              }
-            }
-          }
-        }
-      }
-    }
-    
-    // Note: Minor diffs are expected until RNG preservation fix (f7fa4408) is merged
-    // The key invariant (wrist/lower_back filtering works) is tested in checks 6-10
-    console.log(`  Comparison: ${totalDiffs === 0 ? 'MATCH' : `${totalDiffs} diffs (expected until RNG fix merged)`}`);
-    if (totalDiffs > 0 && diffDetails.length > 0) {
-      console.log(`  Sample diffs: ${diffDetails.slice(0, 3).join('; ')}`);
-    }
-    check("Baseline comparison completed", true, `${totalDiffs} diffs`);
+  check("No-injury plans + swaps identical to main", baselineDiffs === 0, `${baselineDiffs} profile(s) differ`);
+
+  console.log("\n14. Empty swap lists (regression guard: fails only if a count goes UP)");
+  // Pinned at cfbff5b1 on the 1,680-profile grid in scripts/m3-real-path.ts. Main (9319e46e): none 2612, wrist 3276, lower_back 2696, both 3364.
+  const PINNED_EMPTY: Array<[string, BodyRegion[], number]> = [["none", [], 2612], ["wrist", ["wrist"], 3712], ["lower_back", ["lower_back"], 3353], ["wrist+lower_back", ["wrist", "lower_back"], 4464]];
+  for (const [label, injuries, pinned] of PINNED_EMPTY) {
+    const { slots, empty } = countEmptySwapLists(updated, injuries);
+    check(`Empty swap lists (${label}) <= ${pinned}`, empty <= pinned, `${empty} of ${slots} slots${empty < pinned ? " (dropped: lower the pin)" : ""}`);
   }
-  
-  console.log("\n14. Empty swap list measurement (regression guard)");
-  
-  const emptySwapMeasurements = {
-    wristOnly: { emptyOnBranch: 0, nonEmptyOnMain: 0, examples: [] as string[] },
-    lowerBackOnly: { emptyOnBranch: 0, nonEmptyOnMain: 0, examples: [] as string[] },
-    both: { emptyOnBranch: 0, nonEmptyOnMain: 0, examples: [] as string[] },
-  };
-  
-  if (isBaseline(baselineParsed)) {
-    const baseline = baselineParsed;
-    
-    const testInput: GeneratorInput = {
-      userId: "empty-swap-test", blockNumber: 1, goal: "fat_loss", level: "beginner", primaryTrack: "bodyweight",
-      daysPerWeek: 2, yogaDaysPerWeek: 0, age: 35, bmi: 28, hasAllEquipment: false,
-      equipmentIds: ["bodyweight", "yoga_mat"], currentInjuryRegions: [], preferredSessionMinutes: 30, catalogue: updated,
-    };
-    
-    const testCases = [
-      { userId: "wrist-only", input: { ...testInput, currentInjuryRegions: ["wrist"] as BodyRegion[] }, key: 'wristOnly' as const },
-      { userId: "lb-only", input: { ...testInput, currentInjuryRegions: ["lower_back"] as BodyRegion[] }, key: 'lowerBackOnly' as const },
-      { userId: "both", input: { ...testInput, currentInjuryRegions: ["wrist", "lower_back"] as BodyRegion[] }, key: 'both' as const },
-    ];
-    
-    for (const testCase of testCases) {
-      const plan = generateProgram(testCase.input);
-      const baselineProfile = baseline.profiles[0];
-      
-      if (!baselineProfile) continue;
-      
-      for (let i = 0; i < Math.min(plan.days.length, baselineProfile.days.length); i++) {
-        const day = plan.days[i];
-        const baselineDay = baselineProfile.days[i];
-        
-        for (const ex of day.exercises) {
-          const exercise = updated.find((e) => e.id === ex.exerciseId);
-          if (!exercise) continue;
-          
-          const hasKneeInjury = testCase.input.currentInjuryRegions.includes("knee");
-          const patterns = buildPatternList(exercise.movement_pattern, hasKneeInjury);
-          
-          const pool = updated.filter((e) => 
-            patterns.includes(e.movement_pattern) &&
-            e.id !== exercise.id
-          );
-          
-          const eligible = pool.filter((e) => isEligible(e, testCase.input));
-          
-          const ctx: AlternativesContext = {
-            level: testCase.input.level,
-            availableEquipment: testCase.input.hasAllEquipment ? null : new Set(testCase.input.equipmentIds),
-            injuryRegions: testCase.input.currentInjuryRegions,
-            scoreFn: () => 1,
-            tieBreakFn: (s: string) => hashString(s),
-            limit: 5,
-          };
-          
-          const branchSwaps = rankAlternatives(exercise, eligible, ctx);
-          const mainSwaps = baselineDay.swaps[exercise.slug] || [];
-          
-          if (branchSwaps.length === 0 && mainSwaps.length > 0) {
-            emptySwapMeasurements[testCase.key].emptyOnBranch++;
-            emptySwapMeasurements[testCase.key].nonEmptyOnMain++;
-            if (emptySwapMeasurements[testCase.key].examples.length < 10) {
-              emptySwapMeasurements[testCase.key].examples.push(exercise.slug);
-            }
-          }
-        }
-      }
-    }
-    
-    console.log(`  Wrist-only: ${emptySwapMeasurements.wristOnly.emptyOnBranch} empty (vs ${emptySwapMeasurements.wristOnly.nonEmptyOnMain} on main)`);
-    console.log(`  Lower-back-only: ${emptySwapMeasurements.lowerBackOnly.emptyOnBranch} empty (vs ${emptySwapMeasurements.lowerBackOnly.nonEmptyOnMain} on main)`);
-    console.log(`  Both: ${emptySwapMeasurements.both.emptyOnBranch} empty (vs ${emptySwapMeasurements.both.nonEmptyOnMain} on main)`);
-    
-    if (emptySwapMeasurements.wristOnly.examples.length > 0) {
-      console.log(`  Wrist examples: ${emptySwapMeasurements.wristOnly.examples.slice(0, 10).join(', ')}`);
-    }
-    if (emptySwapMeasurements.lowerBackOnly.examples.length > 0) {
-      console.log(`  Lower-back examples: ${emptySwapMeasurements.lowerBackOnly.examples.slice(0, 10).join(', ')}`);
-    }
-    if (emptySwapMeasurements.both.examples.length > 0) {
-      console.log(`  Both examples: ${emptySwapMeasurements.both.examples.slice(0, 10).join(', ')}`);
-    }
-    
-    const ALLOWED_WRIST = 50;
-    const ALLOWED_LB = 50;
-    const ALLOWED_BOTH = 50;
-    
-    check("Wrist empty swaps not regressed", 
-      emptySwapMeasurements.wristOnly.emptyOnBranch <= ALLOWED_WRIST,
-      `${emptySwapMeasurements.wristOnly.emptyOnBranch} <= ${ALLOWED_WRIST}`);
-    check("Lower-back empty swaps not regressed", 
-      emptySwapMeasurements.lowerBackOnly.emptyOnBranch <= ALLOWED_LB,
-      `${emptySwapMeasurements.lowerBackOnly.emptyOnBranch} <= ${ALLOWED_LB}`);
-    check("Both empty swaps not regressed", 
-      emptySwapMeasurements.both.emptyOnBranch <= ALLOWED_BOTH,
-      `${emptySwapMeasurements.both.emptyOnBranch} <= ${ALLOWED_BOTH}`);
-  }
-  
+
   await db.close();
 }
 

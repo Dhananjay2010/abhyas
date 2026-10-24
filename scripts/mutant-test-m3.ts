@@ -88,11 +88,18 @@ const mutants: Mutant[] = [
   },
   
   {
-    name: 'baseline-drop-key-exercises',
-    file: 'scripts/gen-m3-baseline.ts',
-    original: 'const snapshots: ProfileSnapshot[] = [];',
-    mutated: 'const snapshots: ProfileSnapshot[] = [];\n\n  // MUTANT: Drop key exercises from baseline\n  for (const ex of mainCatalogue) {\n    if (["barbell-squat", "goblet-squat", "pushups"].includes(ex.slug)) {\n      mainCatalogue.splice(mainCatalogue.indexOf(ex), 1);\n    }\n  }',
-    description: 'Baseline generator drops barbell-squat, goblet-squat, pushups from no-injury plans',
+    name: 'no-injury-drop-staples',
+    file: 'src/lib/program/generate.ts',
+    original: 'export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolean {\n',
+    mutated: 'export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolean {\n  if (input.currentInjuryRegions.length === 0 && ["pushups", "goblet-squat", "barbell-squat"].includes(ex.slug)) return false;\n',
+    description: 'No-injury users lose pushups/goblet-squat/barbell-squat (baseline must catch)',
+  },
+  {
+    name: 'empty-swaps-grow-lower-back',
+    file: 'src/lib/program/generate.ts',
+    original: 'if (ex.spinal_load === "high") {\n    derived.push("lower_back");',
+    mutated: 'if (ex.spinal_load === "high" || ex.spinal_load === "low") {\n    derived.push("lower_back");',
+    description: 'Low spinal load also excluded for lower_back (empty-swap pin must catch)',
   },
 ];
 
@@ -149,29 +156,25 @@ for (const mutant of mutants) {
       console.log(`  SKIP: File didn't change`);
       skipped++;
       results.push({name: mutant.name, status: 'SKIPPED', reason: 'file unchanged after write'});
-      writeFileSync(filepath, original, 'utf-8');
-      unlinkSync(backupPath);
-      continue;
+      continue; // finally restores from the on-disk backup
     }
     
     // For TS files, verify compilation
     if (filepath.endsWith('.ts') || filepath.endsWith('.tsx')) {
       try {
-        execSync('npx tsc --noEmit', {cwd: process.cwd(), stdio: 'pipe', timeout: 30000});
+        execSync('npx tsc --noEmit', {cwd: process.cwd(), stdio: 'pipe', timeout: 180000});
         console.log(`  Mutant compiles`);
       } catch {
         console.log(`  SKIP: Does not compile`);
         skipped++;
         results.push({name: mutant.name, status: 'SKIPPED', reason: 'does not compile'});
-        writeFileSync(filepath, original, 'utf-8');
-        unlinkSync(backupPath);
-        continue;
+        continue; // finally restores from the on-disk backup
       }
     }
     
     // Run test
     try {
-      execSync('npm run test:m3-wrist', {cwd: process.cwd(), stdio: 'pipe', timeout: 60000});
+      execSync('npm run test:m3-wrist', {cwd: process.cwd(), stdio: 'pipe', timeout: 180000});
       console.log(`  ❌ SURVIVED: Test passed with mutant`);
       survived++;
       results.push({name: mutant.name, status: 'SURVIVED'});
