@@ -59,7 +59,7 @@ export async function closeStaleSessions(
   open: OpenSession[],
   today: string,
 ): Promise<number> {
-  const deps = buildCloseStaleDeps(supabase);
+  const deps: CloseStaleDeps = buildCloseStaleDeps(supabase);
   return closeStaleSessionsCore(deps, open, Date.now(), today);
 }
 

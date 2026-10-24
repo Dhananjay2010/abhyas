@@ -7,13 +7,11 @@
  *   npx tsx scripts/test-close-stale-deps.ts
  */
 
-import { buildCloseStaleDeps } from "../src/lib/session/close-stale-deps";
+import { buildCloseStaleDeps, type CloseStaleClient, type SessionExerciseRow } from "../src/lib/session/close-stale-deps";
 
 type UpdateOptions = { count?: "exact" | "estimated" | "planned" };
-type UpdateResult = { error: null; count: number | null } | { error: Error; count: null };
-type SelectResult<T> = { data: T[] | null; error: null } | { data: null; error: Error };
 
-class FakeSupabaseClient {
+class FakeSupabaseClient implements CloseStaleClient {
   private sessions = new Map<string, { 
     id: string; 
     status: string; 
@@ -21,14 +19,7 @@ class FakeSupabaseClient {
     duration_seconds: number | null 
   }>();
   
-  private sessionExercises = new Map<string, {
-    session_id: string;
-    session_sets: Array<{
-      id: string;
-      is_warmup_set: boolean;
-      completed_at: string | null;
-    }> | null;
-  }[]>();
+  private sessionExercises = new Map<string, SessionExerciseRow[]>();
 
   lastUpdateFilters: { id?: string; status?: string } = {};
   lastUpdateOptions: UpdateOptions = {};
@@ -46,20 +37,23 @@ class FakeSupabaseClient {
     return this.sessions.get(id);
   }
 
-  setSessionExercises(sessionId: string, exercises: typeof this.sessionExercises extends Map<string, infer T> ? T : never) {
+  setSessionExercises(sessionId: string, exercises: SessionExerciseRow[]) {
     this.sessionExercises.set(sessionId, exercises);
   }
 
-  from(table: string) {
+  from(table: string): ReturnType<CloseStaleClient['from']> {
     if (table === "sessions") {
       return {
+        select: () => {
+          throw new Error("select not supported for sessions");
+        },
         update: (data: Record<string, unknown>, options?: UpdateOptions) => {
           this.lastUpdateOptions = options ?? {};
           return {
             eq: (column: string, value: string) => {
               this.lastUpdateFilters[column as "id" | "status"] = value;
               return {
-                eq: (col2: string, val2: string): UpdateResult => {
+                eq: async (col2: string, val2: string) => {
                   this.lastUpdateFilters[col2 as "id" | "status"] = val2;
                   
                   const session = this.sessions.get(this.lastUpdateFilters.id!);
@@ -84,12 +78,15 @@ class FakeSupabaseClient {
       };
     } else if (table === "session_exercises") {
       return {
-        select: (_columns: string) => ({
-          in: (_column: string, values: string[]): SelectResult<unknown> => {
+        select: () => ({
+          in: async (_column: string, values: string[]) => {
             const result = values.flatMap(id => this.sessionExercises.get(id) ?? []);
             return { data: result, error: null };
           }
-        })
+        }),
+        update: () => {
+          throw new Error("update not supported for session_exercises");
+        }
       };
     }
     throw new Error(`Unknown table: ${table}`);
