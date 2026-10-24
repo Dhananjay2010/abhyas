@@ -12,8 +12,6 @@ import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
-type Muscle = Database["public"]["Enums"]["muscle"];
-
 export default async function SessionPage({
   params,
 }: {

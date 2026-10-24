@@ -877,6 +877,16 @@ console.log("\neffectiveRepsMax unification: page and evaluator agree on target"
     bodyweightNoWeight.outcome === "progressed" && bodyweightNoWeight.nextTargetReps === 12,
     `outcome=${bodyweightNoWeight.outcome}, next=${bodyweightNoWeight.nextTargetReps}`);
 
+  // (d) Bodyweight with added weight, currentTargetReps 14, repsMax 12, succeeds at 12 reps.
+  const bodyweightWithWeight = run({
+    meta: PUSHUP,
+    sets: sets(4, 12, 10),
+    state: fresh({ currentWorkingWeightKg: 10, currentTargetReps: 14 }),
+  });
+  check("bodyweight with 10 kg added weight, progressed target 14, succeeds at 12 reps (planned target)",
+    bodyweightWithWeight.outcome === "progressed" && bodyweightWithWeight.nextWorkingWeightKg === 11.25,
+    `outcome=${bodyweightWithWeight.outcome}, next=${bodyweightWithWeight.nextWorkingWeightKg}`);
+
   // Guard: using progressed target for all exercises must fail.
   const loadedWrongTarget = run({
     meta: BENCH,
