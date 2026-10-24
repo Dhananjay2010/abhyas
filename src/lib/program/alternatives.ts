@@ -2,6 +2,7 @@ import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
 
 export type ExerciseRow = CandidateExercise;
+type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
 export type AlternativesContext = {
   level: Database["public"]["Enums"]["fitness_level"];
@@ -18,7 +19,7 @@ const LEVEL_ORDER: Record<Database["public"]["Enums"]["fitness_level"], number> 
   expert: 2,
 };
 
-const FALLBACK_PATTERNS: Record<string, string | undefined> = {
+const FALLBACK_PATTERNS: Partial<Record<MovementPattern, MovementPattern>> = {
   lunge: "squat",
   squat: "lunge",
 };
@@ -67,11 +68,11 @@ function normalizeName(name: string): string {
  * @param ctx - Context: user level, equipment, injuries, result limit
  * @returns Ranked alternatives, deduplicated and capped at limit (default 5)
  */
-export function rankAlternatives(
-  current: ExerciseRow,
-  candidates: ExerciseRow[],
+export function rankAlternatives<T extends ExerciseRow>(
+  current: T,
+  candidates: T[],
   ctx: AlternativesContext,
-): ExerciseRow[] {
+): T[] {
   const limit = ctx.limit ?? 5;
   
   // Try primary pattern first
@@ -81,7 +82,7 @@ export function rankAlternatives(
   if (result.length === 0) {
     const fallbackPattern = FALLBACK_PATTERNS[current.movement_pattern];
     if (fallbackPattern) {
-      result = rankForPattern(current, candidates, fallbackPattern as Database["public"]["Enums"]["movement_pattern"], ctx, limit);
+      result = rankForPattern(current, candidates, fallbackPattern, ctx, limit);
     }
   }
   
@@ -91,16 +92,16 @@ export function rankAlternatives(
 /**
  * Internal: rank alternatives for a specific movement pattern.
  */
-function rankForPattern(
-  current: ExerciseRow,
-  candidates: ExerciseRow[],
-  pattern: Database["public"]["Enums"]["movement_pattern"],
+function rankForPattern<T extends ExerciseRow>(
+  current: T,
+  candidates: T[],
+  pattern: MovementPattern,
   ctx: AlternativesContext,
   limit: number,
-): ExerciseRow[] {
+): T[] {
   const userLevelRank = LEVEL_ORDER[ctx.level];
   
-  const filtered: Array<{ exercise: ExerciseRow; primaryScore: number; genScore: number; tieBreak: number }> = [];
+  const filtered: Array<{ exercise: T; primaryScore: number; genScore: number; tieBreak: number }> = [];
   
   for (const candidate of candidates) {
     // 1. Exclude current exercise
@@ -165,7 +166,7 @@ function rankForPattern(
   
   // Deduplicate AFTER sorting so the best-ranked variant wins
   const seen = new Map<string, boolean>();
-  const deduplicated: ExerciseRow[] = [];
+  const deduplicated: T[] = [];
   
   for (const item of filtered) {
     const normalizedName = normalizeName(item.exercise.name);

@@ -659,19 +659,22 @@ export async function findAlternatives(
   const wantCompound = replacing?.mechanic !== "isolation";
   const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
   
+  // Type the pool with cue field
+  const pool = (poolRes.data ?? []) as unknown as Array<CandidateExercise & { cue: string | null }>;
+  
   // Filter by isEligible first (generator safety rules: age, BMI, spinal load, etc.)
-  const eligible = ((poolRes.data ?? []) as unknown as CandidateExercise[])
+  const eligible = pool
     .filter((e) => !alreadyInSession.has(e.id))
     .filter((e) => isEligible(e, { ...input, catalogue: [] }));
   
   // Find current exercise in the pool (not in eligible - it may be contraindicated)
-  const currentExercise = (poolRes.data ?? []).find((e: unknown) => (e as { id: string }).id === current.exercise_id);
+  const currentExercise = pool.find((e) => e.id === current.exercise_id);
   if (!currentExercise) {
     return { ok: false, error: "Current exercise not found in pool" };
   }
   
   const ranked = rankAlternatives(
-    currentExercise as unknown as CandidateExercise,
+    currentExercise,
     eligible,
     {
       level: input.level,
@@ -683,16 +686,12 @@ export async function findAlternatives(
     },
   );
 
-  const alternatives = ranked.map((e) => {
-    // Map back to pool row to get cue
-    const poolRow = (poolRes.data ?? []).find((p: unknown) => (p as { id: string }).id === e.id) as { cue?: string | null } | undefined;
-    return {
-      exerciseId: e.id,
-      name: e.name,
-      cue: poolRow?.cue ?? null,
-      metric: e.metric ?? ("reps" as const),
-    };
-  });
+  const alternatives = ranked.map((e) => ({
+    exerciseId: e.id,
+    name: e.name,
+    cue: e.cue ?? null,
+    metric: e.metric ?? ("reps" as const),
+  }));
 
   return { ok: true, data: alternatives };
 }
