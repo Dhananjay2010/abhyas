@@ -334,7 +334,7 @@ export async function finishExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  return finishExerciseCore(makeFinishExerciseDeps(supabase), user.id, input, { applyProgression }, supabase);
+  return finishExerciseCore(makeFinishExerciseDeps(supabase, applyProgression), user.id, input);
 }
 
 type ServerClient = Awaited<ReturnType<typeof requireUser>>["supabase"];

@@ -13,16 +13,6 @@ export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
 
-export interface FinishExerciseDepsExt {
-  applyProgression: (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase: any,
-    userId: string,
-    sessionExerciseId: string,
-    feel: SetFeel | null,
-  ) => Promise<ProgressionFeedback | null>;
-}
-
 /**
  * Core idempotent exercise completion logic.
  *
@@ -38,9 +28,6 @@ export async function finishExerciseCore(
     feel: SetFeel | null;
     skipped?: boolean;
   },
-  depsExt: FinishExerciseDepsExt,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
 ): Promise<Result<ProgressionFeedback | null>> {
   /*
     Conditional update: only transition rows that are not already finished.
@@ -74,6 +61,6 @@ export async function finishExerciseCore(
 
   if (input.skipped) return { ok: true, data: null };
 
-  const feedback = await depsExt.applyProgression(supabase, userId, input.sessionExerciseId, input.feel);
+  const feedback = await deps.applyProgression(userId, input.sessionExerciseId, input.feel);
   return { ok: true, data: feedback };
 }

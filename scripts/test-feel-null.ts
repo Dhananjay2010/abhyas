@@ -31,6 +31,7 @@ function makeFakeDeps() {
       storedFeel.value = patch.feel;
       return { data: { id }, error: null };
     },
+    applyProgression: async () => null,
   };
 }
 
@@ -48,8 +49,6 @@ async function runTests() {
         feel: "easy",
         skipped: false,
       },
-      { applyProgression: async () => null },
-      null,
     );
     assertEquals(fake.storedFeel, "easy", "Stores 'easy'");
   }
@@ -65,8 +64,6 @@ async function runTests() {
         feel: "right",
         skipped: false,
       },
-      { applyProgression: async () => null },
-      null,
     );
     assertEquals(fake.storedFeel, "right", "Stores 'right'");
   }
@@ -82,8 +79,6 @@ async function runTests() {
         feel: "hard",
         skipped: false,
       },
-      { applyProgression: async () => null },
-      null,
     );
     assertEquals(fake.storedFeel, "hard", "Stores 'hard'");
   }
@@ -99,13 +94,11 @@ async function runTests() {
         feel: null,
         skipped: false,
       },
-      { applyProgression: async () => null },
-      null,
     );
     assertEquals(fake.storedFeel, null, "Stores null");
   }
 
-  console.log("\n5. User skips exercise -> feel NOT stored (row not updated)");
+  console.log("\n5. User skips exercise -> feel is still stored (row is updated, progression skipped)");
   {
     const fake = makeFakeDeps();
     await finishExerciseCore(
@@ -116,10 +109,8 @@ async function runTests() {
         feel: null,
         skipped: true,
       },
-      { applyProgression: async () => null },
-      null,
     );
-    assertEquals(fake.storedFeel, null, "Skipped exercise doesn't store feel");
+    assertEquals(fake.storedFeel, null, "Skipped exercise stores feel (but doesn't apply progression)");
   }
 
   console.log(`\n✅ Passed: ${passed}`);

@@ -81,7 +81,9 @@ async function runTests() {
     });
 
     assertEquals(result.ok, true, "First finish succeeds");
-    assertEquals(result.data?.status, "completed", "Returns 'completed' status");
+    if (result.ok) {
+      assertEquals(result.data.status, "completed", "Returns 'completed' status");
+    }
   }
 
   console.log("\n2. Retry after already finished (updatedCount = 0, re-read returns stored status)");
@@ -95,11 +97,13 @@ async function runTests() {
     });
 
     assertEquals(result.ok, true, "Retry succeeds");
-    assertEquals(
-      result.data?.status,
-      "completed",
-      "Returns stored 'completed' from re-read",
-    );
+    if (result.ok) {
+      assertEquals(
+        result.data.status,
+        "completed",
+        "Returns stored 'completed' from re-read",
+      );
+    }
   }
 
   console.log("\n3. Retry returns actual stored status (skipped)");
@@ -113,11 +117,13 @@ async function runTests() {
     });
 
     assertEquals(result.ok, true, "Retry succeeds");
-    assertEquals(
-      result.data?.status,
-      "skipped",
-      "Returns stored 'skipped' from re-read",
-    );
+    if (result.ok) {
+      assertEquals(
+        result.data.status,
+        "skipped",
+        "Returns stored 'skipped' from re-read",
+      );
+    }
   }
 
   console.log(`\n✅ Passed: ${testsPassed}`);

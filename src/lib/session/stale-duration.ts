@@ -1,6 +1,6 @@
 export type StaleFinishInput = {
-  /** ISO timestamp the session started. */
-  startedAt: string;
+  /** ISO timestamp the session started. Null or invalid throws an error. */
+  startedAt: string | null;
   /** completed_at of the latest logged set (warm-up or working), or null if none. */
   lastSetCompletedAt: string | null;
   /** Working sets only (is_warmup_set = false). */
@@ -29,6 +29,11 @@ export type StaleFinish = {
  * ended_at must never be before the last logged set's completed_at.
  */
 export function resolveStaleFinish(input: StaleFinishInput): StaleFinish {
+  // Guard: null or invalid startedAt
+  if (input.startedAt === null) {
+    throw new Error("startedAt is null");
+  }
+
   const start = Date.parse(input.startedAt);
 
   // Guard: invalid startedAt produces NaN

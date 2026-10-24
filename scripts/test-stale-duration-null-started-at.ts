@@ -44,7 +44,7 @@ console.log("\n2. Invalid startedAt (null): falls back safely");
 {
   try {
     const result = resolveStaleFinish({
-      startedAt: null as unknown as string,
+      startedAt: null,
       lastSetCompletedAt: "2026-10-24T10:30:00Z",
       workingSetCount: 3,
       restSeconds: 120,
