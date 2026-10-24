@@ -31,32 +31,32 @@ console.log("\n2. Yoga and breathing do NOT settle the day for planning");
 
 console.log("\n3. But yoga DOES count toward streaks");
 {
-  check("weights counts toward streak", countsTowardStreak("weights"));
-  check("bodyweight counts toward streak", countsTowardStreak("bodyweight"));
-  check("yoga counts toward streak", countsTowardStreak("yoga"));
+  check("weights completed with sets counts toward streak", countsTowardStreak("weights", "completed", 1));
+  check("bodyweight completed with sets counts toward streak", countsTowardStreak("bodyweight", "completed", 1));
+  check("yoga completed counts toward streak", countsTowardStreak("yoga", "completed"));
 }
 
 console.log("\n4. Breathing does NOT count toward streaks");
 {
-  check("meditation does NOT count toward streak", !countsTowardStreak("meditation"));
-  check("rest does NOT count toward streak", !countsTowardStreak("rest"));
-  check("active_recovery does NOT count toward streak", !countsTowardStreak("active_recovery"));
-  check("null does NOT count toward streak", !countsTowardStreak(null));
+  check("meditation does NOT count toward streak", !countsTowardStreak("meditation", "completed"));
+  check("rest does NOT count toward streak", !countsTowardStreak("rest", "completed"));
+  check("active_recovery does NOT count toward streak", !countsTowardStreak("active_recovery", "completed"));
+  check("null does NOT count toward streak", !countsTowardStreak(null, "completed"));
 }
 
 console.log("\n5. Product rule: planning ownership != streak counting");
 {
   // The key distinction: yoga counts for streaks but not planning
   check("yoga counts for streak but not planning",
-    countsTowardStreak("yoga") && !ownsPlannedWorkout("yoga"));
+    countsTowardStreak("yoga", "completed") && !ownsPlannedWorkout("yoga"));
   
   // Strength sessions count for both
   check("weights counts for both",
-    countsTowardStreak("weights") && ownsPlannedWorkout("weights"));
+    countsTowardStreak("weights", "completed", 1) && ownsPlannedWorkout("weights"));
   
   // Breathing counts for neither
   check("meditation counts for neither",
-    !countsTowardStreak("meditation") && !ownsPlannedWorkout("meditation"));
+    !countsTowardStreak("meditation", "completed") && !ownsPlannedWorkout("meditation"));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

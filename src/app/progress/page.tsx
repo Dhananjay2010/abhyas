@@ -66,7 +66,7 @@ export default async function ProgressPage() {
       .order("created_at"),
     supabase
       .from("sessions")
-      .select("local_date, status, actual_type")
+      .select("id, local_date, status, actual_type")
       .order("local_date", { ascending: false })
       .limit(500),
     supabase.from("program_days").select("program_id, day_index, day_type"),
@@ -96,12 +96,31 @@ export default async function ProgressPage() {
     (dayTypesByProgram[d.program_id] ??= {})[d.day_index] = d.day_type;
   }
 
+  // Fetch session_volume to get working set counts for strength sessions
+  // Product rule (2026-10-24): strength sessions count toward streaks/days trained
+  // ONLY when status = 'completed' AND working_sets >= 1
+  const sessionIds = (sessionsRes.data ?? []).map((s) => s.id);
+
+  const { data: volumeData } = await supabase
+    .from("session_volume")
+    .select("session_id, set_count")
+    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  const workingSetsBySession = new Map((volumeData ?? []).map((v) => [v.session_id, v.set_count || 0]));
+
+  // Map all sessions with their working set counts
+  // countsTowardStreak will enforce the rules (completed + working sets for strength)
+  const completedSessions = (sessionsRes.data ?? []).map((s) => ({
+    local_date: s.local_date,
+    actual_type: s.actual_type,
+    status: s.status,
+    working_set_count: workingSetsBySession.get(s.id),
+  }));
+
   const dayRecords = buildDayRecords({
     programs,
     dayTypesByProgram,
-    completedSessions: (sessionsRes.data ?? [])
-      .filter((s) => s.status === "completed")
-      .map((s) => ({ local_date: s.local_date, actual_type: s.actual_type })),
+    completedSessions,
     today,
   });
 
@@ -144,12 +163,12 @@ export default async function ProgressPage() {
         <StatTile
           label="Streak"
           value={`${streaks.current}`}
-          sub={streaks.current === 1 ? "session" : "sessions in a row"}
+          sub={streaks.current === 1 ? "day in a row" : "days in a row"}
         />
         <StatTile
           label="Best streak"
           value={`${streaks.longest}`}
-          sub={streaks.longest === 1 ? "session" : "sessions"}
+          sub={streaks.longest === 1 ? "day" : "days"}
         />
         <StatTile label="Days trained" value={`${streaks.totalSessions}`} sub="all time" />
         <StatTile
@@ -164,27 +183,47 @@ export default async function ProgressPage() {
           sub="all time"
         />
       </section>
+      
+      <p className="mt-3 text-xs text-muted">
+        Your streak counts scheduled training days you trained. Missing one resets it. Breathe sessions don&apos;t count.
+      </p>
 
       {!hasAnything && (
         <p className="mt-8 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-          Complete a session or log your weight and the charts will fill in here.
+          Your first workout starts your streak. Complete a session or log your weight and the charts will fill in here.
         </p>
       )}
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold">Body weight</h2>
         <p className="mb-3 text-xs text-muted">Weigh in weekly, same time of day.</p>
-        <LineChart points={weightPoints} unit="kg" title="Body weight" />
+        {weightPoints.length < 2 ? (
+          <p className="mb-4 rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
+            {weightPoints.length === 0
+              ? "Log your weight below to start tracking. Two data points will show a trend."
+              : "One entry logged. Add another to see your trend over time."}
+          </p>
+        ) : (
+          <LineChart points={weightPoints} unit="kg" title="Body weight" />
+        )}
         <LogWeight current={latestWeight} />
       </section>
 
-      {volumePoints.length > 0 && (
+      {volumeRows.length > 0 && (
         <section className="mt-10">
           <h2 className="text-sm font-semibold">Volume per session</h2>
           <p className="mb-3 text-xs text-muted">
             Reps × weight, totalled across the session.
           </p>
-          <BarChart points={volumePoints} unit="kg" title="Volume per session" />
+          {volumePoints.length < 2 ? (
+            <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
+              {volumePoints.length === 0
+                ? "Complete a workout with logged sets to see your volume."
+                : "One session logged. Your trend will appear after your next workout."}
+            </p>
+          ) : (
+            <BarChart points={volumePoints} unit="kg" title="Volume per session" />
+          )}
         </section>
       )}
 
@@ -196,12 +235,21 @@ export default async function ProgressPage() {
             axis would be unreadable here.
           </p>
           <div className="space-y-8">
-            {strengthCharts.map((e) => (
-              <div key={e.name}>
-                <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
-                <LineChart points={e.points} unit="kg" title={e.name} height={110} />
-              </div>
-            ))}
+            {strengthCharts.map((e) => {
+              const showChart = e.points.length >= 2;
+              return (
+                <div key={e.name}>
+                  <h3 className="mb-2 text-sm font-medium">{e.name}</h3>
+                  {showChart ? (
+                    <LineChart points={e.points} unit="kg" title={e.name} height={110} />
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
+                      One session logged. Your strength trend will appear after your next workout.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
