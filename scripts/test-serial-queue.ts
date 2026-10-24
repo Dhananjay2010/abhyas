@@ -58,9 +58,9 @@ async function runTests() {
       running--;
     }
     
-    queue.enqueue(() => operation(1));
-    queue.enqueue(() => operation(2));
-    queue.enqueue(() => operation(3));
+    queue.enqueue(() => operation());
+    queue.enqueue(() => operation());
+    queue.enqueue(() => operation());
     
     await delay(50);
     check("never more than 1 operation running", maxConcurrent === 1, `max concurrent: ${maxConcurrent}`);

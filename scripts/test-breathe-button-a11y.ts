@@ -91,20 +91,21 @@ function checkButtonsInFile(filePath: string): { ok: boolean; issues: string[] }
                 }
               } else if (ts.isJsxExpression(child) && child.expression) {
                 const expr = child.expression;
-                // Accept string literals, template literals, and identifiers (not JSX elements)
+                // Accept string literals, template literals, identifiers, and property access (e.g., m.label, o.cycles)
                 if (ts.isStringLiteral(expr) || 
                     ts.isNoSubstitutionTemplateLiteral(expr) ||
                     ts.isTemplateExpression(expr) ||
-                    (ts.isIdentifier(expr) && !/^[A-Z]/.test(expr.text))) {
+                    ts.isIdentifier(expr) ||
+                    ts.isPropertyAccessExpression(expr)) {
                   return true;
                 }
-                // Reject conditional expressions with JSX (e.g., {on ? <svg/> : <svg/>})
+                // Accept conditional expressions if they don't have JSX elements
                 if (ts.isConditionalExpression(expr)) {
                   const hasJsxInConditional = 
                     ts.isJsxElement(expr.whenTrue) || ts.isJsxSelfClosingElement(expr.whenTrue) ||
                     ts.isJsxElement(expr.whenFalse) || ts.isJsxSelfClosingElement(expr.whenFalse);
-                  if (hasJsxInConditional) {
-                    return false;
+                  if (!hasJsxInConditional) {
+                    return true;
                   }
                 }
               } else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
