@@ -6,6 +6,27 @@
 export type WeightUnit = 'kg' | 'lb';
 
 /**
+ * Equipment IDs that can carry external weight load.
+ * Everything else (resistance bands, benches, mats, cardio equipment, etc.) is non-loadable.
+ */
+export const LOADABLE_EQUIPMENT_IDS = Object.freeze(new Set([
+  // Barbells
+  'barbell', 'ez_bar', 'trap_bar',
+  // Dumbbells
+  'dumbbell',
+  // Kettlebells
+  'kettlebell',
+  // Cables
+  'cable_machine',
+  // Pin-stack/selectorised machines
+  'leg_curl', 'leg_extension',
+  'chest_press_machine', 'pec_deck', 'lat_pulldown',
+  'seated_row_machine', 'shoulder_press_machine', 'machine_generic',
+  // Plate-loaded machines
+  'smith_machine', 'leg_press', 'hack_squat',
+]));
+
+/**
  * Standard kettlebell weights in kg.
  * These follow the international competition standard progression.
  * Frozen to prevent mutation of the shared constant.
@@ -101,41 +122,33 @@ export function gridStepFor(equipmentIds: string[], unit: WeightUnit): number {
  * Snaps a weight value to the equipment's loadable grid.
  * 
  * Rounding rules:
+ * - Non-loadable equipment (resistance bands, benches, mats, etc.) returns 0
+ * - Non-finite, non-positive, or zero inputs return 0
  * - Rounds to the nearest grid value
  * - Ties (e.g., 11.25 kg on 2.5 kg grid) round DOWN for safety
- * - Non-finite or negative inputs return the minimum loadable value
- * - Bodyweight-only equipment returns 0
  * - Kettlebells snap to the nearest standard bell weight
  * 
  * The output is guaranteed to sit exactly on the equipment's grid using
- * integer arithmetic to avoid floating-point drift.
+ * epsilon-based comparison to avoid floating-point drift.
  * 
  * @param value - The weight value to round
  * @param equipmentIds - Array of equipment IDs
  * @param unit - Weight unit ('kg' or 'lb')
- * @returns The rounded weight value on the equipment grid
+ * @returns The rounded weight value on the equipment grid, or 0 for non-loadable equipment
  */
 export function roundToEquipmentGrid(
   value: number,
   equipmentIds: string[],
   unit: WeightUnit
 ): number {
-  // Bodyweight-only equipment: no external load
-  const bodyweightCategoryIds = ['bodyweight', 'yoga_mat', 'pull_up_bar', 'dip_bars'];
-  const hasOnlyBodyweight = equipmentIds.length === 0 || 
-    equipmentIds.every(id => bodyweightCategoryIds.includes(id));
-  
-  if (hasOnlyBodyweight) {
+  // Non-loadable equipment: no external weight
+  const hasLoadable = equipmentIds.some(id => LOADABLE_EQUIPMENT_IDS.has(id));
+  if (!hasLoadable) {
     return 0;
   }
 
-  // Handle non-finite or negative values
-  if (!isFinite(value) || value < 0) {
-    // For kettlebells, return the minimum bell
-    if (equipmentIds.includes('kettlebell')) {
-      return kettlebellBounds(unit).min;
-    }
-    // For other equipment, return 0
+  // Handle non-finite, non-positive, or zero values
+  if (!isFinite(value) || value <= 0) {
     return 0;
   }
 
@@ -149,14 +162,15 @@ export function roundToEquipmentGrid(
     if (value <= minBell) return minBell;
     if (value >= maxBell) return maxBell;
 
-    // Find nearest bell (ties round down)
+    // Find nearest bell (ties round down with epsilon)
+    const epsilon = 1e-9;
     let closestBell = minBell;
     let minDistance = Math.abs(value - minBell);
 
     for (const bell of bells) {
       const distance = Math.abs(value - bell);
-      // Strict less-than means ties keep the lower bell (round down)
-      if (distance < minDistance) {
+      // For ties (equal distance within epsilon), keep the lower bell (round down)
+      if (distance < minDistance - epsilon) {
         minDistance = distance;
         closestBell = bell;
       }

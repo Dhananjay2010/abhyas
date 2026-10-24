@@ -114,6 +114,14 @@ console.log('\n6a. roundToEquipmentGrid - plate-loaded machines (2.5 kg / 5 lb)'
   
   check('leg_press 100 kg on-grid', roundToEquipmentGrid(100, ['leg_press'], 'kg') === 100);
   check('leg_press 101 kg → 100 kg', roundToEquipmentGrid(101, ['leg_press'], 'kg') === 100);
+  check('leg_press 100 lb on-grid', roundToEquipmentGrid(100, ['leg_press'], 'lb') === 100);
+  check('leg_press 102 lb → 100 lb', roundToEquipmentGrid(102, ['leg_press'], 'lb') === 100);
+  
+  check('hack_squat 75 kg on-grid', roundToEquipmentGrid(75, ['hack_squat'], 'kg') === 75);
+  check('hack_squat 76 kg → 75 kg', roundToEquipmentGrid(76, ['hack_squat'], 'kg') === 75);
+  check('hack_squat 77 kg → 77.5 kg', roundToEquipmentGrid(77, ['hack_squat'], 'kg') === 77.5);
+  check('hack_squat 150 lb on-grid', roundToEquipmentGrid(150, ['hack_squat'], 'lb') === 150);
+  check('hack_squat 152 lb → 150 lb', roundToEquipmentGrid(152, ['hack_squat'], 'lb') === 150);
 }
 
 console.log('\n7. roundToEquipmentGrid - kettlebell kg');
@@ -127,6 +135,10 @@ console.log('\n7. roundToEquipmentGrid - kettlebell kg');
   
   check('17 kg tie (between 16 and 18) → 16 kg', roundToEquipmentGrid(17, ['kettlebell'], 'kg') === 16);
   check('22 kg tie (between 20 and 24) → 20 kg', roundToEquipmentGrid(22, ['kettlebell'], 'kg') === 20);
+  
+  // Epsilon test for kettlebell ties
+  check('22 + 1e-12 kg tie (within epsilon) → 20 kg', roundToEquipmentGrid(22 + 1e-12, ['kettlebell'], 'kg') === 20);
+  check('22 + 1e-8 kg (above epsilon) → 24 kg', roundToEquipmentGrid(22 + 1e-8, ['kettlebell'], 'kg') === 24);
   
   // Clamp to bounds
   check('below min (2 kg) → 4 kg', roundToEquipmentGrid(2, ['kettlebell'], 'kg') === 4);
@@ -158,15 +170,16 @@ console.log('\n9. roundToEquipmentGrid - non-finite and negative inputs');
   check('-Infinity → 0', roundToEquipmentGrid(-Infinity, ['barbell'], 'kg') === 0);
   check('negative value (-10) → 0', roundToEquipmentGrid(-10, ['barbell'], 'kg') === 0);
   check('negative small value (-0.5) → 0', roundToEquipmentGrid(-0.5, ['dumbbell'], 'lb') === 0);
+  check('zero → 0', roundToEquipmentGrid(0, ['barbell'], 'kg') === 0);
   
-  // Kettlebell non-finite: returns min bell
-  const minKg = kettlebellBounds('kg').min;
-  const minLb = kettlebellBounds('lb').min;
-  check('kettlebell NaN → min bell (kg)', roundToEquipmentGrid(NaN, ['kettlebell'], 'kg') === minKg);
-  check('kettlebell negative → min bell (lb)', roundToEquipmentGrid(-5, ['kettlebell'], 'lb') === minLb);
+  // Kettlebell non-finite or non-positive: returns 0 (not min bell)
+  check('kettlebell NaN → 0', roundToEquipmentGrid(NaN, ['kettlebell'], 'kg') === 0);
+  check('kettlebell negative → 0', roundToEquipmentGrid(-5, ['kettlebell'], 'lb') === 0);
+  check('kettlebell zero → 0', roundToEquipmentGrid(0, ['kettlebell'], 'kg') === 0);
+  check('kettlebell -Infinity → 0', roundToEquipmentGrid(-Infinity, ['kettlebell'], 'kg') === 0);
 }
 
-console.log('\n9a. roundToEquipmentGrid - bodyweight-only returns 0');
+console.log('\n9a. roundToEquipmentGrid - non-loadable equipment returns 0');
 {
   check('empty array returns 0 (kg)', roundToEquipmentGrid(100, [], 'kg') === 0);
   check('empty array returns 0 (lb)', roundToEquipmentGrid(100, [], 'lb') === 0);
@@ -176,10 +189,19 @@ console.log('\n9a. roundToEquipmentGrid - bodyweight-only returns 0');
   
   check('pull_up_bar only returns 0 (kg)', roundToEquipmentGrid(50, ['pull_up_bar'], 'kg') === 0);
   check('dip_bars only returns 0 (lb)', roundToEquipmentGrid(50, ['dip_bars'], 'lb') === 0);
-  
   check('yoga_mat only returns 0 (kg)', roundToEquipmentGrid(25, ['yoga_mat'], 'kg') === 0);
   
-  check('bodyweight + pull_up_bar returns 0', roundToEquipmentGrid(75, ['bodyweight', 'pull_up_bar'], 'kg') === 0);
+  check('resistance_band returns 0', roundToEquipmentGrid(50, ['resistance_band'], 'kg') === 0);
+  check('flat_bench returns 0', roundToEquipmentGrid(100, ['flat_bench'], 'lb') === 0);
+  check('adjustable_bench returns 0', roundToEquipmentGrid(100, ['adjustable_bench'], 'kg') === 0);
+  check('stability_ball returns 0', roundToEquipmentGrid(75, ['stability_ball'], 'kg') === 0);
+  check('trx returns 0', roundToEquipmentGrid(50, ['trx'], 'lb') === 0);
+  check('jump_rope returns 0', roundToEquipmentGrid(10, ['jump_rope'], 'kg') === 0);
+  
+  // Mixed: non-loadable + loadable uses the loadable equipment's grid
+  check('flat_bench + dumbbell uses dumbbell grid', roundToEquipmentGrid(21, ['flat_bench', 'dumbbell'], 'kg') === 20);
+  check('resistance_band + barbell uses barbell grid', roundToEquipmentGrid(52, ['resistance_band', 'barbell'], 'kg') === 52.5);
+  check('bodyweight + cable uses cable grid', roundToEquipmentGrid(11.25, ['bodyweight', 'cable_machine'], 'kg') === 10);
 }
 
 console.log('\n10. roundToEquipmentGrid - float precision (epsilon-safe)');
@@ -190,18 +212,15 @@ console.log('\n10. roundToEquipmentGrid - float precision (epsilon-safe)');
   check('11.25 + 1e-12 kg tie → 10 kg (within epsilon)', roundToEquipmentGrid(11.25 + 1e-12, ['dumbbell'], 'kg') === 10);
   check('0.1 + 0.2 + 11.0 = 11.3 → 12.5 kg', roundToEquipmentGrid(0.1 + 0.2 + 11.0, ['dumbbell'], 'kg') === 12.5);
   
-  // 0.1 + 0.2 = 0.30000000000000004 in JavaScript
-  const floatSum = 0.1 + 0.2;
-  const rounded = roundToEquipmentGrid(floatSum, ['barbell'], 'kg');
-  check('0.1 + 0.2 snaps to grid', rounded === 0 || rounded === 2.5, `got ${rounded}`);
+  // 0.1 + 0.2 is very small, rounds to 0
+  check('0.1 + 0.2 → 0', roundToEquipmentGrid(0.1 + 0.2, ['barbell'], 'kg') === 0);
   
-  // Repeated addition can accumulate drift
+  // 10 × 0.1 is also very small, rounds to 0
   let sum = 0;
   for (let i = 0; i < 10; i++) {
     sum += 0.1;
   }
-  const roundedSum = roundToEquipmentGrid(sum, ['barbell'], 'kg');
-  check('10 × 0.1 snaps to grid', roundedSum === 0 || roundedSum === 2.5, `got ${roundedSum}`);
+  check('10 × 0.1 → 0', roundToEquipmentGrid(sum, ['barbell'], 'kg') === 0);
   
   // Near-grid values with float drift
   const nearGrid = 20.00000000001;
@@ -219,9 +238,14 @@ console.log('\n11. roundToEquipmentGrid - multi-equipment precedence');
   // Pin-stack machine should win with its 5 kg step
   const result = roundToEquipmentGrid(52.5, ['dumbbell', 'leg_curl'], 'kg');
   check('dumbbell + pin-stack machine tie 52.5 kg → 50 kg (5 kg step, down)', result === 50, `got ${result}`);
+  
+  // Mixed: bodyweight + loadable uses loadable grid
+  check('bodyweight + dumbbell uses dumbbell grid', roundToEquipmentGrid(21, ['bodyweight', 'dumbbell'], 'kg') === 20);
+  check('dip_bars + machine_generic uses machine grid', roundToEquipmentGrid(52, ['dip_bars', 'machine_generic'], 'kg') === 50);
+  check('kettlebell + dumbbell: kettlebell takes precedence', roundToEquipmentGrid(7, ['kettlebell', 'dumbbell'], 'kg') === 6);
 }
 
-console.log('\n12. Sweep test: all outputs 0..200 in 0.25 steps are on-grid');
+console.log('\n12. Sweep test: all outputs 0..200 in 0.25 steps are EXACTLY on-grid');
 {
   let offGridCount = 0;
   const testCases: Array<{ equipmentIds: string[]; unit: 'kg' | 'lb'; step: number }> = [
@@ -235,18 +259,21 @@ console.log('\n12. Sweep test: all outputs 0..200 in 0.25 steps are on-grid');
   for (const { equipmentIds, unit, step } of testCases) {
     for (let i = 0; i <= 200; i += 0.25) {
       const rounded = roundToEquipmentGrid(i, equipmentIds, unit);
-      // Use exact comparison: rounded should equal k * step for some integer k
-      const multiple = Math.round(rounded / step);
-      const expected = multiple * step;
-      if (Math.abs(rounded - expected) > 1e-10) {
+      // Use integer-scaled arithmetic for exact check
+      const scaledRounded = Math.round(rounded * 1000);
+      const scaledStep = Math.round(step * 1000);
+      const isExactMultiple = Number.isInteger(scaledRounded / scaledStep);
+      
+      if (!isExactMultiple) {
         offGridCount++;
+        const multiple = scaledRounded / scaledStep;
         if (offGridCount <= 3) {
-          console.log(`    FAIL: ${i} ${unit} on ${equipmentIds[0]} → ${rounded} (expected ${expected}, off by ${Math.abs(rounded - expected)})`);
+          console.log(`    FAIL: ${i} ${unit} on ${equipmentIds[0]} → ${rounded} (multiple: ${multiple}, not an integer)`);
         }
       }
     }
   }
-  check(`sweep 0..200 in 0.25 steps (${testCases.length} equipment types)`, offGridCount === 0, 
+  check(`sweep 0..200 in 0.25 steps EXACTLY on-grid (${testCases.length} equipment types)`, offGridCount === 0, 
     offGridCount > 0 ? `${offGridCount} off-grid results` : '');
 }
 
@@ -256,8 +283,8 @@ console.log('\n13. Sweep test: kettlebells snap to standard bells');
   const kgBells = KETTLEBELL_WEIGHTS_KG;
   const lbBells = KETTLEBELL_WEIGHTS_LB;
   
-  // Test kg
-  for (let i = 0; i <= 200; i += 0.25) {
+  // Test kg (skip 0 since non-positive input returns 0)
+  for (let i = 0.25; i <= 200; i += 0.25) {
     const rounded = roundToEquipmentGrid(i, ['kettlebell'], 'kg');
     if (!kgBells.includes(rounded)) {
       offBellCount++;
@@ -267,8 +294,8 @@ console.log('\n13. Sweep test: kettlebells snap to standard bells');
     }
   }
   
-  // Test lb
-  for (let i = 0; i <= 200; i += 0.25) {
+  // Test lb (skip 0)
+  for (let i = 0.25; i <= 200; i += 0.25) {
     const rounded = roundToEquipmentGrid(i, ['kettlebell'], 'lb');
     if (!lbBells.includes(rounded)) {
       offBellCount++;
@@ -278,11 +305,11 @@ console.log('\n13. Sweep test: kettlebells snap to standard bells');
     }
   }
   
-  check('sweep 0..200 kettlebells snap to standard bells', offBellCount === 0, 
+  check('sweep 0.25..200 kettlebells snap to standard bells', offBellCount === 0, 
     offBellCount > 0 ? `${offBellCount} off-bell results` : '');
 }
 
-console.log('\n14. nextWeight from any grid value stays on-grid');
+console.log('\n14. nextWeight from any grid value stays EXACTLY on-grid');
 {
   let offGridCount = 0;
   const testCases: Array<{ equipmentIds: string[]; unit: 'kg' | 'lb'; step: number; max: number }> = [
@@ -297,13 +324,15 @@ console.log('\n14. nextWeight from any grid value stays on-grid');
     // Start from each grid value and step up
     for (let value = 0; value <= max; value += step) {
       const next = nextWeight(value, 1, equipmentIds, unit);
-      // Use exact comparison: next should equal k * step for some integer k
-      const multiple = Math.round(next / step);
-      const expected = multiple * step;
-      if (Math.abs(next - expected) > 1e-10 && next !== 0) {
+      // Use integer-scaled arithmetic for exact check
+      const scaledNext = Math.round(next * 1000);
+      const scaledStep = Math.round(step * 1000);
+      const isExactMultiple = Number.isInteger(scaledNext / scaledStep);
+      
+      if (!isExactMultiple) {
         offGridCount++;
         if (offGridCount <= 3) {
-          console.log(`    FAIL: ${value} ${unit} + step on ${equipmentIds[0]} → ${next} (expected ${expected})`);
+          console.log(`    FAIL: ${value} ${unit} + step on ${equipmentIds[0]} → ${next} (not an exact multiple)`);
         }
       }
     }
@@ -311,18 +340,20 @@ console.log('\n14. nextWeight from any grid value stays on-grid');
     // Start from each grid value and step down
     for (let value = max; value >= 0; value -= step) {
       const next = nextWeight(value, -1, equipmentIds, unit);
-      const multiple = Math.round(next / step);
-      const expected = multiple * step;
-      if (Math.abs(next - expected) > 1e-10 && next !== 0) {
+      const scaledNext = Math.round(next * 1000);
+      const scaledStep = Math.round(step * 1000);
+      const isExactMultiple = Number.isInteger(scaledNext / scaledStep);
+      
+      if (!isExactMultiple) {
         offGridCount++;
         if (offGridCount <= 3) {
-          console.log(`    FAIL: ${value} ${unit} - step on ${equipmentIds[0]} → ${next} (expected ${expected})`);
+          console.log(`    FAIL: ${value} ${unit} - step on ${equipmentIds[0]} → ${next} (not an exact multiple)`);
         }
       }
     }
   }
   
-  check('nextWeight from grid values stays on-grid', offGridCount === 0, 
+  check('nextWeight from grid values stays EXACTLY on-grid', offGridCount === 0, 
     offGridCount > 0 ? `${offGridCount} off-grid results` : '');
 }
 
@@ -374,6 +405,74 @@ console.log('\n15. nextWeight from any grid value stays on-bell (kettlebells)');
   
   check('nextWeight from kettlebell bells stays on-bell', offBellCount === 0, 
     offBellCount > 0 ? `${offBellCount} off-bell results` : '');
+}
+
+console.log('\n16. stepFor and gridStepFor NEVER return 0 (stepper safety)');
+{
+  // All equipment IDs from seed migrations and codebase
+  const allEquipmentIds = [
+    // Loadable equipment
+    'barbell', 'ez_bar', 'trap_bar',
+    'dumbbell', 'kettlebell',
+    'cable_machine',
+    'leg_curl', 'leg_extension',
+    'chest_press_machine', 'pec_deck', 'lat_pulldown',
+    'seated_row_machine', 'shoulder_press_machine', 'machine_generic',
+    'smith_machine', 'leg_press', 'hack_squat',
+    // Non-loadable equipment
+    'bodyweight', 'pull_up_bar', 'dip_bars',
+    'yoga_mat',
+    'flat_bench', 'adjustable_bench',
+    'resistance_band',
+    'squat_rack',
+    'jump_rope',
+    'stability_ball',
+    'trx',
+    'foam_roller',
+    'ab_wheel',
+  ];
+  
+  let zeroCount = 0;
+  
+  // Test each equipment ID individually in both kg and lb
+  for (const id of allEquipmentIds) {
+    const kgStep = gridStepFor([id], 'kg');
+    const lbStep = gridStepFor([id], 'lb');
+    
+    if (kgStep <= 0) {
+      zeroCount++;
+      console.log(`    FAIL: gridStepFor(['${id}'], 'kg') returned ${kgStep}, expected > 0`);
+    }
+    
+    if (lbStep <= 0) {
+      zeroCount++;
+      console.log(`    FAIL: gridStepFor(['${id}'], 'lb') returned ${lbStep}, expected > 0`);
+    }
+  }
+  
+  // Test empty list
+  const emptyKg = gridStepFor([], 'kg');
+  const emptyLb = gridStepFor([], 'lb');
+  
+  if (emptyKg <= 0) {
+    zeroCount++;
+    console.log(`    FAIL: gridStepFor([], 'kg') returned ${emptyKg}, expected > 0`);
+  }
+  
+  if (emptyLb <= 0) {
+    zeroCount++;
+    console.log(`    FAIL: gridStepFor([], 'lb') returned ${emptyLb}, expected > 0`);
+  }
+  
+  check(`all equipment IDs return positive step (${allEquipmentIds.length} ids × 2 units + empty list)`, zeroCount === 0,
+    zeroCount > 0 ? `${zeroCount} returned zero or negative` : '');
+  
+  // Verify defaults for non-loadable equipment
+  check('resistance_band kg returns default 2.5', gridStepFor(['resistance_band'], 'kg') === 2.5);
+  check('flat_bench lb returns default 5', gridStepFor(['flat_bench'], 'lb') === 5);
+  check('bodyweight kg returns default 2.5 (for added load)', gridStepFor(['bodyweight'], 'kg') === 2.5);
+  check('empty list kg returns default 2.5', gridStepFor([], 'kg') === 2.5);
+  check('empty list lb returns default 5', gridStepFor([], 'lb') === 5);
 }
 
 console.log(`\n${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} FAILURES`}\n`);

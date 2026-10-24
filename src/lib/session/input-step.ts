@@ -16,7 +16,7 @@ export { KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB, kettlebellBounds, type We
  * @param unit - Weight unit ('kg' or 'lb')
  * @returns The step increment in the given unit
  */
-export function stepFor(equipmentIds: string[], unit: 'kg' | 'lb'): number {
+export function stepFor(equipmentIds: string[], unit: WeightUnit): number {
   return gridStepFor(equipmentIds, unit);
 }
 
