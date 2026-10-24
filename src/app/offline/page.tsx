@@ -5,11 +5,12 @@
  * to a page that isn't cached. This page has inline styles so it works even
  * when the external CSS files (_next/static/css/) are not cached.
  *
- * This is a server component that works without JavaScript. The retry link
- * is a plain anchor that reloads the page.
+ * Enhanced with client-side retry feedback: shows "Still offline" message
+ * when retry is attempted while still offline, and only reloads when back online.
  */
 
 import { branding } from "@/lib/branding";
+import { OfflineRetry } from "./offline-retry";
 
 export default function OfflinePage() {
   // Inline styles so the page works without external CSS
@@ -50,18 +51,6 @@ export default function OfflinePage() {
     marginBottom: "2rem",
   };
 
-  const buttonStyle = {
-    display: "inline-block",
-    padding: "0.875rem 2rem",
-    fontSize: "1rem",
-    fontWeight: 500,
-    borderRadius: "0.5rem",
-    backgroundColor: branding.colors.accent,
-    color: branding.colors.accentFg,
-    textDecoration: "none",
-    transition: "opacity 0.2s",
-  };
-
   return (
     <div style={containerStyle}>
       <div style={contentStyle}>
@@ -81,12 +70,8 @@ export default function OfflinePage() {
           Check your connection and try again.
         </p>
 
-        {/* Retry button: green background with computed text color.
-            Plain <a> href instead of Link - this page must work without JavaScript */}
-        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-        <a href="/" style={buttonStyle}>
-          Retry
-        </a>
+        {/* Retry button with client-side feedback (shows "Still offline" when offline) */}
+        <OfflineRetry />
       </div>
     </div>
   );

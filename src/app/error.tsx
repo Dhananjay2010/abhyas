@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, startTransition } from "react";
+import { useRouter } from "next/navigation";
 import * as Sentry from "@sentry/nextjs";
+import { isOfflineError } from "@/lib/offline-error";
 
 export default function Error({
   error,
@@ -10,25 +12,68 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+  const [online, setOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true
+  );
+
   useEffect(() => {
     console.error("Page error:", error);
-    Sentry.captureException(error);
-  }, [error]);
+    
+    if (!isOfflineError(error, online)) {
+      Sentry.captureException(error);
+    }
+
+    function handleOnline() {
+      setOnline(true);
+    }
+    function handleOffline() {
+      setOnline(false);
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [error, online]);
+
+  const offline = isOfflineError(error, online);
+
+  function handleReset() {
+    startTransition(() => {
+      router.refresh();
+      reset();
+    });
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6">
       <div className="w-full max-w-md text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Something went wrong</h1>
-        <p className="mt-4 text-muted">
-          An unexpected error occurred. Please try again.
-        </p>
-        {error.digest && (
-          <p className="mt-2 font-mono text-xs text-muted">
-            Error ID: {error.digest}
-          </p>
+        {offline ? (
+          <>
+            <h1 className="text-3xl font-bold tracking-tight">You&apos;re offline</h1>
+            <p className="mt-4 text-muted">
+              This page needs an internet connection. Check your connection and try again.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl font-bold tracking-tight">Something went wrong</h1>
+            <p className="mt-4 text-muted">
+              An unexpected error occurred. Please try again.
+            </p>
+            {error.digest && (
+              <p className="mt-2 font-mono text-xs text-muted">
+                Error ID: {error.digest}
+              </p>
+            )}
+          </>
         )}
         <button
-          onClick={reset}
+          onClick={handleReset}
           className="mt-6 rounded-xl bg-accent px-6 py-3 font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
         >
           Try again

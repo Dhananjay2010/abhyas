@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { stripSeriesSuffix, groupVideosByWeek } from "@/lib/yoga-display";
 import { markYogaVideoDone } from "./actions";
+import { YouTubeEmbed } from "@/components/youtube-embed";
 
 export type YogaVideo = {
   id: string;
@@ -73,17 +74,10 @@ export function YogaPlayer({
       {open && playing && (
         <section className="mb-8">
           <div className="overflow-hidden rounded-xl border border-border bg-black">
-            {/* 16:9 without a plugin */}
-            <div style={{ position: "relative", paddingTop: "56.25%" }}>
-              <iframe
-                key={playing.youtubeId}
-                src={`https://www.youtube-nocookie.com/embed/${playing.youtubeId}?rel=0&modestbranding=1`}
-                title={playing.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }}
-              />
-            </div>
+            <YouTubeEmbed
+              videoId={playing.youtubeId}
+              title={playing.title}
+            />
           </div>
 
           <h2 className="mt-3 font-semibold">{stripSeriesSuffix(playing.title)}</h2>

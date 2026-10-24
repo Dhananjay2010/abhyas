@@ -21,6 +21,21 @@ const nextConfig: NextConfig = {
       static: 300,
     },
   },
+
+  /**
+   * Allow YouTube thumbnail images for click-to-load video posters.
+   * i.ytimg.com serves YouTube video thumbnails (hqdefault.jpg).
+   * Used in src/components/youtube-embed.tsx.
+   */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+        pathname: "/vi/**",
+      },
+    ],
+  },
 };
 
 /**
