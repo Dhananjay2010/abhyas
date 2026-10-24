@@ -139,15 +139,6 @@ export function estimateOneRepMax(weightKg: number, reps: number): number {
   return weightKg * (1 + reps / 30);
 }
 
-/**
- * Double progression.
- *
- * Stay at a weight until every set reaches the TOP of the rep range, then add
- * the smallest sensible increment. Miss the target twice in a row and the
- * weight comes down about 10% to build back.
- *
- * Pure: no I/O, so it can be exercised directly against real scenarios.
- */
 export type BestState = {
   bestWeightKg: number | null;
   bestReps: number | null;
@@ -200,12 +191,22 @@ export function nextBest(
     const v = valueOf(set) ?? 0;
     if (bestWeightKg === null || w > bestWeightKg) bestWeightKg = w;
     if (bestReps === null || v > bestReps) bestReps = v;
+    // estimated one-rep-max: only weights exercises can do it, and only on an actual
+    // lift -- so timed work never contributes one.
     if (w > 0 && !isTimed) {
       const e1rm = estimateOneRepMax(w, v);
       if (bestE1rm === null || e1rm > bestE1rm) bestE1rm = e1rm;
     }
   }
 
+  /*
+    What improved, if anything. Only one line is reported, because "heaviest set
+    yet" and "best estimated 1RM yet" are usually the same event described twice
+    and the summary should read like a person wrote it. Weight wins when both
+    change: seeing a weight plate attached for the first time is clearer than a
+    number. Holds never have weight or 1RM, so they're first; bodyweight exercises
+    have no weight but can still rack up an 1RM, so reps-only comes before E1RM.
+  */
   let personalBest: PersonalBest | null = null;
   const beat = (now: number | null, before: number | null) =>
     now !== null && before !== null && now > before;
@@ -227,6 +228,15 @@ export function nextBest(
   return { bestWeightKg, bestReps, bestE1rm, personalBest };
 }
 
+/**
+ * Double progression.
+ *
+ * Stay at a weight until every set reaches the TOP of the rep range, then add
+ * the smallest sensible increment. Miss the target twice in a row and the
+ * weight comes down about 10% to build back.
+ *
+ * Pure: no I/O, so it can be exercised directly against real scenarios.
+ */
 export function evaluateProgression(input: {
   sets: LoggedSet[];
   plannedSets: number;
