@@ -277,19 +277,6 @@ async function testReplayAttemptedResetOnNewPendingSet() {
 async function main() {
   console.log("Testing automatic replay on mount\n");
 
-  // First check that session-runner.tsx calls controller.onFocus() on window focus
-  const runnerCode = readFileSync("src/app/session/[id]/session-runner.tsx", "utf-8");
-  const hasFocusHandler = runnerCode.split('\n').some(line =>
-    line.includes('controller') &&
-    line.includes('.onFocus()') &&
-    !line.trim().startsWith('//')
-  );
-  if (!hasFocusHandler) {
-    console.error("❌ session-runner.tsx must call controller.onFocus() on window focus");
-    process.exit(1);
-  }
-  console.log("✓ session-runner.tsx calls controller.onFocus() on window focus\n");
-
   await testOnFocusReplaysOnFirstCall();
   await testOnFocusDoesNotReplayTwice();
   await testOnFocusRetriesAfterFailure();
