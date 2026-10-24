@@ -262,8 +262,10 @@ async function test5a() {
   const pushCalls: string[] = [];
   const replaceCalls: string[] = [];
   
-  mockNextRouter.push = (url: string) => { pushCalls.push(url); };
-  mockNextRouter.replace = (url: string) => { replaceCalls.push(url); };
+  const originalPush = mockNextRouter.push;
+  const originalReplace = mockNextRouter.replace;
+  mockNextRouter.push = (...args: any[]) => { if (args[0]) pushCalls.push(args[0]); };
+  mockNextRouter.replace = (...args: any[]) => { if (args[0]) replaceCalls.push(args[0]); };
   
   const actions: SettingsActions = {
     updateProfileSettings: async () => {
@@ -302,8 +304,10 @@ async function test5b() {
   const pushCalls: string[] = [];
   const replaceCalls: string[] = [];
   
-  mockNextRouter.push = (url: string) => { pushCalls.push(url); };
-  mockNextRouter.replace = (url: string) => { replaceCalls.push(url); };
+  const originalPush = mockNextRouter.push;
+  const originalReplace = mockNextRouter.replace;
+  mockNextRouter.push = (...args: any[]) => { if (args[0]) pushCalls.push(args[0]); };
+  mockNextRouter.replace = (...args: any[]) => { if (args[0]) replaceCalls.push(args[0]); };
   
   const actions: SettingsActions = {
     updateProfileSettings: async () => {
