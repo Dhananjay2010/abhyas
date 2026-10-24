@@ -163,7 +163,7 @@ async function runTests() {
     const session: SessionRow = {
       started_at: started.toISOString(),
       local_date: "2026-10-24",
-      timezone: "America/New_York",
+      user_id: "America/New_York",
     };
     
     const trackUpdates: { duration?: number } = {};
@@ -186,7 +186,7 @@ async function runTests() {
     const session: SessionRow = {
       started_at: started.toISOString(),
       local_date: "2026-10-25",
-      timezone: "Europe/London",
+      user_id: "Europe/London",
     };
     
     const trackUpdates: { duration?: number } = {};

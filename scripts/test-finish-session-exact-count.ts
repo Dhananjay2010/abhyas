@@ -38,11 +38,11 @@ function makeFakeDeps(alreadyCompleted: boolean) {
           local_date: "2026-10-24",
           user_id: "user-123",
         },
-    async loadTimezone() {
-      return { data: { timezone: "UTC" }, error: null };
-    },
         error: null,
       };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercises() {
       return {
@@ -65,9 +65,6 @@ function makeFakeDeps(alreadyCompleted: boolean) {
     async loadSessionStatus() {
       return {
         data: { status: "completed" as const },
-    async loadTimezone() {
-      return { data: { timezone: "UTC" }, error: null };
-    },
         error: null,
       };
     },
@@ -124,17 +121,17 @@ async function runTests() {
             local_date: "2026-10-24",
             user_id: "user-123",
           },
-    async loadTimezone() {
-      return { data: { timezone: "UTC" }, error: null };
-    },
           error: null,
         };
+      },
+      async loadTimezone() {
+        return { data: { timezone: "UTC" }, error: null };
       },
       async loadExercises() {
         return {
           data: [
             {
-        rest_seconds: null,
+              rest_seconds: null,
               session_sets: [
                 { id: "set1", is_warmup_set: false, completed_at: "2026-10-24T10:30:00Z" },
               ],
@@ -151,9 +148,6 @@ async function runTests() {
       async loadSessionStatus() {
         return {
           data: { status: "completed" as const },
-    async loadTimezone() {
-      return { data: { timezone: "UTC" }, error: null };
-    },
           error: null,
         };
       },

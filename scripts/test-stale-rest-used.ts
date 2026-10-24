@@ -79,9 +79,6 @@ function makeStaleFakeDeps(exercises: SessionExerciseWithSets[]): FinishSessionD
     async loadSessionStatus() {
       return { data: { status: "completed" as const }, error: null };
     },
-    async loadTimezone() {
-      return { data: { timezone: "UTC" }, error: null };
-    },
     async loadExercisesForUpdate() {
       return { data: exercisesForUpdate, error: null };
     },

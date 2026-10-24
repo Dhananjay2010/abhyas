@@ -16,6 +16,7 @@ import { makeFinishSessionDeps } from "../src/lib/session/finish-session-deps";
 import { makeFinishExerciseDeps } from "../src/lib/session/finish-exercise-deps";
 import { makeAbandonSessionDeps } from "../src/lib/session/abandon-session-deps";
 import type { Database } from "../src/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 let passed = 0;
 let failed = 0;
@@ -83,7 +84,8 @@ function makeFakeSupabase() {
     },
   };
 
-  return { supabase: supabase as unknown as { from(table: keyof Database["public"]["Tables"]): FakeQueryBuilder }, calls };
+  // Cast to SupabaseClient for test purposes
+  return { supabase: supabase as unknown as SupabaseClient<Database>, calls };
 }
 
 console.log("\nTesting deps module query filters\n");
