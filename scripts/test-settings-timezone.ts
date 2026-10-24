@@ -17,8 +17,12 @@
 
 import { canonicalizeTimezone } from "../src/lib/timezone-canonical";
 import { sanitizeTimezonePatch } from "../src/lib/timezone-patch";
+import { validateAndUpdateProfile } from "../src/app/settings/profile-update-logic";
+import type { Database } from "../src/lib/database.types";
 
 export {}; // Make this a module to avoid global scope conflicts
+
+type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 
 let failures = 0;
 
@@ -67,10 +71,18 @@ async function runTests() {
     check('"Etc/GMT" → "UTC"', result === "UTC");
   }
 
-  console.log("\n3. canonicalizeTimezone preserves UTC");
+  console.log("\n3. canonicalizeTimezone preserves UTC and handles case");
   {
     const result = canonicalizeTimezone("UTC");
     check('"UTC" stays "UTC"', result === "UTC");
+  }
+  {
+    const result = canonicalizeTimezone("utc");
+    check('"utc" becomes "UTC"', result === "UTC");
+  }
+  {
+    const result = canonicalizeTimezone("Utc");
+    check('"Utc" becomes "UTC"', result === "UTC");
   }
 
   console.log("\n4. canonicalizeTimezone rejects abbreviations");
@@ -104,8 +116,26 @@ async function runTests() {
     const result = canonicalizeTimezone("UTC-8");
     check('rejects "UTC-8" (offset)', result === null);
   }
+  {
+    const result = canonicalizeTimezone("Etc/GMT+5");
+    check('rejects "Etc/GMT+5" (offset)', result === null);
+  }
+  {
+    const result = canonicalizeTimezone("Etc/GMT-14");
+    check('rejects "Etc/GMT-14" (offset)', result === null);
+  }
 
-  console.log("\n6. canonicalizeTimezone rejects invalid timezones");
+  console.log("\n6. canonicalizeTimezone accepts zones with hyphens");
+  {
+    const result = canonicalizeTimezone("America/Port-au-Prince");
+    check('accepts "America/Port-au-Prince"', result === "America/Port-au-Prince");
+  }
+  {
+    const result = canonicalizeTimezone("America/Blanc-Sablon");
+    check('accepts "America/Blanc-Sablon"', result === "America/Blanc-Sablon");
+  }
+
+  console.log("\n7. canonicalizeTimezone rejects invalid timezones");
   {
     const result = canonicalizeTimezone("Mars/Olympus");
     check('rejects "Mars/Olympus"', result === null);
@@ -124,7 +154,7 @@ async function runTests() {
     check('rejects "\'; drop table"', result === null);
   }
 
-  console.log("\n7. canonicalizeTimezone trims whitespace");
+  console.log("\n8. canonicalizeTimezone trims whitespace");
   {
     const result = canonicalizeTimezone("  Asia/Kolkata  ");
     check('trims "  Asia/Kolkata  " → "Asia/Kolkata"', result === "Asia/Kolkata");
@@ -134,7 +164,7 @@ async function runTests() {
     check('trims "\\tAmerica/New_York\\n" → "America/New_York"', result === "America/New_York");
   }
 
-  console.log("\n8. sanitizeTimezonePatch accepts null (gym default)");
+  console.log("\n9. sanitizeTimezonePatch accepts null (gym default)");
   {
     const result = sanitizeTimezonePatch(null);
     check("accepts null", result.ok === true && result.timezone === null);
@@ -144,7 +174,7 @@ async function runTests() {
     check("accepts undefined", result.ok === true && result.timezone === null);
   }
 
-  console.log("\n9. sanitizeTimezonePatch returns canonical values");
+  console.log("\n10. sanitizeTimezonePatch returns canonical values");
   {
     const result = sanitizeTimezonePatch("asia/kolkata");
     check(
@@ -167,7 +197,7 @@ async function runTests() {
     );
   }
 
-  console.log("\n10. sanitizeTimezonePatch rejects invalid values");
+  console.log("\n11. sanitizeTimezonePatch rejects invalid values");
   {
     const result = sanitizeTimezonePatch("EST");
     check('rejects "EST"', result.ok === false);
@@ -177,6 +207,10 @@ async function runTests() {
     check('rejects "+05:30"', result.ok === false);
   }
   {
+    const result = sanitizeTimezonePatch("Etc/GMT+5");
+    check('rejects "Etc/GMT+5"', result.ok === false);
+  }
+  {
     const result = sanitizeTimezonePatch("Mars/Olympus");
     check('rejects "Mars/Olympus"', result.ok === false);
     if (result.ok === false) {
@@ -184,7 +218,7 @@ async function runTests() {
     }
   }
 
-  console.log("\n11. Empty string handling");
+  console.log("\n12. Empty string handling");
   console.log("  Note: The settings form converts empty string to null before calling the action.");
   console.log("  See settings-form.tsx line 560: const v = e.target.value === '' ? null : e.target.value;");
   {
@@ -193,7 +227,7 @@ async function runTests() {
     console.log("  ^ This is expected: the form converts '' → null before calling the action.");
   }
 
-  console.log("\n12. Action stores canonical value, not raw input");
+  console.log("\n13. Action stores canonical value, not raw input");
   {
     // Test that when we pass a lowercase or legacy value, the sanitizer
     // returns the canonical form, proving the action will store that
@@ -223,15 +257,79 @@ async function runTests() {
     }
   }
 
-  console.log("\n13. Server-side validation prevents database writes on invalid input");
+  console.log("\n14. Undefined timezone doesn't reset to gym default");
+  {
+    // When timezone is undefined in the patch, the action should skip validation
+    // and not include timezone in the DB update, preserving the user's current value
+    const result = sanitizeTimezonePatch(undefined);
+    check("undefined is treated as null by sanitizer", result.ok === true && result.timezone === null);
+    console.log("  Note: The action checks patch.timezone !== undefined before calling the sanitizer.");
+    console.log("  When undefined, the timezone key is not included in the DB update at all.");
+  }
+
+  console.log("\n15. Server-side validation prevents database writes on invalid input");
   {
     // The sanitizer rejects invalid values before they reach the DB
-    const invalidInputs = ["InvalidZone123", "EST", "+05:30", "Mars/Olympus"];
+    const invalidInputs = ["InvalidZone123", "EST", "+05:30", "Mars/Olympus", "Etc/GMT+5"];
 
     for (const input of invalidInputs) {
       const result = sanitizeTimezonePatch(input);
       check(`sanitizer blocks "${input}" before DB write`, result.ok === false);
     }
+  }
+
+  console.log("\n16. Profile update logic with dependency injection");
+  {
+    // Test that invalid timezone prevents DB write
+    let updateCalled = false;
+    const invalidPatch: ProfileUpdate = { timezone: "InvalidZone123" };
+
+    const invalidResult = await validateAndUpdateProfile(invalidPatch, {
+      updateProfile: async () => {
+        updateCalled = true;
+        return { ok: true };
+      },
+    });
+
+    check("invalid timezone returns error", !invalidResult.ok);
+    check("invalid timezone does NOT call updateProfile", !updateCalled);
+
+    // Test that valid timezone calls updateProfile with canonical value
+    let updateCalledWithCanonical = false;
+    let capturedTimezone: string | null | undefined = undefined;
+    const validPatch: ProfileUpdate = { timezone: "asia/kolkata" };
+
+    const validResult = await validateAndUpdateProfile(validPatch, {
+      updateProfile: async (patch) => {
+        updateCalledWithCanonical = true;
+        capturedTimezone = patch.timezone;
+        return { ok: true };
+      },
+    });
+
+    check("valid timezone returns success", validResult.ok === true);
+    check("valid timezone DOES call updateProfile", updateCalledWithCanonical);
+    check(
+      "updateProfile receives canonical value",
+      capturedTimezone === "Asia/Kolkata"
+    );
+
+    // Test that undefined timezone skips validation and calls updateProfile
+    let updateCalledForUndefined = false;
+    let capturedHasTimezone = false;
+    const patchWithUndefined: ProfileUpdate = { goal: "strength" }; // No timezone key
+
+    const undefinedResult = await validateAndUpdateProfile(patchWithUndefined, {
+      updateProfile: async (patch) => {
+        updateCalledForUndefined = true;
+        capturedHasTimezone = "timezone" in patch;
+        return { ok: true };
+      },
+    });
+
+    check("undefined timezone returns success", undefinedResult.ok === true);
+    check("undefined timezone DOES call updateProfile", updateCalledForUndefined);
+    check("updateProfile does not receive timezone key", !capturedHasTimezone);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

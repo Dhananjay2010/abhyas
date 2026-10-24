@@ -75,18 +75,26 @@ export function canonicalizeTimezone(input: string): string | null {
   // Reject overly long strings (max 64 chars for any valid IANA zone)
   if (trimmed.length > 64) return null;
 
+  // Reject offset formats at input level
+  // - Starts with +/- like "+05:30", "-08:00"
+  // - GMT/UTC offset formats like "GMT+5", "UTC-8", "Etc/GMT+5"
+  if (/^[+-]/.test(trimmed) || /^(Etc\/)?(GMT|UTC)[+-]\d/i.test(trimmed)) {
+    return null;
+  }
+
   // Reject abbreviations BEFORE Intl validation
   // Intl accepts abbreviations (EST, PST, IST) and resolves them to full names,
   // but we want to reject them to force users to select proper IANA names
   // Allow inputs that:
-  // - Are exactly 'UTC'
+  // - Are 'UTC' (case-insensitive)
   // - Contain a '/' (proper IANA format)
-  // - Are in our legacy alias table (will be mapped)
-  if (
-    trimmed !== "UTC" &&
-    !trimmed.includes("/") &&
-    !Object.keys(LEGACY_ALIASES).includes(trimmed)
-  ) {
+  // - Are in our legacy alias table (case-insensitive check)
+  const trimmedUpper = trimmed.toUpperCase();
+  const hasAliasMatch = Object.keys(LEGACY_ALIASES).some(
+    (key) => key.toUpperCase() === trimmedUpper
+  );
+
+  if (trimmedUpper !== "UTC" && !trimmed.includes("/") && !hasAliasMatch) {
     return null;
   }
 
@@ -105,9 +113,9 @@ export function canonicalizeTimezone(input: string): string | null {
   // Apply legacy alias mapping
   const canonical = LEGACY_ALIASES[caseCorrected] ?? caseCorrected;
 
-  // Reject offset formats like '+05:30', 'GMT+5', 'Etc/GMT+5'
-  // These often pass Intl validation but aren't location-based
-  if (canonical.includes("+") || canonical.includes("-")) {
+  // Reject offset formats in the canonical result
+  // Etc/GMT+5, Etc/GMT-14, etc. can pass Intl but aren't location-based
+  if (/^(Etc\/)?(GMT|UTC)[+-]\d/i.test(canonical)) {
     return null;
   }
 

@@ -7,6 +7,7 @@ import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
 import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { branding } from "@/lib/branding";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
@@ -44,10 +45,8 @@ export async function saveAboutYou(input: {
   
   const age = ageOn(input.dateOfBirth);
   if (Number.isNaN(age)) return { ok: false, error: "That date does not look right." };
-  if (age < MIN_AGE_YEARS) {
-    const { branding } = await import("@/lib/branding");
+  if (age < MIN_AGE_YEARS)
     return { ok: false, error: `You need to be at least ${MIN_AGE_YEARS} to use ${branding.name}.` };
-  }
   if (age > 100) return { ok: false, error: "Please check your date of birth." };
   if (input.heightCm < 100 || input.heightCm > 250)
     return { ok: false, error: "Height should be between 100 and 250 cm." };
