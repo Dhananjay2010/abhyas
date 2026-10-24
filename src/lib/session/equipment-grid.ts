@@ -6,25 +6,45 @@
 export type WeightUnit = 'kg' | 'lb';
 
 /**
+ * Pin-stack/selectorised machine IDs: fixed weight stacks with selector pin.
+ */
+const PIN_STACK_MACHINE_IDS = [
+  'leg_curl', 'leg_extension',
+  'chest_press_machine', 'pec_deck', 'lat_pulldown',
+  'seated_row_machine', 'shoulder_press_machine', 'machine_generic',
+] as const;
+
+/**
+ * Plate-loaded machine IDs: use standard plates like barbells.
+ */
+const PLATE_LOADED_MACHINE_IDS = [
+  'smith_machine', 'leg_press', 'hack_squat',
+] as const;
+
+/**
  * Equipment IDs that can carry external weight load.
  * Everything else (resistance bands, benches, mats, cardio equipment, etc.) is non-loadable.
  */
-export const LOADABLE_EQUIPMENT_IDS = Object.freeze(new Set([
+export const LOADABLE_EQUIPMENT_IDS: ReadonlySet<string> = new Set([
   // Barbells
   'barbell', 'ez_bar', 'trap_bar',
   // Dumbbells
   'dumbbell',
   // Kettlebells
   'kettlebell',
+  // Medicine balls
+  'medicine_ball',
   // Cables
   'cable_machine',
+  // Weight plates (standalone loading)
+  'weight_plate',
+  // Dip belt (for added load)
+  'dip_belt',
   // Pin-stack/selectorised machines
-  'leg_curl', 'leg_extension',
-  'chest_press_machine', 'pec_deck', 'lat_pulldown',
-  'seated_row_machine', 'shoulder_press_machine', 'machine_generic',
+  ...PIN_STACK_MACHINE_IDS,
   // Plate-loaded machines
-  'smith_machine', 'leg_press', 'hack_squat',
-]));
+  ...PLATE_LOADED_MACHINE_IDS,
+]);
 
 /**
  * Standard kettlebell weights in kg.
@@ -63,6 +83,9 @@ export function kettlebellBounds(unit: WeightUnit): { min: number; max: number }
  * - dumbbell: 2.5 kg / 5 lb (standard gym increments)
  * - cable: 2.5 kg / 5 lb (aligned with barbell)
  * - kettlebell: uses kettlebell ladder, not a fixed step
+ * - medicine_ball: 1 kg / 2 lb (lightest medicine balls start at 1 kg / 2 lb)
+ * - weight_plate: 2.5 kg / 5 lb (standard plate increments)
+ * - dip_belt: 2.5 kg / 5 lb (added-load plate grid)
  * - pin-stack/selectorised machines: 5 kg / 10 lb (weight stack selector)
  * - plate-loaded machines: 2.5 kg / 5 lb (use plates like barbells)
  * - bodyweight added load: 2.5 kg / 5 lb (dip belt / weighted vest)
@@ -78,33 +101,27 @@ export function kettlebellBounds(unit: WeightUnit): { min: number; max: number }
  * @returns The step increment in the given unit
  */
 export function gridStepFor(equipmentIds: string[], unit: WeightUnit): number {
-  // Pin-stack/selectorised machines: fixed weight stacks with selector pin
-  const pinStackMachineIds = [
-    'leg_curl', 'leg_extension',
-    'chest_press_machine', 'pec_deck', 'lat_pulldown',
-    'seated_row_machine', 'shoulder_press_machine', 'machine_generic'
-  ];
-
-  // Plate-loaded machines: use standard plates like barbells
-  const plateLoadedMachineIds = [
-    'smith_machine', 'leg_press', 'hack_squat'
-  ];
-
   const steps: number[] = [];
 
   for (const id of equipmentIds) {
-    if (pinStackMachineIds.includes(id)) {
+    if (PIN_STACK_MACHINE_IDS.includes(id as typeof PIN_STACK_MACHINE_IDS[number])) {
       // Pin-stack machines: 5 kg / 10 lb (selector pin increments)
       steps.push(unit === 'kg' ? 5 : 10);
-    } else if (plateLoadedMachineIds.includes(id)) {
+    } else if (PLATE_LOADED_MACHINE_IDS.includes(id as typeof PLATE_LOADED_MACHINE_IDS[number])) {
       // Plate-loaded machines: 2.5 kg / 5 lb (use plates)
       steps.push(unit === 'kg' ? 2.5 : 5);
+    } else if (id === 'medicine_ball') {
+      // Medicine balls: 1 kg / 2 lb (lightest standard medicine ball)
+      steps.push(unit === 'kg' ? 1 : 2);
     } else if (id === 'cable_machine') {
       // Cable machines: 2.5 kg / 5 lb
       steps.push(unit === 'kg' ? 2.5 : 5);
     } else if (id === 'barbell' || id === 'ez_bar' || id === 'trap_bar') {
       steps.push(unit === 'kg' ? 2.5 : 5);
     } else if (id === 'dumbbell') {
+      steps.push(unit === 'kg' ? 2.5 : 5);
+    } else if (id === 'weight_plate' || id === 'dip_belt') {
+      // Weight plates and dip belt: 2.5 kg / 5 lb (plate increments)
       steps.push(unit === 'kg' ? 2.5 : 5);
     }
   }
@@ -177,6 +194,14 @@ export function roundToEquipmentGrid(
     }
 
     return closestBell;
+  }
+
+  // Medicine ball: 1 kg / 2 lb minimum
+  if (equipmentIds.includes('medicine_ball')) {
+    const minimum = unit === 'kg' ? 1 : 2;
+    if (value < minimum) {
+      return minimum;
+    }
   }
 
   // Standard equipment: grid-based rounding
