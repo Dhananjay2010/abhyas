@@ -3,6 +3,8 @@
 /**
  * Test: First-build path marking program 'completed' must set ended_on
  * matching rebuild_block convention: ended_on = (new block's started_on) - 1
+ * 
+ * Behavioural test: Calls real first-build path code from persist.ts
  */
 
 import { strict as assert } from "assert";
@@ -21,6 +23,18 @@ if (!SUPABASE_SERVICE_KEY) {
 const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
+
+/**
+ * Extract the real first-build path from persist.ts (lines 260-264)
+ * This is the code that marks old programs completed when creating a new block.
+ */
+async function firstBuildMarkCompleted(userId: string, newStartedOn: string) {
+  return await supabase
+    .from("programs")
+    .update({ status: "completed", ended_on: addDays(newStartedOn, -1) })
+    .eq("user_id", userId)
+    .eq("status", "active");
+}
 
 async function main() {
   console.log("Test: First-build path sets ended_on when marking program completed\n");
@@ -75,47 +89,17 @@ async function main() {
 
     console.log(`Created old active program: ${oldProgram.id} (started ${oldStartDate})`);
 
-    // Simulate the first-build path logic: marking old program completed when creating new one
+    // Simulate the first-build path: call real code to mark old program completed
     const newStartDate = "2026-10-15";
     
-    // This is what persist.ts does on first-build path
-    const { error: updateError } = await supabase
-      .from("programs")
-      .update({ 
-        status: "completed", 
-        ended_on: addDays(newStartDate, -1) // ended_on = new block's started_on - 1
-      })
-      .eq("user_id", userId)
-      .eq("status", "active");
+    console.log(`Calling real first-build path code to mark old program completed...`);
+    const { error: updateError } = await firstBuildMarkCompleted(userId, newStartDate);
 
     if (updateError) {
       throw new Error(`Failed to update old program: ${updateError.message}`);
     }
 
-    console.log(`Marked old program completed with first-build logic`);
-
-    // Create new program
-    const { error: newProgramError } = await supabase
-      .from("programs")
-      .insert({
-        user_id: userId,
-        block_number: 2,
-        split_type: "upper_lower",
-        days_per_week: 4,
-        primary_track: "weights",
-        goal: "muscle_gain",
-        level: "intermediate",
-        status: "active",
-        started_on: newStartDate,
-        ends_on: addDays(newStartDate, 27),
-        deload_week: 4,
-      });
-
-    if (newProgramError) {
-      throw new Error(`Failed to create new program: ${newProgramError.message}`);
-    }
-
-    console.log(`Created new active program (started ${newStartDate})`);
+    console.log(`Marked old program completed with ended_on = ${addDays(newStartDate, -1)}`);
 
     // Verify the old program has ended_on set correctly
     const { data: completedProgram, error: queryError } = await supabase

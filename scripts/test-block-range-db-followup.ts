@@ -30,6 +30,11 @@ function assert(condition: boolean, message: string) {
 async function testM1_MidBlockRebuildPreservesDates() {
   console.log("\n━━━ TEST M1: Mid-block rebuild preserves dates and boundaries ━━━\n");
   
+  // Item E: Force error for cleanup testing
+  if (process.env.FORCE_TEST_ERROR) {
+    throw new Error("Forced test error for cleanup verification (FORCE_TEST_ERROR=1)");
+  }
+  
   const pool = new Pool({ connectionString: DATABASE_URL });
   
   try {

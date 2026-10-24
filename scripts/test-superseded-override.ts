@@ -2,8 +2,9 @@
 
 /**
  * Test: Planned override pointing to a superseded program_day
- * should resolve gracefully - either show the superseded day's label,
- * or resolve to the active day with the same day_index.
+ * should resolve gracefully via resolveDay.
+ * 
+ * Behavioural test: Seeds DB, calls real resolveDay, verifies resolution.
  */
 
 import { strict as assert } from "assert";
@@ -130,10 +131,10 @@ async function main() {
 
     console.log(`Created planned session for ${testDate} pointing to superseded day`);
 
-    // Test: resolveDay should handle this gracefully
+    // Test: call real resolveDay function
     const resolved = await resolveDay(supabase, program.id, testDate);
 
-    console.log(`\nResolved day:`);
+    console.log(`\nResolved day (via real resolveDay):`);
     console.log(`  dayType: ${resolved?.dayType}`);
     console.log(`  label: ${resolved?.label}`);
     console.log(`  programDayId: ${resolved?.programDayId}`);
@@ -146,21 +147,22 @@ async function main() {
     // 2. Should have correct dayType
     assert.equal(resolved?.dayType, "weights", "dayType should be weights");
     
-    // 3. Label should be either "Old Upper" or "New Upper" (not "Today")
+    // 3. Label should be preserved or resolved
     assert(
       resolved?.label === "Old Upper" || resolved?.label === "New Upper",
       `Label should be Old Upper or New Upper, got: ${resolved?.label}`
     );
     
-    // 4. programDayId should be either old or new day (resolved to active)
-    const isProgramDayValid = 
-      resolved?.programDayId === oldDay.id || 
-      resolved?.programDayId === newDay.id;
-    assert(isProgramDayValid, `programDayId should be old or new day, got: ${resolved?.programDayId}`);
+    // 4. programDayId should resolve to active day with same day_index
+    assert.equal(
+      resolved?.programDayId,
+      newDay.id,
+      `programDayId should resolve to active day (${newDay.id}), got: ${resolved?.programDayId}`
+    );
 
-    console.log(`\n✅ Superseded override resolved correctly`);
-    console.log(`   Label preserved: ${resolved?.label}`);
-    console.log(`   Program day resolved to: ${resolved?.programDayId === newDay.id ? "active" : "superseded"}`);
+    console.log(`\n✅ Superseded override resolved correctly to active day`);
+    console.log(`   Label: ${resolved?.label}`);
+    console.log(`   Resolved to active day: ${newDay.id}`);
 
   } finally {
     // Cleanup

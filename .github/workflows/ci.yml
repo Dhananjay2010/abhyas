@@ -240,6 +240,8 @@ jobs:
           npm run test:first-build-ended-on
           npm run test:equipment-two-client
           npm run test:injuries-two-client
+          npm run test:stale-stash-two-client
+          npm run test:block-range-db-followup
           npx tsx scripts/test-delete-set.ts
           npx tsx scripts/test-skipped-session-shapes.ts
           REAL_DB=1 npm run test:history-edit-validation-db
@@ -282,6 +284,8 @@ jobs:
         run: npm ci
 
       - name: Run block range DB tests
-        run: npm run test:block-range-db
+        run: |
+          npm run test:block-range-db
+          npm run test:block-range-cleanup
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/abhyas_test

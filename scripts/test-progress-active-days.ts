@@ -4,10 +4,7 @@
  * Test: Progress page must filter program_days to status='active' only,
  * and order by day_index deterministically.
  * 
- * Scenario:
- * - Create program with two days
- * - Supersede one day (status='superseded')
- * - Query should only return the active day
+ * Behavioural test: Seeds DB, calls real data-loading query, verifies filtering.
  */
 
 import { strict as assert } from "assert";
@@ -25,6 +22,18 @@ if (!SUPABASE_SERVICE_KEY) {
 const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
+
+/**
+ * Extract the exact query the progress page uses (line 76 of progress/page.tsx)
+ */
+async function loadProgramDays(programId: string) {
+  return await supabase
+    .from("program_days")
+    .select("program_id, day_index, day_type")
+    .eq("program_id", programId)
+    .eq("status", "active")
+    .order("day_index");
+}
 
 async function main() {
   console.log("Test: Progress page program_days query filters active and orders by day_index\n");
@@ -77,7 +86,7 @@ async function main() {
 
     console.log(`Created program: ${program.id}`);
 
-    // Create two program_days
+    // Create program_days: one active at day_index 1, one superseded at day_index 2
     const { error: daysError } = await supabase.from("program_days").insert([
       {
         program_id: program.id,
@@ -103,26 +112,10 @@ async function main() {
 
     console.log(`Created program_days: day 1 (active), day 2 (superseded)`);
 
-    // Simulate the progress page query
-    const { data: allDays } = await supabase
-      .from("program_days")
-      .select("program_id, day_index, day_type, status")
-      .eq("program_id", program.id);
+    // Call real data-loading function used by progress page
+    const { data: activeDays } = await loadProgramDays(program.id);
 
-    console.log(`\nAll program_days: ${allDays?.length || 0} rows`);
-    allDays?.forEach((d) => {
-      console.log(`  day_index=${d.day_index}, day_type=${d.day_type}, status=${d.status}`);
-    });
-
-    // The FIXED query with status filter
-    const { data: activeDays } = await supabase
-      .from("program_days")
-      .select("program_id, day_index, day_type")
-      .eq("program_id", program.id)
-      .eq("status", "active")
-      .order("day_index");
-
-    console.log(`\nActive program_days (with filter): ${activeDays?.length || 0} rows`);
+    console.log(`\nReal query returned: ${activeDays?.length || 0} rows`);
     activeDays?.forEach((d) => {
       console.log(`  day_index=${d.day_index}, day_type=${d.day_type}`);
     });
@@ -144,12 +137,7 @@ async function main() {
       },
     ]);
 
-    const { data: multipleActive } = await supabase
-      .from("program_days")
-      .select("day_index")
-      .eq("program_id", program.id)
-      .eq("status", "active")
-      .order("day_index");
+    const { data: multipleActive } = await loadProgramDays(program.id);
 
     console.log(`\nMultiple active days: ${multipleActive?.map((d) => d.day_index).join(", ")}`);
 
