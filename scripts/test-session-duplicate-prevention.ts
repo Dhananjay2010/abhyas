@@ -9,10 +9,11 @@
  */
 
 let failures = 0;
-function check(label: string, ok: boolean, detail = "") {
+function checkSessionDuplication(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
+const check = checkSessionDuplication;
 
 type SessionRow = {
   id: string;
