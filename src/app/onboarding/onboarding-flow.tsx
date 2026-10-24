@@ -168,17 +168,21 @@ export function OnboardingFlow({
   function finish() {
     setError(null);
     startTransition(async () => {
-      const saved = await actions.saveInjuries(
-        [...injuries.entries()].map(([bodyRegion, severity]) => ({ bodyRegion, severity })),
-      );
-      if (!saved.ok) return setError(saved.error);
+      try {
+        const saved = await actions.saveInjuries(
+          [...injuries.entries()].map(([bodyRegion, severity]) => ({ bodyRegion, severity })),
+        );
+        if (!saved.ok) return setError(saved.error);
 
-      const done = await actions.completeOnboarding();
-      if (!done.ok) return setError(done.error);
+        const done = await actions.completeOnboarding();
+        if (!done.ok) return setError(done.error);
 
-      if (onFinish) return onFinish();
-      router.push("/today");
-      router.refresh();
+        if (onFinish) return onFinish();
+        router.push("/today");
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      }
     });
   }
 
@@ -254,13 +258,28 @@ export function OnboardingFlow({
     const height = Number(heightCm);
     const weight = Number(weightKg);
     
+    // Validate date of birth
+    const dobValid = dateOfBirth !== "" && /^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth) && (() => {
+      const date = new Date(dateOfBirth);
+      if (isNaN(date.getTime())) return false;
+      const year = date.getFullYear();
+      if (year < 1000 || year > 9999) return false;
+      const currentYear = new Date().getFullYear();
+      if (year < 1900 || year > currentYear) return false;
+      if (date > new Date()) return false;
+      return true;
+    })();
+    const dobError = dateOfBirth !== "" && !dobValid 
+      ? "Please enter a valid date between 1900 and today" 
+      : null;
+    
     const heightValid = heightCm !== "" && Number.isFinite(height) && height >= 100 && height <= 250;
     const weightValid = weightKg !== "" && Number.isFinite(weight) && weight >= 20 && weight <= 500;
     const heightError = heightCm !== "" && !heightValid ? "Height should be between 100 and 250 cm" : null;
     const weightError = weightKg !== "" && !weightValid ? "Weight should be between 20 and 500 kg" : null;
     
     const ready =
-      dateOfBirth !== "" && sex !== null && heightValid && weightValid && !pending;
+      dobValid && sex !== null && heightValid && weightValid && !pending;
 
     return (
       <StepShell
@@ -289,10 +308,11 @@ export function OnboardingFlow({
         }
       >
         <div className="space-y-5">
-          <Field label="Date of birth">
+          <Field label="Date of birth" error={dobError}>
             <input
               type="date"
               value={dateOfBirth}
+              min="1900-01-01"
               max={new Date().toISOString().slice(0, 10)}
               onChange={(e) => setDateOfBirth(e.target.value)}
               className={inputClass}
@@ -322,6 +342,9 @@ export function OnboardingFlow({
                 value={heightCm}
                 onChange={(e) => setHeightCm(e.target.value)}
                 placeholder="175"
+                min="100"
+                max="250"
+                step="any"
                 className={inputClass}
               />
             </Field>
@@ -332,6 +355,9 @@ export function OnboardingFlow({
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
                 placeholder="70"
+                min="20"
+                max="500"
+                step="any"
                 className={inputClass}
               />
             </Field>

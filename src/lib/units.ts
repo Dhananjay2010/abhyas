@@ -397,6 +397,43 @@ export function isValidWeightKg(kg: unknown): kg is number {
 }
 
 /**
+ * Validate date of birth.
+ * Checks for valid date format, realistic year range, and not in the future.
+ *
+ * @param dateString - Date string in YYYY-MM-DD format
+ * @returns true if valid, false otherwise
+ */
+export function isValidDateOfBirth(dateString: string): boolean {
+  if (!dateString || typeof dateString !== "string") return false;
+  
+  // Check format: YYYY-MM-DD
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return false;
+  
+  const date = new Date(dateString);
+  // Check if date is valid (not Invalid Date)
+  if (isNaN(date.getTime())) return false;
+  
+  // Verify that parsing didn't change the date (e.g., 2020-02-30 -> 2020-03-01)
+  const [yearStr, monthStr, dayStr] = dateString.split("-");
+  if (date.getUTCFullYear() !== parseInt(yearStr, 10)) return false;
+  if (date.getUTCMonth() !== parseInt(monthStr, 10) - 1) return false;
+  if (date.getUTCDate() !== parseInt(dayStr, 10)) return false;
+  
+  // Check year is 4 digits (1000-9999)
+  const year = date.getFullYear();
+  if (year < 1000 || year > 9999) return false;
+  
+  // Check year is in sane range (1900 to current year)
+  const currentYear = new Date().getFullYear();
+  if (year < 1900 || year > currentYear) return false;
+  
+  // Check date is not in the future
+  if (date > new Date()) return false;
+  
+  return true;
+}
+
+/**
  * Get the user's units preference with a safe default.
  * Always returns 'metric' or 'imperial', never null/undefined.
  *

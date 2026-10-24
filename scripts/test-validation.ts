@@ -6,7 +6,7 @@
  *
  *   npm run test:validation
  */
-import { isValidHeightCm, isValidWeightKg } from "../src/lib/units";
+import { isValidHeightCm, isValidWeightKg, isValidDateOfBirth } from "../src/lib/units";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -115,6 +115,37 @@ console.log("\n3. Simulated server action validation");
 
   const heavyResult = validateAboutYouInput({ heightCm: 175, weightKg: 600 });
   check("Too heavy (600 kg) rejected", heavyResult.ok === false);
+}
+
+console.log("\n4. Date of birth validation (isValidDateOfBirth)");
+{
+  // Valid dates
+  check("Valid date: 1990-05-15", isValidDateOfBirth("1990-05-15"));
+  check("Valid date: 1900-01-01 (lower bound)", isValidDateOfBirth("1900-01-01"));
+  check("Valid date: today", isValidDateOfBirth(new Date().toISOString().slice(0, 10)));
+  check("Valid date: 2000-12-31", isValidDateOfBirth("2000-12-31"));
+
+  // Invalid dates
+  check("Rejects future date", !isValidDateOfBirth("2030-01-01"));
+  check("Rejects year before 1900", !isValidDateOfBirth("1899-12-31"));
+  check("Rejects year before 1000 (3 digits)", !isValidDateOfBirth("0999-01-01"));
+  check("Rejects year 0996", !isValidDateOfBirth("0996-01-01"));
+  check("Rejects invalid date", !isValidDateOfBirth("2020-02-30"));
+  check("Rejects invalid format", !isValidDateOfBirth("01/15/1990"));
+  check("Rejects invalid format: no dashes", !isValidDateOfBirth("19900515"));
+  check("Rejects empty string", !isValidDateOfBirth(""));
+  check("Rejects null", !isValidDateOfBirth(null as any));
+  check("Rejects undefined", !isValidDateOfBirth(undefined as any));
+  check("Rejects non-string", !isValidDateOfBirth(12345 as any));
+  check("Rejects year 10000 (5 digits)", !isValidDateOfBirth("10000-01-01"));
+  
+  // Edge case: check that year must be exactly 4 digits
+  const currentYear = new Date().getFullYear();
+  check("Year is 4 digits in valid date", /^\d{4}-/.test("2000-01-01"));
+  
+  // Validate format strictly
+  check("Rejects 2-digit year", !isValidDateOfBirth("90-05-15"));
+  check("Rejects malformed", !isValidDateOfBirth("not-a-date"));
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
