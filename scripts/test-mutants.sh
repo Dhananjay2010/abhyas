@@ -232,28 +232,40 @@ else
 fi
 echo ""
 
-echo "12. Mutation: Remove exclusion filter from pickForSlot"
+echo "12. Mutation: Remove all exclusion filters (pickForSlot and rankAlternatives)"
 cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"
 cp "$BACKUP_EXC_FILE" "$EXCLUSIONS_FILE"
 GENERATE_FILE="src/lib/program/generate.ts"
 cp "$GENERATE_FILE" /tmp/generate-backup.ts
+cp "$ALTERNATIVES_FILE" /tmp/alternatives-backup.ts
+# Remove pickForSlot filters
 sed -i 's/\.filter((item) => !EXCLUDED_EXERCISE_SLUGS\.has(item\.e\.slug))//g' "$GENERATE_FILE"
-if grep -q "EXCLUDED_EXERCISE_SLUGS" "$GENERATE_FILE"; then
-  echo "  Mutation applied (filter removed)"
-  total_mutations=$((total_mutations + 1))
-  if npx tsx scripts/test-plan-exclusions.ts >/dev/null 2>&1; then
-    echo "  ✗ test-plan-exclusions passed (mutation survived)"
-    survived_mutations=$((survived_mutations + 1))
-  else
-    echo "  ✓ test-plan-exclusions failed (caught)"
-    caught_mutations=$((caught_mutations + 1))
-  fi
-else
-  echo "  ✗ FATAL: Mutation did not apply"
+# Remove rankAlternatives filter
+sed -i '/if (EXCLUDED_EXERCISE_SLUGS\.has(candidate\.slug)) continue;/d' "$ALTERNATIVES_FILE"
+# Check if filters were removed
+if grep -q '\.filter((item) => !EXCLUDED_EXERCISE_SLUGS' "$GENERATE_FILE"; then
+  echo "  ✗ FATAL: pickForSlot filters still present"
   cp /tmp/generate-backup.ts "$GENERATE_FILE"
+  cp /tmp/alternatives-backup.ts "$ALTERNATIVES_FILE"
   exit 2
 fi
+if grep -q 'if (EXCLUDED_EXERCISE_SLUGS\.has(candidate\.slug)) continue;' "$ALTERNATIVES_FILE"; then
+  echo "  ✗ FATAL: rankAlternatives filter still present"
+  cp /tmp/generate-backup.ts "$GENERATE_FILE"
+  cp /tmp/alternatives-backup.ts "$ALTERNATIVES_FILE"
+  exit 2
+fi
+echo "  Mutation applied (all filters removed)"
+total_mutations=$((total_mutations + 1))
+if npx tsx scripts/test-plan-exclusions.ts >/dev/null 2>&1; then
+  echo "  ✗ test-plan-exclusions passed (mutation survived)"
+  survived_mutations=$((survived_mutations + 1))
+else
+  echo "  ✓ test-plan-exclusions failed (caught)"
+  caught_mutations=$((caught_mutations + 1))
+fi
 cp /tmp/generate-backup.ts "$GENERATE_FILE"
+cp /tmp/alternatives-backup.ts "$ALTERNATIVES_FILE"
 echo ""
 
 cp "$BACKUP_ALT_FILE" "$ALTERNATIVES_FILE"

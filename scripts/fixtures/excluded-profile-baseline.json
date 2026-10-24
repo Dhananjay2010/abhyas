@@ -1,0 +1,63 @@
+[
+  {
+    "name": "neck-press",
+    "exercises": [
+      "ca8285ce-526a-4f3b-9ad6-7fa6c5f3e9e9",
+      "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+      "7e6e45a7-a096-43ae-a313-c8c1bc95f6f7",
+      "0a836663-d024-4f49-bb13-4fd0d73ab46b",
+      "2c5eaa52-3c33-4bbb-89f4-4f7f3912df8c",
+      "1cc72b1a-aeab-4c4e-92b6-2f1471a01fbc",
+      "eb87e64a-e162-463e-8b0f-58054ebc97c4",
+      "b499f879-e000-478a-a7ef-eaf195fc6649",
+      "f902c26f-3b48-47af-8d8d-8e0ac56d42ac",
+      "a528fe5e-3c6e-4737-ba7f-c961304d0dac",
+      "7cfcb50e-04aa-443e-89b2-cfb12d656d52",
+      "1cc72b1a-aeab-4c4e-92b6-2f1471a01fbc"
+    ]
+  },
+  {
+    "name": "guillotine",
+    "exercises": [
+      "d0b5aacb-dad8-4157-8852-61b9bca5d15d",
+      "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+      "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+      "92ba15ba-39cd-4b45-93fb-9527f5adcf87",
+      "503a6f6c-c479-4958-94ca-bf50e95d5dd6",
+      "1b243c57-e152-4ecc-aa76-dcdb5303f089",
+      "77b7533e-3c66-4fba-98b5-0910f39bc155",
+      "71d6b50a-781c-463d-b1f6-ea2f4bcf1378",
+      "f902c26f-3b48-47af-8d8d-8e0ac56d42ac",
+      "7e6e45a7-a096-43ae-a313-c8c1bc95f6f7",
+      "65692d9b-d4de-4ff5-855f-011f32cfd879",
+      "1b243c57-e152-4ecc-aa76-dcdb5303f089",
+      "146fa079-19b3-41f7-b0e0-1de3ede0d469",
+      "9e2808ce-29ed-4027-8a91-d65d6cef8d87",
+      "9b0b829c-a073-472a-bcdd-da1ab47ac43c",
+      "fa6dd092-32a7-4773-b0dd-d0cafae431d6",
+      "8f0865e5-9a42-43c7-aa96-14030726f010",
+      "ba0658be-a9b9-4831-bf0c-6cf9130a4e9d"
+    ]
+  },
+  {
+    "name": "low-pulley",
+    "exercises": [
+      "ca8285ce-526a-4f3b-9ad6-7fa6c5f3e9e9",
+      "cfd27413-3a70-4546-bb40-3c5936e11542",
+      "7e6e45a7-a096-43ae-a313-c8c1bc95f6f7",
+      "a528fe5e-3c6e-4737-ba7f-c961304d0dac",
+      "cd0759fa-7b30-4bd4-9d70-724f04f3f013",
+      "1b243c57-e152-4ecc-aa76-dcdb5303f089",
+      "b2513dc7-8197-425a-8494-3b1ec2903547",
+      "cf06fb65-0a7f-4a10-a29c-10d492e1cf4c",
+      "eb87e64a-e162-463e-8b0f-58054ebc97c4",
+      "b499f879-e000-478a-a7ef-eaf195fc6649",
+      "4cf28621-247c-4d1a-a8ff-a17c5b6e6a9f",
+      "5c64c81d-9fd3-4c96-a0d8-d4d7cb3309a4",
+      "6b7c2ae7-3bd1-44c3-ab6b-e56811e2fcb9",
+      "1b243c57-e152-4ecc-aa76-dcdb5303f089",
+      "8fab552b-eaaf-4968-95db-00f3d9348b77",
+      "290090ac-eced-418b-bbd6-f828d8b82229"
+    ]
+  }
+]

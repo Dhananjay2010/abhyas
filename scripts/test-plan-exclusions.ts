@@ -1,11 +1,11 @@
 /**
  * Test for excluded exercise slugs in generated plans.
  * 
- * Requirements (QA Task U3 + L-8 HIGH):
+ * Requirements (QA Task U3 + L-8 HIGH + Review fix #4):
  * - Excluded exercises must never appear in generated plans
- * - Must test across injury scenarios: none, shoulder, neck, knee, knee+shoulder
+ * - Must use profiles that ACTUALLY generate these moves on origin/main
+ * - Must fail when the pickForSlot exclusion filter is removed (catches mutation 12)
  * - Must use hard-coded literal slug lists (not imported constants)
- * - Must fail on main (which doesn't have the isEligible exclusion check)
  * 
  *   npm run test:plan-exclusions
  */
@@ -41,13 +41,85 @@ function check(label: string, condition: boolean, detail?: string) {
   }
 }
 
-console.log("\n1. No injury (healthy user with barbell+bench equipment)");
+// Profiles that generate excluded exercises on origin/main (found via probe):
+// - neck-press: barbell-bench, lower_back injury, advanced, muscle_gain, 2d, 90min
+// - barbell-guillotine-bench-press: barbell-bench, no injuries, advanced, strength, 3d, 90min
+// - low-pulley-row-to-neck: cable-machine, no injuries, intermediate, muscle_gain, 2d, 90min
+
+console.log("\n1. neck-press profile (barbell+bench, lower_back injury, advanced, muscle_gain, 2d, 90min)");
 {
   const input: GeneratorInput = {
-    userId: "test-user-1",
+    userId: "test-neck-press",
+    blockNumber: 1,
+    level: "advanced",
+    equipmentIds: ["barbell", "squat_rack", "flat_bench"],
+    hasAllEquipment: false,
+    goal: "muscle_gain",
+    currentInjuryRegions: ["lower_back"],
+    age: null,
+    bmi: null,
+    daysPerWeek: 2,
+    yogaDaysPerWeek: 0,
+    primaryTrack: "weights",
+    preferredSessionMinutes: 90,
+    catalogue,
+  };
+  
+  const program = generateProgram(input);
+  const allExerciseSlugs = program.days.flatMap(day => 
+    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+  );
+  
+  const foundNeckPress = allExerciseSlugs.includes("neck-press");
+  check("neck-press not in plan", !foundNeckPress, foundNeckPress ? "FOUND IN PLAN" : undefined);
+  
+  // Check all 6 while we're here
+  for (const excludedSlug of EXCLUDED_SLUGS.filter(s => s !== "neck-press")) {
+    const found = allExerciseSlugs.includes(excludedSlug);
+    check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
+  }
+}
+
+console.log("\n2. barbell-guillotine-bench-press profile (barbell+bench, no injuries, advanced, strength, 3d, 90min)");
+{
+  const input: GeneratorInput = {
+    userId: "test-guillotine",
+    blockNumber: 1,
+    level: "advanced",
+    equipmentIds: ["barbell", "squat_rack", "flat_bench"],
+    hasAllEquipment: false,
+    goal: "strength",
+    currentInjuryRegions: [],
+    age: null,
+    bmi: null,
+    daysPerWeek: 3,
+    yogaDaysPerWeek: 0,
+    primaryTrack: "weights",
+    preferredSessionMinutes: 90,
+    catalogue,
+  };
+  
+  const program = generateProgram(input);
+  const allExerciseSlugs = program.days.flatMap(day => 
+    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+  );
+  
+  const foundGuillotine = allExerciseSlugs.includes("barbell-guillotine-bench-press");
+  check("barbell-guillotine-bench-press not in plan", !foundGuillotine, foundGuillotine ? "FOUND IN PLAN" : undefined);
+  
+  for (const excludedSlug of EXCLUDED_SLUGS.filter(s => s !== "barbell-guillotine-bench-press")) {
+    const found = allExerciseSlugs.includes(excludedSlug);
+    check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
+  }
+}
+
+console.log("\n3. low-pulley-row-to-neck profile (cable-machine, no injuries, intermediate, muscle_gain, 2d, 90min)");
+{
+  const input: GeneratorInput = {
+    userId: "test-low-pulley",
     blockNumber: 1,
     level: "intermediate",
-    equipmentIds: ["barbell", "squat_rack", "flat_bench"],
+    equipmentIds: ["cable_machine"],
     hasAllEquipment: false,
     goal: "muscle_gain",
     currentInjuryRegions: [],
@@ -56,6 +128,7 @@ console.log("\n1. No injury (healthy user with barbell+bench equipment)");
     daysPerWeek: 2,
     yogaDaysPerWeek: 0,
     primaryTrack: "weights",
+    preferredSessionMinutes: 90,
     catalogue,
   };
   
@@ -64,123 +137,10 @@ console.log("\n1. No injury (healthy user with barbell+bench equipment)");
     day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
   );
   
-  for (const excludedSlug of EXCLUDED_SLUGS) {
-    const found = allExerciseSlugs.includes(excludedSlug);
-    check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
-  }
-}
-
-console.log("\n2. Shoulder injury");
-{
-  const input: GeneratorInput = {
-    userId: "test-user-2",
-    blockNumber: 1,
-    level: "intermediate",
-    equipmentIds: ["barbell", "squat_rack", "flat_bench"],
-    hasAllEquipment: false,
-    goal: "muscle_gain",
-    currentInjuryRegions: ["shoulder"],
-    age: null,
-    bmi: null,
-    daysPerWeek: 2,
-    yogaDaysPerWeek: 0,
-    primaryTrack: "weights",
-    catalogue,
-  };
+  const foundLowPulley = allExerciseSlugs.includes("low-pulley-row-to-neck");
+  check("low-pulley-row-to-neck not in plan", !foundLowPulley, foundLowPulley ? "FOUND IN PLAN" : undefined);
   
-  const program = generateProgram(input);
-  const allExerciseSlugs = program.days.flatMap(day => 
-    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
-  );
-  
-  for (const excludedSlug of EXCLUDED_SLUGS) {
-    const found = allExerciseSlugs.includes(excludedSlug);
-    check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
-  }
-}
-
-console.log("\n3. Neck injury");
-{
-  const input: GeneratorInput = {
-    userId: "test-user-3",
-    blockNumber: 1,
-    level: "intermediate",
-    equipmentIds: ["barbell", "squat_rack", "flat_bench"],
-    hasAllEquipment: false,
-    goal: "muscle_gain",
-    currentInjuryRegions: ["neck"],
-    age: null,
-    bmi: null,
-    daysPerWeek: 2,
-    yogaDaysPerWeek: 0,
-    primaryTrack: "weights",
-    catalogue,
-  };
-  
-  const program = generateProgram(input);
-  const allExerciseSlugs = program.days.flatMap(day => 
-    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
-  );
-  
-  for (const excludedSlug of EXCLUDED_SLUGS) {
-    const found = allExerciseSlugs.includes(excludedSlug);
-    check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
-  }
-}
-
-console.log("\n4. Knee injury");
-{
-  const input: GeneratorInput = {
-    userId: "test-user-4",
-    blockNumber: 1,
-    level: "intermediate",
-    equipmentIds: ["barbell", "squat_rack", "flat_bench"],
-    hasAllEquipment: false,
-    goal: "muscle_gain",
-    currentInjuryRegions: ["knee"],
-    age: null,
-    bmi: null,
-    daysPerWeek: 2,
-    yogaDaysPerWeek: 0,
-    primaryTrack: "weights",
-    catalogue,
-  };
-  
-  const program = generateProgram(input);
-  const allExerciseSlugs = program.days.flatMap(day => 
-    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
-  );
-  
-  for (const excludedSlug of EXCLUDED_SLUGS) {
-    const found = allExerciseSlugs.includes(excludedSlug);
-    check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
-  }
-}
-
-console.log("\n5. Knee + shoulder injury");
-{
-  const input: GeneratorInput = {
-    userId: "test-user-5",
-    blockNumber: 1,
-    level: "intermediate",
-    equipmentIds: ["barbell", "squat_rack", "flat_bench"],
-    hasAllEquipment: false,
-    goal: "muscle_gain",
-    currentInjuryRegions: ["knee", "shoulder"],
-    age: null,
-    bmi: null,
-    daysPerWeek: 2,
-    yogaDaysPerWeek: 0,
-    primaryTrack: "weights",
-    catalogue,
-  };
-  
-  const program = generateProgram(input);
-  const allExerciseSlugs = program.days.flatMap(day => 
-    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
-  );
-  
-  for (const excludedSlug of EXCLUDED_SLUGS) {
+  for (const excludedSlug of EXCLUDED_SLUGS.filter(s => s !== "low-pulley-row-to-neck")) {
     const found = allExerciseSlugs.includes(excludedSlug);
     check(`${excludedSlug} not in plan`, !found, found ? "FOUND IN PLAN" : undefined);
   }

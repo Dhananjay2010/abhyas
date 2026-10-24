@@ -1,11 +1,14 @@
 /**
  * Test no-injury plans match origin/main exactly.
  * 
- * Requirement (review fix #2):
+ * Requirement (review fix #2, widened per final review):
  * - No-injury plans must be unchanged except where main's plan contained an excluded move
- * - This test loads a baseline generated FROM origin/main (scripts/fixtures/plan-baseline.json)
+ * - This test loads a baseline generated FROM origin/main (scripts/fixtures/plan-baseline-wide.json)
  * - Regenerates the same plans with HEAD
  * - Asserts they're identical whenever main's plan has none of the 6 excluded slugs
+ * 
+ * Wider parameters: all levels, tracks (weights/bodyweight), real equipment sets, 
+ * 2-6 days, 30/45/60/75 min, age 30 and 55.
  * 
  *   npm run test:plan-no-injury-match
  */
@@ -33,11 +36,12 @@ type BaselinePlan = {
   equipment: string;
   days: number;
   minutes: number;
+  age: number;
   exercises: string[]; // exercise IDs
 };
 
 const baseline: BaselinePlan[] = JSON.parse(
-  readFileSync("scripts/fixtures/plan-baseline.json", "utf8")
+  readFileSync("scripts/fixtures/plan-baseline-wide.json", "utf8")
 );
 
 // Build ID to slug map
@@ -50,8 +54,11 @@ let diffedUnexpected = 0;
 
 const EQUIPMENT_MAP: Record<string, { ids: string[]; hasAll: boolean; track: "weights" | "bodyweight" }> = {
   "full-gym": { ids: [], hasAll: true, track: "weights" },
-  "barbell-bench": { ids: ["barbell", "squat_rack", "flat_bench"], hasAll: false, track: "weights" },
+  "barbell-bench-rack": { ids: ["barbell", "squat_rack", "flat_bench"], hasAll: false, track: "weights" },
+  "dumbbells-bench": { ids: ["dumbbells", "flat_bench"], hasAll: false, track: "weights" },
+  "cable-machine": { ids: ["cable_machine"], hasAll: false, track: "weights" },
   "bodyweight": { ids: [], hasAll: false, track: "bodyweight" },
+  "dumbbells-only": { ids: ["dumbbells"], hasAll: false, track: "weights" },
 };
 
 for (const plan of baseline) {
@@ -66,7 +73,7 @@ for (const plan of baseline) {
     hasAllEquipment: equipmentSpec.hasAll,
     goal: "muscle_gain",
     currentInjuryRegions: [],
-    age: null,
+    age: plan.age,
     bmi: null,
     daysPerWeek: plan.days,
     yogaDaysPerWeek: 0,
@@ -94,14 +101,14 @@ for (const plan of baseline) {
   } else {
     diffedUnexpected++;
     if (diffedUnexpected <= 3) {
-      console.log(`  Unexpected diff: ${plan.userId} (${plan.level}, ${plan.equipment}, ${plan.days}d, ${plan.minutes}min)`);
+      console.log(`  Unexpected diff: ${plan.userId} (${plan.level}, ${plan.equipment}, ${plan.days}d, ${plan.minutes}min, age ${plan.age})`);
       console.log(`    Main: ${plan.exercises.slice(0, 5).map(id => idToSlug.get(id) || id).join(", ")}...`);
       console.log(`    Head: ${headExercises.slice(0, 5).map(id => idToSlug.get(id) || id).join(", ")}...`);
     }
   }
 }
 
-console.log(`\nNo-injury plan comparison:`);
+console.log(`\nNo-injury plan comparison (widened):`);
 console.log(`  Total plans: ${total}`);
 console.log(`  Matched: ${matched}`);
 console.log(`  Diffed due to exclusion: ${diffedDueToExclusion}`);
