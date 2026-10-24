@@ -46,9 +46,16 @@ export function DobInput({ value, onChange, error, onBlur }: DobInputProps) {
   const monthRef = useRef<HTMLInputElement>(null);
   const yearRef = useRef<HTMLInputElement>(null);
   
+  // Track the last emitted value to avoid overwriting during typing
+  const lastEmittedRef = useRef<string | null>(value);
+  
   // Sync with external value changes (controlled component pattern)
+  // Only resync if the value is genuinely external (not our own echo)
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    // Skip if this is an echo of what we just emitted
+    if (value === lastEmittedRef.current) return;
+    
     if (value) {
       const [y, m, d] = value.split("-");
       setYear(y || "");
@@ -59,20 +66,30 @@ export function DobInput({ value, onChange, error, onBlur }: DobInputProps) {
       setMonth("");
       setYear("");
     }
+    
+    lastEmittedRef.current = value;
   }, [value]);
   /* eslint-enable react-hooks/set-state-in-effect */
   
   // Assemble and notify onChange
   useEffect(() => {
-    if (day && month && year) {
-      // Pad values
+    let newValue: string | null = null;
+    
+    // Only emit a complete ISO date when:
+    // - Day has 1-2 digits
+    // - Month has 1-2 digits
+    // - Year has EXACTLY 4 digits
+    if (day && month && year && year.length === 4) {
       const dayPadded = day.padStart(2, '0');
       const monthPadded = month.padStart(2, '0');
-      const yearPadded = year.padStart(4, '0');
-      const iso = `${yearPadded}-${monthPadded}-${dayPadded}`;
-      onChange(iso);
-    } else if (!day && !month && !year) {
-      onChange(null);
+      newValue = `${year}-${monthPadded}-${dayPadded}`;
+    }
+    // For incomplete or empty states, newValue remains null
+    
+    // Only emit if the value actually changed
+    if (newValue !== lastEmittedRef.current) {
+      lastEmittedRef.current = newValue;
+      onChange(newValue);
     }
   }, [day, month, year, onChange]);
   
@@ -122,8 +139,17 @@ export function DobInput({ value, onChange, error, onBlur }: DobInputProps) {
     }
   };
   
+  // Track focus state to only show errors after leaving the whole fieldset
+  const handleFieldsetBlur = (e: React.FocusEvent<HTMLFieldSetElement>) => {
+    // Only call onBlur if focus is leaving the entire fieldset
+    // (not just moving between day/month/year)
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      onBlur?.();
+    }
+  };
+  
   return (
-    <fieldset aria-describedby={error ? "dob-error" : undefined}>
+    <fieldset aria-describedby={error ? "dob-error" : undefined} onBlur={handleFieldsetBlur}>
       <legend className="text-sm font-medium text-fg">Date of birth</legend>
       <div className="mt-2 flex gap-2">
         <input
@@ -136,7 +162,6 @@ export function DobInput({ value, onChange, error, onBlur }: DobInputProps) {
           value={day}
           onChange={handleDayChange}
           onKeyDown={handleDayKeyDown}
-          onBlur={onBlur}
           placeholder="DD"
           aria-label="Day"
           className="w-20 rounded-lg border border-input bg-bg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
@@ -152,7 +177,6 @@ export function DobInput({ value, onChange, error, onBlur }: DobInputProps) {
           value={month}
           onChange={handleMonthChange}
           onKeyDown={handleMonthKeyDown}
-          onBlur={onBlur}
           placeholder="MM"
           aria-label="Month"
           className="w-20 rounded-lg border border-input bg-bg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
@@ -168,7 +192,6 @@ export function DobInput({ value, onChange, error, onBlur }: DobInputProps) {
           value={year}
           onChange={handleYearChange}
           onKeyDown={handleYearKeyDown}
-          onBlur={onBlur}
           placeholder="YYYY"
           aria-label="Year"
           className="w-28 rounded-lg border border-input bg-bg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
