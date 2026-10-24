@@ -357,11 +357,14 @@ export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
 /**
  * Floor-pull deadlifts with deep knee flexion, contraindicated for current knee injury.
  * These variants load the knee significantly during the initial pull from the floor.
- * For knee-injured users, prefer hip-dominant hinges (RDL, hip thrust, glute bridge).
+ * For knee-injured users, prefer hip-dominant hinges (glute bridge, hip thrust).
  * Exported for testing.
  * 
  * Note: kettlebell-one-legged-deadlift is included because the single-leg stance
  * requires significant knee stability and flexion control during the floor pull.
+ * 
+ * Romanian deadlift and variants are included because even though they are hip-dominant,
+ * they still require knee stability and load transmission that can aggravate knee injuries.
  */
 export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'barbell-deadlift',              // Conventional deadlift
@@ -377,6 +380,13 @@ export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'leverage-deadlift',             // Machine leverage deadlift
   'one-arm-side-deadlift',         // Single-arm floor pull
   'kettlebell-one-legged-deadlift', // Single-leg floor pull (knee stability demand)
+  'romanian-deadlift',             // RDL for hamstrings
+  'single-leg-romanian-deadlift',  // Single-leg RDL
+  'sumo-romanian-deadlift',        // Sumo RDL
+  'dumbbell-romanian-deadlift',    // DB RDL
+  'single-leg-dumbbell-romanian-deadlift', // Single-leg DB RDL
+  'kettlebell-romanian-deadlift',  // KB RDL
+  'single-leg-kettlebell-romanian-deadlift', // Single-leg KB RDL
 ]);
 
 // PR #53: Loaded windmill and side-bend exercises excluded for lower_back injury

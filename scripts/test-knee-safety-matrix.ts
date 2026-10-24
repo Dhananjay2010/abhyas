@@ -460,12 +460,21 @@ for (const seed of testSeeds) {
             }
             
             // Rule 10: No isolation before compound in final order (except core, which goes last)
+            // EXCEPTION: For knee-injured users on Lower/Legs days, a knee-safe quad isolation
+            // at position 0 is allowed (Rule 1 takes precedence)
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+              const isLowerOrLegsDay = day.focus === "lower" || day.focus === "legs" || day.focus === "full_body";
+              
               for (let i = 0; i < day.exercises.length; i++) {
                 const current = byId.get(day.exercises[i].exerciseId);
                 if (!current) continue;
                 
                 if (current.mechanic === "isolation") {
+                  // Exception: knee-safe quad isolation at position 0 on Lower/Legs day is OK
+                  if (i === 0 && isLowerOrLegsDay && EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(current.slug)) {
+                    continue; // Skip this check - Rule 1 allows it
+                  }
+                  
                   // Check if any non-core compound comes after this isolation
                   for (let j = i + 1; j < day.exercises.length; j++) {
                     const later = byId.get(day.exercises[j].exerciseId);
