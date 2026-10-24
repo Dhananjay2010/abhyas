@@ -13,7 +13,6 @@ import {
   type GeneratorInput,
   estimateSessionMinutes,
   KNEE_SAFE_QUAD_EXERCISES,
-  FLOOR_PULL_DEADLIFTS,
 } from "../src/lib/program/generate";
 import { selectWarmup, selectCooldown, type WarmupRow } from "../src/lib/program/warmup";
 
@@ -222,31 +221,37 @@ testSeeds("2b. Knee injury full-body: first main is knee-safe, comes before hing
   { currentInjuryRegions: ["knee"], level: "beginner", daysPerWeek: 3, goal: "muscle_gain", hasAllEquipment: true },
   (plan, picked, seed) => {
     const fullBodyDays = plan.days.filter(d => d.focus === "full_body");
-    const kneeSafeAllowlist = Array.from(KNEE_SAFE_QUAD_EXERCISES);
     
-    fullBodyDays.forEach((day, dayIdx) => {
-      if (day.exercises.length > 0) {
-        const firstEx = byId.get(day.exercises[0].exerciseId);
-        if (!firstEx) {
-          check(`Seed ${seed} ${day.label}: first exercise found in catalogue`, false, "exercise not in catalogue");
-          return;
-        }
-        
-        // If first exercise is a hinge, there should be a knee-safe quad before it
-        const firstHingeIndex = day.exercises.findIndex(e => {
+    fullBodyDays.forEach((day) => {
+      if (day.exercises.length === 0) {
+        check(`Seed ${seed} ${day.label}: has exercises`, false, "Empty full_body day");
+        return;
+      }
+      
+      const firstEx = byId.get(day.exercises[0].exerciseId);
+      if (!firstEx) {
+        check(`Seed ${seed} ${day.label}: first exercise found in catalogue`, false, "exercise not in catalogue");
+        return;
+      }
+      
+      // First exercise must be knee-safe
+      const firstIsKneeSafe = KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug);
+      check(`Seed ${seed} ${day.label}: first exercise is knee-safe`, firstIsKneeSafe,
+        firstIsKneeSafe ? undefined : `Got ${firstEx.name} [${firstEx.slug}]`);
+      
+      // Knee-safe quad must come before any hinge
+      const firstHingeIndex = day.exercises.findIndex(e => {
+        const ex = byId.get(e.exerciseId);
+        return ex && ex.movement_pattern === "hinge";
+      });
+      
+      if (firstHingeIndex !== -1) {
+        const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
           const ex = byId.get(e.exerciseId);
-          return ex && ex.movement_pattern === "hinge";
+          return ex && KNEE_SAFE_QUAD_EXERCISES.has(ex.slug);
         });
-        
-        if (firstHingeIndex === 0) {
-          // First exercise is hinge - MUST have knee-safe quad somewhere
-          const hasKneeSafe = day.exercises.some(e => {
-            const ex = byId.get(e.exerciseId);
-            return ex && kneeSafeAllowlist.includes(ex.slug);
-          });
-          check(`Seed ${seed} ${day.label}: hinge not first without knee-safe quad`, !hasKneeSafe,
-            `First exercise is ${firstEx.name} (hinge), but ${hasKneeSafe ? "has" : "missing"} knee-safe quad`);
-        }
+        check(`Seed ${seed} ${day.label}: knee-safe quad before hinge`, kneeSafeBeforeHinge,
+          kneeSafeBeforeHinge ? undefined : `First hinge at position ${firstHingeIndex + 1}, no knee-safe before it`);
       }
     });
   }
@@ -461,56 +466,66 @@ if (beginnerFailCount === 0) {
 }
 
 // QA repro cases for beginner high-impact (use general_fitness and test seeds)
-console.log("\n7c. QA repro: beginner/gym/general/3d/60min Full Body B slot 4");
-const qa7c1 = generateProgram(base({
-  userId: "11111111-1111-1111-1111-111111111111",
-  level: "beginner",
-  goal: "general_fitness",
-  primaryTrack: "weights",
-  hasAllEquipment: true,
-  daysPerWeek: 3,
-  preferredSessionMinutes: 60,
-}));
-const fb_b_day = qa7c1.days.find(d => d.label === "Full Body B");
-if (!fb_b_day) {
-  check(`Full Body B exists`, false, "Day not found in plan");
-} else {
-  // Check whole day for high-impact
-  const highImpactExercises = fb_b_day.exercises.filter(e => {
-    const ex = byId.get(e.exerciseId);
-    return ex && ex.impact === "high";
-  });
-  check(`Full Body B: no high-impact exercises`, highImpactExercises.length === 0,
-    highImpactExercises.length > 0 ? highImpactExercises.map(e => {
+console.log("\n7c. QA repro: beginner/gym/general/3d/60min Full Body B");
+const testSeedsForRepros = [
+  "11111111-1111-1111-1111-111111111111",
+  "22222222-2222-2222-2222-222222222222",
+  "33333333-3333-3333-3333-333333333333",
+];
+
+for (const userId of testSeedsForRepros) {
+  const qa7c1 = generateProgram(base({
+    userId,
+    level: "beginner",
+    goal: "general_fitness",
+    primaryTrack: "weights",
+    hasAllEquipment: true,
+    daysPerWeek: 3,
+    preferredSessionMinutes: 60,
+  }));
+  const fb_b_day = qa7c1.days.find(d => d.label === "Full Body B");
+  if (!fb_b_day) {
+    check(`Seed ${userId.substring(0,8)} Full Body B exists`, false, "Day not found in plan");
+  } else {
+    // Check whole day for high-impact
+    const highImpactExercises = fb_b_day.exercises.filter(e => {
       const ex = byId.get(e.exerciseId);
-      return ex ? ex.name : "unknown";
-    }).join(", ") : "");
+      return ex && ex.impact === "high";
+    });
+    check(`Seed ${userId.substring(0,8)} Full Body B: no high-impact exercises`, highImpactExercises.length === 0,
+      highImpactExercises.length > 0 ? highImpactExercises.map(e => {
+        const ex = byId.get(e.exerciseId);
+        return ex ? ex.name : "unknown";
+      }).join(", ") : "");
+  }
 }
 
-console.log("\n7c. QA repro: beginner/gym/5d/30min/shoulder-injury Push slot 2");
-const qa7c2 = generateProgram(base({
-  userId: "11111111-1111-1111-1111-111111111111",
-  level: "beginner",
-  primaryTrack: "weights",
-  hasAllEquipment: true,
-  daysPerWeek: 5,
-  preferredSessionMinutes: 30,
-  currentInjuryRegions: ["shoulder"],
-}));
-const push_day = qa7c2.days.find(d => d.label === "Push");
-if (!push_day) {
-  check(`Push exists`, false, "Day not found in plan");
-} else {
-  // Check whole day for high-impact
-  const highImpactExercises = push_day.exercises.filter(e => {
-    const ex = byId.get(e.exerciseId);
-    return ex && ex.impact === "high";
-  });
-  check(`Push: no high-impact exercises`, highImpactExercises.length === 0,
-    highImpactExercises.length > 0 ? highImpactExercises.map(e => {
+console.log("\n7c. QA repro: beginner/gym/5d/30min/shoulder-injury Push");
+for (const userId of testSeedsForRepros) {
+  const qa7c2 = generateProgram(base({
+    userId,
+    level: "beginner",
+    primaryTrack: "weights",
+    hasAllEquipment: true,
+    daysPerWeek: 5,
+    preferredSessionMinutes: 30,
+    currentInjuryRegions: ["shoulder"],
+  }));
+  const push_day = qa7c2.days.find(d => d.label === "Push");
+  if (!push_day) {
+    check(`Seed ${userId.substring(0,8)} Push exists`, false, "Day not found in plan");
+  } else {
+    // Check whole day for high-impact
+    const highImpactExercises = push_day.exercises.filter(e => {
       const ex = byId.get(e.exerciseId);
-      return ex ? ex.name : "unknown";
-    }).join(", ") : "");
+      return ex && ex.impact === "high";
+    });
+    check(`Seed ${userId.substring(0,8)} Push: no high-impact exercises`, highImpactExercises.length === 0,
+      highImpactExercises.length > 0 ? highImpactExercises.map(e => {
+        const ex = byId.get(e.exerciseId);
+        return ex ? ex.name : "unknown";
+      }).join(", ") : "");
+  }
 }
 
 // 7d. Lower_back injury excludes windmill and loaded side bends (restored from PR #53)
@@ -563,35 +578,37 @@ if (lowerBackFailCount === 0) {
 }
 
 // QA repro case for lower_back windmill
-console.log("\n7d. QA repro: intermediate/gym/4d/45min/lower_back Lower slot 4");
-const qa7d = generateProgram(base({
-  userId: "11111111-1111-1111-1111-111111111111",
-  level: "intermediate",
-  primaryTrack: "weights",
-  hasAllEquipment: true,
-  daysPerWeek: 4,
-  preferredSessionMinutes: 45,
-  currentInjuryRegions: ["lower_back"],
-}));
-const lower_day = qa7d.days.find(d => d.label.includes("Lower"));
-if (!lower_day) {
-  check(`Lower exists`, false, "Day not found in plan");
-} else {
-  // Check whole day for loaded windmill/side-bend
-  const windmillExercises = lower_day.exercises.filter(e => {
-    const ex = byId.get(e.exerciseId);
-    if (!ex) return false;
-    return (ex.name.toLowerCase().includes("windmill") || 
-            ex.slug.includes("windmill") ||
-            ex.name.toLowerCase().includes("side bend") || 
-            ex.slug.includes("side-bend")) &&
-           ex.equipment_ids.length > 0;
-  });
-  check(`Lower: no loaded windmill/side-bend`, windmillExercises.length === 0,
-    windmillExercises.length > 0 ? windmillExercises.map(e => {
+console.log("\n7d. QA repro: intermediate/gym/4d/45min/lower_back Lower");
+for (const userId of testSeedsForRepros) {
+  const qa7d = generateProgram(base({
+    userId,
+    level: "intermediate",
+    primaryTrack: "weights",
+    hasAllEquipment: true,
+    daysPerWeek: 4,
+    preferredSessionMinutes: 45,
+    currentInjuryRegions: ["lower_back"],
+  }));
+  const lower_day = qa7d.days.find(d => d.label === "Lower");
+  if (!lower_day) {
+    check(`Seed ${userId.substring(0,8)} Lower exists`, false, "Day not found in plan - expected day with label === 'Lower'");
+  } else {
+    // Check whole day for loaded windmill/side-bend
+    const windmillExercises = lower_day.exercises.filter(e => {
       const ex = byId.get(e.exerciseId);
-      return ex ? ex.name : "unknown";
-    }).join(", ") : "");
+      if (!ex) return false;
+      return (ex.name.toLowerCase().includes("windmill") || 
+              ex.slug.includes("windmill") ||
+              ex.name.toLowerCase().includes("side bend") || 
+              ex.slug.includes("side-bend")) &&
+             ex.equipment_ids.length > 0;
+    });
+    check(`Seed ${userId.substring(0,8)} Lower: no loaded windmill/side-bend`, windmillExercises.length === 0,
+      windmillExercises.length > 0 ? windmillExercises.map(e => {
+        const ex = byId.get(e.exerciseId);
+        return ex ? ex.name : "unknown";
+      }).join(", ") : "");
+  }
 }
 
 // ====================
@@ -605,7 +622,7 @@ testSeeds("Shoulder injury: no pushups or upright rows on Upper/Push days",
       d.focus === "upper" || d.focus === "push" || d.focus === "pull"
     );
     
-    upperPushDays.forEach((day, dayIdx) => {
+    upperPushDays.forEach((day) => {
       const hasPushups = day.exercises.some(e => {
         const ex = byId.get(e.exerciseId);
         return ex && (ex.slug === "pushups" || ex.slug === "push-up-wide");

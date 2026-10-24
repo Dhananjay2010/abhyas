@@ -346,13 +346,10 @@ function shouldExcludeForSafety(
  * QA Pass 10 H6 (restored from PR #53): Exercises safe for knee injuries despite being quad-focused.
  * These use limited ROM, isometric holds, or controlled movements that don't aggravate the knee.
  * Must be REAL prod slugs only. Exported for testing.
- * 
- * From PR #53 coordinator decision: leg-extensions, single-leg-leg-extension, box-squat, wall-sit, spanish-squat
  */
-export const KNEE_SAFE_QUAD_EXERCISES: Readonly<Set<string>> = new Set([
+export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
   'leg-extensions',           // Partial ROM, pain-free range (machine)
   'single-leg-leg-extension', // Partial ROM, pain-free range (machine)
-  'box-squat',                // Box at parallel or higher (barbell, squat_rack)
   'wall-sit',                 // Isometric hold, no dynamic stress (bodyweight, seconds metric)
   'spanish-squat',            // Band-resisted, controlled (resistance_band)
 ]);
@@ -363,11 +360,19 @@ export const KNEE_SAFE_QUAD_EXERCISES: Readonly<Set<string>> = new Set([
  * For knee-injured users, prefer hip-dominant hinges (RDL, hip thrust, glute bridge).
  * Exported for testing.
  */
-export const FLOOR_PULL_DEADLIFTS: Readonly<Set<string>> = new Set([
-  'barbell-deadlift',         // Conventional deadlift
-  'trap-bar-deadlift',        // Trap bar / hex bar deadlift
-  'sumo-deadlift',            // Sumo stance deadlift
-  'deficit-deadlift',         // Deadlift from deficit
+export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
+  'barbell-deadlift',              // Conventional deadlift
+  'sumo-deadlift',                 // Sumo stance deadlift
+  'deficit-deadlift',              // Deadlift from deficit
+  'deadlift-with-bands',           // Conventional with band resistance
+  'deadlift-with-chains',          // Conventional with chain resistance
+  'reverse-band-deadlift',         // Reverse band setup
+  'reverse-band-sumo-deadlift',    // Reverse band sumo
+  'sumo-deadlift-with-bands',      // Sumo with bands
+  'sumo-deadlift-with-chains',     // Sumo with chains
+  'cable-deadlifts',               // Cable variation
+  'leverage-deadlift',             // Machine leverage deadlift
+  'one-arm-side-deadlift',         // Single-arm floor pull
 ]);
 
 /**
@@ -478,6 +483,11 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
           return false;
         }
       }
+      
+      // Floor-pull deadlifts with deep knee flexion are completely excluded for knee injuries
+      if (FLOOR_PULL_DEADLIFTS.has(ex.slug)) {
+        return false;
+      }
     }
   }
 
@@ -506,7 +516,6 @@ export function score(
   wantCompound: boolean,
   level: Level,
   primaryTrack: Track = "weights",
-  currentInjuryRegions: BodyRegion[] = [],
 ): number {
   let s = 0;
   if (wantCompound && ex.mechanic === "compound") s += 4;
@@ -532,12 +541,6 @@ export function score(
   // is what bench press needs, not a reason to avoid it.
   if (primaryTrack === "bodyweight") {
     s -= Math.max(0, ex.equipment_ids.length - 1);
-  }
-
-  // QA Pass 10 followup (restored from PR #53): Knee injury bonus for knee-safe quad exercises
-  // Coordinator decision: leg-extensions, single-leg-leg-extension, box-squat, wall-sit, spanish-squat
-  if (currentInjuryRegions.includes("knee") && KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
-    s += 15; // Much higher than compound bonus (4), so knee-safe options rank first
   }
 
   return s;
@@ -656,7 +659,7 @@ function pickForSlot(
     const ranked = candidates
       .map((e) => ({
         e,
-        score: score(e, wantCompound, input.level, input.primaryTrack, input.currentInjuryRegions),
+        score: score(e, wantCompound, input.level, input.primaryTrack),
         stapleKey: isMainSlot
           ? stapleSortKey(e, p, input.hasAllEquipment, input.primaryTrack)
           : `1:${e.slug}`, // Non-main slots: no staple bonus
@@ -695,7 +698,7 @@ function pickForSlot(
     const ranked = filtered
       .map((e) => ({
         e,
-        score: score(e, slotIndex < 4, input.level, input.primaryTrack, input.currentInjuryRegions),
+        score: score(e, slotIndex < 4, input.level, input.primaryTrack),
         stapleKey: stapleSortKey(e, altPattern, input.hasAllEquipment, input.primaryTrack),
         rng: rng(),
       }))
@@ -846,7 +849,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           })
           .map(e => ({
             e,
-            score: score(e, i < 4, input.level, input.primaryTrack, input.currentInjuryRegions),
+            score: score(e, i < 4, input.level, input.primaryTrack),
             stapleKey: stapleSortKey(e, pattern, input.hasAllEquipment, input.primaryTrack),
             rng: rng(),
           }))
@@ -910,7 +913,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return true;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -938,7 +941,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return isEligible(e, input);
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -975,7 +978,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -1015,7 +1018,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -1131,8 +1134,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           [exercises[0], exercises[kneeSafeIndex]] = [exercises[kneeSafeIndex], exercises[0]];
           exercises.forEach((e, idx) => { e.orderIndex = idx; });
         } else {
-          // No knee-safe quad exists - try to add one
-          // For knee-injured users, allow reusing knee-safe quads across days if necessary
+          // No knee-safe quad exists - replace first quad/lower exercise with a knee-safe one
           const usedInThisDay = new Set(exercises.map(ex => ex.exerciseId));
           const kneeSafeOptions = pool
             .filter(e => {
@@ -1162,32 +1164,58 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               return true;
             })
             .sort((a, b) => 
-              score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) - 
-              score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+              score(b, true, input.level, input.primaryTrack) - 
+              score(a, true, input.level, input.primaryTrack) ||
               a.slug.localeCompare(b.slug)
             );
           
           if (kneeSafeOptions.length > 0) {
-            const added = kneeSafeOptions[0];
-            usedInBlock.add(added.id);
+            // Find first quad/lower exercise to replace (prefer slot 0, or first quad-focused slot)
+            let replaceIndex = 0;
+            const firstExMuscles = firstEx?.primary_muscles ?? [];
+            if (!firstExMuscles.some(m => ["quads", "glutes", "hamstrings"].includes(m))) {
+              // First exercise isn't lower-focused, find first lower exercise
+              const firstLowerIndex = exercises.findIndex(ex => {
+                const e = pool.find(p => p.id === ex.exerciseId);
+                return e?.primary_muscles.some(m => ["quads", "glutes", "hamstrings"].includes(m));
+              });
+              if (firstLowerIndex > 0) {
+                replaceIndex = firstLowerIndex;
+              }
+            }
+            
+            const replacement = kneeSafeOptions[0];
+            // Remove old exercise from usedInBlock if it was there
+            if (exercises[replaceIndex]) {
+              usedInBlock.delete(exercises[replaceIndex].exerciseId);
+            }
+            usedInBlock.add(replacement.id);
+            
             const p = prescribe(
               input.goal,
               input.level,
-              added.mechanic === "isolation",
-              added.metric ?? "reps",
+              replacement.mechanic === "isolation",
+              replacement.metric ?? "reps",
               sessionMinutes,
-              added.equipment_ids,
+              replacement.equipment_ids,
             );
-            // Insert at the beginning
-            exercises.unshift({
-              exerciseId: added.id,
-              name: added.name,
-              orderIndex: 0,
+            
+            // Replace the exercise at replaceIndex
+            exercises[replaceIndex] = {
+              exerciseId: replacement.id,
+              name: replacement.name,
+              orderIndex: replaceIndex,
               targetSets: p.sets,
               targetRepsMin: p.repsMin,
               targetRepsMax: p.repsMax,
               restSeconds: p.restSeconds,
-            });
+            };
+            
+            // If we replaced something other than slot 0, swap it to front
+            if (replaceIndex > 0) {
+              [exercises[0], exercises[replaceIndex]] = [exercises[replaceIndex], exercises[0]];
+            }
+            
             // Update all orderIndex values
             exercises.forEach((e, idx) => { e.orderIndex = idx; });
           }
@@ -1221,46 +1249,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             // Update orderIndex
             exercises.forEach((e, idx) => { e.orderIndex = idx; });
           }
-        }
-      }
-    }
-
-    // Rule 3 (for ALL days with knee injury, not just lower): Hip-flexion-with-band never in main slots
-    if (hasKneeInjury && exercises.length >= 4) {
-      const hipFlexionInMain = exercises.slice(0, 4).findIndex(ex => {
-        const e = pool.find(p => p.id === ex.exerciseId);
-        return e && e.slug === "hip-flexion-with-band";
-      });
-
-      if (hipFlexionInMain !== -1) {
-        // Swap it with the first non-main exercise (slot 4 or later)
-        if (exercises.length > 4) {
-          [exercises[hipFlexionInMain], exercises[4]] = [exercises[4], exercises[hipFlexionInMain]];
-          // Update orderIndex
-          exercises.forEach((e, idx) => { e.orderIndex = idx; });
-        }
-      }
-    }
-
-    // Rule 3b (PR #73 follow-up): Floor-pull deadlifts never in main slots for knee injury
-    // Conventional deadlifts with deep knee flexion are contraindicated
-    // Prefer hip-dominant hinges (RDL, hip thrust, glute bridge)
-    if (hasKneeInjury && exercises.length >= 4) {
-      const deadliftInMain = exercises.slice(0, 4).findIndex(ex => {
-        const e = pool.find(p => p.id === ex.exerciseId);
-        return e && FLOOR_PULL_DEADLIFTS.has(e.slug);
-      });
-
-      if (deadliftInMain !== -1) {
-        // Swap it with the first non-main exercise (slot 4 or later)
-        if (exercises.length > 4) {
-          [exercises[deadliftInMain], exercises[4]] = [exercises[4], exercises[deadliftInMain]];
-          // Update orderIndex
-          exercises.forEach((e, idx) => { e.orderIndex = idx; });
-        } else {
-          // If no accessories to swap with, remove it entirely
-          exercises.splice(deadliftInMain, 1);
-          exercises.forEach((e, idx) => { e.orderIndex = idx; });
         }
       }
     }
@@ -1303,8 +1291,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         .filter((e) => !usedInBlock.has(e.id))
         .sort(
           (a, b) =>
-            score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
-              score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, true, input.level, input.primaryTrack) -
+              score(a, true, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug),
         );
       
@@ -1481,8 +1469,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               isEligible(e, input)
             )
             .sort((a, b) => 
-              score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
-              score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+              score(b, true, input.level, input.primaryTrack) -
+              score(a, true, input.level, input.primaryTrack) ||
               a.slug.localeCompare(b.slug)
             );
           
@@ -1536,8 +1524,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             isEligible(e, input)
           )
           .sort((a, b) => 
-            score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
-            score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+              score(b, true, input.level, input.primaryTrack) -
+              score(a, true, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug)
           );
         
