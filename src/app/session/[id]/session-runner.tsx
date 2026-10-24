@@ -289,6 +289,16 @@ export function SessionRunner({
     }).length;
   }, 0), [exercises]);
 
+  // Clear finish-block and quota errors when sync completes
+  useEffect(() => {
+    if (pendingCount === 0 && lostCount === 0 && failedCount === 0) {
+      // Only clear errors that look like finish-block or quota errors
+      if (error && (error.includes("still syncing") || error.includes("couldn't be saved") || error.includes("weren't accepted") || error.includes("out of space"))) {
+        setError(null);
+      }
+    }
+  }, [pendingCount, lostCount, failedCount, error]);
+
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it
    * for the rest of the session — and it sat one unguarded tap away among the
@@ -773,9 +783,8 @@ export function SessionRunner({
           ),
         );
         
-        // Set syncState and error based on error type
+        // Set error based on error type (don't set syncState to "quota" - no banner)
         if (isQuotaError(err)) {
-          setSyncState({ type: "quota" });
           setError(
             classification.isNetwork
               ? "You're offline and this phone is out of space. Tap Retry on the set when you're back online."
@@ -1143,12 +1152,12 @@ export function SessionRunner({
                                       : e,
                                   ),
                                 );
+                                // Set error message only (no syncState banner for quota)
                                 if (isQuotaError(enqueueErr)) {
-                                  setSyncState({ type: "quota" });
                                   setError(
                                     classification.isNetwork
                                       ? "You're offline and this phone is out of space. Tap Retry on the set when you're back online."
-                                      : "Couldn't save offline. Keep this screen open.",
+                                      : "Out of space. Keep this screen open.",
                                   );
                                 } else {
                                   setError("Failed to save set. Please try again.");
