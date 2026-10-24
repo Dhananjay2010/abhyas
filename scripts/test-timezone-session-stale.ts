@@ -739,7 +739,55 @@ console.log("\n28. in_progress + null started_at + no sets: closed with duration
   const session = fake.getSession("stuck");
   check("status is skipped", session?.status === "skipped");
   check("duration_seconds is null", session?.duration_seconds === null);
-  check("completed_at is set", session?.completed_at !== null);
+  check("completed_at is real ISO timestamp", session?.completed_at === "2026-10-25T10:00:00.000Z");
+}
+
+console.log("\n29. H4: null started_at, first set 7h ago, last set 2 min ago stays in_progress");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T18:00:00Z");
+  const sevenHoursAgo = new Date(now - 7 * 3600 * 1000).toISOString();
+  const twoMinutesAgo = new Date(now - 2 * 60 * 1000).toISOString();
+  
+  fake.setSession("recent", "in_progress");
+  fake.setSessionExercises("recent", [
+    {
+      session_id: "recent",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: sevenHoursAgo },
+        { id: "set2", is_warmup_set: false, completed_at: twoMinutesAgo },
+      ],
+    },
+  ]);
+
+  const open: OpenSession[] = [
+    { id: "recent", local_date: "2026-10-24", started_at: null, actual_type: "weights", status: "in_progress" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  const session = fake.getSession("recent");
+  check("session still in_progress", session?.status === "in_progress");
+}
+
+console.log("\n30. nn3: in_progress dated today, null started_at, no sets closes as skipped");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-25T10:00:00Z");
+  
+  fake.setSession("today-stuck", "in_progress");
+  fake.setSessionExercises("today-stuck", []);
+
+  const open: OpenSession[] = [
+    { id: "today-stuck", local_date: "2026-10-25", started_at: null, actual_type: "weights", status: "in_progress" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-25");
+  
+  const session = fake.getSession("today-stuck");
+  check("today in_progress closed", session?.status === "skipped");
+  check("duration is null", session?.duration_seconds === null);
+  check("completed_at is exact now timestamp", session?.completed_at === "2026-10-25T10:00:00.000Z");
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

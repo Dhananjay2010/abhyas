@@ -232,7 +232,7 @@ export async function closeStaleSessionsCore(
               await deps.markPlannedSkipped(id);
             } else {
               // in_progress rows need to be marked done with duration null
-              await deps.markSessionDone(id, "skipped", session?.local_date ?? new Date(nowMs).toISOString(), null);
+              await deps.markSessionDone(id, "skipped", new Date(nowMs).toISOString(), null);
             }
           } catch (error) {
             console.error(`Failed to mark session ${id} as skipped:`, error);
