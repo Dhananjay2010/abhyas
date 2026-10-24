@@ -41,3 +41,4 @@ export async function signOutAction(): Promise<{ ok: false; error: string } | ne
     redirect,
   });
 }
+
