@@ -239,7 +239,7 @@ export function SettingsForm({
       
       if (field === "preferredSessionMinutes" && typeof value === "number") {
         setS(prev => ({ ...prev, preferredSessionMinutes: value }));
-        saveSession("preferred_session_minutes", { preferred_session_minutes: value });
+        saveProfile("preferred_session_minutes", { preferred_session_minutes: value });
       } else if (field === "timezone" && (typeof value === "string" || value === null)) {
         setS(prev => ({ ...prev, timezone: value }));
         saveProfile("timezone", { timezone: value });
