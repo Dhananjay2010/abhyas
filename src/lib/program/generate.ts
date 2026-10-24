@@ -1277,7 +1277,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         break; // Can't reduce further
       }
       
-      // Second pass: if under target, add exercises first (respecting pattern balance), then sets
+      // Second pass: if under target, raise sets toward cap FIRST, then add new-pattern exercises
       // Cap: beginners 3 sets, intermediates 4, advanced 5
       const setCapByLevel: Record<Level, number> = {
         beginner: 3,
@@ -1289,17 +1289,34 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       while (estimate < lowerBound && iterations < MAX_ITERATIONS) {
         iterations++;
         
-        // Strategy 1: Add another exercise first (respecting pattern balance: add a pull when pushes outnumber pulls)
+        // Strategy 1: Raise sets on existing exercises toward the level cap (prioritize main lifts, then accessories)
+        // This fills time efficiently without adding more exercises
+        const canBoost = exercises.filter(ex => ex.targetSets < maxSets);
+        
+        if (canBoost.length > 0) {
+          // Prioritize main lifts (slots 0-1), then accessories
+          const mainLifts = canBoost.filter((_, idx) => idx < CARRY_OVER_SLOTS);
+          const accessories = canBoost.filter((_, idx) => idx >= CARRY_OVER_SLOTS);
+          
+          if (mainLifts.length > 0) {
+            mainLifts[0].targetSets++;
+          } else if (accessories.length > 0) {
+            accessories[0].targetSets++;
+          }
+          
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        // Strategy 2: Add another NEW-pattern exercise (respecting pattern balance and limits)
         const slots: Pattern[] = (entry.slots ?? []) as Pattern[];
-        const accessoryPatterns: Pattern[] = slots.length >= 2 ? slots.slice(-2) : ["core" as Pattern]; // Last 2 patterns, or default to core
-        // Allow exercises beyond slot count for longer sessions
-        // Calculate based on time target: longer sessions or strict set caps need more exercises
-        // Base: slots.length, allow up to +50% more exercises for very long sessions
+        const accessoryPatterns: Pattern[] = slots.length >= 2 ? slots.slice(-2) : ["core" as Pattern];
         const baseMax = slots.length + 2;
-        const timeBasedMax = Math.ceil(sessionMinutes / 6); // ~6 min per exercise avg for bodyweight
+        const timeBasedMax = Math.ceil(sessionMinutes / 6);
         const maxExercises = Math.max(baseMax, Math.min(12, timeBasedMax));
+        
         if (exercises.length < maxExercises && accessoryPatterns.length > 0) {
-          // Hotfix: Count existing patterns to enforce pattern limit (max 1 extra of same pattern)
+          // Count existing patterns to enforce pattern limit (max 1 extra of same pattern)
           const patternCounts = new Map<string, number>();
           for (const ex of exercises) {
             const candidate = pool.find(e => e.id === ex.exerciseId);
@@ -1308,7 +1325,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             }
           }
           
-          // Hotfix: Count isolations per target muscle (max 2 per muscle)
+          // Count isolations per target muscle (max 2 per muscle)
           const isolationsByMuscle = new Map<string, number>();
           for (const ex of exercises) {
             const candidate = pool.find(e => e.id === ex.exerciseId);
@@ -1339,15 +1356,16 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             preferredPatterns = accessoryPatterns.filter(p => pullPatterns.includes(p));
           }
           
-          // Try preferred pattern first, then fall back to any pattern from template if no candidates
+          // Try preferred pattern first, then fall back to any NEW pattern from template
           let candidates: typeof pool = [];
           let pickedPattern: Pattern | null = null;
           
           for (const pattern of preferredPatterns) {
-            // Hotfix: Skip patterns that already have too many exercises (original + max 1 extra)
+            // Skip patterns that already AT the limit (original + max 1 extra)
             const currentCount = patternCounts.get(pattern) || 0;
             const originalSlotCount = slots.filter(s => s === pattern).length;
-            if (currentCount > originalSlotCount + MAX_EXTRA_SAME_PATTERN) {
+            const maxAllowed = originalSlotCount + MAX_EXTRA_SAME_PATTERN;
+            if (currentCount >= maxAllowed) {
               continue;
             }
             
@@ -1357,7 +1375,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
                 if (usedInBlock.has(e.id)) return false;
                 if (!isEligible(e, input)) return false;
                 
-                // Hotfix: If this is an isolation, check muscle limits
+                // If this is an isolation, check muscle limits
                 if (e.mechanic === "isolation") {
                   for (const muscle of e.primary_muscles) {
                     if ((isolationsByMuscle.get(muscle) || 0) >= MAX_ISOLATIONS_PER_MUSCLE) {
@@ -1380,15 +1398,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             }
           }
           
-          // If preferred patterns exhausted, try any slot pattern (respecting limits)
+          // If preferred patterns exhausted, try any NEW slot pattern (respecting limits)
           if (candidates.length === 0) {
             for (const pattern of slots) {
-              if (pattern === "core") continue; // Skip core to avoid too many core exercises
-              
-              // Hotfix: Skip patterns that already have too many exercises
               const currentCount = patternCounts.get(pattern) || 0;
               const originalSlotCount = slots.filter(s => s === pattern).length;
-              if (currentCount > originalSlotCount + MAX_EXTRA_SAME_PATTERN) {
+              const maxAllowed = originalSlotCount + MAX_EXTRA_SAME_PATTERN;
+              
+              // Core can always be added as filler; others must respect limits
+              if (pattern !== "core" && currentCount >= maxAllowed) {
                 continue;
               }
               
@@ -1398,7 +1416,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
                   if (usedInBlock.has(e.id)) return false;
                   if (!isEligible(e, input)) return false;
                   
-                  // Hotfix: If this is an isolation, check muscle limits
+                  // If this is an isolation, check muscle limits
                   if (e.mechanic === "isolation") {
                     for (const muscle of e.primary_muscles) {
                       if ((isolationsByMuscle.get(muscle) || 0) >= MAX_ISOLATIONS_PER_MUSCLE) {
@@ -1447,65 +1465,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           }
         }
         
-        // Strategy 2: Add a set to accessories (slots 4+, up to level cap)
-        // Prioritize adding sets to underrepresented patterns (push vs pull balance)
-        const accessories = exercises
-          .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx >= 4 && exercises[idx].targetSets < maxSets);
-        
-        if (accessories.length > 0) {
-          const pushPatterns = ["horizontal_press", "vertical_press"];
-          const pullPatterns = ["horizontal_pull", "vertical_pull"];
-          
-          const pushCount = exercises.reduce((sum, e) => {
-            const ex = pool.find(p => p.id === e.exerciseId);
-            return sum + (ex && pushPatterns.includes(ex.movement_pattern) ? e.targetSets : 0);
-          }, 0);
-          
-          const pullCount = exercises.reduce((sum, e) => {
-            const ex = pool.find(p => p.id === e.exerciseId);
-            return sum + (ex && pullPatterns.includes(ex.movement_pattern) ? e.targetSets : 0);
-          }, 0);
-          
-          // Pick an accessory from the underrepresented pattern if imbalanced
-          let picked = accessories[0];
-          if (pullCount > pushCount + 1) {
-            // Prioritize push accessories
-            const pushAccessory = accessories.find(({ ex }) => {
-              const e = pool.find(p => p.id === ex.exerciseId);
-              return e && pushPatterns.includes(e.movement_pattern);
-            });
-            if (pushAccessory) picked = pushAccessory;
-          } else if (pushCount > pullCount + 1) {
-            // Prioritize pull accessories
-            const pullAccessory = accessories.find(({ ex }) => {
-              const e = pool.find(p => p.id === ex.exerciseId);
-              return e && pullPatterns.includes(e.movement_pattern);
-            });
-            if (pullAccessory) picked = pullAccessory;
-          }
-          
-          picked.ex.targetSets++;
-          estimate = estimateSessionMinutes({ exercises });
-          continue;
-        }
-        
-        // Strategy 3: Add a set to main exercises (up to level cap)
-        const mainExercises = exercises
-          .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < maxSets);
-        
-        if (mainExercises.length > 0) {
-          mainExercises[0].ex.targetSets++;
-          estimate = estimateSessionMinutes({ exercises });
-          continue;
-        }
-        
-        // Strategy 4: If still under target, but respect level caps strictly
-        // Do NOT exceed level caps (beginner 3, intermediate 4, advanced 5)
-        // If we can't add more within caps, accept being slightly under-target
-        
-        break; // Can't add more
+        // If we can't add more exercises or raise sets, accept the result
+        break;
       }
     }
 
