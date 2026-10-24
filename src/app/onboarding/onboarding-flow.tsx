@@ -119,13 +119,19 @@ export function OnboardingFlow({
   equipment,
   actions = REAL_ACTIONS,
   onFinish,
+  router: injectedRouter,
 }: {
   initial: InitialState;
   equipment: EquipmentRow[];
   actions?: OnboardingActions;
   onFinish?: () => void;
+  router?: ReturnType<typeof useRouter>;
 }) {
-  const router = useRouter();
+  let nextRouter: ReturnType<typeof useRouter> | null = null;
+  try {
+    nextRouter = useRouter();
+  } catch {}
+  const router = injectedRouter || nextRouter || { push: () => {}, replace: () => {}, prefetch: () => {}, back: () => {}, forward: () => {}, refresh: () => {} } as any;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 

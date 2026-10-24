@@ -14,6 +14,30 @@
 // Must be first import before any React code
 import "./helpers/setup-jsdom";
 
+// Mock next/navigation before any components import it
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const Module = require("module");
+const originalRequire = Module.prototype.require;
+
+Module.prototype.require = function (id: string) {
+  if (id === "next/navigation") {
+    return {
+      useRouter: () => ({
+        push: () => {},
+        replace: () => {},
+        prefetch: () => {},
+        back: () => {},
+        forward: () => {},
+        refresh: () => {},
+      }),
+      usePathname: () => "/test",
+      useSearchParams: () => new URLSearchParams(),
+    };
+  }
+  return originalRequire.apply(this, arguments);
+};
+
 import React from "react";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -140,44 +164,77 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     }
   }
 
-  console.log("\n3. LogWeight: Type 176 lb saves ~79.8 kg; type 50 lb shows error, no save");
+  console.log("\n3. LogWeight: Type 176 lb, click Save, assert ~79.8 kg sent; type 50 lb shows error, no save");
 
   {
-    // Test conversion logic directly since we can't easily mock server actions
-    const parsed176 = parseWeight("176", "imperial");
-    check(
-      "parseWeight('176', 'imperial') returns ~79.8 kg (79.7-79.9)",
-      parsed176 !== null && parsed176 >= 79.7 && parsed176 <= 79.9,
-      `got ${parsed176?.toFixed(2)}`
-    );
+    let savedKg: number | null = null;
+    let saveCallCount = 0;
 
-    // Test 50 lb is rejected (too low)
-    const parsed50 = parseWeight("50", "imperial");
-    check(
-      "parseWeight('50', 'imperial') returns null (out of range)",
-      parsed50 === null,
-      `got ${parsed50}`
-    );
+    const mockLogAction = async (kg: number) => {
+      savedKg = kg;
+      saveCallCount++;
+      return { ok: true } as const;
+    };
 
-    // Visual test: Type 50 lb and check error displays
-    const { container } = render(
+    // Test 1: Type 176 lb and assert correct kg saved
+    const { container: container1 } = render(
       React.createElement(LogWeight, {
         current: null,
         units: "imperial",
+        logAction: mockLogAction,
       })
     );
 
-    const openButton = container.querySelector("button");
-    if (openButton) {
-      await userEvent.click(openButton);
+    const openButton1 = container1.querySelector("button");
+    if (openButton1) {
+      await userEvent.click(openButton1);
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      const input = container.querySelector('input[type="number"]');
-      if (input) {
-        await userEvent.clear(input);
-        await userEvent.type(input, "50");
+      const input1 = container1.querySelector('input[type="number"]');
+      if (input1) {
+        await userEvent.clear(input1);
+        await userEvent.type(input1, "176");
 
-        const saveButton = Array.from(container.querySelectorAll("button")).find(
+        const saveButton = Array.from(container1.querySelectorAll("button")).find(
+          (btn) => btn.textContent === "Save"
+        );
+
+        if (saveButton) {
+          await userEvent.click(saveButton);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
+          check(
+            "Typing 176 lb, clicking Save sends ~79.8 kg (79.7-79.9)",
+            savedKg !== null && savedKg >= 79.7 && savedKg <= 79.9,
+            `got ${savedKg?.toFixed(2)}`
+          );
+        }
+      }
+    }
+
+    // Test 2: Type 50 lb (out of range), assert error shown and no save
+    savedKg = null;
+    const initialCallCount = saveCallCount;
+
+    const { container: container2 } = render(
+      React.createElement(LogWeight, {
+        current: null,
+        units: "imperial",
+        logAction: mockLogAction,
+      })
+    );
+
+    const openButton2 = container2.querySelector("button");
+    if (openButton2) {
+      await userEvent.click(openButton2);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const input2 = container2.querySelector('input[type="number"]');
+      if (input2) {
+        await userEvent.clear(input2);
+        await userEvent.type(input2, "50");
+
+        const saveButton = Array.from(container2.querySelectorAll("button")).find(
           (btn) => btn.textContent === "Save"
         );
 
@@ -186,46 +243,260 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
           await new Promise((resolve) => setTimeout(resolve, 100));
 
           // Check error is displayed
-          const errorText = container.textContent;
+          const errorText = container2.textContent;
           const hasError = errorText?.includes("between 55 and 661 lb");
-          check("Typing 50 lb displays 'between 55 and 661 lb' error in UI", hasError);
+          check("Typing 50 lb shows 'between 55 and 661 lb' error", hasError);
+
+          check(
+            "logAction NOT called for out-of-range value",
+            saveCallCount === initialCallCount,
+            `calls: ${saveCallCount}`
+          );
         }
       }
     }
   }
 
-  console.log("\n4. Onboarding conversion logic: imperial input converts correctly");
+  console.log("\n4. OnboardingFlow about step with imperial: hints show lb/ft-in, submission converts");
 
   {
-    // Test that imperial values convert correctly (same logic used in OnboardingFlow)
-    const height59 = parseHeight("5'9\"", "imperial");
-    check(
-      "parseHeight(\"5'9\\\"\", 'imperial') returns ~175 cm (174-176)",
-      height59 !== null && height59 >= 174 && height59 <= 176,
-      `got ${height59}`
+    let savedHeight: number | null = null;
+    let savedWeight: number | null = null;
+    let saveCallCount = 0;
+
+    const mockOnboardingActions: OnboardingActions = {
+      acceptDisclaimer: async () => ({ ok: true }),
+      saveAboutYou: async (input) => {
+        savedHeight = input.heightCm;
+        savedWeight = input.weightKg;
+        saveCallCount++;
+        return { ok: true };
+      },
+      saveProfileFields: async () => ({ ok: true }),
+      saveEquipment: async () => ({ ok: true }),
+      saveInjuries: async () => ({ ok: true }),
+      saveSessionLength: async () => ({ ok: true }),
+      completeOnboarding: async () => ({ ok: true }),
+    };
+
+    // Start on the about step by setting disclaimerAccepted=true
+    const initialState: InitialState = {
+      displayName: "Test User",
+      dateOfBirth: null,
+      sex: null,
+      heightCm: null,
+      weightKg: null,
+      goal: null,
+      level: null,
+      primaryTrack: null,
+      daysPerWeek: null,
+      sessionMinutes: null,
+      yogaDaysPerWeek: 0,
+      disclaimerAccepted: true,
+      hasAllEquipment: false,
+      equipmentIds: [],
+      injuries: [],
+      units: "imperial",
+    };
+
+    const mockRouter = {
+      push: () => {},
+      replace: () => {},
+      prefetch: () => {},
+      back: () => {},
+      forward: () => {},
+      refresh: () => {},
+    };
+
+    const { container } = render(
+      React.createElement(OnboardingFlow, {
+        initial: initialState,
+        equipment: [],
+        actions: mockOnboardingActions,
+        router: mockRouter as any,
+      })
     );
 
-    const weight176 = parseWeight("176", "imperial");
-    check(
-      "parseWeight('176', 'imperial') returns ~79.8 kg (79.7-79.9)",
-      weight176 !== null && weight176 >= 79.7 && weight176 <= 79.9,
-      `got ${weight176?.toFixed(2)}`
+    // Check hints show imperial units
+    const containerText = container.textContent || "";
+    check("Height hint shows ft'in\"", containerText.includes(`ft'in"`), `text contains ft'in"`);
+    check("Weight hint shows lb", containerText.includes("lb"), `text contains lb`);
+
+    // Fill in the form
+    const inputs = container.querySelectorAll("input");
+    
+    // DOB inputs (type="text")
+    const dobInputs = Array.from(inputs).filter((inp) => (inp as HTMLInputElement).type === "text");
+    
+    // Height and weight inputs (type="number" or "text" with specific placeholders)
+    const allInputs = Array.from(inputs);
+    const heightInput = allInputs.find((inp) => {
+      const placeholder = (inp as HTMLInputElement).placeholder;
+      return placeholder?.includes("5'9") || placeholder?.includes("ft");
+    });
+    const weightInput = allInputs.find((inp) => {
+      const placeholder = (inp as HTMLInputElement).placeholder;
+      return placeholder?.includes("154") || placeholder?.includes("lb");
+    });
+
+    const sexButtons = Array.from(container.querySelectorAll("button")).filter((btn) =>
+      btn.textContent === "Male" || btn.textContent === "Female"
     );
 
-    // Test out-of-range values return null
-    const heightTooLow = parseHeight("3'0\"", "imperial");
-    check(
-      "parseHeight(\"3'0\\\"\", 'imperial') returns null (out of range)",
-      heightTooLow === null,
-      `got ${heightTooLow}`
+    // Fill DOB (DD, MM, YYYY)
+    if (dobInputs.length >= 3) {
+      await userEvent.type(dobInputs[0], "15");
+      await userEvent.type(dobInputs[1], "06");
+      await userEvent.type(dobInputs[2], "1990");
+    }
+
+    // Select sex
+    if (sexButtons.length > 0) {
+      await userEvent.click(sexButtons[0]);
+    }
+
+    // Fill height 5'9"
+    if (heightInput) {
+      await userEvent.clear(heightInput);
+      await userEvent.type(heightInput, "5'9\"");
+    }
+
+    // Fill weight 176 lb
+    if (weightInput) {
+      await userEvent.clear(weightInput);
+      await userEvent.type(weightInput, "176");
+    }
+
+    // Submit
+    const continueButton = Array.from(container.querySelectorAll("button")).find(
+      (btn) => btn.textContent === "Continue"
     );
 
-    const weightTooLow = parseWeight("50", "imperial");
-    check(
-      "parseWeight('50', 'imperial') returns null (out of range)",
-      weightTooLow === null,
-      `got ${weightTooLow}`
-    );
+    if (continueButton) {
+      await userEvent.click(continueButton);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      check(
+        "saveAboutYou called with heightCm ~175 (174-176)",
+        savedHeight !== null && savedHeight >= 174 && savedHeight <= 176,
+        `got ${savedHeight}`
+      );
+
+      check(
+        "saveAboutYou called with weightKg ~79.8 (79.7-79.9)",
+        savedWeight !== null && savedWeight >= 79.7 && savedWeight <= 79.9,
+        `got ${savedWeight?.toFixed(2)}`
+      );
+    }
+  }
+
+  console.log("\n5. OnboardingFlow: Out-of-range height/weight show imperial error, no save");
+
+  {
+    let saveCallCount = 0;
+
+    const mockOnboardingActions: OnboardingActions = {
+      acceptDisclaimer: async () => ({ ok: true }),
+      saveAboutYou: async () => {
+        saveCallCount++;
+        return { ok: true };
+      },
+      saveProfileFields: async () => ({ ok: true }),
+      saveEquipment: async () => ({ ok: true }),
+      saveInjuries: async () => ({ ok: true }),
+      saveSessionLength: async () => ({ ok: true }),
+      completeOnboarding: async () => ({ ok: true }),
+    };
+
+    const initialState: InitialState = {
+      displayName: "Test User",
+      dateOfBirth: null,
+      sex: null,
+      heightCm: null,
+      weightKg: null,
+      goal: null,
+      level: null,
+      primaryTrack: null,
+      daysPerWeek: null,
+      sessionMinutes: null,
+      yogaDaysPerWeek: 0,
+      disclaimerAccepted: true,
+      hasAllEquipment: false,
+      equipmentIds: [],
+      injuries: [],
+      units: "imperial",
+    };
+
+    const mockRouter = {
+      push: () => {},
+      replace: () => {},
+      prefetch: () => {},
+      back: () => {},
+      forward: () => {},
+      refresh: () => {},
+    };
+
+    // Test out-of-range height: 3'0" (too low)
+    {
+      const { container: container1 } = render(
+        React.createElement(OnboardingFlow, {
+          initial: initialState,
+          equipment: [],
+          actions: mockOnboardingActions,
+          router: mockRouter as any,
+        })
+      );
+
+      const allInputs = Array.from(container1.querySelectorAll("input"));
+      const heightInput = allInputs.find((inp) => {
+        const placeholder = (inp as HTMLInputElement).placeholder;
+        return placeholder?.includes("5'9") || placeholder?.includes("ft");
+      });
+
+      if (heightInput) {
+        await userEvent.clear(heightInput);
+        await userEvent.type(heightInput, "3'0\"");
+        await userEvent.tab(); // trigger onBlur
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        const errorText = container1.textContent;
+        const hasHeightError = errorText?.includes(`between 3'3" and 8'2"`);
+        check("Out-of-range height (3'0\") shows imperial error", hasHeightError);
+      }
+    }
+
+    // Test out-of-range weight: 50 lb (too low)
+    {
+      const { container: container2 } = render(
+        React.createElement(OnboardingFlow, {
+          initial: initialState,
+          equipment: [],
+          actions: mockOnboardingActions,
+          router: mockRouter as any,
+        })
+      );
+
+      const allInputs = Array.from(container2.querySelectorAll("input"));
+      const weightInput = allInputs.find((inp) => {
+        const placeholder = (inp as HTMLInputElement).placeholder;
+        return placeholder?.includes("154") || placeholder?.includes("lb");
+      });
+
+      if (weightInput) {
+        await userEvent.clear(weightInput);
+        await userEvent.type(weightInput, "50");
+        await userEvent.tab(); // trigger onBlur
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        const errorText = container2.textContent;
+        const hasWeightError = errorText?.includes("between 55 and 661 lb");
+        check("Out-of-range weight (50 lb) shows imperial error", hasWeightError);
+      }
+    }
+
+    check("saveAboutYou NOT called for out-of-range values", saveCallCount === 0);
   }
 
   console.log("\n6. Validation: parseWeight/parseHeight return null outside valid ranges");
