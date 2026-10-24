@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { GOALS, LEVELS, ageOn } from "@/lib/onboarding/options";
 import { BuildPlanButton } from "./build-plan-button";
@@ -14,9 +15,8 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isMissedTrainingDay } from "@/lib/today/missed-day";
-import { calculateTodayState } from "@/lib/today/today-state";
 import { WelcomeCard, shouldShowWelcome } from "@/components/welcome-card";
-import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import { ownsPlannedWorkout, countsTowardStreak } from "@/lib/progress/training-days";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,10 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
+
+  // Check welcome card dismissal cookie
+  const cookieStore = await cookies();
+  const hasDismissedWelcome = cookieStore.has(`abhyas_welcome_dismissed_${user.id}`);
 
   // ---- wave 1 -------------------------------------------------------------
   // Nothing here depends on anything else here, so all three go at once. This
@@ -328,22 +332,23 @@ export default async function TodayPage() {
     date: yesterday,
     programStartedOn: program.started_on,
     onboardingCompletedAt: profile.onboarding_completed_at,
+    timezone,
     templateDayType: yesterdayDay?.day_type ?? null,
     completedSessions: yesterdaySessions.map((s) => ({
       actual_type: s.actual_type,
       status: s.status,
     })),
   });
-  // Only worth asking while today is still open to being changed.
-  const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
   // ---- wave 3 -------------------------------------------------------------
-  // plannable days are now ALWAYS loaded (not conditional) so that rest days
-  // and "train anyway" always offer strength options. The session's own
-  // exercises are loaded only when a workout has been started.
+  // Load plannable days only when needed: rest day or missed-yesterday state.
+  // The session's own exercises are loaded only when a workout has been started.
   // Also check if user has ever started a session (for welcome card visibility).
+  const needsPlannableDays = 
+    (dayType === "rest" || missedYesterday) && !strengthDone && !strengthOpen;
+  
   const [plannable, performedRows, hasStartedSession] = await Promise.all([
-    plannableDays(supabase, program.id),
+    needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
     performed
       ? supabase
           .from("session_exercises")
@@ -520,88 +525,79 @@ export default async function TodayPage() {
       )}
 
       {/* Welcome card - shown once after onboarding, before first session */}
-      {shouldShowWelcome(hasStartedSession) && (
+      {shouldShowWelcome(hasStartedSession, hasDismissedWelcome) && (
         <WelcomeCard
           blockNumber={program.block_number}
           daysPerWeek={profile.days_per_week ?? 3}
           weekSchedule={[
-            { dayName: "Monday", isTraining: days?.some((d) => d.day_index === 1 && (d.day_type === "weights" || d.day_type === "bodyweight")) ?? false },
-            { dayName: "Tuesday", isTraining: days?.some((d) => d.day_index === 2 && (d.day_type === "weights" || d.day_type === "bodyweight")) ?? false },
-            { dayName: "Wednesday", isTraining: days?.some((d) => d.day_index === 3 && (d.day_type === "weights" || d.day_type === "bodyweight")) ?? false },
-            { dayName: "Thursday", isTraining: days?.some((d) => d.day_index === 4 && (d.day_type === "weights" || d.day_type === "bodyweight")) ?? false },
-            { dayName: "Friday", isTraining: days?.some((d) => d.day_index === 5 && (d.day_type === "weights" || d.day_type === "bodyweight")) ?? false },
-            { dayName: "Saturday", isTraining: days?.some((d) => d.day_index === 6 && (d.day_type === "weights" || d.day_type === "bodyweight")) ?? false },
-            { dayName: "Sunday", isTraining: days?.some((d) => d.day_index === 7 && (d.day_type === "weights" || d.day_type === "bodyweight")) ?? false },
+            { dayName: "Monday", isTraining: days?.some((d) => d.day_index === 1 && countsTowardStreak(d.day_type)) ?? false },
+            { dayName: "Tuesday", isTraining: days?.some((d) => d.day_index === 2 && countsTowardStreak(d.day_type)) ?? false },
+            { dayName: "Wednesday", isTraining: days?.some((d) => d.day_index === 3 && countsTowardStreak(d.day_type)) ?? false },
+            { dayName: "Thursday", isTraining: days?.some((d) => d.day_index === 4 && countsTowardStreak(d.day_type)) ?? false },
+            { dayName: "Friday", isTraining: days?.some((d) => d.day_index === 5 && countsTowardStreak(d.day_type)) ?? false },
+            { dayName: "Saturday", isTraining: days?.some((d) => d.day_index === 6 && countsTowardStreak(d.day_type)) ?? false },
+            { dayName: "Sunday", isTraining: days?.some((d) => d.day_index === 7 && countsTowardStreak(d.day_type)) ?? false },
           ]}
           sessionMinutes={profile.preferred_session_minutes ?? 60}
-          onDismiss={() => {}}
+          blockLength={4}
+          deloadWeek={program.deload_week}
         />
       )}
 
-      {/* Use the state machine to determine what to show */}
-      {(() => {
-        const state = calculateTodayState({
-          dayType,
-          missedYesterday: askAboutToday,
-          strengthDone,
-          hasOpenStrength: !!strengthOpen,
-          openSessionStarted: strengthOpen?.started_at !== null ? true : null,
-          plannableDays: plannable,
-        });
+      {/* Missed-yesterday prompt (shown on ALL day types when true) */}
+      {missedYesterday && !strengthDone && !strengthOpen && (
+        <DayPlanPrompt
+          localDate={localToday}
+          dayLabel="Today"
+          plannedLabel={dayLabel}
+          days={plannable}
+          heading="You missed yesterday"
+          intro={`${labelForDayType(
+            yesterdayDay?.day_type ?? "rest",
+            yesterdayDay?.label ?? null,
+          )} did not happen.`}
+        />
+      )}
 
-        // Rest day or missed-yesterday state - show ONE prompt with all options
-        if (state.type === "rest_or_missed") {
-          const isMissed = state.reason === "missed_yesterday";
-          return (
-            <>
-              {!isMissed && (
-                <p className="mt-6 text-muted">
-                  Rest is part of the training. Your body builds strength while recovering.
-                </p>
-              )}
-              {!isMissed && (
-                <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
-                  <h3 className="font-semibold">Active recovery</h3>
-                  <p className="mt-1 text-sm text-muted">
-                    Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
-                  </p>
-                  <div className="mt-4 flex gap-3">
-                    <Link
-                      href="/yoga"
-                      className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-                    >
-                      Yoga
-                    </Link>
-                    <Link
-                      href="/breathe"
-                      className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
-                    >
-                      Breathe
-                    </Link>
-                  </div>
-                </div>
-              )}
-              <DayPlanPrompt
-                localDate={localToday}
-                dayLabel="Today"
-                plannedLabel={isMissed ? dayLabel : "Rest"}
-                days={plannable}
-                heading={isMissed ? "You missed yesterday" : "Or train today anyway"}
-                intro={
-                  isMissed
-                    ? `${labelForDayType(
-                        yesterdayDay?.day_type ?? "rest",
-                        yesterdayDay?.label ?? null,
-                      )} did not happen.`
-                    : "Pick what you'd like to do instead."
-                }
-              />
-            </>
-          );
-        }
-
-        return null;
-      })()}
+      {dayType === "rest" && !strengthDone && !strengthOpen && (
+        <>
+          {!missedYesterday && (
+            <p className="mt-6 text-muted">
+              Rest is part of the training. Your body builds strength while recovering.
+            </p>
+          )}
+          {!missedYesterday && (
+            <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
+              <h3 className="font-semibold">Active recovery</h3>
+              <p className="mt-1 text-sm text-muted">
+                Light movement helps recovery: a 20-minute walk, gentle yoga, or mobility work.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Link
+                  href="/yoga"
+                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                >
+                  Yoga
+                </Link>
+                <Link
+                  href="/breathe"
+                  className="flex-1 rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2"
+                >
+                  Breathe
+                </Link>
+              </div>
+            </div>
+          )}
+          <DayPlanPrompt
+            localDate={localToday}
+            dayLabel="Today"
+            plannedLabel="Rest"
+            days={plannable}
+            heading="Or train today anyway"
+            intro="Pick what you'd like to do instead."
+          />
+        </>
+      )}
 
       {dayType === "meditation" && (
         <div className="mt-6">

@@ -16,6 +16,7 @@
 
 import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import { localDateString } from "@/lib/dates";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
@@ -26,6 +27,8 @@ export type MissedDayInput = {
   programStartedOn: string;
   /** The user's onboarding completion timestamp */
   onboardingCompletedAt: string | null;
+  /** The user's timezone (for converting onboarding timestamp to local date) */
+  timezone: string;
   /** The day template for that weekday */
   templateDayType: DayType | null;
   /** Sessions completed on that date */
@@ -46,6 +49,7 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     date,
     programStartedOn,
     onboardingCompletedAt,
+    timezone,
     templateDayType,
     completedSessions,
   } = input;
@@ -62,8 +66,9 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
   }
 
   // Before onboarding completed (if we have that date)
+  // Convert the UTC timestamp to the user's local date
   if (onboardingCompletedAt) {
-    const onboardingDate = onboardingCompletedAt.slice(0, 10);
+    const onboardingDate = localDateString(timezone, new Date(onboardingCompletedAt));
     if (date < onboardingDate) {
       return false;
     }

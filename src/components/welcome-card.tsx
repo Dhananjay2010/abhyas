@@ -7,41 +7,34 @@ type WelcomeCardProps = {
   daysPerWeek: number;
   weekSchedule: Array<{ dayName: string; isTraining: boolean }>;
   sessionMinutes: number;
-  onDismiss: () => void;
+  blockLength: number;
+  deloadWeek: number;
 };
-
-const WELCOME_DISMISSED_KEY = "abhyas_welcome_dismissed";
 
 /**
  * First-run welcome card shown once after onboarding.
  *
  * Explains:
- * - Block length (4 weeks)
+ * - Block length and deload week
  * - This week's training days with a Mon-Sun preview
  * - Session time estimate
  *
- * Dismissed via localStorage. The parent also checks server-side whether
- * the user has started any session, so it never reappears after the first workout.
+ * Dismissed via cookie (set by server action). No localStorage, no hydration mismatch.
  */
 export function WelcomeCard({
   blockNumber,
   daysPerWeek,
   weekSchedule,
   sessionMinutes,
-  onDismiss,
+  blockLength,
+  deloadWeek,
 }: WelcomeCardProps) {
-  // Track dismissal state
-  const [isDismissed, setIsDismissed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem(WELCOME_DISMISSED_KEY) === "true";
-  });
+  const [isDismissed, setIsDismissed] = useState(false);
 
-  function handleDismiss() {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(WELCOME_DISMISSED_KEY, "true");
-    }
+  async function handleDismiss() {
     setIsDismissed(true);
-    onDismiss();
+    // Set cookie via server action
+    await fetch("/api/dismiss-welcome", { method: "POST" });
   }
 
   // Don't render if dismissed
@@ -56,7 +49,7 @@ export function WelcomeCard({
       </h2>
       <div className="mt-3 space-y-3 text-sm text-fg">
         <p>
-          Your plan runs for <strong>4 weeks</strong>. Week 4 is lighter (a deload), then you
+          Your plan runs for <strong>{blockLength} weeks</strong>. Week {deloadWeek} is lighter (a deload), then you
           start the next block with heavier weights.
         </p>
         
@@ -90,7 +83,6 @@ export function WelcomeCard({
       <button
         onClick={handleDismiss}
         className="mt-4 w-full min-h-[44px] rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-accent/10"
-        aria-label="Dismiss welcome message"
       >
         Got it
       </button>
@@ -99,22 +91,16 @@ export function WelcomeCard({
 }
 
 /**
- * Check if the welcome card should be shown.
+ * Check if the welcome card should be shown (server-side).
  * 
- * @param hasStartedAnySession - Server-side check: true if user has any session with started_at
+ * @param hasStartedAnySession - true if user has any session with started_at
+ * @param hasDismissedCookie - true if the dismiss cookie is set
  * @returns true if the card should be shown
  */
-export function shouldShowWelcome(hasStartedAnySession: boolean): boolean {
-  // Never show if user has started a session
-  if (hasStartedAnySession) {
-    return false;
-  }
-
-  // Check client-side dismissal
-  if (typeof window === "undefined") {
-    return true;
-  }
-
-  const dismissed = localStorage.getItem(WELCOME_DISMISSED_KEY);
-  return dismissed !== "true";
+export function shouldShowWelcome(
+  hasStartedAnySession: boolean,
+  hasDismissedCookie: boolean
+): boolean {
+  // Never show if user has started a session or dismissed it
+  return !hasStartedAnySession && !hasDismissedCookie;
 }
