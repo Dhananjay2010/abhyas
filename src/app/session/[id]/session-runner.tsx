@@ -32,7 +32,7 @@ import {
 import { classifyLogSetOutcome, nextSetNumberFor } from "@/lib/session/outbox";
 import { isQuotaError } from "@/lib/session/quota-error";
 import { mapErrorToUserMessage } from "@/lib/session/error-messages";
-import { useSetOutbox } from "./use-set-outbox";
+import { useSetOutbox, type SyncState } from "./use-set-outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -71,13 +71,6 @@ export type LoggedSet = {
   /** Seconds held, for an exercise whose metric is `seconds`. */
   durationSeconds: number | null;
 };
-
-type SyncState = 
-  | { type: "idle" }
-  | { type: "syncing" }
-  | { type: "offline" }
-  | { type: "failed"; message: string }
-  | { type: "quota" };
 
 export type RunnerExercise = {
   id: string;
@@ -119,6 +112,7 @@ const FEELS: { value: Feel; label: string }[] = [
 
 export function SessionRunner({
   sessionId,
+  userId,
   isDeload,
   week,
   warmupAlreadyDone,
@@ -131,6 +125,7 @@ export function SessionRunner({
   onExit,
 }: {
   sessionId: string;
+  userId: string;
   isDeload: boolean;
   week: number;
   warmupAlreadyDone: boolean;
@@ -274,8 +269,23 @@ export function SessionRunner({
   const [busy, setBusy] = useState(false);
 
   // ---- offline outbox ---------------------------------------------------
-  const outbox = useSetOutbox(sessionId, setExercises);
+  const outbox = useSetOutbox(userId, sessionId, setExercises);
   const { syncState, setSyncState, pendingCount, flush: flushOutbox, enqueue: enqueueSet, remove: removeSet, clear: clearOutbox, isFlushing } = outbox;
+
+  // B2: Count unsaved and failed rows across ALL exercises (compute before any phase return)
+  const lostCount = useMemo(() => exercises.reduce((sum, ex) => {
+    return sum + ex.sets.filter((s) => {
+      const meta = s as unknown as { unsaved?: boolean };
+      return meta.unsaved;
+    }).length;
+  }, 0), [exercises]);
+  
+  const failedCount = useMemo(() => exercises.reduce((sum, ex) => {
+    return sum + ex.sets.filter((s) => {
+      const meta = s as unknown as { failed?: boolean };
+      return meta.failed;
+    }).length;
+  }, 0), [exercises]);
 
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it
@@ -604,21 +614,7 @@ export function SessionRunner({
     const meta = s as unknown as { failed?: boolean; unsaved?: boolean };
     return meta.failed || meta.unsaved;
   });
-  
-  // B2: Count unsaved and failed rows across ALL exercises for leave dialog
-  const lostCount = exercises.reduce((sum, ex) => {
-    return sum + ex.sets.filter((s) => {
-      const meta = s as unknown as { unsaved?: boolean };
-      return meta.unsaved;
-    }).length;
-  }, 0);
-  
-  const failedCount = exercises.reduce((sum, ex) => {
-    return sum + ex.sets.filter((s) => {
-      const meta = s as unknown as { failed?: boolean };
-      return meta.failed;
-    }).length;
-  }, 0);
+
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
   const lastWeight =
@@ -663,6 +659,7 @@ export function SessionRunner({
     try {
       // Try to save immediately - capture the FIRST result
       let classification;
+      let postgresCode: string | undefined;
       try {
         const result = await actions.logSet({
           sessionExerciseId: current.id,
@@ -672,6 +669,10 @@ export function SessionRunner({
           durationSeconds,
         });
         classification = classifyLogSetOutcome(result);
+        // Extract Postgres error code if available
+        if (!result.ok && result.data && "postgresCode" in result.data) {
+          postgresCode = result.data.postgresCode as string | undefined;
+        }
       } catch (thrown) {
         // Network failure, fetch timeout, etc.
         classification = classifyLogSetOutcome({ thrown });
@@ -701,8 +702,9 @@ export function SessionRunner({
       }
 
       if (classification.outcome === "invalid") {
-        // Validation error: show error, don't queue
-        setError(classification.error ?? "Invalid set data");
+        // Validation error: map to user-friendly message
+        const mappedError = mapErrorToUserMessage(postgresCode, classification.error);
+        setError(mappedError);
         return;
       }
 

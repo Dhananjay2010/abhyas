@@ -19,11 +19,18 @@ export function mapErrorToUserMessage(code: string | null | undefined, rawMessag
     }
   }
   
-  // Map raw text
+  // Map raw text patterns
   if (rawMessage) {
     const lower = rawMessage.toLowerCase();
-    if (lower.includes("quota") || lower === "quota_exceeded") {
+    
+    // Quota exceeded errors
+    if (lower.includes("quota") || lower === "quota_exceeded" || lower.includes("exceeded the quota")) {
       return "Not saved, out of space";
+    }
+    
+    // Max retries
+    if (lower.includes("failed after") && lower.includes("retries")) {
+      return "Not saved after multiple attempts";
     }
   }
   

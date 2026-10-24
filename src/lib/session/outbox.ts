@@ -11,6 +11,7 @@
  */
 
 import { isNetworkError } from "./network-error";
+import { mapErrorToUserMessage } from "./error-messages";
 
 export type QueuedSet = {
   clientId: string; // UUID, client-side only (not sent to server)
@@ -363,7 +364,7 @@ export class Outbox {
           failedClientIds.push(set.clientId);
           currentState.failed.push({
             set,
-            error: "Failed after 10 retries",
+            error: mapErrorToUserMessage(null, "Failed after 10 retries"),
             failedAt: Date.now(),
           });
           this.storage.set(currentState);

@@ -32,6 +32,7 @@ export function useSetOutbox<
     }>;
   },
 >(
+  userId: string,
   sessionId: string,
   setExercises: React.Dispatch<React.SetStateAction<T[]>>,
 ) {
@@ -145,10 +146,12 @@ export function useSetOutbox<
         setSyncState({ type: "idle" });
       }
     } catch (err) {
+      // Map quota and other errors to user-friendly text
+      const rawMessage = err instanceof Error ? err.message : "Sync failed, will retry";
+      const mappedMessage = mapErrorToUserMessage(undefined, rawMessage);
       setSyncState({
         type: "failed",
-        message:
-          err instanceof Error ? err.message : "Sync failed, will retry",
+        message: mappedMessage,
       });
     }
   };
@@ -209,27 +212,44 @@ export function useSetOutbox<
           if (classification.outcome === "saved") {
             return { ok: true };
           }
-          // Reuse classifyLogSetOutcome: 'invalid' is permanent
+          // Map error using postgresCode if available
+          const postgresCode = (!result.ok && result.data && "postgresCode" in result.data) 
+            ? (result.data.postgresCode as string | undefined)
+            : undefined;
+          const mappedError = mapErrorToUserMessage(postgresCode, classification.error);
+          
           return {
             ok: false,
             permanent: classification.outcome === "invalid",
-            error: classification.error ?? "Failed to save set",
+            error: mappedError,
           };
         } catch (thrown) {
           // Network errors or thrown errors are transient
           const classification = classifyLogSetOutcome({ thrown });
+          const mappedError = mapErrorToUserMessage(undefined, classification.error);
           return {
             ok: false,
             permanent: false,
-            error: classification.error ?? "Network error",
+            error: mappedError,
             network: classification.isNetwork,
           };
         }
       },
     };
 
-    const storage = createLocalStorage(`abhyas:outbox:${sessionId}`);
-    outboxRef.current = new Outbox(storage, sender, `abhyas:outbox:${sessionId}`);
+    const storageKey = `abhyas:outbox:${userId}:${sessionId}`;
+    const storage = createLocalStorage(storageKey);
+    outboxRef.current = new Outbox(storage, sender, storageKey);
+
+    // Clean up old key formats if they exist
+    try {
+      const oldKey1 = `outbox:${sessionId}`;
+      const oldKey2 = `abhyas:outbox:${sessionId}`;
+      if (localStorage.getItem(oldKey1)) localStorage.removeItem(oldKey1);
+      if (localStorage.getItem(oldKey2)) localStorage.removeItem(oldKey2);
+    } catch {
+      // Ignore storage errors
+    }
 
     // Merge pending and failed rows on mount (avoid hydration mismatch)
     const state = storage.get();
