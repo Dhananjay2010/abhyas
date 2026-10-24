@@ -138,16 +138,18 @@ function testOfflinePageComponent() {
     "Offline page must use branding.colors.accentFg for button text"
   );
 
-  // Must NOT hardcode any hex colors
-  const hexColorPattern = /#[0-9a-f]{6}/gi;
+  // Must NOT hardcode ANY hex colors (SVG was replaced with real app icon)
+  const hexColorPattern = /#[0-9a-fA-F]{3,6}/g;
   const hexColors = source.match(hexColorPattern) || [];
-  const hardcodedColors = hexColors.filter(color => 
-    // Only the SVG icon (green #22c55e) should have hardcoded colors
-    !color.toLowerCase().includes("22c55e")
-  );
   assert(
-    hardcodedColors.length === 0,
-    `Offline page must not hardcode colors (found: ${hardcodedColors.join(", ")})`
+    hexColors.length === 0,
+    `Offline page must not hardcode any hex colors (found: ${hexColors.join(", ")})`
+  );
+
+  // Must use real app icon (not inline SVG)
+  assert(
+    source.includes("<img") && source.includes("branding.icons.icon192"),
+    "Offline page must use real app icon (<img src={branding.icons.icon192}>)"
   );
 
   assert(
@@ -163,7 +165,8 @@ function testOfflinePageComponent() {
   console.log("  ✓ Has retry link (works without JS)");
   console.log("  ✓ Has inline styles (works without external CSS)");
   console.log("  ✓ Uses branding.colors (not hardcoded)");
-  console.log("  ✓ No hardcoded hex colors (except SVG icon)");
+  console.log("  ✓ No hardcoded hex colors at all");
+  console.log("  ✓ Uses real app icon (not inline SVG)");
 }
 
 function testLayoutBottomNav() {

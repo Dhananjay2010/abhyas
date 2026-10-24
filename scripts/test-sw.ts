@@ -258,11 +258,23 @@ function testServiceWorkerConsistency() {
     "Service worker must return early (not call respondWith) for non-GET requests"
   );
 
+  // Must precache the app icon (so offline page can display it)
+  assert(
+    swRouteSource.includes("ICON_URL") && swRouteSource.includes("branding.icons.icon192"),
+    "Service worker must include app icon URL from branding"
+  );
+
+  assert(
+    swRouteSource.includes("cache.addAll") || (swRouteSource.includes("ICON_URL") && swRouteSource.includes("cache.add")),
+    "Service worker must precache both offline page and icon"
+  );
+
   console.log("  ✓ Service worker checks request.method !== 'GET'");
   console.log("  ✓ Service worker has early return for non-GET requests");
   console.log("  ✓ Service worker checks Next-Action header");
   console.log("  ✓ Service worker checks /api routes");
   console.log("  ✓ Non-GET requests go straight to network (fail visibly)");
+  console.log("  ✓ Service worker precaches app icon from branding");
 }
 
 console.log("Testing Service Worker Logic");

@@ -35,6 +35,7 @@ function getBrandId(): string {
 export async function GET() {
   const buildVersion = getBuildVersion();
   const brandId = getBrandId();
+  const iconUrl = branding.icons.icon192;
 
   const script = `/**
  * Service worker for ${branding.name} PWA.
@@ -44,7 +45,7 @@ export async function GET() {
  * default "no internet" page.
  *
  * This is intentionally conservative:
- * - Only caches the offline page itself
+ * - Only caches the offline page itself and its app icon
  * - Does NOT cache authenticated API responses (Supabase, user data)
  * - Does NOT cache app pages (they depend on user state and database calls)
  * - Does NOT cache RSC payloads (they're tied to specific builds)
@@ -56,15 +57,19 @@ export async function GET() {
 
 const CACHE_NAME = "${brandId}-offline-${buildVersion}";
 const OFFLINE_URL = "/offline";
+const ICON_URL = "${iconUrl}";
 
-// Install: cache the offline page
+// Install: cache the offline page and app icon
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
       // Precache the offline page (rendered by Next.js with inline styles)
-      // The page has inline styles so it works without external CSS files
-      await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
+      // and the app icon it displays (so it shows offline)
+      await cache.addAll([
+        new Request(OFFLINE_URL, { cache: "reload" }),
+        new Request(ICON_URL, { cache: "reload" }),
+      ]);
       await self.skipWaiting();
     })()
   );

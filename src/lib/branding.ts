@@ -45,30 +45,11 @@ export const branding = {
    * and are used for server-rendered components (e.g. offline page).
    */
   colors: {
-    /**
-     * Primary background color (body, cards).
-     */
-    bg: "#0a0c0e",
-
-    /**
-     * Primary foreground color (body text).
-     */
-    fg: "#ecf1f6",
-
-    /**
-     * Muted text color (secondary text, descriptions).
-     */
-    muted: "#93a1ae",
-
-    /**
-     * Brand accent color (primary buttons, CTAs).
-     */
     accent: "#ff9a2e",
-
-    /**
-     * Text color on accent background (for accessible contrast).
-     */
     accentFg: "#1a1000",
+    bg: "#0a0c0e",
+    fg: "#ecf1f6",
+    muted: "#93a1ae",
   },
 
   /**
