@@ -52,15 +52,17 @@ export type OpenSession = {
 export async function closeStaleSessions(
   supabase: Client,
   open: OpenSession[],
+  today: string,
 ): Promise<number> {
   const deps = buildCloseStaleDeps(supabase);
-  return closeStaleSessionsCore(deps, open, Date.now());
+  return closeStaleSessionsCore(deps, open, Date.now(), today);
 }
 
 export async function closeStaleSessionsCore(
   deps: CloseStaleDeps,
   open: OpenSession[],
   nowMs: number,
+  today: string,
 ): Promise<number> {
   if (open.length === 0) return 0;
 
@@ -111,7 +113,14 @@ export async function closeStaleSessionsCore(
 
   for (const id of ids) {
     const session = byId.get(id);
-    if (!session?.started_at) continue;
+    
+    // Planned rows (no started_at) dated before today become skipped
+    if (!session?.started_at) {
+      if (session && session.local_date < today) {
+        stale.push(id);
+      }
+      continue;
+    }
 
     const lastActivity = lastSetCompletedAt.get(id) ?? session.started_at;
     const lastActivityMs = Date.parse(lastActivity);
@@ -150,7 +159,12 @@ export async function closeStaleSessionsCore(
     }),
     ...abandoned.map(async (id) => {
       const session = byId.get(id);
-      if (!session?.started_at) return;
+      
+      // Planned rows (no started_at) are marked skipped with no duration
+      if (!session?.started_at) {
+        await deps.markSessionDone(id, "skipped", new Date().toISOString(), 0);
+        return;
+      }
 
       const input: StaleFinishInput = {
         startedAt: session.started_at,
