@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { setLastPractice } from "@/lib/nav";
 
 /**
  * Segmented control to switch between Breathe and Yoga.
@@ -25,14 +26,10 @@ export function PracticeSwitch() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     
-    try {
-      if (isYoga) {
-        localStorage.setItem("practice:last", "yoga");
-      } else if (isBreathe) {
-        localStorage.setItem("practice:last", "breathe");
-      }
-    } catch {
-      // localStorage may be disabled
+    if (isYoga) {
+      setLastPractice("yoga");
+    } else if (isBreathe) {
+      setLastPractice("breathe");
     }
   }, [isYoga, isBreathe]);
 

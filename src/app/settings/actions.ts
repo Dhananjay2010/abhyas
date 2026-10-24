@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
+import { decideEquipmentUpdate } from "./equipment-logic";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -75,23 +76,57 @@ export async function updateEquipment(input: {
   
   const { supabase, user } = await requireUser();
 
+  // Fetch current state
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("has_all_equipment")
+    .eq("id", user.id)
+    .single();
+  
+  const { data: currentEquipment } = await supabase
+    .from("user_equipment")
+    .select("equipment_id")
+    .eq("user_id", user.id);
+  
+  const currentHasAll = profile?.has_all_equipment ?? false;
+  const currentEquipmentIds = currentEquipment?.map(e => e.equipment_id) ?? [];
+  
+  // Decide what to do
+  const decision = decideEquipmentUpdate({
+    currentHasAll,
+    currentEquipmentIds,
+    newHasAll: input.hasAll,
+    newEquipmentIds: input.equipmentIds,
+  });
+  
+  if (decision.action === "error") {
+    return { ok: false, error: decision.error };
+  }
+  
+  if (decision.action === "skip") {
+    return { ok: true };
+  }
+
+  // Write changes
   const { error: flagError } = await supabase
     .from("profiles")
     .update({ has_all_equipment: input.hasAll })
     .eq("id", user.id);
   if (flagError) return { ok: false, error: flagError.message };
 
-  const { error: clearError } = await supabase
-    .from("user_equipment")
-    .delete()
-    .eq("user_id", user.id);
-  if (clearError) return { ok: false, error: clearError.message };
-
-  if (!input.hasAll && input.equipmentIds.length > 0) {
-    const { error } = await supabase
+  if (!input.hasAll) {
+    const { error: clearError } = await supabase
       .from("user_equipment")
-      .insert(input.equipmentIds.map((id) => ({ user_id: user.id, equipment_id: id })));
-    if (error) return { ok: false, error: error.message };
+      .delete()
+      .eq("user_id", user.id);
+    if (clearError) return { ok: false, error: clearError.message };
+
+    if (input.equipmentIds.length > 0) {
+      const { error } = await supabase
+        .from("user_equipment")
+        .insert(input.equipmentIds.map((id) => ({ user_id: user.id, equipment_id: id })));
+      if (error) return { ok: false, error: error.message };
+    }
   }
 
   revalidatePath("/settings");
