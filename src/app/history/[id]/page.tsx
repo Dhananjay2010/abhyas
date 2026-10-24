@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
+import { formatDuration } from "@/lib/format-duration";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
 
@@ -75,8 +76,6 @@ export default async function SessionDetailPage({
       ? (Array.isArray(video.yoga_playlists) ? video.yoga_playlists[0]?.title : (video.yoga_playlists as {title?: string})?.title)
       : null;
 
-    const minutes = session.duration_seconds ? Math.round(session.duration_seconds / 60) : null;
-
     return (
       <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
         <Link href="/history" className="inline-flex items-center min-h-[44px] text-sm text-muted underline underline-offset-2">
@@ -106,13 +105,12 @@ export default async function SessionDetailPage({
               <h2 className="text-xl font-semibold">{video.title}</h2>
               <p className="mt-1 text-sm text-muted">
                 {playlistTitle && `${playlistTitle} · `}
-                {video.day_index !== null && `Day ${video.day_index + 1} · `}
-                Yoga with Adriene
+                {video.day_index !== null && `Day ${video.day_index + 1}`}
               </p>
             </div>
 
             <dl className="mt-6 grid grid-cols-2 gap-2 text-center">
-              <Stat label="Time" value={minutes !== null ? `${minutes} min` : "—"} />
+              <Stat label="Time" value={session.duration_seconds !== null ? formatDuration(session.duration_seconds) : "—"} />
               <Stat label="Series day" value={video.day_index !== null ? `${video.day_index + 1}` : "—"} />
             </dl>
           </>
