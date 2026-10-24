@@ -32,8 +32,8 @@ type NewProgramDay = {
 /**
  * Find the best matching day in the new program for a session from the old program.
  *
- * Matching priority:
- * 1. Label match (exact): "Upper A" → "Upper A"
+ * Matching priority (training days of the chosen type only):
+ * 1. Label match (exact): "Upper A" → "Upper A" 
  * 2. Day index match (same weekday): Monday → Monday
  * 3. Day type match (fallback): weights → weights
  *
@@ -56,19 +56,23 @@ export function matchNewDay(
     return null;
   }
 
-  // 1. Try to match by label (exact match)
+  // 1. Try to match by label (exact match), but only training days of the chosen type
   if (oldSession.old_day_label) {
-    const labelMatch = newDays.find((d) => d.label === oldSession.old_day_label);
+    const labelMatch = newDays.find(
+      (d) => d.label === oldSession.old_day_label && d.day_type === chosenType
+    );
     if (labelMatch) return labelMatch;
   }
 
-  // 2. If no label match, try day_index (same weekday)
+  // 2. If no label match, try day_index (same weekday), but only training days of the chosen type
   if (oldSession.old_day_index !== null) {
-    const indexMatch = newDays.find((d) => d.day_index === oldSession.old_day_index);
+    const indexMatch = newDays.find(
+      (d) => d.day_index === oldSession.old_day_index && d.day_type === chosenType
+    );
     if (indexMatch) return indexMatch;
   }
 
-  // 3. If still no match, fall back to day_type (any training day)
+  // 3. If still no match, fall back to day_type (any training day of that type)
   const typeMatch = newDays.find((d) => d.day_type === chosenType);
   return typeMatch ?? null;
 }
