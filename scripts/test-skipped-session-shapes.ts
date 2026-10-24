@@ -39,6 +39,22 @@ function check(label: string, ok: boolean, detail = "") {
 async function runTests() {
   console.log("\n=== Testing zero-set session exclusion (both storage shapes) ===\n");
 
+  // Look up a real seeded exercise ID
+  const { data: exerciseData, error: exerciseError } = await adminClient
+    .from("exercises")
+    .select("id")
+    .limit(1)
+    .single();
+
+  if (exerciseError || !exerciseData) {
+    console.error("Failed to fetch exercise ID:", exerciseError);
+    failures++;
+    return false;
+  }
+
+  const exerciseId = exerciseData.id;
+  console.log(`Using exercise ID: ${exerciseId}\n`);
+
   // Create test user
   const testEmail = `test-skipped-${Date.now()}@example.com`;
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
@@ -131,7 +147,8 @@ async function runTests() {
     .insert({
       user_id: userId,
       session_id: legacySession.id,
-      exercise_id: "squat",
+      exercise_id: exerciseId,
+      order_index: 0,
       status: "completed",
       planned_sets: 3,
     })
@@ -145,24 +162,35 @@ async function runTests() {
   }
 
   // Add only warmup sets (0 working sets)
-  await adminClient.from("session_sets").insert([
-    {
-      user_id: userId,
-      session_exercise_id: legacyExercise.id,
-      set_number: 1,
-      reps: 10,
-      weight_kg: 20,
-      is_warmup_set: true,
-    },
-    {
-      user_id: userId,
-      session_exercise_id: legacyExercise.id,
-      set_number: 2,
-      reps: 8,
-      weight_kg: 40,
-      is_warmup_set: true,
-    },
-  ]);
+  const { error: legacySet1Error } = await adminClient.from("session_sets").insert({
+    user_id: userId,
+    session_exercise_id: legacyExercise.id,
+    set_number: 1,
+    reps: 10,
+    weight_kg: 20,
+    is_warmup_set: true,
+  });
+
+  if (legacySet1Error) {
+    console.error("Legacy set 1 insert failed:", legacySet1Error);
+    failures++;
+    return false;
+  }
+
+  const { error: legacySet2Error } = await adminClient.from("session_sets").insert({
+    user_id: userId,
+    session_exercise_id: legacyExercise.id,
+    set_number: 2,
+    reps: 8,
+    weight_kg: 40,
+    is_warmup_set: true,
+  });
+
+  if (legacySet2Error) {
+    console.error("Legacy set 2 insert failed:", legacySet2Error);
+    failures++;
+    return false;
+  }
 
   // Check: session_volume should be empty (migration excludes 0-working-set)
   const { data: legacyVolume } = await adminClient
@@ -300,7 +328,8 @@ async function runTests() {
     .insert({
       user_id: userId,
       session_id: validSession.id,
-      exercise_id: "squat",
+      exercise_id: exerciseId,
+      order_index: 0,
       status: "completed",
       planned_sets: 3,
     })
