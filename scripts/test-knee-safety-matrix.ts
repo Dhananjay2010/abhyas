@@ -33,19 +33,17 @@ const EXPECTED_KNEE_SAFE_QUAD_EXERCISES = new Set([
 
 // Hard-coded expected floor-pull deadlifts (independent test oracle)
 const EXPECTED_FLOOR_PULL_DEADLIFTS = new Set([
-  "deadlift",
+  "barbell-deadlift",  // Conventional deadlift (catalogue uses barbell-deadlift, not deadlift)
   "sumo-deadlift",
-  "trap-bar-deadlift",
   "deficit-deadlift",
-  "snatch-grip-deadlift",
-  "stiff-leg-deadlift",
+  "stiff-legged-barbell-deadlift",  // Catalogue slug
+  "stiff-legged-dumbbell-deadlift", // Catalogue slug
   "romanian-deadlift",
-  "single-leg-romanian-deadlift",
-  "sumo-romanian-deadlift",
-  "dumbbell-romanian-deadlift",
-  "single-leg-dumbbell-romanian-deadlift",
-  "kettlebell-romanian-deadlift",
-  "single-leg-kettlebell-romanian-deadlift",
+  // Note: The following variants don't exist in the catalogue as of this test:
+  // trap-bar-deadlift, snatch-grip-deadlift, stiff-leg-deadlift,
+  // single-leg-romanian-deadlift, sumo-romanian-deadlift, dumbbell-romanian-deadlift,
+  // single-leg-dumbbell-romanian-deadlift, kettlebell-romanian-deadlift,
+  // single-leg-kettlebell-romanian-deadlift
 ]);
 
 // Hard-coded expected loaded windmill/side-bend exclusions (independent test oracle)

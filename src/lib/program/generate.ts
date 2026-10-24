@@ -1623,15 +1623,48 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }
     }
     
-    // Cap accessory and core sets to never exceed main sets
-    // This ensures mains are always the highest-volume exercises on the day
-    // MUST run AFTER all volume adjustments to prevent those from breaking the rule
-    const finalMains = exercises.filter(ex => ex.orderIndex < 4);
-    const finalAccessories = exercises.filter(ex => ex.orderIndex >= 4);
+    // Final sort to ensure compound-before-isolation order after M3/H8 splices
+    // Preserve: knee-safe first pick at position 0, core at end
+    const kneeSafeIndex = kneeSafeFirstPickExerciseId !== null
+      ? exercises.findIndex(ex => ex.exerciseId === kneeSafeFirstPickExerciseId)
+      : -1;
     
-    if (finalMains.length > 0 && finalAccessories.length > 0) {
-      const minMainSets = Math.min(...finalMains.map(ex => ex.targetSets));
-      finalAccessories.forEach(acc => {
+    exercises.sort((a, b) => {
+      const aEx = pool.find(e => e.id === a.exerciseId);
+      const bEx = pool.find(e => e.id === b.exerciseId);
+      if (!aEx || !bEx) return 0;
+      
+      // Knee-safe first pick always stays first
+      if (kneeSafeIndex === a.orderIndex && kneeSafeIndex === 0) return -1;
+      if (kneeSafeIndex === b.orderIndex && kneeSafeIndex === 0) return 1;
+      
+      const aCore = aEx.movement_pattern === "core";
+      const bCore = bEx.movement_pattern === "core";
+      if (aCore && !bCore) return 1;  // Core goes last
+      if (!aCore && bCore) return -1;
+      
+      const aCompound = aEx.mechanic === "compound";
+      const bCompound = bEx.mechanic === "compound";
+      if (aCompound && !bCompound) return -1;  // Compounds before isolations
+      if (!aCompound && bCompound) return 1;
+      
+      // Preserve current order within same category
+      return a.orderIndex - b.orderIndex;
+    });
+    
+    // Rebuild orderIndex after sort
+    exercises.forEach((ex, idx) => {
+      ex.orderIndex = idx;
+    });
+    
+    // Cap accessory and core sets to never exceed main sets
+    // MUST run AFTER final sort so the cap applies to the correct slots
+    const sortedMains = exercises.filter((ex, idx) => idx < 4);
+    const sortedAccessories = exercises.filter((ex, idx) => idx >= 4);
+    
+    if (sortedMains.length > 0 && sortedAccessories.length > 0) {
+      const minMainSets = Math.min(...sortedMains.map(ex => ex.targetSets));
+      sortedAccessories.forEach(acc => {
         if (acc.targetSets > minMainSets) {
           acc.targetSets = minMainSets;
         }
