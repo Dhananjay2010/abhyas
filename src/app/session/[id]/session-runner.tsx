@@ -1138,7 +1138,6 @@ export function SessionRunner({
                 else router.push("/today");
               }
             }}
-            title={pendingSetState.pending.length > 0 ? "Cannot end early while sets are pending" : undefined}
           >
             End session early
           </GhostButton>
