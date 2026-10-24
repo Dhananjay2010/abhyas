@@ -116,28 +116,45 @@ async function runTest() {
     failed++;
   }
 
-  // Check that ALL toggles are enabled (6 session toggles + 1 weigh-in reminder = 7 total)
+  // Check that ALL toggles are enabled (6 session toggles)
   const toggles = container.querySelectorAll('button[role="switch"]');
-  let allEnabled = true;
+  let allTogglesEnabled = true;
   const disabledToggles: string[] = [];
   
   for (const toggle of Array.from(toggles)) {
     const htmlToggle = toggle as HTMLButtonElement;
     if (htmlToggle.disabled) {
-      allEnabled = false;
+      allTogglesEnabled = false;
       const label = htmlToggle.querySelector('span span')?.textContent || 'unknown';
       disabledToggles.push(label);
     }
   }
   
-  if (allEnabled && toggles.length >= 7) {
-    console.log(`  ✓ All ${toggles.length} toggles are enabled (including Weigh-in reminder)`);
+  if (allTogglesEnabled && toggles.length === 6) {
+    console.log(`  ✓ All ${toggles.length} toggles are enabled`);
     passed++;
-  } else if (allEnabled) {
-    console.error(`  ❌ Expected at least 7 toggles, found ${toggles.length}`);
+  } else if (allTogglesEnabled) {
+    console.error(`  ❌ Expected 6 toggles, found ${toggles.length}`);
     failed++;
   } else {
     console.error(`  ❌ Some toggles are disabled: ${disabledToggles.join(', ')}`);
+    failed++;
+  }
+  
+  // Check that Weigh-in reminder Segmented buttons are enabled
+  const weighInButtons = Array.from(container.querySelectorAll('button[aria-pressed]'))
+    .filter(b => ['Daily', 'Weekly', 'Never'].includes(b.textContent || '')) as HTMLButtonElement[];
+  
+  const allWeighInEnabled = weighInButtons.every(b => !b.disabled);
+  
+  if (allWeighInEnabled && weighInButtons.length === 3) {
+    console.log(`  ✓ Weigh-in reminder buttons (Daily/Weekly/Never) are enabled`);
+    passed++;
+  } else if (!allWeighInEnabled) {
+    console.error(`  ❌ Some Weigh-in reminder buttons are disabled`);
+    failed++;
+  } else {
+    console.error(`  ❌ Expected 3 Weigh-in reminder buttons, found ${weighInButtons.length}`);
     failed++;
   }
 

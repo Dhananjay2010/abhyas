@@ -280,6 +280,31 @@ export function SettingsForm({
     return fieldNames[key] || key;
   }
 
+  /** Map API keys (snake_case) to state keys (camelCase) for N1 revert */
+  function mapApiKeyToStateKey(apiKey: string): keyof typeof lastSavedValues.current | null {
+    const mapping: Record<string, keyof typeof lastSavedValues.current> = {
+      goal: "goal",
+      level: "level",
+      primary_track: "primaryTrack",
+      days_per_week: "daysPerWeek",
+      yoga_days_per_week: "yogaDaysPerWeek",
+      preferred_session_minutes: "preferredSessionMinutes",
+      planning_mode: "planningMode",
+      per_set_logging: "perSetLogging",
+      resume_session: "resumeSession",
+      cooldown_enabled: "cooldownEnabled",
+      rest_timer_autostart: "restAutostart",
+      rest_timer_sound: "restSound",
+      rest_timer_vibrate: "restVibrate",
+      rest_seconds_override: "restOverrideSeconds",
+      bodyweight_prompt: "bodyweightPrompt",
+      timezone: "timezone",
+      rest_timer_sound: "restSound",
+      rest_timer_vibrate: "restVibrate",
+    };
+    return mapping[apiKey] || null;
+  }
+
   /** Get friendly error message (N1: never show raw 'Failed to fetch') */
   function getFriendlyError(key: string, rawError: string): string {
     const fieldName = getFieldDisplayName(key);
@@ -365,7 +390,8 @@ export function SettingsForm({
   ) {
     // Capture the new value being saved
     const newValue = Object.values(patch)[0];
-    const stateKey = Object.keys(patch)[0] as keyof typeof lastSavedValues.current;
+    const apiKey = Object.keys(patch)[0];
+    const stateKey = mapApiKeyToStateKey(apiKey);
     
     enqueueSave(
       key,
@@ -373,13 +399,13 @@ export function SettingsForm({
       affectsPlan,
       () => {
         // On success: update lastSavedValues
-        if (stateKey in lastSavedValues.current) {
+        if (stateKey && stateKey in lastSavedValues.current) {
           (lastSavedValues.current as any)[stateKey] = newValue;
         }
       },
       () => {
         // On failure: revert to last saved value
-        if (stateKey in lastSavedValues.current) {
+        if (stateKey && stateKey in lastSavedValues.current) {
           setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
         }
       }
@@ -393,7 +419,8 @@ export function SettingsForm({
   ) {
     // Capture the new value being saved
     const newValue = Object.values(patch)[0];
-    const stateKey = Object.keys(patch)[0] as keyof typeof lastSavedValues.current;
+    const apiKey = Object.keys(patch)[0];
+    const stateKey = mapApiKeyToStateKey(apiKey);
     
     enqueueSave(
       key,
@@ -401,13 +428,13 @@ export function SettingsForm({
       false,
       () => {
         // On success: update lastSavedValues
-        if (stateKey in lastSavedValues.current) {
+        if (stateKey && stateKey in lastSavedValues.current) {
           (lastSavedValues.current as any)[stateKey] = newValue;
         }
       },
       () => {
         // On failure: revert to last saved value
-        if (stateKey in lastSavedValues.current) {
+        if (stateKey && stateKey in lastSavedValues.current) {
           setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
         }
       }

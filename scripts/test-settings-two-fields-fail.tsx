@@ -111,12 +111,21 @@ async function runTest() {
 
   await act(async () => { await user.click(sessionButton); });
 
+  // Wait a bit for UI update
+  await new Promise(resolve => setTimeout(resolve, 50));
+
   // Click days per week to change from 4 to 5 (will fail)
-  const daysButton = Array.from(container.querySelectorAll('button[aria-pressed]'))
-    .find(b => b.textContent === '5' && b.closest('div')?.previousElementSibling?.textContent?.includes('Days per week')) as HTMLButtonElement | undefined;
+  // Find all aria-pressed buttons and look for just "5"
+  const allButtons = Array.from(container.querySelectorAll('button[aria-pressed]')) as HTMLButtonElement[];
+  const daysButton = allButtons.find(b => {
+    const text = b.textContent?.trim();
+    // Days per week buttons are just numbers 3, 4, 5, 6
+    return text === '5' && !text.includes('m');
+  });
   
   if (!daysButton) {
     console.error("  ❌ Days=5 button not found");
+    console.error(`  Available button texts: ${allButtons.map(b => b.textContent).join(', ')}`);
     failed++;
     cleanup();
     process.off('unhandledRejection', rejectHandler);
@@ -145,17 +154,16 @@ async function runTest() {
   }
 
   // Check that days per week reverted to 4 (last saved)
-  const days4Button = Array.from(sessionButtons).find(b => {
-    const text = b.textContent;
-    const parent = b.closest('div')?.previousElementSibling?.textContent;
-    return text === '4' && parent?.includes('Days per week');
-  }) as HTMLButtonElement | undefined;
+  const allButtonsAfter = Array.from(container.querySelectorAll('button[aria-pressed]')) as HTMLButtonElement[];
+  const days4Button = allButtonsAfter.find(b => {
+    const text = b.textContent?.trim();
+    return text === '4' && !text.includes('m');
+  });
   
-  const days5Button = Array.from(sessionButtons).find(b => {
-    const text = b.textContent;
-    const parent = b.closest('div')?.previousElementSibling?.textContent;
-    return text === '5' && parent?.includes('Days per week');
-  }) as HTMLButtonElement | undefined;
+  const days5Button = allButtonsAfter.find(b => {
+    const text = b.textContent?.trim();
+    return text === '5' && !text.includes('m');
+  });
   
   if (days4Button?.getAttribute('aria-pressed') === 'true') {
     console.log("  ✓ Days per week reverted to 4 (last saved value)");
