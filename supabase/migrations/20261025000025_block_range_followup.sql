@@ -27,10 +27,21 @@ $$;
 COMMENT ON FUNCTION cycle_week_for IS 'Compute cycle week for a date within a block. Week 1 starts on started_on. Clamps to week 1 for dates before start.';
 
 -- ============================================================
--- M1: Mid-block rebuild should end with the carried cycle
--- M2: Same-day rebuild updates program_days in place
--- Fix: Calculate ends_on to complete the current cycle (4 weeks)
--- Fix: Update program_days by day_index instead of deleting
+-- M1: Mid-block rebuild PRESERVES original started_on, ends_on, week_offset
+-- M2: Same-day rebuild PRESERVES program_days for completed sessions
+-- 
+-- BASED ON: 20261025000023_block_ranges_hotfix.sql
+-- 
+-- CHANGES FROM 000023:
+-- + M1: If p_today <= v_old_block.ends_on (mid-block), keep started_on, ends_on, week_offset unchanged
+-- + M2: Mark old program_days as 'superseded' and create new ones (preserves History labels)
+-- 
+-- PRESERVED FROM 000023:
+-- - pg_advisory_xact_lock (unified lock)
+-- - Idempotency check (same payload id)
+-- - Same-day in-place update (program.id preserved)
+-- - Exception handler for unique_violation
+-- - SECURITY INVOKER + SET search_path = ''
 -- ============================================================
 CREATE OR REPLACE FUNCTION rebuild_block(
   p_today date,
@@ -44,9 +55,9 @@ DECLARE
   v_user_id uuid := auth.uid();
   v_old_block record;
   v_new_week_offset int;
-  v_cycle_length int := 4;  -- standard 4-week cycle
-  v_remaining_weeks int;
+  v_new_started_on date;
   v_new_ends_on date;
+  v_is_mid_block boolean;
   v_new_program_id uuid;
   v_program_day_id uuid;
   v_day jsonb;
@@ -56,11 +67,11 @@ BEGIN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
 
-  -- M1: Unified advisory lock per user (same key as rollover_block)
+  -- Unified advisory lock per user (same key as rollover_block)
   PERFORM pg_advisory_xact_lock(hashtext('program_block:' || v_user_id::text));
 
   -- Re-read the active block after acquiring lock
-  SELECT id, started_on, week_offset
+  SELECT id, started_on, ends_on, week_offset
   INTO v_old_block
   FROM public.programs
   WHERE user_id = v_user_id AND status = 'active';
@@ -74,30 +85,37 @@ BEGIN
     RETURN v_old_block.id;
   END IF;
 
-  -- Compute new week_offset: carry over the current cycle week
-  v_new_week_offset := (
-    v_old_block.week_offset +
-    FLOOR((p_today - v_old_block.started_on) / 7)
-  );
+  -- M1: Check if this is a mid-block rebuild (p_today <= old block's ends_on)
+  v_is_mid_block := (p_today <= v_old_block.ends_on);
 
-  -- M1 FIX: Calculate ends_on to end with cycle week 4
-  -- If offset >= cycle_length, start fresh cycle (week_offset = offset mod cycle_length)
-  -- This prevents ends_on < started_on for late returns
-  IF v_new_week_offset >= v_cycle_length THEN
-    -- Late return: start fresh cycle
-    v_new_week_offset := v_new_week_offset % v_cycle_length;
+  IF v_is_mid_block THEN
+    -- M1 FIX: Mid-block rebuild preserves original dates and week boundaries
+    -- This keeps the deload on the same weekday and prevents "Week N > cycle_length"
+    v_new_started_on := v_old_block.started_on;
+    v_new_ends_on := v_old_block.ends_on;
+    v_new_week_offset := v_old_block.week_offset;
+  ELSE
+    -- Post-block rebuild: calculate new offset and dates
+    v_new_started_on := p_today;
+    
+    -- Compute new week_offset: carry over the current cycle week
+    v_new_week_offset := (
+      v_old_block.week_offset +
+      FLOOR((p_today - v_old_block.started_on) / 7)
+    );
+    
+    -- For late returns (offset >= 4), start fresh cycle
+    IF v_new_week_offset >= 4 THEN
+      v_new_week_offset := v_new_week_offset % 4;
+    END IF;
+    
+    -- Calculate ends_on to complete the cycle
+    v_new_ends_on := v_new_started_on + ((4 - v_new_week_offset) * 7 - 1);
   END IF;
-  
-  -- Calculate remaining weeks in cycle
-  v_remaining_weeks := v_cycle_length - v_new_week_offset;
-  
-  -- ends_on = started_on + (remaining_weeks * 7 - 1 days)
-  v_new_ends_on := p_today + (v_remaining_weeks * 7 - 1);
 
-  -- L4 & M2 FIX: If started_on = p_today, update in place AND update program_days by day_index
-  -- to preserve sessions.program_day_id foreign keys (ON DELETE SET NULL would orphan sessions)
+  -- Same-day rebuild: update in place and preserve program_days for completed sessions
   IF v_old_block.started_on = p_today THEN
-    -- Update the program row with new payload (keep same id for FK integrity)
+    -- Update the program row (keep same id for FK integrity)
     UPDATE public.programs
     SET
       block_number = (p_payload->>'block_number')::int,
@@ -106,48 +124,33 @@ BEGIN
       primary_track = (p_payload->>'primary_track')::public.track_type,
       goal = (p_payload->>'goal')::public.fitness_goal,
       level = (p_payload->>'level')::public.fitness_level,
-      ends_on = v_new_ends_on,  -- Use calculated cycle-aware ends_on
+      ends_on = v_new_ends_on,
       deload_week = (p_payload->>'deload_week')::int,
       week_offset = v_new_week_offset
     WHERE id = v_old_block.id;
     
-    -- M2 FIX: Update program_days in place by day_index instead of deleting
-    -- This preserves sessions.program_day_id foreign key relationships
+    -- M2 FIX: Mark old program_days as superseded (preserves History labels)
+    -- Don't delete rows that completed sessions reference
+    UPDATE public.program_days
+    SET status = 'superseded'
+    WHERE program_id = v_old_block.id;
+    
+    -- Insert NEW program_days for the rebuilt block
     FOR v_day IN SELECT * FROM jsonb_array_elements(p_payload->'days')
     LOOP
-      -- Try to update existing program_day for this day_index
-      UPDATE public.program_days
-      SET
-        day_type = (v_day->>'day_type')::public.day_type,
-        focus = v_day->>'focus',
-        label = v_day->>'label'
-      WHERE program_id = v_old_block.id AND day_index = (v_day->>'day_index')::int;
+      INSERT INTO public.program_days (
+        program_id, user_id, day_index, day_type, focus, label, status
+      ) VALUES (
+        v_old_block.id,
+        v_user_id,
+        (v_day->>'day_index')::int,
+        (v_day->>'day_type')::public.day_type,
+        v_day->>'focus',
+        v_day->>'label',
+        'active'
+      ) RETURNING id INTO v_program_day_id;
       
-      -- If no row was updated, insert it
-      IF NOT FOUND THEN
-        INSERT INTO public.program_days (
-          program_id, user_id, day_index, day_type, focus, label
-        ) VALUES (
-          v_old_block.id,
-          v_user_id,
-          (v_day->>'day_index')::int,
-          (v_day->>'day_type')::public.day_type,
-          v_day->>'focus',
-          v_day->>'label'
-        );
-      END IF;
-      
-      -- Delete old exercises for this day and insert new ones
-      DELETE FROM public.program_day_exercises
-      WHERE program_day_id IN (
-        SELECT id FROM public.program_days 
-        WHERE program_id = v_old_block.id AND day_index = (v_day->>'day_index')::int
-      );
-      
-      SELECT id INTO v_program_day_id
-      FROM public.program_days
-      WHERE program_id = v_old_block.id AND day_index = (v_day->>'day_index')::int;
-      
+      -- Insert program_day_exercises for this day
       FOR v_exercise IN SELECT * FROM jsonb_array_elements(v_day->'exercises')
       LOOP
         INSERT INTO public.program_day_exercises (
@@ -166,15 +169,6 @@ BEGIN
       END LOOP;
     END LOOP;
     
-    -- Delete program_days not in the new payload
-    DELETE FROM public.program_days
-    WHERE program_id = v_old_block.id
-    AND day_index NOT IN (
-      SELECT (value->>'day_index')::int
-      FROM jsonb_array_elements(p_payload->'days')
-    );
-    
-    -- Return the existing program id (not the payload id)
     v_new_program_id := v_old_block.id;
   ELSE
     -- Different day: retire the old block as 'superseded'
@@ -198,8 +192,8 @@ BEGIN
       (p_payload->>'primary_track')::public.track_type,
       (p_payload->>'goal')::public.fitness_goal,
       (p_payload->>'level')::public.fitness_level,
-      p_today,
-      v_new_ends_on,  -- Use calculated cycle-aware ends_on
+      v_new_started_on,
+      v_new_ends_on,
       (p_payload->>'deload_week')::int,
       v_new_week_offset,
       'active'
@@ -250,7 +244,27 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION rebuild_block IS 'Rebuild the active block: retire as superseded, insert new block with carried-over week_offset. ends_on calculated to end with cycle week 4 (offset mod 4 for late returns). Same-day rebuilds update in place and preserve sessions.program_day_id. Idempotent.';
+COMMENT ON FUNCTION rebuild_block IS 'Rebuild the active block. Mid-block rebuilds (p_today <= ends_on) preserve started_on, ends_on, and week_offset. Same-day rebuilds mark old program_days as superseded and create new ones (preserves History labels). Idempotent.';
+
+-- ============================================================
+-- M2: Add status column to program_days for superseded days
+-- ============================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' 
+    AND table_name = 'program_days'
+    AND column_name = 'status'
+  ) THEN
+    ALTER TABLE public.program_days 
+    ADD COLUMN status text DEFAULT 'active' NOT NULL;
+    
+    CREATE INDEX IF NOT EXISTS program_days_status_idx 
+    ON public.program_days(status) 
+    WHERE status = 'active';
+  END IF;
+END$$;
 
 -- ============================================================
 -- Rows #1: Repair historical invalid completed programs

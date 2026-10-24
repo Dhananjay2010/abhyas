@@ -387,5 +387,75 @@ console.log("\n16. M3: Gap days between blocks count as missed");
   check("M3: longest remembers the block 1 streak", s.longest >= 5, `got ${s.longest}`);
 }
 
+console.log("\n17. M3: Streak consistent before/after rollover");
+{
+  // Real QA case: streak showed 0 before Today opened (no rollover) and 16 after (rollover created next block)
+  // The streak must be identical whether or not the next block exists
+  
+  const programs = [
+    { id: "p1", startedOn: "2026-09-01", endsOn: "2026-09-28", endedOn: "2026-09-28" },
+  ];
+  
+  const dayTypes = {
+    p1: { 1: "weights", 2: "weights", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" }, // Mon-Wed
+  };
+  
+  const sessions = [
+    // 16 sessions in block 1
+    { local_date: "2026-09-01", actual_type: "weights", status: "completed", working_set_count: 3 }, // Mon
+    { local_date: "2026-09-02", actual_type: "weights", status: "completed", working_set_count: 3 }, // Tue
+    { local_date: "2026-09-03", actual_type: "weights", status: "completed", working_set_count: 3 }, // Wed
+    { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-10", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-15", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-16", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-17", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-22", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-23", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-24", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-29", actual_type: "weights", status: "completed", working_set_count: 3 }, // Last week
+    { local_date: "2026-09-30", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-10-01", actual_type: "weights", status: "completed", working_set_count: 3 },
+    { local_date: "2026-10-06", actual_type: "weights", status: "completed", working_set_count: 3 }, // After block ended
+  ];
+  
+  // BEFORE rollover: no block 2 exists yet, today is 10-13 (Mon, training day that was missed)
+  const recordsBefore = buildDayRecords({
+    programs,
+    dayTypesByProgram: dayTypes,
+    completedSessions: sessions,
+    today: "2026-10-13",
+  });
+  
+  const streakBefore = computeStreaks(recordsBefore, "2026-10-13");
+  
+  // AFTER rollover: block 2 created starting 10-14
+  const recordsAfter = buildDayRecords({
+    programs: [
+      ...programs,
+      { id: "p2", startedOn: "2026-10-14", endsOn: "2026-11-10" },
+    ],
+    dayTypesByProgram: {
+      ...dayTypes,
+      p2: { 1: "weights", 2: "weights", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" },
+    },
+    completedSessions: sessions,
+    today: "2026-10-13",
+  });
+  
+  const streakAfter = computeStreaks(recordsAfter, "2026-10-13");
+  
+  console.log(`  Before rollover: streak=${streakBefore.current}, trained=${streakBefore.totalSessions}`);
+  console.log(`  After rollover: streak=${streakAfter.current}, trained=${streakAfter.totalSessions}`);
+  
+  check("M3: streak same before rollover", streakBefore.current === streakAfter.current, 
+    `before=${streakBefore.current}, after=${streakAfter.current}`);
+  check("M3: days trained same", streakBefore.totalSessions === streakAfter.totalSessions,
+    `before=${streakBefore.totalSessions}, after=${streakAfter.totalSessions}`);
+  check("M3: streak broken by missed day after ended_on", streakBefore.current === 0 || streakBefore.current === 1,
+    `got ${streakBefore.current}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

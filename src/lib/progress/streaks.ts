@@ -159,8 +159,9 @@ export function buildDayRecords(input: {
   );
   const lastDate = latestSessionDate > today ? latestSessionDate : today;
 
-  // M3: For gap days between blocks, inherit the training schedule from the previous block
-  // so that missed training days break the streak (not counted as rest)
+  // M3: For days after the last block's ended_on (or gap days between blocks),
+  // inherit the training schedule from the previous block so that missed training days
+  // break the streak. This ensures the streak is the same before and after rollover.
   let lastBlockId: string | null = null;
   
   return dateRange(first, lastDate).map((date) => {
@@ -172,8 +173,9 @@ export function buildDayRecords(input: {
       dayType = dayTypesByProgram[covering.id]?.[isoWeekday(date)] ?? "rest";
       lastBlockId = covering.id;
     } else if (lastBlockId) {
-      // M3: Gap day between blocks - use previous block's schedule
-      // This way, if Mon was a training day and the user misses a week, streak breaks
+      // M3: Gap day (between blocks OR after last block's ended_on) - use previous block's schedule
+      // This way, if Mon was a training day and the user misses time, streak breaks
+      // regardless of whether rollover has created the next block yet
       dayType = dayTypesByProgram[lastBlockId]?.[isoWeekday(date)] ?? "rest";
     } else {
       // Before first block
