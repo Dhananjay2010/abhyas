@@ -1,22 +1,29 @@
 import Link from "next/link";
-import { branding } from "@/lib/branding";
+import { getAuthedClient } from "@/lib/supabase/auth";
+import { BottomNav } from "@/components/bottom-nav";
 
-export default function NotFound() {
+export default async function NotFound() {
+  // Check if user is signed in to show appropriate link and nav
+  const { user } = await getAuthedClient();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg px-6">
-      <div className="text-center">
-        <h1 className="text-9xl font-bold tracking-tight text-fg">404</h1>
-        <h2 className="mt-4 text-2xl font-semibold text-fg">Page not found</h2>
-        <p className="mt-2 text-muted">
-          The page you're looking for doesn't exist or has been moved.
-        </p>
-        <Link
-          href="/"
-          className="mt-8 inline-block rounded-xl bg-accent px-6 py-3 font-semibold text-accent-fg transition hover:opacity-90"
-        >
-          Go to {branding.name}
-        </Link>
-      </div>
-    </div>
+    <>
+      <main className="flex min-h-screen flex-col items-center justify-center px-6">
+        <div className="w-full max-w-md text-center">
+          <h1 className="text-6xl font-bold tracking-tight">404</h1>
+          <h2 className="mt-4 text-2xl font-semibold">Page not found</h2>
+          <p className="mt-2 text-muted">
+            The page you&apos;re looking for doesn&apos;t exist or has been moved.
+          </p>
+          <Link
+            href={user ? "/today" : "/"}
+            className="mt-8 inline-block rounded-xl bg-accent px-6 py-3 font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+          >
+            {user ? "Go to Today" : "Home"}
+          </Link>
+        </div>
+      </main>
+      {user && <BottomNav />}
+    </>
   );
 }
