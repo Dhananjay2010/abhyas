@@ -284,6 +284,24 @@ export function SessionRunner({
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
 
+  // ---- offline indicator ------------------------------------------------
+  const [showOfflineIndicator, setShowOfflineIndicator] = useState(false);
+  
+  useEffect(() => {
+    const updateOfflineStatus = () => {
+      setShowOfflineIndicator(!navigator.onLine);
+    };
+    
+    updateOfflineStatus();
+    window.addEventListener("online", updateOfflineStatus);
+    window.addEventListener("offline", updateOfflineStatus);
+    
+    return () => {
+      window.removeEventListener("online", updateOfflineStatus);
+      window.removeEventListener("offline", updateOfflineStatus);
+    };
+  }, []);
+
   // ---- offline outbox ---------------------------------------------------
   const outbox = useSetOutbox(userId, sessionId, setExercises);
   const { syncState, setSyncState, pendingCount, flush: flushOutbox, enqueue: enqueueSet, remove: removeSet, clear: clearOutbox, isFlushing } = outbox;
@@ -356,6 +374,8 @@ export function SessionRunner({
         syncState={syncState}
         onRetrySync={flushOutbox}
         pendingCount={pendingCount}
+        showOfflineIndicator={showOfflineIndicator}
+        showOfflineIndicator={showOfflineIndicator}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
@@ -423,6 +443,7 @@ export function SessionRunner({
         syncState={syncState}
         onRetrySync={flushOutbox}
         pendingCount={pendingCount}
+        showOfflineIndicator={showOfflineIndicator}
       >
         <p className="text-muted">
           Static stretches for what you trained. Hold each for 30 seconds,
@@ -496,6 +517,7 @@ export function SessionRunner({
         onRetrySync={flushOutbox}
         confirmExit={false}
         pendingCount={pendingCount}
+        showOfflineIndicator={showOfflineIndicator}
       >
         <div className="space-y-3">
           <Stat label="Time" value={formatClock(elapsed)} />
@@ -600,6 +622,7 @@ export function SessionRunner({
         syncState={syncState}
         onRetrySync={flushOutbox}
         pendingCount={pendingCount}
+        showOfflineIndicator={showOfflineIndicator}
       >
         <p className="text-muted">
           This session has no exercises. That usually means the plan could not
@@ -952,6 +975,7 @@ export function SessionRunner({
       syncState={syncState}
       onRetrySync={flushOutbox}
       pendingCount={pendingCount}
+        showOfflineIndicator={showOfflineIndicator}
       lostCount={lostCount}
       failedCount={failedCount}
     >
@@ -1673,6 +1697,7 @@ function Shell({
   lostCount = 0,
   failedCount = 0,
   confirmExit = true,
+  showOfflineIndicator = false,
   children,
 }: {
   title: string;
@@ -1688,6 +1713,7 @@ function Shell({
   failedCount?: number;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
+  showOfflineIndicator?: boolean;
   children: React.ReactNode;
 }) {
   // Owned here rather than by the caller so every phase inherits the same
@@ -1730,6 +1756,12 @@ function Shell({
           </button>
         </div>
       </header>
+
+      {showOfflineIndicator && (
+        <div className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-center text-sm text-yellow-700 dark:text-yellow-300">
+          Offline — sets will save when you're back
+        </div>
+      )}
 
       {confirmingExit && (
         <div
