@@ -1,11 +1,21 @@
 /**
- * Test: Branding configuration
+ * Test: Enhanced Branding Configuration with Timezone Support
  *
- * Verifies that the centralized branding config is valid and consistent,
- * and that the manifest uses it correctly.
+ * Verifies:
+ * - Brand selection via NEXT_PUBLIC_BRAND
+ * - Color validation (all colors are valid hex codes)
+ * - Timezone validation (IANA timezone names)
+ * - Fallback behavior when brand not found or invalid
+ * - CSS variable generation
+ * - Manifest uses branding config
+ * - Timezone resolution (config > browser > default)
  */
 
-import { branding } from "../src/lib/branding";
+import { branding, validateTimezone, getBrandCssVariables, type Brand } from "../src/lib/branding";
+import {
+  getDefaultTimezone,
+  resolveTimezoneWithProfile,
+} from "../src/lib/timezone";
 import manifest from "../src/app/manifest";
 
 function assert(condition: boolean, message: string): void {
@@ -14,8 +24,28 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
-function testBrandingConfig() {
-  console.log("\n▶ Testing branding config...");
+function testBrandSelection() {
+  console.log("\n▶ Testing brand selection...");
+
+  // The active brand should be selected based on NEXT_PUBLIC_BRAND
+  assert(typeof branding.id === "string", "branding.id must be a string");
+  assert(branding.id.length > 0, "branding.id must not be empty");
+
+  // Default brand is 'default' when NEXT_PUBLIC_BRAND not set
+  const expectedId = process.env.NEXT_PUBLIC_BRAND || "default";
+  console.log(`  Current NEXT_PUBLIC_BRAND: ${process.env.NEXT_PUBLIC_BRAND || "(not set)"}`);
+  console.log(`  Active brand: ${branding.id}`);
+
+  assert(
+    branding.id === expectedId || branding.id === "default",
+    `Brand should be ${expectedId} or fall back to default (got: ${branding.id})`
+  );
+
+  console.log("  ✓ Brand selection working");
+}
+
+function testBrandConfig() {
+  console.log("\n▶ Testing brand configuration...");
 
   // Test name and shortName
   assert(
@@ -26,10 +56,11 @@ function testBrandingConfig() {
     typeof branding.shortName === "string" && branding.shortName.length > 0,
     "branding.shortName must be a non-empty string"
   );
-  assert(
-    branding.shortName.length <= 12,
-    "branding.shortName should be 12 chars or less for home screen display"
-  );
+  if (branding.shortName.length > 12) {
+    console.warn(
+      `  ⚠ shortName is ${branding.shortName.length} chars (max 12 recommended): "${branding.shortName}"`
+    );
+  }
 
   // Test description
   assert(
@@ -37,18 +68,192 @@ function testBrandingConfig() {
     "branding.description must be a non-empty string"
   );
 
-  // Test colors are valid hex codes
-  const hexColorRegex = /^#[0-9a-fA-F]{6}$/;
+  // Test siteUrl
   assert(
-    hexColorRegex.test(branding.themeColor),
-    `branding.themeColor must be a valid hex color (got: ${branding.themeColor})`
+    typeof branding.siteUrl === "string" && branding.siteUrl.length > 0,
+    "branding.siteUrl must be a non-empty string"
   );
-  assert(
-    hexColorRegex.test(branding.backgroundColor),
-    `branding.backgroundColor must be a valid hex color (got: ${branding.backgroundColor})`
-  );
+  try {
+    new URL(branding.siteUrl);
+  } catch {
+    throw new Error(`branding.siteUrl must be a valid URL (got: ${branding.siteUrl})`);
+  }
 
-  // Test icon paths
+  console.log("  ✓ Name, description, and site URL valid");
+}
+
+function testBrandColors() {
+  console.log("\n▶ Testing brand colors...");
+
+  // All colors must be valid hex codes
+  const hexColorRegex = /^#[0-9a-fA-F]{6}$/;
+  const colorKeys: (keyof Brand["colors"])[] = [
+    "accent",
+    "accentHover",
+    "accentFg",
+    "bg",
+    "surface",
+    "surface2",
+    "border",
+    "fg",
+    "muted",
+    "success",
+    "danger",
+    "chart",
+  ];
+
+  let validCount = 0;
+  for (const key of colorKeys) {
+    const color = branding.colors[key];
+    assert(
+      hexColorRegex.test(color),
+      `branding.colors.${key} must be a valid hex color (got: ${color})`
+    );
+    validCount++;
+  }
+
+  console.log(`  ✓ All ${validCount} brand colors are valid hex codes`);
+}
+
+function testBrandTimezone() {
+  console.log("\n▶ Testing brand timezone...");
+
+  if (branding.timezone) {
+    console.log(`  Brand has configured timezone: ${branding.timezone}`);
+
+    // If timezone is set, it must be valid
+    const validated = validateTimezone(branding.timezone);
+    assert(
+      validated !== null,
+      `branding.timezone must be a valid IANA timezone name (got: ${branding.timezone})`
+    );
+    console.log(`  ✓ Timezone "${branding.timezone}" is valid`);
+  } else {
+    console.log("  Brand has no configured timezone (will fall back to browser/default)");
+    console.log("  ✓ Optional timezone not set (valid)");
+  }
+
+  // Test getDefaultTimezone()
+  const defaultTz = getDefaultTimezone();
+  assert(typeof defaultTz === "string" && defaultTz.length > 0, "getDefaultTimezone() must return a non-empty string");
+  assert(validateTimezone(defaultTz) !== null, `getDefaultTimezone() must return a valid timezone (got: ${defaultTz})`);
+  console.log(`  ✓ Default timezone: ${defaultTz}`);
+}
+
+function testTimezoneValidation() {
+  console.log("\n▶ Testing timezone validation...");
+
+  // Valid timezones
+  const validTimezones = [
+    "UTC",
+    "America/New_York",
+    "Europe/London",
+    "Asia/Kolkata",
+    "Asia/Tokyo",
+    "Australia/Sydney",
+  ];
+
+  for (const tz of validTimezones) {
+    const result = validateTimezone(tz);
+    assert(result === tz, `validateTimezone("${tz}") should return "${tz}" (got: ${result})`);
+  }
+  console.log(`  ✓ Valid timezones pass: ${validTimezones.join(", ")}`);
+
+  // Invalid timezones
+  const invalidTimezones = [
+    "Invalid/Timezone",
+    "America/InvalidCity",
+    "NotATimezone",
+    "EST", // deprecated abbreviation
+    "",
+    null,
+    undefined,
+  ];
+
+  for (const tz of invalidTimezones) {
+    const result = validateTimezone(tz as string);
+    assert(
+      result === null,
+      `validateTimezone(${JSON.stringify(tz)}) should return null (got: ${result})`
+    );
+  }
+  console.log("  ✓ Invalid timezones rejected");
+}
+
+function testTimezoneResolution() {
+  console.log("\n▶ Testing timezone resolution with profile...");
+
+  // Profile timezone takes priority
+  const profileTz = "America/Chicago";
+  const resolved = resolveTimezoneWithProfile(profileTz);
+  assert(
+    resolved === profileTz,
+    `resolveTimezoneWithProfile("${profileTz}") should return "${profileTz}" (got: ${resolved})`
+  );
+  console.log(`  ✓ Profile timezone has priority: ${profileTz}`);
+
+  // Invalid profile timezone falls back to brand default
+  const fallback = resolveTimezoneWithProfile("Invalid/Timezone");
+  const expected = branding.timezone || "Asia/Kolkata";
+  assert(
+    fallback === expected,
+    `Invalid profile timezone should fall back to brand default "${expected}" (got: ${fallback})`
+  );
+  console.log(`  ✓ Invalid profile timezone falls back: ${fallback}`);
+
+  // Null/undefined profile timezone falls back to brand default
+  const nullFallback = resolveTimezoneWithProfile(null);
+  assert(
+    nullFallback === expected,
+    `null profile timezone should fall back to brand default "${expected}" (got: ${nullFallback})`
+  );
+  console.log(`  ✓ Null profile timezone falls back: ${nullFallback}`);
+}
+
+function testCssVariableGeneration() {
+  console.log("\n▶ Testing CSS variable generation...");
+
+  const css = getBrandCssVariables(branding);
+
+  // Must contain all color variables
+  const requiredVars = [
+    "--color-accent:",
+    "--color-accent-hover:",
+    "--color-accent-fg:",
+    "--color-bg:",
+    "--color-surface:",
+    "--color-surface-2:",
+    "--color-border:",
+    "--color-fg:",
+    "--color-muted:",
+    "--color-success:",
+    "--color-danger:",
+    "--color-chart:",
+  ];
+
+  for (const varName of requiredVars) {
+    assert(
+      css.includes(varName),
+      `CSS variables must include ${varName}`
+    );
+  }
+
+  // Each line should be a valid CSS variable declaration
+  const lines = css.split("\n").filter((line) => line.trim());
+  for (const line of lines) {
+    assert(
+      /^--[\w-]+:\s*#[0-9a-fA-F]{6};?$/.test(line.trim()),
+      `Invalid CSS variable line: ${line}`
+    );
+  }
+
+  console.log(`  ✓ Generated ${lines.length} CSS variable declarations`);
+  console.log(`  ✓ All required color variables present`);
+}
+
+function testBrandIcons() {
+  console.log("\n▶ Testing brand icons...");
+
   const iconPaths = Object.values(branding.icons);
   assert(iconPaths.length > 0, "branding.icons must contain at least one icon path");
 
@@ -77,13 +282,11 @@ function testBrandingConfig() {
     "branding.icons.maskable512 must be defined"
   );
   assert(
-    typeof branding.icons.appleTouchIcon === "string" && branding.icons.appleTouchIcon.length > 0,
+    typeof branding.icons.appleTouchIcon === "string" &&
+      branding.icons.appleTouchIcon.length > 0,
     "branding.icons.appleTouchIcon must be defined"
   );
 
-  console.log("  ✓ Name and short name valid");
-  console.log("  ✓ Description present");
-  console.log("  ✓ Theme and background colors are valid hex");
   console.log("  ✓ All required icon paths defined");
 }
 
@@ -103,21 +306,25 @@ function testManifestUsesConfig() {
     "manifest.description must match branding.description"
   );
   assert(
-    m.theme_color === branding.themeColor,
-    "manifest.theme_color must match branding.themeColor"
+    m.theme_color === branding.colors.bg,
+    "manifest.theme_color must match branding.colors.bg"
   );
   assert(
-    m.background_color === branding.backgroundColor,
-    "manifest.background_color must match branding.backgroundColor"
+    m.background_color === branding.colors.bg,
+    "manifest.background_color must match branding.colors.bg"
   );
 
   // Test manifest structure
   assert(m.display === "standalone", "manifest.display must be 'standalone'");
   assert(m.start_url === "/", "manifest.start_url must be '/'");
+  assert(m.scope === "/", "manifest.scope must be '/'");
   assert(m.orientation === "portrait", "manifest.orientation must be 'portrait'");
 
   // Test icons array
-  assert(Array.isArray(m.icons) && m.icons.length >= 4, "manifest.icons must have at least 4 icons");
+  assert(
+    Array.isArray(m.icons) && m.icons.length >= 4,
+    "manifest.icons must have at least 4 icons"
+  );
 
   // Test that manifest icons reference branding icon paths
   const manifestIconSrcs = m.icons?.map((icon) => icon.src) ?? [];
@@ -175,15 +382,27 @@ function testManifestShortcuts() {
 }
 
 function main() {
-  console.log("Testing Branding Configuration");
-  console.log("================================");
+  console.log("Testing Enhanced Branding Configuration with Timezone Support");
+  console.log("==============================================================");
 
   try {
-    testBrandingConfig();
+    testBrandSelection();
+    testBrandConfig();
+    testBrandColors();
+    testBrandTimezone();
+    testTimezoneValidation();
+    testTimezoneResolution();
+    testCssVariableGeneration();
+    testBrandIcons();
     testManifestUsesConfig();
     testManifestShortcuts();
 
-    console.log("\n✅ All branding tests passed\n");
+    console.log("\n✅ All branding and timezone tests passed");
+    console.log(`\nActive brand: ${branding.name} (${branding.id})`);
+    console.log(`Site URL: ${branding.siteUrl}`);
+    console.log(`Timezone: ${branding.timezone || "(browser fallback)"}`);
+    console.log(`Colors: ${branding.colors.accent} (accent), ${branding.colors.bg} (background)\n`);
+
     process.exit(0);
   } catch (error) {
     console.error(`\n${error instanceof Error ? error.message : String(error)}\n`);

@@ -14,9 +14,10 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: branding.shortName,
     description: branding.description,
     start_url: "/",
+    scope: "/",
     display: "standalone",
-    background_color: branding.backgroundColor,
-    theme_color: branding.themeColor,
+    background_color: branding.colors.bg,
+    theme_color: branding.colors.bg,
     orientation: "portrait",
     icons: [
       {

@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @theme {
+  /* Brand colors are injected via CSS variables from branding config.
+     These declarations provide fallbacks and are overridden at runtime. */
   --color-bg: #0a0c0e;
   --color-surface: #151a1f;
   --color-surface-2: #1d242b;

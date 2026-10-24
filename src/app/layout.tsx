@@ -3,11 +3,13 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { BrandThemeInjector } from "@/components/brand-theme-injector";
 import { branding } from "@/lib/branding";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(branding.siteUrl),
   title: branding.name,
   description: branding.description,
   applicationName: branding.name,
@@ -28,10 +30,17 @@ export const metadata: Metadata = {
     },
   },
   manifest: "/manifest.webmanifest",
+  openGraph: {
+    type: "website",
+    siteName: branding.name,
+    title: branding.name,
+    description: branding.description,
+    url: branding.siteUrl,
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: branding.themeColor,
+  themeColor: branding.colors.bg,
   width: "device-width",
   initialScale: 1,
   // The guided session has fixed controls; zooming breaks the layout mid-set.
@@ -45,6 +54,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased">
+        <BrandThemeInjector />
         <ServiceWorkerRegistration />
         {children}
         {/*
