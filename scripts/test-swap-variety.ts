@@ -14,6 +14,7 @@
 import { readFileSync } from "fs";
 import { rankAlternatives, buildPatternList, type AlternativesContext, type ExerciseRow } from "../src/lib/program/alternatives";
 import { score, hashString } from "../src/lib/program/generate";
+import { EXCLUDED_EXERCISE_SLUGS } from "../src/lib/program/exclusions";
 import type { Database } from "../src/lib/database.types";
 
 type Level = Database["public"]["Enums"]["fitness_level"];
@@ -196,7 +197,56 @@ console.log("\n4. Oracle check: Seated Cable Rows (seated-cable-rows, full gym)"
   }
 }
 
-console.log("\n5. All-catalogue check: head == main baseline (hard-coded snapshot from main 25d92f8)");
+console.log("\n5. Behind-the-neck catalogue scan: all behind-the-neck exercises must be excluded");
+{
+  const behindTheNeckPattern = /behind.{0,1}the.{0,1}neck|behind.{0,1}neck/i;
+  const behindTheNeckExercises = catalogue.filter(e => 
+    behindTheNeckPattern.test(e.name) || behindTheNeckPattern.test(e.slug)
+  );
+  
+  console.log(`  Found ${behindTheNeckExercises.length} behind-the-neck exercise(s) in catalogue:`);
+  for (const ex of behindTheNeckExercises) {
+    console.log(`    - ${ex.slug} (${ex.name})`);
+    check(`${ex.slug} is excluded`, EXCLUDED_EXERCISE_SLUGS.has(ex.slug));
+  }
+  
+  check("at least one behind-the-neck exercise exists", behindTheNeckExercises.length > 0);
+}
+
+console.log("\n6. Lat Pulldown swap test: no behind-the-neck variants offered");
+{
+  const current = catalogue.find((e) => e.slug === "wide-grip-lat-pulldown");
+  check("lat pulldown found", !!current);
+  
+  if (current) {
+    const patterns = buildPatternList(current.movement_pattern, false);
+    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+    
+    const wantCompound = current.mechanic !== "isolation";
+    const ctx: AlternativesContext = {
+      level: "intermediate",
+      availableEquipment: null,
+      injuryRegions: [],
+      limit: 20,
+      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+      tieBreakFn: (slug) => hashString(`seid-test:${slug}`),
+    };
+    
+    const alternatives = rankAlternatives(current, pool, ctx);
+    const slugs = alternatives.map(e => e.slug);
+    const names = alternatives.map(e => e.name);
+    
+    const behindTheNeckPattern = /behind.{0,1}the.{0,1}neck|behind.{0,1}neck/i;
+    const hasBehindTheNeck = alternatives.some(e => 
+      behindTheNeckPattern.test(e.name) || behindTheNeckPattern.test(e.slug)
+    );
+    
+    console.log(`  Checked ${alternatives.length} alternatives`);
+    check("no behind-the-neck in swaps", !hasBehindTheNeck);
+  }
+}
+
+console.log("\n7. All-catalogue check: head == main baseline (hard-coded snapshot from main 25d92f8)");
 {
   // Load pre-computed baseline from main 25d92f8 with exclusions pre-filtered
   const baselineData = JSON.parse(readFileSync("scripts/fixtures/main-baseline.json", "utf8"));
@@ -254,7 +304,7 @@ console.log("\n5. All-catalogue check: head == main baseline (hard-coded snapsho
   check("head == baseline", diffCount === 0, `${diffCount} diffs`);
 }
 
-console.log("\n6. Direct unit tests: each excluded slug");
+console.log("\n8. Direct unit tests: each excluded slug");
 {
   // Test standing-barbell-press-behind-neck
   const press = catalogue.find(e => e.slug === "barbell-shoulder-press");
@@ -377,7 +427,7 @@ console.log("\n6. Direct unit tests: each excluded slug");
   }
 }
 
-console.log("\n7. Pullover scope tests");
+console.log("\n9. Pullover scope tests");
 {
   // Test (a): Press original with pullover in same pattern
   // front-raise-and-pullover is horizontal_press, so it can be in bench pool
