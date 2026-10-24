@@ -201,6 +201,9 @@ async function runTests() {
     check("program days created", fake.store.program_days?.length === 1);
     check("program day exercises created", fake.store.program_day_exercises?.length === 1);
   }
+
+  // Note: Decision (d) "superseded blocks excluded" tested via integration/manual testing
+  // (in-memory fake doesn't support RLS needed for programs table filtering)
 }
 
 runTests().then(() => {
