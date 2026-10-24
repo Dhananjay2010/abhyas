@@ -3,8 +3,8 @@
  * 
  * Requirement (review fix #2, widened per final review):
  * - No-injury plans must be unchanged except where main's plan contained an excluded move
- * - This test loads a baseline generated FROM origin/main (scripts/fixtures/plan-baseline-wide.json)
- * - Regenerates the same plans with HEAD
+ * - This test loads a compact digest generated FROM origin/main
+ * - Regenerates the same plans with HEAD and compares SHA256 hashes
  * - Asserts they're identical whenever main's plan has none of the 6 excluded slugs
  * 
  * Wider parameters: all levels, tracks (weights/bodyweight), real equipment sets, 
@@ -14,6 +14,7 @@
  */
 
 import { readFileSync } from "fs";
+import { createHash } from "crypto";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
 const catalogue: CandidateExercise[] = JSON.parse(
@@ -32,18 +33,20 @@ const EXCLUDED_SLUGS = new Set([
 
 type FitnessLevel = "beginner" | "intermediate" | "expert";
 
-type BaselinePlan = {
+type DigestEntry = {
   userId: string;
   level: FitnessLevel;
   equipment: string;
   days: number;
   minutes: number;
   age: number;
-  exercises: string[]; // exercise IDs
+  sha256: string;
+  slugs: string[];
+  hadExcluded: boolean;
 };
 
-const baseline: BaselinePlan[] = JSON.parse(
-  readFileSync("scripts/fixtures/plan-baseline-wide.json", "utf8")
+const digest: DigestEntry[] = JSON.parse(
+  readFileSync("scripts/fixtures/plan-no-injury-digest.json", "utf8")
 );
 
 // Build ID to slug map
@@ -63,24 +66,32 @@ const EQUIPMENT_MAP: Record<string, { ids: string[]; hasAll: boolean; track: "we
   "dumbbells-only": { ids: ["dumbbell"], hasAll: false, track: "weights" },
 };
 
-for (const plan of baseline) {
+// Expected diffs: profiles where main had excluded slugs
+// These are the 2 profiles identified in the digest with hadExcluded=true
+const EXPECTED_DIFFS = new Set(
+  digest.filter(d => d.hadExcluded).map(d => d.userId)
+);
+
+console.log(`Expected ${EXPECTED_DIFFS.size} profile(s) to differ due to excluded slugs in main`);
+
+for (const entry of digest) {
   total++;
   
-  const equipmentSpec = EQUIPMENT_MAP[plan.equipment];
+  const equipmentSpec = EQUIPMENT_MAP[entry.equipment];
   const input: GeneratorInput = {
-    userId: plan.userId,
+    userId: entry.userId,
     blockNumber: 1,
-    level: plan.level,
+    level: entry.level,
     equipmentIds: equipmentSpec.ids,
     hasAllEquipment: equipmentSpec.hasAll,
     goal: "muscle_gain",
     currentInjuryRegions: [],
-    age: plan.age,
+    age: entry.age,
     bmi: null,
-    daysPerWeek: plan.days,
+    daysPerWeek: entry.days,
     yogaDaysPerWeek: 0,
     primaryTrack: equipmentSpec.track,
-    preferredSessionMinutes: plan.minutes,
+    preferredSessionMinutes: entry.minutes,
     catalogue,
   };
   
@@ -89,37 +100,49 @@ for (const plan of baseline) {
     day.exercises.map(e => e.exerciseId)
   );
   
-  if (JSON.stringify(headExercises) === JSON.stringify(plan.exercises)) {
+  // Compute SHA256 of HEAD's plan
+  const canonical = JSON.stringify(headExercises);
+  const headSha256 = createHash("sha256").update(canonical).digest("hex");
+  
+  if (headSha256 === entry.sha256) {
     matched++;
     continue;
   }
   
-  // Plans differ. Check if main's plan had any excluded slugs.
-  const mainSlugs = plan.exercises.map(id => idToSlug.get(id)).filter(Boolean);
-  const mainHadExcluded = mainSlugs.some(slug => EXCLUDED_SLUGS.has(slug!));
-  
-  if (mainHadExcluded) {
+  // Plans differ. Check if this was expected (main had excluded slugs)
+  if (entry.hadExcluded) {
     diffedDueToExclusion++;
+    
+    // Verify HEAD's plan has no excluded slugs
+    const headSlugs = headExercises.map(id => idToSlug.get(id) || id);
+    const headHasExcluded = headSlugs.some(slug => EXCLUDED_SLUGS.has(slug));
+    
+    if (headHasExcluded) {
+      console.log(`  ✗ ${entry.userId}: HEAD still has excluded slugs!`);
+      diffedUnexpected++;
+    }
   } else {
     diffedUnexpected++;
     if (diffedUnexpected <= 3) {
-      console.log(`  Unexpected diff: ${plan.userId} (${plan.level}, ${plan.equipment}, ${plan.days}d, ${plan.minutes}min, age ${plan.age})`);
-      console.log(`    Main: ${plan.exercises.slice(0, 5).map(id => idToSlug.get(id) || id).join(", ")}...`);
-      console.log(`    Head: ${headExercises.slice(0, 5).map(id => idToSlug.get(id) || id).join(", ")}...`);
+      console.log(`  Unexpected diff: ${entry.userId} (${entry.level}, ${entry.equipment}, ${entry.days}d, ${entry.minutes}min, age ${entry.age})`);
+      const mainSlugs = entry.slugs.slice(0, 5).join(", ");
+      const headSlugs = headExercises.slice(0, 5).map(id => idToSlug.get(id) || id).join(", ");
+      console.log(`    Main: ${mainSlugs}...`);
+      console.log(`    Head: ${headSlugs}...`);
     }
   }
 }
 
-console.log(`\nNo-injury plan comparison (widened):`);
+console.log(`\nNo-injury plan comparison (widened, SHA256-based):`);
 console.log(`  Total plans: ${total}`);
 console.log(`  Matched: ${matched}`);
-console.log(`  Diffed due to exclusion: ${diffedDueToExclusion}`);
+console.log(`  Diffed due to exclusion: ${diffedDueToExclusion} (expected: ${EXPECTED_DIFFS.size})`);
 console.log(`  Diffed unexpectedly: ${diffedUnexpected}`);
 
-if (diffedUnexpected === 0) {
-  console.log(`\n✓ All no-injury plans match main (except where main had excluded exercises)\n`);
+if (diffedUnexpected === 0 && diffedDueToExclusion === EXPECTED_DIFFS.size) {
+  console.log(`\n✓ All no-injury plans match main (except ${EXPECTED_DIFFS.size} where main had excluded exercises)\n`);
   process.exit(0);
 } else {
-  console.log(`\n✗ ${diffedUnexpected} plan(s) differ from main without excluded exercises\n`);
+  console.log(`\n✗ Unexpected differences found\n`);
   process.exit(1);
 }
