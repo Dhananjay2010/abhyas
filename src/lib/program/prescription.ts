@@ -116,20 +116,23 @@ export function prescribe(
  * where 0 stays 0, 1 stays 1, 2 stays 2, and 5 becomes 3.
  */
 export function applyDeload(p: Prescription): Prescription {
+  // Normalize -0 to 0
+  const sets = p.sets === 0 ? 0 : p.sets;
+  
   // Validate BEFORE rounding to catch -0.4, -0.5, etc.
-  if (!Number.isFinite(p.sets)) {
+  if (!Number.isFinite(sets)) {
     throw new RangeError(
       `applyDeload: sets must be finite, got ${p.sets}`
     );
   }
   
-  if (p.sets < 0) {
+  if (sets < 0) {
     throw new RangeError(
       `applyDeload: sets must be >= 0, got ${p.sets}`
     );
   }
 
-  const rounded = Math.round(p.sets);
+  const rounded = Math.round(sets);
 
   return {
     sets: Math.min(rounded, Math.max(2, Math.round(rounded * 0.6))),

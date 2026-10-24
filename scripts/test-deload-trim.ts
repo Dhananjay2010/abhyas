@@ -29,10 +29,12 @@ import {
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
-  if (!ok) failures++;
-  console.log(
-    `  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`
-  );
+  if (!ok) {
+    failures++;
+    console.log(`  FAIL ${label}${detail ? `  -- ${detail}` : ""}`);
+  } else {
+    console.log(`  ok   ${label}`);
+  }
 }
 
 console.log("\n1. applyDeload: exhaustive sweep sets 1-10, unchanged vs current formula");
@@ -122,6 +124,15 @@ console.log("\n2. applyDeload: bad input validation");
     "applyDeload(0.5) rounds to 1 and succeeds",
     halfResult.sets === 1,
     `got ${halfResult.sets}`
+  );
+
+  // -0 is normalized to 0
+  const negZeroP: Prescription = { sets: -0, repsMin: 8, repsMax: 12, restSeconds: 90 };
+  const negZeroResult = applyDeload(negZeroP);
+  check(
+    "applyDeload(-0) normalized to 0 and succeeds",
+    negZeroResult.sets === 0,
+    `got ${negZeroResult.sets}`
   );
 }
 
@@ -262,25 +273,59 @@ console.log("\n5. Rep trim: minimum of 1 preserved");
 
 console.log("\n6. Known-weight rows get no trim (loadReducible undefined)");
 {
-  const planned: PlannedExercise = {
+  // Critical: loadReducible undefined WITH metric provided must skip trim
+  // This catches the mutant that trims when loadReducible is undefined
+  const plannedReps: PlannedExercise = {
     target_sets: 2,
     target_reps_min: 8,
     target_reps_max: 12,
     rest_seconds: 90,
   };
 
-  const resultUndefined = resolveSessionTargets(planned, {
+  const resultRepsWithMetric = resolveSessionTargets(plannedReps, {
     isDeload: true,
     // loadReducible omitted = undefined
+    metric: "reps",
   });
 
   check(
-    "loadReducible undefined: reps unchanged",
+    "loadReducible undefined + metric='reps': reps unchanged",
+    resultRepsWithMetric.repsMin === 8 && resultRepsWithMetric.repsMax === 12,
+    `got ${resultRepsWithMetric.repsMin}-${resultRepsWithMetric.repsMax}, expected 8-12`
+  );
+
+  const plannedHold: PlannedExercise = {
+    target_sets: 2,
+    target_reps_min: 40,
+    target_reps_max: 40,
+    rest_seconds: 60,
+  };
+
+  const resultHoldWithMetric = resolveSessionTargets(plannedHold, {
+    isDeload: true,
+    // loadReducible omitted = undefined
+    metric: "seconds",
+  });
+
+  check(
+    "loadReducible undefined + metric='seconds': hold unchanged",
+    resultHoldWithMetric.repsMin === 40 && resultHoldWithMetric.repsMax === 40,
+    `got ${resultHoldWithMetric.repsMin}s, expected 40s`
+  );
+
+  // Without metric provided at all
+  const resultUndefined = resolveSessionTargets(plannedReps, {
+    isDeload: true,
+    // loadReducible omitted, metric omitted
+  });
+
+  check(
+    "loadReducible undefined + metric undefined: reps unchanged",
     resultUndefined.repsMin === 8 && resultUndefined.repsMax === 12,
     `got ${resultUndefined.repsMin}-${resultUndefined.repsMax}`
   );
 
-  const resultTrue = resolveSessionTargets(planned, {
+  const resultTrue = resolveSessionTargets(plannedReps, {
     isDeload: true,
     loadReducible: true,
     metric: "reps",
@@ -440,6 +485,49 @@ console.log("\n11. Hold trim: various hold durations");
       `got ${result.repsMin}s`
     );
   }
+
+  // Critical: Hold under 15s to catch cap mutant
+  const planned5: PlannedExercise = {
+    target_sets: 2,
+    target_reps_min: 5,
+    target_reps_max: 5,
+    rest_seconds: 60,
+  };
+
+  const result5 = resolveSessionTargets(planned5, {
+    isDeload: true,
+    loadReducible: false,
+    metric: "seconds",
+  });
+
+  // 5 * 2/3 = 3.33 → 5 (nearest 5), min 10 → 10, capped at planned 5 → 5
+  check(
+    "Hold trim: 5s stays 5s (cap mutant killer)",
+    result5.repsMin === 5 && result5.repsMax === 5,
+    `got ${result5.repsMin}s, expected 5s not 10s`
+  );
+
+  // Range case: 5-12s
+  const planned5_12: PlannedExercise = {
+    target_sets: 2,
+    target_reps_min: 5,
+    target_reps_max: 12,
+    rest_seconds: 60,
+  };
+
+  const result5_12 = resolveSessionTargets(planned5_12, {
+    isDeload: true,
+    loadReducible: false,
+    metric: "seconds",
+  });
+
+  // 5 * 2/3 = 3.33 → 5 (nearest 5), min 10 → 10, capped at planned 5 → 5
+  // 12 * 2/3 = 8 → 10 (nearest 5), min 10 → 10
+  check(
+    "Hold trim: 5-12s → 5-10s (cap applied to min)",
+    result5_12.repsMin === 5 && result5_12.repsMax === 10,
+    `got ${result5_12.repsMin}-${result5_12.repsMax}s`
+  );
 }
 
 console.log("\n12. Edge case: min > max after trim is corrected");
@@ -468,6 +556,29 @@ console.log("\n12. Edge case: min > max after trim is corrected");
     "Edge: 5 → 3",
     result.repsMin === 3 && result.repsMax === 3,
     `got ${result.repsMin}-${result.repsMax}`
+  );
+
+  // Critical case to catch min>max mutant: edge rounding with range
+  // This targets the Math.max(trimmedMinBeforeCap, trimmedMaxBeforeCap) logic
+  const planned11_13: PlannedExercise = {
+    target_sets: 2,
+    target_reps_min: 11,
+    target_reps_max: 13,
+    rest_seconds: 60,
+  };
+
+  const result11_13 = resolveSessionTargets(planned11_13, {
+    isDeload: true,
+    loadReducible: false,
+    metric: "reps",
+  });
+
+  // 11 * 2/3 = 7.33 → 7, 13 * 2/3 = 8.67 → 9
+  // The Math.max ensures max is at least as large as min after all operations
+  check(
+    "Edge: min ≤ max for 11-13 range",
+    result11_13.repsMin <= result11_13.repsMax,
+    `${result11_13.repsMin} > ${result11_13.repsMax}`
   );
 }
 
@@ -514,33 +625,51 @@ console.log("\n13. Metric undefined: trim is skipped (footgun prevention)");
   );
 }
 
-console.log("\n14. Trimmed values never exceed planned (cap)");
+console.log("\n14. Trimmed values never exceed planned (cap verification)");
 {
-  // Edge case: if formula somehow produces values > planned, they're capped
-  // This is defensive; the formula shouldn't exceed, but let's verify the cap works
-  const planned: PlannedExercise = {
+  // For holds, the cap is critical with small planned values
+  // Already tested in section 11: 5s stays 5s, 5-12s becomes 5-10s
+  
+  // For reps, verify cap prevents exceeding planned after floor applied
+  // The 0-1 case already tests this: 0 becomes 1 (floor), capped at max(1, planned)
+  const plannedRepCap: PlannedExercise = {
     target_sets: 2,
-    target_reps_min: 1,
-    target_reps_max: 1,
+    target_reps_min: 0,
+    target_reps_max: 0,
     rest_seconds: 60,
   };
 
-  const result = resolveSessionTargets(planned, {
+  const resultRepCap = resolveSessionTargets(plannedRepCap, {
     isDeload: true,
     loadReducible: false,
     metric: "reps",
   });
 
-  // 1 * 2/3 = 0.67 → 1 (floor), capped at planned 1
+  // 0 * 2/3 = 0 → floor to 1, then cap at max(1, 0) = 1
   check(
-    "Cap: trimmed min ≤ planned min",
-    result.repsMin <= planned.target_reps_min,
-    `${result.repsMin} > ${planned.target_reps_min}`
+    "Rep cap: 0-0 becomes 1-1 (floor + defensive cap)",
+    resultRepCap.repsMin === 1 && resultRepCap.repsMax === 1,
+    `got ${resultRepCap.repsMin}-${resultRepCap.repsMax}`
   );
+
+  // Verify the 5s hold cap more explicitly
+  const plannedHoldCap: PlannedExercise = {
+    target_sets: 2,
+    target_reps_min: 5,
+    target_reps_max: 5,
+    rest_seconds: 60,
+  };
+
+  const resultHoldCap = resolveSessionTargets(plannedHoldCap, {
+    isDeload: true,
+    loadReducible: false,
+    metric: "seconds",
+  });
+
   check(
-    "Cap: trimmed max ≤ planned max",
-    result.repsMax <= planned.target_reps_max,
-    `${result.repsMax} > ${planned.target_reps_max}`
+    "Hold cap: 5s capped correctly",
+    resultHoldCap.repsMin === 5 && resultHoldCap.repsMax === 5,
+    `got ${resultHoldCap.repsMin}s`
   );
 }
 

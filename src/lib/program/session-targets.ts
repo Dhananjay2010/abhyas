@@ -80,7 +80,7 @@ export function resolveSessionTargets(
       // Reps: multiply by 2/3, round, minimum 1, preserve min ≤ max
       const trimmedMinBeforeCap = Math.max(1, Math.round((deloaded.repsMin * 2) / 3));
       const trimmedMaxBeforeCap = Math.max(1, Math.round((deloaded.repsMax * 2) / 3));
-      // Cap after applying floor to ensure 0 becomes 1
+      // Cap is defensive only: floor of 1 takes precedence, so cap can't affect valid inputs
       const trimmedMin = Math.min(trimmedMinBeforeCap, Math.max(1, planned.target_reps_min));
       const trimmedMax = Math.min(Math.max(trimmedMinBeforeCap, trimmedMaxBeforeCap), Math.max(1, planned.target_reps_max));
       return {
