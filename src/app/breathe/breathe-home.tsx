@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { unlockBreathAudio } from "@/lib/breathing/audio";
 import { noteInAppStart } from "@/lib/breathing/client";
@@ -105,11 +104,9 @@ export function BreatheHome({
   basePath?: string;
   actions?: Actions;
 }) {
-  const router = useRouter();
   const [prefs, setPrefs] = useState(initialPrefs);
   const [intent, setIntent] = useState<Intent | null>(initialIntent);
   const [showPrefs, setShowPrefs] = useState(false);
-  const [starting, setStarting] = useState(false);
   const closePrefs = useCallback(() => setShowPrefs(false), []);
 
   const available = INTENTS.filter(
@@ -131,9 +128,7 @@ export function BreatheHome({
     window.history.replaceState(null, "", next ? `${basePath}?intent=${next}` : basePath);
   };
 
-  const startAgain = () => {
-    if (!again || !againLength || starting) return;
-    setStarting(true);
+  const unlockOnAgainTap = () => {
     // This tap is the gesture that lets the practice screen make sound. iOS
     // grants Web Audio and speech separately, and both only from a gesture.
     if (prefs.guidance !== "off") {
@@ -141,19 +136,6 @@ export function BreatheHome({
       if (prefs.guidance === "voice") warmUpSpeech(prefs.voiceLang);
     }
     noteInAppStart();
-    router.push(
-      `${basePath}/${again.slug}/session${sessionSearch({
-        cycles: againLength.cycles,
-        guidance: prefs.guidance,
-        ambience: prefs.ambience,
-        ambienceVolume: prefs.ambienceVolume,
-        voiceLang: prefs.voiceLang,
-        showCount: prefs.showCount,
-        vibrate: prefs.vibrate,
-        settleIn: prefs.settleIn,
-        checkIn: prefs.checkIn,
-      })}`,
-    );
   };
 
   return (
@@ -181,11 +163,20 @@ export function BreatheHome({
       <WeekStrip days={stats.weekDays} todayIndex={todayIndex} className="mt-6" />
 
       {again && againLength ? (
-        <button
-          type="button"
-          onClick={startAgain}
-          disabled={starting}
-          className="mt-7 flex w-full items-center gap-4 rounded-2xl border border-breath/25 px-5 py-4 text-left transition-colors hover:border-breath/50 disabled:opacity-70"
+        <Link
+          href={`${basePath}/${again.slug}/session${sessionSearch({
+            cycles: againLength.cycles,
+            guidance: prefs.guidance,
+            ambience: prefs.ambience,
+            ambienceVolume: prefs.ambienceVolume,
+            voiceLang: prefs.voiceLang,
+            showCount: prefs.showCount,
+            vibrate: prefs.vibrate,
+            settleIn: prefs.settleIn,
+            checkIn: prefs.checkIn,
+          })}`}
+          onClick={unlockOnAgainTap}
+          className="mt-7 flex w-full items-center gap-4 rounded-2xl border border-breath/25 px-5 py-4 text-left transition-colors hover:border-breath/50"
           style={{ background: CARD_BG }}
         >
           <div className="min-w-0 flex-1">
@@ -196,7 +187,7 @@ export function BreatheHome({
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-accent text-accent-fg">
             <Icon.Play />
           </span>
-        </button>
+        </Link>
       ) : null}
 
       {suggestion ? (
