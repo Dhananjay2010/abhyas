@@ -142,19 +142,8 @@ export function SessionRunner({
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
   
-  // Merge pending sets from outbox before initializing exercises
-  const [exercises, setExercises] = useState(() => {
-    try {
-      const storage = createLocalStorage(`outbox:${sessionId}`);
-      const state = storage.get();
-      if (state && state.pending.length > 0) {
-        return mergePendingSets(initialExercises, state.pending);
-      }
-    } catch {
-      // Storage unavailable, continue without merge
-    }
-    return initialExercises;
-  });
+  // Start from initialExercises and merge pending/failed in mount effect (avoid hydration mismatch)
+  const [exercises, setExercises] = useState(initialExercises);
   
   const [error, setError] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
@@ -282,18 +271,21 @@ export function SessionRunner({
   // ---- offline outbox ---------------------------------------------------
   const outboxRef = useRef<Outbox | null>(null);
   const [syncState, setSyncState] = useState<SyncState>({ type: "idle" });
+  const [pendingCount, setPendingCount] = useState(0);
 
   async function flushOutbox() {
     const outbox = outboxRef.current;
     if (!outbox || outbox.pendingCount() === 0) return;
 
-    setSyncState({ type: "syncing" });
     const result = await outbox.flush();
 
     // If skipped (in-flight lock), leave status unchanged
     if (result.skipped) {
       return;
     }
+
+    // Set syncing only after confirming not skipped
+    setSyncState({ type: "syncing" });
 
     if (result.sentClientIds.length > 0) {
       // Clear pending flag on successfully synced sets (by clientId)
@@ -342,6 +334,20 @@ export function SessionRunner({
       );
     }
 
+    // Update pending count
+    setPendingCount(outbox.pendingCount());
+
+    // Check if empty and clean up storage
+    if (outbox.isEmpty()) {
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(`outbox:${sessionId}`);
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    }
+
     if (outbox.pendingCount() === 0 && failed.length === 0) {
       // All sets synced
       setSyncState({ type: "idle" });
@@ -364,32 +370,69 @@ export function SessionRunner({
             weightKg: set.weightKg,
             durationSeconds: set.durationSeconds,
           });
-          if (result.ok) {
+          const classification = classifyLogSetOutcome(result);
+          if (classification.outcome === "saved") {
             return { ok: true };
           }
-          // Structured error code: only 'invalid' is permanent
-          const isPermanent: boolean = 
-            "data" in result && 
-            result.data != null && 
-            typeof result.data === "object" && 
-            "code" in result.data && 
-            result.data.code === "invalid";
+          // Reuse classifyLogSetOutcome: 'invalid' is permanent
           return {
             ok: false,
-            permanent: isPermanent,
-            error: result.error ?? "Failed to save set",
+            permanent: classification.outcome === "invalid",
+            error: classification.error ?? "Failed to save set",
           };
-        } catch (err) {
+        } catch (thrown) {
           // Network errors or thrown errors are transient
+          const classification = classifyLogSetOutcome({ thrown });
           return {
             ok: false,
             permanent: false,
-            error: err instanceof Error ? err.message : "Network error",
+            error: classification.error ?? "Network error",
           };
         }
       },
     };
-    outboxRef.current = new Outbox(createLocalStorage(`outbox:${sessionId}`), sender);
+    const storage = createLocalStorage(`outbox:${sessionId}`);
+    outboxRef.current = new Outbox(storage, sender, `outbox:${sessionId}`);
+
+    // Merge pending and failed rows on mount (avoid hydration mismatch)
+    const state = storage.get();
+    if (state) {
+      if (state.pending.length > 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setExercises((prev) => mergePendingSets(prev, state.pending));
+      }
+      if (state.failed.length > 0) {
+        // Merge failed rows too
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setExercises((prev) =>
+          prev.map((ex) => {
+            const failedForExercise = state.failed.filter((f) => f.set.sessionExerciseId === ex.id);
+            if (failedForExercise.length === 0) return ex;
+
+            const merged = [...ex.sets];
+            for (const f of failedForExercise) {
+              const existing = merged.find((s) => s.setNumber === f.set.setNumber);
+              if (!existing) {
+                merged.push({
+                  setNumber: f.set.setNumber,
+                  reps: f.set.reps,
+                  weightKg: f.set.weightKg,
+                  durationSeconds: f.set.durationSeconds,
+                  failed: true,
+                  failedError: f.error,
+                  clientId: f.set.clientId,
+                } as typeof ex.sets[number] & { failed?: boolean; failedError?: string; clientId?: string });
+              }
+            }
+            merged.sort((a, b) => a.setNumber - b.setNumber);
+            return { ...ex, sets: merged };
+          }),
+        );
+      }
+    }
+
+    // Set initial pending count
+    setPendingCount(outboxRef.current.pendingCount());
 
     // Flush on mount (in case we're resuming after a reconnect)
     void flushOutbox();
@@ -446,6 +489,7 @@ export function SessionRunner({
         error={error}
         syncState={syncState}
         onRetrySync={flushOutbox}
+        pendingCount={pendingCount}
       >
         <div onPointerDown={onAnyTap}>
           <p className="text-xs font-semibold tracking-wider text-accent uppercase">
@@ -512,6 +556,7 @@ export function SessionRunner({
         error={error}
         syncState={syncState}
         onRetrySync={flushOutbox}
+        pendingCount={pendingCount}
       >
         <p className="text-muted">
           Ease down and stretch what you trained. Hold each for about 30 seconds,
@@ -534,10 +579,20 @@ export function SessionRunner({
           <BigButton
             disabled={busy}
             onClick={async () => {
-              await run(() =>
+              const ok = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
               );
-              setPhase("done");
+              if (ok) {
+                // Clean up outbox after successful session completion
+                try {
+                  if (typeof window !== "undefined") {
+                    localStorage.removeItem(`outbox:${sessionId}`);
+                  }
+                } catch {
+                  // Ignore storage errors
+                }
+                setPhase("done");
+              }
             }}
           >
             Done
@@ -545,10 +600,20 @@ export function SessionRunner({
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              await run(() =>
+              const ok = await run(() =>
                 actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
               );
-              setPhase("done");
+              if (ok) {
+                // Clean up outbox after successful session completion
+                try {
+                  if (typeof window !== "undefined") {
+                    localStorage.removeItem(`outbox:${sessionId}`);
+                  }
+                } catch {
+                  // Ignore storage errors
+                }
+                setPhase("done");
+              }
             }}
           >
             Skip cool-down
@@ -578,6 +643,7 @@ export function SessionRunner({
         syncState={syncState}
         onRetrySync={flushOutbox}
         confirmExit={false}
+        pendingCount={pendingCount}
       >
         <div className="space-y-3">
           <Stat label="Time" value={formatClock(elapsed)} />
@@ -681,6 +747,7 @@ export function SessionRunner({
         error={error}
         syncState={syncState}
         onRetrySync={flushOutbox}
+        pendingCount={pendingCount}
       >
         <p className="text-muted">
           This session has no exercises. That usually means the plan could not
@@ -697,7 +764,10 @@ export function SessionRunner({
     );
   }
 
-  const setsDone = current.sets.length;
+  const setsDone = current.sets.filter((s) => {
+    const meta = s as unknown as { pending?: boolean; failed?: boolean; unsaved?: boolean };
+    return !meta.failed && !meta.unsaved;
+  }).length;
   const allSetsDone = setsDone >= current.plannedSets;
   const nextSetNumber = setsDone + 1;
   // Prefer a weight already logged this session; otherwise start from where
@@ -787,9 +857,8 @@ export function SessionRunner({
       }
 
       // classification.outcome === "queue": transient error, queue for later
-      const clientId = Outbox.generateClientId();
       try {
-        outbox.enqueue({
+        const clientId = outbox.enqueue({
           sessionExerciseId: current.id,
           setNumber: nextSetNumber,
           reps,
@@ -821,10 +890,33 @@ export function SessionRunner({
         // Clear any previous error and show offline status
         setError(null);
         setSyncState({ type: "offline" });
-        // Don't start rest timer for a pending set - it's not durably saved yet
+        setPendingCount(outbox.pendingCount());
+        // Start rest timer for queued sets too (safe in localStorage)
+        if (settings.restAutostart && nextSetNumber < current.plannedSets) {
+          startRest(restSeconds);
+        }
       } catch (err) {
         if (err instanceof Error && err.message === "QUOTA_EXCEEDED") {
-          // Quota exceeded: show quota state with inline retry
+          // Quota exceeded: keep row in memory as 'unsaved' with its values
+          setExercises((prev) =>
+            prev.map((e) =>
+              e.id === current.id
+                ? {
+                    ...e,
+                    sets: [
+                      ...e.sets,
+                      {
+                        setNumber: nextSetNumber,
+                        reps,
+                        weightKg,
+                        durationSeconds,
+                        unsaved: true,
+                      } as LoggedSet & { unsaved?: boolean },
+                    ],
+                  }
+                : e,
+            ),
+          );
           setSyncState({ type: "quota" });
           setError("Couldn't save offline. Keep this screen open.");
         } else {
@@ -841,15 +933,16 @@ export function SessionRunner({
   async function onUndoSet(setNumber: number) {
     const outbox = outboxRef.current;
     
-    // Check if this is a pending or failed set
+    // Check if this is a pending, failed, or unsaved set
     const currentExercise = exercises.find((e) => e.id === current.id);
     const setToRemove = currentExercise?.sets.find((s) => s.setNumber === setNumber);
-    const setWithMeta = setToRemove as unknown as { pending?: boolean; failed?: boolean; clientId?: string };
+    const setWithMeta = setToRemove as unknown as { pending?: boolean; failed?: boolean; unsaved?: boolean; clientId?: string };
     
-    if (setWithMeta?.pending || setWithMeta?.failed) {
-      // Local-only set (pending or failed) - just remove from UI
+    if (setWithMeta?.pending || setWithMeta?.failed || setWithMeta?.unsaved) {
+      // Local-only set - remove from UI and outbox
       if (setWithMeta.clientId && outbox) {
-        outbox.clearFailed(setWithMeta.clientId);
+        outbox.remove(setWithMeta.clientId);
+        setPendingCount(outbox.pendingCount());
       }
       setExercises((prev) =>
         prev.map((e) =>
@@ -932,10 +1025,20 @@ export function SessionRunner({
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
-        await run(() =>
+        const ok = await run(() =>
           actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
         );
-        setPhase("done");
+        if (ok) {
+          // Clean up outbox after successful session completion
+          try {
+            if (typeof window !== "undefined") {
+              localStorage.removeItem(`outbox:${sessionId}`);
+            }
+          } catch {
+            // Ignore storage errors
+          }
+          setPhase("done");
+        }
       }
     } else {
       setExerciseIndex(next);
@@ -952,6 +1055,7 @@ export function SessionRunner({
       error={error}
       syncState={syncState}
       onRetrySync={flushOutbox}
+      pendingCount={pendingCount}
     >
       <div onPointerDown={onAnyTap}>
         {bannerFor === exerciseIndex && progressNotes.length > 0 && (
@@ -1007,9 +1111,10 @@ export function SessionRunner({
         <ol className="mt-6 space-y-2">
           {Array.from({ length: current.plannedSets }, (_, i) => i + 1).map((n) => {
             const logged = current.sets.find((s) => s.setNumber === n);
-            const setWithMeta = logged as unknown as { pending?: boolean; failed?: boolean; failedError?: string; clientId?: string };
+            const setWithMeta = logged as unknown as { pending?: boolean; failed?: boolean; failedError?: string; unsaved?: boolean; clientId?: string };
             const isPending = logged && setWithMeta.pending;
             const isFailed = logged && setWithMeta.failed;
+            const isUnsaved = logged && setWithMeta.unsaved;
             return (
               <li
                 key={n}
@@ -1017,7 +1122,7 @@ export function SessionRunner({
                   logged
                     ? isPending
                       ? "border-accent/40 bg-accent/10 text-accent"
-                      : isFailed
+                      : isFailed || isUnsaved
                         ? "border-danger/40 bg-danger/10 text-danger"
                         : "border-border bg-surface-2 text-muted"
                     : n === nextSetNumber
@@ -1033,32 +1138,31 @@ export function SessionRunner({
                         ? "Waiting to sync"
                         : isFailed
                           ? `Not saved: ${setWithMeta.failedError || "Error"}`
-                          : settings.perSetLogging
-                            ? `${describeSet(logged, isTimed)}${
-                                logged.weightKg ? ` · ${logged.weightKg} kg` : ""
-                              }`
-                            : "done"
+                          : isUnsaved
+                            ? "Couldn't save offline"
+                            : settings.perSetLogging
+                              ? `${describeSet(logged, isTimed)}${
+                                  logged.weightKg ? ` · ${logged.weightKg} kg` : ""
+                                }`
+                              : "done"
                       : "—"}
                   </span>
                   {/*
-                    Undo, offered only on the most recently logged set.
-                    A mistyped set was previously permanent: the rows were not
-                    interactive and `deleteSet` existed in the actions file
-                    without ever being imported. Restricting it to the last set
-                    keeps the numbering contiguous — removing set 2 of 3 would
-                    leave a hole that the next "Log set" would collide with.
+                    Undo, offered on the most recently logged set for saved sets.
+                    For failed/unsaved sets, allow undo regardless of position.
                     
-                    Enabled for pending/failed sets so they can be removed,
-                    and for saved sets to allow correction.
+                    Restricting saved sets to the last keeps numbering contiguous:
+                    removing set 2 of 3 would leave a hole that the next "Log set"
+                    would collide with.
                   */}
-                  {logged && n === setsDone && (
+                  {logged && (isFailed || isUnsaved || n === setsDone) && (
                     <button
                       disabled={busy}
                       onClick={() => onUndoSet(n)}
                       aria-label={`Undo set ${n}`}
                       className="rounded-lg px-2 py-1 text-xs font-medium text-muted underline underline-offset-2 transition-colors hover:text-danger disabled:opacity-60"
                     >
-                      Undo
+                      {isFailed || isUnsaved ? "Remove" : "Undo"}
                     </button>
                   )}
                 </span>
@@ -1464,6 +1568,7 @@ function Shell({
   error,
   syncState,
   onRetrySync,
+  pendingCount = 0,
   confirmExit = true,
   children,
 }: {
@@ -1475,6 +1580,7 @@ function Shell({
   error: string | null;
   syncState?: SyncState;
   onRetrySync?: () => void;
+  pendingCount?: number;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
   children: React.ReactNode;
@@ -1517,8 +1623,10 @@ function Shell({
           className="mt-4 rounded-xl border border-border bg-surface-2 px-4 py-3"
         >
           <p className="text-sm">
-            Leave this session? Everything you have logged is already saved, and you
-            can pick it up again from Today.
+            Leave this session?{" "}
+            {pendingCount > 0
+              ? `${pendingCount} set${pendingCount > 1 ? "s are" : " is"} still waiting to sync.`
+              : "Everything you have logged is already saved, and you can pick it up again from Today."}
           </p>
           <div className="mt-3 flex gap-2">
             <button

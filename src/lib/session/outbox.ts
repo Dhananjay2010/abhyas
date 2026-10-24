@@ -85,7 +85,7 @@ export function classifyLogSetOutcome(
 export function mergePendingSets<
   T extends {
     id: string;
-    sets: Array<{ setNumber: number; pending?: boolean; clientId?: string }>;
+    sets: Array<{ setNumber: number; pending?: boolean; clientId?: string; [key: string]: unknown }>;
   },
 >(exercises: T[], pending: QueuedSet[]): T[] {
   if (pending.length === 0) return exercises;
@@ -171,15 +171,18 @@ export function createLocalStorage(key: string): OutboxStorage {
   };
 }
 
+// Module-level flush locks: per storage key (not per Outbox instance)
+// Prevents double-mount (React dev mode) from breaking concurrency guard
+const flushLocks = new Set<string>();
+
 /**
  * The outbox: queue, flush, and query pending sets.
  */
 export class Outbox {
-  private flushInFlight = false;
-
   constructor(
     private storage: OutboxStorage,
     private sender: OutboxSender,
+    private storageKey: string,
   ) {}
 
   /**
@@ -269,22 +272,42 @@ export class Outbox {
   }
 
   /**
+   * Remove a set from both pending and failed lists.
+   * Used when undoing a queued or failed set.
+   */
+  remove(clientId: string): void {
+    const state = this.storage.get();
+    if (!state) return;
+    state.pending = state.pending.filter((s) => s.clientId !== clientId);
+    state.failed = state.failed.filter((f) => f.set.clientId !== clientId);
+    this.storage.set(state);
+  }
+
+  /**
+   * Check if the outbox is empty (both pending and failed).
+   */
+  isEmpty(): boolean {
+    const state = this.storage.get();
+    return !state || (state.pending.length === 0 && state.failed.length === 0);
+  }
+
+  /**
    * Flush the outbox: send all pending sets in order.
    *
    * Returns the clientIds of successfully sent sets and whether flush stopped early.
    * Stops on the first transient error (preserving order), but skips permanently
    * failed sets (moving them to the failed list).
    *
-   * Guarded against concurrent calls: only one flush runs at a time.
+   * Guarded against concurrent calls: only one flush runs at a time per storage key.
    * If already flushing, returns immediately with skipped=true.
    */
   async flush(): Promise<{ sentClientIds: string[]; stopped: boolean; skipped: boolean }> {
-    // Concurrency guard: if a flush is already in flight, return immediately
-    if (this.flushInFlight) {
+    // Concurrency guard: module-level per storage key
+    if (flushLocks.has(this.storageKey)) {
       return { sentClientIds: [], stopped: false, skipped: true };
     }
 
-    this.flushInFlight = true;
+    flushLocks.add(this.storageKey);
     try {
       const state = this.storage.get();
       if (!state || state.pending.length === 0) {
@@ -292,7 +315,7 @@ export class Outbox {
       }
 
       const sentClientIds: string[] = [];
-      const stillPending: QueuedSet[] = [];
+      const failedClientIds: string[] = [];
 
       for (const set of state.pending) {
         const result = await this.sender.send({
@@ -305,29 +328,43 @@ export class Outbox {
 
         if (result.ok) {
           sentClientIds.push(set.clientId);
-          // Successfully sent - don't re-queue
         } else if (result.permanent) {
-          // Permanent error (validation) - move to failed list, don't retry
-          state.failed.push({
+          // Permanent error (validation) - move to failed list
+          failedClientIds.push(set.clientId);
+          // Add to failed list immediately for tracking
+          const currentState = this.storage.get() ?? { pending: [], failed: [] };
+          currentState.failed.push({
             set,
             error: result.error,
             failedAt: Date.now(),
           });
+          this.storage.set(currentState);
         } else {
-          // Transient error (network, 5xx) - stop here, keep this and all
-          // remaining sets in the queue (preserving order)
-          stillPending.push({ ...set, retries: set.retries + 1 });
-          stillPending.push(...state.pending.slice(state.pending.indexOf(set) + 1));
-          this.storage.set({ ...state, pending: stillPending });
+          // Transient error: stop here, keep this and remaining sets
+          // Re-read storage to avoid wiping concurrent enqueues
+          const finalState = this.storage.get() ?? { pending: [], failed: [] };
+          finalState.pending = finalState.pending.filter(
+            (s) => !sentClientIds.includes(s.clientId) && !failedClientIds.includes(s.clientId),
+          );
+          // Increment retries on the transient-failed set
+          const failedSet = finalState.pending.find((s) => s.clientId === set.clientId);
+          if (failedSet) {
+            failedSet.retries++;
+          }
+          this.storage.set(finalState);
           return { sentClientIds, stopped: true, skipped: false };
         }
       }
 
-      // All sets processed (either sent or moved to failed)
-      this.storage.set({ ...state, pending: stillPending });
+      // All sets processed: re-read storage and remove only sent/failed
+      const finalState = this.storage.get() ?? { pending: [], failed: [] };
+      finalState.pending = finalState.pending.filter(
+        (s) => !sentClientIds.includes(s.clientId) && !failedClientIds.includes(s.clientId),
+      );
+      this.storage.set(finalState);
       return { sentClientIds, stopped: false, skipped: false };
     } finally {
-      this.flushInFlight = false;
+      flushLocks.delete(this.storageKey);
     }
   }
 

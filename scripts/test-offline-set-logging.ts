@@ -18,11 +18,13 @@ class FakeStorage implements OutboxStorage {
   private state: ReturnType<OutboxStorage["get"]> = null;
 
   get() {
-    return this.state;
+    // Return a deep copy to match localStorage behavior (JSON round-trip)
+    return this.state ? JSON.parse(JSON.stringify(this.state)) : null;
   }
 
   set(state: ReturnType<OutboxStorage["get"]>) {
-    this.state = state;
+    // Store a deep copy to match localStorage behavior
+    this.state = state ? JSON.parse(JSON.stringify(state)) : null;
   }
 
   clear() {
@@ -98,7 +100,7 @@ class FakeSender implements OutboxSender {
 async function testQueueAndFlush() {
   const storage = new FakeStorage();
   const sender = new FakeSender();
-  const outbox = new Outbox(storage, sender);
+  const outbox = new Outbox(storage, sender, "test-outbox");
 
   // Queue three sets offline
   outbox.enqueue({
@@ -151,7 +153,7 @@ async function testQueueAndFlush() {
 async function testClientSideDedup() {
   const storage = new FakeStorage();
   const sender = new FakeSender();
-  const outbox = new Outbox(storage, sender);
+  const outbox = new Outbox(storage, sender, "test-outbox");
 
   // Queue the same set twice (same exercise+setNumber)
   const id1 = outbox.enqueue({
@@ -191,7 +193,7 @@ async function testClientSideDedup() {
 async function testServerSideUpsert() {
   const storage = new FakeStorage();
   const sender = new FakeSender();
-  const outbox = new Outbox(storage, sender);
+  const outbox = new Outbox(storage, sender, "test-outbox");
 
   // Queue and flush set 1
   outbox.enqueue({
@@ -228,7 +230,7 @@ async function testServerSideUpsert() {
 async function testTransientError() {
   const storage = new FakeStorage();
   const sender = new FakeSender();
-  const outbox = new Outbox(storage, sender);
+  const outbox = new Outbox(storage, sender, "test-outbox");
 
   // Queue three sets
   outbox.enqueue({
@@ -288,7 +290,7 @@ async function testTransientError() {
 async function testPermanentError() {
   const storage = new FakeStorage();
   const sender = new FakeSender();
-  const outbox = new Outbox(storage, sender);
+  const outbox = new Outbox(storage, sender, "test-outbox");
 
   // Queue three sets
   outbox.enqueue({
@@ -349,7 +351,7 @@ async function testPermanentError() {
 async function testOrderPreservation() {
   const storage = new FakeStorage();
   const sender = new FakeSender();
-  const outbox = new Outbox(storage, sender);
+  const outbox = new Outbox(storage, sender, "test-outbox");
 
   // Queue five sets
   for (let i = 1; i <= 5; i++) {
@@ -397,7 +399,7 @@ async function testOrderPreservation() {
 async function testConcurrentFlush() {
   const storage = new FakeStorage();
   const sender = new FakeSender();
-  const outbox = new Outbox(storage, sender);
+  const outbox = new Outbox(storage, sender, "test-outbox");
 
   // Queue three sets
   for (let i = 1; i <= 3; i++) {
@@ -430,7 +432,7 @@ async function testConcurrentFlush() {
 function testMergePendingSets() {
   type TestExercise = {
     id: string;
-    sets: Array<{ setNumber: number; reps: number; pending?: boolean }>;
+    sets: Array<{ setNumber: number; reps: number; pending?: boolean; clientId?: string }>;
   };
 
   const exercises: TestExercise[] = [
@@ -478,27 +480,27 @@ function testMergePendingSets() {
   if (merged[0].sets.length !== 2) {
     throw new Error(`ex1 expected 2 sets, got ${merged[0].sets.length}`);
   }
-  if (merged[0].sets[1].setNumber !== 2 || !merged[0].sets[1].pending) {
-    throw new Error("ex1 set 2 not merged correctly");
+  if (merged[0].sets[1].setNumber !== 2 || !merged[0].sets[1].pending || merged[0].sets[1].clientId !== "c1") {
+    throw new Error("ex1 set 2 not merged correctly or clientId missing");
   }
 
   // ex2 should have sets 1, 2, and 3
   if (merged[1].sets.length !== 3) {
     throw new Error(`ex2 expected 3 sets, got ${merged[1].sets.length}`);
   }
-  if (merged[1].sets[2].setNumber !== 3 || !merged[1].sets[2].pending) {
-    throw new Error("ex2 set 3 not merged correctly");
+  if (merged[1].sets[2].setNumber !== 3 || !merged[1].sets[2].pending || merged[1].sets[2].clientId !== "c2") {
+    throw new Error("ex2 set 3 not merged correctly or clientId missing");
   }
 
   // ex3 should have set 1
   if (merged[2].sets.length !== 1) {
     throw new Error(`ex3 expected 1 set, got ${merged[2].sets.length}`);
   }
-  if (merged[2].sets[0].setNumber !== 1 || !merged[2].sets[0].pending) {
-    throw new Error("ex3 set 1 not merged correctly");
+  if (merged[2].sets[0].setNumber !== 1 || !merged[2].sets[0].pending || merged[2].sets[0].clientId !== "c3") {
+    throw new Error("ex3 set 1 not merged correctly or clientId missing");
   }
 
-  console.log("✓ mergePendingSets: pending sets merged into exercises");
+  console.log("✓ mergePendingSets: pending sets merged with clientId carried");
 }
 
 async function testGenerateClientId() {
@@ -556,7 +558,7 @@ async function testClassifyLogSetOutcome() {
 async function testPartialFlushClearing() {
   const storage = new FakeStorage();
   const sender = new FakeSender();
-  const outbox = new Outbox(storage, sender);
+  const outbox = new Outbox(storage, sender, "test-outbox");
 
   // Queue two sets
   outbox.enqueue({
@@ -600,7 +602,7 @@ async function testPartialFlushClearing() {
     },
   });
 
-  const selectiveOutbox = new Outbox(storage, selectiveSender as OutboxSender);
+  const selectiveOutbox = new Outbox(storage, selectiveSender as OutboxSender, "test-outbox");
   const result = await selectiveOutbox.flush();
 
   // First set should be sent, second should still be pending
@@ -632,7 +634,7 @@ async function testPartialFlushClearing() {
 async function testConcurrentFlushSkipped() {
   const storage = new FakeStorage();
   const sender = new FakeSender();
-  const outbox = new Outbox(storage, sender);
+  const outbox = new Outbox(storage, sender, "test-outbox");
 
   // Queue a set
   outbox.enqueue({
@@ -656,7 +658,7 @@ async function testConcurrentFlushSkipped() {
     },
   });
 
-  const slowOutbox = new Outbox(storage, slowSender as OutboxSender);
+  const slowOutbox = new Outbox(storage, slowSender as OutboxSender, "test-outbox");
 
   // Start first flush (doesn't await)
   const firstFlush = slowOutbox.flush();
@@ -676,6 +678,170 @@ async function testConcurrentFlushSkipped() {
   console.log("✓ Concurrent flush skipped: in-flight lock returns skipped=true");
 }
 
+async function testRemoveMethod() {
+  const storage = new FakeStorage();
+  const sender = new FakeSender();
+  const outbox = new Outbox(storage, sender, "test-outbox");
+
+  // Queue two sets
+  const clientId1 = outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+  const clientId2 = outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 9,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+
+  if (outbox.pendingCount() !== 2) {
+    throw new Error(`Expected 2 pending, got ${outbox.pendingCount()}`);
+  }
+
+  // Remove first set (undo)
+  outbox.remove(clientId1);
+
+  if (outbox.pendingCount() !== 1) {
+    throw new Error(`Expected 1 pending after remove, got ${outbox.pendingCount()}`);
+  }
+
+  // Remaining set should be the second one
+  const pending = outbox.getPending();
+  if (pending.length !== 1 || pending[0].clientId !== clientId2) {
+    throw new Error("Wrong set remained after remove");
+  }
+
+  // Clear the remaining set to test failed list removal
+  outbox.remove(clientId2);
+  if (outbox.pendingCount() !== 0) {
+    throw new Error("Expected 0 pending after clearing");
+  }
+
+  // Test removing from failed list too
+  const clientId3 = outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 3,
+    reps: 8,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+
+  // Make it fail permanently
+  sender.simulatePermanentError();
+  await outbox.flush();
+  sender.clearErrors();
+
+  if (outbox.getFailed().length !== 1) {
+    throw new Error(`Expected 1 failed set, got ${outbox.getFailed().length}`);
+  }
+
+  // Remove the failed set
+  outbox.remove(clientId3);
+
+  if (outbox.getFailed().length !== 0) {
+    throw new Error(`Expected 0 failed after remove, got ${outbox.getFailed().length}`);
+  }
+
+  console.log("✓ Remove method: removes from both pending and failed lists");
+}
+
+async function testEnqueueDuringFlush() {
+  const storage = new FakeStorage();
+  const sender = new FakeSender();
+
+  // Queue a set using normal sender
+  const normalOutbox = new Outbox(storage, sender, "test-outbox");
+  normalOutbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+
+  // Get the initial state to capture the first set's clientId
+  const initialState = storage.get();
+  if (!initialState || initialState.pending.length !== 1) {
+    throw new Error("Expected 1 pending set initially");
+  }
+  const firstClientId = initialState.pending[0].clientId;
+
+  // Create a slow sender that delays during send
+  let sendStarted = false;
+  const slowSender = new Proxy(sender, {
+    get(target, prop) {
+      if (prop === "send") {
+        return async (...args: unknown[]) => {
+          sendStarted = true;
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return (target as FakeSender).send(...(args as Parameters<FakeSender["send"]>));
+        };
+      }
+      return (target as FakeSender)[prop as keyof FakeSender];
+    },
+  });
+
+  // Use slow sender outbox for flush
+  const slowOutbox = new Outbox(storage, slowSender as OutboxSender, "test-outbox");
+
+  // Start flush (doesn't await)
+  const flushPromise = slowOutbox.flush();
+
+  // Wait for send to start
+  await new Promise((resolve) => {
+    const interval = setInterval(() => {
+      if (sendStarted) {
+        clearInterval(interval);
+        resolve(null);
+      }
+    }, 5);
+  });
+
+  // Enqueue a new set while flush is running
+  const secondClientId = normalOutbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 9,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+
+  // Verify it was enqueued
+  const midFlushState = storage.get();
+  if (!midFlushState || midFlushState.pending.length !== 2) {
+    throw new Error(`Expected 2 pending during flush, got ${midFlushState?.pending.length ?? 0}`);
+  }
+
+  // Wait for flush to complete
+  const result = await flushPromise;
+
+  // First set should be sent
+  if (!result.sentClientIds.includes(firstClientId)) {
+    throw new Error(`Expected first clientId in sentClientIds, got ${result.sentClientIds}`);
+  }
+
+  // Second set should NOT be sent (it was queued during flush)
+  if (result.sentClientIds.includes(secondClientId)) {
+    throw new Error(`Second clientId should NOT be in sentClientIds, but it is: ${result.sentClientIds}`);
+  }
+
+  // Second set should still be pending (not wiped by flush)
+  const finalState = storage.get();
+  if (!finalState || finalState.pending.length !== 1) {
+    throw new Error(`Expected 1 pending after flush, got ${finalState?.pending.length ?? 0}. Sent: ${result.sentClientIds}`);
+  }
+  if (finalState.pending[0].clientId !== secondClientId) {
+    throw new Error("Enqueued set during flush was lost!");
+  }
+
+  console.log("✓ Enqueue during flush: new set survives concurrent enqueue");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -692,6 +858,8 @@ async function main() {
   await testClassifyLogSetOutcome();
   await testPartialFlushClearing();
   await testConcurrentFlushSkipped();
+  await testRemoveMethod();
+  await testEnqueueDuringFlush();
 
   console.log("\n✓ All offline set logging tests passed");
 }
