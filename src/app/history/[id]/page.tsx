@@ -143,7 +143,7 @@ export default async function SessionDetailPage({
           */
           const isTimed = e.metric === "seconds";
           const mine = (sets ?? []).filter((s) => s.session_exercise_id === e.id && !s.is_warmup_set);
-          const completion = exerciseCompletion(mine.length, e.planned_sets);
+          const completion = exerciseCompletion(mine.length, e.planned_sets ?? 0);
           return (
             <li key={e.id} className="rounded-xl border border-border bg-surface px-4 py-3.5">
               <div className="flex items-baseline justify-between gap-3">

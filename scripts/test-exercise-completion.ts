@@ -1,6 +1,9 @@
 #!/usr/bin/env tsx
 /**
  * Test exerciseCompletion helper for partial exercises (coordinator's rule nm-06).
+ * 
+ * This tests the shared helper from src/lib/session/completion.ts,
+ * which is agreed upon with Dev 3's PR #37.
  */
 
 import { exerciseCompletion } from "../src/lib/session/completion";
@@ -81,29 +84,14 @@ check(
   `got '${exerciseCompletion(3, 10)}'`
 );
 
-console.log("\n5. No plan information → completed");
-check(
-  "5 sets, no plan (undefined)",
-  exerciseCompletion(5, undefined) === "completed",
-  `got '${exerciseCompletion(5, undefined)}'`
-);
-check(
-  "1 set, no plan (null)",
-  exerciseCompletion(1, null) === "completed",
-  `got '${exerciseCompletion(1, null)}'`
-);
+console.log("\n5. Planned 0 sets → completed if any logged");
 check(
   "3 sets, planned 0",
   exerciseCompletion(3, 0) === "completed",
   `got '${exerciseCompletion(3, 0)}'`
 );
 
-console.log("\n6. Edge case: 0 sets with no plan → skipped");
-check(
-  "0 sets, no plan",
-  exerciseCompletion(0, undefined) === "skipped",
-  `got '${exerciseCompletion(0, undefined)}'`
-);
+console.log("\n6. Edge case: 0 sets with planned 0 → skipped");
 check(
   "0 sets, planned 0",
   exerciseCompletion(0, 0) === "skipped",
