@@ -19,6 +19,8 @@ import { applyDeload, prescribe } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
+import { startSessionCore } from "@/lib/session/start-session-core";
+import { updateSessionCore } from "@/lib/session/update-session-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
@@ -119,48 +121,35 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     // Returning it as-is used to strand the user on "this session has no
     // exercises" with no way forward, permanently, because this branch would
     // keep returning the same empty shell.
-    const [updateRes] = await Promise.all([
-      supabase
-        .from("sessions")
-        .update({
-          status: "in_progress",
-          /*
-            Stamped on a first start, and again when a deliberately abandoned
-            session is restarted. The session clock is wall time since
-            `started_at`, so carrying the old stamp across a quit at 7am and a
-            restart at 1pm would record a six-hour workout. Resuming an
-            `in_progress` session keeps its stamp, because that is the
-            phone-locked-mid-set case the clock is meant to survive.
-          */
-          ...(existing.started_at === null || existing.status === "skipped"
-            ? { started_at: new Date().toISOString() }
-            : {}),
-        })
-        .eq("id", existing.id),
+    /*
+      This is the update path. The session exists with status 'skipped' or
+      status 'completed' and started_at: null (unstarted). The user pressed
+      "Start" from the Today page.
+
+      Stamped on a first start, and again when a deliberately abandoned
+      session is restarted. The session clock is wall time since
+      `started_at`, so carrying the old stamp across a quit at 7am and a
+      restart at 1pm would record a six-hour workout. Resuming an
+      `in_progress` session keeps its stamp, because that is the
+      phone-locked-mid-set case the clock is meant to survive.
+    */
+    const updatePayload = {
+      status: "in_progress" as const,
+      ...(existing.started_at === null || existing.status === "skipped"
+        ? { started_at: new Date().toISOString() }
+        : {}),
+    };
+
+    const [updateResult] = await Promise.all([
+      updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
       ensureSessionExercises(supabase, user.id, existing.id),
     ]);
 
-    // Handle 23505: another in_progress session already exists for this user/date
-    if (updateRes.error && updateRes.error.code === "23505") {
-      // Re-read the existing in_progress session for this user/date
-      const { data: currentInProgress } = await supabase
-        .from("sessions")
-        .select("id, created_at")
-        .eq("user_id", user.id)
-        .eq("local_date", today)
-        .eq("status", "in_progress")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (currentInProgress) {
-        return { ok: true, data: { sessionId: currentInProgress.id } };
-      }
-      // Re-read failed, fall through to error
-      return { ok: false, error: "Could not start the session" };
+    if (!updateResult.ok) {
+      return { ok: false, error: updateResult.error };
     }
 
-    return { ok: true, data: { sessionId: existing.id } };
+    return { ok: true, data: { sessionId: updateResult.sessionId } };
   }
 
   // Ensure we have a current block before creating a session (fixes E-5: stale tab bug)
@@ -209,23 +198,19 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   }
 
   // No existing in_progress session, create a new one and read the plan
-  const [sessionRes, plannedRes] = await Promise.all([
-    supabase
-      .from("sessions")
-      .insert({
-        user_id: user.id,
-        program_id: program.id,
-        program_day_id: day.id,
-        local_date: today,
-        week_in_block: week,
-        is_deload: isDeloadWeek,
-        planned_type: day.day_type,
-        actual_type: day.day_type,
-        status: "in_progress",
-        started_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single(),
+  const [insertResult, plannedRes] = await Promise.all([
+    startSessionCore(supabase, user.id, {
+      user_id: user.id,
+      program_id: program.id,
+      program_day_id: day.id,
+      local_date: today,
+      week_in_block: week,
+      is_deload: isDeloadWeek,
+      planned_type: day.day_type,
+      actual_type: day.day_type,
+      status: "in_progress",
+      started_at: new Date().toISOString(),
+    }),
     supabase
       .from("program_day_exercises")
       // The exercise's metric comes along so the session can record the unit it
@@ -235,27 +220,8 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .order("order_index"),
   ]);
 
-  // Handle 23505: unique_violation from the partial unique index
-  if (sessionRes.error && sessionRes.error.code === "23505") {
-    // The partial unique index rejected a duplicate. Re-read and return the existing session.
-    const { data: rereadSession } = await supabase
-      .from("sessions")
-      .select("id, created_at")
-      .eq("user_id", user.id)
-      .eq("status", "in_progress")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (rereadSession) {
-      return { ok: true, data: { sessionId: rereadSession.id } };
-    }
-    // Re-read failed, fall through to generic error
-  }
-
-  const session = sessionRes.data;
-  if (sessionRes.error || !session) {
-    return { ok: false, error: sessionRes.error?.message ?? "Could not start the session" };
+  if (!insertResult.ok) {
+    return { ok: false, error: insertResult.error };
   }
 
   const planned = plannedRes.data;
@@ -278,7 +244,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
               restSeconds: p.rest_seconds,
             };
         return {
-          session_id: session.id,
+          session_id: insertResult.sessionId,
           user_id: user.id, // corrected by the definer trigger
           exercise_id: p.exercise_id,
           order_index: p.order_index,
@@ -306,7 +272,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // if they quit. The worst case is that returning to Today within the client
   // cache's window shows "Start session" instead of "Resume session" — and
   // pressing it finds this very session and resumes it.
-  return { ok: true, data: { sessionId: session.id } };
+  return { ok: true, data: { sessionId: insertResult.sessionId } };
 }
 
 export async function markWarmupDone(sessionId: string): Promise<Result> {
