@@ -29,7 +29,7 @@ import {
   type Alternative,
   type SwapResult,
 } from "../actions";
-import { Outbox, createLocalStorage, type OutboxSender, type SendResult } from "@/lib/session/outbox";
+import { Outbox, createLocalStorage, type OutboxSender } from "@/lib/session/outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -260,8 +260,25 @@ export function SessionRunner({
 
   // ---- offline outbox ---------------------------------------------------
   const outboxRef = useRef<Outbox | null>(null);
-  const [pendingCount, setPendingCount] = useState(0);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+
+  async function flushOutbox() {
+    const outbox = outboxRef.current;
+    if (!outbox || outbox.pendingCount() === 0) return;
+
+    setSyncStatus("Syncing...");
+    const result = await outbox.flush();
+
+    if (result.sent > 0) {
+      // Sets successfully synced
+      setSyncStatus(null);
+    } else if (result.stopped) {
+      setSyncStatus("Sync failed, will retry");
+      setTimeout(() => setSyncStatus(null), 3000);
+    } else {
+      setSyncStatus(null);
+    }
+  }
 
   // Initialize outbox once, on mount
   useEffect(() => {
@@ -299,7 +316,6 @@ export function SessionRunner({
       },
     };
     outboxRef.current = new Outbox(createLocalStorage(`outbox:${sessionId}`), sender);
-    setPendingCount(outboxRef.current.pendingCount());
 
     // Flush on mount (in case we're resuming after a reconnect)
     void flushOutbox();
@@ -312,31 +328,6 @@ export function SessionRunner({
     return () => window.removeEventListener("online", onOnline);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
-
-  async function flushOutbox() {
-    const outbox = outboxRef.current;
-    if (!outbox || outbox.pendingCount() === 0) return;
-
-    setSyncStatus("Syncing...");
-    const result = await outbox.flush();
-    setPendingCount(outbox.pendingCount());
-
-    if (result.sent > 0) {
-      // Update local state for successfully synced sets
-      const still = outbox.getPending();
-      const synced = exercises.flatMap((e) =>
-        e.sets.filter((s) => !(s as unknown as { pending?: boolean }).pending),
-      );
-      // Assume synced sets match current exercise - exact reconciliation would
-      // require tracking client IDs in local state, which is overkill here
-      setSyncStatus(null);
-    } else if (result.stopped) {
-      setSyncStatus("Sync failed, will retry");
-      setTimeout(() => setSyncStatus(null), 3000);
-    } else {
-      setSyncStatus(null);
-    }
-  }
 
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it
@@ -702,7 +693,6 @@ export function SessionRunner({
         weightKg,
         durationSeconds,
       });
-      setPendingCount(outbox.pendingCount());
 
       setExercises((prev) =>
         prev.map((e) =>

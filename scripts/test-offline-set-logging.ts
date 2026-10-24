@@ -407,7 +407,9 @@ async function testWithoutIdempotencyKey() {
 
   await outbox.flush();
   // Without server-side deduplication, this would be 2
-  if (sent.length !== 2) {
+  // TypeScript narrows sent.length to 1 from line 394, but it's mutated by the second flush
+  const finalLength: number = sent.length;
+  if (finalLength !== 2) {
     throw new Error("Without idempotency key, duplicate was not prevented (expected)");
   }
 

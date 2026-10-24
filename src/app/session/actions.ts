@@ -289,7 +289,10 @@ export async function logSet(input: {
 
   // When a client_id is provided, use it for idempotent deduplication.
   // The unique index on (user_id, client_id) ensures replays are no-ops.
-  const payload = {
+  // 
+  // Note: client_id was added by migration 20261024230000_set_client_id.sql
+  // and is not yet in the generated types. Using 'as any' to bypass type checking.
+  const payload: Record<string, unknown> = {
     session_exercise_id: input.sessionExerciseId,
     user_id: user.id,
     set_number: input.setNumber,
@@ -298,16 +301,19 @@ export async function logSet(input: {
     duration_seconds: durationSeconds,
     is_warmup_set: false,
     completed_at: new Date().toISOString(),
-    ...(input.clientId ? { client_id: input.clientId } : {}),
   };
+  if (input.clientId) {
+    payload.client_id = input.clientId;
+  }
 
   // When client_id is present, prefer it for conflict resolution (client-based
   // deduplication). Otherwise fall back to the set-number-based conflict
   // (legacy behavior for non-idempotent calls).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = input.clientId
-    ? await supabase.from("session_sets").insert(payload).select().maybeSingle()
+    ? await supabase.from("session_sets").insert(payload as any).select().maybeSingle()
     : await supabase.from("session_sets").upsert(
-        payload,
+        payload as any,
         { onConflict: "session_exercise_id,set_number,is_warmup_set" },
       );
 
