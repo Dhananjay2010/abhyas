@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { prepareSessionExercises } from "@/lib/session/prepare-exercises";
 
 type Client = SupabaseClient<Database>;
 type DayType = Database["public"]["Enums"]["day_type"];
@@ -73,20 +74,20 @@ export function matchNewDay(
 }
 
 /**
- * Decide whether a session should be kept, updated, deleted, or ignored after a rebuild.
+ * Decide whether a session should be kept, updated, or rebuilt after a rebuild.
  *
  * Returns:
- * - "keep": session has logged sets, don't touch it
- * - "update": planned session with no sets today or later, should be re-pointed
- * - "ignore": planned session before today, don't re-point but don't delete either
+ * - "keep": session has 1+ logged sets, don't touch it (already correct)
+ * - "rebuild": planned or 0-set session today or later, re-point and rebuild exercises
+ * - "ignore": planned session before today, don't re-point
  */
 export function decideRepointAction(
   session: { has_sets: boolean; local_date: string },
   today: string,
-): "keep" | "update" | "ignore" {
+): "keep" | "rebuild" | "ignore" {
   if (session.has_sets) return "keep";
   if (session.local_date < today) return "ignore";
-  return "update";
+  return "rebuild";
 }
 
 /**
@@ -119,8 +120,13 @@ export function planRepointSessions(
   oldSessions: SessionRow[],
   newDays: NewProgramDay[],
   today: string,
-): { toUpdate: Array<{ id: string; newProgramDayId: string }>; toDelete: string[] } {
+): {
+  toUpdate: Array<{ id: string; newProgramDayId: string }>;
+  toRebuild: Array<{ id: string; newProgramDayId: string }>;
+  toDelete: string[];
+} {
   const toUpdate: Array<{ id: string; newProgramDayId: string }> = [];
+  const toRebuild: Array<{ id: string; newProgramDayId: string }> = [];
   const toDelete: string[] = [];
 
   for (const session of oldSessions) {
@@ -138,7 +144,11 @@ export function planRepointSessions(
 
     const match = matchNewDay(session, newDays);
     if (match) {
-      toUpdate.push({ id: session.id, newProgramDayId: match.id });
+      if (action === "rebuild") {
+        toRebuild.push({ id: session.id, newProgramDayId: match.id });
+      } else {
+        toUpdate.push({ id: session.id, newProgramDayId: match.id });
+      }
     } else {
       // No matching day in the new plan (e.g. 5→4 days, or bodyweight-only
       // can't support this choice): delete the planned row.
@@ -146,7 +156,7 @@ export function planRepointSessions(
     }
   }
 
-  return { toUpdate, toDelete };
+  return { toUpdate, toRebuild, toDelete };
 }
 
 /**
@@ -161,10 +171,9 @@ export async function repointSessionsAfterRebuild(
   newProgramId: string,
   today: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  // Fetch planned sessions that might need re-pointing. Select through
-  // session_exercises to get session_sets (there's no direct FK from sessions
-  // to session_sets). Also fetch the old program day's label and day_index for
-  // matching.
+  // Fetch sessions that might need re-pointing: planned or in_progress with 0 sets.
+  // Select through session_exercises to get session_sets (there's no direct FK from
+  // sessions to session_sets). Also fetch the old program day's label and day_index.
   const { data: sessions, error: selectError } = await supabase
     .from("sessions")
     .select(`
@@ -173,11 +182,12 @@ export async function repointSessionsAfterRebuild(
       actual_type,
       planned_type,
       program_day_id,
+      status,
       program_days!sessions_program_day_id_fkey(label, day_index),
       session_exercises(session_sets(id))
     `)
     .eq("user_id", userId)
-    .eq("status", "planned")
+    .in("status", ["planned", "in_progress"])
     .gte("local_date", today);
 
   if (selectError) {
@@ -224,7 +234,70 @@ export async function repointSessionsAfterRebuild(
     };
   });
 
-  const { toUpdate, toDelete } = planRepointSessions(sessionRows, newDays, today);
+  const { toUpdate, toRebuild, toDelete } = planRepointSessions(sessionRows, newDays, today);
+
+  // For sessions that need rebuilding (0 sets), fetch their new program day exercises
+  const rebuildPromises = toRebuild.map(async (r) => {
+    // Fetch the new program day's exercises
+    const { data: dayExercises, error: dayError } = await supabase
+      .from("program_day_exercises")
+      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(metric)")
+      .eq("program_day_id", r.newProgramDayId)
+      .order("order_index");
+
+    if (dayError || !dayExercises) {
+      return { error: dayError };
+    }
+
+    // Find the session to get user_id and is_deload
+    const session = sessions.find((s) => s.id === r.id);
+    if (!session) {
+      return { error: { message: `Session ${r.id} not found` } };
+    }
+
+    // Delete old session_exercises
+    const { error: deleteError } = await supabase
+      .from("session_exercises")
+      .delete()
+      .eq("session_id", r.id);
+
+    if (deleteError) {
+      return { error: deleteError };
+    }
+
+    // Prepare new session exercises (use session's is_deload from database)
+    const { data: sessionData, error: sessionError } = await supabase
+      .from("sessions")
+      .select("user_id, is_deload")
+      .eq("id", r.id)
+      .single();
+
+    if (sessionError || !sessionData) {
+      return { error: sessionError };
+    }
+
+    const newExercises = prepareSessionExercises(
+      r.id,
+      sessionData.user_id,
+      dayExercises as any[],
+      sessionData.is_deload,
+    );
+
+    // Insert new session_exercises
+    const { error: insertError } = await supabase
+      .from("session_exercises")
+      .insert(newExercises);
+
+    if (insertError) {
+      return { error: insertError };
+    }
+
+    // Update session's program_day_id and program_id
+    return supabase
+      .from("sessions")
+      .update({ program_day_id: r.newProgramDayId, program_id: newProgramId })
+      .eq("id", r.id);
+  });
 
   // Apply the updates in parallel, checking errors.
   const updateResults = await Promise.all([
@@ -234,6 +307,7 @@ export async function repointSessionsAfterRebuild(
         .update({ program_day_id: u.newProgramDayId, program_id: newProgramId })
         .eq("id", u.id),
     ),
+    ...rebuildPromises,
     toDelete.length > 0
       ? supabase.from("sessions").delete().in("id", toDelete)
       : Promise.resolve({ error: null }),
