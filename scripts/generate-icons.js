@@ -26,6 +26,20 @@ async function generateIcons() {
     process.exit(1);
   }
 
+  // Import branding config to get colors
+  let branding;
+  try {
+    const brandingModule = require("../src/lib/branding.ts");
+    branding = brandingModule.branding;
+  } catch (error) {
+    console.warn("Warning: Could not load branding config, using default colors");
+    branding = {
+      colors: {
+        bg: "#0a0c0e",
+      },
+    };
+  }
+
   const sourceFile = path.join(__dirname, "..", "public", "icon-source.svg");
   const iconsDir = path.join(__dirname, "..", "public", "icons");
 
@@ -36,7 +50,8 @@ async function generateIcons() {
 
   const source = fs.readFileSync(sourceFile);
 
-  console.log("Generating PWA icons from icon-source.svg...\n");
+  console.log("Generating PWA icons from icon-source.svg...");
+  console.log(`Using brand colors: ${JSON.stringify(branding.colors)}\n`);
 
   // Standard icons (no safe zone)
   const standardSizes = [
@@ -59,6 +74,13 @@ async function generateIcons() {
     { size: 512, name: "icon-512-maskable.png" },
   ];
 
+  // Parse brand background color for maskable icon background
+  const bgColorHex = branding.colors.bg;
+  const r = parseInt(bgColorHex.slice(1, 3), 16);
+  const g = parseInt(bgColorHex.slice(3, 5), 16);
+  const b = parseInt(bgColorHex.slice(5, 7), 16);
+  const bgColor = { r, g, b, alpha: 1 };
+
   for (const { size, name } of maskableSizes) {
     const contentSize = Math.floor(size * 0.8); // 80% for content, 20% for safe zone
     const totalPadding = size - contentSize;
@@ -76,7 +98,7 @@ async function generateIcons() {
         bottom: paddingBottom,
         left: paddingTop,
         right: paddingBottom,
-        background: { r: 10, g: 12, b: 14, alpha: 1 }, // Match themeColor #0a0c0e
+        background: bgColor,
       })
       .png({ compressionLevel: 9 })
       .toFile(outputPath);
@@ -102,8 +124,8 @@ async function generateIcons() {
     fs.mkdirSync(screenshotsDir, { recursive: true });
   }
 
-  // Read brand colors from the branding config (or use defaults)
-  const bgColor = { r: 10, g: 12, b: 14, alpha: 1 }; // #0a0c0e
+  // Use brand background color for screenshots
+  const screenshotBgColor = bgColor;
 
   // Narrow screenshot (phone, portrait)
   const narrowWidth = 1080;
@@ -116,7 +138,7 @@ async function generateIcons() {
       width: narrowWidth,
       height: narrowHeight,
       channels: 4,
-      background: bgColor,
+      background: screenshotBgColor,
     },
   })
     .composite([
@@ -141,7 +163,7 @@ async function generateIcons() {
       width: wideWidth,
       height: wideHeight,
       channels: 4,
-      background: bgColor,
+      background: screenshotBgColor,
     },
   })
     .composite([
