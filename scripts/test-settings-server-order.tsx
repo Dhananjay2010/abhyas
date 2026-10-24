@@ -405,15 +405,15 @@ async function runTests() {
       .find(b => b.textContent?.includes("Retry"));
     
     if (retryButton) {
-      const styles = window.getComputedStyle(retryButton);
-      const minHeight = parseInt(styles.minHeight) || 0;
-      const minWidth = parseInt(styles.minWidth) || 0;
+      // In JSDOM, Tailwind classes may not be computed, so check className
+      const hasMinSize = retryButton.className.includes('min-h-[44px]') && 
+                         retryButton.className.includes('min-w-[44px]');
       
-      if (minHeight >= 44 && minWidth >= 44) {
-        console.log(`  ✓ Retry button has 44px+ tap target (${minHeight}x${minWidth})`);
+      if (hasMinSize) {
+        console.log(`  ✓ Retry button has 44px+ tap target classes`);
         passed++;
       } else {
-        console.error(`  ❌ Retry button tap target too small: ${minHeight}x${minWidth}`);
+        console.error(`  ❌ Retry button missing min-h/min-w classes: ${retryButton.className}`);
         failed++;
       }
     } else {
