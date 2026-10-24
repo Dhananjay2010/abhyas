@@ -53,9 +53,13 @@ export function classifyLogSetOutcome(
   if ("thrown" in resultOrThrown) {
     const err = resultOrThrown.thrown;
     const isNetwork = isNetworkError(err);
+    // Map network errors to user-friendly copy
+    const errorMessage = isNetwork
+      ? "You're offline. Saved on this phone, will sync when you're back online."
+      : (err instanceof Error ? err.message : "Network error");
     return {
       outcome: "queue",
-      error: err instanceof Error ? err.message : "Network error",
+      error: errorMessage,
       isNetwork,
     };
   }

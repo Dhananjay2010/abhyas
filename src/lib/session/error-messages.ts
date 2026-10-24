@@ -50,6 +50,14 @@ export function mapErrorToUserMessage(code: string | null | undefined, rawMessag
   if (rawMessage) {
     const lower = rawMessage.toLowerCase();
 
+    // Network errors: map to user-friendly offline copy
+    if (lower.includes("failed to fetch") || 
+        lower.includes("network request failed") || 
+        lower.includes("networkerror") || 
+        lower.includes("load failed")) {
+      return "You're offline. Saved on this phone, will sync when you're back online.";
+    }
+
     // Quota exceeded errors
     if (lower.includes("quota") || lower === "quota_exceeded" || lower.includes("exceeded the quota")) {
       return "Not saved, out of space";

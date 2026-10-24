@@ -11,7 +11,7 @@
  * 6. mergePendingSets correctly merges pending sets into exercises
  */
 
-import { Outbox, mergePendingSets, nextSetNumberFor, createLocalStorage, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
+import { Outbox, mergePendingSets, nextSetNumberFor, createLocalStorage, classifyLogSetOutcome, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
 import { isNetworkError } from "../src/lib/session/network-error";
 import { mapErrorToUserMessage, countLoggedSets } from "../src/lib/session/error-messages";
 import {
@@ -2007,6 +2007,56 @@ async function testPerUserIsolation() {
   console.log("  M13 verified: userId in key is essential for isolation");
 }
 
+// ---- Network error UI copy test ------------------------------------------
+function testNetworkErrorUIFriendly() {
+  // Test classifyLogSetOutcome maps network errors to friendly copy
+  const networkError = new TypeError("Failed to fetch");
+  const classification = classifyLogSetOutcome({ thrown: networkError });
+
+  if (classification.outcome !== "queue") {
+    throw new Error("Network error should be queued");
+  }
+
+  if (classification.error?.toLowerCase().includes("failed to fetch")) {
+    throw new Error(`Raw 'Failed to fetch' should never reach UI, got: ${classification.error}`);
+  }
+
+  if (classification.error !== "You're offline. Saved on this phone, will sync when you're back online.") {
+    throw new Error(`Expected friendly offline copy, got: ${classification.error}`);
+  }
+
+  // Test mapErrorToUserMessage also maps network errors
+  const mappedFetch = mapErrorToUserMessage(null, "Failed to fetch");
+  if (mappedFetch.toLowerCase().includes("failed to fetch")) {
+    throw new Error(`mapErrorToUserMessage should not return raw 'Failed to fetch', got: ${mappedFetch}`);
+  }
+
+  if (mappedFetch !== "You're offline. Saved on this phone, will sync when you're back online.") {
+    throw new Error(`Expected friendly offline copy from mapErrorToUserMessage, got: ${mappedFetch}`);
+  }
+
+  // Test other network error patterns
+  const patterns = [
+    "Network request failed",
+    "NetworkError when attempting to fetch resource.",
+    "Load failed",
+    "NETWORK REQUEST FAILED" // Case insensitive
+  ];
+
+  for (const pattern of patterns) {
+    const mapped = mapErrorToUserMessage(null, pattern);
+    if (mapped.toLowerCase().includes("network") && mapped.includes("request") && mapped.includes("failed")) {
+      throw new Error(`Raw network error pattern should not reach UI: "${pattern}" → "${mapped}"`);
+    }
+    if (mapped !== "You're offline. Saved on this phone, will sync when you're back online.") {
+      throw new Error(`Expected friendly offline copy for "${pattern}", got: ${mapped}`);
+    }
+  }
+
+  console.log("✓ Network errors always map to friendly UI copy, never raw technical messages");
+  console.log("  M14 verified: Raw 'Failed to fetch' cannot reach the UI");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -2049,6 +2099,7 @@ async function main() {
   testKeyMigration();
   testStaticCheckHelperUsage();
   await testPerUserIsolation();
+  testNetworkErrorUIFriendly();
 
   console.log("\n✓ All offline set logging tests passed");
 }
