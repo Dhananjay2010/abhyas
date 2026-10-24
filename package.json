@@ -209,7 +209,8 @@
     "test:finish-session-timezone": "tsx scripts/test-finish-session-timezone.ts",
     "test:runner-clock-stale": "tsx scripts/test-runner-clock-stale.ts",
     "test:finish-load-exercises-empty": "tsx scripts/test-finish-load-exercises-empty.ts",
-    "test:finish-rest-seconds-mapping": "tsx scripts/test-finish-rest-seconds-mapping.ts"
+    "test:finish-rest-seconds-mapping": "tsx scripts/test-finish-rest-seconds-mapping.ts",
+    "test:runner-retry-wiring": "tsx scripts/test-runner-retry-wiring.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
