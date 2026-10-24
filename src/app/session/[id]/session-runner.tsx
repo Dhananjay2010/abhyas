@@ -115,6 +115,7 @@ const FEELS: { value: Feel; label: string }[] = [
 
 export function SessionRunner({
   sessionId,
+  sessionStatus,
   isDeload,
   week,
   warmupAlreadyDone,
@@ -164,6 +165,7 @@ export function SessionRunner({
       storage: window.localStorage,
       logSet: actions.logSet,
       sessionId,
+      sessionStatus,
       userId: "", // TODO: Get from session
       onChange: setPendingSetState,
       deps: createPendingSetDeps(),

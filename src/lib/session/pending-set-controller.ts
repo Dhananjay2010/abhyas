@@ -13,6 +13,7 @@ import {
   loadPendingSets,
   savePendingSet,
   clearPendingSet,
+  clearPendingSets,
   type PendingSet,
   type Storage,
 } from "./pending-set-retry";
@@ -58,11 +59,12 @@ export function createPendingSetController(config: {
   storage: Storage;
   logSet: LogSetFunction;
   sessionId: string;
+  sessionStatus: string;
   userId: string;
   onChange: (state: PendingSetState) => void;
   deps: PendingSetDeps;
 }): PendingSetController {
-  const { storage, logSet, sessionId, userId, onChange, deps } = config;
+  const { storage, logSet, sessionId, sessionStatus, userId, onChange, deps } = config;
 
   let state: PendingSetState = {
     pending: [],
@@ -81,6 +83,16 @@ export function createPendingSetController(config: {
   }
 
   function load(): void {
+    if (sessionStatus !== "in_progress") {
+      clearPendingSets(storage, userId, sessionId, deps);
+      setState({
+        pending: [],
+        expired: false,
+        error: "Session is not in progress",
+      });
+      return;
+    }
+    
     const loaded = loadPendingSets(storage, userId, sessionId, deps);
     if (loaded.length > 0) {
       setState({
@@ -172,6 +184,17 @@ export function createPendingSetController(config: {
     }
 
     if (replayAttempted && state.pending.length === 0) {
+      return;
+    }
+
+    if (sessionStatus !== "in_progress") {
+      clearPendingSets(storage, userId, sessionId, deps);
+      setState({
+        pending: [],
+        expired: false,
+        retrying: false,
+        error: "Session is not in progress",
+      });
       return;
     }
 
