@@ -550,7 +550,7 @@ async function runTests() {
     if (e2) { console.error("L1 insert session_exercises failed:", e2); return false; }
 
     const { error: e3 } = await adminClient.from("session_sets").insert([
-      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100 },
       { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 5, weight_kg: 40, is_warmup_set: true },
     ]);
     if (e3) { console.error("L1 insert sets failed:", e3); return false; }
