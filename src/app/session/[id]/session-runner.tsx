@@ -36,6 +36,7 @@ import { finishBlockReason, canClearOutbox, canEndSession, undoTargetSetNumber, 
 import { endEarlyWithFlush } from "@/lib/session/end-early";
 import { useSetOutbox, type SyncState } from "./use-set-outbox";
 import { writeSessionSnapshot, type SessionCacheStorage } from "@/lib/session/session-cache";
+import { loadCachedSession } from "@/lib/session/load-cached-session";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -203,8 +204,57 @@ export function SessionRunner({
   const wakeLock = useWakeLock(phase !== "done");
 
   /**
+   * Load from cached snapshot when server data unavailable (offline reload).
+   * Production path: src/app/session/[id]/session-runner.tsx:207
+   */
+  const [cacheLoadAttempted, setCacheLoadAttempted] = useState(false);
+
+  useEffect(() => {
+    if (cacheLoadAttempted || initialExercises.length > 0) return;
+    
+    setCacheLoadAttempted(true);
+    
+    if (typeof window === "undefined") return;
+    
+    const storage: SessionCacheStorage = {
+      getItem: (key) => window.localStorage.getItem(key),
+      setItem: (key, value) => window.localStorage.setItem(key, value),
+    };
+
+    const cached = loadCachedSession(storage, sessionId, userId);
+    if (!cached) return;
+
+    // Map to RunnerExercise format
+    const restoredExercises: RunnerExercise[] = cached.exercises.map((ex) => ({
+      id: ex.id,
+      exerciseId: ex.exerciseId,
+      name: ex.name,
+      cue: null,
+      metric: "reps",
+      primaryMuscles: [],
+      plannedSets: ex.plannedSets,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: ex.sets.map((s) => ({
+        setNumber: s.setNumber,
+        reps: s.reps,
+        weightKg: s.weightKg,
+        durationSeconds: s.durationSeconds,
+      })),
+      isBodyweight: false,
+    }));
+
+    setExercises(restoredExercises);
+  }, [cacheLoadAttempted, initialExercises.length, sessionId, userId]);
+
+  /**
    * Write a session snapshot to localStorage for offline resilience.
-   * Called on mount and after each logged or queued set.
+   * Called on mount and when exercises change (not on elapsed tick).
    */
   const writeSnapshot = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -240,10 +290,11 @@ export function SessionRunner({
     });
   }, [sessionId, userId, exercises, elapsed]);
 
-  // Write snapshot on mount and when exercises or elapsed change
+  // Write snapshot on mount and when exercises change (not on every elapsed tick)
+  const exercisesJson = JSON.stringify(exercises);
   useEffect(() => {
     writeSnapshot();
-  }, [writeSnapshot]);
+  }, [sessionId, userId, exercisesJson]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Clear the outbox after finishing the session.

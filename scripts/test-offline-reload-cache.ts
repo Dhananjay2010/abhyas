@@ -4,14 +4,16 @@
  *
  * Verifies that a session can be resumed offline by reading the cached snapshot
  * and merging it with queued sets from the outbox.
+ * 
+ * This test imports and exercises the production merge/init function from
+ * src/lib/session/load-cached-session.ts (used at src/app/session/[id]/session-runner.tsx:207).
  */
 
 import {
   writeSessionSnapshot,
-  readSessionSnapshot,
-  mergeSnapshotWithOutbox,
   type SessionCacheStorage,
 } from "../src/lib/session/session-cache";
+import { loadCachedSession } from "../src/lib/session/load-cached-session";
 
 class FakeStorage implements SessionCacheStorage {
   private data = new Map<string, string>();
@@ -61,6 +63,7 @@ async function main() {
   console.log("✓ Initial snapshot written (2 sets logged online)");
 
   // Step 2: Simulate going offline and queuing 2 more sets in the outbox
+  const outboxKey = `abhyas:outbox:${userId}:${sessionId}`;
   const queuedSets = [
     {
       sessionExerciseId: "ex-1",
@@ -81,17 +84,16 @@ async function main() {
       clientId: "client-2",
     },
   ];
+  storage.setItem(outboxKey, JSON.stringify({ pending: queuedSets, failed: [] }));
 
   console.log("✓ Simulated offline: 2 sets queued in outbox");
 
-  // Step 3: Reload (F5) while offline - read snapshot and merge with outbox
-  const snapshot = readSessionSnapshot(storage, sessionId);
+  // Step 3: Reload (F5) while offline - use production loadCachedSession function
+  const restored = loadCachedSession(storage, sessionId, userId);
 
-  if (!snapshot) {
+  if (!restored) {
     throw new Error("Failed to read snapshot after offline reload");
   }
-
-  const restored = mergeSnapshotWithOutbox(snapshot, queuedSets);
 
   // Verify the merged result
   if (restored.exercises.length !== 1) {
@@ -144,8 +146,9 @@ async function main() {
   console.log(`  - Sets 3-4: from outbox (pending)`);
 
   // Step 4: Test override scenario - queued set updates a snapshot set
+  const sessionId2 = "session-override";
   const updateSnapshot = {
-    sessionId: "session-override",
+    sessionId: sessionId2,
     userId,
     exercises: [
       {
@@ -165,6 +168,7 @@ async function main() {
   writeSessionSnapshot(storage, updateSnapshot);
 
   // Queued set 2 with updated weight (user retried after initial attempt failed)
+  const updateOutboxKey = `abhyas:outbox:${userId}:${sessionId2}`;
   const updateQueuedSets = [
     {
       sessionExerciseId: "ex-2",
@@ -176,11 +180,13 @@ async function main() {
       clientId: "client-3",
     },
   ];
+  storage.setItem(updateOutboxKey, JSON.stringify({ pending: updateQueuedSets, failed: [] }));
 
-  const updateRestored = mergeSnapshotWithOutbox(
-    readSessionSnapshot(storage, "session-override")!,
-    updateQueuedSets
-  );
+  const updateRestored = loadCachedSession(storage, sessionId2, userId);
+
+  if (!updateRestored) {
+    throw new Error("Failed to load override scenario snapshot");
+  }
 
   // Set 2 should be overridden by queued version
   if (updateRestored.exercises[0].sets[1].weightKg !== 52.5) {
