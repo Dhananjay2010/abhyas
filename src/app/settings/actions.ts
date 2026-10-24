@@ -60,6 +60,16 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     return { ok: false, error: "At least one day a week has to be training." };
   }
 
+  // Validate timezone before persisting
+  if ("timezone" in patch) {
+    const { sanitizeTimezonePatch } = await import("@/lib/timezone-patch");
+    const sanitized = sanitizeTimezonePatch(patch.timezone);
+    if (!sanitized.ok) {
+      return { ok: false, error: sanitized.error };
+    }
+    patch.timezone = sanitized.timezone;
+  }
+
   const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/settings");
