@@ -208,11 +208,6 @@ function shouldInterceptForOffline(request) {
     return false;
   }
 
-  // Never intercept /session/* routes - they have client-side offline cache
-  if (url.pathname.startsWith("/session/")) {
-    return false;
-  }
-
   // Never intercept RSC requests (Next.js App Router server components).
   // These have the RSC: 1 header or _rsc query param and are tied to
   // specific builds. When they fail, Next.js falls back to a full navigation.

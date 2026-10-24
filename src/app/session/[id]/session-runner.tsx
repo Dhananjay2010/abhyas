@@ -35,8 +35,7 @@ import { mapErrorToUserMessage, countLoggedSets } from "@/lib/session/error-mess
 import { finishBlockReason, canClearOutbox, canEndSession, undoTargetSetNumber, countSetsWithFlag } from "@/lib/session/sync-helpers";
 import { endEarlyWithFlush } from "@/lib/session/end-early";
 import { useSetOutbox, type SyncState } from "./use-set-outbox";
-import { writeSessionSnapshot, type SessionCacheStorage } from "@/lib/session/session-cache";
-import { loadCachedSession } from "@/lib/session/load-cached-session";
+import { isOffline } from "@/lib/session/is-offline";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -74,6 +73,15 @@ export type LoggedSet = {
   weightKg: number | null;
   /** Seconds held, for an exercise whose metric is `seconds`. */
   durationSeconds: number | null;
+};
+
+/** Set with outbox metadata flags */
+export type SetWithMetadata = LoggedSet & {
+  pending?: boolean;
+  failed?: boolean;
+  unsaved?: boolean;
+  clientId?: string;
+  failedError?: string;
 };
 
 export type RunnerExercise = {
@@ -148,46 +156,8 @@ export function SessionRunner({
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
 
-  // Load from cache if initialExercises empty (offline reload)
-  // Production path: src/app/session/[id]/session-runner.tsx:154
-  const [exercises, setExercises] = useState<RunnerExercise[]>(() => {
-    if (initialExercises.length > 0) return initialExercises;
-    
-    if (typeof window === "undefined") return initialExercises;
-    
-    const storage: SessionCacheStorage = {
-      getItem: (key) => window.localStorage.getItem(key),
-      setItem: (key, value) => window.localStorage.setItem(key, value),
-    };
-
-    const cached = loadCachedSession(storage, sessionId, userId);
-    if (!cached) return initialExercises;
-
-    // Map to RunnerExercise format
-    return cached.exercises.map((ex) => ({
-      id: ex.id,
-      exerciseId: ex.exerciseId,
-      name: ex.name,
-      cue: null,
-      metric: "reps",
-      primaryMuscles: [],
-      plannedSets: ex.plannedSets,
-      repsMin: 8,
-      repsMax: 12,
-      restSeconds: 90,
-      workingWeightKg: null,
-      suggestedWeightKg: null,
-      status: "pending",
-      feel: null,
-      sets: ex.sets.map((s) => ({
-        setNumber: s.setNumber,
-        reps: s.reps,
-        weightKg: s.weightKg,
-        durationSeconds: s.durationSeconds,
-      })),
-      isBodyweight: false,
-    }));
-  });
+  // Start from initialExercises and merge pending/failed in mount effect (avoid hydration mismatch)
+  const [exercises, setExercises] = useState(initialExercises);
 
   const [error, setError] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
@@ -240,50 +210,6 @@ export function SessionRunner({
   );
 
   const wakeLock = useWakeLock(phase !== "done");
-
-  /**
-   * Write a session snapshot to localStorage for offline resilience.
-   * Called on mount and when exercises change (not on elapsed tick).
-   */
-  const writeSnapshot = useCallback(() => {
-    if (typeof window === "undefined") return;
-    
-    const storage: SessionCacheStorage = {
-      getItem: (key) => window.localStorage.getItem(key),
-      setItem: (key, value) => window.localStorage.setItem(key, value),
-    };
-
-    writeSessionSnapshot(storage, {
-      sessionId,
-      userId,
-      exercises: exercises.map((e) => ({
-        id: e.id,
-        exerciseId: e.exerciseId,
-        name: e.name,
-        plannedSets: e.plannedSets,
-        sets: e.sets.map((s) => {
-          const meta = s as unknown as { pending?: boolean; failed?: boolean; unsaved?: boolean; clientId?: string };
-          return {
-            setNumber: s.setNumber,
-            reps: s.reps,
-            weightKg: s.weightKg,
-            durationSeconds: s.durationSeconds,
-            ...(meta.pending && { pending: true }),
-            ...(meta.failed && { failed: true }),
-            ...(meta.unsaved && { unsaved: true }),
-            ...(meta.clientId && { clientId: meta.clientId }),
-          };
-        }),
-      })),
-      elapsed,
-    });
-  }, [sessionId, userId, exercises, elapsed]);
-
-  // Write snapshot on mount and when exercises change (not on every elapsed tick)
-  const exercisesJson = JSON.stringify(exercises);
-  useEffect(() => {
-    writeSnapshot();
-  }, [sessionId, userId, exercisesJson]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Clear the outbox after finishing the session.
@@ -373,7 +299,7 @@ export function SessionRunner({
   
   useEffect(() => {
     const updateOfflineStatus = () => {
-      setShowOfflineIndicator(!navigator.onLine);
+      setShowOfflineIndicator(isOffline());
     };
     
     updateOfflineStatus();
@@ -723,7 +649,7 @@ export function SessionRunner({
   }
 
   const setsDone = current.sets.filter((s) => {
-    const meta = s as unknown as { pending?: boolean; failed?: boolean; unsaved?: boolean };
+    const meta = s as SetWithMetadata;
     return !meta.failed && !meta.unsaved;
   }).length;
   const allSetsDone = setsDone >= current.plannedSets;
@@ -734,7 +660,7 @@ export function SessionRunner({
 
   // B1b: Block logging if any failed or unsaved rows exist
   const hasFailedOrUnsaved = current.sets.some((s) => {
-    const meta = s as unknown as { failed?: boolean; unsaved?: boolean };
+    const meta = s as SetWithMetadata;
     return meta.failed || meta.unsaved;
   });
 
@@ -927,7 +853,7 @@ export function SessionRunner({
     // Check if this is a pending, failed, or unsaved set
     const currentExercise = exercises.find((e) => e.id === current.id);
     const setToRemove = currentExercise?.sets.find((s) => s.setNumber === setNumber);
-    const setWithMeta = setToRemove as unknown as { pending?: boolean; failed?: boolean; unsaved?: boolean; clientId?: string };
+    const setWithMeta = setToRemove as SetWithMetadata | undefined;
 
     // B1c: Only remove matching local row (same setNumber AND pending/failed/unsaved)
     if (setWithMeta?.pending || setWithMeta?.failed || setWithMeta?.unsaved) {
@@ -968,15 +894,15 @@ export function SessionRunner({
   async function onFinishExercise(feel: Feel | null, skipped = false) {
     // S12: Block finishing while any sets for THIS exercise are pending, failed, or unsaved
     const currentExerciseLostCount = current.sets.filter((s) => {
-      const meta = s as unknown as { unsaved?: boolean };
+      const meta = s as SetWithMetadata;
       return meta.unsaved;
     }).length;
     const currentExerciseFailedCount = current.sets.filter((s) => {
-      const meta = s as unknown as { failed?: boolean };
+      const meta = s as SetWithMetadata;
       return meta.failed;
     }).length;
     const currentExercisePendingCount = current.sets.filter((s) => {
-      const meta = s as unknown as { pending?: boolean };
+      const meta = s as SetWithMetadata;
       return meta.pending;
     }).length;
 
@@ -1116,10 +1042,10 @@ export function SessionRunner({
         <ol className="mt-6 space-y-2">
           {Array.from({ length: current.plannedSets }, (_, i) => i + 1).map((n) => {
             const logged = current.sets.find((s) => s.setNumber === n);
-            const setWithMeta = logged as unknown as { pending?: boolean; failed?: boolean; failedError?: string; unsaved?: boolean; clientId?: string };
-            const isPending = logged && setWithMeta.pending;
-            const isFailed = logged && setWithMeta.failed;
-            const isUnsaved = logged && setWithMeta.unsaved;
+            const setWithMeta = logged as SetWithMetadata | undefined;
+            const isPending = logged && setWithMeta?.pending;
+            const isFailed = logged && setWithMeta?.failed;
+            const isUnsaved = logged && setWithMeta?.unsaved;
             return (
               <li
                 key={n}
