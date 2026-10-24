@@ -112,7 +112,7 @@ export function createSaveQueue<T>() {
         lastFailed.set(key, item.request);
         // Don't rethrow - we've already rejected the promise via item.reject
         // Rethrowing creates an unhandled rejection (L2)
-        return undefined as any;
+        return undefined as unknown as T;
       } finally {
         // Remove from in-flight
         inFlight.delete(key);
