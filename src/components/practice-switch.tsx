@@ -41,6 +41,7 @@ export function PracticeSwitch() {
     >
       <Link
         href="/breathe"
+        onClick={() => setLastPractice("breathe")}
         aria-current={isBreathe ? "page" : undefined}
         className={`flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-colors ${
           isBreathe ? "bg-accent text-accent-fg" : "text-muted hover:text-fg"
@@ -51,6 +52,7 @@ export function PracticeSwitch() {
       </Link>
       <Link
         href="/yoga"
+        onClick={() => setLastPractice("yoga")}
         aria-current={isYoga ? "page" : undefined}
         className={`flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-medium transition-colors ${
           isYoga ? "bg-accent text-accent-fg" : "text-muted hover:text-fg"
