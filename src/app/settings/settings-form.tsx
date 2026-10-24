@@ -26,7 +26,8 @@ import {
   updateSessionSettings,
   type Result,
 } from "./actions";
-import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
+import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
+import { createRequestSequence } from "./request-sequence";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
 
@@ -68,6 +69,8 @@ export type SettingsState = {
   bodyweightPrompt: "daily" | "weekly" | "never";
   timezone: string | null;
 };
+
+type AutosaveStatus = "idle" | "saving" | "saved" | { error: string; retry: () => void };
 
 const CATEGORY_LABELS: Record<string, string> = {
   bodyweight: "No equipment",
@@ -111,6 +114,16 @@ export function SettingsForm({
   const [planStale, setPlanStale] = useState(false);
   /** L4 QA fix: Request sequence to ignore stale equipment save responses */
   const [equipmentSequence] = useState(() => createRequestSequence());
+  /** Request sequences for each field category */
+  const [profileSequence] = useState(() => createRequestSequence());
+  const [sessionSequence] = useState(() => createRequestSequence());
+  const [injurySequence] = useState(() => createRequestSequence());
+  /** Autosave status */
+  const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
+  /** Track pending saves for debounce flush */
+  const [pendingSaveCount, setPendingSaveCount] = useState(0);
+  /** Debounce timers */
+  const [debounceTimers] = useState<{ [key: string]: NodeJS.Timeout }>({});
   /** F2: Browser timezone detected on client after mount */
   const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
 
@@ -143,6 +156,29 @@ export function SettingsForm({
     }
   }, []);
 
+  useEffect(() => {
+    // Flush debounced saves on pagehide and visibilitychange
+    const flushDebounces = () => {
+      Object.values(debounceTimers).forEach((timer) => clearTimeout(timer));
+      // Clear the timers object
+      Object.keys(debounceTimers).forEach((key) => delete debounceTimers[key]);
+    };
+
+    const handlePageHide = () => flushDebounces();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushDebounces();
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      flushDebounces();
+    };
+  }, [debounceTimers]);
+
   function save(run: () => Promise<Result>, affectsPlan = false) {
     startTransition(async () => {
       const r = await run();
@@ -156,14 +192,71 @@ export function SettingsForm({
     });
   }
 
+  /** Save with request sequence and autosave status tracking */
+  function saveWithSequence(
+    sequence: ReturnType<typeof createRequestSequence>,
+    run: () => Promise<Result>,
+    affectsPlan = false
+  ) {
+    const requestSeq = sequence.next();
+    setPendingSaveCount((c) => c + 1);
+    setAutosaveStatus("saving");
+
+    startTransition(async () => {
+      const r = await run();
+      
+      setPendingSaveCount((c) => Math.max(0, c - 1));
+
+      // Ignore stale responses
+      if (!sequence.isCurrent(requestSeq)) {
+        return;
+      }
+
+      if (!r.ok) {
+        setError(r.error);
+        setAutosaveStatus({ error: r.error, retry: () => saveWithSequence(sequence, run, affectsPlan) });
+        return;
+      }
+
+      setError(null);
+      if (affectsPlan) setPlanStale(true);
+      
+      // Show "Saved" only if no other saves are pending
+      setPendingSaveCount((c) => {
+        if (c === 0) setAutosaveStatus("saved");
+        return c;
+      });
+    });
+  }
+
+  /** Save profile settings with sequence tracking */
+  function saveProfile(patch: Parameters<typeof actions.updateProfileSettings>[0], affectsPlan = false) {
+    saveWithSequence(profileSequence, () => actions.updateProfileSettings(patch), affectsPlan);
+  }
+
+  /** Save session settings with sequence tracking */
+  function saveSession(patch: Parameters<typeof actions.updateSessionSettings>[0]) {
+    saveWithSequence(sessionSequence, () => actions.updateSessionSettings(patch));
+  }
+
+  /** Save injuries with sequence tracking */
+  function saveInjuries(injuries: Parameters<typeof actions.updateInjuries>[0]) {
+    saveWithSequence(injurySequence, () => actions.updateInjuries(injuries), true);
+  }
+
   /** Save equipment with rollback on error */
   function saveEquipment(hasAll: boolean, equipmentIds: string[], showConfirmation = false) {
     const changed = equipmentChanged(hasAll, equipmentIds);
     // L4 QA fix: Track request sequence to ignore stale responses
     const requestSeq = equipmentSequence.next();
     
+    setPendingSaveCount((c) => c + 1);
+    setAutosaveStatus("saving");
+    
     startTransition(async () => {
       const r = await actions.updateEquipment({ hasAll, equipmentIds });
+      
+      setPendingSaveCount((c) => Math.max(0, c - 1));
       
       // L4 QA fix: Ignore stale responses from overlapping saves
       if (!equipmentSequence.isCurrent(requestSeq)) {
@@ -175,7 +268,9 @@ export function SettingsForm({
         setS({ ...s, hasAllEquipment: savedEquipment.hasAll, equipmentIds: savedEquipment.ids });
         setEquipmentHint(null);
         setEquipmentOffConfirmation(null);
-        return setError(r.error);
+        setError(r.error);
+        setAutosaveStatus({ error: r.error, retry: () => saveEquipment(hasAll, equipmentIds, showConfirmation) });
+        return;
       }
       // Success: update saved state
       setSavedEquipment({ hasAll, ids: equipmentIds });
@@ -187,6 +282,12 @@ export function SettingsForm({
       if (showConfirmation) {
         setEquipmentOffConfirmation(getEquipmentOffMessage(hasAll === false && equipmentIds.length > 0));
       }
+      
+      // Show "Saved" only if no other saves are pending
+      setPendingSaveCount((c) => {
+        if (c === 0) setAutosaveStatus("saved");
+        return c;
+      });
     });
   }
 
@@ -205,12 +306,38 @@ export function SettingsForm({
 
   return (
     <div className="space-y-12">
+      {/* Autosave status */}
+      <div 
+        role="status" 
+        aria-live="polite"
+        className="flex h-6 items-center text-sm"
+        style={{ minHeight: "1.5rem" }}
+      >
+        {autosaveStatus === "saving" && (
+          <span className="text-muted">Saving…</span>
+        )}
+        {autosaveStatus === "saved" && (
+          <span className="text-accent">Saved</span>
+        )}
+        {typeof autosaveStatus === "object" && "error" in autosaveStatus && (
+          <span className="flex items-center gap-2">
+            <span className="text-destructive">{autosaveStatus.error}</span>
+            <button
+              onClick={autosaveStatus.retry}
+              className="text-sm text-accent underline underline-offset-2"
+            >
+              Retry
+            </button>
+          </span>
+        )}
+      </div>
+
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {planStale && (
         <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
           <p className="text-sm text-accent">
-            Your plan no longer matches these answers. Rebuilding keeps every session
+            Your plan no longer matches these answers. Your week keeps the old layout until you rebuild your block. Rebuilding keeps every session
             you have already logged.
           </p>
           <div className="mt-3">
@@ -231,7 +358,7 @@ export function SettingsForm({
                 selected={s.goal === o.value}
                 onClick={() => {
                   setS({ ...s, goal: o.value });
-                  save(() => actions.updateProfileSettings({ goal: o.value }), true);
+                  saveProfile({ goal: o.value }, true);
                 }}
               />
             ))}
@@ -248,7 +375,7 @@ export function SettingsForm({
                 selected={s.level === o.value}
                 onClick={() => {
                   setS({ ...s, level: o.value });
-                  save(() => actions.updateProfileSettings({ level: o.value }), true);
+                  saveProfile({ level: o.value }, true);
                 }}
               />
             ))}
@@ -265,7 +392,7 @@ export function SettingsForm({
                 selected={s.primaryTrack === o.value}
                 onClick={() => {
                   setS({ ...s, primaryTrack: o.value });
-                  save(() => actions.updateProfileSettings({ primary_track: o.value }), true);
+                  saveProfile({ primary_track: o.value }, true);
                 }}
               />
             ))}
@@ -279,10 +406,7 @@ export function SettingsForm({
             onChange={(n) => {
               const yoga = Math.min(s.yogaDaysPerWeek, n - 1);
               setS({ ...s, daysPerWeek: n, yogaDaysPerWeek: yoga });
-              save(
-                () => actions.updateProfileSettings({ days_per_week: n, yoga_days_per_week: yoga }),
-                true,
-              );
+              saveProfile({ days_per_week: n, yoga_days_per_week: yoga }, true);
             }}
           />
         </Field>
@@ -296,7 +420,7 @@ export function SettingsForm({
             value={s.yogaDaysPerWeek}
             onChange={(n) => {
               setS({ ...s, yogaDaysPerWeek: n });
-              save(() => actions.updateProfileSettings({ yoga_days_per_week: n }), true);
+              saveProfile({ yoga_days_per_week: n }, true);
             }}
           />
         </Field>
@@ -439,7 +563,7 @@ export function SettingsForm({
                     ? s.injuries.filter((i) => i.bodyRegion !== r.value)
                     : [...s.injuries, { bodyRegion: r.value, severity: "current" as const }];
                   setS({ ...s, injuries: next });
-                  save(() => actions.updateInjuries(next), true);
+                  saveInjuries(next);
                 }}
                 className={`rounded-full border px-4 py-2 text-sm ${
                   found
@@ -476,7 +600,7 @@ export function SettingsForm({
                           i.bodyRegion === inj.bodyRegion ? { ...i, severity: sev } : i,
                         );
                         setS({ ...s, injuries: next });
-                        save(() => actions.updateInjuries(next), true);
+                        saveInjuries(next);
                       }}
                       className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize ${
                         inj.severity === sev ? "bg-accent text-accent-fg" : "text-muted"
@@ -503,7 +627,7 @@ export function SettingsForm({
               selected={s.planningMode === "progression"}
               onClick={() => {
                 setS({ ...s, planningMode: "progression" });
-                save(() => actions.updateSessionSettings({ planning_mode: "progression" }));
+                saveSession({ planning_mode: "progression" });
               }}
             />
             <OptionCard
@@ -513,7 +637,7 @@ export function SettingsForm({
               selected={s.planningMode === "daily_menu"}
               onClick={() => {
                 setS({ ...s, planningMode: "daily_menu" });
-                save(() => actions.updateSessionSettings({ planning_mode: "daily_menu" }));
+                saveSession({ planning_mode: "daily_menu" });
               }}
             />
           </div>
@@ -526,7 +650,7 @@ export function SettingsForm({
           disabled={pending}
           onChange={(v) => {
             setS({ ...s, perSetLogging: v });
-            save(() => actions.updateSessionSettings({ per_set_logging: v }));
+            saveSession({ per_set_logging: v });
           }}
         />
         <Toggle
@@ -535,7 +659,7 @@ export function SettingsForm({
           disabled={pending}
           onChange={(v) => {
             setS({ ...s, resumeSession: v });
-            save(() => actions.updateSessionSettings({ resume_session: v }));
+            saveSession({ resume_session: v });
           }}
         />
         <Toggle
@@ -544,7 +668,7 @@ export function SettingsForm({
           disabled={pending}
           onChange={(v) => {
             setS({ ...s, cooldownEnabled: v });
-            save(() => actions.updateSessionSettings({ cooldown_enabled: v }));
+            saveSession({ cooldown_enabled: v });
           }}
         />
         <Toggle
@@ -553,7 +677,7 @@ export function SettingsForm({
           disabled={pending}
           onChange={(v) => {
             setS({ ...s, restAutostart: v });
-            save(() => actions.updateSessionSettings({ rest_timer_autostart: v }));
+            saveSession({ rest_timer_autostart: v });
           }}
         />
         <Toggle
@@ -562,7 +686,7 @@ export function SettingsForm({
           disabled={pending}
           onChange={(v) => {
             setS({ ...s, restSound: v });
-            save(() => actions.updateSessionSettings({ rest_timer_sound: v }));
+            saveSession({ rest_timer_sound: v });
           }}
         />
         <Toggle
@@ -572,7 +696,7 @@ export function SettingsForm({
           disabled={pending}
           onChange={(v) => {
             setS({ ...s, restVibrate: v });
-            save(() => actions.updateSessionSettings({ rest_timer_vibrate: v }));
+            saveSession({ rest_timer_vibrate: v });
           }}
         />
 
@@ -590,7 +714,7 @@ export function SettingsForm({
             onChange={(n) => {
               const v = n === 0 ? null : n;
               setS({ ...s, restOverrideSeconds: v });
-              save(() => actions.updateSessionSettings({ rest_seconds_override: v }));
+              saveSession({ rest_seconds_override: v });
             }}
           />
         </Field>
@@ -601,7 +725,7 @@ export function SettingsForm({
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS({ ...s, preferredSessionMinutes: n });
-              save(() => actions.updateProfileSettings({ preferred_session_minutes: n }));
+              saveProfile({ preferred_session_minutes: n });
             }}
           />
         </Field>
@@ -619,7 +743,7 @@ export function SettingsForm({
             value={s.bodyweightPrompt}
             onChange={(v) => {
               setS({ ...s, bodyweightPrompt: v });
-              save(() => actions.updateSessionSettings({ bodyweight_prompt: v }));
+              saveSession({ bodyweight_prompt: v });
             }}
           />
         </Field>
@@ -650,17 +774,8 @@ export function SettingsForm({
             gymDefault={branding.timezone || FALLBACK_TIMEZONE}
             onChange={(v) => {
               setS({ ...s, timezone: v });
-              // QA Issue #7: Show confirmation only after save succeeds
-              startTransition(async () => {
-                const r = await actions.updateProfileSettings({ timezone: v });
-                if (!r.ok) {
-                  setError(r.error);
-                  setTimezoneConfirmation(null);
-                } else {
-                  setError(null);
-                  setTimezoneConfirmation("Timezone saved");
-                }
-              });
+              saveProfile({ timezone: v });
+              setTimezoneConfirmation("Timezone saved");
             }}
             disabled={pending}
           />
