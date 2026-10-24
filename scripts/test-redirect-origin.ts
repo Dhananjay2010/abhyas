@@ -1,12 +1,13 @@
 #!/usr/bin/env tsx
 /**
- * Test: redirect origin builder for auth callbacks
+ * Test: redirect origin builder and next path validator for auth callbacks
  * 
  * Validates that the redirect origin is built safely from headers,
- * with an allowlist to prevent open redirects.
+ * with an allowlist to prevent open redirects, and that the next path
+ * validator rejects malicious inputs.
  */
 
-import { getRedirectOrigin } from '../src/lib/auth/redirect-origin';
+import { getRedirectOrigin, safeNextPath } from '../src/lib/auth/redirect-origin';
 
 interface TestResult {
   passed: boolean;
@@ -15,6 +16,62 @@ interface TestResult {
 
 function runTests(): TestResult[] {
   const results: TestResult[] = [];
+
+  // ===================================================================
+  // safeNextPath tests
+  // ===================================================================
+
+  // Test: Valid paths are accepted
+  {
+    const cases = [
+      ['/today', '/today'],
+      ['/settings', '/settings'],
+      ['/today?x=1', '/today?x=1'],
+      ['/breathe/box-breathing', '/breathe/box-breathing'],
+      ['/session/abc123?from=history', '/session/abc123?from=history'],
+    ];
+    for (const [input, expected] of cases) {
+      const result = safeNextPath(input);
+      if (result === expected) {
+        results.push({ passed: true, message: `safeNextPath('${input}') = '${expected}'` });
+      } else {
+        results.push({ passed: false, message: `safeNextPath('${input}'): expected '${expected}', got '${result}'` });
+      }
+    }
+  }
+
+  // Test: Malicious paths are rejected
+  {
+    const malicious: Array<string | null | undefined> = [
+      '//evil.com',
+      '//evil.com/path',
+      '/\\evil.com',
+      '/\\\\evil.com',
+      '\\evil.com',
+      'javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      'http://evil.com',
+      'https://evil.com',
+      '/path\\with\\backslash',
+      '/path\x00null',
+      '/path\x1Fcontrol',
+      null,
+      undefined,
+      '',
+    ];
+    for (const input of malicious) {
+      const result = safeNextPath(input);
+      if (result === '/today') {
+        results.push({ passed: true, message: `safeNextPath(${JSON.stringify(input)}) = '/today' (rejected)` });
+      } else {
+        results.push({ passed: false, message: `safeNextPath(${JSON.stringify(input)}): expected '/today', got '${result}'` });
+      }
+    }
+  }
+
+  // ===================================================================
+  // getRedirectOrigin tests
+  // ===================================================================
 
   // Test 1: Vercel prod (x-forwarded-proto https, host abhyas-indol.vercel.app)
   {
@@ -121,9 +178,9 @@ function runTests(): TestResult[] {
 }
 
 // Run the tests
-console.log('=====================================');
-console.log('Testing redirect origin builder');
-console.log('=====================================\n');
+console.log('=======================================================');
+console.log('Testing redirect origin builder and next path validator');
+console.log('=======================================================\n');
 
 const results = runTests();
 let allPassed = true;
@@ -136,11 +193,11 @@ for (const result of results) {
   }
 }
 
-console.log('\n=====================================');
+console.log('\n=======================================================');
 if (allPassed) {
-  console.log('All redirect origin tests passed\n');
+  console.log('All redirect origin and next path tests passed\n');
   process.exit(0);
 } else {
-  console.log('Some redirect origin tests failed\n');
+  console.log('Some redirect origin or next path tests failed\n');
   process.exit(1);
 }

@@ -63,7 +63,7 @@ jobs:
       - name: Verify seed data
         run: |
           # Query the database to verify seed data was loaded correctly
-          supabase db execute --query "
+          supabase db query "
             DO \$\$
             DECLARE
               test_user_count INT;
