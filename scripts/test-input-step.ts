@@ -116,12 +116,12 @@ console.log('\n6. nextWeight with float drift prevention');
 
 console.log('\n7. Kettlebell weights arrays are exported as readonly');
 {
-  check('KETTLEBELL_WEIGHTS_KG is exported and has 12 bells', 
-    KETTLEBELL_WEIGHTS_KG.length === 12);
+  check('KETTLEBELL_WEIGHTS_KG is exported and has 15 bells', 
+    KETTLEBELL_WEIGHTS_KG.length === 15);
   check('KETTLEBELL_WEIGHTS_LB is exported and has 14 bells',
     KETTLEBELL_WEIGHTS_LB.length === 14);
   check('kg array starts at 4 kg', KETTLEBELL_WEIGHTS_KG[0] === 4);
-  check('kg array ends at 32 kg', KETTLEBELL_WEIGHTS_KG[KETTLEBELL_WEIGHTS_KG.length - 1] === 32);
+  check('kg array ends at 48 kg', KETTLEBELL_WEIGHTS_KG[KETTLEBELL_WEIGHTS_KG.length - 1] === 48);
   check('lb array starts at 5 lb', KETTLEBELL_WEIGHTS_LB[0] === 5);
   check('lb array ends at 80 lb', KETTLEBELL_WEIGHTS_LB[KETTLEBELL_WEIGHTS_LB.length - 1] === 80);
   
@@ -174,8 +174,8 @@ console.log('\n10. Kettlebell between-bell values');
 
 console.log('\n11. Kettlebell clamps at ends (LOW a)');
 {
-  check('at max (32 kg), increase stays at 32 kg', nextWeight(32, 1, ['kettlebell'], 'kg') === 32);
-  check('above max (35 kg), increase stays at 32 kg', nextWeight(35, 1, ['kettlebell'], 'kg') === 32);
+  check('at max (48 kg), increase stays at 48 kg', nextWeight(48, 1, ['kettlebell'], 'kg') === 48);
+  check('above max (50 kg), increase stays at 48 kg', nextWeight(50, 1, ['kettlebell'], 'kg') === 48);
   
   check('at min (4 kg), decrease stays at 4 kg (FIXED)', nextWeight(4, -1, ['kettlebell'], 'kg') === 4);
   check('below min (2 kg), increase goes to 4 kg (FIXED)', nextWeight(2, 1, ['kettlebell'], 'kg') === 4);
