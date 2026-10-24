@@ -23,6 +23,7 @@ import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
+import { logSetCore } from "@/lib/session/log-set-core";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -283,22 +284,20 @@ export async function logSet(input: {
   }
 
   const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("session_sets").upsert(
-    {
-      session_exercise_id: input.sessionExerciseId,
-      user_id: user.id,
-      set_number: input.setNumber,
-      reps: input.reps,
-      weight_kg: input.weightKg,
-      duration_seconds: durationSeconds,
-      is_warmup_set: false,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "session_exercise_id,set_number,is_warmup_set" },
-  );
+  const result = await logSetCore(supabase, {
+    sessionExerciseId: input.sessionExerciseId,
+    setNumber: input.setNumber,
+    reps: input.reps,
+    weightKg: input.weightKg,
+    durationSeconds,
+    userId: user.id,
+  });
 
-  if (error) {
-    const classification = classifyLogSetError(error);
+  if (!result.ok) {
+    const classification = classifyLogSetError({
+      message: result.error,
+      code: result.postgresCode,
+    });
     return {
       ok: false,
       error: classification.message,
