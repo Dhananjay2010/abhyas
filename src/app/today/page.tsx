@@ -72,7 +72,7 @@ export default async function TodayPage() {
       .in("actual_type", ["weights", "bodyweight", "yoga"])
       .limit(1),
     // In-progress session for day-1, missed-day, and resume decisions
-    getInProgressSession(supabase, user.id, browserTz),
+    getInProgressSession(supabase, user.id, timezone),
   ]);
 
   /*
