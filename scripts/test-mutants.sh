@@ -69,5 +69,8 @@ test_mutant "11: Python builder label change" \
   "sed -i 's/\"dumbbell\": \"Dumbbell\"/\"dumbbell\": \"Dumbbells\"/' scripts/build_exercise_seed.py" \
   "npm run test:cue-parity"
 
+test_mutant "12: Warmup type change (unguarded)" \
+  "echo -e \"\n-- Quad Stretch\nUPDATE warmup_exercises SET type = 'mobility'\nWHERE slug = 'quad-stretch' AND type = 'stretch';\" >> \"$MIGRATION_FILE\""
+
 echo ""
 echo "All mutants caught successfully!"

@@ -141,13 +141,7 @@ async function main() {
   
   console.log(`  ✅ Migration applied successfully\n`);
   
-  console.log('Test 7: Running migration (second pass - idempotency)...\n');
-  
-  await db.exec(migrationSql);
-  
-  console.log('  ✅ Migration is idempotent (no errors on second run)\n');
-  
-  console.log('Test 8: Validate exactly N rows changed on first run, 0 on second...\n');
+  console.log('Test 7: Validate exactly N rows changed on first run...\n');
   
   const exercisesAfterFirst = await db.query<{slug: string; cue: string; impact: string}>(
     `SELECT slug, cue, impact FROM exercises ORDER BY slug`
@@ -167,21 +161,48 @@ async function main() {
   
   console.log(`  ✅ Exactly ${changedOnFirstRun} exercise rows changed on first run`);
   
-  const warmupAfterFirst = await db.query<{slug: string; type: string}>(
-    `SELECT slug, type FROM warmup_exercises WHERE slug = 'cat-cow-stretch'`
+  const allWarmupBeforeFirst = await db.query<{slug: string; type: string}>(
+    `SELECT slug, type FROM warmup_exercises ORDER BY slug`
   );
-  const warmupChanged = warmupAfterFirst.rows[0] && warmupAfterFirst.rows[0].type !== warmupTypeBefore;
-  if (!warmupChanged) {
-    throw new Error('Expected exactly 1 warmup row to change on first run');
+  
+  const warmupBeforeMap = new Map(allWarmupBeforeFirst.rows.map(r => [r.slug, r.type]));
+  
+  const allWarmupAfterFirst = await db.query<{slug: string; type: string}>(
+    `SELECT slug, type FROM warmup_exercises ORDER BY slug`
+  );
+  
+  let warmupChangedCount = 0;
+  let catCowChanged = false;
+  
+  for (const row of allWarmupAfterFirst.rows) {
+    const beforeType = warmupBeforeMap.get(row.slug);
+    if (beforeType && beforeType !== row.type) {
+      warmupChangedCount++;
+      if (row.slug === 'cat-cow-stretch' && beforeType === 'stretch' && row.type === 'mobility') {
+        catCowChanged = true;
+      }
+    }
   }
   
-  console.log(`  ✅ Exactly 1 warmup row changed on first run\n`);
+  if (warmupChangedCount !== 1 || !catCowChanged) {
+    throw new Error(`Expected exactly 1 warmup row (cat-cow-stretch: stretch -> mobility) to change on first run, got ${warmupChangedCount} changes`);
+  }
+  
+  console.log(`  ✅ Exactly 1 warmup row changed on first run (cat-cow-stretch: stretch -> mobility)\n`);
+  
+  console.log('Test 8: Running migration (second pass - idempotency)...\n');
   
   const beforeSecondRun = await db.query<{slug: string; cue: string; impact: string}>(
     `SELECT slug, cue, impact FROM exercises ORDER BY slug`
   );
   
+  const warmupBeforeSecondRun = await db.query<{slug: string; type: string}>(
+    `SELECT slug, type FROM warmup_exercises ORDER BY slug`
+  );
+  
   await db.exec(migrationSql);
+  
+  console.log('  ✅ Migration is idempotent (no errors on second run)');
   
   const afterSecondRun = await db.query<{slug: string; cue: string; impact: string}>(
     `SELECT slug, cue, impact FROM exercises ORDER BY slug`
@@ -195,10 +216,27 @@ async function main() {
   }
   
   if (changedOnSecondRun !== 0) {
-    throw new Error(`Expected 0 rows to change on second run, got ${changedOnSecondRun}`);
+    throw new Error(`Expected 0 exercise rows to change on second run, got ${changedOnSecondRun}`);
   }
   
-  console.log(`  ✅ Exactly 0 rows changed on second run (idempotent)\n`);
+  console.log(`  ✅ Exactly 0 exercise rows changed on second run`);
+  
+  const warmupAfterSecondRun = await db.query<{slug: string; type: string}>(
+    `SELECT slug, type FROM warmup_exercises ORDER BY slug`
+  );
+  
+  let warmupChangedOnSecondRun = 0;
+  for (let i = 0; i < warmupAfterSecondRun.rows.length; i++) {
+    if (warmupBeforeSecondRun.rows[i].type !== warmupAfterSecondRun.rows[i].type) {
+      warmupChangedOnSecondRun++;
+    }
+  }
+  
+  if (warmupChangedOnSecondRun !== 0) {
+    throw new Error(`Expected 0 warmup rows to change on second run, got ${warmupChangedOnSecondRun}`);
+  }
+  
+  console.log(`  ✅ Exactly 0 warmup rows changed on second run\n`);
   
   console.log('Test 9: Validate migration targets match builder output...\n');
   
