@@ -587,7 +587,7 @@ console.log("\nIssue 1: After back-off to 0, next success uses actual weight lif
     progressionChain: null,
     progressionRank: null, equipmentIds: [],
   };
-  
+
   // Upper-body: 4x12 with 5 kg should give 6.25 kg (5 + 1.25), not 2.5 kg (0 + 2.5).
   const upperAfterBackoff = run({
     meta: PUSHUP_LOADED,
@@ -1049,7 +1049,7 @@ console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,18,20,24,28,32");
 
   // Isolation mechanic with kettlebell: tests that step doesn't matter for bells
   const KB_ISO: ExerciseMeta = { ...KETTLEBELL, mechanic: "isolation" };
-  
+
   const kbIso16 = run({
     meta: KB_ISO,
     sets: sets(4, 12, 16),

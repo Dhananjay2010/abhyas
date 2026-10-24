@@ -20,7 +20,7 @@ type FakeCall = { table: string; update: UpdateData; eq: Array<[string, string]>
 
 function makeFakeSupabase(updateResult: { error?: { message: string } }) {
   const calls: FakeCall[] = [];
-  
+
   const from = (table: string) => ({
     update: (data: UpdateData) => {
       const eqCalls: Array<[string, string]> = [];
@@ -41,7 +41,7 @@ function makeFakeSupabase(updateResult: { error?: { message: string } }) {
 {
   const fake = makeFakeSupabase({});
   const result = await resetProgressionTargets(fake, "user-123");
-  
+
   check("successful reset returns ok: true",
     result.ok === true, `${JSON.stringify(result)}`);
   check("updates exercise_progress table",
@@ -58,7 +58,7 @@ function makeFakeSupabase(updateResult: { error?: { message: string } }) {
 {
   const fake = makeFakeSupabase({ error: { message: "Database connection failed" } });
   const result = await resetProgressionTargets(fake, "user-456");
-  
+
   check("failed reset returns ok: false",
     result.ok === false, `${JSON.stringify(result)}`);
   check("failed reset returns error message",
@@ -127,7 +127,7 @@ await testBuildPlanFailure();
 // Test updateProfileSettings calls reset only when values change and after success
 async function testUpdateProfileOnlyWhenChanged() {
   const currentProfile = { goal: "strength", level: "intermediate", days_per_week: 4, primary_track: "gym" };
-  
+
   // Simulate: patch with same goal value
   const patchSameGoal = { goal: "strength" as const };
   const shouldResetSame = patchSameGoal.goal !== undefined && patchSameGoal.goal !== currentProfile.goal;
@@ -163,7 +163,7 @@ async function testUpdateProfileValidationFailure() {
 
   // Simulate validation failure
   const validationResult = { ok: false, error: "Invalid goal" } as const;
-  
+
   if (validationResult.ok) {
     resetCalled = true;
   }

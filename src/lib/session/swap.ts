@@ -6,7 +6,7 @@ export type SwappedExerciseFields = {
 
 /**
  * Compute derived fields for a swapped exercise.
- * 
+ *
  * Used in session-runner swap onSuccess to update fields that depend on the
  * new exercise's equipment (e.g., isBodyweight determines UI labels).
  */
