@@ -138,7 +138,8 @@
     "test:session-length-migration": "tsx scripts/test-session-length-migration.ts",
     "test:robots-sitemap": "tsx scripts/test-robots-sitemap.ts",
     "test:node-version": "tsx scripts/test-node-version.ts",
-    "test:today-rows": "tsx scripts/test-today-rows.ts"
+    "test:today-rows": "tsx scripts/test-today-rows.ts",
+    "test:used-weight-rule": "tsx scripts/test-used-weight-rule.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
