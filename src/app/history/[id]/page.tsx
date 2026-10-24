@@ -10,6 +10,7 @@ import { EditSets } from "./edit-sets";
 import { SessionActions } from "./session-actions";
 import { exerciseCompletion } from "@/lib/session/completion";
 import { countWorkingSets } from "@/lib/session/count-sets";
+import { formatVolume, getUnitsPreference } from "@/lib/units";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,15 @@ export default async function SessionDetailPage({
   
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
+
+  // Fetch profile for units preference
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("units")
+    .eq("id", user.id)
+    .single();
+  
+  const units = getUnitsPreference(profile?.units);
 
   const { data: session, error: sessionError } = await supabase
     .from("sessions")
@@ -126,7 +136,7 @@ export default async function SessionDetailPage({
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">
         <Stat label="Time" value={minutes !== null ? `${minutes}m` : "—"} />
         <Stat label="Sets" value={`${countWorkingSets(sets ?? [])}`} />
-        <Stat label="Volume" value={volume > 0 ? `${Math.round(volume)}kg` : "—"} />
+        <Stat label="Volume" value={volume > 0 ? formatVolume(volume, units) : "—"} />
       </dl>
 
       <ol className="mt-8 space-y-3">

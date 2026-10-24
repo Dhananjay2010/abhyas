@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { SessionListItem, SessionType } from "./types";
 import { formatInTimezone } from "@/lib/timezone";
 import { sessionCompletion } from "@/lib/session/session-completion";
+import { formatVolume, type UnitsPreference } from "@/lib/units";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {
@@ -27,6 +28,7 @@ interface HistoryClientProps {
   totalCount: number;
   today: string;
   timezone: string;
+  units: UnitsPreference;
 }
 
 const FILTER_LABELS: Record<SessionType, string> = {
@@ -77,6 +79,7 @@ export function HistoryClient({
   totalCount,
   today,
   timezone,
+  units,
 }: HistoryClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -188,8 +191,8 @@ export function HistoryClient({
                 if (!item.endedEarly && !isZeroSetStrength && item.setCount > 0) {
                   details.push(pluralize(item.setCount, "set"));
                 }
-                if (item.topSetWeight) details.push(`${Math.round(item.topSetWeight)}kg top`);
-                if (item.volumeKg > 0) details.push(`${Math.round(item.volumeKg)}kg total`);
+                if (item.topSetWeight) details.push(`${Math.round(item.topSetWeight)}${units === "imperial" ? "lb" : "kg"} top`);
+                if (item.volumeKg > 0) details.push(`${formatVolume(item.volumeKg, units)} total`);
               }
 
               // Yoga rows are non-interactive (yoga detail view is owned by PR #19)

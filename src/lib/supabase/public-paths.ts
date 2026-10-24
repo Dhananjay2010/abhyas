@@ -14,6 +14,8 @@ export const PUBLIC_PATHS = [
   "/terms",
   "/sw.js",
   "/offline",
+  "/robots.txt",
+  "/sitemap.xml",
   "/api/version",
 ];
 
