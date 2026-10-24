@@ -161,6 +161,50 @@ assert(
   "Min date is before max date"
 );
 
+// Test 7: Normalize typed digit strings (QA: '01011992' should work)
+function normalizeDateInput(value: string): string {
+  if (!value) return value;
+  
+  // If it's already in YYYY-MM-DD format, return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    // But reject year 0001 and other invalid years
+    const year = parseInt(value.slice(0, 4), 10);
+    if (year < 1900 || year > new Date().getFullYear()) {
+      return "";
+    }
+    return value;
+  }
+  
+  // Handle common typed formats: DDMMYYYY (8 digits)
+  if (/^\d{8}$/.test(value)) {
+    const dd = value.slice(0, 2);
+    const mm = value.slice(2, 4);
+    const yyyy = value.slice(4, 8);
+    const year = parseInt(yyyy, 10);
+    
+    // Reject invalid years
+    if (year < 1900 || year > new Date().getFullYear()) {
+      return "";
+    }
+    
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  
+  return value;
+}
+
+assert(normalizeDateInput("01011992") === "1992-01-01", "Typed '01011992' converts to 1992-01-01");
+assert(normalizeDateInput("15061985") === "1985-06-15", "Typed '15061985' converts to 1985-06-15");
+assert(normalizeDateInput("31121999") === "1999-12-31", "Typed '31121999' converts to 1999-12-31");
+assert(normalizeDateInput("0001-01-01") === "", "Year 0001 is rejected");
+assert(normalizeDateInput("1899-12-31") === "", "Year 1899 is rejected");
+assert(normalizeDateInput("2100-01-01") === "", "Future year 2100 is rejected");
+assert(normalizeDateInput("01011899") === "", "Typed 1899 year is rejected");
+assert(normalizeDateInput("01012100") === "", "Typed future year is rejected");
+assert(normalizeDateInput("1990-05-15") === "1990-05-15", "Valid ISO format passes through");
+assert(normalizeDateInput("") === "", "Empty string returns empty");
+assert(normalizeDateInput("123") === "123", "Non-matching format returns as-is");
+
 if (failures === 0) {
   console.log("\nALL CHECKS PASSED\n");
   process.exit(0);

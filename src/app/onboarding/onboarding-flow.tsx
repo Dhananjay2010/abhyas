@@ -109,6 +109,38 @@ export function OnboardingFlow({
   const [error, setError] = useState<string | null>(null);
 
   const [dateOfBirth, setDateOfBirth] = useState(initial.dateOfBirth ?? "");
+  
+  // Normalize date input: detect typed digit strings like '01011992' and convert to YYYY-MM-DD
+  const normalizeDateInput = (value: string): string => {
+    if (!value) return value;
+    
+    // If it's already in YYYY-MM-DD format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      // But reject year 0001 and other invalid years
+      const year = parseInt(value.slice(0, 4), 10);
+      if (year < 1900 || year > new Date().getFullYear()) {
+        return "";
+      }
+      return value;
+    }
+    
+    // Handle common typed formats: DDMMYYYY (8 digits)
+    if (/^\d{8}$/.test(value)) {
+      const dd = value.slice(0, 2);
+      const mm = value.slice(2, 4);
+      const yyyy = value.slice(4, 8);
+      const year = parseInt(yyyy, 10);
+      
+      // Reject invalid years
+      if (year < 1900 || year > new Date().getFullYear()) {
+        return "";
+      }
+      
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    
+    return value;
+  };
   const [sex, setSex] = useState<Sex | null>(initial.sex);
   const [heightCm, setHeightCm] = useState(initial.heightCm?.toString() ?? "");
   const [weightKg, setWeightKg] = useState(initial.weightKg?.toString() ?? "");
@@ -264,16 +296,15 @@ export function OnboardingFlow({
         dobError = "Please enter a valid date";
       } else {
         const date = new Date(dateOfBirth);
+        const year = date.getFullYear();
+        const currentYear = new Date().getFullYear();
+        
         if (isNaN(date.getTime())) {
           dobError = "Please enter a valid date";
-        } else {
-          const year = date.getFullYear();
-          const currentYear = new Date().getFullYear();
-          if (year < 1900 || year > currentYear) {
-            dobError = "Date should be between 1900 and today";
-          } else if (date > new Date()) {
-            dobError = "Date cannot be in the future";
-          }
+        } else if (year < 1900 || year > currentYear) {
+          dobError = `Year must be between 1900 and ${currentYear}`;
+        } else if (date > new Date()) {
+          dobError = "Date cannot be in the future";
         }
       }
     }
@@ -329,7 +360,10 @@ export function OnboardingFlow({
               value={dateOfBirth}
               min="1900-01-01"
               max={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => setDateOfBirth(e.target.value)}
+              onChange={(e) => {
+                const normalized = normalizeDateInput(e.target.value);
+                setDateOfBirth(normalized);
+              }}
               className={inputClass}
             />
           </Field>
