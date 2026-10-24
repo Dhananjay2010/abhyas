@@ -2,6 +2,7 @@ import type { Database } from "@/lib/database.types";
 
 import { dateRange, isoWeekday } from "@/lib/dates";
 import { countsTowardStreak } from "./training-days";
+import { blockForDate, type BlockRange } from "@/lib/program/block-range";
 
 export { dateRange, isoWeekday };
 
@@ -97,16 +98,16 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
  *
  * Streaks must span blocks: a streak that resets simply because a new
  * four-week block began would punish the user for the app's own bookkeeping.
- * Each date is attributed to the MOST RECENT program covering it, falling back
- * to the most recent program that had already started. Recency matters: a block
- * rebuilt on the same day leaves two programs covering that date, and only the
- * newer one reflects what the user is actually doing.
+ *
+ * Each date is attributed to the block covering it by RANGE (started_on..ended_on),
+ * never by "newest". This fixes the mid-block rebuild bug: past days stay with
+ * the block that was active when they happened, so a rebuild doesn't rewrite history.
  *
  * Now also tracks the ACTUAL session type completed on each date, so "train anyway"
  * sessions on template rest days count toward streaks.
  */
 export function buildDayRecords(input: {
-  programs: { id: string; startedOn: string; endsOn: string }[];
+  programs: Array<{ id: string; startedOn: string; endsOn: string; endedOn?: string | null }>;
   /** programId -> weekday (1..7) -> day type */
   dayTypesByProgram: Record<string, Record<number, DayType>>;
   /** Completed sessions with their actual types, status, and working set counts */
@@ -125,11 +126,12 @@ export function buildDayRecords(input: {
   const first = ordered[0].startedOn;
   if (first > today) return [];
 
-  // Search newest-first. Rebuilding a block on the same day leaves two programs
-  // covering that date, and the older one is the retired schedule -- taking it
-  // made a training day look like a rest day, so the streak silently skipped
-  // the session the user had just finished.
-  const newestFirst = [...ordered].reverse();
+  // Convert to BlockRange format for blockForDate
+  const blocks: BlockRange[] = programs.map((p) => ({
+    id: p.id,
+    started_on: p.startedOn,
+    ended_on: p.endedOn ?? p.endsOn, // Use endedOn if present, else fall back to endsOn for legacy
+  }));
 
   // Map dates to their actual session types.
   // Only include sessions that count toward streaks (countsTowardStreak enforces the rules).
@@ -149,9 +151,7 @@ export function buildDayRecords(input: {
   }
 
   return dateRange(first, today).map((date) => {
-    const covering =
-      newestFirst.find((p) => p.startedOn <= date && p.endsOn >= date) ??
-      newestFirst.find((p) => p.startedOn <= date);
+    const covering = blockForDate(blocks, date);
 
     const dayType =
       (covering && dayTypesByProgram[covering.id]?.[isoWeekday(date)]) ?? "rest";
