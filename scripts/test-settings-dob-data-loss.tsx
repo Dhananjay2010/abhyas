@@ -36,22 +36,30 @@ async function main() {
   
   interface SettingsActions {
     updateProfileSettings: (patch: { date_of_birth?: string | null }) => Promise<Result>;
-    updateSessionSettings: (patch: any) => Promise<Result>;
-    updateEquipment: (input: any) => Promise<Result>;
-    updateInjuries: (injuries: any[]) => Promise<Result>;
+    updateSessionSettings: (patch: unknown) => Promise<Result>;
+    updateEquipment: (input: unknown) => Promise<Result>;
+    updateInjuries: (injuries: unknown[]) => Promise<Result>;
   }
   
+  type SettingsGoal = "strength" | "fat_loss" | "muscle_gain" | "general_fitness" | "flexibility_stress";
+  type SettingsLevel = "beginner" | "intermediate" | "expert";
+  type SettingsTrack = "weights" | "bodyweight" | "yoga" | "meditation";
+  type PlanningMode = "progression" | "daily_menu";
+  type BodyweightPrompt = "daily" | "weekly" | "never";
+  type BodyRegion = "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
+  type InjurySeverity = "current" | "past";
+  
   interface SettingsState {
-    goal: string | null;
-    level: string | null;
-    primaryTrack: string | null;
+    goal: SettingsGoal | null;
+    level: SettingsLevel | null;
+    primaryTrack: SettingsTrack | null;
     daysPerWeek: number | null;
     yogaDaysPerWeek: number;
     preferredSessionMinutes: number;
     hasAllEquipment: boolean;
     equipmentIds: string[];
-    injuries: any[];
-    planningMode: string;
+    injuries: { bodyRegion: BodyRegion; severity: InjurySeverity }[];
+    planningMode: PlanningMode;
     perSetLogging: boolean;
     resumeSession: boolean;
     cooldownEnabled: boolean;
@@ -59,7 +67,7 @@ async function main() {
     restSound: boolean;
     restVibrate: boolean;
     restOverrideSeconds: number | null;
-    bodyweightPrompt: string;
+    bodyweightPrompt: BodyweightPrompt;
     timezone: string | null;
     dateOfBirth: string | null;
   }
@@ -85,9 +93,9 @@ async function main() {
     };
 
     const initial: SettingsState = {
-      goal: "gain_muscle",
+      goal: "muscle_gain",
       level: "beginner",
-      primaryTrack: "upper_lower",
+      primaryTrack: "weights",
       daysPerWeek: 4,
       yogaDaysPerWeek: 0,
       preferredSessionMinutes: 45,
@@ -167,9 +175,9 @@ async function main() {
     };
 
     const initial: SettingsState = {
-      goal: "gain_muscle",
+      goal: "muscle_gain",
       level: "beginner",
-      primaryTrack: "upper_lower",
+      primaryTrack: "weights",
       daysPerWeek: 4,
       yogaDaysPerWeek: 0,
       preferredSessionMinutes: 45,
@@ -236,9 +244,9 @@ async function main() {
     };
 
     const initial: SettingsState = {
-      goal: "gain_muscle",
+      goal: "muscle_gain",
       level: "beginner",
-      primaryTrack: "upper_lower",
+      primaryTrack: "weights",
       daysPerWeek: 4,
       yogaDaysPerWeek: 0,
       preferredSessionMinutes: 45,
