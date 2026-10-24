@@ -207,24 +207,65 @@ export function detectPersonalRecords(
     }
   }
 
-  // Most reps (tracked for both weighted and bodyweight)
-  const mostRepsSet = allSets.reduce((best, current) => {
-    const bestReps = best.reps ?? 0;
-    const currentReps = current.reps ?? 0;
-    return currentReps > bestReps ? current : best;
-  });
-  
-  if ((mostRepsSet.reps ?? 0) > 0) {
-    const e1rm = hasWeight 
-      ? calculateEpley1RM(mostRepsSet.reps, mostRepsSet.weight_kg) ?? undefined
-      : undefined;
-    
-    records.push({
-      type: "most_reps",
-      set: mostRepsSet,
-      value: mostRepsSet.reps!,
-      e1rm,
+  // Most reps: per-weight for weighted exercises, plain for bodyweight
+  if (hasWeight) {
+    // Weighted: find the best reps at each weight or heavier
+    // The "most_reps" PR is the set with the most reps that beats all earlier sets at same or heavier weight
+    let bestRepPRSet: SetData | null = null;
+    let bestRepPRValue = 0;
+
+    // Sort sets chronologically (assume they arrive in order)
+    for (let i = 0; i < allSets.length; i++) {
+      const currentSet = allSets[i];
+      const currentReps = currentSet.reps ?? 0;
+      const currentWeight = currentSet.weight_kg ?? 0;
+      
+      if (currentReps === 0) continue;
+
+      // Find the best reps at currentWeight or heavier in all earlier sets
+      let bestEarlierReps = 0;
+      for (let j = 0; j < i; j++) {
+        const earlierSet = allSets[j];
+        const earlierWeight = earlierSet.weight_kg ?? 0;
+        const earlierReps = earlierSet.reps ?? 0;
+        if (earlierWeight >= currentWeight && earlierReps > bestEarlierReps) {
+          bestEarlierReps = earlierReps;
+        }
+      }
+
+      // If this set beats earlier sets at same or heavier weight, it's a rep PR
+      if (currentReps > bestEarlierReps) {
+        if (bestRepPRSet === null || currentReps > bestRepPRValue) {
+          bestRepPRSet = currentSet;
+          bestRepPRValue = currentReps;
+        }
+      }
+    }
+
+    if (bestRepPRSet && bestRepPRValue > 0) {
+      const e1rm = calculateEpley1RM(bestRepPRSet.reps, bestRepPRSet.weight_kg) ?? undefined;
+      records.push({
+        type: "most_reps",
+        set: bestRepPRSet,
+        value: bestRepPRValue,
+        e1rm,
+      });
+    }
+  } else {
+    // Bodyweight: plain most-reps
+    const mostRepsSet = allSets.reduce((best, current) => {
+      const bestReps = best.reps ?? 0;
+      const currentReps = current.reps ?? 0;
+      return currentReps > bestReps ? current : best;
     });
+    
+    if ((mostRepsSet.reps ?? 0) > 0) {
+      records.push({
+        type: "most_reps",
+        set: mostRepsSet,
+        value: mostRepsSet.reps!,
+      });
+    }
   }
 
   return records;

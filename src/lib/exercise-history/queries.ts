@@ -70,6 +70,7 @@ export async function getLastPerformance(
     .eq("user_id", userId)
     .eq("exercise_id", exerciseId)
     .order("completed_at", { ascending: false })
+    .order("session_exercise_id", { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -211,7 +212,8 @@ export interface ExerciseHistoryOptions {
  * PR detection logic:
  * - A session beats every EARLIER session (chronological by completed_at, then id)
  * - Ties are not PRs
- * - First session is a PR for types where it has a valid value > 0
+ * - First session gets NO badges (baseline rule)
+ * - Weighted most-reps: more reps than any earlier set at same or heavier weight
  * 
  * @param supabase - Authenticated Supabase client
  * @param userId - User ID
@@ -297,6 +299,19 @@ export async function getExerciseHistory(
     };
   }
 
+  // Use the first session's metric as primary (should be consistent for an exercise)
+  const primaryMetric = (allHistoryRows[0]?.metric || "reps") as "reps" | "seconds";
+
+  // Compute current PRs across all history (must be done regardless of displayed page)
+  const allSets: SetData[] = [];
+  for (const row of allHistoryRows) {
+    if (row.session_exercise_id) {
+      const sets = allSetsBySessionExercise.get(row.session_exercise_id) ?? [];
+      allSets.push(...sets);
+    }
+  }
+  const currentPRs = detectPersonalRecords(allSets, primaryMetric);
+
   // Get paginated history rows for display
   const { data: historyRows, error: historyError } = await supabase
     .from("exercise_history")
@@ -315,7 +330,7 @@ export async function getExerciseHistory(
     return {
       sessions: [],
       totalCount,
-      currentPRs: [],
+      currentPRs,
     };
   }
 
@@ -325,21 +340,31 @@ export async function getExerciseHistory(
     .filter((id): id is string => id !== null);
 
   // Fetch all sets in batches to avoid URL length limits
+  // Each batch also needs paging to handle >1000 rows per batch
   const allSetsBySessionExercise = new Map<string, SetData[]>();
   for (let i = 0; i < allSessionExerciseIds.length; i += 100) {
     const batch = allSessionExerciseIds.slice(i, i + 100);
-    const { data: batchSets, error: setsError } = await supabase
-      .from("session_sets")
-      .select("session_exercise_id, reps, weight_kg, duration_seconds")
-      .in("session_exercise_id", batch)
-      .eq("is_warmup_set", false)
-      .order("set_number");
+    
+    // Page through sets for this batch
+    let setOffset = 0;
+    const setPageSize = 1000;
+    while (true) {
+      const { data: batchSets, error: setsError } = await supabase
+        .from("session_sets")
+        .select("session_exercise_id, reps, weight_kg, duration_seconds")
+        .in("session_exercise_id", batch)
+        .eq("is_warmup_set", false)
+        .order("set_number")
+        .range(setOffset, setOffset + setPageSize - 1);
 
-    if (setsError) {
-      throw new Error(`Failed to fetch sets: ${setsError.message}`);
-    }
+      if (setsError) {
+        throw new Error(`Failed to fetch sets: ${setsError.message}`);
+      }
 
-    if (batchSets) {
+      if (!batchSets || batchSets.length === 0) {
+        break;
+      }
+
       for (const set of batchSets) {
         const sets = allSetsBySessionExercise.get(set.session_exercise_id) ?? [];
         sets.push({
@@ -349,21 +374,15 @@ export async function getExerciseHistory(
         });
         allSetsBySessionExercise.set(set.session_exercise_id, sets);
       }
+
+      // If we got fewer than the page size, we've reached the end
+      if (batchSets.length < setPageSize) {
+        break;
+      }
+
+      setOffset += setPageSize;
     }
   }
-
-  // Use the first session's metric as primary (should be consistent for an exercise)
-  const primaryMetric = (allHistoryRows[0]?.metric || "reps") as "reps" | "seconds";
-
-  // Compute current PRs across all history
-  const allSets: SetData[] = [];
-  for (const row of allHistoryRows) {
-    if (row.session_exercise_id) {
-      const sets = allSetsBySessionExercise.get(row.session_exercise_id) ?? [];
-      allSets.push(...sets);
-    }
-  }
-  const currentPRs = detectPersonalRecords(allSets, primaryMetric);
 
   // Build a map of session_exercise_id -> index for PR detection
   const sessionExIdToIndex = new Map<string, number>();
@@ -492,26 +511,47 @@ export async function getExerciseHistory(
         }
       }
 
-      // 3. Most reps for weighted lifts: only at same or heavier weight
+      // 3. Most reps for weighted lifts: per-weight comparison
       // For bodyweight (no weight), use plain most-reps
       if (hasWeight) {
-        // Weighted: most reps only counts at same or heavier weight than earlier best
-        const mostRepsInSession = Math.max(...sets.map(s => s.reps ?? 0));
-        const prevMostReps = prsBefore.find(pr => pr.type === "most_reps");
-        const prevRepsValue = prevMostReps?.value ?? 0;
-        const prevRepsWeight = prevMostReps?.set.weight_kg ?? 0;
+        // Weighted: rep PR means more reps than any earlier set at same or heavier weight
+        // Check each set in this session to see if it beats all earlier sets at its weight or heavier
+        let hasRepPR = false;
+        let repPRSet: SetData | null = null;
+        let repPRValue = 0;
 
-        // Find the weight at which the current session achieved most reps
-        const prSet = sets.find(s => (s.reps ?? 0) === mostRepsInSession) ?? sets[0];
-        const currentWeight = prSet.weight_kg ?? 0;
+        for (const currentSet of sets) {
+          const currentReps = currentSet.reps ?? 0;
+          const currentWeight = currentSet.weight_kg ?? 0;
+          
+          if (currentReps === 0) continue;
 
-        // PR only if: more reps AND at same or heavier weight
-        if (mostRepsInSession > prevRepsValue && currentWeight >= prevRepsWeight) {
-          const e1rm = calculateEpley1RM(prSet.reps, prSet.weight_kg) ?? undefined;
+          // Find the best reps at currentWeight or heavier in earlier sessions
+          let bestEarlierReps = 0;
+          for (const earlierSet of setsBeforeThisSession) {
+            const earlierWeight = earlierSet.weight_kg ?? 0;
+            const earlierReps = earlierSet.reps ?? 0;
+            if (earlierWeight >= currentWeight && earlierReps > bestEarlierReps) {
+              bestEarlierReps = earlierReps;
+            }
+          }
+
+          // PR if current beats best earlier at same or heavier weight
+          if (currentReps > bestEarlierReps) {
+            if (!hasRepPR || currentReps > repPRValue) {
+              hasRepPR = true;
+              repPRSet = currentSet;
+              repPRValue = currentReps;
+            }
+          }
+        }
+
+        if (hasRepPR && repPRSet) {
+          const e1rm = calculateEpley1RM(repPRSet.reps, repPRSet.weight_kg) ?? undefined;
           sessionPRs.push({
             type: "most_reps",
-            set: prSet,
-            value: mostRepsInSession,
+            set: repPRSet,
+            value: repPRValue,
             e1rm,
           });
         }
