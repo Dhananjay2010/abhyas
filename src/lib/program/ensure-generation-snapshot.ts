@@ -50,9 +50,10 @@ export async function ensureGenerationSnapshot(
       .eq("user_id", userId)
       .order("equipment_id"),
     supabase
-      .from("current_injuries")
+      .from("user_injuries")
       .select("body_region")
       .eq("user_id", userId)
+      .eq("severity", "current")
       .order("body_region"),
   ]);
 

@@ -5,24 +5,7 @@
  * Run: npm run test:generation-snapshot
  */
 
-import { isPlanStale } from "../src/app/settings/plan-staleness";
-import type { Database } from "../src/lib/database.types";
-
-type ProfileAnswers = {
-  goal: string;
-  level: string;
-  track: string;
-  daysPerWeek: number;
-  yogaDaysPerWeek: number;
-  sessionMinutes: number;
-  equipmentIds: string[];
-  injuryRegions: string[];
-};
-
-type ActiveBlock = {
-  generation_inputs: Database["public"]["Tables"]["programs"]["Row"]["generation_inputs"];
-  days_per_week: number;
-};
+import { isPlanStale, type ProfileAnswers, type ActiveBlock, type GenerationInputsSnapshot } from "../src/app/settings/plan-staleness";
 
 let passed = 0;
 let failed = 0;
@@ -48,12 +31,13 @@ test("null snapshot + equipment change gives stale after backfill", () => {
   const profile: ProfileAnswers = {
     goal: "strength",
     level: "intermediate",
-    track: "weights",
-    daysPerWeek: 4,
-    yogaDaysPerWeek: 0,
-    sessionMinutes: 60,
-    equipmentIds: ["barbell", "bench"],
-    injuryRegions: [],
+    primary_track: "weights",
+    days_per_week: 4,
+    yoga_days_per_week: 0,
+    preferred_session_minutes: 60,
+    has_all_equipment: false,
+    equipment_ids: ["barbell", "bench"],
+    current_injury_regions: [],
   };
 
   // Block with null generation_inputs (existing user before feature)
@@ -67,17 +51,20 @@ test("null snapshot + equipment change gives stale after backfill", () => {
   assert(!resultBefore.stale, "Should not be stale (fallback matches days)");
 
   // After backfill, snapshot is written with old equipment
+  const snapshot: GenerationInputsSnapshot = {
+    goal: "strength" as const,
+    level: "intermediate" as const,
+    primary_track: "weights" as const,
+    days_per_week: 4,
+    yoga_days_per_week: 0,
+    preferred_session_minutes: 60,
+    has_all_equipment: false,
+    equipment_ids: ["barbell"], // OLD equipment (before change)
+    current_injury_regions: [],
+  };
+  
   const blockAfterBackfill: ActiveBlock = {
-    generation_inputs: {
-      goal: "strength",
-      level: "intermediate",
-      track: "weights",
-      daysPerWeek: 4,
-      yogaDaysPerWeek: 0,
-      sessionMinutes: 60,
-      equipmentIds: ["barbell"], // OLD equipment (before change)
-      injuryRegions: [],
-    },
+    generation_inputs: snapshot,
     days_per_week: 4,
   };
 
@@ -95,12 +82,13 @@ test("null snapshot + no change gives not stale after backfill", () => {
   const profile: ProfileAnswers = {
     goal: "strength",
     level: "intermediate",
-    track: "weights",
-    daysPerWeek: 4,
-    yogaDaysPerWeek: 0,
-    sessionMinutes: 60,
-    equipmentIds: ["barbell", "bench"],
-    injuryRegions: [],
+    primary_track: "weights",
+    days_per_week: 4,
+    yoga_days_per_week: 0,
+    preferred_session_minutes: 60,
+    has_all_equipment: false,
+    equipment_ids: ["barbell", "bench"],
+    current_injury_regions: [],
   };
 
   // Block with null generation_inputs
@@ -114,17 +102,20 @@ test("null snapshot + no change gives not stale after backfill", () => {
   assert(!resultBefore.stale, "Should not be stale before backfill");
 
   // After backfill, snapshot matches current state exactly
+  const snapshot2: GenerationInputsSnapshot = {
+    goal: "strength" as const,
+    level: "intermediate" as const,
+    primary_track: "weights" as const,
+    days_per_week: 4,
+    yoga_days_per_week: 0,
+    preferred_session_minutes: 60,
+    has_all_equipment: false,
+    equipment_ids: ["barbell", "bench"],
+    current_injury_regions: [],
+  };
+  
   const blockAfter: ActiveBlock = {
-    generation_inputs: {
-      goal: "strength",
-      level: "intermediate",
-      track: "weights",
-      daysPerWeek: 4,
-      yogaDaysPerWeek: 0,
-      sessionMinutes: 60,
-      equipmentIds: ["barbell", "bench"],
-      injuryRegions: [],
-    },
+    generation_inputs: snapshot2,
     days_per_week: 4,
   };
 
@@ -138,33 +129,37 @@ test("snapshot written before goal change captures old goal", () => {
   const profileBeforeChange: ProfileAnswers = {
     goal: "strength",
     level: "intermediate",
-    track: "weights",
-    daysPerWeek: 4,
-    yogaDaysPerWeek: 0,
-    sessionMinutes: 60,
-    equipmentIds: ["barbell"],
-    injuryRegions: [],
+    primary_track: "weights",
+    days_per_week: 4,
+    yoga_days_per_week: 0,
+    preferred_session_minutes: 60,
+    has_all_equipment: false,
+    equipment_ids: ["barbell"],
+    current_injury_regions: [],
   };
 
   // Snapshot captured before change
+  const snapshot3: GenerationInputsSnapshot = {
+    goal: "strength" as const, // OLD goal
+    level: "intermediate" as const,
+    primary_track: "weights" as const,
+    days_per_week: 4,
+    yoga_days_per_week: 0,
+    preferred_session_minutes: 60,
+    has_all_equipment: false,
+    equipment_ids: ["barbell"],
+    current_injury_regions: [],
+  };
+  
   const block: ActiveBlock = {
-    generation_inputs: {
-      goal: "strength", // OLD goal
-      level: "intermediate",
-      track: "weights",
-      daysPerWeek: 4,
-      yogaDaysPerWeek: 0,
-      sessionMinutes: 60,
-      equipmentIds: ["barbell"],
-      injuryRegions: [],
-    },
+    generation_inputs: snapshot3,
     days_per_week: 4,
   };
 
-  // User changed goal to endurance
+  // User changed goal to fat loss
   const profileAfterChange: ProfileAnswers = {
     ...profileBeforeChange,
-    goal: "endurance",
+    goal: "fat_loss",
   };
 
   const result = isPlanStale(profileAfterChange, block);
