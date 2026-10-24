@@ -84,10 +84,10 @@ const hasDropFunction = /drop\s+function/i.test(sql);
 check("drop function NOT present", !hasDropFunction);
 
 console.log("\n6. Grants preserved");
-const hasRevoke = /revoke\s+all\s+on\s+function.*from\s+public\s*,\s*anon/i.test(sql);
+const hasRevoke = /revoke\s+all\s+on\s+function[\s\S]*?from\s+public\s*,\s*anon/i.test(sql);
 check("revoke from public, anon", hasRevoke);
 
-const hasGrant = /grant\s+execute\s+on\s+function.*to\s+authenticated/i.test(sql);
+const hasGrant = /grant\s+execute\s+on\s+function[\s\S]*?to\s+authenticated/i.test(sql);
 check("grant to authenticated", hasGrant);
 
 if (failures > 0) {

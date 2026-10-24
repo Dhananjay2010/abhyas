@@ -13,10 +13,6 @@ import { join } from "path";
 import * as ts from "typescript";
 
 let failures = 0;
-function check(label: string, ok: boolean, detail = "") {
-  if (!ok) failures++;
-  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
-}
 
 function findTsxFiles(dir: string): string[] {
   const results: string[] = [];
@@ -75,22 +71,49 @@ function checkButtonsInFile(filePath: string): { ok: boolean; issues: string[] }
         
         // Check for text content in JSX element
         if (ts.isJsxElement(node)) {
-          for (const child of node.children) {
-            if (ts.isJsxText(child)) {
-              const text = child.getText(sourceFile).trim();
-              if (text.length > 0 && /[a-zA-Z]/.test(text)) {
-                hasTextContent = true;
-                break;
-              }
-            } else if (ts.isJsxExpression(child) && child.expression) {
-              // Check if expression is a string literal or template
-              const exprText = child.expression.getText(sourceFile);
-              if (exprText && /[a-zA-Z]/.test(exprText)) {
-                hasTextContent = true;
-                break;
+          function hasTextInChildren(children: ts.NodeArray<ts.JsxChild>): boolean {
+            for (const child of children) {
+              if (ts.isJsxText(child)) {
+                const text = child.getText(sourceFile).trim();
+                if (text.length > 0 && /[a-zA-Z]/.test(text)) {
+                  return true;
+                }
+              } else if (ts.isJsxExpression(child) && child.expression) {
+                // Check if expression is a string literal or template
+                const exprText = child.expression.getText(sourceFile);
+                if (exprText && /[a-zA-Z]/.test(exprText)) {
+                  return true;
+                }
+              } else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
+                // Recursively check nested JSX elements (but not aria-hidden ones)
+                const childTagName = ts.isJsxElement(child)
+                  ? child.openingElement.tagName.getText(sourceFile)
+                  : child.tagName.getText(sourceFile);
+                
+                // Skip aria-hidden elements
+                const childAttrs = ts.isJsxElement(child)
+                  ? child.openingElement.attributes.properties
+                  : child.attributes.properties;
+                
+                let isAriaHidden = false;
+                for (const attr of childAttrs) {
+                  if (ts.isJsxAttribute(attr) && attr.name.getText(sourceFile) === "aria-hidden") {
+                    isAriaHidden = true;
+                    break;
+                  }
+                }
+                
+                if (!isAriaHidden && ts.isJsxElement(child)) {
+                  if (hasTextInChildren(child.children)) {
+                    return true;
+                  }
+                }
               }
             }
+            return false;
           }
+          
+          hasTextContent = hasTextInChildren(node.children);
         }
         
         if (!hasAriaLabel && !hasTextContent) {
