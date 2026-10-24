@@ -6,7 +6,7 @@
  * Exits 0 if all killed, 1 if any survive OR skip OR don't compile.
  */
 
-import { execSync, spawnSync } from 'child_process';
+import { execSync, spawn, type ChildProcess } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 
 interface Mutant {
@@ -106,7 +106,7 @@ const mutants: Mutant[] = [
     file: 'src/lib/program/generate.ts',
     original: 'if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {',
     mutated: 'if (allContraindications.some((r) => input.currentInjuryRegions.includes(r) && !(r === "lower_back" && input.catalogue.length === 0))) {',
-    description: 'Swap path drops lower_back filter (catalogue.length === 0 is never true)',
+    description: 'Swap path drops lower_back filter (the swap path calls isEligible with catalogue: [], so catalogue.length === 0 is always true there)',
   },
   {
     name: 'migration-drop-thruster-update-only',
@@ -132,20 +132,19 @@ if (staleBackups.length > 0) {
   process.exit(1);
 }
 
-// Run unmutated test first
-console.log('Running unmutated test:m3-wrist...');
-const base = spawnSync('npm', ['run', 'test:m3-wrist'], { encoding: 'utf-8', timeout: 180000 });
-if (base.status !== 0) {
-  console.log('FAIL: unmutated test:m3-wrist fails; aborting');
-  process.exit(1);
+// Async child runner: keeps the event loop free so the signal trap below can actually fire
+// (with spawnSync/execSync the loop is blocked and tsx SIGKILLs this process ~30ms after relaying a signal).
+let current: ChildProcess | null = null;
+function run(cmd: string, args: string[]): Promise<{ status: number | null; stdout: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'inherit'] });
+    current = child;
+    let stdout = '';
+    child.stdout?.on('data', (d) => { stdout += String(d); });
+    const timer = setTimeout(() => child.kill('SIGKILL'), 180000);
+    child.on('close', (status) => { clearTimeout(timer); current = null; resolve({ status, stdout }); });
+  });
 }
-console.log('✓ Baseline test passes\n');
-
-let killed = 0;
-let survived = 0;
-let skipped = 0;
-let errors = 0;
-const results: Array<{name: string; status: 'KILLED' | 'SURVIVED' | 'SKIPPED' | 'ERROR'; reason?: string}> = [];
 
 // Active mutation tracking and cleanup trap
 let active: { filepath: string; backupPath: string } | null = null;
@@ -158,11 +157,28 @@ function restoreActive() {
 }
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   process.on(sig, () => {
+    current?.kill('SIGKILL');
     restoreActive();
     process.exit(1);
   });
 }
 process.on('exit', restoreActive);
+
+async function main() {
+// Run unmutated test first
+console.log('Running unmutated test:m3-wrist...');
+const base = await run('npm', ['run', 'test:m3-wrist']);
+if (base.status !== 0) {
+  console.log('FAIL: unmutated test:m3-wrist fails; aborting');
+  process.exit(1);
+}
+console.log('✓ Baseline test passes\n');
+
+let killed = 0;
+let survived = 0;
+let skipped = 0;
+let errors = 0;
+const results: Array<{name: string; status: 'KILLED' | 'SURVIVED' | 'SKIPPED' | 'ERROR'; reason?: string}> = [];
 
 console.log(`\n${"=".repeat(70)}`);
 console.log(`Mutation Testing: ${mutants.length} mutants`);
@@ -218,10 +234,10 @@ for (const mutant of mutants) {
     
     // For TS files, verify compilation
     if (filepath.endsWith('.ts') || filepath.endsWith('.tsx')) {
-      try {
-        execSync('npx tsc --noEmit', {cwd: process.cwd(), stdio: 'pipe', timeout: 180000});
+      const tsc = await run('npx', ['tsc', '--noEmit']);
+      if (tsc.status === 0) {
         console.log(`  Mutant compiles`);
-      } catch {
+      } else {
         console.log(`  SKIP: Does not compile`);
         skipped++;
         results.push({name: mutant.name, status: 'SKIPPED', reason: 'does not compile'});
@@ -230,13 +246,9 @@ for (const mutant of mutants) {
     }
     
     // Run test
-    const testResult = spawnSync('npm', ['run', 'test:m3-wrist'], {
-      cwd: process.cwd(),
-      encoding: 'utf-8',
-      timeout: 180000
-    });
+    const testResult = await run('npm', ['run', 'test:m3-wrist']);
     
-    const hasFail = testResult.stdout?.includes('  FAIL ') || false;
+    const hasFail = testResult.stdout.includes('  FAIL ');
     const exitNonZero = testResult.status !== 0;
     
     if (exitNonZero && hasFail) {
@@ -285,3 +297,10 @@ if (survived > 0 || skipped > 0 || errors > 0) {
   console.log(`\n✓ PASS: All ${killed} mutants killed`);
   process.exit(0);
 }
+}
+
+main().catch((e: unknown) => {
+  console.error(e);
+  restoreActive();
+  process.exit(1);
+});
