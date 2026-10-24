@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   BODY_REGIONS,
@@ -21,6 +21,8 @@ import {
   SESSION_LENGTH_OPTIONS,
   DEFAULT_SESSION_LENGTH,
 } from "@/lib/onboarding/session-length";
+import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
+import { DobInput } from "@/components/onboarding/dob-input";
 import {
   ErrorNote,
   Field,
@@ -117,28 +119,9 @@ export function OnboardingFlow({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // DOB as three separate fields (DD/MM/YYYY) to avoid Chrome's partial-value bug
-  const [dobDay, setDobDay] = useState(() => {
-    if (!initial.dateOfBirth) return "";
-    const [, , day] = initial.dateOfBirth.split("-");
-    return day || "";
-  });
-  const [dobMonth, setDobMonth] = useState(() => {
-    if (!initial.dateOfBirth) return "";
-    const [, month] = initial.dateOfBirth.split("-");
-    return month || "";
-  });
-  const [dobYear, setDobYear] = useState(() => {
-    if (!initial.dateOfBirth) return "";
-    const [year] = initial.dateOfBirth.split("-");
-    return year || "";
-  });
+  // Date of birth as ISO string (YYYY-MM-DD)
+  const [dateOfBirth, setDateOfBirth] = useState<string | null>(initial.dateOfBirth);
   const [dobTouched, setDobTouched] = useState(false);
-  
-  // Refs for DOB field auto-advance
-  const dobDayRef = useRef<HTMLInputElement>(null);
-  const dobMonthRef = useRef<HTMLInputElement>(null);
-  const dobYearRef = useRef<HTMLInputElement>(null);
   
   const [sex, setSex] = useState<Sex | null>(initial.sex);
   const [heightCm, setHeightCm] = useState(initial.heightCm?.toString() ?? "");
@@ -294,76 +277,14 @@ export function OnboardingFlow({
     const height = Number(heightCm);
     const weight = Number(weightKg);
     
-    // Assemble YYYY-MM-DD from three fields
-    const assembleDate = (): string | null => {
-      if (!dobDay || !dobMonth || !dobYear) return null;
-      const day = dobDay.padStart(2, '0');
-      const month = dobMonth.padStart(2, '0');
-      const year = dobYear.padStart(4, '0');
-      return `${year}-${month}-${day}`;
-    };
-    
-    const dateOfBirth = assembleDate();
-    
-    // Parse date as local date (not UTC) to match server-side validation
-    const parseDateAsLocal = (day: number, month: number, year: number): Date | null => {
-      if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
-      if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1000) return null;
-      const date = new Date(year, month - 1, day);
-      // Check that the date is valid (e.g., 31/02 should be invalid)
-      if (date.getDate() !== day || date.getMonth() !== month - 1 || date.getFullYear() !== year) {
-        return null;
-      }
-      return date;
-    };
-    
-    // Compute today in local time
+    // Get today as ISO string for validation
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
-    // Min age bounds: today minus 100 years and today minus 16 years (matches server)
-    const maxDateAllowed = new Date(today);
-    maxDateAllowed.setFullYear(today.getFullYear() - MIN_AGE_YEARS);
-    
-    const minDateAllowed = new Date(today);
-    minDateAllowed.setFullYear(today.getFullYear() - 100);
-    
-    // Validate DOB from three fields
-    const isValidDateOfBirth = (): boolean => {
-      const day = parseInt(dobDay, 10);
-      const month = parseInt(dobMonth, 10);
-      const year = parseInt(dobYear, 10);
-      
-      const date = parseDateAsLocal(day, month, year);
-      if (!date || isNaN(date.getTime())) return false;
-      
-      // Reject today and future dates
-      if (date >= today) return false;
-      
-      // Check bounds
-      if (date < minDateAllowed || date > maxDateAllowed) return false;
-      
-      return true;
-    };
-    
-    // Show DOB error only after blur or when invalid and not empty
-    let dobError: string | null = null;
-    if (dobTouched && dobDay && dobMonth && dobYear) {
-      const day = parseInt(dobDay, 10);
-      const month = parseInt(dobMonth, 10);
-      const year = parseInt(dobYear, 10);
-      const date = parseDateAsLocal(day, month, year);
-      
-      if (!date || isNaN(date.getTime())) {
-        dobError = "Please enter a valid date";
-      } else if (date >= today) {
-        dobError = "Date can't be in the future";
-      } else if (date > maxDateAllowed) {
-        dobError = "You must be at least 16 years old";
-      } else if (date < minDateAllowed) {
-        dobError = "Please check your date of birth";
-      }
-    }
+    // Validate DOB
+    const dobValidationError = dobTouched && dateOfBirth ? validateDob(dateOfBirth, todayIso) : null;
+    const dobError = dobValidationError ? getDobErrorMessage(dobValidationError) : null;
     
     const heightError = heightTouched && heightCm !== "" && (!Number.isFinite(height) || height < 100 || height > 250)
       ? "Height should be between 100 and 250 cm"
@@ -372,8 +293,7 @@ export function OnboardingFlow({
       ? "Weight should be between 25 and 300 kg"
       : null;
     
-    const dobComplete = dobDay !== "" && dobMonth !== "" && dobYear !== "";
-    const dobValid = dobComplete && isValidDateOfBirth();
+    const dobValid = dateOfBirth !== null && dobValidationError === null;
     
     const ready =
       dobValid && sex !== null && height > 0 && weight > 0 && 
@@ -421,97 +341,12 @@ export function OnboardingFlow({
         }
       >
         <div className="space-y-5">
-          <fieldset aria-describedby={dobError ? "dob-error" : undefined}>
-            <legend className="text-sm font-medium text-fg">Date of birth</legend>
-            <div className="mt-2 flex gap-2">
-              <input
-                ref={dobDayRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={2}
-                autoComplete="bday-day"
-                value={dobDay}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, "");
-                  setDobDay(value);
-                  // Auto-advance to month when day is complete
-                  if (value.length === 2) {
-                    dobMonthRef.current?.focus();
-                  }
-                }}
-                onKeyDown={(e) => {
-                  // Backspace in empty field moves back
-                  if (e.key === "Backspace" && dobDay === "") {
-                    e.preventDefault();
-                  }
-                }}
-                onBlur={() => setDobTouched(true)}
-                placeholder="DD"
-                aria-label="Day"
-                className={`w-20 ${inputClass}`}
-              />
-              <span className="flex items-center text-muted">/</span>
-              <input
-                ref={dobMonthRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={2}
-                autoComplete="bday-month"
-                value={dobMonth}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, "");
-                  setDobMonth(value);
-                  // Auto-advance to year when month is complete
-                  if (value.length === 2) {
-                    dobYearRef.current?.focus();
-                  }
-                }}
-                onKeyDown={(e) => {
-                  // Backspace in empty field moves back to day
-                  if (e.key === "Backspace" && dobMonth === "") {
-                    e.preventDefault();
-                    dobDayRef.current?.focus();
-                  }
-                }}
-                onBlur={() => setDobTouched(true)}
-                placeholder="MM"
-                aria-label="Month"
-                className={`w-20 ${inputClass}`}
-              />
-              <span className="flex items-center text-muted">/</span>
-              <input
-                ref={dobYearRef}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                autoComplete="bday-year"
-                value={dobYear}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, "");
-                  setDobYear(value);
-                }}
-                onKeyDown={(e) => {
-                  // Backspace in empty field moves back to month
-                  if (e.key === "Backspace" && dobYear === "") {
-                    e.preventDefault();
-                    dobMonthRef.current?.focus();
-                  }
-                }}
-                onBlur={() => setDobTouched(true)}
-                placeholder="YYYY"
-                aria-label="Year"
-                className={`w-28 ${inputClass}`}
-              />
-            </div>
-            {dobError && (
-              <p id="dob-error" className="mt-1.5 text-sm text-danger" aria-live="polite">
-                {dobError}
-              </p>
-            )}
-          </fieldset>
+          <DobInput
+            value={dateOfBirth}
+            onChange={setDateOfBirth}
+            error={dobError ?? undefined}
+            onBlur={() => setDobTouched(true)}
+          />
 
           <div>
             <span className="text-sm font-medium text-fg">Sex</span>
