@@ -1,11 +1,13 @@
 /**
  * Cached queries for static catalogue data.
  *
- * These use React's `cache()` to deduplicate fetches within a single request
- * and Next.js's data cache (when enabled) to share results across requests.
+ * These use React's `cache()` to deduplicate fetches within a single request.
+ * Multiple components calling the same cached function during one page render
+ * will share the result instead of each issuing a separate database query.
+ *
  * Catalogue tables (breathing patterns, routines, journeys, equipment, yoga
- * playlists/videos) change only when an admin seeds new content, so they are
- * safe to cache.
+ * playlists/videos) change only when an admin seeds new content, so
+ * deduplication within a request is safe.
  */
 
 import { cache } from "react";
