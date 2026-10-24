@@ -99,6 +99,58 @@ import { loadStartProgram, createSupabaseDeps } from "../src/lib/session/load-st
   assert.equal(result2.error, "No plan for today.");
   console.log("✓ superseded day is not picked");
 
+  const mockClientWithSuperseded: { from: (table: string) => { select: (...args: unknown[]) => unknown } } = {
+    from: (table: string) => {
+      let selectClause = "";
+      const filters: Array<{ field: string; value: string }> = [];
+      
+      return {
+        select: (clause: string) => {
+          selectClause = clause;
+          return {
+            eq: (field: string, value: unknown) => {
+              filters.push({ field, value: String(value) });
+              return {
+                eq: (field2: string, value2: unknown) => {
+                  filters.push({ field: field2, value: String(value2) });
+                  return {
+                    maybeSingle: async () => {
+                      if (table === "programs" && filters.some(f => f.field === "id" && f.value === "prog-2")) {
+                        const hasStatusFilter = filters.some(f => f.field === "program_days.status" && f.value === "active");
+                        const programDays = hasStatusFilter
+                          ? [{ id: "day-active-1", day_index: 1, day_type: "weights", focus: "upper", label: "Upper Active" }]
+                          : [
+                              { id: "day-superseded-1", day_index: 1, day_type: "weights", focus: "lower", label: "Lower Superseded" },
+                              { id: "day-active-1", day_index: 1, day_type: "weights", focus: "upper", label: "Upper Active" }
+                            ];
+                        
+                        return {
+                          data: {
+                            id: "prog-2",
+                            started_on: "2026-10-20",
+                            deload_week: 4,
+                            week_offset: 0,
+                            program_days: programDays
+                          }
+                        };
+                      }
+                      return { data: null };
+                    }
+                  };
+                }
+              };
+            }
+          };
+        }
+      };
+    }
+  };
+
+  const result6 = await loadStartProgram(createSupabaseDeps(mockClientWithSuperseded), "prog-2", 1);
+  assert(result6.ok, "should load when status filter returns only active day");
+  assert.equal(result6.dayId, "day-active-1", "when filter is present, should get only active day");
+  console.log("✓ picks active day when both active and superseded days exist for same index");
+
   queryCalls = [];
   const result3 = await loadStartProgram(createSupabaseDeps(mockClient), "prog-1", 7);
   assert(!result3.ok, "day index with no active day should fail");

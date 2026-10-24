@@ -26,6 +26,7 @@ import { loadPlanDay, createSupabaseDeps } from "../src/lib/session/load-plan-da
                       
                       if (table === "program_days") {
                         const hasStatusFilter = filters.some(f => f.field === "status" && f.value === "active");
+                        assert(hasStatusFilter, "status='active' filter is required for program_days queries");
                         
                         if (filters.some(f => f.field === "id" && f.value === "day-active") && hasStatusFilter) {
                           return {
@@ -39,6 +40,10 @@ import { loadPlanDay, createSupabaseDeps } from "../src/lib/session/load-plan-da
                       return { data: null };
                     }
                   };
+                },
+                maybeSingle: async () => {
+                  queryCalls.push({ select: selectClause, filters });
+                  assert.fail("Missing status='active' filter - called maybeSingle without chaining .eq('status', 'active')");
                 }
               };
             }
