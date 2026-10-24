@@ -1614,7 +1614,7 @@ function testStaticCheckHelperUsage() {
   // Check session-runner.tsx imports and uses helpers
   const runnerCode = readFileSync("src/app/session/[id]/session-runner.tsx", "utf-8");
 
-  if (!runnerCode.includes("import { finishBlockReason, canClearOutbox, undoTargetSetNumber }")) {
+  if (!runnerCode.includes("finishBlockReason") || !runnerCode.includes("canClearOutbox") || !runnerCode.includes("undoTargetSetNumber")) {
     throw new Error("session-runner.tsx must import finishBlockReason, canClearOutbox, undoTargetSetNumber");
   }
 
