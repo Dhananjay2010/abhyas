@@ -82,7 +82,7 @@ export async function finishSessionCore(
       startedAt: session.started_at,
       lastSetCompletedAt,
       workingSetCount,
-      restSeconds: lastSetRestSeconds,
+      restSeconds: lastSetRestSeconds ?? undefined,
     });
 
     status = staleFinish.status;
