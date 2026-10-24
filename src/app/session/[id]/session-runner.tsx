@@ -32,7 +32,7 @@ import {
 import { classifyLogSetOutcome, nextSetNumberFor } from "@/lib/session/outbox";
 import { isQuotaError } from "@/lib/session/quota-error";
 import { mapErrorToUserMessage, countLoggedSets } from "@/lib/session/error-messages";
-import { finishBlockReason, canClearOutbox, undoTargetSetNumber } from "@/lib/session/sync-helpers";
+import { finishBlockReason, canClearOutbox, undoTargetSetNumber, countSetsWithFlag } from "@/lib/session/sync-helpers";
 import { useSetOutbox, type SyncState } from "./use-set-outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -288,19 +288,8 @@ export function SessionRunner({
   const { syncState, setSyncState, pendingCount, flush: flushOutbox, enqueue: enqueueSet, remove: removeSet, clear: clearOutbox, isFlushing } = outbox;
 
   // B2: Count unsaved and failed rows across ALL exercises (compute before any phase return)
-  const lostCount = useMemo(() => exercises.reduce((sum, ex) => {
-    return sum + ex.sets.filter((s) => {
-      const meta = s as unknown as { unsaved?: boolean };
-      return meta.unsaved;
-    }).length;
-  }, 0), [exercises]);
-
-  const failedCount = useMemo(() => exercises.reduce((sum, ex) => {
-    return sum + ex.sets.filter((s) => {
-      const meta = s as unknown as { failed?: boolean };
-      return meta.failed;
-    }).length;
-  }, 0), [exercises]);
+  const lostCount = countSetsWithFlag(exercises, 'unsaved');
+  const failedCount = countSetsWithFlag(exercises, 'failed');
 
   // Clear finish-block and quota errors when sync completes
   const prevCountsRef = useRef({ pending: pendingCount, lost: lostCount, failed: failedCount });

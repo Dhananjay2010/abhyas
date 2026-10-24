@@ -81,6 +81,22 @@ export function buildSendResult(
 }
 
 /**
+ * Count sets with a specific flag across all exercises.
+ * Pure helper for testability.
+ */
+export function countSetsWithFlag<T extends { sets: Array<{ [key: string]: unknown }> }>(
+  exercises: T[],
+  flag: 'unsaved' | 'failed' | 'pending'
+): number {
+  return exercises.reduce((sum, ex) => {
+    return sum + ex.sets.filter((s) => {
+      const meta = s as { [key: string]: unknown };
+      return meta[flag] === true;
+    }).length;
+  }, 0);
+}
+
+/**
  * Get the reason string for why finishing is blocked.
  * Returns null if finishing is allowed.
  */
