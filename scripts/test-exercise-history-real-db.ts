@@ -441,6 +441,19 @@ async function runTests() {
 
   console.log("\n8. M1: PR detection - QA scenario B (60 → 62.5 → 65 kg, 3 sets each)");
   {
+    // Use a fresh exercise not used in earlier tests
+    const { data: freshExercises, error: exErr } = await adminClient
+      .from("exercises")
+      .select("id")
+      .limit(10);
+    
+    if (exErr || !freshExercises || freshExercises.length < 4) {
+      console.error("Failed to fetch fresh exercise:", exErr);
+      return false;
+    }
+    
+    const freshExerciseId = freshExercises[3].id; // Use 4th exercise
+    
     const s1 = randomUUID();
     const s2 = randomUUID();
     const s3 = randomUUID();
@@ -456,26 +469,26 @@ async function runTests() {
     if (e1) { console.error("M1 insert sessions failed:", e1); return false; }
 
     const { error: e2 } = await adminClient.from("session_exercises").insert([
-      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exerciseA, metric: "reps", status: "completed", order_index: 0 },
-      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exerciseA, metric: "reps", status: "completed", order_index: 0 },
-      { id: se3, user_id: userIdA, session_id: s3, exercise_id: exerciseA, metric: "reps", status: "completed", order_index: 0 },
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: freshExerciseId, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: freshExerciseId, metric: "reps", status: "completed", order_index: 0 },
+      { id: se3, user_id: userIdA, session_id: s3, exercise_id: freshExerciseId, metric: "reps", status: "completed", order_index: 0 },
     ]);
     if (e2) { console.error("M1 insert session_exercises failed:", e2); return false; }
 
     const { error: e3 } = await adminClient.from("session_sets").insert([
-      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 8, weight_kg: 60 },
-      { user_id: userIdA, session_exercise_id: se1, set_number: 2, reps: 8, weight_kg: 60 },
-      { user_id: userIdA, session_exercise_id: se1, set_number: 3, reps: 8, weight_kg: 60 },
-      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 8, weight_kg: 62.5 },
-      { user_id: userIdA, session_exercise_id: se2, set_number: 2, reps: 8, weight_kg: 62.5 },
-      { user_id: userIdA, session_exercise_id: se2, set_number: 3, reps: 8, weight_kg: 62.5 },
-      { user_id: userIdA, session_exercise_id: se3, set_number: 1, reps: 8, weight_kg: 65 },
-      { user_id: userIdA, session_exercise_id: se3, set_number: 2, reps: 8, weight_kg: 65 },
-      { user_id: userIdA, session_exercise_id: se3, set_number: 3, reps: 8, weight_kg: 65 },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 8, weight_kg: 60, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 2, reps: 8, weight_kg: 60, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 3, reps: 8, weight_kg: 60, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 8, weight_kg: 62.5, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 2, reps: 8, weight_kg: 62.5, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 3, reps: 8, weight_kg: 62.5, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 1, reps: 8, weight_kg: 65, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 2, reps: 8, weight_kg: 65, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 3, reps: 8, weight_kg: 65, is_warmup_set: false },
     ]);
     if (e3) { console.error("M1 insert sets failed:", e3); return false; }
 
-    const history = await getExerciseHistory(supabaseA, userIdA, exerciseA, { limit: 10 });
+    const history = await getExerciseHistory(supabaseA, userIdA, freshExerciseId, { limit: 10 });
 
     // Newest first, so [s3, s2, s1]
     check("M1: returns 3 sessions", history.sessions.length === 3, `got ${history.sessions.length}`);
@@ -550,7 +563,7 @@ async function runTests() {
     if (e2) { console.error("L1 insert session_exercises failed:", e2); return false; }
 
     const { error: e3 } = await adminClient.from("session_sets").insert([
-      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100 },
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
       { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 5, weight_kg: 40, is_warmup_set: true },
     ]);
     if (e3) { console.error("L1 insert sets failed:", e3); return false; }
