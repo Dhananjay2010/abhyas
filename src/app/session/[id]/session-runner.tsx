@@ -28,7 +28,6 @@ import {
   swapExercise,
   type Alternative,
   type SwapResult,
-  type SetConflictResult,
 } from "../actions";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -1258,6 +1257,7 @@ function Shell({
   onExit,
   wakeLock,
   error,
+  message,
   confirmExit = true,
   children,
 }: {
@@ -1267,6 +1267,7 @@ function Shell({
   onExit: () => void;
   wakeLock: { active: boolean };
   error: string | null;
+  message?: string | null;
   /** Off on the summary, where leaving is the expected next step. */
   confirmExit?: boolean;
   children: React.ReactNode;

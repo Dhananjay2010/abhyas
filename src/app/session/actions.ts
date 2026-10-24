@@ -273,7 +273,8 @@ export async function logSet(input: {
 
   const { supabase, user } = await requireUser();
 
-  // Check if a set already exists for this session_exercise_id + set_number
+  // Check if a set already exists for this session_exercise_id + set_number + is_warmup_set
+  // The unique constraint is on all three columns, so warm-up set 1 and working set 1 don't collide
   const { data: existingSet } = await supabase
     .from("session_sets")
     .select("reps, weight_kg, duration_seconds")
@@ -327,6 +328,49 @@ export async function logSet(input: {
     is_warmup_set: false,
     completed_at: new Date().toISOString(),
   });
+
+  // Race condition: if two requests race, the insert hits the unique constraint (Postgres 23505).
+  // Re-read the row, run decideSetWrite again, and return duplicate_ok or conflict.
+  if (error && error.code === "23505") {
+    const { data: racedSet } = await supabase
+      .from("session_sets")
+      .select("reps, weight_kg, duration_seconds")
+      .eq("session_exercise_id", input.sessionExerciseId)
+      .eq("set_number", input.setNumber)
+      .eq("is_warmup_set", false)
+      .maybeSingle();
+
+    const racedDecision = decideSetWrite(racedSet, {
+      reps: input.reps,
+      weightKg: input.weightKg,
+      durationSeconds,
+    });
+
+    if (racedDecision === "duplicate_ok") {
+      return { ok: true };
+    }
+
+    // Conflict after race: return savedSets
+    const { data: allSets } = await supabase
+      .from("session_sets")
+      .select("set_number, reps, weight_kg, duration_seconds")
+      .eq("session_exercise_id", input.sessionExerciseId)
+      .eq("is_warmup_set", false)
+      .order("set_number");
+
+    const savedSets = (allSets ?? []).map((s) => ({
+      setNumber: s.set_number,
+      reps: s.reps,
+      weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
+      durationSeconds: s.duration_seconds,
+    }));
+
+    return {
+      ok: false,
+      reason: "set_exists",
+      savedSets,
+    };
+  }
 
   return error ? { ok: false, error: error.message } : { ok: true };
 }
