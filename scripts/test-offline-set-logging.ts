@@ -11,7 +11,7 @@
  * 6. mergePendingSets correctly merges pending sets into exercises
  */
 
-import { Outbox, mergePendingSets, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
+import { Outbox, mergePendingSets, nextSetNumberFor, isPostgresPermanentError, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
 import { isNetworkError } from "../src/lib/session/network-error";
 import { mapErrorToUserMessage, getRetryDelay } from "../src/lib/session/error-messages";
 
@@ -1028,8 +1028,6 @@ async function testMaxRetries() {
 
 // ---- M4: nextSetNumberFor Handles Gaps -----------------------------------
 function testNextSetNumberWithGaps() {
-  const { nextSetNumberFor } = require("../src/lib/session/outbox");
-
   // Empty array
   if (nextSetNumberFor([]) !== 1) {
     throw new Error("Empty array should return 1");
@@ -1104,8 +1102,6 @@ async function testIsFlushingDuringFlush() {
 
 // ---- M8: Postgres Error Classification -----------------------------------
 function testPostgresErrorClassification() {
-  const { isPostgresPermanentError } = require("../src/lib/session/outbox");
-
   // 22P02: Data exception (invalid text representation)
   if (!isPostgresPermanentError("22P02")) {
     throw new Error("22P02 should be permanent");
