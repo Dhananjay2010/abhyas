@@ -66,6 +66,16 @@ export function prepareOpenSessions(
 }
 
 /**
+ * Build the input for closeStaleSessions from Today page's open sessions query.
+ * Wraps prepareOpenSessions for testability.
+ */
+export function todayCloseInput(
+  openRows: Array<{ id: string; local_date: string; started_at: string | null }> | null
+): OpenSessionForClose[] {
+  return prepareOpenSessions(openRows ?? []);
+}
+
+/**
  * Determine if a session should redirect to /today based on its status.
  * Only completed/skipped sessions redirect; in_progress and planned stay accessible.
  */

@@ -10,6 +10,7 @@ import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
+import { todayCloseInput } from "@/lib/today/session-detection";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -97,7 +98,7 @@ export default async function TodayPage() {
   // A session left open on an earlier day is closed out here. Without this, a
   // workout that was trained but never walked through the summary counted for
   // nothing at all — see lib/session/close-stale.ts. No-op on a normal day.
-  const credited = await closeStaleSessions(supabase, openRes.data ?? [], localToday);
+  const credited = await closeStaleSessions(supabase, todayCloseInput(openRes.data), localToday);
 
   // A four-week block that has run its course rolls over here, on load. Handing
   // it the block we just read makes the common case — the block is current —
