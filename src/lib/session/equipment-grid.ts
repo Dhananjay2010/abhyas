@@ -48,10 +48,10 @@ export const LOADABLE_EQUIPMENT_IDS: ReadonlySet<string> = new Set([
 
 /**
  * Standard kettlebell weights in kg.
- * These follow the international competition standard progression.
+ * These follow the international competition standard progression plus heavy bells.
  * Frozen to prevent mutation of the shared constant.
  */
-export const KETTLEBELL_WEIGHTS_KG: readonly number[] = Object.freeze([4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32]);
+export const KETTLEBELL_WEIGHTS_KG: readonly number[] = Object.freeze([4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48]);
 
 /**
  * Standard kettlebell weights in lb.
