@@ -203,10 +203,6 @@ console.log("\nMutant E: 23505 error is not handled");
 
 console.log("\n=== logSet TESTS ===\n");
 
-type SessionExerciseRow = {
-  sessions: { status: string };
-};
-
 class FakeLogSetClient {
   private sessionStatus: string;
 

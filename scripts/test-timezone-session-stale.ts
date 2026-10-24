@@ -37,7 +37,7 @@ class FakeSupabase {
   private sessions = new Map<string, SessionRow>();
   private sessionExercises = new Map<string, SessionExercise[]>();
 
-  setSession(id: string, status: string, _startedAt: string) {
+  setSession(id: string, status: string) {
     this.sessions.set(id, {
       id,
       status,
@@ -96,7 +96,7 @@ console.log("\n1. Timezone shift doesn't close active session (10 minutes ago)")
   const now = Date.parse("2026-10-24T23:30:00Z");
   const tenMinutesAgo = new Date(now - 10 * 60 * 1000).toISOString();
   
-  fake.setSession("sess1", "in_progress", tenMinutesAgo);
+  fake.setSession("sess1", "in_progress");
   fake.setSessionExercises("sess1", [
     {
       session_id: "sess1",
@@ -122,7 +122,7 @@ console.log("\n2. Inactivity beyond threshold closes session");
   const now = Date.parse("2026-10-24T23:30:00Z");
   const sevenHoursAgo = new Date(now - 7 * 60 * 60 * 1000).toISOString();
   
-  fake.setSession("sess2", "in_progress", sevenHoursAgo);
+  fake.setSession("sess2", "in_progress");
   fake.setSessionExercises("sess2", [
     {
       session_id: "sess2",
@@ -184,7 +184,7 @@ console.log("\n5. Session from yesterday with recent activity stays open");
   const now = Date.parse("2026-10-25T01:00:00Z"); // 1 AM next day
   const fifteenMinutesAgo = new Date(now - 15 * 60 * 1000).toISOString();
   
-  fake.setSession("sess3", "in_progress", "2026-10-24T23:00:00Z");
+  fake.setSession("sess3", "in_progress");
   fake.setSessionExercises("sess3", [
     {
       session_id: "sess3",
@@ -217,8 +217,8 @@ console.log("\n7. Multiple sessions: only stale ones closed");
   const recentActivity = new Date(now - 10 * 60 * 1000).toISOString();
   const staleActivity = new Date(now - 7 * 60 * 60 * 1000).toISOString();
   
-  fake.setSession("recent", "in_progress", recentActivity);
-  fake.setSession("stale", "in_progress", staleActivity);
+  fake.setSession("recent", "in_progress");
+  fake.setSession("stale", "in_progress");
   
   fake.setSessionExercises("recent", [
     { session_id: "recent", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: recentActivity }] },
@@ -244,7 +244,7 @@ console.log("\n8. Session with no started_at is skipped");
   const fake = new FakeSupabase();
   const now = Date.now();
   
-  fake.setSession("nostart", "in_progress", "");
+  fake.setSession("nostart", "in_progress");
   fake.setSessionExercises("nostart", []);
 
   const open: OpenSession[] = [
@@ -265,7 +265,7 @@ console.log("Mutant A: auto-close reverts to local_date comparison");
   const now = Date.parse("2026-10-25T00:15:00Z");
   const tenMinutesAgo = new Date(now - 10 * 60 * 1000).toISOString();
   
-  fake.setSession("ma", "in_progress", "2026-10-24T23:00:00Z");
+  fake.setSession("ma", "in_progress");
   fake.setSessionExercises("ma", [
     { session_id: "ma", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: tenMinutesAgo }] },
   ]);
@@ -291,7 +291,7 @@ console.log("\nMutant B: threshold is inverted (closes if < 6 hours)");
   const now = Date.parse("2026-10-24T15:10:00Z");
   const tenMinutesAgo = new Date(now - 10 * 60 * 1000).toISOString();
   
-  fake.setSession("mb", "in_progress", tenMinutesAgo);
+  fake.setSession("mb", "in_progress");
   fake.setSessionExercises("mb", [
     { session_id: "mb", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: tenMinutesAgo }] },
   ]);
