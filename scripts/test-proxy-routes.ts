@@ -1,14 +1,20 @@
 #!/usr/bin/env tsx
 /**
- * Test: Proxy matcher routes (post-build runtime test)
+ * Test: Proxy matcher routes (post-build runtime test with local Supabase)
  * 
  * This test verifies that the middleware matcher correctly:
  * 1. Protects authenticated routes (redirects to sign-in when signed out)
  * 2. Allows public routes through without redirect
  * 3. Compiles to a regex that doesn't contain literal $ characters
+ * 4. Maintains consistency between MIDDLEWARE_MATCHER and config.matcher
  * 
  * This test runs AFTER build, starts next start on a free port, makes
- * signed-out requests with redirect: manual, and verifies behavior.
+ * signed-out requests with redirect: manual, and verifies behavior against
+ * a real local Supabase instance.
+ * 
+ * L1: Protected routes must return 307/308 with proper Location header
+ * L2: Removed duplicate /today check and unused variable
+ * L3: Added test for MIDDLEWARE_MATCHER and config.matcher consistency
  */
 
 import { spawn, type ChildProcess } from 'child_process';
@@ -115,6 +121,53 @@ async function stopServer(proc: ChildProcess): Promise<void> {
   });
 }
 
+// L3: Test that MIDDLEWARE_MATCHER and config.matcher are consistent
+function testMatcherConsistency(): TestResult[] {
+  const results: TestResult[] = [];
+  const proxyPath = join(process.cwd(), 'src/proxy.ts');
+  
+  try {
+    const proxyContent = readFileSync(proxyPath, 'utf-8');
+    
+    // Extract MIDDLEWARE_MATCHER value
+    const middlewareMatcherMatch = proxyContent.match(/export const MIDDLEWARE_MATCHER = "([^"]+)"/);
+    if (!middlewareMatcherMatch) {
+      return [{
+        passed: false,
+        message: 'Matcher consistency: Could not find MIDDLEWARE_MATCHER export'
+      }];
+    }
+    const middlewareMatcherValue = middlewareMatcherMatch[1];
+    
+    // Extract config.matcher[0] value
+    const configMatcherMatch = proxyContent.match(/matcher: \[\s*"([^"]+)"/);
+    if (!configMatcherMatch) {
+      return [{
+        passed: false,
+        message: 'Matcher consistency: Could not find config.matcher[0]'
+      }];
+    }
+    const configMatcherValue = configMatcherMatch[1];
+    
+    // They must be identical
+    const isConsistent = middlewareMatcherValue === configMatcherValue;
+    results.push({
+      passed: isConsistent,
+      message: isConsistent
+        ? 'Matcher consistency: MIDDLEWARE_MATCHER === config.matcher[0]'
+        : `Matcher consistency: FAILED - MIDDLEWARE_MATCHER (${middlewareMatcherValue}) !== config.matcher[0] (${configMatcherValue})`
+    });
+    
+  } catch (error) {
+    return [{
+      passed: false,
+      message: `Matcher consistency: FAILED to read src/proxy.ts: ${error}`
+    }];
+  }
+  
+  return results;
+}
+
 // Test that the compiled matcher regex doesn't contain literal $
 function testCompiledMatcher(): TestResult[] {
   const results: TestResult[] = [];
@@ -187,29 +240,7 @@ function testCompiledMatcher(): TestResult[] {
       });
     }
 
-    // Test 4: The bug would cause /today$ to match but /today to NOT match
-    // With the fix, /today matches and /today$ should NOT match the middleware
-    // (since the $ makes it not match the actual routes in the app)
-    try {
-      const re = new RegExp(regexp);
-      const matchesToday = re.test('/today');
-      const matchesTodayDollar = re.test('/today$');
-      
-      // The desired behavior: /today matches, /today$ should ideally not match
-      // But /today$ could match if it's just treated as a path string
-      // The key is that /today MUST match
-      results.push({
-        passed: matchesToday,
-        message: matchesToday
-          ? 'Compiled matcher: /today matches (bug fixed)'
-          : 'Compiled matcher: FAILED - /today does not match (bug present)'
-      });
-    } catch (e) {
-      results.push({
-        passed: false,
-        message: `Compiled matcher: FAILED to test /today vs /today$: ${e}`
-      });
-    }
+    // L2: Removed duplicate /today check that was in Test 4
 
   } catch (error) {
     return [{
@@ -221,7 +252,7 @@ function testCompiledMatcher(): TestResult[] {
   return results;
 }
 
-// Test runtime route behavior
+// L1: Test runtime route behavior with STRICT assertions
 async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
   const results: TestResult[] = [];
 
@@ -239,34 +270,28 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
       const location = response.headers.get('location');
 
       if (shouldRedirect) {
-        // Accept either:
-        // 1. Actual redirect (307/308) with sign-in location - proper auth configured
-        // 2. 500 error - middleware ran but crashed (e.g. no Supabase config)
-        // Either proves the middleware IS running
-        // The bug would cause 200 (middleware doesn't run)
+        // L1: STRICT - Protected routes must return 307/308 with proper Location
+        // 500 or 200 are now FAILURES
         const isRedirect = status === 307 || status === 308;
-        const middlewareRan = isRedirect || status === 500;
-        const hasSignInRedirect = location?.includes('/?next=') || location === '/';
+        const hasSignInRedirect = location === '/' || (location?.startsWith('/?next=') === true && location.includes(encodeURIComponent(path)));
         
         return {
-          passed: middlewareRan,
-          message: middlewareRan
-            ? `${description}: ${status}${location ? ` → ${location}` : ''} (middleware ran)`
-            : `${description}: FAILED - expected middleware to run, got ${status}${location ? ` → ${location}` : ''}`
+          passed: isRedirect && hasSignInRedirect,
+          message: isRedirect && hasSignInRedirect
+            ? `${description}: ${status} → ${location}`
+            : `${description}: FAILED - expected 307/308 to /?next=${encodeURIComponent(path)}, got ${status}${location ? ` → ${location}` : ''}`
         };
       } else {
-        // For public routes, accept:
-        // 1. 200/404 - route served correctly
-        // 2. 500 - if middleware incorrectly ran on public path and crashed
-        // The key is: NOT a redirect to sign-in
-        const isNotRedirect = status === 200 || status === 404 || status === 500;
-        const incorrectlyRedirected = (status === 307 || status === 308) && location && location !== path;
+        // L1: STRICT - Public routes must return 200 (or 404 if route doesn't exist)
+        // 500 or redirects are now FAILURES
+        const isSuccess = status === 200 || status === 404;
+        const isRedirect = status === 307 || status === 308;
         
         return {
-          passed: isNotRedirect && !incorrectlyRedirected,
-          message: isNotRedirect && !incorrectlyRedirected
+          passed: isSuccess && !isRedirect,
+          message: isSuccess && !isRedirect
             ? `${description}: ${status} (no redirect)`
-            : `${description}: FAILED - expected no redirect, got ${status}${location ? ` → ${location}` : ''}`
+            : `${description}: FAILED - expected 200/404, got ${status}${location ? ` → ${location}` : ''}`
         };
       }
     } catch (error) {
@@ -281,6 +306,7 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
   results.push(await testRoute('/today', true, 'Protected /today'));
   results.push(await testRoute('/history', true, 'Protected /history'));
   results.push(await testRoute('/settings', true, 'Protected /settings'));
+  results.push(await testRoute('/today$', true, 'Protected /today$ (literal $ in URL)'));
 
   // Test public routes (should NOT redirect)
   results.push(await testRoute('/', false, 'Public /'));
@@ -313,10 +339,6 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
       message: `API /api/in-progress: FAILED - ${error}`
     });
   }
-  
-  // Test that paths with literal $ in URL are treated as non-existent routes
-  // The middleware should still run (redirect to sign-in) because /today$ is not a public path
-  results.push(await testRoute('/today$', true, 'Non-existent path /today$ (literal $ in URL should redirect)'));
 
   return results;
 }
@@ -324,13 +346,22 @@ async function testRuntimeRoutes(baseUrl: string): Promise<TestResult[]> {
 // Main test runner
 async function main() {
   console.log('==========================================');
-  console.log('Testing proxy matcher routes (runtime)');
+  console.log('Testing proxy matcher routes (strict, with local Supabase)');
   console.log('==========================================\n');
 
   let allPassed = true;
 
-  // Step 1: Test compiled matcher
-  console.log('Step 1: Testing compiled matcher...\n');
+  // L3: Test matcher consistency
+  console.log('Step 1: Testing matcher consistency (L3)...\n');
+  const consistencyResults = testMatcherConsistency();
+  for (const result of consistencyResults) {
+    const status = result.passed ? '✓' : '✗';
+    console.log(`${status} ${result.message}`);
+    if (!result.passed) allPassed = false;
+  }
+
+  // Step 2: Test compiled matcher
+  console.log('\nStep 2: Testing compiled matcher...\n');
   const manifestResults = testCompiledMatcher();
   for (const result of manifestResults) {
     const status = result.passed ? '✓' : '✗';
@@ -338,8 +369,8 @@ async function main() {
     if (!result.passed) allPassed = false;
   }
 
-  // Step 2: Start server and test runtime behavior
-  console.log('\nStep 2: Starting Next.js server...\n');
+  // Step 3: Start server and test runtime behavior
+  console.log('\nStep 3: Starting Next.js server...\n');
   const port = await getFreePort();
   console.log(`Using port ${port}`);
   
@@ -350,7 +381,7 @@ async function main() {
     serverProcess = proc;
     console.log(`Server started at ${baseUrl}\n`);
 
-    console.log('Step 3: Testing runtime route behavior...\n');
+    console.log('Step 4: Testing runtime route behavior (L1 strict assertions)...\n');
     const runtimeResults = await testRuntimeRoutes(baseUrl);
     
     for (const result of runtimeResults) {
@@ -371,10 +402,10 @@ async function main() {
 
   console.log('\n==========================================');
   if (allPassed) {
-    console.log('All proxy matcher route tests passed\n');
+    console.log('All proxy matcher route tests passed (strict)\n');
     process.exit(0);
   } else {
-    console.log('Some proxy matcher route tests FAILED\n');
+    console.log('Some proxy matcher route tests FAILED (strict)\n');
     process.exit(1);
   }
 }

@@ -13,9 +13,8 @@
 -- during onboarding. The check constraint from migration 000019 still applies once a value
 -- is set (must be 30, 45, 60, or 75).
 
--- Step 1: Remove NOT NULL constraint
--- Step 1: Remove NOT NULL constraint
+-- Remove NOT NULL constraint
 ALTER TABLE profiles ALTER COLUMN preferred_session_minutes DROP NOT NULL;
 
--- Step 2: Drop the DB default
+-- Drop the DB default
 ALTER TABLE profiles ALTER COLUMN preferred_session_minutes DROP DEFAULT;
