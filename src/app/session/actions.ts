@@ -23,6 +23,76 @@ import { isoWeekday, localDateString } from "@/lib/dates";
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
+/**
+ * Program day exercise with embedded exercise info.
+ */
+type ProgramDayExercise = {
+  exercise_id: string;
+  order_index: number;
+  target_sets: number | null;
+  target_reps_min: number | null;
+  target_reps_max: number | null;
+  rest_seconds: number | null;
+  exercises: { metric?: string } | null;
+};
+
+/**
+ * Session exercise row to insert.
+ */
+type SessionExerciseRow = {
+  session_id: string;
+  user_id: string;
+  exercise_id: string;
+  order_index: number;
+  planned_sets: number | null;
+  planned_reps_min: number | null;
+  planned_reps_max: number | null;
+  rest_seconds: number | null;
+  metric: Database["public"]["Enums"]["exercise_metric"];
+};
+
+/**
+ * Convert program day exercises to session exercise rows, applying deload if needed.
+ *
+ * Week 4 of a block cuts volume; the weight suggestion is reduced separately
+ * when the session is rendered. This is the ONE shared function that applies
+ * deload, used by every path that creates session exercises (startSession,
+ * ensureSessionExercises, train-anyway, swap, tomorrow-choice, rebuild re-point).
+ */
+function prepareSessionExercises(
+  sessionId: string,
+  userId: string,
+  programDayExercises: ProgramDayExercise[],
+  isDeload: boolean,
+): SessionExerciseRow[] {
+  return programDayExercises.map((p) => {
+    const dose = isDeload
+      ? applyDeload({
+          sets: p.target_sets ?? 3,
+          repsMin: p.target_reps_min ?? 8,
+          repsMax: p.target_reps_max ?? 12,
+          restSeconds: p.rest_seconds ?? 75,
+        })
+      : {
+          sets: p.target_sets ?? 3,
+          repsMin: p.target_reps_min ?? 8,
+          repsMax: p.target_reps_max ?? 12,
+          restSeconds: p.rest_seconds ?? 75,
+        };
+    return {
+      session_id: sessionId,
+      user_id: userId,
+      exercise_id: p.exercise_id,
+      order_index: p.order_index,
+      planned_sets: dose.sets,
+      planned_reps_min: dose.repsMin,
+      planned_reps_max: dose.repsMax,
+      rest_seconds: dose.restSeconds,
+      metric: metricOf(p.exercises),
+    };
+  });
+}
+
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
@@ -182,36 +252,8 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
 
   const planned = plannedRes.data;
   if (planned && planned.length > 0) {
-    const { error } = await supabase.from("session_exercises").insert(
-      planned.map((p) => {
-        // Week 4 of a block cuts volume; the weight suggestion is reduced
-        // separately when the session is rendered.
-        const dose = isDeloadWeek
-          ? applyDeload({
-              sets: p.target_sets,
-              repsMin: p.target_reps_min,
-              repsMax: p.target_reps_max,
-              restSeconds: p.rest_seconds,
-            })
-          : {
-              sets: p.target_sets,
-              repsMin: p.target_reps_min,
-              repsMax: p.target_reps_max,
-              restSeconds: p.rest_seconds,
-            };
-        return {
-          session_id: session.id,
-          user_id: user.id, // corrected by the definer trigger
-          exercise_id: p.exercise_id,
-          order_index: p.order_index,
-          planned_sets: dose.sets,
-          planned_reps_min: dose.repsMin,
-          planned_reps_max: dose.repsMax,
-          rest_seconds: dose.restSeconds,
-          metric: metricOf(p.exercises),
-        };
-      }),
-    );
+    const exercises = prepareSessionExercises(session.id, user.id, planned, isDeloadWeek);
+    const { error } = await supabase.from("session_exercises").insert(exercises);
     if (error) return { ok: false, error: error.message };
   }
 
@@ -765,6 +807,9 @@ export async function swapExercise(input: {
  *
  * Idempotent: it does nothing when rows already exist, so it is safe to call
  * on every resume.
+ *
+ * Applies deload if the session is in a deload week, so train-anyway and
+ * tomorrow-choice sessions get the correct volume.
  */
 async function ensureSessionExercises(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
@@ -777,7 +822,7 @@ async function ensureSessionExercises(
   // when they have already been waiting once.
   const { data: session } = await supabase
     .from("sessions")
-    .select("program_day_id, actual_type, session_exercises(id)")
+    .select("program_day_id, actual_type, is_deload, session_exercises(id)")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -794,19 +839,13 @@ async function ensureSessionExercises(
     .order("order_index");
   if (!planned || planned.length === 0) return;
 
-  await supabase.from("session_exercises").insert(
-    planned.map((p) => ({
-      session_id: sessionId,
-      user_id: userId,
-      exercise_id: p.exercise_id,
-      order_index: p.order_index,
-      planned_sets: p.target_sets,
-      planned_reps_min: p.target_reps_min,
-      planned_reps_max: p.target_reps_max,
-      rest_seconds: p.rest_seconds,
-      metric: metricOf(p.exercises),
-    })),
+  const exercises = prepareSessionExercises(
+    sessionId,
+    userId,
+    planned,
+    session.is_deload ?? false,
   );
+  await supabase.from("session_exercises").insert(exercises);
 }
 
 // ---------------------------------------------------------------------------
