@@ -309,6 +309,22 @@ console.log("\n11. Infinity rest uses default 300s");
   );
 }
 
+console.log("\n9. Working sets logged but null lastSet: completed with end=start (main's behavior)");
+{
+  const startedAt = "2026-10-23T14:00:00Z";
+
+  const result = resolveStaleFinish({
+    startedAt,
+    lastSetCompletedAt: null,
+    workingSetCount: 2,
+    restSeconds: 90,
+  });
+
+  assertEquals(result.status, "completed", "Status is completed (not skipped)");
+  assertEquals(result.durationSeconds, 0, "Duration is 0");
+  assertEquals(result.endedAt, startedAt, "Ended at start time (main's behavior)");
+}
+
 console.log(`\n✅ Passed: ${passed}`);
 if (failed > 0) {
   console.log(`❌ Failed: ${failed}`);

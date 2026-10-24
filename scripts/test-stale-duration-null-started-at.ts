@@ -113,6 +113,34 @@ console.log("\n5. No sets (skipped): invalid startedAt still handled");
   }
 }
 
+console.log("\n6. Invalid startedAt with sets: doesn't measure from epoch (no-throw2)");
+{
+  const result = resolveStaleFinish({
+    startedAt: "not-a-date",
+    lastSetCompletedAt: "2026-10-24T10:30:00Z",
+    workingSetCount: 3,
+    restSeconds: 120,
+  });
+
+  check("Status is completed", result.status === "completed");
+  check("Duration is 0 (not ~56 years from epoch)", result.durationSeconds === 0);
+  check("endedAt is valid", !isNaN(Date.parse(result.endedAt)));
+}
+
+console.log("\n7. Null startedAt with sets: doesn't measure from epoch");
+{
+  const result = resolveStaleFinish({
+    startedAt: null,
+    lastSetCompletedAt: "2026-10-24T10:30:00Z",
+    workingSetCount: 3,
+    restSeconds: 120,
+  });
+
+  check("Status is completed", result.status === "completed");
+  check("Duration is 0 (not from epoch)", result.durationSeconds === 0);
+  check("endedAt is valid", !isNaN(Date.parse(result.endedAt)));
+}
+
 console.log(`\n${failed === 0 ? "✅" : "❌"} Passed: ${passed}, Failed: ${failed}\n`);
 
 if (failed > 0) {

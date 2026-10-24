@@ -33,17 +33,29 @@ export function resolveStaleFinish(input: StaleFinishInput): StaleFinish {
   const start = Date.parse(input.startedAt ?? "");
 
   // No sets logged: skipped, duration = 0
-  // Use startedAt or epoch if invalid, like main would
-  if (input.workingSetCount <= 0 || input.lastSetCompletedAt === null) {
+  if (input.workingSetCount <= 0) {
     const safeStartedAt = Number.isFinite(start) && input.startedAt ? input.startedAt : new Date(0).toISOString();
     return { durationSeconds: 0, endedAt: safeStartedAt, status: "skipped" };
   }
 
+  // Working sets exist but no last set timestamp: completed with end=start (main's behavior)
+  if (input.lastSetCompletedAt === null) {
+    const safeStartedAt = Number.isFinite(start) && input.startedAt ? input.startedAt : new Date(0).toISOString();
+    return { durationSeconds: 0, endedAt: safeStartedAt, status: "completed" };
+  }
+
   const lastSetMs = Date.parse(input.lastSetCompletedAt);
 
-  // Handle invalid timestamps gracefully: use the valid one or epoch
-  const safeStart = Number.isFinite(start) ? start : 0;
-  const safeLastSet = Number.isFinite(lastSetMs) ? lastSetMs : safeStart;
+  // Invalid timestamps with sets: avoid measuring from epoch, use duration 0
+  if (!Number.isFinite(start) || !Number.isFinite(lastSetMs)) {
+    const safeEnd = Number.isFinite(lastSetMs) && input.lastSetCompletedAt 
+      ? input.lastSetCompletedAt 
+      : (Number.isFinite(start) && input.startedAt ? input.startedAt : new Date(0).toISOString());
+    return { durationSeconds: 0, endedAt: safeEnd, status: "completed" };
+  }
+
+  const safeStart = start;
+  const safeLastSet = lastSetMs;
 
   // Backward compatibility: when restSeconds is undefined (not passed), end at last set (no rest added)
   let endedAtMs: number;

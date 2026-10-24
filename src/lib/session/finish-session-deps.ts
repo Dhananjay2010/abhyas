@@ -6,7 +6,7 @@ type Client = SupabaseClient<Database>;
 export type SessionRow = {
   started_at: string | null;
   local_date: string;
-  timezone: string;
+  user_id: string;
 };
 
 export type SessionExerciseWithSets = {
@@ -30,6 +30,7 @@ export type ExerciseForUpdate = {
 
 export type FinishSessionDeps = {
   loadSession(id: string): Promise<{ data: SessionRow | null; error: string | null }>;
+  loadTimezone(userId: string): Promise<{ data: { timezone: string | null } | null; error: string | null }>;
   loadExercises(sessionId: string): Promise<{ data: SessionExerciseWithSets[] | null; error: string | null }>;
   updateSession(
     id: string,
@@ -50,36 +51,34 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
     async loadSession(id) {
       const { data, error } = await supabase
         .from("sessions")
-        .select("started_at, local_date, user_id, profiles!inner(timezone)")
+        .select("started_at, local_date, user_id")
         .eq("id", id)
         .maybeSingle();
 
       if (error) return { data: null, error: error.message };
       if (!data) return { data: null, error: null };
-      
-      // Type guard for profiles with timezone
-      function hasTimezone(profiles: unknown): profiles is { timezone: string | null } {
-        return (
-          profiles !== null &&
-          typeof profiles === 'object' &&
-          'timezone' in profiles &&
-          (typeof (profiles as { timezone: unknown }).timezone === 'string' ||
-           (profiles as { timezone: unknown }).timezone === null)
-        );
-      }
-      
-      const timezone = hasTimezone(data.profiles) && data.profiles.timezone
-        ? data.profiles.timezone
-        : 'UTC';
 
       return {
         data: {
           started_at: data.started_at,
           local_date: data.local_date,
-          timezone,
+          user_id: data.user_id,
         },
         error: null,
       };
+    },
+
+    async loadTimezone(userId) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("timezone")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (error) return { data: null, error: error.message };
+      if (!data) return { data: { timezone: null }, error: null };
+
+      return { data: { timezone: data.timezone }, error: null };
     },
 
     async loadExercises(sessionId) {

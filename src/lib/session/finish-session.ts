@@ -2,6 +2,7 @@ import { decideAbandonStatus } from "./abandon-session";
 import { resolveStaleFinish } from "./stale-duration";
 import { isStaleSession } from "./is-stale-session";
 import { exerciseCompletion } from "./completion";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { FinishSessionDeps } from "./finish-session-deps";
 
 export type Result<T = undefined> =
@@ -36,6 +37,12 @@ export async function finishSessionCore(
   if (sessionError) return { ok: false, error: sessionError };
   if (!session) return { ok: false, error: "Session not found" };
 
+  // Load member's timezone
+  const { data: timezoneData, error: timezoneError } = await deps.loadTimezone(session.user_id);
+  if (timezoneError) return { ok: false, error: timezoneError };
+
+  const timezone = resolveTimezoneWithProfile(timezoneData?.timezone);
+
   // Check if any working sets were logged and get last set timestamp
   const { data: exercises, error: readError } = await deps.loadExercises(params.sessionId);
 
@@ -69,7 +76,7 @@ export async function finishSessionCore(
   const stale = isStaleSession({
     startedAt: session.started_at,
     now,
-    timezone: session.timezone,
+    timezone,
   });
 
   let status: "completed" | "skipped";
