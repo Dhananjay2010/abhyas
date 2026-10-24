@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 
 import { branding } from "@/lib/branding";
+import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY, OFFLINE_SCREEN_BUTTON_LABEL } from "@/components/offline-screen";
 
 /**
  * Get the current build version for cache naming.
@@ -50,6 +51,10 @@ const OFFLINE_URL = "/offline";
 const ICON_URL = "${iconUrl}";
 
 // Install: cache the offline page and app icon
+// The offline page is rendered by Next.js at build time and uses shared constants
+// for heading ("${OFFLINE_SCREEN_HEADING}"), body ("${OFFLINE_SCREEN_BODY}"),
+// and button label ("${OFFLINE_SCREEN_BUTTON_LABEL}") to ensure consistency
+// with in-app offline error boundaries.
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {

@@ -4,6 +4,7 @@ import { useEffect, useState, startTransition } from "react";
 import * as Sentry from "@sentry/nextjs";
 import { isOfflineError } from "@/lib/offline-error";
 import { branding } from "@/lib/branding";
+import { OFFLINE_SCREEN_HEADING, OFFLINE_SCREEN_BODY } from "@/components/offline-screen";
 
 export default function GlobalError({
   error,
@@ -111,10 +112,23 @@ export default function GlobalError({
         <main>
           {offline ? (
             <>
-              <h1>You&apos;re offline</h1>
-              <p>
-                This page needs an internet connection. Check your connection and try again.
-              </p>
+              {/* App icon for offline global error */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={branding.icons.icon192}
+                alt=""
+                width="96"
+                height="96"
+                style={{
+                  width: "6rem",
+                  height: "6rem",
+                  margin: "0 auto 2rem",
+                  opacity: 0.8,
+                  display: "block",
+                }}
+              />
+              <h1>{OFFLINE_SCREEN_HEADING}</h1>
+              <p>{OFFLINE_SCREEN_BODY}</p>
             </>
           ) : (
             <>
@@ -125,7 +139,9 @@ export default function GlobalError({
               )}
             </>
           )}
-          <button onClick={handleReset}>Try again</button>
+          <button onClick={handleReset}>
+            {offline ? "Retry" : "Try again"}
+          </button>
         </main>
       </body>
     </html>
