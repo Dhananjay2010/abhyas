@@ -18,7 +18,7 @@ export type ActionResult = {
 
 export class PendingTracker {
   private pending = new Map<string, PendingAction>();
-  private latestResult: ActionResult | null = null;
+  private latestResultByType = new Map<string, ActionResult>();
 
   /**
    * Register a pending action and track its completion.
@@ -30,17 +30,14 @@ export class PendingTracker {
     const id = `${type}-${Date.now()}-${Math.random()}`;
     this.pending.set(id, { id, type, promise });
 
-    // Clear previous result when starting a new action
-    this.latestResult = null;
-
-    // Store result and clean up when done
+    // Store result per action type and clean up when done
     promise.then(
       (result) => {
-        this.latestResult = result;
+        this.latestResultByType.set(type, result);
         this.pending.delete(id);
       },
       () => {
-        this.latestResult = { ok: false, error: "Promise rejected" };
+        this.latestResultByType.set(type, { ok: false, error: "Promise rejected" });
         this.pending.delete(id);
       },
     );
@@ -73,11 +70,11 @@ export class PendingTracker {
   }
 
   /**
-   * Check if the last completed action failed.
-   * Call this after waitForAll() to see if the last save failed.
+   * Check if any recent completed actions failed.
+   * Call this after waitForAll() to see if any saves failed.
    */
   hasRecentFailures(): boolean {
-    return this.latestResult !== null && !this.latestResult.ok;
+    return Array.from(this.latestResultByType.values()).some(result => !result.ok);
   }
 
   /**

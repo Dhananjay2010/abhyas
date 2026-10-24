@@ -26,7 +26,7 @@ function check(label: string, ok: boolean, detail = "") {
 }
 
 async function testOlderActionResolvingAfterNewer() {
-  console.log("\n1. Older action resolving after newer must not overwrite latest result");
+  console.log("\n1. Older action failing BEFORE newer succeeds: failure must be detected");
 
   const tracker = new PendingTracker();
 
@@ -48,24 +48,22 @@ async function testOlderActionResolvingAfterNewer() {
 
   check("Both actions are pending", tracker.pendingCount() === 2);
 
-  // Resolve the newer finishExercise action successfully
-  resolveFinishExercise!({ ok: true });
+  // Resolve the older logSet action with a failure FIRST
+  resolveLogSet!({ ok: false });
   await Promise.resolve(); // Let microtask run
 
-  // Now resolve the older logSet action with a failure
-  resolveLogSet!({ ok: false });
+  // Then resolve the newer finishExercise action successfully
+  resolveFinishExercise!({ ok: true });
   await Promise.resolve(); // Let microtask run
 
   await tracker.waitForAll();
 
-  // After both complete, hasRecentFailures should report the failure
-  // because at least one action type (logSet) failed.
-  // If the code only stores one global latestResult, the older logSet
-  // failure might not be detected correctly.
+  // The logSet failure should still be detected even though finishExercise
+  // succeeded after it. With single latestResult, the success would hide the failure.
   check(
-    "hasRecentFailures detects the logSet failure",
+    "hasRecentFailures detects the logSet failure even though finishExercise succeeded later",
     tracker.hasRecentFailures(),
-    "logSet failed even though it resolved after finishExercise succeeded"
+    "logSet failed, should be detected despite later success"
   );
 }
 
