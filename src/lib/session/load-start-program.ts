@@ -42,7 +42,7 @@ export async function loadStartProgram(
   return { ok: true, program, dayId: day.id };
 }
 
-export function createSupabaseDeps(client: { from: (table: string) => any }): LoadStartProgramDeps {
+export function createSupabaseDeps(client: { from: (table: string) => { select: (...args: unknown[]) => unknown } }): LoadStartProgramDeps {
   return {
     async fetchProgram(programId: string) {
       const { data } = await client

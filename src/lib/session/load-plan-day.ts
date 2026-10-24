@@ -26,7 +26,7 @@ export async function loadPlanDay(
   return { ok: true, day };
 }
 
-export function createSupabaseDeps(client: { from: (table: string) => any }): LoadPlanDayDeps {
+export function createSupabaseDeps(client: { from: (table: string) => { select: (...args: unknown[]) => unknown } }): LoadPlanDayDeps {
   return {
     async fetchDay(dayId: string) {
       const { data } = await client

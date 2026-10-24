@@ -6,7 +6,7 @@ import { loadStartProgram, createSupabaseDeps, type ProgramWithDays, type LoadSt
 
   let queryCalls: Array<{ select: string; filters: Array<{ field: string; value: string }> }> = [];
 
-  const mockClient = {
+  const mockClient: { from: (table: string) => { select: (...args: unknown[]) => unknown } } = {
     from: (table: string) => {
       let selectClause = "";
       const filters: Array<{ field: string; value: string }> = [];
@@ -15,11 +15,11 @@ import { loadStartProgram, createSupabaseDeps, type ProgramWithDays, type LoadSt
         select: (clause: string) => {
           selectClause = clause;
           return {
-            eq: (field: string, value: any) => {
-              filters.push({ field, value });
+            eq: (field: string, value: unknown) => {
+              filters.push({ field, value: String(value) });
               return {
-                eq: (field2: string, value2: any) => {
-                  filters.push({ field: field2, value: value2 });
+                eq: (field2: string, value2: unknown) => {
+                  filters.push({ field: field2, value: String(value2) });
                   return {
                     maybeSingle: async () => {
                       queryCalls.push({ select: selectClause, filters });
@@ -83,7 +83,7 @@ import { loadStartProgram, createSupabaseDeps, type ProgramWithDays, type LoadSt
   };
 
   queryCalls = [];
-  const result1 = await loadStartProgram(createSupabaseDeps(mockClient as any), "prog-1", 1);
+  const result1 = await loadStartProgram(createSupabaseDeps(mockClient), "prog-1", 1);
   assert(result1.ok, "load should succeed for active day");
   assert.equal(result1.program.id, "prog-1");
   assert.equal(result1.dayId, "day-1");
@@ -94,18 +94,18 @@ import { loadStartProgram, createSupabaseDeps, type ProgramWithDays, type LoadSt
   console.log("✓ program_days filtered by status='active'");
 
   queryCalls = [];
-  const result2 = await loadStartProgram(createSupabaseDeps(mockClient as any), "prog-1", 3);
+  const result2 = await loadStartProgram(createSupabaseDeps(mockClient), "prog-1", 3);
   assert(!result2.ok, "day index with superseded status should not be picked when filter is applied");
   assert.equal(result2.error, "No plan for today.");
   console.log("✓ superseded day is not picked");
 
   queryCalls = [];
-  const result3 = await loadStartProgram(createSupabaseDeps(mockClient as any), "prog-1", 7);
+  const result3 = await loadStartProgram(createSupabaseDeps(mockClient), "prog-1", 7);
   assert(!result3.ok, "day index with no active day should fail");
   assert.equal(result3.error, "No plan for today.");
   console.log("✓ day with no active entry returns 'No plan for today.'");
 
-  const mockClientEmpty = {
+  const mockClientEmpty: { from: () => { select: () => { eq: () => { eq: () => { maybeSingle: () => Promise<{ data: null }> } } } } } = {
     from: () => ({
       select: () => ({
         eq: () => ({
@@ -117,12 +117,12 @@ import { loadStartProgram, createSupabaseDeps, type ProgramWithDays, type LoadSt
     })
   };
 
-  const result4 = await loadStartProgram(createSupabaseDeps(mockClientEmpty as any), "prog-missing", 1);
+  const result4 = await loadStartProgram(createSupabaseDeps(mockClientEmpty), "prog-missing", 1);
   assert(!result4.ok, "missing program should fail");
   assert.equal(result4.error, "No plan for today.");
   console.log("✓ missing program returns 'No plan for today.'");
 
-  const mockClientEmptyDays = {
+  const mockClientEmptyDays: { from: () => { select: () => { eq: () => { eq: () => { maybeSingle: () => Promise<{ data: { id: string; started_on: string; deload_week: number; week_offset: number; program_days: never[] } }> } } } } } = {
     from: () => ({
       select: () => ({
         eq: () => ({
@@ -142,7 +142,7 @@ import { loadStartProgram, createSupabaseDeps, type ProgramWithDays, type LoadSt
     })
   };
 
-  const result5 = await loadStartProgram(createSupabaseDeps(mockClientEmptyDays as any), "prog-empty", 1);
+  const result5 = await loadStartProgram(createSupabaseDeps(mockClientEmptyDays), "prog-empty", 1);
   assert(!result5.ok, "program with empty active days list should fail");
   assert.equal(result5.error, "No plan for today.");
   console.log("✓ program with empty active days list returns 'No plan for today.'");
