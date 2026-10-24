@@ -19,6 +19,8 @@ export const dynamic = "force-dynamic";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
+import { loadRetiredDays } from "@/lib/load-retired-days";
+
 export default async function TodayPage() {
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
@@ -241,14 +243,7 @@ export default async function TodayPage() {
     | undefined;
 
   if (retiredDayIds.length > 0) {
-    const { data } = await supabase
-      .from("program_days")
-      .select(
-        "id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))",
-      )
-      .in("id", retiredDayIds)
-      .order("order_index", { referencedTable: "program_day_exercises" });
-    retiredDays = data as typeof retiredDays;
+    retiredDays = await loadRetiredDays(supabase, retiredDayIds) as typeof retiredDays;
   }
 
   // Combine active and retired days for lookup.
