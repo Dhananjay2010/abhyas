@@ -403,7 +403,18 @@ export default async function TodayPage() {
             (s) => s.set_type === "working",
           ).length;
           const plannedSets = r.planned_sets ?? 0;
-          const completion = exerciseCompletion({ workingSetsLogged, plannedSets });
+          const completion = exerciseCompletion(workingSetsLogged, plannedSets);
+
+          let completionLabel = "";
+          let strikethrough = false;
+
+          if (completion === "skipped") {
+            completionLabel = "Skipped";
+            strikethrough = true;
+          } else if (completion === "partial") {
+            completionLabel = `Partly done · ${workingSetsLogged} of ${plannedSets} sets`;
+            strikethrough = false;
+          }
 
           return {
             key: `s${r.order_index}`,
@@ -414,8 +425,8 @@ export default async function TodayPage() {
             repsMin: r.planned_reps_min,
             repsMax: r.planned_reps_max,
             restSeconds: r.rest_seconds,
-            completionLabel: completion.label,
-            strikethrough: completion.strikethrough,
+            completionLabel,
+            strikethrough,
             swappedIn: r.swapped_from_exercise_id !== null,
           };
         })
