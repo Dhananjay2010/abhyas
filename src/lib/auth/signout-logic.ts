@@ -13,7 +13,9 @@ export async function performSignOut(deps: {
 }): Promise<{ ok: false; error: string }> {
   const { error } = await deps.signOut();
   if (error) {
-    return { ok: false, error: error.message };
+    // Log the actual error for debugging, but return a generic message
+    console.error("Sign-out failed:", error.message);
+    return { ok: false, error: "Sign-out failed" };
   }
   // If signOut succeeds, redirect immediately. The redirect throws, so the
   // return type Promise<never | { ok: false }> is correct but TS needs help.

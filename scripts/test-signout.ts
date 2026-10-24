@@ -78,10 +78,10 @@ async function runTests() {
     const result = await performSignOut({ signOut: mockSignOut, redirect: mockRedirect });
 
     check("redirect was not called", !redirectCalled);
-    check("returns error result", !result.ok && result.error === errorMessage, result.ok ? "returned ok: true" : result.error);
+    check("returns generic error", !result.ok && result.error === "Sign-out failed", result.ok ? "returned ok: true" : result.error);
   }
 
-  console.log("\n3. Sign-out returns error message to caller");
+  console.log("\n3. Sign-out returns generic error message");
   {
     const errorMessage = "Invalid session";
 
@@ -96,7 +96,7 @@ async function runTests() {
     const result = await performSignOut({ signOut: mockSignOut, redirect: mockRedirect });
 
     check("result.ok is false", result.ok === false);
-    check("result.error matches error message", !result.ok && result.error === errorMessage, !result.ok ? result.error : "ok: true");
+    check("result.error is generic", !result.ok && result.error === "Sign-out failed", !result.ok ? result.error : "ok: true");
   }
 
   console.log("\n4. Sign-out calls redirect with correct path");
