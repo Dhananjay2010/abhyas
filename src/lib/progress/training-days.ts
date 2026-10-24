@@ -1,52 +1,53 @@
 import type { Database } from "@/lib/database.types";
 
-type DayType = Database["public"]["Enums"]["day_type"];
 type SessionType = Database["public"]["Enums"]["day_type"];
 
 /**
- * SHARED RULE (h3 decision, 2026-10-24):
+ * SHARED RULES (h3 decision, 2026-10-24):
  *
- * Strength and yoga sessions count toward streaks and "days trained".
- * Breathing practices do NOT count.
+ * 1. TRAINING DAYS & STREAKS: Strength (weights/bodyweight) and yoga sessions
+ *    count toward "days trained" and streaks. Breathing practices do NOT count.
+ *
+ * 2. PLANNING: Only strength sessions (weights/bodyweight) settle a day for
+ *    planning purposes. Yoga and breathing are "anytime" activities that don't
+ *    block planning a strength workout.
  *
  * Per SPEC.md §6: "Yoga days **count as training days** and are placed to
  * avoid sitting next to the heaviest leg day."
  *
- * This rule applies to:
- * - Streak calculation (current, longest, days trained)
- * - Session ownership (whether a session "owns" the day for planning)
- * - Progress stats
- * - History display
- * - Today's prompt logic
- *
- * Breathing practices appear in History and have their own week strip on the
- * Breathe tab, labeled clearly as "Breathing practice" to avoid confusion.
+ * These rules apply to streak calculation, progress stats, history display,
+ * and Today's prompt logic.
  */
 
 /**
- * Returns true if a day type represents a training day that counts toward
- * streaks and "days trained" statistics.
+ * Returns true if a session type counts toward "days trained" and streaks.
+ * 
+ * Product rule: ANY completed strength or yoga session counts, regardless of
+ * the template schedule. A "train anyway" session on a rest day counts.
+ * Breathing practices never count.
  *
- * Training days: weights, bodyweight, yoga
+ * Training sessions: weights, bodyweight, yoga
  * Non-training: rest, active_recovery, meditation (breathing)
  */
-export function isTrainingDay(dayType: DayType): boolean {
-  return dayType === "weights" || dayType === "bodyweight" || dayType === "yoga";
+export function countsTowardStreak(sessionType: SessionType | null): boolean {
+  if (!sessionType) return false;
+  return sessionType === "weights" || sessionType === "bodyweight" || sessionType === "yoga";
 }
 
 /**
- * Returns true if a completed session "owns the day" — meaning it counts
- * toward the streak and prevents the "missed day" prompt.
+ * Returns true if a completed session "owns the day" for planning purposes —
+ * meaning it settles the day and blocks planning another strength workout.
  *
- * Same rule as isTrainingDay: strength (weights/bodyweight) and yoga count;
- * breathing practices (meditation type) do not.
+ * Only STRENGTH sessions settle the day. Yoga and breathing are "anytime"
+ * activities: a yoga or breathing session in the morning doesn't make the
+ * day unplannable for a strength workout.
  *
- * Used in session/actions.ts for planning logic: a completed breathing session
- * still leaves the day available for a strength or yoga session.
+ * Used in session/actions.ts: a completed breathing or yoga session still
+ * leaves the day available for a strength session.
  */
-export function sessionOwnsDay(sessionType: SessionType | null): boolean {
+export function ownsPlannedWorkout(sessionType: SessionType | null): boolean {
   if (!sessionType) return false;
-  return isTrainingDay(sessionType);
+  return sessionType === "weights" || sessionType === "bodyweight";
 }
 
 /**
@@ -57,20 +58,5 @@ export function sessionOwnsDay(sessionType: SessionType | null): boolean {
 export function countTrainingSessions(
   sessions: Array<{ status: string; actual_type: SessionType | null }>,
 ): number {
-  return sessions.filter((s) => s.status === "completed" && sessionOwnsDay(s.actual_type)).length;
-}
-
-/**
- * Check if a date has a completed training session.
- *
- * Used by buildDayRecords when constructing streak history.
- */
-export function dateHasTrainingSession(
-  sessions: Array<{ local_date: string; status: string; actual_type: SessionType | null }>,
-  date: string,
-): boolean {
-  return sessions.some(
-    (s) =>
-      s.local_date === date && s.status === "completed" && sessionOwnsDay(s.actual_type),
-  );
+  return sessions.filter((s) => s.status === "completed" && countsTowardStreak(s.actual_type)).length;
 }

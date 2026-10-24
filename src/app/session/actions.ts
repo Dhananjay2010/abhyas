@@ -5,7 +5,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
-import { sessionOwnsDay } from "@/lib/progress/training-days";
+import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import {
   describePersonalBest,
   evaluateProgression,
@@ -107,7 +107,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
         Only the day's own workout qualifies. A skipped yoga or breathing row must
         not be turned into a strength session.
       */
-      todayRows.find((s) => s.status === "skipped" && sessionOwnsDay(s.actual_type))
+      todayRows.find((s) => s.status === "skipped" && ownsPlannedWorkout(s.actual_type))
     : // When resume is disabled, only reuse a planned session (from the "what
       // about tomorrow?" prompt), never one that was started and abandoned.
       todayRows.find((s) => s.status === "planned");
@@ -316,27 +316,15 @@ export async function finishExercise(input: {
 }): Promise<Result<ProgressionFeedback | null>> {
   const { supabase, user } = await requireUser();
 
-  // k1: Conditional update - only proceed if exercise wasn't already finished.
-  // This prevents double progression from retries or multiple tabs.
-  const { data: updated, error } = await supabase
+  const { error } = await supabase
     .from("session_exercises")
     .update({
       status: input.skipped ? "skipped" : "completed",
       feel: input.feel,
       completed_at: new Date().toISOString(),
     })
-    .eq("id", input.sessionExerciseId)
-    .neq("status", "completed")
-    .neq("status", "skipped")
-    .select("id")
-    .maybeSingle();
-
+    .eq("id", input.sessionExerciseId);
   if (error) return { ok: false, error: error.message };
-
-  // If no row was updated, exercise was already finished - return success without progression
-  if (!updated) {
-    return { ok: true, data: null };
-  }
 
   if (input.skipped) return { ok: true, data: null };
 
@@ -520,24 +508,20 @@ export async function finishSession(input: {
 }): Promise<Result> {
   const { supabase } = await requireUser();
   
-  // Read current duration to accumulate
-  const { data: current } = await supabase
-    .from("sessions")
-    .select("duration_seconds")
-    .eq("id", input.sessionId)
-    .single();
-  
-  const accumulated = (current?.duration_seconds ?? 0) + Math.round(input.durationSeconds);
-  
+  // Safety: Only update if status is still 'in_progress' to prevent double-accumulation on retry.
+  // The client's elapsed time is already cumulative (wall clock from started_at), so we can
+  // store it directly when completing.
   const { error } = await supabase
     .from("sessions")
     .update({
       status: "completed",
       completed_at: new Date().toISOString(),
-      duration_seconds: accumulated,
+      duration_seconds: Math.round(input.durationSeconds),
       cooldown_completed: input.cooldownCompleted,
     })
-    .eq("id", input.sessionId);
+    .eq("id", input.sessionId)
+    .eq("status", "in_progress"); // Only complete once
+    
   if (error) return { ok: false, error: error.message };
 
   // Deliberately NOT revalidating here. Revalidating refreshes the session
@@ -551,9 +535,14 @@ export async function finishSession(input: {
  * End a session early.
  *
  * If the user logged at least one working set, the session counts as completed
- * (g2 fix). The elapsed time is saved so it can be accumulated on resume (g3 fix).
- * Only a session with no working sets at all is marked skipped.
+ * (g2 fix). Only a session with no working sets at all is marked skipped.
  * Warm-up sets don't count as training.
+ *
+ * Safety note: Completed sessions are NOT resumable (startSession only resumes
+ * planned/in_progress/skipped). This is intentional - a session with working sets
+ * logged counts toward streak/days trained and shows in History as completed, not
+ * skipped. The tradeoff: user cannot resume after early end if they had sets.
+ * Alternative would be a new status like "partial" that's resumable but counts.
  */
 export async function abandonSession(
   sessionId: string,
@@ -572,23 +561,20 @@ export async function abandonSession(
     return sets.some((s) => !s.is_warmup_set);
   });
   
-  // Read current duration to accumulate
-  const { data: current } = await supabase
-    .from("sessions")
-    .select("duration_seconds")
-    .eq("id", sessionId)
-    .single();
+  const status = hasWorkingSets ? "completed" : "skipped";
   
-  const accumulated = (current?.duration_seconds ?? 0) + Math.round(elapsedSeconds);
-  
+  // Safety: Only update if status is 'in_progress' to prevent double-accumulation on retry.
+  // The client's elapsed time is cumulative (wall clock from started_at).
   const { error } = await supabase
     .from("sessions")
     .update({ 
-      status: hasWorkingSets ? "completed" : "skipped",
+      status,
       completed_at: hasWorkingSets ? new Date().toISOString() : null,
-      duration_seconds: accumulated,
+      duration_seconds: Math.round(elapsedSeconds),
     })
-    .eq("id", sessionId);
+    .eq("id", sessionId)
+    .eq("status", "in_progress"); // Only abandon once
+    
   if (error) return { ok: false, error: error.message };
   revalidateTrainingData();
   return { ok: true };
@@ -940,7 +926,7 @@ export async function planDay(input: {
 
   const settled = (existing ?? []).find(
     (s) =>
-      sessionOwnsDay(s.actual_type) &&
+      ownsPlannedWorkout(s.actual_type) &&
       (s.status === "completed" || s.status === "in_progress"),
   );
   if (settled) {

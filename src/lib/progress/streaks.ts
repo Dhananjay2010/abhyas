@@ -1,17 +1,25 @@
 import type { Database } from "@/lib/database.types";
 
 import { dateRange, isoWeekday } from "@/lib/dates";
-import { isTrainingDay } from "./training-days";
+import { countsTowardStreak } from "./training-days";
 
 export { dateRange, isoWeekday };
 
 type DayType = Database["public"]["Enums"]["day_type"];
+type SessionType = Database["public"]["Enums"]["day_type"];
 
 export type DayRecord = {
   /** ISO date in the user's own timezone, e.g. "2026-09-08". */
   localDate: string;
+  /** The template schedule for this day. */
   dayType: DayType;
+  /** True if a session was completed on this date. */
   completed: boolean;
+  /**
+   * The actual session type completed on this date (when completed is true).
+   * Null when no session was completed.
+   */
+  actualSessionType: SessionType | null;
 };
 
 export type Streaks = {
@@ -23,44 +31,68 @@ export type Streaks = {
 const RESTFUL: ReadonlySet<DayType> = new Set<DayType>(["rest", "active_recovery", "meditation"]);
 
 /**
- * Streaks counted in scheduled training days, not calendar days.
+ * Streaks are counted based on ACTUAL completed sessions, not the template schedule.
  *
- * A rest day is part of the plan, so it neither extends nor breaks a streak —
- * it is skipped over. Only a scheduled active day that was not completed
- * breaks it. Today is also skipped when incomplete, because the day is not
- * over yet and a half-finished Tuesday should not read as a failure.
+ * Product rule (2026-10-24): ANY completed strength or yoga session counts toward
+ * the streak and "days trained", regardless of what the template says about that day.
+ * A "train anyway" session on a template rest day counts. Breathing practices never count.
  *
- * Per h3 decision (2026-10-24): Strength (weights/bodyweight) and yoga count
- * toward streaks. Breathing practices (meditation) do NOT count — they are
- * treated as restful days and skipped in streak calculation.
+ * CRITICAL: Streak and "days trained" MUST count the same set of sessions.
+ * Both use countsTowardStreak() to ensure they agree.
+ *
+ * A template rest day with no session neither extends nor breaks the streak — it is
+ * skipped. Only a scheduled training day that was not completed breaks the streak.
+ * Today is also skipped when incomplete, because the day is not over yet.
  *
  * `days` must be ordered oldest first.
  */
 export function computeStreaks(days: DayRecord[], today: string): Streaks {
-  const totalSessions = days.filter((d) => d.completed && isTrainingDay(d.dayType)).length;
+  // Days trained: count actual completed sessions that qualify
+  const totalSessions = days.filter(
+    (d) => d.completed && countsTowardStreak(d.actualSessionType)
+  ).length;
 
   let current = 0;
   for (let i = days.length - 1; i >= 0; i--) {
     const d = days[i];
     if (d.localDate > today) continue;
-    if (RESTFUL.has(d.dayType)) continue;
-    if (d.localDate === today && !d.completed) continue;
-    if (d.completed) current++;
-    else break;
+    
+    // If completed, check actual session type (handles "train anyway")
+    if (d.completed && d.actualSessionType) {
+      if (countsTowardStreak(d.actualSessionType)) {
+        current++;
+      }
+      // Breathe-only days don't count but don't break the streak either
+      continue;
+    }
+    
+    // Not completed: rest days don't break streak, training days do
+    if (d.localDate === today) continue; // Today incomplete is not a failure
+    if (RESTFUL.has(d.dayType)) continue; // Template rest day, no session
+    // Missed a scheduled training day
+    break;
   }
 
   let longest = 0;
   let run = 0;
   for (const d of days) {
     if (d.localDate > today) break;
-    if (RESTFUL.has(d.dayType)) continue;
-    if (d.localDate === today && !d.completed) continue;
-    if (d.completed) {
-      run++;
-      if (run > longest) longest = run;
-    } else {
-      run = 0;
+    
+    // If completed, check actual session type
+    if (d.completed && d.actualSessionType) {
+      if (countsTowardStreak(d.actualSessionType)) {
+        run++;
+        if (run > longest) longest = run;
+      }
+      // Breathe-only days don't count but don't break the streak
+      continue;
     }
+    
+    // Not completed: rest days don't break streak, training days do
+    if (d.localDate === today) continue;
+    if (RESTFUL.has(d.dayType)) continue;
+    // Missed a scheduled training day
+    run = 0;
   }
 
   return { current, longest: Math.max(longest, current), totalSessions };
@@ -76,15 +108,19 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
  * to the most recent program that had already started. Recency matters: a block
  * rebuilt on the same day leaves two programs covering that date, and only the
  * newer one reflects what the user is actually doing.
+ *
+ * Now also tracks the ACTUAL session type completed on each date, so "train anyway"
+ * sessions on template rest days count toward streaks.
  */
 export function buildDayRecords(input: {
   programs: { id: string; startedOn: string; endsOn: string }[];
   /** programId -> weekday (1..7) -> day type */
   dayTypesByProgram: Record<string, Record<number, DayType>>;
-  completedDates: Set<string>;
+  /** Completed sessions with their actual types */
+  completedSessions: Array<{ local_date: string; actual_type: SessionType | null }>;
   today: string;
 }): DayRecord[] {
-  const { programs, dayTypesByProgram, completedDates, today } = input;
+  const { programs, dayTypesByProgram, completedSessions, today } = input;
   if (programs.length === 0) return [];
 
   const ordered = [...programs].sort((a, b) => a.startedOn.localeCompare(b.startedOn));
@@ -97,6 +133,12 @@ export function buildDayRecords(input: {
   // the session the user had just finished.
   const newestFirst = [...ordered].reverse();
 
+  // Map dates to their actual session types
+  const sessionsByDate = new Map<string, SessionType | null>();
+  for (const s of completedSessions) {
+    sessionsByDate.set(s.local_date, s.actual_type);
+  }
+
   return dateRange(first, today).map((date) => {
     const covering =
       newestFirst.find((p) => p.startedOn <= date && p.endsOn >= date) ??
@@ -105,6 +147,9 @@ export function buildDayRecords(input: {
     const dayType =
       (covering && dayTypesByProgram[covering.id]?.[isoWeekday(date)]) ?? "rest";
 
-    return { localDate: date, dayType, completed: completedDates.has(date) };
+    const actualSessionType = sessionsByDate.get(date) ?? null;
+    const completed = actualSessionType !== null;
+
+    return { localDate: date, dayType, completed, actualSessionType };
   });
 }

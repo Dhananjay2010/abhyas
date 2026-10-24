@@ -97,9 +97,9 @@ export default async function ProgressPage() {
   const dayRecords = buildDayRecords({
     programs,
     dayTypesByProgram,
-    completedDates: new Set(
-      (sessionsRes.data ?? []).filter((s) => s.status === "completed").map((s) => s.local_date),
-    ),
+    completedSessions: (sessionsRes.data ?? [])
+      .filter((s) => s.status === "completed")
+      .map((s) => ({ local_date: s.local_date, actual_type: s.actual_type })),
     today,
   });
 
