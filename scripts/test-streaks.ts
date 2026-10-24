@@ -397,27 +397,27 @@ console.log("\n17. M3: Streak consistent before/after rollover");
   ];
   
   const dayTypes = {
-    p1: { 1: "weights", 2: "weights", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" }, // Mon-Wed
+    p1: { 1: "weights" as const, 2: "weights" as const, 3: "weights" as const, 4: "rest" as const, 5: "rest" as const, 6: "rest" as const, 7: "rest" as const }, // Mon-Wed
   };
   
   const sessions = [
     // 16 sessions in block 1
-    { local_date: "2026-09-01", actual_type: "weights", status: "completed", working_set_count: 3 }, // Mon
-    { local_date: "2026-09-02", actual_type: "weights", status: "completed", working_set_count: 3 }, // Tue
-    { local_date: "2026-09-03", actual_type: "weights", status: "completed", working_set_count: 3 }, // Wed
-    { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-09-10", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-09-15", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-09-16", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-09-17", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-09-22", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-09-23", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-09-24", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-09-29", actual_type: "weights", status: "completed", working_set_count: 3 }, // Last week
-    { local_date: "2026-09-30", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-10-01", actual_type: "weights", status: "completed", working_set_count: 3 },
-    { local_date: "2026-10-06", actual_type: "weights", status: "completed", working_set_count: 3 }, // After block ended
+    { local_date: "2026-09-01", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Mon
+    { local_date: "2026-09-02", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Tue
+    { local_date: "2026-09-03", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Wed
+    { local_date: "2026-09-08", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-09", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-10", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-15", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-16", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-17", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-22", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-23", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-24", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-09-29", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Last week
+    { local_date: "2026-09-30", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-10-01", actual_type: "weights" as const, status: "completed", working_set_count: 3 },
+    { local_date: "2026-10-06", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // After block ended
   ];
   
   // BEFORE rollover: no block 2 exists yet, today is 10-13 (Mon, training day that was missed)
@@ -438,7 +438,7 @@ console.log("\n17. M3: Streak consistent before/after rollover");
     ],
     dayTypesByProgram: {
       ...dayTypes,
-      p2: { 1: "weights", 2: "weights", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" },
+      p2: { 1: "weights" as const, 2: "weights" as const, 3: "weights" as const, 4: "rest" as const, 5: "rest" as const, 6: "rest" as const, 7: "rest" as const },
     },
     completedSessions: sessions,
     today: "2026-10-13",
