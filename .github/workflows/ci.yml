@@ -41,3 +41,153 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
+  database-seed-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase local stack
+        run: supabase start
+
+      - name: Run database reset with seed
+        run: supabase db reset
+
+      - name: Verify seed data
+        run: |
+          # Query the database to verify seed data was loaded correctly
+          supabase db execute --query "
+            DO \$\$
+            DECLARE
+              test_user_count INT;
+              test_program_count INT;
+              test_program_day_count INT;
+              upper_a_exercises INT;
+              lower_a_exercises INT;
+              upper_b_exercises INT;
+              lower_b_exercises INT;
+              test_session_count INT;
+              test_session_sets INT;
+              test_exercise_progress INT;
+            BEGIN
+              -- Check test user exists
+              SELECT COUNT(*) INTO test_user_count 
+              FROM auth.users 
+              WHERE id = '00000000-0000-0000-0000-000000000001';
+              
+              IF test_user_count != 1 THEN
+                RAISE EXCEPTION 'Expected 1 test user, found %', test_user_count;
+              END IF;
+              
+              -- Check program exists
+              SELECT COUNT(*) INTO test_program_count 
+              FROM programs 
+              WHERE user_id = '00000000-0000-0000-0000-000000000001' AND status = 'active';
+              
+              IF test_program_count != 1 THEN
+                RAISE EXCEPTION 'Expected 1 active program, found %', test_program_count;
+              END IF;
+              
+              -- Check all program days exist (4 weights + 3 rest = 7 total)
+              SELECT COUNT(*) INTO test_program_day_count 
+              FROM program_days pd 
+              JOIN programs p ON pd.program_id = p.id 
+              WHERE p.user_id = '00000000-0000-0000-0000-000000000001';
+              
+              IF test_program_day_count != 7 THEN
+                RAISE EXCEPTION 'Expected 7 program days, found %', test_program_day_count;
+              END IF;
+              
+              -- Check Upper A has 5 exercises
+              SELECT COUNT(*) INTO upper_a_exercises 
+              FROM program_day_exercises pde 
+              JOIN program_days pd ON pde.program_day_id = pd.id 
+              JOIN programs p ON pd.program_id = p.id 
+              WHERE p.user_id = '00000000-0000-0000-0000-000000000001' 
+              AND pd.label = 'Upper A';
+              
+              IF upper_a_exercises != 5 THEN
+                RAISE EXCEPTION 'Expected 5 Upper A exercises, found %', upper_a_exercises;
+              END IF;
+              
+              -- Check Lower A has 5 exercises
+              SELECT COUNT(*) INTO lower_a_exercises 
+              FROM program_day_exercises pde 
+              JOIN program_days pd ON pde.program_day_id = pd.id 
+              JOIN programs p ON pd.program_id = p.id 
+              WHERE p.user_id = '00000000-0000-0000-0000-000000000001' 
+              AND pd.label = 'Lower A';
+              
+              IF lower_a_exercises != 5 THEN
+                RAISE EXCEPTION 'Expected 5 Lower A exercises, found %', lower_a_exercises;
+              END IF;
+              
+              -- Check Upper B has 5 exercises
+              SELECT COUNT(*) INTO upper_b_exercises 
+              FROM program_day_exercises pde 
+              JOIN program_days pd ON pde.program_day_id = pd.id 
+              JOIN programs p ON pd.program_id = p.id 
+              WHERE p.user_id = '00000000-0000-0000-0000-000000000001' 
+              AND pd.label = 'Upper B';
+              
+              IF upper_b_exercises != 5 THEN
+                RAISE EXCEPTION 'Expected 5 Upper B exercises, found %', upper_b_exercises;
+              END IF;
+              
+              -- Check Lower B has 5 exercises
+              SELECT COUNT(*) INTO lower_b_exercises 
+              FROM program_day_exercises pde 
+              JOIN program_days pd ON pde.program_day_id = pd.id 
+              JOIN programs p ON pd.program_id = p.id 
+              WHERE p.user_id = '00000000-0000-0000-0000-000000000001' 
+              AND pd.label = 'Lower B';
+              
+              IF lower_b_exercises != 5 THEN
+                RAISE EXCEPTION 'Expected 5 Lower B exercises, found %', lower_b_exercises;
+              END IF;
+              
+              -- Check completed session exists
+              SELECT COUNT(*) INTO test_session_count 
+              FROM sessions 
+              WHERE user_id = '00000000-0000-0000-0000-000000000001' AND status = 'completed';
+              
+              IF test_session_count < 1 THEN
+                RAISE EXCEPTION 'Expected at least 1 completed session, found %', test_session_count;
+              END IF;
+              
+              -- Check session has 4 bench press sets
+              SELECT COUNT(*) INTO test_session_sets 
+              FROM session_sets ss 
+              JOIN session_exercises se ON ss.session_exercise_id = se.id 
+              JOIN sessions s ON se.session_id = s.id 
+              JOIN exercises e ON se.exercise_id = e.id 
+              WHERE s.user_id = '00000000-0000-0000-0000-000000000001' 
+              AND e.slug = 'barbell-bench-press-medium-grip';
+              
+              IF test_session_sets != 4 THEN
+                RAISE EXCEPTION 'Expected 4 bench press sets, found %', test_session_sets;
+              END IF;
+              
+              -- Check exercise progress has 6 exercises
+              SELECT COUNT(*) INTO test_exercise_progress 
+              FROM exercise_progress 
+              WHERE user_id = '00000000-0000-0000-0000-000000000001';
+              
+              IF test_exercise_progress != 6 THEN
+                RAISE EXCEPTION 'Expected 6 exercise progress records, found %', test_exercise_progress;
+              END IF;
+              
+              RAISE NOTICE 'All seed validation checks passed!';
+            END \$\$;
+          "
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
