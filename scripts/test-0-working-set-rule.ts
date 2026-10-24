@@ -9,7 +9,7 @@
  */
 
 import { finishSessionCore, type SupabaseClient } from "../src/lib/session/finish-session";
-import { abandonSessionCore, type SupabaseClient as AbandonClient } from "../src/lib/session/abandon-session";
+import { abandonSessionCore } from "../src/lib/session/abandon-session";
 
 let passed = 0;
 let failed = 0;
