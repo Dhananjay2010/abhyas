@@ -4,13 +4,15 @@
  * Test: Stale-stash two-client scenario - per-item restore should not clobber
  * concurrent additions made by other clients.
  * 
- * Behavioural test: Simulates two clients with real DB operations and
- * real per-item restore logic.
+ * Behavioural test: Calls real core functions and real restore logic.
  */
 
 import { strict as assert } from "assert";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
+import { setEquipmentItemCore } from "../src/lib/settings/equipment-core";
+import { setInjuryCore } from "../src/lib/settings/injury-core";
+import { replayPendingOps, type PendingChange } from "../src/lib/settings/restore-pending";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -23,31 +25,6 @@ if (!SUPABASE_SERVICE_KEY) {
 const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
-
-/**
- * Simulate per-item equipment restore using real setEquipmentItem action
- */
-async function restoreEquipmentItem(userId: string, equipmentId: string, enabled: boolean) {
-  if (enabled) {
-    await supabase.from("user_equipment").insert({ user_id: userId, equipment_id: equipmentId });
-  } else {
-    await supabase.from("user_equipment").delete().eq("user_id", userId).eq("equipment_id", equipmentId);
-  }
-}
-
-/**
- * Simulate per-item injury restore using real setInjury action
- */
-async function restoreInjury(userId: string, bodyRegion: string, present: boolean, severity?: string) {
-  if (present && severity) {
-    await supabase
-      .from("user_injuries")
-      .upsert({ user_id: userId, body_region: bodyRegion as any, severity: severity as any })
-      .select();
-  } else if (!present) {
-    await supabase.from("user_injuries").delete().eq("user_id", userId).eq("body_region", bodyRegion as any);
-  }
-}
 
 async function testEquipmentTwoClient() {
   console.log("━━━ TEST: Equipment two-client stale-stash (per-item restore) ━━━\n");
@@ -91,21 +68,25 @@ async function testEquipmentTwoClient() {
 
     console.log(`Equipment IDs: Dumbbells=${dumbbellId}, Barbell=${barbellId}`);
 
-    // Initial state: both clients see dumbbells enabled
-    await supabase.from("user_equipment").insert({ user_id: userId, equipment_id: dumbbellId });
+    // Initial state: both clients see dumbbells enabled (using real core function)
+    await setEquipmentItemCore(supabase, userId, dumbbellId, true);
 
     console.log(`\nInitial state: [Dumbbells]`);
 
     // CLIENT A: Toggles dumbbells OFF and stashes the operation (simulating 401)
-    // Stash structure: { operation: 'setItem', equipmentId: dumbbellId, enabled: false }
     console.log(`\nClient A: Toggles dumbbells OFF (stashes operation due to 401)`);
-    const stashedOperations = [
-      { operation: "setItem", equipmentId: dumbbellId, enabled: false },
+    const stashedOperations: PendingChange[] = [
+      {
+        key: "equipment",
+        type: "equipment",
+        patch: { operation: "setItem", equipmentId: dumbbellId, enabled: false },
+        timestamp: Date.now(),
+      },
     ];
 
-    // CLIENT B: Adds barbell via setEquipmentItem
-    console.log(`Client B: Adds barbell via setEquipmentItem`);
-    await supabase.from("user_equipment").insert({ user_id: userId, equipment_id: barbellId });
+    // CLIENT B: Adds barbell via real setEquipmentItemCore
+    console.log(`Client B: Adds barbell via setEquipmentItemCore`);
+    await setEquipmentItemCore(supabase, userId, barbellId, true);
 
     // Verify both are in DB
     const { data: afterB } = await supabase
@@ -119,13 +100,18 @@ async function testEquipmentTwoClient() {
 
     assert.equal(afterB?.length, 2, "Should have 2 items (dumbbells + barbell)");
 
-    // CLIENT A: Restores stashed operations (per-item replay)
-    console.log(`\nClient A: Restores stashed operations (per-item replay)`);
-    for (const op of stashedOperations) {
-      if (op.operation === "setItem") {
-        await restoreEquipmentItem(userId, op.equipmentId, op.enabled);
-      }
-    }
+    // CLIENT A: Restores stashed operations (using real replayPendingOps)
+    console.log(`\nClient A: Restores stashed operations (calling real replayPendingOps)`);
+    await replayPendingOps(stashedOperations, {
+      updateProfileSettings: async () => ({ ok: true }),
+      updateSessionSettings: async () => ({ ok: true }),
+      setEquipmentItem: async (input) => {
+        const result = await setEquipmentItemCore(supabase, userId, input.equipmentId, input.enabled);
+        return result.ok ? { ok: true } : { ok: false, error: result.error };
+      },
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
+    });
 
     // Final verification: barbell should still be there, dumbbells should be off
     const { data: final } = await supabase
@@ -180,24 +166,25 @@ async function testInjuriesTwoClient() {
       timezone: "America/New_York",
     });
 
-    // Initial state: both clients see knee injury (past)
-    await supabase
-      .from("user_injuries")
-      .insert({ user_id: userId, body_region: "knee", severity: "past" });
+    // Initial state: both clients see knee injury (past) (using real core function)
+    await setInjuryCore(supabase, userId, "knee", true, "past");
 
     console.log(`\nInitial state: [knee: past]`);
 
     // CLIENT A: Removes knee and stashes the operation (simulating 401)
     console.log(`\nClient A: Removes knee (stashes operation due to 401)`);
-    const stashedOperations = [
-      { operation: "setInjury", bodyRegion: "knee", present: false },
+    const stashedOperations: PendingChange[] = [
+      {
+        key: "injury",
+        type: "injury",
+        patch: { operation: "setInjury", bodyRegion: "knee", present: false },
+        timestamp: Date.now(),
+      },
     ];
 
-    // CLIENT B: Adds shoulder injury via setInjury
-    console.log(`Client B: Adds shoulder (current) via setInjury`);
-    await supabase
-      .from("user_injuries")
-      .insert({ user_id: userId, body_region: "shoulder", severity: "current" });
+    // CLIENT B: Adds shoulder injury via real setInjuryCore
+    console.log(`Client B: Adds shoulder (current) via setInjuryCore`);
+    await setInjuryCore(supabase, userId, "shoulder", true, "current");
 
     // Verify both are in DB
     const { data: afterB } = await supabase
@@ -211,13 +198,18 @@ async function testInjuriesTwoClient() {
 
     assert.equal(afterB?.length, 2, "Should have 2 injuries (knee + shoulder)");
 
-    // CLIENT A: Restores stashed operations (per-item replay)
-    console.log(`\nClient A: Restores stashed operations (per-item replay)`);
-    for (const op of stashedOperations) {
-      if (op.operation === "setInjury") {
-        await restoreInjury(userId, op.bodyRegion, op.present);
-      }
-    }
+    // CLIENT A: Restores stashed operations (using real replayPendingOps)
+    console.log(`\nClient A: Restores stashed operations (calling real replayPendingOps)`);
+    await replayPendingOps(stashedOperations, {
+      updateProfileSettings: async () => ({ ok: true }),
+      updateSessionSettings: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async (input) => {
+        const result = await setInjuryCore(supabase, userId, input.bodyRegion, input.present, input.severity);
+        return result.ok ? { ok: true } : { ok: false, error: result.error };
+      },
+    });
 
     // Final verification: shoulder should still be there, knee should be removed
     const { data: final } = await supabase
@@ -249,7 +241,7 @@ async function testInjuriesTwoClient() {
 
 async function main() {
   console.log("═══════════════════════════════════════════════════════");
-  console.log("  Stale-stash Two-Client Tests (Per-Item Restore)");
+  console.log("  Stale-stash Two-Client Tests (Real Core Functions)");
   console.log("═══════════════════════════════════════════════════════\n");
 
   await testEquipmentTwoClient();

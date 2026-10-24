@@ -41,6 +41,7 @@ import { isSessionExpired } from "@/lib/auth/session-expired";
 import { useSessionExpiredPrompt, notifySessionExpired } from "@/components/session-expired-prompt";
 import { stashPendingChanges, getPendingChanges, clearPendingChanges } from "@/lib/auth/pending-changes";
 import { usePathname } from "next/navigation";
+import { replayPendingOps } from "@/lib/settings/restore-pending";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -240,7 +241,7 @@ export function SettingsForm({
   }, []);
 
   const restorePendingChanges = useEffectEvent(() => {
-    // Re-apply each stashed save through the appropriate save function
+    // Re-apply each stashed save through the real restore helper
     const pending = getPendingChanges();
     if (!pending || pending.returnPath !== pathname) {
       return;
@@ -248,46 +249,18 @@ export function SettingsForm({
 
     clearPendingChanges();
 
-    for (const change of pending.changes) {
-      const { key, type, patch, affectsPlan } = change;
-      
-      if (type === 'profile' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
-        saveProfile(key, patch as Parameters<typeof actions.updateProfileSettings>[0], affectsPlan);
-      } else if (type === 'session' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
-        saveSession(key, patch as Parameters<typeof actions.updateSessionSettings>[0]);
-      } else if (type === 'equipment' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
-        // Per-item equipment restore (PRIORITY 1: no whole-list overwrites)
-        if ('operation' in patch) {
-          if (patch.operation === 'setItem' && 'equipmentId' in patch && 'enabled' in patch) {
-            const { equipmentId, enabled } = patch as { equipmentId: string; enabled: boolean };
-            startTransition(async () => {
-              await actions.setEquipmentItem({ equipmentId, enabled });
-            });
-          } else if (patch.operation === 'setHasAll' && 'hasAll' in patch) {
-            const { hasAll } = patch as { hasAll: boolean };
-            startTransition(async () => {
-              await actions.setHasAllEquipment(hasAll);
-            });
-          }
-        } else if ('hasAll' in patch && 'equipmentIds' in patch) {
-          // Legacy whole-list format (from before conversion): use old saveEquipment
-          const equipPatch = patch as { hasAll: boolean; equipmentIds: string[] };
-          saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
-        }
-      } else if (type === 'injuries' && patch && typeof patch === 'object') {
-        // Per-item injury restore (PRIORITY 1: no whole-list overwrites)
-        if (!Array.isArray(patch) && 'operation' in patch && patch.operation === 'setInjury' && 'bodyRegion' in patch && 'present' in patch) {
-          const { bodyRegion, present, severity } = patch as { bodyRegion: BodyRegion; present: boolean; severity?: InjurySeverity };
-          startTransition(async () => {
-            await actions.setInjury({ bodyRegion, present, severity });
-          });
-        } else if (Array.isArray(patch)) {
-          // Legacy whole-list format (from before conversion): use old updateInjuries
-          retryMetadata.current.set("injuries", { type: 'injuries', patch });
-          enqueueSave("injuries", () => actions.updateInjuries(patch as Parameters<typeof actions.updateInjuries>[0]), true);
-        }
-      }
-    }
+    // Use the extracted restore logic with real server actions
+    startTransition(async () => {
+      await replayPendingOps(pending.changes, {
+        updateProfileSettings: actions.updateProfileSettings,
+        updateSessionSettings: actions.updateSessionSettings,
+        setEquipmentItem: actions.setEquipmentItem,
+        setHasAllEquipment: actions.setHasAllEquipment,
+        setInjury: actions.setInjury,
+        updateEquipment: actions.updateEquipment,
+        updateInjuries: actions.updateInjuries,
+      });
+    });
   });
 
   useEffect(() => {

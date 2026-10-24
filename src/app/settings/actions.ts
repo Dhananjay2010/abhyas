@@ -8,6 +8,8 @@ import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
 import { isAllowedSessionLength } from "@/lib/onboarding/session-length";
 import { getTodayIsoInTimezone } from "@/lib/dates/today-iso";
+import { setEquipmentItemCore, setHasAllEquipmentCore } from "@/lib/settings/equipment-core";
+import { setInjuryCore } from "@/lib/settings/injury-core";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -114,36 +116,10 @@ export async function setEquipmentItem(input: {
   if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
-
-  if (input.enabled) {
-    // Validate equipment ID exists
-    const { data: validEquipment, error: catalogueError } = await supabase
-      .from("equipment")
-      .select("id")
-      .eq("id", input.equipmentId)
-      .single();
-    
-    if (catalogueError || !validEquipment) {
-      return { ok: false, error: `Invalid equipment: ${input.equipmentId}` };
-    }
-    
-    // Add equipment (upsert makes it idempotent)
-    const { error } = await supabase
-      .from("user_equipment")
-      .upsert({ user_id: user.id, equipment_id: input.equipmentId }, { onConflict: "user_id,equipment_id" });
-    
-    if (error) return { ok: false, error: error.message };
-  } else {
-    // Remove equipment (idempotent - no error if not present)
-    const { error } = await supabase
-      .from("user_equipment")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("equipment_id", input.equipmentId);
-    
-    if (error) return { ok: false, error: error.message };
-  }
-
+  const result = await setEquipmentItemCore(supabase, user.id, input.equipmentId, input.enabled);
+  
+  if (!result.ok) return { ok: false, error: result.error! };
+  
   revalidatePath("/settings");
   return { ok: true };
 }
@@ -156,14 +132,10 @@ export async function setHasAllEquipment(hasAll: boolean): Promise<Result> {
   if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ has_all_equipment: hasAll })
-    .eq("id", user.id);
+  const result = await setHasAllEquipmentCore(supabase, user.id, hasAll);
   
-  if (error) return { ok: false, error: error.message };
-
+  if (!result.ok) return { ok: false, error: result.error! };
+  
   revalidatePath("/settings");
   return { ok: true };
 }
@@ -289,42 +261,11 @@ export async function setInjury(input: {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
   
-  const { supabase, user} = await requireUser();
-
-  if (!input.present) {
-    // Remove injury (idempotent - no error if not present)
-    const { error } = await supabase
-      .from("user_injuries")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("body_region", input.bodyRegion);
-    
-    if (error) return { ok: false, error: error.message };
-  } else {
-    if (!input.severity) {
-      return { ok: false, error: "Severity required when injury is present" };
-    }
-    
-    // Set injury with severity (delete old + insert new makes it idempotent)
-    const { error: deleteError } = await supabase
-      .from("user_injuries")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("body_region", input.bodyRegion);
-    
-    if (deleteError) return { ok: false, error: deleteError.message };
-    
-    const { error: insertError } = await supabase
-      .from("user_injuries")
-      .insert({
-        user_id: user.id,
-        body_region: input.bodyRegion,
-        severity: input.severity,
-      });
-    
-    if (insertError) return { ok: false, error: insertError.message };
-  }
-
+  const { supabase, user } = await requireUser();
+  const result = await setInjuryCore(supabase, user.id, input.bodyRegion, input.present, input.severity);
+  
+  if (!result.ok) return { ok: false, error: result.error! };
+  
   revalidatePath("/settings");
   return { ok: true };
 }
