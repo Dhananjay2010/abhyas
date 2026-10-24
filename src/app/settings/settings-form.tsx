@@ -884,7 +884,7 @@ export function SettingsForm({
       </Section>
 
       <Section title="Units">
-        <Field label="Weight and height units" error={fieldErrors.get("units")}>
+        <Field label="Weight and height units">
           <Segmented
             options={[
               { value: "metric", label: "Metric (kg, cm)" },
@@ -897,6 +897,9 @@ export function SettingsForm({
             }}
           />
         </Field>
+        {fieldErrors.get("units") && (
+          <ErrorNote>{fieldErrors.get("units")}</ErrorNote>
+        )}
       </Section>
     </div>
   );
