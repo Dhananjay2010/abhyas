@@ -11,11 +11,8 @@
  *
  *   npm run test:deload-paths
  */
-import { readFileSync } from "node:fs";
-
-// Read the shared function from session/prepare-exercises.ts and actions.ts
-const prepareExercisesContent = readFileSync("src/lib/session/prepare-exercises.ts", "utf8");
-const actionsContent = readFileSync("src/app/session/actions.ts", "utf8");
+import { prepareSessionExercises } from "../src/lib/session/prepare-exercises";
+import { applyDeload } from "../src/lib/program/prescription";
 
 let failures = 0;
 
@@ -24,172 +21,166 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-console.log("\n1. Verify prepareSessionExercises exists and is used");
+console.log("\n1. prepareSessionExercises applies deload when isDeload=true");
 {
-  check("prepareSessionExercises function exists", prepareExercisesContent.includes("export function prepareSessionExercises("));
-  check(
-    "function comment declares it as THE ONE shared function",
-    prepareExercisesContent.includes("This is the ONE shared function that applies") ||
-    prepareExercisesContent.includes("the ONE shared function that applies"),
-  );
-  check("prepareSessionExercises uses applyDeload", prepareExercisesContent.includes("applyDeload"));
+  const dayExercises = [
+    {
+      exercise_id: "ex1",
+      order_index: 1,
+      target_sets: 4,
+      target_reps_min: 8,
+      target_reps_max: 12,
+      rest_seconds: 180,
+      exercises: { metric: "reps" as const },
+    },
+    {
+      exercise_id: "ex2",
+      order_index: 2,
+      target_sets: 3,
+      target_reps_min: 10,
+      target_reps_max: 15,
+      rest_seconds: 120,
+      exercises: { metric: "reps" as const },
+    },
+  ];
+
+  const withDeload = prepareSessionExercises("session1", "user1", dayExercises, true);
+  const withoutDeload = prepareSessionExercises("session1", "user1", dayExercises, false);
+
+  check("without deload: 4 sets stays 4", withoutDeload[0]?.planned_sets === 4);
+  check("without deload: 3 sets stays 3", withoutDeload[1]?.planned_sets === 3);
+  check("with deload: 4 sets becomes 2", withDeload[0]?.planned_sets === 2);
+  check("with deload: 3 sets becomes 2", withDeload[1]?.planned_sets === 2);
 }
 
-console.log("\n2. Verify prepareSessionExercises is called from startSession");
+console.log("\n2. applyDeload reduces sets to ~60% (min 2)");
 {
-  const startSessionIndex = actionsContent.indexOf("export async function startSession()");
-  check("startSession exists", startSessionIndex !== -1);
+  const test = (sets: number) => applyDeload({
+    sets,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 180,
+  }).sets;
 
-  if (startSessionIndex !== -1) {
-    const endIndex = actionsContent.indexOf("\nexport async function", startSessionIndex + 1);
-    const startSessionBody = actionsContent.substring(startSessionIndex, endIndex);
-    check(
-      "startSession calls prepareSessionExercises",
-      startSessionBody.includes("prepareSessionExercises("),
-    );
-    check(
-      "startSession passes isDeloadWeek",
-      startSessionBody.includes("prepareSessionExercises") &&
-      startSessionBody.includes("isDeloadWeek"),
-    );
-  }
+  check("4 sets → 2 sets", test(4) === 2);
+  check("3 sets → 2 sets", test(3) === 2);
+  check("5 sets → 3 sets", test(5) === 3);
+  check("2 sets → 2 sets (minimum)", test(2) === 2);
+  check("1 set → 2 sets (minimum enforced)", test(1) === 2);
 }
 
-console.log("\n3. Verify prepareSessionExercises is called from ensureSessionExercises");
+console.log("\n3. prepareSessionExercises preserves exercise order");
 {
-  const ensureIndex = actionsContent.indexOf("async function ensureSessionExercises(");
-  check("ensureSessionExercises exists", ensureIndex !== -1);
+  const dayExercises = [
+    {
+      exercise_id: "ex1",
+      order_index: 1,
+      target_sets: 4,
+      target_reps_min: 8,
+      target_reps_max: 12,
+      rest_seconds: 180,
+      exercises: { metric: "reps" as const },
+    },
+    {
+      exercise_id: "ex2",
+      order_index: 2,
+      target_sets: 3,
+      target_reps_min: 10,
+      target_reps_max: 15,
+      rest_seconds: 120,
+      exercises: { metric: "reps" as const },
+    },
+    {
+      exercise_id: "ex3",
+      order_index: 3,
+      target_sets: 4,
+      target_reps_min: 6,
+      target_reps_max: 10,
+      rest_seconds: 240,
+      exercises: { metric: "reps" as const },
+    },
+  ];
 
-  if (ensureIndex !== -1) {
-    const endIndex = actionsContent.indexOf("\nexport", ensureIndex + 1);
-    const ensureBody = actionsContent.substring(ensureIndex, endIndex !== -1 ? endIndex : undefined);
-    check(
-      "ensureSessionExercises calls prepareSessionExercises",
-      ensureBody.includes("prepareSessionExercises("),
-    );
-    check(
-      "ensureSessionExercises fetches is_deload from session",
-      ensureBody.includes("is_deload") && ensureBody.includes(".select("),
-    );
-    check(
-      "ensureSessionExercises passes is_deload to prepareSessionExercises",
-      ensureBody.includes("prepareSessionExercises") &&
-      ensureBody.includes("is_deload"),
-    );
-  }
+  const result = prepareSessionExercises("session1", "user1", dayExercises, false);
+
+  check("order_index 1 comes first", result[0]?.exercise_id === "ex1");
+  check("order_index 2 comes second", result[1]?.exercise_id === "ex2");
+  check("order_index 3 comes third", result[2]?.exercise_id === "ex3");
+  check("all exercises included", result.length === 3);
 }
 
-console.log("\n4. Verify prepareSessionExercises applies deload correctly");
+console.log("\n4. prepareSessionExercises handles null target values with defaults");
 {
-  const funcIndex = prepareExercisesContent.indexOf("export function prepareSessionExercises(");
-  if (funcIndex !== -1) {
-    const endIndex = prepareExercisesContent.indexOf("\n}", funcIndex);
-    const funcBody = prepareExercisesContent.substring(funcIndex, endIndex + 2);
+  const dayExercises = [
+    {
+      exercise_id: "ex1",
+      order_index: 1,
+      target_sets: null,
+      target_reps_min: null,
+      target_reps_max: null,
+      rest_seconds: null,
+      exercises: { metric: "reps" as const },
+    },
+  ];
 
-    check(
-      "function accepts isDeload parameter",
-      funcBody.includes("isDeload: boolean") || funcBody.includes("isDeload,"),
-    );
-    check(
-      "function calls applyDeload when isDeload is true",
-      funcBody.includes("applyDeload(") && funcBody.includes("isDeload"),
-    );
-    check(
-      "function uses ternary or conditional for deload",
-      funcBody.includes("isDeload") && (funcBody.includes("?") || funcBody.includes("if")),
-    );
-  }
+  const result = prepareSessionExercises("session1", "user1", dayExercises, false);
+
+  check("null target_sets defaults to 3", result[0]?.planned_sets === 3);
+  check("null target_reps_min defaults to 8", result[0]?.planned_reps_min === 8);
+  check("null target_reps_max defaults to 12", result[0]?.planned_reps_max === 12);
+  check("null rest_seconds defaults to 75", result[0]?.rest_seconds === 75);
 }
 
-console.log("\n5. Verify applyDeload import and usage");
+console.log("\n5. prepareSessionExercises preserves metric from exercise");
 {
-  check(
-    "applyDeload is imported from prescription",
-    prepareExercisesContent.includes('import') &&
-    prepareExercisesContent.includes('applyDeload') &&
-    prepareExercisesContent.includes('prescription'),
-  );
-  check(
-    "prepareSessionExercises uses applyDeload",
-    prepareExercisesContent.includes("applyDeload("),
-  );
+  const dayExercises = [
+    {
+      exercise_id: "ex1",
+      order_index: 1,
+      target_sets: 3,
+      target_reps_min: 30,
+      target_reps_max: 60,
+      rest_seconds: 60,
+      exercises: { metric: "seconds" as const },
+    },
+    {
+      exercise_id: "ex2",
+      order_index: 2,
+      target_sets: 4,
+      target_reps_min: 8,
+      target_reps_max: 12,
+      rest_seconds: 180,
+      exercises: { metric: "reps" as const },
+    },
+  ];
+
+  const result = prepareSessionExercises("session1", "user1", dayExercises, false);
+
+  check("metric 'seconds' preserved", result[0]?.metric === "seconds");
+  check("metric 'reps' preserved", result[1]?.metric === "reps");
 }
 
-console.log("\n6. Verify no old inline deload logic remains");
+console.log("\n6. prepareSessionExercises assigns all required fields");
 {
-  // The old code had inline ternary with applyDeload in startSession's map
-  const hasOldPattern = actionsContent.match(/planned\.map\(\(p\)\s*=>\s*\{[\s\S]*?isDeloadWeek[\s\S]*?applyDeload[\s\S]*?\}\)/);
-  check(
-    "no old inline deload ternary in startSession",
-    !hasOldPattern,
-    hasOldPattern ? "found old pattern, should use prepareSessionExercises" : "",
-  );
-}
+  const dayExercises = [
+    {
+      exercise_id: "ex1",
+      order_index: 1,
+      target_sets: 4,
+      target_reps_min: 8,
+      target_reps_max: 12,
+      rest_seconds: 180,
+      exercises: { metric: "reps" as const },
+    },
+  ];
 
-console.log("\n7. Logical verification: deload math");
-{
-  // applyDeload should reduce sets to ~60% (Math.max(2, Math.round(sets * 0.6)))
-  // For 4 sets: Math.round(4 * 0.6) = Math.round(2.4) = 2
-  // For 3 sets: Math.round(3 * 0.6) = Math.round(1.8) = 2
-  const expected4to2 = Math.max(2, Math.round(4 * 0.6));
-  const expected3to2 = Math.max(2, Math.round(3 * 0.6));
-  check("4 sets deloads to 2 sets", expected4to2 === 2);
-  check("3 sets deloads to 2 sets", expected3to2 === 2);
-}
+  const result = prepareSessionExercises("session1", "user1", dayExercises, false);
 
-console.log("\n8. Verify ensureSessionExercises comment mentions deload");
-{
-  const ensureIndex = actionsContent.indexOf("async function ensureSessionExercises(");
-  if (ensureIndex !== -1) {
-    const commentStart = actionsContent.lastIndexOf("/**", ensureIndex);
-    const funcStart = actionsContent.indexOf("async function ensureSessionExercises", commentStart);
-    const comment = actionsContent.substring(commentStart, funcStart);
-
-    check(
-      "ensureSessionExercises JSDoc mentions deload",
-      comment.toLowerCase().includes("deload"),
-    );
-  }
-}
-
-console.log("\n9. Verify prepareSessionExercises handles null target values");
-{
-  const funcIndex = actionsContent.indexOf("function prepareSessionExercises(");
-  if (funcIndex !== -1) {
-    const endIndex = actionsContent.indexOf("\n}", funcIndex);
-    const funcBody = actionsContent.substring(funcIndex, endIndex + 2);
-
-    // Should have fallback values like p.target_sets ?? 3
-    check(
-      "handles null target_sets with fallback",
-      funcBody.includes("target_sets") && (funcBody.includes("??") || funcBody.includes("||")),
-    );
-  }
-}
-
-console.log("\n10. Integration check: paths that create sessions");
-{
-  // These functions should eventually call prepareSessionExercises or use sessions
-  // that will later call ensureSessionExercises
-  const hasStartSession = actionsContent.includes("export async function startSession()");
-  const hasEnsureSessionExercises = actionsContent.includes("async function ensureSessionExercises(");
-  const hasPlanDay = actionsContent.includes("export async function planDay(");
-
-  check("startSession exists", hasStartSession);
-  check("ensureSessionExercises exists", hasEnsureSessionExercises);
-  check("planDay exists (creates planned sessions)", hasPlanDay);
-
-  // planDay creates session rows with is_deload set, but doesn't create exercises
-  // until startSession is called, which will use ensureSessionExercises
-  if (hasPlanDay) {
-    const planDayIndex = actionsContent.indexOf("export async function planDay(");
-    const endIndex = actionsContent.indexOf("\nexport", planDayIndex + 1);
-    const planDayBody = actionsContent.substring(planDayIndex, endIndex);
-    check(
-      "planDay writes is_deload to session",
-      planDayBody.includes("is_deload") && planDayBody.includes("insert"),
-    );
-  }
+  check("session_id set", result[0]?.session_id === "session1");
+  check("user_id set", result[0]?.user_id === "user1");
+  check("exercise_id set", result[0]?.exercise_id === "ex1");
+  check("order_index set", result[0]?.order_index === 1);
+  check("metric set", result[0]?.metric === "reps");
 }
 
 if (failures > 0) {
