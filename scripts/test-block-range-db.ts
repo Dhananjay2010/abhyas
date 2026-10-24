@@ -855,17 +855,31 @@ async function runTests() {
       console.log("  PASS: Test L3\n");
     }
 
-    console.log("TEST L4: Same-day second rebuild does not create empty superseded row");
+    console.log("TEST L4: Same-day rebuilds do not create empty superseded rows");
     {
       userId = await createTestUser();
+      const exerciseId = (await pool.query("SELECT id FROM exercises LIMIT 1")).rows[0]?.id;
       
       const blockId1 = randomUUID();
+      const dayId1 = randomUUID();
       await pool.query(`
         INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, week_offset, status)
         VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-10-01', '2026-10-28', 4, 0, 'active')
       `, [blockId1, userId]);
+      
+      await pool.query(`
+        INSERT INTO program_days (id, program_id, user_id, day_index, day_type, label)
+        VALUES ($1, $2, $3, 1, 'weights', 'Upper')
+      `, [dayId1, blockId1, userId]);
 
-      // First rebuild on 2026-10-15
+      // Create a session linked to the original block
+      const sessionId = randomUUID();
+      await pool.query(`
+        INSERT INTO sessions (id, user_id, program_id, program_day_id, local_date, week_in_block, is_deload, planned_type, actual_type, status)
+        VALUES ($1, $2, $3, $4, '2026-10-15', 3, false, 'weights', 'weights', 'completed')
+      `, [sessionId, userId, blockId1, dayId1]);
+
+      // First rebuild on 2026-10-15 (same day as session)
       const payload1 = {
         id: randomUUID(),
         block_number: 1,
@@ -876,14 +890,27 @@ async function runTests() {
         level: "intermediate",
         ends_on: "2026-11-20",
         deload_week: 4,
-        days: [],
+        days: [{
+          day_index: 1,
+          day_type: "weights",
+          focus: null,
+          label: "Push",
+          exercises: [{
+            exercise_id: exerciseId,
+            order_index: 0,
+            target_sets: 4,
+            target_reps_min: 6,
+            target_reps_max: 10,
+            rest_seconds: 120,
+          }],
+        }],
       };
 
       const result1 = await callRPC(pool, userId, "rebuild_block", {
         p_today: "2026-10-15",
         p_payload: payload1,
       });
-      check("first rebuild succeeded", !result1.error);
+      check("first rebuild succeeded", !result1.error, result1.error || "");
 
       // Second rebuild same day with different payload id
       const payload2 = {
@@ -896,32 +923,80 @@ async function runTests() {
         level: "advanced",
         ends_on: "2026-11-20",
         deload_week: 4,
-        days: [],
+        days: [{
+          day_index: 1,
+          day_type: "weights",
+          focus: null,
+          label: "Upper",
+          exercises: [{
+            exercise_id: exerciseId,
+            order_index: 0,
+            target_sets: 3,
+            target_reps_min: 8,
+            target_reps_max: 12,
+            rest_seconds: 90,
+          }],
+        }],
       };
 
       const result2 = await callRPC(pool, userId, "rebuild_block", {
         p_today: "2026-10-15",
         p_payload: payload2,
       });
-      check("second same-day rebuild succeeded", !result2.error);
+      check("second same-day rebuild succeeded", !result2.error, result2.error || "");
 
-      const { rows: programs } = await pool.query(
-        "SELECT id, status, started_on, ended_on FROM programs WHERE user_id = $1 ORDER BY created_at",
-        [userId]
-      );
+      // Third rebuild next day
+      const payload3 = {
+        id: randomUUID(),
+        block_number: 1,
+        split_type: "ppl",
+        days_per_week: 6,
+        primary_track: "weights",
+        goal: "strength",
+        level: "advanced",
+        ends_on: "2026-11-21",
+        deload_week: 4,
+        days: [{
+          day_index: 1,
+          day_type: "weights",
+          focus: null,
+          label: "Push",
+          exercises: [{
+            exercise_id: exerciseId,
+            order_index: 0,
+            target_sets: 5,
+            target_reps_min: 5,
+            target_reps_max: 8,
+            rest_seconds: 180,
+          }],
+        }],
+      };
 
-      check("3 programs exist (original + first rebuild + second rebuild)", programs.length === 3, `got ${programs.length}`);
-      check("original block superseded", programs[0]?.status === "superseded");
-      check("first rebuild block replaced (not active, not superseded)", programs[1]?.status !== "active" && programs[1]?.id !== result2.data, `status=${programs[1]?.status}, id=${programs[1]?.id}`);
-      check("second rebuild block active", programs[2]?.status === "active");
-      check("active block id matches second payload", programs[2]?.id === payload2.id);
-      
-      // No empty superseded row (ended_on < started_on)
+      const result3 = await callRPC(pool, userId, "rebuild_block", {
+        p_today: "2026-10-16",
+        p_payload: payload3,
+      });
+      check("third rebuild (next day) succeeded", !result3.error, result3.error || "");
+
+      // L4 assertions
       const { rows: emptyRows } = await pool.query(
-        "SELECT id FROM programs WHERE user_id = $1 AND ended_on IS NOT NULL AND ended_on < started_on - 1",
+        "SELECT id, started_on, ended_on FROM programs WHERE user_id = $1 AND ended_on IS NOT NULL AND ended_on < started_on",
         [userId]
       );
-      check("no empty superseded rows (ended_on < started_on - 1)", emptyRows.length === 0, `got ${emptyRows.length}`);
+      check("zero programs with ended_on < started_on", emptyRows.length === 0, `got ${emptyRows.length}`);
+
+      const { rows: activeRows } = await pool.query(
+        "SELECT id FROM programs WHERE user_id = $1 AND status = 'active'",
+        [userId]
+      );
+      check("exactly one active block", activeRows.length === 1, `got ${activeRows.length}`);
+
+      const { rows: sessionCheck } = await pool.query(
+        "SELECT s.id, s.program_id, p.id as program_exists FROM sessions s LEFT JOIN programs p ON s.program_id = p.id WHERE s.user_id = $1",
+        [userId]
+      );
+      const allSessionsLinked = sessionCheck.every(row => row.program_exists !== null);
+      check("all sessions linked to valid programs", allSessionsLinked, `${sessionCheck.length} sessions, linked: ${sessionCheck.filter(r => r.program_exists).length}`);
 
       console.log("  PASS: Test L4\n");
     }
