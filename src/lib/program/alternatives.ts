@@ -1,5 +1,5 @@
 import type { Database } from "@/lib/database.types";
-import type { CandidateExercise, getAllContraindications } from "@/lib/program/generate";
+import type { CandidateExercise } from "@/lib/program/generate";
 import { getAllContraindications as getContraindications } from "@/lib/program/generate";
 
 export type ExerciseRow = CandidateExercise;
