@@ -136,6 +136,27 @@ export function createPendingSetController(config: {
       setState({ error: result.error ?? "Failed to save set" });
       return { status: "failed", error: result.error ?? "Failed to save set" };
     } catch (err) {
+      if (err instanceof Error && err.message.startsWith("SESSION_EXPIRED:")) {
+        const pending: PendingSet = {
+          sessionExerciseId: set.sessionExerciseId,
+          setNumber: set.setNumber,
+          reps: set.reps,
+          weightKg: set.weightKg,
+          durationSeconds: set.durationSeconds ?? null,
+          clientId: set.clientId,
+        };
+        savePendingSet(storage, sessionId, pending);
+
+        const loaded = loadPendingSets(storage, sessionId);
+        setState({
+          pending: loaded,
+          expired: true,
+          error: null,
+        });
+
+        return { status: "expired" };
+      }
+
       const message = err instanceof Error ? err.message : "Network error";
       setState({ error: message });
       return { status: "failed", error: message };
@@ -188,6 +209,8 @@ export function createPendingSetController(config: {
         } catch (err) {
           if (isDuplicateError(err)) {
             clearPendingSet(storage, sessionId, set.clientId);
+          } else if (err instanceof Error && err.message.startsWith("SESSION_EXPIRED:")) {
+            if (!firstError) firstError = "Session still expired";
           } else if (!firstError) {
             firstError = err instanceof Error ? err.message : "Network error";
           }

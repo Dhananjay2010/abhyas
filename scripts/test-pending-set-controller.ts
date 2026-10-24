@@ -406,8 +406,83 @@ async function testNetworkErrorKeepsPending() {
   );
 }
 
+async function testThrownSessionExpired() {
+  console.log("\n--- Thrown SESSION_EXPIRED error handled ---");
+
+  const storage = createStorage();
+  const sessionId = "session-thrown";
+
+  const logSet: LogSetFunction = async () => {
+    throw new Error("SESSION_EXPIRED: Token expired");
+  };
+
+  const states: PendingSetState[] = [];
+  const controller = createPendingSetController({
+    storage,
+    logSet,
+    sessionId,
+    onChange: (state) => states.push(state),
+  });
+
+  const result = await controller.submit({
+    sessionExerciseId: "ex-8",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "client-9",
+  });
+
+  assertEqual(result.status, "expired", "Thrown SESSION_EXPIRED returns expired status");
+  assert(states[states.length - 1].expired, "Sets expired flag");
+  assert(states[states.length - 1].pending.length === 1, "Keeps pending set");
+}
+
+async function testThrownSessionExpiredInReplay() {
+  console.log("\n--- Thrown SESSION_EXPIRED in replay keeps pending ---");
+
+  const storage = createStorage();
+  const sessionId = "session-thrown-replay";
+
+  storage.setItem(
+    "pending-sets",
+    JSON.stringify({
+      [sessionId]: [
+        {
+          sessionExerciseId: "ex-9",
+          setNumber: 1,
+          reps: 10,
+          weightKg: 50,
+          durationSeconds: null,
+          clientId: "client-10",
+        },
+      ],
+    })
+  );
+
+  const logSet: LogSetFunction = async () => {
+    throw new Error("SESSION_EXPIRED: Token expired");
+  };
+
+  const controller = createPendingSetController({
+    storage,
+    logSet,
+    sessionId,
+    onChange: () => {},
+  });
+
+  await controller.replay();
+
+  const remaining = storage.getItem("pending-sets");
+  const parsed = remaining ? JSON.parse(remaining) : {};
+  assert(
+    parsed[sessionId] && parsed[sessionId].length === 1,
+    "Pending set remains after thrown SESSION_EXPIRED in replay"
+  );
+}
+
 async function main() {
-  console.log("Testing pending-set controller (mutant-killing tests)\n");
+  console.log("Testing pending-set controller\n");
 
   await testMutantC_RapidFocusAndReplay();
   await testMutantD_PrefilledStorage();
@@ -417,6 +492,8 @@ async function main() {
   await testSessionExpiredHandling();
   await testDuplicate23505();
   await testNetworkErrorKeepsPending();
+  await testThrownSessionExpired();
+  await testThrownSessionExpiredInReplay();
 
   console.log(
     exitCode === 0 ? "\n✅ All tests passed" : "\n❌ Some tests failed"
