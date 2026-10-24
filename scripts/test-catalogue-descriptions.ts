@@ -76,10 +76,6 @@ async function main() {
   
   await db.exec(migrationSql);
   
-  const changedResult = await db.query<{count: number}>(
-    `SELECT COUNT(*) as count FROM exercises WHERE category NOT IN ('push', 'pull')`
-  );
-  
   console.log(`  ✅ Migration applied successfully\n`);
   
   console.log('Test 3: Running migration (second pass - idempotency)...\n');

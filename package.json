@@ -134,7 +134,9 @@
     "test:node-version": "tsx scripts/test-node-version.ts",
     "test:block-range": "tsx scripts/test-block-range.ts",
     "test:rebuild-history": "tsx scripts/test-rebuild-history.ts",
-    "test:block-range-db": "tsx scripts/test-block-range-db.ts"
+    "test:block-range-db": "tsx scripts/test-block-range-db.ts",
+    "test:session-targets": "tsx scripts/test-session-targets.ts",
+    "test:load-grid": "tsx scripts/test-load-grid.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
