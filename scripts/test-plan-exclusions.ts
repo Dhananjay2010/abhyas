@@ -284,60 +284,78 @@ console.log("\n6. Block-2 rollover: excluded slugs not carried over");
     "low-pulley-row-to-neck",
   ];
   
-  // Generate block 1 with 90-min gym to get a program
-  const block1Input: GeneratorInput = {
-    userId: "rollover-test",
-    blockNumber: 1,
-    level: "intermediate",
-    equipmentIds: [],
-    hasAllEquipment: true,
-    goal: "muscle_gain",
-    currentInjuryRegions: [],
-    age: 30,
-    bmi: null,
-    daysPerWeek: 3,
-    yogaDaysPerWeek: 0,
-    primaryTrack: "weights",
-    preferredSessionMinutes: 90,
-    catalogue,
-  };
-  
-  const block1 = generateProgram(block1Input);
-  
-  // Generate block 2 with the same settings
-  const block2Input: GeneratorInput = {
-    ...block1Input,
-    userId: "rollover-test-b2",
-    blockNumber: 2,
-    carryOver: {}, // Will populate from block 1
-  };
-  
-  // Extract carry-over from block 1
-  for (let dayIdx = 0; dayIdx < block1.days.length; dayIdx++) {
-    const day = block1.days[dayIdx];
-    for (let exIdx = 0; exIdx < Math.min(2, day.exercises.length); exIdx++) {
-      const ex = day.exercises[exIdx];
-      const exData = catalogue.find(e => e.id === ex.exerciseId);
-      if (exData) {
-        const key = `${dayIdx}:${exData.movement_pattern}`;
-        block2Input.carryOver![key] = ex.exerciseId;
-      }
-    }
-  }
-  
-  const block2 = generateProgram(block2Input);
-  const block2Slugs = block2.days.flatMap(day => 
-    day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
-  );
-  
-  const foundExcluded = block2Slugs.filter(slug => EXCLUDED.includes(slug));
-  if (foundExcluded.length > 0) {
-    console.log(`  ✗ Block 2 rollover: found ${foundExcluded.join(", ")}`);
+  // Give block 1 an excluded lift to carry: inject neck-press as a main lift
+  const excludedEx = catalogue.find(e => e.slug === "neck-press");
+  if (!excludedEx) {
+    console.log(`  ✗ neck-press not found in catalogue`);
     failCount++;
   } else {
-    passCount++;
+    // Create a modified catalogue with neck-press having no contraindications
+    const modifiedEx: CandidateExercise = {
+      ...excludedEx,
+      contraindicated_regions: [],
+      equipment_ids: [],
+    };
+    const modifiedCatalogue = catalogue.map(e => 
+      e.slug === "neck-press" ? modifiedEx : e
+    );
+    
+    // Generate block 1 with this catalogue, forcing neck-press as a carry-over candidate
+    const block1Input: GeneratorInput = {
+      userId: "rollover-test",
+      blockNumber: 1,
+      level: "intermediate",
+      equipmentIds: [],
+      hasAllEquipment: true,
+      goal: "muscle_gain",
+      currentInjuryRegions: [],
+      age: 30,
+      bmi: null,
+      daysPerWeek: 3,
+      yogaDaysPerWeek: 0,
+      primaryTrack: "weights",
+      preferredSessionMinutes: 90,
+      catalogue: modifiedCatalogue,
+    };
+    
+    const block1 = generateProgram(block1Input);
+    
+    // Generate block 2 with the same settings
+    const carryOverMap: Record<string, string> = {};
+    const block2Input: GeneratorInput = {
+      ...block1Input,
+      userId: "rollover-test-b2",
+      blockNumber: 2,
+      carryOver: carryOverMap, // Will populate from block 1
+    };
+    
+    // Extract carry-over from block 1, using days 1-7
+    for (let dayIdx = 0; dayIdx < block1.days.length; dayIdx++) {
+      const day = block1.days[dayIdx];
+      for (let exIdx = 0; exIdx < Math.min(2, day.exercises.length); exIdx++) {
+        const ex = day.exercises[exIdx];
+        const exData = modifiedCatalogue.find(e => e.id === ex.exerciseId);
+        if (exData) {
+          const key = `${dayIdx + 1}:${exData.movement_pattern}`;
+          carryOverMap[key] = ex.exerciseId;
+        }
+      }
+    }
+    
+    const block2 = generateProgram(block2Input);
+    const block2Slugs = block2.days.flatMap(day => 
+      day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+    );
+    
+    const foundExcluded = block2Slugs.filter(slug => EXCLUDED.includes(slug));
+    if (foundExcluded.length > 0) {
+      console.log(`  ✗ Block 2 rollover: found ${foundExcluded.join(", ")}`);
+      failCount++;
+    } else {
+      passCount++;
+    }
+    check("block-2 rollover clean", foundExcluded.length === 0);
   }
-  check("block-2 rollover clean", foundExcluded.length === 0);
 }
 
 console.log("\n7. Carry-over guard: excluded kept main lift not kept");
@@ -357,9 +375,9 @@ console.log("\n7. Carry-over guard: excluded kept main lift not kept");
     console.log(`  ✗ No excluded exercise found in catalogue`);
     failCount++;
   } else {
-    // Inject it as a carried-over main lift
+    // Inject it as a carried-over main lift (days are 1-7)
     const carryOver = {
-      "0:vertical_pull": excludedEx.id, // Assuming day 0, vertical_pull pattern
+      "3:vertical_pull": excludedEx.id, // Day 3, vertical_pull pattern
     };
     
     const input: GeneratorInput = {

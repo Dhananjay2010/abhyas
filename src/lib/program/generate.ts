@@ -1084,7 +1084,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       const isUpperOrFullDay = entry.focus === "pull" || entry.focus === "push" || entry.focus === "upper";
       
       const candidates = pool
-        .filter((e) => !usedInBlock.has(e.id))
+        .filter((e) => !usedInBlock.has(e.id) && !EXCLUDED_EXERCISE_SLUGS.has(e.slug))
         .sort(
           (a, b) =>
             score(b, true, input.level, input.primaryTrack) -

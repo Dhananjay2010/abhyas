@@ -35,42 +35,55 @@ function check(name: string, condition: boolean) {
 
 console.log("1. Strategy 3 accessory top-up guard (mutant 15)");
 {
-  // Build a catalogue where the only horizontal_pull is an excluded slug (low-pulley-row-to-neck)
-  // and it's bodyweight/no-equipment so it's eligible for Strategy 3 accessory pacing
-  const excludedSlug = "low-pulley-row-to-neck";
-  const excludedEx = baseCatalogue.find(e => e.slug === excludedSlug);
-  if (!excludedEx) {
-    console.log(`  ✗ ${excludedSlug} not found in catalogue`);
-    failCount++;
-  } else {
-    // Filter catalogue to remove all horizontal_pull and vertical_pull except the excluded one
-    const injectedCatalogue = baseCatalogue.map(e => {
-      if ((e.movement_pattern === "horizontal_pull" || e.movement_pattern === "vertical_pull") && e.slug !== excludedSlug) {
-        return null;
-      }
-      return e;
-    }).filter((e): e is CandidateExercise => e !== null);
-    
-    // Make the excluded exercise the most attractive by giving it no equipment requirement
-    const modifiedExcluded = { ...excludedEx, equipment_ids: [] };
-    const finalCatalogue = injectedCatalogue.map(e => e.slug === excludedSlug ? modifiedExcluded : e);
-    
-    // Generate a plan that will trigger Strategy 3 (90 min session, likely to need pacing top-up)
+  // Use real profiles that leaked before the guard (pull-up bar and cable-only, 90 min)
+  // These profiles hit the Strategy 3 pacing path and leaked wide-grip-rear-pull-up and low-pulley-row-to-neck
+  const testProfiles = [
+    {
+      name: "pull-up-bar-intermediate-2d-90min",
+      equipmentIds: ["pull_up_bar"],
+      hasAllEquipment: false,
+      level: "intermediate" as const,
+      daysPerWeek: 2,
+      seed: 1111,
+    },
+    {
+      name: "cable-intermediate-3d-90min",
+      equipmentIds: ["cable_machine"],
+      hasAllEquipment: false,
+      level: "intermediate" as const,
+      daysPerWeek: 3,
+      seed: 2222,
+    },
+  ];
+  
+  const EXCLUDED = [
+    "standing-barbell-press-behind-neck",
+    "wide-grip-pulldown-behind-the-neck",
+    "wide-grip-rear-pull-up",
+    "barbell-guillotine-bench-press",
+    "neck-press",
+    "low-pulley-row-to-neck",
+  ];
+  
+  let s3Checks = 0;
+  let s3Fails = 0;
+  
+  for (const profile of testProfiles) {
     const input: GeneratorInput = {
-      userId: "guard-s3-test",
+      userId: profile.seed.toString(),
       blockNumber: 1,
-      level: "intermediate",
-      equipmentIds: [],
-      hasAllEquipment: true,
+      level: profile.level,
+      equipmentIds: profile.equipmentIds,
+      hasAllEquipment: profile.hasAllEquipment,
       goal: "muscle_gain",
       currentInjuryRegions: [],
       age: 30,
       bmi: null,
-      daysPerWeek: 3,
+      daysPerWeek: profile.daysPerWeek,
       yogaDaysPerWeek: 0,
       primaryTrack: "weights",
       preferredSessionMinutes: 90,
-      catalogue: finalCatalogue,
+      catalogue: baseCatalogue,
     };
     
     const program = generateProgram(input);
@@ -78,8 +91,20 @@ console.log("1. Strategy 3 accessory top-up guard (mutant 15)");
       day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
     );
     
-    const hasExcluded = allSlugs.includes(excludedSlug);
-    check(`Strategy 3 guard blocks ${excludedSlug}`, !hasExcluded);
+    const foundExcluded = allSlugs.filter(slug => EXCLUDED.includes(slug));
+    if (foundExcluded.length > 0) {
+      console.log(`  ✗ ${profile.name}: found ${foundExcluded.join(", ")}`);
+      s3Fails++;
+    }
+    s3Checks++;
+  }
+  
+  if (s3Fails === 0) {
+    passCount += s3Checks;
+    console.log(`  ✓ Strategy 3 guard blocks excluded slugs (${s3Checks} profiles)`);
+  } else {
+    failCount += s3Fails;
+    passCount += s3Checks - s3Fails;
   }
 }
 
@@ -192,15 +217,29 @@ console.log("\n3. Post-pacing bodyweight-pull guard (mutant 17)");
 
 console.log("\n4. Carry-over guard (mutant 18)");
 {
-  // Inject an excluded slug as a kept main lift from block 1
-  // Use neck-press (horizontal_press) for day 0 slot 1
-  // But first, modify it to remove contraindications and ensure it's always eligible
-  const excludedSlug = "neck-press";
-  const excludedEx = baseCatalogue.find(e => e.slug === excludedSlug);
-  if (!excludedEx) {
-    console.log(`  ✗ ${excludedSlug} not found in catalogue`);
-    failCount++;
-  } else {
+  // Test all 6 excluded slugs, each under its own movement pattern
+  // Days are numbered 1-7, not 0-indexed
+  const excludedTests = [
+    { slug: "neck-press", pattern: "horizontal_press", day: 1 },
+    { slug: "standing-barbell-press-behind-neck", pattern: "vertical_press", day: 3 },
+    { slug: "wide-grip-pulldown-behind-the-neck", pattern: "vertical_pull", day: 3 },
+    { slug: "wide-grip-rear-pull-up", pattern: "vertical_pull", day: 5 },
+    { slug: "barbell-guillotine-bench-press", pattern: "horizontal_press", day: 5 },
+    { slug: "low-pulley-row-to-neck", pattern: "horizontal_pull", day: 1 },
+  ];
+  
+  let carryoverChecks = 0;
+  let carryoverFails = 0;
+  
+  for (const test of excludedTests) {
+    const excludedEx = baseCatalogue.find(e => e.slug === test.slug);
+    if (!excludedEx) {
+      console.log(`  ✗ ${test.slug} not found in catalogue`);
+      carryoverFails++;
+      carryoverChecks++;
+      continue;
+    }
+    
     // Create a modified version with no contraindications and basic equipment
     const modifiedExcluded: CandidateExercise = {
       ...excludedEx,
@@ -210,17 +249,16 @@ console.log("\n4. Carry-over guard (mutant 18)");
     
     // Use a modified catalogue with this change
     const modifiedCatalogue = baseCatalogue.map(e => 
-      e.slug === excludedSlug ? modifiedExcluded : e
+      e.slug === test.slug ? modifiedExcluded : e
     );
     
-    // The carry-over key is "dayIndex:pattern"
-    // For horizontal_press on day 0 (Full Body A has horizontal_press in slot 1)
+    // The carry-over key is "dayIndex:pattern" where dayIndex is 1-7
     const carryOver = {
-      "0:horizontal_press": excludedEx.id,
+      [`${test.day}:${test.pattern}`]: excludedEx.id,
     };
     
     const input: GeneratorInput = {
-      userId: "guard-carryover-test",
+      userId: `guard-carryover-${test.slug}`,
       blockNumber: 2,
       level: "intermediate",
       equipmentIds: [],
@@ -229,7 +267,7 @@ console.log("\n4. Carry-over guard (mutant 18)");
       currentInjuryRegions: [],
       age: 30,
       bmi: null,
-      daysPerWeek: 3,
+      daysPerWeek: 6,
       yogaDaysPerWeek: 0,
       primaryTrack: "weights",
       preferredSessionMinutes: 75,
@@ -242,8 +280,76 @@ console.log("\n4. Carry-over guard (mutant 18)");
       day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
     );
     
-    const hasExcluded = allSlugs.includes(excludedSlug);
-    check(`Carry-over guard blocks ${excludedSlug}`, !hasExcluded);
+    const hasExcluded = allSlugs.includes(test.slug);
+    if (hasExcluded) {
+      carryoverFails++;
+    }
+    carryoverChecks++;
+  }
+  
+  if (carryoverFails === 0) {
+    passCount += carryoverChecks;
+    console.log(`  ✓ Carry-over guard blocks all excluded slugs (${carryoverChecks} tests)`);
+  } else {
+    failCount += carryoverFails;
+    passCount += carryoverChecks - carryoverFails;
+    console.log(`  ✗ ${carryoverFails}/${carryoverChecks} carry-over tests failed`);
+  }
+}
+
+console.log("\n5. Empty-day backfill guard (generate.ts :1087)");
+{
+  // Build a synthetic catalogue where only excluded pulls are available
+  // This should trigger the empty-day backfill when a Pull day has no candidates
+  const excludedPullSlug = "wide-grip-rear-pull-up";
+  const excludedEx = baseCatalogue.find(e => e.slug === excludedPullSlug);
+  
+  if (!excludedEx) {
+    console.log(`  ✗ ${excludedPullSlug} not found in catalogue`);
+    failCount++;
+  } else {
+    // Create a minimal catalogue with just pulls (all excluded) and some basic exercises
+    const modifiedEx: CandidateExercise = {
+      ...excludedEx,
+      equipment_ids: [],
+      contraindicated_regions: [],
+    };
+    
+    // Keep only the excluded pull and remove all other pulls
+    const syntheticCatalogue = baseCatalogue.filter(e => {
+      // Remove all non-excluded pulls
+      if ((e.movement_pattern === "horizontal_pull" || e.movement_pattern === "vertical_pull") && 
+          e.slug !== excludedPullSlug) {
+        return false;
+      }
+      return true;
+    }).map(e => e.slug === excludedPullSlug ? modifiedEx : e);
+    
+    // Generate a 6-day upper/lower split which should create Pull days
+    const input: GeneratorInput = {
+      userId: "guard-backfill-test",
+      blockNumber: 1,
+      level: "intermediate",
+      equipmentIds: [],
+      hasAllEquipment: true,
+      goal: "muscle_gain",
+      currentInjuryRegions: [],
+      age: 30,
+      bmi: null,
+      daysPerWeek: 6,
+      yogaDaysPerWeek: 0,
+      primaryTrack: "weights",
+      preferredSessionMinutes: 60,
+      catalogue: syntheticCatalogue,
+    };
+    
+    const program = generateProgram(input);
+    const allSlugs = program.days.flatMap(day => 
+      day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+    );
+    
+    const hasExcluded = allSlugs.includes(excludedPullSlug);
+    check(`Backfill guard blocks ${excludedPullSlug}`, !hasExcluded);
   }
 }
 
