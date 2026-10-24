@@ -11,7 +11,7 @@ import { updateSession } from "@/lib/supabase/session";
 export const MIDDLEWARE_MATCHER = "/((?!_next/static(?:/|$)|_next/image(?:/|$)|favicon\\.ico$|manifest\\.webmanifest$|sw\\.js$|robots\\.txt$|sitemap\\.xml$|icons/|screenshots/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)";
 
 async function proxyImpl(request: NextRequest) {
-  const isServerAction = request.headers.has("Next-Action");
+  const isServerAction = request.headers.has("Next-Action") || request.headers.has("next-action");
   const result = await updateSession(request);
   
   // Server actions with expired sessions: return 401 text instead of 307 redirect.
@@ -21,16 +21,14 @@ async function proxyImpl(request: NextRequest) {
   // message. For other content-types, it throws "An unexpected response was
   // received from the server." We use text/plain with a detectable prefix
   // so isSessionExpired can reliably identify it.
-  if (isServerAction && result.status >= 307 && result.status <= 308) {
-    const location = result.headers.get("location");
-    if (location === "/" || location?.startsWith("/?next=")) {
-      return new NextResponse("SESSION_EXPIRED: Your session has expired", {
-        status: 401,
-        headers: {
-          "Content-Type": "text/plain"
-        }
-      });
-    }
+  if (isServerAction && (result.status === 307 || result.status === 308)) {
+    // Any redirect during a server action means session expired
+    return new NextResponse("SESSION_EXPIRED: Your session has expired", {
+      status: 401,
+      headers: {
+        "Content-Type": "text/plain"
+      }
+    });
   }
   
   return result;
