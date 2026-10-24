@@ -165,7 +165,7 @@ console.log("\n6. Mutant guard: verify Decision values are written by production
   check("Decision.bestWeightKg must be 80 for write", withBest.bestWeightKg === 80, `${withBest.bestWeightKg}`);
   check("Decision.bestReps must be 12 for write", withBest.bestReps === 12, `${withBest.bestReps}`);
   check("Decision.bestE1rm must be updated for write", (withBest.bestE1rm ?? 0) > 84, `${withBest.bestE1rm}`);
-  
+
   // The production code must write these non-null values. If mutant 3 writes nulls,
   // a database-level test would catch it, but this test verifies the Decision carries
   // the right values for the write.
