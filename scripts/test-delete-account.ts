@@ -1,13 +1,18 @@
 /**
  * Unit tests for account deletion functionality.
  * 
- * Tests the delete account action with mocked Supabase client to verify:
+ * Tests the REAL deletion logic (src/app/settings/delete-account/deletion-logic.ts)
+ * with mocked dependencies to verify:
  * - Unauthenticated requests are rejected
  * - Authenticated requests call the RPC function
  * - RPC success leads to sign-out and redirect
  * - RPC errors are handled gracefully without signing out
  * - Error messages are user-friendly
  */
+
+import { performAccountDeletion, mapDeletionError } from "../src/app/settings/delete-account/deletion-logic";
+
+export {}; // Make this a module to avoid global scope conflicts
 
 let failures = 0;
 
@@ -19,94 +24,178 @@ function check(label: string, ok: boolean, detail = "") {
 console.log("\nAccount deletion action tests");
 console.log("=============================\n");
 
-// Mock types
-type MockRPCResult = { error: null } | { error: { code: string; message: string } };
-
-/**
- * Simulate the deleteAccount action logic
- */
-async function simulateDeleteAccount(
-  authenticated: boolean,
-  rpcResult: MockRPCResult,
-): Promise<{ ok: boolean; error?: string; signedOut?: boolean; redirected?: boolean }> {
-  if (!authenticated) {
-    return { ok: false, error: "Not signed in" };
-  }
-
-  if (rpcResult.error) {
-    let message = "Failed to delete account. Please try again or contact support.";
-    
-    if (rpcResult.error.code === "42883" || rpcResult.error.message?.includes("function") || rpcResult.error.message?.includes("does not exist")) {
-      message = "Account deletion is not available yet. The system administrator needs to apply a database migration. Please contact support.";
-    } else if (rpcResult.error.code === "42501" || rpcResult.error.message?.includes("permission")) {
-      message = "Permission denied. Please contact support.";
-    } else if (rpcResult.error.message?.includes("network") || rpcResult.error.message?.includes("timeout")) {
-      message = "Network error. Please check your connection and try again.";
-    }
-    
-    // User stays signed in on error
-    return { ok: false, error: message, signedOut: false };
-  }
-
-  // Success: sign out and redirect
-  return { ok: true, signedOut: true, redirected: true };
-}
-
 async function runTests() {
   console.log("1. Authentication check");
   {
-    const result = await simulateDeleteAccount(false, { error: null });
+    let rpcCalled = false;
+    let signedOut = false;
+    
+    const result = await performAccountDeletion({
+      user: null,
+      callRPC: async () => {
+        rpcCalled = true;
+        return { error: null };
+      },
+      signOut: async () => {
+        signedOut = true;
+      },
+      redirect: () => {
+        throw new Error("Should not redirect");
+      },
+    });
+    
     check("unauthenticated request returns error", !result.ok);
-    check("error message mentions authentication", result.error === "Not signed in");
-    check("does not attempt sign-out", !result.signedOut);
+    check("error message mentions authentication", result.ok === false && result.error === "Not signed in");
+    check("does not call RPC", !rpcCalled);
+    check("does not sign out", !signedOut);
   }
 
   console.log("\n2. Successful deletion");
   {
-    const result = await simulateDeleteAccount(true, { error: null });
-    check("authenticated request succeeds", result.ok);
-    check("signs out the user", result.signedOut === true);
-    check("redirects to landing page", result.redirected === true);
+    let rpcCalled = false;
+    let signedOut = false;
+    let redirected = false;
+    
+    try {
+      await performAccountDeletion({
+        user: { id: "test-user-id", email: "test@example.com" },
+        callRPC: async () => {
+          rpcCalled = true;
+          return { error: null };
+        },
+        signOut: async () => {
+          signedOut = true;
+        },
+        redirect: (() => {
+          redirected = true;
+          // Simulate redirect() which never returns - throw to exit the function
+          throw new Error("REDIRECT");
+        }) as never,
+      });
+    } catch (e) {
+      // Expected - redirect throws
+      if ((e as Error).message !== "REDIRECT") throw e;
+    }
+    
+    check("RPC is called", rpcCalled);
+    check("signs out the user", signedOut);
+    check("redirects to landing page", redirected);
   }
 
   console.log("\n3. RPC function not found (migration not applied)");
   {
-    const result = await simulateDeleteAccount(true, {
-      error: { code: "42883", message: "function public.delete_own_account() does not exist" },
+    let signedOut = false;
+    
+    const result = await performAccountDeletion({
+      user: { id: "test-user-id", email: "test@example.com" },
+      callRPC: async () => ({
+        error: { code: "42883", message: "function public.delete_own_account() does not exist" },
+      }),
+      signOut: async () => {
+        signedOut = true;
+      },
+      redirect: () => {
+        throw new Error("Should not redirect on error");
+      },
     });
+    
     check("returns error", !result.ok);
-    check("error mentions migration needed", result.error?.includes("database migration") || false);
-    check("keeps user signed in", result.signedOut === false);
+    check("error mentions migration needed", result.ok === false && result.error.includes("database migration"));
+    check("keeps user signed in (no signOut call)", !signedOut);
   }
 
   console.log("\n4. Permission denied");
   {
-    const result = await simulateDeleteAccount(true, {
-      error: { code: "42501", message: "permission denied" },
+    let signedOut = false;
+    
+    const result = await performAccountDeletion({
+      user: { id: "test-user-id", email: "test@example.com" },
+      callRPC: async () => ({
+        error: { code: "42501", message: "permission denied for function delete_own_account" },
+      }),
+      signOut: async () => {
+        signedOut = true;
+      },
+      redirect: () => {
+        throw new Error("Should not redirect on error");
+      },
     });
+    
     check("returns error", !result.ok);
-    check("error mentions permission", result.error?.includes("Permission denied") || false);
-    check("keeps user signed in", result.signedOut === false);
+    check("error mentions permission", result.ok === false && result.error.includes("Permission denied"));
+    check("keeps user signed in", !signedOut);
   }
 
   console.log("\n5. Network error");
   {
-    const result = await simulateDeleteAccount(true, {
-      error: { code: "NETWORK", message: "network timeout" },
+    let signedOut = false;
+    
+    const result = await performAccountDeletion({
+      user: { id: "test-user-id", email: "test@example.com" },
+      callRPC: async () => ({
+        error: { message: "network timeout after 5s" },
+      }),
+      signOut: async () => {
+        signedOut = true;
+      },
+      redirect: () => {
+        throw new Error("Should not redirect on error");
+      },
     });
+    
     check("returns error", !result.ok);
-    check("error mentions network", result.error?.includes("Network error") || false);
-    check("keeps user signed in", result.signedOut === false);
+    check("error mentions network", result.ok === false && result.error.includes("Network error"));
+    check("keeps user signed in", !signedOut);
   }
 
   console.log("\n6. Generic error");
   {
-    const result = await simulateDeleteAccount(true, {
-      error: { code: "UNKNOWN", message: "something went wrong" },
+    let signedOut = false;
+    
+    const result = await performAccountDeletion({
+      user: { id: "test-user-id", email: "test@example.com" },
+      callRPC: async () => ({
+        error: { code: "UNKNOWN", message: "something went wrong" },
+      }),
+      signOut: async () => {
+        signedOut = true;
+      },
+      redirect: () => {
+        throw new Error("Should not redirect on error");
+      },
     });
+    
     check("returns error", !result.ok);
-    check("error message is user-friendly", result.error?.includes("Please try again") || false);
-    check("keeps user signed in", result.signedOut === false);
+    check("error message is user-friendly", result.ok === false && result.error.includes("Please try again"));
+    check("keeps user signed in", !signedOut);
+  }
+
+  console.log("\n7. Error mapping (pure function)");
+  {
+    check(
+      "migration not applied error",
+      mapDeletionError({ code: "42883" }).includes("database migration")
+    );
+    check(
+      "function not found error",
+      mapDeletionError({ message: "function does not exist" }).includes("database migration")
+    );
+    check(
+      "permission error by code",
+      mapDeletionError({ code: "42501" }).includes("Permission denied")
+    );
+    check(
+      "permission error by message",
+      mapDeletionError({ message: "permission denied" }).includes("Permission denied")
+    );
+    check(
+      "network error",
+      mapDeletionError({ message: "network timeout" }).includes("Network error")
+    );
+    check(
+      "generic error",
+      mapDeletionError({ code: "OTHER" }).includes("Please try again")
+    );
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

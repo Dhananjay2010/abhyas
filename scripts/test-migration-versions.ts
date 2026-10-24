@@ -11,6 +11,8 @@
 import { readdirSync } from "fs";
 import { resolve } from "path";
 
+export {}; // Make this a module to avoid global scope conflicts
+
 const MIGRATIONS_DIR = resolve(__dirname, "../supabase/migrations");
 
 let failures = 0;
