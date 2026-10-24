@@ -6,7 +6,7 @@ import { BuildPlanButton } from "./build-plan-button";
 import { StartSessionButton } from "./start-session-button";
 import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { addDays, isoWeekday, localDateString } from "@/lib/dates";
+import { addDays, daysBetween, isoWeekday, localDateString } from "@/lib/dates";
 import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
@@ -330,22 +330,24 @@ export default async function TodayPage() {
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
   
-  // Check if yesterday has any planned override (Rest/Yoga/Breathing choice)
-  const yesterdayOverride = yesterdaySessions.find(
-    (s) => s.local_date === yesterday && s.program_id === program.id
-  );
-  
-  const missedYesterday = !yesterdayOverride && isMissedTrainingDay({
+  const missedYesterday = isMissedTrainingDay({
     date: yesterday,
     programStartedOn: program.started_on,
     onboardingCompletedAt: profile.onboarding_completed_at,
     timezone,
     templateDayType: yesterdayDay?.day_type ?? null,
+    programId: program.id,
     sessions: yesterdaySessions.map((s) => ({
       actual_type: s.actual_type,
       status: s.status,
+      program_id: s.program_id,
     })),
   });
+  
+  // Check if today has been answered (any choice made for today in this program)
+  const answeredToday = todaySessions.some(
+    (s) => (s.status === "planned" || ownsPlannedWorkout(s.actual_type)) && s.program_id === program.id
+  );
 
   // ---- wave 3 -------------------------------------------------------------
   // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
@@ -549,13 +551,13 @@ export default async function TodayPage() {
             { dayName: "Sun", isTraining: days?.some((d) => d.day_index === 7 && ownsPlannedWorkout(d.day_type)) ?? false },
           ]}
           sessionMinutes={profile.preferred_session_minutes ?? 60}
-          blockLength={Math.round((new Date(program.ends_on).getTime() - new Date(program.started_on).getTime()) / (7 * 24 * 60 * 60 * 1000))}
+          blockLength={Math.round((daysBetween(program.started_on, program.ends_on) + 1) / 7)}
           deloadWeek={program.deload_week}
         />
       )}
 
-      {/* Missed-yesterday prompt (shown on ALL day types when true) */}
-      {missedYesterday && !strengthDone && !strengthOpen && (
+      {/* Missed-yesterday prompt (shown when missed and not yet answered) */}
+      {missedYesterday && !answeredToday && !strengthDone && !strengthOpen && (
         <DayPlanPrompt
           localDate={localToday}
           dayLabel="Today"
@@ -785,6 +787,15 @@ export default async function TodayPage() {
           </span>
         </div>
       </section>
+
+      <div className="mt-10 space-y-3">
+        <BuildPlanButton label="Rebuild this block" />
+        <form action="/auth/signout" method="post">
+          <button className="w-full rounded-xl border border-border bg-surface-2 px-6 py-3 text-sm font-medium text-muted transition-colors hover:text-fg">
+            Sign out
+          </button>
+        </form>
+      </div>
 
     </main>
   );

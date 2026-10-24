@@ -4,7 +4,6 @@ import { getCachedEquipment } from "@/lib/supabase/cached-queries";
 import { SettingsForm, type SettingsState } from "./settings-form";
 import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
-import { BuildPlanButton } from "../today/build-plan-button";
 
 export const dynamic = "force-dynamic";
 
@@ -88,13 +87,6 @@ export default async function SettingsPage() {
             >
               Contact Support →
             </a>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">Training Plan</h2>
-          <div className="space-y-3">
-            <BuildPlanButton label="Rebuild this block" />
           </div>
         </section>
 

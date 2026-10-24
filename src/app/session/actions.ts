@@ -907,6 +907,7 @@ export async function planDay(input: {
   const planned = (existing ?? []).filter((s) => s.status === "planned");
 
   if (input.plan.kind === "keep") {
+    // Delete any existing planned rows first
     if (planned.length > 0) {
       const { error } = await supabase
         .from("sessions")
@@ -917,6 +918,46 @@ export async function planDay(input: {
         );
       if (error) return { ok: false, error: error.message };
     }
+    
+    // Write a planned row with the scheduled day_type to persist the "Keep" choice
+    const { data: program } = await supabase
+      .from("programs")
+      .select("id, started_on, deload_week")
+      .eq("status", "active")
+      .maybeSingle();
+    
+    if (!program) {
+      revalidateTrainingData();
+      return { ok: true };
+    }
+    
+    // Get the template day for this weekday
+    const dayIndex = isoWeekday(input.localDate);
+    const { data: programDay } = await supabase
+      .from("program_days")
+      .select("id, day_type")
+      .eq("program_id", program.id)
+      .eq("day_index", dayIndex)
+      .maybeSingle();
+    
+    if (!programDay) {
+      revalidateTrainingData();
+      return { ok: true };
+    }
+    
+    const week = weekInBlock(program.started_on, input.localDate);
+    const { error: insertError } = await supabase.from("sessions").insert({
+      user_id: user.id,
+      program_id: program.id,
+      program_day_id: programDay.id,
+      local_date: input.localDate,
+      week_in_block: week,
+      is_deload: week !== null && week === program.deload_week,
+      status: "planned",
+      actual_type: programDay.day_type,
+    });
+    
+    if (insertError) return { ok: false, error: insertError.message };
     revalidateTrainingData();
     return { ok: true };
   }

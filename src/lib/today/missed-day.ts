@@ -3,19 +3,17 @@
  *
  * A day is only "missed" if:
  * 1. It was a training day in the block's template
- * 2. It occurred on or after the program started_on date
+ * 2. It occurred AFTER the program started_on date (signup day itself never missed)
  * 3. It occurred on or after the user's onboarding completion date
- * 4. No choice was made for that day (no planned override, no completed strength)
+ * 4. No choice was made for that day in THIS program (no planned override, no completed strength)
  *
- * This prevents showing "YOU MISSED YESTERDAY" on day 1 of a new program.
- *
- * A Rest/Yoga/Breathing choice settles a day (planned/in_progress/completed/skipped).
- * A completed strength session also settles a day.
+ * The guards exist to prevent spurious "missed yesterday" prompts on day 1 and
+ * when the user starts at an unaligned weekday.
  */
 
-import type { Database } from "@/lib/database.types";
-import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { localDateString } from "@/lib/dates";
+import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import type { Database } from "@/lib/database.types";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
@@ -30,8 +28,10 @@ export type MissedDayInput = {
   timezone: string;
   /** The day template for that weekday */
   templateDayType: DayType | null;
+  /** The program ID (to filter only choices for this program) */
+  programId: string;
   /** Sessions for that date */
-  sessions: Array<{ actual_type: DayType | null; status: string }>;
+  sessions: Array<{ actual_type: DayType | null; status: string; program_id: string | null }>;
 };
 
 /**
@@ -39,9 +39,9 @@ export type MissedDayInput = {
  *
  * Returns true only when:
  * - The template scheduled strength training (weights or bodyweight)
- * - The date is on or after program start
+ * - The date is AFTER program start (signup day itself never missed)
  * - The date is on or after onboarding completion
- * - No choice was made: no Rest/Yoga/Breathing override (planned/in_progress/completed/skipped)
+ * - No choice was made in this program: no Rest/Yoga/Breathing override (planned/in_progress/completed/skipped)
  *   and no completed strength session
  */
 export function isMissedTrainingDay(input: MissedDayInput): boolean {
@@ -51,12 +51,18 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     onboardingCompletedAt,
     timezone,
     templateDayType,
+    programId,
     sessions,
   } = input;
 
   // Not a strength training day in the template
   // Use the shared rule: only weights/bodyweight count
   if (!ownsPlannedWorkout(templateDayType)) {
+    return false;
+  }
+
+  // Guard 1: Check if the date is before or on the program start (signup day itself never missed)
+  if (date <= programStartedOn) {
     return false;
   }
 
@@ -75,18 +81,20 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     return false;
   }
 
-  // Check if any choice was made for this day:
-  // 1. A completed strength session
+  // Check if any choice was made for this day IN THIS PROGRAM:
+  // 1. A completed strength session for this program
   const strengthCompleted = sessions.some(
-    (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type)
+    (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type) && s.program_id === programId
   );
   if (strengthCompleted) {
     return false;
   }
 
-  // 2. A Rest/Yoga/Breathing choice (planned, in_progress, completed, or skipped)
+  // 2. A Rest/Yoga/Breathing choice (planned, in_progress, completed, or skipped) for this program
+  // Anytime breathing (program_id null) does NOT settle a missed strength day
   const hasChoice = sessions.some(
     (s) =>
+      s.program_id === programId &&
       (s.status === "planned" ||
         s.status === "in_progress" ||
         s.status === "completed" ||
@@ -97,5 +105,6 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
     return false;
   }
 
+  // Skipped or planned weights sessions that were never completed DO count as missed
   return true;
 }
