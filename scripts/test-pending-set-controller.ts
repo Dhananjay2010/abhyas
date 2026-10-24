@@ -7,11 +7,8 @@ import {
   type LogSetFunction,
   type PendingSetState,
 } from "../src/lib/session/pending-set-controller";
-import {
-  SESSION_EXPIRED_CODE,
-  resolveAuth,
-  type Result,
-} from "../src/app/session/actions";
+import { SESSION_EXPIRED_CODE, resolveAuth } from "../src/lib/session/auth-result";
+import type { Result } from "../src/app/session/actions";
 import type { Storage } from "../src/lib/session/pending-set-retry";
 
 function createStorage(): Storage {
@@ -229,6 +226,15 @@ async function testMutantF_ServerSideAuth() {
   const hasUserResult = await resolveAuth(hasUser, async (): Promise<Result> => ({ ok: true }));
 
   assert(hasUserResult.ok, "Returns success when user exists");
+
+  const throwingAuth = async () => {
+    throw new Error("Not signed in");
+  };
+  const thrownResult = await resolveAuth(throwingAuth, async (): Promise<Result> => ({ ok: true }));
+  assert(!thrownResult.ok, "Caught thrown auth error");
+  if (!thrownResult.ok) {
+    assertEqual(thrownResult.code, SESSION_EXPIRED_CODE, "Thrown error returns SESSION_EXPIRED code");
+  }
 }
 
 async function testMutantG_ReplayGuard() {

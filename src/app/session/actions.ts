@@ -27,42 +27,16 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
+import { SESSION_EXPIRED_CODE, resolveAuth } from "@/lib/session/auth-result";
+
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string; code?: string };
-
-const SESSION_EXPIRED_CODE = 'SESSION_EXPIRED';
-
-export { SESSION_EXPIRED_CODE };
 
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
-}
-
-/**
- * Resolve auth for a server action.
- * 
- * Returns SESSION_EXPIRED code when no user, instead of throwing. Exported
- * for testing the server-side auth contract without React or DB.
- */
-export async function resolveAuth<T>(
-  authFn: () => Promise<{ user: unknown | null }>,
-  action: () => Promise<Result<T>>,
-): Promise<Result<T>> {
-  try {
-    const { user } = await authFn();
-    if (!user) {
-      return { ok: false, error: "Not signed in", code: SESSION_EXPIRED_CODE };
-    }
-    return await action();
-  } catch (err) {
-    if (err instanceof Error && err.message === "Not signed in") {
-      return { ok: false, error: "Not signed in", code: SESSION_EXPIRED_CODE };
-    }
-    throw err;
-  }
 }
 
 /**
@@ -301,28 +275,29 @@ export async function logSet(input: {
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) return { ok: false, error: invalid };
 
-  try {
-    const { supabase, user } = await requireUser();
-    const { error } = await supabase.from("session_sets").upsert(
-      {
-        session_exercise_id: input.sessionExerciseId,
-        user_id: user.id,
-        set_number: input.setNumber,
-        reps: input.reps,
-        weight_kg: input.weightKg,
-        duration_seconds: durationSeconds,
-        is_warmup_set: false,
-        completed_at: new Date().toISOString(),
-      },
-      { onConflict: "session_exercise_id,set_number,is_warmup_set" },
-    );
-    return error ? { ok: false, error: error.message } : { ok: true };
-  } catch (err) {
-    if (err instanceof Error && err.message === "Not signed in") {
-      return { ok: false, error: "Not signed in", code: SESSION_EXPIRED_CODE };
+  return await resolveAuth(
+    async () => {
+      const { user } = await getAuthedClient();
+      return { user };
+    },
+    async () => {
+      const { supabase, user } = await requireUser();
+      const { error } = await supabase.from("session_sets").upsert(
+        {
+          session_exercise_id: input.sessionExerciseId,
+          user_id: user.id,
+          set_number: input.setNumber,
+          reps: input.reps,
+          weight_kg: input.weightKg,
+          duration_seconds: durationSeconds,
+          is_warmup_set: false,
+          completed_at: new Date().toISOString(),
+        },
+        { onConflict: "session_exercise_id,set_number,is_warmup_set" },
+      );
+      return error ? { ok: false, error: error.message } : { ok: true };
     }
-    throw err;
-  }
+  );
 }
 
 export async function deleteSet(
