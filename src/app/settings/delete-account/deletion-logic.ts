@@ -9,10 +9,25 @@ import { getSiteInfo } from "@/lib/legal/site-info";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
+/**
+ * Get the names of all Supabase auth cookies that should be deleted.
+ * 
+ * Supabase auth cookies all start with 'sb-' prefix. This helper filters
+ * a list of all cookie names to find the auth-related ones.
+ * 
+ * Exported as a pure function for testing.
+ * 
+ * @param allCookieNames - All cookie names currently set
+ * @returns Array of auth cookie names to delete
+ */
+export function authCookieNames(allCookieNames: string[]): string[] {
+  return allCookieNames.filter(name => name.startsWith("sb-"));
+}
+
 export interface DeletionDeps {
   user: { id: string; email: string | null } | null;
   callRPC: () => Promise<{ error: unknown }>;
-  signOut: () => Promise<void>;
+  signOut: () => Promise<{ error: unknown } | void>;
   redirect: () => never;
 }
 
@@ -58,7 +73,7 @@ export function mapDeletionError(error: { code?: string; message?: string }): st
  * 1. Check authentication
  * 2. Call RPC to delete account
  * 3. On error: return error, user stays signed in
- * 4. On success: sign out and redirect
+ * 4. On success: sign out (local scope) and redirect
  */
 export async function performAccountDeletion(deps: DeletionDeps): Promise<Result> {
   const { user, callRPC, signOut, redirect } = deps;
@@ -84,9 +99,17 @@ export async function performAccountDeletion(deps: DeletionDeps): Promise<Result
     };
   }
 
-  // Success: sign out and redirect to landing page
-  // The user is already deleted from the database, this just clears the session
-  await signOut();
+  // Success: the user no longer exists in the database
+  // Sign out with local scope (no server call needed since user is deleted)
+  const signOutResult = await signOut();
+  
+  // Check for sign-out errors
+  // Even if sign-out fails, we continue to delete cookies and redirect
+  // because the account is already deleted
+  if (signOutResult && "error" in signOutResult && signOutResult.error) {
+    console.error("Sign-out error after successful deletion:", signOutResult.error);
+  }
+  
   redirect();
   // TypeScript: redirect() never returns, but we need a return statement for type checking
   return { ok: true };

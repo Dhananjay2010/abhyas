@@ -1,8 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { performAccountDeletion } from "./deletion-logic";
+import { performAccountDeletion, authCookieNames } from "./deletion-logic";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 export type Result = { ok: true } | { ok: false; error: string };
@@ -27,7 +28,21 @@ export async function deleteAccount(): Promise<Result> {
       return await (supabase.rpc as any)("delete_own_account");
     },
     signOut: async () => {
-      await supabase.auth.signOut();
+      // Use local scope since the user no longer exists in the database
+      // This avoids a server call that would fail
+      const result = await supabase.auth.signOut({ scope: "local" });
+      
+      // Explicitly delete all Supabase auth cookies
+      // This ensures complete sign-out even if the local sign-out has issues
+      const cookieStore = await cookies();
+      const allCookieNames = (await cookieStore).getAll().map(c => c.name);
+      const authCookies = authCookieNames(allCookieNames);
+      
+      for (const cookieName of authCookies) {
+        (await cookieStore).delete(cookieName);
+      }
+      
+      return result;
     },
     redirect: () => {
       redirect("/");

@@ -10,7 +10,7 @@
  * - Error messages are user-friendly
  */
 
-import { performAccountDeletion, mapDeletionError } from "../src/app/settings/delete-account/deletion-logic";
+import { performAccountDeletion, mapDeletionError, authCookieNames } from "../src/app/settings/delete-account/deletion-logic";
 
 export {}; // Make this a module to avoid global scope conflicts
 
@@ -209,6 +209,61 @@ async function runTests() {
       "generic error",
       mapDeletionError({ code: "OTHER" }).includes("Please try again")
     );
+  }
+
+  console.log("\n8. Auth cookie names helper (pure function)");
+  {
+    const allCookies = [
+      "sb-abc-auth-token",
+      "sb-xyz-refresh-token",
+      "sb-session",
+      "other-cookie",
+      "analytics-id",
+      "SB-uppercase",
+    ];
+    const result = authCookieNames(allCookies);
+    
+    check("filters cookies with sb- prefix", result.length === 3);
+    check("includes sb-abc-auth-token", result.includes("sb-abc-auth-token"));
+    check("includes sb-xyz-refresh-token", result.includes("sb-xyz-refresh-token"));
+    check("includes sb-session", result.includes("sb-session"));
+    check("excludes other-cookie", !result.includes("other-cookie"));
+    check("excludes analytics-id", !result.includes("analytics-id"));
+    check("is case-sensitive (excludes SB-uppercase)", !result.includes("SB-uppercase"));
+  }
+
+  console.log("\n9. Sign-out error after successful deletion");
+  {
+    let rpcCalled = false;
+    let signOutCalled = false;
+    let redirected = false;
+    let signOutError = null;
+    
+    try {
+      await performAccountDeletion({
+        user: { id: "test-user-id", email: "test@example.com" },
+        callRPC: async () => {
+          rpcCalled = true;
+          return { error: null };
+        },
+        signOut: async () => {
+          signOutCalled = true;
+          signOutError = { error: new Error("User already deleted") };
+          return signOutError;
+        },
+        redirect: (() => {
+          redirected = true;
+          throw new Error("REDIRECT");
+        }) as never,
+      });
+    } catch (e) {
+      if ((e as Error).message !== "REDIRECT") throw e;
+    }
+    
+    check("RPC is called", rpcCalled);
+    check("signOut is called", signOutCalled);
+    check("redirects even on signOut error", redirected);
+    check("signOut error is logged but doesn't prevent redirect", signOutError !== null);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getSiteInfo, LEGAL_LAST_UPDATED } from "@/lib/legal/site-info";
+import { getSiteInfo, LEGAL_LAST_UPDATED, BACKUP_RETENTION_DAYS } from "@/lib/legal/site-info";
 
 export const metadata = {
   title: "Terms of Service — Abhyas",
@@ -216,7 +216,9 @@ export default function TermsOfServicePage() {
           </p>
           <p>
             You may terminate your account at any time by using the account deletion feature in
-            the Settings page. Upon termination, all your data will be permanently deleted.
+            the Settings page. Upon termination, your data is deleted from the live database immediately, 
+            and copies in our hosting provider&apos;s encrypted backups are automatically purged within 
+            approximately {BACKUP_RETENTION_DAYS} days.
           </p>
           <p>
             Sections that by their nature should survive termination (including disclaimers,

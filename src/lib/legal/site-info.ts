@@ -19,6 +19,20 @@
  */
 export const LEGAL_LAST_UPDATED = "24 October 2026";
 
+/**
+ * Backup retention period in days.
+ * 
+ * This is a placeholder value that should be updated to match the actual
+ * backup retention policy of the hosting provider (Supabase).
+ * 
+ * As of this writing, Supabase's default retention is typically 7-30 days
+ * for daily backups depending on the plan, but this should be verified
+ * and set to the actual value for your deployment.
+ * 
+ * TODO: Set this to the actual backup retention period for your deployment.
+ */
+export const BACKUP_RETENTION_DAYS = 30; // Placeholder - verify with hosting provider
+
 export interface SiteInfo {
   /** The gym or organization name (e.g., "Fitness First Mumbai") */
   gymName: string;

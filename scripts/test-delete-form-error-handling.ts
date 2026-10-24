@@ -71,6 +71,18 @@ function runTests() {
     check("error is the fixed friendly message", error === "Couldn't reach the server. Check your connection and try again.");
   }
 
+  console.log("\n8. Action returns undefined (redirect case)");
+  {
+    const error = deleteErrorMessage(undefined);
+    check("no error is returned", error === null);
+  }
+
+  console.log("\n9. Action returns null");
+  {
+    const error = deleteErrorMessage(null);
+    check("no error is returned", error === null);
+  }
+
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
   process.exit(failures === 0 ? 0 : 1);
 }

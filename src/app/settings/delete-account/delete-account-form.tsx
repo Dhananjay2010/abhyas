@@ -26,11 +26,13 @@ export function DeleteAccountForm() {
         if (errorMsg) {
           setError(errorMsg);
         }
-        // If successful, the action redirects to the landing page after sign out
+        // If no error (successful deletion), the action redirects to the landing page after sign out
       } catch (err) {
         // Catch any thrown errors (e.g. fetch failures) to prevent hitting error boundary
         const errorMsg = deleteErrorMessage({ thrown: err });
-        setError(errorMsg);
+        if (errorMsg) {
+          setError(errorMsg);
+        }
       }
     });
   }
