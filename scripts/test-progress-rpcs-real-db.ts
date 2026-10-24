@@ -678,6 +678,72 @@ async function runTests() {
       }
     }
 
+    console.log("\n9. QA TZ-1: completed session with local_date > p_today appears");
+    {
+      // After a timezone change, a completed session can have local_date = tomorrow
+      // It should still appear in history and count in progress_summary
+      const futureSessionId = randomUUID();
+      const futureExId = randomUUID();
+      const tomorrowDate = "2026-10-25"; // p_today will be 2026-10-24
+      
+      await adminClient.from("sessions").insert({
+        id: futureSessionId,
+        user_id: userIdA,
+        local_date: tomorrowDate,
+        status: "completed",
+        actual_type: "weights",
+        completed_at: "2026-10-24T23:30:00Z",
+      });
+      await adminClient.from("session_exercises").insert({
+        id: futureExId,
+        user_id: userIdA,
+        session_id: futureSessionId,
+        exercise_id: exerciseA,
+        metric: "reps",
+        status: "completed",
+      });
+      await adminClient.from("session_sets").insert({
+        id: randomUUID(),
+        user_id: userIdA,
+        session_exercise_id: futureExId,
+        weight_kg: 100,
+        reps: 5,
+        is_warmup_set: false,
+      });
+
+      // Fetch history with p_today = 2026-10-24
+      const { data: futurePage } = await supabaseA.rpc("get_history_page", {
+        p_user: userIdA,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 20,
+        p_offset: 0,
+      });
+
+      const futurePageData = futurePage as HistoryPageRow[];
+      const futureIds = futurePageData.map((r: HistoryPageRow) => r.session_id).filter(Boolean);
+      
+      check("QA TZ-1: completed session with local_date > p_today appears in get_history_page",
+        futureIds.includes(futureSessionId),
+        `future session ${futureSessionId.slice(0, 8)} in page: ${futureIds.includes(futureSessionId)}`);
+
+      // Check that total_count includes it
+      const oldTotalCount = futurePageData[0]?.total_count ?? 0;
+      check("QA TZ-1: total_count includes future-dated completed session",
+        oldTotalCount > 0,
+        `total_count: ${oldTotalCount}`);
+
+      // Check progress_summary includes it
+      const { data: progressWithFuture } = await supabaseA.rpc("progress_summary", {
+        p_user: userIdA,
+      });
+      
+      const progressData = progressWithFuture as { days_trained: number; session_count: number; total_volume_kg: number };
+      check("QA TZ-1: progress_summary includes future-dated completed session",
+        progressData.session_count > 0,
+        `session_count: ${progressData.session_count}`);
+    }
+
     if (failures > 0) {
       console.log(`\n❌ ${failures} FAILURES\n`);
       return false;

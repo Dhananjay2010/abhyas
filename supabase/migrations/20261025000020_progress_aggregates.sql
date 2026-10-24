@@ -213,18 +213,17 @@ begin
     from sessions s
     left join session_volume sv on sv.session_id = s.id
     where s.user_id = p_user
-      and s.local_date <= p_today
       and s.status != 'skipped'
       and (
-        -- Include completed sessions
+        -- Include completed sessions (always, regardless of local_date - QA TZ-1)
         (s.status = 'completed' and (
           -- Strength: must have working sets (normalize NULL and '' to 'weights')
           (coalesce(nullif(s.actual_type::text,''),'weights') in ('weights', 'bodyweight') and sv.session_id is not null)
           -- Yoga/breathing: always included
           or s.actual_type in ('yoga', 'meditation')
         ))
-        -- Include all in_progress (today or past)
-        or s.status = 'in_progress'
+        -- Include in_progress only if local_date <= p_today
+        or (s.status = 'in_progress' and s.local_date <= p_today)
         -- Include abandoned only if today
         or (s.status = 'abandoned' and s.local_date = p_today)
       )

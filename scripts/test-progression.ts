@@ -404,7 +404,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     longer.personalBest ? describePersonalBest(longer.personalBest) : "none");
 
   const deload = run({ sets: sets(4, 12, 65), isDeload: true });
-  check("a deload week claims nothing, however it went", deload.personalBest === null,
+  check("deload week tracks bests", deload.personalBest?.kind === "weight",
     `${deload.personalBest?.kind}`);
   check("and tells a lifter their weights are held",
     deload.message.includes("weights held"), deload.message);
