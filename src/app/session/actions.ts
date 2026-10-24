@@ -538,6 +538,9 @@ export async function abandonSession(
 
   const { supabase } = await requireUser();
   const result = await abandonSessionCore(makeAbandonSessionDeps(supabase), sessionId, elapsedSeconds);
+  
+  revalidateTrainingData();
+  
   return result;
 }
 

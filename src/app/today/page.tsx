@@ -417,6 +417,11 @@ export default async function TodayPage() {
             plannedSets,
           );
 
+          const isSwappedIn = r.swapped_from_exercise_id !== null;
+          const finalLabel = isSwappedIn && workingSetsLogged === 0 && effectiveStatus !== "in_progress"
+            ? "Swapped in"
+            : completionLabel;
+
           return {
             key: `s${r.order_index}`,
             name: r.exercises?.name ?? "",
@@ -426,9 +431,9 @@ export default async function TodayPage() {
             repsMin: r.planned_reps_min,
             repsMax: r.planned_reps_max,
             restSeconds: r.rest_seconds,
-            completionLabel,
-            strikethrough,
-            swappedIn: r.swapped_from_exercise_id !== null,
+            completionLabel: finalLabel,
+            strikethrough: isSwappedIn && workingSetsLogged === 0 ? false : strikethrough,
+            swappedIn: isSwappedIn,
           };
         })
       : template.map((r) => ({
