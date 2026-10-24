@@ -276,24 +276,16 @@ export async function logSet(input: {
   const { supabase, user } = await requireUser();
 
   // Reject writes to sessions that are no longer in_progress or don't exist
-  const { data: sessionExercise, error: lookupError } = await supabase
-    .from("session_exercises")
-    .select("sessions!inner(status)")
-    .eq("id", input.sessionExerciseId)
-    .maybeSingle();
-
-  if (lookupError) {
-    return { ok: false, code: "SESSION_NOT_FOUND", error: "Session not found." };
-  }
-
-  if (!sessionExercise) {
-    return { ok: false, code: "SESSION_NOT_FOUND", error: "Session not found." };
-  }
-
-  type SessionExerciseWithStatus = { sessions: { status: string } };
-  const sessionStatus = (sessionExercise as SessionExerciseWithStatus).sessions.status;
-  if (sessionStatus !== "in_progress") {
-    return { ok: false, code: "SESSION_ENDED", error: "This session has ended." };
+  const { 
+    buildLogSetValidationDeps, 
+    validateSessionForLogSet 
+  } = await import("@/lib/session/log-set-validation");
+  
+  const validationDeps = buildLogSetValidationDeps(supabase);
+  const validationResult = await validateSessionForLogSet(validationDeps, input.sessionExerciseId);
+  
+  if (!validationResult.ok) {
+    return validationResult;
   }
 
   const { error } = await supabase.from("session_sets").upsert(
