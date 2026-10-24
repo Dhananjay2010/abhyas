@@ -3,11 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { withRateLimit } from "@/lib/rate-limit/route-handler";
 import { getRedirectOrigin, safeNextPath } from "@/lib/auth/redirect-origin";
+import { getLandingRedirectTarget } from "@/lib/auth/sign-in-redirect";
 
 async function handleAuthCallback(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = safeNextPath(searchParams.get("next"));
+  const nextParam = searchParams.get("next");
 
   if (code) {
     const supabase = await createClient();
@@ -24,9 +25,27 @@ async function handleAuthCallback(request: Request) {
       */
       if (data?.user) await ensureProfileRows(supabase, data.user);
 
+      // Load profile to check onboarding status
+      let onboardingCompletedAt: string | null = null;
+      if (data?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_completed_at')
+          .eq('id', data.user.id)
+          .single();
+        onboardingCompletedAt = profile?.onboarding_completed_at ?? null;
+      }
+
+      // Determine redirect target based on onboarding status and next parameter
+      const redirectPath = getLandingRedirectTarget(
+        onboardingCompletedAt,
+        nextParam,
+        safeNextPath
+      );
+
       // Build redirect origin from forwarded headers (Vercel) or request URL (local)
       const base = getRedirectOrigin(request);
-      return NextResponse.redirect(`${base}${next}`);
+      return NextResponse.redirect(`${base}${redirectPath}`);
     }
   }
 
