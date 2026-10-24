@@ -35,6 +35,7 @@ function testNoHardcodedTimezoneInAppCode() {
     "src/lib/timezone-canonical.ts",  // Canonicalization helper with examples
     "src/lib/timezone-patch.ts",  // Settings validation helper with examples
     "src/lib/timezone-options.ts",  // Comments explaining deduplication behavior
+    "src/lib/dates/today-iso.ts",  // Documentation example showing IST offset behavior
     "src/app/settings/settings-form.tsx",  // Comment explaining client canonicalization
     "src/app/settings/timezone-picker-logic.ts",  // Pure logic helper with QA issue documentation
   ];

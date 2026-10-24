@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { parseDobParts } from "@/lib/onboarding/dob";
 
 export interface DobInputProps {
   /** Current value as ISO date string (YYYY-MM-DD) or null */
@@ -75,16 +76,13 @@ export function DobInput({ value, onChange, error, onBlur }: DobInputProps) {
   useEffect(() => {
     let newValue: string | null = null;
     
-    // Only emit a complete ISO date when:
-    // - Day has 1-2 digits
-    // - Month has 1-2 digits
-    // - Year has EXACTLY 4 digits
+    // Only emit when year has exactly 4 digits
     if (day && month && year && year.length === 4) {
-      const dayPadded = day.padStart(2, '0');
-      const monthPadded = month.padStart(2, '0');
-      newValue = `${year}-${monthPadded}-${dayPadded}`;
+      // Use parseDobParts to validate the date
+      // Returns null for invalid dates (month 0, day 0, Feb 31, etc.)
+      newValue = parseDobParts(day, month, year);
     }
-    // For incomplete or empty states, newValue remains null
+    // For incomplete, empty, or invalid dates, newValue remains null
     
     // Only emit if the value actually changed
     if (newValue !== lastEmittedRef.current) {
