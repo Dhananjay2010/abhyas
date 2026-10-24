@@ -287,25 +287,32 @@ async function runTests() {
         completed_at: "2026-10-23T14:30:00Z",
       });
 
-      // Count lifts (should be 260)
-      const { data: liftsCount, error: liftsError } = await supabaseA.rpc("get_history_count", {
+      // Count lifts (should be 260) - use get_history_page to get total_count
+      const { data: liftsPage, error: liftsError } = await supabaseA.rpc("get_history_page", {
         p_user: userIdA,
         p_filter: "lifts",
-        p_today: "2026-10-24", // ISO date string
+        p_today: "2026-10-24",
+        p_limit: 1,
+        p_offset: 0,
       });
 
-      check("get_history_count succeeds for lifts", !liftsError,
+      check("get_history_page succeeds for lifts", !liftsError,
         liftsError ? `error: ${liftsError.message}` : "");
+      type HistoryPageRow = { session_id: string; total_count: number };
+      const liftsCount = (liftsPage as HistoryPageRow[])?.[0]?.total_count ?? 0;
       check("lifts count = 260", liftsCount === 260,
         `got ${liftsCount}`);
 
       // Count yoga (should be 2 now)
-      const { data: yogaCount } = await supabaseA.rpc("get_history_count", {
+      const { data: yogaPage } = await supabaseA.rpc("get_history_page", {
         p_user: userIdA,
         p_filter: "yoga",
         p_today: "2026-10-24",
+        p_limit: 1,
+        p_offset: 0,
       });
 
+      const yogaCount = (yogaPage as HistoryPageRow[])?.[0]?.total_count ?? 0;
       check("yoga count = 2 (includes 0-set completed yoga)", yogaCount === 2,
         `got ${yogaCount}`);
 
@@ -331,12 +338,15 @@ async function runTests() {
         `found session with status=${zeroSetYoga?.status}`);
 
       // Test date filtering: count only up to 2025-06-30 (first ~180 days)
-      const { data: dateFilteredCount } = await supabaseA.rpc("get_history_count", {
+      const { data: dateFilteredPage } = await supabaseA.rpc("get_history_page", {
         p_user: userIdA,
         p_filter: "lifts",
         p_today: "2025-06-30",
+        p_limit: 1,
+        p_offset: 0,
       });
 
+      const dateFilteredCount = (dateFilteredPage as HistoryPageRow[])?.[0]?.total_count ?? 0;
       check("date filtering works (≤ 181 sessions before 2025-07-01)", 
         dateFilteredCount !== null && dateFilteredCount <= 181,
         `got ${dateFilteredCount}`);
@@ -347,14 +357,17 @@ async function runTests() {
       // Test with a date-typed parameter (PostgREST accepts ISO date strings)
       const istDate = "2026-10-24"; // Late evening IST = early morning UTC
       
-      const { data: countNearMidnight, error: midnightError } = await supabaseA.rpc("get_history_count", {
+      const { data: pageNearMidnight, error: midnightError } = await supabaseA.rpc("get_history_page", {
         p_user: userIdA,
         p_filter: "lifts",
         p_today: istDate,
+        p_limit: 1,
+        p_offset: 0,
       });
 
       check("date parameter works near IST midnight", !midnightError,
         midnightError ? `error: ${midnightError.message}` : "");
+      const countNearMidnight = (pageNearMidnight as HistoryPageRow[])?.[0]?.total_count ?? 0;
       check("returns a count", countNearMidnight !== null && countNearMidnight >= 0,
         `got ${countNearMidnight}`);
     }

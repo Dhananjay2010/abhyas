@@ -225,7 +225,7 @@ begin
         -- Include completed sessions
         (s.status = 'completed' and (
           -- Strength: must have working sets
-          (coalesce(s.actual_type, '') in ('', 'weights', 'bodyweight') and sv.session_id is not null)
+          ((s.actual_type is null or s.actual_type in ('weights', 'bodyweight')) and sv.session_id is not null)
           -- Yoga/breathing: always included
           or s.actual_type in ('yoga', 'meditation')
         ))
@@ -236,7 +236,7 @@ begin
       )
       -- Apply type filter
       and (
-        (p_filter = 'lifts' and coalesce(s.actual_type, '') in ('', 'weights', 'bodyweight'))
+        (p_filter = 'lifts' and (s.actual_type is null or s.actual_type in ('weights', 'bodyweight')))
         or (p_filter = 'yoga' and s.actual_type = 'yoga')
         or (p_filter = 'breathing' and s.actual_type = 'meditation')
       )

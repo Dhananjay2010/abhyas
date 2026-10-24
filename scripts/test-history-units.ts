@@ -18,40 +18,40 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\nHistory top-set weight formatting (tests real formatTopSet helper)");
 
-// Test metric formatting
+// Test metric formatting with space before unit and thousands separators
 const metric100 = formatTopSet(100, "metric");
-check("100 kg formats as '100kg top' for metric users",
-  metric100 === "100kg top",
+check("100 kg formats as '100 kg top' for metric users (space before unit)",
+  metric100 === "100 kg top",
   `got '${metric100}'`);
 
-// Test imperial formatting with decimal
+// Test imperial formatting with space and decimal
 const imperial100 = formatTopSet(100, "imperial");
-check("100 kg formats as '220.5lb top' for imperial users (shows 1 decimal)",
-  imperial100 === "220.5lb top",
+check("100 kg formats as '220.5 lb top' for imperial users (space, 1 decimal)",
+  imperial100 === "220.5 lb top",
   `got '${imperial100}'`);
 
 // Test rounding to 1 decimal: 50 kg → 110.23 lb → 110.2 lb
 const imperial50 = formatTopSet(50, "imperial");
-check("50 kg formats as '110.2lb top' for imperial users",
-  imperial50 === "110.2lb top",
+check("50 kg formats as '110.2 lb top' for imperial users (space)",
+  imperial50 === "110.2 lb top",
   `got '${imperial50}'`);
 
 // Test rounding to 1 decimal: 45.5 kg → 100.31 lb → 100.3 lb
 const imperial45 = formatTopSet(45.5, "imperial");
-check("45.5 kg formats as '100.3lb top' for imperial users",
-  imperial45 === "100.3lb top",
+check("45.5 kg formats as '100.3 lb top' for imperial users (space)",
+  imperial45 === "100.3 lb top",
   `got '${imperial45}'`);
 
-// Test decimal display with .0 dropped: 22.5 kg → 22.5kg top
+// Test decimal display with .0 dropped: 22.5 kg → 22.5 kg top
 const metric22_5 = formatTopSet(22.5, "metric");
-check("22.5 kg formats as '22.5kg top' (shows decimal, no rounding)",
-  metric22_5 === "22.5kg top",
+check("22.5 kg formats as '22.5 kg top' (space, shows decimal, no rounding)",
+  metric22_5 === "22.5 kg top",
   `got '${metric22_5}'`);
 
 // Test 42.5 kg (from QA report)
 const metric42_5 = formatTopSet(42.5, "metric");
-check("42.5 kg formats as '42.5kg top'",
-  metric42_5 === "42.5kg top",
+check("42.5 kg formats as '42.5 kg top' (space)",
+  metric42_5 === "42.5 kg top",
   `got '${metric42_5}'`);
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
