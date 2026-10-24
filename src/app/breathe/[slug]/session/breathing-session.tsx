@@ -171,9 +171,8 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
   //
   // An extra history entry with the same URL sits on top of the practice.
   // Pressing back pops only that entry: nothing navigates, the popstate
-  // handler opens the pause sheet, and the entry goes back on. Leaving is a
-  // deliberate choice from the sheet. Once the practice has finished, back
-  // simply leaves.
+  // handler shows a confirmation dialog, and the entry goes back on.
+  // Once the practice has finished, back simply leaves.
   useEffect(() => {
     const guard = () =>
       window.history.pushState({ [GUARD_KEY]: true }, "", window.location.href);
@@ -189,12 +188,14 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
         else router.replace(homeHref);
         return;
       }
-      pauseRef.current();
+      // Show confirmation dialog instead of pausing
+      if (!paused) requestPause();
+      setBackPressed(true);
       guard();
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [fromApp, router, homeHref]);
+  }, [fromApp, router, homeHref, paused, requestPause]);
 
   const registerPause = useCallback((fn: () => void) => {
     pauseRef.current = fn;
@@ -436,6 +437,8 @@ function Practice({
   const [rate, setRate] = useState<Status>({ state: "idle" });
   /** "End here" on a routine's hand-off: finish now rather than go on. */
   const [stopHere, setStopHere] = useState(false);
+  /** Back button pressed: show confirmation to leave. */
+  const [backPressed, setBackPressed] = useState(false);
 
   // Voice falls back to tones on a browser that cannot speak, and says so.
   const canSpeak = useSyncExternalStore(onVoicesChanged, speechSupported, () => true);
@@ -447,6 +450,26 @@ function Practice({
   const needsTap = stage === "running" && soundOn && canPlay && !hasContext && !tapped;
   const live = stage === "running" && !paused && !needsTap;
   useWakeLock(live);
+
+  // Persist session state to sessionStorage for resume/interrupted detection
+  const storageKey = `breathe-session-${pattern.slug}`;
+  useEffect(() => {
+    if (stage !== "running") return;
+    const state = {
+      slug: pattern.slug,
+      startedAt: Date.now() - clock.elapsed() * 1000,
+      cycles: options.cycles,
+      step: stepIndex,
+    };
+    sessionStorage.setItem(storageKey, JSON.stringify(state));
+    
+    return () => {
+      // Clear on unmount if finished
+      if (stage === "finished") {
+        sessionStorage.removeItem(storageKey);
+      }
+    };
+  }, [stage, pattern.slug, clock, options.cycles, stepIndex, storageKey]);
 
   const shapeRef = useRef<ShapeHandle>(null);
   const glowRef = useRef<HTMLDivElement>(null);
@@ -590,19 +613,23 @@ function Practice({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [requestPause]);
 
-  // Space pauses and resumes; Escape pauses.
+  // Space pauses and resumes; Escape pauses or dismisses confirmation.
   useEffect(() => {
     if (stage !== "running") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== " " && e.key !== "Escape") return;
       if ((e.target as HTMLElement | null)?.closest("button")) return;
       e.preventDefault();
+      if (e.key === "Escape" && backPressed) {
+        setBackPressed(false);
+        return;
+      }
       if (!paused) requestPause();
       else if (e.key === " ") setPaused(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stage, paused, requestPause]);
+  }, [stage, paused, backPressed, requestPause]);
 
   useEffect(() => {
     if (paused) resumeRef.current?.focus();
@@ -1349,7 +1376,7 @@ function Practice({
         </div>
       )}
 
-      {paused && (
+      {paused && !backPressed && (
         <div
           className="absolute inset-0 z-20 flex items-end justify-center bg-black/55"
           onClick={(e) => {
@@ -1416,6 +1443,48 @@ function Practice({
                 Finish one full round to be able to save it.
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {backPressed && (
+        <div
+          className="absolute inset-0 z-30 flex items-end justify-center bg-black/55"
+          onClick={(e) => {
+            e.stopPropagation();
+            setBackPressed(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="back-confirm-title"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-3xl border border-white/10 px-6 pt-6"
+            style={{ background: "#0f1d2a", paddingBottom: "calc(1.5rem + env(safe-area-inset-bottom))" }}
+          >
+            <h2 id="back-confirm-title" className="text-xl font-semibold tracking-tight">
+              Leave practice?
+            </h2>
+            <p className="mt-1 text-sm text-breath-ink/70">
+              {view.sub === "practice" && pauseAt.cycles > 0
+                ? "Your progress will be lost."
+                : "You haven't started yet."}
+            </p>
+            <button
+              type="button"
+              onClick={() => setBackPressed(false)}
+              className="mt-6 w-full rounded-xl bg-accent px-6 py-4 font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+            >
+              Stay
+            </button>
+            <button
+              type="button"
+              onClick={onLeave}
+              className="mt-3 w-full rounded-xl border border-white/15 px-6 py-3.5 text-sm font-semibold transition-colors hover:border-white/30"
+            >
+              Leave
+            </button>
           </div>
         </div>
       )}
