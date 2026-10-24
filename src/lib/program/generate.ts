@@ -898,6 +898,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     const hasKneeInjury = input.currentInjuryRegions.includes("knee");
     const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full_body" || entry.focus === "legs";
     let firstQuadSlotHandled = false;
+    let kneeSafeFirstPickSlot: number | null = null; // Track which slot got the knee-safe pick
+    let kneeSafeFirstPickExerciseId: string | null = null; // Track the exercise ID for M3 protection
     
     entry.slots.slice(0, templateCount).forEach((pattern, i) => {
       const usedSet = i <= 3 ? usedToday : usedInBlock;
@@ -916,11 +918,15 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             if (usedSet.has(e.id)) return false;
             
             // Apply shared constraint checker (will exclude timed holds from main slots, check adjacent hinges)
-            if (wouldViolateConstraints(e, i, pickedExercises, input)) return false;
+            if (wouldViolateConstraints(e, i, pickedExercises, input)) {
+              return false;
+            }
             
             // Manual eligibility checks (level, track, equipment) WITHOUT contraindications
             // Track check
-            if (input.primaryTrack === "bodyweight" && !e.tracks.includes("bodyweight")) return false;
+            if (input.primaryTrack === "bodyweight" && !e.tracks.includes("bodyweight")) {
+              return false;
+            }
             
             // Level check
             if (e.level_min === "expert" && input.level === "beginner") return false;
@@ -935,9 +941,13 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
                 const hasValidAlternative = alternatives.some(altSet =>
                   altSet.every(eq => available.has(eq))
                 );
-                if (!hasValidAlternative) return false;
+                if (!hasValidAlternative) {
+                  return false;
+                }
               } else {
-                if (!e.equipment_ids.every(eq => available.has(eq))) return false;
+                if (!e.equipment_ids.every(eq => available.has(eq))) {
+                  return false;
+                }
               }
             }
             
@@ -959,8 +969,11 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return a.e.slug.localeCompare(b.e.slug);
           });
         
+        
         if (kneeSafeCandidates.length > 0) {
           const picked = kneeSafeCandidates[0].e;
+          kneeSafeFirstPickSlot = i; // Mark this slot as the knee-safe pick
+          kneeSafeFirstPickExerciseId = picked.id; // Save the exercise ID for M3 protection
           usedSet.add(picked.id);
           if (i <= 3) {
             usedInBlock.add(picked.id);
@@ -968,6 +981,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           pickedExercises.push({ ex: picked, slotIndex: i });
           return;
         }
+        
         
         // Priority 2 (Fallback): If no knee-safe quad exists, use knee-safe hip-dominant move
         const kneeSafeHipDominant = pool
@@ -1191,7 +1205,19 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     // then accessories/isolation, with core exercises last. This keeps sessions
     // trainer-quality (squat before bicep curls, abs at the end).
     // Must stay deterministic (slug as tiebreaker).
+    // EXCEPTION: For knee-injured users on Lower/Full days, the knee-safe first pick
+    // must stay first even if it's an isolation (to satisfy Rule 1).
     const ordered = pickedExercises.sort((a, b) => {
+      // Knee-safe first pick always stays first
+      if (kneeSafeFirstPickSlot !== null) {
+        if (a.slotIndex === kneeSafeFirstPickSlot && b.slotIndex !== kneeSafeFirstPickSlot) {
+          return -1;
+        }
+        if (b.slotIndex === kneeSafeFirstPickSlot && a.slotIndex !== kneeSafeFirstPickSlot) {
+          return 1;
+        }
+      }
+      
       const aCore = a.ex.movement_pattern === "core";
       const bCore = b.ex.movement_pattern === "core";
       if (aCore && !bCore) return 1;  // Core goes last
@@ -1476,13 +1502,26 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               picked.equipment_ids,
             );
             
-            // Find the last core exercise to insert before it (core must stay last)
+            // Find the insertion position:
+            // 1. Must be before core exercises (core stays last)
+            // 2. Must NOT be before knee-safe first pick (to preserve Rule 1)
             const lastCoreIndex = exercises.map((ex, idx) => {
               const e = pool.find(p => p.id === ex.exerciseId);
               return e?.movement_pattern === "core" ? idx : -1;
             }).reduce((max, idx) => Math.max(max, idx), -1);
             
-            const insertIndex = lastCoreIndex >= 0 ? lastCoreIndex : exercises.length;
+            // Find the knee-safe first pick's position (if it exists)
+            const kneeSafeIndex = kneeSafeFirstPickExerciseId !== null
+              ? exercises.findIndex(ex => ex.exerciseId === kneeSafeFirstPickExerciseId)
+              : -1;
+            
+            // Default: insert before core (or at end if no core)
+            let insertIndex = lastCoreIndex >= 0 ? lastCoreIndex : exercises.length;
+            
+            // But if knee-safe pick is at position 0, insert after it (position 1 minimum)
+            if (kneeSafeIndex === 0) {
+              insertIndex = Math.max(1, insertIndex);
+            }
             
             // Insert at the correct position and update orderIndex for all exercises after it
             exercises.splice(insertIndex, 0, {
