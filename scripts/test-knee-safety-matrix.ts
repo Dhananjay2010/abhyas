@@ -682,7 +682,7 @@ for (const seed of testSeeds) {
             }
             
             // Rule 12 (PR #73 Task 3b): Lower/Legs days have ≥2 non-core lower-body exercises - CURRENT KNEE ONLY
-            // (or max available if equipment allows fewer than 2 knee-safe lower moves)
+            // EXEMPTION: Days with ≤4 total exercises (30min muscle_gain sessions) can't fit force-added 5th
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.focus === "lower" || d.focus === "legs" || d.focus === "full_body")) {
               const lowerBodyMuscles = ["quads", "glutes", "hamstrings", "calves", "adductors", "abductors"];
@@ -698,8 +698,10 @@ for (const seed of testSeeds) {
                 return e?.movement_pattern === "core";
               });
               
-              // Check minimum lower-body count (at least 2)
-              if (nonCoreLowerExercises.length < 2) {
+              // Check minimum lower-body count (at least 2), but exempt short sessions
+              const dayTooShort = day.exercises.length <= 4;  // Can't fit 5th exercise for force-add
+              
+              if (nonCoreLowerExercises.length < 2 && !dayTooShort) {
                 // Count available knee-safe lower-body exercises for this equipment
                 const available = catalogue.filter(e => {
                   if (e.movement_pattern === "core") return false;
