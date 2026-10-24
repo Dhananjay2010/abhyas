@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 
 import { dateRange, isoWeekday } from "@/lib/dates";
+import { isTrainingDay } from "./training-days";
 
 export { dateRange, isoWeekday };
 
@@ -19,7 +20,7 @@ export type Streaks = {
   totalSessions: number;
 };
 
-const RESTFUL: ReadonlySet<DayType> = new Set<DayType>(["rest", "active_recovery"]);
+const RESTFUL: ReadonlySet<DayType> = new Set<DayType>(["rest", "active_recovery", "meditation"]);
 
 /**
  * Streaks counted in scheduled training days, not calendar days.
@@ -29,10 +30,14 @@ const RESTFUL: ReadonlySet<DayType> = new Set<DayType>(["rest", "active_recovery
  * breaks it. Today is also skipped when incomplete, because the day is not
  * over yet and a half-finished Tuesday should not read as a failure.
  *
+ * Per h3 decision (2026-10-24): Strength (weights/bodyweight) and yoga count
+ * toward streaks. Breathing practices (meditation) do NOT count — they are
+ * treated as restful days and skipped in streak calculation.
+ *
  * `days` must be ordered oldest first.
  */
 export function computeStreaks(days: DayRecord[], today: string): Streaks {
-  const totalSessions = days.filter((d) => d.completed).length;
+  const totalSessions = days.filter((d) => d.completed && isTrainingDay(d.dayType)).length;
 
   let current = 0;
   for (let i = days.length - 1; i >= 0; i--) {

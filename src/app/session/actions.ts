@@ -5,6 +5,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
+import { sessionOwnsDay } from "@/lib/progress/training-days";
 import {
   describePersonalBest,
   evaluateProgression,
@@ -119,7 +120,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
         Only the day's own workout qualifies. A skipped yoga or breathing row must
         not be turned into a strength session.
       */
-      todayRows.find((s) => s.status === "skipped" && ownsTheDay(s.actual_type))
+      todayRows.find((s) => s.status === "skipped" && sessionOwnsDay(s.actual_type))
     : // When resume is disabled, only reuse a planned session (from the "what
       // about tomorrow?" prompt), never one that was started and abandoned.
       todayRows.find((s) => s.status === "planned");
@@ -936,7 +937,7 @@ export async function planDay(input: {
 
   const settled = (existing ?? []).find(
     (s) =>
-      ownsTheDay(s.actual_type) &&
+      sessionOwnsDay(s.actual_type) &&
       (s.status === "completed" || s.status === "in_progress"),
   );
   if (settled) {
