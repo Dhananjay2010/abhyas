@@ -226,4 +226,29 @@ assert(
   "Timezone: created_at 2026-10-23T19:00Z in Asia/Kolkata (local 2026-10-24) is NOT missed (local date used)"
 );
 
+console.log("\n=== Test 9: Strict < on programStartedOn - block day 1 CAN be missed (s1) ===\n");
+
+// Scenario: Existing user signed up weeks ago
+// Program started today (Oct 24)
+// Checking if TODAY is missed
+// No sessions today
+// Expected: MISSED (date === programStartedOn, but strict < means day 1 can be missed)
+// This tests the strict < guard: date < programStartedOn returns false, so day 1 can be missed
+
+const result9 = isMissedTrainingDay({
+  date: "2026-10-24", // Today, which is programStartedOn
+  programStartedOn: "2026-10-24", // Program started today
+  profileCreatedAt: "2026-10-01T10:00:00Z", // Signed up weeks ago
+  timezone: "UTC",
+  templateDayType: "weights", // Today is a training day
+  programId: "program-1",
+  sessions: [], // No sessions today
+  hasStartedAny: true, // Existing user
+});
+
+assert(
+  result9,
+  "s1: Block day 1 (date === programStartedOn) CAN be missed for existing user (strict <)"
+);
+
 console.log(`\n✅ All ${passedTests}/${totalTests} new user tests passed!\n`);
