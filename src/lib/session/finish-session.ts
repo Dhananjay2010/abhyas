@@ -1,4 +1,4 @@
-import { decideAbandonStatus, type SessionExercise } from "./abandon-session";
+import { decideAbandonStatus } from "./abandon-session";
 
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
