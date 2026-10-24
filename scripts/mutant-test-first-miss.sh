@@ -1,165 +1,188 @@
-#!/bin/bash
-set -u
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Mutant test for first-miss hold guard.
-# Each mutant should be killed by the tests.
+# Mutant test script for first-miss hold guard
+# Run baseline first and abort if red
+# Back up the file, apply each mutant, verify it changed, check tsc compiles, run tests
+# Restore from backup in trap on EXIT/INT/TERM
 
 FILE="src/lib/program/progression.ts"
-BACKUP="${FILE}.backup"
-TESTS="npm run test:first-miss-hold-guard && npm run test:noequip-sweep"
+BACKUP="/tmp/progression-backup-$$.ts"
+FAILED=0
+SURVIVORS=()
+SKIPPED=()
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-NC='\033[0m' # No Color
+trap 'rm -f "$BACKUP"; exit 1' INT TERM
+trap 'rm -f "$BACKUP"' EXIT
 
-cleanup() {
-  if [ -f "$BACKUP" ]; then
-    mv "$BACKUP" "$FILE"
-  fi
-}
+echo "=== Mutant Testing: First-Miss Hold Guard ==="
+echo
 
-trap cleanup EXIT INT TERM
-
-echo "Running baseline..."
-if ! eval "$TESTS" > /dev/null 2>&1; then
-  echo -e "${RED}FAIL: Baseline tests failed${NC}"
+# Baseline: run tests
+echo "Running baseline tests..."
+if ! npm run test:first-miss-pinned > /dev/null 2>&1; then
+  echo "❌ Baseline tests failed. Fix the code before running mutant tests."
   exit 1
 fi
-echo -e "${GREEN}Baseline PASS${NC}"
+echo "✓ Baseline tests pass"
+echo
 
-# Mutant tracking
-total=0
-killed=0
-survived=0
-skipped=0
+# Back up original
+cp "$FILE" "$BACKUP"
 
 run_mutant() {
   local name="$1"
-  local search="$2"
-  local replace="$3"
+  local description="$2"
+  local search="$3"
+  local replace="$4"
   
-  total=$((total + 1))
-  
-  echo ""
-  echo "Mutant $total: $name"
-  
-  # Backup original
-  cp "$FILE" "$BACKUP"
+  echo "Testing mutant: $name"
+  echo "  $description"
   
   # Apply mutant
-  if ! sed -i "s|$search|$replace|g" "$FILE"; then
-    echo -e "  ${YELLOW}SKIP: sed failed${NC}"
-    skipped=$((skipped + 1))
-    mv "$BACKUP" "$FILE"
-    return
-  fi
+  sed -i "s|$search|$replace|g" "$FILE"
   
-  # Check if file changed
+  # Verify file changed
   if cmp -s "$FILE" "$BACKUP"; then
-    echo -e "  ${YELLOW}SKIP: file unchanged${NC}"
-    skipped=$((skipped + 1))
-    mv "$BACKUP" "$FILE"
-    return
+    echo "  ❌ SCRIPT ERROR: File did not change"
+    SKIPPED+=("$name: file unchanged")
+    cp "$BACKUP" "$FILE"
+    return 1
   fi
   
-  # Check if mutant compiles
+  # Check tsc compiles
   if ! npx tsc --noEmit > /dev/null 2>&1; then
-    echo -e "  ${YELLOW}SKIP: does not compile${NC}"
-    skipped=$((skipped + 1))
-    mv "$BACKUP" "$FILE"
-    return
+    echo "  ❌ SCRIPT ERROR: Mutant does not compile"
+    SKIPPED+=("$name: does not compile")
+    cp "$BACKUP" "$FILE"
+    return 1
   fi
   
   # Run tests
-  if eval "$TESTS" > /dev/null 2>&1; then
-    echo -e "  ${RED}SURVIVED${NC}"
-    survived=$((survived + 1))
+  if npm run test:first-miss-pinned > /dev/null 2>&1; then
+    echo "  ❌ SURVIVED"
+    SURVIVORS+=("$name")
+    FAILED=$((FAILED + 1))
   else
-    echo -e "  ${GREEN}KILLED${NC}"
-    killed=$((killed + 1))
+    echo "  ✅ KILLED"
   fi
   
-  # Restore original
-  mv "$BACKUP" "$FILE"
+  # Restore
+  cp "$BACKUP" "$FILE"
 }
 
-# Mutant (a): guard removed (always drop)
+# Mutant 1: Remove the 20% guard
 run_mutant \
-  "(a) guard removed" \
+  "(a) remove 20% guard" \
+  "Remove the cutFraction > FIRST_MISS_HOLD_THRESHOLD check" \
   "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
   "if (false) {"
 
-# Mutant (b): threshold 0.20 to 0.5
+# Mutant 2: Threshold 0.20 → 0.5
 run_mutant \
-  "(b) threshold 0.20 to 0.5" \
-  "FIRST_MISS_HOLD_THRESHOLD = 0.20" \
-  "FIRST_MISS_HOLD_THRESHOLD = 0.5"
+  "(b) threshold 0.20 → 0.5" \
+  "Change FIRST_MISS_HOLD_THRESHOLD from 0.20 to 0.50" \
+  "export const FIRST_MISS_HOLD_THRESHOLD = 0.20;" \
+  "export const FIRST_MISS_HOLD_THRESHOLD = 0.50;"
 
-# Mutant (c): > changed to >= (boundary off by one)
+# Mutant 3: > to >=
 run_mutant \
-  "(c) > changed to >=" \
-  "cutFraction > FIRST_MISS_HOLD_THRESHOLD" \
-  "cutFraction >= FIRST_MISS_HOLD_THRESHOLD"
+  "(c) > to >=" \
+  "Change cutFraction > FIRST_MISS_HOLD_THRESHOLD to >=" \
+  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD)" \
+  "if (cutFraction >= FIRST_MISS_HOLD_THRESHOLD)"
 
-# Mutant (d): guard inverted (always hold)
+# Mutant 4: Apply guard with no equipment
 run_mutant \
-  "(d) guard inverted" \
-  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
-  "if (cutFraction <= FIRST_MISS_HOLD_THRESHOLD) {"
+  "(d) guard with no equipment" \
+  "Apply 20% guard even without equipment" \
+  "if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit)" \
+  "if (currentWeight !== null && currentWeight > 0)"
 
-# Mutant (e): consecutiveFailures not incremented
+# Mutant 5: Hold returns the candidate (wait, this doesn't make sense - the hold already returns current)
+# Let me change it to: when we decide to hold, return the candidate instead
 run_mutant \
-  "(e) failures not incremented" \
+  "(e) hold returns candidate" \
+  "When holding due to threshold, return candidate instead of current" \
+  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {      candidateWeight = currentWeight;" \
+  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {      candidateWeight = candidateWeight;"
+
+# Mutant 6: Remove 1.5-step floor
+run_mutant \
+  "(f) remove 1.5*step floor" \
+  "Remove the check that candidate must be >= current - 1.5*step" \
+  "if (candidateWeight < currentWeight - 1.5 \* gridStep) {" \
+  "if (false) {"
+
+# Mutant 7: Use nearest grid value instead of strictly below
+run_mutant \
+  "(g) nearest instead of strictly below" \
+  "Round to nearest grid point instead of strictly below" \
+  "const stepsBelow = Math.floor((currentWeight - epsilon) / gridStep);" \
+  "const stepsBelow = Math.round(currentWeight / gridStep);"
+
+# Mutant 8: Drop equipment two-miss cap
+run_mutant \
+  "(h) drop equipment two-miss cap" \
+  "Remove the 'never drop more than one lift increment below 90%' cap for equipment" \
+  "} else if (equipmentIds && unit) {      // With equipment: use equipment grid, cap at one lift increment below 90%" \
+  "} else if (false) {      // With equipment: use equipment grid, cap at one lift increment below 90%"
+
+# Mutant 9: Remove invariant clamp
+run_mutant \
+  "(i) remove invariant clamp" \
+  "Remove the max(candidateWeight, twoMissFloor) clamp" \
+  "candidateWeight = Math.max(candidateWeight, twoMissFloor);" \
+  "candidateWeight = candidateWeight;"
+
+# Mutant 10: Failure counter not incremented
+run_mutant \
+  "(j) failure counter not incremented" \
+  "Don't increment consecutiveFailures on first miss" \
   "consecutiveFailures: failures," \
-  "consecutiveFailures: state.consecutiveFailures,"
+  "consecutiveFailures: 0,"
 
-# Mutant (f): guard applies without equipment
+# Mutant 11: suggestedWeight snaps on hold
 run_mutant \
-  "(f) guard without equipment" \
-  "if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {" \
-  "if (currentWeight !== null \&\& currentWeight > 0) {"
+  "(k) suggestedWeight snaps on hold" \
+  "Make suggestedWeight snap to grid even on hold (non-deload)" \
+  "// Non-deload: return current weight unchanged (hold outcome)  if (!isDeload) {    return w;" \
+  "// Non-deload: return current weight unchanged (hold outcome)  if (!isDeload) {    const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta) : incrementFor(meta); const snapped = roundToGrid(w, equipmentIds, unit, step, 'down'); return Math.min(w, snapped);"
 
-# Mutant (g): hold returns candidateWeight instead of currentWeight
-run_mutant \
-  "(g) hold returns candidate" \
-  "nextWeight = currentWeight;" \
-  "nextWeight = candidateWeight;"
-
-# Mutant (h): remove half-step floor (1.5 steps → 1.0 step)
-run_mutant \
-  "(h) no half-step floor" \
-  "currentWeight - gridBelow <= 1.5 \* gridStep" \
-  "currentWeight - gridBelow <= 1.0 * gridStep"
-
-# Mutant (i): round to nearest instead of at-or-below
-run_mutant \
-  "(i) round to nearest" \
-  "Math.floor((currentWeight - 0.001) / gridStep)" \
-  "Math.round(currentWeight / gridStep)"
-
-# Mutant (j): remove two-miss equipment cap
-run_mutant \
-  "(j) no two-miss cap" \
-  "} else if (equipmentIds && unit) {" \
-  "} else if (false) {"
-
-# Summary
-echo ""
+echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-printf "%-30s %3d\n" "Total mutants:" "$total"
-printf "%-30s %3d\n" "Killed:" "$killed"
-printf "%-30s %3d\n" "Survived:" "$survived"
-printf "%-30s %3d\n" "Skipped:" "$skipped"
+echo "Total mutants:                   11"
+echo "Killed:                          $((11 - FAILED - ${#SKIPPED[@]}))"
+echo "Survived:                        $FAILED"
+echo "Skipped:                         ${#SKIPPED[@]}"
 echo "========================================="
 
-if [ "$survived" -gt 0 ] || [ "$skipped" -gt 0 ]; then
-  echo -e "${RED}FAIL: $survived survived, $skipped skipped${NC}"
-  exit 1
-else
-  echo -e "${GREEN}PASS: All mutants killed${NC}"
-  exit 0
+if [ ${#SURVIVORS[@]} -gt 0 ]; then
+  echo
+  echo "Survivors:"
+  for survivor in "${SURVIVORS[@]}"; do
+    echo "  - $survivor"
+  done
 fi
+
+if [ ${#SKIPPED[@]} -gt 0 ]; then
+  echo
+  echo "Skipped (script errors):"
+  for skip in "${SKIPPED[@]}"; do
+    echo "  - $skip"
+  done
+  echo
+  echo "❌ FAIL: Script errors detected"
+  exit 1
+fi
+
+if [ $FAILED -gt 0 ]; then
+  echo
+  echo "❌ FAIL: $FAILED mutant(s) survived"
+  exit 1
+fi
+
+echo
+echo "✅ PASS: All mutants killed"
