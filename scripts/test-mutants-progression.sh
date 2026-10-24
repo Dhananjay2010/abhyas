@@ -257,6 +257,26 @@ test_mutant \
           targetIndex = currentBellIndex - 2;
         }"
 
+# K6: kg message uses formatWeight (de013fb bug: rounds to 1 decimal)
+test_mutant \
+  "kg message uses formatWeight (rounds to 1 decimal)" \
+  "  }
+  // For kg: plain value (no formatWeight rounding)
+  return " \
+  "  }
+  // For kg: use formatWeight (rounds to 1 decimal)
+  return formatWeight(kgValue, 'metric', true);"
+
+# K7: kg message uses toFixed(1)
+test_mutant \
+  "kg message uses toFixed(1)" \
+  "  }
+  // For kg: plain value (no formatWeight rounding)
+  return " \
+  "  }
+  // For kg: use toFixed (rounds to 1 decimal)
+  return kgValue.toFixed(1) + ' kg';"
+
 echo "==================================="
 echo "Total mutants: $MUTANT_COUNT"
 echo "Killed: $((MUTANT_COUNT - SURVIVED_COUNT))"
