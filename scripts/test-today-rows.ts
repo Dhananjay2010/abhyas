@@ -16,10 +16,12 @@ console.log("\nToday rows: template preview (before start)");
   const template = [
     {
       order_index: 0,
+      exercise_id: "ex-bench",
       exercises: {
         name: "Bench Press",
         cue: "Retract scapula",
         metric: "reps" as const,
+        equipment_ids: ["barbell"] as string[],
       },
       target_sets: 4,
       target_reps_min: 8,
@@ -28,7 +30,7 @@ console.log("\nToday rows: template preview (before start)");
     },
   ];
 
-  const rows = buildTemplateRows(template);
+  const rows = buildTemplateRows(template, new Map());
 
   check("template: uses target_reps_max", rows[0].repsMax === 12, `got ${rows[0].repsMax}`);
   check("template: key starts with 'p'", rows[0].key === "p0");

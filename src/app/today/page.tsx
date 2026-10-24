@@ -346,23 +346,6 @@ export default async function TodayPage() {
       : Promise.resolve(null),
   ]);
 
-  // Fetch exercise_progress for exercises in the performed session OR the template
-  const templateExerciseIds = template.map(t => t.exercise_id).filter((id): id is string => id !== null);
-  const exerciseIds = performedRows?.data?.map(r => r.exercise_id).filter((id): id is string => id !== null) ?? [];
-  const allExerciseIds = [...new Set([...exerciseIds, ...templateExerciseIds])];
-  
-  const progressRes = allExerciseIds.length > 0 && settingsRes.data?.planning_mode !== "daily_menu"
-    ? await supabase
-        .from("exercise_progress")
-        .select("exercise_id, current_working_weight_kg, current_target_reps")
-        .eq("user_id", user.id)
-        .in("exercise_id", allExerciseIds)
-    : { data: null };
-
-  const progressByExercise = new Map(
-    (progressRes.data ?? []).map(p => [p.exercise_id, p])
-  );
-
   /*
     One shape for the list, whichever source it came from, so the markup below
     does not have to know. An override to rest, yoga or breathing has no program
@@ -396,6 +379,23 @@ export default async function TodayPage() {
       equipment_ids: string[];
     } | null;
   }>;
+
+  // Fetch exercise_progress for exercises in the performed session OR the template
+  const templateExerciseIds = template.map(t => t.exercise_id).filter((id): id is string => id !== null);
+  const exerciseIds = performedRows?.data?.map(r => r.exercise_id).filter((id): id is string => id !== null) ?? [];
+  const allExerciseIds = [...new Set([...exerciseIds, ...templateExerciseIds])];
+  
+  const progressRes = allExerciseIds.length > 0 && settingsRes.data?.planning_mode !== "daily_menu"
+    ? await supabase
+        .from("exercise_progress")
+        .select("exercise_id, current_working_weight_kg, current_target_reps")
+        .eq("user_id", user.id)
+        .in("exercise_id", allExerciseIds)
+    : { data: null };
+
+  const progressByExercise = new Map(
+    (progressRes.data ?? []).map(p => [p.exercise_id, p])
+  );
 
   const actual = (performedRows?.data ?? null) as Array<{
     order_index: number;
