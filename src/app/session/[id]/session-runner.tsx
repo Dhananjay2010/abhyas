@@ -275,7 +275,7 @@ export function SessionRunner({
 
   // ---- offline outbox ---------------------------------------------------
   const outbox = useSetOutbox(sessionId, setExercises);
-  const { syncState, setSyncState, pendingCount, unsavedCount, flush: flushOutbox, enqueue: enqueueSet, remove: removeSet, clear: clearOutbox, isFlushing } = outbox;
+  const { syncState, setSyncState, pendingCount, flush: flushOutbox, enqueue: enqueueSet, remove: removeSet, clear: clearOutbox, isFlushing } = outbox;
 
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it

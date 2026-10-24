@@ -11,7 +11,6 @@
  */
 
 import { isNetworkError } from "./network-error";
-import { isQuotaError } from "./quota-error";
 
 export type QueuedSet = {
   clientId: string; // UUID, client-side only (not sent to server)

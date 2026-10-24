@@ -12,6 +12,8 @@
  */
 
 import { Outbox, mergePendingSets, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
+import { isNetworkError } from "../src/lib/session/network-error";
+import { mapErrorToUserMessage, getRetryDelay } from "../src/lib/session/error-messages";
 
 // ---- Fake storage --------------------------------------------------------
 class FakeStorage implements OutboxStorage {
@@ -1138,8 +1140,6 @@ function testPostgresErrorClassification() {
 
 // ---- Error message mapping -----------------------------------------------
 function testErrorMessageMapping() {
-  const { mapErrorToUserMessage } = require("../src/lib/session/error-messages");
-
   // 22P02: Invalid text representation
   if (mapErrorToUserMessage("22P02") !== "Not saved, check the numbers") {
     throw new Error("22P02 should map to check numbers message");
@@ -1185,8 +1185,6 @@ function testErrorMessageMapping() {
 
 // ---- Retry backoff schedule ----------------------------------------------
 function testRetryBackoff() {
-  const { getRetryDelay } = require("../src/lib/session/error-messages");
-
   if (getRetryDelay(0) !== 0) {
     throw new Error("Attempt 0 should be 0ms");
   }
@@ -1208,8 +1206,6 @@ function testRetryBackoff() {
 
 // ---- isNetworkError excludes coding bugs ---------------------------------
 function testNetworkErrorExcludesCodingBugs() {
-  const { isNetworkError } = require("../src/lib/session/network-error");
-
   // TypeError from coding bug should NOT be treated as network error
   const codingBug = new TypeError("x.map is not a function");
   if (isNetworkError(codingBug)) {
