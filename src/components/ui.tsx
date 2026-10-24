@@ -183,10 +183,12 @@ export function GhostButton({
 export function Field({
   label,
   hint,
+  error,
   children,
 }: {
   label: string;
   hint?: string;
+  error?: string | null;
   children: ReactNode;
 }) {
   return (
@@ -194,6 +196,7 @@ export function Field({
       <span className="text-sm font-medium text-fg">{label}</span>
       {hint && <span className="ml-2 text-xs text-muted">{hint}</span>}
       <div className="mt-2">{children}</div>
+      {error && <div className="mt-1 text-xs text-red-400">{error}</div>}
     </label>
   );
 }

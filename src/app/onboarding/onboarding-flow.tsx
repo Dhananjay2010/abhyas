@@ -253,8 +253,14 @@ export function OnboardingFlow({
   if (current === "about") {
     const height = Number(heightCm);
     const weight = Number(weightKg);
+    
+    const heightValid = heightCm !== "" && Number.isFinite(height) && height >= 100 && height <= 250;
+    const weightValid = weightKg !== "" && Number.isFinite(weight) && weight >= 20 && weight <= 500;
+    const heightError = heightCm !== "" && !heightValid ? "Height should be between 100 and 250 cm" : null;
+    const weightError = weightKg !== "" && !weightValid ? "Weight should be between 20 and 500 kg" : null;
+    
     const ready =
-      dateOfBirth !== "" && sex !== null && height > 0 && weight > 0 && !pending;
+      dateOfBirth !== "" && sex !== null && heightValid && weightValid && !pending;
 
     return (
       <StepShell
@@ -309,7 +315,7 @@ export function OnboardingFlow({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Height" hint="cm">
+            <Field label="Height" hint="cm" error={heightError}>
               <input
                 type="number"
                 inputMode="decimal"
@@ -319,7 +325,7 @@ export function OnboardingFlow({
                 className={inputClass}
               />
             </Field>
-            <Field label="Weight" hint="kg">
+            <Field label="Weight" hint="kg" error={weightError}>
               <input
                 type="number"
                 inputMode="decimal"

@@ -362,6 +362,40 @@ export function parseHeight(
 
 export type UnitsPreference = "metric" | "imperial";
 
+// ============================================================
+// VALIDATION
+// ============================================================
+
+/**
+ * Validate height in centimeters.
+ * Rejects NaN, Infinity, non-numbers, and out-of-range values.
+ * Valid range: 100-250 cm (aligned with server-side validation).
+ *
+ * @param cm - Height value to validate
+ * @returns true if valid, false otherwise
+ */
+export function isValidHeightCm(cm: unknown): cm is number {
+  if (typeof cm !== "number") return false;
+  if (!Number.isFinite(cm)) return false;
+  if (cm < 100 || cm > 250) return false;
+  return true;
+}
+
+/**
+ * Validate weight in kilograms.
+ * Rejects NaN, Infinity, non-numbers, and out-of-range values.
+ * Valid range: 20-500 kg (aligned with server-side validation).
+ *
+ * @param kg - Weight value to validate
+ * @returns true if valid, false otherwise
+ */
+export function isValidWeightKg(kg: unknown): kg is number {
+  if (typeof kg !== "number") return false;
+  if (!Number.isFinite(kg)) return false;
+  if (kg < 20 || kg > 500) return false;
+  return true;
+}
+
 /**
  * Get the user's units preference with a safe default.
  * Always returns 'metric' or 'imperial', never null/undefined.

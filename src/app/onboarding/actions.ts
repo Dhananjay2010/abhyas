@@ -6,6 +6,7 @@ import type { Database } from "@/lib/database.types";
 import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
 import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
+import { isValidHeightCm, isValidWeightKg } from "@/lib/units";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
@@ -39,10 +40,11 @@ export async function saveAboutYou(input: {
   if (age < MIN_AGE_YEARS)
     return { ok: false, error: `You need to be at least ${MIN_AGE_YEARS} to use Abhyas.` };
   if (age > 100) return { ok: false, error: "Please check your date of birth." };
-  if (input.heightCm < 100 || input.heightCm > 250)
+  
+  if (!isValidHeightCm(input.heightCm))
     return { ok: false, error: "Height should be between 100 and 250 cm." };
-  if (input.weightKg < 25 || input.weightKg > 300)
-    return { ok: false, error: "Weight should be between 25 and 300 kg." };
+  if (!isValidWeightKg(input.weightKg))
+    return { ok: false, error: "Weight should be between 20 and 500 kg." };
 
   const { supabase, user } = await requireUser();
 

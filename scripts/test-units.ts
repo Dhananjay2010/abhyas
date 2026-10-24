@@ -25,6 +25,8 @@ import {
   weightLabel,
   heightLabel,
   getUnitsPreference,
+  isValidHeightCm,
+  isValidWeightKg,
 } from "../src/lib/units";
 
 let failures = 0;
@@ -323,6 +325,42 @@ console.log("\n14. Units preference accessor with safe default");
   check("invalid with imperial fallback", getUnitsPreference("kg", "imperial") === "imperial");
   check("valid value ignores fallback", getUnitsPreference("metric", "imperial") === "metric");
   check("imperial value ignores metric fallback", getUnitsPreference("imperial", "metric") === "imperial");
+}
+
+console.log("\n15. Height validation (isValidHeightCm)");
+{
+  check("175 cm is valid", isValidHeightCm(175) === true);
+  check("100 cm is valid (lower bound)", isValidHeightCm(100) === true);
+  check("250 cm is valid (upper bound)", isValidHeightCm(250) === true);
+  check("99 cm is invalid (too short)", isValidHeightCm(99) === false);
+  check("251 cm is invalid (too tall)", isValidHeightCm(251) === false);
+  check("NaN is invalid", isValidHeightCm(NaN) === false);
+  check("Infinity is invalid", isValidHeightCm(Infinity) === false);
+  check("-Infinity is invalid", isValidHeightCm(-Infinity) === false);
+  check("string '175' is invalid", isValidHeightCm("175") === false);
+  check("empty string is invalid", isValidHeightCm("") === false);
+  check("null is invalid", isValidHeightCm(null) === false);
+  check("undefined is invalid", isValidHeightCm(undefined) === false);
+  check("0 is invalid", isValidHeightCm(0) === false);
+  check("negative is invalid", isValidHeightCm(-10) === false);
+}
+
+console.log("\n16. Weight validation (isValidWeightKg)");
+{
+  check("70 kg is valid", isValidWeightKg(70) === true);
+  check("20 kg is valid (lower bound)", isValidWeightKg(20) === true);
+  check("500 kg is valid (upper bound)", isValidWeightKg(500) === true);
+  check("19 kg is invalid (too light)", isValidWeightKg(19) === false);
+  check("501 kg is invalid (too heavy)", isValidWeightKg(501) === false);
+  check("NaN is invalid", isValidWeightKg(NaN) === false);
+  check("Infinity is invalid", isValidWeightKg(Infinity) === false);
+  check("-Infinity is invalid", isValidWeightKg(-Infinity) === false);
+  check("string '70' is invalid", isValidWeightKg("70") === false);
+  check("empty string is invalid", isValidWeightKg("") === false);
+  check("null is invalid", isValidWeightKg(null) === false);
+  check("undefined is invalid", isValidWeightKg(undefined) === false);
+  check("0 is invalid", isValidWeightKg(0) === false);
+  check("negative is invalid", isValidWeightKg(-10) === false);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
