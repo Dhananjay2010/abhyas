@@ -412,8 +412,11 @@ export function evaluateProgression(input: {
         targetWeight = nextBell;
       }
       next = targetWeight;
+    } else if (hasKettlebell && !KETTLEBELL_SIZES.includes(from)) {
+      // Non-standard kettlebell weight: add step without rounding to avoid huge jumps
+      next = from + (feel === "easy" ? step * 2 : step);
     } else {
-      // Standard increment: use step (doubled if easy)
+      // Standard loaded exercise: use step (doubled if easy), rounded to grid
       next = roundTo(from + (feel === "easy" ? step * 2 : step), step);
     }
 

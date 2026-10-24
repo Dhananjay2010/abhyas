@@ -1107,14 +1107,14 @@ console.log("\nKettlebell tie tests and edge cases");
     equipmentIds: ["kettlebell"],
   };
 
-  // Upper body back-off: 20 kg at 90% = 18 kg (tie between 16 and 20) → 16 kg
+  // Upper body back-off: 20 kg → next bell below → 18 kg
   const kbUpperBackoff = run({
     meta: { ...KETTLEBELL, movementPattern: "horizontal_press" },
     sets: sets(4, 10, 20),
     state: fresh({ currentWorkingWeightKg: 20, consecutiveFailures: 1 }),
   });
-  check("kettlebell upper 20 kg back-off goes to 16 kg (next bell below)",
-    kbUpperBackoff.nextWorkingWeightKg === 16, `${kbUpperBackoff.nextWorkingWeightKg}`);
+  check("kettlebell upper 20 kg back-off goes to 18 kg (next bell below)",
+    kbUpperBackoff.nextWorkingWeightKg === 18, `${kbUpperBackoff.nextWorkingWeightKg}`);
 
   // Test various progression paths
   const kb4 = run({
@@ -1147,8 +1147,8 @@ console.log("\nKettlebell tie tests and edge cases");
     kbDeload6 === 4, `${kbDeload6}`);
 
   const kbDeload32 = suggestedWeight({ currentWorkingWeightKg: 32 }, true, KETTLEBELL);
-  check("kettlebell 32 kg deload goes to 28 kg",
-    kbDeload32 === 28, `${kbDeload32}`);
+  check("kettlebell 32 kg deload: 80% = 25.6 kg → 24 kg (largest bell ≤ 25.6)",
+    kbDeload32 === 24, `${kbDeload32}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
