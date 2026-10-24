@@ -31,6 +31,49 @@ export type OutboxState = {
 };
 
 /**
+ * Classify the outcome of a logSet attempt for offline handling.
+ *
+ * - 'saved': set was saved successfully
+ * - 'invalid': validation error, don't queue (show error to user)
+ * - 'queue': transient error or throw, queue for retry
+ */
+export type LogSetOutcome = "saved" | "invalid" | "queue";
+
+export function classifyLogSetOutcome(
+  resultOrThrown: 
+    | { ok: true; data: { code?: string } }
+    | { ok: false; error: string; data?: { code?: string } }
+    | { thrown: unknown }
+): { outcome: LogSetOutcome; error?: string } {
+  // Thrown error (network failure, fetch timeout, etc.)
+  if ("thrown" in resultOrThrown) {
+    const err = resultOrThrown.thrown;
+    return {
+      outcome: "queue",
+      error: err instanceof Error ? err.message : "Network error",
+    };
+  }
+
+  // Success
+  if (resultOrThrown.ok) {
+    return { outcome: "saved" };
+  }
+
+  // Validation error (permanent)
+  if (
+    resultOrThrown.data &&
+    typeof resultOrThrown.data === "object" &&
+    "code" in resultOrThrown.data &&
+    resultOrThrown.data.code === "invalid"
+  ) {
+    return { outcome: "invalid", error: resultOrThrown.error };
+  }
+
+  // Other server error (transient)
+  return { outcome: "queue", error: resultOrThrown.error };
+}
+
+/**
  * Merge pending sets from the outbox into exercises.
  *
  * After a reload, exercises come from the server without pending sets,
@@ -42,7 +85,7 @@ export type OutboxState = {
 export function mergePendingSets<
   T extends {
     id: string;
-    sets: Array<{ setNumber: number; pending?: boolean }>;
+    sets: Array<{ setNumber: number; pending?: boolean; clientId?: string }>;
   },
 >(exercises: T[], pending: QueuedSet[]): T[] {
   if (pending.length === 0) return exercises;
@@ -62,6 +105,7 @@ export function mergePendingSets<
           weightKg: p.weightKg,
           durationSeconds: p.durationSeconds,
           pending: true,
+          clientId: p.clientId,
         } as T["sets"][number]);
       }
     }
@@ -232,18 +276,19 @@ export class Outbox {
    * failed sets (moving them to the failed list).
    *
    * Guarded against concurrent calls: only one flush runs at a time.
+   * If already flushing, returns immediately with skipped=true.
    */
-  async flush(): Promise<{ sentClientIds: string[]; stopped: boolean }> {
+  async flush(): Promise<{ sentClientIds: string[]; stopped: boolean; skipped: boolean }> {
     // Concurrency guard: if a flush is already in flight, return immediately
     if (this.flushInFlight) {
-      return { sentClientIds: [], stopped: false };
+      return { sentClientIds: [], stopped: false, skipped: true };
     }
 
     this.flushInFlight = true;
     try {
       const state = this.storage.get();
       if (!state || state.pending.length === 0) {
-        return { sentClientIds: [], stopped: false };
+        return { sentClientIds: [], stopped: false, skipped: false };
       }
 
       const sentClientIds: string[] = [];
@@ -274,13 +319,13 @@ export class Outbox {
           stillPending.push({ ...set, retries: set.retries + 1 });
           stillPending.push(...state.pending.slice(state.pending.indexOf(set) + 1));
           this.storage.set({ ...state, pending: stillPending });
-          return { sentClientIds, stopped: true };
+          return { sentClientIds, stopped: true, skipped: false };
         }
       }
 
       // All sets processed (either sent or moved to failed)
       this.storage.set({ ...state, pending: stillPending });
-      return { sentClientIds, stopped: false };
+      return { sentClientIds, stopped: false, skipped: false };
     } finally {
       this.flushInFlight = false;
     }

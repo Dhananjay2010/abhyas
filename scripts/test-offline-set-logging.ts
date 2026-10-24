@@ -517,6 +517,165 @@ async function testGenerateClientId() {
   console.log("✓ Generate client ID: 100 unique UUIDs");
 }
 
+async function testClassifyLogSetOutcome() {
+  const { classifyLogSetOutcome } = await import("../src/lib/session/outbox");
+
+  // Success
+  const saved = classifyLogSetOutcome({ ok: true, data: {} });
+  if (saved.outcome !== "saved") {
+    throw new Error(`Expected 'saved', got '${saved.outcome}'`);
+  }
+
+  // Validation error (permanent)
+  const invalid = classifyLogSetOutcome({ ok: false, error: "Invalid reps", data: { code: "invalid" } });
+  if (invalid.outcome !== "invalid" || invalid.error !== "Invalid reps") {
+    throw new Error(`Expected 'invalid' with error, got '${invalid.outcome}'`);
+  }
+
+  // Server error (transient)
+  const queue = classifyLogSetOutcome({ ok: false, error: "Database timeout", data: {} });
+  if (queue.outcome !== "queue" || queue.error !== "Database timeout") {
+    throw new Error(`Expected 'queue' with error, got '${queue.outcome}'`);
+  }
+
+  // Thrown error (network failure)
+  const thrown = classifyLogSetOutcome({ thrown: new Error("Network unreachable") });
+  if (thrown.outcome !== "queue" || thrown.error !== "Network unreachable") {
+    throw new Error(`Expected 'queue' for thrown error, got '${thrown.outcome}'`);
+  }
+
+  // Thrown non-Error
+  const thrownString = classifyLogSetOutcome({ thrown: "Fetch failed" });
+  if (thrownString.outcome !== "queue" || thrownString.error !== "Network error") {
+    throw new Error(`Expected 'queue' with generic error for non-Error throw, got '${thrownString.outcome}'`);
+  }
+
+  console.log("✓ classifyLogSetOutcome: correctly classifies success, invalid, transient, and thrown errors");
+}
+
+async function testPartialFlushClearing() {
+  const storage = new FakeStorage();
+  const sender = new FakeSender();
+  const outbox = new Outbox(storage, sender);
+
+  // Queue two sets
+  outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+  outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 9,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+
+  // Capture clientIds for verification
+  const state = storage.get();
+  if (!state || state.pending.length !== 2) {
+    throw new Error("Expected 2 pending sets");
+  }
+  const firstClientId = state.pending[0].clientId;
+  const secondClientId = state.pending[1].clientId;
+
+  // Make sender fail on the second call only
+  let callCount = 0;
+  const selectiveSender = new Proxy(sender, {
+    get(target, prop) {
+      if (prop === "send") {
+        return async (...args: unknown[]) => {
+          callCount++;
+          if (callCount === 2) {
+            // Fail the second send
+            return { ok: false, permanent: false, error: "Network timeout" };
+          }
+          return (target as FakeSender).send(...(args as Parameters<FakeSender["send"]>));
+        };
+      }
+      return (target as FakeSender)[prop as keyof FakeSender];
+    },
+  });
+
+  const selectiveOutbox = new Outbox(storage, selectiveSender as OutboxSender);
+  const result = await selectiveOutbox.flush();
+
+  // First set should be sent, second should still be pending
+  if (result.sentClientIds.length !== 1 || !result.stopped) {
+    throw new Error(`Expected 1 sent and stopped=true, got ${result.sentClientIds.length} sent, stopped=${result.stopped}`);
+  }
+
+  if (result.sentClientIds[0] !== firstClientId) {
+    throw new Error("First clientId should be in sentClientIds");
+  }
+
+  // Only the second set should still be pending
+  if (selectiveOutbox.pendingCount() !== 1) {
+    throw new Error(`Expected 1 pending after partial flush, got ${selectiveOutbox.pendingCount()}`);
+  }
+
+  // Verify the UI would only clear the first set's pending flag
+  const stateAfter = storage.get();
+  if (!stateAfter || stateAfter.pending.length !== 1) {
+    throw new Error("Expected 1 pending set in storage");
+  }
+  if (stateAfter.pending[0].clientId !== secondClientId) {
+    throw new Error("Second set should still be pending");
+  }
+
+  console.log("✓ Partial flush clearing: only matching clientIds cleared");
+}
+
+async function testConcurrentFlushSkipped() {
+  const storage = new FakeStorage();
+  const sender = new FakeSender();
+  const outbox = new Outbox(storage, sender);
+
+  // Queue a set
+  outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+  });
+
+  // Add a delay to sender so flush takes time
+  const slowSender = new Proxy(sender, {
+    get(target, prop) {
+      if (prop === "send") {
+        return async (...args: unknown[]) => {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return (target as FakeSender).send(...(args as Parameters<FakeSender["send"]>));
+        };
+      }
+      return (target as FakeSender)[prop as keyof FakeSender];
+    },
+  });
+
+  const slowOutbox = new Outbox(storage, slowSender as OutboxSender);
+
+  // Start first flush (doesn't await)
+  const firstFlush = slowOutbox.flush();
+
+  // Second flush should return immediately with skipped=true
+  const secondResult = await slowOutbox.flush();
+  if (!secondResult.skipped || secondResult.sentClientIds.length !== 0) {
+    throw new Error(`Expected skipped=true and 0 sent, got skipped=${secondResult.skipped}, sent=${secondResult.sentClientIds.length}`);
+  }
+
+  // Wait for first flush to complete
+  const firstResult = await firstFlush;
+  if (firstResult.skipped || firstResult.sentClientIds.length !== 1) {
+    throw new Error(`First flush should succeed with 1 sent, got skipped=${firstResult.skipped}, sent=${firstResult.sentClientIds.length}`);
+  }
+
+  console.log("✓ Concurrent flush skipped: in-flight lock returns skipped=true");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -530,6 +689,9 @@ async function main() {
   await testConcurrentFlush();
   testMergePendingSets();
   await testGenerateClientId();
+  await testClassifyLogSetOutcome();
+  await testPartialFlushClearing();
+  await testConcurrentFlushSkipped();
 
   console.log("\n✓ All offline set logging tests passed");
 }
