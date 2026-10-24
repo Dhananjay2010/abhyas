@@ -188,7 +188,8 @@
     "test:mutations": "tsx scripts/test-mutations.ts",
     "test:no-injury-baseline": "tsx scripts/test-no-injury-baseline.ts",
     "test:past-knee-coordinator": "tsx scripts/test-past-knee-coordinator.ts",
-    "test:swap-mutations": "tsx scripts/test-swap-mutations.ts"
+    "test:swap-mutations": "tsx scripts/test-swap-mutations.ts",
+    "test:swap-context": "tsx scripts/test-swap-context.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
@@ -207,20 +208,20 @@
     "@testing-library/user-event": "^14.6.8",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/semver": "^7.8.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "jsdom": "^26.1.0",
+    "pg": "^8.23.1",
     "png-chunk-text": "^1.0.0",
     "semver": "^7.8.5",
     "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "tsx": "^4.23.13",
-    "typescript": "^5",
-    "pg": "^8.23.1",
-    "@types/pg": "^8.23.1"
+    "typescript": "^5"
   },
   "engines": {
     "node": ">=22.13.0 <23"

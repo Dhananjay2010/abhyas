@@ -28,6 +28,7 @@ import {
   KNEE_SAFE_LUNGE_EXERCISES,
 } from "../src/lib/program/generate";
 import { buildPatternList, rankAlternatives } from "../src/lib/program/alternatives";
+import { getSwapPatterns } from "../src/lib/program/swap-patterns";
 import { hasAnyKneeInjury, currentInjuryRegions } from "../src/lib/program/injury-regions";
 
 type BodyRegion = "core" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle";
@@ -86,8 +87,7 @@ function simulateSwapPath(
   };
   
   // REAL swap path from actions.ts
-  const hasCurrentKnee = currentInjuries.includes("knee");
-  const patterns = buildPatternList(currentExercise.movement_pattern, anyKneeInjury, hasCurrentKnee);
+  const patterns = getSwapPatterns(currentExercise.movement_pattern, input);
   const pool = catalogue.filter(ex => patterns.includes(ex.movement_pattern));
   const eligible = pool.filter(ex => isEligible(ex, input));
   

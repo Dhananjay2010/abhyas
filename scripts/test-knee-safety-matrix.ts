@@ -130,21 +130,6 @@ function check(label: string, ok: boolean, detail = "") {
 
 type BodyRegion = "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
 
-function isBodyRegion(value: string): value is BodyRegion {
-  const validRegions: readonly string[] = ["neck", "shoulder", "elbow", "wrist", "upper_back", "lower_back", "hip", "knee", "ankle", "core"];
-  return validRegions.includes(value);
-}
-
-function toBodyRegionArray(regions: string[]): BodyRegion[] {
-  const result: BodyRegion[] = [];
-  for (const region of regions) {
-    if (isBodyRegion(region)) {
-      result.push(region);
-    }
-  }
-  return result;
-}
-
 function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
   return {
     userId: "knee-safety-matrix-test",

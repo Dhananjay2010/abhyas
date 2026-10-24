@@ -11,21 +11,12 @@ import {
   score,
   hashString,
   UNSAFE_KNEE_LUNGES,
-  PAST_KNEE_LUNGE_EXERCISES,
   type CandidateExercise, 
   type GeneratorInput,
 } from "../src/lib/program/generate";
 import { buildPatternList, rankAlternatives } from "../src/lib/program/alternatives";
 import { getSwapPatterns } from "../src/lib/program/swap-patterns";
-import { hasAnyKneeInjury, currentInjuryRegions } from "../src/lib/program/injury-regions";
-
-type BodyRegion = "core" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle";
-type InjurySeverity = "current" | "past";
-
-interface InjuryRow {
-  region: BodyRegion;
-  severity: InjurySeverity;
-}
+import { hasAnyKneeInjury, currentInjuryRegions, type InjuryRow } from "../src/lib/program/injury-regions";
 
 const fixture = "scripts/fixtures/catalogue.json";
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(fixture, "utf8"));

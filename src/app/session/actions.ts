@@ -7,6 +7,7 @@ import type { Database } from "@/lib/database.types";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { rankAlternatives } from "@/lib/program/alternatives";
 import { getSwapPatterns } from "@/lib/program/swap-patterns";
+import { buildSwapContext } from "@/lib/program/swap-context";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isEligible, score, hashString, buildInjuryFlags, type CandidateExercise } from "@/lib/program/generate";
 import { ageOn } from "@/lib/onboarding/options";
@@ -659,6 +660,7 @@ export async function findAlternatives(
   const wantCompound = replacing?.mechanic !== "isolation";
   const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
   
+  // Build pattern list (current + fallbacks + knee-safe if applicable)
   const patterns = getSwapPatterns(pattern, input);
   
   // Helper to cast Supabase rows to typed pool rows
@@ -698,18 +700,13 @@ export async function findAlternatives(
     }
   }
   
+  const scoreFn = (e: CandidateExercise) => score(e, wantCompound, input.level, input.primaryTrack);
+  const swapContext = buildSwapContext(input, scoreFn, tieBreak);
+  
   const ranked = rankAlternatives(
     currentExercise,
     eligible,
-    {
-      level: input.level,
-      availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
-      injuryRegions: input.currentInjuryRegions,
-      anyKneeInjury: input.anyKneeInjury,
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
-      tieBreakFn: tieBreak,
-    },
+    swapContext,
   );
 
   const alternatives = ranked.map((e) => ({

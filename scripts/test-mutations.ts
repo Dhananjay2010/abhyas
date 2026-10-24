@@ -156,7 +156,6 @@ function runMutation(mutant: Mutant): void {
 
   // 1. Verify pattern exists
   const original = readFileSync(file, "utf8");
-  const patternToFind = typeof pattern === "string" ? pattern : pattern.source;
   const regex = typeof pattern === "string" ? new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) : pattern;
   
   if (!regex.test(original)) {
@@ -190,7 +189,7 @@ function runMutation(mutant: Mutant): void {
     // 4. Verify it compiles
     try {
       execSync("npx tsc --noEmit", { stdio: "pipe", encoding: "utf8" });
-    } catch (err) {
+    } catch {
       console.log(`  ⊘ SKIP: Does not compile after mutation`);
       skipped++;
       return;
@@ -201,7 +200,7 @@ function runMutation(mutant: Mutant): void {
     for (const test of tests) {
       try {
         execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
-      } catch (err) {
+      } catch {
         testFailed = true;
         break;
       }
@@ -243,7 +242,7 @@ try {
     }
   }
   console.log("✓ Baseline tests pass\n");
-} catch (err) {
+} catch {
   console.error("❌ FATAL: Baseline tests fail before mutations");
   process.exit(1);
 }
