@@ -55,15 +55,15 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
   let current = 0;
   for (let i = days.length - 1; i >= 0; i--) {
     const d = days[i];
-    if (d.localDate > today) continue;
     
-    // If completed, count it (buildDayRecords already filtered to qualifying sessions)
+    // TZ-1: COMPLETED sessions always count, even if dated beyond today in new timezone
     if (d.completed && d.actualSessionType) {
       current++;
       continue;
     }
     
-    // Not completed: rest days don't break streak, training days do
+    // Not completed: skip future planned days, rest days, and today
+    if (d.localDate > today) continue; // Future planned day
     if (d.localDate === today) continue; // Today incomplete is not a failure
     if (RESTFUL.has(d.dayType)) continue; // Template rest day, no session
     // Missed a scheduled training day
@@ -73,16 +73,15 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
   let longest = 0;
   let run = 0;
   for (const d of days) {
-    if (d.localDate > today) break;
-    
-    // If completed, count it (buildDayRecords already filtered to qualifying sessions)
+    // TZ-1: COMPLETED sessions always count, even if dated beyond today in new timezone
     if (d.completed && d.actualSessionType) {
       run++;
       if (run > longest) longest = run;
       continue;
     }
     
-    // Not completed: rest days don't break streak, training days do
+    // Not completed: skip future planned days, rest days, and today
+    if (d.localDate > today) break; // Stop at future planned days
     if (d.localDate === today) continue;
     if (RESTFUL.has(d.dayType)) continue;
     // Missed a scheduled training day
@@ -152,11 +151,36 @@ export function buildDayRecords(input: {
     }
   }
 
-  return dateRange(first, today).map((date) => {
+  // TZ-1: Include days beyond today if there are completed sessions on those dates
+  // (happens after timezone change: yesterday's session becomes "tomorrow" in new zone)
+  const latestSessionDate = Array.from(sessionsByDate.keys()).reduce(
+    (latest, date) => (date > latest ? date : latest),
+    today
+  );
+  const lastDate = latestSessionDate > today ? latestSessionDate : today;
+
+  // M3: For days after a block's ended_on (gap days or days after the last block),
+  // inherit the training schedule from the previous block so that missed training days
+  // break the streak. This ensures the streak is the same before and after rollover.
+  let lastBlockId: string | null = null;
+  
+  return dateRange(first, lastDate).map((date) => {
     const covering = blockForDate(blocks, date);
 
-    const dayType =
-      (covering && dayTypesByProgram[covering.id]?.[isoWeekday(date)]) ?? "rest";
+    let dayType: DayType;
+    if (covering) {
+      // Date is covered by a block: use its schedule
+      dayType = dayTypesByProgram[covering.id]?.[isoWeekday(date)] ?? "rest";
+      lastBlockId = covering.id;
+    } else if (lastBlockId) {
+      // M3: Gap day (after ended_on, before next block OR after last block) - use previous block's schedule
+      // This way, if Mon was a training day and the user misses time, streak breaks
+      // regardless of whether rollover has created the next block yet
+      dayType = dayTypesByProgram[lastBlockId]?.[isoWeekday(date)] ?? "rest";
+    } else {
+      // Before first block
+      dayType = "rest";
+    }
 
     const actualSessionType = sessionsByDate.get(date) ?? null;
     const completed = actualSessionType !== null;
