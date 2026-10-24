@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+import { countWorkingSets } from "@/lib/session/count-sets";
 
 type SessionType = Database["public"]["Enums"]["day_type"];
 
@@ -51,7 +52,6 @@ export function countsTowardStreak(
   if (sessionType === "weights" || sessionType === "bodyweight") {
     // If sets provided, validate working set count
     if (sets !== undefined) {
-      const { countWorkingSets } = require("@/lib/session/count-sets");
       return countWorkingSets(sets) > 0;
     }
     // Backward compatible: assume valid if sets not provided
