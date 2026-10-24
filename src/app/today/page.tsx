@@ -13,6 +13,7 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { isSessionOverride } from "@/lib/program/detect-override";
 
 export const dynamic = "force-dynamic";
 
@@ -277,10 +278,7 @@ export default async function TodayPage() {
     block still has. An unresolvable id says nothing either way, and the label
     on screen is the block's own in that case anyway.
   */
-  const overrideDiffers =
-    override !== undefined &&
-    (override.actual_type !== (scheduled?.day_type ?? null) ||
-      (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
+  const overrideDiffers = isSessionOverride(override, overrideDay, scheduled, todayIndex);
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
   const isDeload = week === program.deload_week;
   const isTraining = dayType === "weights" || dayType === "bodyweight";

@@ -124,6 +124,7 @@ async function callRolloverRPC(
       supabase
         .from("programs")
         .select("block_number")
+        .not("status", "in", "(superseded,retired)")
         .order("block_number", { ascending: false })
         .limit(1)
         .maybeSingle(),

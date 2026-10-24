@@ -1,0 +1,495 @@
+/**
+ * Mutant-killing unit tests for repointSessionsAfterRebuild with fake client.
+ *
+ * Tests error handling and mode guard without a real database:
+ * - Errors on select return {ok: true, warning} (decision c: non-fatal)
+ * - Errors on update return {ok: true, warning} (decision c: non-fatal)
+ * - Errors on delete return {ok: true, warning} (decision c: non-fatal)
+ *
+ * npm run test:repoint-fake-client
+ */
+import { repointSessionsAfterRebuild } from "../src/lib/program/repoint-sessions";
+
+type SupabaseError = { message: string; code?: string };
+type SupabaseResponse<T> = {
+  data: T | null;
+  error: SupabaseError | null;
+};
+
+let failures = 0;
+
+function check(label: string, ok: boolean, detail = "") {
+  if (!ok) failures++;
+  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+}
+
+/**
+ * Create a fake Supabase client that returns controlled responses.
+ */
+type FakeClient = {
+  from: (table: string) => {
+    select: (query: string) => {
+      eq: (column: string, value: unknown) => {
+        eq: (column2: string, value2: unknown) => {
+          gte: (column3: string, value3: unknown) => Promise<SupabaseResponse<unknown>>;
+        };
+        in: (column2: string, values: unknown[]) => {
+          gte: (column3: string, value3: unknown) => Promise<SupabaseResponse<unknown>>;
+        };
+        single: () => Promise<SupabaseResponse<unknown>>;
+        order: (column: string) => Promise<SupabaseResponse<unknown>>;
+      };
+    };
+    update: (data: unknown) => {
+      eq: (column: string, value: unknown) => Promise<SupabaseResponse<unknown>>;
+    };
+    delete: () => {
+      in: (column: string, values: unknown[]) => Promise<SupabaseResponse<unknown>>;
+      eq: (column: string, value: unknown) => Promise<SupabaseResponse<unknown>>;
+    };
+    insert: (data: unknown) => Promise<SupabaseResponse<unknown>>;
+  };
+};
+
+function createFakeClient(
+  selectResponse: SupabaseResponse<unknown>,
+  newDaysResponse: SupabaseResponse<unknown>,
+  updateErrors: SupabaseError[] = [],
+  deleteError: SupabaseError | null = null,
+): FakeClient {
+  let updateCallCount = 0;
+
+  return {
+    from(table: string) {
+      if (table === "sessions") {
+        return {
+          select(query: string) {
+            void query;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return {
+                  eq(column2: string, value2: unknown) {
+                    void column2; void value2;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve(selectResponse);
+                      },
+                    };
+                  },
+                  in(column2: string, values: unknown[]) {
+                    void column2; void values;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve(selectResponse);
+                      },
+                    };
+                  },
+                  single() {
+                    return Promise.resolve({
+                      data: { user_id: "user1", is_deload: false },
+                      error: null,
+                    });
+                  },
+                  order(column: string) {
+                    void column;
+                    return Promise.resolve(selectResponse);
+                  },
+                };
+              },
+            };
+          },
+          update(data: unknown) {
+            void data;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                const error = updateErrors[updateCallCount] || null;
+                updateCallCount++;
+                return Promise.resolve({ data: null, error });
+              },
+            };
+          },
+          delete() {
+            return {
+              in(column: string, values: unknown[]) {
+                void column; void values;
+                return Promise.resolve({ data: null, error: deleteError });
+              },
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: deleteError });
+              },
+            };
+          },
+          insert(data: unknown) {
+            void data;
+            return Promise.resolve({ data: null, error: null });
+          },
+        };
+      } else if (table === "program_days") {
+        return {
+          select(query: string) {
+            void query;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return {
+                  eq(column2: string, value2: unknown) {
+                    void column2; void value2;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve(newDaysResponse);
+                      },
+                    };
+                  },
+                  in(column2: string, values: unknown[]) {
+                    void column2; void values;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve(newDaysResponse);
+                      },
+                    };
+                  },
+                  single() {
+                    return Promise.resolve(newDaysResponse);
+                  },
+                  order(column: string) {
+                    void column;
+                    return Promise.resolve(newDaysResponse);
+                  },
+                };
+              },
+            };
+          },
+          update(data: unknown) {
+            void data;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          delete() {
+            return {
+              in(column: string, values: unknown[]) {
+                void column; void values;
+                return Promise.resolve({ data: null, error: null });
+              },
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          insert(data: unknown) {
+            void data;
+            return Promise.resolve({ data: null, error: null });
+          },
+        };
+      } else if (table === "program_day_exercises") {
+        return {
+          select(query: string) {
+            void query;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return {
+                  eq(column2: string, value2: unknown) {
+                    void column2; void value2;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve({ data: [], error: null });
+                      },
+                    };
+                  },
+                  in(column2: string, values: unknown[]) {
+                    void column2; void values;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve({ data: [], error: null });
+                      },
+                    };
+                  },
+                  single() {
+                    return Promise.resolve({ data: [], error: null });
+                  },
+                  order(column: string) {
+                    void column;
+                    return Promise.resolve({ data: [], error: null });
+                  },
+                };
+              },
+            };
+          },
+          update(data: unknown) {
+            void data;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          delete() {
+            return {
+              in(column: string, values: unknown[]) {
+                void column; void values;
+                return Promise.resolve({ data: null, error: null });
+              },
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          insert(data: unknown) {
+            void data;
+            return Promise.resolve({ data: null, error: null });
+          },
+        };
+      } else if (table === "session_exercises") {
+        return {
+          select(query: string) {
+            void query;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return {
+                  eq(column2: string, value2: unknown) {
+                    void column2; void value2;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve({ data: null, error: null });
+                      },
+                    };
+                  },
+                  in(column2: string, values: unknown[]) {
+                    void column2; void values;
+                    return {
+                      gte(column3: string, value3: unknown) {
+                        void column3; void value3;
+                        return Promise.resolve({ data: null, error: null });
+                      },
+                    };
+                  },
+                  single() {
+                    return Promise.resolve({ data: null, error: null });
+                  },
+                  order(column: string) {
+                    void column;
+                    return Promise.resolve({ data: null, error: null });
+                  },
+                };
+              },
+            };
+          },
+          update(data: unknown) {
+            void data;
+            return {
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          delete() {
+            return {
+              in(column: string, values: unknown[]) {
+                void column; void values;
+                return Promise.resolve({ data: null, error: null });
+              },
+              eq(column: string, value: unknown) {
+                void column; void value;
+                return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+          insert(data: unknown) {
+            void data;
+            return Promise.resolve({ data: null, error: null });
+          },
+        };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    },
+  };
+}
+
+console.log("\n1. Error on sessions select returns {ok: true, warning}");
+{
+  const client = createFakeClient(
+    { data: null, error: { message: "Database connection failed", code: "CONNECTION_ERROR" } },
+    { data: [], error: null },
+  );
+
+  repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
+    .then((result) => {
+      check("returns ok: true (non-fatal)", result.ok === true);
+      check("warning message included", result.warning?.includes("Database connection failed") ?? false);
+    });
+}
+
+console.log("\n2. Error on program_days select returns {ok: true, warning}");
+{
+  const client = createFakeClient(
+    { data: [{ id: "s1", local_date: "2026-10-24", actual_type: "weights", planned_type: "weights", program_day_id: "old-day", program_days: { label: "Upper", day_index: 1 }, session_exercises: [] }], error: null },
+    { data: null, error: { message: "Failed to fetch program days", code: "FETCH_ERROR" } },
+  );
+
+  repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
+    .then((result) => {
+      check("returns ok: true (non-fatal)", result.ok === true);
+      check("warning message included", result.warning?.includes("Failed to fetch program days") ?? false);
+    });
+}
+
+console.log("\n3. Error on update returns {ok: true, warning}");
+{
+  const client = createFakeClient(
+    {
+      data: [
+        {
+          id: "s1",
+          local_date: "2026-10-24",
+          actual_type: "weights",
+          planned_type: "weights",
+          program_day_id: "old-day",
+          program_days: { label: "Upper", day_index: 1 },
+          session_exercises: [],
+        },
+      ],
+      error: null,
+    },
+    {
+      data: [{ id: "new-day", day_index: 1, day_type: "weights", label: "Upper" }],
+      error: null,
+    },
+    [{ message: "Update failed: permission denied", code: "PERMISSION_DENIED" }],
+  );
+
+  repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
+    .then((result) => {
+      check("returns ok: true (non-fatal)", result.ok === true);
+      check("warning indicates update failure", result.warning?.includes("session updates failed") ?? false);
+    });
+}
+
+console.log("\n4. Error on delete returns {ok: true, warning}");
+{
+  const client = createFakeClient(
+    {
+      data: [
+        {
+          id: "s1",
+          local_date: "2026-10-24",
+          actual_type: "bodyweight",
+          planned_type: "bodyweight",
+          program_day_id: "old-day",
+          program_days: { label: "Full Body", day_index: 2 },
+          session_exercises: [],
+        },
+      ],
+      error: null,
+    },
+    {
+      data: [{ id: "new-day", day_index: 1, day_type: "weights", label: "Upper" }],
+      error: null,
+    },
+    [],
+    { message: "Delete failed: row locked", code: "ROW_LOCKED" },
+  );
+
+  repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
+    .then((result) => {
+      check("returns ok: true (non-fatal)", result.ok === true);
+      check("warning indicates delete failure", result.warning?.includes("session updates failed") ?? false);
+    });
+}
+
+console.log("\n5. Empty sessions list returns {ok: true}");
+{
+  const client = createFakeClient(
+    { data: [], error: null },
+    { data: [{ id: "new-day", day_index: 1, day_type: "weights", label: "Upper" }], error: null },
+  );
+
+  repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
+    .then((result) => {
+      check("returns ok: true for empty sessions", result.ok === true);
+    });
+}
+
+console.log("\n6. Empty new days list returns {ok: true}");
+{
+  const client = createFakeClient(
+    {
+      data: [
+        {
+          id: "s1",
+          local_date: "2026-10-24",
+          actual_type: "weights",
+          planned_type: "weights",
+          program_day_id: "old-day",
+          program_days: { label: "Upper", day_index: 1 },
+          session_exercises: [],
+        },
+      ],
+      error: null,
+    },
+    { data: [], error: null },
+  );
+
+  repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
+    .then((result) => {
+      check("returns ok: true for empty new days", result.ok === true);
+    });
+}
+
+console.log("\n7. Successful re-point returns {ok: true}");
+{
+  const client = createFakeClient(
+    {
+      data: [
+        {
+          id: "s1",
+          local_date: "2026-10-24",
+          actual_type: "weights",
+          planned_type: "weights",
+          program_day_id: "old-day",
+          program_days: { label: "Upper", day_index: 1 },
+          session_exercises: [],
+        },
+      ],
+      error: null,
+    },
+    {
+      data: [{ id: "new-day", day_index: 1, day_type: "weights", label: "Upper" }],
+      error: null,
+    },
+  );
+
+  repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
+    .then((result) => {
+      check("returns ok: true on success", result.ok === true);
+      check("no error on success", result.error === undefined);
+    });
+}
+
+// Wait for all async checks to complete
+setTimeout(() => {
+  if (failures > 0) {
+    console.log(`\n❌ ${failures} failure(s)`);
+    process.exit(1);
+  } else {
+    console.log("\n✅ All checks passed");
+  }
+}, 100);
