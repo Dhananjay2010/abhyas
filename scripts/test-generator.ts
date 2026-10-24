@@ -354,5 +354,55 @@ console.log("\n17. No-equipment users can train back and shoulders (after migrat
   }
 }
 
+console.log("\n18. Exercise ordering: compounds before isolation, core last");
+{
+  const { plan } = allPicked(base({ daysPerWeek: 4 }));
+  const trainingDays = plan.days.filter((d) => d.exercises.length > 0);
+  
+  for (const day of trainingDays) {
+    const exercises = day.exercises.map((e) => byId.get(e.exerciseId)!);
+    let seenCore = false;
+    let seenIsolation = false;
+    let orderingOk = true;
+    
+    for (const ex of exercises) {
+      // Core exercises should be at the end
+      if (seenCore && ex.movement_pattern !== "core") {
+        orderingOk = false;
+        check(`${day.label}: no non-core after core`, false, 
+          `${ex.name} (${ex.movement_pattern}) after core exercise`);
+      }
+      
+      // Isolation should not come before compounds (except for core which is always last)
+      if (ex.movement_pattern !== "core") {
+        if (seenIsolation && ex.mechanic === "compound") {
+          orderingOk = false;
+          check(`${day.label}: compounds before isolation`, false,
+            `${ex.name} (compound) after isolation exercise`);
+        }
+      }
+      
+      seenCore = seenCore || ex.movement_pattern === "core";
+      seenIsolation = seenIsolation || (ex.mechanic === "isolation" && ex.movement_pattern !== "core");
+    }
+    
+    if (orderingOk) {
+      check(`${day.label}: ordering is correct`, true);
+    }
+  }
+}
+
+console.log("\n19. Determinism: same inputs produce same plan");
+{
+  const input = base({ blockNumber: 5 });
+  const plan1 = generateProgram(input);
+  const plan2 = generateProgram(input);
+  
+  const day1Ex = plan1.days[0].exercises.map((e) => e.exerciseId);
+  const day2Ex = plan2.days[0].exercises.map((e) => e.exerciseId);
+  
+  check("same exercises in same order", JSON.stringify(day1Ex) === JSON.stringify(day2Ex));
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
+import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import type { Database } from "@/lib/database.types";
@@ -167,8 +167,10 @@ export default async function SessionPage({
   });
 
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
+  const allWarmupRows = (warmupsRes.data ?? []) as WarmupRow[];
+  
   const warmup = selectWarmup({
-    warmups: (warmupsRes.data ?? []) as WarmupRow[],
+    warmups: allWarmupRows,
     trainingMuscles,
     // Prehab uses past injuries too -- they do not block a movement, but they
     // are exactly what is worth warming up.
@@ -177,6 +179,11 @@ export default async function SessionPage({
     availableEquipment: profileRes.data?.has_all_equipment
       ? null
       : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
+  });
+
+  const cooldown = selectCooldown({
+    stretches: allWarmupRows,
+    trainingMuscles,
   });
 
   const s = settingsRes.data;
@@ -202,6 +209,7 @@ export default async function SessionPage({
       warmupAlreadyDone={session.warmup_completed}
       startedAt={session.started_at}
       warmup={warmup}
+      cooldown={cooldown}
       exercises={exercises}
       settings={settings}
       tomorrow={tomorrow}

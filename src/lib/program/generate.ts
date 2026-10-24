@@ -335,22 +335,51 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     const sessionMinutes = input.preferredSessionMinutes ?? 60;
     const maxExercises = exerciseCountForDuration(sessionMinutes, entry.slots.length);
 
+    // Pick exercises for each slot
+    const pickedExercises: Array<{ ex: CandidateExercise; slotIndex: number }> = [];
     entry.slots.slice(0, maxExercises).forEach((pattern, i) => {
       const picked = pickForSlot(pattern, i, pool, used, input, rng, dayIndex);
       if (!picked) return;
       used.add(picked.id);
+      pickedExercises.push({ ex: picked, slotIndex: i });
+    });
 
-      const isolation = picked.mechanic === "isolation";
+    // Sort exercises within the day: main compounds first, then secondary compounds,
+    // then accessories/isolation, with core exercises last. This keeps sessions
+    // trainer-quality (squat before bicep curls, abs at the end).
+    // Must stay deterministic (slug as tiebreaker).
+    const ordered = pickedExercises.sort((a, b) => {
+      const aCore = a.ex.movement_pattern === "core";
+      const bCore = b.ex.movement_pattern === "core";
+      if (aCore && !bCore) return 1;  // Core goes last
+      if (!aCore && bCore) return -1;
+      
+      const aCompound = a.ex.mechanic === "compound";
+      const bCompound = b.ex.mechanic === "compound";
+      if (aCompound && !bCompound) return -1;  // Compounds before isolation
+      if (!aCompound && bCompound) return 1;
+      
+      // Within same mechanic, preserve slot order (main lifts stay in first slots)
+      if (a.slotIndex !== b.slotIndex) return a.slotIndex - b.slotIndex;
+      
+      // Deterministic tiebreaker
+      return a.ex.slug.localeCompare(b.ex.slug);
+    });
+
+    // Convert sorted picks to GeneratedExercise with correct orderIndex
+    ordered.forEach((item, orderIndex) => {
+      const isolation = item.ex.mechanic === "isolation";
       const p: Prescription = prescribe(
         input.goal,
         input.level,
         isolation,
-        picked.metric ?? "reps",
+        item.ex.metric ?? "reps",
       );
+
       exercises.push({
-        exerciseId: picked.id,
-        name: picked.name,
-        orderIndex: exercises.length,
+        exerciseId: item.ex.id,
+        name: item.ex.name,
+        orderIndex,
         targetSets: p.sets,
         targetRepsMin: p.repsMin,
         targetRepsMax: p.repsMax,

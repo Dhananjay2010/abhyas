@@ -15,7 +15,7 @@ export type WarmupRow = {
   instructions: string[];
 };
 
-export type WarmupItem = WarmupRow & { phase: "cardio" | "mobility" | "prehab" };
+export type WarmupItem = WarmupRow & { phase: "cardio" | "mobility" | "prehab" | "stretch" };
 
 /** Cardio options in order of preference, by where the user trains. */
 const CARDIO_PREFERENCE: Record<string, string[]> = {
@@ -112,4 +112,44 @@ export function selectWarmup(input: {
 
 export function warmupSeconds(items: WarmupItem[]): number {
   return items.reduce((n, i) => n + i.duration_seconds, 0);
+}
+
+/**
+ * Select 5-6 stretch exercises for the cool-down, prioritizing muscles that
+ * were actually trained in the session. Static stretches with timed holds,
+ * not the dynamic mobility work from the warm-up.
+ */
+export function selectCooldown(input: {
+  stretches: WarmupRow[];
+  trainingMuscles: Muscle[];
+}): WarmupItem[] {
+  const { stretches, trainingMuscles } = input;
+  const muscles = new Set(trainingMuscles);
+
+  // Filter for stretch exercises. The type is defined as warmup_type in the DB,
+  // and the migration adds 'stretch' to that enum, but TypeScript types may not
+  // reflect it yet until types are regenerated.
+  const byType = stretches.filter((w) => (w.type as string) === "stretch");
+
+  // Rank stretches by how many of today's muscles they target
+  const ranked = byType
+    .map((w) => ({
+      w,
+      overlap: w.target_muscles.filter((m) => muscles.has(m)).length,
+    }))
+    .sort((a, b) => b.overlap - a.overlap || a.w.slug.localeCompare(b.w.slug))
+    .slice(0, 6)
+    .map((x) => ({ ...x.w, phase: "stretch" as const }));
+
+  // Always include at least 3 stretches even if there's no muscle overlap
+  if (ranked.length < 3) {
+    const fallback = byType
+      .filter((w) => !ranked.some((r) => r.id === w.id))
+      .sort((a, b) => a.slug.localeCompare(b.slug))
+      .slice(0, 3 - ranked.length)
+      .map((w) => ({ ...w, phase: "stretch" as const }));
+    ranked.push(...fallback);
+  }
+
+  return ranked;
 }
