@@ -3,11 +3,12 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
-import { branding } from "@/lib/branding";
+import { branding, getBrandCssVariables } from "@/lib/branding";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(branding.siteUrl),
   title: branding.name,
   description: branding.description,
   applicationName: branding.name,
@@ -29,22 +30,38 @@ export const metadata: Metadata = {
     },
   },
   manifest: "/manifest.webmanifest",
+  openGraph: {
+    type: "website",
+    siteName: branding.name,
+    title: branding.name,
+    description: branding.description,
+    url: branding.siteUrl,
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: branding.themeColor,
+  themeColor: branding.colors.bg,
   width: "device-width",
   initialScale: 1,
-  // The guided session has fixed controls; zooming breaks the layout mid-set.
-  maximumScale: 1,
   viewportFit: "cover",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Inject brand CSS variables on the server to avoid flash of default theme.
+  // NEXT_PUBLIC_BRAND is build-time, so no hydration mismatch.
+  const brandCssVars = getBrandCssVariables(branding);
+
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `:root { ${brandCssVars} }`,
+          }}
+        />
+      </head>
       <body className="font-sans antialiased">
         <ServiceWorkerRegistration />
         {children}
