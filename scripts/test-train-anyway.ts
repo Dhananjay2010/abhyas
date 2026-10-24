@@ -181,9 +181,9 @@ assert(result8[0]?.label === "Bodyweight A", "Returns correct label");
 console.log("\n=== Test 9: Mutant test - upcoming days must actually be used ===\n");
 
 const mutantTestInput9: TrainAnywayInput = {
-  todayDay: { day_index: 7, day_type: "rest", label: null, id: "rest-day", order_index: 7 },
+  todayDay: { day_index: 7, day_type: "rest", label: null },
   upcomingDays: [
-    { day_index: 1, day_type: "weights", label: "Push", id: "push-day", order_index: 1 },
+    { day_index: 1, day_type: "weights", label: "Push" },
   ],
   missedYesterday: false,
 };
