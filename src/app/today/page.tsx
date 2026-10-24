@@ -165,6 +165,7 @@ export default async function TodayPage() {
       // One string literal: Supabase infers the row type from it, and a
       // concatenation degrades the result to GenericStringError.
       .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
+      .eq("status", "active")
       .eq("program_id", program.id)
       .order("day_index")
       .order("order_index", { referencedTable: "program_day_exercises" }),
