@@ -88,7 +88,7 @@ function createTypedMockSupabase(): MockSupabaseClient {
               },
             } as SelectQuery<unknown>;
           },
-          insert(_rows: unknown) {
+          insert() {
             sessionsInsertCalled = true;
             return {
               select() {
