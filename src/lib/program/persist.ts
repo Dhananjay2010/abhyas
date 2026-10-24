@@ -24,7 +24,7 @@ const CATALOGUE_COLUMNS =
  * Exported for testing timezone date arithmetic (X11).
  * 
  * @param now - Date object or ISO timestamp
- * @param timezone - IANA timezone (e.g., "Asia/Kolkata")
+ * @param timezone - IANA timezone (e.g., "America/New_York")
  * @returns Local date string (e.g., "2026-10-25")
  */
 export function blockStartDate(now: Date, timezone: string): string {
