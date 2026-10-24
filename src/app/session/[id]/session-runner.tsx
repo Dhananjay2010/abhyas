@@ -184,8 +184,12 @@ export function SessionRunner({
     }
   }, [controller]);
 
+  // Auto-retry on mount, focus, and visibility change
   useEffect(() => {
     if (!controller) return;
+
+    // Trigger on mount
+    controller.onFocus();
 
     const handleFocus = () => {
       controller.onFocus();
