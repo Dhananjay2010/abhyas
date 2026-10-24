@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -170,6 +170,16 @@ export function SettingsForm({
     timezone: initial.timezone,
   });
   
+  /** Track pending field keys to avoid reverting over newer values */
+  const pendingKeys = useRef<Set<string>>(new Set());
+  
+  /** Track retry metadata for each key (M1 fix #2) */
+  const retryMetadata = useRef<Map<string, {
+    type: 'profile' | 'session';
+    patch: any;
+    affectsPlan?: boolean;
+  }>>(new Map());
+  
   /** DOB error state (client-side validation) */
   const [dobError, setDobError] = useState<string | null>(null);
   /** DOB touched state */
@@ -254,6 +264,13 @@ export function SettingsForm({
     return unsubscribe;
   }, [saveQueue]);
 
+  // Subscribe to queue status changes (fix #4: must re-render from queue)
+  const queueStatus = useSyncExternalStore(
+    saveQueue.subscribe,
+    saveQueue.getStatus,
+    saveQueue.getStatus
+  );
+
   /** Get friendly field name for error messages (N1) */
   function getFieldDisplayName(key: string): string {
     const fieldNames: Record<string, string> = {
@@ -329,6 +346,9 @@ export function SettingsForm({
     onSuccess?: () => void,
     onFailure?: () => void
   ) {
+    // Track that this key has a pending save
+    pendingKeys.current.add(key);
+    
     startTransition(async () => {
       try {
         const result = await saveQueue.enqueue(key, request);
@@ -342,8 +362,13 @@ export function SettingsForm({
         setAnySaveOccurred(true);
         
         if (!result.ok) {
-          // N1: Revert field on failure
-          onFailure?.();
+          // N1: Only revert if no newer save is pending for this key
+          const shouldRevert = !saveQueue.hasPending() || 
+            (!saveQueue.getInFlightKeys().includes(key) && !saveQueue.getQueuedKeys().includes(key));
+          
+          if (shouldRevert) {
+            onFailure?.();
+          }
           
           // N1: Use friendly error message
           const friendlyError = getFriendlyError(key, result.error);
@@ -357,18 +382,20 @@ export function SettingsForm({
           setFieldErrors(prev => {
             const next = new Map(prev);
             next.delete(key);
+            // Fix #5: compute in functional update
+            if (next.size === 0) setError(null);
             return next;
-          });
-          // Clear global error if no field errors remain
-          setFieldErrors(prev => {
-            if (prev.size === 0) setError(null);
-            return prev;
           });
           if (affectsPlan) setPlanStale(true);
         }
       } catch (err) {
-        // N1: Revert on exception
-        onFailure?.();
+        // N1: Only revert if no newer save is pending
+        const shouldRevert = !saveQueue.hasPending() || 
+          (!saveQueue.getInFlightKeys().includes(key) && !saveQueue.getQueuedKeys().includes(key));
+        
+        if (shouldRevert) {
+          onFailure?.();
+        }
         
         const rawMessage = err instanceof Error ? err.message : "Unknown error";
         const friendlyError = getFriendlyError(key, rawMessage);
@@ -376,6 +403,9 @@ export function SettingsForm({
         setError(friendlyError);
         
         // N1: No uncaught errors - we handled it
+      } finally {
+        // Remove from pending keys once settled
+        pendingKeys.current.delete(key);
       }
     });
   }
@@ -391,14 +421,19 @@ export function SettingsForm({
     const apiKey = Object.keys(patch)[0];
     const stateKey = mapApiKeyToStateKey(apiKey);
     
+    // Store retry metadata (M1 fix #2)
+    retryMetadata.current.set(key, { type: 'profile', patch, affectsPlan });
+    
     enqueueSave(
       key,
       () => actions.updateProfileSettings(patch),
       affectsPlan,
       () => {
-        // On success: update lastSavedValues
+        // On success: update lastSavedValues AND state
         if (stateKey && stateKey in lastSavedValues.current) {
           lastSavedValues.current[stateKey] = newValue as never;
+          // Also update state to match (for retry success case)
+          setS(prev => ({ ...prev, [stateKey]: newValue }));
         }
       },
       () => {
@@ -420,14 +455,19 @@ export function SettingsForm({
     const apiKey = Object.keys(patch)[0];
     const stateKey = mapApiKeyToStateKey(apiKey);
     
+    // Store retry metadata (M1 fix #2)
+    retryMetadata.current.set(key, { type: 'session', patch });
+    
     enqueueSave(
       key,
       () => actions.updateSessionSettings(patch),
       false,
       () => {
-        // On success: update lastSavedValues
+        // On success: update lastSavedValues AND state
         if (stateKey && stateKey in lastSavedValues.current) {
           lastSavedValues.current[stateKey] = newValue as never;
+          // Also update state to match (for retry success case)
+          setS(prev => ({ ...prev, [stateKey]: newValue }));
         }
       },
       () => {
@@ -475,10 +515,10 @@ export function SettingsForm({
           setFieldErrors(prev => {
             const next = new Map(prev);
             next.delete("equipment");
+            // Fix #5: compute in functional update
+            if (next.size === 0) setError(null);
             return next;
           });
-          // Clear global error if no field errors remain
-          if (fieldErrors.size <= 1) setError(null);
           
           if (changed) setPlanStale(true);
           
@@ -513,7 +553,6 @@ export function SettingsForm({
   }
 
   /** Compute autosave status (LOW-b: derive from queue state) */
-  const queueStatus = saveQueue.getStatus();
   const hasErrors = fieldErrors.size > 0;
   const isSaving = queueStatus.state === "saving" || queueStatus.state === "has-queued";
   const showSaved = !isSaving && !hasErrors && queueStatus.state === "idle" && anySaveOccurred;
@@ -538,42 +577,15 @@ export function SettingsForm({
                 <span className="text-danger">{errorMsg}</span>
                 <button
                   onClick={() => {
-                    // M1: Retry the specific failed field
-                    startTransition(async () => {
-                      const retryPromise = saveQueue.retry(key);
-                      if (retryPromise) {
-                        try {
-                          const result = await retryPromise;
-                          
-                          // Handle superseded results
-                          if (result && typeof result === "object" && "superseded" in result) {
-                            return;
-                          }
-                          
-                          setAnySaveOccurred(true);
-                          
-                          if (result.ok) {
-                            // Clear the error on success
-                            setFieldErrors(prev => {
-                              const next = new Map(prev);
-                              next.delete(key);
-                              return next;
-                            });
-                            if (fieldErrors.size <= 1) setError(null);
-                          } else {
-                            // Update error if it changed
-                            const friendlyError = getFriendlyError(key, result.error);
-                            setFieldErrors(prev => new Map(prev).set(key, friendlyError));
-                            setError(friendlyError);
-                          }
-                        } catch (err) {
-                          const rawMessage = err instanceof Error ? err.message : "Unknown error";
-                          const friendlyError = getFriendlyError(key, rawMessage);
-                          setFieldErrors(prev => new Map(prev).set(key, friendlyError));
-                          setError(friendlyError);
-                        }
+                    // M1 fix #2: Retry through saveProfile/saveSession
+                    const metadata = retryMetadata.current.get(key);
+                    if (metadata) {
+                      if (metadata.type === 'profile') {
+                        saveProfile(key, metadata.patch, metadata.affectsPlan);
+                      } else if (metadata.type === 'session') {
+                        saveSession(key, metadata.patch);
                       }
-                    });
+                    }
                   }}
                   className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-accent underline underline-offset-2"
                 >

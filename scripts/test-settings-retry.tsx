@@ -54,11 +54,13 @@ async function runTest() {
   type ProfilePatch = Parameters<SettingsActions["updateProfileSettings"]>[0];
   
   let callCount = 0;
+  const serverWrites: ProfilePatch[] = [];
 
   const updateProfileSettings = async (patch: ProfilePatch): Promise<Result> => {
+    serverWrites.push(patch);
     callCount++;
     
-    // First call fails
+    // M1 fix: First call returns {ok:false} (not throw)
     if (callCount === 1) {
       return { ok: false, error: "Network error" };
     }
@@ -96,7 +98,7 @@ async function runTest() {
 
   const user = userEvent.setup({ delay: null });
 
-  // Click session length (will fail)
+  // Click session length to change from 60m to 45m (will fail with {ok:false})
   await act(async () => { await user.click(findSessionButton(45)); });
 
   // Wait for save to complete
@@ -106,11 +108,27 @@ async function runTest() {
   let statusDiv = container.querySelector('[role="status"]');
   let statusText = statusDiv?.textContent || "";
   
-  if (statusText.includes("Network error")) {
+  if (statusText.includes("Network error") || statusText.includes("Session length")) {
     console.log("  ✓ Error message visible after failed save");
     passed++;
   } else {
     console.error(`  ❌ Error not visible. Status: "${statusText}"`);
+    failed++;
+  }
+  
+  // Check that session length reverted to 60m
+  const sessionButtons = document.querySelectorAll('button[aria-pressed]');
+  const session60Button = Array.from(sessionButtons).find(b => b.textContent === '60m') as HTMLButtonElement | undefined;
+  const session45Button = Array.from(sessionButtons).find(b => b.textContent === '45m') as HTMLButtonElement | undefined;
+  
+  if (session60Button?.getAttribute('aria-pressed') === 'true') {
+    console.log("  ✓ Session length reverted to 60m after failed save");
+    passed++;
+  } else if (session45Button?.getAttribute('aria-pressed') === 'true') {
+    console.error("  ❌ Session length still shows 45m (should revert to 60m)");
+    failed++;
+  } else {
+    console.error("  ❌ Could not determine session length state");
     failed++;
   }
 
@@ -135,7 +153,7 @@ async function runTest() {
     statusDiv = container.querySelector('[role="status"]');
     statusText = statusDiv?.textContent || "";
     
-    if (!statusText.includes("Network error")) {
+    if (!statusText.includes("Network error") && !statusText.includes("error")) {
       console.log("  ✓ Error cleared after successful retry");
       passed++;
     } else {
@@ -149,6 +167,27 @@ async function runTest() {
       passed++;
     } else {
       console.error(`  ❌ Action called ${callCount} times (expected 2)`);
+      failed++;
+    }
+    
+    // M1 fix #2: Check that UI shows 45m (the retried value) and was sent to server
+    const finalServerValue = serverWrites[serverWrites.length - 1]?.preferred_session_minutes;
+    const session45AfterRetry = Array.from(document.querySelectorAll('button[aria-pressed]'))
+      .find(b => b.textContent === '45m') as HTMLButtonElement | undefined;
+    
+    if (session45AfterRetry?.getAttribute('aria-pressed') === 'true') {
+      console.log("  ✓ UI shows 45m after successful retry");
+      passed++;
+    } else {
+      console.error("  ❌ UI should show 45m after successful retry");
+      failed++;
+    }
+    
+    if (finalServerValue === 45) {
+      console.log("  ✓ Server received 45m on retry");
+      passed++;
+    } else {
+      console.error(`  ❌ Server received ${finalServerValue}m (expected 45m)`);
       failed++;
     }
   }

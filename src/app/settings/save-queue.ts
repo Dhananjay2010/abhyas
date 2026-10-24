@@ -82,13 +82,20 @@ export function createSaveQueue<T>() {
     const promise = (async () => {
       try {
         const result = await item.request();
+        
+        // M1 fix: Store for retry if result indicates failure
+        if (typeof result === "object" && "ok" in result && !result.ok) {
+          lastFailed.set(key, item.request);
+        } else {
+          // Clear last failed on success
+          lastFailed.delete(key);
+        }
+        
         item.resolve(result);
-        // Clear last failed on success
-        lastFailed.delete(key);
         return result;
       } catch (error) {
         item.reject(error);
-        // Store for retry
+        // Store for retry on thrown error too
         lastFailed.set(key, item.request);
         throw error;
       } finally {
