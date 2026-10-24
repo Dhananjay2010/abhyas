@@ -213,11 +213,12 @@ export interface ExerciseHistoryOptions {
  * Uses the exercise_history view for efficient paginated querying.
  * The view already filters to rows with at least one working set.
  * 
- * PR detection logic:
+ * PR detection logic (L4):
  * - A session beats every EARLIER session (chronological by completed_at, then id)
- * - Ties are not PRs
+ * - Ties are not PRs (must strictly beat previous records)
  * - First session gets NO badges (baseline rule)
- * - Weighted most-reps: more reps than any earlier set at same or heavier weight
+ * - Weighted most-reps: needs earlier set at EXACTLY same weight, AND
+ *   more reps than every earlier set at weight ≥ current weight
  * 
  * @param supabase - Authenticated Supabase client
  * @param userId - User ID
@@ -256,7 +257,7 @@ export async function getExerciseHistory(
   }
 
   // For PR detection, fetch the complete chronological history in batches
-  // PostgREST caps responses at 1000 rows, so we need to paginate
+  // L6: Page until we get back fewer rows than requested (signals end of data)
   const allHistoryRows: Array<{
     session_exercise_id: string | null;
     session_id: string | null;
@@ -266,7 +267,7 @@ export async function getExerciseHistory(
   }> = [];
   
   let batchOffset = 0;
-  const batchSize = 1000;
+  const batchSize = 1000;  // Request size per page
   while (true) {
     const { data: batchRows, error: batchError } = await supabase
       .from("exercise_history")
@@ -287,7 +288,8 @@ export async function getExerciseHistory(
 
     allHistoryRows.push(...batchRows);
 
-    // If we got fewer than the batch size, we've reached the end
+    // L6: Stop when we get fewer rows than requested (end of data)
+    // This works regardless of server's actual page size limit
     if (batchRows.length < batchSize) {
       break;
     }
@@ -312,7 +314,7 @@ export async function getExerciseHistory(
     .filter((id): id is string => id !== null);
 
   // Fetch all sets in batches to avoid URL length limits
-  // Each batch also needs paging to handle >1000 rows per batch
+  // L6: Each batch needs paging - loop until page comes back shorter than requested
   const allSetsBySessionExercise = new Map<string, SetData[]>();
   for (let i = 0; i < allSessionExerciseIds.length; i += 100) {
     const batch = allSessionExerciseIds.slice(i, i + 100);
@@ -320,7 +322,7 @@ export async function getExerciseHistory(
     // Page through sets for this batch
     // L1: Stable ordering to avoid duplicates/gaps across pagination
     let setOffset = 0;
-    const setPageSize = 1000;
+    const setPageSize = 1000;  // Request size per page
     while (true) {
       const { data: batchSets, error: setsError } = await supabase
         .from("session_sets")
@@ -350,7 +352,8 @@ export async function getExerciseHistory(
         allSetsBySessionExercise.set(set.session_exercise_id, sets);
       }
 
-      // If we got fewer than the page size, we've reached the end
+      // L6: Stop when we get fewer rows than requested (end of data)
+      // This works regardless of server's actual page size limit
       if (batchSets.length < setPageSize) {
         break;
       }
