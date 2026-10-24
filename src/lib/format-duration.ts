@@ -9,8 +9,9 @@
  * Examples: "0:38", "1:05", "12:30"
  */
 export function formatClock(totalSeconds: number): string {
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 

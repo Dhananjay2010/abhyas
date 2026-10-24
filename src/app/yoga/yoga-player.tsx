@@ -84,6 +84,7 @@ export function YogaPlayer({
       params.set("video", playing.id);
     }
     router.replace(`/yoga?${params.toString()}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open?.id, playing?.id, router]);
 
   if (playlists.length === 0) {

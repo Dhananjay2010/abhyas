@@ -72,7 +72,7 @@ export default async function SessionDetailPage({
       .maybeSingle();
 
     const playlistTitle = video?.yoga_playlists 
-      ? (Array.isArray(video.yoga_playlists) ? video.yoga_playlists[0]?.title : (video.yoga_playlists as any)?.title)
+      ? (Array.isArray(video.yoga_playlists) ? video.yoga_playlists[0]?.title : (video.yoga_playlists as {title?: string})?.title)
       : null;
 
     const minutes = session.duration_seconds ? Math.round(session.duration_seconds / 60) : null;

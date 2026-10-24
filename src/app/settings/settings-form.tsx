@@ -86,11 +86,11 @@ export function SettingsForm({
   const [planStale, setPlanStale] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const pendingSavesRef = useRef(0);
+  const [pendingSaves, setPendingSaves] = useState(0);
 
   // beforeunload guard while saves are pending
   useEffect(() => {
-    if (pendingSavesRef.current === 0) return;
+    if (pendingSaves === 0) return;
     
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
@@ -100,7 +100,7 @@ export function SettingsForm({
     
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [pendingSavesRef.current]);
+  }, [pendingSaves]);
 
   // Auto-clear "saved" status after 2 seconds
   useEffect(() => {
@@ -110,7 +110,7 @@ export function SettingsForm({
   }, [saveStatus]);
 
   function save(run: () => Promise<Result>, affectsPlan = false) {
-    pendingSavesRef.current++;
+    setPendingSaves(n => n + 1);
     setSaveStatus("saving");
     
     // Serialize saves: wait for previous save to complete
@@ -127,11 +127,11 @@ export function SettingsForm({
               if (affectsPlan) setPlanStale(true);
               setSaveStatus("saved");
             }
-          } catch (e) {
+          } catch {
             setError("Save failed. Please try again.");
             setSaveStatus("idle");
           } finally {
-            pendingSavesRef.current--;
+            setPendingSaves(n => n - 1);
             resolve();
           }
         });
