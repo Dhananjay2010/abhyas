@@ -26,9 +26,9 @@ import {
   updateInjuries,
   updateProfileSettings,
   updateSessionSettings,
-  toggleEquipmentItem,
-  toggleHasAllEquipment,
-  toggleInjury,
+  setEquipmentItem,
+  setHasAllEquipment,
+  setInjury,
   type Result,
 } from "./actions";
 import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
@@ -44,9 +44,9 @@ export type SettingsActions = {
   updateProfileSettings: typeof updateProfileSettings;
   updateEquipment: typeof updateEquipment;
   updateInjuries: typeof updateInjuries;
-  toggleEquipmentItem: typeof toggleEquipmentItem;
-  toggleHasAllEquipment: typeof toggleHasAllEquipment;
-  toggleInjury: typeof toggleInjury;
+  setEquipmentItem: typeof setEquipmentItem;
+  setHasAllEquipment: typeof setHasAllEquipment;
+  setInjury: typeof setInjury;
 };
 
 const REAL_ACTIONS: SettingsActions = {
@@ -54,9 +54,9 @@ const REAL_ACTIONS: SettingsActions = {
   updateProfileSettings,
   updateEquipment,
   updateInjuries,
-  toggleEquipmentItem,
-  toggleHasAllEquipment,
-  toggleInjury,
+  setEquipmentItem,
+  setHasAllEquipment,
+  setInjury,
 };
 
 export type EquipmentRow = { id: string; name: string; category: string };
@@ -861,18 +861,18 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            const turningOff = s.hasAllEquipment;
+            const newState = !s.hasAllEquipment;
             
-            // PRIORITY 1: Atomic has_all toggle
-            setS(prev => ({ ...prev, hasAllEquipment: !turningOff }));
+            // PRIORITY 1: Atomic has_all set (explicit state)
+            setS(prev => ({ ...prev, hasAllEquipment: newState }));
             
             startTransition(async () => {
-              const result = await actions.toggleHasAllEquipment(!turningOff);
+              const result = await actions.setHasAllEquipment(newState);
               if (!result.ok) {
                 // Revert on error
-                setS(prev => ({ ...prev, hasAllEquipment: turningOff }));
+                setS(prev => ({ ...prev, hasAllEquipment: !newState }));
                 setError(result.error);
-              } else if (turningOff) {
+              } else if (!newState) {
                 // Show confirmation when turning off
                 setEquipmentOffConfirmation(
                   getEquipmentOffMessage(s.equipmentIds.length > 0)
@@ -923,25 +923,25 @@ export function SettingsForm({
                         key={e.id}
                         aria-pressed={on}
                         onClick={() => {
-                          // PRIORITY 1: Atomic equipment toggle to prevent data loss
-                          const adding = !on;
+                          // PRIORITY 1: Atomic equipment set (explicit state) to prevent data loss
+                          const newState = !on;
                           
                           // Optimistic update
                           setS(prev => ({ 
                             ...prev, 
-                            equipmentIds: adding 
+                            equipmentIds: newState 
                               ? [...prev.equipmentIds, e.id]
                               : prev.equipmentIds.filter(id => id !== e.id)
                           }));
                           
-                          // Atomic server save (add/remove single item)
+                          // Atomic server save (set explicit state)
                           startTransition(async () => {
-                            const result = await actions.toggleEquipmentItem({ equipmentId: e.id, add: adding });
+                            const result = await actions.setEquipmentItem({ equipmentId: e.id, enabled: newState });
                             if (!result.ok) {
                               // Revert on error
                               setS(prev => ({ 
                                 ...prev, 
-                                equipmentIds: adding 
+                                equipmentIds: newState 
                                   ? prev.equipmentIds.filter(id => id !== e.id)
                                   : [...prev.equipmentIds, e.id]
                               }));
@@ -979,20 +979,21 @@ export function SettingsForm({
                 key={r.value}
                 aria-pressed={Boolean(found)}
                 onClick={() => {
-                  // PRIORITY 1: Atomic injury toggle to prevent data loss
-                  const adding = !found;
+                  // PRIORITY 1: Atomic injury set (explicit state) to prevent data loss
+                  const newState = !found;
                   
                   // Optimistic update
-                  const next = adding
+                  const next = newState
                     ? [...s.injuries, { bodyRegion: r.value, severity: "current" as const }]
                     : s.injuries.filter((i) => i.bodyRegion !== r.value);
                   setS(prev => ({ ...prev, injuries: next }));
                   
-                  // Atomic server save (add/remove single injury)
+                  // Atomic server save (set explicit state)
                   startTransition(async () => {
-                    const result = await actions.toggleInjury({ 
+                    const result = await actions.setInjury({ 
                       bodyRegion: r.value, 
-                      severity: adding ? "current" : null 
+                      present: newState,
+                      severity: newState ? "current" : undefined
                     });
                     if (!result.ok) {
                       // Revert on error
@@ -1029,16 +1030,16 @@ export function SettingsForm({
                       key={sev}
                       aria-pressed={inj.severity === sev}
                       onClick={() => {
-                        // PRIORITY 1: Atomic injury severity change
+                        // PRIORITY 1: Atomic injury severity change (explicit state)
                         // Optimistic update
                         const next = s.injuries.map((i) =>
                           i.bodyRegion === inj.bodyRegion ? { ...i, severity: sev } : i,
                         );
                         setS(prev => ({ ...prev, injuries: next }));
                         
-                        // Atomic server save (update severity for this body region)
+                        // Atomic server save (set explicit state with new severity)
                         startTransition(async () => {
-                          const result = await actions.toggleInjury({ bodyRegion: inj.bodyRegion, severity: sev });
+                          const result = await actions.setInjury({ bodyRegion: inj.bodyRegion, present: true, severity: sev });
                           if (!result.ok) {
                             // Revert on error
                             setS(prev => ({ ...prev, injuries: s.injuries }));

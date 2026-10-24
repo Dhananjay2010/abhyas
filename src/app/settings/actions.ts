@@ -103,19 +103,19 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
 }
 
 /** 
- * Atomic equipment toggle: add or remove a single item from the server's current list.
- * Prevents data loss when multiple tabs have stale state.
+ * Atomic equipment set: ensure item is in desired state (enabled or disabled).
+ * Idempotent and safe for stale clients.
  */
-export async function toggleEquipmentItem(input: {
+export async function setEquipmentItem(input: {
   equipmentId: string;
-  add: boolean;
+  enabled: boolean;
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
 
-  if (input.add) {
+  if (input.enabled) {
     // Validate equipment ID exists
     const { data: validEquipment, error: catalogueError } = await supabase
       .from("equipment")
@@ -127,14 +127,14 @@ export async function toggleEquipmentItem(input: {
       return { ok: false, error: `Invalid equipment: ${input.equipmentId}` };
     }
     
-    // Add equipment (upsert to handle duplicates)
+    // Add equipment (upsert makes it idempotent)
     const { error } = await supabase
       .from("user_equipment")
       .upsert({ user_id: user.id, equipment_id: input.equipmentId }, { onConflict: "user_id,equipment_id" });
     
     if (error) return { ok: false, error: error.message };
   } else {
-    // Remove equipment
+    // Remove equipment (idempotent - no error if not present)
     const { error } = await supabase
       .from("user_equipment")
       .delete()
@@ -149,9 +149,9 @@ export async function toggleEquipmentItem(input: {
 }
 
 /**
- * Toggle has_all_equipment flag.
+ * Set has_all_equipment flag to explicit state. Idempotent.
  */
-export async function toggleHasAllEquipment(hasAll: boolean): Promise<Result> {
+export async function setHasAllEquipment(hasAll: boolean): Promise<Result> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
   
@@ -278,20 +278,21 @@ export async function updateEquipment(input: {
 }
 
 /**
- * Atomic injury toggle: add or remove a single injury from the server's current list.
- * Prevents data loss when multiple tabs have stale state.
+ * Set injury to explicit state: present or absent, with severity if present.
+ * Idempotent and safe for stale clients.
  */
-export async function toggleInjury(input: {
+export async function setInjury(input: {
   bodyRegion: BodyRegion;
-  severity: InjurySeverity | null;
+  present: boolean;
+  severity?: InjurySeverity;
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
   
   const { supabase, user} = await requireUser();
 
-  if (input.severity === null) {
-    // Remove injury
+  if (!input.present) {
+    // Remove injury (idempotent - no error if not present)
     const { error } = await supabase
       .from("user_injuries")
       .delete()
@@ -300,7 +301,11 @@ export async function toggleInjury(input: {
     
     if (error) return { ok: false, error: error.message };
   } else {
-    // Add or update injury (delete old + insert new to handle severity changes)
+    if (!input.severity) {
+      return { ok: false, error: "Severity required when injury is present" };
+    }
+    
+    // Set injury with severity (delete old + insert new makes it idempotent)
     const { error: deleteError } = await supabase
       .from("user_injuries")
       .delete()

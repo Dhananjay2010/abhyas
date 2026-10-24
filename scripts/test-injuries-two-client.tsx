@@ -85,8 +85,11 @@ async function testTwoClientInjuries() {
   assert(afterBData?.length === 2, "Server has 2 injuries after Client B");
   
   // Client A removes shoulder (USING ATOMIC OPERATION - this is the fix)
-  // In the old code, Client A would send its whole stale list []
-  // In the new code, Client A sends "remove shoulder"
+  // In the old code (main 6f5f6d9), Client A would send its whole stale list []
+  // which would DELETE ALL injuries. In actions.ts line 288-305, updateInjuries does:
+  //   - DELETE ALL user injuries (line 290-294)
+  //   - INSERT the new list (line 296-304)
+  // The new code sends "setInjury(shoulder, present: false)"
   await supabase.from("user_injuries")
     .delete()
     .eq("user_id", userId)
@@ -107,6 +110,21 @@ async function testTwoClientInjuries() {
   assert(finalData?.length === 1, "Final count is exactly 1");
   assert(finalData?.[0].body_region === "knee", "Knee is preserved (NOT lost)");
   assert(finalData?.[0].severity === "current", "Knee severity is current");
+  
+  // Test 2: Stale removal of already-removed injury (idempotent)
+  console.log(`\n  Test 2: Remove already-removed shoulder (must stay removed)`);
+  await supabase.from("user_injuries")
+    .delete()
+    .eq("user_id", userId)
+    .eq("body_region", "shoulder");
+  
+  const { data: finalData2 } = await supabase
+    .from("user_injuries")
+    .select("body_region")
+    .eq("user_id", userId);
+  
+  assert(finalData2?.length === 1, "Still exactly 1 injury after redundant remove");
+  assert(!finalData2?.some(i => i.body_region === "shoulder"), "Shoulder still removed (idempotent)");
   
   // Cleanup
   await supabase.auth.admin.deleteUser(userId);

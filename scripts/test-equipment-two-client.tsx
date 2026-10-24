@@ -99,8 +99,11 @@ async function testTwoClientEquipment() {
   assert(afterBData?.length === 3, "Server has 3 items after Client B");
   
   // Client A removes barbell (USING ATOMIC OPERATION - this is the fix)
-  // In the old code, Client A would send its whole stale list [dumbbells]
-  // In the new code, Client A sends "remove barbell"
+  // In the old code (main 6f5f6d9), Client A would send its whole stale list [dumbbells]
+  // which would DELETE kettlebell. In actions.ts line 171-194, updateEquipment does:
+  //   - Insert/upsert the new list (line 176-182)
+  //   - DELETE everything NOT in the new list (line 185-193)
+  // The new code sends "setEquipmentItem(barbell, enabled: false)"
   await supabase.from("user_equipment")
     .delete()
     .eq("user_id", userId)
@@ -125,6 +128,22 @@ async function testTwoClientEquipment() {
   assert(finalIds.includes(dumbbells.id), "Dumbbells is preserved");
   assert(!finalIds.includes(barbell.id), "Barbell was removed");
   assert(finalIds.length === 2, "Final count is exactly 2");
+  
+  // Test 2: Stale removal of already-removed item (idempotent)
+  console.log(`\n  Test 2: Remove already-removed barbell (must stay removed)`);
+  await supabase.from("user_equipment")
+    .delete()
+    .eq("user_id", userId)
+    .eq("equipment_id", barbell.id);
+  
+  const { data: finalData2 } = await supabase
+    .from("user_equipment")
+    .select("equipment_id")
+    .eq("user_id", userId);
+  
+  const finalIds2 = finalData2?.map(e => e.equipment_id).sort() || [];
+  assert(finalIds2.length === 2, "Still exactly 2 items after redundant remove");
+  assert(!finalIds2.includes(barbell.id), "Barbell still removed (idempotent)");
   
   // Cleanup
   await supabase.auth.admin.deleteUser(userId);
