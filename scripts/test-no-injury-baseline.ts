@@ -60,6 +60,18 @@ function check(desc: string, ok: boolean, detail?: string) {
   }
 }
 
+function isFitnessGoal(value: string): value is Database["public"]["Enums"]["fitness_goal"] {
+  return value === "general_fitness" || value === "muscle_gain" || value === "strength" || value === "endurance";
+}
+
+function isFitnessLevel(value: string): value is Database["public"]["Enums"]["fitness_level"] {
+  return value === "beginner" || value === "intermediate" || value === "expert";
+}
+
+function isTrackType(value: string): value is Database["public"]["Enums"]["track_type"] {
+  return value === "weights" || value === "bodyweight";
+}
+
 console.log("No-Injury Baseline Test");
 console.log("─".repeat(60));
 console.log(`Loaded ${Object.keys(baseline).length} baseline plans from main`);
@@ -69,12 +81,28 @@ for (const [userId, baselineData] of Object.entries(baseline)) {
   const profile = baselineData.profile;
   console.log(`\n${userId}: ${profile.goal} ${profile.level} ${profile.track} ${profile.daysPerWeek}d`);
   
+  if (!isFitnessGoal(profile.goal)) {
+    console.log(`  ✗ Invalid goal: ${profile.goal}`);
+    failed++;
+    continue;
+  }
+  if (!isFitnessLevel(profile.level)) {
+    console.log(`  ✗ Invalid level: ${profile.level}`);
+    failed++;
+    continue;
+  }
+  if (!isTrackType(profile.track)) {
+    console.log(`  ✗ Invalid track: ${profile.track}`);
+    failed++;
+    continue;
+  }
+  
   const input: GeneratorInput = {
     userId,
     blockNumber: 1,
-    goal: profile.goal as Database["public"]["Enums"]["fitness_goal"],
-    level: profile.level as Database["public"]["Enums"]["fitness_level"],
-    primaryTrack: profile.track as Database["public"]["Enums"]["track_type"],
+    goal: profile.goal,
+    level: profile.level,
+    primaryTrack: profile.track,
     daysPerWeek: profile.daysPerWeek,
     yogaDaysPerWeek: 0,
     age: profile.age,

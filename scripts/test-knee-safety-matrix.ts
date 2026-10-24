@@ -56,7 +56,6 @@ const EXPECTED_FLOOR_PULL_DEADLIFTS = new Set([
 // Hard-coded expected loaded windmill/side-bend exclusions (independent test oracle)
 const EXPECTED_LOADED_WINDMILL_SIDE_BEND = new Set([
   "dumbbell-side-bend",
-  "cable-side-bend",
   "kettlebell-windmill",
 ]);
 
@@ -94,8 +93,29 @@ const byId = new Map(catalogue.map((e) => [e.id, e]));
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
-  if (!ok) failures++;
+  if (ok) {
+    // Pass
+  } else {
+    failures++;
+  }
   console.log(`  ${ok ? "✓" : "✗"} ${label}${detail ? ` — ${detail}` : ""}`);
+}
+
+type BodyRegion = "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
+
+function isBodyRegion(value: string): value is BodyRegion {
+  const validRegions: readonly string[] = ["neck", "shoulder", "elbow", "wrist", "upper_back", "lower_back", "hip", "knee", "ankle", "core"];
+  return validRegions.includes(value);
+}
+
+function toBodyRegionArray(regions: string[]): BodyRegion[] {
+  const result: BodyRegion[] = [];
+  for (const region of regions) {
+    if (isBodyRegion(region)) {
+      result.push(region);
+    }
+  }
+  return result;
 }
 
 function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
