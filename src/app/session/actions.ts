@@ -30,19 +30,6 @@ async function requireUser() {
 }
 
 /**
- * Whether a session of this type is "the day's workout".
- *
- * Yoga and breathing are offered on every screen as anytime activities, so
- * neither finishing nor abandoning one says anything about whether the day's
- * training happened. Only a strength session owns the day. Today, `planDay`
- * and `startSession` all have to agree on this, and when they did not, a
- * six-minute breathing session in the morning could speak for the whole day.
- */
-function ownsTheDay(t: Database["public"]["Enums"]["day_type"] | null): boolean {
-  return t === "weights" || t === "bodyweight";
-}
-
-/**
  * The metric to stamp on a session exercise, from an embedded `exercises` row.
  *
  * PostgREST types a to-one embed as either an object or an array depending on
