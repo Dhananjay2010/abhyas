@@ -3,9 +3,11 @@
  */
 
 export type SessionForDetection = {
+  id?: string;
   status: string;
   actual_type: string | null;
   local_date?: string;
+  started_at?: string | null;
 };
 
 export type OpenSessionForClose = {

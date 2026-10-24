@@ -3,7 +3,7 @@ import type { Database } from "@/lib/database.types";
 import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
 import { buildCloseStaleDeps } from "./close-stale-deps";
 import type { CloseStaleDeps } from "./close-stale-deps";
-import { parseIsoMs, secondsSinceIso } from "@/lib/dates";
+import { secondsSinceIso } from "@/lib/dates";
 
 export type { CloseStaleDeps };
 

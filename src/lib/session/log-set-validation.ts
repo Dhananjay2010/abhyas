@@ -44,7 +44,7 @@ export async function validateSessionForLogSet(
   
   try {
     sessionExercise = await deps.lookupSessionExercise(sessionExerciseId);
-  } catch (error) {
+  } catch {
     return { 
       ok: false, 
       code: "SESSION_NOT_FOUND", 
