@@ -1,5 +1,7 @@
 import { branding } from '@/lib/branding';
+import { safeNextPath as safeNextPathImpl } from '@/lib/safe-next-path';
 
+<<<<<<< HEAD
 /**
  * Validate a `next` parameter for safe same-origin redirects.
  * 
@@ -48,6 +50,9 @@ export function safeNextPath(next: string | null | undefined): string {
 
   return next;
 }
+=======
+export { safeNextPathImpl as safeNextPath };
+>>>>>>> origin/main
 
 /**
  * Build a safe redirect origin for auth callbacks.
