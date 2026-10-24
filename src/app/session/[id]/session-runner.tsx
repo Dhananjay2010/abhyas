@@ -30,7 +30,7 @@ import {
   type SwapResult,
 } from "../actions";
 import { classifyLogSetOutcome, nextSetNumberFor } from "@/lib/session/outbox";
-import { isQuotaError } from "@/lib/session/network-error";
+import { isQuotaError } from "@/lib/session/quota-error";
 import { useSetOutbox } from "./use-set-outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
