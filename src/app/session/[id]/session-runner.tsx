@@ -178,6 +178,28 @@ export function SessionRunner({
       controller.load();
     }
   }, [controller]);
+
+  useEffect(() => {
+    if (!controller) return;
+
+    const handleFocus = () => {
+      controller.onFocus();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        controller.onFocus();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [controller]);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -828,14 +850,21 @@ export function SessionRunner({
       error={error}
     >
       <div onPointerDown={onAnyTap}>
-        {pendingSetState.expired && pendingSetState.pending.length > 0 && (
+        {pendingSetState.pending.length > 0 && (
           <div className="mb-5">
-            <SessionExpiredPrompt />
+            {pendingSetState.error ? (
+              <div className="rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
+                <p className="font-medium">Failed to save sets</p>
+                <p className="mt-1">{pendingSetState.error}</p>
+              </div>
+            ) : (
+              <SessionExpiredPrompt />
+            )}
             <p className="mt-2 text-sm text-muted">
               {pendingSetState.pending.length}{" "}
               {pendingSetState.pending.length === 1 ? "set" : "sets"} waiting to save
             </p>
-            {!pendingSetState.retrying && controller && (
+            {controller && (
               <div className="mt-3">
                 <button
                   onClick={() => {
@@ -845,7 +874,9 @@ export function SessionRunner({
                   className="min-h-[44px] w-full rounded-xl border border-accent bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   {pendingSetState.retrying
-                    ? "Retrying..."
+                    ? `Saving ${pendingSetState.pending.length} ${
+                        pendingSetState.pending.length === 1 ? "set" : "sets"
+                      }…`
                     : `Retry saving ${pendingSetState.pending.length} ${
                         pendingSetState.pending.length === 1 ? "set" : "sets"
                       }`}
@@ -907,6 +938,9 @@ export function SessionRunner({
         <ol className="mt-6 space-y-2">
           {Array.from({ length: current.plannedSets }, (_, i) => i + 1).map((n) => {
             const logged = current.sets.find((s) => s.setNumber === n);
+            const isPending = !logged && pendingSetState.pending.some(
+              (s) => s.sessionExerciseId === current.id && s.setNumber === n
+            );
             return (
               <li
                 key={n}
@@ -927,7 +961,9 @@ export function SessionRunner({
                             logged.weightKg ? ` · ${logged.weightKg} kg` : ""
                           }`
                         : "done"
-                      : "—"}
+                      : isPending
+                        ? "Saving…"
+                        : "—"}
                   </span>
                   {/*
                     Undo, offered only on the most recently logged set.

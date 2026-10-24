@@ -266,7 +266,7 @@ export function createPendingSetController(config: {
 
   function onFocus(): void {
     const loaded = loadPendingSets(storage, userId, sessionId, deps);
-    if (loaded.length > 0 && !replayAttempted) {
+    if (loaded.length > 0) {
       setState({
         pending: loaded,
         expired: true,
