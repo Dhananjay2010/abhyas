@@ -127,8 +127,8 @@ console.log("\n10. Test I: shouldRedirectSession keeps in_progress sessions acce
 console.log("\n11. todayCloseInput wraps prepareOpenSessions for page use");
 {
   const rawRows = [
-    { id: "s1", local_date: "2026-10-25", started_at: "2026-10-24T23:30:00Z", actual_type: "weights" },
-    { id: "s2", local_date: "2026-10-24", started_at: null, actual_type: "bodyweight" },
+    { id: "s1", local_date: "2026-10-25", started_at: "2026-10-24T23:30:00Z", actual_type: "weights", status: "in_progress" },
+    { id: "s2", local_date: "2026-10-24", started_at: null, actual_type: "bodyweight", status: "in_progress" },
   ];
 
   const input = todayCloseInput(rawRows);

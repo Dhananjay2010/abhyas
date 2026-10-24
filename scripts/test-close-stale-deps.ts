@@ -21,7 +21,7 @@ class FakeSupabaseClient implements CloseStaleClient {
   
   private sessionExercises = new Map<string, SessionExerciseRow[]>();
 
-  lastUpdateFilters: { id?: string; status?: string } = {};
+  lastUpdateFilters: Record<string, string> = {};
   lastUpdateOptions: UpdateOptions = {};
 
   setSession(id: string, status: string) {
@@ -41,27 +41,43 @@ class FakeSupabaseClient implements CloseStaleClient {
     this.sessionExercises.set(sessionId, exercises);
   }
 
-  from(table: string): ReturnType<CloseStaleClient['from']> {
+  from(table: "sessions"): {
+    update(data: Record<string, unknown>, options?: UpdateOptions): {
+      eq(column: string, value: string): {
+        eq(col2: string, val2: string): Promise<{ error: Error | null; count: number | null }>;
+      };
+    };
+  };
+  from(table: "session_exercises"): {
+    select(): {
+      in(_column: string, values: string[]): Promise<{ data: SessionExerciseRow[] | null; error: Error | null }>;
+    };
+  };
+  from(table: string): unknown {
     if (table === "sessions") {
       return {
-        select: () => {
-          throw new Error("select not supported for sessions");
-        },
         update: (data: Record<string, unknown>, options?: UpdateOptions) => {
           this.lastUpdateOptions = options ?? {};
           return {
             eq: (column: string, value: string) => {
-              this.lastUpdateFilters[column as "id" | "status"] = value;
+              this.lastUpdateFilters[column] = value;
               return {
                 eq: async (col2: string, val2: string) => {
-                  this.lastUpdateFilters[col2 as "id" | "status"] = val2;
+                  this.lastUpdateFilters[col2] = val2;
                   
-                  const session = this.sessions.get(this.lastUpdateFilters.id!);
+                  const sessionId = this.lastUpdateFilters["id"];
+                  const statusFilter = this.lastUpdateFilters["status"];
+                  
+                  if (!sessionId) {
+                    return { error: null, count: options?.count === "exact" ? 0 : null };
+                  }
+                  
+                  const session = this.sessions.get(sessionId);
                   if (!session) {
                     return { error: null, count: options?.count === "exact" ? 0 : null };
                   }
                   
-                  if (this.lastUpdateFilters.status && session.status !== this.lastUpdateFilters.status) {
+                  if (statusFilter && session.status !== statusFilter) {
                     return { error: null, count: options?.count === "exact" ? 0 : null };
                   }
                   
@@ -76,20 +92,16 @@ class FakeSupabaseClient implements CloseStaleClient {
           };
         }
       };
-    } else if (table === "session_exercises") {
+    } else {
       return {
         select: () => ({
           in: async (_column: string, values: string[]) => {
             const result = values.flatMap(id => this.sessionExercises.get(id) ?? []);
             return { data: result, error: null };
           }
-        }),
-        update: () => {
-          throw new Error("update not supported for session_exercises");
-        }
+        })
       };
     }
-    throw new Error(`Unknown table: ${table}`);
   }
 }
 

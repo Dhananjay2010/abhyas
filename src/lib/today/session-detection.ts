@@ -69,17 +69,17 @@ export function prepareOpenSessions(
 
 /**
  * Build the input for closeStaleSessions from Today page's open sessions query.
- * Wraps prepareOpenSessions for testability.
  */
 export function todayCloseInput(
-  openRows: Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null }> | null
-): Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null }> {
+  openRows: Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null; status: string }> | null
+): Array<{ id: string; local_date: string; started_at: string | null; actual_type: string | null; status: string }> {
   if (!openRows) return [];
   return openRows.map(row => ({
     id: row.id,
     local_date: row.local_date,
     started_at: row.started_at,
-    actual_type: row.actual_type
+    actual_type: row.actual_type,
+    status: row.status
   }));
 }
 

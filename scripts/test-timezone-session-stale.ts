@@ -50,7 +50,7 @@ class FakeCloseStaleDeps implements CloseStaleDeps {
     return sessionIds.flatMap((id) => this.sessionExercises.get(id) ?? []);
   }
 
-  async markSessionDone(id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number): Promise<boolean> {
+  async markSessionDone(id: string, status: "completed" | "skipped", completedAt: string, durationSeconds: number | null): Promise<boolean> {
     const session = this.sessions.get(id);
     if (session && session.status === "in_progress") {
       session.status = status;
@@ -94,7 +94,7 @@ console.log("\n1. Timezone shift doesn't close active session (10 minutes ago)")
   ]);
 
   const open: OpenSession[] = [
-    { id: "sess1", local_date: "2026-10-24", started_at: tenMinutesAgo, actual_type: "weights" },
+    { id: "sess1", local_date: "2026-10-24", started_at: tenMinutesAgo, actual_type: "weights", status: "in_progress" },
   ];
 
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -120,7 +120,7 @@ console.log("\n2. Inactivity beyond threshold closes session");
   ]);
 
   const open: OpenSession[] = [
-    { id: "sess2", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights" },
+    { id: "sess2", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights", status: "in_progress" },
   ];
 
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -183,7 +183,7 @@ console.log("\n5. Session from yesterday with recent activity stays open");
 
   // Session dated yesterday, but had activity 15 minutes ago
   const open: OpenSession[] = [
-    { id: "sess3", local_date: "2026-10-24", started_at: "2026-10-24T23:00:00Z", actual_type: "weights" },
+    { id: "sess3", local_date: "2026-10-24", started_at: "2026-10-24T23:00:00Z", actual_type: "weights", status: "in_progress" },
   ];
 
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -215,8 +215,8 @@ console.log("\n7. Multiple sessions: only stale ones closed");
   ]);
 
   const open: OpenSession[] = [
-    { id: "recent", local_date: "2026-10-24", started_at: recentActivity, actual_type: "weights" },
-    { id: "stale", local_date: "2026-10-24", started_at: staleActivity, actual_type: "weights" },
+    { id: "recent", local_date: "2026-10-24", started_at: recentActivity, actual_type: "weights", status: "in_progress" },
+    { id: "stale", local_date: "2026-10-24", started_at: staleActivity, actual_type: "weights", status: "in_progress" },
   ];
 
   const closed = await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -235,7 +235,7 @@ console.log("\n8. Session with no started_at is skipped");
   fake.setSessionExercises("nostart", []);
 
   const open: OpenSession[] = [
-    { id: "nostart", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
+    { id: "nostart", local_date: "2026-10-24", started_at: null, actual_type: "weights", status: "in_progress" },
   ];
 
   const closed = await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -260,7 +260,7 @@ console.log("\n9. Midnight crossing: session started 23:43, last set 23:55, load
     },
   ]);
   
-  const open: OpenSession[] = [{ id: "midnight", local_date: "2026-10-24", started_at: started, actual_type: "weights" }];
+  const open: OpenSession[] = [{ id: "midnight", local_date: "2026-10-24", started_at: started, actual_type: "weights", status: "in_progress" }];
   await closeStaleSessionsCore(fake, open, loadTime, "2026-10-24");
   
   const session = fake.getSession("midnight");
@@ -284,7 +284,7 @@ console.log("\n10. Same session loaded 6 hours later is closed with ended_at at 
     },
   ]);
   
-  const open: OpenSession[] = [{ id: "stale-morning", local_date: "2026-10-24", started_at: started, actual_type: "weights" }];
+  const open: OpenSession[] = [{ id: "stale-morning", local_date: "2026-10-24", started_at: started, actual_type: "weights", status: "in_progress" }];
   await closeStaleSessionsCore(fake, open, loadTime, "2026-10-24");
   
   const session = fake.getSession("stale-morning");
@@ -309,7 +309,7 @@ console.log("\n11. Boundary: exactly 6h (21600s) is stale");
     },
   ]);
   
-  const open: OpenSession[] = [{ id: "boundary", local_date: "2026-10-24", started_at: exactly6hAgo, actual_type: "weights" }];
+  const open: OpenSession[] = [{ id: "boundary", local_date: "2026-10-24", started_at: exactly6hAgo, actual_type: "weights", status: "in_progress" }];
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
   
   const session = fake.getSession("boundary");
@@ -332,7 +332,7 @@ console.log("\n12. Boundary: 21599s (1s under 6h) is still active");
     },
   ]);
   
-  const open: OpenSession[] = [{ id: "just-under", local_date: "2026-10-24", started_at: just21599sAgo, actual_type: "weights" }];
+  const open: OpenSession[] = [{ id: "just-under", local_date: "2026-10-24", started_at: just21599sAgo, actual_type: "weights", status: "in_progress" }];
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
   
   const session = fake.getSession("just-under");
@@ -357,8 +357,8 @@ console.log("\n13. Newer-session rule: session with newer started_at closes olde
   ]);
   
   const open: OpenSession[] = [
-    { id: "older", local_date: "2026-10-24", started_at: olderStarted, actual_type: "weights" },
-    { id: "newer", local_date: "2026-10-24", started_at: newerStarted, actual_type: "weights" },
+    { id: "older", local_date: "2026-10-24", started_at: olderStarted, actual_type: "weights", status: "in_progress" },
+    { id: "newer", local_date: "2026-10-24", started_at: newerStarted, actual_type: "weights", status: "in_progress" },
   ];
   
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -385,8 +385,8 @@ console.log("\n14. Newer-session rule: closes session only minutes old if newer 
   ]);
   
   const open: OpenSession[] = [
-    { id: "five-min-old", local_date: "2026-10-24", started_at: fiveMinutesAgo, actual_type: "weights" },
-    { id: "two-min-old", local_date: "2026-10-24", started_at: twoMinutesAgo, actual_type: "weights" },
+    { id: "five-min-old", local_date: "2026-10-24", started_at: fiveMinutesAgo, actual_type: "weights", status: "in_progress" },
+    { id: "two-min-old", local_date: "2026-10-24", started_at: twoMinutesAgo, actual_type: "weights", status: "in_progress" },
   ];
   
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -422,8 +422,8 @@ console.log("\n15. Newer Breathe session does NOT close strength session");
   ]);
 
   const open: OpenSession[] = [
-    { id: "strength", local_date: "2026-10-24", started_at: fiveMinutesAgo, actual_type: "weights" },
-    { id: "breathe", local_date: "2026-10-24", started_at: twoMinutesAgo, actual_type: "breathe" },
+    { id: "strength", local_date: "2026-10-24", started_at: fiveMinutesAgo, actual_type: "weights", status: "in_progress" },
+    { id: "breathe", local_date: "2026-10-24", started_at: twoMinutesAgo, actual_type: "breathe", status: "in_progress" },
   ];
 
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -441,7 +441,7 @@ console.log("\n17. Planned row dated before today becomes skipped");
   fake.setSessionExercises("planned-yesterday", []);
   
   const open: OpenSession[] = [
-    { id: "planned-yesterday", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
+    { id: "planned-yesterday", local_date: "2026-10-24", started_at: null, actual_type: "weights", status: "planned" },
   ];
   
   await closeStaleSessionsCore(fake, open, now, "2026-10-25");
@@ -458,7 +458,7 @@ console.log("\n18. Planned row for today remains open");
   fake.setSessionExercises("planned-today", []);
   
   const open: OpenSession[] = [
-    { id: "planned-today", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
+    { id: "planned-today", local_date: "2026-10-24", started_at: null, actual_type: "weights", status: "planned" },
   ];
   
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -479,7 +479,7 @@ console.log("\n19. Race condition: already-completed session not overwritten by 
   ]);
   
   const open: OpenSession[] = [
-    { id: "race", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights" },
+    { id: "race", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights", status: "in_progress" },
   ];
   
   // The stale logic would normally close this, but the update should not overwrite completed status
@@ -515,8 +515,8 @@ console.log("\n20. credited count reaches caller when sessions are closed");
   ]);
 
   const open: OpenSession[] = [
-    { id: "old1", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights" },
-    { id: "old2", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights" },
+    { id: "old1", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights", status: "in_progress" },
+    { id: "old2", local_date: "2026-10-24", started_at: sevenHoursAgo, actual_type: "weights", status: "in_progress" },
   ];
 
   const credited = await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -543,7 +543,7 @@ console.log("\n21. Null started_at with sets uses first set time as fallback");
   ]);
 
   const open: OpenSession[] = [
-    { id: "no-start", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
+    { id: "no-start", local_date: "2026-10-24", started_at: null, actual_type: "weights", status: "in_progress" },
   ];
 
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -573,7 +573,7 @@ console.log("\n22. Duration capped at 6 hours (21600 seconds)");
   ]);
 
   const open: OpenSession[] = [
-    { id: "long", local_date: "2026-10-24", started_at: tenHoursAgo, actual_type: "weights" },
+    { id: "long", local_date: "2026-10-24", started_at: tenHoursAgo, actual_type: "weights", status: "in_progress" },
   ];
 
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -604,7 +604,7 @@ console.log("\n23. Duration capped when it would exceed 6 hours");
   ]);
 
   const open: OpenSession[] = [
-    { id: "verylong", local_date: "2026-10-24", started_at: twentyHoursAgo, actual_type: "weights" },
+    { id: "verylong", local_date: "2026-10-24", started_at: twentyHoursAgo, actual_type: "weights", status: "in_progress" },
   ];
 
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
@@ -633,15 +633,15 @@ console.log("\n24. null started_at with sets: uses first set's time");
   ]);
 
   const open: OpenSession[] = [
-    { id: "nostime", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
+    { id: "nostime", local_date: "2026-10-24", started_at: null, actual_type: "weights", status: "in_progress" },
   ];
 
   await closeStaleSessionsCore(fake, open, now, "2026-10-24");
   
   const session = fake.getSession("nostime");
   check("session closed", session?.status === "completed");
-  check("duration calculated from first set", session?.duration_seconds !== null);
-  check("ended_at is based on first set", session?.completed_at === eightHoursAgo);
+  check("duration calculated from first set", session?.duration_seconds === 3600);
+  check("ended_at is based on last set", session?.completed_at === sevenHoursAgo);
 }
 
 console.log("\n25. null started_at with no sets: planned session marked skipped");
@@ -653,7 +653,7 @@ console.log("\n25. null started_at with no sets: planned session marked skipped"
   fake.setSessionExercises("empty", []);
 
   const open: OpenSession[] = [
-    { id: "empty", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
+    { id: "empty", local_date: "2026-10-24", started_at: null, actual_type: "weights", status: "planned" },
   ];
 
   await closeStaleSessionsCore(fake, open, now, "2026-10-25");

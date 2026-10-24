@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
-import { buildCloseStaleDeps } from "./close-stale-deps";
+import { buildCloseStaleDeps, type CloseStaleClient } from "./close-stale-deps";
 import type { CloseStaleDeps } from "./close-stale-deps";
 import { secondsSinceIso } from "@/lib/dates";
 
@@ -20,6 +20,7 @@ export type OpenSession = {
   local_date: string;
   started_at: string | null;
   actual_type: string | null;
+  status: string;
 };
 
 /**
@@ -59,7 +60,7 @@ export async function closeStaleSessions(
   open: OpenSession[],
   today: string,
 ): Promise<number> {
-  const deps: CloseStaleDeps = buildCloseStaleDeps(supabase);
+  const deps: CloseStaleDeps = buildCloseStaleDeps(supabase as unknown as CloseStaleClient);
   return closeStaleSessionsCore(deps, open, Date.now(), today);
 }
 
@@ -81,6 +82,7 @@ export async function closeStaleSessionsCore(
   const trained = new Set<string>();
   const workingSetCounts = new Map<string, number>();
   const firstSetCompletedAt = new Map<string, string | null>();
+  const lastSetCompletedAt = new Map<string, string | null>();
 
   for (const row of rows) {
     const sets = row.session_sets ?? [];
@@ -93,15 +95,27 @@ export async function closeStaleSessionsCore(
       workingSetCounts.set(row.session_id, existingCount + workingSets.length);
     }
 
-    // Find the earliest completed_at across ALL sets (warmup + working)
-    const earliestSet = sets
-      .filter((s) => s.completed_at !== null)
-      .sort((a, b) => (a.completed_at ?? "").localeCompare(b.completed_at ?? ""))[0];
-    
-    if (earliestSet?.completed_at) {
-      const existing = firstSetCompletedAt.get(row.session_id);
-      if (!existing || earliestSet.completed_at < existing) {
-        firstSetCompletedAt.set(row.session_id, earliestSet.completed_at);
+    // Find the earliest and latest completed_at across ALL sets (warmup + working)
+    const completedSets = sets.filter((s) => s.completed_at !== null);
+    if (completedSets.length > 0) {
+      const sortedSets = completedSets.sort((a, b) => 
+        (a.completed_at ?? "").localeCompare(b.completed_at ?? "")
+      );
+      const earliestSet = sortedSets[0];
+      const latestSet = sortedSets[sortedSets.length - 1];
+      
+      if (earliestSet?.completed_at) {
+        const existing = firstSetCompletedAt.get(row.session_id);
+        if (!existing || earliestSet.completed_at < existing) {
+          firstSetCompletedAt.set(row.session_id, earliestSet.completed_at);
+        }
+      }
+      
+      if (latestSet?.completed_at) {
+        const existing = lastSetCompletedAt.get(row.session_id);
+        if (!existing || latestSet.completed_at > existing) {
+          lastSetCompletedAt.set(row.session_id, latestSet.completed_at);
+        }
       }
     }
   }
@@ -128,27 +142,29 @@ export async function closeStaleSessionsCore(
   for (const id of ids) {
     const session = byId.get(id);
     
-    // Planned rows (no started_at) dated before today become skipped
+    // Rows with no started_at dated before today become skipped
     if (!session?.started_at) {
-      // If there are logged sets, use the first set's time as started_at fallback
-      const fallbackStartedAt = firstSetCompletedAt.get(id);
-      if (!fallbackStartedAt) {
-        // No started_at and no sets - mark as stale only if dated before today
-        if (session && session.local_date < today) {
+      // If there are logged sets, use the last set's time for staleness check
+      const lastSetTime = lastSetCompletedAt.get(id);
+      if (!lastSetTime) {
+        // No started_at and no sets - mark as stale if:
+        // - planned rows dated before today, or
+        // - in_progress rows (stuck state, should be closed)
+        if (session && (session.local_date < today || session.status === "in_progress")) {
           stale.push(id);
         }
         continue;
       }
-      // Has sets but no started_at - use set time for staleness check
-      const elapsedSeconds = secondsSinceIso(fallbackStartedAt, nowMs);
+      // Has sets but no started_at - use last set time for staleness check
+      const elapsedSeconds = secondsSinceIso(lastSetTime, nowMs);
       const isInactive = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
       if (isInactive) {
         stale.push(id);
       }
       continue;
     }
-
-    const lastActivity = firstSetCompletedAt.get(id) ?? session.started_at;
+    
+    const lastActivity = lastSetCompletedAt.get(id) ?? session.started_at;
     const elapsedSeconds = secondsSinceIso(lastActivity, nowMs);
 
     // A session is stale if:
@@ -182,7 +198,7 @@ export async function closeStaleSessionsCore(
       const workingSetCount = workingSetCounts.get(id) ?? 0;
       const input: StaleFinishInput = {
         startedAt,
-        lastSetCompletedAt: firstSetCompletedAt.get(id) ?? null,
+        lastSetCompletedAt: lastSetCompletedAt.get(id) ?? null,
         workingSetCount,
       };
 
@@ -207,19 +223,25 @@ export async function closeStaleSessionsCore(
       // Sessions with no started_at and no sets: mark as skipped
       if (!session?.started_at) {
         const firstSetTime = firstSetCompletedAt.get(id);
+        const lastSetTime = lastSetCompletedAt.get(id);
         if (!firstSetTime) {
-          // No started_at, no sets - mark planned sessions as skipped
+          // No started_at, no sets - mark as skipped
           try {
-            await deps.markPlannedSkipped(id);
+            if (session?.status === "planned") {
+              await deps.markPlannedSkipped(id);
+            } else {
+              // in_progress rows need to be marked done with duration null
+              await deps.markSessionDone(id, "skipped", session?.local_date ?? new Date(nowMs).toISOString(), null);
+            }
           } catch (error) {
-            console.error(`Failed to mark planned session ${id} as skipped:`, error);
+            console.error(`Failed to mark session ${id} as skipped:`, error);
           }
           return false;
         }
-        // Has sets - use first set time
+        // Has sets - use first set as start, last set as end
         const input: StaleFinishInput = {
           startedAt: firstSetTime,
-          lastSetCompletedAt: firstSetTime,
+          lastSetCompletedAt: lastSetTime ?? firstSetTime,
           workingSetCount: 0,
         };
         const finish = resolveStaleFinish(input);
