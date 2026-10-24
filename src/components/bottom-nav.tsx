@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import { activeTab, choosePracticeRoute, type PracticeType } from "@/lib/nav";
 
 /**
@@ -74,21 +74,33 @@ const TABS = [
  * both are intentional movement/breath work, distinguished from strength
  * training on Today.
  */
+function subscribe(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
+function getLastPracticeSnapshot(): PracticeType | null {
+  try {
+    const stored = localStorage.getItem("practice:last");
+    return stored === "breathe" || stored === "yoga" ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function getLastPracticeServerSnapshot(): PracticeType | null {
+  return null;
+}
+
 export function BottomNav() {
   const pathname = usePathname();
   const active = activeTab(pathname);
   
-  // Load last practice from localStorage on mount only
-  const [lastPractice] = useState<PracticeType | null>(() => {
-    if (typeof window === "undefined") return null;
-    
-    try {
-      const stored = localStorage.getItem("practice:last");
-      return stored === "breathe" || stored === "yoga" ? stored : null;
-    } catch {
-      return null;
-    }
-  });
+  const lastPractice = useSyncExternalStore(
+    subscribe,
+    getLastPracticeSnapshot,
+    getLastPracticeServerSnapshot
+  );
 
   if (!active) return null;
 
