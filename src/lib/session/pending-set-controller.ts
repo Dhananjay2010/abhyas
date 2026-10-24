@@ -252,8 +252,6 @@ export function createPendingSetController(config: {
     return state;
   }
 
-  load();
-
   return {
     submit,
     load,

@@ -35,6 +35,7 @@ import {
   createPendingSetController,
   type PendingSetState,
 } from "@/lib/session/pending-set-controller";
+import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -163,9 +164,17 @@ export function SessionRunner({
       storage: window.localStorage,
       logSet: actions.logSet,
       sessionId,
+      userId: "", // TODO: Get from session
       onChange: setPendingSetState,
+      deps: createPendingSetDeps(),
     });
   });
+
+  useEffect(() => {
+    if (controller) {
+      controller.load();
+    }
+  }, [controller]);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
