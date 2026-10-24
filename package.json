@@ -188,7 +188,7 @@
     "test:page-wiring": "tsx scripts/test-page-wiring.ts",
     "test:sessions-load-error-integration": "tsx scripts/test-sessions-load-error-integration.ts",
     "test:today-prompts": "tsx scripts/test-today-prompts.ts",
-    "test:today-prompts-both-state": "tsx scripts/test-today-prompts-both-state.ts",
+    "test:today-prompts-both-state": "tsx scripts/test-today-prompts-both-render.ts",
     "test:today-render": "tsx scripts/test-today-render-real.ts",
     "test:today-state": "tsx scripts/test-today-state.ts",
     "test:today-week-row": "tsx scripts/test-today-week-row.ts",
