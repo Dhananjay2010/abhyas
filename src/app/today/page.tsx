@@ -8,7 +8,6 @@ import Link from "next/link";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { addDays, daysBetween, isoWeekday, localDateString } from "@/lib/dates";
 import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
-import { buildTrainAnywayDays } from "@/lib/today/train-anyway";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
