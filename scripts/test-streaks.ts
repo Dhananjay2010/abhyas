@@ -126,11 +126,11 @@ console.log("\n7. Streaks span blocks");
       b2: { 1: "weights", 2: "rest", 3: "weights", 4: "rest", 5: "weights", 6: "rest", 7: "rest" },
     },
     completedSessions: [
-      { local_date: "2026-08-31", actual_type: "weights" },
-      { local_date: "2026-09-02", actual_type: "weights" },
-      { local_date: "2026-09-04", actual_type: "weights" },
-      { local_date: "2026-09-07", actual_type: "weights" },
-      { local_date: "2026-09-09", actual_type: "weights" },
+      { local_date: "2026-08-31", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-02", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-04", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-07", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 },
     ],
     today: "2026-09-09",
   });
@@ -143,7 +143,7 @@ console.log("\n7. Streaks span blocks");
   const gap = buildDayRecords({
     programs: [{ id: "b1", startedOn: "2026-09-01", endsOn: "2026-09-03" }],
     dayTypesByProgram: { b1: { 1: "weights", 2: "weights", 3: "weights", 4: "weights", 5: "weights", 6: "weights", 7: "weights" } },
-    completedSessions: [{ local_date: "2026-09-01", actual_type: "weights" }],
+    completedSessions: [{ local_date: "2026-09-01", actual_type: "weights", status: "completed", working_set_count: 3 }],
     today: "2026-09-05",
   });
   check("dates past a block's end still get a schedule", gap.length === 5, `${gap.length}`);
@@ -165,7 +165,7 @@ console.log("\n8. A block rebuilt the same day must not erase today's streak");
       retired: { 1: "yoga", 2: "weights", 3: "rest", 4: "weights", 5: "weights", 6: "rest", 7: "rest" },
       active: { 1: "yoga", 2: "weights", 3: "weights", 4: "rest", 5: "weights", 6: "weights", 7: "rest" },
     },
-    completedSessions: [{ local_date: "2026-09-09", actual_type: "weights" }],
+    completedSessions: [{ local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 }],
     today: "2026-09-09",
   });
   check("today uses the active block's schedule (retired is empty)",
@@ -189,7 +189,7 @@ console.log("\n9. Train-anyway sessions count toward streak and days trained (ME
     },
     completedSessions: [
       // Train anyway on Tuesday (template rest day)
-      { local_date: "2026-09-09", actual_type: "weights" },
+      { local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 },
     ],
     today: "2026-09-09",
   });
@@ -208,7 +208,7 @@ console.log("\n10. Breathe-only days don't count toward streak or days trained")
     },
     completedSessions: [
       // Only breathing on Tuesday
-      { local_date: "2026-09-09", actual_type: "meditation" },
+      { local_date: "2026-09-09", actual_type: "meditation", status: "completed" },
     ],
     today: "2026-09-09",
   });
@@ -226,9 +226,9 @@ console.log("\n11. Yoga counts toward streak and days trained");
       p1: { 1: "weights", 2: "yoga", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" },
     },
     completedSessions: [
-      { local_date: "2026-09-08", actual_type: "weights" },
-      { local_date: "2026-09-09", actual_type: "yoga" },
-      { local_date: "2026-09-10", actual_type: "weights" },
+      { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-09", actual_type: "yoga", status: "completed" },
+      { local_date: "2026-09-10", actual_type: "weights", status: "completed", working_set_count: 3 },
     ],
     today: "2026-09-10",
   });
@@ -260,10 +260,10 @@ console.log("\n13. Same date with yoga + breathing: yoga wins");
       p1: { 1: "weights", 2: "yoga", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" },
     },
     completedSessions: [
-      { local_date: "2026-09-08", actual_type: "weights" },
-      { local_date: "2026-09-09", actual_type: "yoga" },
-      { local_date: "2026-09-09", actual_type: "meditation" }, // same day, breathing later
-      { local_date: "2026-09-10", actual_type: "weights" },
+      { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-09", actual_type: "yoga", status: "completed" },
+      { local_date: "2026-09-09", actual_type: "meditation", status: "completed" }, // same day, breathing later
+      { local_date: "2026-09-10", actual_type: "weights", status: "completed", working_set_count: 3 },
     ],
     today: "2026-09-10",
   });
@@ -283,10 +283,10 @@ console.log("\n14. Breathe-only on scheduled training day breaks streak");
       p1: { 1: "weights", 2: "weights", 3: "rest", 4: "weights", 5: "rest", 6: "rest", 7: "rest" },
     },
     completedSessions: [
-      { local_date: "2026-09-08", actual_type: "weights" }, // Mon weights: good
-      { local_date: "2026-09-09", actual_type: "meditation" }, // Tue breathing on training day: BREAKS
-      { local_date: "2026-09-10", actual_type: "meditation" }, // Wed breathing on rest day: OK
-      { local_date: "2026-09-11", actual_type: "weights" }, // Thu weights: restart
+      { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 }, // Mon weights: good
+      { local_date: "2026-09-09", actual_type: "meditation", status: "completed" }, // Tue breathing on training day: BREAKS
+      { local_date: "2026-09-10", actual_type: "meditation", status: "completed" }, // Wed breathing on rest day: OK
+      { local_date: "2026-09-11", actual_type: "weights", status: "completed", working_set_count: 3 }, // Thu weights: restart
     ],
     today: "2026-09-11",
   });
