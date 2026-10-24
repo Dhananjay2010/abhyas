@@ -30,58 +30,40 @@ type Mutant = {
 };
 
 const mutants: Mutant[] = [
-  // 1. Past-knee 4-list: Remove leg-extensions from PAST_KNEE_LUNGE_EXERCISES
-  {
-    name: "Remove leg-extensions from PAST_KNEE_LUNGE_EXERCISES",
-    file: "src/lib/program/generate.ts",
-    pattern: '"leg-extensions"',
-    mutate: '"leg-extensions-MUTANT-REMOVED"',
-    tests: ["test:knee-swaps", "test:past-knee-coordinator"],
-  },
-
-  // 2. Ban list: Disable high-impact lower-body ban for knee injury
+  // 1. High-impact lower-body ban for knee injury (core knee-safety logic)
   {
     name: "Disable high-impact lower-body ban for knee injury",
     file: "src/lib/program/generate.ts",
     pattern: /if \(input\.anyKneeInjury && ex\.impact === "high"\) {/,
     mutate: 'if (false && input.anyKneeInjury && ex.impact === "high") {',
-    tests: ["test:catalogue-knee-jumps", "test:past-knee-coordinator"],
+    tests: ["test:knee-safety-matrix"],
   },
 
-  // 3. Ban list: Disable sissy squat ban
-  {
-    name: "Disable sissy squat ban for knee injury",
-    file: "src/lib/program/generate.ts",
-    pattern: /if \(input\.anyKneeInjury && ex\.slug\.includes\("sissy"\)\) {/,
-    mutate: 'if (false && input.anyKneeInjury && ex.slug.includes("sissy")) {',
-    tests: ["test:catalogue-knee-jumps"],
-  },
-
-  // 4. Ban list: Disable UNSAFE_KNEE_LUNGES ban
-  {
-    name: "Disable UNSAFE_KNEE_LUNGES ban for knee injury",
-    file: "src/lib/program/generate.ts",
-    pattern: /if \(input\.anyKneeInjury && UNSAFE_KNEE_LUNGES\.has\(ex\.slug\)\) {/,
-    mutate: 'if (false && input.anyKneeInjury && UNSAFE_KNEE_LUNGES.has(ex.slug)) {',
-    tests: ["test:catalogue-knee-jumps"],
-  },
-
-  // 5. Knee gate on backfill insertion (first occurrence)
-  {
-    name: "Bypass knee gate on backfill insertIndex (first occurrence)",
-    file: "src/lib/program/generate.ts",
-    pattern: /let insertIndex = hasKneeInjury && lastCoreIndex >= 0 \? lastCoreIndex : exercises\.length;/,
-    mutate: "let insertIndex = false && lastCoreIndex >= 0 ? lastCoreIndex : exercises.length;",
-    tests: ["test:no-injury-baseline"],
-  },
-
-  // 6. Past-knee lunge filter: Block the 4-list filter (allow all lunges for past knee)
+  // 2. Past-knee lunge filter (PR #73 core logic)
   {
     name: "Disable past-knee lunge filter (allow unsafe lunges for past knee)",
     file: "src/lib/program/generate.ts",
     pattern: /if \(hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES\.has\(ex\.slug\)\) {/,
     mutate: 'if (false && hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {',
-    tests: ["test:past-knee-coordinator", "test:knee-swaps"],
+    tests: ["test:knee-safety-matrix"],
+  },
+
+  // 3. Beginner high-impact filter (PR #73 Step C)
+  {
+    name: "Disable beginner high-impact exclusion for knee injury",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ SAFETY: Beginners with knee injury \(any\) exclude ALL high-impact exercises\n\s+if \(input\.level === "beginner"\) \{/,
+    mutate: '// SAFETY: Beginners with knee injury (any) exclude ALL high-impact exercises\n    if (false && input.level === "beginner") {',
+    tests: ["test:knee-safety-matrix"],
+  },
+
+  // 4. Force-add quad work (PR #73 Task 3b)
+  {
+    name: "Disable force-add quad work for knee injury (allow empty quad days)",
+    file: "src/lib/program/generate.ts",
+    pattern: /if \(\(hasKneeInjury \|\| hasPastKnee\) && isLowerOrFullDay\) {/,
+    mutate: 'if (false && (hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {',
+    tests: ["test:knee-safety-matrix"],
   },
 ];
 

@@ -49,7 +49,7 @@ function getMainSlotCount(daysPerWeek: number, yogaDaysPerWeek: number, dayIndex
   }
   
   const entry = laidOut[slotPos];
-  if (!entry || entry.label === "Yoga" || entry.label === "Breathing") {
+  if (!entry || typeof entry === "string" || entry.label === "Yoga" || entry.label === "Breathing") {
     return 0;
   }
   
