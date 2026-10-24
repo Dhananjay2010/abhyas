@@ -216,7 +216,7 @@ export default async function ProgressPage() {
         ) : (
           <LineChart points={weightPoints} unit="kg" title="Body weight" />
         )}
-        <LogWeight current={latestWeight} />
+        <LogWeight current={latestWeight} units={units} />
       </section>
 
       {volumeRows.length > 0 && (

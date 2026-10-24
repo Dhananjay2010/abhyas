@@ -67,6 +67,7 @@ export type SettingsState = {
   restOverrideSeconds: number | null;
   bodyweightPrompt: "daily" | "weekly" | "never";
   timezone: string | null;
+  units: "metric" | "imperial";
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -677,12 +678,20 @@ export function SettingsForm({
         )}
       </Section>
 
-      <Section title="Not built yet">
-        <p className="text-sm text-muted">
-          Light theme and imperial units are in the plan but not implemented, so
-          there is nothing to switch here yet. {branding.name} is dark, kilograms and
-          centimetres for now.
-        </p>
+      <Section title="Units">
+        <Field label="Weight and height units">
+          <Segmented
+            options={[
+              { value: "metric", label: "Metric (kg, cm)" },
+              { value: "imperial", label: "Imperial (lb, ft/in)" },
+            ]}
+            value={s.units}
+            onChange={(v) => {
+              setS({ ...s, units: v });
+              save(() => actions.updateProfileSettings({ units: v }));
+            }}
+          />
+        </Field>
       </Section>
     </div>
   );

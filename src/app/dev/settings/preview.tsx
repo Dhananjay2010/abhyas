@@ -46,6 +46,7 @@ const INITIAL: SettingsState = {
   restOverrideSeconds: null,
   bodyweightPrompt: "weekly",
   timezone: null,
+  units: "metric",
 };
 
 const TIMEZONES = [

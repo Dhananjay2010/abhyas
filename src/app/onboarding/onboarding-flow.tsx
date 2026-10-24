@@ -43,6 +43,15 @@ import {
   type ActionResult,
 } from "./actions";
 import { branding } from "@/lib/branding";
+import {
+  formatWeight,
+  formatHeight,
+  parseWeight,
+  parseHeight,
+  weightLabel,
+  heightLabel,
+  type UnitsPreference,
+} from "@/lib/units";
 
 type StepId =
   | "disclaimer"
@@ -74,6 +83,7 @@ export type InitialState = {
   hasAllEquipment: boolean;
   equipmentIds: string[];
   injuries: { bodyRegion: BodyRegion; severity: InjurySeverity }[];
+  units: UnitsPreference;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -124,9 +134,14 @@ export function OnboardingFlow({
   const [dobTouched, setDobTouched] = useState(false);
   
   const [sex, setSex] = useState<Sex | null>(initial.sex);
-  const [heightCm, setHeightCm] = useState(initial.heightCm?.toString() ?? "");
+  const [units] = useState<UnitsPreference>(initial.units);
+  const [heightInput, setHeightInput] = useState(
+    initial.heightCm ? formatHeight(initial.heightCm, units, false) : ""
+  );
   const [heightTouched, setHeightTouched] = useState(false);
-  const [weightKg, setWeightKg] = useState(initial.weightKg?.toString() ?? "");
+  const [weightInput, setWeightInput] = useState(
+    initial.weightKg ? formatWeight(initial.weightKg, units, false) : ""
+  );
   const [weightTouched, setWeightTouched] = useState(false);
   const [goal, setGoal] = useState<Goal | null>(initial.goal);
   const [level, setLevel] = useState<Level | null>(initial.level);
@@ -274,8 +289,9 @@ export function OnboardingFlow({
   }
 
   if (current === "about") {
-    const height = Number(heightCm);
-    const weight = Number(weightKg);
+    // Parse height and weight from user input
+    const heightCm = parseHeight(heightInput, units);
+    const weightKg = parseWeight(weightInput, units);
     
     // Get today as ISO string for validation
     const today = new Date();
@@ -286,17 +302,21 @@ export function OnboardingFlow({
     const dobValidationError = dobTouched && dateOfBirth ? validateDob(dateOfBirth, todayIso) : null;
     const dobError = dobValidationError ? getDobErrorMessage(dobValidationError) : null;
     
-    const heightError = heightTouched && heightCm !== "" && (!Number.isFinite(height) || height < 100 || height > 250)
-      ? "Height should be between 100 and 250 cm"
+    const heightError = heightTouched && heightInput !== "" && heightCm === null
+      ? units === "imperial"
+        ? "Height should be between 3'3\" and 8'2\""
+        : "Height should be between 100 and 250 cm"
       : null;
-    const weightError = weightTouched && weightKg !== "" && (!Number.isFinite(weight) || weight < 25 || weight > 300)
-      ? "Weight should be between 25 and 300 kg"
+    const weightError = weightTouched && weightInput !== "" && weightKg === null
+      ? units === "imperial"
+        ? "Weight should be between 55 and 661 lb"
+        : "Weight should be between 25 and 300 kg"
       : null;
     
     const dobValid = dateOfBirth !== null && dobValidationError === null;
     
     const ready =
-      dobValid && sex !== null && height > 0 && weight > 0 && 
+      dobValid && sex !== null && heightCm !== null && weightKg !== null && 
       !heightError && !weightError && !pending;
 
     return (
@@ -328,8 +348,8 @@ export function OnboardingFlow({
                   actions.saveAboutYou({
                     dateOfBirth: dateOfBirth!,
                     sex: sex!,
-                    heightCm: height,
-                    weightKg: weight,
+                    heightCm: heightCm!,
+                    weightKg: weightKg!,
                     browserTimezone,
                   }),
                 );
@@ -364,30 +384,25 @@ export function OnboardingFlow({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Height" hint="cm" error={heightError}>
+            <Field label="Height" hint={heightLabel(units)} error={heightError}>
               <input
-                type="number"
-                inputMode="decimal"
-                value={heightCm}
-                onChange={(e) => setHeightCm(e.target.value)}
+                type="text"
+                inputMode={units === "imperial" ? "text" : "decimal"}
+                value={heightInput}
+                onChange={(e) => setHeightInput(e.target.value)}
                 onBlur={() => setHeightTouched(true)}
-                placeholder="e.g. 175"
-                min="100"
-                max="250"
-                step="any"
+                placeholder={units === "imperial" ? "e.g. 5'9\"" : "e.g. 175"}
                 className={inputClass}
               />
             </Field>
-            <Field label="Weight" hint="kg" error={weightError}>
+            <Field label="Weight" hint={weightLabel(units)} error={weightError}>
               <input
                 type="number"
                 inputMode="decimal"
-                value={weightKg}
-                onChange={(e) => setWeightKg(e.target.value)}
+                value={weightInput}
+                onChange={(e) => setWeightInput(e.target.value)}
                 onBlur={() => setWeightTouched(true)}
-                placeholder="e.g. 70"
-                min="25"
-                max="300"
+                placeholder={units === "imperial" ? "e.g. 154" : "e.g. 70"}
                 step="any"
                 className={inputClass}
               />
