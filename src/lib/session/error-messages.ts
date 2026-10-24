@@ -30,3 +30,16 @@ export function mapErrorToUserMessage(code: string | null | undefined, rawMessag
   // Default message for any other error
   return "Not saved, tap Retry";
 }
+
+/**
+ * Compute retry delay in milliseconds based on attempt count.
+ * 
+ * Schedule: 15s, 30s, 60s (then stays at 60s).
+ * Pure function for testability.
+ */
+export function getRetryDelay(attemptCount: number): number {
+  if (attemptCount <= 0) return 0;
+  if (attemptCount === 1) return 15000; // 15s
+  if (attemptCount === 2) return 30000; // 30s
+  return 60000; // 60s for 3+
+}

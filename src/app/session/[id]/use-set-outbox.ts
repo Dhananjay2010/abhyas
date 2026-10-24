@@ -6,6 +6,7 @@ import {
   classifyLogSetOutcome,
   type OutboxSender,
 } from "@/lib/session/outbox";
+import { getRetryDelay } from "@/lib/session/error-messages";
 import * as actions from "../actions";
 
 export type SyncState =
@@ -38,17 +39,26 @@ export function useSetOutbox<
   const [syncState, setSyncState] = useState<SyncState>({ type: "idle" });
   const [pendingCount, setPendingCount] = useState(0);
   const [unsavedCount, setUnsavedCount] = useState(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryAttemptsRef = useRef(0);
 
   const flush = async () => {
     const outbox = outboxRef.current;
     if (!outbox || outbox.pendingCount() === 0 || outbox.isFlushing()) return;
+
+    // S9: Check if offline - don't count attempt, show "Waiting for connection"
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setSyncState({ type: "failed", message: "Waiting for connection" });
+      // Don't increment retryAttemptsRef - wait for online event
+      return;
+    }
 
     setSyncState({ type: "syncing" });
 
     try {
       const result = await outbox.flush();
 
-      // If skipped (in-flight lock), leave status unchanged
+      // If skipped (concurrent flush already running), keep current sync state
       if (result.skipped) {
         setSyncState({ type: "idle" });
         return;
@@ -115,10 +125,22 @@ export function useSetOutbox<
       }
 
       if (outbox.pendingCount() === 0 && failed.length === 0) {
-        // All sets synced
+        // All sets synced - reset retry count
+        retryAttemptsRef.current = 0;
         setSyncState({ type: "idle" });
       } else if (result.stopped) {
-        setSyncState({ type: "failed", message: "Sync failed, will retry" });
+        // S9: Increment retry count and schedule next attempt with backoff
+        retryAttemptsRef.current++;
+        const delay = getRetryDelay(retryAttemptsRef.current);
+        setSyncState({ type: "failed", message: "Couldn't sync yet, retrying" });
+        
+        // Schedule retry
+        if (retryTimerRef.current) {
+          clearTimeout(retryTimerRef.current);
+        }
+        retryTimerRef.current = setTimeout(() => {
+          flush();
+        }, delay);
       } else {
         setSyncState({ type: "idle" });
       }
@@ -257,12 +279,22 @@ export function useSetOutbox<
 
     // Flush on 'online' events
     const onOnline = () => {
-      // Clear offline state when coming back online
+      // S9: Clear offline state and reset retry count when coming back online
+      retryAttemptsRef.current = 0;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
       setSyncState({ type: "idle" });
       void flush();
     };
     window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 

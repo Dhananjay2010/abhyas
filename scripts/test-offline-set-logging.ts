@@ -1136,6 +1136,95 @@ function testPostgresErrorClassification() {
   console.log("✓ M8: Postgres 22P02, 23505, 42501 classify as invalid");
 }
 
+// ---- Error message mapping -----------------------------------------------
+function testErrorMessageMapping() {
+  const { mapErrorToUserMessage } = require("../src/lib/session/error-messages");
+
+  // 22P02: Invalid text representation
+  if (mapErrorToUserMessage("22P02") !== "Not saved, check the numbers") {
+    throw new Error("22P02 should map to check numbers message");
+  }
+
+  // 22003: Numeric out of range
+  if (mapErrorToUserMessage("22003") !== "Not saved, check the numbers") {
+    throw new Error("22003 should map to check numbers message");
+  }
+
+  // 23514: Check constraint violation
+  if (mapErrorToUserMessage("23514") !== "Not saved, check the numbers") {
+    throw new Error("23514 should map to check numbers message");
+  }
+
+  // 42501: Insufficient privilege
+  if (mapErrorToUserMessage("42501") !== "Not saved, please sign in again") {
+    throw new Error("42501 should map to sign in message");
+  }
+
+  // QUOTA_EXCEEDED raw message
+  if (mapErrorToUserMessage(null, "QUOTA_EXCEEDED") !== "Not saved, out of space") {
+    throw new Error("QUOTA_EXCEEDED should map to out of space");
+  }
+
+  // quota in message (case insensitive)
+  if (mapErrorToUserMessage(null, "Failed: quota exceeded") !== "Not saved, out of space") {
+    throw new Error("'quota' in message should map to out of space");
+  }
+
+  // Unknown code
+  if (mapErrorToUserMessage("23505") !== "Not saved, tap Retry") {
+    throw new Error("Unknown code should map to tap Retry");
+  }
+
+  // No code, no message
+  if (mapErrorToUserMessage(null) !== "Not saved, tap Retry") {
+    throw new Error("No code/message should map to tap Retry");
+  }
+
+  console.log("✓ Error message mapping works correctly");
+}
+
+// ---- Retry backoff schedule ----------------------------------------------
+function testRetryBackoff() {
+  const { getRetryDelay } = require("../src/lib/session/error-messages");
+
+  if (getRetryDelay(0) !== 0) {
+    throw new Error("Attempt 0 should be 0ms");
+  }
+  if (getRetryDelay(1) !== 15000) {
+    throw new Error("Attempt 1 should be 15s");
+  }
+  if (getRetryDelay(2) !== 30000) {
+    throw new Error("Attempt 2 should be 30s");
+  }
+  if (getRetryDelay(3) !== 60000) {
+    throw new Error("Attempt 3 should be 60s");
+  }
+  if (getRetryDelay(10) !== 60000) {
+    throw new Error("Attempt 10+ should stay at 60s");
+  }
+
+  console.log("✓ Retry backoff schedule: 15s, 30s, 60s");
+}
+
+// ---- isNetworkError excludes coding bugs ---------------------------------
+function testNetworkErrorExcludesCodingBugs() {
+  const { isNetworkError } = require("../src/lib/session/network-error");
+
+  // TypeError from coding bug should NOT be treated as network error
+  const codingBug = new TypeError("x.map is not a function");
+  if (isNetworkError(codingBug)) {
+    throw new Error("Coding bug TypeError should not be classified as network error");
+  }
+
+  // Real network errors should still work
+  const networkError = new TypeError("Failed to fetch");
+  if (!isNetworkError(networkError)) {
+    throw new Error("'Failed to fetch' should be classified as network error");
+  }
+
+  console.log("✓ isNetworkError excludes coding bug TypeErrors");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -1160,6 +1249,9 @@ async function main() {
   testNextSetNumberWithGaps();
   await testIsFlushingDuringFlush();
   testPostgresErrorClassification();
+  testErrorMessageMapping();
+  testRetryBackoff();
+  testNetworkErrorExcludesCodingBugs();
 
   console.log("\n✓ All offline set logging tests passed");
 }
