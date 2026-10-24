@@ -8,8 +8,8 @@
  *   npx tsx scripts/test-0-working-set-rule.ts
  */
 
-import { finishSessionCore, asSupabaseClient } from "../src/lib/session/finish-session";
-import { abandonSessionCore, asSupabaseClient as asAbandonClient } from "../src/lib/session/abandon-session";
+import { finishSessionCore, type SupabaseClient } from "../src/lib/session/finish-session";
+import { abandonSessionCore, type SupabaseClient as AbandonClient } from "../src/lib/session/abandon-session";
 
 let passed = 0;
 let failed = 0;
@@ -34,9 +34,8 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-interface FakeSupabase {
+interface FakeSupabase extends SupabaseClient {
   calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }>;
-  from: (table: string) => unknown;
 }
 
 function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?: string): FakeSupabase {
@@ -103,7 +102,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
     ];
 
     const fake = makeFakeSupabase(exercises);
-    const result = await finishSessionCore(asSupabaseClient(fake), {
+    const result = await finishSessionCore(fake, {
       sessionId: "s1",
       durationSeconds: 300,
       cooldownCompleted: false,
@@ -129,7 +128,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
     ];
 
     const fake = makeFakeSupabase(exercises);
-    const result = await finishSessionCore(asSupabaseClient(fake), {
+    const result = await finishSessionCore(fake, {
       sessionId: "s2",
       durationSeconds: 600,
       cooldownCompleted: true,
@@ -154,7 +153,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
     ];
 
     const fake = makeFakeSupabase(exercises);
-    const result = await abandonSessionCore(asAbandonClient(fake), "s3", 200);
+    const result = await abandonSessionCore(fake, "s3", 200);
 
     assertTrue(result.ok, "Abandon should succeed");
     if (result.ok) {
@@ -176,7 +175,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
     ];
 
     const fake = makeFakeSupabase(exercises);
-    const result = await finishSessionCore(asSupabaseClient(fake), {
+    const result = await finishSessionCore(fake, {
       sessionId: "s4",
       durationSeconds: 900,
       cooldownCompleted: true,
@@ -201,7 +200,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
     ];
 
     const fake = makeFakeSupabase(exercises);
-    const result = await abandonSessionCore(asAbandonClient(fake), "s5", 400);
+    const result = await abandonSessionCore(fake, "s5", 400);
 
     assertTrue(result.ok, "Abandon should succeed");
     if (result.ok) {

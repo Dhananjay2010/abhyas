@@ -5,8 +5,8 @@
  *   npx tsx scripts/test-final-exercise-statuses.ts
  */
 
-import { finishSessionCore, asSupabaseClient } from "../src/lib/session/finish-session";
-import { abandonSessionCore, asSupabaseClient as asAbandonClient } from "../src/lib/session/abandon-session";
+import { finishSessionCore, type SupabaseClient } from "../src/lib/session/finish-session";
+import { abandonSessionCore, type SupabaseClient as AbandonClient } from "../src/lib/session/abandon-session";
 
 let passed = 0;
 let failed = 0;
@@ -23,11 +23,10 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-interface FakeSupabase {
+interface FakeSupabase extends SupabaseClient {
   sessionData: unknown;
   exercisesData: unknown[];
   exerciseUpdates: Array<{ id: string; status: string }>;
-  from: (table: string) => unknown;
 }
 
 function makeFakeSupabase(
@@ -35,10 +34,12 @@ function makeFakeSupabase(
   exercisesData: unknown[],
   updateError?: string
 ): FakeSupabase {
-  const fake: FakeSupabase = {
+  const exerciseUpdates: Array<{ id: string; status: string }> = [];
+
+  const fake = {
     sessionData,
     exercisesData,
-    exerciseUpdates: [],
+    exerciseUpdates,
     from: (table: string) => {
       if (table === "sessions") {
         return {
@@ -74,7 +75,7 @@ function makeFakeSupabase(
       throw new Error(`Unexpected table: ${table}`);
     },
   };
-  return fake;
+  return fake as unknown as FakeSupabase;
 }
 
 async function runTests() {
@@ -102,7 +103,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      asSupabaseClient(fake),
+      fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 
@@ -132,7 +133,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      asSupabaseClient(fake),
+      fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 
@@ -158,7 +159,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      asSupabaseClient(fake),
+      fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 
@@ -183,7 +184,7 @@ async function runTests() {
     const fake = makeFakeSupabase({}, exercises);
 
     await abandonSessionCore(
-      asAbandonClient(fake),
+      fake,
       "s1",
       1200
     );
@@ -228,7 +229,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      asSupabaseClient(fake),
+      fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 
@@ -260,7 +261,7 @@ async function runTests() {
     const fake = makeFakeSupabase(session, exercises);
 
     await finishSessionCore(
-      asSupabaseClient(fake),
+      fake,
       { sessionId: "s1", durationSeconds: 1800, cooldownCompleted: true }
     );
 

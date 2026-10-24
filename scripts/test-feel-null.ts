@@ -5,7 +5,7 @@
  *   npx tsx scripts/test-feel-null.ts
  */
 
-import { finishExerciseCore, asSupabaseClient } from "../src/lib/session/finish-exercise";
+import { finishExerciseCore, type SupabaseClient } from "../src/lib/session/finish-exercise";
 
 let passed = 0;
 let failed = 0;
@@ -22,9 +22,8 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-interface FakeSupabase {
+interface FakeSupabase extends SupabaseClient {
   storedFeel: unknown;
-  from: (table: string) => unknown;
 }
 
 function makeFakeSupabase(): FakeSupabase {
@@ -56,7 +55,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      asSupabaseClient(fake),
+      fake,
       "user1",
       {
         sessionExerciseId: "ex1",
@@ -74,7 +73,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      asSupabaseClient(fake),
+      fake,
       "user1",
       {
         sessionExerciseId: "ex1",
@@ -92,7 +91,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      asSupabaseClient(fake),
+      fake,
       "user1",
       {
         sessionExerciseId: "ex1",
@@ -110,7 +109,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      asSupabaseClient(fake),
+      fake,
       "user1",
       {
         sessionExerciseId: "ex1",
@@ -128,7 +127,7 @@ async function runTests() {
   {
     const fake = makeFakeSupabase();
     await finishExerciseCore(
-      asSupabaseClient(fake),
+      fake,
       "user1",
       {
         sessionExerciseId: "ex1",

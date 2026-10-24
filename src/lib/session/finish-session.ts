@@ -12,10 +12,14 @@ export interface SupabaseClient {
   from: (table: string) => SupabaseQueryBuilder;
 }
 
-// Narrow any Supabase-like client to our interface
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function asSupabaseClient(client: any): SupabaseClient {
-  return client;
+// Narrow a Supabase-like client to our minimal interface
+// This validates the structure without unsafe casts
+export function narrowToSupabaseClient<T extends { from: (...args: unknown[]) => unknown }>(
+  client: T
+): SupabaseClient {
+  return {
+    from: (table: string) => client.from(table) as ReturnType<SupabaseClient["from"]>,
+  };
 }
 
 interface SupabaseQueryBuilder {

@@ -5,7 +5,7 @@
  *   npx tsx scripts/test-close-stale.ts
  */
 
-import { closeStaleSessions, asClient } from "../src/lib/session/close-stale";
+import { closeStaleSessions, type Client } from "../src/lib/session/close-stale";
 
 let passed = 0;
 let failed = 0;
@@ -32,9 +32,8 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-interface FakeSupabase {
+interface FakeSupabase extends Client {
   sessionUpdates: Array<{ id: string; status: string; completed_at: string | null; duration_seconds: number }>;
-  from: (table: string) => unknown;
 }
 
 function makeFakeSupabase(
@@ -44,8 +43,10 @@ function makeFakeSupabase(
     session_sets: Array<{ id: string; is_warmup_set: boolean; completed_at: string | null }>;
   }>
 ): FakeSupabase {
-  const fake: FakeSupabase = {
-    sessionUpdates: [],
+  const sessionUpdates: Array<{ id: string; status: string; completed_at: string | null; duration_seconds: number }> = [];
+
+  const fake = {
+    sessionUpdates,
     from: (table: string) => {
       if (table === "sessions") {
         return {
@@ -71,7 +72,7 @@ function makeFakeSupabase(
       throw new Error(`Unexpected table: ${table}`);
     },
   };
-  return fake;
+  return fake as unknown as FakeSupabase;
 }
 
 async function runTests() {
@@ -95,7 +96,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      asClient(fake),
+      fake,
       [{ id: "s1", local_date: "2026-10-23" }],
       "2026-10-24"
     );
@@ -121,7 +122,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      asClient(fake),
+      fake,
       [{ id: "s2", local_date: "2026-10-23" }],
       "2026-10-24"
     );
@@ -150,7 +151,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      asClient(fake),
+      fake,
       [{ id: "s3", local_date: "2026-10-23" }],
       "2026-10-24"
     );
@@ -167,7 +168,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      asClient(fake),
+      fake,
       [{ id: "s4", local_date: "2026-10-24" }],
       "2026-10-24"
     );
@@ -201,7 +202,7 @@ async function runTests() {
 
     const fake = makeFakeSupabase(sessions, exercises);
     const completed = await closeStaleSessions(
-      asClient(fake),
+      fake,
       [
         { id: "s5a", local_date: "2026-10-23" },
         { id: "s5b", local_date: "2026-10-23" },

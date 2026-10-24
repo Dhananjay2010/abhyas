@@ -7,12 +7,6 @@ type Client = SupabaseClient<Database>;
 export type { Client };
 export type OpenSession = { id: string; local_date: string };
 
-// Narrow any Supabase-like client to our Client type
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function asClient(client: any): Client {
-  return client;
-}
-
 /**
  * Close out sessions left open on an earlier day.
  *
