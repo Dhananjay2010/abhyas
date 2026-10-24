@@ -662,6 +662,86 @@ console.log("\n25. null started_at with no sets: planned session marked skipped"
   check("planned session marked skipped", session?.status === "skipped");
 }
 
+console.log("\n26. Two-set case with started_at: duration = last set - started_at");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T18:00:00Z");
+  const started = "2026-10-24T10:00:00Z";
+  const firstSet = "2026-10-24T10:05:00Z";
+  const lastSet = "2026-10-24T11:00:00Z";
+  
+  fake.setSession("twosets", "in_progress");
+  fake.setSessionExercises("twosets", [
+    {
+      session_id: "twosets",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: firstSet },
+        { id: "set2", is_warmup_set: false, completed_at: lastSet },
+      ],
+    },
+  ]);
+
+  const open: OpenSession[] = [
+    { id: "twosets", local_date: "2026-10-24", started_at: started, actual_type: "weights", status: "in_progress" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  const session = fake.getSession("twosets");
+  check("session closed", session?.status === "completed");
+  check("ended_at is last set", session?.completed_at?.startsWith(lastSet.replace("Z", "")));
+  check("duration is 3600s (1 hour)", session?.duration_seconds === 3600);
+}
+
+console.log("\n27. Active session: first set >6h ago, last set 2 min ago stays open");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T16:00:00Z");
+  const started = "2026-10-24T09:00:00Z";
+  const firstSet = "2026-10-24T09:30:00Z";
+  const recentSet = new Date(now - 2 * 60 * 1000).toISOString();
+  
+  fake.setSession("active", "in_progress");
+  fake.setSessionExercises("active", [
+    {
+      session_id: "active",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: firstSet },
+        { id: "set2", is_warmup_set: false, completed_at: recentSet },
+      ],
+    },
+  ]);
+
+  const open: OpenSession[] = [
+    { id: "active", local_date: "2026-10-24", started_at: started, actual_type: "weights", status: "in_progress" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  const session = fake.getSession("active");
+  check("session still in_progress", session?.status === "in_progress");
+}
+
+console.log("\n28. in_progress + null started_at + no sets: closed with duration null");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-25T10:00:00Z");
+  
+  fake.setSession("stuck", "in_progress");
+  fake.setSessionExercises("stuck", []);
+
+  const open: OpenSession[] = [
+    { id: "stuck", local_date: "2026-10-24", started_at: null, actual_type: "weights", status: "in_progress" },
+  ];
+
+  await closeStaleSessionsCore(fake, open, now, "2026-10-25");
+  
+  const session = fake.getSession("stuck");
+  check("status is skipped", session?.status === "skipped");
+  check("duration_seconds is null", session?.duration_seconds === null);
+  check("completed_at is set", session?.completed_at !== null);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
 
