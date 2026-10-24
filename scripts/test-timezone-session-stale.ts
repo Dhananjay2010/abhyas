@@ -452,6 +452,43 @@ console.log("\n17. Race condition: already-completed session not overwritten by 
   check("race: credited count is 0 (no actual update)", credited === 0);
 }
 
+console.log("\n18. credited count reaches caller when sessions are closed");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T20:00:00Z");
+  const sevenHoursAgo = new Date(now - 7 * 3600 * 1000).toISOString();
+  
+  fake.setSession("old1", "in_progress");
+  fake.setSession("old2", "in_progress");
+  fake.setSessionExercises("old1", [
+    {
+      session_id: "old1",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: sevenHoursAgo },
+      ],
+    },
+  ]);
+  fake.setSessionExercises("old2", [
+    {
+      session_id: "old2",
+      session_sets: [
+        { id: "set2", is_warmup_set: false, completed_at: sevenHoursAgo },
+      ],
+    },
+  ]);
+
+  const open: OpenSession[] = [
+    { id: "old1", local_date: "2026-10-24", started_at: sevenHoursAgo },
+    { id: "old2", local_date: "2026-10-24", started_at: sevenHoursAgo },
+  ];
+
+  const credited = await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  
+  check("credited count is 2", credited === 2);
+  check("old1 is completed", fake.getSession("old1")?.status === "completed");
+  check("old2 is completed", fake.getSession("old2")?.status === "completed");
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
 
