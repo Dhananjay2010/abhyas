@@ -6,9 +6,11 @@
  * - Error results return the error message
  * - Thrown errors return a fixed friendly message (no raw exception text)
  * - Technical details are logged but not shown to users
+ * 
+ * Also tests the REAL isDeleteConfirmed function to verify exact-match confirmation.
  */
 
-import { deleteErrorMessage } from "../src/app/settings/delete-account/form-logic";
+import { deleteErrorMessage, isDeleteConfirmed } from "../src/app/settings/delete-account/form-logic";
 
 export {}; // Make this a module to avoid global scope conflicts
 
@@ -69,6 +71,59 @@ function runTests() {
   {
     const error = deleteErrorMessage({ thrown: { code: 500, detail: "Internal error" } });
     check("error is the fixed friendly message", error === "Couldn't reach the server. Check your connection and try again.");
+  }
+
+  console.log("\n8. Action returns undefined (redirect case)");
+  {
+    const error = deleteErrorMessage(undefined);
+    check("no error is returned", error === null);
+  }
+
+  console.log("\n9. Action returns null");
+  {
+    const error = deleteErrorMessage(null);
+    check("no error is returned", error === null);
+  }
+
+  console.log("\n10. isDeleteConfirmed - exact match");
+  {
+    check("accepts exact 'DELETE'", isDeleteConfirmed("DELETE") === true);
+  }
+
+  console.log("\n11. isDeleteConfirmed - with leading space");
+  {
+    check("rejects ' DELETE'", isDeleteConfirmed(" DELETE") === false);
+  }
+
+  console.log("\n12. isDeleteConfirmed - with trailing space");
+  {
+    check("rejects 'DELETE '", isDeleteConfirmed("DELETE ") === false);
+  }
+
+  console.log("\n13. isDeleteConfirmed - with both spaces");
+  {
+    check("rejects ' DELETE '", isDeleteConfirmed(" DELETE ") === false);
+  }
+
+  console.log("\n14. isDeleteConfirmed - lowercase");
+  {
+    check("rejects 'delete'", isDeleteConfirmed("delete") === false);
+  }
+
+  console.log("\n15. isDeleteConfirmed - with newline");
+  {
+    check("rejects 'DELETE\\n'", isDeleteConfirmed("DELETE\n") === false);
+  }
+
+  console.log("\n16. isDeleteConfirmed - empty string");
+  {
+    check("rejects empty string", isDeleteConfirmed("") === false);
+  }
+
+  console.log("\n17. isDeleteConfirmed - mixed case");
+  {
+    check("rejects 'Delete'", isDeleteConfirmed("Delete") === false);
+    check("rejects 'DeLeTe'", isDeleteConfirmed("DeLeTe") === false);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

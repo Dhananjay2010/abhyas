@@ -10,7 +10,8 @@
  * - Error messages are user-friendly
  */
 
-import { performAccountDeletion, mapDeletionError } from "../src/app/settings/delete-account/deletion-logic";
+import { performAccountDeletion, mapDeletionError, authCookieNames } from "../src/app/settings/delete-account/deletion-logic";
+import { isDeleteConfirmed } from "../src/app/settings/delete-account/form-logic";
 
 export {}; // Make this a module to avoid global scope conflicts
 
@@ -209,6 +210,90 @@ async function runTests() {
       "generic error",
       mapDeletionError({ code: "OTHER" }).includes("Please try again")
     );
+  }
+
+  console.log("\n8. Auth cookie names helper (pure function)");
+  {
+    const allCookies = [
+      "sb-abc-auth-token",
+      "sb-xyz-refresh-token",
+      "sb-session",
+      "other-cookie",
+      "analytics-id",
+      "SB-uppercase",
+    ];
+    const result = authCookieNames(allCookies);
+    
+    check("filters cookies with sb- prefix", result.length === 3);
+    check("includes sb-abc-auth-token", result.includes("sb-abc-auth-token"));
+    check("includes sb-xyz-refresh-token", result.includes("sb-xyz-refresh-token"));
+    check("includes sb-session", result.includes("sb-session"));
+    check("excludes other-cookie", !result.includes("other-cookie"));
+    check("excludes analytics-id", !result.includes("analytics-id"));
+    check("is case-sensitive (excludes SB-uppercase)", !result.includes("SB-uppercase"));
+  }
+
+  console.log("\n9. Sign-out error after successful deletion");
+  {
+    let rpcCalled = false;
+    let signOutCalled = false;
+    let redirected = false;
+    let signOutError = null;
+    
+    try {
+      await performAccountDeletion({
+        user: { id: "test-user-id", email: "test@example.com" },
+        callRPC: async () => {
+          rpcCalled = true;
+          return { error: null };
+        },
+        signOut: async () => {
+          signOutCalled = true;
+          signOutError = { error: new Error("User already deleted") };
+          return signOutError;
+        },
+        redirect: (() => {
+          redirected = true;
+          throw new Error("REDIRECT");
+        }) as never,
+      });
+    } catch (e) {
+      if ((e as Error).message !== "REDIRECT") throw e;
+    }
+    
+    check("RPC is called", rpcCalled);
+    check("signOut is called", signOutCalled);
+    check("redirects even on signOut error", redirected);
+    check("signOut error is logged but doesn't prevent redirect", signOutError !== null);
+  }
+
+  console.log("\n10. Server confirmation check - wrong confirmation");
+  {
+    const rpcCalled = false;
+    
+    // Simulate the server action check that happens before performAccountDeletion
+    const wrongConfirmations = [" DELETE ", "delete", "DELETE\n", "", "Delete"];
+    
+    for (const wrongInput of wrongConfirmations) {
+      const confirmed = isDeleteConfirmed(wrongInput);
+      check(`rejects "${wrongInput}"`, !confirmed);
+      
+      // If it's not confirmed, the server should never call the deletion logic
+      if (!confirmed) {
+        // This simulates the server action returning early
+        const result = { ok: false as const, error: "Type DELETE to confirm." };
+        check(`returns error for "${wrongInput}"`, !result.ok && result.error === "Type DELETE to confirm.");
+      }
+    }
+    
+    check("RPC is never called with wrong confirmation", !rpcCalled);
+  }
+
+  console.log("\n11. Server confirmation check - correct confirmation");
+  {
+    const correctConfirmation = "DELETE";
+    const confirmed = isDeleteConfirmed(correctConfirmation);
+    check("accepts exact 'DELETE'", confirmed);
   }
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

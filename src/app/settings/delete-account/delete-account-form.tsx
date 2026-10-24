@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { deleteAccount } from "./actions";
-import { deleteErrorMessage } from "./form-logic";
+import { deleteErrorMessage, isDeleteConfirmed } from "./form-logic";
 import { ErrorNote, inputClass, PrimaryButton } from "@/components/ui";
 
 const CONFIRMATION_WORD = "DELETE";
@@ -13,7 +13,7 @@ export function DeleteAccountForm() {
   const [error, setError] = useState<string | null>(null);
   const [confirmationText, setConfirmationText] = useState("");
 
-  const ready = confirmationText === CONFIRMATION_WORD && !pending;
+  const ready = isDeleteConfirmed(confirmationText) && !pending;
 
   function handleDelete() {
     if (!ready) return;
@@ -21,16 +21,18 @@ export function DeleteAccountForm() {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await deleteAccount();
+        const result = await deleteAccount(confirmationText);
         const errorMsg = deleteErrorMessage(result);
         if (errorMsg) {
           setError(errorMsg);
         }
-        // If successful, the action redirects to the landing page after sign out
+        // If no error (successful deletion), the action redirects to the landing page after sign out
       } catch (err) {
         // Catch any thrown errors (e.g. fetch failures) to prevent hitting error boundary
         const errorMsg = deleteErrorMessage({ thrown: err });
-        setError(errorMsg);
+        if (errorMsg) {
+          setError(errorMsg);
+        }
       }
     });
   }
@@ -49,7 +51,7 @@ export function DeleteAccountForm() {
           id="delete-confirmation"
           type="text"
           value={confirmationText}
-          onChange={(e) => setConfirmationText(e.target.value.trim())}
+          onChange={(e) => setConfirmationText(e.target.value)}
           placeholder={CONFIRMATION_WORD}
           disabled={pending}
           className={inputClass}

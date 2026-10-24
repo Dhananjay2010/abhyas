@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getSiteInfo, LEGAL_LAST_UPDATED } from "@/lib/legal/site-info";
+import { getSiteInfo, LEGAL_LAST_UPDATED, BACKUP_RETENTION_DAYS } from "@/lib/legal/site-info";
+import { getErrorMonitoringDisclosure } from "@/lib/legal/sentry-disclosure";
 
 export const metadata = {
   title: "Privacy Policy — Abhyas",
@@ -7,6 +8,7 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   const { gymName, supportEmail, gymAddress, gymPhone, appName } = getSiteInfo();
+  const errorMonitoring = getErrorMonitoringDisclosure();
   
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10 pb-28">
@@ -132,11 +134,13 @@ export default function PrivacyPolicyPage() {
               <strong>YouTube:</strong> We embed yoga videos from YouTube. YouTube&apos;s privacy
               policy applies when you watch these videos.
             </li>
-            <li>
-              <strong>Sentry:</strong> For error monitoring and diagnostics. Error reports are 
-              sent to Sentry with personally identifiable information scrubbed. Sentry&apos;s 
-              privacy policy applies to this data.
-            </li>
+            {errorMonitoring.enabled ? (
+              <li>
+                <strong>{errorMonitoring.processorName}:</strong> {errorMonitoring.description}
+              </li>
+            ) : (
+              <li>{errorMonitoring.description}</li>
+            )}
           </ul>
           <p>
             We do not sell, rent, or trade your personal information to third parties for marketing
@@ -175,9 +179,11 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-xl font-semibold">7. Data Retention</h2>
           <p>
             We retain your information for as long as your account is active. When you delete your
-            account through Settings, all your personal data and workout history is <strong>permanently 
-            and immediately deleted</strong> from our systems with no recovery period. This deletion is 
-            final and cannot be undone.
+            account through Settings, your personal data and workout history is deleted from the live 
+            database immediately. Copies of deleted data in our hosting provider&apos;s encrypted backups 
+            are automatically purged within the provider&apos;s backup retention window (approximately{" "}
+            {BACKUP_RETENTION_DAYS} days). Once purged from backups, the deletion is permanent and cannot 
+            be undone.
           </p>
           <p>
             Under the DPDP Act 2023, you have the right to request erasure of your personal data, 

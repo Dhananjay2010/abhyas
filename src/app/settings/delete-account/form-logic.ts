@@ -6,8 +6,22 @@
 export type DeletionResult = { ok: true } | { ok: false; error: string };
 
 /**
+ * Check if the user typed the exact confirmation word.
+ * 
+ * Returns true only for the exact string "DELETE" (case-sensitive, no whitespace).
+ * Does NOT trim or normalize the input - the user must type it exactly.
+ * 
+ * @param input - The user's typed confirmation text
+ * @returns true if input is exactly "DELETE", false otherwise
+ */
+export function isDeleteConfirmed(input: string): boolean {
+  return input === "DELETE";
+}
+
+/**
  * Convert a deletion result or thrown error into a user-friendly error message.
  * 
+ * - If result is undefined or null, returns null (handles Next.js redirect case)
  * - If result is success, returns null (no error)
  * - If result is error, returns the error message
  * - If an exception was thrown, returns a fixed friendly message and logs the detail
@@ -15,8 +29,13 @@ export type DeletionResult = { ok: true } | { ok: false; error: string };
  * This prevents raw exception messages from being shown to users.
  */
 export function deleteErrorMessage(
-  resultOrError: DeletionResult | { thrown: unknown }
+  resultOrError: DeletionResult | { thrown: unknown } | undefined | null
 ): string | null {
+  // Handle undefined or null (can happen when Next.js redirects)
+  if (resultOrError === undefined || resultOrError === null) {
+    return null;
+  }
+  
   // Check if it's a thrown error wrapper
   if ("thrown" in resultOrError) {
     const err = resultOrError.thrown;
