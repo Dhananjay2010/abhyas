@@ -4,10 +4,11 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
-import { ageOn } from "@/lib/onboarding/options";
-import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
+import { rankAlternatives } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
+import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
   evaluateProgression,
@@ -658,18 +659,40 @@ export async function findAlternatives(
   */
   const wantCompound = replacing?.mechanic !== "isolation";
   const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
-  const alternatives = ((poolRes.data ?? []) as unknown as CandidateExercise[])
+  
+  // Type the pool with cue field
+  const pool = (poolRes.data ?? []) as unknown as Array<CandidateExercise & { cue: string | null }>;
+  
+  // Filter by isEligible first (generator safety rules: age, BMI, spinal load, etc.)
+  const eligible = pool
     .filter((e) => !alreadyInSession.has(e.id))
-    .filter((e) => isEligible(e, { ...input, catalogue: [] }))
-    .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack) }))
-    .sort((a, b) => b.k - a.k || tieBreak(a.e.slug) - tieBreak(b.e.slug))
-    .slice(0, 6)
-    .map(({ e }) => ({
-      exerciseId: e.id,
-      name: e.name,
-      cue: (e as unknown as { cue: string | null }).cue ?? null,
-      metric: e.metric ?? ("reps" as const),
-    }));
+    .filter((e) => isEligible(e, { ...input, catalogue: [] }));
+  
+  // Find current exercise in the pool (not in eligible - it may be contraindicated)
+  const currentExercise = pool.find((e) => e.id === current.exercise_id);
+  if (!currentExercise) {
+    return { ok: false, error: "Current exercise not found in pool" };
+  }
+  
+  const ranked = rankAlternatives(
+    currentExercise,
+    eligible,
+    {
+      level: input.level,
+      availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
+      injuryRegions: input.currentInjuryRegions,
+      limit: 5,
+      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
+      tieBreakFn: tieBreak,
+    },
+  );
+
+  const alternatives = ranked.map((e) => ({
+    exerciseId: e.id,
+    name: e.name,
+    cue: e.cue ?? null,
+    metric: e.metric ?? ("reps" as const),
+  }));
 
   return { ok: true, data: alternatives };
 }
@@ -679,6 +702,7 @@ export type SwapResult = {
   metric: Database["public"]["Enums"]["exercise_metric"];
   repsMin: number | null;
   repsMax: number | null;
+  equipmentIds: string[];
 };
 
 export async function swapExercise(input: {
@@ -701,10 +725,14 @@ export async function swapExercise(input: {
       include holds, deliberately -- making a plank reachable from the swap list
       was the point of ranking that list. Without carrying the metric the
       session went on asking for reps while the screen named a plank.
+      
+      equipment_ids is also needed: when the session loads, isBodyweight is 
+      derived from whether equipment_ids is empty, and without it here a barbell
+      exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
     */
     supabase
       .from("exercises")
-      .select("metric, mechanic")
+      .select("metric, mechanic, equipment_ids")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
@@ -713,7 +741,9 @@ export async function swapExercise(input: {
   const current = currentRes.data;
   if (!current) return { ok: false, error: "Exercise not found" };
 
-  const metric = metricOf(replacementRes.data);
+  const replacement = replacementRes.data;
+  const metric = metricOf(replacement);
+  const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
 
   /*
@@ -757,7 +787,7 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax } };
+    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds } };
 }
 
 

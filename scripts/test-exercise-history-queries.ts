@@ -31,56 +31,80 @@ type MockChain = {
 const queryLog: string[] = [];
 
 function createMockSupabase() {
-  const chain: MockChain = {
-    from: (table: string) => {
-      queryLog.push(`from:${table}`);
-      return chain;
-    },
-    select: (columns: string, options?: unknown) => {
-      const opts = options as { count?: string; head?: boolean } | undefined;
-      if (opts?.count === "exact" && opts?.head) {
-        queryLog.push(`select:${columns}:count-head`);
-      } else {
-        queryLog.push(`select:${columns}`);
-      }
-      return chain;
-    },
-    eq: (column: string, value: unknown) => {
-      queryLog.push(`eq:${column}=${String(value)}`);
-      return chain;
-    },
-    in: (column: string, values: unknown[]) => {
-      queryLog.push(`in:${column}[${values.length}]`);
-      return chain;
-    },
-    order: (column: string, options?: { ascending?: boolean }) => {
-      const dir = options?.ascending ? "asc" : "desc";
-      queryLog.push(`order:${column}:${dir}`);
-      return chain;
-    },
-    limit: (n: number) => {
-      queryLog.push(`limit:${n}`);
-      return chain;
-    },
-    range: (start: number, end: number) => {
-      queryLog.push(`range:${start}-${end}`);
-      return chain;
-    },
-    maybeSingle: () => {
-      queryLog.push("maybeSingle");
-      return Promise.resolve({ data: null, error: null });
-    },
-    then: (resolve) => {
-      // Return count when it's a count query
-      if (queryLog.some(q => q.includes("count-head"))) {
-        resolve({ data: null, error: null, count: 100 } as unknown as { data: unknown; error: null });
-      } else {
-        resolve({ data: [], error: null });
-      }
-    },
-  };
+  function createChain(): MockChain {
+    const queryState: string[] = [];
+    
+    const chain: MockChain = {
+      from: (table: string) => {
+        queryState.push(`from:${table}`);
+        return chain;
+      },
+      select: (columns: string, options?: unknown) => {
+        const opts = options as { count?: string; head?: boolean } | undefined;
+        if (opts?.count === "exact" && opts?.head) {
+          queryState.push(`select:${columns}:count-head`);
+        } else {
+          queryState.push(`select:${columns}`);
+        }
+        return chain;
+      },
+      eq: (column: string, value: unknown) => {
+        queryState.push(`eq:${column}=${String(value)}`);
+        return chain;
+      },
+      in: (column: string, values: unknown[]) => {
+        queryState.push(`in:${column}[${values.length}]`);
+        return chain;
+      },
+      order: (column: string, options?: { ascending?: boolean }) => {
+        const dir = options?.ascending ? "asc" : "desc";
+        queryState.push(`order:${column}:${dir}`);
+        return chain;
+      },
+      limit: (n: number) => {
+        queryState.push(`limit:${n}`);
+        return chain;
+      },
+      range: (start: number, end: number) => {
+        queryState.push(`range:${start}-${end}`);
+        return chain;
+      },
+      maybeSingle: () => {
+        queryState.push("maybeSingle");
+        queryLog.push(...queryState);
+        return Promise.resolve({ data: null, error: null });
+      },
+      then: (resolve) => {
+        queryLog.push(...queryState);
+        // Return count when it's a count query
+        if (queryState.some(q => q.includes("count-head"))) {
+          resolve({ data: null, error: null, count: 100 } as unknown as { data: unknown; error: null });
+        } else if (queryState.some(q => q.includes("from:session_sets"))) {
+          // Return empty sets to avoid errors
+          resolve({ data: [], error: null });
+        } else {
+          // Return mock data for history queries so the code continues
+          const mockHistoryRow = { 
+            session_exercise_id: "se-1", 
+            session_id: "s-1", 
+            local_date: "2026-10-01", 
+            metric: "reps",
+            completed_at: "2026-10-01T10:00:00Z"
+          };
+          resolve({ data: [mockHistoryRow], error: null });
+        }
+      },
+    };
 
-  return chain as unknown;
+    return chain;
+  }
+
+  return {
+    from: (table: string) => {
+      const chain = createChain();
+      return chain.from(table);
+    }
+  } as unknown;
 }
 
 let failures = 0;
@@ -138,7 +162,11 @@ async function runTests() {
 
     check("queries exercise_history view", queryLog.includes("from:exercise_history"));
     check("uses count query with head=true", queryLog.some(q => q.includes("count-head")));
-    check("orders by completed_at desc", queryLog.includes("order:completed_at:desc"),
+    check("fetches full history ascending for PR detection", 
+      queryLog.includes("order:completed_at:asc"),
+      `log: ${queryLog.join(", ")}`);
+    check("fetches paginated history descending for display",
+      queryLog.includes("order:completed_at:desc"),
       `log: ${queryLog.join(", ")}`);
     check("uses range() for pagination", queryLog.includes("range:5-14"),
       `log: ${queryLog.join(", ")}`);

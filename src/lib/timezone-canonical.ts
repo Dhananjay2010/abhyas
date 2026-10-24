@@ -13,9 +13,29 @@
 /**
  * Legacy timezone aliases that should be mapped to current canonical names.
  * ICU often keeps legacy names for compatibility, but we normalize them.
- * Applied AFTER case canonicalization.
+ * Applied case-insensitively to both raw input and Intl-resolved names.
  */
 const LEGACY_ALIASES: Record<string, string> = {
+  // All UTC-equivalent names map to UTC
+  "UTC": "UTC",
+  "Etc/UTC": "UTC",
+  "GMT": "UTC",
+  "Etc/GMT": "UTC",
+  "Etc/GMT0": "UTC",
+  "GMT0": "UTC",
+  "Etc/GMT-0": "UTC",
+  "Etc/GMT+0": "UTC",
+  "GMT-0": "UTC",
+  "GMT+0": "UTC",
+  "Etc/Universal": "UTC",
+  "Universal": "UTC",
+  "Etc/Zulu": "UTC",
+  "Zulu": "UTC",
+  "Greenwich": "UTC",
+  "Etc/Greenwich": "UTC",
+  "UCT": "UTC",
+  "Etc/UCT": "UTC",
+
   // South Asian renames
   "Asia/Calcutta": "Asia/Kolkata",
   "Asia/Saigon": "Asia/Ho_Chi_Minh",
@@ -28,18 +48,33 @@ const LEGACY_ALIASES: Record<string, string> = {
   // American renames
   "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
 
+  // Legacy ICU names (Node 20 returns these from Intl.resolvedOptions)
+  "Atlantic/Faeroe": "Atlantic/Faroe",
+  "America/Godthab": "America/Nuuk",
+  "Pacific/Ponape": "Pacific/Pohnpei",
+  "Pacific/Truk": "Pacific/Chuuk",
+  "America/Indianapolis": "America/Indiana/Indianapolis",
+
   // US zone shortcuts (deprecated)
   "US/Eastern": "America/New_York",
   "US/Central": "America/Chicago",
   "US/Mountain": "America/Denver",
   "US/Pacific": "America/Los_Angeles",
   "US/Hawaii": "Pacific/Honolulu",
-
-  // GMT/UTC variants
-  "GMT": "UTC",
-  "Etc/GMT": "UTC",
-  "Etc/UTC": "UTC",
 };
+
+/**
+ * Case-insensitive alias lookup.
+ */
+function lookupAlias(name: string): string | undefined {
+  const upper = name.toUpperCase();
+  for (const [key, value] of Object.entries(LEGACY_ALIASES)) {
+    if (key.toUpperCase() === upper) {
+      return value;
+    }
+  }
+  return undefined;
+}
 
 /**
  * Canonicalize a timezone string to the current IANA name.
@@ -78,23 +113,27 @@ export function canonicalizeTimezone(input: string): string | null {
   // Reject offset formats at input level
   // - Starts with +/- like "+05:30", "-08:00"
   // - GMT/UTC offset formats like "GMT+5", "UTC-8", "Etc/GMT+5"
-  if (/^[+-]/.test(trimmed) || /^(Etc\/)?(GMT|UTC)[+-]\d/i.test(trimmed)) {
+  // BUT allow zero-offset forms: GMT-0, GMT+0, Etc/GMT-0, Etc/GMT+0
+  if (/^[+-]/.test(trimmed)) {
     return null;
+  }
+  if (/^(Etc\/)?(GMT|UTC)[+-]\d/i.test(trimmed)) {
+    // Check if it's a zero-offset form (GMT±0, Etc/GMT±0, etc.)
+    if (!/^(Etc\/)?(GMT|UTC)[+-]0+$/i.test(trimmed)) {
+      return null;
+    }
   }
 
   // Reject abbreviations BEFORE Intl validation
   // Intl accepts abbreviations (EST, PST, IST) and resolves them to full names,
   // but we want to reject them to force users to select proper IANA names
   // Allow inputs that:
-  // - Are 'UTC' (case-insensitive)
+  // - Are 'UTC' or a UTC-equivalent in our alias table (case-insensitive)
   // - Contain a '/' (proper IANA format)
   // - Are in our legacy alias table (case-insensitive check)
-  const trimmedUpper = trimmed.toUpperCase();
-  const hasAliasMatch = Object.keys(LEGACY_ALIASES).some(
-    (key) => key.toUpperCase() === trimmedUpper
-  );
+  const hasAliasMatch = !!lookupAlias(trimmed);
 
-  if (trimmedUpper !== "UTC" && !trimmed.includes("/") && !hasAliasMatch) {
+  if (!hasAliasMatch && !trimmed.includes("/")) {
     return null;
   }
 
@@ -110,18 +149,41 @@ export function canonicalizeTimezone(input: string): string | null {
     return null;
   }
 
-  // Apply legacy alias mapping
-  const canonical = LEGACY_ALIASES[caseCorrected] ?? caseCorrected;
+  // Apply legacy alias mapping (case-insensitive, check both input and resolved)
+  // First check if the input itself maps to a canonical name
+  const inputAlias = lookupAlias(trimmed);
+  if (inputAlias) {
+    // Verify the canonical output is valid
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: inputAlias });
+      return inputAlias;
+    } catch {
+      // Fall through to use caseCorrected
+    }
+  }
+  
+  // Then check if the Intl-resolved name needs mapping
+  const resolvedAlias = lookupAlias(caseCorrected);
+  const canonical = resolvedAlias ?? caseCorrected;
 
   // Reject offset formats in the canonical result
   // Etc/GMT+5, Etc/GMT-14, etc. can pass Intl but aren't location-based
+  // BUT allow zero-offset forms
   if (/^(Etc\/)?(GMT|UTC)[+-]\d/i.test(canonical)) {
-    return null;
+    if (!/^(Etc\/)?(GMT|UTC)[+-]0+$/i.test(canonical)) {
+      return null;
+    }
   }
 
   // Final check: canonical result must have '/' or be exactly 'UTC'
-  // (Should always pass if pre-check and mapping worked correctly)
   if (canonical !== "UTC" && !canonical.includes("/")) {
+    return null;
+  }
+
+  // Verify the canonical output is accepted by Intl
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: canonical });
+  } catch {
     return null;
   }
 
