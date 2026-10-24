@@ -116,7 +116,7 @@ export function BottomNav({ forNotFound }: { forNotFound?: boolean } = {}) {
   };
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
+    <nav data-bottom-nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
       <ul className="mx-auto flex max-w-md">
         {TABS.map((t) => {
           const href = getHref(t.href);

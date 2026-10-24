@@ -14,14 +14,11 @@ import { branding } from "@/lib/branding";
 
 /**
  * Get the current build version for cache naming.
- * Uses Vercel commit SHA in production, falls back to a constant for dev.
+ * Uses Vercel commit SHA in production, falls back to build-time constant.
+ * NEXT_PUBLIC_BUILD_ID is set once at build time in next.config.ts.
  */
 function getBuildVersion(): string {
-  if (process.env.VERCEL_GIT_COMMIT_SHA) {
-    return process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7);
-  }
-  // Fallback for local dev or non-Vercel deployments
-  return "dev";
+  return process.env.NEXT_PUBLIC_BUILD_ID || process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || "dev";
 }
 
 export async function GET() {
@@ -67,14 +64,16 @@ self.addEventListener("install", (event) => {
   );
 });
 
-// Activate: clean up old caches
+// Activate: clean up old caches for this brand only
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const cacheNames = await caches.keys();
+      const brandPrefix = "${brandId}-offline-";
       await Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          // Only delete caches with this brand's prefix that aren't the current one
+          if (cacheName.startsWith(brandPrefix) && cacheName !== CACHE_NAME) {
             return caches.delete(cacheName);
           }
         })
@@ -147,7 +146,8 @@ function shouldInterceptForOffline(request) {
   return false;
 }
 
-// Fetch: serve the offline page when a GET navigation request fails
+// Fetch: serve the offline page when a GET navigation request fails,
+// and serve precached icons cache-first
 self.addEventListener("fetch", (event) => {
   // Ignore all non-GET requests entirely (no respondWith).
   // POSTs and server actions go straight to the network and fail visibly.
@@ -155,7 +155,35 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Check if this GET request should be intercepted
+  const url = new URL(event.request.url);
+
+  // Serve precached icon cache-first (for offline page logo)
+  if (url.pathname === new URL(ICON_URL, self.location.origin).pathname) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const cachedResponse = await cache.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        // Not in cache, try network
+        try {
+          const networkResponse = await fetch(event.request);
+          // Optionally cache it for next time
+          if (networkResponse.ok) {
+            cache.put(event.request, networkResponse.clone());
+          }
+          return networkResponse;
+        } catch {
+          // Both cache and network failed
+          return new Response("Icon not available", { status: 404 });
+        }
+      })()
+    );
+    return;
+  }
+
+  // Check if this GET request should be intercepted for offline fallback
   if (!shouldInterceptForOffline(event.request)) {
     return;
   }
@@ -166,9 +194,25 @@ self.addEventListener("fetch", (event) => {
         const response = await fetch(event.request);
         return response;
       } catch {
+        // Failed to fetch: serve offline page with original URL as query param
+        // so the retry button can reload the correct page
+        const requestUrl = new URL(event.request.url);
+        const offlineUrl = new URL(OFFLINE_URL, self.registration.scope);
+        offlineUrl.searchParams.set("url", requestUrl.pathname + requestUrl.search);
+        
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(OFFLINE_URL);
-        return cachedResponse || new Response("Offline", { status: 503 });
+        
+        if (cachedResponse) {
+          // Return offline page with the correct URL in the address bar
+          return new Response(cachedResponse.body, {
+            status: cachedResponse.status,
+            statusText: cachedResponse.statusText,
+            headers: cachedResponse.headers,
+          });
+        }
+        
+        return new Response("Offline", { status: 503 });
       }
     })()
   );
