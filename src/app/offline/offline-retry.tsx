@@ -1,29 +1,66 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { branding } from "@/lib/branding";
+import { safeNextPath } from "@/lib/safe-next-path";
 
 /**
  * Client-side retry button for the offline page.
  *
  * Shows "Still offline" feedback when retry is attempted while still offline.
  * Only reloads when the network is back (navigator.onLine and test fetch succeed).
- * Reloads the original URL the user was navigating to (from ?url= query param).
+ * When url param is present, navigates to the validated path (XSS/open-redirect safe).
+ * When url param is absent, reloads the current page.
+ *
+ * Timeout protection: if navigation doesn't happen within 4s, reset to idle state
+ * and show "Still offline" (prevents button from getting stuck on "Checking…").
  *
  * Falls back to a plain link for no-JS scenarios.
  */
+
+const RETRY_TIMEOUT_MS = 4000;
+
 export function OfflineRetry() {
   const [checking, setChecking] = useState(false);
   const [stillOffline, setStillOffline] = useState(false);
+  const timeoutRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
 
   async function handleRetry() {
+    if (!mountedRef.current) return;
+
     setChecking(true);
     setStillOffline(false);
 
+    // Safety timeout: if navigation doesn't happen, reset button after 4s
+    timeoutRef.current = window.setTimeout(() => {
+      if (mountedRef.current) {
+        setChecking(false);
+        setStillOffline(true);
+      }
+    }, RETRY_TIMEOUT_MS);
+
     // Quick check: navigator.onLine
     if (!navigator.onLine) {
-      setChecking(false);
-      setStillOffline(true);
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (mountedRef.current) {
+        setChecking(false);
+        setStillOffline(true);
+      }
       return;
     }
 
@@ -34,19 +71,38 @@ export function OfflineRetry() {
         cache: "no-store",
       });
       if (response.ok) {
-        // Back online: reload the original URL (from query param)
         const params = new URLSearchParams(window.location.search);
-        const targetUrl = params.get("url") || "/";
-        window.location.href = targetUrl;
+        const urlParam = params.get("url");
+        
+        if (urlParam) {
+          // Navigate to the validated safe path (XSS/open-redirect protection)
+          window.location.href = safeNextPath(urlParam, "/");
+        } else {
+          // No url param: reload the current page
+          window.location.reload();
+        }
+        // Navigation or reload initiated; component will unmount, cleanup handles timeout
       } else {
         // Fetch succeeded but returned error (unlikely, but handle it)
-        setChecking(false);
-        setStillOffline(true);
+        if (timeoutRef.current !== null) {
+          window.clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        if (mountedRef.current) {
+          setChecking(false);
+          setStillOffline(true);
+        }
       }
     } catch {
       // Fetch failed: still offline
-      setChecking(false);
-      setStillOffline(true);
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (mountedRef.current) {
+        setChecking(false);
+        setStillOffline(true);
+      }
     }
   }
 

@@ -194,17 +194,13 @@ self.addEventListener("fetch", (event) => {
         const response = await fetch(event.request);
         return response;
       } catch {
-        // Failed to fetch: serve offline page with original URL as query param
-        // so the retry button can reload the correct page
-        const requestUrl = new URL(event.request.url);
-        const offlineUrl = new URL(OFFLINE_URL, self.registration.scope);
-        offlineUrl.searchParams.set("url", requestUrl.pathname + requestUrl.search);
-        
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(OFFLINE_URL);
         
         if (cachedResponse) {
-          // Return offline page with the correct URL in the address bar
+          // Return offline page with the correct URL in the address bar.
+          // The SW serves this under the original request URL, so the page
+          // can detect it with window.location and reload on retry.
           return new Response(cachedResponse.body, {
             status: cachedResponse.status,
             statusText: cachedResponse.statusText,
