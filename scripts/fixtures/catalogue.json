@@ -1312,7 +1312,9 @@
       "barbell"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "low",
     "tracks": [
@@ -2240,16 +2242,15 @@
       "squat_rack"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [
-      "knee"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "high",
     "tracks": [
       "weights"
     ],
     "default_rest_seconds": 120,
-    "category": "strength"
+    "category": "strength",
+    "cue": "Use a box at parallel or higher - do not go below parallel"
   },
   {
     "id": "a5bcc56f-33b7-4d09-8d6d-39f709367d01",
@@ -5478,7 +5479,9 @@
       "dumbbell"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -6621,7 +6624,9 @@
       "machine_generic"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "knee"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -8788,16 +8793,15 @@
       "leg_extension"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [
-      "knee"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
       "weights"
     ],
     "default_rest_seconds": 75,
-    "category": "strength"
+    "category": "strength",
+    "cue": "Use a pain-free partial range of motion"
   },
   {
     "id": "b8ace929-a5dd-4b2a-8664-c6f4162b4291",
@@ -10054,7 +10058,9 @@
     ],
     "equipment_ids": [],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "knee"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -10302,7 +10308,9 @@
       "cable_machine"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -11749,7 +11757,8 @@
     "equipment_ids": [],
     "level_min": "beginner",
     "contraindicated_regions": [
-      "wrist"
+      "wrist",
+      "shoulder"
     ],
     "impact": "low",
     "spinal_load": "none",
@@ -11867,7 +11876,8 @@
     "equipment_ids": [],
     "level_min": "beginner",
     "contraindicated_regions": [
-      "wrist"
+      "wrist",
+      "shoulder"
     ],
     "impact": "low",
     "spinal_load": "none",
@@ -13795,16 +13805,15 @@
       "leg_extension"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [
-      "knee"
-    ],
+    "contraindicated_regions": [],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
       "weights"
     ],
     "default_rest_seconds": 75,
-    "category": "strength"
+    "category": "strength",
+    "cue": "Use a pain-free partial range of motion"
   },
   {
     "id": "51b63a9a-c3f6-4d0a-925b-a80f0819b696",
@@ -16800,7 +16809,8 @@
     ],
     "level_min": "beginner",
     "contraindicated_regions": [
-      "lower_back"
+      "lower_back",
+      "shoulder"
     ],
     "impact": "low",
     "spinal_load": "high",
@@ -16829,7 +16839,9 @@
       "cable_machine"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "shoulder"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -17033,7 +17045,9 @@
       "stability_ball"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -17517,5 +17531,59 @@
     ],
     "default_rest_seconds": 75,
     "category": "strength"
+  },
+  {
+    "id": "f0000000-0000-0000-0000-000000000001",
+    "slug": "wall-sit",
+    "name": "Wall Sit",
+    "movement_pattern": "squat",
+    "mechanic": "isolation",
+    "metric": "seconds",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment_ids": [],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 60,
+    "category": "strength",
+    "cue": "Hold an isometric squat position with back against wall, thighs parallel to ground"
+  },
+  {
+    "id": "f0000000-0000-0000-0000-000000000002",
+    "slug": "spanish-squat",
+    "name": "Spanish Squat",
+    "movement_pattern": "squat",
+    "mechanic": "compound",
+    "metric": "reps",
+    "primary_muscles": [
+      "quads"
+    ],
+    "secondary_muscles": [
+      "glutes"
+    ],
+    "equipment_ids": [
+      "resistance_band"
+    ],
+    "level_min": "beginner",
+    "contraindicated_regions": [],
+    "impact": "low",
+    "spinal_load": "none",
+    "tracks": [
+      "weights",
+      "bodyweight"
+    ],
+    "default_rest_seconds": 90,
+    "category": "strength",
+    "cue": "Band behind knees creates forward resistance - controlled squat motion"
   }
 ]

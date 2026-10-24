@@ -134,27 +134,41 @@ try {
 // 2. HIGH knee: hip-flexion-with-band never a main lift, knee-safe options first
 // ====================
 
-testSeeds("2. Knee injury: first lower main exercise is knee-safe OR hinge (when no knee-safe quads available), no hip-flexion-with-band as main, no adjacent hinges",
+testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from allowlist), comes before any hinge, no hip-flexion-with-band as main, no adjacent hinges",
   { currentInjuryRegions: ["knee"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
   (plan, picked, seed) => {
     const lowerDays = plan.days.filter(d => d.focus === "lower" || d.focus === "legs");
+    
+    // Coordinator allowlist: leg-extensions, single-leg-leg-extension, box-squat, wall-sit, spanish-squat
+    const kneeSafeAllowlist = [
+      "leg-extensions", "single-leg-leg-extension", "box-squat", "wall-sit", "spanish-squat"
+    ];
     
     // Check first main exercise on each Lower day
     lowerDays.forEach((day, dayIdx) => {
       if (day.exercises.length > 0) {
         const firstEx = byId.get(day.exercises[0].exerciseId)!;
-        const kneeSafeSlugs = [
-          "box-squat", "goblet-squat", "wall-sit", "leg-extension", 
-          "step-up", "bulgarian-split-squat", "single-leg", "squat-to-a-bench"
-        ];
-        const isKneeSafe = kneeSafeSlugs.some(slug => firstEx.slug.includes(slug)) ||
-                          firstEx.slug === "bodyweight-squat";
-        // Hinge exercises are okay if no knee-safe squats are available (they don't stress the knee)
-        const isHinge = firstEx.movement_pattern === "hinge";
-        const isAcceptable = isKneeSafe || isHinge;
-        check(`Seed ${seed} Lower day ${dayIdx + 1}: first exercise is knee-safe or hinge`, 
-          isAcceptable, 
-          `Got ${firstEx.name} [${firstEx.movement_pattern}]`);
+        const isKneeSafe = kneeSafeAllowlist.includes(firstEx.slug);
+        check(`Seed ${seed} Lower day ${dayIdx + 1}: first exercise is knee-safe from allowlist`, 
+          isKneeSafe, 
+          `Got ${firstEx.name} [${firstEx.slug}]`);
+        
+        // Check knee-safe quad comes before any hinge
+        const firstHingeIndex = day.exercises.findIndex(e => {
+          const ex = byId.get(e.exerciseId);
+          return ex && ex.movement_pattern === "hinge";
+        });
+        
+        if (firstHingeIndex !== -1) {
+          // There is a hinge, make sure a knee-safe quad comes first
+          const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
+            const ex = byId.get(e.exerciseId);
+            return ex && kneeSafeAllowlist.includes(ex.slug);
+          });
+          check(`Seed ${seed} Lower day ${dayIdx + 1}: knee-safe quad before hinge`, 
+            kneeSafeBeforeHinge,
+            `First hinge at position ${firstHingeIndex + 1}`);
+        }
         
         // Check hip-flexion-with-band is NOT in main slots (first 4)
         const mainExercises = day.exercises.slice(0, 4).map(e => byId.get(e.exerciseId)!);
@@ -316,6 +330,82 @@ testSeeds("7d. Lower_back injury excludes kettlebell windmill and loaded side be
       windmills.length > 0 ? windmills.map(e => e.name).join(", ") : "");
   }
 );
+
+// ====================
+// Additional contraindications from injury-deload-yoga report
+// ====================
+
+testSeeds("Shoulder injury: no pushups or upright rows on Upper/Push days",
+  { currentInjuryRegions: ["shoulder"], level: "intermediate", daysPerWeek: 5, hasAllEquipment: true },
+  (plan, picked, seed) => {
+    const upperPushDays = plan.days.filter(d => 
+      d.focus === "upper" || d.focus === "push" || d.focus === "pull"
+    );
+    
+    upperPushDays.forEach((day, dayIdx) => {
+      const dayExercises = day.exercises.map(e => byId.get(e.exerciseId)!);
+      const hasPushups = dayExercises.some(e => 
+        e.slug === "pushups" || e.slug === "push-up-wide"
+      );
+      const hasUprightRow = dayExercises.some(e => 
+        e.slug.includes("upright") && e.slug.includes("row")
+      );
+      check(`Seed ${seed} ${day.label}: no pushups`, !hasPushups);
+      check(`Seed ${seed} ${day.label}: no upright rows`, !hasUprightRow);
+    });
+  }
+);
+
+testSeeds("Lower_back injury: no loaded side bends",
+  { currentInjuryRegions: ["lower_back"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
+  (plan, picked, seed) => {
+    const sideBends = picked.filter(e => 
+      e.slug === "barbell-side-bend" || 
+      e.slug === "weighted-ball-side-bend" ||
+      e.slug === "dumbbell-side-bend" ||
+      e.slug === "one-arm-high-pulley-cable-side-bends"
+    );
+    check(`Seed ${seed}: no loaded side bends`, sideBends.length === 0,
+      sideBends.length > 0 ? sideBends.map(e => e.name).join(", ") : "");
+  }
+);
+
+testSeeds("Knee injury: no glute ham raise",
+  { currentInjuryRegions: ["knee"], level: "intermediate", daysPerWeek: 4, hasAllEquipment: true },
+  (plan, picked, seed) => {
+    const gluteHam = picked.filter(e => 
+      e.slug === "glute-ham-raise" || e.slug === "natural-glute-ham-raise"
+    );
+    check(`Seed ${seed}: no glute ham raise`, gluteHam.length === 0,
+      gluteHam.length > 0 ? gluteHam.map(e => e.name).join(", ") : "");
+  }
+);
+
+console.log("\nKnee injury warm-up and cool-down exclusions:");
+const kneeWarmup = selectWarmup({
+  warmups,
+  trainingMuscles: ["quads", "hamstrings"],
+  injuryRegions: ["knee"],
+  track: "weights",
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+const hasWorldsGreatest = kneeWarmup.some(w => w.slug === "worlds-greatest");
+const hasKneelingHipFlexor = kneeWarmup.some(w => w.slug === "hip-flexor-stretch-kneeling");
+check("Knee warm-up: no world's greatest stretch", !hasWorldsGreatest);
+check("Knee warm-up: no kneeling hip flexor stretch", !hasKneelingHipFlexor);
+
+const kneeCooldown = selectCooldown({
+  stretches: warmups,
+  trainingMuscles: ["quads", "hamstrings"],
+  injuryRegions: ["knee"],
+  hasAllEquipment: true,
+  availableEquipment: null,
+});
+const cooldownWorldsGreatest = kneeCooldown.some(w => w.slug === "worlds-greatest");
+const cooldownKneelingHipFlexor = kneeCooldown.some(w => w.slug === "hip-flexor-stretch-kneeling");
+check("Knee cool-down: no world's greatest stretch", !cooldownWorldsGreatest);
+check("Knee cool-down: no kneeling hip flexor stretch", !cooldownKneelingHipFlexor);
 
 // ====================
 // (a) Session length: 30-min beginner has push/pull/legs/core, within ±5 min

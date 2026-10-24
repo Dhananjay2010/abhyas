@@ -14,6 +14,7 @@ export type WarmupRow = {
   duration_seconds: number;
   instructions: string[];
   equipment_ids: string[];
+  contraindicated_regions?: BodyRegion[];
 };
 
 export type WarmupItem = WarmupRow & { phase: "cardio" | "mobility" | "prehab" | "stretch" };
@@ -92,8 +93,10 @@ export function selectWarmup(input: {
 
   // QA Pass 10 H7: Filter mobility pool by injuries BEFORE ranking
   const mobilityPool = byType("mobility").filter((w) => {
-    // Exclude any warmup that targets an injured region
-    return !w.target_regions.some((r) => regions.has(r));
+    // Exclude any warmup that targets an injured region OR is contraindicated for the injury
+    const targetsInjury = w.target_regions.some((r) => regions.has(r));
+    const contraindicated = (w.contraindicated_regions ?? []).some((r) => regions.has(r));
+    return !targetsInjury && !contraindicated;
   });
   
   // 2. Five minutes of mobility for what is about to be trained. Exercises that
@@ -194,11 +197,11 @@ export function selectCooldown(input: {
   };
 
   // QA: Filter for stretch exercises ONLY (not mobility/warmup drills), filter out injury contraindications AND equipment
-  const byType = stretches.filter((w) => 
-    w.type === "stretch" && 
-    !w.target_regions.some((r) => regions.has(r)) &&
-    canUseEquipment(w)
-  );
+  const byType = stretches.filter((w) => {
+    const targetsInjury = w.target_regions.some((r) => regions.has(r));
+    const contraindicated = (w.contraindicated_regions ?? []).some((r) => regions.has(r));
+    return w.type === "stretch" && !targetsInjury && !contraindicated && canUseEquipment(w);
+  });
 
   // Rank stretches by how many of today's muscles they target
   const ranked = byType

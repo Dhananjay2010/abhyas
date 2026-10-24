@@ -14,7 +14,8 @@
     "instructions": [
       "Knee tracks over the toes, heel stays down."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "d7f3fc10-0dac-46f9-b802-643112d65f18",
@@ -33,7 +34,8 @@
     "instructions": [
       "Ten small circles forward, ten back, then widen them."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "fe96291f-d25d-4422-af8d-6a8420604321",
@@ -52,7 +54,8 @@
     ],
     "equipment_ids": [
       "resistance_band"
-    ]
+    ],
+    "contraindicated_regions": []
   },
   {
     "id": "44c9b01e-ae01-47bc-a73d-6eebf73de8a3",
@@ -73,7 +76,8 @@
     ],
     "equipment_ids": [
       "resistance_band"
-    ]
+    ],
+    "contraindicated_regions": []
   },
   {
     "id": "467f2b4c-170b-4ba9-9f80-bc2903970181",
@@ -93,7 +97,8 @@
     "instructions": [
       "Opposite arm and leg. Do not let the hips rotate."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "ecb2c74b-1713-4eae-b68d-c77a16d62457",
@@ -112,7 +117,8 @@
     "instructions": [
       "Slow and full depth. Pause at the bottom."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "2c7d4fa2-8ae7-469b-8bb8-cacd54d60565",
@@ -127,7 +133,8 @@
     "instructions": [
       "Easy pace. You should still be able to talk."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "e5dbf2b4-dd6e-42ae-93c7-9b318387d0b3",
@@ -144,7 +151,8 @@
     "instructions": [
       "Three seconds up, three down, full range."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "15383613-9493-442f-ad1d-80bffc1bdfd1",
@@ -165,7 +173,8 @@
       "Hold for 30 seconds, then switch sides",
       "You should feel it in the back of your lower leg"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "92413157-caf1-42e5-9989-694a943b1923",
@@ -184,7 +193,8 @@
     "instructions": [
       "On all fours, arch and round the spine with the breath."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "d1c5da0a-8778-498a-9b3f-19e10784d600",
@@ -208,7 +218,8 @@
       "Move slowly between positions",
       "You should feel it throughout your spine"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "13629a05-8d54-490b-a544-b5d3ad66f3dc",
@@ -229,7 +240,8 @@
       "Hold the stretch",
       "You should feel it across your chest"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "6583da5e-65fb-4d44-b58c-ea08ffc7c7bb",
@@ -253,7 +265,8 @@
       "Breathe slowly and relax",
       "You should feel it in your back and shoulders"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "8ea1316f-903a-444d-b104-58ecb523a1a1",
@@ -272,7 +285,8 @@
     "instructions": [
       "On your side, knees bent, open the top knee without rolling back."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "0abd192d-e541-450f-a365-b617f391bf6c",
@@ -290,7 +304,8 @@
     "instructions": [
       "Lower back stays flat on the floor throughout."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "7fb506cd-0b7c-4c56-8397-4920948be16a",
@@ -306,7 +321,8 @@
     "instructions": [
       "Light resistance, steady cadence."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "8f13baf3-6514-4e18-a96b-0ae572cc8ddf",
@@ -322,7 +338,8 @@
     "instructions": [
       "Low stroke rate, focus on the leg drive."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "de4f025a-830a-432d-8fae-c4aa1626bd05",
@@ -343,7 +360,8 @@
     ],
     "equipment_ids": [
       "cable_machine"
-    ]
+    ],
+    "contraindicated_regions": []
   },
   {
     "id": "5ce707cc-9dee-4756-89ae-1caebab68832",
@@ -362,7 +380,8 @@
     "instructions": [
       "Squeeze at the top for a second. Ribs down."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "40fce17d-d9d0-4f63-982e-426878320c54",
@@ -383,7 +402,8 @@
       "Hold for 30 seconds, then switch sides",
       "You should feel it in your glute and hip"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "fbbc363a-b1cf-4718-b93e-c5b0dacac14b",
@@ -401,7 +421,8 @@
     "instructions": [
       "Hands on hips, big slow circles both directions."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "ead2a924-2980-43f1-bd47-b65db9d3f6d7",
@@ -422,7 +443,10 @@
       "Hold for 30 seconds, then switch sides",
       "You should feel it in the front of your hip"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": [
+      "knee"
+    ]
   },
   {
     "id": "8b8edac4-3cc9-4f5f-a99e-72b9cd0aeafb",
@@ -444,7 +468,8 @@
       "Hold for 30 seconds, then switch sides",
       "You should feel it along the side of your back"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "773ed3d7-bff2-432e-b99f-830bee582dc7",
@@ -462,7 +487,8 @@
     "instructions": [
       "Hold something. Ten swings per leg, relaxed."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "98527f45-0ece-40d2-a0d1-44d4fe68d650",
@@ -480,7 +506,8 @@
     "instructions": [
       "Ten per leg, keep the torso upright."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "22e46d8b-1ad9-46a3-bc3b-d240ef292d6c",
@@ -495,7 +522,8 @@
     "instructions": [
       "Drive the knees to hip height. No equipment needed."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "eb806b00-1c31-4353-a9cc-32c4095b4f4e",
@@ -512,7 +540,8 @@
     "instructions": [
       "Slow, controlled, small range. Never force it."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "65a04e82-6627-4c2a-ae49-18865decd7f1",
@@ -534,7 +563,8 @@
       "Hold for 30 seconds, then switch sides",
       "You should feel it in the front of your thigh"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "0a4cec3a-05c5-4071-b28d-5bf04cbce901",
@@ -553,7 +583,8 @@
     "instructions": [
       "Arms locked. Pinch the shoulder blades together, then push them apart."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "85fe8217-2fbb-4b1f-98d7-8eaa9f6e1c50",
@@ -577,7 +608,8 @@
       "Hold for 30 seconds, then switch sides",
       "You should feel it in your spine and hip"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "2c4b011a-9569-4f3b-8072-b02387c52234",
@@ -598,7 +630,8 @@
       "Hold for 30 seconds, then switch sides",
       "You should feel it in the back of your shoulder"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "a2e5896c-2255-4120-a8c4-7d1ff39b0023",
@@ -616,7 +649,8 @@
     "instructions": [
       "Wide grip on a band or stick, pass it overhead and behind. Widen the grip if it pinches."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "32823a9e-ef88-4870-8a1f-b06a16710a16",
@@ -634,7 +668,8 @@
     "instructions": [
       "Small hops, stay on the balls of your feet."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "3212c8f0-5d30-474b-9fe2-f028e7cd9b73",
@@ -656,7 +691,8 @@
       "Hold the stretch, breathing slowly",
       "You should feel it in the back of your thighs"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "faacbbd2-bf8e-4c61-b321-da132588f2e3",
@@ -673,7 +709,8 @@
     "instructions": [
       "Band behind the knee, straighten the leg against it."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "6e8bfeb0-3468-47a1-bf39-0e4a244853b0",
@@ -691,7 +728,8 @@
     "instructions": [
       "Half-kneeling, hand behind the head, rotate the ribcage open."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "6919aa51-b9a4-4466-98b2-0fcb3df490e6",
@@ -713,7 +751,8 @@
       "Hold for 30 seconds, then switch sides",
       "You should feel it in the back of your upper arm"
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "48ccd038-dda4-4a94-9e81-adf4450de017",
@@ -733,7 +772,8 @@
     "instructions": [
       "Long stride, upright torso, controlled."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "0ad04fc6-2598-4422-97aa-9fe669cef1ff",
@@ -751,7 +791,8 @@
     "instructions": [
       "Back and arms flat to the wall, slide the arms overhead without losing contact."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   },
   {
     "id": "2a12d85e-23d0-4e09-8ec9-80a6caeb664f",
@@ -771,7 +812,10 @@
     "instructions": [
       "Deep lunge, elbow to the instep, then rotate the top arm to the ceiling."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": [
+      "knee"
+    ]
   },
   {
     "id": "97afdbed-1290-43b4-b194-7f88b66781a3",
@@ -789,6 +833,7 @@
     "instructions": [
       "Circles both ways, then rock forward and back on your palms."
     ],
-    "equipment_ids": []
+    "equipment_ids": [],
+    "contraindicated_regions": []
   }
 ]
