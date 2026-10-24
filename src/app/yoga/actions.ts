@@ -5,6 +5,7 @@ import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 export type Result = { ok: true } | { ok: false; error: string };
 
@@ -18,6 +19,9 @@ export type Result = { ok: true } | { ok: false; error: string };
  * exactly like a strength session.
  */
 export async function markYogaVideoDone(videoId: string): Promise<Result> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 

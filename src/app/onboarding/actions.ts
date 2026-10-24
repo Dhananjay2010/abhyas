@@ -6,6 +6,7 @@ import type { Database } from "@/lib/database.types";
 import { MIN_AGE_YEARS, ageOn } from "@/lib/onboarding/options";
 import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
+import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 type BodyRegion = Database["public"]["Enums"]["body_region"];
@@ -20,6 +21,9 @@ async function requireUser() {
 }
 
 export async function acceptDisclaimer(): Promise<ActionResult> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("profiles")
@@ -35,6 +39,9 @@ export async function saveAboutYou(input: {
   weightKg: number;
   browserTimezone?: string; // Optional: browser-detected timezone from client
 }): Promise<ActionResult> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const age = ageOn(input.dateOfBirth);
   if (Number.isNaN(age)) return { ok: false, error: "That date does not look right." };
   if (age < MIN_AGE_YEARS)
@@ -93,6 +100,9 @@ export async function saveAboutYou(input: {
 }
 
 export async function saveProfileFields(fields: ProfileUpdate): Promise<ActionResult> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
   const { error } = await supabase.from("profiles").update(fields).eq("id", user.id);
   return error ? { ok: false, error: error.message } : { ok: true };
@@ -102,6 +112,9 @@ export async function saveEquipment(input: {
   hasAll: boolean;
   equipmentIds: string[];
 }): Promise<ActionResult> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
 
   const { error: flagError } = await supabase
@@ -130,6 +143,9 @@ export async function saveEquipment(input: {
 export async function saveInjuries(
   injuries: { bodyRegion: BodyRegion; severity: InjurySeverity; note?: string }[],
 ): Promise<ActionResult> {
+  const rateLimit = await checkActionRateLimit("default");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
 
   const { error: clearError } = await supabase
@@ -154,6 +170,9 @@ export async function saveInjuries(
 }
 
 export async function completeOnboarding(): Promise<ActionResult> {
+  const rateLimit = await checkActionRateLimit("expensive");
+  if (rateLimit) return rateLimit;
+  
   const { supabase, user } = await requireUser();
 
   // Guard against a client that skipped ahead: everything the engine needs must exist.
