@@ -1,5 +1,4 @@
 #!/usr/bin/env tsx
-// @ts-nocheck
 /**
  * Test ensureSessionExercises with a mock Supabase client
  * to verify it respects the is_deload flag from the session.
@@ -133,6 +132,7 @@ async function runTests() {
       insertedRows,
     );
 
+    // @ts-expect-error - Mock Supabase client for testing
     await ensureSessionExercises(mockSupabase, "user1", "sess1");
 
     if (insertedRows.length !== 2) {
@@ -178,6 +178,7 @@ async function runTests() {
       insertedRows,
     );
 
+    // @ts-expect-error - Mock Supabase client for testing
     await ensureSessionExercises(mockSupabase, "user1", "sess2");
 
     if (insertedRows[0].planned_sets !== 5) {

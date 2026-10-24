@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Test: ensureSessionExercises applies deload from session row
  *
@@ -166,7 +165,7 @@ function createFakeSupabaseClient() {
 
       return {};
     },
-  };
+  } as unknown;
 
   return { client, sessions, sessionExercises };
 }
@@ -182,27 +181,27 @@ async function ensureSessionExercises(
   // This parameter simulates the bug: on main, is_deload was NOT selected
   buggyVersion: boolean,
 ) {
-  const { data: session } = await supabase
+  const query1 = supabase
     .from("sessions")
     .select(
       buggyVersion
         ? "program_day_id, actual_type, session_exercises(id)" // BUG: missing is_deload
         : "program_day_id, actual_type, is_deload, session_exercises(id)", // FIX: includes is_deload
-    )
-    .eq("id", sessionId)
-    .maybeSingle();
+    );
+  const query1eq = query1.eq!("id", sessionId);
+  const { data: session } = await query1eq.maybeSingle!();
 
   if ((session?.session_exercises ?? []).length > 0) return;
   if (!session?.program_day_id) return;
   if (session.actual_type === "yoga" || session.actual_type === "meditation") return;
 
-  const { data: planned } = await supabase
+  const query2 = supabase
     .from("program_day_exercises")
     .select(
       "exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises",
-    )
-    .eq("program_day_id", session.program_day_id)
-    .order("order_index");
+    );
+  const query2eq = query2.eq!("program_day_id", session.program_day_id);
+  const { data: planned } = await query2eq.order!("order_index");
 
   if (!planned || planned.length === 0) return;
 
