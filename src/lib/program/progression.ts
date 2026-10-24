@@ -103,6 +103,12 @@ export const HOLD_STEP_SECONDS = 5;
  */
 export const HOLD_CEILING_SECONDS = 120;
 
+/**
+ * First-miss hold threshold: when a single equipment grid step would cut more
+ * than this fraction of the current load, hold at the current weight instead.
+ */
+export const FIRST_MISS_HOLD_THRESHOLD = 0.20;
+
 /** Patterns driven by the legs and hips, where jumps can be larger. */
 const LOWER_BODY: ReadonlySet<Pattern> = new Set<Pattern>([
   "squat",
@@ -643,17 +649,19 @@ export function evaluateProgression(input: {
   let nextWeight = currentWeight;
   if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
     const isKettlebell = equipmentIds.includes('kettlebell');
+    let candidateWeight: number;
+    
     if (isKettlebell) {
       // Kettlebell: drop exactly one bell (always kg list, state is kg)
       const bells = KETTLEBELL_WEIGHTS_KG;
       const currentIndex = bells.indexOf(currentWeight);
       if (currentIndex > 0) {
-        nextWeight = bells[currentIndex - 1];
+        candidateWeight = bells[currentIndex - 1];
       } else {
         // Not exactly on a bell, round down to previous bell
         const candidate = roundToGrid(currentWeight - 0.1, equipmentIds, unit, incrementFor(meta), 'down');
         // Never raise on miss
-        nextWeight = candidate < currentWeight ? candidate : currentWeight;
+        candidateWeight = candidate < currentWeight ? candidate : currentWeight;
       }
     } else {
       // Standard equipment: drop by one grid step (always kg grid, state is kg)
@@ -661,7 +669,15 @@ export function evaluateProgression(input: {
       const rawDrop = currentWeight - gridStep;
       const candidate = roundToGrid(rawDrop, equipmentIds, unit, gridStep, 'down');
       // Never raise on miss
-      nextWeight = candidate < currentWeight ? candidate : currentWeight;
+      candidateWeight = candidate < currentWeight ? candidate : currentWeight;
+    }
+    
+    // Guard: if stepping down would cut more than the threshold, hold instead
+    const cutFraction = (currentWeight - candidateWeight) / currentWeight;
+    if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {
+      nextWeight = currentWeight;
+    } else {
+      nextWeight = candidateWeight;
     }
   }
 
@@ -671,7 +687,9 @@ export function evaluateProgression(input: {
       ? "Staying here until every set reaches the top of the range."
       : nextWeight !== null && nextWeight !== currentWeight
         ? `Missed the target — dropping to ${displayWeight(nextWeight, unit)}.`
-        : "Staying at this weight until every set reaches the top of the range.";
+        : equipmentIds && unit && currentWeight !== null && currentWeight > 0
+          ? "Missed the target but holding at this weight — it is the smallest available step."
+          : "Staying at this weight until every set reaches the top of the range.";
   
   return {
     ...carried,
