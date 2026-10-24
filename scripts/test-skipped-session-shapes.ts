@@ -343,32 +343,50 @@ async function runTests() {
   }
 
   // Add working sets
-  await adminClient.from("session_sets").insert([
-    {
-      user_id: userId,
-      session_exercise_id: validExercise.id,
-      set_number: 1,
-      reps: 5,
-      weight_kg: 100,
-      is_warmup_set: false,
-    },
-    {
-      user_id: userId,
-      session_exercise_id: validExercise.id,
-      set_number: 2,
-      reps: 5,
-      weight_kg: 100,
-      is_warmup_set: false,
-    },
-    {
-      user_id: userId,
-      session_exercise_id: validExercise.id,
-      set_number: 3,
-      reps: 5,
-      weight_kg: 100,
-      is_warmup_set: false,
-    },
-  ]);
+  const { error: validSet1Error } = await adminClient.from("session_sets").insert({
+    user_id: userId,
+    session_exercise_id: validExercise.id,
+    set_number: 1,
+    reps: 5,
+    weight_kg: 100,
+    is_warmup_set: false,
+  });
+
+  if (validSet1Error) {
+    console.error("Valid set 1 insert failed:", validSet1Error);
+    failures++;
+    return false;
+  }
+
+  const { error: validSet2Error } = await adminClient.from("session_sets").insert({
+    user_id: userId,
+    session_exercise_id: validExercise.id,
+    set_number: 2,
+    reps: 5,
+    weight_kg: 100,
+    is_warmup_set: false,
+  });
+
+  if (validSet2Error) {
+    console.error("Valid set 2 insert failed:", validSet2Error);
+    failures++;
+    return false;
+  }
+
+  const { error: validSet3Error } = await adminClient.from("session_sets").insert({
+    user_id: userId,
+    session_exercise_id: validExercise.id,
+    set_number: 3,
+    reps: 5,
+    weight_kg: 100,
+    is_warmup_set: false,
+  });
+
+  if (validSet3Error) {
+    console.error("Valid set 3 insert failed:", validSet3Error);
+    failures++;
+    return false;
+  }
 
   const { data: validVolume } = await adminClient
     .from("session_volume")
