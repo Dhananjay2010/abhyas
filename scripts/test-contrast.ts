@@ -3,6 +3,8 @@
  *
  * Verifies that the contrast utilities correctly compute WCAG 2.1 contrast ratios
  * and that the accessible text color function picks the most readable option.
+ *
+ * Brand color tests read from branding config so they hold for any brand.
  */
 
 import {
@@ -10,6 +12,7 @@ import {
   accessibleTextColor,
   meetsWCAG_AA,
 } from "../src/lib/contrast";
+import { branding } from "../src/lib/branding";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -131,20 +134,43 @@ function testWCAG_AA() {
 function testBrandColorCompliance() {
   console.log("\n▶ Testing brand color compliance...");
 
-  // The brand accent is #22c55e (green).
-  // When used as a button background, the computed text color should meet WCAG AA.
-  const brandAccent = "#22c55e";
-  const textColor = accessibleTextColor(brandAccent);
-  const ratio = contrastRatio(textColor, brandAccent);
+  // Read all brand colors from branding config
+  const brandAccent = branding.colors.accent;
+  const brandAccentFg = branding.colors.accentFg;
+  const brandBg = branding.colors.bg;
+  const brandFg = branding.colors.fg;
+  const brandMuted = branding.colors.muted;
 
+  // Test button colors (accentFg text on accent background)
+  const buttonContrast = contrastRatio(brandAccentFg, brandAccent);
   assert(
-    meetsWCAG_AA(textColor, brandAccent),
-    `Computed text color (${textColor}) on brand accent (${brandAccent}) should meet WCAG AA`
+    meetsWCAG_AA(brandAccentFg, brandAccent),
+    `Button text (${brandAccentFg} on ${brandAccent}) should meet WCAG AA (got ${buttonContrast.toFixed(2)}:1)`
+  );
+  assert(
+    buttonContrast >= 4.5,
+    `Button contrast should be >= 4.5:1, got ${buttonContrast.toFixed(2)}:1`
+  );
+
+  // Test page text (fg on bg)
+  const pageContrast = contrastRatio(brandFg, brandBg);
+  assert(
+    meetsWCAG_AA(brandFg, brandBg),
+    `Page text (${brandFg} on ${brandBg}) should meet WCAG AA (got ${pageContrast.toFixed(2)}:1)`
+  );
+
+  // Test muted text (muted on bg)
+  const mutedContrast = contrastRatio(brandMuted, brandBg);
+  assert(
+    meetsWCAG_AA(brandMuted, brandBg),
+    `Muted text (${brandMuted} on ${brandBg}) should meet WCAG AA (got ${mutedContrast.toFixed(2)}:1)`
   );
 
   console.log(`  ✓ Brand accent: ${brandAccent}`);
-  console.log(`  ✓ Accessible text color: ${textColor}`);
-  console.log(`  ✓ Contrast ratio: ${ratio.toFixed(2)}:1 (>= 4.5:1)`);
+  console.log(`  ✓ Brand accent foreground: ${brandAccentFg}`);
+  console.log(`  ✓ Button contrast: ${buttonContrast.toFixed(2)}:1 (>= 4.5:1)`);
+  console.log(`  ✓ Page text (${brandFg} on ${brandBg}): ${pageContrast.toFixed(2)}:1`);
+  console.log(`  ✓ Muted text (${brandMuted} on ${brandBg}): ${mutedContrast.toFixed(2)}:1`);
 }
 
 function main() {

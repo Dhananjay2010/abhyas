@@ -122,9 +122,32 @@ function testOfflinePageComponent() {
     "Offline page must have inline styles (containerStyle with background)"
   );
 
+  // Must use branding.colors, not hardcoded colors
   assert(
-    source.includes("#0a0c0e") && source.includes("#22c55e"),
-    "Offline page must have brand colors (#0a0c0e background, #22c55e accent) in inline styles"
+    source.includes("branding.colors.bg") && source.includes("branding.colors.accent"),
+    "Offline page must use branding.colors (not hardcoded colors)"
+  );
+
+  assert(
+    source.includes("branding.colors.fg") && source.includes("branding.colors.muted"),
+    "Offline page must use branding.colors.fg and branding.colors.muted"
+  );
+
+  assert(
+    source.includes("branding.colors.accentFg"),
+    "Offline page must use branding.colors.accentFg for button text"
+  );
+
+  // Must NOT hardcode any hex colors
+  const hexColorPattern = /#[0-9a-f]{6}/gi;
+  const hexColors = source.match(hexColorPattern) || [];
+  const hardcodedColors = hexColors.filter(color => 
+    // Only the SVG icon (green #22c55e) should have hardcoded colors
+    !color.toLowerCase().includes("22c55e")
+  );
+  assert(
+    hardcodedColors.length === 0,
+    `Offline page must not hardcode colors (found: ${hardcodedColors.join(", ")})`
   );
 
   assert(
@@ -139,7 +162,8 @@ function testOfflinePageComponent() {
   console.log("  ✓ Uses branding configuration");
   console.log("  ✓ Has retry link (works without JS)");
   console.log("  ✓ Has inline styles (works without external CSS)");
-  console.log("  ✓ Has brand colors in inline styles");
+  console.log("  ✓ Uses branding.colors (not hardcoded)");
+  console.log("  ✓ No hardcoded hex colors (except SVG icon)");
 }
 
 function testLayoutBottomNav() {

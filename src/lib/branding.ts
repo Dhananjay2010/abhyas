@@ -41,6 +41,37 @@ export const branding = {
   backgroundColor: "#0a0c0e",
 
   /**
+   * UI colors. These match the CSS custom properties in globals.css
+   * and are used for server-rendered components (e.g. offline page).
+   */
+  colors: {
+    /**
+     * Primary background color (body, cards).
+     */
+    bg: "#0a0c0e",
+
+    /**
+     * Primary foreground color (body text).
+     */
+    fg: "#ecf1f6",
+
+    /**
+     * Muted text color (secondary text, descriptions).
+     */
+    muted: "#93a1ae",
+
+    /**
+     * Brand accent color (primary buttons, CTAs).
+     */
+    accent: "#ff9a2e",
+
+    /**
+     * Text color on accent background (for accessible contrast).
+     */
+    accentFg: "#1a1000",
+  },
+
+  /**
    * Icon paths. All icons are generated from icon-source.svg and live in /public/icons/.
    *
    * Standard PWA sizes:
