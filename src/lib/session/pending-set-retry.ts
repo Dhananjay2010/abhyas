@@ -23,6 +23,15 @@ export type PendingSets = {
   [sessionId: string]: PendingSet[];
 };
 
+type PendingSetsWithTimestamp = {
+  [sessionId: string]: {
+    sets: PendingSet[];
+    timestamp: number;
+  };
+};
+
+const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 export type LogSetFunction = (input: {
   sessionExerciseId: string;
   setNumber: number;
@@ -45,20 +54,142 @@ export function storageKey(): string {
 }
 
 /**
- * Load all pending sets from storage.
+ * Validate that a value is a well-formed PendingSet.
  */
-export function loadAllPendingSets(storage: Storage): PendingSets {
+function isValidPendingSet(value: unknown): value is PendingSet {
+  if (!value || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  
+  return (
+    typeof obj.sessionExerciseId === 'string' &&
+    typeof obj.setNumber === 'number' &&
+    (obj.reps === null || typeof obj.reps === 'number') &&
+    (obj.weightKg === null || typeof obj.weightKg === 'number') &&
+    (obj.durationSeconds === null || typeof obj.durationSeconds === 'number') &&
+    typeof obj.clientId === 'string'
+  );
+}
+
+/**
+ * Validate that a value is a plain object of arrays of well-formed PendingSets.
+ */
+function isValidPendingSets(value: unknown): value is PendingSets {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  
+  const obj = value as Record<string, unknown>;
+  for (const key in obj) {
+    const entry = obj[key];
+    if (!Array.isArray(entry)) return false;
+    for (const set of entry) {
+      if (!isValidPendingSet(set)) return false;
+    }
+  }
+  
+  return true;
+}
+
+/**
+ * Validate timestamped format.
+ */
+function isValidTimestampedSets(value: unknown): value is PendingSetsWithTimestamp {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  
+  const obj = value as Record<string, unknown>;
+  for (const key in obj) {
+    const entry = obj[key];
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return false;
+    }
+    const timestamped = entry as Record<string, unknown>;
+    if (!Array.isArray(timestamped.sets) || typeof timestamped.timestamp !== 'number') {
+      return false;
+    }
+    for (const set of timestamped.sets) {
+      if (!isValidPendingSet(set)) return false;
+    }
+  }
+  
+  return true;
+}
+
+/**
+ * Prune stale entries older than STALE_THRESHOLD_MS.
+ */
+function pruneStaleEntries(data: PendingSetsWithTimestamp): PendingSetsWithTimestamp {
+  const now = Date.now();
+  const pruned: PendingSetsWithTimestamp = {};
+  
+  for (const sessionId in data) {
+    const entry = data[sessionId];
+    if (entry && now - entry.timestamp < STALE_THRESHOLD_MS) {
+      pruned[sessionId] = entry;
+    }
+  }
+  
+  return pruned;
+}
+
+/**
+ * Load all pending sets from storage with pruning.
+ */
+function loadAllPendingSetsWithTimestamp(storage: Storage): PendingSetsWithTimestamp {
   try {
     const raw = storage.getItem(storageKey());
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as PendingSets;
-    if (typeof parsed === 'object' && parsed !== null) {
-      return parsed;
+    const parsed = JSON.parse(raw);
+    
+    // Try new timestamped format first
+    if (isValidTimestampedSets(parsed)) {
+      const pruned = pruneStaleEntries(parsed);
+      // Save pruned version back to storage
+      if (Object.keys(pruned).length === 0) {
+        storage.removeItem(storageKey());
+      } else if (Object.keys(pruned).length < Object.keys(parsed).length) {
+        storage.setItem(storageKey(), JSON.stringify(pruned));
+      }
+      return pruned;
     }
+    
+    // Legacy format (plain object of arrays) - migrate to timestamped
+    if (isValidPendingSets(parsed)) {
+      const now = Date.now();
+      const timestamped: PendingSetsWithTimestamp = {};
+      for (const sessionId in parsed) {
+        timestamped[sessionId] = {
+          sets: parsed[sessionId],
+          timestamp: now,
+        };
+      }
+      storage.setItem(storageKey(), JSON.stringify(timestamped));
+      return timestamped;
+    }
+    
+    // Invalid shape - clear storage and return empty
+    storage.removeItem(storageKey());
     return {};
   } catch {
+    // Invalid JSON - clear storage and return empty
+    storage.removeItem(storageKey());
     return {};
   }
+}
+
+/**
+ * Load all pending sets from storage.
+ */
+export function loadAllPendingSets(storage: Storage): PendingSets {
+  const timestamped = loadAllPendingSetsWithTimestamp(storage);
+  const result: PendingSets = {};
+  
+  for (const sessionId in timestamped) {
+    result[sessionId] = timestamped[sessionId].sets;
+  }
+  
+  return result;
 }
 
 /**
@@ -80,8 +211,8 @@ export function savePendingSet(
   sessionId: string,
   pending: PendingSet
 ): void {
-  const all = loadAllPendingSets(storage);
-  const existing = all[sessionId] ?? [];
+  const all = loadAllPendingSetsWithTimestamp(storage);
+  const existing = all[sessionId]?.sets ?? [];
   
   const alreadySaved = existing.some(
     (s) =>
@@ -91,7 +222,10 @@ export function savePendingSet(
   );
   
   if (!alreadySaved) {
-    all[sessionId] = [...existing, pending];
+    all[sessionId] = {
+      sets: [...existing, pending],
+      timestamp: Date.now(),
+    };
     storage.setItem(storageKey(), JSON.stringify(all));
   }
 }
@@ -100,7 +234,7 @@ export function savePendingSet(
  * Clear all pending sets for a session.
  */
 export function clearPendingSets(storage: Storage, sessionId: string): void {
-  const all = loadAllPendingSets(storage);
+  const all = loadAllPendingSetsWithTimestamp(storage);
   delete all[sessionId];
   if (Object.keys(all).length === 0) {
     storage.removeItem(storageKey());
@@ -117,8 +251,8 @@ export function clearPendingSet(
   sessionId: string,
   clientId: string
 ): void {
-  const all = loadAllPendingSets(storage);
-  const existing = all[sessionId] ?? [];
+  const all = loadAllPendingSetsWithTimestamp(storage);
+  const existing = all[sessionId]?.sets ?? [];
   const filtered = existing.filter((s) => s.clientId !== clientId);
   
   if (filtered.length === 0) {
@@ -129,7 +263,10 @@ export function clearPendingSet(
       storage.setItem(storageKey(), JSON.stringify(all));
     }
   } else {
-    all[sessionId] = filtered;
+    all[sessionId] = {
+      sets: filtered,
+      timestamp: all[sessionId].timestamp, // Preserve timestamp
+    };
     storage.setItem(storageKey(), JSON.stringify(all));
   }
 }
