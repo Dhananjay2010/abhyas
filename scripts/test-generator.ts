@@ -16,8 +16,8 @@ import {
   type GeneratorInput,
 } from "../src/lib/program/generate";
 
-// Defaults to the committed fixture so the suite runs offline; refresh it with
-// scripts/export-catalogue.sh after changing the exercise seed.
+// Defaults to the committed BUILT fixture (base + migrations) so staples
+// like glute-bridge and doorway-row from migration 140100 are present.
 const fixture = process.argv[2] ?? "scripts/fixtures/catalogue.json";
 const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
 const byId = new Map(catalogue.map((e) => [e.id, e]));
@@ -60,8 +60,8 @@ console.log("\n1. Baseline: gym, 4 days, muscle gain");
   check("4 training days", training.length === 4, `got ${training.length}`);
   check("3 rest days", plan.days.filter((d) => d.dayType === "rest").length === 3);
   check("every training day has exercises", training.every((d) => d.exercises.length > 0));
-  // QA Pass 10 H2: Main slots can repeat across days (barbell bench on both Upper days is allowed)
-  // Only accessories need block-wide uniqueness. Check that per-day uniqueness holds.
+  // QA Pass 10 H2: Main slots can repeat across days (barbell bench on both Upper days is intended)
+  // Only within-day uniqueness is required. Check that each day has no duplicate exercises.
   const perDayUnique = training.every(day => {
     const dayIds = day.exercises.map(e => e.exerciseId);
     return new Set(dayIds).size === dayIds.length;
@@ -119,7 +119,20 @@ console.log("\n7. Limited home equipment (dumbbells + bench only)");
     base({ hasAllEquipment: false, equipmentIds: ["dumbbell", "flat_bench"] }),
   );
   const available = new Set(["dumbbell", "flat_bench"]);
-  const bad = picked.filter((e) => !e.equipment_ids.every((x) => available.has(x)));
+  
+  // M1: Equipment alternatives mean goblet-squat (kettlebell) can use dumbbell
+  const EQUIPMENT_ALTERNATIVES: Record<string, string[][]> = {
+    "goblet-squat": [["dumbbell"], ["kettlebell"]],
+  };
+  
+  const bad = picked.filter((e) => {
+    const alternatives = EQUIPMENT_ALTERNATIVES[e.slug];
+    if (alternatives) {
+      return !alternatives.some(altSet => altSet.every(eq => available.has(eq)));
+    }
+    return !e.equipment_ids.every((x) => available.has(x));
+  });
+  
   check("nothing outside the equipment list", bad.length === 0,
     bad.map((b) => `${b.name}[${b.equipment_ids}]`).join(", "));
   check("still produced a plan", picked.length > 0, `${picked.length} exercises`);

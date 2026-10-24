@@ -1,494 +1,542 @@
 [
-{
-"id": "2968b818-a57a-4730-9e90-dc7f773695f3",
-"slug": "ankle-rock",
-"name": "Ankle rocks",
-"type": "mobility",
-"target_regions": [
-"ankle"
-],
-"target_muscles": [
-"calves"
-],
-"duration_seconds": 45,
-"instructions": [
-"Knee tracks over the toes, heel stays down."
-]
-},
-{
-"id": "3c300b34-0f97-4aca-b482-4a7c20a3db54",
-"slug": "arm-circles",
-"name": "Arm circles",
-"type": "mobility",
-"target_regions": [
-"shoulder"
-],
-"target_muscles": [
-"front_delts",
-"side_delts",
-"rear_delts"
-],
-"duration_seconds": 60,
-"instructions": [
-"Ten small circles forward, ten back, then widen them."
-]
-},
-{
-"id": "6bb59c32-7aa6-43b9-8bbf-60424da11f69",
-"slug": "band-external-rotation",
-"name": "Band external rotation",
-"type": "prehab",
-"target_regions": [
-"shoulder"
-],
-"target_muscles": [
-"rear_delts"
-],
-"duration_seconds": 60,
-"instructions": [
-"Elbow pinned to your side, rotate the forearm outward. Light band."
-]
-},
-{
-"id": "4cbc59fc-df83-431c-86e4-b663affad9c5",
-"slug": "band-pull-apart",
-"name": "Band pull-apart",
-"type": "mobility",
-"target_regions": [
-"shoulder",
-"upper_back"
-],
-"target_muscles": [
-"rear_delts",
-"upper_back"
-],
-"duration_seconds": 60,
-"instructions": [
-"Arms straight, pull the band to your chest, squeeze the shoulder blades."
-]
-},
-{
-"id": "9511d957-e66a-41dd-90d0-9b85b977311d",
-"slug": "bird-dog",
-"name": "Bird dog",
-"type": "prehab",
-"target_regions": [
-"lower_back",
-"core"
-],
-"target_muscles": [
-"lower_back",
-"abs",
-"glutes"
-],
-"duration_seconds": 60,
-"instructions": [
-"Opposite arm and leg. Do not let the hips rotate."
-]
-},
-{
-"id": "f44c2b51-1b95-4b7e-a298-808c50a13a95",
-"slug": "bodyweight-squat",
-"name": "Bodyweight squat",
-"type": "mobility",
-"target_regions": [
-"knee",
-"hip"
-],
-"target_muscles": [
-"quads",
-"glutes"
-],
-"duration_seconds": 60,
-"instructions": [
-"Slow and full depth. Pause at the bottom."
-]
-},
-{
-"id": "9e391e9a-f6b2-4f59-a931-51dbf1f5b83e",
-"slug": "brisk-walk",
-"name": "Brisk walk / treadmill",
-"type": "cardio",
-"target_regions": [],
-"target_muscles": [
-"cardio"
-],
-"duration_seconds": 300,
-"instructions": [
-"Easy pace. You should still be able to talk."
-]
-},
-{
-"id": "90cb7291-9925-4625-9b5b-21d25837ff32",
-"slug": "calf-raise-slow",
-"name": "Slow calf raise",
-"type": "prehab",
-"target_regions": [
-"ankle"
-],
-"target_muscles": [
-"calves"
-],
-"duration_seconds": 60,
-"instructions": [
-"Three seconds up, three down, full range."
-]
-},
-{
-"id": "27398260-09ac-4db7-baaf-10c0acecfb8c",
-"slug": "cat-cow",
-"name": "Cat-cow",
-"type": "mobility",
-"target_regions": [
-"lower_back",
-"upper_back"
-],
-"target_muscles": [
-"lower_back",
-"abs"
-],
-"duration_seconds": 60,
-"instructions": [
-"On all fours, arch and round the spine with the breath."
-]
-},
-{
-"id": "38a5182f-670d-4bc0-83a7-c3a25b9ee02d",
-"slug": "clamshell",
-"name": "Clamshell",
-"type": "prehab",
-"target_regions": [
-"hip",
-"knee"
-],
-"target_muscles": [
-"abductors",
-"glutes"
-],
-"duration_seconds": 60,
-"instructions": [
-"On your side, knees bent, open the top knee without rolling back."
-]
-},
-{
-"id": "cebbd131-d5e1-45bf-a9ff-aacef8213dd8",
-"slug": "dead-bug",
-"name": "Dead bug",
-"type": "prehab",
-"target_regions": [
-"lower_back",
-"core"
-],
-"target_muscles": [
-"abs"
-],
-"duration_seconds": 60,
-"instructions": [
-"Lower back stays flat on the floor throughout."
-]
-},
-{
-"id": "4b18ff47-3d3e-433c-a6c7-3db9b35243f1",
-"slug": "easy-bike",
-"name": "Easy stationary bike",
-"type": "cardio",
-"target_regions": [],
-"target_muscles": [
-"cardio",
-"quads"
-],
-"duration_seconds": 300,
-"instructions": [
-"Light resistance, steady cadence."
-]
-},
-{
-"id": "611ecb12-07a0-4592-8ddd-f6672daa7096",
-"slug": "easy-row",
-"name": "Easy rowing",
-"type": "cardio",
-"target_regions": [],
-"target_muscles": [
-"cardio",
-"upper_back"
-],
-"duration_seconds": 300,
-"instructions": [
-"Low stroke rate, focus on the leg drive."
-]
-},
-{
-"id": "6f38cab9-190b-46a8-9c85-16e24844f34e",
-"slug": "face-pull-light",
-"name": "Light face pull",
-"type": "prehab",
-"target_regions": [
-"shoulder",
-"upper_back"
-],
-"target_muscles": [
-"rear_delts",
-"upper_back"
-],
-"duration_seconds": 60,
-"instructions": [
-"Pull to the forehead, elbows high. Very light."
-]
-},
-{
-"id": "cfa73380-b5c2-4df2-bef5-603ec1037d49",
-"slug": "glute-bridge",
-"name": "Glute bridge",
-"type": "mobility",
-"target_regions": [
-"hip",
-"lower_back"
-],
-"target_muscles": [
-"glutes",
-"hamstrings"
-],
-"duration_seconds": 60,
-"instructions": [
-"Squeeze at the top for a second. Ribs down."
-]
-},
-{
-"id": "63c81df5-a4c1-483c-897b-d5e385b6e887",
-"slug": "hip-circles",
-"name": "Hip circles",
-"type": "mobility",
-"target_regions": [
-"hip"
-],
-"target_muscles": [
-"hip_flexors",
-"glutes"
-],
-"duration_seconds": 45,
-"instructions": [
-"Hands on hips, big slow circles both directions."
-]
-},
-{
-"id": "ff911dfd-bc32-47ba-b47c-8e8ef0daa96a",
-"slug": "leg-swing-front",
-"name": "Leg swings (front to back)",
-"type": "mobility",
-"target_regions": [
-"hip"
-],
-"target_muscles": [
-"hamstrings",
-"hip_flexors"
-],
-"duration_seconds": 45,
-"instructions": [
-"Hold something. Ten swings per leg, relaxed."
-]
-},
-{
-"id": "0be8cacb-c9b9-4287-b20d-7681fa799287",
-"slug": "leg-swing-side",
-"name": "Leg swings (side to side)",
-"type": "mobility",
-"target_regions": [
-"hip"
-],
-"target_muscles": [
-"adductors",
-"abductors"
-],
-"duration_seconds": 45,
-"instructions": [
-"Ten per leg, keep the torso upright."
-]
-},
-{
-"id": "7e031abc-2e53-496c-b880-6a7a153400aa",
-"slug": "march-in-place",
-"name": "Marching in place",
-"type": "cardio",
-"target_regions": [],
-"target_muscles": [
-"cardio"
-],
-"duration_seconds": 240,
-"instructions": [
-"Drive the knees to hip height. No equipment needed."
-]
-},
-{
-"id": "6f0273cd-5ffa-4a2d-8db8-03b7dcee4601",
-"slug": "neck-cars",
-"name": "Neck rotations",
-"type": "prehab",
-"target_regions": [
-"neck"
-],
-"target_muscles": [
-"neck"
-],
-"duration_seconds": 45,
-"instructions": [
-"Slow, controlled, small range. Never force it."
-]
-},
-{
-"id": "f7f0ef66-941f-4112-8978-3b2d5114323f",
-"slug": "scapular-pushup",
-"name": "Scapular push-up",
-"type": "mobility",
-"target_regions": [
-"shoulder",
-"upper_back"
-],
-"target_muscles": [
-"upper_back",
-"chest"
-],
-"duration_seconds": 45,
-"instructions": [
-"Arms locked. Pinch the shoulder blades together, then push them apart."
-]
-},
-{
-"id": "724d0e41-0ecd-48bd-815d-7d2f403d49da",
-"slug": "shoulder-dislocate",
-"name": "Shoulder pass-through",
-"type": "mobility",
-"target_regions": [
-"shoulder"
-],
-"target_muscles": [
-"front_delts",
-"rear_delts"
-],
-"duration_seconds": 60,
-"instructions": [
-"Wide grip on a band or stick, pass it overhead and behind. Widen the grip if it pinches."
-]
-},
-{
-"id": "6e2870b3-0715-49f5-9632-56fae85e35ac",
-"slug": "skipping-light",
-"name": "Light skipping",
-"type": "cardio",
-"target_regions": [
-"ankle"
-],
-"target_muscles": [
-"cardio",
-"calves"
-],
-"duration_seconds": 180,
-"instructions": [
-"Small hops, stay on the balls of your feet."
-]
-},
-{
-"id": "76613459-46f3-40ec-bc83-c150f6ae7f8d",
-"slug": "terminal-knee-ext",
-"name": "Terminal knee extension",
-"type": "prehab",
-"target_regions": [
-"knee"
-],
-"target_muscles": [
-"quads"
-],
-"duration_seconds": 60,
-"instructions": [
-"Band behind the knee, straighten the leg against it."
-]
-},
-{
-"id": "d9141433-71ff-4c62-95bb-fa1092479121",
-"slug": "thoracic-rotation",
-"name": "Thoracic rotation",
-"type": "mobility",
-"target_regions": [
-"upper_back"
-],
-"target_muscles": [
-"upper_back",
-"obliques"
-],
-"duration_seconds": 60,
-"instructions": [
-"Half-kneeling, hand behind the head, rotate the ribcage open."
-]
-},
-{
-"id": "6df45ac4-0c55-46ef-b31b-9549d4bad001",
-"slug": "walking-lunge",
-"name": "Walking lunge",
-"type": "mobility",
-"target_regions": [
-"hip",
-"knee"
-],
-"target_muscles": [
-"quads",
-"glutes",
-"hip_flexors"
-],
-"duration_seconds": 60,
-"instructions": [
-"Long stride, upright torso, controlled."
-]
-},
-{
-"id": "444e3cdb-2d60-4586-8588-a738a3a20165",
-"slug": "wall-slide",
-"name": "Wall slide",
-"type": "mobility",
-"target_regions": [
-"shoulder"
-],
-"target_muscles": [
-"front_delts",
-"upper_back"
-],
-"duration_seconds": 45,
-"instructions": [
-"Back and arms flat to the wall, slide the arms overhead without losing contact."
-]
-},
-{
-"id": "d2c2e5c9-9716-45e0-9ed6-2cb14accf790",
-"slug": "worlds-greatest",
-"name": "World's greatest stretch",
-"type": "mobility",
-"target_regions": [
-"hip",
-"upper_back"
-],
-"target_muscles": [
-"hip_flexors",
-"hamstrings",
-"upper_back"
-],
-"duration_seconds": 90,
-"instructions": [
-"Deep lunge, elbow to the instep, then rotate the top arm to the ceiling."
-]
-},
-{
-"id": "d84207ae-f0f2-4f6b-bd5d-a5fd696f8e21",
-"slug": "wrist-circles",
-"name": "Wrist circles and rocks",
-"type": "mobility",
-"target_regions": [
-"wrist",
-"elbow"
-],
-"target_muscles": [
-"forearms"
-],
-"duration_seconds": 45,
-"instructions": [
-"Circles both ways, then rock forward and back on your palms."
-]
-}
+  {
+    "id": "9c0f01a5-47c7-4feb-98ad-b686a07ac32c",
+    "slug": "ankle-rock",
+    "name": "Ankle rocks",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 45,
+    "instructions": [
+      "Knee tracks over the toes, heel stays down."
+    ]
+  },
+  {
+    "id": "0e1901b3-70b5-4030-b628-568380a14887",
+    "slug": "arm-circles",
+    "name": "Arm circles",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Ten small circles forward, ten back, then widen them."
+    ]
+  },
+  {
+    "id": "7f1d3a74-5f3e-4737-acb4-2c55b7345298",
+    "slug": "band-external-rotation",
+    "name": "Band external rotation",
+    "type": "prehab",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Elbow pinned to your side, rotate the forearm outward. Light band."
+    ]
+  },
+  {
+    "id": "bbf920a2-1169-4721-8c34-c4c893522feb",
+    "slug": "band-pull-apart",
+    "name": "Band pull-apart",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Arms straight, pull the band to your chest, squeeze the shoulder blades."
+    ]
+  },
+  {
+    "id": "1f8fe74b-7dc2-4abd-972d-1abbafffcf3d",
+    "slug": "bird-dog",
+    "name": "Bird dog",
+    "type": "prehab",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Opposite arm and leg. Do not let the hips rotate."
+    ]
+  },
+  {
+    "id": "8f87f21d-4a45-4f27-86ae-0d836c912b9d",
+    "slug": "bodyweight-squat",
+    "name": "Bodyweight squat",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Slow and full depth. Pause at the bottom."
+    ]
+  },
+  {
+    "id": "9636393d-20e1-441a-a892-18170c7cd1cd",
+    "slug": "brisk-walk",
+    "name": "Brisk walk / treadmill",
+    "type": "cardio",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 300,
+    "instructions": [
+      "Easy pace. You should still be able to talk."
+    ]
+  },
+  {
+    "id": "76c36db3-b670-437d-86d5-796117ac4770",
+    "slug": "calf-raise-slow",
+    "name": "Slow calf raise",
+    "type": "prehab",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Three seconds up, three down, full range."
+    ]
+  },
+  {
+    "id": "40a17bde-d21b-425f-a13e-41ffed941aa6",
+    "slug": "calf-stretch-wall",
+    "name": "Wall Calf Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Face a wall, one foot forward, one back",
+      "Keep back leg straight, heel on ground",
+      "Lean into the wall",
+      "Hold for 30 seconds, then switch sides",
+      "You should feel it in the back of your lower leg"
+    ]
+  },
+  {
+    "id": "ab3e50cb-3756-4d27-b616-c46104ee36c9",
+    "slug": "cat-cow",
+    "name": "Cat-cow",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "On all fours, arch and round the spine with the breath."
+    ]
+  },
+  {
+    "id": "8f5c7ab7-27f5-4f10-b164-e04883c43a5c",
+    "slug": "cat-cow-stretch",
+    "name": "Cat-Cow Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Start on hands and knees",
+      "Arch your back, looking up (cow)",
+      "Round your back, tucking chin (cat)",
+      "Move slowly between positions",
+      "You should feel it throughout your spine"
+    ]
+  },
+  {
+    "id": "7837f616-b822-41f7-bc08-db72decc9b5c",
+    "slug": "chest-doorway-stretch",
+    "name": "Chest Doorway Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Place your forearm against a wall or doorway",
+      "Step forward with the same-side leg",
+      "Turn your body away gently",
+      "Hold the stretch",
+      "You should feel it across your chest"
+    ]
+  },
+  {
+    "id": "2a77116a-e6f3-4d71-8e19-78fd04d425c3",
+    "slug": "childs-pose",
+    "name": "Child's Pose",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Kneel and sit back on your heels",
+      "Reach arms forward on the ground",
+      "Rest your forehead down",
+      "Breathe slowly and relax",
+      "You should feel it in your back and shoulders"
+    ]
+  },
+  {
+    "id": "eb435069-bfbc-4b4b-beed-d7a027c0bdc4",
+    "slug": "clamshell",
+    "name": "Clamshell",
+    "type": "prehab",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "On your side, knees bent, open the top knee without rolling back."
+    ]
+  },
+  {
+    "id": "b20aeefe-f77e-43eb-b9bd-99669d17ef1b",
+    "slug": "dead-bug",
+    "name": "Dead bug",
+    "type": "prehab",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Lower back stays flat on the floor throughout."
+    ]
+  },
+  {
+    "id": "f9e1656f-390b-4d23-a819-b47a874ac3d7",
+    "slug": "easy-bike",
+    "name": "Easy stationary bike",
+    "type": "cardio",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 300,
+    "instructions": [
+      "Light resistance, steady cadence."
+    ]
+  },
+  {
+    "id": "b0aacf6e-e368-4b05-8b86-7b0c3e7c6a52",
+    "slug": "easy-row",
+    "name": "Easy rowing",
+    "type": "cardio",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 300,
+    "instructions": [
+      "Low stroke rate, focus on the leg drive."
+    ]
+  },
+  {
+    "id": "fe855842-0ef9-4754-a0f4-b8a2479213e1",
+    "slug": "face-pull-light",
+    "name": "Light face pull",
+    "type": "prehab",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Pull to the forehead, elbows high. Very light."
+    ]
+  },
+  {
+    "id": "ae1b08d2-1577-4544-b4f3-a57ddab53ead",
+    "slug": "glute-bridge",
+    "name": "Glute bridge",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Squeeze at the top for a second. Ribs down."
+    ]
+  },
+  {
+    "id": "6c802380-6f75-4bcd-ae15-37815ec8ade7",
+    "slug": "glute-stretch-seated",
+    "name": "Seated Figure-4 Glute Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Sit on the ground",
+      "Cross one ankle over the opposite knee",
+      "Gently press the crossed knee away",
+      "Hold for 30 seconds, then switch sides",
+      "You should feel it in your glute and hip"
+    ]
+  },
+  {
+    "id": "38bc2aff-e1a2-4833-948f-0810bc2b7020",
+    "slug": "hip-circles",
+    "name": "Hip circles",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 45,
+    "instructions": [
+      "Hands on hips, big slow circles both directions."
+    ]
+  },
+  {
+    "id": "ab25ac26-4933-444f-913d-c814f61a0203",
+    "slug": "hip-flexor-stretch-kneeling",
+    "name": "Kneeling Hip Flexor Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Kneel on one knee, other foot forward",
+      "Push your hips forward gently",
+      "Keep your back straight",
+      "Hold for 30 seconds, then switch sides",
+      "You should feel it in the front of your hip"
+    ]
+  },
+  {
+    "id": "997081c1-45f6-4958-bc6d-6a5ec5926d64",
+    "slug": "lat-stretch-overhead",
+    "name": "Overhead Lat Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Reach both arms overhead",
+      "Grab one wrist with the other hand",
+      "Lean to the side",
+      "Hold for 30 seconds, then switch sides",
+      "You should feel it along the side of your back"
+    ]
+  },
+  {
+    "id": "58422cd3-8298-4df7-9ca7-b988ad3b0e75",
+    "slug": "leg-swing-front",
+    "name": "Leg swings (front to back)",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 45,
+    "instructions": [
+      "Hold something. Ten swings per leg, relaxed."
+    ]
+  },
+  {
+    "id": "f1033ddb-bc97-4f7d-ba85-93e99766778b",
+    "slug": "leg-swing-side",
+    "name": "Leg swings (side to side)",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 45,
+    "instructions": [
+      "Ten per leg, keep the torso upright."
+    ]
+  },
+  {
+    "id": "0e65419c-5eb1-4837-8e18-dc40425bc2a7",
+    "slug": "march-in-place",
+    "name": "Marching in place",
+    "type": "cardio",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 240,
+    "instructions": [
+      "Drive the knees to hip height. No equipment needed."
+    ]
+  },
+  {
+    "id": "45938ed0-0070-438e-91bc-004470b58010",
+    "slug": "neck-cars",
+    "name": "Neck rotations",
+    "type": "prehab",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 45,
+    "instructions": [
+      "Slow, controlled, small range. Never force it."
+    ]
+  },
+  {
+    "id": "db70005e-0c04-4a22-83ad-ac522477023d",
+    "slug": "quad-stretch",
+    "name": "Standing Quad Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Stand on one leg",
+      "Pull your other foot toward your glutes",
+      "Keep knees together",
+      "Hold for 30 seconds, then switch sides",
+      "You should feel it in the front of your thigh"
+    ]
+  },
+  {
+    "id": "4fb33243-790f-48e8-b4b2-e4187c73abb6",
+    "slug": "scapular-pushup",
+    "name": "Scapular push-up",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 45,
+    "instructions": [
+      "Arms locked. Pinch the shoulder blades together, then push them apart."
+    ]
+  },
+  {
+    "id": "6f8a8475-2276-4a06-982b-75ae89185351",
+    "slug": "seated-spinal-twist",
+    "name": "Seated Spinal Twist",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Sit with legs extended",
+      "Cross one leg over the other",
+      "Twist toward the bent knee",
+      "Hold for 30 seconds, then switch sides",
+      "You should feel it in your spine and hip"
+    ]
+  },
+  {
+    "id": "7cbb4027-cd71-4314-81bf-e1f3c21548ab",
+    "slug": "shoulder-cross-body-stretch",
+    "name": "Cross-Body Shoulder Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Pull one arm across your chest",
+      "Use your other hand to gently press it closer",
+      "Keep shoulders down and relaxed",
+      "Hold for 30 seconds, then switch sides",
+      "You should feel it in the back of your shoulder"
+    ]
+  },
+  {
+    "id": "fa5c0f4c-1219-49b8-98c2-003bb7d21a84",
+    "slug": "shoulder-dislocate",
+    "name": "Shoulder pass-through",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Wide grip on a band or stick, pass it overhead and behind. Widen the grip if it pinches."
+    ]
+  },
+  {
+    "id": "01efd625-a2cf-49a1-b4d9-a294df17c83f",
+    "slug": "skipping-light",
+    "name": "Light skipping",
+    "type": "cardio",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 180,
+    "instructions": [
+      "Small hops, stay on the balls of your feet."
+    ]
+  },
+  {
+    "id": "2001651c-f25e-4d0a-bbcc-8aa248b3e08d",
+    "slug": "standing-hamstring-stretch",
+    "name": "Standing Hamstring Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Stand with feet together",
+      "Hinge forward from the hips, keeping back straight",
+      "Reach toward your toes",
+      "Hold the stretch, breathing slowly",
+      "You should feel it in the back of your thighs"
+    ]
+  },
+  {
+    "id": "78c5c16a-9fa6-481e-9e77-84f48a293a17",
+    "slug": "terminal-knee-ext",
+    "name": "Terminal knee extension",
+    "type": "prehab",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Band behind the knee, straighten the leg against it."
+    ]
+  },
+  {
+    "id": "f3613582-c9be-4345-a3b3-86fa49654a52",
+    "slug": "thoracic-rotation",
+    "name": "Thoracic rotation",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Half-kneeling, hand behind the head, rotate the ribcage open."
+    ]
+  },
+  {
+    "id": "50542b24-38ba-44fc-a34b-a6b5716050ca",
+    "slug": "triceps-overhead-stretch",
+    "name": "Overhead Triceps Stretch",
+    "type": "stretch",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 30,
+    "instructions": [
+      "Reach one arm overhead",
+      "Bend at the elbow, hand behind your head",
+      "Use your other hand to gently pull the elbow",
+      "Hold for 30 seconds, then switch sides",
+      "You should feel it in the back of your upper arm"
+    ]
+  },
+  {
+    "id": "cf9a23b2-0bd7-4409-81ed-c3919cc04faa",
+    "slug": "walking-lunge",
+    "name": "Walking lunge",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 60,
+    "instructions": [
+      "Long stride, upright torso, controlled."
+    ]
+  },
+  {
+    "id": "9a1d91b6-af13-4d16-853b-aeabc132abd7",
+    "slug": "wall-slide",
+    "name": "Wall slide",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 45,
+    "instructions": [
+      "Back and arms flat to the wall, slide the arms overhead without losing contact."
+    ]
+  },
+  {
+    "id": "e6db3693-57ce-4037-a8e1-ad923a52d113",
+    "slug": "worlds-greatest",
+    "name": "World's greatest stretch",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 90,
+    "instructions": [
+      "Deep lunge, elbow to the instep, then rotate the top arm to the ceiling."
+    ]
+  },
+  {
+    "id": "c9e1bad4-1941-40c8-9284-9de906ed763d",
+    "slug": "wrist-circles",
+    "name": "Wrist circles and rocks",
+    "type": "mobility",
+    "target_regions": [],
+    "target_muscles": [],
+    "duration_seconds": 45,
+    "instructions": [
+      "Circles both ways, then rock forward and back on your palms."
+    ]
+  }
 ]

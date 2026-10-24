@@ -64,6 +64,42 @@ export type GeneratorInput = {
 export const CARRY_OVER_SLOTS = 2;
 
 /**
+ * M3: Estimate total session duration in minutes for a generated day.
+ * Accounts for warm-up, exercise work time (sets × avg_reps × 4 sec + rest), and cool-down.
+ * 
+ * - Warm-up: ~8-11 min (call it 10 min)
+ * - Per exercise: sets × (avg_reps × 4 sec + rest_seconds) / 60
+ * - Cool-down: ~5-6 min (call it 5 min)
+ * 
+ * Used by generator to ensure actual session length stays within ±5 min of target.
+ */
+export function estimateSessionMinutes(
+  exercises: Array<{
+    targetSets: number;
+    targetRepsMin: number | null;
+    targetRepsMax: number | null;
+    restSeconds: number;
+  }>
+): number {
+  const WARMUP_MINUTES = 10;
+  const COOLDOWN_MINUTES = 5;
+  const SECONDS_PER_REP = 4; // Tempo: 2 sec concentric, 2 sec eccentric
+  
+  let exerciseMinutes = 0;
+  for (const ex of exercises) {
+    const avgReps = ex.targetRepsMax !== null && ex.targetRepsMin !== null
+      ? (ex.targetRepsMin + ex.targetRepsMax) / 2
+      : 8; // Default for holds or missing data
+    
+    const workSeconds = avgReps * SECONDS_PER_REP;
+    const totalPerSet = workSeconds + ex.restSeconds;
+    exerciseMinutes += (ex.targetSets * totalPerSet) / 60;
+  }
+  
+  return WARMUP_MINUTES + exerciseMinutes + COOLDOWN_MINUTES;
+}
+
+/**
  * How many exercises to prescribe based on session length. Longer sessions have
  * more exercises; shorter sessions keep coverage but reduce volume per exercise.
  * 
@@ -362,6 +398,12 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   return derived;
 }
 
+// M1 equipment alternatives: Exercises where ANY of the listed equipment works
+// Each inner array is one valid alternative set
+const EQUIPMENT_ALTERNATIVES: Record<string, string[][]> = {
+  "goblet-squat": [["dumbbell"], ["kettlebell"]],
+};
+
 export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolean {
   // Track: a bodyweight-at-home user must never be shown gym-only work.
   if (input.primaryTrack === "bodyweight" && !ex.tracks.includes("bodyweight")) {
@@ -372,12 +414,24 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   if (LEVEL_RANK[ex.level_min] > LEVEL_RANK[input.level]) return false;
 
   // Equipment is a hard filter -- SPEC section 4.
-  // M1 fix: Use ANY-of logic so goblet-squat works with either KB or DB
+  // M1 fix: Default is ALL-of logic (barbell AND bench both needed).
+  // Use curated alternatives list for exercises that accept OR options.
   if (!input.hasAllEquipment) {
     const available = new Set(input.equipmentIds);
-    // If exercise needs equipment, user must have at least one of them (OR logic)
-    if (ex.equipment_ids.length > 0 && !ex.equipment_ids.some((e) => available.has(e))) {
-      return false;
+    
+    // Check if this exercise has curated alternatives
+    const alternatives = EQUIPMENT_ALTERNATIVES[ex.slug];
+    if (alternatives) {
+      // At least one alternative set must be fully satisfied
+      const hasValidAlternative = alternatives.some(altSet =>
+        altSet.every(eq => available.has(eq))
+      );
+      if (!hasValidAlternative) return false;
+    } else {
+      // Default: ALL equipment required (AND logic)
+      if (ex.equipment_ids.length > 0 && !ex.equipment_ids.every((e) => available.has(e))) {
+        return false;
+      }
     }
   }
 
@@ -701,15 +755,62 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     const pickedExercises: Array<{ ex: CandidateExercise; slotIndex: number }> = [];
     
     // QA H2: Fill template slots up to maxExercises.
-    // Main slots (0-3) use per-block deduplication for variety on second same-type days.
-    // Accessories (4+) use per-day to allow repeating finishers across days if needed.
+    // Main slots (0-3) use per-day deduplication to prevent within-day repeats.
+    // Accessories (4+) use per-block for variety across days.
     const templateCount = Math.min(maxExercises, entry.slots.length);
+    
+    // H6: Positive selection for knee injuries on Lower/Full days.
+    // Reserve first quad/squat slot for knee-safe exercises if user has knee injury.
+    const hasKneeInjury = input.currentInjuryRegions.includes("knee");
+    const isLowerOrFullDay = entry.focus === "lower" || entry.focus === "full";
+    let firstSquatSlotHandled = false;
+    
     entry.slots.slice(0, templateCount).forEach((pattern, i) => {
-      const usedSet = i <= 3 ? usedInBlock : usedToday;
+      const usedSet = i <= 3 ? usedToday : usedInBlock;
+      
+      // H6: For knee injuries on Lower/Full days, reserve first squat slot for knee-safe moves
+      if (hasKneeInjury && isLowerOrFullDay && pattern === "squat" && !firstSquatSlotHandled) {
+        firstSquatSlotHandled = true;
+        
+        // Find knee-safe quad exercises
+        const kneeSafeCandidates = pool
+          .filter(e => 
+            KNEE_SAFE_QUAD_EXERCISES.has(e.slug) &&
+            !usedSet.has(e.id) &&
+            isEligible(e, input)
+          )
+          .map(e => ({
+            e,
+            score: score(e, i < 4, input.level, input.primaryTrack),
+            stapleKey: stapleSortKey(e, "squat", input.hasAllEquipment, input.primaryTrack),
+            rng: rng(),
+          }))
+          .sort((a, b) => {
+            if (a.score !== b.score) return b.score - a.score;
+            if (a.stapleKey !== b.stapleKey) {
+              return a.stapleKey < b.stapleKey ? -1 : a.stapleKey > b.stapleKey ? 1 : 0;
+            }
+            return b.rng - a.rng;
+          });
+        
+        if (kneeSafeCandidates.length > 0) {
+          const picked = kneeSafeCandidates[0].e;
+          usedSet.add(picked.id);
+          if (i <= 3) {
+            usedInBlock.add(picked.id);
+          }
+          pickedExercises.push({ ex: picked, slotIndex: i });
+          return;
+        }
+        // Fall through to normal pickForSlot if no knee-safe options
+      }
+      
       const picked = pickForSlot(pattern, i, pool, usedSet, input, rng, dayIndex);
       if (!picked) return;
       usedSet.add(picked.id);
-      usedInBlock.add(picked.id); // Always track in block set too for cross-day awareness
+      if (i <= 3) {
+        usedInBlock.add(picked.id); // Main slots also tracked block-wide for cross-day variety
+      }
       pickedExercises.push({ ex: picked, slotIndex: i });
     });
     

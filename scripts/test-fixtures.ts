@@ -10,9 +10,9 @@ let failures = 0;
 
 console.log("\nBuilding fresh fixture from base + migrations...");
 try {
-  execSync("python3 scripts/build-fixtures.py", { stdio: "inherit" });
-} catch (err) {
-  console.log("  FAIL build-fixtures.py failed");
+  execSync("node scripts/build-fixtures.mjs", { stdio: "inherit" });
+} catch (_err) {
+  console.log("  FAIL build-fixtures.mjs failed");
   failures++;
 }
 

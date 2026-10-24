@@ -151,16 +151,12 @@ SET equipment_ids = ARRAY[]::text[]
 WHERE slug = 'table-row'
   AND 'dumbbell' = ANY(equipment_ids);
 
--- QA M1: goblet-squat should allow dumbbell OR kettlebell
--- Add dumbbell to equipment if not already present
+-- QA M1: goblet-squat should allow dumbbell OR kettlebell (handled by EQUIPMENT_ALTERNATIVES in generate.ts)
+-- Keep single equipment in DB, alternatives managed in code
+-- Remove dumbbell if present, keep only kettlebell
 UPDATE exercises
-SET equipment_ids = 
-  CASE 
-    WHEN 'dumbbell' = ANY(equipment_ids) THEN equipment_ids
-    ELSE array_append(equipment_ids, 'dumbbell')
-  END
-WHERE slug = 'goblet-squat'
-  AND NOT ('dumbbell' = ANY(equipment_ids));
+SET equipment_ids = ARRAY['kettlebell']::text[]
+WHERE slug = 'goblet-squat';
 
 -- ====================
 -- Part 4: M8 - Retag upright rows (they are NOT horizontal pulls)
