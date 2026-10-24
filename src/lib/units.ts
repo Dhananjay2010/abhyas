@@ -231,10 +231,15 @@ export function formatTopSet(weightKg: number, units: UnitsPreference = "metric"
   // Round to 1 decimal place
   const rounded = Math.round(weight * 10) / 10;
   // Format: drop trailing .0, otherwise show 1 decimal
-  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  const numStr = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  
+  // Add thousands separators
+  const [intPart, decPart] = numStr.split(".");
+  const withSeparators = Number(intPart).toLocaleString("en-US");
+  const formatted = decPart ? `${withSeparators}.${decPart}` : withSeparators;
   
   const label = units === "imperial" ? "lb" : "kg";
-  return `${formatted}${label} top`;
+  return `${formatted} ${label} top`;
 }
 
 /**

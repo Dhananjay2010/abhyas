@@ -184,70 +184,79 @@ grant select on exercise_strength_history to authenticated;
 --
 -- Returns: count of sessions that pass the filter
 -- Security: Uses security invoker so it runs with the caller's RLS context.
-create or replace function get_history_count(
+create or replace function get_history_page(
   p_user uuid default auth.uid(),
   p_filter text default 'lifts',
-  p_today date default current_date
+  p_today date default current_date,
+  p_limit int default 20,
+  p_offset int default 0
 )
-returns bigint
+returns table(session_id uuid, total_count bigint)
 language plpgsql
 security invoker
 set search_path = public, pg_temp
 as $$
-declare
-  v_count bigint;
 begin
   -- Ensure user is authenticated
   if p_user is null then
     raise exception 'User not authenticated';
   end if;
 
-  -- Count sessions based on filter, matching History page query exactly
-  -- Excludes: skipped, abandoned, past in_progress
-  -- Includes: completed, today's in_progress
-  -- For lifts: also excludes zero-set strength via session_volume join
-  -- NULL actual_type is treated as strength
-  if p_filter = 'lifts' then
-    -- For strength sessions, only count those with working sets (in session_volume)
-    -- Matches the page query's session_volume join
-    select count(distinct s.id)
-    into v_count
+  -- Single predicate CTE for consistent filtering across page and count
+  -- Includes: completed (strength only if working sets ≥1), any in_progress, abandoned (today only)
+  -- Excludes: skipped
+  -- Order: local_date desc, coalesce(completed_at, started_at) desc nulls last, id desc
+  return query
+  with filtered_sessions as (
+    select
+      s.id,
+      s.local_date,
+      s.status,
+      s.actual_type,
+      s.completed_at,
+      s.started_at,
+      count(*) over () as total_count
     from sessions s
-    inner join session_volume sv on sv.session_id = s.id
+    left join session_volume sv on sv.session_id = s.id
     where s.user_id = p_user
       and s.local_date <= p_today
       and s.status != 'skipped'
-      and (s.status = 'completed' or (s.status = 'in_progress' and s.local_date = p_today))
-      and (s.actual_type is null or s.actual_type in ('weights', 'bodyweight'));
-  elsif p_filter = 'yoga' then
-    select count(*)
-    into v_count
-    from sessions s
-    where s.user_id = p_user
-      and s.local_date <= p_today
-      and s.status != 'skipped'
-      and (s.status = 'completed' or (s.status = 'in_progress' and s.local_date = p_today))
-      and s.actual_type = 'yoga';
-  elsif p_filter = 'breathing' then
-    select count(*)
-    into v_count
-    from sessions s
-    where s.user_id = p_user
-      and s.local_date <= p_today
-      and s.status != 'skipped'
-      and (s.status = 'completed' or (s.status = 'in_progress' and s.local_date = p_today))
-      and s.actual_type = 'meditation';
-  else
-    v_count := 0;
-  end if;
-
-  return v_count;
+      and (
+        -- Include completed sessions
+        (s.status = 'completed' and (
+          -- Strength: must have working sets
+          (coalesce(s.actual_type, '') in ('', 'weights', 'bodyweight') and sv.session_id is not null)
+          -- Yoga/breathing: always included
+          or s.actual_type in ('yoga', 'meditation')
+        ))
+        -- Include all in_progress (today or past)
+        or s.status = 'in_progress'
+        -- Include abandoned only if today
+        or (s.status = 'abandoned' and s.local_date = p_today)
+      )
+      -- Apply type filter
+      and (
+        (p_filter = 'lifts' and coalesce(s.actual_type, '') in ('', 'weights', 'bodyweight'))
+        or (p_filter = 'yoga' and s.actual_type = 'yoga')
+        or (p_filter = 'breathing' and s.actual_type = 'meditation')
+      )
+    order by
+      s.local_date desc,
+      coalesce(s.completed_at, s.started_at) desc nulls last,
+      s.id desc
+    limit p_limit
+    offset p_offset
+  )
+  select fs.id, fs.total_count
+  from filtered_sessions fs;
 end;
 $$;
 
-comment on function get_history_count is
-  'Returns count of sessions for History page, excluding zero-set strength and skipped sessions. '
-  'Matches the count of rows that will actually be displayed.';
+comment on function get_history_page is
+  'Returns paginated session IDs for History page with consistent ordering and total count. '
+  'Single predicate ensures page results match count. '
+  'Includes: completed (strength with ≥1 working sets, yoga/breathing always), any in_progress, abandoned (today only). '
+  'Excludes: skipped.';
 
-revoke execute on function get_history_count(uuid, text, date) from public, anon;
-grant execute on function get_history_count(uuid, text, date) to authenticated;
+revoke execute on function get_history_page(uuid, text, date, int, int) from public, anon;
+grant execute on function get_history_page(uuid, text, date, int, int) to authenticated;

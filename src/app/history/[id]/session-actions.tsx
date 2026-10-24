@@ -44,11 +44,11 @@ export function SessionActions({ sessionId }: SessionActionsProps) {
 
   return (
     <>
-      <div className="mt-12 border-t border-border pt-8 pb-6">
+      <div className="mt-12 border-t border-border pt-8 pb-12">
         <button
           onClick={handleDelete}
           disabled={isPending || showUndo}
-          className="w-full rounded-lg border border-border px-4 py-2.5 text-sm text-muted transition-colors hover:border-destructive hover:text-destructive disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded-lg px-4 py-2.5 text-sm text-muted/70 transition-colors hover:text-destructive disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Delete Session
         </button>

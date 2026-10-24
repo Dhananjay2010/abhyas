@@ -410,19 +410,197 @@ async function runTests() {
         ),
         `error: ${anonProgressError?.message}`);
 
-      const { error: anonCountError } = await anonClient.rpc("get_history_count", {
+      const { error: anonPageError } = await anonClient.rpc("get_history_page", {
         p_user: userIdA,
         p_filter: "lifts",
         p_today: "2026-10-24",
+        p_limit: 20,
+        p_offset: 0,
       });
 
-      check("anon role denied get_history_count",
-        anonCountError !== null && (
-          anonCountError.message.includes("permission denied") ||
-          anonCountError.message.includes("not authenticated") ||
-          anonCountError.message.includes("User not authenticated")
+      check("anon role denied get_history_page",
+        anonPageError !== null && (
+          anonPageError.message.includes("permission denied") ||
+          anonPageError.message.includes("not authenticated") ||
+          anonPageError.message.includes("User not authenticated")
         ),
-        `error: ${anonCountError?.message}`);
+        `error: ${anonPageError?.message}`);
+    }
+
+    console.log("\n7. get_history_page ordering and pagination");
+    {
+      // Add 5 sessions with mixed statuses for ordering tests
+      // Session 1: completed yesterday, working sets
+      const sess1Id = randomUUID();
+      const se1Id = randomUUID();
+      await adminClient.from("sessions").insert({
+        id: sess1Id,
+        user_id: userIdA,
+        local_date: "2026-10-23",
+        status: "completed",
+        actual_type: "weights",
+        completed_at: "2026-10-23T10:00:00Z",
+      });
+      await adminClient.from("session_exercises").insert({
+        id: se1Id,
+        user_id: userIdA,
+        session_id: sess1Id,
+        exercise_id: exerciseA,
+        metric: "reps",
+        status: "completed",
+      });
+      await adminClient.from("session_sets").insert({
+        id: randomUUID(),
+        user_id: userIdA,
+        session_exercise_id: se1Id,
+        weight_kg: 100,
+        reps: 5,
+        is_warmup_set: false,
+      });
+
+      // Session 2: in_progress from 2 days ago (past in_progress - should appear)
+      const sess2Id = randomUUID();
+      await adminClient.from("sessions").insert({
+        id: sess2Id,
+        user_id: userIdA,
+        local_date: "2026-10-22",
+        status: "in_progress",
+        actual_type: "weights",
+        started_at: "2026-10-22T09:00:00Z",
+      });
+
+      // Session 3: in_progress today with 0 sets (should appear)
+      const sess3Id = randomUUID();
+      await adminClient.from("sessions").insert({
+        id: sess3Id,
+        user_id: userIdA,
+        local_date: "2026-10-24",
+        status: "in_progress",
+        actual_type: "weights",
+        started_at: "2026-10-24T08:00:00Z",
+      });
+
+      // Session 4: skipped (should NOT appear)
+      const sess4Id = randomUUID();
+      await adminClient.from("sessions").insert({
+        id: sess4Id,
+        user_id: userIdA,
+        local_date: "2026-10-21",
+        status: "skipped",
+        actual_type: "weights",
+      });
+
+      // Fetch page 1 (first 20)
+      const { data: page1, error: page1Error } = await supabaseA.rpc("get_history_page", {
+        p_user: userIdA,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 20,
+        p_offset: 0,
+      });
+
+      check("get_history_page succeeds", !page1Error,
+        page1Error ? `error: ${page1Error.message}` : "");
+
+      type PageRow = { session_id: string; total_count: number };
+      const page1Data = page1 as PageRow[];
+      
+      check("page 1 has results", page1Data.length > 0,
+        `got ${page1Data.length} rows`);
+
+      const totalCount = page1Data[0]?.total_count;
+      check("total_count is present", totalCount > 0,
+        `got ${totalCount}`);
+
+      // Verify today's 0-set in_progress appears
+      const page1Ids = page1Data.map((r: PageRow) => r.session_id);
+      check("today's 0-set in_progress session appears", 
+        page1Ids.includes(sess3Id),
+        `sess3Id ${sess3Id.slice(0, 8)} in page: ${page1Ids.includes(sess3Id)}`);
+
+      // Verify past in_progress appears
+      check("past-day in_progress session appears", 
+        page1Ids.includes(sess2Id),
+        `sess2Id ${sess2Id.slice(0, 8)} in page: ${page1Ids.includes(sess2Id)}`);
+
+      // Verify skipped does NOT appear
+      check("skipped session excluded", 
+        !page1Ids.includes(sess4Id),
+        `sess4Id ${sess4Id.slice(0, 8)} NOT in page: ${!page1Ids.includes(sess4Id)}`);
+
+      // Test pagination: fetch page 2, page 3
+      const { data: page2 } = await supabaseA.rpc("get_history_page", {
+        p_user: userIdA,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 20,
+        p_offset: 20,
+      });
+
+      const page2Data = page2 as PageRow[];
+      const page2Ids = page2Data.map((r: PageRow) => r.session_id);
+
+      const { data: page3 } = await supabaseA.rpc("get_history_page", {
+        p_user: userIdA,
+        p_filter: "lifts",
+        p_today: "2026-10-24",
+        p_limit: 20,
+        p_offset: 40,
+      });
+
+      const page3Data = page3 as PageRow[];
+      const page3Ids = page3Data.map((r: PageRow) => r.session_id);
+
+      // Verify no duplicates across pages
+      const allIds = [...page1Ids, ...page2Ids, ...page3Ids];
+      const uniqueIds = new Set(allIds);
+      check("no duplicates across pages", 
+        allIds.length === uniqueIds.size,
+        `total ${allIds.length}, unique ${uniqueIds.size}`);
+
+      // Verify total_count equals sum of rows across all pages
+      const allRowsCount = page1Data.length + page2Data.length + page3Data.length;
+      check("total_count matches sum of all page lengths", 
+        totalCount === allRowsCount || allRowsCount === totalCount,
+        `total_count ${totalCount}, got ${allRowsCount} rows across 3 pages`);
+
+      // Verify ordering: fetch full sessions and check local_date DESC order
+      const { data: allSessions } = await supabaseA
+        .from("sessions")
+        .select("id, local_date, completed_at, started_at")
+        .in("id", page1Ids);
+
+      if (allSessions && allSessions.length > 1) {
+        const sessionById = new Map(allSessions.map(s => [s.id, s]));
+        const orderedSessions = page1Ids.map(id => sessionById.get(id)).filter(Boolean);
+        
+        let isOrdered = true;
+        for (let i = 0; i < orderedSessions.length - 1; i++) {
+          const curr = orderedSessions[i];
+          const next = orderedSessions[i + 1];
+          if (!curr || !next) continue;
+          
+          // Check local_date DESC
+          if (curr.local_date < next.local_date) {
+            isOrdered = false;
+            break;
+          }
+          
+          // If same date, check coalesce(completed_at, started_at) DESC
+          if (curr.local_date === next.local_date) {
+            const currTime = curr.completed_at || curr.started_at || "";
+            const nextTime = next.completed_at || next.started_at || "";
+            if (currTime && nextTime && currTime < nextTime) {
+              isOrdered = false;
+              break;
+            }
+          }
+        }
+        
+        check("sessions ordered by local_date DESC, coalesce(completed_at, started_at) DESC", 
+          isOrdered,
+          `checked ${orderedSessions.length} sessions`);
+      }
     }
 
     if (failures > 0) {

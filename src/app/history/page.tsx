@@ -40,120 +40,55 @@ export default async function HistoryPage({
   const today = localDateString(timezone);
   const units = getUnitsPreference(profile.units);
 
-  // Get the correct count using RPC (excludes zero-set strength and skipped sessions)
-  // Pass today as a date (YYYY-MM-DD string is coerced to date by PostgREST)
+  // Get ordered session IDs and total count from single RPC
   // @ts-expect-error - RPC function not in generated types yet
-  const { data: countData } = await supabase.rpc("get_history_count", {
+  const { data: pageData, error: pageError } = await supabase.rpc("get_history_page", {
     p_user: user.id,
     p_filter: filter,
-    p_today: today, // ISO date string, PostgREST converts to date type
+    p_today: today,
+    p_limit: limit,
+    p_offset: offset,
   });
-  const count = Number(countData ?? 0);
 
-  // Build the query based on filter
-  // For lifts, we need to join with session_volume to exclude zero-set sessions at SQL level
-  // For other filters, we can query sessions directly
-  type SessionQueryResult = {
-    id: string;
-    local_date: string;
-    status: string;
-    actual_type: string | null;
-    duration_seconds: number | null;
-    started_at: string | null;
-    completed_at: string | null;
-    is_deload: boolean;
-    week_in_block: number | null;
-    program_days: { label: string | null } | null;
-    breathing_patterns: { name: string; phases: unknown } | null;
-    breathing_logs: Array<{ breaths: number; routine_name: string | null }>;
-  };
-  let sessions: SessionQueryResult[] | null = null;
-  let sessionsError: PostgrestError | null = null;
-
-  if (filter === "lifts") {
-    // For strength: use session_volume which already excludes zero-set sessions
-    // Join back to sessions to get full data
-    const { data: volumeSessions, error } = await supabase
-      .from("session_volume")
-      .select(`
-        session_id,
-        sessions!inner(
-          id,
-          local_date,
-          status,
-          actual_type,
-          duration_seconds,
-          is_deload,
-          week_in_block,
-          started_at,
-          completed_at,
-          program_days(label),
-          breathing_patterns!sessions_breathing_pattern_id_fkey(name, phases),
-          breathing_logs(breaths, routine_name)
-        )
-      `)
-      .eq("user_id", user.id)
-      .lte("sessions.local_date", today)
-      .neq("sessions.status", "skipped")
-      .or(`sessions.status.eq.completed,and(sessions.status.eq.in_progress,sessions.local_date.eq.${today})`)
-      .order("sessions.local_date", { ascending: false, referencedTable: "sessions" })
-      .order("sessions.completed_at", { ascending: false, nullsFirst: false, referencedTable: "sessions" })
-      .order("sessions.started_at", { ascending: false, nullsFirst: false, referencedTable: "sessions" })
-      .order("sessions.id", { ascending: false, referencedTable: "sessions" })
-      .range(offset, offset + limit - 1);
-
-    sessionsError = error;
-    // Extract the nested sessions data - !inner returns an array but we know it's 1:1 so take first
-    sessions = volumeSessions?.map((v: { sessions: SessionQueryResult[] }) => v.sessions[0]) ?? null;
-  } else {
-    // For yoga/breathing: query sessions directly (no zero-set filtering needed)
-    let query = supabase
-      .from("sessions")
-      .select(
-        `
-        id,
-        local_date,
-        status,
-        actual_type,
-        duration_seconds,
-        is_deload,
-        week_in_block,
-        started_at,
-        completed_at,
-        program_days(label),
-        breathing_patterns!sessions_breathing_pattern_id_fkey(name, phases),
-        breathing_logs(breaths, routine_name)
-      `
-      )
-      .eq("user_id", user.id)
-      .lte("local_date", today)
-      .neq("status", "skipped")
-      .or(`status.eq.completed,and(status.eq.in_progress,local_date.eq.${today})`);
-
-    if (filter === "yoga") {
-      query = query.eq("actual_type", "yoga");
-    } else if (filter === "breathing") {
-      query = query.eq("actual_type", "meditation");
-    }
-
-    query = query
-      .order("local_date", { ascending: false })
-      .order("completed_at", { ascending: false, nullsFirst: false })
-      .order("started_at", { ascending: false, nullsFirst: false })
-      .order("id", { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    const result = await query;
-    sessions = result.data;
-    sessionsError = result.error;
+  if (pageError) {
+    throw new Error(`Could not load your history: ${pageError.message}`);
   }
+
+  type PageRow = { session_id: string; total_count: number };
+  const pageRows = (pageData ?? []) as unknown as PageRow[];
+  const sessionIds = pageRows.map((r) => r.session_id);
+  const count = pageRows.length > 0 ? Number(pageRows[0].total_count) : 0;
+
+  // Fetch session details for the IDs returned by RPC
+  const { data: sessions, error: sessionsError } = await supabase
+    .from("sessions")
+    .select(
+      `
+      id,
+      local_date,
+      status,
+      actual_type,
+      duration_seconds,
+      is_deload,
+      week_in_block,
+      started_at,
+      completed_at,
+      program_days(label),
+      breathing_patterns!sessions_breathing_pattern_id_fkey(name, phases),
+      breathing_logs(breaths, routine_name)
+    `
+    )
+    .in("id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
 
   if (sessionsError) {
-    throw new Error(`Could not load your history: ${sessionsError.message}`);
+    throw new Error(`Could not load session details: ${sessionsError.message}`);
   }
 
+  // Re-sort sessions in JS to match RPC order
+  const sessionById = new Map(sessions.map((s) => [s.id, s]));
+  const orderedSessions = sessionIds.map((id) => sessionById.get(id)).filter(Boolean) as typeof sessions;
+
   // Get volume data for strength sessions
-  const sessionIds = (sessions ?? []).map((s) => s.id);
   const { data: volumeData } = await supabase
     .from("session_volume")
     .select("session_id, volume_kg, set_count")
@@ -188,7 +123,7 @@ export default async function HistoryPage({
   // Detect which sessions had PRs at the time AND get set counts
   // This fetches all historical data needed for PR detection and reuses it for counting
   // Pass the OLDEST session's completed_at so we fetch full prior history
-  const oldestCompletedAt = sessions?.[sessions.length - 1]?.completed_at ?? null;
+  const oldestCompletedAt = orderedSessions?.[orderedSessions.length - 1]?.completed_at ?? null;
   const { sessionsWithPRs, setCountsBySession } = await detectSessionPRs(
     supabase,
     user.id,
@@ -222,7 +157,7 @@ export default async function HistoryPage({
   // Get exercise history helpers
   const { findTopSet } = await import("@/lib/exercise-history/calculations");
 
-  const items: SessionListItem[] = (sessions ?? [])
+  const items: SessionListItem[] = (orderedSessions ?? [])
     .map((s) => {
       const vol = volumeById.get(s.id);
       const isBreathing = s.actual_type === "meditation";

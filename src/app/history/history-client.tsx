@@ -224,7 +224,10 @@ export function HistoryClient({
                 if (item.topSetWeight) {
                   details.push(formatTopSet(item.topSetWeight, units));
                 }
-                if (item.volumeKg > 0) details.push(`${formatVolume(item.volumeKg, units)} total`);
+                if (item.volumeKg > 0) {
+                  // Use non-breaking space to keep number+unit together at narrow widths
+                  details.push(`${formatVolume(item.volumeKg, units)}\u00A0total`);
+                }
               }
 
               // Yoga rows are non-interactive (yoga detail view is owned by PR #19)
