@@ -35,14 +35,26 @@ function testShouldInterceptForOffline() {
     "Should intercept full-page navigation to /"
   );
 
-  // RSC data requests (client-side route transitions): should intercept
+  // RSC requests (App Router): should NOT intercept
+  // These have RSC: 1 header or _rsc query param
   assert(
-    shouldInterceptForOffline({
-      url: "https://example.com/_next/data/build123/today.json",
+    !shouldInterceptForOffline({
+      url: "https://example.com/today?_rsc=abc123",
       mode: "cors",
       destination: "",
+      hasRscQuery: true,
     }),
-    "Should intercept Next.js RSC request (/_next/data/...)"
+    "Should NOT intercept RSC request with _rsc query param"
+  );
+
+  assert(
+    !shouldInterceptForOffline({
+      url: "https://example.com/today",
+      mode: "cors",
+      destination: "",
+      headers: { "RSC": "1" },
+    }),
+    "Should NOT intercept RSC request with RSC: 1 header"
   );
 
   // Supabase API: never intercept
@@ -104,7 +116,7 @@ function testShouldInterceptForOffline() {
   );
 
   console.log("  ✓ Full-page navigations are intercepted");
-  console.log("  ✓ RSC requests (/_next/data/) are intercepted");
+  console.log("  ✓ RSC requests (App Router) are never intercepted");
   console.log("  ✓ Supabase API calls are never intercepted");
   console.log("  ✓ /auth routes are never intercepted");
   console.log("  ✓ Static assets are never intercepted");

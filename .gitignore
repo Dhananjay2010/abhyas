@@ -5,6 +5,8 @@
 !.yarn/releases
 !.yarn/versions
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# generated files
+/public/offline.html
 # debug
 # dependencies
 # env files (can opt-in for committing if needed)

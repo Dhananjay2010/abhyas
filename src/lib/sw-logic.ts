@@ -9,14 +9,19 @@
 /**
  * Check if a request should be intercepted by the offline fallback.
  *
- * Only navigation requests (full page loads and Next.js RSC requests)
- * are candidates for the offline fallback. API calls, assets, and
- * Supabase requests are never cached or intercepted.
+ * Only full-page navigation requests are intercepted. RSC requests
+ * (Next.js App Router server components) are never intercepted; when they
+ * fail, Next.js falls back to a full navigation, which then hits this
+ * handler and gets the offline page.
+ *
+ * API calls, assets, and Supabase requests are never cached or intercepted.
  */
 export function shouldInterceptForOffline(request: {
   url: string;
   mode: RequestMode;
   destination: RequestDestination;
+  headers?: Record<string, string>;
+  hasRscQuery?: boolean;
 }): boolean {
   const url = new URL(request.url);
 
@@ -30,15 +35,19 @@ export function shouldInterceptForOffline(request: {
     return false;
   }
 
-  // Intercept full-page navigations (mode === "navigate")
-  if (request.mode === "navigate") {
-    return true;
+  // Never intercept RSC requests (Next.js App Router server components).
+  // These have the RSC: 1 header or _rsc query param and are tied to
+  // specific builds. When they fail, Next.js falls back to a full navigation.
+  const isRSC = 
+    (request.headers && request.headers["RSC"] === "1") ||
+    request.hasRscQuery ||
+    url.searchParams.has("_rsc");
+  if (isRSC) {
+    return false;
   }
 
-  // Intercept Next.js RSC data requests (/_next/data/...)
-  // These are client-side route transitions that fetch server components.
-  // Without this, navigating tabs while offline shows a blank screen.
-  if (url.pathname.startsWith("/_next/data/")) {
+  // Intercept full-page navigations (mode === "navigate")
+  if (request.mode === "navigate") {
     return true;
   }
 

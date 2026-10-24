@@ -1,26 +1,50 @@
 /**
+ * Service worker route handler.
+ *
+ * Serves the service worker JavaScript with a dynamically generated cache
+ * version based on VERCEL_GIT_COMMIT_SHA or a build-time constant.
+ *
+ * The cache version ensures that new deploys invalidate old caches without
+ * needing to commit generated IDs to the repository.
+ */
+
+import { NextResponse } from "next/server";
+
+/**
+ * Get the current build version for cache naming.
+ * Uses Vercel commit SHA in production, falls back to a constant for dev.
+ */
+function getBuildVersion(): string {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) {
+    return process.env.VERCEL_GIT_COMMIT_SHA.slice(0, 7);
+  }
+  // Fallback for local dev or non-Vercel deployments
+  return "dev";
+}
+
+export async function GET() {
+  const buildVersion = getBuildVersion();
+
+  const script = `/**
  * Service worker for Abhyas PWA.
  *
  * Provides a basic offline experience: when the network is unavailable and
- * a navigation request fails, show /offline.html instead of the browser's
+ * a navigation request fails, show /offline instead of the browser's
  * default "no internet" page.
  *
  * This is intentionally conservative:
- * - Only caches the offline page itself (a static HTML file with inlined icon)
+ * - Only caches the offline page itself
  * - Does NOT cache authenticated API responses (Supabase, user data)
  * - Does NOT cache app pages (they depend on user state and database calls)
+ * - Does NOT cache RSC payloads (they're tied to specific builds)
  * - Does NOT attempt to serve stale content
  *
  * White-label deployments can extend this with their own caching strategy,
  * but the baseline is safe: offline means offline, with a clear message.
- *
- * Build ID is injected at build time by scripts/inject-build-id.ts.
  */
 
-// XyDO9vC9nYnH1fOsWyas9 is replaced at build time with the Next.js build ID or commit SHA
-const BUILD_ID = "XyDO9vC9nYnH1fOsWyas9";
-const CACHE_NAME = `abhyas-offline-${BUILD_ID}`;
-const OFFLINE_URL = "/offline.html";
+const CACHE_NAME = "abhyas-offline-${buildVersion}";
+const OFFLINE_URL = "/offline";
 
 // Install: cache the offline page
 self.addEventListener("install", (event) => {
@@ -52,7 +76,7 @@ self.addEventListener("activate", (event) => {
 
 /**
  * Check if a request should be intercepted for offline fallback.
- * Only navigation and RSC requests; never Supabase, /auth, or static assets.
+ * Only full-page navigations; never RSC, Supabase, /auth, or static assets.
  */
 function shouldInterceptForOffline(request) {
   const url = new URL(request.url);
@@ -67,13 +91,17 @@ function shouldInterceptForOffline(request) {
     return false;
   }
 
-  // Intercept full-page navigations
-  if (request.mode === "navigate") {
-    return true;
+  // Never intercept RSC requests (Next.js App Router server components).
+  // These have the RSC: 1 header or _rsc query param and are tied to
+  // specific builds. When they fail, Next.js falls back to a full navigation,
+  // which then hits this handler and gets the offline page.
+  const isRSC = request.headers.get("RSC") === "1" || url.searchParams.has("_rsc");
+  if (isRSC) {
+    return false;
   }
 
-  // Intercept Next.js RSC data requests (client-side route transitions)
-  if (url.pathname.startsWith("/_next/data/")) {
+  // Intercept full-page navigations
+  if (request.mode === "navigate") {
     return true;
   }
 
@@ -99,3 +127,12 @@ self.addEventListener("fetch", (event) => {
     })()
   );
 });
+`;
+
+  return new NextResponse(script, {
+    headers: {
+      "Content-Type": "application/javascript; charset=utf-8",
+      "Cache-Control": "public, max-age=0, must-revalidate",
+    },
+  });
+}

@@ -34,17 +34,17 @@ function testContrastRatio() {
   const whiteWhite = contrastRatio("#ffffff", "#ffffff");
   assertClose(whiteWhite, 1, 0.01, "White on white should be 1:1");
 
-  // Orange (#f97316) on black (#0a0c0e): should be around 6.5:1
-  const orangeBlack = contrastRatio("#f97316", "#0a0c0e");
-  assert(orangeBlack >= 6.0 && orangeBlack <= 7.0, `Orange on black should be ~6.5:1, got ${orangeBlack.toFixed(2)}`);
+  // Green (#22c55e) on black (#0a0c0e): should be around 8-9:1
+  const greenBlack = contrastRatio("#22c55e", "#0a0c0e");
+  assert(greenBlack >= 7.5 && greenBlack <= 9.5, `Green on black should be ~8-9:1, got ${greenBlack.toFixed(2)}`);
 
   // Symmetry: order shouldn't matter
-  const blackOrange = contrastRatio("#0a0c0e", "#f97316");
-  assertClose(blackOrange, orangeBlack, 0.01, "Contrast ratio should be symmetric");
+  const blackGreen = contrastRatio("#0a0c0e", "#22c55e");
+  assertClose(blackGreen, greenBlack, 0.01, "Contrast ratio should be symmetric");
 
   console.log("  ✓ Black on white: 21:1 (maximum)");
   console.log("  ✓ White on white: 1:1 (minimum)");
-  console.log(`  ✓ Orange on black: ${orangeBlack.toFixed(2)}:1`);
+  console.log(`  ✓ Green on black: ${greenBlack.toFixed(2)}:1`);
   console.log("  ✓ Contrast calculation is symmetric");
 }
 
@@ -57,8 +57,8 @@ function testAccessibleTextColor() {
     "White background should get black text"
   );
   assert(
-    accessibleTextColor("#f97316") === "#000000",
-    "Orange background (#f97316) should get black text"
+    accessibleTextColor("#22c55e") === "#000000",
+    "Green background (#22c55e) should get black text"
   );
 
   // Dark backgrounds should get white text
@@ -93,39 +93,47 @@ function testWCAG_AA() {
     "Black on white should pass WCAG AA"
   );
   assert(
-    meetsWCAG_AA("#f97316", "#0a0c0e"),
-    "Orange on black should pass WCAG AA (6.5:1)"
+    meetsWCAG_AA("#22c55e", "#0a0c0e"),
+    "Green on black should pass WCAG AA (8-9:1)"
   );
 
-  // The old offline page had white (#ffffff) on green (#22c55e) at 2.28:1 (fail)
+  // White on green has poor contrast (2.28:1) - should fail
   assert(
     !meetsWCAG_AA("#ffffff", "#22c55e"),
     "White on green (#22c55e) should fail WCAG AA (2.28:1)"
   );
 
-  // New offline page has black (#000000) on orange (#f97316)
-  const orangeContrastWithBlack = contrastRatio("#f97316", "#000000");
+  // Black on green (#22c55e) has excellent contrast
+  const greenContrastWithBlack = contrastRatio("#22c55e", "#000000");
   assert(
-    meetsWCAG_AA("#000000", "#f97316"),
-    `Black on orange should pass WCAG AA (${orangeContrastWithBlack.toFixed(2)}:1)`
+    meetsWCAG_AA("#000000", "#22c55e"),
+    `Black on green should pass WCAG AA (${greenContrastWithBlack.toFixed(2)}:1)`
   );
   assert(
-    orangeContrastWithBlack >= 4.5,
-    `Black on orange should be >= 4.5:1, got ${orangeContrastWithBlack.toFixed(2)}`
+    greenContrastWithBlack >= 4.5,
+    `Black on green should be >= 4.5:1, got ${greenContrastWithBlack.toFixed(2)}`
+  );
+
+  // Dark (#0a0c0e) on green also has excellent contrast
+  const greenContrastWithDark = contrastRatio("#22c55e", "#0a0c0e");
+  assert(
+    meetsWCAG_AA("#0a0c0e", "#22c55e"),
+    `Dark on green should pass WCAG AA (${greenContrastWithDark.toFixed(2)}:1)`
   );
 
   console.log("  ✓ Black on white passes (21:1)");
-  console.log(`  ✓ Orange on black passes (${contrastRatio("#f97316", "#0a0c0e").toFixed(2)}:1)`);
+  console.log(`  ✓ Green on black passes (${contrastRatio("#22c55e", "#0a0c0e").toFixed(2)}:1)`);
   console.log("  ✓ White on green fails (2.28:1, as expected)");
-  console.log(`  ✓ Black on orange passes (${orangeContrastWithBlack.toFixed(2)}:1)`);
+  console.log(`  ✓ Black on green passes (${greenContrastWithBlack.toFixed(2)}:1)`);
+  console.log(`  ✓ Dark on green passes (${greenContrastWithDark.toFixed(2)}:1)`);
 }
 
 function testBrandColorCompliance() {
   console.log("\n▶ Testing brand color compliance...");
 
-  // The default brand accent is #f97316 (orange).
-  // When used as a button background, black text should meet WCAG AA.
-  const brandAccent = "#f97316";
+  // The brand accent is #22c55e (green).
+  // When used as a button background, the computed text color should meet WCAG AA.
+  const brandAccent = "#22c55e";
   const textColor = accessibleTextColor(brandAccent);
   const ratio = contrastRatio(textColor, brandAccent);
 
