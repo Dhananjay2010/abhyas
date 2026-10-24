@@ -37,7 +37,7 @@ export async function replayPendingOps(
   actions: RestoreActions
 ): Promise<void> {
   for (const change of changes) {
-    const { key, type, patch } = change;
+    const { type, patch } = change;
     
     if (type === 'profile' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
       await actions.updateProfileSettings(patch as Record<string, unknown>);
