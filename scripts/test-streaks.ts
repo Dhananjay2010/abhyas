@@ -334,5 +334,58 @@ console.log("\n15. TZ-1: Completed session after timezone change");
   check("TZ-1: streak and days trained agree", s.current === s.totalSessions);
 }
 
+console.log("\n16. M3: Gap days between blocks count as missed");
+{
+  // After block ends, if user returns late, gap days should break streak
+  // Mon-Fri plan, 20 sessions, block ends 10-25, return 11-10
+  const records = buildDayRecords({
+    programs: [
+      { id: "p1", startedOn: "2026-09-08", endsOn: "2026-09-28", endedOn: "2026-10-05" }, // Block 1: ended
+      { id: "p2", startedOn: "2026-11-10", endsOn: "2026-12-07" }, // Block 2: starts 11-10 (15 day gap)
+    ],
+    dayTypesByProgram: {
+      p1: { 1: "weights", 2: "weights", 3: "weights", 4: "weights", 5: "weights", 6: "rest", 7: "rest" }, // Mon-Fri
+      p2: { 1: "weights", 2: "weights", 3: "weights", 4: "weights", 5: "weights", 6: "rest", 7: "rest" },
+    },
+    completedSessions: [
+      // 20 sessions in block 1
+      { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-10", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-11", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-12", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-15", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-16", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-17", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-18", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-19", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-22", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-23", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-24", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-25", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-26", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-29", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-09-30", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-10-01", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-10-02", actual_type: "weights", status: "completed", working_set_count: 3 },
+      { local_date: "2026-10-03", actual_type: "weights", status: "completed", working_set_count: 3 },
+      // Now return on 11-10 after 15 day gap
+      { local_date: "2026-11-10", actual_type: "weights", status: "completed", working_set_count: 3 },
+    ],
+    today: "2026-11-10",
+  });
+  
+  // Gap is 10-06 to 11-09 (35 days)
+  // Weekdays in gap that were training days: 10-06 Mon, 10-07 Tue, 10-08 Wed, 10-09 Thu, 10-10 Fri (first miss)
+  // 10-06 Mon is the first training day after block 1 ended, and it was missed
+  const s = computeStreaks(records, "2026-11-10");
+  
+  check("M3: gap breaks streak (not preserved)", s.current === 1, `got ${s.current}, expected 1 (just today's session)`);
+  check("M3: days trained still 21", s.totalSessions === 21, `got ${s.totalSessions}`);
+  // Longest is 5 because those are Mon-Fri consecutive training days (first week)
+  // Then there's a weekend (rest days don't break) + second week, but let's just check it's > 1
+  check("M3: longest remembers the block 1 streak", s.longest >= 5, `got ${s.longest}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

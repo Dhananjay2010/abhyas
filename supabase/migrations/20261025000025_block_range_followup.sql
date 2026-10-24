@@ -1,8 +1,8 @@
--- Block range followup fixes: M1, M2, M3, Rows #1, LOW/advisor
+-- Block range followup fixes: M1, M2, M3, TZ-1, LOW, Rows #1
 -- Addresses QA findings from PR #100 deployment
 --
 -- IDEMPOTENT: safe to run multiple times
--- INCLUDES DATA REPAIR: fixes historical invalid completed programs
+-- NO DATA DELETION: marks invalid completed programs as superseded
 
 -- ============================================================
 -- LOW/advisor: cycle_week_for SECURITY INVOKER (not DEFINER)
@@ -28,7 +28,9 @@ COMMENT ON FUNCTION cycle_week_for IS 'Compute cycle week for a date within a bl
 
 -- ============================================================
 -- M1: Mid-block rebuild should end with the carried cycle
--- Fix: Calculate ends_on to complete the current 4-week cycle
+-- M2: Same-day rebuild updates program_days in place
+-- Fix: Calculate ends_on to complete the current cycle (4 weeks)
+-- Fix: Update program_days by day_index instead of deleting
 -- ============================================================
 CREATE OR REPLACE FUNCTION rebuild_block(
   p_today date,
@@ -42,6 +44,8 @@ DECLARE
   v_user_id uuid := auth.uid();
   v_old_block record;
   v_new_week_offset int;
+  v_cycle_length int := 4;  -- standard 4-week cycle
+  v_remaining_weeks int;
   v_new_ends_on date;
   v_new_program_id uuid;
   v_program_day_id uuid;
@@ -52,7 +56,7 @@ BEGIN
     RAISE EXCEPTION 'Not authenticated';
   END IF;
 
-  -- Unified advisory lock per user
+  -- M1: Unified advisory lock per user (same key as rollover_block)
   PERFORM pg_advisory_xact_lock(hashtext('program_block:' || v_user_id::text));
 
   -- Re-read the active block after acquiring lock
@@ -76,10 +80,19 @@ BEGIN
     FLOOR((p_today - v_old_block.started_on) / 7)
   );
 
-  -- M1 FIX: Calculate ends_on to end with the carried cycle (week 4)
-  -- Formula: ends_on = started_on + (27 - week_offset * 7)
-  -- This ensures the last day is always in week 4, never week 5+
-  v_new_ends_on := p_today + (27 - v_new_week_offset * 7);
+  -- M1 FIX: Calculate ends_on to end with cycle week 4
+  -- If offset >= cycle_length, start fresh cycle (week_offset = offset mod cycle_length)
+  -- This prevents ends_on < started_on for late returns
+  IF v_new_week_offset >= v_cycle_length THEN
+    -- Late return: start fresh cycle
+    v_new_week_offset := v_new_week_offset % v_cycle_length;
+  END IF;
+  
+  -- Calculate remaining weeks in cycle
+  v_remaining_weeks := v_cycle_length - v_new_week_offset;
+  
+  -- ends_on = started_on + (remaining_weeks * 7 - 1 days)
+  v_new_ends_on := p_today + (v_remaining_weeks * 7 - 1);
 
   -- L4 & M2 FIX: If started_on = p_today, update in place AND update program_days by day_index
   -- to preserve sessions.program_day_id foreign keys (ON DELETE SET NULL would orphan sessions)
@@ -102,7 +115,7 @@ BEGIN
     -- This preserves sessions.program_day_id foreign key relationships
     FOR v_day IN SELECT * FROM jsonb_array_elements(p_payload->'days')
     LOOP
-      -- Update existing program_day for this day_index
+      -- Try to update existing program_day for this day_index
       UPDATE public.program_days
       SET
         day_type = (v_day->>'day_type')::public.day_type,
@@ -237,20 +250,30 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION rebuild_block IS 'Rebuild the active block: retire as superseded, insert new block with carried-over week_offset. ends_on calculated to end with cycle week 4. Same-day rebuilds update in place and preserve sessions.program_day_id. Idempotent.';
+COMMENT ON FUNCTION rebuild_block IS 'Rebuild the active block: retire as superseded, insert new block with carried-over week_offset. ends_on calculated to end with cycle week 4 (offset mod 4 for late returns). Same-day rebuilds update in place and preserve sessions.program_day_id. Idempotent.';
 
 -- ============================================================
 -- Rows #1: Repair historical invalid completed programs
--- Fix programs where status='completed' AND ended_on = started_on - 1
--- These are artifacts from pre-hotfix rebuild logic
+-- 
+-- ROOT CAUSE: Pre-hotfix rebuild logic in src/lib/program/persist.ts
+-- line 259: `.update({ status: "completed" })` for "first builds"
+-- (before rebuild_block RPC was created). When a mid-block rebuild
+-- happened, the TypeScript code marked the old block 'completed'
+-- but did not set ended_on. Migration 20261025000010 then backfilled
+-- ended_on = (next block's started_on) - 1, creating invalid ranges
+-- when the next block started on the same day (ended_on = started_on - 1).
+--
+-- FIX: Mark these programs as 'superseded' (not deleted, preserves history).
+-- ended_on = started_on - 1 means they are superseded empty ranges that
+-- blockForDate will ignore (ended_on < date for all dates >= started_on).
+-- No overlaps created because ended_on < started_on means no date is covered.
 -- ============================================================
 
--- Count affected rows for logging (production has ~29)
+-- Count affected rows for logging
 DO $$
 DECLARE
   v_count int;
   v_with_sessions int;
-  v_without_sessions int;
 BEGIN
   SELECT COUNT(*) INTO v_count
   FROM public.programs
@@ -259,38 +282,23 @@ BEGIN
   IF v_count > 0 THEN
     RAISE NOTICE 'Found % completed programs with ended_on = started_on - 1', v_count;
     
-    -- Count how many have sessions (need repair) vs none (can delete)
     SELECT COUNT(*) INTO v_with_sessions
     FROM public.programs p
     WHERE p.status = 'completed' AND p.ended_on = p.started_on - 1
     AND EXISTS (SELECT 1 FROM public.sessions s WHERE s.program_id = p.id);
     
-    v_without_sessions := v_count - v_with_sessions;
-    
-    RAISE NOTICE '  % with sessions (will set ended_on = started_on)', v_with_sessions;
-    RAISE NOTICE '  % without sessions (will delete)', v_without_sessions;
+    RAISE NOTICE '  % with sessions', v_with_sessions;
+    RAISE NOTICE '  % without sessions', v_count - v_with_sessions;
   END IF;
 END$$;
 
--- Delete completed programs with ended_on = started_on - 1 that have NO sessions
--- These are empty artifacts that don't affect history
-DELETE FROM public.programs
-WHERE status = 'completed' 
-AND ended_on = started_on - 1
-AND NOT EXISTS (
-  SELECT 1 FROM public.sessions s WHERE s.program_id = programs.id
-);
-
--- For completed programs with ended_on = started_on - 1 that HAVE sessions,
--- set ended_on = started_on to make them zero-length blocks
--- This preserves history and streak calculations
+-- Mark as superseded (preserves history, no data loss)
+-- ended_on stays started_on - 1, which means blockForDate will not match them
+-- (ended_on < date for all dates >= started_on, so coversDate returns false)
 UPDATE public.programs
-SET ended_on = started_on
+SET status = 'superseded'
 WHERE status = 'completed' 
-AND ended_on = started_on - 1
-AND EXISTS (
-  SELECT 1 FROM public.sessions s WHERE s.program_id = programs.id
-);
+AND ended_on = started_on - 1;
 
 -- Log completion
 DO $$

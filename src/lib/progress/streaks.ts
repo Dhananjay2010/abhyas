@@ -159,11 +159,26 @@ export function buildDayRecords(input: {
   );
   const lastDate = latestSessionDate > today ? latestSessionDate : today;
 
+  // M3: For gap days between blocks, inherit the training schedule from the previous block
+  // so that missed training days break the streak (not counted as rest)
+  let lastBlockId: string | null = null;
+  
   return dateRange(first, lastDate).map((date) => {
     const covering = blockForDate(blocks, date);
 
-    const dayType =
-      (covering && dayTypesByProgram[covering.id]?.[isoWeekday(date)]) ?? "rest";
+    let dayType: DayType;
+    if (covering) {
+      // Date is covered by a block: use its schedule
+      dayType = dayTypesByProgram[covering.id]?.[isoWeekday(date)] ?? "rest";
+      lastBlockId = covering.id;
+    } else if (lastBlockId) {
+      // M3: Gap day between blocks - use previous block's schedule
+      // This way, if Mon was a training day and the user misses a week, streak breaks
+      dayType = dayTypesByProgram[lastBlockId]?.[isoWeekday(date)] ?? "rest";
+    } else {
+      // Before first block
+      dayType = "rest";
+    }
 
     const actualSessionType = sessionsByDate.get(date) ?? null;
     const completed = actualSessionType !== null;
