@@ -46,15 +46,12 @@ export async function updateSessionSettings(patch: SettingsUpdate): Promise<Resu
  * M5 fix: Allow-list columns to prevent mass assignment.
  */
 export async function updateProfileSettings(patch: ProfileUpdate): Promise<Result> {
-<<<<<<< HEAD
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
-=======
+
   const validation = validateSettingsFields(patch);
   if (!validation.ok) return { ok: false, error: validation.error };
 
->>>>>>> c3a8e82 (feat: harden profile data access and fix auth open redirect)
   const { supabase, user } = await requireUser();
   const { error } = await supabase.from("profiles").update(validation.data).eq("id", user.id);
   if (error) {

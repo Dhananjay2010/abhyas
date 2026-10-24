@@ -5,10 +5,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { localDateString } from "@/lib/dates";
 import { createBlockForUser } from "@/lib/program/persist";
-<<<<<<< HEAD
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
-=======
->>>>>>> 18c740d (refactor: extract height/weight validation into pure testable functions)
 import {
   validateOnboardingFields,
   validateDateOfBirth,
@@ -112,15 +109,12 @@ export async function saveAboutYou(input: {
  * Used by onboarding to set goal, level, track, days_per_week, etc.
  */
 export async function saveProfileFields(fields: ProfileUpdate): Promise<ActionResult> {
-<<<<<<< HEAD
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-  
-=======
+
   const validation = validateOnboardingFields(fields);
   if (!validation.ok) return { ok: false, error: validation.error };
 
->>>>>>> c3a8e82 (feat: harden profile data access and fix auth open redirect)
   const { supabase, user } = await requireUser();
   const { error } = await supabase.from("profiles").update(validation.data).eq("id", user.id);
   if (error) {
