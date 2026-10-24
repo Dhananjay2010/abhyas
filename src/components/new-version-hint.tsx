@@ -1,7 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { branding } from "@/lib/branding";
+
+/**
+ * Determine if the new version hint should be shown on this route.
+ *
+ * Suppressed on active session and breathe routes:
+ * - /session* (guided workout in progress)
+ * - /breathe* (breathing exercise in progress)
+ *
+ * The hint is shown after leaving these routes.
+ *
+ * @param pathname - Current pathname from usePathname()
+ * @returns true if the hint can be shown on this route
+ */
+export function shouldShowUpdateHint(pathname: string): boolean {
+  return !pathname.startsWith("/session") && !pathname.startsWith("/breathe");
+}
 
 /**
  * New version notification.
@@ -11,48 +28,51 @@ import { branding } from "@/lib/branding";
  *
  * NEVER auto-reloads. Especially not during a session.
  *
+ * Position: bottom toast above the nav, respecting safe-area-inset-bottom.
+ * Suppressed on /session* and /breathe* routes (shown after leaving).
+ *
+ * Only shown when:
+ * 1. The page was controlled by a SW at mount (not first install)
+ * 2. A new SW replaced the previous one
+ *
  * Uses colors from branding config.
  */
 export function NewVersionHint() {
   const [showHint, setShowHint] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
       return;
     }
 
-    // Track if there was a controller at mount (to avoid showing hint on first install)
     const hadController = !!navigator.serviceWorker.controller;
 
-    // Listen for SW updates
+    if (!hadController) {
+      return;
+    }
+
     async function checkForUpdates() {
       const registration = await navigator.serviceWorker.ready;
       
-      // New SW found during update check
       registration.addEventListener("updatefound", () => {
         const newWorker = registration.installing;
         if (!newWorker) return;
 
         newWorker.addEventListener("statechange", () => {
           if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-            // New version available (old SW still controlling)
             setShowHint(true);
           }
         });
       });
 
-      // Controller changed (new SW took over)
       navigator.serviceWorker.addEventListener("controllerchange", () => {
-        // Only show hint if:
-        // 1. We had a controller at mount (not first install)
-        // 2. We didn't trigger the reload ourselves
         const win = window as Window & { __reloadingForNewVersion?: boolean };
         if (hadController && !win.__reloadingForNewVersion) {
           setShowHint(true);
         }
       });
 
-      // Check for updates now
       registration.update().catch(() => {
         // Ignore update check errors
       });
@@ -60,7 +80,6 @@ export function NewVersionHint() {
 
     checkForUpdates();
 
-    // Periodic update check (every 5 minutes)
     const interval = setInterval(() => {
       navigator.serviceWorker.ready.then((registration) => {
         registration.update().catch(() => {
@@ -73,31 +92,33 @@ export function NewVersionHint() {
   }, []);
 
   function handleRefresh() {
-    // Mark that we're reloading intentionally
     if (typeof window !== "undefined") {
       (window as Window & { __reloadingForNewVersion?: boolean }).__reloadingForNewVersion = true;
     }
     window.location.reload();
   }
 
-  if (!showHint) return null;
+  const shouldShow = showHint && shouldShowUpdateHint(pathname);
+
+  if (!shouldShow) return null;
 
   return (
     <div
       role="status"
       style={{
         position: "fixed",
-        top: "env(safe-area-inset-top, 0)",
+        bottom: 0,
         left: 0,
         right: 0,
         padding: "0.75rem 1rem",
+        paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))",
         background: branding.colors.accent,
         color: branding.colors.accentFg,
         fontSize: "0.875rem",
         fontWeight: 500,
         textAlign: "center",
         zIndex: 9999,
-        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+        boxShadow: "0 -2px 8px rgba(0, 0, 0, 0.15)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
