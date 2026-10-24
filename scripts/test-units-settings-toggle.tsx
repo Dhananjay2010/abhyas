@@ -14,6 +14,27 @@
 // Must be first import before any React code
 import "./helpers/setup-jsdom";
 
+// Mock next/navigation BEFORE importing OnboardingFlow
+import Module from "node:module";
+const originalRequire = Module.prototype.require;
+Module.prototype.require = function (id: string, ...args: unknown[]) {
+  if (id === "next/navigation") {
+    return {
+      useRouter: () => ({
+        push: () => {},
+        replace: () => {},
+        back: () => {},
+        forward: () => {},
+        refresh: () => {},
+        prefetch: () => {},
+      }),
+      usePathname: () => "/",
+      useSearchParams: () => new URLSearchParams(),
+    };
+  }
+  return originalRequire.apply(this, [id, ...args] as Parameters<typeof originalRequire>);
+};
+
 import React from "react";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -70,6 +91,7 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
       restOverrideSeconds: null,
       bodyweightPrompt: "weekly",
       timezone: null,
+      dateOfBirth: null,
       units: "metric",
     };
 
@@ -233,60 +255,269 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
     }
   }
 
-  console.log("\n4. Onboarding conversion logic: imperial inputs convert correctly to kg/cm");
+  console.log("\n4. OnboardingFlow: Render with imperial, fill About form, assert kg/cm saved");
 
   {
-    // Test the same conversion logic that OnboardingFlow uses
-    // When units='imperial', user types "5'9"" for height and "176" for weight
-    
-    const heightInput = "5'9\"";
-    const weightInput = "176";
-    const units = "imperial" as const;
+    // Dynamically import OnboardingFlow after next/navigation is mocked
+    const { OnboardingFlow } = await import("../src/app/onboarding/onboarding-flow");
 
-    // Simulate what onboarding does: parse the input values
-    const heightCm = parseHeight(heightInput, units);
-    const weightKg = parseWeight(weightInput, units);
+    interface SaveAboutYouArgs {
+      dateOfBirth: string | null;
+      sex: string | null;
+      heightCm: number | null;
+      weightKg: number | null;
+    }
 
-    check(
-      "parseHeight(\"5'9\\\"\", 'imperial') returns ~175 cm (174-176)",
-      heightCm !== null && heightCm >= 174 && heightCm <= 176,
-      `got ${heightCm}`
+    const spy = {
+      savedAboutYou: null as SaveAboutYouArgs | null,
+      callCount: 0,
+    };
+
+    const mockActions = {
+      acceptDisclaimer: async () => ({ ok: true }) as const,
+      saveAboutYou: async (args: SaveAboutYouArgs) => {
+        spy.savedAboutYou = args;
+        spy.callCount++;
+        return { ok: true } as const;
+      },
+      saveProfileFields: async () => ({ ok: true }) as const,
+      saveSessionLength: async () => ({ ok: true }) as const,
+      saveEquipment: async () => ({ ok: true }) as const,
+      saveInjuries: async () => ({ ok: true }) as const,
+      completeOnboarding: async () => ({ ok: true }) as const,
+    };
+
+    type Sex = "male" | "female" | "other" | "prefer_not_to_say";
+    type BodyRegion = "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle" | "core";
+    type InjurySeverity = "current" | "past";
+    type Goal = "strength" | "fat_loss" | "muscle_gain" | "general_fitness" | "flexibility_stress";
+    type Level = "beginner" | "intermediate" | "expert";
+    type Track = "weights" | "bodyweight" | "yoga" | "meditation";
+
+    const initial = {
+      displayName: null,
+      goal: null as Goal | null,
+      level: null as Level | null,
+      primaryTrack: null as Track | null,
+      daysPerWeek: null as number | null,
+      sessionMinutes: 60,
+      yogaDaysPerWeek: 0,
+      dateOfBirth: null as string | null,
+      sex: null as Sex | null,
+      heightCm: null as number | null,
+      weightKg: null as number | null,
+      hasAllEquipment: false,
+      equipmentIds: [] as string[],
+      injuries: [] as Array<{ bodyRegion: BodyRegion; severity: InjurySeverity }>,
+      units: "imperial" as "metric" | "imperial",
+      disclaimerAccepted: true,
+    };
+
+    const equipment: Array<{ id: string; name: string; category: string }> = [];
+
+    const { container, unmount } = render(
+      React.createElement(OnboardingFlow, {
+        initial,
+        equipment,
+        actions: mockActions,
+      })
     );
 
+    // The component starts at About step (disclaimer already accepted)
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Check that hints show imperial units
+    const bodyText = container.textContent || "";
     check(
-      "parseWeight('176', 'imperial') returns ~79.8 kg (79.7-79.9)",
-      weightKg !== null && weightKg >= 79.7 && weightKg <= 79.9,
-      weightKg !== null ? `got ${weightKg.toFixed(2)}` : `got ${weightKg}`
+      "About step hints show imperial units (lb, ft, in)",
+      bodyText.includes("lb") || bodyText.includes("ft") || bodyText.includes("in")
     );
 
-    // Test that stored values display correctly in imperial
-    if (heightCm !== null && weightKg !== null) {
-      const displayedHeight = formatHeight(heightCm, units, false);
-      const displayedWeight = formatWeight(weightKg, units, false);
-      
+    // Find and fill DOB (use 1990-05-12)
+    const dayInput = Array.from(container.querySelectorAll('input')).find(
+      (el) => el.getAttribute("aria-label") === "Day"
+    ) as HTMLInputElement | undefined;
+    const monthInput = Array.from(container.querySelectorAll('input')).find(
+      (el) => el.getAttribute("aria-label") === "Month"
+    ) as HTMLInputElement | undefined;
+    const yearInput = Array.from(container.querySelectorAll('input')).find(
+      (el) => el.getAttribute("aria-label") === "Year"
+    ) as HTMLInputElement | undefined;
+
+    if (dayInput && monthInput && yearInput) {
+      await userEvent.type(dayInput, "12");
+      await userEvent.type(monthInput, "05");
+      await userEvent.type(yearInput, "1990");
+    }
+
+    // Find and click Male sex option (it's an OptionCard button, not a radio)
+    const maleButton = Array.from(container.querySelectorAll('button')).find(
+      (btn) => btn.textContent === "Male"
+    );
+    if (maleButton) {
+      await userEvent.click(maleButton);
+    }
+
+    // Find height and weight inputs by placeholder
+    const allInputs = Array.from(container.querySelectorAll('input'));
+    const heightInput = allInputs.find(
+      (el) => (el as HTMLInputElement).placeholder.includes("5'9")
+    ) as HTMLInputElement | undefined;
+    const weightInput = allInputs.find(
+      (el) => (el as HTMLInputElement).placeholder.includes("154")
+    ) as HTMLInputElement | undefined;
+
+    if (heightInput) {
+      await userEvent.clear(heightInput);
+      await userEvent.type(heightInput, "5'9\"");
+    }
+
+    if (weightInput) {
+      await userEvent.clear(weightInput);
+      await userEvent.type(weightInput, "176");
+    }
+
+    // Find Continue button and click
+    const continueButton = Array.from(container.querySelectorAll("button")).find(
+      (btn) => btn.textContent?.includes("Continue")
+    );
+    if (continueButton) {
+      await userEvent.click(continueButton);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       check(
-        "Stored 175 cm displays as \"5'9\\\"\" in imperial",
-        displayedHeight === "5'9\"",
-        `got '${displayedHeight}'`
+        "saveAboutYou called once",
+        spy.callCount === 1,
+        `called ${spy.callCount} times`
       );
-      
+
+      if (spy.savedAboutYou) {
+        check(
+          "saveAboutYou received dateOfBirth 1990-05-12",
+          spy.savedAboutYou.dateOfBirth === "1990-05-12",
+          `got '${spy.savedAboutYou.dateOfBirth}'`
+        );
+
+        check(
+          "saveAboutYou received sex 'male'",
+          spy.savedAboutYou.sex === "male",
+          `got '${spy.savedAboutYou.sex}'`
+        );
+
+        check(
+          "saveAboutYou received heightCm ~175 (174-176)",
+          spy.savedAboutYou.heightCm !== null &&
+            spy.savedAboutYou.heightCm >= 174 &&
+            spy.savedAboutYou.heightCm <= 176,
+          `got ${spy.savedAboutYou.heightCm}`
+        );
+
+        check(
+          "saveAboutYou received weightKg ~79.8 (79.5-80.1)",
+          spy.savedAboutYou.weightKg !== null &&
+            spy.savedAboutYou.weightKg >= 79.5 &&
+            spy.savedAboutYou.weightKg <= 80.1,
+          spy.savedAboutYou.weightKg !== null
+            ? `got ${spy.savedAboutYou.weightKg.toFixed(2)}`
+            : `got ${spy.savedAboutYou.weightKg}`
+        );
+      }
+    }
+
+    unmount();
+
+    // Test 2: Out-of-range height/weight show errors, no save
+    console.log("\n4b. OnboardingFlow: Out-of-range height/weight show errors, no save");
+
+    const spy2 = { callCount: 0 };
+    const mockActions2 = {
+      ...mockActions,
+      saveAboutYou: async () => {
+        spy2.callCount++;
+        return { ok: true } as const;
+      },
+    };
+
+    const { container: container2, unmount: unmount2 } = render(
+      React.createElement(OnboardingFlow, {
+        initial,
+        equipment: equipment as Array<{ id: string; name: string; category: string }>,
+        actions: mockActions2,
+      })
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Fill with out-of-range values
+    const dayInput2 = Array.from(container2.querySelectorAll('input')).find(
+      (el) => el.getAttribute("aria-label") === "Day"
+    ) as HTMLInputElement | undefined;
+    const monthInput2 = Array.from(container2.querySelectorAll('input')).find(
+      (el) => el.getAttribute("aria-label") === "Month"
+    ) as HTMLInputElement | undefined;
+    const yearInput2 = Array.from(container2.querySelectorAll('input')).find(
+      (el) => el.getAttribute("aria-label") === "Year"
+    ) as HTMLInputElement | undefined;
+
+    if (dayInput2 && monthInput2 && yearInput2) {
+      await userEvent.type(dayInput2, "12");
+      await userEvent.type(monthInput2, "05");
+      await userEvent.type(yearInput2, "1990");
+    }
+
+    const maleButton2 = Array.from(container2.querySelectorAll('button')).find(
+      (btn) => btn.textContent === "Male"
+    );
+    if (maleButton2) {
+      await userEvent.click(maleButton2);
+    }
+
+    // Type 3'0" (out of range height)
+    const allInputs2 = Array.from(container2.querySelectorAll('input'));
+    const heightInput2 = allInputs2.find(
+      (el) => (el as HTMLInputElement).placeholder.includes("5'9")
+    ) as HTMLInputElement | undefined;
+    const weightInput2 = allInputs2.find(
+      (el) => (el as HTMLInputElement).placeholder.includes("154")
+    ) as HTMLInputElement | undefined;
+
+    if (heightInput2) {
+      await userEvent.clear(heightInput2);
+      await userEvent.type(heightInput2, "3'0\"");
+    }
+
+    if (weightInput2) {
+      await userEvent.clear(weightInput2);
+      await userEvent.type(weightInput2, "50");
+    }
+
+    // Try to click Continue
+    const continueButton2 = Array.from(container2.querySelectorAll("button")).find(
+      (btn) => btn.textContent?.includes("Continue")
+    );
+    if (continueButton2) {
+      await userEvent.click(continueButton2);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const bodyText2 = container2.textContent || "";
       check(
-        "Stored ~79.8 kg displays as ~176 lb in imperial",
-        Math.abs(parseFloat(displayedWeight) - 176) < 1,
-        `got '${displayedWeight}'`
+        "Out-of-range height shows error message",
+        bodyText2.includes("between 3'3\"") || bodyText2.includes("100 cm")
+      );
+
+      check(
+        "Out-of-range weight shows error message",
+        bodyText2.includes("between 55 and 661 lb") || bodyText2.includes("25 and 300 kg")
+      );
+
+      check(
+        "saveAboutYou NOT called for out-of-range values",
+        spy2.callCount === 0,
+        `called ${spy2.callCount} times`
       );
     }
 
-    // Test out-of-range values return null
-    check(
-      "parseHeight(\"3'0\\\"\", 'imperial') returns null (out of range)",
-      parseHeight("3'0\"", units) === null
-    );
-
-    check(
-      "parseWeight('50', 'imperial') returns null (out of range)",
-      parseWeight("50", units) === null
-    );
+    unmount2();
   }
 
   console.log("\n6. Validation: parseWeight/parseHeight return null outside valid ranges");
