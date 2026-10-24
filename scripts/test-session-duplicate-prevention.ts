@@ -9,11 +9,10 @@
  */
 
 let failures = 0;
-function checkSessionDuplication(label: string, ok: boolean, detail = "") {
+function checkDuplication(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
-const check = checkSessionDuplication;
 
 type SessionRow = {
   id: string;
@@ -73,8 +72,8 @@ console.log("\n1. startSession returns existing in_progress session id");
 
   const inProgress = fake.getInProgressSession();
   
-  check("found existing in_progress session", inProgress !== undefined);
-  check("session id is existing-in-progress", inProgress?.id === "existing-in-progress");
+  checkDuplication("found existing in_progress session", inProgress !== undefined);
+  checkDuplication("session id is existing-in-progress", inProgress?.id === "existing-in-progress");
 }
 
 console.log("\n2. startSession with old-date in_progress session returns it");
@@ -93,8 +92,8 @@ console.log("\n2. startSession with old-date in_progress session returns it");
 
   const inProgress = fake.getInProgressSession();
   
-  check("found yesterday's in_progress session", inProgress !== undefined);
-  check("session id is yesterday-in-progress", inProgress?.id === "yesterday-in-progress");
+  checkDuplication("found yesterday's in_progress session", inProgress !== undefined);
+  checkDuplication("session id is yesterday-in-progress", inProgress?.id === "yesterday-in-progress");
 }
 
 console.log("\n3. startSession handles 23505 error (unique constraint violation)");
@@ -113,11 +112,11 @@ console.log("\n3. startSession handles 23505 error (unique constraint violation)
 
   const result = fake.attemptInsert();
   
-  check("insert returned 23505 error", result.error?.code === "23505");
+  checkDuplication("insert returned 23505 error", result.error?.code === "23505");
   
   // After catching 23505, the code should return the existing in_progress session
   const inProgress = fake.getInProgressSession();
-  check("fallback: found existing in_progress session", inProgress?.id === "constraint-session");
+  checkDuplication("fallback: found existing in_progress session", inProgress?.id === "constraint-session");
 }
 
 console.log("\n4. No in_progress session: insert proceeds");
@@ -134,11 +133,11 @@ console.log("\n4. No in_progress session: insert proceeds");
   ]);
 
   const inProgress = fake.getInProgressSession();
-  check("no in_progress session found", inProgress === undefined);
+  checkDuplication("no in_progress session found", inProgress === undefined);
   
   const result = fake.attemptInsert();
-  check("insert succeeded", result.error === null && result.data?.id === "new-session");
-  check("insert was called", fake.wasInsertCalled());
+  checkDuplication("insert succeeded", result.error === null && result.data?.id === "new-session");
+  checkDuplication("insert was called", fake.wasInsertCalled());
 }
 
 console.log("\n=== MUTANT TESTS (startSession) ===\n");
@@ -228,8 +227,8 @@ console.log("\n5. logSet rejects writes to completed sessions");
   const status = await fake.checkSessionStatus();
   
   const shouldReject = status !== "in_progress";
-  check("completed session is rejected", shouldReject);
-  check("status was completed", status === "completed");
+  checkDuplication("completed session is rejected", shouldReject);
+  checkDuplication("status was completed", status === "completed");
 }
 
 console.log("\n6. logSet rejects writes to skipped sessions");
@@ -238,7 +237,7 @@ console.log("\n6. logSet rejects writes to skipped sessions");
   const status = await fake.checkSessionStatus();
   
   const shouldReject = status !== "in_progress";
-  check("skipped session is rejected", shouldReject);
+  checkDuplication("skipped session is rejected", shouldReject);
 }
 
 console.log("\n7. logSet allows writes to in_progress sessions");
@@ -247,7 +246,7 @@ console.log("\n7. logSet allows writes to in_progress sessions");
   const status = await fake.checkSessionStatus();
   
   const shouldAllow = status === "in_progress";
-  check("in_progress session is allowed", shouldAllow);
+  checkDuplication("in_progress session is allowed", shouldAllow);
 }
 
 console.log("\n8. logSet allows writes to planned sessions (upgrade to in_progress)");
@@ -259,7 +258,7 @@ console.log("\n8. logSet allows writes to planned sessions (upgrade to in_progre
   // logging to planned sessions (auto-upgrading to in_progress), this test
   // documents that decision point.
   const shouldReject = status !== "in_progress";
-  check("planned session is rejected (current behavior)", shouldReject);
+  checkDuplication("planned session is rejected (current behavior)", shouldReject);
 }
 
 console.log("\n=== MUTANT TESTS (logSet) ===\n");
