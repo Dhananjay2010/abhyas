@@ -660,6 +660,12 @@ export async function findAlternatives(
   const hasKneeInjury = currentInjuryRegions.includes("knee");
   const patterns = buildPatternList(pattern, hasKneeInjury);
   
+  // Helper to cast Supabase rows to typed pool rows
+  type PoolRow = CandidateExercise & { cue: string | null };
+  function asPoolRows(rows: unknown[] | null): PoolRow[] {
+    return (rows ?? []) as unknown as PoolRow[];
+  }
+  
   // Query pool with widened pattern list
   const poolRes = await supabase
     .from("exercises")
@@ -667,8 +673,7 @@ export async function findAlternatives(
     .in("movement_pattern", patterns)
     .eq("is_active", true);
   
-  // Type the pool with cue field
-  const pool = (poolRes.data ?? []) as unknown as Array<CandidateExercise & { cue: string | null }>;
+  const pool = asPoolRows(poolRes.data);
   
   // Filter by isEligible first (generator safety rules: age, BMI, spinal load, etc.)
   const eligible = pool
@@ -686,9 +691,8 @@ export async function findAlternatives(
       .eq("id", current.exercise_id)
       .maybeSingle();
     
-    if (inactiveRes.data) {
-      currentExercise = inactiveRes.data as unknown as CandidateExercise & { cue: string | null };
-    } else {
+    currentExercise = asPoolRows(inactiveRes.data ? [inactiveRes.data] : [])[0];
+    if (!currentExercise) {
       return { ok: false, error: "Current exercise not found" };
     }
   }
