@@ -1,144 +1,1559 @@
 {
-  "exerciseSlugs": [
-    "3-4-sit-up",
-    "barbell-bench-press-medium-grip",
-    "barbell-deadlift",
-    "barbell-lunge",
-    "barbell-seated-calf-raise",
-    "barbell-squat",
-    "bent-over-barbell-row",
-    "body-tricep-press",
-    "bodyweight-squat",
-    "calf-raises-with-bands",
-    "cross-body-hammer-curl",
-    "crunches",
-    "doorway-row",
-    "dumbbell-lunges",
-    "glute-bridge",
-    "goblet-squat",
-    "janda-sit-up",
-    "one-arm-dumbbell-row",
-    "one-arm-pronated-dumbbell-triceps-extension",
-    "pike-push-up",
-    "pushups",
-    "reverse-barbell-preacher-curls",
-    "seated-bent-over-one-arm-dumbbell-triceps-extension",
-    "standing-bent-over-one-arm-dumbbell-triceps-extension",
-    "standing-military-press",
-    "standing-one-arm-dumbbell-curl-over-incline-bench",
-    "standing-rope-crunch",
-    "two-arm-dumbbell-preacher-curl",
-    "wide-grip-lat-pulldown"
+  "profiles": [
+    {
+      "userId": "bw-2d-30m-beginner",
+      "days": [
+        {
+          "dayType": "bodyweight",
+          "exercises": [
+            "bodyweight-squat",
+            "pushups",
+            "doorway-row",
+            "3-4-sit-up"
+          ],
+          "swaps": {
+            "bodyweight-squat": [
+              "wall-sit",
+              "step-up-with-knee-raise"
+            ],
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "push-up-to-side-plank"
+            ],
+            "doorway-row": [
+              "table-row"
+            ],
+            "3-4-sit-up": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "bent-knee-hip-raise"
+            ]
+          }
+        },
+        {
+          "dayType": "bodyweight",
+          "exercises": [
+            "glute-bridge",
+            "pike-push-up",
+            "doorway-row",
+            "3-4-sit-up"
+          ],
+          "swaps": {
+            "glute-bridge": [
+              "leg-lift",
+              "butt-lift-bridge",
+              "single-leg-glute-bridge"
+            ],
+            "pike-push-up": [],
+            "doorway-row": [
+              "table-row"
+            ],
+            "3-4-sit-up": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "bent-knee-hip-raise"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        }
+      ]
+    },
+    {
+      "userId": "bw-3d-45m-intermediate",
+      "days": [
+        {
+          "dayType": "yoga",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "bodyweight",
+          "exercises": [
+            "bodyweight-squat",
+            "pushups",
+            "doorway-row",
+            "3-4-sit-up"
+          ],
+          "swaps": {
+            "bodyweight-squat": [
+              "wall-sit",
+              "knee-tuck-jump",
+              "star-jump",
+              "split-jump",
+              "standing-long-jump"
+            ],
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "clock-push-up",
+              "single-arm-push-up",
+              "push-up-to-side-plank"
+            ],
+            "doorway-row": [
+              "table-row"
+            ],
+            "3-4-sit-up": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "frog-sit-ups"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "bodyweight",
+          "exercises": [
+            "glute-bridge",
+            "pike-push-up",
+            "doorway-row",
+            "3-4-sit-up"
+          ],
+          "swaps": {
+            "glute-bridge": [
+              "leg-lift",
+              "natural-glute-ham-raise",
+              "butt-lift-bridge",
+              "single-leg-glute-bridge",
+              "band-good-morning"
+            ],
+            "pike-push-up": [
+              "elevated-pike-push-up",
+              "shoulder-press-with-bands",
+              "internal-rotation-with-band"
+            ],
+            "doorway-row": [
+              "table-row"
+            ],
+            "3-4-sit-up": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "frog-sit-ups"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        }
+      ]
+    },
+    {
+      "userId": "bw-4d-60m-advanced",
+      "days": [
+        {
+          "dayType": "bodyweight",
+          "exercises": [
+            "pushups",
+            "chin-up",
+            "pike-push-up",
+            "one-arm-dumbbell-row",
+            "standing-dumbbell-triceps-extension",
+            "dumbbell-bicep-curl"
+          ],
+          "swaps": {
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "clock-push-up",
+              "single-arm-push-up",
+              "push-up-to-side-plank"
+            ],
+            "chin-up": [
+              "wide-grip-rear-pull-up",
+              "v-bar-pullup",
+              "pullups"
+            ],
+            "pike-push-up": [
+              "handstand-push-ups",
+              "elevated-pike-push-up",
+              "cuban-press",
+              "dumbbell-one-arm-shoulder-press",
+              "iron-cross"
+            ],
+            "one-arm-dumbbell-row": [
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "straight-arm-dumbbell-pullover",
+              "inverted-row",
+              "doorway-row"
+            ],
+            "standing-dumbbell-triceps-extension": [
+              "dumbbell-floor-press",
+              "seated-triceps-press",
+              "dumbbell-tricep-extension-pronated-grip",
+              "dumbbell-one-arm-triceps-extension",
+              "tate-press"
+            ],
+            "dumbbell-bicep-curl": [
+              "preacher-hammer-dumbbell-curl",
+              "zottman-curl",
+              "alternate-hammer-curl",
+              "seated-dumbbell-curl",
+              "one-arm-dumbbell-preacher-curl"
+            ]
+          }
+        },
+        {
+          "dayType": "bodyweight",
+          "exercises": [
+            "goblet-squat",
+            "glute-bridge",
+            "dumbbell-lunges",
+            "calf-raises-with-bands",
+            "flutter-kicks"
+          ],
+          "swaps": {
+            "goblet-squat": [
+              "plie-dumbbell-squat",
+              "squats-with-bands",
+              "spanish-squat",
+              "dumbbell-squat",
+              "dumbbell-seated-box-jump"
+            ],
+            "glute-bridge": [
+              "leg-lift",
+              "natural-glute-ham-raise",
+              "butt-lift-bridge",
+              "single-leg-glute-bridge",
+              "band-good-morning"
+            ],
+            "dumbbell-lunges": [
+              "dumbbell-step-ups",
+              "dumbbell-rear-lunge",
+              "split-squat-with-dumbbells",
+              "step-up-with-knee-raise",
+              "plie-dumbbell-squat"
+            ],
+            "calf-raises-with-bands": [
+              "standing-dumbbell-calf-raise",
+              "dumbbell-seated-one-leg-calf-raise",
+              "calf-raise-on-a-dumbbell"
+            ],
+            "flutter-kicks": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "frog-sit-ups"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "bodyweight",
+          "exercises": [
+            "pushups",
+            "chin-up",
+            "pike-push-up",
+            "one-arm-dumbbell-row",
+            "one-arm-pronated-dumbbell-triceps-extension",
+            "standing-concentration-curl"
+          ],
+          "swaps": {
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "clock-push-up",
+              "single-arm-push-up",
+              "push-up-to-side-plank"
+            ],
+            "chin-up": [
+              "wide-grip-rear-pull-up",
+              "v-bar-pullup",
+              "pullups"
+            ],
+            "pike-push-up": [
+              "handstand-push-ups",
+              "elevated-pike-push-up",
+              "cuban-press",
+              "dumbbell-one-arm-shoulder-press",
+              "iron-cross"
+            ],
+            "one-arm-dumbbell-row": [
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "straight-arm-dumbbell-pullover",
+              "inverted-row",
+              "doorway-row"
+            ],
+            "one-arm-pronated-dumbbell-triceps-extension": [
+              "standing-dumbbell-triceps-extension",
+              "dumbbell-floor-press",
+              "seated-triceps-press",
+              "dumbbell-tricep-extension-pronated-grip",
+              "dumbbell-one-arm-triceps-extension"
+            ],
+            "standing-concentration-curl": [
+              "preacher-hammer-dumbbell-curl",
+              "zottman-curl",
+              "alternate-hammer-curl",
+              "seated-dumbbell-curl",
+              "one-arm-dumbbell-preacher-curl"
+            ]
+          }
+        },
+        {
+          "dayType": "bodyweight",
+          "exercises": [
+            "goblet-squat",
+            "glute-bridge",
+            "dumbbell-lunges",
+            "calf-raises-with-bands",
+            "alternate-heel-touchers"
+          ],
+          "swaps": {
+            "goblet-squat": [
+              "plie-dumbbell-squat",
+              "squats-with-bands",
+              "spanish-squat",
+              "dumbbell-squat",
+              "dumbbell-seated-box-jump"
+            ],
+            "glute-bridge": [
+              "leg-lift",
+              "natural-glute-ham-raise",
+              "butt-lift-bridge",
+              "single-leg-glute-bridge",
+              "band-good-morning"
+            ],
+            "dumbbell-lunges": [
+              "dumbbell-step-ups",
+              "dumbbell-rear-lunge",
+              "split-squat-with-dumbbells",
+              "step-up-with-knee-raise",
+              "plie-dumbbell-squat"
+            ],
+            "calf-raises-with-bands": [
+              "standing-dumbbell-calf-raise",
+              "dumbbell-seated-one-leg-calf-raise",
+              "calf-raise-on-a-dumbbell"
+            ],
+            "alternate-heel-touchers": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "frog-sit-ups"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        }
+      ]
+    },
+    {
+      "userId": "db-3d-45m-beginner",
+      "days": [
+        {
+          "dayType": "weights",
+          "exercises": [
+            "goblet-squat",
+            "pushups",
+            "one-arm-dumbbell-row",
+            "3-4-sit-up"
+          ],
+          "swaps": {
+            "goblet-squat": [
+              "plie-dumbbell-squat",
+              "dumbbell-squat",
+              "wall-sit",
+              "bodyweight-squat",
+              "dumbbell-lunges"
+            ],
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "push-up-to-side-plank",
+              "dumbbell-flyes"
+            ],
+            "one-arm-dumbbell-row": [
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "doorway-row",
+              "table-row"
+            ],
+            "3-4-sit-up": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "bent-knee-hip-raise"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "glute-bridge",
+            "pike-push-up",
+            "one-arm-dumbbell-row",
+            "3-4-sit-up"
+          ],
+          "swaps": {
+            "glute-bridge": [
+              "leg-lift",
+              "butt-lift-bridge",
+              "single-leg-glute-bridge",
+              "stiff-legged-dumbbell-deadlift"
+            ],
+            "pike-push-up": [
+              "standing-palm-in-one-arm-dumbbell-press",
+              "seated-dumbbell-press",
+              "standing-alternating-dumbbell-press",
+              "single-dumbbell-raise",
+              "front-dumbbell-raise"
+            ],
+            "one-arm-dumbbell-row": [
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "doorway-row",
+              "table-row"
+            ],
+            "3-4-sit-up": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "bent-knee-hip-raise"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "dumbbell-lunges",
+            "pushups",
+            "one-arm-dumbbell-row",
+            "dumbbell-seated-one-leg-calf-raise"
+          ],
+          "swaps": {
+            "dumbbell-lunges": [
+              "split-squat-with-dumbbells",
+              "step-up-with-knee-raise",
+              "plie-dumbbell-squat",
+              "dumbbell-squat",
+              "wall-sit"
+            ],
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "push-up-to-side-plank",
+              "dumbbell-flyes"
+            ],
+            "one-arm-dumbbell-row": [
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "doorway-row",
+              "table-row"
+            ],
+            "dumbbell-seated-one-leg-calf-raise": []
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        }
+      ]
+    },
+    {
+      "userId": "kb-4d-60m-intermediate",
+      "days": [
+        {
+          "dayType": "weights",
+          "exercises": [
+            "pushups",
+            "one-arm-dumbbell-row",
+            "dumbbell-shoulder-press",
+            "doorway-row",
+            "dumbbell-tricep-extension-pronated-grip",
+            "standing-dumbbell-reverse-curl"
+          ],
+          "swaps": {
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "clock-push-up",
+              "single-arm-push-up",
+              "push-up-to-side-plank"
+            ],
+            "one-arm-dumbbell-row": [
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "straight-arm-dumbbell-pullover",
+              "one-arm-kettlebell-row",
+              "alternating-kettlebell-row"
+            ],
+            "dumbbell-shoulder-press": [
+              "cuban-press",
+              "dumbbell-one-arm-shoulder-press",
+              "iron-cross",
+              "standing-palm-in-one-arm-dumbbell-press",
+              "seated-dumbbell-press"
+            ],
+            "doorway-row": [
+              "table-row",
+              "one-arm-kettlebell-row",
+              "one-arm-dumbbell-row",
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "alternating-kettlebell-row"
+            ],
+            "dumbbell-tricep-extension-pronated-grip": [
+              "standing-dumbbell-triceps-extension",
+              "dumbbell-floor-press",
+              "seated-triceps-press",
+              "dumbbell-one-arm-triceps-extension",
+              "tate-press"
+            ],
+            "standing-dumbbell-reverse-curl": [
+              "preacher-hammer-dumbbell-curl",
+              "zottman-curl",
+              "alternate-hammer-curl",
+              "seated-dumbbell-curl",
+              "one-arm-dumbbell-preacher-curl"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "goblet-squat",
+            "glute-bridge",
+            "dumbbell-lunges",
+            "calf-raise-on-a-dumbbell",
+            "frog-sit-ups"
+          ],
+          "swaps": {
+            "goblet-squat": [
+              "front-squats-with-two-kettlebells",
+              "kettlebell-turkish-get-up-squat-style",
+              "plie-dumbbell-squat",
+              "dumbbell-squat",
+              "dumbbell-seated-box-jump"
+            ],
+            "glute-bridge": [
+              "leg-lift",
+              "natural-glute-ham-raise",
+              "butt-lift-bridge",
+              "single-leg-glute-bridge",
+              "kettlebell-one-legged-deadlift"
+            ],
+            "dumbbell-lunges": [
+              "dumbbell-step-ups",
+              "dumbbell-rear-lunge",
+              "split-squat-with-dumbbells",
+              "lunge-pass-through",
+              "kettlebell-turkish-get-up-lunge-style"
+            ],
+            "calf-raise-on-a-dumbbell": [
+              "standing-dumbbell-calf-raise",
+              "dumbbell-seated-one-leg-calf-raise"
+            ],
+            "frog-sit-ups": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "bent-knee-hip-raise"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "pushups",
+            "one-arm-dumbbell-row",
+            "dumbbell-shoulder-press",
+            "doorway-row",
+            "kettlebell-overhead-triceps-extension",
+            "zottman-preacher-curl"
+          ],
+          "swaps": {
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "clock-push-up",
+              "single-arm-push-up",
+              "push-up-to-side-plank"
+            ],
+            "one-arm-dumbbell-row": [
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "straight-arm-dumbbell-pullover",
+              "one-arm-kettlebell-row",
+              "alternating-kettlebell-row"
+            ],
+            "dumbbell-shoulder-press": [
+              "cuban-press",
+              "dumbbell-one-arm-shoulder-press",
+              "iron-cross",
+              "standing-palm-in-one-arm-dumbbell-press",
+              "seated-dumbbell-press"
+            ],
+            "doorway-row": [
+              "table-row",
+              "one-arm-kettlebell-row",
+              "one-arm-dumbbell-row",
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "alternating-kettlebell-row"
+            ],
+            "kettlebell-overhead-triceps-extension": [
+              "kettlebell-halo-with-overhead-extension",
+              "standing-dumbbell-triceps-extension",
+              "dumbbell-floor-press",
+              "seated-triceps-press",
+              "dumbbell-tricep-extension-pronated-grip"
+            ],
+            "zottman-preacher-curl": [
+              "preacher-hammer-dumbbell-curl",
+              "zottman-curl",
+              "alternate-hammer-curl",
+              "seated-dumbbell-curl",
+              "one-arm-dumbbell-preacher-curl"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "goblet-squat",
+            "glute-bridge",
+            "dumbbell-lunges",
+            "calf-raise-on-a-dumbbell",
+            "dumbbell-side-bend"
+          ],
+          "swaps": {
+            "goblet-squat": [
+              "front-squats-with-two-kettlebells",
+              "kettlebell-turkish-get-up-squat-style",
+              "plie-dumbbell-squat",
+              "dumbbell-squat",
+              "dumbbell-seated-box-jump"
+            ],
+            "glute-bridge": [
+              "leg-lift",
+              "natural-glute-ham-raise",
+              "butt-lift-bridge",
+              "single-leg-glute-bridge",
+              "kettlebell-one-legged-deadlift"
+            ],
+            "dumbbell-lunges": [
+              "dumbbell-step-ups",
+              "dumbbell-rear-lunge",
+              "split-squat-with-dumbbells",
+              "lunge-pass-through",
+              "kettlebell-turkish-get-up-lunge-style"
+            ],
+            "calf-raise-on-a-dumbbell": [
+              "standing-dumbbell-calf-raise",
+              "dumbbell-seated-one-leg-calf-raise"
+            ],
+            "dumbbell-side-bend": [
+              "spell-caster",
+              "kettlebell-pass-between-the-legs",
+              "double-kettlebell-windmill",
+              "advanced-kettlebell-windmill",
+              "kettlebell-windmill"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        }
+      ]
+    },
+    {
+      "userId": "bb-4d-60m-intermediate",
+      "days": [
+        {
+          "dayType": "weights",
+          "exercises": [
+            "pushups",
+            "bent-arm-barbell-pullover",
+            "standing-military-press",
+            "bent-over-barbell-row",
+            "body-tricep-press",
+            "seated-close-grip-concentration-barbell-curl"
+          ],
+          "swaps": {
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "clock-push-up",
+              "single-arm-push-up",
+              "push-up-to-side-plank"
+            ],
+            "bent-arm-barbell-pullover": [],
+            "standing-military-press": [
+              "single-arm-linear-jammer",
+              "anti-gravity-press",
+              "clean-and-press",
+              "standing-front-barbell-raise-over-head",
+              "standing-barbell-press-behind-neck"
+            ],
+            "bent-over-barbell-row": [
+              "bent-over-two-arm-long-bar-row",
+              "reverse-grip-bent-over-rows",
+              "t-bar-row-with-handle",
+              "one-arm-long-bar-row",
+              "bent-over-one-arm-long-bar-row"
+            ],
+            "body-tricep-press": [
+              "body-up",
+              "standing-towel-triceps-extension",
+              "board-press",
+              "one-arm-floor-press",
+              "jm-press"
+            ],
+            "seated-close-grip-concentration-barbell-curl": [
+              "close-grip-ez-bar-curl",
+              "preacher-curl",
+              "barbell-curl",
+              "close-grip-standing-barbell-curl",
+              "reverse-barbell-curl"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "bodyweight-squat",
+            "barbell-deadlift",
+            "barbell-lunge",
+            "barbell-seated-calf-raise",
+            "frog-sit-ups"
+          ],
+          "swaps": {
+            "bodyweight-squat": [
+              "wall-sit",
+              "knee-tuck-jump",
+              "star-jump",
+              "split-jump",
+              "standing-long-jump"
+            ],
+            "barbell-deadlift": [
+              "rack-pull-with-bands",
+              "deficit-deadlift",
+              "rack-pulls",
+              "seated-good-mornings",
+              "sumo-deadlift"
+            ],
+            "barbell-lunge": [
+              "barbell-walking-lunge",
+              "barbell-step-ups",
+              "elevated-back-lunge",
+              "step-up-with-knee-raise",
+              "jefferson-squats"
+            ],
+            "barbell-seated-calf-raise": [
+              "standing-barbell-calf-raise",
+              "rocking-standing-calf-raise"
+            ],
+            "frog-sit-ups": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "bent-knee-hip-raise"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "pushups",
+            "bent-arm-barbell-pullover",
+            "standing-military-press",
+            "bent-over-barbell-row",
+            "standing-towel-triceps-extension",
+            "preacher-curl"
+          ],
+          "swaps": {
+            "pushups": [
+              "push-up-wide",
+              "push-ups-with-feet-elevated",
+              "clock-push-up",
+              "single-arm-push-up",
+              "push-up-to-side-plank"
+            ],
+            "bent-arm-barbell-pullover": [],
+            "standing-military-press": [
+              "single-arm-linear-jammer",
+              "anti-gravity-press",
+              "clean-and-press",
+              "standing-front-barbell-raise-over-head",
+              "standing-barbell-press-behind-neck"
+            ],
+            "bent-over-barbell-row": [
+              "bent-over-two-arm-long-bar-row",
+              "reverse-grip-bent-over-rows",
+              "t-bar-row-with-handle",
+              "one-arm-long-bar-row",
+              "bent-over-one-arm-long-bar-row"
+            ],
+            "standing-towel-triceps-extension": [
+              "body-up",
+              "body-tricep-press",
+              "board-press",
+              "one-arm-floor-press",
+              "jm-press"
+            ],
+            "preacher-curl": [
+              "close-grip-ez-bar-curl",
+              "barbell-curl",
+              "seated-close-grip-concentration-barbell-curl",
+              "close-grip-standing-barbell-curl",
+              "reverse-barbell-curl"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "bodyweight-squat",
+            "barbell-deadlift",
+            "barbell-lunge",
+            "barbell-seated-calf-raise",
+            "crunch-hands-overhead"
+          ],
+          "swaps": {
+            "bodyweight-squat": [
+              "wall-sit",
+              "knee-tuck-jump",
+              "star-jump",
+              "split-jump",
+              "standing-long-jump"
+            ],
+            "barbell-deadlift": [
+              "rack-pull-with-bands",
+              "deficit-deadlift",
+              "rack-pulls",
+              "seated-good-mornings",
+              "sumo-deadlift"
+            ],
+            "barbell-lunge": [
+              "barbell-walking-lunge",
+              "barbell-step-ups",
+              "elevated-back-lunge",
+              "step-up-with-knee-raise",
+              "jefferson-squats"
+            ],
+            "barbell-seated-calf-raise": [
+              "standing-barbell-calf-raise",
+              "rocking-standing-calf-raise"
+            ],
+            "crunch-hands-overhead": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "frog-sit-ups"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        }
+      ]
+    },
+    {
+      "userId": "gym-5d-60m-advanced",
+      "days": [
+        {
+          "dayType": "weights",
+          "exercises": [
+            "barbell-bench-press-medium-grip",
+            "standing-military-press",
+            "dumbbell-bench-press",
+            "barbell-incline-shoulder-raise",
+            "cable-one-arm-tricep-extension"
+          ],
+          "swaps": {
+            "barbell-bench-press-medium-grip": [
+              "barbell-guillotine-bench-press",
+              "decline-barbell-bench-press",
+              "wide-grip-barbell-bench-press",
+              "barbell-incline-bench-press-medium-grip",
+              "reverse-triceps-bench-press"
+            ],
+            "standing-military-press": [
+              "smith-incline-shoulder-raise",
+              "single-arm-linear-jammer",
+              "anti-gravity-press",
+              "straight-raises-on-incline-bench",
+              "clean-and-press"
+            ],
+            "dumbbell-bench-press": [
+              "one-arm-dumbbell-bench-press",
+              "decline-dumbbell-bench-press",
+              "incline-dumbbell-bench-with-palms-facing-in",
+              "one-arm-flat-bench-dumbbell-flye",
+              "hammer-grip-incline-db-bench-press"
+            ],
+            "barbell-incline-shoulder-raise": [
+              "one-arm-incline-lateral-raise",
+              "upright-barbell-row",
+              "external-rotation-with-band",
+              "cable-internal-rotation",
+              "dumbbell-raise"
+            ],
+            "cable-one-arm-tricep-extension": [
+              "triceps-pushdown",
+              "reverse-grip-triceps-pushdown",
+              "triceps-overhead-extension-with-rope",
+              "kneeling-cable-triceps-extension",
+              "triceps-pushdown-v-bar-attachment"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "wide-grip-lat-pulldown",
+            "bent-over-barbell-row",
+            "one-arm-dumbbell-row",
+            "back-flyes-with-bands",
+            "lying-close-grip-bar-curl-on-high-pulley"
+          ],
+          "swaps": {
+            "wide-grip-lat-pulldown": [
+              "rope-straight-arm-pulldown",
+              "close-grip-front-lat-pulldown",
+              "one-arm-lat-pulldown",
+              "v-bar-pulldown",
+              "full-range-of-motion-lat-pulldown"
+            ],
+            "bent-over-barbell-row": [
+              "bent-over-two-arm-long-bar-row",
+              "incline-bench-pull",
+              "reverse-grip-bent-over-rows",
+              "t-bar-row-with-handle",
+              "straight-bar-bench-mid-rows"
+            ],
+            "one-arm-dumbbell-row": [
+              "dumbbell-incline-row",
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "straight-arm-dumbbell-pullover",
+              "bent-over-two-arm-long-bar-row"
+            ],
+            "back-flyes-with-bands": [
+              "band-pull-apart",
+              "reverse-flyes",
+              "cable-rear-delt-fly",
+              "reverse-machine-flyes",
+              "reverse-flyes-with-external-rotation"
+            ],
+            "lying-close-grip-bar-curl-on-high-pulley": [
+              "lying-cable-curl",
+              "overhead-cable-curl",
+              "cable-preacher-curl",
+              "high-cable-curls",
+              "lying-supine-dumbbell-curl"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "barbell-squat",
+            "barbell-deadlift",
+            "barbell-lunge",
+            "barbell-seated-calf-raise",
+            "pallof-press"
+          ],
+          "swaps": {
+            "barbell-squat": [
+              "reverse-band-power-squat",
+              "barbell-squat-to-a-bench",
+              "box-squat",
+              "squat-with-plate-movers",
+              "wide-stance-barbell-squat"
+            ],
+            "barbell-deadlift": [
+              "reverse-band-deadlift",
+              "deadlift-with-chains",
+              "stiff-leg-barbell-good-morning",
+              "rack-pull-with-bands",
+              "deficit-deadlift"
+            ],
+            "barbell-lunge": [
+              "barbell-walking-lunge",
+              "barbell-step-ups",
+              "elevated-back-lunge",
+              "barbell-side-split-squat",
+              "smith-machine-pistol-squat"
+            ],
+            "barbell-seated-calf-raise": [
+              "standing-barbell-calf-raise",
+              "rocking-standing-calf-raise",
+              "seated-calf-raise",
+              "smith-machine-reverse-calf-raises",
+              "standing-calf-raises"
+            ],
+            "pallof-press": [
+              "bosu-ball-cable-crunch-with-side-bends",
+              "standing-cable-lift",
+              "kneeling-cable-crunch-with-alternating-oblique-twists",
+              "cable-russian-twists",
+              "standing-rope-crunch"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "barbell-bench-press-medium-grip",
+            "wide-grip-lat-pulldown",
+            "standing-military-press",
+            "bent-over-barbell-row",
+            "standing-one-arm-dumbbell-triceps-extension",
+            "reverse-barbell-preacher-curls"
+          ],
+          "swaps": {
+            "barbell-bench-press-medium-grip": [
+              "barbell-guillotine-bench-press",
+              "decline-barbell-bench-press",
+              "wide-grip-barbell-bench-press",
+              "barbell-incline-bench-press-medium-grip",
+              "reverse-triceps-bench-press"
+            ],
+            "wide-grip-lat-pulldown": [
+              "rope-straight-arm-pulldown",
+              "close-grip-front-lat-pulldown",
+              "one-arm-lat-pulldown",
+              "v-bar-pulldown",
+              "full-range-of-motion-lat-pulldown"
+            ],
+            "standing-military-press": [
+              "smith-incline-shoulder-raise",
+              "single-arm-linear-jammer",
+              "anti-gravity-press",
+              "straight-raises-on-incline-bench",
+              "clean-and-press"
+            ],
+            "bent-over-barbell-row": [
+              "bent-over-two-arm-long-bar-row",
+              "incline-bench-pull",
+              "reverse-grip-bent-over-rows",
+              "t-bar-row-with-handle",
+              "straight-bar-bench-mid-rows"
+            ],
+            "standing-one-arm-dumbbell-triceps-extension": [
+              "decline-dumbbell-triceps-extension",
+              "standing-dumbbell-triceps-extension",
+              "lying-dumbbell-tricep-extension",
+              "dumbbell-floor-press",
+              "seated-triceps-press"
+            ],
+            "reverse-barbell-preacher-curls": [
+              "spider-curl",
+              "ez-bar-curl",
+              "close-grip-ez-bar-curl-with-band",
+              "preacher-hammer-dumbbell-curl",
+              "zottman-curl"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "barbell-squat",
+            "barbell-deadlift",
+            "barbell-lunge",
+            "barbell-seated-calf-raise",
+            "janda-sit-up"
+          ],
+          "swaps": {
+            "barbell-squat": [
+              "reverse-band-power-squat",
+              "barbell-squat-to-a-bench",
+              "box-squat",
+              "squat-with-plate-movers",
+              "wide-stance-barbell-squat"
+            ],
+            "barbell-deadlift": [
+              "reverse-band-deadlift",
+              "deadlift-with-chains",
+              "stiff-leg-barbell-good-morning",
+              "rack-pull-with-bands",
+              "deficit-deadlift"
+            ],
+            "barbell-lunge": [
+              "barbell-walking-lunge",
+              "barbell-step-ups",
+              "elevated-back-lunge",
+              "barbell-side-split-squat",
+              "smith-machine-pistol-squat"
+            ],
+            "barbell-seated-calf-raise": [
+              "standing-barbell-calf-raise",
+              "rocking-standing-calf-raise",
+              "seated-calf-raise",
+              "smith-machine-reverse-calf-raises",
+              "standing-calf-raises"
+            ],
+            "janda-sit-up": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "frog-sit-ups"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        }
+      ]
+    },
+    {
+      "userId": "gym-6d-75m-expert",
+      "days": [
+        {
+          "dayType": "weights",
+          "exercises": [
+            "barbell-bench-press-medium-grip",
+            "standing-military-press",
+            "dumbbell-bench-press",
+            "barbell-incline-shoulder-raise",
+            "standing-dumbbell-triceps-extension",
+            "kettlebell-pirate-ships"
+          ],
+          "swaps": {
+            "barbell-bench-press-medium-grip": [
+              "barbell-guillotine-bench-press",
+              "decline-barbell-bench-press",
+              "wide-grip-barbell-bench-press",
+              "barbell-incline-bench-press-medium-grip",
+              "reverse-triceps-bench-press"
+            ],
+            "standing-military-press": [
+              "smith-incline-shoulder-raise",
+              "single-arm-linear-jammer",
+              "anti-gravity-press",
+              "straight-raises-on-incline-bench",
+              "clean-and-press"
+            ],
+            "dumbbell-bench-press": [
+              "one-arm-dumbbell-bench-press",
+              "decline-dumbbell-bench-press",
+              "incline-dumbbell-bench-with-palms-facing-in",
+              "one-arm-flat-bench-dumbbell-flye",
+              "hammer-grip-incline-db-bench-press"
+            ],
+            "barbell-incline-shoulder-raise": [
+              "one-arm-incline-lateral-raise",
+              "upright-barbell-row",
+              "external-rotation-with-band",
+              "cable-internal-rotation",
+              "dumbbell-raise"
+            ],
+            "standing-dumbbell-triceps-extension": [
+              "decline-dumbbell-triceps-extension",
+              "lying-dumbbell-tricep-extension",
+              "dumbbell-floor-press",
+              "seated-triceps-press",
+              "dumbbell-tricep-extension-pronated-grip"
+            ],
+            "kettlebell-pirate-ships": [
+              "external-rotation-with-band",
+              "cable-internal-rotation",
+              "dumbbell-raise",
+              "barbell-incline-shoulder-raise",
+              "upright-cable-row"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "wide-grip-lat-pulldown",
+            "bent-over-barbell-row",
+            "one-arm-dumbbell-row",
+            "back-flyes-with-bands",
+            "standing-one-arm-cable-curl",
+            "band-pull-apart"
+          ],
+          "swaps": {
+            "wide-grip-lat-pulldown": [
+              "rope-straight-arm-pulldown",
+              "close-grip-front-lat-pulldown",
+              "one-arm-lat-pulldown",
+              "v-bar-pulldown",
+              "full-range-of-motion-lat-pulldown"
+            ],
+            "bent-over-barbell-row": [
+              "bent-over-two-arm-long-bar-row",
+              "incline-bench-pull",
+              "reverse-grip-bent-over-rows",
+              "t-bar-row-with-handle",
+              "straight-bar-bench-mid-rows"
+            ],
+            "one-arm-dumbbell-row": [
+              "dumbbell-incline-row",
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "straight-arm-dumbbell-pullover",
+              "bent-over-two-arm-long-bar-row"
+            ],
+            "back-flyes-with-bands": [
+              "band-pull-apart",
+              "reverse-flyes",
+              "cable-rear-delt-fly",
+              "reverse-machine-flyes",
+              "reverse-flyes-with-external-rotation"
+            ],
+            "standing-one-arm-cable-curl": [
+              "overhead-cable-curl",
+              "cable-preacher-curl",
+              "lying-cable-curl",
+              "high-cable-curls",
+              "cable-hammer-curls-rope-attachment"
+            ],
+            "band-pull-apart": [
+              "back-flyes-with-bands",
+              "reverse-flyes",
+              "cable-rear-delt-fly",
+              "reverse-machine-flyes",
+              "reverse-flyes-with-external-rotation"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "barbell-squat",
+            "barbell-deadlift",
+            "barbell-lunge",
+            "lunge-pass-through",
+            "barbell-seated-calf-raise",
+            "flutter-kicks"
+          ],
+          "swaps": {
+            "barbell-squat": [
+              "reverse-band-power-squat",
+              "barbell-squat-to-a-bench",
+              "box-squat",
+              "squat-with-plate-movers",
+              "wide-stance-barbell-squat"
+            ],
+            "barbell-deadlift": [
+              "reverse-band-deadlift",
+              "deadlift-with-chains",
+              "stiff-leg-barbell-good-morning",
+              "rack-pull-with-bands",
+              "deficit-deadlift"
+            ],
+            "barbell-lunge": [
+              "barbell-walking-lunge",
+              "barbell-step-ups",
+              "elevated-back-lunge",
+              "barbell-side-split-squat",
+              "smith-machine-pistol-squat"
+            ],
+            "lunge-pass-through": [
+              "kettlebell-turkish-get-up-lunge-style",
+              "kettlebell-pistol-squat",
+              "smith-machine-pistol-squat",
+              "dumbbell-step-ups",
+              "dumbbell-lunges"
+            ],
+            "barbell-seated-calf-raise": [
+              "standing-barbell-calf-raise",
+              "rocking-standing-calf-raise",
+              "seated-calf-raise",
+              "smith-machine-reverse-calf-raises",
+              "standing-calf-raises"
+            ],
+            "flutter-kicks": [
+              "crunches",
+              "seated-leg-tucks",
+              "cocoons",
+              "side-jackknife",
+              "frog-sit-ups"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "barbell-bench-press-medium-grip",
+            "standing-military-press",
+            "dumbbell-bench-press",
+            "barbell-incline-shoulder-raise",
+            "standing-one-arm-dumbbell-triceps-extension",
+            "bent-over-low-pulley-side-lateral"
+          ],
+          "swaps": {
+            "barbell-bench-press-medium-grip": [
+              "barbell-guillotine-bench-press",
+              "decline-barbell-bench-press",
+              "wide-grip-barbell-bench-press",
+              "barbell-incline-bench-press-medium-grip",
+              "reverse-triceps-bench-press"
+            ],
+            "standing-military-press": [
+              "smith-incline-shoulder-raise",
+              "single-arm-linear-jammer",
+              "anti-gravity-press",
+              "straight-raises-on-incline-bench",
+              "clean-and-press"
+            ],
+            "dumbbell-bench-press": [
+              "one-arm-dumbbell-bench-press",
+              "decline-dumbbell-bench-press",
+              "incline-dumbbell-bench-with-palms-facing-in",
+              "one-arm-flat-bench-dumbbell-flye",
+              "hammer-grip-incline-db-bench-press"
+            ],
+            "barbell-incline-shoulder-raise": [
+              "one-arm-incline-lateral-raise",
+              "upright-barbell-row",
+              "external-rotation-with-band",
+              "cable-internal-rotation",
+              "dumbbell-raise"
+            ],
+            "standing-one-arm-dumbbell-triceps-extension": [
+              "decline-dumbbell-triceps-extension",
+              "standing-dumbbell-triceps-extension",
+              "lying-dumbbell-tricep-extension",
+              "dumbbell-floor-press",
+              "seated-triceps-press"
+            ],
+            "bent-over-low-pulley-side-lateral": [
+              "upright-cable-row",
+              "cable-internal-rotation",
+              "cable-seated-lateral-raise",
+              "dumbbell-one-arm-upright-row",
+              "side-laterals-to-front-raise"
+            ]
+          }
+        },
+        {
+          "dayType": "rest",
+          "exercises": [],
+          "swaps": {}
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "wide-grip-lat-pulldown",
+            "bent-over-barbell-row",
+            "one-arm-dumbbell-row",
+            "back-flyes-with-bands",
+            "cable-hammer-curls-rope-attachment",
+            "reverse-flyes"
+          ],
+          "swaps": {
+            "wide-grip-lat-pulldown": [
+              "rope-straight-arm-pulldown",
+              "close-grip-front-lat-pulldown",
+              "one-arm-lat-pulldown",
+              "v-bar-pulldown",
+              "full-range-of-motion-lat-pulldown"
+            ],
+            "bent-over-barbell-row": [
+              "bent-over-two-arm-long-bar-row",
+              "incline-bench-pull",
+              "reverse-grip-bent-over-rows",
+              "t-bar-row-with-handle",
+              "straight-bar-bench-mid-rows"
+            ],
+            "one-arm-dumbbell-row": [
+              "dumbbell-incline-row",
+              "bent-over-two-dumbbell-row-with-palms-in",
+              "bent-over-two-dumbbell-row",
+              "straight-arm-dumbbell-pullover",
+              "bent-over-two-arm-long-bar-row"
+            ],
+            "back-flyes-with-bands": [
+              "band-pull-apart",
+              "reverse-flyes",
+              "cable-rear-delt-fly",
+              "reverse-machine-flyes",
+              "reverse-flyes-with-external-rotation"
+            ],
+            "cable-hammer-curls-rope-attachment": [
+              "overhead-cable-curl",
+              "cable-preacher-curl",
+              "lying-cable-curl",
+              "high-cable-curls",
+              "lying-close-grip-bar-curl-on-high-pulley"
+            ],
+            "reverse-flyes": [
+              "reverse-flyes-with-external-rotation",
+              "seated-bent-over-rear-delt-raise",
+              "lying-rear-delt-raise",
+              "bent-over-dumbbell-rear-delt-raise-with-head-on-bench",
+              "cable-rear-delt-fly"
+            ]
+          }
+        },
+        {
+          "dayType": "weights",
+          "exercises": [
+            "barbell-squat",
+            "barbell-deadlift",
+            "barbell-lunge",
+            "dumbbell-step-ups",
+            "barbell-seated-calf-raise",
+            "smith-machine-hip-raise"
+          ],
+          "swaps": {
+            "barbell-squat": [
+              "reverse-band-power-squat",
+              "barbell-squat-to-a-bench",
+              "box-squat",
+              "squat-with-plate-movers",
+              "wide-stance-barbell-squat"
+            ],
+            "barbell-deadlift": [
+              "reverse-band-deadlift",
+              "deadlift-with-chains",
+              "stiff-leg-barbell-good-morning",
+              "rack-pull-with-bands",
+              "deficit-deadlift"
+            ],
+            "barbell-lunge": [
+              "barbell-walking-lunge",
+              "barbell-step-ups",
+              "elevated-back-lunge",
+              "barbell-side-split-squat",
+              "smith-machine-pistol-squat"
+            ],
+            "dumbbell-step-ups": [
+              "dumbbell-lunges",
+              "dumbbell-rear-lunge",
+              "split-squat-with-dumbbells",
+              "smith-machine-pistol-squat",
+              "barbell-lunge"
+            ],
+            "barbell-seated-calf-raise": [
+              "standing-barbell-calf-raise",
+              "rocking-standing-calf-raise",
+              "seated-calf-raise",
+              "smith-machine-reverse-calf-raises",
+              "standing-calf-raises"
+            ],
+            "smith-machine-hip-raise": [
+              "weighted-crunches",
+              "kettlebell-pass-between-the-legs",
+              "hanging-leg-raise",
+              "seated-flat-bench-leg-pull-in",
+              "bosu-ball-cable-crunch-with-side-bends"
+            ]
+          }
+        }
+      ]
+    }
   ],
-  "swapSlugs": [
-    "alternate-hammer-curl",
-    "alternate-incline-dumbbell-curl",
-    "anti-gravity-press",
-    "band-good-morning",
-    "barbell-guillotine-bench-press",
-    "barbell-hack-squat",
-    "barbell-incline-bench-press-medium-grip",
-    "barbell-side-split-squat",
-    "barbell-step-ups",
-    "barbell-walking-lunge",
-    "bent-knee-hip-raise",
-    "bent-over-two-arm-long-bar-row",
-    "bent-over-two-dumbbell-row",
-    "bent-over-two-dumbbell-row-with-palms-in",
-    "body-up",
-    "bosu-ball-cable-crunch-with-side-bends",
-    "box-squat",
-    "butt-lift-bridge",
-    "cable-russian-twists",
-    "calf-raise-on-a-dumbbell",
-    "clean-and-press",
-    "clock-push-up",
-    "close-grip-ez-bar-curl-with-band",
-    "close-grip-ez-bar-press",
-    "close-grip-front-lat-pulldown",
-    "cocoons",
-    "crunches",
-    "cuban-press",
-    "decline-barbell-bench-press",
-    "decline-dumbbell-triceps-extension",
-    "deficit-deadlift",
-    "doorway-row",
-    "dumbbell-floor-press",
-    "dumbbell-one-arm-shoulder-press",
-    "dumbbell-one-arm-triceps-extension",
-    "dumbbell-rear-lunge",
-    "dumbbell-seated-box-jump",
-    "dumbbell-seated-one-leg-calf-raise",
-    "dumbbell-squat",
-    "dumbbell-step-ups",
-    "dumbbell-tricep-extension-pronated-grip",
-    "elevated-back-lunge",
-    "elevated-pike-push-up",
-    "ez-bar-curl",
-    "frog-sit-ups",
-    "full-range-of-motion-lat-pulldown",
-    "incline-bench-pull",
-    "incline-dumbbell-curl",
-    "incline-hammer-curls",
-    "incline-inner-biceps-curl",
-    "iron-cross",
-    "kneeling-cable-crunch-with-alternating-oblique-twists",
-    "leg-lift",
-    "lying-dumbbell-tricep-extension",
-    "lying-supine-dumbbell-curl",
-    "natural-glute-ham-raise",
-    "one-arm-dumbbell-preacher-curl",
-    "one-arm-dumbbell-row",
-    "one-arm-lat-pulldown",
-    "plie-dumbbell-squat",
-    "preacher-hammer-dumbbell-curl",
-    "push-up-to-side-plank",
-    "push-up-wide",
-    "push-ups-with-feet-elevated",
-    "rack-pull-with-bands",
-    "rack-pulls",
-    "reverse-grip-bent-over-rows",
-    "reverse-triceps-bench-press",
-    "rocking-standing-calf-raise",
-    "rope-straight-arm-pulldown",
-    "seated-calf-raise",
-    "seated-dumbbell-curl",
-    "seated-good-mornings",
-    "seated-leg-tucks",
-    "seated-triceps-press",
-    "side-jackknife",
-    "single-arm-linear-jammer",
-    "single-arm-push-up",
-    "single-leg-glute-bridge",
-    "smith-incline-shoulder-raise",
-    "smith-machine-pistol-squat",
-    "smith-machine-reverse-calf-raises",
-    "spanish-squat",
-    "speed-band-overhead-triceps",
-    "speed-box-squat",
-    "spider-curl",
-    "split-squat-with-dumbbells",
-    "squat-with-plate-movers",
-    "squats-with-bands",
-    "standing-barbell-calf-raise",
-    "standing-cable-lift",
-    "standing-cable-wood-chop",
-    "standing-calf-raises",
-    "standing-dumbbell-calf-raise",
-    "standing-dumbbell-triceps-extension",
-    "standing-palm-in-one-arm-dumbbell-press",
-    "standing-towel-triceps-extension",
-    "step-up-with-knee-raise",
-    "stiff-leg-barbell-good-morning",
-    "straight-arm-dumbbell-pullover",
-    "straight-bar-bench-mid-rows",
-    "straight-raises-on-incline-bench",
-    "t-bar-row-with-handle",
-    "table-row",
-    "v-bar-pulldown",
-    "wall-sit",
-    "wide-grip-barbell-bench-press",
-    "wide-stance-barbell-squat",
-    "zottman-curl"
-  ]
+  "generatedAt": "2026-10-24T19:47:07.052Z",
+  "mainCommit": "0486325b9f0a207f04b4d35e550194f67fab7ee6"
 }
