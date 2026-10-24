@@ -18,6 +18,7 @@ Object.defineProperty(global, "HTMLElement", { value: dom.window.HTMLElement, wr
 Object.defineProperty(global, "HTMLInputElement", { value: dom.window.HTMLInputElement, writable: true, configurable: true });
 Object.defineProperty(global, "Event", { value: dom.window.Event, writable: true, configurable: true });
 Object.defineProperty(global, "navigator", { value: dom.window.navigator, writable: true, configurable: true });
+Object.defineProperty(global, "self", { value: dom.window, writable: true, configurable: true });
 
 // Set React act environment flag
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
