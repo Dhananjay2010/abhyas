@@ -37,6 +37,10 @@ console.log("\n1. Epley 1RM calculation");
     calculateEpley1RM(12, 60) === 84,
     `got ${calculateEpley1RM(12, 60)}`
   );
+  check("40kg × 20 reps = 56kg (reps capped at 12)",
+    calculateEpley1RM(20, 40) === 56,
+    `got ${calculateEpley1RM(20, 40)}`
+  );
   check("bodyweight (0kg) returns null", calculateEpley1RM(10, 0) === null);
   check("null weight returns null", calculateEpley1RM(10, null) === null);
   check("null reps returns null", calculateEpley1RM(null, 100) === null);
