@@ -12,32 +12,7 @@
  *   npx tsx scripts/test-redirect-sanitizer.ts
  */
 
-/**
- * Copy of the sanitizeRedirectPath function from auth/callback/route.ts
- * Kept in sync manually for testing.
- */
-function sanitizeRedirectPath(next: string | null): string {
-  if (!next || typeof next !== "string") return "/today";
-  
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(next);
-  } catch {
-    return "/today";
-  }
-  
-  if (!decoded.startsWith("/")) return "/today";
-  if (decoded.startsWith("//")) return "/today";
-  if (decoded.includes("//")) return "/today";
-  if (decoded.includes("\\")) return "/today";
-  if (decoded.includes("@")) return "/today";
-  if (decoded.includes(":")) return "/today";
-  if (/[\x00-\x1f]/.test(decoded)) return "/today";
-  if (next.includes("%2F") || next.includes("%2f")) return "/today";
-  if (next.includes("%5C") || next.includes("%5c")) return "/today";
-  
-  return decoded;
-}
+import { sanitizeRedirectPath } from "../src/lib/auth/redirect";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
