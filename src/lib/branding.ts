@@ -70,6 +70,12 @@ export type Brand = {
    * Shown in the app header/landing page. If not set, the text name is shown.
    */
   logo?: string;
+  /**
+   * Default unit system for new members ('metric' or 'imperial').
+   * New users start with this setting and can change it in Settings.
+   * Metric: kg, cm; Imperial: lb, in.
+   */
+  defaultUnits: "metric" | "imperial";
   /** Brand color palette */
   colors: BrandColors;
   /**
@@ -110,6 +116,7 @@ const abhyas: Brand = {
   siteUrl: "https://abhyas-indol.vercel.app",
   // No timezone set — falls back to browser detection
   // No logo set — shows text name
+  defaultUnits: "metric",
   colors: {
     accent: "#ff9a2e",
     accentHover: "#e8850c",
@@ -147,6 +154,7 @@ const example: Brand = {
   siteUrl: "https://example-gym.com",
   timezone: "America/New_York",
   logo: "/icons/icon-192.png", // Example: uses same icon as logo
+  defaultUnits: "metric",
   colors: {
     accent: "#3b82f6", // blue
     accentHover: "#2563eb",
@@ -391,4 +399,12 @@ export function getBrandCssVariables(brand: Brand = branding): string {
     `--color-danger: ${brand.colors.danger};`,
     `--color-chart: ${brand.colors.chart};`,
   ].join(" ");
+}
+
+/**
+ * Get the default unit system for new members.
+ * Returns 'metric' or 'imperial' based on the active brand's configuration.
+ */
+export function getDefaultUnits(): "metric" | "imperial" {
+  return branding.defaultUnits;
 }

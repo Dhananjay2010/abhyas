@@ -18,6 +18,7 @@ This document explains how to customize Abhyas for per-gym white-label deploymen
      description: "Your gym's one-sentence pitch",
      siteUrl: "https://yourgym.com",
      timezone: "America/New_York", // Optional, IANA timezone name
+     defaultUnits: "metric", // 'metric' or 'imperial'
      colors: {
        accent: "#3b82f6",       // Primary action color
        accentHover: "#2563eb",  // Hover state
@@ -72,6 +73,11 @@ This document explains how to customize Abhyas for per-gym white-label deploymen
   - Used as the default timezone for users when browser detection fails or during SSR
   - If not set, falls back to browser-detected timezone or `"Asia/Kolkata"`
   - Must be a [valid IANA timezone name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+
+- **`defaultUnits`** (`"metric"` | `"imperial"`): Default unit system for new members
+  - New members start with this unit preference (kg/cm for metric, lb/in for imperial)
+  - Users can change their unit preference later in Settings
+  - Examples: `"metric"` (default), `"imperial"`
 
 ### Colors
 
@@ -319,6 +325,7 @@ const powerhouse: Brand = {
   description: "Science-backed training programs that build real strength.",
   siteUrl: "https://powerhousegym.com",
   timezone: "America/Los_Angeles",
+  defaultUnits: "imperial", // US gym, use imperial units
   colors: {
     accent: "#dc2626",      // Bold red
     accentHover: "#b91c1c",

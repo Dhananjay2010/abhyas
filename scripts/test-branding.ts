@@ -11,7 +11,7 @@
  * - Timezone resolution (config > browser > default)
  */
 
-import { branding, validateTimezone, getBrandCssVariables, type Brand } from "../src/lib/branding";
+import { branding, validateTimezone, getBrandCssVariables, getDefaultUnits, type Brand } from "../src/lib/branding";
 import {
   getDefaultTimezone,
   resolveTimezoneWithProfile,
@@ -138,6 +138,30 @@ function testBrandTimezone() {
   assert(typeof defaultTz === "string" && defaultTz.length > 0, "getDefaultTimezone() must return a non-empty string");
   assert(validateTimezone(defaultTz) !== null, `getDefaultTimezone() must return a valid timezone (got: ${defaultTz})`);
   console.log(`  ✓ Default timezone: ${defaultTz}`);
+}
+
+function testDefaultUnits() {
+  console.log("\n▶ Testing default units...");
+
+  // Test that branding has defaultUnits
+  assert(
+    branding.defaultUnits === "metric" || branding.defaultUnits === "imperial",
+    `branding.defaultUnits must be 'metric' or 'imperial' (got: ${branding.defaultUnits})`
+  );
+  console.log(`  Brand default units: ${branding.defaultUnits}`);
+
+  // Test getDefaultUnits()
+  const units = getDefaultUnits();
+  assert(
+    units === "metric" || units === "imperial",
+    `getDefaultUnits() must return 'metric' or 'imperial' (got: ${units})`
+  );
+  assert(
+    units === branding.defaultUnits,
+    `getDefaultUnits() must match branding.defaultUnits (got: ${units}, expected: ${branding.defaultUnits})`
+  );
+  console.log(`  ✓ getDefaultUnits() returns: ${units}`);
+  console.log(`  ✓ Default units configuration valid`);
 }
 
 function testTimezoneValidation() {
@@ -432,6 +456,7 @@ function main() {
     testBrandConfig();
     testBrandColors();
     testBrandTimezone();
+    testDefaultUnits();
     testTimezoneValidation();
     testTimezoneResolution();
     testCssVariableGeneration();
@@ -443,6 +468,7 @@ function main() {
     console.log(`\nActive brand: ${branding.name} (${branding.id})`);
     console.log(`Site URL: ${branding.siteUrl}`);
     console.log(`Timezone: ${branding.timezone || "(browser fallback)"}`);
+    console.log(`Default units: ${branding.defaultUnits}`);
     console.log(`Colors: ${branding.colors.accent} (accent), ${branding.colors.bg} (background)\n`);
 
     process.exit(0);
