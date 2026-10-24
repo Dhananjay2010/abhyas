@@ -68,7 +68,7 @@ console.log("\n=== Test 3: hasStartedAnyOrNull with successful query with sessio
 
 const successQuery = {
   data: [
-    { actual_type: "weights", started_at: "2026-10-20T10:00:00Z" },
+    { actual_type: "weights" as const, started_at: "2026-10-20T10:00:00Z" as string | null },
   ],
   error: null,
 };
