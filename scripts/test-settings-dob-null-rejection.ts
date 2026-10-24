@@ -1,67 +1,120 @@
 /**
- * Test: Settings rejects null DOB
+ * Behavioral test: Settings requireDob option rejects null DOB
  * 
  * After onboarding, DOB is required in Settings context.
- * The pure profile-update-logic allows null (for onboarding flexibility),
- * but updateProfileSettings server action must reject it.
+ * The pure profile-update-logic validates this via requireDob: true.
  * 
- * This test validates the server action layer, not the pure logic.
+ * This test validates the behavior by calling validateAndUpdateProfile directly.
  */
 
+let passed = 0;
+let failed = 0;
+
+function check(condition: boolean, message: string) {
+  if (condition) {
+    console.log(`✅ PASS: ${message}`);
+    passed++;
+  } else {
+    console.log(`❌ FAIL: ${message}`);
+    failed++;
+  }
+}
+
 (async function runTest() {
-  console.log("\n=== Settings DOB null rejection test ===\n");
+  console.log("\n🧪 Settings requireDob null rejection test\n");
 
-  // We can't easily test the server action directly without Supabase,
-  // but we can verify the logic by checking the source code path.
-  
-  console.log("1. Verify server action rejects null DOB in Settings context");
+  const { validateAndUpdateProfile } = await import("@/app/settings/profile-update-logic");
+
+  // Test 1: With requireDob: true (Settings context), null is rejected
+  console.log("1️⃣  Settings context (requireDob: true) rejects null DOB\n");
   {
-    const actionsPath = "./src/app/settings/actions.ts";
-    const fs = await import("fs/promises");
-    const content = await fs.readFile(actionsPath, "utf-8");
-    
-    // Check that updateProfileSettings has the rejection logic
-    if (!content.includes('if (patch.date_of_birth === null)')) {
-      console.log("   ❌ FAIL: Server action missing null DOB check");
-      process.exit(1);
-    }
-    
-    if (!content.includes('return { ok: false, error: "Enter your full date of birth"')) {
-      console.log("   ❌ FAIL: Server action missing null DOB error message");
-      process.exit(1);
-    }
-    
-    console.log("   ✅ PASS: Server action includes null DOB rejection");
-    console.log("   Location: updateProfileSettings checks patch.date_of_birth === null");
+    let updateCalled = false;
+    const result = await validateAndUpdateProfile(
+      { date_of_birth: null },
+      {
+        updateProfile: async () => {
+          updateCalled = true;
+          return { ok: true };
+        },
+        getTodayIso: () => "2024-10-24",
+        requireDob: true,
+      }
+    );
+
+    check(!result.ok, "Null DOB rejected (ok: false)");
+    check(result.ok === false && result.error === "Enter your full date of birth", 
+      `Error message matches (got: ${result.ok === false ? result.error : "N/A"})`);
+    check(!updateCalled, "updateProfile spy NOT called");
   }
 
-  console.log("\n2. Verify pure logic still allows null (for onboarding)");
+  // Test 2: With requireDob: false (onboarding context), null is allowed
+  console.log("\n2️⃣  Onboarding context (requireDob: false) allows null DOB\n");
   {
-    const logicPath = "./src/app/settings/profile-update-logic.ts";
-    const fs = await import("fs/promises");
-    const content = await fs.readFile(logicPath, "utf-8");
-    
-    // Check that validateAndUpdateProfile allows null
-    if (!content.includes('if (patch.date_of_birth === null)')) {
-      console.log("   ❌ FAIL: Pure logic missing null handling");
-      process.exit(1);
-    }
-    
-    if (!content.includes('// Allow clearing DOB (null)')) {
-      console.log("   ❌ FAIL: Pure logic doesn't document null allowance");
-      process.exit(1);
-    }
-    
-    console.log("   ✅ PASS: Pure logic allows null DOB (onboarding flexibility)");
+    let updateCalled = false;
+    let capturedPatch: unknown = null;
+    const result = await validateAndUpdateProfile(
+      { date_of_birth: null },
+      {
+        updateProfile: async (patch) => {
+          updateCalled = true;
+          capturedPatch = patch;
+          return { ok: true };
+        },
+        getTodayIso: () => "2024-10-24",
+        requireDob: false,
+      }
+    );
+
+    check(result.ok, "Null DOB allowed (ok: true)");
+    check(updateCalled, "updateProfile spy called");
+    check(
+      capturedPatch !== null && typeof capturedPatch === "object" && "date_of_birth" in capturedPatch,
+      `Patch passed to updateProfile (got: ${JSON.stringify(capturedPatch)})`
+    );
   }
 
-  console.log("\n3. Document the layering");
-  console.log("   - Pure logic (profile-update-logic.ts): allows null for flexibility");
-  console.log("   - Server action (actions.ts): rejects null in Settings context");
-  console.log("   - Client (settings-form.tsx): prevents null save, shows inline error");
-  console.log("   This layering ensures DOB is required after onboarding\n");
+  // Test 3: With requireDob: undefined (default, onboarding context), null is allowed
+  console.log("\n3️⃣  Default context (requireDob: undefined) allows null DOB\n");
+  {
+    let updateCalled = false;
+    const result = await validateAndUpdateProfile(
+      { date_of_birth: null },
+      {
+        updateProfile: async () => {
+          updateCalled = true;
+          return { ok: true };
+        },
+        getTodayIso: () => "2024-10-24",
+        // requireDob not specified (undefined)
+      }
+    );
 
-  console.log("✅ Settings null DOB rejection verified\n");
+    check(result.ok, "Null DOB allowed (ok: true)");
+    check(updateCalled, "updateProfile spy called");
+  }
+
+  // Test 4: Valid DOB passes in all contexts
+  console.log("\n4️⃣  Valid DOB '1990-05-15' passes with requireDob: true\n");
+  {
+    let updateCalled = false;
+    const result = await validateAndUpdateProfile(
+      { date_of_birth: "1990-05-15" },
+      {
+        updateProfile: async () => {
+          updateCalled = true;
+          return { ok: true };
+        },
+        getTodayIso: () => "2024-10-24",
+        requireDob: true,
+      }
+    );
+
+    check(result.ok, "Valid DOB accepted (ok: true)");
+    check(updateCalled, "updateProfile spy called");
+  }
+
+  console.log(`\n✅ ${passed} passed, ❌ ${failed} failed\n`);
+  process.exit(failed > 0 ? 1 : 0);
 })().catch((err) => {
   console.error("FATAL:", err);
   process.exit(1);

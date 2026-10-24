@@ -68,12 +68,6 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     }
   }
 
-  // Settings context: DOB is required after onboarding
-  // Reject null DOB from Settings (incomplete input)
-  if (patch.date_of_birth === null) {
-    return { ok: false, error: "Enter your full date of birth" };
-  }
-
   // Only fetch timezone when validating DOB (avoid extra roundtrip for timezone-only/other saves)
   let profile: { timezone: string | null } | null = null;
   if (patch.date_of_birth !== undefined) {
@@ -86,6 +80,7 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
   }
 
   // Validate and update with testable logic
+  // Settings context: requireDob=true rejects null DOB after onboarding
   const result = await validateAndUpdateProfile(patch, {
     updateProfile: async (validatedPatch) => {
       const { error } = await supabase.from("profiles").update(validatedPatch).eq("id", user.id);
@@ -97,6 +92,7 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
       const timezone = patch.timezone ?? profile?.timezone ?? null;
       return getTodayIsoInTimezone(timezone);
     },
+    requireDob: true, // Settings context: DOB required after onboarding
   });
 
   if (!result.ok) return result;

@@ -15,6 +15,7 @@ export type Result = { ok: true } | { ok: false; error: string };
 export interface ProfileUpdateDeps {
   updateProfile: (patch: ProfileUpdate) => Promise<Result>;
   getTodayIso: () => string;
+  requireDob?: boolean; // Settings context: reject null DOB after onboarding
 }
 
 /**
@@ -49,8 +50,12 @@ export async function validateAndUpdateProfile(
   // Validate date_of_birth when explicitly set
   if (patch.date_of_birth !== undefined) {
     if (patch.date_of_birth === null) {
-      // Allow clearing DOB (null)
-      // No validation needed
+      // Settings context (requireDob: true): reject null DOB after onboarding
+      // Onboarding context (requireDob: false/undefined): allow null (incomplete input)
+      if (deps.requireDob) {
+        return { ok: false, error: "Enter your full date of birth" };
+      }
+      // Allow null in onboarding context
     } else {
       const todayIso = deps.getTodayIso();
       const error = validateDob(patch.date_of_birth, todayIso);

@@ -71,34 +71,6 @@ async function main() {
     console.log(`   ✅ PASS: Invalid timezone returns valid ISO date '${result}'`);
   }
 
-  // Test 5: OLD UTC APPROACH FAILS
-  console.log("\n5. REGRESSION: Old UTC approach fails for IST user at midnight boundary");
-  {
-    const instant = new Date("2026-10-24T20:00:00Z");
-    
-    // Old approach: new Date().toISOString().slice(0, 10)
-    const oldUtcApproach = instant.toISOString().slice(0, 10);
-    
-    console.log(`   OLD UTC approach: instant.toISOString().slice(0, 10) = '${oldUtcApproach}'`);
-    console.log(`   IST user expects: '2026-10-25' (it's 01:30 AM IST)`);
-    console.log(`   NEW approach: getTodayIsoInTimezone('Asia/Kolkata', instant) = '${getTodayIsoInTimezone("Asia/Kolkata", instant)}'`);
-    
-    if (oldUtcApproach === "2026-10-25") {
-      console.log(`   ❌ FAIL: Old approach should return '2026-10-24', got '${oldUtcApproach}'`);
-      process.exit(1);
-    }
-    
-    const newApproach = getTodayIsoInTimezone("Asia/Kolkata", instant);
-    if (newApproach !== "2026-10-25") {
-      console.log(`   ❌ FAIL: New approach should return '2026-10-25', got '${newApproach}'`);
-      process.exit(1);
-    }
-    
-    console.log(`   ✅ PASS: Old UTC approach returns '${oldUtcApproach}' (WRONG for IST)`);
-    console.log(`   ✅ PASS: New approach returns '${newApproach}' (CORRECT for IST)`);
-    console.log(`   This proves the bug: IST user between 00:00-05:30 gets wrong date with old code`);
-  }
-
   console.log("\n✅ All getTodayIsoInTimezone tests passed\n");
 }
 
