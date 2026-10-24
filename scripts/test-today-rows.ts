@@ -52,7 +52,7 @@ console.log("\nToday rows: started session, unfinished exercise");
       planned_reps_min: 20,
       planned_reps_max: 30,
       rest_seconds: 60,
-      status: "planned" as const,
+      status: "pending" as const,
       swapped_from_exercise_id: null,
     },
   ];
@@ -115,7 +115,7 @@ console.log("\nToday rows: loaded exercise with progress");
       planned_reps_min: 8,
       planned_reps_max: 12,
       rest_seconds: 180,
-      status: "planned" as const,
+      status: "pending" as const,
       swapped_from_exercise_id: null,
     },
   ];
@@ -146,7 +146,7 @@ console.log("\nToday rows: bodyweight with added weight");
       planned_reps_min: 8,
       planned_reps_max: 12,
       rest_seconds: 120,
-      status: "planned" as const,
+      status: "pending" as const,
       swapped_from_exercise_id: null,
     },
   ];
@@ -177,7 +177,7 @@ console.log("\nToday rows: swapped and skipped indicators");
       planned_reps_min: 8,
       planned_reps_max: 12,
       rest_seconds: 90,
-      status: "planned" as const,
+      status: "pending" as const,
       swapped_from_exercise_id: "ex-original",
     },
     {

@@ -6,16 +6,17 @@
 import { buildSwapResult } from "./swap-decision";
 import { prescribe } from "../program/prescription";
 
+interface EqChain {
+  eq(column: string, value: unknown): this;
+  maybeSingle(): Promise<{ data: unknown; error: unknown }>;
+  single(): Promise<{ data: unknown; error: unknown }>;
+}
+
 interface TestableSupabaseClient {
   from(table: string): {
-    select(columns: string): {
-      eq(column: string, value: string): {
-        maybeSingle(): Promise<{ data: unknown; error: unknown }>;
-        single(): Promise<{ data: unknown; error: unknown }>;
-      };
-    };
+    select(columns: string): EqChain;
     update(data: unknown): {
-      eq(column: string, value: string): Promise<{ error: unknown }>;
+      eq(column: string, value: unknown): Promise<{ error: unknown }>;
     };
   };
 }

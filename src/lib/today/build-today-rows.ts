@@ -24,7 +24,7 @@ type SessionExerciseRow = {
   planned_reps_min: number | null;
   planned_reps_max: number | null;
   rest_seconds: number | null;
-  status: "planned" | "skipped" | "completed";
+  status: "pending" | "skipped" | "completed" | "swapped_out" | null;
   swapped_from_exercise_id: string | null;
 };
 
@@ -41,11 +41,13 @@ type TemplateExerciseRow = {
   rest_seconds: number | null;
 };
 
+import type { Database } from "../database.types";
+
 export type TodayRow = {
   key: string;
   name: string;
   cue: string | null;
-  metric: string | null;
+  metric: Database["public"]["Enums"]["exercise_metric"] | null;
   sets: number | null;
   repsMin: number | null;
   repsMax: number | null;

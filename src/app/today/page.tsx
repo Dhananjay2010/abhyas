@@ -398,7 +398,7 @@ export default async function TodayPage() {
     planned_reps_min: number | null;
     planned_reps_max: number | null;
     rest_seconds: number | null;
-    status: string | null;
+    status: Database["public"]["Enums"]["exercise_status"] | null;
     swapped_from_exercise_id: string | null;
     metric: Database["public"]["Enums"]["exercise_metric"] | null;
     exercise_id: string | null;

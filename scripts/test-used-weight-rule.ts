@@ -46,6 +46,7 @@ console.log("\nUnified usedWeight rule: stored weight + unweighted session");
   const decision = evaluateProgression({
     sets,
     plannedSets: 3,
+    repsMin: 8,
     repsMax: 12,
     feel: "right",
     meta,
@@ -71,6 +72,7 @@ console.log("\nUnified usedWeight rule: stored weight + unweighted session");
   const weightedDecision = evaluateProgression({
     sets: weightedSets,
     plannedSets: 3,
+    repsMin: 8,
     repsMax: 12,
     feel: "right",
     meta,
@@ -94,7 +96,7 @@ console.log("\nUnified usedWeight rule: build-runner-init consistency");
       planned_reps_min: 8,
       planned_reps_max: 12,
       rest_seconds: 120,
-      status: "planned" as const,
+      status: "pending" as const,
       feel: null,
       exercises: {
         id: "ex-1",
@@ -156,6 +158,7 @@ console.log("\nUnified usedWeight rule: pure bodyweight (no stored weight)");
   const decision = evaluateProgression({
     sets,
     plannedSets: 3,
+    repsMin: 8,
     repsMax: 12,
     feel: "right",
     meta,

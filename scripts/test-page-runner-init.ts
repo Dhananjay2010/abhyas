@@ -21,7 +21,7 @@ console.log("\nRunner init: loaded exercise (has progress)");
       planned_reps_min: 8,
       planned_reps_max: 12,
       rest_seconds: 90,
-      status: "planned" as const,
+      status: "pending" as const,
       feel: null,
       exercises: {
         id: "ex-1",
@@ -57,7 +57,7 @@ console.log("\nRunner init: bodyweight exercise with progress");
       planned_reps_min: 8,
       planned_reps_max: 12,
       rest_seconds: 90,
-      status: "planned" as const,
+      status: "pending" as const,
       feel: null,
       exercises: {
         id: "ex-1",
@@ -92,7 +92,7 @@ console.log("\nRunner init: no progress record");
       planned_reps_min: 8,
       planned_reps_max: 12,
       rest_seconds: 90,
-      status: "planned" as const,
+      status: "pending" as const,
       feel: null,
       exercises: {
         id: "ex-1",
@@ -124,7 +124,7 @@ console.log("\nRunner init: equipment classification");
     planned_reps_min: 8,
     planned_reps_max: 12,
     rest_seconds: 90,
-    status: "planned" as const,
+    status: "pending" as const,
     feel: null,
     exercises: {
       id: "ex-1",
@@ -183,7 +183,7 @@ console.log("\nMutation guards: G5 and P-series");
     planned_reps_min: 8,
     planned_reps_max: 12,
     rest_seconds: 90,
-    status: "planned" as const,
+    status: "pending" as const,
     feel: null,
     exercises: {
       id: "ex-1",
