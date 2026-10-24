@@ -90,12 +90,12 @@ function check(label: string, ok: boolean, detail = "") {
     const initialState = {
       displayName: "Test User",
       dateOfBirth: "1990-01-01",
-      sex: "male",
+      sex: "male" as const,
       heightCm: 175,
       weightKg: 70,
-      goal: "muscle_gain",
-      level: "intermediate",
-      primaryTrack: "weights",
+      goal: "muscle_gain" as const,
+      level: "intermediate" as const,
+      primaryTrack: "weights" as const,
       daysPerWeek: 4,
       sessionMinutes: null, // NULL from DB after migration
       yogaDaysPerWeek: 0,
@@ -144,16 +144,16 @@ function check(label: string, ok: boolean, detail = "") {
   console.log("\n2. L2: Settings reverts to saved value on validation error");
   {
     const initialSettings = {
-      goal: "muscle_gain",
-      level: "intermediate",
-      primaryTrack: "weights",
+      goal: "muscle_gain" as const,
+      level: "intermediate" as const,
+      primaryTrack: "weights" as const,
       daysPerWeek: 4,
       yogaDaysPerWeek: 0,
       preferredSessionMinutes: 45, // Saved value
       hasAllEquipment: false,
       equipmentIds: [],
       injuries: [],
-      planningMode: "progression",
+      planningMode: "progression" as const,
       perSetLogging: true,
       resumeSession: true,
       cooldownEnabled: true,
@@ -161,7 +161,7 @@ function check(label: string, ok: boolean, detail = "") {
       restSound: true,
       restVibrate: true,
       restOverrideSeconds: null,
-      bodyweightPrompt: "weekly",
+      bodyweightPrompt: "weekly" as const,
       timezone: null,
     };
 
@@ -181,7 +181,7 @@ function check(label: string, ok: boolean, detail = "") {
       updateInjuries: async () => ({ ok: true as const }),
     };
 
-    const equipment: unknown[] = [];
+    const equipment = [] as { id: string; name: string; category: string }[];
     const timezones: string[] = ["America/New_York"];
 
     render(
