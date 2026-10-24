@@ -15,8 +15,11 @@ export type PlannedExercise = Pick<
  * Planned rows are already paced when the plan is generated, so no additional
  * session-time pacing is applied here.
  *
- * Deload week applies a 0.6x multiplier to sets, clamped to never exceed the
- * planned sets and never go below 2. 0 stays 0, 1 stays 1, 2 stays 2, and 5 becomes 3.
+ * Deload week applies a 0.6x multiplier to sets, with the formula:
+ * min(sets, max(2, round(sets * 0.6)))
+ *
+ * This ensures: 0 stays 0, 1 stays 1, 2 stays 2, and 5 becomes 3.
+ * Deload sets never exceed the planned sets.
  */
 export function resolveSessionTargets(
   planned: PlannedExercise,

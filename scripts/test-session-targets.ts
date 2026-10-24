@@ -232,66 +232,90 @@ console.log("\n6. Reps and rest are never modified");
   }
 }
 
-console.log("\n7. Invariant over real generateProgram output: profile matrix");
+console.log("\n7. Invariant over real generateProgram output: comprehensive profile matrix");
 {
   const fixture = "scripts/fixtures/catalogue.json";
-  const catalogue = JSON.parse(readFileSync(fixture, "utf8"));
+  const catalogue: GeneratorInput["catalogue"] = JSON.parse(readFileSync(fixture, "utf8"));
 
-  const profiles: GeneratorInput[] = [
-    {
-      userId: "test-user",
-      blockNumber: 1,
-      goal: "muscle_gain",
-      level: "intermediate",
-      primaryTrack: "weights",
-      daysPerWeek: 4,
-      yogaDaysPerWeek: 0,
-      age: 30,
-      bmi: 23,
-      hasAllEquipment: true,
-      equipmentIds: [],
-      currentInjuryRegions: [],
-      catalogue,
-    },
-    {
-      userId: "test-user",
-      blockNumber: 1,
-      goal: "strength",
-      level: "beginner",
-      primaryTrack: "weights",
-      daysPerWeek: 3,
-      yogaDaysPerWeek: 0,
-      age: 25,
-      bmi: 22,
-      hasAllEquipment: true,
-      equipmentIds: [],
-      currentInjuryRegions: [],
-      catalogue,
-    },
-    {
-      userId: "test-user",
-      blockNumber: 1,
-      goal: "fat_loss",
-      level: "intermediate",
-      primaryTrack: "bodyweight",
-      daysPerWeek: 5,
-      yogaDaysPerWeek: 1,
-      age: 40,
-      bmi: 28,
-      hasAllEquipment: false,
-      equipmentIds: [],
-      currentInjuryRegions: [],
-      catalogue,
-    },
+  const tracks: Array<GeneratorInput["primaryTrack"]> = ["weights", "bodyweight"];
+  const levels: Array<GeneratorInput["level"]> = ["beginner", "intermediate", "expert"];
+  const daysOptions = [2, 3, 4, 5, 6];
+  const sessionMinutes = [30, 45, 60, 75];
+  const injuryProfiles: Array<Array<GeneratorInput["currentInjuryRegions"][number]>> = [
+    [],
+    ["knee"],
+    ["lower_back"],
+    ["shoulder", "lower_back"],
   ];
 
-  let testedRows = 0;
+  const profiles: GeneratorInput[] = [];
+
+  // Generate comprehensive matrix
+  for (const track of tracks) {
+    for (const level of levels) {
+      for (const days of daysOptions) {
+        for (const minutes of sessionMinutes) {
+          for (const injuries of injuryProfiles) {
+            profiles.push({
+              userId: "test-user",
+              blockNumber: 1,
+              goal: "muscle_gain",
+              level,
+              primaryTrack: track,
+              daysPerWeek: days,
+              yogaDaysPerWeek: 0,
+              age: 30,
+              bmi: 23,
+              hasAllEquipment: track === "weights",
+              equipmentIds: track === "weights" ? [] : [],
+              currentInjuryRegions: injuries,
+              catalogue,
+              preferredSessionMinutes: minutes,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Add goal variety
+  const goalProfiles: Array<{ goal: GeneratorInput["goal"]; age: number; bmi: number }> = [
+    { goal: "strength", age: 25, bmi: 22 },
+    { goal: "fat_loss", age: 40, bmi: 28 },
+    { goal: "general_fitness", age: 35, bmi: 24 },
+    { goal: "flexibility_stress", age: 45, bmi: 26 },
+  ];
+
+  for (const { goal, age, bmi } of goalProfiles) {
+    for (const track of tracks) {
+      profiles.push({
+        userId: "test-user",
+        blockNumber: 1,
+        goal,
+        level: "intermediate",
+        primaryTrack: track,
+        daysPerWeek: 4,
+        yogaDaysPerWeek: 0,
+        age,
+        bmi,
+        hasAllEquipment: track === "weights",
+        equipmentIds: [],
+        currentInjuryRegions: [],
+        catalogue,
+        preferredSessionMinutes: 60,
+      });
+    }
+  }
+
+  let testedRowsNonDeload = 0;
+  let testedRowsDeload = 0;
   let allInvariantsHeld = true;
 
   for (const input of profiles) {
     const plan = generateProgram(input);
     for (const day of plan.days) {
-      if (day.dayType !== "weights") continue;
+      // Test ALL day types that have exercises, not just 'weights'
+      if (day.exercises.length === 0) continue;
 
       for (const ex of day.exercises) {
         const planned: PlannedExercise = {
@@ -311,16 +335,17 @@ console.log("\n7. Invariant over real generateProgram output: profile matrix");
         ) {
           allInvariantsHeld = false;
           console.log(
-            `    FAIL: ${input.goal}/${input.level}/${day.label}: non-deload changed planned`,
+            `    FAIL: ${input.goal}/${input.level}/${input.primaryTrack}/${day.label}: non-deload changed planned`,
           );
         }
+        testedRowsNonDeload++;
 
         // Deload: output ≤ planned
         const deload = resolveSessionTargets(planned, { isDeload: true });
         if (deload.sets > ex.targetSets) {
           allInvariantsHeld = false;
           console.log(
-            `    FAIL: ${input.goal}/${input.level}/${day.label}: deload ${deload.sets} > planned ${ex.targetSets}`,
+            `    FAIL: ${input.goal}/${input.level}/${input.primaryTrack}/${day.label}: deload ${deload.sets} > planned ${ex.targetSets}`,
           );
         }
 
@@ -328,31 +353,35 @@ console.log("\n7. Invariant over real generateProgram output: profile matrix");
         if (ex.targetSets === 0 && deload.sets !== 0) {
           allInvariantsHeld = false;
           console.log(
-            `    FAIL: ${input.goal}/${input.level}/${day.label}: 0-set deload became ${deload.sets}`,
+            `    FAIL: ${input.goal}/${input.level}/${input.primaryTrack}/${day.label}: 0-set deload became ${deload.sets}`,
           );
         }
         if (ex.targetSets === 1 && deload.sets !== 1) {
           allInvariantsHeld = false;
           console.log(
-            `    FAIL: ${input.goal}/${input.level}/${day.label}: 1-set deload became ${deload.sets}`,
+            `    FAIL: ${input.goal}/${input.level}/${input.primaryTrack}/${day.label}: 1-set deload became ${deload.sets}`,
           );
         }
         if (ex.targetSets === 2 && deload.sets !== 2) {
           allInvariantsHeld = false;
           console.log(
-            `    FAIL: ${input.goal}/${input.level}/${day.label}: 2-set deload became ${deload.sets}`,
+            `    FAIL: ${input.goal}/${input.level}/${input.primaryTrack}/${day.label}: 2-set deload became ${deload.sets}`,
           );
         }
-
-        testedRows++;
+        testedRowsDeload++;
       }
     }
   }
 
   check(
-    `Tested ${testedRows} planned exercise rows from generateProgram`,
-    testedRows > 0,
-    `got ${testedRows}`,
+    `Tested ${testedRowsNonDeload} non-deload rows from generateProgram`,
+    testedRowsNonDeload >= 500,
+    `got ${testedRowsNonDeload}, need at least 500`,
+  );
+  check(
+    `Tested ${testedRowsDeload} deload rows from generateProgram`,
+    testedRowsDeload >= 500,
+    `got ${testedRowsDeload}, need at least 500`,
   );
   check("All invariants held across profile matrix", allInvariantsHeld);
 }
