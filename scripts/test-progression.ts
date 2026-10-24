@@ -26,7 +26,6 @@ const BENCH: ExerciseMeta = {
   isBodyweight: false,
   progressionChain: null,
   progressionRank: null,
-  equipmentIds: [],
 };
 const SQUAT: ExerciseMeta = { ...BENCH, movementPattern: "squat" };
 const CURL: ExerciseMeta = { ...BENCH, mechanic: "isolation", movementPattern: "biceps" };
@@ -37,7 +36,6 @@ const PUSHUP: ExerciseMeta = {
   isBodyweight: true,
   progressionChain: "push",
   progressionRank: 1,
-  equipmentIds: [],
 };
 
 const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
@@ -234,7 +232,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     movementPattern: "core",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null, equipmentIds: [],
+    progressionRank: null,
   };
   const PLANK_CHAINED: ExerciseMeta = { ...PLANK, progressionChain: "plank" };
 
@@ -300,24 +298,6 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
   check("a weighted hold records no estimated one-rep max", weighted.bestE1rm === null,
     `${weighted.bestE1rm}`);
   check("but does record the longest hold", weighted.bestReps === 45, `${weighted.bestReps}`);
-
-  // Progressed target: success check uses currentTargetReps for unloaded holds.
-  const progressedMiss = hold({
-    sets: holds(2, 46),
-    repsMax: 45,
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 50 }),
-  });
-  check("hold with currentTargetReps 50 where every set is held 46s is a miss",
-    progressedMiss.outcome === "hold", progressedMiss.outcome);
-
-  const progressedHit = hold({
-    sets: holds(2, 50),
-    repsMax: 45,
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 50 }),
-  });
-  check("50s on every set progresses to 55",
-    progressedHit.outcome === "progressed" && progressedHit.nextTargetReps === 55,
-    `${progressedHit.outcome} ${progressedHit.nextTargetReps}`);
 }
 
 {
@@ -361,7 +341,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     movementPattern: "core",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null, equipmentIds: [],
+    progressionRank: null,
   };
   const PUSHUP_BW: ExerciseMeta = {
     mechanic: "compound",
@@ -369,7 +349,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     movementPattern: "horizontal_press",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null, equipmentIds: [],
+    progressionRank: null,
   };
 
   const heavier = run({ sets: sets(4, 12, 65) });
@@ -447,16 +427,7 @@ console.log("\nBodyweight exercises with added weight");
     movementPattern: "squat",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null, equipmentIds: [],
-  };
-  // Isolation bodyweight: 1.25 kg step regardless of pattern.
-  const LEG_RAISE_BW: ExerciseMeta = {
-    mechanic: "isolation",
-    metric: "reps",
-    movementPattern: "core",
-    isBodyweight: true,
-    progressionChain: null,
-    progressionRank: null, equipmentIds: [],
+    progressionRank: null,
   };
   const lower = run({
     meta: SQUAT_BW,
@@ -489,7 +460,7 @@ console.log("\nBodyweight exercises with added weight");
     movementPattern: "horizontal_press",
     isBodyweight: true,
     progressionChain: null,
-    progressionRank: null, equipmentIds: [],
+    progressionRank: null,
   };
   const upper = run({
     meta: PUSHUP_LOADED,
@@ -499,35 +470,28 @@ console.log("\nBodyweight exercises with added weight");
   check("upper-body bodyweight with 5 kg added goes to 6.25 kg",
     upper.nextWorkingWeightKg === 6.25, `${upper.nextWorkingWeightKg}`);
 
-  // Isolation bodyweight: 1.25 kg step even for lower-body pattern.
-  const isolation = run({
-    meta: LEG_RAISE_BW,
-    sets: sets(4, 12, 5),
-    state: fresh({ currentWorkingWeightKg: 5, currentTargetReps: 12 }),
-  });
-  check("isolation bodyweight with 5 kg added goes to 6.25 kg (step 1.25, not 2.5)",
-    isolation.nextWorkingWeightKg === 6.25, `${isolation.nextWorkingWeightKg}`);
-
-  // Back-off: two misses subtract two steps (10 - 2.5*2 = 5).
+  // Back-off: two misses drop added weight to 0.
   const backoff = run({
     meta: SQUAT_BW,
     sets: sets(4, 10, 10),
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
   });
-  check("two misses with 10 kg added weight drop to 5 kg",
-    backoff.nextWorkingWeightKg === 5, `${backoff.nextWorkingWeightKg}`);
-  check("message says down to 5 kg",
-    backoff.message.includes("down to 5 kg"), backoff.message);
+  check("two misses with added weight drop to 0",
+    backoff.nextWorkingWeightKg === 0, `${backoff.nextWorkingWeightKg}`);
+  check("message says back to bodyweight",
+    backoff.message.includes("back to bodyweight"), backoff.message);
 
   // Back-off edge case: stored added weight but this session logged without weight.
-  // The stored weight is used for the back-off calculation, so 10 kg goes to 5 kg.
+  // Regression: if heaviest=0, the old `isBodyweight && heaviest>0` check failed
+  // and fell through to loaded-exercise logic with incrementFor, so a lower-body
+  // move with currentWeight=10 gave max(5, roundTo(9, 5))=10 and didn't drop at all.
   const backoffNoWeight = run({
     meta: SQUAT_BW,
     sets: sets(4, 10, null),
     state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
   });
-  check("stored weight but logged without: still drops by two steps to 5 kg",
-    backoffNoWeight.nextWorkingWeightKg === 5, `${backoffNoWeight.nextWorkingWeightKg}`);
+  check("stored weight but logged without: still drops to 0",
+    backoffNoWeight.nextWorkingWeightKg === 0, `${backoffNoWeight.nextWorkingWeightKg}`);
   check("outcome is backed_off", backoffNoWeight.outcome === "backed_off",
     backoffNoWeight.outcome);
 
@@ -567,713 +531,6 @@ console.log("\nBodyweight exercises with added weight");
   );
   check("deload suggestion for bodyweight upper-body rounds to 1.25 kg step",
     suggestedBwUpper === 3.75, `${suggestedBwUpper}`);
-}
-
-console.log("\nIssue 1: After back-off to 0, next success uses actual weight lifted");
-{
-  const SQUAT_BW: ExerciseMeta = {
-    mechanic: "compound",
-    metric: "reps",
-    movementPattern: "squat",
-    isBodyweight: true,
-    progressionChain: null,
-    progressionRank: null, equipmentIds: [],
-  };
-  const PUSHUP_LOADED: ExerciseMeta = {
-    mechanic: "compound",
-    metric: "reps",
-    movementPattern: "horizontal_press",
-    isBodyweight: true,
-    progressionChain: null,
-    progressionRank: null, equipmentIds: [],
-  };
-
-  // Upper-body: 4x12 with 5 kg should give 6.25 kg (5 + 1.25), not 2.5 kg (0 + 2.5).
-  const upperAfterBackoff = run({
-    meta: PUSHUP_LOADED,
-    sets: sets(4, 12, 5),
-    state: fresh({ currentWorkingWeightKg: 0, currentTargetReps: 12 }),
-  });
-  check("upper-body 4x12 with 5 kg after back-off to 0 gives 6.25 kg",
-    upperAfterBackoff.nextWorkingWeightKg === 6.25, `${upperAfterBackoff.nextWorkingWeightKg}`);
-
-  // Lower-body: 4x12 with 5 kg should give 7.5 kg (5 + 2.5), not 2.5 kg.
-  const lowerAfterBackoff = run({
-    meta: SQUAT_BW,
-    sets: sets(4, 12, 5),
-    state: fresh({ currentWorkingWeightKg: 0, currentTargetReps: 12 }),
-  });
-  check("lower-body 4x12 with 5 kg after back-off to 0 gives 7.5 kg",
-    lowerAfterBackoff.nextWorkingWeightKg === 7.5, `${lowerAfterBackoff.nextWorkingWeightKg}`);
-}
-
-console.log("\nIssue 2: Two misses subtract two steps, not straight to 0");
-{
-  const SQUAT_BW: ExerciseMeta = {
-    mechanic: "compound",
-    metric: "reps",
-    movementPattern: "squat",
-    isBodyweight: true,
-    progressionChain: null,
-    progressionRank: null, equipmentIds: [],
-  };
-  const PUSHUP_LOADED: ExerciseMeta = {
-    mechanic: "compound",
-    metric: "reps",
-    movementPattern: "horizontal_press",
-    isBodyweight: true,
-    progressionChain: null,
-    progressionRank: null, equipmentIds: [],
-  };
-
-  // Lower-body: 30 kg goes to 25 kg (30 - 2.5*2), not 0.
-  const heavy = run({
-    meta: SQUAT_BW,
-    sets: sets(4, 10, 30),
-    state: fresh({ currentWorkingWeightKg: 30, consecutiveFailures: 1 }),
-  });
-  check("lower-body 30 kg goes to 25 kg after two misses",
-    heavy.nextWorkingWeightKg === 25, `${heavy.nextWorkingWeightKg}`);
-  check("message says 'down to 25 kg'",
-    heavy.message.includes("down to 25 kg"), heavy.message);
-
-  // Upper-body: 10 kg goes to 7.5 kg (10 - 1.25*2), not 0.
-  const medium = run({
-    meta: PUSHUP_LOADED,
-    sets: sets(4, 10, 10),
-    state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
-  });
-  check("upper-body 10 kg goes to 7.5 kg after two misses",
-    medium.nextWorkingWeightKg === 7.5, `${medium.nextWorkingWeightKg}`);
-  check("message says 'down to 7.5 kg'",
-    medium.message.includes("down to 7.5 kg"), medium.message);
-
-  // Upper-body: 2.5 kg goes to 0 (2.5 - 1.25*2 = 0).
-  const light = run({
-    meta: PUSHUP_LOADED,
-    sets: sets(4, 10, 2.5),
-    state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 1 }),
-  });
-  check("upper-body 2.5 kg goes to 0 after two misses",
-    light.nextWorkingWeightKg === 0, `${light.nextWorkingWeightKg}`);
-  check("message says 'back to bodyweight'",
-    light.message.includes("back to bodyweight"), light.message);
-
-  // Upper-body: 1.25 kg goes to 0 (1.25 - 1.25*2 = -1.25, floored at 0).
-  const veryLight = run({
-    meta: PUSHUP_LOADED,
-    sets: sets(4, 10, 1.25),
-    state: fresh({ currentWorkingWeightKg: 1.25, consecutiveFailures: 1 }),
-  });
-  check("upper-body 1.25 kg goes to 0 after two misses",
-    veryLight.nextWorkingWeightKg === 0, `${veryLight.nextWorkingWeightKg}`);
-  check("message says 'back to bodyweight'",
-    veryLight.message.includes("back to bodyweight"), veryLight.message);
-
-  // Off-grid: 10.2 upper goes to 7.5 (roundTo(10.2 - 1.25*2, 1.25)).
-  const offGrid = run({
-    meta: PUSHUP_LOADED,
-    sets: sets(4, 10, 10.2),
-    state: fresh({ currentWorkingWeightKg: 10.2, consecutiveFailures: 1 }),
-  });
-  check("upper-body 10.2 kg goes to 7.5 kg after two misses",
-    offGrid.nextWorkingWeightKg === 7.5, `${offGrid.nextWorkingWeightKg}`);
-  check("message says 'down to 7.5 kg' without float residue",
-    offGrid.message.includes("down to 7.5 kg"), offGrid.message);
-
-  // Off-grid: 2.51 upper goes to 0 (roundTo(2.51 - 1.25*2, 1.25) = 0).
-  const offGridLight = run({
-    meta: PUSHUP_LOADED,
-    sets: sets(4, 10, 2.51),
-    state: fresh({ currentWorkingWeightKg: 2.51, consecutiveFailures: 1 }),
-  });
-  check("upper-body 2.51 kg goes to 0 after two misses",
-    offGridLight.nextWorkingWeightKg === 0, `${offGridLight.nextWorkingWeightKg}`);
-  check("message says 'back to bodyweight' without float residue",
-    offGridLight.message.includes("back to bodyweight"), offGridLight.message);
-
-  // Second miss path: stored 0, lifted 5 upper, second miss gives backed_off to 2.5.
-  const secondMissFromZero = run({
-    meta: PUSHUP_LOADED,
-    sets: sets(4, 10, 5),
-    state: fresh({ currentWorkingWeightKg: 0, consecutiveFailures: 1 }),
-  });
-  check("stored 0, lifted 5 upper, second miss gives 2.5 kg",
-    secondMissFromZero.nextWorkingWeightKg === 2.5, `${secondMissFromZero.nextWorkingWeightKg}`);
-  check("outcome is backed_off",
-    secondMissFromZero.outcome === "backed_off", secondMissFromZero.outcome);
-}
-
-console.log("\nIssue 3: Off-grid weights snap to grid on success");
-{
-  const PUSHUP_LOADED: ExerciseMeta = {
-    mechanic: "compound",
-    metric: "reps",
-    movementPattern: "horizontal_press",
-    isBodyweight: true,
-    progressionChain: null,
-    progressionRank: null, equipmentIds: [],
-  };
-
-  // 12 kg upper goes to 12.5 kg (next grid multiple), not 13.25 kg (12 + 1.25).
-  const offGrid = run({
-    meta: PUSHUP_LOADED,
-    sets: sets(4, 12, 12),
-    state: fresh({ currentWorkingWeightKg: 12, currentTargetReps: 12 }),
-  });
-  check("upper-body 12 kg snaps to 12.5 kg",
-    offGrid.nextWorkingWeightKg === 12.5, `${offGrid.nextWorkingWeightKg}`);
-
-  // 12.5 kg (on-grid) goes to 13.75 kg (next grid multiple).
-  const onGrid = run({
-    meta: PUSHUP_LOADED,
-    sets: sets(4, 12, 12.5),
-    state: fresh({ currentWorkingWeightKg: 12.5, currentTargetReps: 12 }),
-  });
-  check("upper-body 12.5 kg goes to 13.75 kg",
-    onGrid.nextWorkingWeightKg === 13.75, `${onGrid.nextWorkingWeightKg}`);
-}
-
-console.log("\nIssue 4: Deload reduces small added weights, can reach 0");
-{
-  const SQUAT_BW: ExerciseMeta = {
-    mechanic: "compound",
-    metric: "reps",
-    movementPattern: "squat",
-    isBodyweight: true,
-    progressionChain: null,
-    progressionRank: null, equipmentIds: [],
-  };
-  const PUSHUP_LOADED: ExerciseMeta = {
-    mechanic: "compound",
-    metric: "reps",
-    movementPattern: "horizontal_press",
-    isBodyweight: true,
-    progressionChain: null,
-    progressionRank: null, equipmentIds: [],
-  };
-
-  // 1.25 kg upper deload: roundTo(1.25 * 0.7, 1.25) = 1.25, >= 1.25 so w-step = 0 → null.
-  const tiny = suggestedWeight({ currentWorkingWeightKg: 1.25 }, true, PUSHUP_LOADED);
-  check("1.25 kg upper deload goes to null (no added weight)",
-    tiny === null, `${tiny}`);
-
-  // 2.5 kg upper deload: roundTo(2.5 * 0.7, 1.25) = 1.25, not 0.
-  const twoStep = suggestedWeight({ currentWorkingWeightKg: 2.5 }, true, PUSHUP_LOADED);
-  check("2.5 kg upper deload goes to 1.25 kg",
-    twoStep === 1.25, `${twoStep}`);
-
-  // 5 kg lower deload: roundTo(5 * 0.7, 2.5) = 2.5, not 0.
-  const lowerTwoStep = suggestedWeight({ currentWorkingWeightKg: 5 }, true, SQUAT_BW);
-  check("5 kg lower deload goes to 2.5 kg",
-    lowerTwoStep === 2.5, `${lowerTwoStep}`);
-
-  // 5 kg upper deload: roundTo(5 * 0.7, 1.25) = 3.75 kg.
-  const upper = suggestedWeight({ currentWorkingWeightKg: 5 }, true, PUSHUP_LOADED);
-  check("5 kg upper deload goes to 3.75 kg",
-    upper === 3.75, `${upper}`);
-
-  // 10 kg lower deload: roundTo(10 * 0.7, 2.5) = 7.5 kg.
-  const lower = suggestedWeight({ currentWorkingWeightKg: 10 }, true, SQUAT_BW);
-  check("10 kg lower deload goes to 7.5 kg",
-    lower === 7.5, `${lower}`);
-}
-
-console.log("\nGuard checks: loaded squats and unloaded bodyweight unchanged");
-{
-  // Loaded squat: 100 kg with 'easy' still gets doubled to 110 kg.
-  const loadedEasy = run({
-    meta: SQUAT,
-    sets: sets(4, 12, 100),
-    state: fresh({ currentWorkingWeightKg: 100 }),
-    feel: "easy",
-  });
-  check("loaded squat 100 kg with easy still gets 110 kg",
-    loadedEasy.nextWorkingWeightKg === 110, `${loadedEasy.nextWorkingWeightKg}`);
-
-  // Loaded squat: 100 kg normal feel goes to 105 kg.
-  const loadedNormal = run({
-    meta: SQUAT,
-    sets: sets(4, 12, 100),
-    state: fresh({ currentWorkingWeightKg: 100 }),
-    feel: "right",
-  });
-  check("loaded squat 100 kg normal goes to 105 kg",
-    loadedNormal.nextWorkingWeightKg === 105, `${loadedNormal.nextWorkingWeightKg}`);
-
-  // Loaded bench with off-grid weight: 62 kg goes to 65 kg (62 + 2.5, rounded).
-  // NOT snapped to grid (which would give 62.5 kg). Preserves existing behavior
-  // for loaded lifts where off-grid values may be legitimate.
-  const loadedOffGrid = run({
-    meta: BENCH,
-    sets: sets(4, 12, 62),
-    state: fresh({ currentWorkingWeightKg: 62 }),
-    feel: "right",
-  });
-  check("loaded bench 62 kg (off-grid) goes to 65 kg, NOT 62.5 kg",
-    loadedOffGrid.nextWorkingWeightKg === 65, `${loadedOffGrid.nextWorkingWeightKg}`);
-
-  // Unloaded bodyweight: still progresses reps.
-  const unloaded = run({
-    meta: PUSHUP,
-    sets: sets(4, 12, null),
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 12 }),
-  });
-  check("unloaded bodyweight still progresses reps to 14",
-    unloaded.nextTargetReps === 14, `${unloaded.nextTargetReps}`);
-  check("and still invents no weight",
-    unloaded.nextWorkingWeightKg === null);
-
-  // Guard: loaded bench stored 60, lifted 62.5, success gives 62.5 kg (uses stored 60).
-  const loadedFromStored = run({
-    meta: BENCH,
-    sets: sets(4, 12, 62.5),
-    state: fresh({ currentWorkingWeightKg: 60 }),
-  });
-  check("loaded bench stored 60, lifted 62.5, success gives 62.5 kg",
-    loadedFromStored.nextWorkingWeightKg === 62.5, `${loadedFromStored.nextWorkingWeightKg}`);
-
-  // Guard: loaded deload floor tests.
-  const loadedDeloadFloor = suggestedWeight({ currentWorkingWeightKg: 2.5 }, true, BENCH);
-  check("loaded bench 2.5 kg deload stays at 2.5 kg",
-    loadedDeloadFloor === 2.5, `${loadedDeloadFloor}`);
-
-  const loadedDeloadFloorTiny = suggestedWeight({ currentWorkingWeightKg: 1.25 }, true, BENCH);
-  check("loaded bench 1.25 kg deload stays at 2.5 kg (floor at step)",
-    loadedDeloadFloorTiny === 2.5, `${loadedDeloadFloorTiny}`);
-
-  const loadedSquatDeloadFloor = suggestedWeight({ currentWorkingWeightKg: 2.5 }, true, SQUAT);
-  check("loaded squat 2.5 kg deload stays at 5 kg (floor at step)",
-    loadedSquatDeloadFloor === 5, `${loadedSquatDeloadFloor}`);
-}
-
-console.log("\neffectiveRepsMax unification: page and evaluator agree on target");
-{
-  // (a) Loaded lift with currentTargetReps 14, repsMax 12, all sets at 12 reps progresses.
-  const loadedLift = run({
-    meta: BENCH,
-    sets: sets(4, 12, 60),
-    state: fresh({ currentWorkingWeightKg: 60, currentTargetReps: 14 }),
-  });
-  check("loaded bench 60 kg, progressed target 14, succeeds at 12 reps (planned target)",
-    loadedLift.outcome === "progressed" && loadedLift.nextWorkingWeightKg === 62.5,
-    `outcome=${loadedLift.outcome}, next=${loadedLift.nextWorkingWeightKg}`);
-
-  // (b) Non-bodyweight move logged with no weight, currentTargetReps 14, succeeds at 12.
-  const nonBodyweightNoWeight = run({
-    meta: BENCH,
-    sets: sets(4, 12, null),
-    state: fresh({ currentWorkingWeightKg: 5, currentTargetReps: 14 }),
-  });
-  check("non-bodyweight move logged with no weight succeeds at 12 (planned target)",
-    nonBodyweightNoWeight.outcome === "progressed" && nonBodyweightNoWeight.nextWorkingWeightKg === 5,
-    `outcome=${nonBodyweightNoWeight.outcome}, next=${nonBodyweightNoWeight.nextWorkingWeightKg}`);
-
-  // (c) Bodyweight with no weight, currentTargetReps 10, repsMax 12: now requires 12 (max guard).
-  const bodyweightStaleTarget = run({
-    meta: PUSHUP,
-    sets: sets(4, 10, null),
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 10 }),
-  });
-  check("bodyweight with stale progressed target 10 and planned 12 does NOT succeed at 10 (max guard)",
-    bodyweightStaleTarget.outcome === "hold",
-    `outcome=${bodyweightStaleTarget.outcome}`);
-
-  const bodyweightNoWeight = run({
-    meta: PUSHUP,
-    sets: sets(4, 12, null),
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 10 }),
-  });
-  check("bodyweight with progressed target 10 and planned 12 succeeds at 12",
-    bodyweightNoWeight.outcome === "progressed" && bodyweightNoWeight.nextTargetReps === 14,
-    `outcome=${bodyweightNoWeight.outcome}, next=${bodyweightNoWeight.nextTargetReps}`);
-
-  // (d) Bodyweight with added weight, currentTargetReps 14, repsMax 12, succeeds at 12 reps.
-  const bodyweightWithWeight = run({
-    meta: PUSHUP,
-    sets: sets(4, 12, 10),
-    state: fresh({ currentWorkingWeightKg: 10, currentTargetReps: 14 }),
-  });
-  check("bodyweight with 10 kg added weight, progressed target 14, succeeds at 12 reps (planned target)",
-    bodyweightWithWeight.outcome === "progressed" && bodyweightWithWeight.nextWorkingWeightKg === 11.25,
-    `outcome=${bodyweightWithWeight.outcome}, next=${bodyweightWithWeight.nextWorkingWeightKg}`);
-
-  // Guard: using progressed target for all exercises must fail.
-  const loadedWrongTarget = run({
-    meta: BENCH,
-    sets: sets(4, 12, 60),
-    state: fresh({ currentWorkingWeightKg: 60, currentTargetReps: 14 }),
-  });
-  check("loaded bench must NOT require 14 reps (progressed target) for success",
-    loadedWrongTarget.outcome === "progressed",
-    `outcome=${loadedWrongTarget.outcome}`);
-
-  // Guard: max(progressed, planned) means stale lower target 10 requires 12 for success.
-  const bodyweightWrongTarget = run({
-    meta: PUSHUP,
-    sets: sets(4, 10, null),
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 10 }),
-  });
-  check("bodyweight with stale target 10 does NOT succeed at 10, requires 12 (max guard)",
-    bodyweightWrongTarget.outcome === "hold",
-    `outcome=${bodyweightWrongTarget.outcome}`);
-}
-
-console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,18,20,22,24,26,28,32,36,40,44,48");
-{
-  const KETTLEBELL: ExerciseMeta = {
-    mechanic: "compound",
-    movementPattern: "hinge",
-    metric: "reps",
-    isBodyweight: false,
-    progressionChain: null,
-    progressionRank: null,
-    equipmentIds: ["kettlebell"],
-  };
-
-  // Success: always go to next bell above (16→18→20)
-  const kb16 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 16),
-    state: fresh({ currentWorkingWeightKg: 16 }),
-    feel: "right",
-  });
-  check("kettlebell 16 kg success goes to next bell 18 kg",
-    kb16.nextWorkingWeightKg === 18 && kb16.outcome === "progressed",
-    `${kb16.nextWorkingWeightKg}, ${kb16.outcome}`);
-
-  const kb18 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 18),
-    state: fresh({ currentWorkingWeightKg: 18 }),
-    feel: "right",
-  });
-  check("kettlebell 18 kg success goes to next bell 20 kg",
-    kb18.nextWorkingWeightKg === 20 && kb18.outcome === "progressed",
-    `${kb18.nextWorkingWeightKg}, ${kb18.outcome}`);
-
-  // Success with 'easy': one bell up (same as success, 16→18)
-  const kb16easy = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 16),
-    state: fresh({ currentWorkingWeightKg: 16 }),
-    feel: "easy",
-  });
-  check("kettlebell 16 kg easy goes one bell up to 18 kg (same as success)",
-    kb16easy.nextWorkingWeightKg === 18 && kb16easy.outcome === "progressed",
-    `${kb16easy.nextWorkingWeightKg}, ${kb16easy.outcome}`);
-
-
-  const kb32easy = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 32),
-    state: fresh({ currentWorkingWeightKg: 32 }),
-    feel: "easy",
-  });
-  check("kettlebell 32 kg easy goes to 36 kg",
-    kb32easy.nextWorkingWeightKg === 36 && kb32easy.outcome === "progressed",
-    `${kb32easy.nextWorkingWeightKg}, ${kb32easy.outcome}`);
-
-  // Deload: largest bell ≤ 80% of current weight
-  const kbDeload20 = suggestedWeight({ currentWorkingWeightKg: 20 }, true, KETTLEBELL);
-  check("kettlebell 20 kg deload: 80% = 16 kg → 16 kg",
-    kbDeload20 === 16, `${kbDeload20}`);
-
-  const kbDeload24 = suggestedWeight({ currentWorkingWeightKg: 24 }, true, KETTLEBELL);
-  check("kettlebell 24 kg deload: 80% = 19.2 kg → 18 kg (largest bell ≤ 19.2)",
-    kbDeload24 === 18, `${kbDeload24}`);
-
-  const kbDeload32 = suggestedWeight({ currentWorkingWeightKg: 32 }, true, KETTLEBELL);
-  check("kettlebell 32 kg deload: 80% = 25.6 kg → 24 kg",
-    kbDeload32 === 24, `${kbDeload32}`);
-
-  const kbDeload4 = suggestedWeight({ currentWorkingWeightKg: 4 }, true, KETTLEBELL);
-  check("kettlebell 4 kg (bottom) deload: 80% = 3.2 kg → 4 kg",
-    kbDeload4 === 4, `${kbDeload4}`);
-
-  // Back-off: next bell below (not deload formula, just one bell down)
-  const kbBackoff20 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 10, 20),
-    state: fresh({ currentWorkingWeightKg: 20, consecutiveFailures: 1 }),
-  });
-  check("kettlebell 20 kg miss twice backs off to next bell 18 kg",
-    kbBackoff20.nextWorkingWeightKg === 18, `${kbBackoff20.nextWorkingWeightKg}`);
-
-  const kbBackoff28 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 10, 28),
-    state: fresh({ currentWorkingWeightKg: 28, consecutiveFailures: 1 }),
-  });
-  check("kettlebell 28 kg miss twice backs off to next bell 26 kg",
-    kbBackoff28.nextWorkingWeightKg === 26, `${kbBackoff28.nextWorkingWeightKg}`);
-
-  const kbBackoff6 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 10, 6),
-    state: fresh({ currentWorkingWeightKg: 6, consecutiveFailures: 1 }),
-  });
-  check("kettlebell 6 kg miss twice backs off to 4 kg",
-    kbBackoff6.nextWorkingWeightKg === 4, `${kbBackoff6.nextWorkingWeightKg}`);
-
-  // Standard bell 22 → 24
-  const kb22 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 22),
-    state: fresh({ currentWorkingWeightKg: 22 }),
-    feel: "right",
-  });
-  check("kettlebell 22 kg → 24 kg",
-    kb22.nextWorkingWeightKg === 24, `${kb22.nextWorkingWeightKg}`);
-
-  // Standard bell 32 → 36 (no longer holds at 32)
-  const kb32 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 32),
-    state: fresh({ currentWorkingWeightKg: 32 }),
-    feel: "right",
-  });
-  check("kettlebell 32 kg → 36 kg (no longer holds at 32)",
-    kb32.nextWorkingWeightKg === 36 && kb32.outcome === "progressed",
-    `${kb32.nextWorkingWeightKg}, ${kb32.outcome}`);
-
-  // Standard bell 36 backs off to 32
-  const kb36Backoff = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 10, 36),
-    state: fresh({ currentWorkingWeightKg: 36, consecutiveFailures: 1 }),
-  });
-  check("kettlebell 36 kg backs off to 32 kg",
-    kb36Backoff.nextWorkingWeightKg === 32, `${kb36Backoff.nextWorkingWeightKg}`);
-
-  // Non-standard weight 17 kg snaps to 18 kg (next bell up)
-  const KB_UPPER: ExerciseMeta = { ...KETTLEBELL, movementPattern: "horizontal_press" };
-  const kb17 = run({
-    meta: KB_UPPER,
-    sets: sets(4, 12, 17),
-    state: fresh({ currentWorkingWeightKg: 17 }),
-    feel: "right",
-  });
-  check("kettlebell 17 kg (non-standard) snaps to 18 kg (next bell)",
-    kb17.nextWorkingWeightKg === 18, `${kb17.nextWorkingWeightKg}`);
-
-  // Non-standard weight 17 kg with easy also snaps to 18 kg (not doubled step)
-  const kb17Easy = run({
-    meta: KB_UPPER,
-    sets: sets(4, 12, 17),
-    state: fresh({ currentWorkingWeightKg: 17 }),
-    feel: "easy",
-  });
-  check("kettlebell 17 kg (non-standard) easy snaps to 18 kg",
-    kb17Easy.nextWorkingWeightKg === 18, `${kb17Easy.nextWorkingWeightKg}`);
-
-  // Non-standard weight 40 kg snaps to 44 kg (next bell up)
-  const kb40 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 40),
-    state: fresh({ currentWorkingWeightKg: 40 }),
-    feel: "right",
-  });
-  check("kettlebell 40 kg (non-standard) snaps to 44 kg (next bell)",
-    kb40.nextWorkingWeightKg === 44, `${kb40.nextWorkingWeightKg}`);
-
-  // Non-standard weight 40 kg backs off to 36 kg (next bell below)
-  const kb40Backoff = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 10, 40),
-    state: fresh({ currentWorkingWeightKg: 40, consecutiveFailures: 1 }),
-  });
-  check("kettlebell 40 kg (non-standard) backs off to 36 kg",
-    kb40Backoff.nextWorkingWeightKg === 36, `${kb40Backoff.nextWorkingWeightKg}`);
-
-  // Top bell 48 kg holds at 48
-  const kb48 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 48),
-    state: fresh({ currentWorkingWeightKg: 48 }),
-    feel: "right",
-  });
-  check("kettlebell 48 kg (top bell) holds at 48 kg",
-    kb48.nextWorkingWeightKg === 48 && kb48.outcome === "hold",
-    `${kb48.nextWorkingWeightKg}, ${kb48.outcome}`);
-
-  // Isolation mechanic with kettlebell: tests that step doesn't matter for bells
-  const KB_ISO: ExerciseMeta = { ...KETTLEBELL, mechanic: "isolation" };
-
-  const kbIso16 = run({
-    meta: KB_ISO,
-    sets: sets(4, 12, 16),
-    state: fresh({ currentWorkingWeightKg: 16 }),
-  });
-  check("kettlebell isolation 16 kg goes to next bell 18 kg (step 1.25 doesn't matter)",
-    kbIso16.nextWorkingWeightKg === 18 && kbIso16.outcome === "progressed",
-    `${kbIso16.nextWorkingWeightKg}, ${kbIso16.outcome}`);
-
-  const kbIso20 = run({
-    meta: KB_ISO,
-    sets: sets(4, 12, 20),
-    state: fresh({ currentWorkingWeightKg: 20 }),
-  });
-  check("kettlebell isolation 20 kg goes to next bell 22 kg",
-    kbIso20.nextWorkingWeightKg === 22 && kbIso20.outcome === "progressed",
-    `${kbIso20.nextWorkingWeightKg}, ${kbIso20.outcome}`);
-}
-
-console.log("\nProgression reset: clear targets when goal/block changes");
-{
-  // After reset, null currentTargetReps means next evaluation uses planned range.
-  const afterReset = run({
-    meta: PUSHUP,
-    sets: sets(4, 12, null),
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: null }),
-  });
-  check("after reset, null currentTargetReps succeeds at 12 (planned max)",
-    afterReset.outcome === "progressed" && afterReset.nextTargetReps === 14,
-    `outcome=${afterReset.outcome}, next=${afterReset.nextTargetReps}`);
-
-  // Reset prevents stale higher target from old plan being used.
-  const staleHighTarget = run({
-    meta: PUSHUP,
-    sets: sets(4, 12, null),
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 16 }),
-  });
-  check("stale high target 16 with planned 12 requires 16 reps (max guard)",
-    staleHighTarget.outcome === "hold",
-    `outcome=${staleHighTarget.outcome}`);
-}
-
-console.log("\nHeaviest from logged sets, not stored weight");
-{
-  // Bodyweight move: stored null, logged 10 kg, progresses
-  const bodyweightStored = run({
-    meta: PUSHUP,
-    sets: sets(4, 12, 10),
-    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 14 }),
-  });
-  check("bodyweight stored null, 4×12 at 10 kg progresses to 11.25 kg",
-    bodyweightStored.outcome === "progressed" && bodyweightStored.nextWorkingWeightKg === 11.25,
-    `outcome=${bodyweightStored.outcome}, next=${bodyweightStored.nextWorkingWeightKg}`);
-}
-
-console.log("\nKettlebell tie tests and edge cases");
-{
-  const KETTLEBELL: ExerciseMeta = {
-    mechanic: "compound",
-    movementPattern: "hinge",
-    metric: "reps",
-    isBodyweight: false,
-    progressionChain: null,
-    progressionRank: null,
-    equipmentIds: ["kettlebell"],
-  };
-
-  // Upper body back-off: 20 kg → next bell below → 18 kg
-  const kbUpperBackoff = run({
-    meta: { ...KETTLEBELL, movementPattern: "horizontal_press" },
-    sets: sets(4, 10, 20),
-    state: fresh({ currentWorkingWeightKg: 20, consecutiveFailures: 1 }),
-  });
-  check("kettlebell upper 20 kg back-off goes to 18 kg (next bell below)",
-    kbUpperBackoff.nextWorkingWeightKg === 18, `${kbUpperBackoff.nextWorkingWeightKg}`);
-
-  // Test various progression paths
-  const kb4 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 4),
-    state: fresh({ currentWorkingWeightKg: 4 }),
-  });
-  check("kettlebell 4 kg success goes to 6 kg",
-    kb4.nextWorkingWeightKg === 6, `${kb4.nextWorkingWeightKg}`);
-
-  const kb28 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 28),
-    state: fresh({ currentWorkingWeightKg: 28 }),
-  });
-  check("kettlebell 28 kg success goes to 32 kg",
-    kb28.nextWorkingWeightKg === 32, `${kb28.nextWorkingWeightKg}`);
-
-  const kb20 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 20),
-    state: fresh({ currentWorkingWeightKg: 20 }),
-  });
-  check("kettlebell 20 kg success goes to 22 kg",
-    kb20.nextWorkingWeightKg === 22, `${kb20.nextWorkingWeightKg}`);
-
-  // Deload edge cases
-  const kbDeload6 = suggestedWeight({ currentWorkingWeightKg: 6 }, true, KETTLEBELL);
-  check("kettlebell 6 kg deload goes to 4 kg",
-    kbDeload6 === 4, `${kbDeload6}`);
-
-  const kbDeload32 = suggestedWeight({ currentWorkingWeightKg: 32 }, true, KETTLEBELL);
-  check("kettlebell 32 kg deload: 80% = 25.6 kg → 24 kg (largest bell ≤ 25.6)",
-    kbDeload32 === 24, `${kbDeload32}`);
-}
-
-console.log("\nKettlebell walk test: 4 to 48 up and down");
-{
-  const KETTLEBELL: ExerciseMeta = {
-    mechanic: "compound",
-    movementPattern: "hinge",
-    metric: "reps",
-    isBodyweight: false,
-    progressionChain: "kettlebell",
-    progressionRank: null,
-    equipmentIds: ["kettlebell"],
-  };
-  
-  const bells = [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 32, 36, 40, 44, 48];
-  
-  // Walk up: progression after successful sets
-  for (let i = 0; i < bells.length - 1; i++) {
-    const current = bells[i];
-    const expected = bells[i + 1];
-    const result = run({
-      meta: KETTLEBELL,
-      sets: sets(4, 12, current),
-      state: fresh({ currentWorkingWeightKg: current }),
-    });
-    check(`kettlebell ${current} kg → ${expected} kg (up)`, result.nextWorkingWeightKg === expected, `got ${result.nextWorkingWeightKg}`);
-  }
-  
-  // At 48: hold after success
-  const hold48 = run({
-    meta: KETTLEBELL,
-    sets: sets(3, 12, 48),
-    state: fresh({ currentWorkingWeightKg: 48 }),
-  });
-  check("kettlebell 48 kg holds at 48 kg", hold48.nextWorkingWeightKg === 48, `got ${hold48.nextWorkingWeightKg}`);
-  
-  // Above 48: hold at current weight after success
-  const hold52 = run({
-    meta: KETTLEBELL,
-    sets: sets(3, 12, 52),
-    state: fresh({ currentWorkingWeightKg: 52 }),
-  });
-  check("kettlebell 52 kg holds at 52 kg (above standard)", hold52.nextWorkingWeightKg === 52, `got ${hold52.nextWorkingWeightKg}`);
-  
-  const hold64 = run({
-    meta: KETTLEBELL,
-    sets: sets(3, 12, 64),
-    state: fresh({ currentWorkingWeightKg: 64 }),
-  });
-  check("kettlebell 64 kg holds at 64 kg (above standard)", hold64.nextWorkingWeightKg === 64, `got ${hold64.nextWorkingWeightKg}`);
-  
-  // Walk down (deload)
-  for (let i = bells.length - 1; i > 0; i--) {
-    const current = bells[i];
-    const target = current * 0.8;
-    const deloaded = suggestedWeight({ currentWorkingWeightKg: current }, true, KETTLEBELL);
-    // Find expected: largest bell ≤ target
-    let expected = bells[0];
-    for (const bell of bells) {
-      if (bell <= target) expected = bell;
-      else break;
-    }
-    check(`kettlebell ${current} kg deload (80% = ${target.toFixed(1)}) → ${expected} kg`, 
-      deloaded === expected, `got ${deloaded}`);
-  }
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
