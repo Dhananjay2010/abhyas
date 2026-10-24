@@ -218,8 +218,8 @@ export function getAllBrands(): readonly Brand[] {
  * A subset of commonly used timezones. Add more as needed.
  * Full list: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
  * 
- * Note: Currently unused by validateTimezone (which uses Intl.DateTimeFormat directly).
- * Kept for reference and future use by Dev 1's timezone canonicalization work.
+ * Currently unused; validateTimezone uses Intl directly.
+ * Kept until timezone canonicalization lands.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const VALID_TIMEZONES = new Set([
