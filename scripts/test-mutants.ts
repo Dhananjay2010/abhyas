@@ -37,7 +37,7 @@ const exercises = [
     key: "ex1",
     name: "Bench Press",
     cue: "Touch chest",
-    metric: null,
+    metric: null as any,
     sets: 4,
     repsMin: 8,
     repsMax: 12,
@@ -45,43 +45,19 @@ const exercises = [
     skipped: false,
     swappedIn: false,
   },
-  {
-    name: "First-session offer removed",
-    description: "Remove showFirstSessionOffer logic from prompt-blocks.ts",
-    file: "src/lib/today/prompt-blocks.ts",
-    search: /const showFirstSessionOffer = !isTraining && !!firstTrainingDay;/,
-    replace: "const showFirstSessionOffer = false; // MUTANT: disabled",
-    revert: true,
-  },
-  {
-    name: "Offers next calendar day instead of plan day 1",
-    description: "first-training-day.ts returns wrong day",
-    file: "src/lib/today/first-training-day.ts",
-    search: /.sort\(\(a, b\) => a\.day_index - b\.day_index\);/,
-    replace: ".sort((a, b) => b.day_index - a.day_index); // MUTANT: reversed sort",
-    revert: true,
-  },
-  {
-    name: "Signup guard removed",
-    description: "Remove max(signup, block start) guard from missed-day.ts",
-    file: "src/lib/today/missed-day.ts",
-    search: /const earliestCountableDate = profileCreatedAtLocal > programStartedOn \? profileCreatedAtLocal : programStartedOn;/,
-    replace: "const earliestCountableDate = programStartedOn; // MUTANT: removed signup date from guard",
-    revert: true,
-  },
 ];
 
-  const warmupResult = WarmupSection({
-    todayExercises: exercises,
-    actual: null,
-    strengthDone: false,
-  });
+const warmupResult = WarmupSection({
+  todayExercises: exercises,
+  actual: null,
+  strengthDone: false,
+});
 
-  assert(warmupResult !== null, "WarmupSection must return JSX, not null");
-  assert(
-    typeof warmupResult === "object" && warmupResult !== null && "type" in warmupResult && warmupResult.type === "section",
-    "WarmupSection must return a section element"
-  );
+assert(warmupResult !== null, "WarmupSection must return JSX, not null");
+assert(
+  typeof warmupResult === "object" && warmupResult !== null && "type" in warmupResult && warmupResult.type === "section",
+  "WarmupSection must return a section element"
+);
 
 console.log("\n=== Mutant 5: Week row label must reflect actual day type, not always Rest ===\n");
 
