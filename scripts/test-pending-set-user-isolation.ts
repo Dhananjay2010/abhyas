@@ -1,17 +1,17 @@
 #!/usr/bin/env tsx
 /**
- * Test: Per-user storage keys
+ * Test: Pending set user isolation
  * 
- * Verifies that pending sets are isolated per user:
- * - User A's sets are not visible to User B
- * - storageKey includes userId
- * - Each user has their own namespace
+ * Behavioral test verifying that:
+ * - storageKey() returns different keys for different users
+ * - User A's pending sets are not visible to User B
+ * - Each user has their own isolated storage namespace
  */
 
 import {
+  storageKey,
   savePendingSet,
   loadPendingSets,
-  storageKey,
   type Storage,
 } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
@@ -33,7 +33,7 @@ function createStorage(): Storage {
 
 let exitCode = 0;
 
-function assert(condition: boolean, message: string) {
+function assert(condition: boolean, message: string): void {
   if (!condition) {
     console.error(`❌ ${message}`);
     exitCode = 1;
@@ -42,7 +42,7 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-function assertEqual<T>(actual: T, expected: T, message: string) {
+function assertEqual<T>(actual: T, expected: T, message: string): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     console.error(`❌ ${message}`);
     console.error(`   Expected: ${JSON.stringify(expected)}`);
@@ -53,14 +53,21 @@ function assertEqual<T>(actual: T, expected: T, message: string) {
   }
 }
 
-console.log("Testing per-user storage isolation\n");
+console.log("Testing pending set user isolation\n");
 
 const storage = createStorage();
 const deps = createPendingSetDeps();
 const sessionId = "session-123";
 
+// Test: storageKey returns different keys for different users
+const keyA = storageKey("user-a");
+const keyB = storageKey("user-b");
+assert(keyA !== keyB, "storageKey() returns different keys for different users");
+assert(keyA.includes("user-a"), "User A's key includes their user ID");
+assert(keyB.includes("user-b"), "User B's key includes their user ID");
+
 // User A saves a pending set
-const userA = "user-a-id";
+const userA = "user-a";
 savePendingSet(storage, userA, sessionId, {
   sessionExerciseId: "ex-1",
   setNumber: 1,
@@ -71,22 +78,14 @@ savePendingSet(storage, userA, sessionId, {
 }, deps);
 
 // User B should not see User A's pending sets
-const userB = "user-b-id";
+const userB = "user-b";
 const userBSets = loadPendingSets(storage, userB, sessionId, deps);
+assertEqual(userBSets.length, 0, "User B cannot read User A's pending sets");
 
-assertEqual(userBSets.length, 0, "User B cannot see User A's pending sets");
-
-// User A can still see their own sets
+// User A can see their own sets
 const userASets = loadPendingSets(storage, userA, sessionId, deps);
-assertEqual(userASets.length, 1, "User A can see their own pending sets");
+assertEqual(userASets.length, 1, "User A can read their own pending sets");
 assertEqual(userASets[0].reps, 10, "User A's set has correct data");
-
-// Storage keys are different per user
-const keyA = storageKey(userA);
-const keyB = storageKey(userB);
-assert(keyA !== keyB, "Storage keys differ between users");
-assert(keyA.includes(userA), "User A's key includes their user ID");
-assert(keyB.includes(userB), "User B's key includes their user ID");
 
 // User B saves their own set
 savePendingSet(storage, userB, sessionId, {
@@ -98,15 +97,13 @@ savePendingSet(storage, userB, sessionId, {
   clientId: "client-b-1",
 }, deps);
 
-// User B can see their own set, not User A's
+// Each user sees only their own sets
+const userASets2 = loadPendingSets(storage, userA, sessionId, deps);
 const userBSets2 = loadPendingSets(storage, userB, sessionId, deps);
+assertEqual(userASets2.length, 1, "User A still sees only their own set");
+assertEqual(userASets2[0].reps, 10, "User A's set unchanged");
 assertEqual(userBSets2.length, 1, "User B sees only their own set");
 assertEqual(userBSets2[0].reps, 15, "User B's set has correct data");
 
-// User A still sees only their own set
-const userASets2 = loadPendingSets(storage, userA, sessionId, deps);
-assertEqual(userASets2.length, 1, "User A still sees only their own set");
-assertEqual(userASets2[0].reps, 10, "User A's set unchanged");
-
-console.log(exitCode === 0 ? "\n✅ All per-user storage tests passed" : "\n❌ Some tests failed");
+console.log(exitCode === 0 ? "\n✅ All user isolation tests passed" : "\n❌ Some tests failed");
 process.exit(exitCode);

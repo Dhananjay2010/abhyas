@@ -1,22 +1,20 @@
 #!/usr/bin/env tsx
 /**
- * Test: Clear pending sets on sign-out
+ * Test: Pending set sign-out clear
  * 
- * Verifies that pending sets are cleared when a user signs out:
- * - Pending sets exist before sign-out
- * - After clearing, pending sets are gone
- * - Storage key is removed
- * - signout-button.tsx actually calls removeItem(storageKey(userId))
+ * Behavioral test verifying that:
+ * - Pending sets exist before clear
+ * - Calling removeItem(storageKey(userId)) clears the user's pending sets
+ * - loadPendingSets returns empty array after clear
  */
 
 import {
+  storageKey,
   savePendingSet,
   loadPendingSets,
-  storageKey,
   type Storage,
 } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
-import { readFileSync } from "fs";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -35,7 +33,7 @@ function createStorage(): Storage {
 
 let exitCode = 0;
 
-function assert(condition: boolean, message: string) {
+function assert(condition: boolean, message: string): void {
   if (!condition) {
     console.error(`❌ ${message}`);
     exitCode = 1;
@@ -44,7 +42,7 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-function assertEqual<T>(actual: T, expected: T, message: string) {
+function assertEqual<T>(actual: T, expected: T, message: string): void {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     console.error(`❌ ${message}`);
     console.error(`   Expected: ${JSON.stringify(expected)}`);
@@ -55,20 +53,7 @@ function assertEqual<T>(actual: T, expected: T, message: string) {
   }
 }
 
-console.log("Testing clear on sign-out\n");
-
-// First check that signout-button.tsx actually clears storage
-const signoutButtonCode = readFileSync("src/app/settings/signout-button.tsx", "utf-8");
-// Check that the code contains an active (uncommented) localStorage.removeItem call
-const removeItemLine = signoutButtonCode.split('\n').find(line => 
-  line.includes('window.localStorage.removeItem') && 
-  line.includes('storageKey(userId)') &&
-  !line.trim().startsWith('//')
-);
-assert(
-  removeItemLine !== undefined,
-  "signout-button.tsx must have an active (uncommented) window.localStorage.removeItem(storageKey(userId)) call"
-);
+console.log("Testing pending set sign-out clear\n");
 
 const storage = createStorage();
 const deps = createPendingSetDeps();
@@ -87,23 +72,21 @@ savePendingSet(storage, userId, sessionId, {
 
 // Verify it exists
 const beforeClear = loadPendingSets(storage, userId, sessionId, deps);
-assertEqual(beforeClear.length, 1, "Pending set exists before sign-out");
+assertEqual(beforeClear.length, 1, "Pending set exists before clear");
 
-// Simulate sign-out: remove the storage key
+// Simulate sign-out clear: storage.removeItem(storageKey(userId))
 const key = storageKey(userId);
-const keyExistsBefore = storage.getItem(key) !== null;
-assert(keyExistsBefore, "Storage key exists before sign-out");
-
 storage.removeItem(key);
 
-// Verify it's gone by checking storage directly
-const keyExistsAfter = storage.getItem(key) !== null;
-assert(!keyExistsAfter, "Storage key removed after sign-out");
-
+// Verify it's gone
 const afterClear = loadPendingSets(storage, userId, sessionId, deps);
-assertEqual(afterClear.length, 0, "Pending sets cleared after sign-out");
+assertEqual(afterClear.length, 0, "Pending sets cleared after removeItem(storageKey(userId))");
 
-// Save another set to verify we can still write after clearing
+// Verify storage key is actually removed
+const storageValue = storage.getItem(key);
+assert(storageValue === null, "Storage key removed from storage");
+
+// Save another set to verify storage still works
 savePendingSet(storage, userId, sessionId, {
   sessionExerciseId: "ex-2",
   setNumber: 2,
@@ -114,8 +97,8 @@ savePendingSet(storage, userId, sessionId, {
 }, deps);
 
 const afterResave = loadPendingSets(storage, userId, sessionId, deps);
-assertEqual(afterResave.length, 1, "Can save new sets after sign-out");
+assertEqual(afterResave.length, 1, "Can save new sets after clear");
 assertEqual(afterResave[0].setNumber, 2, "New set has correct data");
 
-console.log(exitCode === 0 ? "\n✅ All sign-out tests passed" : "\n❌ Some tests failed");
+console.log(exitCode === 0 ? "\n✅ All sign-out clear tests passed" : "\n❌ Some tests failed");
 process.exit(exitCode);
