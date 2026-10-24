@@ -225,9 +225,7 @@ export default async function ProgressPage() {
           </p>
           {volumePoints.length < 2 ? (
             <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-              {volumePoints.length === 0
-                ? "Complete a workout with logged sets to see your volume."
-                : "One session logged. Your trend will appear after your next workout."}
+              One session logged. Your trend will appear after your next workout.
             </p>
           ) : (
             <BarChart points={volumePoints} unit="kg" title="Volume per session" />

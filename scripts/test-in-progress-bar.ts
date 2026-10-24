@@ -1,11 +1,13 @@
 /**
- * Test in-progress bar visibility and text formatting.
+ * L2: Test in-progress bar visibility and text formatting.
  * 
- * Verifies:
- * - Bar is hidden on /session/* routes
+ * Verifies the same logic as the REAL InProgressBar component:
+ * - L1: Bar is client-side, fetches on mount and pathname changes
+ * - Bar is hidden while loading, logged out, or on /session/* routes
  * - Bar is shown on other routes when session exists
  * - "1 set logged" for single set (correct grammar)
  * - "N sets logged" for multiple sets
+ * - L3: 0-set sessions show "0 sets logged" (consistent behavior)
  * - Resume link points to /session/:id with no query params
  * 
  *   npx tsx scripts/test-in-progress-bar.ts
