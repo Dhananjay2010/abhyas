@@ -3,10 +3,10 @@ import {
   Outbox,
   createLocalStorage,
   mergePendingSets,
-  classifyLogSetOutcome,
   type OutboxSender,
 } from "@/lib/session/outbox";
-import { getRetryDelay, mapErrorToUserMessage } from "@/lib/session/error-messages";
+import { mapErrorToUserMessage } from "@/lib/session/error-messages";
+import { shouldAttemptFlush, nextRetryDelay, buildSendResult } from "@/lib/session/sync-helpers";
 import * as actions from "../actions";
 
 export type SyncState =
@@ -48,7 +48,7 @@ export function useSetOutbox<
     if (!outbox || outbox.pendingCount() === 0 || outbox.isFlushing()) return;
 
     // S9: Check if offline - don't count attempt, show "Waiting for connection"
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    if (typeof navigator !== "undefined" && !shouldAttemptFlush(navigator.onLine)) {
       setSyncState({ type: "failed", message: "Waiting for connection" });
       // Don't increment retryAttemptsRef - wait for online event
       return;
@@ -132,9 +132,9 @@ export function useSetOutbox<
       } else if (result.stopped) {
         // S9: Increment retry count and schedule next attempt with backoff
         retryAttemptsRef.current++;
-        const delay = getRetryDelay(retryAttemptsRef.current);
+        const delay = nextRetryDelay(retryAttemptsRef.current);
         setSyncState({ type: "failed", message: "Couldn't sync yet, retrying" });
-        
+
         // Schedule retry
         if (retryTimerRef.current) {
           clearTimeout(retryTimerRef.current);
@@ -208,31 +208,9 @@ export function useSetOutbox<
             weightKg: set.weightKg,
             durationSeconds: set.durationSeconds,
           });
-          const classification = classifyLogSetOutcome(result);
-          if (classification.outcome === "saved") {
-            return { ok: true };
-          }
-          // Map error using postgresCode if available
-          const postgresCode = (!result.ok && result.data && "postgresCode" in result.data) 
-            ? (result.data.postgresCode as string | undefined)
-            : undefined;
-          const mappedError = mapErrorToUserMessage(postgresCode, classification.error);
-          
-          return {
-            ok: false,
-            permanent: classification.outcome === "invalid",
-            error: mappedError,
-          };
+          return buildSendResult(result, mapErrorToUserMessage);
         } catch (thrown) {
-          // Network errors or thrown errors are transient
-          const classification = classifyLogSetOutcome({ thrown });
-          const mappedError = mapErrorToUserMessage(undefined, classification.error);
-          return {
-            ok: false,
-            permanent: false,
-            error: mappedError,
-            network: classification.isNetwork,
-          };
+          return buildSendResult({ thrown }, mapErrorToUserMessage);
         }
       },
     };

@@ -32,19 +32,17 @@ export function buildSendResult(
     | { ok: false; error: string; data?: { code?: string; postgresCode?: string } }
     | { thrown: unknown },
   mapError: (code: string | undefined, message?: string) => string,
-): {
-  ok: boolean;
-  permanent?: boolean;
-  error?: string;
-  network?: boolean;
-} {
+):
+  | { ok: true }
+  | { ok: false; permanent: boolean; error: string; network?: boolean } {
   // Thrown error
   if ("thrown" in resultOrThrown) {
     const err = resultOrThrown.thrown;
     const message = err instanceof Error ? err.message : "Network error";
     const isNetwork =
-      typeof navigator !== "undefined" && navigator.onLine === false ||
-      (err instanceof Error && /failed to fetch|network request failed|networkerror|load failed/i.test(err.message));
+      (typeof navigator !== "undefined" && navigator.onLine === false) ||
+      (err instanceof Error &&
+        /failed to fetch|network request failed|networkerror|load failed/i.test(err.message));
     return {
       ok: false,
       permanent: false,
@@ -92,14 +90,15 @@ export function finishBlockReason(
 
 /**
  * Can we clear the outbox after finishing the session?
- * Returns true only if there are no pending, lost, or failed sets.
+ * Pending sets don't block clearing (they will sync later).
+ * Only lost/failed sets block clearing.
  */
 export function canClearOutbox(
   pendingCount: number,
   lostCount: number,
   failedCount: number,
 ): boolean {
-  return pendingCount === 0 && lostCount === 0 && failedCount === 0;
+  return lostCount === 0 && failedCount === 0;
 }
 
 /**
@@ -112,19 +111,37 @@ export function undoTargetSetNumber(sets: Array<{ setNumber: number }>): number 
 }
 
 /**
- * Map a logSet result to an ActionResult with proper error classification.
- * Tests: 22P02/23514/22003 → invalid, 42501 → invalid, 53300 → transient
+ * Classify a Postgres error as invalid (permanent) or transient.
+ *
+ * Invalid (permanent, don't retry):
+ * - 22xxx: Data exceptions (22P02 invalid text, 22003 numeric overflow, etc.)
+ * - 23xxx: Integrity constraints (23505 unique, 23514 check, etc.)
+ * - 42501: Insufficient privilege
+ *
+ * Everything else is transient (retry).
+ *
+ * Justification: 22xxx/23xxx are permanent input errors that won't succeed on
+ * retry. Connection/resource errors (08xxx, 53xxx, 40xxx, 57xxx) are transient.
  */
 export function classifyLogSetError(
-  error: { code?: string; message: string },
-): { code: "invalid" } | { code: "transient"; message: string } {
-  const code = error.code;
+  error: unknown,
+): { category: "invalid" | "transient"; postgresCode?: string; message: string } {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? (error as { code?: string }).code
+      : undefined;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+        ? String((error as { message: unknown }).message)
+        : "Database error";
 
   // Permanent errors: data exceptions (22*), integrity (23*), insufficient privilege (42501)
   if (code && (code.startsWith("22") || code.startsWith("23") || code === "42501")) {
-    return { code: "invalid" };
+    return { category: "invalid", postgresCode: code, message };
   }
 
   // Everything else is transient
-  return { code: "transient", message: error.message };
+  return { category: "transient", postgresCode: code, message };
 }

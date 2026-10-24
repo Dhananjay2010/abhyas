@@ -34,21 +34,6 @@ export type OutboxState = {
 };
 
 /**
- * Classify Postgres error codes as permanent (don't retry) or transient.
- *
- * Permanent errors:
- * - 22xxx: Data exception (numeric overflow, string too long, etc.)
- * - 23xxx: Integrity constraint violation (foreign key, unique, etc.)
- * - 42501: Insufficient privilege
- *
- * Pure function for testability.
- */
-export function isPostgresPermanentError(code: string | null | undefined): boolean {
-  if (!code) return false;
-  return /^(22|23)/.test(code) || code === "42501";
-}
-
-/**
  * Classify the outcome of a logSet attempt for offline handling.
  *
  * - 'saved': set was saved successfully

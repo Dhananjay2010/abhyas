@@ -32,6 +32,7 @@ import {
 import { classifyLogSetOutcome, nextSetNumberFor } from "@/lib/session/outbox";
 import { isQuotaError } from "@/lib/session/quota-error";
 import { mapErrorToUserMessage, countLoggedSets } from "@/lib/session/error-messages";
+import { finishBlockReason, canClearOutbox, undoTargetSetNumber } from "@/lib/session/sync-helpers";
 import { useSetOutbox, type SyncState } from "./use-set-outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -445,7 +446,7 @@ export function SessionRunner({
               );
               if (ok) {
                 // S12: Only clear outbox if no failed/unsaved rows exist
-                if (lostCount === 0 && failedCount === 0) {
+                if (canClearOutbox(pendingCount, lostCount, failedCount)) {
                   clearOutbox();
                 }
                 setPhase("done");
@@ -462,7 +463,7 @@ export function SessionRunner({
               );
               if (ok) {
                 // S12: Only clear outbox if no failed/unsaved rows exist
-                if (lostCount === 0 && failedCount === 0) {
+                if (canClearOutbox(pendingCount, lostCount, failedCount)) {
                   clearOutbox();
                 }
                 setPhase("done");
@@ -623,11 +624,9 @@ export function SessionRunner({
   }).length;
   const allSetsDone = setsDone >= current.plannedSets;
   const nextSetNumber = nextSetNumberFor(current.sets);
-  
+
   // Find the highest actually logged setNumber (for undo targeting)
-  const lastLoggedSetNumber = current.sets.length > 0
-    ? Math.max(...current.sets.map((s) => s.setNumber))
-    : 0;
+  const lastLoggedSetNumber = undoTargetSetNumber(current.sets);
   
   // B1b: Block logging if any failed or unsaved rows exist
   const hasFailedOrUnsaved = current.sets.some((s) => {
@@ -855,18 +854,9 @@ export function SessionRunner({
 
   async function onFinishExercise(feel: Feel | null, skipped = false) {
     // S12: Block finishing while any sets are pending, failed, or unsaved
-    if (pendingCount > 0 || lostCount > 0 || failedCount > 0) {
-      const reasons = [];
-      if (pendingCount > 0) {
-        reasons.push(`${pendingCount} set${pendingCount > 1 ? "s" : ""} still syncing`);
-      }
-      if (lostCount > 0) {
-        reasons.push(`${lostCount} set${lostCount > 1 ? "s" : ""} couldn't be saved`);
-      }
-      if (failedCount > 0) {
-        reasons.push(`${failedCount} set${failedCount > 1 ? "s weren't" : " wasn't"} accepted`);
-      }
-      setError(reasons.join(", ") + ". Fix or remove them before finishing.");
+    const blockReason = finishBlockReason(pendingCount, lostCount, failedCount);
+    if (blockReason) {
+      setError(blockReason);
       // Trigger manual retry for pending
       if (pendingCount > 0) {
         void flushOutbox();
@@ -922,7 +912,7 @@ export function SessionRunner({
         );
         if (ok) {
           // S12: Only clear outbox if no failed/unsaved rows exist
-          if (lostCount === 0 && failedCount === 0) {
+          if (canClearOutbox(pendingCount, lostCount, failedCount)) {
             clearOutbox();
           }
           setPhase("done");

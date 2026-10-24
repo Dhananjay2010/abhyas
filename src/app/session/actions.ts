@@ -283,15 +283,14 @@ export async function logSet(input: {
   );
   
   if (error) {
-    // Detect permanent database errors using pure classifier
-    const permanent = isPostgresPermanentError(error.code);
-    return { 
-      ok: false, 
-      error: error.message, 
-      data: { 
-        code: permanent ? "invalid" : error.code || undefined,
-        postgresCode: error.code
-      } 
+    const classification = classifyLogSetError(error);
+    return {
+      ok: false,
+      error: classification.message,
+      data: {
+        code: classification.category === "invalid" ? "invalid" : undefined,
+        postgresCode: classification.postgresCode
+      }
     };
   }
   
@@ -316,7 +315,7 @@ export async function deleteSet(
 }
 
 import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
-import { isPostgresPermanentError } from "@/lib/session/outbox";
+import { classifyLogSetError } from "@/lib/session/sync-helpers";
 
 export type { ProgressionFeedback };
 

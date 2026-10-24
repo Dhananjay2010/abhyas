@@ -11,10 +11,20 @@
  * 6. mergePendingSets correctly merges pending sets into exercises
  */
 
-import { Outbox, mergePendingSets, nextSetNumberFor, isPostgresPermanentError, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
+import { Outbox, mergePendingSets, nextSetNumberFor, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
 import { isNetworkError } from "../src/lib/session/network-error";
-import { mapErrorToUserMessage, getRetryDelay, countLoggedSets } from "../src/lib/session/error-messages";
+import { mapErrorToUserMessage, countLoggedSets } from "../src/lib/session/error-messages";
+import {
+  shouldAttemptFlush,
+  nextRetryDelay,
+  buildSendResult,
+  finishBlockReason,
+  canClearOutbox,
+  undoTargetSetNumber,
+  classifyLogSetError,
+} from "../src/lib/session/sync-helpers";
 import { isQuotaError } from "../src/lib/session/quota-error";
+import { readFileSync } from "fs";
 
 // ---- Fake storage --------------------------------------------------------
 class FakeStorage implements OutboxStorage {
@@ -1101,38 +1111,358 @@ async function testIsFlushingDuringFlush() {
   console.log("✓ M6: isFlushing() is true during flush");
 }
 
-// ---- M8: Postgres Error Classification -----------------------------------
-function testPostgresErrorClassification() {
-  // 22P02: Data exception (invalid text representation)
-  if (!isPostgresPermanentError("22P02")) {
-    throw new Error("22P02 should be permanent");
+// ---- M8: classifyLogSetError ---------------------------------------------
+/**
+ * Tests for classifyLogSetError: Postgres error classification.
+ *
+ * Invalid (permanent, don't retry):
+ * - 22P02: invalid_text_representation (e.g. "abc" as integer)
+ * - 22003: numeric_value_out_of_range (e.g. 2^31 for INT)
+ * - 23505: unique_violation
+ * - 23514: check_constraint_violation
+ * - 42501: insufficient_privilege
+ *
+ * Transient (retry):
+ * - 53300: too_many_connections
+ * - 08000, 08003, 08006: connection errors
+ * - 40001: serialization_failure
+ * - 57P03: cannot_connect_now (server shutting down)
+ *
+ * Justification: 22xxx (data exceptions) and 23xxx (integrity constraints)
+ * are permanent input errors that won't succeed on retry. Connection/resource
+ * errors (08xxx, 53xxx, 40xxx, 57xxx) are transient and may succeed later.
+ */
+function testClassifyLogSetError() {
+  // Invalid codes (22xxx data exceptions)
+  let result = classifyLogSetError({ code: "22P02", message: "invalid text representation" });
+  if (result.category !== "invalid" || result.postgresCode !== "22P02") {
+    throw new Error("22P02 should be invalid");
   }
 
-  // 23505: Unique violation
-  if (!isPostgresPermanentError("23505")) {
-    throw new Error("23505 should be permanent");
+  result = classifyLogSetError({ code: "22003", message: "numeric out of range" });
+  if (result.category !== "invalid" || result.postgresCode !== "22003") {
+    throw new Error("22003 should be invalid");
   }
 
-  // 42501: Insufficient privilege
-  if (!isPostgresPermanentError("42501")) {
-    throw new Error("42501 should be permanent");
+  // Invalid codes (23xxx integrity constraints)
+  result = classifyLogSetError({ code: "23505", message: "unique violation" });
+  if (result.category !== "invalid" || result.postgresCode !== "23505") {
+    throw new Error("23505 should be invalid");
   }
 
-  // 53300: Too many connections (transient)
-  if (isPostgresPermanentError("53300")) {
+  result = classifyLogSetError({ code: "23514", message: "check constraint" });
+  if (result.category !== "invalid" || result.postgresCode !== "23514") {
+    throw new Error("23514 should be invalid");
+  }
+
+  // Invalid: insufficient privilege
+  result = classifyLogSetError({ code: "42501", message: "permission denied" });
+  if (result.category !== "invalid" || result.postgresCode !== "42501") {
+    throw new Error("42501 should be invalid");
+  }
+
+  // Transient: connection errors (08xxx)
+  result = classifyLogSetError({ code: "08000", message: "connection error" });
+  if (result.category !== "transient" || result.postgresCode !== "08000") {
+    throw new Error("08000 should be transient");
+  }
+
+  result = classifyLogSetError({ code: "08006", message: "connection failure" });
+  if (result.category !== "transient" || result.postgresCode !== "08006") {
+    throw new Error("08006 should be transient");
+  }
+
+  // Transient: too many connections
+  result = classifyLogSetError({ code: "53300", message: "too many connections" });
+  if (result.category !== "transient" || result.postgresCode !== "53300") {
     throw new Error("53300 should be transient");
   }
 
-  // Null/undefined
-  if (isPostgresPermanentError(null)) {
-    throw new Error("null should be transient");
-  }
-  
-  if (isPostgresPermanentError(undefined)) {
-    throw new Error("undefined should be transient");
+  // Transient: no code
+  result = classifyLogSetError(new Error("Network timeout"));
+  if (result.category !== "transient" || result.postgresCode !== undefined) {
+    throw new Error("Error with no code should be transient");
   }
 
-  console.log("✓ M8: Postgres 22P02, 23505, 42501 classify as invalid");
+  // Transient: unknown code (not 22/23/42501)
+  result = classifyLogSetError({ code: "40001", message: "serialization failure" });
+  if (result.category !== "transient" || result.postgresCode !== "40001") {
+    throw new Error("40001 should be transient (unknown code defaults to transient)");
+  }
+
+  console.log("✓ classifyLogSetError: 22P02, 23505, 23514, 22003, 42501 are invalid");
+  console.log("✓ classifyLogSetError: 53300, 08xxx, timeouts are transient");
+}
+
+// ---- shouldAttemptFlush helper -------------------------------------------
+function testShouldAttemptFlush() {
+  if (!shouldAttemptFlush(true)) {
+    throw new Error("shouldAttemptFlush(true) should return true");
+  }
+
+  if (shouldAttemptFlush(false)) {
+    throw new Error("shouldAttemptFlush(false) should return false");
+  }
+
+  console.log("✓ shouldAttemptFlush: guards flush when offline");
+}
+
+// ---- nextRetryDelay helper -----------------------------------------------
+function testNextRetryDelay() {
+  if (nextRetryDelay(0) !== 0) {
+    throw new Error("Attempt 0 should be 0ms");
+  }
+  if (nextRetryDelay(1) !== 15000) {
+    throw new Error("Attempt 1 should be 15s");
+  }
+  if (nextRetryDelay(2) !== 30000) {
+    throw new Error("Attempt 2 should be 30s");
+  }
+  if (nextRetryDelay(3) !== 60000) {
+    throw new Error("Attempt 3 should be 60s");
+  }
+  if (nextRetryDelay(10) !== 60000) {
+    throw new Error("Attempt 10+ should stay at 60s");
+  }
+
+  console.log("✓ nextRetryDelay: 0ms, 15s, 30s, 60s cap");
+}
+
+// ---- buildSendResult helper ----------------------------------------------
+function testBuildSendResult() {
+  const mapper = (code: string | undefined, msg?: string) =>
+    code === "22P02" ? "Check numbers" : msg || "Unknown error";
+
+  // Success
+  let result = buildSendResult({ ok: true }, mapper);
+  if (!result.ok) {
+    throw new Error("Success should return ok: true");
+  }
+
+  // Invalid (permanent) with postgresCode
+  result = buildSendResult(
+    { ok: false, error: "bad value", data: { code: "invalid", postgresCode: "22P02" } },
+    mapper
+  );
+  if (result.ok || !result.permanent || result.error !== "Check numbers") {
+    throw new Error("Invalid with 22P02 should be permanent with mapped error");
+  }
+
+  // Transient error
+  result = buildSendResult({ ok: false, error: "timeout", data: {} }, mapper);
+  if (result.ok || result.permanent || result.error !== "timeout") {
+    throw new Error("Transient error should be permanent: false");
+  }
+
+  // Network error (thrown)
+  result = buildSendResult({ thrown: new TypeError("Failed to fetch") }, mapper);
+  if (result.ok || result.permanent || !result.network) {
+    throw new Error("Thrown network error should have network: true");
+  }
+
+  console.log("✓ buildSendResult: constructs SendResult from action outcome");
+}
+
+// ---- finishBlockReason helper --------------------------------------------
+function testFinishBlockReason() {
+  // No block
+  if (finishBlockReason(0, 0, 0) !== null) {
+    throw new Error("All clear should return null");
+  }
+
+  // Pending only
+  const pending1 = finishBlockReason(1, 0, 0);
+  if (!pending1 || !pending1.includes("1 set still syncing")) {
+    throw new Error("1 pending should show singular");
+  }
+
+  const pending2 = finishBlockReason(2, 0, 0);
+  if (!pending2 || !pending2.includes("2 sets still syncing")) {
+    throw new Error("2 pending should show plural");
+  }
+
+  // Lost only
+  const lost1 = finishBlockReason(0, 1, 0);
+  if (!lost1 || !lost1.includes("1 set couldn't be saved")) {
+    throw new Error("1 lost should show singular");
+  }
+
+  const lost2 = finishBlockReason(0, 2, 0);
+  if (!lost2 || !lost2.includes("2 sets couldn't be saved")) {
+    throw new Error("2 lost should show plural");
+  }
+
+  // Failed only
+  const failed1 = finishBlockReason(0, 0, 1);
+  if (!failed1 || !failed1.includes("1 set wasn't accepted")) {
+    throw new Error("1 failed should show singular 'wasn't'");
+  }
+
+  const failed2 = finishBlockReason(0, 0, 2);
+  if (!failed2 || !failed2.includes("2 sets weren't accepted")) {
+    throw new Error("2 failed should show plural 'weren't'");
+  }
+
+  // Combined
+  const combined = finishBlockReason(1, 1, 1);
+  if (!combined || !combined.includes("1 set still syncing") ||
+      !combined.includes("1 set couldn't be saved") ||
+      !combined.includes("1 set wasn't accepted")) {
+    throw new Error("Combined should list all reasons");
+  }
+
+  if (!combined.includes(". Fix or remove them before finishing.")) {
+    throw new Error("Combined should include fix instruction");
+  }
+
+  console.log("✓ finishBlockReason: constructs block message from counts");
+}
+
+// ---- canClearOutbox helper -----------------------------------------------
+function testCanClearOutbox() {
+  // Can clear: no lost/failed
+  if (!canClearOutbox(0, 0, 0)) {
+    throw new Error("All clear should allow clear");
+  }
+
+  if (!canClearOutbox(0, 0, 0)) {
+    throw new Error("0 pending, 0 lost, 0 failed should allow clear");
+  }
+
+  // Cannot clear: lost
+  if (canClearOutbox(0, 1, 0)) {
+    throw new Error("Lost sets should block clear");
+  }
+
+  // Cannot clear: failed
+  if (canClearOutbox(0, 0, 1)) {
+    throw new Error("Failed sets should block clear");
+  }
+
+  // Cannot clear: both
+  if (canClearOutbox(0, 1, 1)) {
+    throw new Error("Lost and failed sets should block clear");
+  }
+
+  // Pending doesn't block clear (they will sync later)
+  if (!canClearOutbox(5, 0, 0)) {
+    throw new Error("Pending alone should not block clear");
+  }
+
+  console.log("✓ canClearOutbox: blocks on lost/failed, allows pending");
+}
+
+// ---- undoTargetSetNumber helper ------------------------------------------
+function testUndoTargetSetNumber() {
+  // Empty
+  if (undoTargetSetNumber([]) !== 0) {
+    throw new Error("Empty should return 0");
+  }
+
+  // Single set
+  if (undoTargetSetNumber([{ setNumber: 1 }]) !== 1) {
+    throw new Error("Single set should return 1");
+  }
+
+  // Multiple sets
+  if (
+    undoTargetSetNumber([
+      { setNumber: 1 },
+      { setNumber: 2 },
+      { setNumber: 3 },
+    ]) !== 3
+  ) {
+    throw new Error("Multiple sets should return max");
+  }
+
+  // Out of order
+  if (
+    undoTargetSetNumber([
+      { setNumber: 3 },
+      { setNumber: 1 },
+      { setNumber: 2 },
+    ]) !== 3
+  ) {
+    throw new Error("Out of order should return max");
+  }
+
+  console.log("✓ undoTargetSetNumber: returns highest setNumber for undo");
+}
+
+// ---- Static check: helpers are imported and used -------------------------
+function testStaticCheckHelperUsage() {
+  // Check use-set-outbox.ts imports and uses helpers
+  const outboxCode = readFileSync("src/app/session/[id]/use-set-outbox.ts", "utf-8");
+
+  if (!outboxCode.includes("import { shouldAttemptFlush, nextRetryDelay, buildSendResult }")) {
+    throw new Error("use-set-outbox.ts must import shouldAttemptFlush, nextRetryDelay, buildSendResult");
+  }
+
+  if (!outboxCode.includes("shouldAttemptFlush(")) {
+    throw new Error("use-set-outbox.ts must use shouldAttemptFlush()");
+  }
+
+  if (!outboxCode.includes("nextRetryDelay(")) {
+    throw new Error("use-set-outbox.ts must use nextRetryDelay()");
+  }
+
+  if (!outboxCode.includes("buildSendResult(")) {
+    throw new Error("use-set-outbox.ts must use buildSendResult()");
+  }
+
+  // Old inline patterns should be gone
+  if (outboxCode.includes("navigator.onLine === false")) {
+    throw new Error("use-set-outbox.ts must not contain inline 'navigator.onLine === false'");
+  }
+
+  if (outboxCode.includes("getRetryDelay(")) {
+    throw new Error("use-set-outbox.ts must not contain inline 'getRetryDelay()'");
+  }
+
+  // Check session-runner.tsx imports and uses helpers
+  const runnerCode = readFileSync("src/app/session/[id]/session-runner.tsx", "utf-8");
+
+  if (!runnerCode.includes("import { finishBlockReason, canClearOutbox, undoTargetSetNumber }")) {
+    throw new Error("session-runner.tsx must import finishBlockReason, canClearOutbox, undoTargetSetNumber");
+  }
+
+  if (!runnerCode.includes("finishBlockReason(")) {
+    throw new Error("session-runner.tsx must use finishBlockReason()");
+  }
+
+  if (!runnerCode.includes("canClearOutbox(")) {
+    throw new Error("session-runner.tsx must use canClearOutbox()");
+  }
+
+  if (!runnerCode.includes("undoTargetSetNumber(")) {
+    throw new Error("session-runner.tsx must use undoTargetSetNumber()");
+  }
+
+  // Old inline patterns should be gone
+  if (runnerCode.match(/const reasons = \[\];/)) {
+    throw new Error("session-runner.tsx must not contain inline finish block reason construction");
+  }
+
+  if (runnerCode.match(/Math\.max\(\.\.\.current\.sets\.map\(s => s\.setNumber\)\)/)) {
+    throw new Error("session-runner.tsx must not contain inline undo target calculation");
+  }
+
+  // Check actions.ts imports and uses classifyLogSetError
+  const actionsCode = readFileSync("src/app/session/actions.ts", "utf-8");
+
+  if (!actionsCode.includes("import { classifyLogSetError }")) {
+    throw new Error("actions.ts must import classifyLogSetError");
+  }
+
+  if (!actionsCode.includes("classifyLogSetError(")) {
+    throw new Error("actions.ts must use classifyLogSetError()");
+  }
+
+  if (actionsCode.includes("isPostgresPermanentError")) {
+    throw new Error("actions.ts must not import or use isPostgresPermanentError (deleted)");
+  }
+
+  console.log("✓ Static check: helpers imported and used, old patterns removed");
 }
 
 // ---- Error message mapping -----------------------------------------------
@@ -1178,27 +1508,6 @@ function testErrorMessageMapping() {
   }
 
   console.log("✓ Error message mapping works correctly");
-}
-
-// ---- Retry backoff schedule ----------------------------------------------
-function testRetryBackoff() {
-  if (getRetryDelay(0) !== 0) {
-    throw new Error("Attempt 0 should be 0ms");
-  }
-  if (getRetryDelay(1) !== 15000) {
-    throw new Error("Attempt 1 should be 15s");
-  }
-  if (getRetryDelay(2) !== 30000) {
-    throw new Error("Attempt 2 should be 30s");
-  }
-  if (getRetryDelay(3) !== 60000) {
-    throw new Error("Attempt 3 should be 60s");
-  }
-  if (getRetryDelay(10) !== 60000) {
-    throw new Error("Attempt 10+ should stay at 60s");
-  }
-
-  console.log("✓ Retry backoff schedule: 15s, 30s, 60s");
 }
 
 // ---- isNetworkError excludes coding bugs ---------------------------------
@@ -1343,13 +1652,21 @@ async function main() {
   await testMaxRetries();
   testNextSetNumberWithGaps();
   await testIsFlushingDuringFlush();
-  testPostgresErrorClassification();
+  testClassifyLogSetError();
   testErrorMessageMapping();
-  testRetryBackoff();
   testNetworkErrorExcludesCodingBugs();
   testQuotaErrorDetection();
   testCountLoggedSets();
   testErrorMappingCoverage();
+
+  // New helper tests
+  testShouldAttemptFlush();
+  testNextRetryDelay();
+  testBuildSendResult();
+  testFinishBlockReason();
+  testCanClearOutbox();
+  testUndoTargetSetNumber();
+  testStaticCheckHelperUsage();
 
   console.log("\n✓ All offline set logging tests passed");
 }
