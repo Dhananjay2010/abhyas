@@ -176,7 +176,7 @@ export function SettingsForm({
   /** Track retry metadata for each key (M1 fix #2) */
   const retryMetadata = useRef<Map<string, {
     type: 'profile' | 'session';
-    patch: any;
+    patch: Parameters<typeof actions.updateProfileSettings>[0] | Parameters<typeof actions.updateSessionSettings>[0];
     affectsPlan?: boolean;
   }>>(new Map());
   

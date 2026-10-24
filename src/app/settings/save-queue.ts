@@ -97,7 +97,7 @@ export function createSaveQueue<T>() {
         const result = await item.request();
         
         // M1 fix: Store for retry if result indicates failure
-        if (typeof result === "object" && "ok" in result && !result.ok) {
+        if (result && typeof result === "object" && "ok" in result && !result.ok) {
           lastFailed.set(key, item.request);
         } else {
           // Clear last failed on success
