@@ -67,20 +67,20 @@ const WARMUP: WarmupItem[] = [
   {
     id: "w1", slug: "easy-bike", name: "Easy stationary bike", type: "cardio",
     target_regions: [], target_muscles: ["cardio", "quads"], duration_seconds: 300,
-    instructions: ["Light resistance, steady cadence."], equipment_ids: [], phase: "cardio",
+    instructions: ["Light resistance, steady cadence."], equipment_ids: [], contraindicated_regions: [], phase: "cardio",
   },
   {
     id: "w2", slug: "band-pull-apart", name: "Band pull-apart", type: "mobility",
     target_regions: ["shoulder", "upper_back"], target_muscles: ["rear_delts", "upper_back"],
     duration_seconds: 60,
     instructions: ["Arms straight, pull the band to your chest, squeeze the shoulder blades."],
-    equipment_ids: ["resistance_band"], phase: "mobility",
+    equipment_ids: ["resistance_band"], contraindicated_regions: [], phase: "mobility",
   },
   {
     id: "w3", slug: "band-external-rotation", name: "Band external rotation", type: "prehab",
     target_regions: ["shoulder"], target_muscles: ["rear_delts"], duration_seconds: 60,
     instructions: ["Elbow pinned to your side, rotate the forearm outward. Light band."],
-    equipment_ids: ["resistance_band"], phase: "prehab",
+    equipment_ids: ["resistance_band"], contraindicated_regions: [], phase: "prehab",
   },
 ];
 
