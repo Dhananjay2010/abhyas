@@ -144,6 +144,11 @@ function check(label: string, ok: boolean, detail = "") {
   console.log("\n2. L2: Settings reverts to saved value on validation error");
   {
     const initialSettings = {
+      displayName: "Test User",
+      dateOfBirth: "1990-01-01",
+      sex: "male" as const,
+      heightCm: 175,
+      weightKg: 70,
       goal: "muscle_gain" as const,
       level: "intermediate" as const,
       primaryTrack: "weights" as const,
