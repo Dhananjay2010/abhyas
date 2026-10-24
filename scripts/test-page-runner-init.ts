@@ -173,7 +173,7 @@ console.log("\nRunner init: equipment classification");
   check("barbell is not bodyweight", exercises[2].isBodyweight === false);
 }
 
-console.log("\nMutation guards: G5 and P-series");
+console.log("\nG5 and P-series tests");
 {
   // G5: loaded ignores progressed
   const loadedRow = {
@@ -200,7 +200,7 @@ console.log("\nMutation guards: G5 and P-series");
   const progress = new Map([["ex-1", { current_working_weight_kg: 60, current_target_reps: 14 }]]);
 
   const exercises = buildRunnerInit([loadedRow], progress, true, false);
-  check("G5: loaded ignores progressed, uses planned (mutation guard)", exercises[0].repsMax === 12, `got ${exercises[0].repsMax}, should ignore progressed=14`);
+  check("G5: loaded ignores progressed, uses planned", exercises[0].repsMax === 12, `got ${exercises[0].repsMax}, should ignore progressed=14`);
 
   // P-series: bodyweight uses progressed when higher
   const bwRow = {
@@ -218,7 +218,7 @@ console.log("\nMutation guards: G5 and P-series");
 
   const bwProgress = new Map([["ex-2", { current_working_weight_kg: null, current_target_reps: 14 }]]);
   const bwExercises = buildRunnerInit([bwRow], bwProgress, true, false);
-  check("P-series: bodyweight uses progressed when higher (mutation guard)", bwExercises[0].repsMax === 14, `got ${bwExercises[0].repsMax}, should use progressed=14`);
+  check("P-series: bodyweight uses progressed when higher", bwExercises[0].repsMax === 14, `got ${bwExercises[0].repsMax}, should use progressed=14`);
 
   // P1: progress exists → use its weight
   check("P1: progress exists → use its weight", exercises[0].workingWeightKg === 60, `got ${exercises[0].workingWeightKg}`);

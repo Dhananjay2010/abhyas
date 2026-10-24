@@ -3,7 +3,7 @@
  *
  *   npm run test:swap-core
  */
-import { FakeSupabaseClient } from "../src/lib/test-helpers/fake-supabase";
+import { FakeSupabaseClient } from "./fake-supabase";
 import { swapExerciseCore } from "../src/lib/session/swap-core";
 
 let failures = 0;
@@ -28,7 +28,7 @@ console.log("\nSwap core: reads NEW exercise progress (O1)");
   ]);
 
   await swapExerciseCore(
-    { supabase: fake as unknown as Parameters<typeof swapExerciseCore>[0]["supabase"], userId: "user-1" },
+    { supabase: fake, userId: "user-1" },
     { sessionExerciseId: "se-1", newExerciseId: "new-ex" }
   );
 
@@ -54,7 +54,7 @@ console.log("\nSwap core: respects daily_menu mode (O2)");
   fake.seed("user_settings", [{ user_id: "user-1", planning_mode: "daily_menu" }]);
 
   const result = await swapExerciseCore(
-    { supabase: fake as unknown as Parameters<typeof swapExerciseCore>[0]["supabase"], userId: "user-1" },
+    { supabase: fake, userId: "user-1" },
     { sessionExerciseId: "se-1", newExerciseId: "new-ex" }
   );
 
@@ -87,7 +87,7 @@ console.log("\nSwap core: applies deload (O3)");
   ]);
 
   const resultDeload = await swapExerciseCore(
-    { supabase: fakeWithDeload as unknown as Parameters<typeof swapExerciseCore>[0]["supabase"], userId: "user-1" },
+    { supabase: fakeWithDeload, userId: "user-1" },
     { sessionExerciseId: "se-1", newExerciseId: "new-ex" }
   );
 
@@ -105,7 +105,7 @@ console.log("\nSwap core: applies deload (O3)");
   ]);
 
   const resultNoDeload = await swapExerciseCore(
-    { supabase: fakeNoDeload as unknown as Parameters<typeof swapExerciseCore>[0]["supabase"], userId: "user-1" },
+    { supabase: fakeNoDeload, userId: "user-1" },
     { sessionExerciseId: "se-1", newExerciseId: "new-ex" }
   );
 

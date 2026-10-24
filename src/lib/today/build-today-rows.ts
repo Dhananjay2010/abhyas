@@ -30,10 +30,12 @@ type SessionExerciseRow = {
 
 type TemplateExerciseRow = {
   order_index: number;
+  exercise_id: string | null;
   exercises: {
     name: string;
     cue: string | null;
     metric: string | null;
+    equipment_ids: string[];
   } | null;
   target_sets: number | null;
   target_reps_min: number | null;
@@ -81,13 +83,15 @@ export function buildStartedSessionRows(
     // For unfinished, use progressed target via effectiveRepsMax
     const effectiveMax =
       r.status === "completed"
-        ? r.planned_reps_max ?? 12
-        : effectiveRepsMax({
-            plannedMax: r.planned_reps_max ?? 12,
-            progressedTarget: progress?.current_target_reps,
-            isBodyweight,
-            usedWeight: workingWeightKg,
-          });
+        ? r.planned_reps_max
+        : r.planned_reps_max !== null
+          ? effectiveRepsMax({
+              plannedMax: r.planned_reps_max,
+              progressedTarget: progress?.current_target_reps,
+              isBodyweight,
+              usedWeight: workingWeightKg,
+            })
+          : null;
     
     return {
       key: `s${r.order_index}`,
@@ -106,18 +110,41 @@ export function buildStartedSessionRows(
 
 /**
  * Build rows for template preview (before session starts)
+ * Now includes progressed targets for unloaded bodyweight exercises
  */
-export function buildTemplateRows(templateExercises: TemplateExerciseRow[]): TodayRow[] {
-  return templateExercises.map((r) => ({
-    key: `p${r.order_index}`,
-    name: r.exercises?.name ?? "",
-    cue: r.exercises?.cue ?? null,
-    metric: (r.exercises?.metric as Database["public"]["Enums"]["exercise_metric"]) ?? null,
-    sets: r.target_sets,
-    repsMin: r.target_reps_min,
-    repsMax: r.target_reps_max,
-    restSeconds: r.rest_seconds,
-    skipped: false,
-    swappedIn: false,
-  }));
+export function buildTemplateRows(
+  templateExercises: TemplateExerciseRow[],
+  progressByExercise: Map<string, ProgressRecord>
+): TodayRow[] {
+  return templateExercises.map((r) => {
+    const progress = r.exercise_id ? progressByExercise.get(r.exercise_id) : undefined;
+    const isBodyweight = isBodyweightEquipment(r.exercises?.equipment_ids ?? []);
+    const workingWeightKg =
+      progress?.current_working_weight_kg === null || !progress
+        ? null
+        : Number(progress.current_working_weight_kg);
+    
+    // Use progressed target for unloaded bodyweight exercises
+    const effectiveMax = r.target_reps_max !== null
+      ? effectiveRepsMax({
+          plannedMax: r.target_reps_max,
+          progressedTarget: progress?.current_target_reps,
+          isBodyweight,
+          usedWeight: workingWeightKg,
+        })
+      : null;
+    
+    return {
+      key: `p${r.order_index}`,
+      name: r.exercises?.name ?? "",
+      cue: r.exercises?.cue ?? null,
+      metric: (r.exercises?.metric as Database["public"]["Enums"]["exercise_metric"]) ?? null,
+      sets: r.target_sets,
+      repsMin: r.target_reps_min,
+      repsMax: effectiveMax,
+      restSeconds: r.rest_seconds,
+      skipped: false,
+      swappedIn: false,
+    };
+  });
 }

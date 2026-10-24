@@ -167,43 +167,42 @@ console.log("\nMutation tests: copy and Skip button condition must not change");
   // Test that the exact copy is enforced (will fail if mutated)
   const emptyState = swapSheetState({ alternatives: [] });
   const expectedCopy = "No safe swap for this one. You can skip it.";
-  check("mutation guard: exact copy 'No safe swap for this one. You can skip it.'",
+  check("exact copy 'No safe swap for this one. You can skip it.'",
     emptyState.message === expectedCopy,
     `got "${emptyState.message}"`);
 
-  // Test that Skip button appears only when empty (will fail if condition is mutated)
+  // Test that Skip button appears only when empty
   const emptyShowsSkip = swapSheetState({ alternatives: [] });
-  check("mutation guard: empty list shows Skip button",
+  check("empty list shows Skip button",
     emptyShowsSkip.showSkipButton === true && emptyShowsSkip.isEmpty === true,
     `isEmpty=${emptyShowsSkip.isEmpty}, showSkipButton=${emptyShowsSkip.showSkipButton}`);
 
   const nonEmptyHidesSkip = swapSheetState({ alternatives: [{ id: 1 }] });
-  check("mutation guard: non-empty list hides Skip button",
+  check("non-empty list hides Skip button",
     nonEmptyHidesSkip.showSkipButton === false && nonEmptyHidesSkip.isEmpty === false,
     `isEmpty=${nonEmptyHidesSkip.isEmpty}, showSkipButton=${nonEmptyHidesSkip.showSkipButton}`);
 
   // Test coupling: showSkipButton must match isEmpty
   const emptyStateCoupled = swapSheetState({ alternatives: [] });
-  check("mutation guard: showSkipButton === isEmpty when empty",
+  check("showSkipButton === isEmpty when empty",
     emptyStateCoupled.showSkipButton === emptyStateCoupled.isEmpty,
     `isEmpty=${emptyStateCoupled.isEmpty}, showSkipButton=${emptyStateCoupled.showSkipButton}`);
 
   const nonEmptyStateCoupled = swapSheetState({ alternatives: [{ id: 1 }] });
-  check("mutation guard: showSkipButton === isEmpty when non-empty",
+  check("showSkipButton === isEmpty when non-empty",
     nonEmptyStateCoupled.showSkipButton === nonEmptyStateCoupled.isEmpty,
     `isEmpty=${nonEmptyStateCoupled.isEmpty}, showSkipButton=${nonEmptyStateCoupled.showSkipButton}`);
 }
 
-console.log("\nWiring mutation tests: swap must update critical fields");
+console.log("\nWiring tests: swap must update critical fields");
 {
-  // Mutant 3: session-runner.tsx:884 - runner not applying isBodyweight on swap
   // Test that swappedEntryFields returns isBodyweight correctly
   const bodyweightSwap = swappedEntryFields({
     equipmentIds: [],
     workingWeightKg: null,
     suggestedWeightKg: null,
   });
-  check("mutation guard: swappedEntryFields computes isBodyweight for empty equipment",
+  check("swappedEntryFields computes isBodyweight for empty equipment",
     bodyweightSwap.isBodyweight === true,
     "session-runner.tsx must apply isBodyweight from swappedFields on swap");
 
@@ -212,28 +211,27 @@ console.log("\nWiring mutation tests: swap must update critical fields");
     workingWeightKg: 60,
     suggestedWeightKg: 60,
   });
-  check("mutation guard: swappedEntryFields computes isBodyweight false for loaded equipment",
+  check("swappedEntryFields computes isBodyweight false for loaded equipment",
     loadedSwap.isBodyweight === false,
     "session-runner.tsx must apply isBodyweight from swappedFields on swap");
 
-  // Mutant 4: swap action must return equipmentIds
-  // This is tested by verifying that swappedEntryFields requires equipmentIds parameter
+  // Swap action must return equipmentIds
   const swapWithEquipment = swappedEntryFields({
     equipmentIds: ["dumbbell"],
     workingWeightKg: 20,
     suggestedWeightKg: 20,
   });
-  check("mutation guard: swappedEntryFields receives equipmentIds",
+  check("swappedEntryFields receives equipmentIds",
     swapWithEquipment.isBodyweight === false,
-    "session/actions.ts:791 must return equipmentIds in SwapResult");
+    "session/actions.ts must return equipmentIds in SwapResult");
 
-  // Mutant 5: swap must reset weights, not carry them over
+  // Swap must reset weights, not carry them over
   const weightResetSwap = swappedEntryFields({
     equipmentIds: ["pull_up_bar"],
     workingWeightKg: null,
     suggestedWeightKg: null,
   });
-  check("mutation guard: swappedEntryFields accepts null weights (barbell to pull-up bar)",
+  check("swappedEntryFields accepts null weights (barbell to pull-up bar)",
     weightResetSwap.workingWeightKg === null && weightResetSwap.suggestedWeightKg === null,
     "session-runner.tsx must set workingWeightKg/suggestedWeightKg from swappedFields, not carry over old");
 
@@ -242,7 +240,7 @@ console.log("\nWiring mutation tests: swap must update critical fields");
     workingWeightKg: 40,
     suggestedWeightKg: 40,
   });
-  check("mutation guard: swappedEntryFields carries new exercise's progress",
+  check("swappedEntryFields carries new exercise's progress",
     progressCarrySwap.workingWeightKg === 40 && progressCarrySwap.suggestedWeightKg === 40,
     "session-runner.tsx must use new exercise's own working/suggested weights");
 }

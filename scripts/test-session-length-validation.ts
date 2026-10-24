@@ -79,33 +79,33 @@ console.log("\n6. Settings action validation (simulated)");
     }
     return { ok: true };
   }
-
+  
   const valid30 = validateSessionLength(30);
   check("Settings accepts 30", valid30.ok);
-
+  
   const valid45 = validateSessionLength(45);
   check("Settings accepts 45", valid45.ok);
-
+  
   const valid60 = validateSessionLength(60);
   check("Settings accepts 60", valid60.ok);
-
+  
   const valid75 = validateSessionLength(75);
   check("Settings accepts 75", valid75.ok);
-
+  
   const invalid50 = validateSessionLength(50);
   check("Settings rejects 50", !invalid50.ok);
   if (!invalid50.ok) {
-    check("Settings error message for 50 is correct",
+    check("Settings error message for 50 is correct", 
       invalid50.error === "Pick 30, 45, 60 or 75 minutes.");
   }
-
+  
   const invalid90 = validateSessionLength(90);
   check("Settings rejects 90", !invalid90.ok);
   if (!invalid90.ok) {
     check("Settings error message for 90 is correct",
       invalid90.error === "Pick 30, 45, 60 or 75 minutes.");
   }
-
+  
   const validNull = validateSessionLength(null);
   check("Settings accepts null (no change)", validNull.ok);
 }
@@ -115,10 +115,10 @@ console.log("\n7. Single source validation");
   // Verify that SESSION_LENGTH_OPTIONS is the single source
   const optionsSet = new Set(SESSION_LENGTH_OPTIONS);
   const expectedValues: (30 | 45 | 60 | 75)[] = [30, 45, 60, 75];
-
-  check("All valid values are in SESSION_LENGTH_OPTIONS",
+  
+  check("All valid values are in SESSION_LENGTH_OPTIONS", 
     expectedValues.every(v => optionsSet.has(v)));
-
+  
   check("SESSION_LENGTH_OPTIONS has no extra values",
     SESSION_LENGTH_OPTIONS.length === 4);
 }

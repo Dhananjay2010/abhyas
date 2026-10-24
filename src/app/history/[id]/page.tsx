@@ -34,9 +34,9 @@ export default async function SessionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
+  
   if (!isUuid(id)) notFound();
-
+  
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
@@ -46,7 +46,7 @@ export default async function SessionDetailPage({
     .select("units, timezone")
     .eq("id", user.id)
     .single();
-
+  
   const units = getUnitsPreference(profile?.units);
 
   const { data: session, error: sessionError } = await supabase
@@ -56,7 +56,7 @@ export default async function SessionDetailPage({
     .select("id, local_date, status, actual_type, duration_seconds, is_deload, week_in_block, notes, started_at, completed_at, program_days(label), breathing_patterns!sessions_breathing_pattern_id_fkey(name, slug), breathing_logs(pattern_name, cycles_completed, planned_cycles, breaths, seconds, ended_early, mood_before, mood_after, guidance, routine_name, routine_step)")
     .eq("id", id)
     .maybeSingle();
-
+  
   if (sessionError) {
     throw new Error(`Could not load this session: ${sessionError.message}`);
   }

@@ -25,13 +25,13 @@ console.log("\nbuildStrengthChartsFromDescendingRows tests");
     { exercise_id: "ex1", exercise_name: "Bench Press", local_date: "2024-01-02", best_e1rm: 95, top_weight_kg: 85 },
     { exercise_id: "ex1", exercise_name: "Bench Press", local_date: "2024-01-01", best_e1rm: 90, top_weight_kg: 80 },
   ];
-
+  
   const charts = buildStrengthChartsFromDescendingRows(rows, (d) => d, "imperial", new Set());
-
+  
   check("Imperial: returns one chart", charts.length === 1);
   check("Imperial: unitLabel is 'lb'", charts[0].unitLabel === "lb");
   check("Imperial: has 3 points", charts[0].points.length === 3);
-
+  
   // 100 kg → 220.46 lb
   const val = charts[0].points[2].value;
   check("Imperial: 100 kg converts to ~220.5 lb",
@@ -45,9 +45,9 @@ console.log("\nbuildStrengthChartsFromDescendingRows tests");
     { exercise_id: "ex1", exercise_name: "Squat", local_date: "2024-01-02", best_e1rm: 150, top_weight_kg: 140 },
     { exercise_id: "ex1", exercise_name: "Squat", local_date: "2024-01-01", best_e1rm: 145, top_weight_kg: 135 },
   ];
-
+  
   const charts = buildStrengthChartsFromDescendingRows(rows, (d) => d, "metric", new Set());
-
+  
   check("Metric: unitLabel is 'kg'", charts[0].unitLabel === "kg");
   check("Metric: 150 kg stays as 150", charts[0].points[1].value === 150);
   check("Metric: 145 kg stays as 145", charts[0].points[0].value === 145);
@@ -61,10 +61,10 @@ console.log("\nbuildStrengthChartsFromDescendingRows tests");
     { exercise_id: "ex1", exercise_name: "Deadlift", local_date: "2024-01-02", best_e1rm: 195, top_weight_kg: 175 },
     { exercise_id: "ex1", exercise_name: "Deadlift", local_date: "2024-01-01", best_e1rm: 190, top_weight_kg: 170 },
   ];
-
+  
   const deloadDates = new Set(["2024-01-03"]);
   const charts = buildStrengthChartsFromDescendingRows(rows, (d) => d, "metric", deloadDates);
-
+  
   check("Deload: all 4 points present", charts[0].points.length === 4);
   // After reversal: [01-01, 01-02, 01-03 (deload), 01-04]
   check("Deload: point 0 (2024-01-01) not marked", !charts[0].points[0].isDeload);
@@ -80,9 +80,9 @@ console.log("\nbuildStrengthChartsFromDescendingRows tests");
     { exercise_id: "ex1", exercise_name: "Press", local_date: "2024-01-03", best_e1rm: 75, top_weight_kg: 65 },
     { exercise_id: "ex1", exercise_name: "Press", local_date: "2024-01-01", best_e1rm: 70, top_weight_kg: 60 },
   ];
-
+  
   const charts = buildStrengthChartsFromDescendingRows(rows, (d) => d, "metric", new Set());
-
+  
   check("Order: first point is oldest (70)", charts[0].points[0].value === 70);
   check("Order: second point is middle (75)", charts[0].points[1].value === 75);
   check("Order: third point is newest (80)", charts[0].points[2].value === 80);
@@ -98,9 +98,9 @@ console.log("\nbuildStrengthChartsFromDescendingRows tests");
     { exercise_id: "ex1", exercise_name: "Row", local_date: "2024-01-02", best_e1rm: "120.5", top_weight_kg: 110 },
     { exercise_id: "ex1", exercise_name: "Row", local_date: "2024-01-01", best_e1rm: "115", top_weight_kg: 105 },
   ];
-
+  
   const charts = buildStrengthChartsFromDescendingRows(rows as StrengthHistoryRow[], (d) => d, "metric", new Set());
-
+  
   check("String: '120.5' parses to 120.5", charts[0].points[1].value === 120.5);
   check("String: '115' parses to 115", charts[0].points[0].value === 115);
 }
@@ -113,13 +113,13 @@ console.log("\nbuildStrengthChartsFromDescendingRows tests");
     { exercise_id: "ex2", exercise_name: "Squat", local_date: "2024-01-01", best_e1rm: 195, top_weight_kg: 175 },
     { exercise_id: "ex1", exercise_name: "Bench", local_date: "2024-01-01", best_e1rm: 95, top_weight_kg: 85 },
   ];
-
+  
   const charts = buildStrengthChartsFromDescendingRows(rows, (d) => d, "metric", new Set());
-
+  
   check("Multiple: returns 2 charts", charts.length === 2);
   // Charts sorted by point count descending (both have 2, so stable)
   check("Multiple: first chart name", charts[0].name === "Squat" || charts[0].name === "Bench");
-  check("Multiple: each chart has 2 points",
+  check("Multiple: each chart has 2 points", 
     charts[0].points.length === 2 && charts[1].points.length === 2);
 }
 

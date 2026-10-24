@@ -15,8 +15,8 @@ import { useId, useState } from "react";
  * dark-mode lightness band and clears 3:1 contrast against the surface.
  */
 
-export type Point = {
-  label: string;
+export type Point = { 
+  label: string; 
   value: number;
   isDeload?: boolean;
 };
@@ -165,7 +165,7 @@ export function LineChart({
         />
 
         {/* Deload markers: hollow circles with muted stroke */}
-        {points.map((p, i) =>
+        {points.map((p, i) => 
           p.isDeload ? (
             <circle
               key={`deload-${i}`}
@@ -247,7 +247,7 @@ export function BarChart({
   const max = Math.max(...points.map((p) => p.value), 1);
   const innerW = width - PAD.left - PAD.right;
   const innerH = height - PAD.top - PAD.bottom;
-
+  
   // For single-point data, show a narrow bar instead of filling the whole plot
   const slot = points.length === 1 ? 30 : innerW / points.length;
   const barW = Math.max(3, slot - 2);

@@ -26,7 +26,7 @@ console.log("\n1. Bodyweight preselection logic exists");
 {
   const hasBodyweightCheck = /isBodyweightOnly/.test(flowSource) || /bodyweight/.test(flowSource);
   check("Bodyweight track check exists", hasBodyweightCheck);
-
+  
   // Look for preselection logic
   const hasPreselectionLogic = /grouped\.bodyweight/.test(flowSource) && /selectedEquipment\.size === 0/.test(flowSource);
   check("Preselection only when selectedEquipment is empty", hasPreselectionLogic);

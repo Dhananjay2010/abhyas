@@ -122,7 +122,7 @@ export function OnboardingFlow({
   // Date of birth as ISO string (YYYY-MM-DD)
   const [dateOfBirth, setDateOfBirth] = useState<string | null>(initial.dateOfBirth);
   const [dobTouched, setDobTouched] = useState(false);
-
+  
   const [sex, setSex] = useState<Sex | null>(initial.sex);
   const [heightCm, setHeightCm] = useState(initial.heightCm?.toString() ?? "");
   const [heightTouched, setHeightTouched] = useState(false);
@@ -276,27 +276,27 @@ export function OnboardingFlow({
   if (current === "about") {
     const height = Number(heightCm);
     const weight = Number(weightKg);
-
+    
     // Get today as ISO string for validation
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
+    
     // Validate DOB
     const dobValidationError = dobTouched && dateOfBirth ? validateDob(dateOfBirth, todayIso) : null;
     const dobError = dobValidationError ? getDobErrorMessage(dobValidationError) : null;
-
+    
     const heightError = heightTouched && heightCm !== "" && (!Number.isFinite(height) || height < 100 || height > 250)
       ? "Height should be between 100 and 250 cm"
       : null;
     const weightError = weightTouched && weightKg !== "" && (!Number.isFinite(weight) || weight < 25 || weight > 300)
       ? "Weight should be between 25 and 300 kg"
       : null;
-
+    
     const dobValid = dateOfBirth !== null && dobValidationError === null;
-
+    
     const ready =
-      dobValid && sex !== null && height > 0 && weight > 0 &&
+      dobValid && sex !== null && height > 0 && weight > 0 && 
       !heightError && !weightError && !pending;
 
     return (
@@ -314,16 +314,16 @@ export function OnboardingFlow({
                 setDobTouched(true);
                 setHeightTouched(true);
                 setWeightTouched(true);
-
+                
                 // Only proceed if ready
                 if (!ready) return;
-
+                
                 // Detect browser timezone on client
                 const browserTimezone =
                   typeof window !== "undefined"
                     ? Intl.DateTimeFormat().resolvedOptions().timeZone
                     : undefined;
-
+                
                 advance(() =>
                   actions.saveAboutYou({
                     dateOfBirth: dateOfBirth!,
@@ -663,14 +663,14 @@ export function OnboardingFlow({
       (acc[e.category] ??= []).push(e);
       return acc;
     }, {});
-
+    
     // Preselect bodyweight equipment for bodyweight track
     if (isBodyweightOnly && grouped.bodyweight && selectedEquipment.size === 0) {
       const bodyweightIds = grouped.bodyweight.map((e) => e.id);
       setSelectedEquipment(new Set(bodyweightIds));
       setHasAllEquipment(false);
     }
-
+    
     // Order bodyweight first for home users
     const categories = Object.keys(grouped);
     const orderedCategories = location === "home" && categories.includes("bodyweight")

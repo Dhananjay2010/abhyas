@@ -1,6 +1,6 @@
 /**
  * Unit tests for dob.ts helpers.
- *
+ * 
  * Covers calendar validation, leap years, timezone neutrality, and age bounds.
  * Run with: TZ=Asia/Kolkata tsx scripts/test-dob-logic.ts && TZ=America/Los_Angeles tsx scripts/test-dob-logic.ts
  */

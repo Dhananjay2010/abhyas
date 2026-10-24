@@ -26,7 +26,7 @@ async function requireUser() {
 export async function acceptDisclaimer(): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-
+  
   const { supabase, user } = await requireUser();
   const { error } = await supabase
     .from("profiles")
@@ -44,7 +44,7 @@ export async function saveAboutYou(input: {
 }): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-
+  
   const age = ageOn(input.dateOfBirth);
   if (Number.isNaN(age)) return { ok: false, error: "That date does not look right." };
   if (age < MIN_AGE_YEARS)
@@ -106,7 +106,7 @@ export async function saveAboutYou(input: {
 export async function saveProfileFields(fields: ProfileUpdate): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-
+  
   const { supabase, user } = await requireUser();
   const { error } = await supabase.from("profiles").update(fields).eq("id", user.id);
   return error ? { ok: false, error: error.message } : { ok: true };
@@ -118,7 +118,7 @@ export async function saveEquipment(input: {
 }): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-
+  
   const { supabase, user } = await requireUser();
 
   const { error: flagError } = await supabase
@@ -158,7 +158,7 @@ export async function saveInjuries(
 ): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("default");
   if (rateLimit) return rateLimit;
-
+  
   const { supabase, user } = await requireUser();
 
   const { error: clearError } = await supabase
@@ -185,7 +185,7 @@ export async function saveInjuries(
 export async function completeOnboarding(): Promise<ActionResult> {
   const rateLimit = await checkActionRateLimit("expensive");
   if (rateLimit) return rateLimit;
-
+  
   const { supabase, user } = await requireUser();
 
   // Guard against a client that skipped ahead: everything the engine needs must exist.
@@ -238,11 +238,11 @@ export async function saveSessionLength(minutes: number): Promise<ActionResult> 
     (m) => supabase.from("profiles").update({ preferred_session_minutes: m }).eq("id", user.id),
     minutes
   );
-
+  
   if (result.ok) {
     revalidatePath("/today");
     revalidatePath("/settings");
   }
-
+  
   return result;
 }

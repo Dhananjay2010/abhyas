@@ -50,32 +50,32 @@ function buildStrengthCharts(
 ): ExerciseChart[] {
   const byExercise = new Map<string, ExerciseChart>();
   const unitLabelText = weightLabel(units);
-
+  
   for (const row of rows) {
     if (!row.exercise_id || !row.local_date || row.best_e1rm === null) continue;
-
+    
     const entry = byExercise.get(row.exercise_id) ?? {
       name: row.exercise_name ?? "Exercise",
       points: [] as Point[],
       unitLabel: unitLabelText,
     };
-
+    
     // C1: Convert e1RM to user's units
     const value = units === "imperial" ? kgToLb(row.best_e1rm) : row.best_e1rm;
-
+    
     // C2: Keep all points (including deloads), flag deload points
     const isDeload = deloadDates.has(row.local_date);
-
+    
     entry.points.push({
       label: shortDateFn(row.local_date),
       value: Number(value),
       // Store deload flag for potential visual styling
       ...(isDeload && { isDeload: true }),
     });
-
+    
     byExercise.set(row.exercise_id, entry);
   }
-
+  
   return [...byExercise.values()]
     .filter((e) => e.points.length >= 1)  // Include single-point charts
     .sort((a, b) => b.points.length - a.points.length);

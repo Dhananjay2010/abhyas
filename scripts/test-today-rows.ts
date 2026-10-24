@@ -126,7 +126,7 @@ console.log("\nToday rows: loaded exercise with progress");
 
   const rows = buildStartedSessionRows(sessionExercises, progress);
 
-  check("loaded: ignores progressed target, uses planned (mutation guard G5)",
+  check("loaded: ignores progressed target, uses planned (G5)",
     rows[0].repsMax === 12, `got ${rows[0].repsMax}, loaded exercises ignore progressed`);
 }
 

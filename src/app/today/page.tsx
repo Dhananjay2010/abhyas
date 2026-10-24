@@ -166,7 +166,7 @@ export default async function TodayPage() {
       .from("program_days")
       // One string literal: Supabase infers the row type from it, and a
       // concatenation degrades the result to GenericStringError.
-      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
+      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, exercise_id, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric, equipment_ids))")
       .eq("program_id", program.id)
       .order("day_index")
       .order("order_index", { referencedTable: "program_day_exercises" }),
@@ -346,14 +346,17 @@ export default async function TodayPage() {
       : Promise.resolve(null),
   ]);
 
-  // Fetch exercise_progress for all exercises in the performed session
+  // Fetch exercise_progress for exercises in the performed session OR the template
+  const templateExerciseIds = template.map(t => t.exercise_id).filter((id): id is string => id !== null);
   const exerciseIds = performedRows?.data?.map(r => r.exercise_id).filter((id): id is string => id !== null) ?? [];
-  const progressRes = exerciseIds.length > 0 && settingsRes.data?.planning_mode !== "daily_menu"
+  const allExerciseIds = [...new Set([...exerciseIds, ...templateExerciseIds])];
+  
+  const progressRes = allExerciseIds.length > 0 && settingsRes.data?.planning_mode !== "daily_menu"
     ? await supabase
         .from("exercise_progress")
         .select("exercise_id, current_working_weight_kg, current_target_reps")
         .eq("user_id", user.id)
-        .in("exercise_id", exerciseIds)
+        .in("exercise_id", allExerciseIds)
     : { data: null };
 
   const progressByExercise = new Map(
@@ -381,6 +384,7 @@ export default async function TodayPage() {
 
   const template = (isTraining ? (today?.program_day_exercises ?? []) : []) as Array<{
     order_index: number;
+    exercise_id: string | null;
     target_sets: number | null;
     target_reps_min: number | null;
     target_reps_max: number | null;
@@ -389,6 +393,7 @@ export default async function TodayPage() {
       name: string;
       cue: string | null;
       metric: Database["public"]["Enums"]["exercise_metric"] | null;
+      equipment_ids: string[];
     } | null;
   }>;
 
@@ -412,7 +417,7 @@ export default async function TodayPage() {
   const todayExercises: TodayRow[] =
     actual && actual.length > 0
       ? buildStartedSessionRows(actual, progressByExercise)
-      : buildTemplateRows(template);
+      : buildTemplateRows(template, progressByExercise);
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show

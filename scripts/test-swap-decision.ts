@@ -155,7 +155,7 @@ console.log("\nSwap decision: bodyweight exercise");
     `got ${result.suggestedWeightKg}`);
 }
 
-console.log("\nMutation guard: swap uses new exercise, not old");
+console.log("\nSwap uses new exercise, not old");
 {
   // If the action mistakenly reads current.exercise_id instead of input.newExerciseId,
   // it would get the old exercise's progress instead of the new one's.

@@ -161,15 +161,15 @@ export function SettingsForm({
     const changed = equipmentChanged(hasAll, equipmentIds);
     // L4 QA fix: Track request sequence to ignore stale responses
     const requestSeq = equipmentSequence.next();
-
+    
     startTransition(async () => {
       const r = await actions.updateEquipment({ hasAll, equipmentIds });
-
+      
       // L4 QA fix: Ignore stale responses from overlapping saves
       if (!equipmentSequence.isCurrent(requestSeq)) {
         return;
       }
-
+      
       if (!r.ok) {
         // Rollback to last saved state
         setS({ ...s, hasAllEquipment: savedEquipment.hasAll, equipmentIds: savedEquipment.ids });
@@ -182,7 +182,7 @@ export function SettingsForm({
       setEquipmentHint(null);
       setError(null);
       if (changed) setPlanStale(true);
-
+      
       // Show confirmation toast only after save succeeds and response is current
       if (showConfirmation) {
         setEquipmentOffConfirmation(getEquipmentOffMessage(hasAll === false && equipmentIds.length > 0));
@@ -308,13 +308,13 @@ export function SettingsForm({
           onClick={() => {
             // E2: When turning OFF, pre-select the user's saved equipment rows
             const turningOff = s.hasAllEquipment;
-
+            
             if (turningOff) {
               // Pre-select saved equipment when turning OFF
-              const restoredIds = savedEquipment.ids.length > 0
-                ? savedEquipment.ids
+              const restoredIds = savedEquipment.ids.length > 0 
+                ? savedEquipment.ids 
                 : s.equipmentIds;
-
+              
               if (restoredIds.length === 0) {
                 // E2: Turning OFF with no saved equipment - show picker with clear message
                 setS({ ...s, hasAllEquipment: false, equipmentIds: [] });
@@ -322,7 +322,7 @@ export function SettingsForm({
                 setEquipmentOffConfirmation(null);
                 return;
               }
-
+              
               // Has saved equipment to restore - turn OFF and save
               setS({ ...s, hasAllEquipment: false, equipmentIds: restoredIds });
               // Show confirmation toast after save succeeds
@@ -334,12 +334,12 @@ export function SettingsForm({
                 currentEquipmentIds: s.equipmentIds,
                 action: "toggle",
               });
-
+              
               if (!decision.allow) {
                 setEquipmentHint(decision.hint);
                 return;
               }
-
+              
               // Turn ON and save
               setS({ ...s, hasAllEquipment: true });
               saveEquipment(true, s.equipmentIds);
@@ -394,13 +394,13 @@ export function SettingsForm({
                             action: "chip-click",
                             chipId: e.id,
                           });
-
+                          
                           if (!decision.allow) {
                             // Don't save, show hint
                             setEquipmentHint(decision.hint);
                             return;
                           }
-
+                          
                           // Allow the change and save
                           setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
                           saveEquipment(decision.newHasAll, decision.newEquipmentIds);
@@ -635,12 +635,12 @@ export function SettingsForm({
       </Section>
 
       {/* ---------------- timezone ---------------- */}
-      <Section
-        title="Timezone"
+      <Section 
+        title="Timezone" 
         note="Your local time for day boundaries and workout scheduling."
       >
-        <Field
-          label="Your timezone"
+        <Field 
+          label="Your timezone" 
           hint={`Currently using: ${resolveTimezoneWithProfile(s.timezone)}`}
         >
           <TimezonePicker

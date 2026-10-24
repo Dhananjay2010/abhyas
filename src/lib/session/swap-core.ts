@@ -19,9 +19,9 @@ export async function swapExerciseCore(
   | {
       ok: true;
       data: {
-        metric: string;
-        repsMin: number;
-        repsMax: number;
+        metric: Database["public"]["Enums"]["exercise_metric"];
+        repsMin: number | null;
+        repsMax: number | null;
         equipmentIds: string[];
         workingWeightKg: number | null;
         suggestedWeightKg: number | null;
@@ -75,8 +75,8 @@ export async function swapExerciseCore(
   const reranged =
     metric !== current.metric && profile?.goal && profile?.level
       ? prescribe(
-          profile.goal as "strength" | "fat_loss" | "muscle_gain" | "general_fitness" | "flexibility_stress",
-          profile.level as "beginner" | "intermediate" | "expert",
+          profile.goal as Database["public"]["Enums"]["fitness_goal"],
+          profile.level as Database["public"]["Enums"]["fitness_level"],
           replacement?.mechanic === "isolation",
           metric as "reps" | "seconds"
         )
@@ -115,26 +115,8 @@ export async function swapExerciseCore(
     planningMode: (settingsRes.data as { planning_mode: string } | null)?.planning_mode ?? null,
     isDeload,
     exerciseMeta: {
-      mechanic: replacement?.mechanic as "compound" | "isolation" | null,
-      movementPattern: (replacement?.movement_pattern ?? "other") as
-        | "hinge"
-        | "squat"
-        | "horizontal_press"
-        | "vertical_press"
-        | "horizontal_pull"
-        | "vertical_pull"
-        | "lunge"
-        | "calf"
-        | "core"
-        | "biceps"
-        | "triceps"
-        | "lateral_delt"
-        | "rear_delt"
-        | "forearm"
-        | "carry"
-        | "neck"
-        | "cardio"
-        | "other",
+      mechanic: replacement?.mechanic as Database["public"]["Enums"]["mechanic_type"] | null,
+      movementPattern: (replacement?.movement_pattern ?? "other") as Database["public"]["Enums"]["movement_pattern"],
       metric: metric as "reps" | "seconds",
       equipmentIds,
     },

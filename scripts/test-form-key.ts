@@ -66,7 +66,7 @@ console.log("\nsetFormKey: format verification");
   check("third part is set number", parts[2] === "5", `got ${parts[2]}`);
 }
 
-console.log("\nMutation guard: form key must include exerciseId");
+console.log("\nForm key must include exerciseId");
 {
   // This test verifies that exerciseId is part of the key, not just sessionExerciseId
   const withoutExerciseId = (sessionExId: string, setNum: number) => `${sessionExId}:${setNum}`;

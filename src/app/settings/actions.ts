@@ -6,8 +6,6 @@ import type { Database } from "@/lib/database.types";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
-import { resetProgressionTargets } from "@/lib/program/progression";
-import { shouldResetProgressionTargets } from "@/lib/program/reset-decision";
 import { isAllowedSessionLength } from "@/lib/onboarding/session-length";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
@@ -69,13 +67,6 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     }
   }
 
-  // Fetch current profile to check if progression-affecting fields changed
-  const { data: currentProfile } = await supabase
-    .from("profiles")
-    .select("goal, level, days_per_week, primary_track")
-    .eq("id", user.id)
-    .single();
-
   // Validate and update with testable logic
   const result = await validateAndUpdateProfile(patch, {
     updateProfile: async (validatedPatch) => {
@@ -86,14 +77,6 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
   });
 
   if (!result.ok) return result;
-
-  // Reset progression targets only after successful update and only if primary_track changed
-  if (shouldResetProgressionTargets(patch, currentProfile)) {
-    const resetResult = await resetProgressionTargets(supabase, user.id);
-    if (!resetResult.ok) {
-      console.error("Failed to reset progression targets after successful profile update:", resetResult.error);
-    }
-  }
 
   revalidatePath("/settings");
   revalidatePath("/today");

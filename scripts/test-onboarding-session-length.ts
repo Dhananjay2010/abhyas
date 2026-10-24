@@ -42,15 +42,15 @@ console.log("\n3. Session-length step in onboarding flow");
 {
   const flowPath = join(process.cwd(), "src", "app", "onboarding", "onboarding-flow.tsx");
   const flowSource = readFileSync(flowPath, "utf-8");
-
+  
   // Check for session-length step
   const hasSessionLengthStep = /"session-length"/.test(flowSource);
   check("session-length step exists", hasSessionLengthStep);
-
+  
   // Check for session length options rendering
   const hasOptionsRendering = /SESSION_LENGTH_OPTIONS/.test(flowSource);
   check("SESSION_LENGTH_OPTIONS is used", hasOptionsRendering);
-
+  
   // Check for saveSessionLength call
   const callsSaveSessionLength = /saveSessionLength/.test(flowSource);
   check("saveSessionLength is called", callsSaveSessionLength);
@@ -62,11 +62,11 @@ console.log("\n4. State initialization");
   const initial1 = null;
   const sessionLength1 = initial1 ?? DEFAULT_SESSION_LENGTH;
   check("null initializes to DEFAULT_SESSION_LENGTH", sessionLength1 === 45);
-
+  
   const initial2 = 30;
   const sessionLength2 = initial2 ?? DEFAULT_SESSION_LENGTH;
   check("30 initializes to 30", sessionLength2 === 30);
-
+  
   const initial3 = 60;
   const sessionLength3 = initial3 ?? DEFAULT_SESSION_LENGTH;
   check("60 initializes to 60", sessionLength3 === 60);

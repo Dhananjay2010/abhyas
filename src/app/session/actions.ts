@@ -759,8 +759,9 @@ export async function swapExercise(input: {
 
   if (!result.ok) return result;
 
-  revalidateTrainingData();
-  return result as Result<SwapResult>;
+  // The runner is mid-session and must not re-fetch, so we don't revalidate here.
+  // The returned data tells the runner what it needs to redraw the UI.
+  return result;
 }
 
 /**

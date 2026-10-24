@@ -1,9 +1,9 @@
 /**
  * Test that History top-set weight displays correctly in imperial units.
- *
+ * 
  * Bug: History was showing kg values labeled as "lb" for imperial users.
  * Fix: formatTopSet converts and formats correctly.
- *
+ * 
  * This test exercises the REAL code used in history-client.tsx.
  */
 

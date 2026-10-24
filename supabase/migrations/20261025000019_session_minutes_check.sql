@@ -1,6 +1,6 @@
 -- Migration: Add constraint to session minutes
 -- Date: 2026-10-25
---
+-- 
 -- This migration enforces that preferred_session_minutes must be one of 30, 45, 60, or 75.
 -- It first maps any existing non-conforming values to the nearest allowed value.
 
@@ -25,5 +25,5 @@ WHERE preferred_session_minutes IS NOT NULL
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_preferred_session_minutes_check;
 
 -- Step 3: Add the constraint
-ALTER TABLE profiles ADD CONSTRAINT profiles_preferred_session_minutes_check
+ALTER TABLE profiles ADD CONSTRAINT profiles_preferred_session_minutes_check 
   CHECK (preferred_session_minutes IS NULL OR preferred_session_minutes IN (30, 45, 60, 75));

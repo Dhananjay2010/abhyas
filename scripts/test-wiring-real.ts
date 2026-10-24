@@ -17,10 +17,6 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\nWiring: effectiveRepsMax used by both Today and Runner");
 {
-  // Both must use the SAME helper from src/lib/program/effective-target.ts
-  check("effectiveRepsMax is exported from shared module",
-    typeof effectiveRepsMax === "function");
-  
   // Loaded: ignores progressed target
   const loaded = effectiveRepsMax({
     plannedMax: 12,
@@ -108,7 +104,7 @@ console.log("\nWiring: isBodyweightEquipment classification");
     isBodyweightEquipment(["pull_up_bar", "dumbbell"]) === false);
 }
 
-console.log("\nMutation guards: form key must include exerciseId");
+console.log("\nForm key must include exerciseId");
 {
   // Simulate the bug: key without exerciseId
   const brokenKey = (seId: string, setNum: number) => `${seId}:${setNum}`;
@@ -125,7 +121,7 @@ console.log("\nMutation guards: form key must include exerciseId");
     "this is the bug");
 }
 
-console.log("\nMutation guards: kettlebell progression");
+console.log("\nKettlebell progression");
 {
   // Note: Kettlebell progression is tested comprehensively in test-progression.ts
   // The actual behavior is complex (depends on feel, current state, etc.)
