@@ -2,12 +2,12 @@
 /**
  * Mutation testing for M-3 wrist/lower-back contraindications.
  * Tests that bugs are caught by introducing mutants in migration/generator/catalogue.
- * Each mutant must compile, verifiably change file, and be killed by test suite.
- * Exits 0 if all killed, 1 if any survive.
+ * Each mutant must compile, verifiably change file, restore from backup, and be killed.
+ * Exits 0 if all killed, 1 if any survive OR skip OR don't compile.
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 
 interface Mutant {
   name: string;
@@ -40,8 +40,22 @@ const mutants: Mutant[] = [
     mutated: "'nonexistent-row',",
     description: 'Migration skips bent-over row',
   },
+  {
+    name: 'migration-duplicate-guard-broken',
+    file: 'supabase/migrations/20261025000026_m3_wrist_lowerback_contraindications.sql',
+    original: "AND NOT ('wrist'::body_region = ANY(contraindicated_regions));",
+    mutated: ";",
+    description: 'Migration breaks duplicate guard (allows re-adding tags)',
+  },
+  {
+    name: 'migration-raise-to-notice',
+    file: 'supabase/migrations/20261025000026_m3_wrist_lowerback_contraindications.sql',
+    original: "RAISE EXCEPTION 'Migration 20261025000026: Missing exercises: %'",
+    mutated: "RAISE NOTICE 'Migration 20261025000026: Missing exercises: %'",
+    description: 'Migration downgrades EXCEPTION to NOTICE',
+  },
   
-  // Generator mutants - these currently SURVIVE and must be fixed
+  // Generator mutants
   {
     name: 'generator-ignore-wrist',
     file: 'src/lib/program/generate.ts',
@@ -76,6 +90,7 @@ const mutants: Mutant[] = [
 
 let killed = 0;
 let survived = 0;
+let skipped = 0;
 const results: Array<{name: string; status: 'KILLED' | 'SURVIVED' | 'SKIPPED'; reason?: string}> = [];
 
 console.log(`\n${"=".repeat(70)}`);
@@ -86,9 +101,11 @@ for (const mutant of mutants) {
   console.log(`\n${mutant.name}: ${mutant.description}`);
   
   const filepath = `${process.cwd()}/${mutant.file}`;
+  const backupPath = `${filepath}.mutant-backup`;
   
   if (!existsSync(filepath)) {
     console.log(`  SKIP: File not found`);
+    skipped++;
     results.push({name: mutant.name, status: 'SKIPPED', reason: 'file not found'});
     continue;
   }
@@ -97,6 +114,7 @@ for (const mutant of mutants) {
   
   if (!original.includes(mutant.original)) {
     console.log(`  SKIP: Mutation point not found`);
+    skipped++;
     results.push({name: mutant.name, status: 'SKIPPED', reason: 'mutation point not found'});
     continue;
   }
@@ -105,13 +123,28 @@ for (const mutant of mutants) {
   
   if (mutated === original) {
     console.log(`  SKIP: No change`);
+    skipped++;
     results.push({name: mutant.name, status: 'SKIPPED', reason: 'no change'});
     continue;
   }
   
+  // Save backup to disk
+  writeFileSync(backupPath, original, 'utf-8');
+  
   try {
     writeFileSync(filepath, mutated, 'utf-8');
     console.log(`  Applied mutation`);
+    
+    // Verify file changed
+    const changed = readFileSync(filepath, 'utf-8');
+    if (changed === original) {
+      console.log(`  SKIP: File didn't change`);
+      skipped++;
+      results.push({name: mutant.name, status: 'SKIPPED', reason: 'file unchanged after write'});
+      writeFileSync(filepath, original, 'utf-8');
+      unlinkSync(backupPath);
+      continue;
+    }
     
     // For TS files, verify compilation
     if (filepath.endsWith('.ts') || filepath.endsWith('.tsx')) {
@@ -120,8 +153,10 @@ for (const mutant of mutants) {
         console.log(`  Mutant compiles`);
       } catch {
         console.log(`  SKIP: Does not compile`);
+        skipped++;
         results.push({name: mutant.name, status: 'SKIPPED', reason: 'does not compile'});
         writeFileSync(filepath, original, 'utf-8');
+        unlinkSync(backupPath);
         continue;
       }
     }
@@ -138,12 +173,23 @@ for (const mutant of mutants) {
       results.push({name: mutant.name, status: 'KILLED'});
     }
   } finally {
-    writeFileSync(filepath, original, 'utf-8');
+    // Restore from on-disk backup
+    const backup = readFileSync(backupPath, 'utf-8');
+    writeFileSync(filepath, backup, 'utf-8');
+    
+    // Byte compare
+    const restored = readFileSync(filepath, 'utf-8');
+    if (restored !== backup) {
+      console.log(`  ERROR: Restore failed byte compare!`);
+      process.exit(1);
+    }
+    
+    unlinkSync(backupPath);
   }
 }
 
 console.log(`\n${"=".repeat(70)}`);
-console.log(`Results: ${killed} killed, ${survived} survived`);
+console.log(`Results: ${killed} killed, ${survived} survived, ${skipped} skipped`);
 console.log("=".repeat(70));
 console.log('\n| Mutant | Status |');
 console.log('|--------|--------|');
@@ -151,8 +197,8 @@ for (const r of results) {
   console.log(`| ${r.name} | ${r.status}${r.reason ? ` (${r.reason})` : ''} |`);
 }
 
-if (survived > 0) {
-  console.log(`\n❌ FAIL: ${survived} mutant(s) survived`);
+if (survived > 0 || skipped > 0) {
+  console.log(`\n❌ FAIL: ${survived} mutant(s) survived, ${skipped} skipped`);
   process.exit(1);
 } else {
   console.log(`\n✓ PASS: All ${killed} mutants killed`);

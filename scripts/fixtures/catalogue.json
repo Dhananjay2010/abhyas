@@ -7888,8 +7888,7 @@
     ],
     "level_min": "intermediate",
     "contraindicated_regions": [
-      "knee",
-      "lower_back"
+      "knee"
     ],
     "impact": "low",
     "spinal_load": "high",
