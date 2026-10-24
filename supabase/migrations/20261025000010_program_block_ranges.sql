@@ -96,7 +96,7 @@ create or replace function cycle_week_for(
 ) returns int
 language sql immutable
 as $$
-  select p_week_offset + floor((p_date - p_started_on) / 7.0)::int + 1;
+  select p_week_offset + floor((p_date - p_started_on) / 7) + 1;
 $$;
 
 -- rebuild_block: Retire active block as 'superseded', insert new block
@@ -135,18 +135,18 @@ begin
   -- Compute new week_offset: carry over the current cycle week
   v_new_week_offset := (
     v_old_block.week_offset +
-    floor((p_today - v_old_block.started_on) / 7.0)::int
+    floor((p_today - v_old_block.started_on) / 7)
   );
 
-  -- IDEMPOTENT: if an active block already covers p_today, return it
-  -- (This handles same-day double rebuild or concurrent calls)
-  if v_old_block.started_on = p_today then
-    -- Check if this block was created today (concurrent call won the race)
-    if v_old_block.id != (p_payload->>'id')::uuid then
-      -- Another concurrent rebuild already created a block for today
-      return v_old_block.id;
-    end if;
+  -- IDEMPOTENT: if an active block already covers p_today AND has same payload id, return it
+  -- (This handles concurrent calls with the same payload)
+  if v_old_block.started_on = p_today and v_old_block.id = (p_payload->>'id')::uuid then
+    -- This is a retry with the same payload - return the existing block
+    return v_old_block.id;
   end if;
+  
+  -- If started_on = p_today but payload id is DIFFERENT, this is a second same-day rebuild.
+  -- Continue to supersede the current block and create a new one.
 
   -- Retire the old block as 'superseded'
   -- For same-day second rebuild, ended_on = started_on - 1 (empty range)
@@ -254,23 +254,21 @@ begin
     raise exception 'No active block to roll over';
   end if;
 
-  -- New block starts the day after the old one ends, or today if later
-  v_new_started_on := greatest(v_old_block.ends_on + 1, p_today);
-
-  -- IDEMPOTENT: if an active block already covers p_today, return it
-  if exists (
-    select 1 from programs
-    where user_id = v_user_id
-      and status = 'active'
-      and started_on >= v_old_block.ends_on + 1
-      and started_on <= p_today
-  ) then
-    -- A concurrent call already rolled over
-    select id into v_new_program_id
-    from programs
-    where user_id = v_user_id and status = 'active';
-    return v_new_program_id;
+  -- IDEMPOTENT: if the active block's started_on > p_today - 1, a rollover has already happened
+  -- This handles stale calls or concurrent calls that lost the race
+  if v_old_block.started_on > v_old_block.ends_on then
+    -- Active block started after a previous block ended, so rollover already happened
+    return v_old_block.id;
   end if;
+  
+  -- Check if current block hasn't ended yet (p_today <= ends_on)
+  if p_today <= v_old_block.ends_on then
+    -- Block is still active, no rollover needed
+    return v_old_block.id;
+  end if;
+
+  -- New block starts the day after the old one ends
+  v_new_started_on := v_old_block.ends_on + 1;
 
   -- Retire the old block as 'completed'
   update programs
@@ -341,6 +339,20 @@ exception
     from programs
     where user_id = v_user_id and status = 'active';
     return v_new_program_id;
+  when raise_exception then
+    -- If we get "No active block to rebuild", another concurrent call already rebuilt
+    -- Return the current active block
+    if sqlerrm = 'No active block to rebuild' then
+      select id into v_new_program_id
+      from programs
+      where user_id = v_user_id and status = 'active';
+      if v_new_program_id is null then
+        raise;
+      end if;
+      return v_new_program_id;
+    else
+      raise;
+    end if;
 end;
 $$;
 

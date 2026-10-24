@@ -103,29 +103,71 @@ async function runTests() {
     console.log("Setting up database schema and migrations...\n");
     await setupDatabase(pool);
     console.log("✓ Database ready\n");
-
-    const userId = randomUUID();
     
-    // Insert test user (trigger will create profile)
-    await pool.query(
-      "INSERT INTO auth.users (id, email) VALUES ($1, $2)",
-      [userId, `test-${userId}@example.com`]
-    );
+    // Helper to create a fresh user for each test
+    async function createTestUser() {
+      const userId = randomUUID();
+      await pool.query(
+        "INSERT INTO auth.users (id, email) VALUES ($1, $2)",
+        [userId, `test-${userId}@example.com`]
+      );
+      await pool.query(`
+        UPDATE profiles
+        SET timezone = 'Asia/Kolkata',
+            goal = 'strength',
+            level = 'intermediate',
+            primary_track = 'weights',
+            days_per_week = 4,
+            onboarding_completed_at = now()
+        WHERE id = $1
+      `, [userId]);
+      return userId;
+    }
 
-    // Update profile with test data
-    await pool.query(`
-      UPDATE profiles
-      SET timezone = 'Asia/Kolkata',
-          goal = 'strength',
-          level = 'intermediate',
-          primary_track = 'weights',
-          days_per_week = 4,
-          onboarding_completed_at = now()
-      WHERE id = $1
-    `, [userId]);
+    let userId: string;
+
+    console.log("TEST 0: SQL vs TypeScript parity for cycle_week_for");
+    {
+      // Test cycleWeekFor parity across 0..40 days
+      const { cycleWeekFor } = await import("../src/lib/program/block-range.js");
+      
+      const testBlock = {
+        id: "test",
+        started_on: "2026-10-01",
+        ended_on: null,
+        week_offset: 2,
+      };
+      
+      let parityFailures = 0;
+      for (let days = 0; days <= 40; days++) {
+        const testDate = new Date("2026-10-01T00:00:00Z");
+        testDate.setUTCDate(testDate.getUTCDate() + days);
+        const dateStr = testDate.toISOString().split('T')[0];
+        
+        // TypeScript result
+        const tsWeek = cycleWeekFor(testBlock, dateStr);
+        
+        // SQL result
+        const { rows } = await pool.query(
+          "SELECT cycle_week_for($1, $2, $3) as week",
+          [testBlock.week_offset, testBlock.started_on, dateStr]
+        );
+        const sqlWeek = rows[0].week;
+        
+        if (tsWeek !== sqlWeek) {
+          console.log(`  PARITY FAIL day ${days}: TS=${tsWeek} SQL=${sqlWeek}`);
+          parityFailures++;
+        }
+      }
+      
+      check("SQL and TS cycle_week_for match for days 0-40", parityFailures === 0, `${parityFailures} mismatches`);
+      console.log("  PASS: Test 0\n");
+    }
 
     console.log("TEST 1: Rollover, 8 concurrent callers with DISTINCT payload ids");
     {
+      userId = await createTestUser();
+      
       // Create initial active block
       const blockId1 = randomUUID();
       await pool.query(`
@@ -147,6 +189,7 @@ async function runTests() {
       };
 
       // 8 concurrent calls with DISTINCT payload ids
+      // Use Promise.all to ensure true concurrency
       const promises = Array.from({ length: 8 }, () => 
         callRPC(pool, userId, "rollover_block", {
           p_today: "2026-10-29",
@@ -157,8 +200,9 @@ async function runTests() {
       const results = await Promise.all(promises);
       const programIds = results.map((r) => r.data);
       const uniqueIds = new Set(programIds.filter(Boolean));
+      const errors = results.filter(r => r.error).map(r => r.error);
 
-      check("all 8 calls succeeded", results.every((r) => !r.error), results.filter(r => r.error).map(r => r.error).join("; "));
+      check("all 8 calls succeeded", results.every((r) => !r.error), errors.join("; "));
       check("all return the same winner id", uniqueIds.size === 1, `${uniqueIds.size} unique ids`);
 
       const { rows: blocks } = await pool.query(
@@ -174,11 +218,12 @@ async function runTests() {
       check("new block is block 2", activeBlocks[0]?.block_number === 2);
 
       console.log("  PASS: Test 1\n");
-      await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
     }
 
     console.log("TEST 2: Rebuild, 8 concurrent callers with distinct payload ids");
     {
+      userId = await createTestUser();
+      
       const blockId1 = randomUUID();
       await pool.query(`
         INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, week_offset, status)
@@ -208,9 +253,10 @@ async function runTests() {
       const results = await Promise.all(promises);
       const programIds = results.map((r) => r.data);
       const uniqueIds = new Set(programIds.filter(Boolean));
+      const errors = results.filter(r => r.error).map(r => r.error);
 
-      check("all 8 calls succeeded", results.every((r) => !r.error));
-      check("all return the same program ID", uniqueIds.size === 1, `${uniqueIds.size} unique`);
+      check("all 8 calls succeeded", results.every((r) => !r.error), errors.join("; "));
+      check("all return the same program ID", uniqueIds.size === 1, `${uniqueIds.size} unique: ${Array.from(uniqueIds).map(id => String(id).slice(0, 8)).join(", ")}`);
 
       const { rows: blocks } = await pool.query(
         "SELECT id, status, week_offset FROM programs WHERE user_id = $1",
@@ -225,11 +271,12 @@ async function runTests() {
       check("new block has week_offset = 2", activeBlocks[0]?.week_offset === 2, `offset=${activeBlocks[0]?.week_offset}`);
 
       console.log("  PASS: Test 2\n");
-      await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
     }
 
     console.log("TEST 3: Stale rollover and mid-block rollover returns current");
     {
+      userId = await createTestUser();
+      
       const blockId1 = randomUUID();
       await pool.query(`
         INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, status)
@@ -273,11 +320,12 @@ async function runTests() {
       check("mid-block rollover returns current", result3.data === result1.data, `returned ${result3.data}, expected ${result1.data}`);
 
       console.log("  PASS: Test 3\n");
-      await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
     }
 
     console.log("TEST 4: Two rebuilds same day + timezone shift handling");
     {
+      userId = await createTestUser();
+      
       const blockId1 = randomUUID();
       await pool.query(`
         INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, week_offset, status)
@@ -315,28 +363,29 @@ async function runTests() {
         p_payload: payload2,
       });
 
-      check("second rebuild same day is idempotent", !result2.error, result2.error || "");
-      check("second rebuild returns first rebuild block", result2.data === result1.data);
+      check("second rebuild succeeds (different payload)", !result2.error, result2.error || "");
+      check("second rebuild creates NEW block", result2.data !== result1.data, `both returned ${result1.data}`);
 
       const { rows: blocks } = await pool.query(
         "SELECT id, status, started_on, ended_on FROM programs WHERE user_id = $1 ORDER BY created_at",
         [userId]
       );
 
-      // Second same-day rebuild is idempotent: returns the first rebuild's block
-      check("two blocks after rebuilds", blocks.length === 2, `${blocks.length} blocks`);
+      // Second same-day rebuild with DIFFERENT payload should create 3 blocks total
+      check("three blocks total", blocks.length === 3, `${blocks.length} blocks`);
 
       const emptyRanges = blocks.filter(
         (b) => b.ended_on !== null && b.ended_on < b.started_on
       );
-      check("original block is empty range", emptyRanges.length === 1, `${emptyRanges.length}`);
+      check("two empty ranges (original + first rebuild)", emptyRanges.length === 2, `${emptyRanges.length}`);
 
       console.log("  PASS: Test 4\n");
-      await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
     }
 
     console.log("TEST 5: Backfill/dedupe legacy rows");
     {
+      userId = await createTestUser();
+      
       // Simulate legacy data: pre-migration schema with no ended_on
       const oldId = randomUUID();
       const newId = randomUUID();
@@ -387,11 +436,12 @@ async function runTests() {
       check("CHECK constraint holds", checkViolations.length === 0, `${checkViolations.length} violations`);
 
       console.log("  PASS: Test 5\n");
-      await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
     }
 
     console.log("TEST 6: Byte-identical rebuild");
     {
+      userId = await createTestUser();
+      
       const exerciseId = randomUUID();
       await pool.query(`
         INSERT INTO exercises (id, slug, name, tracks, category, primary_muscles, is_active)
@@ -459,12 +509,12 @@ async function runTests() {
       check("old exercise unchanged", JSON.stringify(oldExercises[0]) === JSON.stringify(newExercises[0]));
 
       console.log("  PASS: Test 6\n");
-      await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
-      // Exercise cleanup is handled by FK CASCADE or left for DB cleanup
     }
 
     console.log("TEST 7: Orphans QA - 11 rebuilds, exactly one active");
     {
+      userId = await createTestUser();
+      
       const blockId = randomUUID();
       await pool.query(`
         INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, week_offset, status)
@@ -507,11 +557,12 @@ async function runTests() {
       check("no orphans without ended_on", orphans.length === 0, `${orphans.length} orphans`);
 
       console.log("  PASS: Test 7\n");
-      await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
     }
 
     console.log("TEST 8: Session after rebuild QA");
     {
+      userId = await createTestUser();
+      
       const exerciseId = randomUUID();
       await pool.query(`
         INSERT INTO exercises (id, slug, name, tracks, category, primary_muscles, is_active)
@@ -584,12 +635,12 @@ async function runTests() {
       check("program_day is 'Push'", todayDays[0]?.label === "Push");
 
       console.log("  PASS: Test 8\n");
-      await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
-      // Exercise cleanup is handled by FK CASCADE or left for DB cleanup
     }
 
     console.log("TEST 9: week_offset preserves cycle week across rebuild");
     {
+      userId = await createTestUser();
+      
       const blockId1 = randomUUID();
       await pool.query(`
         INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, week_offset, status)
@@ -631,21 +682,26 @@ async function runTests() {
       );
 
       check("cycleWeekFor gives week 3 for rebuild day", weekResult[0]?.week === 3, `week=${weekResult[0]?.week}`);
-      check("deload week is unchanged at 4", newBlocks[0]?.ends_on === "2026-10-28");
+      
+      // Check that ends_on is preserved from payload (payload has ends_on = 2026-10-28)
+      const expectedEndsOn = "2026-10-28";
+      const actualEndsOn = newBlocks[0]?.ends_on;
+      const actualEndsOnStr = actualEndsOn instanceof Date ? actualEndsOn.toISOString().split('T')[0] : actualEndsOn;
+      check("new block ends_on from payload", actualEndsOnStr === expectedEndsOn, `expected ${expectedEndsOn}, got ${actualEndsOnStr}`);
 
       const { rows: oldBlocks } = await pool.query(
-        "SELECT ends_on FROM programs WHERE id = $1",
+        "SELECT ended_on FROM programs WHERE id = $1",
         [blockId1]
       );
 
-      check("old block ends_on preserved", oldBlocks[0]?.ends_on === "2026-10-28");
+      const expectedEndedOn = "2026-10-14"; // p_today - 1
+      const actualEndedOn = oldBlocks[0]?.ended_on;
+      const actualEndedOnStr = actualEndedOn instanceof Date ? actualEndedOn.toISOString().split('T')[0] : actualEndedOn;
+      check("old block ended_on set correctly", actualEndedOnStr === expectedEndedOn, `expected ${expectedEndedOn}, got ${actualEndedOnStr}`);
 
       console.log("  PASS: Test 9\n");
-      await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
     }
 
-    // Cleanup
-    await pool.query("DELETE FROM auth.users WHERE id = $1", [userId]);
     await pool.end();
 
     return failures === 0;
