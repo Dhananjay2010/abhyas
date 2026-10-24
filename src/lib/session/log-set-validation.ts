@@ -31,7 +31,7 @@ export function buildLogSetValidationDeps(
         .maybeSingle();
 
       if (error) throw error;
-      return data as SessionExerciseWithStatus | null;
+      return data;
     },
   };
 }
