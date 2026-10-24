@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getSiteInfo, LEGAL_LAST_UPDATED } from "@/lib/legal/site-info";
+import { branding } from "@/lib/branding";
 
 export const metadata = {
-  title: "Terms of Service — Abhyas",
+  title: `Terms of Service — ${branding.name}`,
 };
 
 export default function TermsOfServicePage() {
@@ -196,7 +197,7 @@ export default function TermsOfServicePage() {
         <section>
           <h2 className="text-xl font-semibold">10. Indemnification</h2>
           <p>
-            You agree to indemnify, defend, and hold harmless [GYM NAME], Abhyas, and their
+            You agree to indemnify, defend, and hold harmless [GYM NAME], {appName}, and their
             officers, directors, employees, and agents from any claims, damages, losses,
             liabilities, and expenses (including legal fees) arising from:
           </p>

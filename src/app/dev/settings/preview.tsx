@@ -45,6 +45,7 @@ const INITIAL: SettingsState = {
   restVibrate: true,
   restOverrideSeconds: null,
   bodyweightPrompt: "weekly",
+  timezone: null,
 };
 
 export function SettingsPreview() {
