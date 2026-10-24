@@ -42,6 +42,8 @@ export type GeneratorInput = {
   equipmentIds: string[];
   /** Current injuries hard-filter. Past ones only drive warm-up prehab. */
   currentInjuryRegions: BodyRegion[];
+  /** Preferred session length in minutes. Affects exercise count. */
+  preferredSessionMinutes?: number;
   catalogue: CandidateExercise[];
   /**
    * Main lifts from the previous block, keyed `${dayIndex}:${pattern}`.
@@ -59,6 +61,23 @@ export type GeneratorInput = {
 
 /** How many slots per day are treated as the main lifts. */
 export const CARRY_OVER_SLOTS = 2;
+
+/**
+ * How many exercises to prescribe based on session length. Longer sessions have
+ * more exercises; shorter sessions cut accessories, not main lifts.
+ */
+function exerciseCountForDuration(
+  sessionMinutes: number,
+  templateSlots: number,
+): number {
+  // Estimated time budget: 15min warmup leaves the rest for work sets + rest.
+  // Each exercise takes roughly 6-8 minutes (3-4 sets × 45s work + 60-90s rest).
+  const workMinutes = Math.max(15, sessionMinutes - 15);
+  const capacity = Math.floor(workMinutes / 7);
+
+  // Always keep at least 2 main lifts; cap at template slot count.
+  return Math.max(2, Math.min(templateSlots, capacity));
+}
 
 export type GeneratedExercise = {
   exerciseId: string;
@@ -106,6 +125,20 @@ const PATTERN_FALLBACK: Partial<Record<Pattern, Pattern>> = {
   triceps: "horizontal_press",
   biceps: "horizontal_pull",
   calf: "core",
+};
+
+/**
+ * Staple movements: exercises that beginners should reliably get instead of
+ * random tie picks. When scores are equal, these win. Keyed by pattern for
+ * targeted preference.
+ */
+const STAPLE_MOVEMENTS: Partial<Record<Pattern, string[]>> = {
+  horizontal_press: ["pushups", "push-up-wide", "bench-press"],
+  squat: ["bodyweight-squat", "goblet-squat", "barbell-squat"],
+  hinge: ["romanian-deadlift", "glute-bridge", "deadlift"],
+  horizontal_pull: ["barbell-row", "bent-over-row", "dumbbell-row"],
+  vertical_pull: ["pullups", "chin-ups", "lat-pulldown"],
+  vertical_press: ["pike-push-up", "overhead-press", "dumbbell-shoulder-press"],
 };
 
 /** Deterministic PRNG so the same inputs always produce the same block. */
@@ -163,13 +196,34 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
  * How well an exercise suits a slot. Exported so the swap list can rank by the
  * same rule the plan was built with, rather than offering an arbitrary handful.
  */
-export function score(ex: CandidateExercise, wantCompound: boolean, level: Level): number {
+export function score(
+  ex: CandidateExercise,
+  wantCompound: boolean,
+  level: Level,
+  primaryTrack: Track = "weights",
+  pattern?: Pattern,
+): number {
   let s = 0;
   if (wantCompound && ex.mechanic === "compound") s += 4;
   if (!wantCompound && ex.mechanic === "isolation") s += 3;
   if (ex.level_min === level) s += 1;
-  // Prefer the simplest setup that does the job.
-  s -= Math.max(0, ex.equipment_ids.length - 1);
+
+  // Prefer the simplest setup that does the job — but only for bodyweight/home
+  // users. For gym users, equipment is not a penalty; having a barbell is what
+  // bench press needs, not a reason to avoid it.
+  if (primaryTrack === "bodyweight") {
+    s -= Math.max(0, ex.equipment_ids.length - 1);
+  }
+
+  // Staple bonus: when scores would otherwise tie, beginners should get
+  // push-ups/squats/rows instead of random picks.
+  if (pattern && wantCompound && level === "beginner") {
+    const staples = STAPLE_MOVEMENTS[pattern] ?? [];
+    if (staples.includes(ex.slug)) {
+      s += 0.5;
+    }
+  }
+
   return s;
 }
 
@@ -199,7 +253,7 @@ function pickForSlot(
     if (candidates.length === 0) continue;
 
     const ranked = candidates
-      .map((e) => ({ e, k: score(e, wantCompound, input.level) + rng() }))
+      .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack, p) + rng() }))
       .sort((a, b) => b.k - a.k || a.e.slug.localeCompare(b.e.slug));
 
     return ranked[0].e;
@@ -278,7 +332,10 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     }
 
     const exercises: GeneratedExercise[] = [];
-    entry.slots.forEach((pattern, i) => {
+    const sessionMinutes = input.preferredSessionMinutes ?? 60;
+    const maxExercises = exerciseCountForDuration(sessionMinutes, entry.slots.length);
+
+    entry.slots.slice(0, maxExercises).forEach((pattern, i) => {
       const picked = pickForSlot(pattern, i, pool, used, input, rng, dayIndex);
       if (!picked) return;
       used.add(picked.id);
@@ -317,7 +374,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         .filter((e) => !used.has(e.id))
         .sort(
           (a, b) =>
-            score(b, true, input.level) - score(a, true, input.level) ||
+            score(b, true, input.level, input.primaryTrack) -
+              score(a, true, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug),
         )
         .slice(0, 4);

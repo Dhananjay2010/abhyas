@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { SignInButton } from "./sign-in-button";
+import { Footer } from "@/components/footer";
 
 export default async function LandingPage({
   searchParams,
@@ -53,11 +54,9 @@ export default async function LandingPage({
           </p>
         )}
         <SignInButton />
-        <p className="mt-5 text-center text-xs leading-relaxed text-muted">
-          Abhyas gives general fitness guidance, not medical advice. Talk to a
-          doctor before starting if you have any health condition or injury.
-        </p>
       </div>
+
+      <Footer />
     </main>
   );
 }

@@ -11,11 +11,12 @@
     "generate-icons": "node scripts/generate-icons.js",
     "test:generator": "tsx scripts/test-generator.ts",
     "test:progression": "tsx scripts/test-progression.ts",
-    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding",
+    "test": "npm run test:generator && npm run test:progression && npm run test:streaks && npm run test:dates && npm run test:breathing && npm run test:branding && npm run test:account-deletion",
     "test:streaks": "tsx scripts/test-streaks.ts",
     "test:dates": "tsx scripts/test-dates.ts",
     "test:breathing": "tsx scripts/test-breathing.ts",
-    "test:branding": "tsx scripts/test-branding.ts"
+    "test:branding": "tsx scripts/test-branding.ts",
+    "test:account-deletion": "tsx scripts/test-account-deletion.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -20,6 +20,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
+      { url: branding.icons.favicon, sizes: "32x32" },
       { url: branding.icons.icon192, sizes: "192x192", type: "image/png" },
       { url: branding.icons.icon512, sizes: "512x512", type: "image/png" },
     ],
@@ -43,8 +44,6 @@ export const viewport: Viewport = {
   themeColor: branding.colors.bg,
   width: "device-width",
   initialScale: 1,
-  // The guided session has fixed controls; zooming breaks the layout mid-set.
-  maximumScale: 1,
   viewportFit: "cover",
 };
 
