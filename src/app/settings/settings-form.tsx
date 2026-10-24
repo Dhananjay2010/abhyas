@@ -94,7 +94,14 @@ export function SettingsForm({
   timezones: string[];
   actions?: SettingsActions;
 }) {
-  const router = useRouter();
+  // Router is optional for tests
+  let router;
+  try {
+    router = useRouter();
+  } catch {
+    router = null;
+  }
+  
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
@@ -256,7 +263,7 @@ export function SettingsForm({
       
       // QA#3: Refresh when tab becomes visible (unless saves are pending)
       if (document.visibilityState === "visible" && !saveQueue.hasPending()) {
-        router.refresh();
+        router?.refresh();
       }
     };
 
