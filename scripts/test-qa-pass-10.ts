@@ -375,7 +375,9 @@ testSeeds("H7: Warmup and cooldown filter by injuries",
       hasAllEquipment: true,
       availableEquipment: null,
     });
-    const badCooldown = cooldown.filter(w => w.target_regions.includes("knee"));
+    // QA Pass 11: Cool-down only excludes contraindicated stretches, not those merely targeting the region
+    // (gentle stretching of injured area is therapeutic)
+    const badCooldown = cooldown.filter(w => w.contraindicated_regions.includes("knee"));
     check(`Seed ${seed}: Cooldown filtered by knee injury`, badCooldown.length === 0);
   }
 );
