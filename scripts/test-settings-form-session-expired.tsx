@@ -14,71 +14,6 @@
  */
 
 import './helpers/setup-jsdom';
-
-// Additional jsdom setup for Next.js components
-if (typeof (global as unknown as { self?: unknown }).self === 'undefined') {
-  (global as unknown as { self: typeof global }).self = global;
-}
-if (typeof (global as unknown as { requestIdleCallback?: unknown }).requestIdleCallback === 'undefined') {
-  (global as unknown as { requestIdleCallback: (cb: () => void) => NodeJS.Timeout; cancelIdleCallback: (id: NodeJS.Timeout) => void }).requestIdleCallback = (cb: () => void) => setTimeout(cb, 0);
-  (global as unknown as { cancelIdleCallback: (id: NodeJS.Timeout) => void }).cancelIdleCallback = (id: NodeJS.Timeout) => clearTimeout(id);
-}
-
-// Mock storage for pathname
-const mockState = {
-  pathname: '/settings'
-};
-
-// Create mock functions
-const mockUsePathname = () => {
-  return mockState.pathname;
-};
-// Stable router object to prevent effect re-runs on every render
-const stableRouter = {
-  push: () => {},
-  refresh: () => {},
-};
-const mockUseRouter = () => stableRouter;
-
-// Mock Link component
-function MockLink({ children, href }: { children: React.ReactNode; href: string }) {
-  return <a href={href}>{children}</a>;
-}
-
-// Patch Module.prototype.require BEFORE any imports that use next/navigation
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const Module = require('module');
-const originalRequire = Module.prototype.require;
-
-// Clear the require cache for all paths to ensure fresh modules
-Object.keys(require.cache).forEach(key => {
-  if (key.includes('next/navigation') || key.includes('next/link') || 
-      key.includes('session-expired-prompt') || key.includes('settings-form')) {
-    delete require.cache[key];
-  }
-});
-
-// Override ESM import resolution for next/navigation
-const nextNavigationModule = {
-  __esModule: true,
-  usePathname: mockUsePathname,
-  useRouter: mockUseRouter,
-  default: {},
-};
-
-Module.prototype.require = function (id: string) {
-  if (id === 'next/navigation') {
-    return nextNavigationModule;
-  }
-  if (id === 'next/link') {
-    const LinkModule = { __esModule: true, default: MockLink };
-    return LinkModule;
-  }
-  // eslint-disable-next-line prefer-rest-params
-  return originalRequire.apply(this, arguments);
-};
-
-// Now import everything after mocking is in place
 import { render, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
@@ -782,6 +717,102 @@ async function runTests(): Promise<TestResult[]> {
       message: passed
         ? 'Test 7b: When restore save returns SESSION_EXPIRED, stash is kept'
         : `Test 7b: FAILED - stashKept: ${stashKept}, hasCorrectChange: ${hasCorrectChange}`
+    });
+  }
+
+  // Test 7c: Restore enqueues each change exactly once, even after rerender
+  {
+    resetSessionExpiredState();
+    clearPendingChanges();
+    
+    // Seed the stash with session and equipment changes
+    stashPendingChanges([
+      {
+        key: 'cooldown_enabled',
+        type: 'session',
+        patch: { cooldown_enabled: false },
+        timestamp: Date.now()
+      },
+      {
+        key: 'equipment',
+        type: 'equipment',
+        patch: { hasAll: false, equipmentIds: ['barbell'] },
+        timestamp: Date.now()
+      }
+    ], '/settings');
+    
+    const testState: SettingsState = {
+      ...initialState,
+      hasAllEquipment: false,
+      equipmentIds: []
+    };
+    
+    // Track call count across rerenders
+    const sessionCalls: unknown[] = [];
+    const equipmentCalls: unknown[] = [];
+    
+    const actions: SettingsActions = {
+      updateSessionSettings: async (patch) => {
+        sessionCalls.push(patch);
+        return { ok: true };
+      },
+      updateProfileSettings: async () => ({ ok: true }),
+      updateEquipment: async (patch) => {
+        equipmentCalls.push(patch);
+        return { ok: true };
+      },
+      updateInjuries: async () => ({ ok: true }),
+    };
+
+    // Initial render
+    let result: { rerender: (ui: React.ReactElement) => void };
+    await act(async () => {
+      result = render(
+        <SettingsForm
+          initial={testState}
+          equipment={equipment}
+          timezones={timezones}
+          actions={actions}
+        />
+      );
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
+
+    // Wait for initial restoration
+    await waitFor(() => {
+      return sessionCalls.length > 0 && equipmentCalls.length > 0;
+    }, { timeout: 3000 });
+
+    const callsAfterMount = { session: sessionCalls.length, equipment: equipmentCalls.length };
+
+    // Force a rerender with new props
+    await act(async () => {
+      result!.rerender(
+        <SettingsForm
+          initial={{ ...testState, level: 'expert' }}
+          equipment={equipment}
+          timezones={timezones}
+          actions={actions}
+        />
+      );
+      await new Promise(resolve => setTimeout(resolve, 200));
+    });
+
+    const callsAfterRerender = { session: sessionCalls.length, equipment: equipmentCalls.length };
+    
+    // Calls should not increase after rerender
+    const noDoubleEnqueue = callsAfterMount.session === callsAfterRerender.session &&
+                            callsAfterMount.equipment === callsAfterRerender.equipment;
+    
+    const passed = callsAfterMount.session === 1 && 
+                   callsAfterMount.equipment === 1 && 
+                   noDoubleEnqueue;
+
+    results.push({
+      passed,
+      message: passed
+        ? 'Test 7c: Restore enqueues each change exactly once, no double-enqueue on rerender'
+        : `Test 7c: FAILED - session: ${callsAfterMount.session}→${callsAfterRerender.session}, equipment: ${callsAfterMount.equipment}→${callsAfterRerender.equipment}`
     });
   }
 

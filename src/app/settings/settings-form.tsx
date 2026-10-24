@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -229,8 +229,8 @@ export function SettingsForm({
     }
   }, []);
 
-  useEffect(() => {
-    // Restore pending changes from stashed session state (QA E2)
+  const restorePendingChanges = useEffectEvent(() => {
+    // Re-apply each stashed save through the appropriate save function
     const pending = getPendingChanges();
     if (!pending || pending.returnPath !== pathname) {
       return;
@@ -238,7 +238,6 @@ export function SettingsForm({
 
     clearPendingChanges();
 
-    // Re-apply each stashed save through the appropriate save function
     for (const change of pending.changes) {
       const { key, type, patch, affectsPlan } = change;
       
@@ -255,7 +254,11 @@ export function SettingsForm({
         enqueueSave("injuries", () => actions.updateInjuries(patch as Parameters<typeof actions.updateInjuries>[0]), true);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+
+  useEffect(() => {
+    // Restore pending changes from stashed session state (QA E2)
+    restorePendingChanges();
   }, [pathname]);
 
   useEffect(() => {
