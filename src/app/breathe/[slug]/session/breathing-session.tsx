@@ -608,6 +608,24 @@ function Practice({
     setPaused(true);
   }, [clock, settle, total, cycle, options.cycles]);
 
+  /**
+   * Unlock Web Audio context and warm up speech synthesis from inside a gesture.
+   * iOS grants Web Audio and speech separately, and both only from inside a
+   * gesture -- speech again after the app has been in the background, which is
+   * why Resume warms it up too.
+   */
+  const allowSound = useCallback(() => {
+    if (!soundOn) return;
+    unlockBreathAudio();
+    if (mode === "voice") warmUpSpeech(options.voiceLang);
+  }, [soundOn, mode, options.voiceLang]);
+
+  const resume = useCallback(() => {
+    allowSound();
+    setPaused(false);
+    setControls(true);
+  }, [allowSound]);
+
   // Detect back button pause and show confirmation dialog
   useEffect(() => {
     if (paused && backTriggeredRef.current) {
@@ -625,15 +643,12 @@ function Practice({
     if (!paused || !pauseDialogRef.current) return;
     const trap = focusTrap({
       element: pauseDialogRef.current,
-      onEscape: () => {
-        setPaused(false);
-        setControls(true);
-      },
+      onEscape: resume,
       returnFocusTo: pauseTriggerRef.current,
       initialFocus: true,
     });
     return () => trap.release();
-  }, [paused]);
+  }, [paused, resume]);
 
   // Leaving the app pauses the practice. iOS stops the audio at that point
   // anyway, and coming back to a practice that raced on without you is worse.
@@ -645,7 +660,7 @@ function Practice({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [requestPause]);
 
-  // Space pauses and resumes; Escape pauses or dismisses/resumes dialogs.
+  // Space pauses and resumes; Escape on the pause dialog resumes.
   useEffect(() => {
     if (stage !== "running") return;
     const onKey = (e: KeyboardEvent) => {
@@ -954,29 +969,10 @@ function Practice({
 
   // ---- actions -------------------------------------------------------------
 
-  /**
-   * Everything sound needs from a tap, in one place.
-   *
-   * iOS grants Web Audio and speech separately, and both only from inside a
-   * gesture -- speech again after the app has been in the background, which is
-   * why Resume warms it up too.
-   */
-  const allowSound = () => {
-    if (!soundOn) return;
-    unlockBreathAudio();
-    if (mode === "voice") warmUpSpeech(options.voiceLang);
-  };
-
   const begin = () => {
     allowSound();
     setTapped(true);
     setStage("running");
-  };
-
-  const resume = () => {
-    allowSound();
-    setPaused(false);
-    setControls(true);
   };
 
   const skipSettle = () => {
