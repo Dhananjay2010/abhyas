@@ -1,30 +1,26 @@
 import type { Database } from "@/lib/database.types";
+import type { CandidateExercise } from "@/lib/program/generate";
 
-type ExerciseRow = {
-  id: string;
-  name: string;
-  slug: string;
-  cue: string | null;
-  metric: Database["public"]["Enums"]["exercise_metric"];
-  movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-  primary_muscles: Database["public"]["Enums"]["muscle"][];
-  level_min: Database["public"]["Enums"]["fitness_level"];
-  impact: Database["public"]["Enums"]["impact_level"];
-  contraindicated_regions: Database["public"]["Enums"]["body_region"][];
-  equipment_ids: string[];
-};
+export type ExerciseRow = CandidateExercise;
 
 export type AlternativesContext = {
   level: Database["public"]["Enums"]["fitness_level"];
   availableEquipment: Set<string> | null;
   injuryRegions: Database["public"]["Enums"]["body_region"][];
   limit?: number;
+  scoreFn: (exercise: ExerciseRow) => number;
+  tieBreakFn: (slug: string) => number;
 };
 
 const LEVEL_ORDER: Record<Database["public"]["Enums"]["fitness_level"], number> = {
   beginner: 0,
   intermediate: 1,
   expert: 2,
+};
+
+const FALLBACK_PATTERNS: Record<string, string | undefined> = {
+  lunge: "squat",
+  squat: "lunge",
 };
 
 /**
@@ -77,19 +73,41 @@ export function rankAlternatives(
   ctx: AlternativesContext,
 ): ExerciseRow[] {
   const limit = ctx.limit ?? 5;
+  
+  // Try primary pattern first
+  let result = rankForPattern(current, candidates, current.movement_pattern, ctx, limit);
+  
+  // If empty and there's a fallback pattern, try that
+  if (result.length === 0) {
+    const fallbackPattern = FALLBACK_PATTERNS[current.movement_pattern];
+    if (fallbackPattern) {
+      result = rankForPattern(current, candidates, fallbackPattern as Database["public"]["Enums"]["movement_pattern"], ctx, limit);
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Internal: rank alternatives for a specific movement pattern.
+ */
+function rankForPattern(
+  current: ExerciseRow,
+  candidates: ExerciseRow[],
+  pattern: Database["public"]["Enums"]["movement_pattern"],
+  ctx: AlternativesContext,
+  limit: number,
+): ExerciseRow[] {
   const userLevelRank = LEVEL_ORDER[ctx.level];
   
-  // Dedupe tracking: keep first occurrence per (movement_pattern, normalized name)
-  const seen = new Map<string, boolean>();
-  
-  const filtered: Array<{ exercise: ExerciseRow; score: number }> = [];
+  const filtered: Array<{ exercise: ExerciseRow; primaryScore: number; genScore: number; tieBreak: number }> = [];
   
   for (const candidate of candidates) {
     // 1. Exclude current exercise
     if (candidate.id === current.id) continue;
     
-    // 2. Same movement pattern (must match)
-    if (candidate.movement_pattern !== current.movement_pattern) continue;
+    // 2. Match target pattern
+    if (candidate.movement_pattern !== pattern) continue;
     
     // 3. Level check: candidate level must be <= user level
     const candidateLevelRank = LEVEL_ORDER[candidate.level_min];
@@ -118,35 +136,49 @@ export function rankAlternatives(
       if (!allAvailable) continue;
     }
     
-    // 7. Deduplication: normalize name and check uniqueness within movement pattern
-    const normalizedName = normalizeName(candidate.name);
-    const dedupeKey = `${candidate.movement_pattern}:${normalizedName}`;
-    
-    if (seen.has(dedupeKey)) continue;
-    seen.set(dedupeKey, true);
-    
     // Scoring: prefer same primary muscle as current exercise
-    // (all other ranking criteria are handled by the generator's scoring elsewhere)
-    let score = 0;
+    let primaryScore = 0;
     const currentPrimaries = new Set(current.primary_muscles);
     const candidatePrimaries = new Set(candidate.primary_muscles);
     
     // +1 for each matching primary muscle
     for (const muscle of candidatePrimaries) {
       if (currentPrimaries.has(muscle)) {
-        score += 1;
+        primaryScore += 1;
       }
     }
     
-    filtered.push({ exercise: candidate, score });
+    filtered.push({ 
+      exercise: candidate, 
+      primaryScore,
+      genScore: ctx.scoreFn(candidate),
+      tieBreak: ctx.tieBreakFn(candidate.slug),
+    });
   }
   
-  // Sort: higher score first, stable sort by slug for determinism
+  // Sort: same primary muscle first, then generator score, then hash tiebreak
   filtered.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return a.exercise.slug.localeCompare(b.exercise.slug);
+    if (b.primaryScore !== a.primaryScore) return b.primaryScore - a.primaryScore;
+    if (b.genScore !== a.genScore) return b.genScore - a.genScore;
+    return a.tieBreak - b.tieBreak;
   });
   
-  // Cap at limit
-  return filtered.slice(0, limit).map((item) => item.exercise);
+  // Deduplicate AFTER sorting so the best-ranked variant wins
+  const seen = new Map<string, boolean>();
+  const deduplicated: ExerciseRow[] = [];
+  
+  for (const item of filtered) {
+    const normalizedName = normalizeName(item.exercise.name);
+    const dedupeKey = `${item.exercise.movement_pattern}:${normalizedName}`;
+    
+    if (seen.has(dedupeKey)) continue;
+    seen.set(dedupeKey, true);
+    
+    deduplicated.push(item.exercise);
+    
+    // Stop once we have enough
+    if (deduplicated.length >= limit) break;
+  }
+  
+  return deduplicated;
 }

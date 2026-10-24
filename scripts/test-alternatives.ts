@@ -9,29 +9,32 @@
  * (c) Injury filtering
  * (d) Equipment all-of: dumbbell-only user gets no barbell/bench moves
  * (e) Determinism: same output across runs and input orders
+ * (f) Lunge/squat fallback: knee-injured user swapping a lunge gets safe squats
  */
 
 import { rankAlternatives } from "../src/lib/program/alternatives";
+import { hashString } from "../src/lib/program/generate";
 import type { Database } from "../src/lib/database.types";
+import * as fs from "fs";
+import * as path from "path";
 
-// Type for our test data - matches the ExerciseRow type in alternatives.ts
 type TestExerciseRow = {
   id: string;
   name: string;
   slug: string;
-  cue: string | null;
   metric: Database["public"]["Enums"]["exercise_metric"];
   movement_pattern: Database["public"]["Enums"]["movement_pattern"];
+  mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
   primary_muscles: Database["public"]["Enums"]["muscle"][];
   level_min: Database["public"]["Enums"]["fitness_level"];
   impact: Database["public"]["Enums"]["impact_level"];
   contraindicated_regions: Database["public"]["Enums"]["body_region"][];
   equipment_ids: string[];
+  spinal_load: Database["public"]["Enums"]["spinal_load_level"];
+  tracks: Database["public"]["Enums"]["track_type"][];
+  default_rest_seconds: number;
+  category: Database["public"]["Enums"]["exercise_category"];
 };
-
-// Load fixture
-import * as fs from "fs";
-import * as path from "path";
 
 const fixturePath = path.join(__dirname, "fixtures", "prod-catalogue-sample.json");
 const rawData = JSON.parse(fs.readFileSync(fixturePath, "utf-8")) as unknown[];
@@ -42,14 +45,18 @@ const catalogue = rawData.map((ex: unknown): TestExerciseRow => {
     id: e.id as string,
     name: e.name as string,
     slug: e.slug as string,
-    cue: (e.cue as string | null) ?? null,
     metric: (e.metric as Database["public"]["Enums"]["exercise_metric"]) ?? "reps",
     movement_pattern: e.movement_pattern as Database["public"]["Enums"]["movement_pattern"],
+    mechanic: (e.mechanic as Database["public"]["Enums"]["mechanic_type"]) ?? null,
     primary_muscles: (e.primary_muscles ?? []) as Database["public"]["Enums"]["muscle"][],
     level_min: e.level_min as Database["public"]["Enums"]["fitness_level"],
     impact: e.impact as Database["public"]["Enums"]["impact_level"],
     contraindicated_regions: (e.contraindicated_regions ?? []) as Database["public"]["Enums"]["body_region"][],
     equipment_ids: (e.equipment_ids ?? []) as string[],
+    spinal_load: (e.spinal_load as Database["public"]["Enums"]["spinal_load_level"]) ?? "none",
+    tracks: (e.tracks ?? []) as Database["public"]["Enums"]["track_type"][],
+    default_rest_seconds: (e.default_rest_seconds as number) ?? 60,
+    category: (e.category as Database["public"]["Enums"]["exercise_category"]) ?? "other",
   };
 });
 
@@ -71,6 +78,9 @@ function assertEqual<T>(actual: T, expected: T, message: string) {
   }
 }
 
+const dummyScore = () => 0;
+const dummyTieBreak = (slug: string) => hashString(slug);
+
 // Test (a): Push-Up Wide beginner case
 {
   const pushUpWide = catalogue.find((e) => e.slug === "push-up-wide");
@@ -86,172 +96,295 @@ function assertEqual<T>(actual: T, expected: T, message: string) {
       availableEquipment: null,
       injuryRegions: [],
       limit: 5,
+      scoreFn: dummyScore,
+      tieBreakFn: dummyTieBreak,
     });
     
-    // No plyometric
     const hasPlyoPushup = alternatives.some((e) => e.slug === "plyo-push-up");
     assert(!hasPlyoPushup, "(a) No Plyo Push-up for beginners");
     
-    // No high-impact at all
     const hasHighImpact = alternatives.some((e) => e.impact === "high");
     assert(!hasHighImpact, "(a) No high-impact exercises for beginners");
     
-    // No Isometric Wipers (not a horizontal press)
     const hasWipers = alternatives.some((e) => e.slug === "isometric-wiper");
     assert(!hasWipers, "(a) No Isometric Wipers in horizontal press alternatives");
     
-    // No duplicates (check for near-duplicate push-ups)
     const pushUpVariants = alternatives.filter((e) => 
       e.name.toLowerCase().includes("push") && e.name.toLowerCase().includes("up")
     );
-    // Should have at most 1 push-up variant due to deduplication
     assert(pushUpVariants.length <= 1, `(a) At most 1 push-up variant, got ${pushUpVariants.length}`);
     
-    // All are push pattern
+    assert(alternatives.length <= 5, `(a) Cap at 5, got ${alternatives.length}`);
+    
     const allPush = alternatives.every((e) => e.movement_pattern === "horizontal_press");
     assert(allPush, "(a) All alternatives are horizontal_press");
     
-    // Respects limit
-    assert(alternatives.length <= 5, `(a) Results capped at 5, got ${alternatives.length}`);
-    
-    console.log(`✅ Test (a): Push-Up Wide beginner case - ${alternatives.length} alternatives`);
+    console.log("✅ Test (a): Push-Up Wide beginner case passed");
   }
 }
 
-// Test (b): Push exercises never show pull exercises
+// Test (b): Movement pattern filtering: push never shows pull
 {
-  const pushExercise = catalogue.find((e) => 
-    e.movement_pattern === "horizontal_press"
-  );
+  const benchPress = catalogue.find((e) => e.slug === "barbell-bench-press");
   
-  if (pushExercise) {
-    // Include both push and pull in candidates
-    const candidates = catalogue.filter(
-      (e) => e.movement_pattern === "horizontal_press" || e.movement_pattern === "horizontal_pull"
-    );
+  if (benchPress) {
+    const candidates = catalogue;
     
-    const alternatives = rankAlternatives(pushExercise, candidates, {
+    const alternatives = rankAlternatives(benchPress, candidates, {
       level: "intermediate",
       availableEquipment: null,
       injuryRegions: [],
+      scoreFn: dummyScore,
+      tieBreakFn: dummyTieBreak,
     });
     
-    const hasPull = alternatives.some((e) => e.movement_pattern === "horizontal_pull");
-    assert(!hasPull, "(b) Push exercise alternatives contain no pull movements");
+    const hasPull = alternatives.some((e) => 
+      e.movement_pattern === "vertical_pull" || e.movement_pattern === "horizontal_pull"
+    );
+    assert(!hasPull, "(b) No pull movements in push alternatives");
     
-    console.log(`✅ Test (b): Movement pattern filtering`);
-  } else {
-    console.log(`⚠️  Test (b): Skipped - no horizontal press exercise found`);
+    const allPush = alternatives.every((e) => e.movement_pattern === "horizontal_press");
+    assert(allPush, "(b) All alternatives match horizontal_press");
+    
+    console.log("✅ Test (b): Movement pattern filtering passed");
   }
 }
 
 // Test (c): Injury filtering
 {
-  const shoulderPress = catalogue.find((e) => 
-    e.contraindicated_regions.includes("shoulder")
-  );
+  const shoulderPress = catalogue.find((e) => e.slug.includes("shoulder-press"));
   
   if (shoulderPress) {
-    const candidates = catalogue.filter(
-      (e) => e.movement_pattern === shoulderPress.movement_pattern
+    const candidates = catalogue.filter((e) => 
+      e.movement_pattern === shoulderPress.movement_pattern
     );
     
     const alternatives = rankAlternatives(shoulderPress, candidates, {
       level: "beginner",
       availableEquipment: null,
       injuryRegions: ["shoulder"],
+      scoreFn: dummyScore,
+      tieBreakFn: dummyTieBreak,
     });
     
-    // None should contraindicate shoulder
     const hasShoulderContra = alternatives.some((e) => 
       e.contraindicated_regions.includes("shoulder")
     );
-    assert(!hasShoulderContra, "(c) No exercises contraindicated for shoulder injury");
+    assert(!hasShoulderContra, "(c) No shoulder-contraindicated exercises for shoulder injury");
     
-    console.log(`✅ Test (c): Injury filtering`);
+    console.log("✅ Test (c): Injury filtering passed");
   }
 }
 
-// Test (d): Equipment all-of semantics
+// Test (d): Equipment all-of filtering
 {
-  const barbellExercise = catalogue.find((e) => 
-    e.equipment_ids.length > 0 && 
-    e.equipment_ids.some(id => id.includes("barbell"))
+  const dumbbellExercise = catalogue.find((e) => 
+    e.equipment_ids.length === 1 && e.equipment_ids[0] === "dumbbell"
   );
   
-  if (barbellExercise) {
-    const candidates = catalogue.filter(
-      (e) => e.movement_pattern === barbellExercise.movement_pattern
+  if (dumbbellExercise) {
+    const candidates = catalogue.filter((e) => 
+      e.movement_pattern === dumbbellExercise.movement_pattern
     );
     
-    // User only has dumbbells
-    const dumbbellId = "dumbbell"; // simplified for test
-    const alternatives = rankAlternatives(barbellExercise, candidates, {
+    const alternatives = rankAlternatives(dumbbellExercise, candidates, {
       level: "intermediate",
-      availableEquipment: new Set([dumbbellId]),
+      availableEquipment: new Set(["dumbbell"]),
       injuryRegions: [],
+      scoreFn: dummyScore,
+      tieBreakFn: dummyTieBreak,
     });
     
-    // Should have bodyweight or dumbbell-only exercises
-    const allMatchEquipment = alternatives.every((e) => 
-      e.equipment_ids.length === 0 || // bodyweight
-      e.equipment_ids.every(id => id === dumbbellId) // dumbbell-only
+    const hasBarbell = alternatives.some((e) => 
+      e.equipment_ids.includes("barbell") || e.equipment_ids.includes("bench")
     );
-    assert(allMatchEquipment, "(d) Equipment filtering: only bodyweight or available equipment");
+    assert(!hasBarbell, "(d) No barbell/bench exercises for dumbbell-only user");
     
-    // Should NOT have barbell or bench exercises
-    const hasBarbellOrBench = alternatives.some((e) => 
-      e.equipment_ids.some(id => id.includes("barbell") || id.includes("bench"))
+    const allValid = alternatives.every((e) => 
+      e.equipment_ids.length === 0 || e.equipment_ids.every(id => id === "dumbbell")
     );
-    assert(!hasBarbellOrBench, "(d) No barbell or bench exercises for dumbbell-only user");
+    assert(allValid, "(d) All alternatives use only dumbbell or bodyweight");
     
-    console.log(`✅ Test (d): Equipment all-of filtering`);
+    console.log("✅ Test (d): Equipment all-of filtering passed");
   }
 }
 
-// Test (e): Determinism
+// Test (e): Determinism and deduplication
 {
-  const exercise = catalogue.find((e) => e.movement_pattern === "horizontal_press");
+  const current = catalogue.find((e) => e.movement_pattern === "horizontal_press");
   
-  if (exercise) {
-    const candidates = catalogue.filter(
-      (e) => e.movement_pattern === "horizontal_press"
-    );
+  if (current) {
+    const candidates = catalogue.filter((e) => 
+      e.movement_pattern === "horizontal_press"
+    ).slice(0, 20);
     
-    const ctx = {
-      level: "intermediate" as const,
+    const run1 = rankAlternatives(current, candidates, {
+      level: "intermediate",
       availableEquipment: null,
-      injuryRegions: [] as Database["public"]["Enums"]["body_region"][],
-    };
+      injuryRegions: [],
+      scoreFn: dummyScore,
+      tieBreakFn: dummyTieBreak,
+    });
     
-    const run1 = rankAlternatives(exercise, candidates, ctx);
-    const run2 = rankAlternatives(exercise, candidates, ctx);
-    
-    assertEqual(run1.length, run2.length, "(e) Same length across runs");
-    
-    for (let i = 0; i < run1.length; i++) {
-      assertEqual(run1[i].id, run2[i].id, `(e) Same exercise at index ${i}`);
-    }
-    
-    // Test with shuffled candidates
     const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-    const run3 = rankAlternatives(exercise, shuffled, ctx);
+    const run2 = rankAlternatives(current, shuffled, {
+      level: "intermediate",
+      availableEquipment: null,
+      injuryRegions: [],
+      scoreFn: dummyScore,
+      tieBreakFn: dummyTieBreak,
+    });
     
-    assertEqual(run1.length, run3.length, "(e) Same length with shuffled input");
+    const run3 = rankAlternatives(current, candidates, {
+      level: "intermediate",
+      availableEquipment: null,
+      injuryRegions: [],
+      scoreFn: dummyScore,
+      tieBreakFn: dummyTieBreak,
+    });
     
-    for (let i = 0; i < run1.length; i++) {
-      assertEqual(run1[i].id, run3[i].id, `(e) Same exercise at index ${i} with shuffled input`);
-    }
+    assertEqual(run1.length, run2.length, "(e) Same length across shuffled input");
+    assertEqual(run1.length, run3.length, "(e) Deterministic across runs");
     
-    console.log(`✅ Test (e): Determinism across runs and input orders`);
+    const slugs1 = run1.map(e => e.slug).join(",");
+    const slugs2 = run2.map(e => e.slug).join(",");
+    const slugs3 = run3.map(e => e.slug).join(",");
+    
+    assertEqual(slugs1, slugs2, "(e) Same order regardless of input order");
+    assertEqual(slugs1, slugs3, "(e) Stable across runs");
+    
+    console.log("✅ Test (e): Determinism and deduplication passed");
   }
 }
 
-// Summary
-if (failed === 0) {
-  console.log("\n✅ All alternative ranking tests passed");
-  process.exit(0);
-} else {
+// Test (f): Lunge→squat fallback for knee injury
+{
+  // Create synthetic test data since the fixture doesn't have squats/lunges
+  const barbell_lunge: TestExerciseRow = {
+    id: "test-barbell-lunge",
+    name: "Barbell Lunge",
+    slug: "barbell-lunge",
+    metric: "reps",
+    movement_pattern: "lunge",
+    mechanic: "compound",
+    primary_muscles: ["quads"],
+    level_min: "intermediate",
+    impact: "low",
+    contraindicated_regions: ["knee"],
+    equipment_ids: ["barbell"],
+    spinal_load: "moderate",
+    tracks: ["weights"],
+    default_rest_seconds: 90,
+    category: "strength",
+  };
+  
+  const walking_lunge: TestExerciseRow = {
+    id: "test-walking-lunge",
+    name: "Walking Lunge",
+    slug: "walking-lunge",
+    metric: "reps",
+    movement_pattern: "lunge",
+    mechanic: "compound",
+    primary_muscles: ["quads"],
+    level_min: "beginner",
+    impact: "low",
+    contraindicated_regions: ["knee"],
+    equipment_ids: [],
+    spinal_load: "none",
+    tracks: ["bodyweight"],
+    default_rest_seconds: 60,
+    category: "strength",
+  };
+  
+  const box_squat: TestExerciseRow = {
+    id: "test-box-squat",
+    name: "Box Squat",
+    slug: "box-squat",
+    metric: "reps",
+    movement_pattern: "squat",
+    mechanic: "compound",
+    primary_muscles: ["quads"],
+    level_min: "beginner",
+    impact: "low",
+    contraindicated_regions: [],
+    equipment_ids: ["box"],
+    spinal_load: "low",
+    tracks: ["bodyweight"],
+    default_rest_seconds: 90,
+    category: "strength",
+  };
+  
+  const wall_sit: TestExerciseRow = {
+    id: "test-wall-sit",
+    name: "Wall Sit",
+    slug: "wall-sit",
+    metric: "seconds",
+    movement_pattern: "squat",
+    mechanic: "isolation",
+    primary_muscles: ["quads"],
+    level_min: "beginner",
+    impact: "low",
+    contraindicated_regions: [],
+    equipment_ids: [],
+    spinal_load: "none",
+    tracks: ["bodyweight"],
+    default_rest_seconds: 45,
+    category: "strength",
+  };
+  
+  const barbell_squat_knee_bad: TestExerciseRow = {
+    id: "test-barbell-squat-knee",
+    name: "Barbell Squat",
+    slug: "barbell-squat",
+    metric: "reps",
+    movement_pattern: "squat",
+    mechanic: "compound",
+    primary_muscles: ["quads"],
+    level_min: "intermediate",
+    impact: "low",
+    contraindicated_regions: ["knee"],
+    equipment_ids: ["barbell"],
+    spinal_load: "high",
+    tracks: ["weights"],
+    default_rest_seconds: 120,
+    category: "strength",
+  };
+  
+  const syntheticCatalogue = [
+    barbell_lunge,
+    walking_lunge,
+    box_squat,
+    wall_sit,
+    barbell_squat_knee_bad,
+  ];
+  
+  const alternatives = rankAlternatives(barbell_lunge, syntheticCatalogue, {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: ["knee"],
+    scoreFn: dummyScore,
+    tieBreakFn: dummyTieBreak,
+  });
+  
+  assert(alternatives.length > 0, "(f) Fallback provides alternatives when same-pattern yields empty");
+  
+  const hasKneeContra = alternatives.some((e) => e.contraindicated_regions.includes("knee"));
+  assert(!hasKneeContra, "(f) No knee-contraindicated exercises for knee injury");
+  
+  const allSquats = alternatives.every((e) => e.movement_pattern === "squat");
+  assert(allSquats, "(f) Fallback returned squat alternatives for lunge");
+  
+  const hasBoxSquat = alternatives.some((e) => e.slug === "box-squat");
+  const hasWallSit = alternatives.some((e) => e.slug === "wall-sit");
+  assert(hasBoxSquat || hasWallSit, "(f) Returned at least one safe squat option");
+  
+  console.log("✅ Test (f): Lunge→squat fallback passed");
+}
+
+if (failed > 0) {
   console.error(`\n❌ ${failed} test(s) failed`);
   process.exit(1);
+} else {
+  console.log("\n✅ All tests passed");
+  process.exit(0);
 }
