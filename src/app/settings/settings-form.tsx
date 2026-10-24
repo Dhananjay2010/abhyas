@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -23,7 +23,7 @@ import {
   updateSessionSettings,
   type Result,
 } from "./actions";
-import { decideClientEquipmentUpdate } from "./equipment-logic";
+import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -95,8 +95,17 @@ export function SettingsForm({
   });
   /** Equipment hint shown when user tries an unsaveable state */
   const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
+  /** Confirmation message shown when turning off "I have access to everything" */
+  const [equipmentOffConfirmation, setEquipmentOffConfirmation] = useState<string | null>(null);
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
+
+  useEffect(() => {
+    if (equipmentOffConfirmation) {
+      const timer = setTimeout(() => setEquipmentOffConfirmation(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [equipmentOffConfirmation]);
 
   function save(run: () => Promise<Result>, affectsPlan = false) {
     startTransition(async () => {
@@ -253,15 +262,22 @@ export function SettingsForm({
             });
             
             if (!decision.allow) {
-              // Don't save, just show picker with hint
+              // Don't save, just show picker with hint and confirmation
               setS({ ...s, hasAllEquipment: false });
               setEquipmentHint(decision.hint);
+              setEquipmentOffConfirmation(getEquipmentOffMessage(false));
               return;
             }
             
             // Allow the toggle and save
+            const turningOff = s.hasAllEquipment && !decision.newHasAll;
             setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
             saveEquipment(decision.newHasAll, decision.newEquipmentIds);
+            
+            // Show confirmation only when turning OFF
+            if (turningOff) {
+              setEquipmentOffConfirmation(getEquipmentOffMessage(true));
+            }
           }}
           aria-pressed={s.hasAllEquipment}
           className={`w-full rounded-xl border px-5 py-3 text-left text-sm font-semibold ${
@@ -272,6 +288,16 @@ export function SettingsForm({
         >
           I have access to everything
         </button>
+
+        {equipmentOffConfirmation && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-lg bg-accent/10 px-4 py-2 text-sm text-accent"
+          >
+            {equipmentOffConfirmation}
+          </div>
+        )}
 
         {!s.hasAllEquipment && (
           <div className="mt-5">
