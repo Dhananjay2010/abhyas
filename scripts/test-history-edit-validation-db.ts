@@ -514,7 +514,45 @@ async function runTests() {
       check("Session still exists", session !== null);
     }
 
-    console.log("\n5. Validation: Pre-signup date rejected");
+    console.log("\n5. Update matching 0 rows (wrong user or revoked session)");
+    {
+      const { updateSessionDateTimeCore } = await import("../src/lib/history/edit-cores");
+      
+      // Sign in as the test user to get a valid client
+      const { data: sessionData } = await adminClient.auth.signInWithPassword({
+        email: testEmail,
+        password: testPassword,
+      });
+      if (!sessionData.session) {
+        console.error("Failed to sign in test user");
+        check("Sign in for 0-row test", false);
+        return false;
+      }
+      
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${sessionData.session.access_token}` } },
+      });
+      
+      // Try to update a session that doesn't belong to this user (use a random UUID)
+      // Use a recent past date with daytime hours to avoid date-time mismatches
+      // 2026-10-22T10:00:00Z = 15:30 IST on 2026-10-22
+      const fakeSessionId = "00000000-0000-0000-0000-000000000000";
+      const result = await updateSessionDateTimeCore(
+        userClient,
+        userId,
+        fakeSessionId,
+        "2026-10-22",
+        "2026-10-22T10:00:00Z",
+        "2026-10-22T11:00:00Z",
+        "Asia/Kolkata",
+        signupDate
+      );
+      
+      check("Update matching 0 rows fails", !result.success);
+      check("Error message asks to sign in again", result.error === "Couldn't save — please sign in again", `got: ${result.error}`);
+    }
+
+    console.log("\n6. Validation: Pre-signup date rejected");
     {
       const { validateDateAfterSignup } = await import("../src/lib/history/edit-validation");
       
@@ -528,7 +566,7 @@ async function runTests() {
       check("Signup date itself is valid", sameDay.valid);
     }
 
-    console.log("\n6. Validation: Reps boundaries");
+    console.log("\n7. Validation: Reps boundaries");
     {
       const { validateReps } = await import("../src/lib/history/edit-validation");
       
@@ -541,7 +579,7 @@ async function runTests() {
       check("Reps error message is friendly", error0.error === "Reps must be between 1 and 100.");
     }
 
-    console.log("\n7. Validation: Weight boundaries");
+    console.log("\n8. Validation: Weight boundaries");
     {
       const { validateWeightKg } = await import("../src/lib/history/edit-validation");
       

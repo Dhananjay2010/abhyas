@@ -59,12 +59,23 @@ export function EditSession({
     const startMinutes = startHour * 60 + startMin;
     const endMinutes = endHour * 60 + endMin;
     
+    // Midnight-crossing fix: when end ≤ start, assume end is on the next day
+    let durationMinutes: number;
+    let endDate: string;
+    
     if (endMinutes <= startMinutes) {
-      setError("End time must be after start time");
-      return;
+      // End is on the next calendar day
+      durationMinutes = (24 * 60 - startMinutes) + endMinutes;
+      // Calculate next day
+      const dateParts = editedDate.split("-").map(Number);
+      const nextDay = new Date(Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2] + 1));
+      endDate = nextDay.toISOString().slice(0, 10);
+    } else {
+      // Same day
+      durationMinutes = endMinutes - startMinutes;
+      endDate = editedDate;
     }
     
-    const durationMinutes = endMinutes - startMinutes;
     if (durationMinutes > 600) { // 10 hours
       setError("Duration cannot exceed 10 hours");
       return;
@@ -73,7 +84,7 @@ export function EditSession({
     startTransition(async () => {
       // Convert from member's timezone to UTC
       const newStartedAt = zonedDateTimeToUtc(editedDate, editedStartTime, timezone);
-      const newCompletedAt = zonedDateTimeToUtc(editedDate, editedEndTime, timezone);
+      const newCompletedAt = zonedDateTimeToUtc(endDate, editedEndTime, timezone);
       
       // Extract local date in member's timezone from the start time
       const startZonedDate = utcToZonedDateTime(newStartedAt, timezone).date;
