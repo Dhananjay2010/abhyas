@@ -102,16 +102,17 @@ async function runTests() {
           program_day_id: "old-push",
           program_id: "old-program",
           status: "planned",
-          // Nested data
-          program_days: { label: "Push", day_index: 3 },
+          // Nested data: weights day with label "Day A"
+          program_days: { label: "Day A", day_index: 2 },
           session_exercises: [],
         },
       ],
       program_days: [
-        { id: "old-push", day_index: 3, day_type: "weights", label: "Push" },
-        // New block has a rest day at index 3, not weights
-        { id: "new-rest", day_index: 3, day_type: "rest", label: null, program_id: "new-program" },
-        { id: "new-upper", day_index: 1, day_type: "weights", label: "Upper", program_id: "new-program" },
+        { id: "old-push", day_index: 2, day_type: "weights", label: "Day A" },
+        // New block has TWO days with label "Day A" but different types
+        { id: "new-rest-a", day_index: 1, day_type: "rest", label: "Day A", program_id: "new-program" },
+        { id: "new-weights-a", day_index: 2, day_type: "weights", label: "Day A", program_id: "new-program" },
+        { id: "new-yoga", day_index: 3, day_type: "yoga", label: null, program_id: "new-program" },
       ],
       program_day_exercises: [],
       programs: [{ id: "new-program", is_deload: false }],
@@ -120,13 +121,19 @@ async function runTests() {
     await repointSessionsAfterRebuild(fake as never, "user1", "new-program", "2026-10-24");
 
     const session = fake.store.sessions[0];
-    // Session should NOT match to new-rest (wrong day_type)
-    // It should either be deleted or matched to a weights day
+    // Session MUST match to new-weights-a (day_type=weights, label="Day A")
+    // NOT to new-rest-a (day_type=rest, label="Day A")
     if (session) {
+      check("session matched to weights Day A, not rest Day A", 
+        session.program_day_id === "new-weights-a",
+        `got ${session.program_day_id}`
+      );
+      
       const matchedDay = fake.store.program_days.find((d) => d.id === session.program_day_id);
-      check("session matched to weights day, not rest", matchedDay?.day_type === "weights");
+      check("matched day has day_type=weights", matchedDay?.day_type === "weights");
+      check("matched day has label Day A", matchedDay?.label === "Day A");
     } else {
-      check("session deleted (no valid match)", true);
+      check("FAIL: session should NOT be deleted", false);
     }
   }
 

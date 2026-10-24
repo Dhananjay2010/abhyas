@@ -11,10 +11,24 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { repointSessionsAfterRebuild } from "./repoint-sessions";
 
 type Client = SupabaseClient<Database>;
+type Enums = Database["public"]["Enums"];
 
 const CATALOGUE_COLUMNS =
   "id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, " +
   "level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds";
+
+/**
+ * Compute the block start date in the user's timezone.
+ * 
+ * Exported for testing timezone date arithmetic (X11).
+ * 
+ * @param now - Date object or ISO timestamp
+ * @param timezone - IANA timezone (e.g., "Asia/Kolkata")
+ * @returns Local date string (e.g., "2026-10-25")
+ */
+export function blockStartDate(now: Date, timezone: string): string {
+  return localDateString(timezone, now);
+}
 
 export type BuildResult =
   | {
@@ -25,6 +39,111 @@ export type BuildResult =
       totalExercises: number;
     }
   | { ok: false; error: string };
+
+/**
+ * Persist a generated program and optionally re-point sessions after rebuild.
+ * 
+ * Exported for testing the rebuild vs. first-build decision (X1, X2).
+ */
+export async function persistBlock(
+  supabase: Client,
+  userId: string,
+  plan: ReturnType<typeof generateProgram>,
+  options: {
+    startedOn: string;
+    endsOn: string;
+    rebuildOf: { block_number: number; started_on: string } | null;
+    timezone: string;
+    primaryTrack: Enums["track_type"];
+    goal: Enums["fitness_goal"];
+    level: Enums["fitness_level"];
+  },
+): Promise<BuildResult> {
+  const { data: program, error: programError } = await supabase
+    .from("programs")
+    .insert({
+      user_id: userId,
+      block_number: plan.blockNumber,
+      split_type: plan.splitType,
+      days_per_week: plan.daysPerWeek,
+      primary_track: options.primaryTrack,
+      goal: options.goal,
+      level: options.level,
+      started_on: options.startedOn,
+      ends_on: options.endsOn,
+      deload_week: plan.deloadWeek,
+      status: "active",
+    })
+    .select("id")
+    .single();
+
+  if (programError || !program) {
+    return { ok: false, error: programError?.message ?? "Could not create the program" };
+  }
+
+  const { data: insertedDays, error: daysError } = await supabase
+    .from("program_days")
+    .insert(
+      plan.days.map((d) => ({
+        program_id: program.id,
+        user_id: userId,
+        day_index: d.dayIndex,
+        day_type: d.dayType,
+        focus: d.focus,
+        label: d.label,
+      })),
+    )
+    .select("id, day_index");
+
+  if (daysError || !insertedDays) {
+    return { ok: false, error: daysError?.message ?? "Could not create program days" };
+  }
+
+  const dayIdByIndex = new Map(insertedDays.map((d) => [d.day_index, d.id]));
+  const exerciseRows = plan.days.flatMap((d) =>
+    d.exercises.map((e) => ({
+      program_day_id: dayIdByIndex.get(d.dayIndex)!,
+      user_id: userId,
+      exercise_id: e.exerciseId,
+      order_index: e.orderIndex,
+      target_sets: e.targetSets,
+      target_reps_min: e.targetRepsMin,
+      target_reps_max: e.targetRepsMax,
+      rest_seconds: e.restSeconds,
+    })),
+  );
+
+  if (exerciseRows.length > 0) {
+    const { error } = await supabase.from("program_day_exercises").insert(exerciseRows);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  const trainingDays = plan.days.filter(
+    (d) => d.dayType === "weights" || d.dayType === "bodyweight",
+  );
+
+  // MUTANT X1, X2: Re-point sessions ONLY on rebuild
+  if (options.rebuildOf) {
+    const localToday = localDateString(options.timezone);
+    const repointResult = await repointSessionsAfterRebuild(
+      supabase,
+      userId,
+      program.id,
+      localToday,
+    );
+    if (!repointResult.ok) {
+      console.error("Failed to re-point sessions after rebuild:", repointResult.error);
+    }
+  }
+
+  return {
+    ok: true,
+    programId: program.id,
+    blockNumber: plan.blockNumber,
+    trainingDays: trainingDays.length,
+    totalExercises: exerciseRows.length,
+  };
+}
 
 /**
  * Generate and persist a 4-week block for the user.
@@ -169,88 +288,13 @@ export async function createBlockForUser(
   const startedOn = rebuildOf?.started_on ?? localDateString(timezone);
   const endsOn = addDays(startedOn, 27); // four weeks inclusive
 
-  const { data: program, error: programError } = await supabase
-    .from("programs")
-    .insert({
-      user_id: userId,
-      block_number: plan.blockNumber,
-      split_type: plan.splitType,
-      days_per_week: plan.daysPerWeek,
-      primary_track: input.primaryTrack,
-      goal: input.goal,
-      level: input.level,
-      started_on: startedOn,
-      ends_on: endsOn,
-      deload_week: plan.deloadWeek,
-      status: "active",
-    })
-    .select("id")
-    .single();
-
-  if (programError || !program) {
-    return { ok: false, error: programError?.message ?? "Could not create the program" };
-  }
-
-  const { data: insertedDays, error: daysError } = await supabase
-    .from("program_days")
-    .insert(
-      plan.days.map((d) => ({
-        program_id: program.id,
-        user_id: userId, // overwritten by the definer trigger with the true owner
-        day_index: d.dayIndex,
-        day_type: d.dayType,
-        focus: d.focus,
-        label: d.label,
-      })),
-    )
-    .select("id, day_index");
-
-  if (daysError || !insertedDays) {
-    return { ok: false, error: daysError?.message ?? "Could not create program days" };
-  }
-
-  const dayIdByIndex = new Map(insertedDays.map((d) => [d.day_index, d.id]));
-  const exerciseRows = plan.days.flatMap((d) =>
-    d.exercises.map((e) => ({
-      program_day_id: dayIdByIndex.get(d.dayIndex)!,
-      user_id: userId,
-      exercise_id: e.exerciseId,
-      order_index: e.orderIndex,
-      target_sets: e.targetSets,
-      target_reps_min: e.targetRepsMin,
-      target_reps_max: e.targetRepsMax,
-      rest_seconds: e.restSeconds,
-    })),
-  );
-
-  if (exerciseRows.length > 0) {
-    const { error } = await supabase.from("program_day_exercises").insert(exerciseRows);
-    if (error) return { ok: false, error: error.message };
-  }
-
-  // Re-point any planned sessions to the new program's matching days, but ONLY
-  // on rebuild (not on rollover or first-time onboarding). This prevents "train
-  // anyway" and "what about tomorrow?" choices from the old block surviving the
-  // rebuild and loading exercises from the retired plan.
-  if (rebuildOf) {
-    const localToday = localDateString(timezone);
-    const repointResult = await repointSessionsAfterRebuild(
-      supabase,
-      userId,
-      program.id,
-      localToday,
-    );
-    if (!repointResult.ok) {
-      console.error("Failed to re-point sessions after rebuild:", repointResult.error);
-      // Continue anyway - the program is created, re-pointing is a cleanup step.
-    }
-  }
-
-  return {
-    ok: true,
-    programId: program.id,
-    blockNumber: plan.blockNumber,
-    trainingDays: trainingDays.length,
-    totalExercises: exerciseRows.length,
-  };
+  return persistBlock(supabase, userId, plan, {
+    startedOn,
+    endsOn,
+    rebuildOf,
+    timezone,
+    primaryTrack: input.primaryTrack,
+    goal: input.goal,
+    level: input.level,
+  });
 }

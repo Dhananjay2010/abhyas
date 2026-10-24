@@ -14,6 +14,7 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isSessionOverride } from "@/lib/program/detect-override";
+import { resolveTodayDays } from "@/lib/resolve-today-days";
 
 export const dynamic = "force-dynamic";
 
@@ -206,48 +207,9 @@ export default async function TodayPage() {
   const allSessions = sessionsRes.data ?? [];
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
 
-  // Fetch any retired program days that sessions reference. After a rebuild,
-  // sessions can point to days from the old block, and we need those to derive
-  // correct labels. Collect unique program_day_ids from sessions that aren't in
-  // the active block's days.
-  const activeDayIds = new Set((days ?? []).map((d) => d.id));
-  const retiredDayIds = Array.from(
-    new Set(
-      allSessions
-        .map((s) => s.program_day_id)
-        .filter((id): id is string => id !== null && !activeDayIds.has(id)),
-    ),
-  );
-
-  let retiredDays:
-    | Array<{
-        id: string;
-        day_index: number;
-        day_type: Database["public"]["Enums"]["day_type"];
-        focus: string | null;
-        label: string | null;
-        program_day_exercises: Array<{
-          order_index: number;
-          target_sets: number | null;
-          target_reps_min: number | null;
-          target_reps_max: number | null;
-          rest_seconds: number | null;
-          exercises: {
-            name: string;
-            cue: string | null;
-            movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-            metric: Database["public"]["Enums"]["exercise_metric"] | null;
-          } | null;
-        }>;
-      }>
-    | undefined;
-
-  if (retiredDayIds.length > 0) {
-    retiredDays = await loadRetiredDays(supabase, retiredDayIds) as typeof retiredDays;
-  }
-
-  // Combine active and retired days for lookup.
-  const allDays = [...(days ?? []), ...(retiredDays ?? [])];
+  // Resolve all days (active + retired from old blocks).
+  // MUTANT X8, X9, X16: removing this call or ignoring retired days fails tests.
+  const allDays = await resolveTodayDays(supabase, days ?? [], allSessions);
 
   const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
 
