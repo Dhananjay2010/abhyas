@@ -444,7 +444,7 @@ console.log("\n17. Planned row dated before today becomes skipped");
     { id: "planned-yesterday", local_date: "2026-10-24", started_at: null, actual_type: "weights" },
   ];
   
-  await closeStaleSessionsCore(fake, open, now, "2026-10-24");
+  await closeStaleSessionsCore(fake, open, now, "2026-10-25");
   
   check("planned row from yesterday marked skipped", fake.getSession("planned-yesterday")?.status === "skipped");
 }
