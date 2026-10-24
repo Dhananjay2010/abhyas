@@ -35,6 +35,8 @@ const DEV_BREATHE_PAGE = /^\/dev\/breathe(\/(?:routine|journey)\/[^/]+|\/[^/]+)?
 const ACTIVE_FOR: Array<[test: (p: string) => boolean, tab: string]> = [
   [(p) => p === "/today", "/today"],
   [(p) => p === "/history" || p.startsWith("/history/"), "/history"],
+  // Session detail pages (404) show nav, but the runner hides it via CSS
+  [(p) => p.startsWith("/session/"), "/today"],
   [(p) => p === "/progress", "/progress"],
   [(p) => p === "/settings", "/settings"],
   [(p) => BREATHE_PAGE.test(p), "/breathe"],
@@ -61,6 +63,9 @@ const ACTIVE_FOR: Array<[test: (p: string) => boolean, tab: string]> = [
  * for the life of the session, and `usePathname()` updates the highlight on
  * the tap rather than on the response — which is most of what makes a tab
  * change feel instant.
+ *
+ * The session runner is full-screen and hides this nav via the
+ * .session-runner-active class.
  */
 export function BottomNav() {
   const pathname = usePathname();
@@ -68,7 +73,10 @@ export function BottomNav() {
   if (!active) return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
+    <nav 
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur session-nav"
+      aria-label="Main navigation"
+    >
       <ul className="mx-auto flex max-w-md">
         {TABS.map((t) => (
           <li key={t.href} className="flex-1">

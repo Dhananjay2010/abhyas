@@ -63,7 +63,7 @@ export async function checkHistoryRoute(
  * This runs in layout.tsx BEFORE streaming begins, ensuring proper 404
  * status codes for invalid or nonexistent practice slugs.
  * 
- * Uses the existing loadPractice loader which handles:
+ * Uses the loadPractice loader which handles:
  * - Built-in patterns by slug
  * - User's own patterns (mine-<id>)
  * - User's retimed built-in patterns (findPatternByLogKey)
@@ -71,14 +71,16 @@ export async function checkHistoryRoute(
  * @param supabase - Supabase client (must have user context for RLS)
  * @param userId - Current user ID
  * @param slug - Route parameter from params.slug
+ * @param loader - Optional loader function for testing (defaults to loadPractice)
  * @returns 'ok' if practice exists, 'not_found' if unknown slug
  */
 export async function checkBreatheRoute(
   supabase: SupabaseClient,
   userId: string,
   slug: string,
+  loader: typeof loadPractice = loadPractice,
 ): Promise<"ok" | "not_found"> {
-  const loaded = await loadPractice(supabase, userId, slug);
+  const loaded = await loader(supabase, userId, slug);
   return loaded ? "ok" : "not_found";
 }
 

@@ -6,14 +6,10 @@
  * started. The fix moves validation to layout.tsx, which runs OUTSIDE the
  * loading.tsx Suspense boundary.
  *
- * Note: checkBreatheRoute tests are skipped because loadPractice requires
- * Next.js request context (getCachedBreathingPatterns). These routes are
- * tested via curl integration tests instead.
- *
  *   npx tsx scripts/test-not-found-ids.ts
  */
 import { isUuid } from "../src/lib/ids";
-import { checkSessionRoute, checkHistoryRoute } from "../src/lib/route-guards";
+import { checkSessionRoute, checkHistoryRoute, checkBreatheRoute } from "../src/lib/route-guards";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 let failures = 0;
@@ -103,10 +99,72 @@ async function runTests() {
     );
   }
 
-  console.log("\n4. checkBreatheRoute validates slugs (skipped in unit tests)");
+  console.log("\n4. checkBreatheRoute validates slugs with injected loader");
   {
-    console.log("  SKIP checkBreatheRoute requires Next.js request context (getCachedBreathingPatterns)");
-    console.log("  SKIP Validation tested via curl integration tests instead");
+    const userId = "550e8400-e29b-41d4-a716-446655440000";
+    const fakeSupabase = {} as unknown as SupabaseClient;
+    
+    type FakeLoadedPractice = { 
+      pattern: { kind: string; id: string; slug?: string; userPatternId?: string }; 
+      prefs: Record<string, unknown>; 
+      lastCycles: number | null; 
+      firstPractice: boolean;
+    };
+    
+    // Built-in slug
+    const builtinLoader = async (): Promise<FakeLoadedPractice> => ({ 
+      pattern: { kind: "builtin", id: "1", slug: "coherent" }, 
+      prefs: {}, 
+      lastCycles: null, 
+      firstPractice: false 
+    });
+    check(
+      "valid builtin slug returns 'ok'",
+      (await checkBreatheRoute(fakeSupabase, userId, "coherent", builtinLoader as unknown as typeof import("../src/app/breathe/load").loadPractice)) === "ok",
+    );
+    
+    // User's own pattern (mine-<uuid>)
+    const ownedLoader = async (): Promise<FakeLoadedPractice> => ({ 
+      pattern: { kind: "mine", id: userId }, 
+      prefs: {}, 
+      lastCycles: null, 
+      firstPractice: false 
+    });
+    check(
+      "valid custom pattern (mine-<uuid>) owned by user returns 'ok'",
+      (await checkBreatheRoute(fakeSupabase, userId, `mine-${userId}`, ownedLoader as unknown as typeof import("../src/app/breathe/load").loadPractice)) === "ok",
+    );
+    
+    // Pattern owned by someone else or missing
+    const notOwnedLoader = async (): Promise<null> => null;
+    check(
+      "custom pattern owned by someone else returns 'not_found'",
+      (await checkBreatheRoute(fakeSupabase, userId, "mine-other-uuid", notOwnedLoader as unknown as typeof import("../src/app/breathe/load").loadPractice)) === "not_found",
+    );
+    
+    // Retimed builtin (has userPatternId from findPatternByLogKey)
+    const retimedLoader = async (): Promise<FakeLoadedPractice> => ({ 
+      pattern: { 
+        kind: "builtin", 
+        id: "2", 
+        slug: "box",
+        userPatternId: "user-retimed-id"
+      }, 
+      prefs: {}, 
+      lastCycles: null, 
+      firstPractice: false 
+    });
+    check(
+      "retimed builtin pattern returns 'ok'",
+      (await checkBreatheRoute(fakeSupabase, userId, "box", retimedLoader as unknown as typeof import("../src/app/breathe/load").loadPractice)) === "ok",
+    );
+    
+    // Invalid slug
+    const junkLoader = async (): Promise<null> => null;
+    check(
+      "invalid slug returns 'not_found'",
+      (await checkBreatheRoute(fakeSupabase, userId, "junk-slug", junkLoader as unknown as typeof import("../src/app/breathe/load").loadPractice)) === "not_found",
+    );
   }
 
   console.log("\n5. Edge cases that should fail validation");
