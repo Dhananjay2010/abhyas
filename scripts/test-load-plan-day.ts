@@ -9,7 +9,7 @@ import { loadPlanDay, type PlanDay } from "../src/lib/session/load-plan-day";
 
   function deps(day: PlanDay | null, error: { message: string } | null, requiredFilters: string[]) {
     return {
-      async fetchDay(dayId: string) {
+      async fetchDay() {
         capturedFilters = requiredFilters;
         return { data: day, error };
       },
