@@ -723,7 +723,7 @@ export function SessionRunner({
         const errorMessage = postgresCode
           ? mapErrorToUserMessage(postgresCode, classification.error)
           : classification.error;
-        setError(errorMessage);
+        setError(errorMessage || "Validation error");
         return;
       }
 

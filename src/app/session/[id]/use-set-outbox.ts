@@ -42,6 +42,7 @@ export function useSetOutbox<
   const [unsavedCount, setUnsavedCount] = useState(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryAttemptsRef = useRef(0);
+  const flushRef = useRef<() => Promise<void>>();
 
   const flush = useCallback(async () => {
     const outbox = outboxRef.current;
@@ -145,7 +146,7 @@ export function useSetOutbox<
           clearTimeout(retryTimerRef.current);
         }
         retryTimerRef.current = setTimeout(() => {
-          flush();
+          flushRef.current?.();
         }, delay);
       } else {
         setSyncState({ type: "idle" });
@@ -169,6 +170,11 @@ export function useSetOutbox<
       });
     }
   }, []); // All dependencies are stable: refs, state setters, and navigator
+
+  // Store flush in ref for recursive calls (done in useEffect to avoid render-time ref mutation)
+  useEffect(() => {
+    flushRef.current = flush;
+  }, [flush]);
 
   const enqueue = (
     exerciseId: string,

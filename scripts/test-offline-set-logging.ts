@@ -1869,14 +1869,11 @@ async function testPerUserIsolation() {
           mockLocalStorage.delete(key);
         }
       },
-      clear() {
-        mockLocalStorage.delete(key);
-      },
     };
   };
 
   let sentIds_A: string[] = [];
-  let sentIds_B: string[] = [];
+  const sentIds_B: string[] = [];
 
   // Sender for user A
   const sender_A: OutboxSender = {
@@ -1974,6 +1971,9 @@ async function testPerUserIsolation() {
   if (!storageA_beforeFlush || storageA_beforeFlush === storageB_afterFlush) {
     throw new Error("Storage keys should be isolated: A has data, B is empty after flush");
   }
+
+  // Reset A's sent tracker before flushing A
+  sentIds_A = [];
 
   // User A flushes - should send A's 2 sets exactly once
   await outbox_A.flush();
