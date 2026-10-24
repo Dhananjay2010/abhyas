@@ -23,23 +23,7 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-async function setupTestDB(pool: Pool) {
-  await pool.query(`
-    CREATE SCHEMA IF NOT EXISTS auth;
-    CREATE TABLE IF NOT EXISTS auth.users (
-      id uuid PRIMARY KEY default gen_random_uuid(),
-      instance_id uuid,
-      aud text,
-      role text,
-      email text,
-      raw_user_meta_data jsonb DEFAULT '{}'::jsonb,
-      created_at timestamptz DEFAULT now()
-    );
-    CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid AS $$
-      SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid;
-    $$ LANGUAGE SQL STABLE;
-  `);
-}
+// No setup needed - use real Supabase auth.uid() and auth.users
 
 async function testM1_MidBlockRebuildPreservesDates() {
   console.log("\n━━━ TEST M1: Mid-block rebuild preserves dates and boundaries ━━━\n");
@@ -50,7 +34,9 @@ async function testM1_MidBlockRebuildPreservesDates() {
     const userId = randomUUID();
     const exerciseId = (await pool.query("SELECT id FROM exercises LIMIT 1")).rows[0]?.id;
     
-    await pool.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'test@local.test')`, [userId]);
+    await pool.query(`INSERT INTO auth.users (id, email, email_confirmed_at) VALUES ($1, 'test-m1@local.test', now())`, [userId]);
+    await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1, 'Test M1') ON CONFLICT DO NOTHING`, [userId]);
+    await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
     
     // Create block: Oct 15 - Nov 11 (28 days, deload week 4 = Oct 29 - Nov 4)
     const blockId = randomUUID();
@@ -62,7 +48,9 @@ async function testM1_MidBlockRebuildPreservesDates() {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query(`SET LOCAL request.jwt.claim.sub = '${userId}'`);
+      await client.query("SET LOCAL ROLE authenticated");
+      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1, 'role', 'authenticated')::text, true)`, [userId]);
+      await client.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId]);
       
       // Rebuild on day 27 (Nov 10)
       await client.query(`
@@ -124,6 +112,8 @@ async function testM1_MidBlockRebuildPreservesDates() {
     }
     
     await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM profiles WHERE id = $1", [userId]);
+    await pool.query("DELETE FROM user_settings WHERE user_id = $1", [userId]);
     await pool.query("DELETE FROM auth.users WHERE id = $1", [userId]);
     
   } finally {
@@ -132,7 +122,7 @@ async function testM1_MidBlockRebuildPreservesDates() {
 }
 
 async function testM2_HistoryLabelsPreserved() {
-  console.log("\n━━━ TEST M2: History labels preserved + current plan shows only new labels ━━━\n");
+  console.log("\n━━━ TEST M2: RLS-aware rebuild preserves history labels + filters current plan ━━━\n");
   
   const pool = new Pool({ connectionString: DATABASE_URL });
   
@@ -140,7 +130,12 @@ async function testM2_HistoryLabelsPreserved() {
     const userId = randomUUID();
     const exerciseId = (await pool.query("SELECT id FROM exercises LIMIT 1")).rows[0]?.id;
     
-    await pool.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'test@local.test')`, [userId]);
+    // Use real auth.users insert
+    await pool.query(`INSERT INTO auth.users (id, email, email_confirmed_at) VALUES ($1, 'test-m2@local.test', now())`, [userId]);
+    
+    // Bootstrap profile and settings (triggers in 20260908090100_rls_and_triggers.sql)
+    await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1, 'Test M2') ON CONFLICT DO NOTHING`, [userId]);
+    await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
     
     const blockId = randomUUID();
     await pool.query(`
@@ -172,9 +167,20 @@ async function testM2_HistoryLabelsPreserved() {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query(`SET LOCAL request.jwt.claim.sub = '${userId}'`);
       
-      // Rebuild same day with different labels
+      // Run as authenticated user under RLS
+      await client.query("SET LOCAL ROLE authenticated");
+      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1, 'role', 'authenticated')::text, true)`, [userId]);
+      await client.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId]);
+      
+      // Verify we're running as authenticated user
+      const { rows: roleCheck } = await client.query("SELECT current_user, auth.uid() as auth_uid");
+      console.log(`  Running as: ${roleCheck[0].current_user}, auth.uid()=${roleCheck[0].auth_uid?.substring(0, 8)}...\n`);
+      
+      assert(roleCheck[0].current_user === 'authenticated', `current_user is 'authenticated', got '${roleCheck[0].current_user}'`);
+      assert(roleCheck[0].auth_uid === userId, `auth.uid() matches userId`);
+      
+      // Rebuild same day with different labels (under RLS)
       await client.query(`
         SELECT rebuild_block($1, $2)
       `, ["2026-10-24", JSON.stringify({
@@ -282,7 +288,114 @@ async function testM2_HistoryLabelsPreserved() {
     
     await pool.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
     await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM profiles WHERE id = $1", [userId]);
+    await pool.query("DELETE FROM user_settings WHERE user_id = $1", [userId]);
     await pool.query("DELETE FROM auth.users WHERE id = $1", [userId]);
+    
+  } finally {
+    await pool.end();
+  }
+}
+
+async function testM2_Negative_RLSIsolation() {
+  console.log("\n━━━ TEST M2-NEG: RLS isolation - user B cannot touch user A's program_days ━━━\n");
+  
+  const pool = new Pool({ connectionString: DATABASE_URL });
+  
+  try {
+    const userA = randomUUID();
+    const userB = randomUUID();
+    const exerciseId = (await pool.query("SELECT id FROM exercises LIMIT 1")).rows[0]?.id;
+    
+    // Create both users
+    await pool.query(`INSERT INTO auth.users (id, email, email_confirmed_at) VALUES ($1, 'test-a@local.test', now()), ($2, 'test-b@local.test', now())`, [userA, userB]);
+    await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1, 'User A'), ($2, 'User B') ON CONFLICT DO NOTHING`, [userA, userB]);
+    await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1), ($2) ON CONFLICT DO NOTHING`, [userA, userB]);
+    
+    // User A has a program
+    const blockA = randomUUID();
+    await pool.query(`
+      INSERT INTO programs (id, user_id, block_number, split_type, days_per_week, primary_track, goal, level, started_on, ends_on, deload_week, week_offset, status)
+      VALUES ($1, $2, 1, 'upper_lower', 4, 'weights', 'strength', 'intermediate', '2026-10-24', '2026-11-20', 4, 0, 'active')
+    `, [blockA, userA]);
+    
+    const dayA = randomUUID();
+    await pool.query(`
+      INSERT INTO program_days (id, program_id, user_id, day_index, day_type, label, status)
+      VALUES ($1, $2, $3, 1, 'weights', 'UserA-Day', 'active')
+    `, [dayA, blockA, userA]);
+    
+    // Count user A's program_days
+    const { rows: beforeA } = await pool.query(`SELECT COUNT(*) as count FROM program_days WHERE program_id = $1`, [blockA]);
+    console.log(`  User A has ${beforeA[0].count} program_days before attack\n`);
+    
+    // User B tries to rebuild user A's program
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SET LOCAL ROLE authenticated");
+      await client.query(`SELECT set_config('request.jwt.claims', json_build_object('sub', $1, 'role', 'authenticated')::text, true)`, [userB]);
+      await client.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userB]);
+      
+      const { rows: roleCheck } = await client.query("SELECT current_user, auth.uid() as auth_uid");
+      console.log(`  User B running as: ${roleCheck[0].current_user}, auth.uid()=${roleCheck[0].auth_uid?.substring(0, 8)}...\n`);
+      
+      // User B tries to call rebuild_block - should fail with "No active block to rebuild"
+      let errorMessage = null;
+      try {
+        await client.query(`
+          SELECT rebuild_block($1, $2)
+        `, ["2026-10-24", JSON.stringify({
+          id: randomUUID(),
+          block_number: 1,
+          split_type: "full_body",
+          days_per_week: 3,
+          primary_track: "weights",
+          goal: "strength",
+          level: "intermediate",
+          ends_on: "2026-11-20",
+          deload_week: 4,
+          days: [{
+            day_index: 1,
+            day_type: "weights",
+            focus: null,
+            label: "Malicious",
+            exercises: [{
+              exercise_id: exerciseId,
+              order_index: 0,
+              target_sets: 3,
+              target_reps_min: 8,
+              target_reps_max: 12,
+              rest_seconds: 90
+            }]
+          }]
+        })]);
+      } catch (err: unknown) {
+        errorMessage = err instanceof Error ? err.message : String(err);
+      }
+      
+      await client.query("ROLLBACK");
+      
+      assert(errorMessage !== null, "rebuild_block raised error for user B");
+      assert(!!errorMessage?.includes("No active block to rebuild"), `error is 'No active block to rebuild', got: ${errorMessage}`);
+      
+      console.log(`  ✓ User B's rebuild_block failed with: "${errorMessage}"\n`);
+      
+    } finally {
+      client.release();
+    }
+    
+    // Verify user A's program_days unchanged
+    const { rows: afterA } = await pool.query(`SELECT COUNT(*) as count, label FROM program_days WHERE program_id = $1 GROUP BY label`, [blockA]);
+    console.log(`  User A still has ${afterA[0]?.count} program_days after attack, label='${afterA[0]?.label}'\n`);
+    
+    assert(afterA[0]?.count === '1', "user A still has 1 program_day");
+    assert(afterA[0]?.label === 'UserA-Day', "user A's label unchanged");
+    
+    await pool.query("DELETE FROM programs WHERE user_id IN ($1, $2)", [userA, userB]);
+    await pool.query("DELETE FROM profiles WHERE id IN ($1, $2)", [userA, userB]);
+    await pool.query("DELETE FROM user_settings WHERE user_id IN ($1, $2)", [userA, userB]);
+    await pool.query("DELETE FROM auth.users WHERE id IN ($1, $2)", [userA, userB]);
     
   } finally {
     await pool.end();
@@ -317,7 +430,9 @@ async function testRows1_RepairNoOverlaps() {
   
   try {
     const userId = randomUUID();
-    await pool.query(`INSERT INTO auth.users (id, email) VALUES ($1, 'test@local.test')`, [userId]);
+    await pool.query(`INSERT INTO auth.users (id, email, email_confirmed_at) VALUES ($1, 'test-rows1@local.test', now())`, [userId]);
+    await pool.query(`INSERT INTO profiles (id, display_name) VALUES ($1, 'Test Rows1') ON CONFLICT DO NOTHING`, [userId]);
+    await pool.query(`INSERT INTO user_settings (user_id) VALUES ($1) ON CONFLICT DO NOTHING`, [userId]);
     
     // Block 1: ended_on = started_on - 1
     const badBlock1 = randomUUID();
@@ -399,6 +514,8 @@ async function testRows1_RepairNoOverlaps() {
     
     await pool.query("DELETE FROM sessions WHERE user_id = $1", [userId]);
     await pool.query("DELETE FROM programs WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM profiles WHERE id = $1", [userId]);
+    await pool.query("DELETE FROM user_settings WHERE user_id = $1", [userId]);
     await pool.query("DELETE FROM auth.users WHERE id = $1", [userId]);
     
   } finally {
@@ -415,10 +532,9 @@ async function runAll() {
   const pool = new Pool({ connectionString: DATABASE_URL });
   
   try {
-    await setupTestDB(pool);
-    
     await testM1_MidBlockRebuildPreservesDates();
     await testM2_HistoryLabelsPreserved();
+    await testM2_Negative_RLSIsolation();
     await testLOW_CycleWeekClamp();
     await testRows1_RepairNoOverlaps();
     
