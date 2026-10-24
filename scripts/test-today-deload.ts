@@ -24,12 +24,12 @@ function check(label: string, ok: boolean, detail = "") {
   }
 }
 
-console.log("\n1. Pull-up-bar row: reps trimmed (8-12 → 5-8), sets kept (3 → 3)");
+console.log("\n1. Pull-up-bar row: reps trimmed (8-12 → 5-8), sets kept (2 → 2)");
 {
   const pullUpBarRow = {
     exercise_id: "pull-up-1",
     order_index: 0,
-    target_sets: 3,
+    target_sets: 2,
     target_reps_min: 8,
     target_reps_max: 12,
     rest_seconds: 90,
@@ -73,7 +73,7 @@ console.log("\n1. Pull-up-bar row: reps trimmed (8-12 → 5-8), sets kept (3 →
   );
 
   // Expected values
-  check("Pull-up-bar: sets kept at 3", built.planned_sets === 3, `got ${built.planned_sets}`);
+  check("Pull-up-bar: sets kept at 2", built.planned_sets === 2, `got ${built.planned_sets}`);
   check(
     "Pull-up-bar: reps trimmed 8-12 → 5-8",
     built.planned_reps_min === 5 && built.planned_reps_max === 8,
@@ -200,7 +200,7 @@ console.log("\n4. Non-deload week: no changes applied");
   const pullUpBarRow = {
     exercise_id: "pull-up-1",
     order_index: 0,
-    target_sets: 3,
+    target_sets: 2,
     target_reps_min: 8,
     target_reps_max: 12,
     rest_seconds: 90,
@@ -237,8 +237,8 @@ console.log("\n4. Non-deload week: no changes applied");
     `built ${built.planned_reps_min}-${built.planned_reps_max} vs today ${todayDose.repsMin}-${todayDose.repsMax}`,
   );
   check(
-    "Non-deload: values unchanged (3 sets, 8-12 reps)",
-    built.planned_sets === 3 &&
+    "Non-deload: values unchanged (2 sets, 8-12 reps)",
+    built.planned_sets === 2 &&
       built.planned_reps_min === 8 &&
       built.planned_reps_max === 12,
     `got ${built.planned_sets} sets, ${built.planned_reps_min}-${built.planned_reps_max} reps`,
