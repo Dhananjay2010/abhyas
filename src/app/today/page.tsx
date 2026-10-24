@@ -634,7 +634,7 @@ export default async function TodayPage() {
             <div className="mt-6 rounded-xl border border-border bg-surface-2 p-5">
               <h3 className="font-semibold">Your first session is {nextTraining.dayName}</h3>
               <p className="mt-2 text-sm text-muted">
-                Today is a rest day in your block. You can wait until {nextTraining.dayName}, or start one now.
+                Today is a rest day in your block. You can wait until {nextTraining.dayName}, or start your first workout anyway.
               </p>
               <DayPlanPrompt
                 localDate={localToday}

@@ -3,7 +3,6 @@
  * Used by planDay when the user chooses "Keep it" to preserve the template day.
  */
 
-import { isoWeekday } from "@/lib/dates";
 import { weekInBlock } from "@/lib/program/prescription";
 import type { Database } from "@/lib/database.types";
 
