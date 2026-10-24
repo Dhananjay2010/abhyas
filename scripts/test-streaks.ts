@@ -88,14 +88,14 @@ console.log("\n4. A yoga day counts as a training day");
 console.log("\n5. Edges");
 {
   check("no history is zero", computeStreaks([], "2026-09-05").current === 0);
-  const allRest = [d("2026-09-01", "rest", false), d("2026-09-02", "rest", false)];
+  const allRest = [d("2026-09-01", "rest", false, null), d("2026-09-02", "rest", false, null)];
   check("only rest days is zero, not a break", computeStreaks(allRest, "2026-09-02").current === 0);
-  const future = [d("2026-09-10", "weights", false), d("2026-09-01", "weights", true)];
+  const future = [d("2026-09-10", "weights", true, "weights"), d("2026-09-01", "weights", true, "weights")];
   check("future days are ignored", computeStreaks([future[1], future[0]], "2026-09-05").current === 1);
   const longestPast = [
-    d("2026-09-01", "weights", true), d("2026-09-02", "weights", true),
-    d("2026-09-03", "weights", true), d("2026-09-04", "weights", false),
-    d("2026-09-05", "weights", true),
+    d("2026-09-01", "weights", true, "weights"), d("2026-09-02", "weights", true, "weights"),
+    d("2026-09-03", "weights", true, "weights"), d("2026-09-04", "weights", false, null),
+    d("2026-09-05", "weights", true, "weights"),
   ];
   const s = computeStreaks(longestPast, "2026-09-05");
   check("longest is 3 while current is 1", s.longest === 3 && s.current === 1,
