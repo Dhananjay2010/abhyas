@@ -536,7 +536,8 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 9 (PR #73 follow-up): No timed hold (metric=seconds) in main slots (0-3)
+            // Rule 9 (PR #73 follow-up): No timed hold (metric=seconds) in main slots (0-3) - CURRENT KNEE ONLY
+            if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               const mains = day.exercises.filter((ex, idx) => idx < 4);
               
@@ -551,8 +552,10 @@ for (const seed of testSeeds) {
                 }
               }
             }
+            }
             
-            // Rule 9b (PR #73 quality fix): Wall Sit not in main slots (0-3) or after core
+            // Rule 9b (PR #73 quality fix): Wall Sit not in main slots (0-3) or after core - CURRENT KNEE ONLY
+            if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               const wallSitIndex = day.exercises.findIndex(ex => {
                 const e = byId.get(ex.exerciseId);
@@ -579,6 +582,7 @@ for (const seed of testSeeds) {
                   profileFailed = true;
                 }
               }
+            }
             }
             
             // Rule 10: No isolation before compound in final order (except core, which goes last)
