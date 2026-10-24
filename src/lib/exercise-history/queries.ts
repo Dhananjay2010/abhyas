@@ -513,11 +513,12 @@ export async function getExerciseHistory(
         }
       }
 
-      // 3. Most reps for weighted lifts: per-weight comparison
+      // 3. Most reps for weighted lifts: same-weight comparison with deload guard
       // For bodyweight (no weight), use plain most-reps
       if (hasWeight) {
-        // Weighted: rep PR means more reps than any earlier set at same or heavier weight
-        // Check each set in this session to see if it beats all earlier sets at its weight or heavier
+        // Weighted: rep PR requires current weight >= max earlier weight, and more reps at same weight
+        const maxEarlierWeight = Math.max(...setsBeforeThisSession.map(s => s.weight_kg ?? 0), 0);
+        
         let hasRepPR = false;
         let repPRSet: SetData | null = null;
         let repPRValue = 0;
@@ -526,20 +527,18 @@ export async function getExerciseHistory(
           const currentReps = currentSet.reps ?? 0;
           const currentWeight = currentSet.weight_kg ?? 0;
           
-          if (currentReps === 0) continue;
+          if (currentReps === 0 || currentWeight < maxEarlierWeight) continue;
 
-          // Find the best reps at currentWeight or heavier in earlier sessions
-          let bestEarlierReps = 0;
+          // Find the best reps at EXACTLY this weight in earlier sessions
+          let bestEarlierRepsAtWeight = 0;
           for (const earlierSet of setsBeforeThisSession) {
-            const earlierWeight = earlierSet.weight_kg ?? 0;
-            const earlierReps = earlierSet.reps ?? 0;
-            if (earlierWeight >= currentWeight && earlierReps > bestEarlierReps) {
-              bestEarlierReps = earlierReps;
+            if (earlierSet.weight_kg === currentWeight) {
+              bestEarlierRepsAtWeight = Math.max(bestEarlierRepsAtWeight, earlierSet.reps ?? 0);
             }
           }
 
-          // PR if current beats best earlier at same or heavier weight
-          if (currentReps > bestEarlierReps) {
+          // PR if current beats best earlier at exactly this weight
+          if (currentReps > bestEarlierRepsAtWeight) {
             if (!hasRepPR || currentReps > repPRValue) {
               hasRepPR = true;
               repPRSet = currentSet;

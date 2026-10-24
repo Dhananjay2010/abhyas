@@ -219,14 +219,14 @@ export function detectPersonalRecords(
     }
   }
 
-  // Most reps: per-weight for weighted exercises, plain for bodyweight
+  // Most reps: same-weight comparison for weighted, plain for bodyweight
   if (hasWeight) {
-    // Weighted: find the best reps at each weight or heavier
-    // The "most_reps" PR is the set with the most reps that beats all earlier sets at same or heavier weight
+    // Weighted: rep PR requires weight >= max earlier weight, and more reps at same weight
+    const maxWeight = Math.max(...allSets.map(s => s.weight_kg ?? 0));
     let bestRepPRSet: SetData | null = null;
     let bestRepPRValue = 0;
 
-    // Sort sets chronologically (assume they arrive in order)
+    // Process sets chronologically
     for (let i = 0; i < allSets.length; i++) {
       const currentSet = allSets[i];
       const currentReps = currentSet.reps ?? 0;
@@ -234,19 +234,25 @@ export function detectPersonalRecords(
       
       if (currentReps === 0) continue;
 
-      // Find the best reps at currentWeight or heavier in all earlier sets
-      let bestEarlierReps = 0;
+      // Find max weight among earlier sets
+      let maxEarlierWeight = 0;
       for (let j = 0; j < i; j++) {
-        const earlierSet = allSets[j];
-        const earlierWeight = earlierSet.weight_kg ?? 0;
-        const earlierReps = earlierSet.reps ?? 0;
-        if (earlierWeight >= currentWeight && earlierReps > bestEarlierReps) {
-          bestEarlierReps = earlierReps;
+        maxEarlierWeight = Math.max(maxEarlierWeight, allSets[j].weight_kg ?? 0);
+      }
+
+      // Skip if current weight is less than max earlier weight (deload)
+      if (currentWeight < maxEarlierWeight) continue;
+
+      // Find the best reps at EXACTLY this weight in earlier sets
+      let bestEarlierRepsAtWeight = 0;
+      for (let j = 0; j < i; j++) {
+        if (allSets[j].weight_kg === currentWeight) {
+          bestEarlierRepsAtWeight = Math.max(bestEarlierRepsAtWeight, allSets[j].reps ?? 0);
         }
       }
 
-      // If this set beats earlier sets at same or heavier weight, it's a rep PR
-      if (currentReps > bestEarlierReps) {
+      // PR if this set beats earlier sets at exactly this weight
+      if (currentReps > bestEarlierRepsAtWeight) {
         if (bestRepPRSet === null || currentReps > bestRepPRValue) {
           bestRepPRSet = currentSet;
           bestRepPRValue = currentReps;
