@@ -53,7 +53,7 @@ async function runTest() {
     return result;
   };
 
-  let finalState: PendingSetState | null = null;
+  let finalState: { error: string | null; expired: boolean; pending: unknown[] } | null = null;
   const controller = createPendingSetController({
     userId: "user-1",
     deps,
