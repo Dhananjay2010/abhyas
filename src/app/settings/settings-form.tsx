@@ -263,8 +263,12 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            setS({ ...s, hasAllEquipment: true, equipmentIds: [] });
-            save(() => actions.updateEquipment({ hasAll: true, equipmentIds: [] }), true);
+            const nextHasAll = !s.hasAllEquipment;
+            setS({ ...s, hasAllEquipment: nextHasAll });
+            save(
+              () => actions.updateEquipment({ hasAll: nextHasAll, equipmentIds: s.equipmentIds }),
+              true,
+            );
           }}
           aria-pressed={s.hasAllEquipment}
           className={`w-full rounded-xl border px-5 py-3 text-left text-sm font-semibold ${
@@ -276,48 +280,50 @@ export function SettingsForm({
           I have access to everything
         </button>
 
-        <div className={`mt-5 ${s.hasAllEquipment ? "opacity-40" : ""}`}>
-          {Object.entries(
-            equipment.reduce<Record<string, EquipmentRow[]>>((acc, e) => {
-              (acc[e.category] ??= []).push(e);
-              return acc;
-            }, {}),
-          ).map(([category, items]) => (
-            <div key={category} className="mb-5">
-              <h3 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
-                {CATEGORY_LABELS[category] ?? category}
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {items.map((e) => {
-                  const on = s.equipmentIds.includes(e.id);
-                  return (
-                    <button
-                      key={e.id}
-                      aria-pressed={on}
-                      onClick={() => {
-                        const next = on
-                          ? s.equipmentIds.filter((x) => x !== e.id)
-                          : [...s.equipmentIds, e.id];
-                        setS({ ...s, hasAllEquipment: false, equipmentIds: next });
-                        save(
-                          () => actions.updateEquipment({ hasAll: false, equipmentIds: next }),
-                          true,
-                        );
-                      }}
-                      className={`rounded-full border px-4 py-2 text-sm min-h-[44px] flex items-center ${
-                        on
-                          ? "border-accent bg-accent/10 text-accent"
-                          : "border-border bg-surface text-muted"
-                      }`}
-                    >
-                      {e.name}
-                    </button>
-                  );
-                })}
+        {!s.hasAllEquipment && (
+          <div className="mt-5">
+            {Object.entries(
+              equipment.reduce<Record<string, EquipmentRow[]>>((acc, e) => {
+                (acc[e.category] ??= []).push(e);
+                return acc;
+              }, {}),
+            ).map(([category, items]) => (
+              <div key={category} className="mb-5">
+                <h3 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
+                  {CATEGORY_LABELS[category] ?? category}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {items.map((e) => {
+                    const on = s.equipmentIds.includes(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        aria-pressed={on}
+                        onClick={() => {
+                          const next = on
+                            ? s.equipmentIds.filter((x) => x !== e.id)
+                            : [...s.equipmentIds, e.id];
+                          setS({ ...s, hasAllEquipment: false, equipmentIds: next });
+                          save(
+                            () => actions.updateEquipment({ hasAll: false, equipmentIds: next }),
+                            true,
+                          );
+                        }}
+                        className={`rounded-full border px-4 py-2 text-sm min-h-[44px] flex items-center ${
+                          on
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-border bg-surface text-muted"
+                        }`}
+                      >
+                        {e.name}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Section>
 
       {/* ---------------- injuries ---------------- */}

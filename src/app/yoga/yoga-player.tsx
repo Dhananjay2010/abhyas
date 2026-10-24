@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
+import { stripSeriesSuffix, groupVideosByWeek } from "@/lib/yoga-display";
 import { markYogaVideoDone } from "./actions";
 
 export type YogaVideo = {
@@ -36,74 +36,31 @@ export function YogaPlayer({
   channelUrl: string;
   actions?: Actions;
 }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [optimisticDone, setOptimisticDone] = useState<Set<string>>(new Set());
-  const isFirstRender = useRef(true);
 
   // Open the series with progress already in it, otherwise the first playlist.
   const initial =
     playlists.find((p) => p.videos.some((v) => v.done)) ?? playlists[0] ?? null;
-  
-  // Restore from URL or use initial
-  const urlPlaylistId = searchParams.get("playlist");
-  const urlVideoId = searchParams.get("video");
-  const initialPlaylistId = urlPlaylistId && playlists.some(p => p.id === urlPlaylistId) 
-    ? urlPlaylistId 
-    : initial?.id ?? null;
-  
-  const [openId, setOpenId] = useState<string | null>(initialPlaylistId);
+  const [openId, setOpenId] = useState<string | null>(initial?.id ?? null);
   const open = playlists.find((p) => p.id === openId) ?? null;
 
   const nextUp = useMemo(
-    () => {
-      const videos = open?.videos.map(v => ({
-        ...v,
-        done: v.done || optimisticDone.has(v.id)
-      })) ?? [];
-      return videos.find((v) => !v.done) ?? videos[0] ?? null;
-    },
-    [open, optimisticDone],
+    () => open?.videos.find((v) => !v.done) ?? open?.videos[0] ?? null,
+    [open],
   );
-  
-  // Restore playing video from URL
-  const initialPlayingId = urlVideoId && open?.videos.some(v => v.id === urlVideoId)
-    ? urlVideoId
-    : null;
-  
-  const [playingId, setPlayingId] = useState<string | null>(initialPlayingId);
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const playing = open?.videos.find((v) => v.id === playingId) ?? nextUp;
 
-  // Update URL when selection changes
-  useEffect(() => {
-    if (!open) return;
-    const params = new URLSearchParams();
-    params.set("playlist", open.id);
-    if (playing) {
-      params.set("video", playing.id);
-    }
-    const newSearch = params.toString();
-    const currentSearch = searchParams.toString();
-    
-    // Skip replace on first render if URL already matches
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      if (currentSearch === newSearch) return;
-    }
-    
-    router.replace(`/yoga?${newSearch}`, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open?.id, playing?.id, router]);
+  // Group videos by week for series playlists
+  const videoGroups = useMemo(
+    () => (open?.isSeries ? groupVideosByWeek(open.videos) : null),
+    [open],
+  );
 
   if (playlists.length === 0) {
     return <p className="text-muted">No yoga series are available yet.</p>;
   }
-
-  const isOptimisticallyDone = playing && optimisticDone.has(playing.id);
-  const isActuallyDone = playing?.done ?? false;
-  const isDone = isActuallyDone || isOptimisticallyDone;
 
   return (
     <div>
@@ -129,7 +86,7 @@ export function YogaPlayer({
             </div>
           </div>
 
-          <h2 className="mt-3 font-semibold">{playing.title}</h2>
+          <h2 className="mt-3 font-semibold">{stripSeriesSuffix(playing.title)}</h2>
           <p className="mt-1 text-xs text-muted">
             {playing.minutes ? `${playing.minutes} min · ` : ""}
             Yoga with Adriene
@@ -151,32 +108,20 @@ export function YogaPlayer({
 
           <div className="mt-4">
             <button
-              disabled={pending || isDone}
-              onClick={() => {
-                if (!playing) return;
-                // Optimistic update
-                setOptimisticDone(prev => new Set([...prev, playing.id]));
-                setError(null);
-                
+              disabled={pending || playing.done}
+              onClick={() =>
                 startTransition(async () => {
+                  setError(null);
                   const r = await actions.markYogaVideoDone(playing.id);
-                  if (!r.ok) {
-                    // Rollback on error
-                    setOptimisticDone(prev => {
-                      const next = new Set(prev);
-                      next.delete(playing.id);
-                      return next;
-                    });
-                    setError(r.error);
-                  } else {
-                    // Success - the revalidation will update the actual done state
-                    setPlayingId(null);
-                  }
-                });
-              }}
+                  if (!r.ok) return setError(r.error);
+                  setPlayingId(null);
+                  // markYogaVideoDone revalidates "/yoga"; the re-rendered tree
+                  // comes back with the action. A refresh here fetched it twice.
+                })
+              }
               className="w-full rounded-xl bg-accent px-6 py-4 text-base font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
-              {isDone ? "Already marked done" : pending ? "Saving…" : "I did this"}
+              {playing.done ? "Already marked done" : pending ? "Saving…" : "I did this"}
             </button>
             <p className="mt-2 text-center text-xs text-muted">
               We cannot tell whether a video was watched, so this is on your word.
@@ -190,41 +135,82 @@ export function YogaPlayer({
           <div className="mb-3 flex items-baseline justify-between gap-3">
             <h2 className="text-sm font-semibold">{open.title}</h2>
             <span className="shrink-0 text-xs text-muted">
-              {open.videos.filter((v) => v.done || optimisticDone.has(v.id)).length} of {open.videos.length} done
+              {open.videos.filter((v) => v.done).length} of {open.videos.length} done
             </span>
           </div>
-          <ul className="space-y-1.5">
-            {open.videos.map((v) => {
-              const vDone = v.done || optimisticDone.has(v.id);
-              return (
+
+          {videoGroups ? (
+            // Grouped by week for series
+            <div className="space-y-6">
+              {videoGroups.map((group) => (
+                <div key={group.label}>
+                  <h3 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
+                    {group.label}
+                  </h3>
+                  <ul className="space-y-1.5">
+                    {group.videos.map((v) => (
+                      <li key={v.id}>
+                        <button
+                          onClick={() => setPlayingId(v.id)}
+                          className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                            v.id === playing?.id
+                              ? "border-accent bg-accent/10"
+                              : "border-border bg-surface hover:border-muted/50"
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-start gap-2">
+                            <span
+                              aria-hidden="true"
+                              className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                                v.done ? "bg-success" : "bg-border"
+                              }`}
+                            />
+                            <span className={`line-clamp-2 ${v.done ? "text-muted" : ""}`}>
+                              {stripSeriesSuffix(v.title)}
+                            </span>
+                          </span>
+                          {v.minutes && (
+                            <span className="mt-0.5 shrink-0 text-xs text-muted">{v.minutes}m</span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Ungrouped list for non-series playlists
+            <ul className="space-y-1.5">
+              {open.videos.map((v) => (
                 <li key={v.id}>
                   <button
                     onClick={() => setPlayingId(v.id)}
-                    className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                    className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
                       v.id === playing?.id
                         ? "border-accent bg-accent/10"
                         : "border-border bg-surface hover:border-muted/50"
                     }`}
                   >
-                    <span className="flex min-w-0 items-center gap-2">
+                    <span className="flex min-w-0 items-start gap-2">
                       <span
                         aria-hidden="true"
-                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                          vDone ? "bg-success" : "bg-border"
+                        className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                          v.done ? "bg-success" : "bg-border"
                         }`}
                       />
-                      <span className={`truncate ${vDone ? "text-muted" : ""}`}>
-                        {v.title}
+                      <span className={`line-clamp-2 ${v.done ? "text-muted" : ""}`}>
+                        {stripSeriesSuffix(v.title)}
                       </span>
                     </span>
                     {v.minutes && (
-                      <span className="shrink-0 text-xs text-muted">{v.minutes}m</span>
+                      <span className="mt-0.5 shrink-0 text-xs text-muted">{v.minutes}m</span>
                     )}
                   </button>
                 </li>
-              );
-            })}
-          </ul>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 
