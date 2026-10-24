@@ -143,6 +143,7 @@
     "test:shell-message": "tsx scripts/test-shell-message.ts",
     "test:merge-sets": "tsx scripts/test-merge-sets.ts",
     "test:start-session-core": "tsx scripts/test-start-session-core.ts",
+    "test:today-refetch": "tsx scripts/test-today-refetch.ts",
     "test:elapsed-hydration": "tsx scripts/test-elapsed-hydration.ts"
   },
   "dependencies": {
