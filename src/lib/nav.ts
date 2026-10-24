@@ -4,6 +4,29 @@
 export type PracticeType = "breathe" | "yoga";
 
 /**
+ * Custom event name for practice:last changes.
+ * Dispatched when setLastPractice writes to localStorage, so the Practice tab
+ * can update immediately in the same tab (storage events don't fire locally).
+ */
+export const PRACTICE_LAST_CHANGE_EVENT = "practice:last-change";
+
+/**
+ * Writes the last practice type to localStorage and dispatches a custom event
+ * so the bottom nav can update immediately (storage events don't fire in the
+ * writing tab).
+ * 
+ * @param value - The practice type to store
+ */
+export function setLastPractice(value: PracticeType): void {
+  try {
+    localStorage.setItem("practice:last", value);
+    window.dispatchEvent(new Event(PRACTICE_LAST_CHANGE_EVENT));
+  } catch {
+    // localStorage may be unavailable (private mode, quota exceeded)
+  }
+}
+
+/**
  * Determines which practice route to open when tapping the Practice tab.
  * 
  * @param currentPath - The current pathname
