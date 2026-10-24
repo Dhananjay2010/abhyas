@@ -20,6 +20,7 @@ import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
+import { decideSetWrite } from "@/lib/session/decide-set-write";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -27,6 +28,17 @@ type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string };
+
+export type SetConflictResult = {
+  ok: false;
+  reason: "set_exists";
+  savedSets: Array<{
+    setNumber: number;
+    reps: number | null;
+    weightKg: number | null;
+    durationSeconds: number | null;
+  }>;
+};
 
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
@@ -251,7 +263,7 @@ export async function logSet(input: {
   weightKg: number | null;
   /** Seconds held, for a `seconds` exercise. Its `reps` stays null. */
   durationSeconds?: number | null;
-}): Promise<Result> {
+}): Promise<Result | SetConflictResult> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
   
@@ -260,19 +272,62 @@ export async function logSet(input: {
   if (invalid) return { ok: false, error: invalid };
 
   const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("session_sets").upsert(
-    {
-      session_exercise_id: input.sessionExerciseId,
-      user_id: user.id,
-      set_number: input.setNumber,
-      reps: input.reps,
-      weight_kg: input.weightKg,
-      duration_seconds: durationSeconds,
-      is_warmup_set: false,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "session_exercise_id,set_number,is_warmup_set" },
-  );
+
+  // Check if a set already exists for this session_exercise_id + set_number
+  const { data: existingSet } = await supabase
+    .from("session_sets")
+    .select("reps, weight_kg, duration_seconds")
+    .eq("session_exercise_id", input.sessionExerciseId)
+    .eq("set_number", input.setNumber)
+    .eq("is_warmup_set", false)
+    .maybeSingle();
+
+  const decision = decideSetWrite(existingSet, {
+    reps: input.reps,
+    weightKg: input.weightKg,
+    durationSeconds,
+  });
+
+  if (decision === "duplicate_ok") {
+    // Idempotent replay: identical values, accept as success
+    return { ok: true };
+  }
+
+  if (decision === "conflict") {
+    // Existing set with different values: return conflict with saved sets
+    const { data: allSets } = await supabase
+      .from("session_sets")
+      .select("set_number, reps, weight_kg, duration_seconds")
+      .eq("session_exercise_id", input.sessionExerciseId)
+      .eq("is_warmup_set", false)
+      .order("set_number");
+
+    const savedSets = (allSets ?? []).map((s) => ({
+      setNumber: s.set_number,
+      reps: s.reps,
+      weightKg: s.weight_kg === null ? null : Number(s.weight_kg),
+      durationSeconds: s.duration_seconds,
+    }));
+
+    return {
+      ok: false,
+      reason: "set_exists",
+      savedSets,
+    };
+  }
+
+  // decision === "insert": proceed with insert
+  const { error } = await supabase.from("session_sets").insert({
+    session_exercise_id: input.sessionExerciseId,
+    user_id: user.id,
+    set_number: input.setNumber,
+    reps: input.reps,
+    weight_kg: input.weightKg,
+    duration_seconds: durationSeconds,
+    is_warmup_set: false,
+    completed_at: new Date().toISOString(),
+  });
+
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
