@@ -38,6 +38,8 @@ export type ExerciseMeta = {
   isBodyweight: boolean;
   progressionChain: string | null;
   progressionRank: number | null;
+  /** Equipment IDs for grid-based weight rounding (optional, used by equipment-grid feature). */
+  equipmentIds?: string[];
 };
 
 export type Outcome =
