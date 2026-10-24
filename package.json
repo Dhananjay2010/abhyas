@@ -102,6 +102,9 @@
     "test:inline-errors": "tsx scripts/test-inline-errors.ts",
     "test:yoga-preselection": "tsx scripts/test-yoga-preselection.ts",
     "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "supabase:reset": "supabase db reset"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
