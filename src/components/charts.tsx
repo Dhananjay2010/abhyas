@@ -65,6 +65,9 @@ function ValueTable({
                 <td className="py-1.5 text-muted">{p.label}</td>
                 <td className="py-1.5 text-right tabular-nums">
                   {formatValue(p.value, unit)}
+                  {p.isDeload && (
+                    <span className="ml-2 text-muted opacity-70">Deload</span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -118,8 +121,19 @@ export function LineChart({
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value)}`).join(" ");
   const first = points[0];
   const last = points[points.length - 1];
-  const shown = active === null ? points.length - 1 : active;
+  // Default to last non-deload point for headline and aria-label; fall back to last point if all are deloads
+  const lastNonDeloadIndex = (() => {
+    for (let i = points.length - 1; i >= 0; i--) {
+      if (!points[i].isDeload) return i;
+    }
+    return points.length - 1;
+  })();
+  const allDeloads = points.every(p => p.isDeload);
+  const shown = active === null ? lastNonDeloadIndex : active;
+  
+  // Count distinct deload sessions (word it as "deload sessions" not "weeks")
   const deloadCount = points.filter(p => p.isDeload).length;
+  const lastNonDeload = points[lastNonDeloadIndex];
 
   return (
     <div>
@@ -127,7 +141,7 @@ export function LineChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full touch-none"
         role="img"
-        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, ending at ${formatValue(last.value, unit)}${deloadCount > 0 ? `. ${deloadCount} deload ${deloadCount === 1 ? 'week' : 'weeks'} marked` : ''}.`}
+        aria-label={`${title}. ${points.length} entries from ${first.label} to ${last.label}, latest value ${formatValue(lastNonDeload.value, unit)} on ${lastNonDeload.label}${allDeloads ? ' (deload)' : ''}${deloadCount > 0 ? `. ${deloadCount} deload ${deloadCount === 1 ? 'session' : 'sessions'} marked` : ''}.`}
         onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - rect.left) / rect.width) * width;
@@ -220,7 +234,7 @@ export function LineChart({
 
       <p className="mt-1 text-sm tabular-nums">
         <span className="font-semibold">{formatValue(points[shown].value, unit)}</span>{" "}
-        <span className="text-muted">· {points[shown].label}</span>
+        <span className="text-muted">· {points[shown].label}{allDeloads ? ' (deload)' : ''}</span>
       </p>
 
       <ValueTable points={points} unit={unit} caption={title} />
