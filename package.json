@@ -123,6 +123,8 @@
     "test:yoga-preselection": "tsx scripts/test-yoga-preselection.ts",
     "test:session-targets": "tsx scripts/test-session-targets.ts",
     "test:deload-trim": "tsx scripts/test-deload-trim.ts",
+    "test:save-queue": "tsx scripts/test-save-queue.ts",
+    "test:settings-server-order": "tsx scripts/test-settings-server-order.tsx",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
