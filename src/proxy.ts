@@ -5,6 +5,9 @@ export async function proxy(request: NextRequest) {
   return await updateSession(request);
 }
 
+// Matcher pattern - exported for testing
+export const MIDDLEWARE_MATCHER = "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|sw.js|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)";
+
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|icons/|sw.js|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",

@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { PERF_ENABLED } from "@/lib/perf";
 
 /** Routes reachable without a session. Everything else redirects to "/". */
-const PUBLIC_PATHS = ["/", "/auth", "/legal", "/terms", "/privacy"];
+const PUBLIC_PATHS = ["/", "/auth", "/robots.txt", "/sitemap.xml"];
 
 /** Dev-only harnesses, never routable in production (the pages 404 there too). */
 const DEV_PATHS = process.env.NODE_ENV === "development" ? ["/dev"] : [];
@@ -17,6 +17,23 @@ const DEV_PATHS = process.env.NODE_ENV === "development" ? ["/dev"] : [];
  * not exist, so this list is empty and the proxy behaves exactly as before.
  */
 const PROBE_PATHS = process.env.PERF_TOKEN ? ["/api/diag"] : [];
+
+/**
+ * Known protected route prefixes that require authentication.
+ * Signed-out users accessing these are redirected to /.
+ * /api is included to preserve its pre-existing signed-out behavior.
+ */
+const PROTECTED_PREFIXES = [
+  "/today",
+  "/breathe",
+  "/history",
+  "/progress",
+  "/settings",
+  "/onboarding",
+  "/session",
+  "/yoga",
+  "/api",
+];
 
 export async function updateSession(request: NextRequest) {
   const started = performance.now();
@@ -64,26 +81,27 @@ export async function updateSession(request: NextRequest) {
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 
-  // Always let the request through to Next.js first. Pages that require
-  // authentication will handle their own redirects. This ensures unknown
-  // routes can properly 404 instead of redirecting to home.
-  //
-  // If not signed in and accessing a protected route, set a header so the
-  // route can check and redirect if needed. But for now, let it through
-  // so Next.js can determine if the route exists.
   if (!signedIn && !isPublic) {
-    // For known protected routes, redirect as before
-    const PROTECTED_PREFIXES = ["/today", "/breathe", "/history", "/progress", "/settings", "/onboarding", "/session", "/yoga"];
-    const isKnownProtected = PROTECTED_PREFIXES.some(
-      (p) => pathname === p || pathname.startsWith(`${p}/`)
+    // Check if this is a known protected route
+    const isProtected = PROTECTED_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
     );
-    
-    if (isKnownProtected) {
+
+    if (isProtected) {
+      // Known protected route: redirect to home
       const url = request.nextUrl.clone();
       url.pathname = "/";
       return finish(NextResponse.redirect(url), started, pathname, signedIn);
     }
-    // For unknown paths, let them through to Next.js for proper 404 handling
+
+    // Unknown path for signed-out user: return 404 directly from the proxy
+    // without running any app code. This maintains deny-by-default security.
+    return finish(
+      new NextResponse(null, { status: 404, statusText: "Not Found" }),
+      started,
+      pathname,
+      signedIn
+    );
   }
 
   return finish(response, started, pathname, signedIn);

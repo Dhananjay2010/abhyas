@@ -6,6 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
     "http://localhost:3000";
 
+  // Only list real public pages that exist
   return [
     {
       url: baseUrl,
