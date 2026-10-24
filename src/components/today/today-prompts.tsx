@@ -153,7 +153,7 @@ export function TodayPrompts({
                 plannedLabel="Rest"
                 days={plannable}
                 heading="Start one now"
-                intro="Start your first workout anyway."
+                intro="Start your first session now."
                 isRestDay={true}
               />
             </div>

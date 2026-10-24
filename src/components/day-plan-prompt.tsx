@@ -96,7 +96,7 @@ export function DayPlanPrompt({
             onClick={() => setChoosing(true)}
             className="w-full min-h-[44px] rounded-lg border border-border bg-surface px-4 py-2.5 text-center text-sm font-medium transition-colors hover:bg-surface-2 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-surface"
           >
-            {intro === "Start your first workout anyway." ? "Start your first workout anyway" : "Pick a workout"}
+            {intro === "Start your first session now." ? "Start your first session now" : "Pick a workout"}
           </button>
           </div>
         ) : (
