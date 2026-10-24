@@ -301,3 +301,5 @@ test("INJURY_DISCLAIMER has no rehab or safe wording", () => {
 // Summary
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
+
+export {};

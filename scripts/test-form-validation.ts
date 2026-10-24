@@ -257,3 +257,5 @@ console.log("\n4. Submit state management (error handling)");
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
+
+export {};
