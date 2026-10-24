@@ -29,6 +29,8 @@ import {
 import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
+import { isSessionExpired } from "@/lib/auth/session-expired";
+import { useSessionExpiredPrompt, notifySessionExpired } from "@/components/session-expired-prompt";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -91,6 +93,7 @@ export function SettingsForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [s, setS] = useState(initial);
+  const [sessionExpiredPrompt] = useSessionExpiredPrompt();
   /** Track initial equipment to detect real changes */
   const [initialEquipment] = useState({
     hasAll: initial.hasAllEquipment,
@@ -145,7 +148,20 @@ export function SettingsForm({
 
   function save(run: () => Promise<Result>, affectsPlan = false) {
     startTransition(async () => {
-      const r = await run();
+      let r: Result;
+      try {
+        r = await run();
+      } catch (err) {
+        if (isSessionExpired(err)) {
+          notifySessionExpired();
+          return;
+        }
+        throw err;
+      }
+      if (isSessionExpired(r)) {
+        notifySessionExpired();
+        return;
+      }
       if (!r.ok) return setError(r.error);
       setError(null);
       if (affectsPlan) setPlanStale(true);
@@ -163,10 +179,24 @@ export function SettingsForm({
     const requestSeq = equipmentSequence.next();
     
     startTransition(async () => {
-      const r = await actions.updateEquipment({ hasAll, equipmentIds });
+      let r: Result;
+      try {
+        r = await actions.updateEquipment({ hasAll, equipmentIds });
+      } catch (err) {
+        if (isSessionExpired(err)) {
+          notifySessionExpired();
+          return;
+        }
+        throw err;
+      }
       
       // L4 QA fix: Ignore stale responses from overlapping saves
       if (!equipmentSequence.isCurrent(requestSeq)) {
+        return;
+      }
+      
+      if (isSessionExpired(r)) {
+        notifySessionExpired();
         return;
       }
       
@@ -205,6 +235,7 @@ export function SettingsForm({
 
   return (
     <div className="space-y-12">
+      {sessionExpiredPrompt}
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {planStale && (
