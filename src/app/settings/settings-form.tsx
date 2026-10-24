@@ -96,6 +96,8 @@ export function SettingsForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /** Track whether plan is stale (starts from server, updates on rebuild) */
+  const [planStale, setPlanStale] = useState(initialPlanStale);
   const [s, setS] = useState(initial);
   /** Track initial equipment to detect real changes */
   const [initialEquipment] = useState({
@@ -723,7 +725,7 @@ export function SettingsForm({
       </Section>
 
       {/* M2: Fixed bottom bar for all status messages - out of flow, no layout shift */}
-      {(initialPlanStale || rebuildSuccess || undoToast) && (
+      {(planStale || rebuildSuccess || undoToast) && (
         <div 
           className="fixed left-0 right-0 mx-auto w-full max-w-md px-6 bg-surface border-t border-border z-40"
           style={{
@@ -760,7 +762,7 @@ export function SettingsForm({
               </div>
             )}
 
-            {initialPlanStale && !rebuildSuccess && (
+            {planStale && !rebuildSuccess && (
               <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
                 <p className="text-sm text-accent">
                   Your plan no longer matches these answers. Rebuilding keeps every session
@@ -772,6 +774,7 @@ export function SettingsForm({
                     currentWeek={currentWeek}
                     showSuccessState={true}
                     onSuccess={() => {
+                      setPlanStale(false);
                       setRebuildSuccess(true);
                     }}
                   />
