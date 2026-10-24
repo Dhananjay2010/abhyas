@@ -1788,7 +1788,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         // D2 fix part 1: Ensure ALL core exercises are in accessory area (or at end for short days)
         // This must happen before Wall Sit placement so Wall Sit can go before first core
-        const hasAccessoryArea = exercises.length >= mainSlotCount;
+        const hasAccessoryArea = exercises.length > mainSlotCount;
         
         if (hasAccessoryArea) {
           // Collect all core and Wall Sit exercises
@@ -1869,9 +1869,42 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         if (firstNonTimedAccessory !== -1) {
           // Swap timed hold with non-timed accessory
-          const temp = exercises[timedHoldInMain];
-          exercises[timedHoldInMain] = exercises[firstNonTimedAccessory];
-          exercises[firstNonTimedAccessory] = temp;
+          // For current knee + Wall Sit, ensure we don't swap it with a core exercise
+          const timedHold = exercises[timedHoldInMain];
+          const isWallSit = byId.get(timedHold.exerciseId)?.slug === "wall-sit";
+          const accessory = exercises[firstNonTimedAccessory];
+          const isCore = byId.get(accessory.exerciseId)?.movement_pattern === "core";
+          
+          if (hasCurrentKnee && isWallSit && isCore) {
+            // Don't swap Wall Sit with core for current knee - find a non-core accessory
+            const firstNonCoreAccessory = exercises.findIndex((ex, idx) => {
+              if (idx < mainSlotCount) return false;
+              const e = byId.get(ex.exerciseId);
+              return e?.metric !== "seconds" && e?.movement_pattern !== "core";
+            });
+            
+            if (firstNonCoreAccessory !== -1) {
+              // Swap with non-core accessory
+              exercises[timedHoldInMain] = exercises[firstNonCoreAccessory];
+              exercises[firstNonCoreAccessory] = timedHold;
+            } else {
+              // No non-core accessory - use the fallback logic (place before core)
+              const [removed] = exercises.splice(timedHoldInMain, 1);
+              const firstCoreIndex = exercises.findIndex(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e?.movement_pattern === "core";
+              });
+              if (firstCoreIndex !== -1) {
+                exercises.splice(firstCoreIndex, 0, removed);
+              } else {
+                exercises.push(removed);
+              }
+            }
+          } else {
+            // Normal swap
+            exercises[timedHoldInMain] = accessory;
+            exercises[firstNonTimedAccessory] = timedHold;
+          }
           
           // Rebuild orderIndex after swap
           exercises.forEach((ex, idx) => {
@@ -1879,9 +1912,26 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           });
         } else {
           // No non-timed accessory to swap with - remove the timed hold from main slot
-          // and append to end
           const [removed] = exercises.splice(timedHoldInMain, 1);
-          exercises.push(removed);
+          const isWallSit = byId.get(removed.exerciseId)?.slug === "wall-sit";
+          
+          if (hasCurrentKnee && isWallSit) {
+            // For current knee + Wall Sit: place before first core, not at end
+            const firstCoreIndex = exercises.findIndex(ex => {
+              const e = byId.get(ex.exerciseId);
+              return e?.movement_pattern === "core";
+            });
+            
+            if (firstCoreIndex !== -1) {
+              exercises.splice(firstCoreIndex, 0, removed);
+            } else {
+              // No core found, append to end
+              exercises.push(removed);
+            }
+          } else {
+            // Default: append to end
+            exercises.push(removed);
+          }
           
           // Rebuild orderIndex
           exercises.forEach((ex, idx) => {

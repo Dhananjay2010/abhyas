@@ -91,8 +91,7 @@ writeFileSync(resolve(WORKTREE_PATH, "catalogue.json"), JSON.stringify(catalogue
 
 const generatorScript = `
 import { readFileSync, writeFileSync } from "node:fs";
-import { generateProgram, isEligible, score, hashString } from "./src/lib/program/generate";
-import { rankAlternatives, buildPatternList } from "./src/lib/program/alternatives";
+import { generateProgram } from "./src/lib/program/generate";
 
 const catalogue = JSON.parse(readFileSync("./catalogue.json", "utf8"));
 
@@ -105,7 +104,7 @@ const ageOptions = [30, 55];
 const equipmentProfiles = [
   { name: "gym", hasAll: true, ids: [] },
   { name: "bodyweight", hasAll: false, ids: [] },
-  { name: "home", hasAll: false, ids: ["dumbbell", "bench", "barbell"] },
+  { name: "home", hasAll: false, ids: ["dumbbell", "flat_bench", "barbell"] },
 ];
 
 const baseline = {};
@@ -144,36 +143,7 @@ for (const level of levels) {
       for (const day of plan.days) {
         if (day.dayType === "rest") continue;
         
-        for (const ex of day.exercises) {
-          const currentExercise = catalogue.find(e => e.id === ex.exerciseId);
-          if (!currentExercise) continue;
-          
-          const patterns = buildPatternList(currentExercise.movement_pattern, false);
-          const candidates = catalogue.filter(e => {
-            if (!patterns.includes(e.movement_pattern)) return false;
-            return isEligible(e, input);
-          });
-          
-          const availableEquipment = equipment.hasAll ? null : new Set(equipment.ids);
-          const alternatives = rankAlternatives(
-            currentExercise,
-            candidates,
-            {
-              level,
-              availableEquipment,
-              injuryRegions: [],
-              anyKneeInjury: false,
-              limit: 5,
-              scoreFn: e => score(e, input),
-              tieBreakFn: slug => hashString(\`\${userId}:\${slug}\`),
-            }
-          );
-          
-          ex.alternatives = alternatives.map(alt => ({
-            exerciseId: alt.id,
-            slug: alt.slug,
-          }));
-        }
+        // Swaps are not compared in the test, so don't generate or store them
       }
       
       baseline[userId] = {
