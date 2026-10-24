@@ -117,7 +117,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     // Returning it as-is used to strand the user on "this session has no
     // exercises" with no way forward, permanently, because this branch would
     // keep returning the same empty shell.
-    await Promise.all([
+    const [updateRes] = await Promise.all([
       supabase
         .from("sessions")
         .update({
@@ -137,6 +137,27 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
         .eq("id", existing.id),
       ensureSessionExercises(supabase, user.id, existing.id),
     ]);
+
+    // Handle 23505: another in_progress session already exists for this user/date
+    if (updateRes.error && updateRes.error.code === "23505") {
+      // Re-read the existing in_progress session for this user/date
+      const { data: currentInProgress } = await supabase
+        .from("sessions")
+        .select("id, created_at")
+        .eq("user_id", user.id)
+        .eq("local_date", today)
+        .eq("status", "in_progress")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (currentInProgress) {
+        return { ok: true, data: { sessionId: currentInProgress.id } };
+      }
+      // Re-read failed, fall through to error
+      return { ok: false, error: "Could not start the session" };
+    }
+
     return { ok: true, data: { sessionId: existing.id } };
   }
 
@@ -172,8 +193,20 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
-  // Creating the session and reading what to put in it are independent: both
-  // need only the day, which wave one already produced.
+  // Case C: Idempotent session start - check for existing in_progress session first
+  const { data: existingInProgressSessions } = await supabase
+    .from("sessions")
+    .select("id, status, local_date, actual_type")
+    .eq("user_id", user.id)
+    .eq("local_date", today)
+    .eq("status", "in_progress");
+
+  if (existingInProgressSessions && existingInProgressSessions.length > 0) {
+    // An in_progress session already exists for this user + date, return it (idempotent)
+    return { ok: true, data: { sessionId: existingInProgressSessions[0].id } };
+  }
+
+  // No existing in_progress session, create a new one and read the plan
   const [sessionRes, plannedRes] = await Promise.all([
     supabase
       .from("sessions")
@@ -199,6 +232,24 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .eq("program_day_id", day.id)
       .order("order_index"),
   ]);
+
+  // Handle 23505: unique_violation from the partial unique index
+  if (sessionRes.error && sessionRes.error.code === "23505") {
+    // The partial unique index rejected a duplicate. Re-read and return the existing session.
+    const { data: rereadSession } = await supabase
+      .from("sessions")
+      .select("id, created_at")
+      .eq("user_id", user.id)
+      .eq("status", "in_progress")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (rereadSession) {
+      return { ok: true, data: { sessionId: rereadSession.id } };
+    }
+    // Re-read failed, fall through to generic error
+  }
 
   const session = sessionRes.data;
   if (sessionRes.error || !session) {
