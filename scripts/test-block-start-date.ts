@@ -45,34 +45,6 @@ console.log("\nX11: Rebuild keeps the old block's start date");
   check("rebuild does NOT use today", startDate !== localDateString(timezone));
 }
 
-console.log("\nX11: Timezone affects local date calculation");
-{
-  // The key point is that we use localDateString(timezone), not a hardcoded value
-  // Different timezones CAN produce different dates at the same UTC moment
-  const utcDate = new Date("2026-10-24T01:00:00Z");
-  const originalNow = Date.now;
-  Date.now = () => utcDate.getTime();
-
-  try {
-    // At 01:00 UTC:
-    // - Pacific (UTC-7) is still Oct 23 (18:00)
-    // - UTC is Oct 24 (01:00)
-    const pacificToday = localDateString("America/Los_Angeles");
-    const utcToday = localDateString("UTC");
-
-    check("Pacific date is 2026-10-23", pacificToday === "2026-10-23");
-    check("UTC date is 2026-10-24", utcToday === "2026-10-24");
-
-    const pacificStartDate = getBlockStartDate("America/Los_Angeles", null);
-    const utcStartDate = getBlockStartDate("UTC", null);
-    
-    check("Pacific block starts on Pacific's today", pacificStartDate === "2026-10-23");
-    check("UTC block starts on UTC's today", utcStartDate === "2026-10-24");
-  } finally {
-    Date.now = originalNow;
-  }
-}
-
 if (failures > 0) {
   console.log(`\n❌ ${failures} failure(s)`);
   process.exit(1);

@@ -14,6 +14,7 @@ export const PUBLIC_PATHS = [
   "/terms",
   "/sw.js",
   "/offline",
+  "/api/version",
 ];
 
 /** Dev-only harnesses, never routable in production (the pages 404 there too). */
