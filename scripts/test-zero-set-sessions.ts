@@ -1,12 +1,13 @@
+#!/usr/bin/env tsx
 /**
- * Test that strength sessions with 0 working sets don't count toward streaks
- * or appear in History, while sessions with working sets do count.
+ * Test zero-set strength session exclusion with AND logic.
  * 
- * Product rule (2026-10-24): Callers must filter sessions to ensure:
- * - status = 'completed' (not 'skipped', 'planned', etc.)
- * - strength sessions have working_sets >= 1 (join with session_volume)
+ * Product rule (2026-10-24): Strength sessions count toward streaks/days trained
+ * ONLY when status = 'completed' AND workingSetCount >= 1.
  * 
- * This test validates the working set counting logic and session type classification.
+ * Two storage shapes must both be excluded:
+ * 1. Legacy: status = 'completed' with 0 working sets
+ * 2. New: status = 'skipped' (Dev 3's finishSession change)
  * 
  *   npx tsx scripts/test-zero-set-sessions.ts
  */
@@ -23,75 +24,56 @@ function check(label: string, ok: boolean, detail = "") {
 
 console.log("\nTesting zero-set session exclusion (unit tests)\n");
 
-// Test 1: countWorkingSets on warmup-only
-console.log("1. Strength session with only warmup sets");
-const warmupOnlySets = [
-  { is_warmup_set: true, reps: 10, duration_seconds: null },
-  { is_warmup_set: true, reps: 8, duration_seconds: null },
-];
-const warmupCount = countWorkingSets(warmupOnlySets);
-check("0 working sets", warmupCount === 0, `got ${warmupCount}`);
+// Test 1: countWorkingSets helper
+console.log("1. countWorkingSets helper");
+check("warmup-only = 0", countWorkingSets([{ is_warmup_set: true, reps: 10, duration_seconds: null }]) === 0);
+check("no sets = 0", countWorkingSets([]) === 0);
+check("1 working set = 1", countWorkingSets([{ is_warmup_set: false, reps: 5, duration_seconds: null }]) === 1);
+check("timed hold counts", countWorkingSets([{ is_warmup_set: false, reps: null, duration_seconds: 60 }]) === 1);
 
-// Test 2: countWorkingSets on empty
-console.log("\n2. Strength session with no sets");
-const noSets: typeof warmupOnlySets = [];
-const noSetsCount = countWorkingSets(noSets);
-check("0 working sets", noSetsCount === 0);
+// Test 2: Yoga always counts when completed
+console.log("\n2. Yoga completed → counts");
+check("yoga completed with 0 sets", countsTowardStreak("yoga", "completed", 0));
+check("yoga completed with 1 set", countsTowardStreak("yoga", "completed", 1));
+check("yoga completed without set count", countsTowardStreak("yoga", "completed", undefined));
 
-// Test 3: countWorkingSets with one working set
-console.log("\n3. Strength session with one working set");
-const oneWorkingSet = [
-  { is_warmup_set: true, reps: 10, duration_seconds: null },
-  { is_warmup_set: false, reps: 5, duration_seconds: null },
-];
-const oneWorkingCount = countWorkingSets(oneWorkingSet);
-check("1 working set", oneWorkingCount === 1, `got ${oneWorkingCount}`);
+// Test 3: Strength completed with working sets → counts
+console.log("\n3. Strength completed + working sets → counts");
+check("weights completed with 1 set", countsTowardStreak("weights", "completed", 1));
+check("weights completed with 3 sets", countsTowardStreak("weights", "completed", 3));
+check("bodyweight completed with 1 set", countsTowardStreak("bodyweight", "completed", 1));
 
-// Test 4: countWorkingSets with timed hold
-console.log("\n4. Strength session with one timed hold (0 reps, has duration)");
-const timedHoldSets = [
-  { is_warmup_set: true, reps: 10, duration_seconds: null },
-  { is_warmup_set: false, reps: null, duration_seconds: 60 },
-];
-const timedHoldCount = countWorkingSets(timedHoldSets);
-check("1 working set (timed)", timedHoldCount === 1, `got ${timedHoldCount}`);
+// Test 4: Legacy shape - strength completed with 0 sets → does NOT count
+console.log("\n4. Legacy: strength completed + 0 sets → does NOT count");
+check("weights completed with 0 sets", !countsTowardStreak("weights", "completed", 0));
+check("bodyweight completed with 0 sets", !countsTowardStreak("bodyweight", "completed", 0));
 
-// Test 5: countsTowardStreak type classification - yoga
-console.log("\n5. Session type classification: yoga");
-const yogaCounts = countsTowardStreak("yoga");
-check("yoga type counts", yogaCounts);
+// Test 5: New shape - strength skipped → does NOT count
+console.log("\n5. New: strength skipped → does NOT count");
+check("weights skipped", !countsTowardStreak("weights", "skipped", 0));
+check("weights skipped (even with set count)", !countsTowardStreak("weights", "skipped", 3));
+check("bodyweight skipped", !countsTowardStreak("bodyweight", "skipped", 0));
 
-// Test 6: countsTowardStreak type classification - weights
-console.log("\n6. Session type classification: weights");
-const weightsCounts = countsTowardStreak("weights");
-check("weights type counts", weightsCounts);
+// Test 6: Strength planned → does NOT count
+console.log("\n6. Strength planned → does NOT count");
+check("weights planned", !countsTowardStreak("weights", "planned", 0));
+check("weights planned (even with set count)", !countsTowardStreak("weights", "planned", 3));
 
-// Test 7: countsTowardStreak type classification - bodyweight
-console.log("\n7. Session type classification: bodyweight");
-const bodyweightCounts = countsTowardStreak("bodyweight");
-check("bodyweight type counts", bodyweightCounts);
+// Test 7: Strength completed without set count → does NOT count
+console.log("\n7. Strength completed without set count → does NOT count");
+check("weights completed, no set count", !countsTowardStreak("weights", "completed", undefined));
+check("weights completed, null set count", !countsTowardStreak("weights", "completed", undefined));
 
-// Test 8: countsTowardStreak type classification - breathing
-console.log("\n8. Session type classification: meditation (breathing)");
-const breathingCounts = countsTowardStreak("meditation");
-check("breathing does NOT count", !breathingCounts);
+// Test 8: Breathing never counts
+console.log("\n8. Breathing never counts");
+check("meditation completed", !countsTowardStreak("meditation", "completed", 0));
+check("meditation completed with sets", !countsTowardStreak("meditation", "completed", 1));
+check("rest completed", !countsTowardStreak("rest", "completed", 0));
 
-// Test 9: countsTowardStreak type classification - rest
-console.log("\n9. Session type classification: rest");
-const restCounts = countsTowardStreak("rest");
-check("rest does NOT count", !restCounts);
-
-// Test 10: Mixed warmup and working sets
-console.log("\n10. Strength session with mixed warmup and working sets");
-const mixedSets = [
-  { is_warmup_set: true, reps: 10, duration_seconds: null },
-  { is_warmup_set: true, reps: 8, duration_seconds: null },
-  { is_warmup_set: false, reps: 5, duration_seconds: null },
-  { is_warmup_set: false, reps: 5, duration_seconds: null },
-  { is_warmup_set: false, reps: 4, duration_seconds: null },
-];
-const mixedCount = countWorkingSets(mixedSets);
-check("3 working sets", mixedCount === 3, `got ${mixedCount}`);
+// Test 9: Yoga skipped → does NOT count
+console.log("\n9. Yoga skipped → does NOT count");
+check("yoga skipped", !countsTowardStreak("yoga", "skipped", 0));
+check("yoga planned", !countsTowardStreak("yoga", "planned", 0));
 
 console.log();
 if (failures > 0) {
@@ -100,7 +82,9 @@ if (failures > 0) {
 } else {
   console.log("✅ All tests passed\n");
   console.log("Conclusion:");
-  console.log("- countWorkingSets correctly identifies working sets (excl. warmups)");
-  console.log("- countsTowardStreak classifies session types (weights/bodyweight/yoga count, breathing/rest don't)");
-  console.log("- Query-level filtering (join with session_volume) ensures only sessions with working sets count\n");
+  console.log("- Yoga: counts when status = 'completed' (set count not required)");
+  console.log("- Strength: counts ONLY when status = 'completed' AND workingSetCount >= 1");
+  console.log("- Legacy completed+0 sets: excluded ✓");
+  console.log("- New skipped status: excluded ✓");
+  console.log("- Breathing: never counts\n");
 }

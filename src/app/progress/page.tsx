@@ -96,34 +96,26 @@ export default async function ProgressPage() {
     (dayTypesByProgram[d.program_id] ??= {})[d.day_index] = d.day_type;
   }
 
-  // Fetch session_volume to filter out zero-set strength sessions
+  // Fetch session_volume to get working set counts for strength sessions
   // Product rule (2026-10-24): strength sessions count toward streaks/days trained
   // ONLY when status = 'completed' AND working_sets >= 1
-  const completedSessionIds = (sessionsRes.data ?? [])
-    .filter((s) => s.status === "completed")
-    .map((s) => s.id);
+  const sessionIds = (sessionsRes.data ?? []).map((s) => s.id);
 
   const { data: volumeData } = await supabase
     .from("session_volume")
-    .select("session_id")
-    .in("session_id", completedSessionIds.length ? completedSessionIds : ["00000000-0000-0000-0000-000000000000"]);
+    .select("session_id, set_count")
+    .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"]);
 
-  const sessionsWithVolume = new Set((volumeData ?? []).map((v) => v.session_id));
+  const workingSetsBySession = new Map((volumeData ?? []).map((v) => [v.session_id, v.set_count || 0]));
 
-  // Filter completed sessions: keep yoga always, keep strength only if it has volume
-  const completedSessions = (sessionsRes.data ?? [])
-    .filter((s) => {
-      if (s.status !== "completed") return false;
-      // Yoga always counts when completed
-      if (s.actual_type === "yoga") return true;
-      // Strength (weights/bodyweight) must have volume (working sets >= 1)
-      if (s.actual_type === "weights" || s.actual_type === "bodyweight") {
-        return sessionsWithVolume.has(s.id);
-      }
-      // Breathing, rest, etc. never count
-      return false;
-    })
-    .map((s) => ({ local_date: s.local_date, actual_type: s.actual_type }));
+  // Map all sessions with their working set counts
+  // countsTowardStreak will enforce the rules (completed + working sets for strength)
+  const completedSessions = (sessionsRes.data ?? []).map((s) => ({
+    local_date: s.local_date,
+    actual_type: s.actual_type,
+    status: s.status,
+    working_set_count: workingSetsBySession.get(s.id),
+  }));
 
   const dayRecords = buildDayRecords({
     programs,

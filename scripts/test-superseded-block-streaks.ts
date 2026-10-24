@@ -63,16 +63,16 @@ const dayTypesByProgram = {
 // User completed all M/W/F sessions in Week 1 and 2, then rebuilt on Monday of Week 3
 const completedSessions = [
   // Week 1
-  { local_date: "2026-09-28", actual_type: "weights" as const }, // Mon
-  { local_date: "2026-09-30", actual_type: "weights" as const }, // Wed
-  { local_date: "2026-10-02", actual_type: "weights" as const }, // Fri
+  { local_date: "2026-09-28", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Mon
+  { local_date: "2026-09-30", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Wed
+  { local_date: "2026-10-02", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Fri
   // Week 2
-  { local_date: "2026-10-05", actual_type: "weights" as const }, // Mon
-  { local_date: "2026-10-07", actual_type: "weights" as const }, // Wed
-  { local_date: "2026-10-09", actual_type: "weights" as const }, // Fri
+  { local_date: "2026-10-05", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Mon
+  { local_date: "2026-10-07", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Wed
+  { local_date: "2026-10-09", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Fri
   // Week 3 - rebuilt on Monday, completed session after rebuild
-  { local_date: "2026-10-12", actual_type: "weights" as const }, // Mon (rebuild day)
-  { local_date: "2026-10-14", actual_type: "weights" as const }, // Wed
+  { local_date: "2026-10-12", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Mon (rebuild day)
+  { local_date: "2026-10-14", actual_type: "weights" as const, status: "completed", working_set_count: 3 }, // Wed
 ];
 
 const today = "2026-10-14"; // Wednesday of Week 3

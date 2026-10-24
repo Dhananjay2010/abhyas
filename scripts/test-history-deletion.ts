@@ -145,13 +145,15 @@ console.log("\n5. Total days trained is updated correctly");
 
 console.log("\n6. countsTowardStreak is consistent");
 {
-  check("weights counts", countsTowardStreak("weights"));
-  check("bodyweight counts", countsTowardStreak("bodyweight"));
-  check("yoga counts", countsTowardStreak("yoga"));
-  check("meditation does not count", !countsTowardStreak("meditation"));
-  check("rest does not count", !countsTowardStreak("rest"));
-  check("active_recovery does not count", !countsTowardStreak("active_recovery"));
-  check("null does not count", !countsTowardStreak(null));
+  check("weights completed with sets counts", countsTowardStreak("weights", "completed", 1));
+  check("bodyweight completed with sets counts", countsTowardStreak("bodyweight", "completed", 1));
+  check("yoga completed counts", countsTowardStreak("yoga", "completed"));
+  check("meditation does not count", !countsTowardStreak("meditation", "completed"));
+  check("rest does not count", !countsTowardStreak("rest", "completed"));
+  check("active_recovery does not count", !countsTowardStreak("active_recovery", "completed"));
+  check("null does not count", !countsTowardStreak(null, "completed"));
+  check("weights completed with 0 sets does not count", !countsTowardStreak("weights", "completed", 0));
+  check("weights skipped does not count", !countsTowardStreak("weights", "skipped", 0));
 }
 
 console.log();

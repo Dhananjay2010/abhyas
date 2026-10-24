@@ -30,36 +30,46 @@ type SessionType = Database["public"]["Enums"]["day_type"];
  */
 
 /**
- * Determine if a session TYPE counts toward training streaks and "days trained".
+ * Determine if a session counts toward training streaks and "days trained".
  *
- * IMPORTANT: This function classifies session TYPES, not individual sessions.
- * Callers must pre-filter sessions to ensure:
- * - status = 'completed' (not 'skipped', 'planned', etc.)
- * - strength sessions have working_sets >= 1 (join with session_volume)
+ * SINGLE SOURCE OF TRUTH for streak and training day logic.
  *
  * Rules (product rule 2026-10-24):
- * - Yoga: counts
- * - Strength (weights/bodyweight): counts (but caller must ensure working_sets >= 1)
+ * - Strength (weights/bodyweight): counts ONLY when status = 'completed' AND workingSetCount >= 1
+ * - Yoga: counts when status = 'completed'
  * - Breathing/meditation: NEVER counts
  * - Rest/recovery: NEVER counts
+ * - 'skipped' status: NEVER counts (regardless of type)
+ * - Legacy 'completed' strength with 0 sets: NEVER counts
  *
  * @param sessionType - The session type
- * @returns true if this session type can count toward streak/training-days
+ * @param status - The session status ('completed', 'skipped', 'planned', etc.)
+ * @param workingSetCount - Number of working sets (required for strength sessions)
+ * @returns true if the session counts toward streak/training-days
  */
 export function countsTowardStreak(
-  sessionType: SessionType | null
+  sessionType: SessionType | null,
+  status: string | null,
+  workingSetCount?: number
 ): boolean {
   if (!sessionType) return false;
 
-  // Yoga counts
+  // Only 'completed' sessions can count (skipped, planned, in_progress never count)
+  if (status !== "completed") return false;
+
+  // Yoga counts when completed
   if (sessionType === "yoga") return true;
 
-  // Strength counts (caller must ensure working_sets >= 1)
-  if (sessionType === "weights" || sessionType === "bodyweight") {
-    return true;
+  // Breathing/rest/recovery never count
+  if (sessionType === "rest" || sessionType === "active_recovery" || sessionType === "meditation") {
+    return false;
   }
 
-  // Breathing/rest/recovery never count
+  // Strength sessions (weights/bodyweight) must have working sets (AND logic)
+  if (sessionType === "weights" || sessionType === "bodyweight") {
+    return workingSetCount !== undefined && workingSetCount >= 1;
+  }
+
   return false;
 }
 
