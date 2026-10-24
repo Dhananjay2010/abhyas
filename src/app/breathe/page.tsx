@@ -30,6 +30,7 @@ import {
 import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { suggestPractice } from "@/lib/breathing/suggest";
 import { BreatheHome, type LastPractice } from "./breathe-home";
+import { PracticeSwitch } from "@/components/practice-switch";
 import { findPatternByLogKey } from "./load";
 
 export const dynamic = "force-dynamic";
@@ -183,7 +184,9 @@ export default async function BreathePage({
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
-      <BreatheHome
+      <PracticeSwitch />
+      <div className="mt-6">
+        <BreatheHome
         patterns={patterns}
         routines={routines}
         journeys={journeys}
@@ -195,7 +198,8 @@ export default async function BreathePage({
         shifts={shifts}
         intent={intent}
         todayIndex={isoWeekday(today)}
-      />
+        />
+      </div>
     </main>
   );
 }
