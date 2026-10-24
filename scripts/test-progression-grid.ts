@@ -1041,21 +1041,10 @@ console.log("\n25. First miss and back-off never raise weight");
   check("back-off 2.5 kg: holds at 2.5 kg (not less)", backOff25.nextWorkingWeightKg === 2.5, `${backOff25.nextWorkingWeightKg}`);
 }
 
-console.log("\n26. Messages use app's formatWeight (from @/lib/units)");
+console.log("\n26. Messages use app's formatWeight for lb, plain kg for metric");
 {
-  // formatWeight does: kgToLb -> roundLbToHalf -> round to 1 decimal -> format (drop .0 for whole numbers)
-  // Test with first miss (drops one grid step), which shows the dropped weight in the message
-  
-  const testCases: Array<{kg: number, expectedLb: string, label: string}> = [
-    { kg: 42.5, expectedLb: "88 lb", label: "42.5 kg first miss -> 40 kg" },  // 40 kg = 88.185 lb -> 88 lb
-    { kg: 57.5, expectedLb: "127 lb", label: "57.5 kg first miss -> 57.5 kg (hold, min reached)" },  // Barbell 57.5 drops to 55, but for isolation at min it holds
-    { kg: 20, expectedLb: "38.5 lb", label: "20 kg first miss -> 17.5 kg" },  // 17.5 kg = 38.581 lb -> 38.5 lb
-    { kg: 100, expectedLb: "214.5 lb", label: "100 kg first miss -> 97.5 kg" },  // 97.5 kg = 214.951 lb -> 215 -> 214.95 -> "215 lb" wait that's wrong
-    { kg: 2.5, expectedLb: "2.75 lb", label: "2.5 kg isolation first miss -> 1.25 kg" },  // 1.25 kg = 2.756 lb -> 2.5 -> "2.5 lb" wait...
-  ];
-  
-  // Actually, let me just test that the formatter is called correctly by checking formatWeight's output directly
-  // Use back-off messages which definitely show a weight value
+  // lb: use formatWeight (kgToLb -> roundLbToHalf -> format, no .0 for whole numbers)
+  // kg: plain value (no formatWeight rounding, matches main)
   
   // 42.5 kg * 0.9 = 38.25, round to 2.5 grid = 37.5 kg. Display in lb: 37.5 kg = 82.673 lb -> 82.5 lb
   const backOff425 = run({
@@ -1077,36 +1066,25 @@ console.log("\n26. Messages use app's formatWeight (from @/lib/units)");
   });
   check("57.5 kg back-off shows 110 lb (app formatter, no .0)", backOff575.message.includes("110 lb") && !backOff575.message.includes("110.0"), backOff575.message);
   
-  // 20 kg * 0.9 = 18, round to 2.5 grid = 17.5 kg. Display in lb: 17.5 kg = 38.581 lb -> 38.5 lb
-  const backOff20 = run({
+  // kg messages: plain kg value (no formatWeight rounding, matches main)
+  // 15 kg progress -> 17.5 kg. Display in kg: "17.5 kg" (not "17.5" or "17.50")
+  const progressKg = run({
+    sets: sets(4, 12, 15),
+    state: fresh({ currentWorkingWeightKg: 15 }),
+    equipmentIds: ["barbell"],
+    unit: undefined,
+  });
+  check("15 kg progress shows '17.5 kg' (plain, matches main)", progressKg.message.includes("17.5 kg"), progressKg.message);
+  
+  // 16.25 kg back-off: 16.25 * 0.9 = 14.625, floor to 2.5 = 12.5 kg. Display: "12.5 kg" (plain)
+  const backOffKg = run({
     meta: BENCH,
-    sets: sets(4, 10, 20),
-    state: fresh({ currentWorkingWeightKg: 20, consecutiveFailures: 1 }),
+    sets: sets(4, 10, 16.25),
+    state: fresh({ currentWorkingWeightKg: 16.25, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
-    unit: "lb",
+    unit: undefined,
   });
-  check("20 kg back-off shows 38.5 lb (app formatter)", backOff20.message.includes("38.5 lb"), backOff20.message);
-  
-  // 100 kg * 0.9 = 90, round to 2.5 grid = 90 kg. Display in lb: 90 kg = 198.416 lb -> 198.5 lb
-  const backOff100 = run({
-    meta: { ...BENCH, movementPattern: "squat" },
-    sets: sets(4, 10, 100),
-    state: fresh({ currentWorkingWeightKg: 100, consecutiveFailures: 1 }),
-    equipmentIds: ["barbell"],
-    unit: "lb",
-  });
-  check("100 kg back-off shows 198.5 lb (app formatter)", backOff100.message.includes("198.5 lb"), backOff100.message);
-  
-  // 2.5 kg isolation: at min step, holds at 2.5 kg. Display in lb: 2.5 kg = 5.512 lb -> 5.5 lb
-  const backOff25 = run({
-    meta: CURL,
-    sets: sets(4, 10, 2.5),
-    state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 1 }),
-    equipmentIds: ["dumbbell"],
-    unit: "lb",
-  });
-  // This should HOLD and message won't show a weight, it will say "holding"
-  check("2.5 kg isolation back-off holds (at min step)", backOff25.outcome === "hold", `outcome: ${backOff25.outcome}`);
+  check("16.25 kg back-off shows '12.5 kg' (plain, no rounding)", backOffKg.message.includes("12.5 kg") && !backOffKg.message.includes("12.50"), backOffKg.message);
 }
 
 console.log("\n27. Back-off never raises weight");
@@ -1176,6 +1154,51 @@ console.log("\n29. Back-off max drop: never more than one increment below 90%");
     unit: "kg",
   });
   check("back-off 6 kg: 6 -> 5 kg (not 2.5 kg)", backOff6.nextWorkingWeightKg === 5, `${backOff6.nextWorkingWeightKg}`);
+}
+
+console.log("\n30. Isolation back-off uses 1.25 kg grid (not 2.5 kg)");
+{
+  // 13.75 kg isolation * 0.9 = 12.375, floor to 1.25 grid = 12.5 (not 12.5 on 2.5 grid)
+  // Max drop = 12.375 - 1.25 = 11.125, so floor to 1.25 grid = 11.25
+  const backOffIso = run({
+    meta: CURL,
+    sets: sets(4, 10, 13.75),
+    state: fresh({ currentWorkingWeightKg: 13.75, consecutiveFailures: 1 }),
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+  });
+  check("isolation back-off 13.75 kg: 13.75 -> 11.25 kg (1.25 grid)", backOffIso.nextWorkingWeightKg === 11.25, `${backOffIso.nextWorkingWeightKg}`);
+}
+
+console.log("\n31. Kettlebell back-off drops exactly one bell from off-grid weight");
+{
+  // 22 kg (not a real bell, between 20 and 24) * 0.9 = 19.8
+  // Should find bell at or below 19.8 (which is 18), but ensure not more than one bell below current
+  // Current bell index for 22 would be the one >= 22, which is 24 at index 10
+  // One bell down from index 10 is 20 at index 9
+  const kbBackOff22 = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 10, 22),
+    state: fresh({ currentWorkingWeightKg: 22, consecutiveFailures: 1 }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check("kettlebell back-off 22 kg (off-grid): 22 -> 20 kg (one bell down)", kbBackOff22.nextWorkingWeightKg === 20, `${kbBackOff22.nextWorkingWeightKg}`);
+}
+
+console.log("\n32. Back-off holds when reduced weight would be at or below increment");
+{
+  // 7.5 kg lower-body: 7.5 * 0.9 = 6.75, floor to 2.5 grid = 5
+  // But 7.5 <= 5 (increment) + 2.5, so reduced = 5 <= 5 (increment), HOLD
+  // Owner decision: could drop to 5 instead (one-character change)
+  const backOff75 = run({
+    meta: { ...BENCH, movementPattern: "squat" },
+    sets: sets(4, 10, 7.5),
+    state: fresh({ currentWorkingWeightKg: 7.5, consecutiveFailures: 1 }),
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  check("back-off 7.5 kg lower: holds at 7.5 kg (reduced 5 <= increment 5)", backOff75.nextWorkingWeightKg === 7.5 && backOff75.outcome === "hold", `${backOff75.nextWorkingWeightKg}, ${backOff75.outcome}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

@@ -241,6 +241,22 @@ test_mutant \
   "    // Hold check disabled
     if (false && reduced <= liftIncrement) {"
 
+# K4: Isolation back-off uses 2.5 kg grid (not 1.25 kg)
+test_mutant \
+  "Isolation back-off uses 2.5 kg grid" \
+  "      const roundingGrid = meta.mechanic === \"isolation\" ? 1.25 : 2.5;" \
+  "      const roundingGrid = 2.5;"
+
+# K5: Kettlebell back-off allows more than one bell drop
+test_mutant \
+  "Kettlebell back-off allows two bells down" \
+  "        if (currentBellIndex > 0 && targetIndex < currentBellIndex - 1) {
+          targetIndex = currentBellIndex - 1;
+        }" \
+  "        if (currentBellIndex > 0 && targetIndex < currentBellIndex - 2) {
+          targetIndex = currentBellIndex - 2;
+        }"
+
 echo "==================================="
 echo "Total mutants: $MUTANT_COUNT"
 echo "Killed: $((MUTANT_COUNT - SURVIVED_COUNT))"

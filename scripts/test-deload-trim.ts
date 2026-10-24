@@ -165,7 +165,7 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
     );
   }
   
-  // Maximum + 1 throws
+  // Maximum + 1 clamps to MAX_PLANNER_SETS
   const overMaxP: Prescription = {
     sets: MAX_PLANNER_SETS + 1,
     repsMin: 8,
@@ -190,7 +190,7 @@ console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
         : `got ${applyDeload(overMaxP).sets}`
   );
   
-  // 1e308 throws
+  // 1e308 clamps to MAX_PLANNER_SETS
   const hugeP: Prescription = {
     sets: 1e308,
     repsMin: 8,

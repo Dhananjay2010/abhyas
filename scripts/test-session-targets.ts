@@ -59,7 +59,7 @@ console.log("\n1. Direct applyDeload tests: exhaustive for sets 0-5 (MAX_PLANNER
     let result: Prescription | undefined;
     try {
       result = applyDeload(p);
-    } catch (e) {
+    } catch {
       threw = true;
     }
     check(

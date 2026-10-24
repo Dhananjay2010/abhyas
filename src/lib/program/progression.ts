@@ -131,14 +131,17 @@ export function addedWeightStep(meta: ExerciseMeta): number {
 }
 
 /**
- * Format weight for display in progression messages using the app's UI formatter.
- * Returns formatted string like "93.5 lb" or "42.5 kg" with unit label.
+ * Format weight for display in progression messages.
+ * For lb: uses app's formatWeight (kgToLb -> roundLbToHalf -> format, no .0 for whole numbers).
+ * For kg: returns plain kg value (matches main's exact kg wording, no rounding).
  */
 function displayWeight(kgValue: number, unit: WeightUnit | undefined): string {
-  // Use the app's actual UI formatter (from @/lib/units)
-  // For imperial: kgToLb -> roundLbToHalf -> round to 1 decimal -> format (no .0 for whole numbers)
-  // For metric: round to 1 decimal -> format (no .0 for whole numbers)
-  return formatWeight(kgValue, unit === 'lb' ? 'imperial' : 'metric', true);
+  if (unit === 'lb') {
+    // Use app's actual UI formatter for lb
+    return formatWeight(kgValue, 'imperial', true);
+  }
+  // For kg: plain value (no formatWeight rounding)
+  return `${kgValue} kg`;
 }
 
 function roundTo(value: number, step: number): number {
@@ -683,7 +686,7 @@ export function evaluateProgression(input: {
 /** 
  * What to put in the weight field when the exercise comes round again.
  * When equipmentIds and unit are provided, snaps to the equipment grid.
- * When omitted, uses simple step rounding (pre-grid behavior).
+ * When omitted, uses simple step rounding.
  */
 export function suggestedWeight(
   state: Pick<ProgressState, "currentWorkingWeightKg">,
