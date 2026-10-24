@@ -179,7 +179,7 @@ export function BreatheHome({
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold tracking-wider text-breath uppercase">Again</p>
             <p className="mt-1 truncate text-lg font-semibold">{again.name}</p>
-            <p className="text-sm text-breath-ink/70">{againLength.label} · Opens your last session, ready to start</p>
+            <p className="truncate text-sm text-breath-ink/70">{againLength.label} · starts right away</p>
           </div>
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-accent text-accent-fg">
             <Icon.Play />

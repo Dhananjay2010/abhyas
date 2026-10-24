@@ -5,7 +5,7 @@ import { withRateLimit } from "@/lib/rate-limit/route-handler";
 import { getRedirectOrigin, safeNextPath } from "@/lib/auth/redirect-origin";
 
 async function handleAuthCallback(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const next = safeNextPath(searchParams.get("next"));
 
@@ -30,7 +30,9 @@ async function handleAuthCallback(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/?error=auth_failed`);
+  // Build redirect origin for error path using the same logic as success
+  const base = getRedirectOrigin(request);
+  return NextResponse.redirect(`${base}/?error=auth_failed`);
 }
 
 export const GET = withRateLimit(handleAuthCallback, { type: "auth" });
