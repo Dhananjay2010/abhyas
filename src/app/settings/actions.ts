@@ -6,7 +6,7 @@ import type { Database } from "@/lib/database.types";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
-import { isAllowedSessionLength, getSessionLengthErrorMessage } from "@/lib/onboarding/session-length";
+import { isAllowedSessionLength } from "@/lib/onboarding/session-length";
 import { ensureGenerationSnapshot } from "@/lib/program/ensure-generation-snapshot";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
@@ -64,7 +64,7 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
   }
   if (patch.preferred_session_minutes != null) {
     if (!isAllowedSessionLength(patch.preferred_session_minutes)) {
-      return { ok: false, error: getSessionLengthErrorMessage() };
+      return { ok: false, error: "Pick 30, 45, 60 or 75 minutes." };
     }
   }
 
