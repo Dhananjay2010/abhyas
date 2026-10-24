@@ -682,6 +682,7 @@ const buildStateResult = buildTodayState({
     today: [],
     yesterday: [],
   },
+  yesterdayUnknown: false,
   timezone: "UTC",
   localToday: "2026-10-23", // Fri (training day)
   yesterday: "2026-10-22", // Thu (rest day)
@@ -720,6 +721,7 @@ const mutationTest1 = buildTodayState({
     today: [{ status: "planned", actual_type: "rest", program_id: TEST_PROGRAM_ID, started_at: null }],
     yesterday: [],
   },
+  yesterdayUnknown: false,
   timezone: "UTC",
   localToday: "2026-10-23",
   yesterday: "2026-10-22",
@@ -749,6 +751,7 @@ const restOverrideTest = buildTodayState({
     today: [{ status: "planned", actual_type: "rest", program_id: TEST_PROGRAM_ID, started_at: null }],
     yesterday: [],
   },
+  yesterdayUnknown: false,
   timezone: "UTC",
   localToday: "2026-10-24", // Sat (training day in 3-day template)
   yesterday: "2026-10-23", // Fri
@@ -812,6 +815,7 @@ const bothStateTest = buildTodayState({
     today: [],
     yesterday: [],
   },
+  yesterdayUnknown: false,
   timezone: "UTC",
   localToday: "2026-10-24", // Sat (rest day)
   yesterday: "2026-10-23", // Fri (training day that was missed)

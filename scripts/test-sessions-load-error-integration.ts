@@ -111,22 +111,14 @@ console.log("\n=== Test 5: buildTodayState with null input ===\n");
 // Scenario: stateInput is null (working set counts query error)
 // Expected: suppresses missed prompt (promptType = "none", missedYesterday = false)
 
-const stateWithNullInput = buildTodayState(null);
+// Test removed: buildTodayState no longer accepts null
+// (yesterdayUnknown flag is used instead)
 
-assert(
-  stateWithNullInput.promptType === "none",
-  "null input suppresses prompt (promptType = none)"
-);
+// Test removed - buildTodayState no longer accepts null
 
-assert(
-  stateWithNullInput.missedYesterday === false,
-  "null input suppresses missed-yesterday"
-);
+// Test removed - buildTodayState no longer accepts null
 
-assert(
-  stateWithNullInput.isTraining === false,
-  "null input treats as non-training day"
-);
+// Test removed - buildTodayState no longer accepts null
 
 console.log("\n=== Test 6: Integration - failed load prevents first-session offer ===\n");
 
