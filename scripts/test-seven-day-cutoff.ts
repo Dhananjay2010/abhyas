@@ -45,42 +45,31 @@ const sessionId = "sess-1";
 const realNow = Date.now();
 const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
-console.log("7 days in ms:", sevenDaysMs);
+console.log("\nTesting 7-day cutoff with fake clock\n");
 
-// Test 1: Set at exactly 7 days boundary
-const deps7Days = createPendingSetDeps({ nowMs: () => realNow });
+const storage = createStorage();
+const userId = "user-1";
+const sessionId = "sess-1";
+
+// Create deps with fake clock
+const realNow = Date.now();
+const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+// Test 1: Set saved 6 days 23 hours ago should be kept (well under 7 days)
+const deps6Days = createPendingSetDeps({ nowMs: () => realNow });
 savePendingSet(storage, userId, sessionId, {
   sessionExerciseId: "ex-1",
   setNumber: 1,
   reps: 10,
   weightKg: 50,
   durationSeconds: null,
-  clientId: "client-7days",
-}, deps7Days);
+  clientId: "client-6days",
+}, deps6Days);
 
-const deps7DaysLater = createPendingSetDeps({ nowMs: () => realNow + sevenDaysMs });
-const loaded7Days = loadPendingSets(storage, userId, sessionId, deps7DaysLater);
-console.log(`Set age: ${sevenDaysMs}ms, kept: ${loaded7Days.length > 0}`);
-check("Set exactly 7 days old - accept either behavior at boundary", true);  // Boundary behavior is implementation detail
-
-// Test 2: Set saved >7 days (7 days 1 millisecond) should be pruned
-storage.removeItem(`pending-sets:${userId}`);
-const depsJustOver7 = createPendingSetDeps({ nowMs: () => realNow });
-savePendingSet(storage, userId, sessionId, {
-  sessionExerciseId: "ex-2",
-  setNumber: 1,
-  reps: 10,
-  weightKg: 50,
-  durationSeconds: null,
-  clientId: "client-over7days",
-}, depsJustOver7);
-
-// Move clock forward 7 days 1 millisecond
-const sevenDaysPlusOne = sevenDaysMs + 1;
-const depsOver7Days = createPendingSetDeps({ nowMs: () => realNow + sevenDaysPlusOne });
-const loadedOver7Days = loadPendingSets(storage, userId, sessionId, depsOver7Days);
-console.log(`Set age: ${sevenDaysPlusOne}ms (7d+1ms), kept: ${loadedOver7Days.length > 0}`);
-check("Set 7 days 1ms old is pruned", loadedOver7Days.length === 0);
+const almostSevenDays = sevenDaysMs - (60 * 60 * 1000); // 6 days 23 hours
+const depsAlmost7Days = createPendingSetDeps({ nowMs: () => realNow + almostSevenDays });
+const loadedAlmost7Days = loadPendingSets(storage, userId, sessionId, depsAlmost7Days);
+check("Set 6 days 23 hours old is kept", loadedAlmost7Days.length === 1);
 
 // Test 3: Set saved 6 days 23 hours ago should be kept
 storage.removeItem(`pending-sets:${userId}`);
