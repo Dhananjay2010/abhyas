@@ -30,15 +30,28 @@ export function createSaveQueue<T>() {
   const lastFailed = new Map<string, SaveRequest<T>>();
   /** Status listeners */
   const listeners = new Set<StatusListener>();
+  /** Cached status object to avoid infinite re-renders in useSyncExternalStore */
+  let cachedStatus: SaveQueueStatus = { state: "idle" };
 
   function getStatus(): SaveQueueStatus {
-    if (inFlight.size === 0 && queued.size === 0) {
-      return { state: "idle" };
+    const newStatus: SaveQueueStatus = 
+      inFlight.size === 0 && queued.size === 0
+        ? { state: "idle" }
+        : inFlight.size > 0 && queued.size === 0
+        ? { state: "saving", key: Array.from(inFlight.keys())[0] }
+        : { state: "has-queued", keys: Array.from(queued.keys()) };
+    
+    // Cache to avoid triggering infinite re-renders
+    const statusChanged = 
+      cachedStatus.state !== newStatus.state ||
+      (newStatus.state === "saving" && "key" in newStatus && cachedStatus.state === "saving" && "key" in cachedStatus && newStatus.key !== cachedStatus.key) ||
+      (newStatus.state === "has-queued" && "keys" in newStatus && cachedStatus.state === "has-queued" && "keys" in cachedStatus && JSON.stringify(newStatus.keys) !== JSON.stringify(cachedStatus.keys));
+    
+    if (statusChanged) {
+      cachedStatus = newStatus;
     }
-    if (inFlight.size > 0 && queued.size === 0) {
-      return { state: "saving", key: Array.from(inFlight.keys())[0] };
-    }
-    return { state: "has-queued", keys: Array.from(queued.keys()) };
+    
+    return cachedStatus;
   }
 
   function notifyListeners() {
