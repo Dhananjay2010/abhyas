@@ -275,15 +275,24 @@ export async function logSet(input: {
 
   const { supabase, user } = await requireUser();
 
-  // Reject writes to sessions that are no longer in_progress
-  const { data: sessionExercise } = await supabase
+  // Reject writes to sessions that are no longer in_progress or don't exist
+  const { data: sessionExercise, error: lookupError } = await supabase
     .from("session_exercises")
     .select("sessions!inner(status)")
     .eq("id", input.sessionExerciseId)
     .maybeSingle();
 
-  const sessionStatus = (sessionExercise as { sessions: { status: string } } | null)?.sessions?.status;
-  if (sessionStatus && sessionStatus !== "in_progress") {
+  if (lookupError) {
+    return { ok: false, code: "SESSION_NOT_FOUND", error: "Session not found." };
+  }
+
+  if (!sessionExercise) {
+    return { ok: false, code: "SESSION_NOT_FOUND", error: "Session not found." };
+  }
+
+  type SessionExerciseWithStatus = { sessions: { status: string } };
+  const sessionStatus = (sessionExercise as SessionExerciseWithStatus).sessions.status;
+  if (sessionStatus !== "in_progress") {
     return { ok: false, code: "SESSION_ENDED", error: "This session has ended." };
   }
 
