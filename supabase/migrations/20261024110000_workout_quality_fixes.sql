@@ -175,6 +175,35 @@ WHERE slug IN ('tuck-crunch', 'standing-cable-wood-chop')
   AND level_min != 'beginner';
 
 
+-- Part 1B: Fix additional mis-tagged exercises found in production review
+
+-- Rows tagged as isolation should be compound
+UPDATE exercises
+SET mechanic = 'compound'
+WHERE slug IN ('alternating-kettlebell-row', 'incline-bench-pull')
+  AND mechanic = 'isolation';
+
+-- Sumo deadlifts: primary muscle should be glutes, not hamstrings
+UPDATE exercises
+SET primary_muscles = ARRAY['glutes']::muscle[]
+WHERE slug IN ('sumo-deadlift', 'reverse-band-sumo-deadlift', 'sumo-deadlift-with-bands', 'sumo-deadlift-with-chains')
+  AND 'hamstrings' = ANY(primary_muscles);
+
+-- Box jumps: mark as plyometric high-impact, not suitable for hypertrophy main lifts
+UPDATE exercises
+SET impact = 'high',
+    level_min = 'intermediate'
+WHERE slug IN ('dumbbell-seated-box-jump', 'bench-jump')
+  AND (impact != 'high' OR level_min = 'beginner');
+
+-- Lunge Sprint: cardio conditioning drill, not a strength lunge
+UPDATE exercises
+SET level_min = 'intermediate',
+    impact = 'high'
+WHERE slug = 'lunge-sprint'
+  AND (level_min = 'beginner' OR impact != 'high');
+
+
 -- Part 2: Add 'stretch' type to warmup_type enum for cool-down exercises
 DO $$ 
 BEGIN

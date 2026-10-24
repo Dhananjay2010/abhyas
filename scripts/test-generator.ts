@@ -480,5 +480,128 @@ console.log("\n21. Staple selection: beginners reliably get staples when eligibl
   check("staple selection is deterministic", JSON.stringify(slugs) === JSON.stringify(slugs2));
 }
 
+console.log("\n22. Intermediate 4-day 45-min gym: QA production review test");
+{
+  // Test the exact profile from the QA production review (bot1-p4-plan-review.md):
+  // "build muscle, intermediate, gym equipment, 4 days, 45 min"
+  const intermediate45 = base({
+    goal: "muscle_gain",
+    level: "intermediate",
+    primaryTrack: "weights",
+    hasAllEquipment: true,
+    daysPerWeek: 4,
+    preferredSessionMinutes: 45,
+  });
+
+  const plan = generateProgram(intermediate45);
+  const days = plan.days;
+
+  // Collect all exercises
+  const allExercises = days.flatMap((d) =>
+    d.exercises.map((e) => ({
+      ...e,
+      ex: byId.get(e.exerciseId)!,
+      day: d.label,
+      orderIndex: e.orderIndex,
+    }))
+  );
+
+  // Build slug set for quick checking
+  const allSlugs = new Set(allExercises.map((e) => e.ex.slug));
+
+  // CRITICAL checks per QA review
+
+  // C1: No plyometric or Olympic lifts in main slots (orderIndex 0-1)
+  const mainSlotExercises = allExercises.filter((e) => e.orderIndex <= 1);
+  const problematicMain = mainSlotExercises.filter((e) =>
+    ["dumbbell-seated-box-jump", "power-clean", "smith-machine-hang-power-clean"].includes(e.ex.slug)
+  );
+  check(
+    "no plyometric/Olympic lifts in main slots",
+    problematicMain.length === 0,
+    problematicMain.length > 0 ? `found: ${problematicMain.map((e) => e.ex.name).join(", ")}` : undefined
+  );
+
+  // C2: No behind-the-neck variants in main slots
+  const behindNeckMain = mainSlotExercises.filter((e) =>
+    ["wide-grip-rear-pull-up", "wide-grip-pulldown-behind-the-neck", 
+     "standing-barbell-press-behind-neck"].includes(e.ex.slug)
+  );
+  check(
+    "no behind-the-neck variants in main slots",
+    behindNeckMain.length === 0,
+    behindNeckMain.length > 0 ? `found: ${behindNeckMain.map((e) => e.ex.name).join(", ")}` : undefined
+  );
+
+  // H1: Must have at least one overhead press (vertical_press compound) in the week
+  const overheadPress = allExercises.filter(
+    (e) => e.ex.movement_pattern === "vertical_press" && e.ex.mechanic === "compound"
+  );
+  check(
+    "has overhead press in week",
+    overheadPress.length > 0,
+    overheadPress.length > 0 ? `found: ${overheadPress[0].ex.name}` : "none found"
+  );
+
+  // H4: Primary horizontal press should be proper bench press
+  const mainHPress = mainSlotExercises.filter((e) => e.ex.movement_pattern === "horizontal_press");
+  const goodBench = mainHPress.some((e) =>
+    ["barbell-bench-press-medium-grip", "dumbbell-bench-press", 
+     "incline-dumbbell-press", "barbell-incline-bench-press"].includes(e.ex.slug)
+  );
+  check(
+    "primary press is proper bench",
+    goodBench,
+    mainHPress.length > 0 ? `got: ${mainHPress.map((e) => e.ex.name).join(", ")}` : "no press found"
+  );
+
+  // Main slots should have staples
+  const mainSlugs = mainSlotExercises.map((e) => e.ex.slug);
+  const stapleSlugs = [
+    "barbell-bench-press-medium-grip",
+    "barbell-squat",
+    "barbell-deadlift",
+    "bent-over-barbell-row",
+    "wide-grip-lat-pulldown",
+    "chin-up",
+    "standing-military-press",
+  ];
+  const hasStaples = mainSlugs.some((s) => stapleSlugs.includes(s));
+  check("main slots include staples", hasStaples, `main slugs: ${mainSlugs.join(", ")}`);
+
+  // Coverage checks: should have some direct arm, delt, and core work
+  const armWork = allExercises.filter((e) =>
+    e.ex.primary_muscles.some((m: string) => ["biceps", "triceps"].includes(m))
+  );
+  const deltWork = allExercises.filter((e) =>
+    e.ex.primary_muscles.includes("delts" as any) || e.ex.movement_pattern === "vertical_press"
+  );
+  const coreWork = allExercises.filter((e) => e.ex.movement_pattern === "core");
+
+  check(
+    "has direct arm work (45 min should keep coverage)",
+    armWork.length > 0,
+    `found ${armWork.length} arm exercises`
+  );
+  check(
+    "has delt work",
+    deltWork.length > 0,
+    `found ${deltWork.length} delt exercises`
+  );
+  check(
+    "has core work",
+    coreWork.length > 0,
+    `found ${coreWork.length} core exercises`
+  );
+
+  // Determinism: same profile should produce same plan
+  const plan2 = generateProgram(intermediate45);
+  const slugs1 = allExercises.map((e) => e.ex.slug).join(",");
+  const slugs2 = plan2.days
+    .flatMap((d) => d.exercises.map((e) => byId.get(e.exerciseId)!.slug))
+    .join(",");
+  check("intermediate 45-min plan is deterministic", slugs1 === slugs2);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

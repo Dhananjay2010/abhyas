@@ -58,9 +58,16 @@ export function prescribe(
   level: Level,
   isolation: boolean,
   metric: Metric = "reps",
+  sessionMinutes?: number,
 ): Prescription {
   const base = BY_GOAL[goal];
-  const sets = Math.max(2, base.sets + SET_ADJUSTMENT[level]);
+  let sets = Math.max(2, base.sets + SET_ADJUSTMENT[level]);
+
+  // QA feedback: 45 min sessions were cutting exercises but keeping 4 sets each,
+  // still overrunning time. Reduce sets for shorter sessions to keep coverage.
+  if (sessionMinutes !== undefined && sessionMinutes <= 45) {
+    sets = Math.max(2, sets - 1);
+  }
 
   if (metric === "seconds") {
     const hold = HOLD_SECONDS_BY_GOAL[goal];

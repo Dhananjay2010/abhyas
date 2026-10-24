@@ -287,7 +287,7 @@
     "slug": "alternating-kettlebell-row",
     "name": "Alternating Kettlebell Row",
     "movement_pattern": "horizontal_pull",
-    "mechanic": "isolation",
+    "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
       "upper_back"
@@ -5938,7 +5938,7 @@
     "slug": "incline-bench-pull",
     "name": "Incline Bench Pull",
     "movement_pattern": "horizontal_pull",
-    "mechanic": "isolation",
+    "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
       "upper_back"
@@ -10065,7 +10065,7 @@
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
-      "hamstrings"
+      "glutes"
     ],
     "equipment_ids": [
       "barbell"
@@ -13438,7 +13438,7 @@
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
-      "hamstrings"
+      "glutes"
     ],
     "equipment_ids": [
       "barbell"
@@ -13462,7 +13462,7 @@
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
-      "hamstrings"
+      "glutes"
     ],
     "equipment_ids": [
       "barbell"
@@ -13486,7 +13486,7 @@
     "mechanic": "compound",
     "metric": "reps",
     "primary_muscles": [
-      "hamstrings"
+      "glutes"
     ],
     "equipment_ids": [
       "barbell"
