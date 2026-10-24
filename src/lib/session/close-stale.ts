@@ -134,7 +134,7 @@ export async function closeStaleSessionsCore(
       const fallbackStartedAt = firstSetCompletedAt.get(id);
       if (!fallbackStartedAt) {
         // No started_at and no sets - mark as stale only if dated before today
-        if (session && session.local_date < _today) {
+        if (session && session.local_date < today) {
           stale.push(id);
         }
         continue;
