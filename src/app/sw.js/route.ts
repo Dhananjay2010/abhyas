@@ -24,17 +24,9 @@ function getBuildVersion(): string {
   return "dev";
 }
 
-/**
- * Derive a brand ID from the brand name for cache naming.
- * This ensures that different brands on the same origin never collide.
- */
-function getBrandId(): string {
-  return branding.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-}
-
 export async function GET() {
   const buildVersion = getBuildVersion();
-  const brandId = getBrandId();
+  const brandId = branding.id;
   const iconUrl = branding.icons.icon192;
 
   const script = `/**

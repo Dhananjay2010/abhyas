@@ -136,6 +136,7 @@ function testBrandColorCompliance() {
 
   // Read all brand colors from branding config
   const brandAccent = branding.colors.accent;
+  const brandAccentHover = branding.colors.accentHover;
   const brandAccentFg = branding.colors.accentFg;
   const brandBg = branding.colors.bg;
   const brandFg = branding.colors.fg;
@@ -150,6 +151,13 @@ function testBrandColorCompliance() {
   assert(
     buttonContrast >= 4.5,
     `Button contrast should be >= 4.5:1, got ${buttonContrast.toFixed(2)}:1`
+  );
+
+  // Test button hover colors (accentFg text on accentHover background)
+  const buttonHoverContrast = contrastRatio(brandAccentFg, brandAccentHover);
+  assert(
+    meetsWCAG_AA(brandAccentFg, brandAccentHover),
+    `Button hover text (${brandAccentFg} on ${brandAccentHover}) should meet WCAG AA (got ${buttonHoverContrast.toFixed(2)}:1)`
   );
 
   // Test page text (fg on bg)
@@ -167,8 +175,10 @@ function testBrandColorCompliance() {
   );
 
   console.log(`  ✓ Brand accent: ${brandAccent}`);
+  console.log(`  ✓ Brand accent hover: ${brandAccentHover}`);
   console.log(`  ✓ Brand accent foreground: ${brandAccentFg}`);
   console.log(`  ✓ Button contrast: ${buttonContrast.toFixed(2)}:1 (>= 4.5:1)`);
+  console.log(`  ✓ Button hover contrast: ${buttonHoverContrast.toFixed(2)}:1 (>= 4.5:1)`);
   console.log(`  ✓ Page text (${brandFg} on ${brandBg}): ${pageContrast.toFixed(2)}:1`);
   console.log(`  ✓ Muted text (${brandMuted} on ${brandBg}): ${mutedContrast.toFixed(2)}:1`);
 }
