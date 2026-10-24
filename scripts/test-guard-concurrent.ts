@@ -111,7 +111,7 @@ async function main() {
 
     try {
       await guarded();
-    } catch (err) {
+    } catch {
       // Expected to throw
     }
 
@@ -121,7 +121,7 @@ async function main() {
     // Second call should succeed (not blocked by first error)
     try {
       await guarded();
-    } catch (err) {
+    } catch {
       // Expected to throw
     }
 
