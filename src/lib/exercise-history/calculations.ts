@@ -274,17 +274,18 @@ export function detectPersonalRecords(
   // Most reps: same-weight comparison for weighted, plain for bodyweight
   if (hasWeight) {
     // Weighted: use checkWeightedRepPR helper
-    let bestRepPRSet: SetData | null = null;
-    let bestRepPRValue = 0;
+    // Start with first set as baseline, then replace when sets qualify as rep PRs
+    let bestRepPRSet: SetData | null = allSets[0] ?? null;
+    let bestRepPRValue = bestRepPRSet?.reps ?? 0;
 
     // Process sets chronologically
-    for (let i = 0; i < allSets.length; i++) {
+    for (let i = 1; i < allSets.length; i++) {
       const currentSet = allSets[i];
       const earlierSets = allSets.slice(0, i);
       
       if (checkWeightedRepPR(currentSet, earlierSets)) {
         const currentReps = currentSet.reps ?? 0;
-        if (bestRepPRSet === null || currentReps > bestRepPRValue) {
+        if (currentReps > bestRepPRValue) {
           bestRepPRSet = currentSet;
           bestRepPRValue = currentReps;
         }

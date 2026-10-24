@@ -332,19 +332,19 @@ console.log("\n16. Weighted rep PR rule edge cases");
   ];
   const prs2 = detectPersonalRecords(case2, "reps");
   const mostReps2 = prs2.find(pr => pr.type === "most_reps");
-  check("100×5 / 110×3: NOT a rep PR (no earlier set at 110)", 
-    mostReps2 === undefined,
+  check("100×5 / 110×3: currentPRs.most_reps is baseline 100×5 (110×3 not a rep PR)", 
+    mostReps2?.value === 5 && mostReps2?.set.weight_kg === 100,
     `got ${mostReps2 ? mostReps2.set.weight_kg + '×' + mostReps2.value : 'none'}`);
 
-  // Case 3: 100×5 / 100×5 -> tie is NOT a PR
+  // Case 3: 100×5 / 100×5 -> tie is NOT a PR, baseline remains
   const case3: SetData[] = [
     set(5, 100, null),
     set(5, 100, null),
   ];
   const prs3 = detectPersonalRecords(case3, "reps");
   const mostReps3 = prs3.find(pr => pr.type === "most_reps");
-  check("100×5 / 100×5: tie is NOT a PR", 
-    mostReps3 === undefined,
+  check("100×5 / 100×5: currentPRs.most_reps is baseline 100×5 (tie not a PR)", 
+    mostReps3?.value === 5 && mostReps3?.set.weight_kg === 100,
     `got ${mostReps3 ? mostReps3.set.weight_kg + '×' + mostReps3.value : 'none'}`);
 }
 

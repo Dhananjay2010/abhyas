@@ -832,8 +832,10 @@ async function runTests() {
     const [sess2, sess1] = history.sessions;
 
     check("Heavier s1: first session gets NO PRs", sess1?.prs.length === 0);
-    check("Heavier s2: 105×6 DOES get most_reps PR (heavier weight, more reps)",
-      sess2?.prs.some(pr => pr.type === "most_reps" && pr.value === 6),
+    check("Heavier s2: 105×6 gets heaviest_weight and best_e1rm (no earlier set at 105, so no rep PR)",
+      sess2?.prs.some(pr => pr.type === "heaviest_weight") &&
+      sess2?.prs.some(pr => pr.type === "best_e1rm") &&
+      !sess2?.prs.some(pr => pr.type === "most_reps"),
       `s2 prs: ${sess2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
   }
 
@@ -1269,6 +1271,10 @@ async function runTests() {
     check("Case 2: 110×3 is NOT a rep PR (no earlier set at 110)",
       !sessCase2_2?.prs.some(pr => pr.type === "most_reps"),
       `s2 prs: ${sessCase2_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    const mostRepsPRCase2 = histCase2.currentPRs.find(pr => pr.type === "most_reps");
+    check("Case 2: currentPRs.most_reps is baseline 100×5",
+      mostRepsPRCase2?.set.weight_kg === 100 && mostRepsPRCase2?.value === 5,
+      `got ${mostRepsPRCase2?.set.weight_kg}×${mostRepsPRCase2?.value}`);
 
     // Case 3: 100×5 / 100×5 -> tie is NOT a PR
     const s6 = randomUUID(), s7 = randomUUID();
@@ -1293,6 +1299,10 @@ async function runTests() {
     check("Case 3: 100×5 tie is NOT a rep PR",
       !sessCase3_2?.prs.some(pr => pr.type === "most_reps"),
       `s2 prs: ${sessCase3_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    const mostRepsPRCase3 = histCase3.currentPRs.find(pr => pr.type === "most_reps");
+    check("Case 3: currentPRs.most_reps is baseline 100×5 (first set)",
+      mostRepsPRCase3?.set.weight_kg === 100 && mostRepsPRCase3?.value === 5,
+      `got ${mostRepsPRCase3?.set.weight_kg}×${mostRepsPRCase3?.value}`);
   }
 
   if (failures > 0) {
