@@ -1,4 +1,4 @@
-import { localDateString } from "../dates";
+import { isStaleSession } from "./is-stale-session";
 
 /**
  * Calculate elapsed seconds for the runner's clock display.
@@ -27,18 +27,16 @@ export function runnerClockSeconds(params: {
 }): number {
   const startedMs = new Date(params.startedAt).getTime();
   const nowMs = new Date(params.now).getTime();
-  const todayLocal = localDateString(params.timezone);
 
-  // Session is stale if:
-  // 1. Local date is before today, OR
-  // 2. More than 3 hours have passed since started_at
-  const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
-  const isStale =
-    params.sessionLocalDate < todayLocal ||
-    nowMs - startedMs > THREE_HOURS_MS;
+  // Check if session is stale
+  const stale = isStaleSession({
+    startedAt: params.startedAt,
+    now: params.now,
+    timezone: params.timezone,
+  });
 
   // Normal session: count from started_at to now
-  if (!isStale) {
+  if (!stale) {
     return Math.floor((nowMs - startedMs) / 1000);
   }
 

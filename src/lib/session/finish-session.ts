@@ -1,5 +1,6 @@
 import { decideAbandonStatus, type SessionExercise } from "./abandon-session";
-import { finishTimestamp } from "./finish-timestamp";
+import { resolveStaleFinish } from "./stale-duration";
+import { isStaleSession } from "./is-stale-session";
 
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
@@ -38,8 +39,8 @@ interface SupabaseUpdateChain {
  * as completed (not skipped). Only a session with no working sets at all is marked skipped.
  * Warm-up sets don't count as training.
  *
- * For stale sessions (past-day or >3h idle), the duration is capped at the last
- * logged set + buffer to prevent recording unrealistic times.
+ * For stale sessions (past-day or >3h idle), uses resolveStaleFinish to cap duration
+ * at the last logged set instead of recording unrealistic times.
  */
 export async function finishSessionCore(
   supabase: SupabaseClient,
@@ -82,39 +83,50 @@ export async function finishSessionCore(
     session_sets: SessionSetWithTimestamp[] | null;
   };
 
-  // Determine if this should be completed or skipped based on working sets
-  const status = decideAbandonStatus((exercises ?? []) as SessionExercise[]);
-
-  // Find the last logged set (warmup or working)
+  // Count working sets and find the last logged set timestamp
+  let workingSetCount = 0;
   let lastSetCompletedAt: string | null = null;
+
   for (const exercise of (exercises ?? []) as SessionExerciseWithTimestamp[]) {
     for (const set of exercise.session_sets ?? []) {
+      if (!set.is_warmup_set) {
+        workingSetCount++;
+      }
       if (set.completed_at && (!lastSetCompletedAt || set.completed_at > lastSetCompletedAt)) {
         lastSetCompletedAt = set.completed_at;
       }
     }
   }
 
-  // Calculate proper ended_at timestamp (handles stale sessions)
   const now = new Date().toISOString();
-  const endedAt = finishTimestamp({
+
+  // Check if session is stale
+  const stale = isStaleSession({
     startedAt: session.started_at,
-    lastSetCompletedAt,
     now,
     timezone: session.timezone,
-    sessionLocalDate: session.local_date,
-    plannedRestSeconds: 60, // Default buffer
   });
 
-  // Calculate duration in seconds
+  let status: "completed" | "skipped";
+  let endedAt: string;
   let durationSeconds: number;
-  if (endedAt) {
-    const startMs = new Date(session.started_at).getTime();
-    const endMs = new Date(endedAt).getTime();
-    durationSeconds = Math.floor((endMs - startMs) / 1000);
+
+  if (stale) {
+    // Use stale finish logic
+    const staleFinish = resolveStaleFinish({
+      startedAt: session.started_at,
+      lastSetCompletedAt,
+      workingSetCount,
+    });
+
+    status = staleFinish.status;
+    endedAt = staleFinish.endedAt;
+    durationSeconds = staleFinish.durationSeconds;
   } else {
-    // No sets and stale: use 0 duration
-    durationSeconds = 0;
+    // Normal finish: use now and client-provided duration
+    status = decideAbandonStatus((exercises ?? []) as SessionExercise[]);
+    endedAt = now;
+    durationSeconds = params.durationSeconds;
   }
 
   // Clamp duration to sane range: 0 to 6 hours
@@ -125,7 +137,7 @@ export async function finishSessionCore(
     .from("sessions")
     .update({
       status,
-      completed_at: status === "completed" ? (endedAt ?? now) : null,
+      completed_at: status === "completed" ? endedAt : null,
       duration_seconds: clampedDuration,
       cooldown_completed: status === "completed" ? params.cooldownCompleted : undefined,
     })
