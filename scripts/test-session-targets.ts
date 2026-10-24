@@ -384,7 +384,7 @@ console.log("\n7. Invariant over real generateProgram output: comprehensive prof
         }
         testedRowsNonDeload++;
 
-        // Deload: strengthen checks to verify behavior
+        // Deload: strengthen checks to catch mutants
         const deload = resolveSessionTargets(planned, { isDeload: true });
         dayDeloadTotalSets += deload.sets;
 
