@@ -9,6 +9,7 @@ import {
 } from "./generate";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { repointSessionsAfterRebuild } from "./repoint-sessions";
+import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 
 type Client = SupabaseClient<Database>;
 type Enums = Database["public"]["Enums"];
@@ -255,7 +256,7 @@ export async function createBlockForUser(
     currentInjuryRegions: (injuriesRes.data ?? [])
       .filter((i) => i.severity === "current")
       .map((i) => i.body_region),
-    preferredSessionMinutes: profile.preferred_session_minutes ?? 60,
+    preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver: options.carryOver,
   };
