@@ -9,21 +9,13 @@
  * Bodyweight progression chains, ordered from easiest to hardest.
  * Each chain represents a single movement with progressively harder variations.
  * All slugs reference exercises that exist in the seed catalogue and require no equipment.
- * 
- * Chains with fewer than 2 exercises have been removed.
  */
-export const BODYWEIGHT_CHAINS: Record<string, string[]> = {
-  // Push-up progressions (no incline-push-up - requires bench)
+export const BODYWEIGHT_CHAINS: Readonly<Record<string, readonly string[]>> = {
+  // Push-up progressions
   "push-up": [
     "pushups",
     "push-ups-with-feet-elevated",
     "single-arm-push-up"
-  ],
-  
-  // Plank progressions
-  "plank": [
-    "plank",
-    "side-bridge"
   ],
   
   // Bridge progressions
@@ -36,12 +28,12 @@ export const BODYWEIGHT_CHAINS: Record<string, string[]> = {
 /**
  * Find the next harder variation in a progression chain.
  * 
- * @param chain - The name of the progression chain (e.g., "push-up", "plank")
+ * @param chain - The name of the progression chain (e.g., "push-up", "bridge")
  * @param currentSlug - The current exercise slug
  * @returns The next harder variation's slug, or null if at the end or slug not found
  */
 export function nextVariation(chain: string, currentSlug: string): string | null {
-  const variations: string[] | undefined = BODYWEIGHT_CHAINS[chain];
+  const variations: readonly string[] | undefined = BODYWEIGHT_CHAINS[chain];
   
   if (!variations) {
     return null;
@@ -58,4 +50,32 @@ export function nextVariation(chain: string, currentSlug: string): string | null
   }
   
   return variations[currentIndex + 1];
+}
+
+/**
+ * Validate that all exercises in the provided chains are bodyweight-only.
+ * 
+ * @param chains - The chains to validate
+ * @param catalogue - Array of exercises with slug and equipment_ids
+ * @returns Array of slugs that require equipment
+ */
+export function findNonBodyweightSlugs(
+  chains: Readonly<Record<string, readonly string[]>>,
+  catalogue: ReadonlyArray<{ slug: string; equipment_ids?: readonly string[] }>
+): string[] {
+  const nonBodyweight: string[] = [];
+  
+  for (const chain of Object.values(chains)) {
+    for (const slug of chain) {
+      const exercise = catalogue.find(ex => ex.slug === slug);
+      if (exercise) {
+        const equipmentIds: readonly string[] = exercise.equipment_ids || [];
+        if (equipmentIds.length > 0) {
+          nonBodyweight.push(slug);
+        }
+      }
+    }
+  }
+  
+  return nonBodyweight;
 }

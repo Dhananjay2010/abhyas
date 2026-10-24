@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { BODYWEIGHT_CHAINS, nextVariation } from '../src/lib/program/variations.js';
+import { BODYWEIGHT_CHAINS, nextVariation, findNonBodyweightSlugs } from '../src/lib/program/variations.js';
 
 let pass = true;
 
@@ -51,8 +51,8 @@ if (unknownChainResult !== null) {
   console.log(`  ok   unknown chain returns null`);
 }
 
-const firstElementResult: string | null = nextVariation('plank', 'plank');
-if (firstElementResult !== 'side-bridge') {
+const firstElementResult: string | null = nextVariation('bridge', 'butt-lift-bridge');
+if (firstElementResult !== 'single-leg-glute-bridge') {
   console.error(`  FAIL first element should return second, got ${firstElementResult}`);
   pass = false;
 } else {
@@ -76,40 +76,27 @@ if (allSlugsExist) {
   console.log(`  ok   all chain slugs exist in catalogue`);
 }
 
-// Test 3: All chain exercises are bodyweight-only (no equipment)
-console.log('\n3. Bodyweight-only validation');
-let allBodyweight = true;
-for (const [chainName, slugs] of Object.entries(BODYWEIGHT_CHAINS)) {
-  for (const slug of slugs) {
-    const exercise: Exercise | undefined = catalogue.find(ex => ex.slug === slug);
-    if (exercise) {
-      const equipmentIds: string[] = exercise.equipment_ids || [];
-      if (equipmentIds.length > 0) {
-        console.error(`  FAIL '${slug}' in chain '${chainName}' has equipment: ${JSON.stringify(equipmentIds)}`);
-        allBodyweight = false;
-        pass = false;
-      }
-    }
-  }
-}
-if (allBodyweight) {
+// Test 3: Use the exported validator
+console.log('\n3. Bodyweight-only validation using findNonBodyweightSlugs');
+const nonBodyweight: string[] = findNonBodyweightSlugs(BODYWEIGHT_CHAINS, catalogue);
+if (nonBodyweight.length > 0) {
+  console.error(`  FAIL found non-bodyweight exercises: ${nonBodyweight.join(', ')}`);
+  pass = false;
+} else {
   console.log(`  ok   all chain exercises are bodyweight-only (no equipment)`);
 }
 
-// Test 4: Negative test - barbell-squat should fail bodyweight check
+// Test 4: Negative test - synthetic chain with barbell-squat
 console.log('\n4. Negative test for equipment detection');
-const barbellSquat: Exercise | undefined = catalogue.find(ex => ex.slug === 'barbell-squat');
-if (!barbellSquat) {
-  console.error(`  FAIL barbell-squat not found in catalogue`);
+const syntheticChains: Readonly<Record<string, readonly string[]>> = {
+  "test-chain": ["barbell-squat"]
+};
+const syntheticNonBodyweight: string[] = findNonBodyweightSlugs(syntheticChains, catalogue);
+if (syntheticNonBodyweight.length !== 1 || syntheticNonBodyweight[0] !== 'barbell-squat') {
+  console.error(`  FAIL synthetic chain should detect barbell-squat, got ${JSON.stringify(syntheticNonBodyweight)}`);
   pass = false;
 } else {
-  const equipmentIds: string[] = barbellSquat.equipment_ids || [];
-  if (equipmentIds.length === 0) {
-    console.error(`  FAIL barbell-squat should have equipment but has none`);
-    pass = false;
-  } else {
-    console.log(`  ok   barbell-squat correctly has equipment: ${JSON.stringify(equipmentIds)}`);
-  }
+  console.log(`  ok   findNonBodyweightSlugs correctly detects barbell-squat in synthetic chain`);
 }
 
 // Test 5: No empty or single-exercise chains

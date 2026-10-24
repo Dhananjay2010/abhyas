@@ -9,6 +9,20 @@ UPDATE exercises SET impact = 'low'
 WHERE slug = 'isometric-chest-squeezes' AND impact = 'high';
 
 -- ============================================================================
+-- Part 1b: Warmup Type Fix
+-- ============================================================================
+
+UPDATE warmup_exercises SET type = 'mobility'
+WHERE slug = 'cat-cow-stretch' AND type = 'stretch';
+
+-- ============================================================================
+-- Part 1c: Spanish Squat Cue Enhancement
+-- ============================================================================
+
+UPDATE exercises SET cue = 'Anchor band to sturdy post or rack at knee height. Band behind knees creates forward resistance - controlled squat motion'
+WHERE slug = 'spanish-squat' AND cue = 'Band behind knees creates forward resistance - controlled squat motion';
+
+-- ============================================================================
 -- Part 2: Lower-Body Exercise Description Fixes
 -- ============================================================================
 
@@ -50,9 +64,6 @@ WHERE slug = 'barbell-walking-lunge' AND cue = 'Compound push movement targeting
 
 -- Box Squat
 UPDATE exercises SET cue = 'Compound Squat movement targeting quads. Barbell, Rack.'
-WHERE slug = 'box-squat' AND cue = 'Compound push movement targeting quads. Barbell, Rack.';
-
--- Box Squat with Chains
 UPDATE exercises SET cue = 'Compound Squat movement targeting front delts, side delts. Barbell.'
 WHERE slug = 'box-squat-with-chains' AND cue = 'Compound push movement targeting front delts, side delts. Barbell.';
 
@@ -154,9 +165,6 @@ WHERE slug = 'knee-tuck-jump' AND cue = 'Isolation pull movement targeting abs. 
 
 -- Leg Extensions
 UPDATE exercises SET cue = 'Isolation Squat movement targeting glutes.'
-WHERE slug = 'leg-extensions' AND cue = 'Isolation push movement targeting glutes.';
-
--- Leg Press
 UPDATE exercises SET cue = 'Compound Squat movement targeting abs.'
 WHERE slug = 'leg-press' AND cue = 'Compound pull movement targeting abs.';
 
