@@ -162,6 +162,11 @@ site_url = "https://abhyas-indol.vercel.app"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
+#
+# IMPORTANT: This local configuration includes localhost and preview deployment wildcards for
+# development convenience. DO NOT push this to production with `supabase config push`.
+# The production redirect allow-list is managed in the Supabase Dashboard (Authentication → URL Configuration)
+# to ensure only production URLs are permitted in the live environment.
 additional_redirect_urls = ["http://localhost:3000/**", "https://abhyas-indol.vercel.app/**", "https://abhyas-*-dhananjays-projects-6717e849.vercel.app/**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600

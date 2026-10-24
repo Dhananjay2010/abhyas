@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { PERF_ENABLED } from "@/lib/perf";
 import { isPublicPath } from "./public-paths";
+import { buildRedirectQuery, copyCookies } from "../auth/redirect";
 
 export async function updateSession(request: NextRequest) {
   const started = performance.now();
@@ -48,7 +49,10 @@ export async function updateSession(request: NextRequest) {
   if (!signedIn && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
-    return finish(NextResponse.redirect(url), started, pathname, signedIn);
+    url.search = buildRedirectQuery(pathname, request.nextUrl.search, request.nextUrl.origin);
+    const redirect = NextResponse.redirect(url);
+    copyCookies(response, redirect);
+    return finish(redirect, started, pathname, signedIn);
   }
 
   return finish(response, started, pathname, signedIn);

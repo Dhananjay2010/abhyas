@@ -15,9 +15,17 @@ export function SignInButton() {
     // is already in its pending state by the time this resolves.
     const { createClient } = await import("@/lib/supabase/client");
     const supabase = createClient();
+    
+    // Preserve the `next` param so users return to their original destination after sign-in
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    const callbackUrl = next
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+      : `${window.location.origin}/auth/callback`;
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl },
     });
     if (error) {
       // Surface the real reason on screen rather than hiding it in the console.

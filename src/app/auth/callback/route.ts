@@ -2,11 +2,21 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { withRateLimit } from "@/lib/rate-limit/route-handler";
+import { sanitizeRedirectPath } from "@/lib/auth/redirect";
 
 async function handleAuthCallback(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/today";
+  const rawNext = searchParams.get("next");
+  
+  // Behind Vercel the origin is the internal host, so prefer the forwarded one.
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const base =
+    process.env.NODE_ENV === "development" || !forwardedHost
+      ? origin
+      : `https://${forwardedHost}`;
+  
+  const next = sanitizeRedirectPath(rawNext, base);
 
   if (code) {
     const supabase = await createClient();
@@ -23,12 +33,6 @@ async function handleAuthCallback(request: Request) {
       */
       if (data?.user) await ensureProfileRows(supabase, data.user);
 
-      // Behind Vercel the origin is the internal host, so prefer the forwarded one.
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const base =
-        process.env.NODE_ENV === "development" || !forwardedHost
-          ? origin
-          : `https://${forwardedHost}`;
       return NextResponse.redirect(`${base}${next}`);
     }
   }
