@@ -689,7 +689,7 @@ console.log("\n26. Two-set case with started_at: duration = last set - started_a
   
   const session = fake.getSession("twosets");
   check("session closed", session?.status === "completed");
-  check("ended_at is last set", session?.completed_at?.startsWith(lastSet.replace("Z", "")));
+  check("ended_at is last set", !!session?.completed_at?.startsWith(lastSet.replace("Z", "")));
   check("duration is 3600s (1 hour)", session?.duration_seconds === 3600);
 }
 
