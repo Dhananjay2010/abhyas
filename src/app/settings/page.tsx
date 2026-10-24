@@ -52,6 +52,7 @@ export default async function SettingsPage() {
     restOverrideSeconds: st?.rest_seconds_override ?? null,
     bodyweightPrompt: st?.bodyweight_prompt ?? "weekly",
     timezone: profile.timezone,
+    dateOfBirth: profile.date_of_birth,
   };
 
   // F1: Build timezone list with canonical aliases (FALLBACK_TIMEZONE, Europe/Kyiv, UTC, etc.)
