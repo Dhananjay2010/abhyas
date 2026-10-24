@@ -136,8 +136,9 @@ function createTypedMockSupabase(): MockSupabaseClient {
                     return Promise.resolve({
                       data: {
                         id: "program-1",
-                        started_on: today, // Today, so no rollover needed
-                        deload_week: 4,
+                        started_on: today,
+                        deload_week: 1, // Week 1 is deload to trigger validation
+                        week_offset: 0,
                         status: "active",
                         program_days: [
                           {
@@ -250,6 +251,174 @@ function createTypedMockSupabase(): MockSupabaseClient {
   };
 }
 
+function createValidMockSupabase(): MockSupabaseClient {
+  return {
+    from(table: string) {
+      if (table === "profiles") {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  single() {
+                    return Promise.resolve({
+                      data: {
+                        id: "user-1",
+                        timezone: "America/New_York",
+                        primary_track: "weights",
+                      },
+                      error: null,
+                    });
+                  },
+                };
+              },
+            } as SelectQuery<unknown>;
+          },
+        };
+      }
+
+      if (table === "sessions") {
+        return {
+          select() {
+            return {
+              in() {
+                return {
+                  order() {
+                    return {
+                      order() {
+                        return {
+                          limit() {
+                            return Promise.resolve({
+                              data: [],
+                              error: null,
+                            });
+                          },
+                        };
+                      },
+                    };
+                  },
+                };
+              },
+            } as SelectQuery<unknown>;
+          },
+          insert() {
+            sessionsInsertCalled = true;
+            return {
+              select() {
+                return {
+                  single() {
+                    return Promise.resolve({
+                      data: { id: "new-session-1" },
+                      error: null,
+                    });
+                  },
+                };
+              },
+            } as InsertQuery<unknown>;
+          },
+        };
+      }
+
+      if (table === "user_settings") {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle() {
+                    return Promise.resolve({
+                      data: { resume_session: true },
+                      error: null,
+                    });
+                  },
+                };
+              },
+            } as SelectQuery<unknown>;
+          },
+        };
+      }
+
+      if (table === "programs") {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  maybeSingle() {
+                    const today = new Date().toISOString().split("T")[0];
+                    return Promise.resolve({
+                      data: {
+                        id: "program-1",
+                        started_on: today,
+                        deload_week: 4,
+                        week_offset: 0,
+                        status: "active",
+                        program_days: [
+                          {
+                            id: "day-1",
+                            day_index: new Date().getDay() === 0 ? 7 : new Date().getDay(),
+                            day_type: "weights",
+                            focus: "upper_body",
+                            label: "Upper",
+                          },
+                        ],
+                      },
+                      error: null,
+                    });
+                  },
+                };
+              },
+            } as SelectQuery<unknown>;
+          },
+        };
+      }
+
+      if (table === "program_day_exercises") {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  order() {
+                    return Promise.resolve({
+                      data: [
+                        {
+                          exercise_id: "ex-1",
+                          order_index: 0,
+                          target_sets: 3,
+                          target_reps_min: 8,
+                          target_reps_max: 12,
+                          rest_seconds: 90,
+                          exercises: {
+                            metric: "reps",
+                            equipment_ids: ["barbell"],
+                          },
+                        },
+                      ],
+                      error: null,
+                    });
+                  },
+                };
+              },
+            } as SelectQuery<unknown>;
+          },
+        };
+      }
+
+      if (table === "session_exercises") {
+        return {
+          insert() {
+            sessionExercisesInsertCalled = true;
+            return Promise.resolve({ error: null, data: null });
+          },
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    },
+  };
+}
+
 async function runTests() {
   console.log("\nTest: startSessionCore validation with invalid target_sets\n");
 
@@ -262,10 +431,19 @@ async function runTests() {
     // no-op for this test
   };
 
+  const mockEnsureCurrentBlock = async () => ({
+    status: "current" as const,
+    programId: "program-1",
+  });
+
+  // Test 1: Validation failure prevents session insert
   const result = await startSessionCore(
     mockSupabase as never,
     "user-1",
-    { ensureSessionExercises: mockEnsureSessionExercises },
+    {
+      ensureSessionExercises: mockEnsureSessionExercises,
+      ensureCurrentBlock: mockEnsureCurrentBlock,
+    },
   );
 
   if (result.ok) {
@@ -290,6 +468,37 @@ async function runTests() {
   console.log("  ✓  Error message includes 'Invalid exercise targets'");
   console.log("  ✓  sessions insert was NOT called");
   console.log("  ✓  session_exercises insert was NOT called");
+
+  // Test 2: Happy path - valid exercise inserts exactly one session
+  sessionsInsertCalled = false;
+  sessionExercisesInsertCalled = false;
+
+  const validMockSupabase = createValidMockSupabase();
+  const resultHappy = await startSessionCore(
+    validMockSupabase as never,
+    "user-1",
+    {
+      ensureSessionExercises: mockEnsureSessionExercises,
+      ensureCurrentBlock: mockEnsureCurrentBlock,
+    },
+  );
+
+  if (!resultHappy.ok) {
+    throw new Error(`Expected startSessionCore to succeed, but got error: ${resultHappy.error}`);
+  }
+
+  if (resultHappy.data.sessionId !== "new-session-1") {
+    throw new Error(`Expected sessionId "new-session-1", got: ${resultHappy.data.sessionId}`);
+  }
+
+  if (!sessionsInsertCalled) {
+    throw new Error("sessions insert was NOT called in happy path");
+  }
+
+  console.log("  ✓  Happy path: startSessionCore succeeded");
+  console.log("  ✓  Happy path: returned correct sessionId");
+  console.log("  ✓  Happy path: sessions insert was called");
+
   console.log("\n✅ All validation tests passed\n");
 }
 

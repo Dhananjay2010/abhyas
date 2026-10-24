@@ -31,6 +31,16 @@ export async function startSessionCore(
       userId: string,
       sessionId: string,
     ) => Promise<void>;
+    ensureCurrentBlock?: (
+      supabase: SupabaseClient,
+      userId: string,
+      today: string,
+    ) => Promise<
+      | { status: "current"; programId: string }
+      | { status: "rolled_over"; programId: string; blockNumber: number }
+      | { status: "none" }
+      | { status: "error"; error: string }
+    >;
   },
 ): Promise<Result<{ sessionId: string }>> {
   const [profileRes, openRes, settingsRes] = await Promise.all([
@@ -68,7 +78,8 @@ export async function startSessionCore(
     return { ok: true, data: { sessionId: existing.id } };
   }
 
-  const rolloverResult = await ensureCurrentBlock(supabase, userId, today);
+  const rolloverFn = deps.ensureCurrentBlock || ensureCurrentBlock;
+  const rolloverResult = await rolloverFn(supabase, userId, today);
   if (rolloverResult.status === "none") {
     return { ok: false, error: "You have no active training block." };
   }
