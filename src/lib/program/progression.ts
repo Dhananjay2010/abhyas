@@ -135,35 +135,48 @@ function roundTo(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-/**
- * Snap weight to equipment increments.
- * 
- * Kettlebells: 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32 kg.
- * Uses nearest-down rule: ties and between-increments go to the lower bell.
- * Dumbbells and other equipment: use the standard grid (step).
- */
-function roundToEquipment(value: number, step: number, equipmentIds: string[]): number {
-  const hasKettlebell = equipmentIds.includes("kettlebell");
-  if (!hasKettlebell) return roundTo(value, step);
+const KETTLEBELL_SIZES = [4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
 
-  const KETTLEBELL_SIZES = [4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
+/**
+ * Snap weight to next kettlebell above (for progression).
+ * 
+ * Returns the smallest bell strictly above `from`. At 32 kg (top bell), returns 32.
+ * Non-standard or above-32 weights are NOT snapped: returns `from` unchanged.
+ */
+function nextKettlebellAbove(from: number): number | null {
+  // Non-standard or above top: don't snap
+  if (!KETTLEBELL_SIZES.includes(from) || from > 32) return null;
   
-  // Find the nearest kettlebell size, ties go down
-  let nearest = KETTLEBELL_SIZES[0];
-  let minDiff = Math.abs(value - nearest);
+  // At 32 kg: hold at 32
+  if (from === 32) return 32;
   
+  // Find next bell above
   for (const size of KETTLEBELL_SIZES) {
-    const diff = Math.abs(value - size);
-    if (diff < minDiff) {
-      nearest = size;
-      minDiff = diff;
-    } else if (diff === minDiff && size < nearest) {
-      // Tie: choose lower
-      nearest = size;
-    }
+    if (size > from) return size;
   }
   
-  return nearest;
+  return null;
+}
+
+/**
+ * Snap weight to next kettlebell below (for deload/back-off).
+ * 
+ * Returns the largest bell strictly below `from`. At 4 kg (bottom bell), returns 4.
+ * Non-standard or above-32 weights are NOT snapped: returns `from` unchanged.
+ */
+function nextKettlebellBelow(from: number): number | null {
+  // Non-standard or above top: don't snap
+  if (!KETTLEBELL_SIZES.includes(from) || from > 32) return null;
+  
+  // At 4 kg: hold at 4
+  if (from === 4) return 4;
+  
+  // Find next bell below
+  for (let i = KETTLEBELL_SIZES.length - 1; i >= 0; i--) {
+    if (KETTLEBELL_SIZES[i] < from) return KETTLEBELL_SIZES[i];
+  }
+  
+  return null;
 }
 
 /** Epley. Only meaningful for a working set, so callers cap the rep count. */
@@ -357,19 +370,41 @@ export function evaluateProgression(input: {
     const from = isBodyweightWithAddedWeight
       ? Math.max(state.currentWorkingWeightKg ?? 0, heaviest)
       : state.currentWorkingWeightKg ?? heaviest;
-    // Snap off-grid weights to grid: smallest multiple of step strictly above from.
-    const next = isBodyweightWithAddedWeight
-      ? Math.floor(from / step) * step + step
-      : roundToEquipment(from + (feel === "easy" ? step * 2 : step), step, meta.equipmentIds);
+    
+    // Calculate next weight
+    let next: number;
+    const hasKettlebell = meta.equipmentIds.includes("kettlebell");
+    
+    if (isBodyweightWithAddedWeight) {
+      // Bodyweight: snap to grid, smallest multiple above from
+      next = Math.floor(from / step) * step + step;
+    } else if (hasKettlebell && KETTLEBELL_SIZES.includes(from) && from <= 32) {
+      // Kettlebell: go to next bell above (or two above if easy)
+      const stepsUp = feel === "easy" ? 2 : 1;
+      let targetWeight = from;
+      for (let i = 0; i < stepsUp; i++) {
+        const nextBell = nextKettlebellAbove(targetWeight);
+        if (nextBell === null || nextBell === targetWeight) break; // At top or can't progress
+        targetWeight = nextBell;
+      }
+      next = targetWeight;
+    } else {
+      // Standard increment: use step (doubled if easy)
+      next = roundTo(from + (feel === "easy" ? step * 2 : step), step);
+    }
 
+    // At 32 kg kettlebell top, hold the weight
+    const atKettlebellTop = hasKettlebell && from === 32 && next === 32;
+    
     return {
       ...carried,
-      outcome: "progressed",
+      outcome: atKettlebellTop ? "hold" : "progressed",
       nextWorkingWeightKg: next,
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
-      message:
-        feel === "easy" && !isBodyweightWithAddedWeight
+      message: atKettlebellTop
+        ? "At the heaviest bell — hold at 32 kg."
+        : feel === "easy" && !isBodyweightWithAddedWeight
           ? `All sets at the top and it felt easy — up to ${next} kg.`
           : `All sets at the top of the range — up to ${next} kg.`,
     };
@@ -387,7 +422,7 @@ export function evaluateProgression(input: {
     // Loaded exercises: reduce by ~10%.
     if (meta.isBodyweight) {
       const step = addedWeightStep(meta);
-      const reduced = Math.max(0, roundToEquipment(currentWeight - step * 2, step, meta.equipmentIds));
+      const reduced = Math.max(0, roundTo(currentWeight - step * 2, step));
       return {
         ...carried,
         outcome: "backed_off",
@@ -400,8 +435,19 @@ export function evaluateProgression(input: {
             : `Missed twice in a row — down to ${reduced} kg to build back.`,
       };
     }
+    
     const step = incrementFor(meta);
-    const reduced = Math.max(step, roundToEquipment(currentWeight * 0.9, step, meta.equipmentIds));
+    const hasKettlebell = meta.equipmentIds.includes("kettlebell");
+    let reduced: number;
+    
+    if (hasKettlebell && KETTLEBELL_SIZES.includes(currentWeight) && currentWeight <= 32) {
+      // Kettlebell: go to next bell below
+      const nextBell = nextKettlebellBelow(currentWeight);
+      reduced = nextBell !== null ? nextBell : currentWeight; // At 4 kg, hold at 4
+    } else {
+      // Standard: reduce by ~10%, floor at step
+      reduced = Math.max(step, roundTo(currentWeight * 0.9, step));
+    }
     return {
       ...carried,
       outcome: "backed_off",
@@ -437,17 +483,30 @@ export function suggestedWeight(
   const w = state.currentWorkingWeightKg;
   if (w === null || w <= 0) return null;
   if (!isDeload) return w;
+  
   // Deload: about 70% of working weight, on a loadable increment.
   // Bodyweight exercises with added weight use their own smaller steps. Tiny
   // added weights (70% rounds up to or above the original) drop one step. If
-  // that reaches 0, return null (no added weight). Loaded exercises floor at
-  // one step.
+  // that reaches 0, return null (no added weight).
   const step = meta.isBodyweight ? addedWeightStep(meta) : incrementFor(meta);
-  const deloaded = roundToEquipment(w * 0.7, step, meta.equipmentIds);
+  
   if (meta.isBodyweight) {
-    const result = deloaded >= w ? roundToEquipment(w - step, step, meta.equipmentIds) : deloaded;
+    const deloaded = roundTo(w * 0.7, step);
+    const result = deloaded >= w ? roundTo(w - step, step) : deloaded;
     return result <= 0 ? null : result;
   }
+  
+  // Loaded exercises: kettlebells go to next bell below, others floor at step
+  const hasKettlebell = meta.equipmentIds.includes("kettlebell");
+  
+  if (hasKettlebell && KETTLEBELL_SIZES.includes(w) && w <= 32) {
+    // Kettlebell: go to next bell below
+    const nextBell = nextKettlebellBelow(w);
+    return nextBell !== null ? nextBell : w; // At 4 kg, hold at 4
+  }
+  
+  // Standard: ~70% of working weight, floor at one step
+  const deloaded = roundTo(w * 0.7, step);
   return Math.max(step, deloaded);
 }
 
@@ -461,9 +520,12 @@ export function suggestedWeight(
 export async function resetProgressionTargets(
   supabase: SupabaseClient<Database>,
   userId: string,
-): Promise<void> {
-  await supabase
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await supabase
     .from("exercise_progress")
     .update({ current_target_reps: null })
     .eq("user_id", userId);
+  
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }

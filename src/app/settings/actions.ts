@@ -62,16 +62,12 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     return { ok: false, error: "At least one day a week has to be training." };
   }
 
-  // Reset progression targets if goal, level, days_per_week, or primary_track changed
-  const resetsProgression =
-    patch.goal !== undefined ||
-    patch.level !== undefined ||
-    patch.days_per_week !== undefined ||
-    patch.primary_track !== undefined;
-
-  if (resetsProgression) {
-    await resetProgressionTargets(supabase, user.id);
-  }
+  // Fetch current profile to check if progression-affecting fields changed
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("goal, level, days_per_week, primary_track")
+    .eq("id", user.id)
+    .single();
 
   // Validate and update with testable logic
   const result = await validateAndUpdateProfile(patch, {
@@ -83,6 +79,18 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
   });
 
   if (!result.ok) return result;
+
+  // Reset progression targets only after successful update and only if values changed
+  const progressionFieldsChanged =
+    (patch.goal !== undefined && patch.goal !== currentProfile?.goal) ||
+    (patch.level !== undefined && patch.level !== currentProfile?.level) ||
+    (patch.days_per_week !== undefined && patch.days_per_week !== currentProfile?.days_per_week) ||
+    (patch.primary_track !== undefined && patch.primary_track !== currentProfile?.primary_track);
+
+  if (progressionFieldsChanged) {
+    const resetResult = await resetProgressionTargets(supabase, user.id);
+    if (!resetResult.ok) return { ok: false, error: resetResult.error };
+  }
 
   revalidatePath("/settings");
   revalidatePath("/today");

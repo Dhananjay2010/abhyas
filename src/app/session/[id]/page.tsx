@@ -6,7 +6,6 @@ import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isBodyweightEquipment } from "@/lib/program/bodyweight";
 import { effectiveRepsMax } from "@/lib/program/effective-target";
-import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
 

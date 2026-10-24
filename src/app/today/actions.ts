@@ -26,11 +26,12 @@ export async function buildPlan(): Promise<BuildPlanResult> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  // Reset progression targets before rebuilding the block
-  await resetProgressionTargets(supabase, user.id);
-
   const result = await createBlockForUser(supabase, user.id, { mode: "rebuild" });
   if (!result.ok) return { ok: false, error: result.error };
+
+  // Reset progression targets after successful rebuild
+  const resetResult = await resetProgressionTargets(supabase, user.id);
+  if (!resetResult.ok) return { ok: false, error: resetResult.error };
 
   revalidateTrainingData();
   return { ok: true };
