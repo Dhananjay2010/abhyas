@@ -401,20 +401,6 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   return derived;
 }
 
-/**
- * Get ALL contraindications for an exercise: explicit DB tags + derived.
- * 
- * M3: Exported so swap suggestions (alternatives.ts) use the SAME contraindication
- * logic as plan generation. Before this fix, swaps only checked explicit tags,
- * so a wrist-injured user got pike push-up swaps for exercises they couldn't do.
- */
-export function getAllContraindications(ex: CandidateExercise): BodyRegion[] {
-  return [
-    ...ex.contraindicated_regions,
-    ...getDerivedContraindications(ex),
-  ];
-}
-
 // M1 equipment alternatives: Exercises where ANY of the listed equipment works
 // Each inner array is one valid alternative set
 const EQUIPMENT_ALTERNATIVES: Record<string, string[][]> = {
@@ -453,9 +439,12 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   }
 
   // QA Pass 10 C2, C3: Current injuries exclude anything that loads the affected joint.
-  // M3: Use getAllContraindications for consistency with swap filtering.
+  // Use both explicit tags AND derived contraindications.
   if (input.currentInjuryRegions.length > 0) {
-    const allContraindications = getAllContraindications(ex);
+    const allContraindications = [
+      ...ex.contraindicated_regions,
+      ...getDerivedContraindications(ex),
+    ];
     if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
       return false;
     }
