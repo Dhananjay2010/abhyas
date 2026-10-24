@@ -765,7 +765,11 @@ export function SettingsForm({
             )}
 
             {planStale && !rebuildSuccess && (
-              <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
+              <div 
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-accent/40 bg-accent/10 p-4"
+              >
                 <p className="text-sm text-accent">
                   Your plan doesn&apos;t include this change yet.
                 </p>
