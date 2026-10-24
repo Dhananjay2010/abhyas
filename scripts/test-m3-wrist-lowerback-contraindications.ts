@@ -9,7 +9,7 @@ import { join } from "path";
 import { generateProgram, type CandidateExercise, type GeneratorInput, hashString } from "@/lib/program/generate";
 import { rankAlternatives, type AlternativesContext } from "@/lib/program/alternatives";
 import catalogueFixture from "./fixtures/catalogue.json";
-import { M3_NO_INJURY_PROFILES, countEmptySwapLists, isCandidateExercise, realSwaps, snapshotPlan } from "./m3-real-path";
+import { M3_NO_INJURY_PROFILES, M3_GRID_SETUPS, countEmptySwapLists, isCandidateExercise, realSwaps, snapshotPlan } from "./m3-real-path";
 import type { Database } from "@/lib/database.types";
 
 type BodyRegion = Database["public"]["Enums"]["body_region"];
@@ -100,11 +100,15 @@ async function runTest() {
   console.log("\n1. Insert affected exercises (pre-migration)");
   const affectedSlugs = [...new Set([...RISKY_WRIST, ...RISKY_LOWER_BACK])];
   const affected = catalogueFixture.filter((e: unknown) => isSlugRecord(e) && affectedSlugs.includes(e.slug));
-  check("Found affected in fixture", affected.length > 0, `${affected.length}/${affectedSlugs.length}`);
+  check("Found affected in fixture", affected.length === affectedSlugs.length, `${affected.length}/${affectedSlugs.length}`);
   
   // Insert with tags MINUS what migration adds (baseline)
   for (const ex of affected) {
-    if (!isExerciseRecord(ex)) continue;
+    if (!isExerciseRecord(ex)) {
+      const slug = typeof ex === 'object' && ex !== null && 'slug' in ex ? (ex as {slug: unknown}).slug : 'unknown';
+      check(`Exercise record valid`, false, `slug ${slug} failed isExerciseRecord`);
+      continue;
+    }
     const baseline = ex.contraindicated_regions.filter((r: string) =>
       !(RISKY_WRIST.includes(ex.slug) && r === 'wrist') &&
       !(RISKY_LOWER_BACK.includes(ex.slug) && r === 'lower_back')
@@ -117,7 +121,6 @@ async function runTest() {
   console.log("\n2. Apply migration");
   const migPath = join(process.cwd(), "supabase/migrations/20261025000026_m3_wrist_lowerback_contraindications.sql");
   await db.exec(readFileSync(migPath, "utf-8"));
-  check("Migration applied", true);
   
   console.log("\n3. Test RAISE EXCEPTION path");
   // Test by inserting only a subset of exercises, then running migration
@@ -146,8 +149,10 @@ async function runTest() {
   check("All wrist exercises tagged", wristMissing.rows.length === 0);
   check("All lower_back exercises tagged", lbMissing.rows.length === 0);
   
+  const snap = async () => JSON.stringify((await db.query("SELECT slug, contraindicated_regions::text AS r FROM exercises ORDER BY slug")).rows);
+  const before = await snap();
   await db.exec(readFileSync(migPath, "utf-8"));
-  check("Idempotent (2nd run succeeds)", true);
+  check("Idempotent: 2nd run changes no row", (await snap()) === before);
   
   // Check no duplicates after 2nd run
   const dupes = await db.query(`
@@ -162,14 +167,14 @@ async function runTest() {
   console.log("\n5. Parse tags and build catalogue");
   const allRows = await db.query("SELECT slug, contraindicated_regions FROM exercises");
   const dbTags = new Map<string, string[]>();
-  let allArrays = true;
+  let allValid = true;
   for (const row of allRows.rows) {
-    if (!isDbRow(row)) { allArrays = false; continue; }
+    if (!isDbRow(row)) { allValid = false; continue; }
     const tags = parseTextArray(row.contraindicated_regions);
-    if (!Array.isArray(tags)) allArrays = false;
+    if (!Array.isArray(tags) || !tags.every(isBodyRegion)) allValid = false;
     dbTags.set(row.slug, tags);
   }
-  check("All parsed tags are arrays", allArrays);
+  check("All DB tags are valid body regions AND all affected slugs present", allValid && dbTags.size === affectedSlugs.length);
   
   const fixtureRows: unknown[] = catalogueFixture;
   const updated: CandidateExercise[] = fixtureRows
@@ -190,14 +195,17 @@ async function runTest() {
   const usaPlan = generateProgram(usaInput);
   const usaIds = usaPlan.days.flatMap(d => d.exercises.map(ex => ex.exerciseId));
   
-  let wristViol = 0, lbViol = 0;
+  let wristViol = 0, lbViol = 0, unknownIds = 0;
   for (const id of usaIds) {
     const ex = updated.find(e => e.id === id);
     if (ex) {
       if (RISKY_WRIST.includes(ex.slug)) wristViol++;
       if (RISKY_LOWER_BACK.includes(ex.slug)) lbViol++;
+    } else {
+      unknownIds++;
     }
   }
+  check("us-a: all plan ids resolve to catalogue rows", unknownIds === 0, `${unknownIds} unknown`);
   check("us-a plan 0 wrist violations", wristViol === 0, wristViol > 0 ? `Found ${wristViol}` : "");
   check("us-a plan 0 lower_back violations", lbViol === 0, lbViol > 0 ? `Found ${lbViol}` : "");
   check("us-a no empty days", usaPlan.days.filter(d => d.dayType !== "rest" && d.dayType !== "yoga" && d.exercises.length === 0).length === 0);
@@ -210,7 +218,7 @@ async function runTest() {
     scoreFn: () => 1,
     tieBreakFn: (s: string) => hashString(s),
   };
-  let usaSwapWrist = 0, usaSwapLb = 0;
+  let usaSwapWrist = 0, usaSwapLb = 0, usaSwapUnknown = 0;
   for (const id of usaIds) {
     const ex = updated.find(e => e.id === id);
     if (ex) {
@@ -219,8 +227,11 @@ async function runTest() {
         if (RISKY_WRIST.includes(sw.slug)) usaSwapWrist++;
         if (RISKY_LOWER_BACK.includes(sw.slug)) usaSwapLb++;
       }
+    } else {
+      usaSwapUnknown++;
     }
   }
+  check("us-a swaps: all plan ids resolve to catalogue rows", usaSwapUnknown === 0, `${usaSwapUnknown} unknown`);
   check("us-a swaps 0 wrist violations", usaSwapWrist === 0);
   check("us-a swaps 0 lower_back violations", usaSwapLb === 0);
   
@@ -232,18 +243,23 @@ async function runTest() {
   };
   const weightsPlan = generateProgram(weightsInput);
   const weightsIds = weightsPlan.days.flatMap(d => d.exercises.map(ex => ex.exerciseId));
-  let weightsViol = 0;
+  let weightsViol = 0, weightsPlanUnknown = 0;
   for (const id of weightsIds) {
     const ex = updated.find(e => e.id === id);
-    if (ex && RISKY_WRIST.includes(ex.slug)) weightsViol++;
+    if (ex) {
+      if (RISKY_WRIST.includes(ex.slug)) weightsViol++;
+    } else {
+      weightsPlanUnknown++;
+    }
   }
+  check("weights plan: all ids resolve to catalogue rows", weightsPlanUnknown === 0, `${weightsPlanUnknown} unknown`);
   check("weights plan 0 wrist violations", weightsViol === 0);
   
   const weightsSwapCtx: AlternativesContext = {
     level: "intermediate", availableEquipment: null, injuryRegions: ["wrist"],
     scoreFn: () => 1, tieBreakFn: (s: string) => hashString(s),
   };
-  let weightsSwapViol = 0;
+  let weightsSwapViol = 0, weightsSwapUnknown = 0;
   for (const id of weightsIds) {
     const ex = updated.find(e => e.id === id);
     if (ex) {
@@ -251,8 +267,11 @@ async function runTest() {
       for (const sw of swaps) {
         if (RISKY_WRIST.includes(sw.slug)) weightsSwapViol++;
       }
+    } else {
+      weightsSwapUnknown++;
     }
   }
+  check("weights swaps: all ids resolve to catalogue rows", weightsSwapUnknown === 0, `${weightsSwapUnknown} unknown`);
   check("weights swaps 0 wrist violations", weightsSwapViol === 0);
   
   console.log("\n9. Test weights plan+swaps (lower_back, ALL exercises)");
@@ -263,11 +282,16 @@ async function runTest() {
   };
   const lbPlan = generateProgram(lbInput);
   const lbIds = lbPlan.days.flatMap(d => d.exercises.map(ex => ex.exerciseId));
-  let lbOnlyViol = 0;
+  let lbOnlyViol = 0, lbPlanUnknown = 0;
   for (const id of lbIds) {
     const ex = updated.find(e => e.id === id);
-    if (ex && RISKY_LOWER_BACK.includes(ex.slug)) lbOnlyViol++;
+    if (ex) {
+      if (RISKY_LOWER_BACK.includes(ex.slug)) lbOnlyViol++;
+    } else {
+      lbPlanUnknown++;
+    }
   }
+  check("lb plan: all ids resolve to catalogue rows", lbPlanUnknown === 0, `${lbPlanUnknown} unknown`);
   check("lb plan 0 lower_back violations", lbOnlyViol === 0, lbOnlyViol > 0 ? `Found ${lbOnlyViol}` : "");
   // Kettlebell-only: on no-injury input this exact profile gets alternating-kettlebell-row and
   // one-arm-kettlebell-row, so a generator that ignores lower_back puts them back.
@@ -280,23 +304,27 @@ async function runTest() {
   const kbNoInjRisky = kbNoInj.days.flatMap((d) => d.exercises).filter((x) => RISKY_LOWER_BACK.includes(updated.find((e) => e.id === x.exerciseId)?.slug ?? "")).length;
   check("kb probe: no-injury plan does contain lower_back-risky rows (probe is live)", kbNoInjRisky > 0, `${kbNoInjRisky}`);
   const kbLbPlan = generateProgram(kbLbInput);
-  let kbLbViol = 0;
+  let kbLbViol = 0, kbUnknown = 0;
   for (const [di, d] of kbLbPlan.days.entries()) {
     const inSession = new Set(d.exercises.map((x) => x.exerciseId));
     for (const [xi, x] of d.exercises.entries()) {
       const ex = updated.find((e) => e.id === x.exerciseId);
-      if (!ex) continue;
+      if (!ex) {
+        kbUnknown++;
+        continue;
+      }
       if (RISKY_LOWER_BACK.includes(ex.slug)) kbLbViol++;
       kbLbViol += realSwaps(updated, ex, kbLbInput, inSession, `kb:d${di}:s${xi}`).filter((sw) => RISKY_LOWER_BACK.includes(sw)).length;
     }
   }
+  check("kb: all ids resolve to catalogue rows", kbUnknown === 0, `${kbUnknown} unknown`);
   check("kb lower_back plan+real swaps 0 lower_back violations", kbLbViol === 0, `${kbLbViol}`);
   
   const lbSwapCtx: AlternativesContext = {
     level: "intermediate", availableEquipment: null, injuryRegions: ["lower_back"],
     scoreFn: () => 1, tieBreakFn: (s: string) => hashString(s),
   };
-  let lbOnlySwapViol = 0;
+  let lbOnlySwapViol = 0, lbSwapUnknown = 0;
   for (const id of lbIds) {
     const ex = updated.find(e => e.id === id);
     if (ex) {
@@ -304,9 +332,25 @@ async function runTest() {
       for (const sw of swaps) {
         if (RISKY_LOWER_BACK.includes(sw.slug)) lbOnlySwapViol++;
       }
+    } else {
+      lbSwapUnknown++;
     }
   }
+  check("lb swaps: all ids resolve to catalogue rows", lbSwapUnknown === 0, `${lbSwapUnknown} unknown`);
   check("lb swaps 0 lower_back violations", lbOnlySwapViol === 0);
+  
+  // Derived lower_back rule: high spinal load exercises are excluded from lower_back injury plans/swaps
+  const lbLevels: GeneratorInput["level"][] = ["beginner", "intermediate", "expert"];
+  const bySlug = new Map(updated.map((e) => [e.slug, e]));
+  let lbDerivedLeaks = 0;
+  for (const s of M3_GRID_SETUPS) for (const level of lbLevels) for (const daysPerWeek of [3, 4]) {
+    const plan = snapshotPlan({ userId: "22222222-2222-2222-2222-222222222222", blockNumber: 1, goal: "strength", level, ...s, daysPerWeek, yogaDaysPerWeek: 0, age: 35, bmi: 24, currentInjuryRegions: ["lower_back"], preferredSessionMinutes: 60 }, updated);
+    for (const d of plan) for (const slot of d.slots) for (const w of [slot.slug, ...slot.swaps]) {
+      const e = bySlug.get(w);
+      if (!e || e.spinal_load === "high" || e.contraindicated_regions.includes("lower_back")) lbDerivedLeaks++;
+    }
+  }
+  check("lower_back real path: plan + swaps never offer high spinal load or lower_back-tagged rows", lbDerivedLeaks === 0, `${lbDerivedLeaks}`);
   
   console.log("\n10. Swap filter test (no-injury plan + lb context, ALL exercises)");
   const noInjPlan = generateProgram({
@@ -315,7 +359,7 @@ async function runTest() {
     currentInjuryRegions: [], preferredSessionMinutes: 60, catalogue: updated,
   });
   const noInjIds = noInjPlan.days.flatMap(d => d.exercises.map(ex => ex.exerciseId));
-  let swapFilterViol = 0;
+  let swapFilterViol = 0, swapFilterUnknown = 0;
   for (const id of noInjIds) {
     const ex = updated.find(e => e.id === id);
     if (ex) {
@@ -323,8 +367,11 @@ async function runTest() {
       for (const sw of swaps) {
         if (RISKY_LOWER_BACK.includes(sw.slug)) swapFilterViol++;
       }
+    } else {
+      swapFilterUnknown++;
     }
   }
+  check("swap filter: all ids resolve to catalogue rows", swapFilterUnknown === 0, `${swapFilterUnknown} unknown`);
   check("Swaps for no-injury plan exclude lower_back when filtered", swapFilterViol === 0,
     swapFilterViol > 0 ? `Found ${swapFilterViol} risky swaps` : "");
   

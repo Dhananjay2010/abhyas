@@ -6,7 +6,7 @@
  * Exits 0 if all killed, 1 if any survive OR skip OR don't compile.
  */
 
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 
 interface Mutant {
@@ -101,12 +101,68 @@ const mutants: Mutant[] = [
     mutated: 'if (ex.spinal_load === "high" || ex.spinal_load === "low") {\n    derived.push("lower_back");',
     description: 'Low spinal load also excluded for lower_back (empty-swap pin must catch)',
   },
+  {
+    name: 'swap-path-isEligible-ignores-lower_back',
+    file: 'src/lib/program/generate.ts',
+    original: 'if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {',
+    mutated: 'if (allContraindications.some((r) => input.currentInjuryRegions.includes(r) && !(r === "lower_back" && input.catalogue.length === 0))) {',
+    description: 'Swap path drops lower_back filter (catalogue.length === 0 is never true)',
+  },
+  {
+    name: 'migration-drop-thruster-update-only',
+    file: 'supabase/migrations/20261025000026_m3_wrist_lowerback_contraindications.sql',
+    original: "'two-arm-kettlebell-jerk', 'kettlebell-thruster',",
+    mutated: "'two-arm-kettlebell-jerk',",
+    description: 'Migration drops kettlebell-thruster from UPDATE list',
+  },
 ];
+
+// Check for stale backups
+const staleBackups: string[] = [];
+for (const dir of ['supabase/migrations', 'src/lib/program']) {
+  try {
+    const files = execSync(`find ${dir} -name "*.mutant-backup" 2>/dev/null || true`, { encoding: 'utf-8' }).trim().split('\n').filter(Boolean);
+    staleBackups.push(...files);
+  } catch {
+    // Directory may not exist
+  }
+}
+if (staleBackups.length > 0) {
+  console.error(`FAIL: Found stale backup(s): ${staleBackups.join(', ')}`);
+  process.exit(1);
+}
+
+// Run unmutated test first
+console.log('Running unmutated test:m3-wrist...');
+const base = spawnSync('npm', ['run', 'test:m3-wrist'], { encoding: 'utf-8', timeout: 180000 });
+if (base.status !== 0) {
+  console.log('FAIL: unmutated test:m3-wrist fails; aborting');
+  process.exit(1);
+}
+console.log('✓ Baseline test passes\n');
 
 let killed = 0;
 let survived = 0;
 let skipped = 0;
-const results: Array<{name: string; status: 'KILLED' | 'SURVIVED' | 'SKIPPED'; reason?: string}> = [];
+let errors = 0;
+const results: Array<{name: string; status: 'KILLED' | 'SURVIVED' | 'SKIPPED' | 'ERROR'; reason?: string}> = [];
+
+// Active mutation tracking and cleanup trap
+let active: { filepath: string; backupPath: string } | null = null;
+function restoreActive() {
+  if (active && existsSync(active.backupPath)) {
+    writeFileSync(active.filepath, readFileSync(active.backupPath, 'utf-8'));
+    unlinkSync(active.backupPath);
+  }
+  active = null;
+}
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(sig, () => {
+    restoreActive();
+    process.exit(1);
+  });
+}
+process.on('exit', restoreActive);
 
 console.log(`\n${"=".repeat(70)}`);
 console.log(`Mutation Testing: ${mutants.length} mutants`);
@@ -145,6 +201,7 @@ for (const mutant of mutants) {
   
   // Save backup to disk
   writeFileSync(backupPath, original, 'utf-8');
+  active = { filepath, backupPath };
   
   try {
     writeFileSync(filepath, mutated, 'utf-8');
@@ -173,15 +230,27 @@ for (const mutant of mutants) {
     }
     
     // Run test
-    try {
-      execSync('npm run test:m3-wrist', {cwd: process.cwd(), stdio: 'pipe', timeout: 180000});
-      console.log(`  ❌ SURVIVED: Test passed with mutant`);
-      survived++;
-      results.push({name: mutant.name, status: 'SURVIVED'});
-    } catch {
+    const testResult = spawnSync('npm', ['run', 'test:m3-wrist'], {
+      cwd: process.cwd(),
+      encoding: 'utf-8',
+      timeout: 180000
+    });
+    
+    const hasFail = testResult.stdout?.includes('  FAIL ') || false;
+    const exitNonZero = testResult.status !== 0;
+    
+    if (exitNonZero && hasFail) {
       console.log(`  ✓ KILLED: Test caught mutant`);
       killed++;
       results.push({name: mutant.name, status: 'KILLED'});
+    } else if (!exitNonZero) {
+      console.log(`  ❌ SURVIVED: Test passed with mutant`);
+      survived++;
+      results.push({name: mutant.name, status: 'SURVIVED'});
+    } else {
+      console.log(`  ERROR: Test exited non-zero but no FAIL marker`);
+      errors++;
+      results.push({name: mutant.name, status: 'ERROR', reason: 'no fail marker'});
     }
   } finally {
     // Restore from on-disk backup
@@ -196,11 +265,12 @@ for (const mutant of mutants) {
     }
     
     unlinkSync(backupPath);
+    active = null;
   }
 }
 
 console.log(`\n${"=".repeat(70)}`);
-console.log(`Results: ${killed} killed, ${survived} survived, ${skipped} skipped`);
+console.log(`Results: ${killed} killed, ${survived} survived, ${skipped} skipped, ${errors} errors`);
 console.log("=".repeat(70));
 console.log('\n| Mutant | Status |');
 console.log('|--------|--------|');
@@ -208,8 +278,8 @@ for (const r of results) {
   console.log(`| ${r.name} | ${r.status}${r.reason ? ` (${r.reason})` : ''} |`);
 }
 
-if (survived > 0 || skipped > 0) {
-  console.log(`\n❌ FAIL: ${survived} mutant(s) survived, ${skipped} skipped`);
+if (survived > 0 || skipped > 0 || errors > 0) {
+  console.log(`\n❌ FAIL: ${survived} mutant(s) survived, ${skipped} skipped, ${errors} errors`);
   process.exit(1);
 } else {
   console.log(`\n✓ PASS: All ${killed} mutants killed`);
