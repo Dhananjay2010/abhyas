@@ -82,23 +82,26 @@ console.log("\n2. Every set at the top of the range progresses the weight");
   check("squat 100 -> 105 kg", d.nextWorkingWeightKg === 105, `${d.nextWorkingWeightKg}`);
 }
 {
-  const d = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 15 }), sets: sets(4, 12, 15) });
-  check("curl 15 -> 16.25 kg", d.nextWorkingWeightKg === 16.25, `${d.nextWorkingWeightKg}`);
+  const d = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 15 }), sets: sets(4, 12, 15), equipmentIds: ["dumbbell"], unit: "kg" });
+  check("curl 15 -> 17.5 kg (isolation 1.25 + grid round up)", d.nextWorkingWeightKg === 17.5, `${d.nextWorkingWeightKg}`);
 }
 
-console.log("\n3. 'Easy' earns a double jump");
+console.log("\n3. 'Easy' earns a double jump; Hard holds weight (U1 fix)");
 {
-  const d = run({ feel: "easy" });
+  const d = run({ feel: "easy", equipmentIds: ["barbell"], unit: "kg" });
   check("60 -> 65 kg on easy", d.nextWorkingWeightKg === 65, `${d.nextWorkingWeightKg}`);
-  const hard = run({ feel: "hard" });
-  check("'hard' still takes the normal jump when all sets hit", hard.nextWorkingWeightKg === 62.5);
+  const hard = run({ feel: "hard", equipmentIds: ["barbell"], unit: "kg" });
+  // U1 fix: Hard feel must NOT raise the weight - it holds at current weight
+  check("'hard' holds the weight when all sets hit (U1 fix)", hard.nextWorkingWeightKg === 60, `${hard.nextWorkingWeightKg}`);
+  check("'hard' outcome is hold", hard.outcome === "hold", hard.outcome);
 }
 
-console.log("\n4. Falling short holds the weight");
+console.log("\n4. Falling short drops the weight one grid step (U1 fix)");
 {
-  const d = run({ sets: sets(4, 10) });
+  const d = run({ sets: sets(4, 10), equipmentIds: ["barbell"], unit: "kg" });
   check("outcome hold", d.outcome === "hold", d.outcome);
-  check("weight unchanged", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`);
+  // U1 fix: Failed sets drop the weight one grid step
+  check("weight drops by one grid step (60 -> 57.5)", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
   check("failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
 }
 {
@@ -112,9 +115,9 @@ console.log("\n4. Falling short holds the weight");
 
 console.log("\n5. Two misses in a row backs the weight off ~10%");
 {
-  const d = run({ sets: sets(4, 10), state: fresh({ consecutiveFailures: 1 }) });
+  const d = run({ sets: sets(4, 10), state: fresh({ consecutiveFailures: 1 }), equipmentIds: ["barbell"], unit: "kg" });
   check("outcome backed_off", d.outcome === "backed_off", d.outcome);
-  check("60 -> 55 kg", d.nextWorkingWeightKg === 55, `${d.nextWorkingWeightKg}`);
+  check("60 -> 52.5 kg", d.nextWorkingWeightKg === 52.5, `${d.nextWorkingWeightKg}`);
   check("failures reset after backing off", d.consecutiveFailures === 0);
 }
 
@@ -176,12 +179,12 @@ console.log("\n10. Personal bests track even on a failed session");
 
 console.log("\n11. Deload suggests roughly 70% of working weight");
 {
-  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT);
-  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT);
+  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT, ["barbell"], "kg");
+  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT, ["barbell"], "kg");
   check("normal week suggests the working weight", normal === 100, `${normal}`);
   check("deload suggests 70 kg", deload === 70, `${deload}`);
   check("no suggestion without a working weight",
-    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT) === null);
+    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT, ["barbell"], "kg") === null);
 }
 
 console.log("\n12. A weight logged on a bodyweight exercise must count");
@@ -193,8 +196,10 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     sets: sets(4, 12, 25),
     feel: "right",
     state: fresh({ currentWorkingWeightKg: 25, currentTargetReps: 12 }),
+    equipmentIds: ["dip_bars"],
+    unit: "kg",
   });
-  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 26.25,
+  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 27.5,
     `${weighted.nextWorkingWeightKg}`);
   check("outcome is progressed", weighted.outcome === "progressed", weighted.outcome);
 
@@ -249,6 +254,8 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
       meta: PLANK,
       state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45 }),
       isDeload: false,
+      equipmentIds: [],
+      unit: "kg",
       ...over,
     });
 
@@ -395,6 +402,8 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     meta: PLANK,
     state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45, bestReps: 45 }),
     isDeload: false,
+    equipmentIds: [],
+    unit: "kg",
   });
   check("a longer hold is a hold best, not a rep count",
     longer.personalBest?.kind === "hold", `${longer.personalBest?.kind}`);
@@ -466,9 +475,11 @@ console.log("\nBodyweight exercises with added weight");
     meta: PUSHUP_LOADED,
     sets: sets(4, 12, 5),
     state: fresh({ currentWorkingWeightKg: 5, currentTargetReps: 12 }),
+    equipmentIds: ["dip_belt"],
+    unit: "kg",
   });
-  check("upper-body bodyweight with 5 kg added goes to 6.25 kg",
-    upper.nextWorkingWeightKg === 6.25, `${upper.nextWorkingWeightKg}`);
+  check("upper-body bodyweight with 5 kg added goes to 7.5 kg (grid round up)",
+    upper.nextWorkingWeightKg === 7.5, `${upper.nextWorkingWeightKg}`);
 
   // Back-off: two misses drop added weight to 0.
   const backoff = run({
@@ -520,6 +531,8 @@ console.log("\nBodyweight exercises with added weight");
     { currentWorkingWeightKg: 10 },
     true,
     SQUAT_BW,
+    ["dip_belt"],
+    "kg",
   );
   check("deload suggestion for bodyweight lower-body rounds to 2.5 kg step",
     suggestedBwLower === 7.5, `${suggestedBwLower}`);
@@ -528,9 +541,65 @@ console.log("\nBodyweight exercises with added weight");
     { currentWorkingWeightKg: 5 },
     true,
     PUSHUP_LOADED,
+    ["dip_belt"],
+    "kg",
   );
-  check("deload suggestion for bodyweight upper-body rounds to 1.25 kg step",
-    suggestedBwUpper === 3.75, `${suggestedBwUpper}`);
+  // 5 * 0.7 = 3.5, rounded to 1.25 kg step is 3.75, then grid-rounded to 2.5 kg (tie rounds down)
+  check("deload suggestion for bodyweight upper-body rounds to dip_belt grid (2.5 kg)",
+    suggestedBwUpper === 2.5, `${suggestedBwUpper}`);
+}
+
+console.log("\n18. No-equipment path matches main (hard-coded snapshot from main 25d92f8)");
+{
+  // Success progression without equipment
+  const success = run({});
+  check("success without equipment: 60 -> 62.5", success.nextWorkingWeightKg === 62.5, `${success.nextWorkingWeightKg}`);
+  
+  // First miss without equipment: holds at current weight (main behavior)
+  const firstMiss = run({ sets: sets(4, 10) });
+  check("first miss without equipment: holds at 60", firstMiss.nextWorkingWeightKg === 60, `${firstMiss.nextWorkingWeightKg}`);
+  
+  // Hard without equipment: progresses normally (main behavior)
+  const hard = run({ feel: "hard" });
+  check("hard without equipment: 60 -> 62.5", hard.nextWorkingWeightKg === 62.5, `${hard.nextWorkingWeightKg}`);
+  
+  // Second miss (back-off) without equipment: drops ~10%
+  const backOff = run({ sets: sets(4, 10), state: fresh({ consecutiveFailures: 1 }) });
+  check("back-off without equipment: 60 -> 52.5", backOff.nextWorkingWeightKg === 52.5, `${backOff.nextWorkingWeightKg}`);
+  
+  // Deload suggestion without equipment
+  const deload = suggestedWeight({ currentWorkingWeightKg: 60 }, true, BENCH);
+  check("deload suggestion without equipment: 60 -> 42.5", deload === 42.5, `${deload}`);
+  
+  // No-data without equipment: holds
+  const noData = run({ sets: [] });
+  check("no-data without equipment: holds at 60", noData.nextWorkingWeightKg === 60, `${noData.nextWorkingWeightKg}`);
+  
+  // Never negative or zero
+  const minIso = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 2.5 }), sets: sets(4, 10) });
+  check("min isolation first miss: 2.5 stays 2.5", minIso.nextWorkingWeightKg === 2.5, `${minIso.nextWorkingWeightKg}`);
+}
+
+console.log("\n19. With equipment: explicit equipment param tests");
+{
+  // These tests need equipment for grid snapping
+  const curlWithEquip = run({
+    meta: CURL,
+    sets: sets(4, 12, 15),
+    state: fresh({ currentWorkingWeightKg: 15 }),
+    equipmentIds: ["dumbbell"],
+    unit: "kg",
+  });
+  check("curl 15 kg with dumbbell: 15 -> 17.5", curlWithEquip.nextWorkingWeightKg === 17.5, `${curlWithEquip.nextWorkingWeightKg}`);
+  
+  const dipWithEquip = run({
+    meta: PUSHUP,
+    sets: sets(4, 12, 25),
+    state: fresh({ currentWorkingWeightKg: 25 }),
+    equipmentIds: ["dip_bars"],
+    unit: "kg",
+  });
+  check("dip +25 kg with dip_bars: 25 -> 27.5", dipWithEquip.nextWorkingWeightKg === 27.5, `${dipWithEquip.nextWorkingWeightKg}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

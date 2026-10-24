@@ -101,9 +101,8 @@ export async function updateSessionDateTime(
   const { resolveTimezoneWithProfile } = await import("@/lib/timezone");
   const timezone = resolveTimezoneWithProfile(profile?.timezone);
 
-  // Get user's auth signup date as fallback
-  const { data: authUser } = await supabase.auth.getUser();
-  const signupDate = profile?.created_at || authUser?.user?.created_at;
+  // Get signup date from profile.created_at (no getUser() call to avoid clearing session)
+  const signupDate = profile?.created_at;
 
   if (!signupDate) {
     return { success: false, error: "Unable to determine signup date." };
