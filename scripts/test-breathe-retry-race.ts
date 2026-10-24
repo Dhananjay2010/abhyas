@@ -56,7 +56,7 @@ function check(label: string, ok: boolean, detail = "") {
 async function waitForLockContention(
   pollingClient: Client,
   blockedPid: number,
-  timeoutMs = 1000
+  timeoutMs = 5000
 ): Promise<void> {
   const startTime = Date.now();
   while (Date.now() - startTime < timeoutMs) {
@@ -71,7 +71,7 @@ async function waitForLockContention(
       // Client2 is waiting on the advisory lock
       return;
     }
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 25));
   }
   throw new Error(`Client2 never blocked on advisory lock after ${timeoutMs}ms`);
 }
@@ -86,11 +86,10 @@ async function testConcurrentRace() {
 
   try {
     // Set timeouts to prevent hanging
-    // Lock timeout must be longer than contention detection + query time
-    await client1.query("SET statement_timeout = '20s'");
-    await client1.query("SET lock_timeout = '15s'");
-    await client2.query("SET statement_timeout = '20s'");
-    await client2.query("SET lock_timeout = '15s'");
+    await client1.query("SET statement_timeout = '10s'");
+    await client1.query("SET lock_timeout = '5s'");
+    await client2.query("SET statement_timeout = '10s'");
+    await client2.query("SET lock_timeout = '5s'");
 
     // Get client2's PID for pg_locks polling
     const pidResult = await client2.query("SELECT pg_backend_pid() as pid");
@@ -126,8 +125,9 @@ async function testConcurrentRace() {
           [JSON.stringify({ sub: TEST_USER_ID })]
         );
 
-        // Start both calls (queries are on the wire, not awaited yet)
-        const promise1 = client1.query(
+        // Client1 runs function and COMPLETES it (but doesn't commit)
+        // This guarantees it holds the advisory lock
+        const result1 = await client1.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
             5, 5, 20, 40, false, 3::smallint, 'off',
@@ -135,8 +135,9 @@ async function testConcurrentRace() {
           ) as session_id`,
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
+        // Transaction still open, client1 holds the lock
 
-        // Start client2's call
+        // NOW send client2's call (don't await it yet)
         const promise2 = client2.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
@@ -146,11 +147,10 @@ async function testConcurrentRace() {
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
 
-        // Wait until client2 is actually blocked on the advisory lock
+        // Poll until client2 is blocked on the advisory lock
         await waitForLockContention(client3, client2Pid);
 
-        // Commit client1 (waits for promise1 to complete, then releases lock)
-        const result1 = await promise1;
+        // Now commit client1, releasing the lock
         await client1.query("COMMIT");
 
         // Client2 can now proceed
@@ -218,8 +218,8 @@ async function testConcurrentRace() {
           [JSON.stringify({ sub: TEST_USER_ID })]
         );
 
-        // Concurrent calls with same log_id
-        const promise1 = client1.query(
+        // Client1 runs function and COMPLETES it (but doesn't commit)
+        const result1 = await client1.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
             5, 5, 20, 40, false, 3::smallint, 'off',
@@ -227,7 +227,9 @@ async function testConcurrentRace() {
           ) as session_id`,
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
+        // Transaction still open, client1 holds the lock
 
+        // NOW send client2's call (don't await it yet)
         const promise2 = client2.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
@@ -237,11 +239,10 @@ async function testConcurrentRace() {
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
 
-        // Wait until client2 is actually blocked on the advisory lock
+        // Poll until client2 is blocked on the advisory lock
         await waitForLockContention(client3, client2Pid);
 
-        // Now commit client1, releasing the advisory lock
-        const result1 = await promise1;
+        // Now commit client1, releasing the lock
         await client1.query("COMMIT");
 
         // Client2 can now proceed
@@ -312,7 +313,8 @@ async function testConcurrentRace() {
           [JSON.stringify({ sub: TEST_USER_ID })]
         );
 
-        const promise1 = client1.query(
+        // Client1 runs function and COMPLETES it (but doesn't commit)
+        const result2a = await client1.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
             5, 5, 20, 40, false, 3::smallint, 'off',
@@ -320,7 +322,9 @@ async function testConcurrentRace() {
           ) as session_id`,
           [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
         );
+        // Transaction still open, client1 holds the lock
 
+        // NOW send client2's call (don't await it yet)
         const promise2 = client2.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
@@ -330,11 +334,10 @@ async function testConcurrentRace() {
           [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
         );
 
-        // Wait until client2 is actually blocked on the advisory lock
+        // Poll until client2 is blocked on the advisory lock
         await waitForLockContention(client3, client2Pid);
 
-        // Now commit client1, releasing the advisory lock
-        const result2a = await promise1;
+        // Now commit client1, releasing the lock
         await client1.query("COMMIT");
 
         // Client2 can now proceed
