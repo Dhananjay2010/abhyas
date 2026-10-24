@@ -160,11 +160,14 @@ export function useElapsed(startedAtIso: string | null): number {
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
-    // Set the initial time after mount (client-only)
-    setNow(Date.now());
+    // Set the initial time after mount (client-only), scheduled asynchronously
+    const initial = setTimeout(() => setNow(Date.now()), 0);
     
     const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(t);
+    };
   }, []);
 
   // Return 0 during SSR and before the first effect runs (hydration-safe)

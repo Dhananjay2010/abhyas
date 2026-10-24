@@ -31,22 +31,29 @@ type SessionRow = {
   updated_at: string;
 };
 
+type SessionInsert = Omit<SessionRow, "id" | "created_at" | "updated_at" | "completed_at" | "duration_seconds" | "warmup_completed" | "cooldown_completed">;
+
 // Fake Supabase client interface
 type FakeSupabaseClient = {
   from: (table: string) => {
     select: (columns: string) => {
       eq: (column: string, value: string) => {
-        eq?: (column: string, value: string) => {
+        eq: (column: string, value: string) => {
           eq: (column: string, value: string) => Promise<{ data: SessionRow[] | null; error: null }>;
+          order: (column: string, options: { ascending: boolean }) => {
+            limit: (n: number) => {
+              maybeSingle: () => Promise<{ data: { id: string } | null; error: null }>;
+            };
+          };
         };
-        order?: (column: string, options: { ascending: boolean }) => {
+        order: (column: string, options: { ascending: boolean }) => {
           limit: (n: number) => {
             maybeSingle: () => Promise<{ data: { id: string } | null; error: null }>;
           };
         };
       };
     };
-    insert: (row: unknown) => {
+    insert: (row: SessionInsert) => {
       select: (columns: string) => {
         single: () => Promise<{ data: { id: string } | null; error: { message: string; code?: string } | null }>;
       };
@@ -117,7 +124,7 @@ async function startSessionCore(
     if (error.code === "23505") {
       const { data: existing } = await supabase
         .from("sessions")
-        .select("id")
+        .select("id, created_at")
         .eq("user_id", userId)
         .eq("status", "in_progress")
         .order!("created_at", { ascending: false })
@@ -157,6 +164,92 @@ async function startSessionCore(
 let passed = 0;
 let failed = 0;
 
+// Helper to create a fake Supabase client for testing
+function createFakeClient(
+  sessions: SessionRow[],
+  nextId: { current: number },
+  userId: string,
+  localDate: string,
+  options?: {
+    failInsertWith23505?: boolean;
+  },
+): FakeSupabaseClient {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            eq: () => {
+              const filtered = sessions.filter(
+                (s) => s.user_id === userId && s.local_date === localDate && s.status === "in_progress",
+              );
+              return Promise.resolve({ data: filtered, error: null });
+            },
+            order: (_column: string, _options: { ascending: boolean }) => ({
+              limit: (_n: number) => ({
+                maybeSingle: () => {
+                  const filtered = sessions.filter(
+                    (s) => s.user_id === userId && s.status === "in_progress",
+                  );
+                  const existing = filtered.length > 0 ? { id: filtered[0].id } : null;
+                  return Promise.resolve({ data: existing, error: null });
+                },
+              }),
+            }),
+          }),
+          order: (_column: string, _options: { ascending: boolean }) => ({
+            limit: (_n: number) => ({
+              maybeSingle: () => {
+                const filtered = sessions.filter(
+                  (s) => s.user_id === userId && s.status === "in_progress",
+                );
+                const existing = filtered.length > 0 ? { id: filtered[0].id } : null;
+                return Promise.resolve({ data: existing, error: null });
+              },
+            }),
+          }),
+        }),
+      }),
+      insert: (row: SessionInsert) => ({
+        select: () => ({
+          single: () => {
+            if (options?.failInsertWith23505 && sessions.some((s) => s.user_id === userId && s.local_date === localDate && s.status === "in_progress")) {
+              return Promise.resolve({
+                data: null,
+                error: {
+                  message: "duplicate key value violates unique constraint",
+                  code: "23505",
+                },
+              });
+            }
+            const id = `session-${nextId.current++}`;
+            sessions.push({
+              id,
+              user_id: row.user_id,
+              program_id: row.program_id,
+              program_day_id: row.program_day_id,
+              local_date: row.local_date,
+              week_in_block: row.week_in_block,
+              is_deload: row.is_deload,
+              planned_type: row.planned_type,
+              actual_type: row.actual_type,
+              status: row.status,
+              started_at: row.started_at,
+              completed_at: null,
+              duration_seconds: null,
+              warmup_completed: false,
+              cooldown_completed: false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+            return Promise.resolve({ data: { id }, error: null });
+          },
+        }),
+      }),
+    }),
+  };
+}
+
 function testStartSession(name: string, fn: () => void | Promise<void>) {
   return (async () => {
     try {
@@ -188,52 +281,9 @@ async function main() {
     const localDate = "2026-10-24";
 
     const sessions: SessionRow[] = [];
-    let nextId = 1;
+    const nextId = { current: 1 };
 
-    const fakeClient: FakeSupabaseClient = {
-      from: (table: string) => ({
-        select: (columns: string) => ({
-          eq: (column: string, value: string) => ({
-            eq: (column: string, value: string) => ({
-              eq: (column: string, value: string) => {
-                // Return existing sessions matching user + date + status
-                const filtered = sessions.filter(
-                  (s) => s.user_id === userId && s.local_date === localDate && s.status === "in_progress",
-                );
-                return Promise.resolve({ data: filtered, error: null });
-              },
-            }),
-          }),
-        }),
-        insert: (row: any) => ({
-          select: (columns: string) => ({
-            single: () => {
-              const id = `session-${nextId++}`;
-              sessions.push({
-                id,
-                user_id: row.user_id,
-                program_id: row.program_id,
-                program_day_id: row.program_day_id,
-                local_date: row.local_date,
-                week_in_block: row.week_in_block,
-                is_deload: row.is_deload,
-                planned_type: row.planned_type,
-                actual_type: row.actual_type,
-                status: row.status,
-                started_at: row.started_at,
-                completed_at: null,
-                duration_seconds: null,
-                warmup_completed: false,
-                cooldown_completed: false,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              });
-              return Promise.resolve({ data: { id }, error: null });
-            },
-          }),
-        }),
-      }),
-    };
+    const fakeClient = createFakeClient(sessions, nextId, userId, localDate);
 
     const result = await startSessionCore({
       supabase: fakeClient,
@@ -259,51 +309,9 @@ async function main() {
     const localDate = "2026-10-24";
 
     const sessions: SessionRow[] = [];
-    let nextId = 1;
+    const nextId = { current: 1 };
 
-    const fakeClient: FakeSupabaseClient = {
-      from: (table: string) => ({
-        select: (columns: string) => ({
-          eq: (column: string, value: string) => ({
-            eq: (column: string, value: string) => ({
-              eq: (column: string, value: string) => {
-                const filtered = sessions.filter(
-                  (s) => s.user_id === userId && s.local_date === localDate && s.status === "in_progress",
-                );
-                return Promise.resolve({ data: filtered, error: null });
-              },
-            }),
-          }),
-        }),
-        insert: (row: any) => ({
-          select: (columns: string) => ({
-            single: () => {
-              const id = `session-${nextId++}`;
-              sessions.push({
-                id,
-                user_id: row.user_id,
-                program_id: row.program_id,
-                program_day_id: row.program_day_id,
-                local_date: row.local_date,
-                week_in_block: row.week_in_block,
-                is_deload: row.is_deload,
-                planned_type: row.planned_type,
-                actual_type: row.actual_type,
-                status: row.status,
-                started_at: row.started_at,
-                completed_at: null,
-                duration_seconds: null,
-                warmup_completed: false,
-                cooldown_completed: false,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              });
-              return Promise.resolve({ data: { id }, error: null });
-            },
-          }),
-        }),
-      }),
-    };
+    const fakeClient = createFakeClient(sessions, nextId, userId, localDate);
 
     // First start
     const result1 = await startSessionCore({
@@ -346,26 +354,38 @@ async function main() {
     const userId = "user-1";
 
     const sessions: SessionRow[] = [];
-    let nextId = 1;
+    const nextId = { current: 1 };
 
+    // This test needs a client that handles multiple dates, so we keep the inline implementation
+    // but simplify by filtering on row.local_date
     const fakeClient: FakeSupabaseClient = {
-      from: (table: string) => ({
-        select: (columns: string) => ({
-          eq: (column: string, value: string) => ({
-            eq: (column2: string, value2: string) => ({
-              eq: (column3: string, localDateValue: string) => {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              eq: (_: string, localDateValue: string) => {
                 const filtered = sessions.filter(
                   (s) => s.user_id === userId && s.local_date === localDateValue && s.status === "in_progress",
                 );
                 return Promise.resolve({ data: filtered, error: null });
               },
+              order: () => ({
+                limit: () => ({
+                  maybeSingle: () => Promise.resolve({ data: null, error: null }),
+                }),
+              }),
+            }),
+            order: () => ({
+              limit: () => ({
+                maybeSingle: () => Promise.resolve({ data: null, error: null }),
+              }),
             }),
           }),
         }),
-        insert: (row: any) => ({
-          select: (columns: string) => ({
+        insert: (row: SessionInsert) => ({
+          select: () => ({
             single: () => {
-              const id = `session-${nextId++}`;
+              const id = `session-${nextId.current++}`;
               sessions.push({
                 id,
                 user_id: row.user_id,
@@ -432,42 +452,43 @@ async function main() {
     let insertCount = 0;
 
     const fakeClient: FakeSupabaseClient = {
-      from: (table: string) => ({
+      from: () => ({
         select: (columns: string) => ({
-          eq: (column: string, value: string) => {
-            // Check path: eq(user_id).eq(local_date).eq(status)
-            if (columns.includes("id, status, local_date")) {
-              return {
-                eq: (column2: string, value2: string) => ({
-                  eq: (column3: string, value3: string) => {
-                    const filtered = sessions.filter(
-                      (s) => s.user_id === userId && s.local_date === localDate && s.status === "in_progress",
-                    );
-                    return Promise.resolve({ data: filtered, error: null });
-                  },
-                }),
-              };
-            }
-            // Re-read path after 23505: eq(user_id).eq(status).order().limit().maybeSingle()
-            return {
-              eq: (column2: string, value2: string) => ({
-                order: (column3: string, options: { ascending: boolean }) => ({
-                  limit: (n: number) => ({
-                    maybeSingle: () => {
-                      const filtered = sessions.filter(
-                        (s) => s.user_id === userId && s.status === "in_progress",
-                      );
-                      const existing = filtered.length > 0 ? { id: filtered[0].id } : null;
-                      return Promise.resolve({ data: existing, error: null });
-                    },
-                  }),
+          eq: (_column: string, _value: string) => ({
+            eq: (_column2: string, _value2: string) => ({
+              eq: (_column3: string, _value3: string) => {
+                const filtered = sessions.filter(
+                  (s) => s.user_id === userId && s.local_date === localDate && s.status === "in_progress",
+                );
+                return Promise.resolve({ data: filtered, error: null });
+              },
+              order: (_column3: string, _options: { ascending: boolean }) => ({
+                limit: (_n: number) => ({
+                  maybeSingle: () => {
+                  const filtered = sessions.filter(
+                    (s) => s.user_id === userId && s.status === "in_progress",
+                  );
+                  const existing = filtered.length > 0 ? { id: filtered[0].id } : null;
+                  return Promise.resolve({ data: existing, error: null });
+                },
                 }),
               }),
-            };
-          },
+            }),
+            order: (_column2: string, _options: { ascending: boolean }) => ({
+              limit: (_n: number) => ({
+                maybeSingle: () => {
+                  const filtered = sessions.filter(
+                    (s) => s.user_id === userId && s.status === "in_progress",
+                  );
+                  const existing = filtered.length > 0 ? { id: filtered[0].id } : null;
+                  return Promise.resolve({ data: existing, error: null });
+                },
+              }),
+            }),
+          }),
         }),
-        insert: (row: any) => ({
-          select: (columns: string) => ({
+        insert: (row: SessionInsert) => ({
+          select: () => ({
             single: () => {
               insertCount++;
               
