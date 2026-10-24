@@ -137,13 +137,13 @@ async function runTests() {
     if (result.data && result.data.length > 0) {
       const exercise = result.data[0];
       assertTrue(
-        "restSeconds" in exercise,
-        "Exercise should have restSeconds field even when null",
+        "rest_seconds" in exercise,
+        "Exercise should have rest_seconds field even when null",
       );
       assertTrue(
-        exercise.restSeconds === null,
-        "Exercise restSeconds should be null",
-        `Got ${exercise.restSeconds}`,
+        exercise.rest_seconds === null,
+        "Exercise rest_seconds should be null",
+        `Got ${exercise.rest_seconds}`,
       );
     } else {
       console.error("❌ loadExercises returned no data");
