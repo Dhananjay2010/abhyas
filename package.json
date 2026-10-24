@@ -52,6 +52,7 @@
     "test:breathe-retry-race": "tsx scripts/test-breathe-retry-race.ts",
     "test:breathe-save-once": "tsx scripts/test-breathe-save-once.ts",
     "test:breathe-save-idempotency": "tsx scripts/test-breathe-save-idempotency.ts",
+    "test:breathe-lost-response": "tsx scripts/test-breathe-lost-response.ts",
     "test:sw": "tsx scripts/test-sw.ts",
     "test:offline-html": "tsx scripts/test-offline-html.ts",
     "test:offline-error": "tsx scripts/test-offline-error.ts",
