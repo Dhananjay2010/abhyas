@@ -813,8 +813,10 @@ export async function swapExercise(input: {
  *
  * Idempotent: it does nothing when rows already exist, so it is safe to call
  * on every resume.
+ *
+ * Exported for testing.
  */
-async function ensureSessionExercises(
+export async function ensureSessionExercises(
   supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
   userId: string,
   sessionId: string,
