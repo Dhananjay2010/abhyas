@@ -17,6 +17,9 @@ import { createFakeDb, json, type Row } from "./helpers/fake-postgrest";
     const query = fake.requests.find((r) => r.table === "program_days" && r.method === "GET");
     assert(query, "No GET request found for program_days");
     const filter = query.filters[column];
+    if (!filter) {
+      throw new Error(`Missing required filter: ${column}. All filters: ${JSON.stringify(query.filters)}`);
+    }
     assert.equal(filter, value, `Expected filter ${column}=${value}, got ${column}=${filter}`);
   }
 
