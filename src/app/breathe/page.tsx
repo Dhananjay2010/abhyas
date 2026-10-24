@@ -29,6 +29,7 @@ import {
 import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { suggestPractice } from "@/lib/breathing/suggest";
 import { BreatheHome, type LastPractice } from "./breathe-home";
+import { findPatternByLogKey } from "./load";
 
 export const dynamic = "force-dynamic";
 
@@ -134,9 +135,7 @@ export default async function BreathePage({
   const latestKey = latest ? (latest.user_pattern_id ?? latest.pattern_id) : null;
   // A practice of your own is keyed by your row; a built-in by the built-in,
   // even when you have retimed it.
-  const lastPattern = latestKey
-    ? patterns.find((p) => (p.kind === "mine" ? p.id === latestKey : p.id === latestKey))
-    : undefined;
+  const lastPattern = latestKey ? findPatternByLogKey(patterns, latestKey) : undefined;
   const last: LastPractice | null =
     lastPattern && latest ? { patternId: lastPattern.id, cycles: latest.planned_cycles } : null;
 

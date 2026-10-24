@@ -49,6 +49,7 @@ import {
   type Journey,
   type JourneyDay,
 } from "../src/lib/breathing/journey";
+import { findPatternByLogKey } from "../src/app/breathe/load";
 import {
   parseSteps,
   resolveRoutine,
@@ -1000,6 +1001,51 @@ console.log("\n32. The seeded course matches the practices that exist");
     days?.map((d) => d.slug).filter((s) => !seeded.has(s)).join(","));
   check("and none of them is the gated one",
     days?.every((d) => d.slug !== "kapalabhati") === true);
+}
+
+console.log("\n33. Find a pattern from a log's key (the AGAIN card bug fix)");
+{
+  // This is the bug: when a log has user_pattern_id set (an adjusted builtin),
+  // the lookup must check both p.id and p.userPatternId.
+  const boxId = "box-id";
+  const coherentId = "coherent-id";
+  const userTimingsId = "user-timings-123";
+  const ownPracticeId = "own-practice-456";
+
+  const patterns: Pattern[] = [
+    // A plain builtin (Box Breathing, not adjusted)
+    { ...fakePattern("box-breathing", "Box Breathing", BOX), id: boxId },
+    // A builtin with user timings (Coherent Breathing, adjusted)
+    {
+      ...fakePattern("coherent-breathing", "Coherent Breathing", COHERENT),
+      id: coherentId,
+      userPatternId: userTimingsId,
+      adjusted: true,
+    },
+    // A practice of your own (mine)
+    {
+      ...fakePattern(mineSlug(ownPracticeId), "Mine", EXTENDED),
+      kind: "mine" as const,
+      id: ownPracticeId,
+      userPatternId: ownPracticeId,
+    },
+  ];
+
+  check("finds a plain builtin by its id", findPatternByLogKey(patterns, boxId)?.slug === "box-breathing");
+  check(
+    "finds an adjusted builtin by its builtin id",
+    findPatternByLogKey(patterns, coherentId)?.slug === "coherent-breathing",
+  );
+  check(
+    "finds an adjusted builtin by its userPatternId (the bug fix)",
+    findPatternByLogKey(patterns, userTimingsId)?.slug === "coherent-breathing",
+    `got ${findPatternByLogKey(patterns, userTimingsId)?.slug}`,
+  );
+  check(
+    "finds your own practice by its id",
+    findPatternByLogKey(patterns, ownPracticeId)?.slug === mineSlug(ownPracticeId),
+  );
+  check("returns undefined for an unknown id", findPatternByLogKey(patterns, "unknown") === undefined);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
