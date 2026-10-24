@@ -83,6 +83,25 @@ export function validateDateNotFuture(
   localDate: string,
   timezone: string
 ): ValidationResult {
+  // Check if the date is valid format (YYYY-MM-DD)
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(localDate)) {
+    return { valid: false, error: "Invalid date." };
+  }
+  
+  // Check if the date is parseable and actually represents the input date
+  // (not rolled over, e.g. 2026-02-30 becomes March 2)
+  const parsed = new Date(localDate);
+  if (isNaN(parsed.getTime())) {
+    return { valid: false, error: "Invalid date." };
+  }
+  
+  // Verify the parsed date matches the input (strict validation)
+  const isoStr = parsed.toISOString().split('T')[0];
+  if (isoStr !== localDate) {
+    return { valid: false, error: "Invalid date." };
+  }
+  
   const today = localDateString(timezone);
   if (localDate > today) {
     return { valid: false, error: "That date is in the future." };
