@@ -2,9 +2,10 @@
 /**
  * Test 1: Triple-tap session length and verify toggles stay enabled.
  * 
- * Tap session length 3 times fast (30m, 75m, 45m) and assert that, 
- * after the saves settle, all toggles and the Timezone picker are 
- * ENABLED again and the server's final value is the last tap (45m).
+ * H1: Realistic test with 400ms save latency and 150ms gaps between taps.
+ * Tap session length 3 times (30m, 75m, 45m) with 150ms gaps.
+ * Assert that after saves settle, ALL toggles (including Weigh-in reminder)
+ * and the Timezone picker are ENABLED, and server's final value is 45m.
  * 
  * This test MUST FAIL on main before the fix.
  */
@@ -58,7 +59,8 @@ async function runTest() {
 
   const updateProfileSettings = async (patch: ProfilePatch): Promise<Result> => {
     serverWrites.push(patch);
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // Realistic 400ms save latency
+    await new Promise(resolve => setTimeout(resolve, 400));
     return { ok: true };
   };
 
@@ -91,13 +93,17 @@ async function runTest() {
 
   const user = userEvent.setup({ delay: null });
 
-  // Triple-tap: 30m, 75m, 45m
+  // Triple-tap with 150ms gaps: 30m, 75m, 45m
   await act(async () => { await user.click(findSessionButton(30)); });
+  await new Promise(resolve => setTimeout(resolve, 150));
+  
   await act(async () => { await user.click(findSessionButton(75)); });
+  await new Promise(resolve => setTimeout(resolve, 150));
+  
   await act(async () => { await user.click(findSessionButton(45)); });
 
-  // Wait for all saves to settle
-  await new Promise(resolve => setTimeout(resolve, 300));
+  // Wait for all saves to settle (400ms * 3 saves + margin)
+  await new Promise(resolve => setTimeout(resolve, 1500));
 
   // Check server final value
   const finalServerValue = serverWrites[serverWrites.length - 1]?.preferred_session_minutes;
@@ -110,32 +116,33 @@ async function runTest() {
     failed++;
   }
 
-  // Check that all toggles are enabled (not disabled)
+  // Check that ALL toggles are enabled (6 session toggles + 1 weigh-in reminder = 7 total)
   const toggles = container.querySelectorAll('button[role="switch"]');
   let allEnabled = true;
+  const disabledToggles: string[] = [];
   
   for (const toggle of Array.from(toggles)) {
     const htmlToggle = toggle as HTMLButtonElement;
     if (htmlToggle.disabled) {
       allEnabled = false;
       const label = htmlToggle.querySelector('span span')?.textContent || 'unknown';
-      console.error(`  ❌ Toggle "${label}" is disabled`);
+      disabledToggles.push(label);
     }
   }
   
-  if (allEnabled && toggles.length === 6) {
-    console.log(`  ✓ All ${toggles.length} toggles are enabled`);
+  if (allEnabled && toggles.length >= 7) {
+    console.log(`  ✓ All ${toggles.length} toggles are enabled (including Weigh-in reminder)`);
     passed++;
   } else if (allEnabled) {
-    console.error(`  ❌ Expected 6 toggles, found ${toggles.length}`);
+    console.error(`  ❌ Expected at least 7 toggles, found ${toggles.length}`);
     failed++;
   } else {
-    console.error(`  ❌ Some toggles are disabled (expected all enabled)`);
+    console.error(`  ❌ Some toggles are disabled: ${disabledToggles.join(', ')}`);
     failed++;
   }
 
-  // Check that Timezone picker (combobox) is enabled
-  const timezonePicker = container.querySelector('[role="combobox"]') as HTMLSelectElement | null;
+  // Check that Timezone picker (input with datalist) is enabled
+  const timezonePicker = container.querySelector('input[list="timezone-options"]') as HTMLInputElement | null;
   
   if (!timezonePicker) {
     console.error("  ❌ Timezone picker not found");

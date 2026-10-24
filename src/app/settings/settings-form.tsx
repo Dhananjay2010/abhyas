@@ -133,6 +133,43 @@ export function SettingsForm({
   /** Track if any save has occurred (for LOW-a: don't show Saved on first load) */
   const [anySaveOccurred, setAnySaveOccurred] = useState(false);
   
+  /** Track last successfully saved values for revert on error (N1) */
+  const lastSavedValues = useRef<{
+    goal: Goal | null;
+    level: Level | null;
+    primaryTrack: Track | null;
+    daysPerWeek: number | null;
+    yogaDaysPerWeek: number;
+    preferredSessionMinutes: number;
+    planningMode: "progression" | "daily_menu";
+    perSetLogging: boolean;
+    resumeSession: boolean;
+    cooldownEnabled: boolean;
+    restAutostart: boolean;
+    restSound: boolean;
+    restVibrate: boolean;
+    restOverrideSeconds: number | null;
+    bodyweightPrompt: "daily" | "weekly" | "never";
+    timezone: string | null;
+  }>({
+    goal: initial.goal,
+    level: initial.level,
+    primaryTrack: initial.primaryTrack,
+    daysPerWeek: initial.daysPerWeek,
+    yogaDaysPerWeek: initial.yogaDaysPerWeek,
+    preferredSessionMinutes: initial.preferredSessionMinutes,
+    planningMode: initial.planningMode,
+    perSetLogging: initial.perSetLogging,
+    resumeSession: initial.resumeSession,
+    cooldownEnabled: initial.cooldownEnabled,
+    restAutostart: initial.restAutostart,
+    restSound: initial.restSound,
+    restVibrate: initial.restVibrate,
+    restOverrideSeconds: initial.restOverrideSeconds,
+    bodyweightPrompt: initial.bodyweightPrompt,
+    timezone: initial.timezone,
+  });
+  
   /** DOB error state (client-side validation) */
   const [dobError, setDobError] = useState<string | null>(null);
   /** DOB touched state */
@@ -217,11 +254,57 @@ export function SettingsForm({
     return unsubscribe;
   }, [saveQueue]);
 
+  /** Get friendly field name for error messages (N1) */
+  function getFieldDisplayName(key: string): string {
+    const fieldNames: Record<string, string> = {
+      goal: "Goal",
+      level: "Level",
+      primary_track: "Where you train",
+      days_per_week: "Days per week",
+      yoga_days_per_week: "Yoga days",
+      preferred_session_minutes: "Session length",
+      planning_mode: "Planning mode",
+      per_set_logging: "Log every set",
+      resume_session: "Resume session",
+      cooldown_enabled: "Cool-down block",
+      rest_timer_autostart: "Rest timer autostart",
+      rest_timer_sound: "Rest sound",
+      rest_timer_vibrate: "Rest vibrate",
+      rest_seconds_override: "Rest length",
+      bodyweight_prompt: "Weigh-in reminder",
+      timezone: "Timezone",
+      date_of_birth: "Date of birth",
+      equipment: "Equipment",
+      injuries: "Injuries",
+    };
+    return fieldNames[key] || key;
+  }
+
+  /** Get friendly error message (N1: never show raw 'Failed to fetch') */
+  function getFriendlyError(key: string, rawError: string): string {
+    const fieldName = getFieldDisplayName(key);
+    
+    // Never show raw "Failed to fetch"
+    if (rawError.toLowerCase().includes("failed to fetch") || rawError.toLowerCase().includes("network")) {
+      return `Couldn't save ${fieldName}`;
+    }
+    
+    // If error already mentions the field, use it as-is
+    if (rawError.toLowerCase().includes(fieldName.toLowerCase())) {
+      return rawError;
+    }
+    
+    // Otherwise prefix with field name
+    return `${fieldName}: ${rawError}`;
+  }
+
   /** Enqueue a save with the queue, keyed per field */
   function enqueueSave(
     key: string,
     request: () => Promise<Result>,
-    affectsPlan = false
+    affectsPlan = false,
+    onSuccess?: () => void,
+    onFailure?: () => void
   ) {
     startTransition(async () => {
       try {
@@ -236,10 +319,17 @@ export function SettingsForm({
         setAnySaveOccurred(true);
         
         if (!result.ok) {
-          // Record error for this field
-          setFieldErrors(prev => new Map(prev).set(key, result.error));
-          setError(result.error);
+          // N1: Revert field on failure
+          onFailure?.();
+          
+          // N1: Use friendly error message
+          const friendlyError = getFriendlyError(key, result.error);
+          setFieldErrors(prev => new Map(prev).set(key, friendlyError));
+          setError(friendlyError);
         } else {
+          // Success: update saved value
+          onSuccess?.();
+          
           // Clear error for this field
           setFieldErrors(prev => {
             const next = new Map(prev);
@@ -254,9 +344,15 @@ export function SettingsForm({
           if (affectsPlan) setPlanStale(true);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        setFieldErrors(prev => new Map(prev).set(key, message));
-        setError(message);
+        // N1: Revert on exception
+        onFailure?.();
+        
+        const rawMessage = err instanceof Error ? err.message : "Unknown error";
+        const friendlyError = getFriendlyError(key, rawMessage);
+        setFieldErrors(prev => new Map(prev).set(key, friendlyError));
+        setError(friendlyError);
+        
+        // N1: No uncaught errors - we handled it
       }
     });
   }
@@ -267,7 +363,27 @@ export function SettingsForm({
     patch: Parameters<typeof actions.updateProfileSettings>[0],
     affectsPlan = false
   ) {
-    enqueueSave(key, () => actions.updateProfileSettings(patch), affectsPlan);
+    // Capture the new value being saved
+    const newValue = Object.values(patch)[0];
+    const stateKey = Object.keys(patch)[0] as keyof typeof lastSavedValues.current;
+    
+    enqueueSave(
+      key,
+      () => actions.updateProfileSettings(patch),
+      affectsPlan,
+      () => {
+        // On success: update lastSavedValues
+        if (stateKey in lastSavedValues.current) {
+          (lastSavedValues.current as any)[stateKey] = newValue;
+        }
+      },
+      () => {
+        // On failure: revert to last saved value
+        if (stateKey in lastSavedValues.current) {
+          setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
+        }
+      }
+    );
   }
 
   /** Save session setting */
@@ -275,7 +391,27 @@ export function SettingsForm({
     key: string,
     patch: Parameters<typeof actions.updateSessionSettings>[0]
   ) {
-    enqueueSave(key, () => actions.updateSessionSettings(patch));
+    // Capture the new value being saved
+    const newValue = Object.values(patch)[0];
+    const stateKey = Object.keys(patch)[0] as keyof typeof lastSavedValues.current;
+    
+    enqueueSave(
+      key,
+      () => actions.updateSessionSettings(patch),
+      false,
+      () => {
+        // On success: update lastSavedValues
+        if (stateKey in lastSavedValues.current) {
+          (lastSavedValues.current as any)[stateKey] = newValue;
+        }
+      },
+      () => {
+        // On failure: revert to last saved value
+        if (stateKey in lastSavedValues.current) {
+          setS(prev => ({ ...prev, [stateKey]: lastSavedValues.current[stateKey] }));
+        }
+      }
+    );
   }
 
   /** Save equipment with rollback on error */
@@ -365,60 +501,61 @@ export function SettingsForm({
       <div 
         role="status" 
         aria-live="polite"
-        className="sticky top-0 z-10 flex min-h-[3rem] items-center border-b border-border bg-background px-4 py-2 text-sm"
+        className="sticky top-0 z-10 flex min-h-[3rem] items-center border-b border-border bg-bg px-4 py-2 text-sm"
         style={{ marginBottom: 0 }}
       >
         {isSaving && <span className="text-muted">Saving…</span>}
         {showSaved && <span className="text-accent">Saved</span>}
         {hasErrors && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-danger">
-              {Array.from(fieldErrors.values())[0]}
-            </span>
-            <button
-              onClick={() => {
-                // M1: Retry by re-sending the last failed save for the first errored field
-                const firstErrorKey = Array.from(fieldErrors.keys())[0];
-                if (firstErrorKey) {
-                  startTransition(async () => {
-                    const retryPromise = saveQueue.retry(firstErrorKey);
-                    if (retryPromise) {
-                      try {
-                        const result = await retryPromise;
-                        
-                        // Handle superseded results
-                        if (result && typeof result === "object" && "superseded" in result) {
-                          return;
+          <div className="flex flex-col gap-2 w-full">
+            {Array.from(fieldErrors.entries()).map(([key, errorMsg]) => (
+              <div key={key} className="flex flex-wrap items-center gap-2">
+                <span className="text-danger">{errorMsg}</span>
+                <button
+                  onClick={() => {
+                    // M1: Retry the specific failed field
+                    startTransition(async () => {
+                      const retryPromise = saveQueue.retry(key);
+                      if (retryPromise) {
+                        try {
+                          const result = await retryPromise;
+                          
+                          // Handle superseded results
+                          if (result && typeof result === "object" && "superseded" in result) {
+                            return;
+                          }
+                          
+                          setAnySaveOccurred(true);
+                          
+                          if (result.ok) {
+                            // Clear the error on success
+                            setFieldErrors(prev => {
+                              const next = new Map(prev);
+                              next.delete(key);
+                              return next;
+                            });
+                            if (fieldErrors.size <= 1) setError(null);
+                          } else {
+                            // Update error if it changed
+                            const friendlyError = getFriendlyError(key, result.error);
+                            setFieldErrors(prev => new Map(prev).set(key, friendlyError));
+                            setError(friendlyError);
+                          }
+                        } catch (err) {
+                          const rawMessage = err instanceof Error ? err.message : "Unknown error";
+                          const friendlyError = getFriendlyError(key, rawMessage);
+                          setFieldErrors(prev => new Map(prev).set(key, friendlyError));
+                          setError(friendlyError);
                         }
-                        
-                        setAnySaveOccurred(true);
-                        
-                        if (result.ok) {
-                          // Clear the error on success
-                          setFieldErrors(prev => {
-                            const next = new Map(prev);
-                            next.delete(firstErrorKey);
-                            return next;
-                          });
-                          if (fieldErrors.size <= 1) setError(null);
-                        } else {
-                          // Update error if it changed
-                          setFieldErrors(prev => new Map(prev).set(firstErrorKey, result.error));
-                          setError(result.error);
-                        }
-                      } catch (err) {
-                        const message = err instanceof Error ? err.message : "Unknown error";
-                        setFieldErrors(prev => new Map(prev).set(firstErrorKey, message));
-                        setError(message);
                       }
-                    }
-                  });
-                }
-              }}
-              className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-accent underline underline-offset-2"
-            >
-              Retry
-            </button>
+                    });
+                  }}
+                  className="min-h-[44px] min-w-[44px] rounded-lg px-3 py-2 text-sm text-accent underline underline-offset-2"
+                >
+                  Retry
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
