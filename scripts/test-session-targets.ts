@@ -250,28 +250,30 @@ console.log("\n7. Invariant over real generateProgram output: comprehensive prof
 
   const profiles: GeneratorInput[] = [];
 
-  // Generate comprehensive matrix
-  for (const track of tracks) {
-    for (const level of levels) {
-      for (const days of daysOptions) {
-        for (const minutes of sessionMinutes) {
-          for (const injuries of injuryProfiles) {
-            profiles.push({
-              userId: "test-user",
-              blockNumber: 1,
-              goal: "muscle_gain",
-              level,
-              primaryTrack: track,
-              daysPerWeek: days,
-              yogaDaysPerWeek: 0,
-              age: 30,
-              bmi: 23,
-              hasAllEquipment: track === "weights",
-              equipmentIds: track === "weights" ? [] : [],
-              currentInjuryRegions: injuries,
-              catalogue,
-              preferredSessionMinutes: minutes,
-            });
+  // Generate comprehensive matrix with blockNumber 1 and 2
+  for (const blockNum of [1, 2]) {
+    for (const track of tracks) {
+      for (const level of levels) {
+        for (const days of daysOptions) {
+          for (const minutes of sessionMinutes) {
+            for (const injuries of injuryProfiles) {
+              profiles.push({
+                userId: "test-user",
+                blockNumber: blockNum,
+                goal: "muscle_gain",
+                level,
+                primaryTrack: track,
+                daysPerWeek: days,
+                yogaDaysPerWeek: 0,
+                age: 30,
+                bmi: 23,
+                hasAllEquipment: track === "weights",
+                equipmentIds: track === "weights" ? [] : [],
+                currentInjuryRegions: injuries,
+                catalogue,
+                preferredSessionMinutes: minutes,
+              });
+            }
           }
         }
       }
@@ -307,8 +309,28 @@ console.log("\n7. Invariant over real generateProgram output: comprehensive prof
     }
   }
 
+  // Add home-dumbbell profile
+  profiles.push({
+    userId: "test-user",
+    blockNumber: 1,
+    goal: "muscle_gain",
+    level: "intermediate",
+    primaryTrack: "weights",
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    age: 30,
+    bmi: 23,
+    hasAllEquipment: false,
+    equipmentIds: ["dumbbell", "flat_bench"],
+    currentInjuryRegions: [],
+    catalogue,
+    preferredSessionMinutes: 60,
+  });
+
   let testedRowsNonDeload = 0;
   let testedRowsDeload = 0;
+  let testedRowsWeights = 0;
+  let testedRowsBodyweight = 0;
   let allInvariantsHeld = true;
 
   for (const input of profiles) {
@@ -317,6 +339,10 @@ console.log("\n7. Invariant over real generateProgram output: comprehensive prof
       // Test ALL day types that have exercises, not just 'weights'
       if (day.exercises.length === 0) continue;
 
+      let dayPlannedTotalSets = 0;
+      let dayDeloadTotalSets = 0;
+      let dayHasThreePlusSets = false;
+
       for (const ex of day.exercises) {
         const planned: PlannedExercise = {
           target_sets: ex.targetSets,
@@ -324,6 +350,13 @@ console.log("\n7. Invariant over real generateProgram output: comprehensive prof
           target_reps_max: ex.targetRepsMax,
           rest_seconds: ex.restSeconds,
         };
+
+        dayPlannedTotalSets += ex.targetSets;
+        if (ex.targetSets >= 3) dayHasThreePlusSets = true;
+
+        // Track per-track rows
+        if (input.primaryTrack === "weights") testedRowsWeights++;
+        if (input.primaryTrack === "bodyweight") testedRowsBodyweight++;
 
         // Non-deload: output equals planned exactly
         const normal = resolveSessionTargets(planned, { isDeload: false });
@@ -340,8 +373,44 @@ console.log("\n7. Invariant over real generateProgram output: comprehensive prof
         }
         testedRowsNonDeload++;
 
-        // Deload: output ≤ planned
+        // Deload: strengthen checks to catch mutants
         const deload = resolveSessionTargets(planned, { isDeload: true });
+        dayDeloadTotalSets += deload.sets;
+
+        // a. Deload sets must equal applyDeload(...) AND the written-out formula
+        const expectedFromApplyDeload = applyDeload({
+          sets: ex.targetSets,
+          repsMin: ex.targetRepsMin,
+          repsMax: ex.targetRepsMax,
+          restSeconds: ex.restSeconds,
+        }).sets;
+        const expectedFromFormula = Math.min(
+          ex.targetSets,
+          Math.max(2, Math.round(ex.targetSets * 0.6)),
+        );
+
+        if (deload.sets !== expectedFromApplyDeload) {
+          allInvariantsHeld = false;
+          console.log(
+            `    FAIL: ${input.goal}/${input.level}/${input.primaryTrack}/${day.label}: deload ${deload.sets} !== applyDeload ${expectedFromApplyDeload} (planned ${ex.targetSets})`,
+          );
+        }
+        if (deload.sets !== expectedFromFormula) {
+          allInvariantsHeld = false;
+          console.log(
+            `    FAIL: ${input.goal}/${input.level}/${input.primaryTrack}/${day.label}: deload ${deload.sets} !== formula min(${ex.targetSets}, max(2, round(${ex.targetSets}*0.6))) = ${expectedFromFormula}`,
+          );
+        }
+
+        // b. For planned sets >= 3, deload sets must be strictly less than planned
+        if (ex.targetSets >= 3 && deload.sets >= ex.targetSets) {
+          allInvariantsHeld = false;
+          console.log(
+            `    FAIL: ${input.goal}/${input.level}/${input.primaryTrack}/${day.label}: planned ${ex.targetSets} sets >= 3 but deload ${deload.sets} not strictly less`,
+          );
+        }
+
+        // Deload never exceeds planned
         if (deload.sets > ex.targetSets) {
           allInvariantsHeld = false;
           console.log(
@@ -370,6 +439,15 @@ console.log("\n7. Invariant over real generateProgram output: comprehensive prof
         }
         testedRowsDeload++;
       }
+
+      // c. Each day's total deload sets must be strictly below its planned total
+      // whenever any row has >= 3 sets (this catches QA's bug: day going from 11 to 14 sets)
+      if (dayHasThreePlusSets && dayDeloadTotalSets >= dayPlannedTotalSets) {
+        allInvariantsHeld = false;
+        console.log(
+          `    FAIL: ${input.goal}/${input.level}/${input.primaryTrack}/${day.label}: day total deload ${dayDeloadTotalSets} >= planned ${dayPlannedTotalSets} (QA bug: should be strictly less)`,
+        );
+      }
     }
   }
 
@@ -382,6 +460,16 @@ console.log("\n7. Invariant over real generateProgram output: comprehensive prof
     `Tested ${testedRowsDeload} deload rows from generateProgram`,
     testedRowsDeload >= 500,
     `got ${testedRowsDeload}, need at least 500`,
+  );
+  check(
+    `Tested ${testedRowsWeights} weights rows`,
+    testedRowsWeights >= 500,
+    `got ${testedRowsWeights}, need at least 500`,
+  );
+  check(
+    `Tested ${testedRowsBodyweight} bodyweight rows`,
+    testedRowsBodyweight >= 500,
+    `got ${testedRowsBodyweight}, need at least 500`,
   );
   check("All invariants held across profile matrix", allInvariantsHeld);
 }
