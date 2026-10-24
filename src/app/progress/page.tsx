@@ -156,7 +156,7 @@ export default async function ProgressPage() {
       .map(s => s.local_date)
   );
   const strengthCharts = buildStrengthChartsFromDescendingRows(
-    (strengthRes.data ?? []).filter(row => !deloadDates.has(row.local_date)),
+    (strengthRes.data ?? []).filter(row => row.local_date && !deloadDates.has(row.local_date)),
     shortDate
   ).slice(0, 6);
 
