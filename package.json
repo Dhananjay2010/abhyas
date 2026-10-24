@@ -117,7 +117,7 @@
     "test:inline-errors": "tsx scripts/test-inline-errors.ts",
     "test:yoga-preselection": "tsx scripts/test-yoga-preselection.ts",
     "test:session-targets": "tsx scripts/test-session-targets.ts",
-<<<<<<< HEAD
+    "test:deload-trim": "tsx scripts/test-deload-trim.ts",
     "test:train-anyway": "tsx scripts/test-train-anyway.ts",
     "test:today-render": "tsx scripts/test-today-render-real.ts",
     "test:today-state": "tsx scripts/test-today-state.ts",
@@ -125,9 +125,6 @@
     "test:page-wiring": "tsx scripts/test-page-wiring.ts",
     "test:page-input": "tsx scripts/test-page-input.ts",
     "test:has-started-any": "tsx scripts/test-has-started-any.ts",
-=======
-    "test:deload-trim": "tsx scripts/test-deload-trim.ts",
->>>>>>> origin/main
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",

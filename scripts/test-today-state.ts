@@ -368,12 +368,11 @@ assert(
   "NEW: Training day 2 days after signup IS missed (genuine missed day)"
 );
 
-console.log("\n=== NEW MUTANT Test 6e: Guard removal must fail signup-day test ===\n");
+console.log("\n=== NEW Test 6e: Signup-day guard prevents false missed prompt ===\n");
 
-// This test will PASS with the guard (returns false)
-// If the guard is removed, this will FAIL (returns true)
-// Test: signup Saturday, yesterday Friday training day
-const mutantGuardTest = isMissedTrainingDay({
+// This test verifies the earliestCountableDate guard works correctly
+// signup Saturday, yesterday Friday training day
+const signupDayGuardTest = isMissedTrainingDay({
   date: "2026-10-23", // Fri (yesterday, before signup)
   programStartedOn: "2026-10-24", // Sat (signup day)
   profileCreatedAt: "2026-10-24T10:00:00Z", // Sat signup
@@ -385,8 +384,8 @@ const mutantGuardTest = isMissedTrainingDay({
 });
 
 assert(
-  !mutantGuardTest,
-  "MUTANT TEST: Removing the earliestCountableDate guard must fail this test (signup day guard)"
+  !signupDayGuardTest,
+  "Guard test: Signup day prevents false missed prompt for yesterday"
 );
 
 console.log("\n=== Test 7: Rebuilt block (current block's started_on) ===\n");
