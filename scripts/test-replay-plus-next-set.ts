@@ -87,6 +87,7 @@ async function testReplayPlusNextSetNoCollision() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -168,6 +169,7 @@ async function testPendingSetCountPerExercise() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -248,6 +250,7 @@ async function testReplayedSetsUpdateUI() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 

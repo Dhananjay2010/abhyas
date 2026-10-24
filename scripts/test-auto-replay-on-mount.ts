@@ -95,6 +95,7 @@ async function testOnFocusReplaysOnFirstCall() {
     logSet,
     userId: "test-user-id",
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -146,6 +147,7 @@ async function testOnFocusDoesNotReplayTwice() {
     logSet,
     userId: "test-user-id",
     sessionId,
+    sessionStatus: "in_progress",
     onChange: () => {},
   });
 
@@ -210,6 +212,7 @@ async function testOnFocusRetriesAfterFailure() {
     logSet,
     userId: "test-user-id",
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -252,6 +255,7 @@ async function testReplayAttemptedResetOnNewPendingSet() {
     logSet,
     userId: "test-user-id",
     sessionId,
+    sessionStatus: "in_progress",
     onChange: () => {},
   });
 

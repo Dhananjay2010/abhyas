@@ -96,6 +96,7 @@ async function testRapidFocusAndReplay() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -153,6 +154,7 @@ async function testPrefilledStorageLoadsAndReplays() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -188,6 +190,7 @@ async function testUnresolvedPromiseNotMarkedSaved() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -280,6 +283,7 @@ async function testSingleFlightReplayGuard() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: () => {},
   });
 
@@ -319,6 +323,7 @@ async function testSessionExpiredHandling() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -370,6 +375,7 @@ async function testDuplicate23505() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: () => {},
   });
 
@@ -400,6 +406,7 @@ async function testNetworkErrorKeepsPending() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -439,6 +446,7 @@ async function testThrownSessionExpired() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -488,6 +496,7 @@ async function testThrownSessionExpiredInReplay() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: () => {},
   });
 
@@ -542,6 +551,7 @@ async function testReplayedSetsReported() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 

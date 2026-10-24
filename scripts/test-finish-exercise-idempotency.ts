@@ -81,7 +81,7 @@ function createFakeSupabase(
  */
 function createProgressionSpy() {
   let callCount = 0;
-  const calls: Array<{ userId: string = "test-user-id"; sessionExerciseId: string; feel: string | null }> = [];
+  const calls: Array<{ userId: string; sessionExerciseId: string; feel: string | null }> = [];
 
   return {
     fn: async (

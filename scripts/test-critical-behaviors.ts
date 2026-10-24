@@ -81,6 +81,7 @@ async function test23505InSubmitCountsAsSaved() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
@@ -138,6 +139,7 @@ async function testReplayDoesntClearBeforeConfirm() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: () => {},
   });
 
@@ -191,6 +193,7 @@ async function testReplayKeepsStillExpiredSetPending() {
     storage,
     logSet,
     sessionId,
+    sessionStatus: "in_progress",
     onChange: (state) => states.push(state),
   });
 
