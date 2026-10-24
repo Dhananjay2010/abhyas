@@ -35,13 +35,11 @@ function makeFakeSupabase(exercises: any[], updateError?: string, readError?: st
     calls,
     from: (table: string) => {
       const currentTable = table;
-      let selectColumns = "*";
       const filters: Record<string, unknown> = {};
       let updatePayload: Record<string, unknown> = {};
 
       return {
-        select: (columns: string) => {
-          selectColumns = columns;
+        select: () => {
           return {
             eq: (column: string, value: unknown) => {
               filters[column] = value;

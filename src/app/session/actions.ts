@@ -17,7 +17,7 @@ import {
 } from "@/lib/program/progression";
 import { applyDeload, prescribe, weekInBlock } from "@/lib/program/prescription";
 import { validateSet } from "@/lib/session/validation";
-import { abandonSessionCore, decideAbandonStatus } from "@/lib/session/abandon-session";
+import { abandonSessionCore } from "@/lib/session/abandon-session";
 import { finishSessionCore } from "@/lib/session/finish-session";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";

@@ -182,7 +182,7 @@ async function testRunFinishRefreshThrowDoesntBlock(): Promise<boolean> {
     setError: () => {},
     setPhase: () => {},
     setEndedEarly: () => {},
-    navigate: (path) => {
+    navigate: () => {
       navigated = true;
     },
     onExit: null,
@@ -266,43 +266,28 @@ async function testRunEndEarlyOfflineFlag(): Promise<boolean> {
 
 // Mutant 9: Remove .eq('status', 'in_progress') from finishSessionCore
 async function testFinishSessionCoreStatusFilter(): Promise<boolean> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const calls: any[] = [];
+  const calls: Array<{ column: string; value: unknown }> = [];
 
   const fake = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    from: (table: string) => {
-      return {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        select: (columns: string) => {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          data: [{ session_sets: [{ id: "1", is_warmup_set: false }] }],
+          error: null,
+        }),
+      }),
+      update: () => ({
+        eq: (column: string, value: unknown) => {
+          calls.push({ column, value });
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            eq: (column: string, value: any) => {
-              return {
-                data: [{ session_sets: [{ id: "1", is_warmup_set: false }] }],
-                error: null,
-              };
+            eq: (column2: string, value2: unknown) => {
+              calls.push({ column: column2, value: value2 });
+              return { error: null };
             },
           };
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        update: (payload: any) => {
-          return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            eq: (column: string, value: any) => {
-              calls.push({ column, value });
-              return {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                eq: (column2: string, value2: any) => {
-                  calls.push({ column: column2, value: value2 });
-                  return { error: null };
-                },
-              };
-            },
-          };
-        },
-      };
-    },
+      }),
+    }),
   };
 
   await finishSessionCore(fake, {
@@ -318,42 +303,25 @@ async function testFinishSessionCoreStatusFilter(): Promise<boolean> {
 
 // Mutant 10: Ignore decideAbandonStatus in finishSessionCore (always save 'completed')
 async function testFinishSessionCoreRespectsZeroSets(): Promise<boolean> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let savedStatus: any = null;
+  let savedStatus: string | null = null;
 
   const fake = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    from: (table: string) => {
-      return {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        select: (columns: string) => {
-          return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            eq: (column: string, value: any) => {
-              return {
-                data: [{ session_sets: [{ id: "1", is_warmup_set: true }] }], // Only warmup
-                error: null,
-              };
-            },
-          };
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        update: (payload: any) => {
-          savedStatus = payload.status;
-          return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            eq: (column: string, value: any) => {
-              return {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                eq: (column2: string, value2: any) => {
-                  return { error: null };
-                },
-              };
-            },
-          };
-        },
-      };
-    },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          data: [{ session_sets: [{ id: "1", is_warmup_set: true }] }], // Only warmup
+          error: null,
+        }),
+      }),
+      update: (payload: Record<string, unknown>) => {
+        savedStatus = payload.status as string;
+        return {
+          eq: () => ({
+            eq: () => ({ error: null }),
+          }),
+        };
+      },
+    }),
   };
 
   const result = await finishSessionCore(fake, {
@@ -369,23 +337,14 @@ async function testFinishSessionCoreRespectsZeroSets(): Promise<boolean> {
 // Mutant 11: Ignore readError in finishSessionCore
 async function testFinishSessionCoreReadError(): Promise<boolean> {
   const fake = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    from: (table: string) => {
-      return {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        select: (columns: string) => {
-          return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            eq: (column: string, value: any) => {
-              return {
-                data: null,
-                error: { message: "Read failed" },
-              };
-            },
-          };
-        },
-      };
-    },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          data: null,
+          error: { message: "Read failed" },
+        }),
+      }),
+    }),
   };
 
   const result = await finishSessionCore(fake, {
@@ -399,43 +358,28 @@ async function testFinishSessionCoreReadError(): Promise<boolean> {
 
 // Mutant 12: Remove .eq('status', 'in_progress') from abandonSessionCore
 async function testAbandonSessionCoreStatusFilter(): Promise<boolean> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const calls: any[] = [];
+  const calls: Array<{ column: string; value: unknown }> = [];
 
   const fake = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    from: (table: string) => {
-      return {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        select: (columns: string) => {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          data: [{ session_sets: [{ id: "1", is_warmup_set: false }] }],
+          error: null,
+        }),
+      }),
+      update: () => ({
+        eq: (column: string, value: unknown) => {
+          calls.push({ column, value });
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            eq: (column: string, value: any) => {
-              return {
-                data: [{ session_sets: [{ id: "1", is_warmup_set: false }] }],
-                error: null,
-              };
+            eq: (column2: string, value2: unknown) => {
+              calls.push({ column: column2, value: value2 });
+              return { error: null };
             },
           };
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        update: (payload: any) => {
-          return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            eq: (column: string, value: any) => {
-              calls.push({ column, value });
-              return {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                eq: (column2: string, value2: any) => {
-                  calls.push({ column: column2, value: value2 });
-                  return { error: null };
-                },
-              };
-            },
-          };
-        },
-      };
-    },
+      }),
+    }),
   };
 
   await abandonSessionCore(fake, "s1", 100);
@@ -447,23 +391,14 @@ async function testAbandonSessionCoreStatusFilter(): Promise<boolean> {
 // Mutant 13: Ignore readError in abandonSessionCore
 async function testAbandonSessionCoreReadError(): Promise<boolean> {
   const fake = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    from: (table: string) => {
-      return {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        select: (columns: string) => {
-          return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            eq: (column: string, value: any) => {
-              return {
-                data: null,
-                error: { message: "Read failed" },
-              };
-            },
-          };
-        },
-      };
-    },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          data: null,
+          error: { message: "Read failed" },
+        }),
+      }),
+    }),
   };
 
   const result = await abandonSessionCore(fake, "s1", 100);
