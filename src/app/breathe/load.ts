@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import {
@@ -79,7 +80,7 @@ export type LoadedPractice = {
  * need a practice -- the setup screen and the practice itself -- go through
  * here, so they can never disagree about what a slug means.
  */
-export async function loadPractice(
+export const loadPractice = cache(async function loadPractice(
   supabase: Client,
   userId: string,
   slug: string,
@@ -125,7 +126,7 @@ export async function loadPractice(
     lastCycles: previous?.planned_cycles ?? null,
     firstPractice: (countRes.count ?? 0) === 0,
   };
-}
+});
 
 export type LoadedRoutine = {
   resolved: ResolvedRoutine;

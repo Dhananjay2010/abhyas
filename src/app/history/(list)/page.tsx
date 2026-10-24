@@ -3,9 +3,9 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { getUnitsPreference } from "@/lib/units";
-import { HistoryClient } from "./history-client";
-import type { SessionListItem } from "./types";
-import { detectSessionPRs } from "./detect-session-prs";
+import { HistoryClient } from "../history-client";
+import type { SessionListItem } from "../types";
+import { detectSessionPRs } from "../detect-session-prs";
 
 export const dynamic = "force-dynamic";
 
