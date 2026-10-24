@@ -644,12 +644,12 @@ console.log("\n24. null started_at with sets: uses first set's time");
   check("ended_at is based on first set", session?.completed_at === eightHoursAgo);
 }
 
-console.log("\n25. null started_at with no sets: closes with duration 0");
+console.log("\n25. null started_at with no sets: planned session marked skipped");
 {
   const fake = new FakeCloseStaleDeps();
   const now = Date.parse("2026-10-24T20:00:00Z");
   
-  fake.setSession("empty", "in_progress");
+  fake.setSession("empty", "planned");
   fake.setSessionExercises("empty", []);
 
   const open: OpenSession[] = [
@@ -659,8 +659,7 @@ console.log("\n25. null started_at with no sets: closes with duration 0");
   await closeStaleSessionsCore(fake, open, now);
   
   const session = fake.getSession("empty");
-  check("session closed as skipped", session?.status === "skipped");
-  check("duration is 0", session?.duration_seconds === 0);
+  check("planned session marked skipped", session?.status === "skipped");
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

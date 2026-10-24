@@ -201,15 +201,15 @@ export async function closeStaleSessionsCore(
     ...abandoned.map(async (id) => {
       const session = byId.get(id);
       
-      // Sessions with no started_at and no sets: close with duration null
+      // Sessions with no started_at and no sets: mark as skipped
       if (!session?.started_at) {
         const firstSetTime = firstSetCompletedAt.get(id);
         if (!firstSetTime) {
-          // No started_at, no sets - mark skipped with duration null
+          // No started_at, no sets - mark planned sessions as skipped
           try {
-            await deps.markSessionDone(id, "skipped", new Date(nowMs).toISOString(), 0);
+            await deps.markPlannedSkipped(id);
           } catch (error) {
-            console.error(`Failed to mark empty session ${id} as skipped:`, error);
+            console.error(`Failed to mark planned session ${id} as skipped:`, error);
           }
           return false;
         }
