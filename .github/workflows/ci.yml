@@ -73,6 +73,8 @@ jobs:
 
       - name: Start Supabase local stack
         run: supabase start
+        env:
+          SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
 
       - name: Run database reset with seed
         run: supabase db reset

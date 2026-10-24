@@ -171,7 +171,7 @@ Returns array of `PRType[]` achieved by that set.
 ```typescript
 type PRType = 
   | "heaviest_weight"   // Highest weight lifted (any reps)
-  | "most_reps"         // Most reps in a single set (at any weight)
+  | "most_reps"         // Most reps (see rules below)
   | "best_e1rm"         // Best estimated 1RM
   | "longest_duration"; // Longest duration (time-based exercises)
 
@@ -182,6 +182,20 @@ interface PersonalRecord {
   e1rm?: number;  // Estimated 1RM when applicable
 }
 ```
+
+### Rep PR Rules (L4)
+
+For **weighted exercises**, a set w×r is a rep PR when:
+1. An earlier working set exists at exactly weight w
+2. r is greater than every earlier set's reps at weight ≥ w
+3. **Ties are not PRs** - must strictly beat previous reps
+
+For **bodyweight exercises** (null or 0 weight): plain most-reps comparison.
+
+**Example:** 
+- First session: 80×10, 100×5
+- Later session: 100×8 ✅ Rep PR (beats 100×5 at exactly 100kg)
+- Later session: 100×5 ❌ Not a PR (tie with earlier 100×5)
 
 ## Notes
 
