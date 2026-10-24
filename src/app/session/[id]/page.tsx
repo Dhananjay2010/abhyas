@@ -117,6 +117,7 @@ export default async function SessionPage({
       progress?.current_working_weight_kg === null || progress === undefined
         ? null
         : Number(progress.current_working_weight_kg);
+    const isBodyweight = (ex?.equipment_ids ?? []).length === 0;
     return {
       id: r.id,
       exerciseId: ex?.id ?? "",
@@ -144,11 +145,12 @@ export default async function SessionPage({
           mechanic: null,
           movementPattern: ex?.movement_pattern ?? "other",
           metric: r.metric ?? "reps",
-          isBodyweight: (ex?.equipment_ids ?? []).length === 0,
+          isBodyweight,
           progressionChain: null,
           progressionRank: null,
         },
       ),
+      isBodyweight,
       // Warm-up sets are excluded and the order applied here rather than in the
       // query. PostgREST is documented to filter an embedded resource without
       // dropping its parent, but if that were ever wrong the failure would be
