@@ -36,13 +36,14 @@ const KNEE_SAFE_LOWER_PATTERNS: MovementPattern[] = ["hinge", "core"];
 export function buildPatternList(
   currentPattern: MovementPattern,
   hasKneeInjury: boolean,
+  hasCurrentKnee?: boolean,
 ): MovementPattern[] {
   const patterns: MovementPattern[] = [currentPattern];
   
-  // For knee injuries on lunge pattern, DON'T add squat fallback
+  // For CURRENT knee injuries on lunge pattern, DON'T add squat fallback
   // (would widen to barbell-squat, hack-squat, etc. which aren't on the knee-safe list)
-  // Instead, only add knee-safe patterns below
-  const skipFallback = hasKneeInjury && currentPattern === "lunge";
+  // For PAST knee, DO add squat fallback (PAST_KNEE_LUNGE_EXERCISES are squat pattern)
+  const skipFallback = (hasCurrentKnee ?? hasKneeInjury) && currentPattern === "lunge";
   
   if (!skipFallback) {
     // Add direct fallback (lunge↔squat)
@@ -217,8 +218,15 @@ export function rankAlternatives<T extends ExerciseRow>(
     }
     
     // 6. Injury filtering: exclude if any contraindicated region intersects
+    // PR #73: For current knee + lunge pattern, skip knee contraindication check
+    // The lunge-specific eligibility logic already filtered to knee-safe exercises
+    const isCurrentKneeLunge = hasKneeInjury && candidate.movement_pattern === "lunge";
+    const contraindicationsToCheck = isCurrentKneeLunge
+      ? candidate.contraindicated_regions.filter(r => r !== "knee")
+      : candidate.contraindicated_regions;
+    
     if (
-      candidate.contraindicated_regions.some((region) =>
+      contraindicationsToCheck.some((region) =>
         ctx.injuryRegions.includes(region)
       )
     ) {

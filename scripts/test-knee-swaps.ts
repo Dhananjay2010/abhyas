@@ -84,7 +84,8 @@ function simulateSwapPath(
   };
   
   // REAL swap path from actions.ts
-  const patterns = buildPatternList(currentExercise.movement_pattern, anyKneeInjury);
+  const hasCurrentKnee = currentInjuries.includes("knee");
+  const patterns = buildPatternList(currentExercise.movement_pattern, anyKneeInjury, hasCurrentKnee);
   const pool = catalogue.filter(ex => patterns.includes(ex.movement_pattern));
   const eligible = pool.filter(ex => isEligible(ex, input));
   
@@ -199,13 +200,25 @@ for (const testCase of TEST_CASES) {
         unsafeLunges.length > 0 ? `Unsafe: ${unsafeLunges.join(", ")}` : undefined
       );
       
-      // Verify NO squat-pattern exercises in lunge swaps for knee users
+      // Verify NO squat-pattern exercises in lunge swaps for CURRENT knee users
+      // (Past knee users get squat-pattern quad isolation exercises, which is correct)
+      const hasCurrentKnee = testCase.injuries.some(inj => inj.region === "knee" && inj.severity === "current");
       const squatExercises = swapList.filter(ex => ex.movement_pattern === "squat");
-      check(
-        `${pattern} (${slug}): no squat pattern widening`,
-        squatExercises.length === 0,
-        squatExercises.length > 0 ? `Found squats: ${squatExercises.map(e => e.slug).slice(0, 3).join(", ")}` : undefined
-      );
+      
+      if (hasCurrentKnee) {
+        check(
+          `${pattern} (${slug}): no squat pattern widening for current knee`,
+          squatExercises.length === 0,
+          squatExercises.length > 0 ? `Found squats: ${squatExercises.map(e => e.slug).slice(0, 3).join(", ")}` : undefined
+        );
+      } else {
+        // Past knee: squat pattern exercises (PAST_KNEE_LUNGE_EXERCISES) are expected
+        check(
+          `${pattern} (${slug}): past knee includes squat pattern (quad isolation)`,
+          squatExercises.length > 0,
+          `Expected squat pattern exercises for past knee`
+        );
+      }
     }
   }
 }

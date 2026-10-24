@@ -660,7 +660,8 @@ export async function findAlternatives(
   
   // Build pattern list (current + fallbacks + knee-safe if applicable)
   const hasKneeInjury = input.anyKneeInjury;
-  const patterns = buildPatternList(pattern, hasKneeInjury);
+  const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
+  const patterns = buildPatternList(pattern, hasKneeInjury, hasCurrentKnee);
   
   // Helper to cast Supabase rows to typed pool rows
   type PoolRow = CandidateExercise & { cue: string | null };

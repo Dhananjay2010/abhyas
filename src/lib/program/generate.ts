@@ -519,7 +519,15 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
       ...ex.contraindicated_regions,
       ...getDerivedContraindications(ex),
     ];
-    if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
+    
+    // PR #73: For current knee + lunge pattern, skip generic knee contraindication check
+    // The lunge-specific logic below handles knee-safe lunge exercises
+    const isCurrentKneeLunge = input.currentInjuryRegions.includes("knee") && ex.movement_pattern === "lunge";
+    const contraindicationsToCheck = isCurrentKneeLunge 
+      ? allContraindications.filter(r => r !== "knee")
+      : allContraindications;
+    
+    if (contraindicationsToCheck.some((r) => input.currentInjuryRegions.includes(r))) {
       return false;
     }
     

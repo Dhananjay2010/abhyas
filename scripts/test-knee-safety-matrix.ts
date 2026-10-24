@@ -18,6 +18,7 @@ import { readFileSync } from "node:fs";
 import {
   generateProgram,
   isEligible,
+  KNEE_SAFE_LUNGE_EXERCISES,
   type CandidateExercise,
   type GeneratorInput,
 } from "../src/lib/program/generate";
@@ -482,6 +483,7 @@ for (const seed of testSeeds) {
             }
             
             // Rule 4: All exercises respect contraindicated_regions (CURRENT KNEE ONLY - past knee is in anyKneeInjury not currentInjuryRegions)
+            // EXCEPTION: KNEE_SAFE_LUNGE_EXERCISES are allowed even though they're marked as contraindicated
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               for (const ex of day.exercises) {
@@ -489,7 +491,8 @@ for (const seed of testSeeds) {
                 if (!exercise) continue;
                 
                 // Check explicit contraindications
-                if (exercise.contraindicated_regions.includes("knee")) {
+                // Exception: KNEE_SAFE_LUNGE_EXERCISES are allowed even though contraindicated
+                if (exercise.contraindicated_regions.includes("knee") && !KNEE_SAFE_LUNGE_EXERCISES.has(exercise.slug)) {
                   check(`${profileId} ${day.label}: ${exercise.name} not contraindicated for knee`, false,
                     "Explicitly contraindicated");
                   profileFailed = true;
@@ -515,7 +518,7 @@ for (const seed of testSeeds) {
             }
             
             // Rule 6 (PR #73 follow-up): Squat/lunge pattern restrictions
-            // CURRENT knee: All squat/lunge must be in EXPECTED_KNEE_SAFE_QUAD_EXERCISES
+            // CURRENT knee: Squats must be in EXPECTED_KNEE_SAFE_QUAD_EXERCISES, lunges in KNEE_SAFE_LUNGE_EXERCISES
             // PAST knee: Lunge must be in EXPECTED_PAST_KNEE_LUNGE_EXERCISES, but squats are allowed
             if (severity.label === "current-knee") {
               for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
@@ -523,10 +526,16 @@ for (const seed of testSeeds) {
                   const exercise = byId.get(ex.exerciseId);
                   if (!exercise) continue;
                   
-                  if (exercise.movement_pattern === "squat" || exercise.movement_pattern === "lunge") {
+                  if (exercise.movement_pattern === "squat") {
                     if (!EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug)) {
-                      check(`${profileId} ${day.label}: squat/lunge in allowlist`, false,
-                        `${exercise.name} [${exercise.slug}] is ${exercise.movement_pattern} but not in allowlist`);
+                      check(`${profileId} ${day.label}: squat in allowlist`, false,
+                        `${exercise.name} [${exercise.slug}] is squat but not in allowlist`);
+                      profileFailed = true;
+                    }
+                  } else if (exercise.movement_pattern === "lunge") {
+                    if (!KNEE_SAFE_LUNGE_EXERCISES.has(exercise.slug)) {
+                      check(`${profileId} ${day.label}: lunge in allowlist`, false,
+                        `${exercise.name} [${exercise.slug}] is lunge but not in allowlist`);
                       profileFailed = true;
                     }
                   }
