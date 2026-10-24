@@ -2,6 +2,9 @@ import { evaluateProgression, estimateOneRepMax, type ExerciseMeta, type Progres
 
 const meta: ExerciseMeta = {
   mechanic: "compound", movementPattern: "horizontal_press", metric: "reps",
+  isBodyweight: false,
+  progressionChain: null,
+  progressionRank: null,
 };
 const state = (o: Partial<ProgressState> = {}): ProgressState => ({
   currentWorkingWeightKg: 60, currentTargetReps: 12, consecutiveFailures: 0,
