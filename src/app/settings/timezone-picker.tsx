@@ -30,6 +30,8 @@ export function TimezonePicker({
 }) {
   const [isValid, setIsValid] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  // QA Bug fix: Use ref to avoid stale closure in handleBlur after Escape
+  const cancelRef = useRef(false);
 
   // Derive display value from current prop - this is the value shown when not editing
   const displayValue = getTimezoneDisplayValue(value, deviceZone, gymDefault);
@@ -37,23 +39,26 @@ export function TimezonePicker({
   // Track local editing state
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
-  const [cancelRequested, setCancelRequested] = useState(false);
 
   const handleFocus = () => {
     setIsEditing(true);
     setEditValue(displayValue);
     setIsValid(true);
-    setCancelRequested(false);
+    cancelRef.current = false;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditValue(e.target.value);
     setIsValid(true); // Reset validation while typing
-    setCancelRequested(false); // Clear cancel flag if user continues typing
+    cancelRef.current = false; // Clear cancel flag if user continues typing
   };
 
   const handleBlur = () => {
     setIsEditing(false);
+    
+    // QA Bug fix: Read cancelRef.current to get the current value, not stale closure
+    const wasCanceled = cancelRef.current;
+    cancelRef.current = false; // Reset for next interaction
     
     // QA Issue #7: Use pure commit/cancel logic
     const decision = decideTimezoneCommit(
@@ -61,18 +66,15 @@ export function TimezonePicker({
       timezones,
       deviceZone,
       gymDefault,
-      cancelRequested
+      wasCanceled
     );
-    
-    // Reset cancel flag
-    setCancelRequested(false);
     
     if (decision.commit) {
       // Valid input - commit the change
       onChange(decision.value);
       setIsValid(true);
-    } else if (cancelRequested) {
-      // Escape pressed - restore previous value without error
+    } else if (wasCanceled) {
+      // Escape pressed - restore previous value without error (don't flash validation error)
       setIsValid(true);
     } else {
       // Invalid input - show error but don't change value
@@ -86,8 +88,9 @@ export function TimezonePicker({
       inputRef.current?.blur();
     } else if (e.key === "Escape") {
       // QA Issue #7: Escape must CANCEL - restore previous, no onChange, blur
+      // QA Bug fix: Set ref before blur so handleBlur sees the current value
       e.preventDefault();
-      setCancelRequested(true);
+      cancelRef.current = true;
       inputRef.current?.blur();
     }
   };
