@@ -135,10 +135,7 @@ export function BottomNav() {
   };
 
   return (
-    <nav
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur"
-      aria-label="Main navigation"
-    >
+    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
       <ul className="mx-auto flex max-w-md">
         {TABS.map((t) => {
           const href = getHref(t.href);
@@ -159,13 +156,21 @@ export function BottomNav() {
                 // already have happened in a prefetch they never asked for.
                 aria-current={isActive ? "page" : undefined}
                 // px-1: five labels have to fit a 375px screen.
-                className={`flex flex-col items-center gap-1 px-1 pt-2.5 text-center transition-colors ${
+                className={`relative flex flex-col items-center gap-1 px-1 pt-2.5 text-center transition-colors ${
                   isActive ? "text-accent" : "text-muted"
                 }`}
                 style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))" }}
               >
+                {isActive && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-accent"
+                  />
+                )}
                 <Icon />
-                <span className="text-[11px] font-medium leading-none">{t.label}</span>
+                <span className={`text-[11px] leading-none ${isActive ? "font-semibold" : "font-medium"}`}>
+                  {t.label}
+                </span>
               </Link>
             </li>
           );
