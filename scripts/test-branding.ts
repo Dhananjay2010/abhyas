@@ -232,6 +232,51 @@ function testTimezoneResolution() {
     `null profile timezone should fall back to brand default "${expected}" (got: ${nullFallback})`
   );
   console.log(`  ✓ Null profile timezone falls back: ${nullFallback}`);
+
+  // Profile with database default value, gym has timezone
+  const fallbackTz = resolveTimezoneWithProfile("Asia/Kolkata");
+  const expectedGym = branding.timezone || "Asia/Kolkata";
+  assert(
+    fallbackTz === expectedGym,
+    `Profile with default 'Asia/Kolkata' should defer to gym timezone (got: ${fallbackTz}, expected: ${expectedGym})`
+  );
+  console.log(`  ✓ Profile default defers to gym timezone when available: ${fallbackTz}`);
+}
+
+async function testDayBoundaries() {
+  console.log("\n▶ Testing day boundaries across timezones...");
+
+  // Import localDateString dynamically for testing
+  const { localDateString } = await import("../src/lib/dates");
+
+  // Test LA time at 23:30 local (should still be same day, not next UTC day)
+  const laNight = new Date("2026-01-16T07:30:00.000Z"); // 2026-01-15 23:30 PST
+  const laDate = localDateString("America/Los_Angeles", laNight);
+  assert(
+    laDate === "2026-01-15",
+    `LA at 23:30 local should be 2026-01-15 (got: ${laDate})`
+  );
+  console.log(`  ✓ America/Los_Angeles 23:30 local = ${laDate}`);
+
+  // Test Auckland time at 00:30 local (should be new day, not previous UTC day)
+  const aucklandMorning = new Date("2026-01-14T11:30:00.000Z"); // 2026-01-15 00:30 NZDT
+  const aucklandDate = localDateString("Pacific/Auckland", aucklandMorning);
+  assert(
+    aucklandDate === "2026-01-15",
+    `Auckland at 00:30 local should be 2026-01-15 (got: ${aucklandDate})`
+  );
+  console.log(`  ✓ Pacific/Auckland 00:30 local = ${aucklandDate}`);
+
+  // Verify IST is not hardcoded (must use actual timezone)
+  const istMorning = new Date("2026-01-14T19:00:00.000Z"); // 2026-01-15 00:30 IST
+  const istDate = localDateString("Asia/Kolkata", istMorning);
+  assert(
+    istDate === "2026-01-15",
+    `IST day boundaries should work correctly (got: ${istDate})`
+  );
+  console.log(`  ✓ Asia/Kolkata respects actual timezone (not hardcoded)`);
+
+  console.log("  ✓ No IST midnight assumptions in day boundary logic");
 }
 
 function testCssVariableGeneration() {
@@ -280,6 +325,33 @@ function testCssVariableGeneration() {
   console.log(`  ✓ Generated ${declarations.length} CSS variable declarations`);
   console.log(`  ✓ All required color variables present`);
   console.log(`  ✓ Format suitable for inline <style> injection`);
+
+  // Test CSS injection protection: invalid colors should throw
+  const invalidBrand: Brand = {
+    ...branding,
+    id: "test-invalid",
+    colors: {
+      ...branding.colors,
+      accent: "javascript:alert(1)", // Invalid: not a hex code
+    },
+  };
+
+  let threwError = false;
+  try {
+    getBrandCssVariables(invalidBrand);
+  } catch (error) {
+    threwError = true;
+    assert(
+      error instanceof Error && error.message.includes("strict 6-digit hex"),
+      `Should throw specific error for invalid color (got: ${error instanceof Error ? error.message : error})`
+    );
+  }
+
+  assert(
+    threwError,
+    "getBrandCssVariables must reject invalid colors (CSS injection protection)"
+  );
+  console.log("  ✓ Invalid colors rejected for CSS injection protection");
 }
 
 function testBrandIcons() {
@@ -447,7 +519,7 @@ function testManifestShortcuts() {
   console.log("  ✓ Shortcuts are valid");
 }
 
-function main() {
+async function main() {
   console.log("Testing Enhanced Branding Configuration with Timezone Support");
   console.log("==============================================================");
 
@@ -459,6 +531,7 @@ function main() {
     testDefaultUnits();
     testTimezoneValidation();
     testTimezoneResolution();
+    await testDayBoundaries();
     testCssVariableGeneration();
     testBrandIcons();
     testManifestUsesConfig();

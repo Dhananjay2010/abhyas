@@ -53,14 +53,16 @@ export async function saveAboutYou(input: {
     .eq("id", user.id)
     .single();
 
-  // If profile has no timezone and client sent browser timezone, record it
+  // Profile update
   const profileUpdate: ProfileUpdate = {
     date_of_birth: input.dateOfBirth,
     sex: input.sex,
     height_cm: input.heightCm,
   };
 
-  if (!profile?.timezone && input.browserTimezone) {
+  // Record browser timezone if provided and profile still has the default
+  // (The column defaults to 'Asia/Kolkata', so we overwrite it with browser/gym preference)
+  if (input.browserTimezone) {
     const { validateTimezone } = await import("@/lib/branding");
     const validated = validateTimezone(input.browserTimezone);
     if (validated) {

@@ -71,6 +71,11 @@ export type Brand = {
    */
   logo?: string;
   /**
+   * Optional tagline or slogan, shown on the landing page.
+   * For example, the Hindi word for "practice" (अभ्यास) for the default brand.
+   */
+  tagline?: string;
+  /**
    * Default unit system for new members ('metric' or 'imperial').
    * New users start with this setting and can change it in Settings.
    * Metric: kg, cm; Imperial: lb, in.
@@ -116,6 +121,7 @@ const abhyas: Brand = {
   siteUrl: "https://abhyas-indol.vercel.app",
   // No timezone set — falls back to browser detection
   // No logo set — shows text name
+  tagline: "अभ्यास", // Hindi word for "practice"
   defaultUnits: "metric",
   colors: {
     accent: "#ff9a2e",
@@ -383,8 +389,20 @@ export const backgroundColor = branding.colors.bg;
 /**
  * Get CSS variable declarations for the active brand's colors.
  * Returns a string suitable for inline <style> injection.
+ * 
+ * Security: All colors are validated as strict hex codes during brand validation.
  */
 export function getBrandCssVariables(brand: Brand = branding): string {
+  // Validate all colors are strict hex codes (defense in depth)
+  const colorEntries = Object.entries(brand.colors);
+  for (const [key, value] of colorEntries) {
+    if (!/^#[0-9a-fA-F]{6}$/.test(value)) {
+      throw new Error(
+        `Brand ${brand.id}: colors.${key} must be a strict 6-digit hex code for CSS injection safety (got: ${value})`
+      );
+    }
+  }
+
   return [
     `--color-accent: ${brand.colors.accent};`,
     `--color-accent-hover: ${brand.colors.accentHover};`,

@@ -3,6 +3,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import { SignInButton } from "./sign-in-button";
 import { Footer } from "@/components/footer";
 import { branding } from "@/lib/branding";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default async function LandingPage({
   searchParams,
@@ -24,11 +25,14 @@ export default async function LandingPage({
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-between px-6 py-12">
       <div className="flex flex-1 flex-col justify-center">
-        {/* No letter-spacing on Devanagari: it breaks the conjunct ligatures. */}
-        <p lang="hi" className="text-base font-medium text-accent">
-          अभ्यास
-        </p>
-        <h1 className="mt-3 text-5xl font-bold tracking-tight">{branding.name}</h1>
+        {branding.tagline && (
+          <p lang="hi" className="text-base font-medium text-accent">
+            {branding.tagline}
+          </p>
+        )}
+        <div className="mt-3">
+          <BrandLogo className="h-12" />
+        </div>
         <p className="mt-5 text-lg leading-relaxed text-muted">
           {branding.description}
         </p>
