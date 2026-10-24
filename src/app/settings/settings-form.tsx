@@ -185,9 +185,10 @@ export function SettingsForm({
   
   /** Track retry metadata for each key (M1 fix #2) */
   const retryMetadata = useRef<Map<string, {
-    type: 'profile' | 'session';
-    patch: Parameters<typeof actions.updateProfileSettings>[0] | Parameters<typeof actions.updateSessionSettings>[0];
+    type: 'profile' | 'session' | 'equipment' | 'injury';
+    patch?: Parameters<typeof actions.updateProfileSettings>[0] | Parameters<typeof actions.updateSessionSettings>[0];
     affectsPlan?: boolean;
+    retryFn?: () => void;
   }>>(new Map());
   
   /** DOB error state (client-side validation) */
@@ -744,13 +745,15 @@ export function SettingsForm({
                 <span className="text-danger">{errorMsg}</span>
                 <button
                   onClick={() => {
-                    // M1 fix #2: Retry through saveProfile/saveSession
+                    // M1 fix #2: Retry through saveProfile/saveSession or retryFn
                     const metadata = retryMetadata.current.get(key);
                     if (metadata) {
-                      if (metadata.type === 'profile') {
+                      if (metadata.type === 'profile' && metadata.patch) {
                         saveProfile(key, metadata.patch, metadata.affectsPlan);
-                      } else if (metadata.type === 'session') {
+                      } else if (metadata.type === 'session' && metadata.patch) {
                         saveSession(key, metadata.patch);
+                      } else if (metadata.retryFn) {
+                        metadata.retryFn();
                       }
                     }
                   }}
@@ -871,12 +874,23 @@ export function SettingsForm({
               if (!result.ok) {
                 // Revert on error
                 setS(prev => ({ ...prev, hasAllEquipment: !newState }));
-                setError(result.error);
-              } else if (!newState) {
-                // Show confirmation when turning off
-                setEquipmentOffConfirmation(
-                  getEquipmentOffMessage(s.equipmentIds.length > 0)
-                );
+                const friendlyError = getFriendlyError("equipment", result.error);
+                setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+                setError(friendlyError);
+              } else {
+                // Success: clear equipment errors
+                setFieldErrors(prev => {
+                  const next = new Map(prev);
+                  next.delete("equipment");
+                  if (next.size === 0) setError(null);
+                  return next;
+                });
+                if (!newState) {
+                  // Show confirmation when turning off
+                  setEquipmentOffConfirmation(
+                    getEquipmentOffMessage(s.equipmentIds.length > 0)
+                  );
+                }
               }
             });
           }}
@@ -934,20 +948,34 @@ export function SettingsForm({
                               : prev.equipmentIds.filter(id => id !== e.id)
                           }));
                           
+                          // Store retry function
+                          const retry = async () => {
+                            startTransition(async () => {
+                              const result = await actions.setEquipmentItem({ equipmentId: e.id, enabled: newState });
+                              if (!result.ok) {
+                                setS(prev => ({ 
+                                  ...prev, 
+                                  equipmentIds: newState 
+                                    ? prev.equipmentIds.filter(id => id !== e.id)
+                                    : [...prev.equipmentIds, e.id]
+                                }));
+                                const friendlyError = getFriendlyError("equipment", result.error);
+                                setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
+                                setError(friendlyError);
+                              } else {
+                                setFieldErrors(prev => {
+                                  const next = new Map(prev);
+                                  next.delete("equipment");
+                                  if (next.size === 0) setError(null);
+                                  return next;
+                                });
+                              }
+                            });
+                          };
+                          retryMetadata.current.set("equipment", { type: 'equipment', retryFn: retry });
+                          
                           // Atomic server save (set explicit state)
-                          startTransition(async () => {
-                            const result = await actions.setEquipmentItem({ equipmentId: e.id, enabled: newState });
-                            if (!result.ok) {
-                              // Revert on error
-                              setS(prev => ({ 
-                                ...prev, 
-                                equipmentIds: newState 
-                                  ? prev.equipmentIds.filter(id => id !== e.id)
-                                  : [...prev.equipmentIds, e.id]
-                              }));
-                              setError(result.error);
-                            }
-                          });
+                          retry();
                         }}
                         className={`rounded-full border px-4 py-2 text-sm ${
                           on
@@ -998,7 +1026,17 @@ export function SettingsForm({
                     if (!result.ok) {
                       // Revert on error
                       setS(prev => ({ ...prev, injuries: found ? [found, ...prev.injuries] : prev.injuries.filter(i => i.bodyRegion !== r.value) }));
-                      setError(result.error);
+                      const friendlyError = getFriendlyError("injuries", result.error);
+                      setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                      setError(friendlyError);
+                    } else {
+                      // Success: clear injuries errors
+                      setFieldErrors(prev => {
+                        const next = new Map(prev);
+                        next.delete("injuries");
+                        if (next.size === 0) setError(null);
+                        return next;
+                      });
                     }
                   });
                 }}
@@ -1043,7 +1081,17 @@ export function SettingsForm({
                           if (!result.ok) {
                             // Revert on error
                             setS(prev => ({ ...prev, injuries: s.injuries }));
-                            setError(result.error);
+                            const friendlyError = getFriendlyError("injuries", result.error);
+                            setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                            setError(friendlyError);
+                          } else {
+                            // Success: clear injuries errors
+                            setFieldErrors(prev => {
+                              const next = new Map(prev);
+                              next.delete("injuries");
+                              if (next.size === 0) setError(null);
+                              return next;
+                            });
                           }
                         });
                       }}

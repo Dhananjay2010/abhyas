@@ -110,7 +110,7 @@ async function test2() {
     updateSessionSettings: async (patch) => { calls.push({ type: "session", patch }); return { ok: true }; },
     updateEquipment: async (patch) => { calls.push({ type: "equipment", patch }); await new Promise(r => setTimeout(r, 50)); return { ok: true }; },
     updateInjuries: async (patch) => { calls.push({ type: "injuries", patch }); return { ok: true }; },
-    setEquipmentItem: async () => ({ ok: true }),
+    setEquipmentItem: async (input) => { calls.push({ type: "equipment", patch: input }); await new Promise(r => setTimeout(r, 50)); return { ok: true }; },
     setHasAllEquipment: async () => ({ ok: true }),
     setInjury: async () => ({ ok: true }),
   };
@@ -136,7 +136,7 @@ async function test2() {
   await new Promise(r => setTimeout(r, 200));
 
   const equipCalls = calls.filter(c => c.type === "equipment");
-  assert(equipCalls.length > 0, "updateEquipment was called");
+  assert(equipCalls.length > 0, "setEquipmentItem was called");
   
   cleanup();
 }
