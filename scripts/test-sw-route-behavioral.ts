@@ -355,8 +355,9 @@ async function testServiceWorkerBehavior() {
 
   console.log("  ✓ Non-navigate request not intercepted (correct)");
 
-  // Test that /session/* routes are not intercepted (client-side cache)
-  console.log("\n▶ Testing /session/* route is not intercepted...");
+  // Test that /session/* routes ARE intercepted (redirect to /offline)
+  // The exclusion was a regression - reverted per PR #25 review
+  console.log("\n▶ Testing /session/* route is intercepted...");
 
   capturedResponse = null;
 
@@ -380,11 +381,11 @@ async function testServiceWorkerBehavior() {
   await new Promise((resolve) => setTimeout(resolve, 100));
 
   assert(
-    capturedResponse === null,
-    "/session/* routes must not be intercepted (client-side cache handles offline)"
+    capturedResponse !== null,
+    "/session/* routes SHOULD be intercepted (exclusion was a regression)"
   );
 
-  console.log("  ✓ /session/* route not intercepted (client-side cache)");
+  console.log("  ✓ /session/* route intercepted correctly");
 
   // Verify POST requests are not intercepted
   console.log("\n▶ Testing POST request is not intercepted...");
