@@ -6,6 +6,7 @@ import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
+import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import {
   describePersonalBest,
@@ -15,6 +16,8 @@ import {
 } from "@/lib/program/progression";
 import { applyDeload, prescribe, weekInBlock } from "@/lib/program/prescription";
 import { validateSet } from "@/lib/session/validation";
+import { abandonSessionCore } from "@/lib/session/abandon-session";
+import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -28,19 +31,6 @@ async function requireUser() {
   const { supabase, user } = await getAuthedClient();
   if (!user) throw new Error("Not signed in");
   return { supabase, user };
-}
-
-/**
- * Whether a session of this type is "the day's workout".
- *
- * Yoga and breathing are offered on every screen as anytime activities, so
- * neither finishing nor abandoning one says anything about whether the day's
- * training happened. Only a strength session owns the day. Today, `planDay`
- * and `startSession` all have to agree on this, and when they did not, a
- * six-minute breathing session in the morning could speak for the whole day.
- */
-function ownsTheDay(t: Database["public"]["Enums"]["day_type"] | null): boolean {
-  return t === "weights" || t === "bodyweight";
 }
 
 /**
@@ -111,23 +101,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const resumeEnabled = settingsRes.data?.resume_session ?? true;
 
   const todayRows = (openRes.data ?? []).filter((s) => s.local_date === today);
-  const existing = resumeEnabled
-    ? todayRows.find((s) => s.status === "planned" || s.status === "in_progress") ??
-      /*
-        An attempt that was ended early. `abandonSession` writes `skipped`, which
-        used to be in neither of the statuses this looked for, so pressing Start
-        again inserted a SECOND row for the same day: start, quit, start, quit
-        left four identical "Skipped" entries in History and stranded the sets
-        logged in each of them. Reusing the row means one entry per day and the
-        earlier sets come back with it.
-
-        Only the day's own workout qualifies. A skipped yoga or breathing row must
-        not be turned into a strength session.
-      */
-      todayRows.find((s) => s.status === "skipped" && ownsTheDay(s.actual_type))
-    : // When resume is disabled, only reuse a planned session (from the "what
-      // about tomorrow?" prompt), never one that was started and abandoned.
-      todayRows.find((s) => s.status === "planned");
+  const existing = pickReusableSession(todayRows, resumeEnabled);
 
   if (existing) {
     // A session row can exist with no exercises attached -- an abandoned first
@@ -535,18 +509,30 @@ export async function finishSession(input: {
   return { ok: true };
 }
 
-export async function abandonSession(sessionId: string): Promise<Result> {
+/**
+ * End a session early.
+ *
+ * If the user logged at least one working set, the session counts as completed
+ * (g2 fix). Only a session with no working sets at all is marked skipped.
+ * Warm-up sets don't count as training.
+ *
+ * Safety note: Completed sessions are NOT resumable (startSession only resumes
+ * planned/in_progress/skipped). This is intentional - a session with working sets
+ * logged counts toward streak/days trained and shows in History as completed, not
+ * skipped. The tradeoff: user cannot resume after early end if they had sets.
+ * Alternative would be a new status like "partial" that's resumable but counts.
+ */
+export async function abandonSession(
+  sessionId: string,
+  elapsedSeconds: number,
+): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase } = await requireUser();
-  const { error } = await supabase
-    .from("sessions")
-    .update({ status: "skipped" })
-    .eq("id", sessionId);
-  if (error) return { ok: false, error: error.message };
-  revalidateTrainingData();
-  return { ok: true };
+  const result = await abandonSessionCore(supabase, sessionId, elapsedSeconds);
+  if (result.ok) revalidateTrainingData();
+  return result;
 }
 
 /**
@@ -905,7 +891,7 @@ export async function planDay(input: {
 
   const settled = (existing ?? []).find(
     (s) =>
-      ownsTheDay(s.actual_type) &&
+      ownsPlannedWorkout(s.actual_type) &&
       (s.status === "completed" || s.status === "in_progress"),
   );
   if (settled) {

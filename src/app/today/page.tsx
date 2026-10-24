@@ -123,14 +123,15 @@ export default async function TodayPage() {
   const weekAheadEnd = addDays(localToday, 6);
 
   // A rollover replaced the active block, so the row read above is stale.
-  // This happens on one day in twenty-eight.
+  // This happens on one day in twenty-eight. Query for the new block by its
+  // exact ID rather than by status, so there's no ambiguity or timing issue.
   let program = programRes.data;
   if (rollover.status === "rolled_over") {
     const { data: fresh } = await supabase
       .from("programs")
       .select("id, block_number, split_type, started_on, ends_on, deload_week")
-      .eq("status", "active")
-      .maybeSingle();
+      .eq("id", rollover.programId)
+      .single();
     program = fresh;
   }
 

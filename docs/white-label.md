@@ -135,12 +135,14 @@ Each gym can set its local timezone, which is used as the default for session sc
 ### How Timezone Resolution Works
 
 **Priority order:**
-1. **User's profile timezone** (if explicitly set and NOT the database default)
+1. **User's profile timezone** (if explicitly set)
 2. **Gym's brand timezone** (from `branding.timezone`)
 3. **User's browser timezone** (recorded during onboarding)
 4. **Fallback:** `"Asia/Kolkata"`
 
-**Known Limitation**: The `profiles.timezone` column has a database default of `'Asia/Kolkata'`. During onboarding, the app captures and records the browser-detected timezone, overwriting this default. However, if a real user in India (with browser timezone `'Asia/Kolkata'`) signs up at a gym configured for another timezone, the resolution logic treats their profile timezone as "unset" (since it matches the database default) and uses the gym's timezone instead. This ensures gym-specific timezones work correctly, but means Indian users at non-Indian gyms won't see their local timezone until they explicitly set it in Settings. A schema change (removing the column default or adding a `timezone_source` column) would fix this, but is deferred pending owner decision.
+The `profiles.timezone` column is nullable. NULL means "not set yet", and the application falls back through the priority order above. Any stored value (including `'Asia/Kolkata'`) is treated as an explicit user preference and used directly.
+
+During onboarding, the browser-detected timezone is recorded to the profile, overwriting NULL. Users can change their timezone preference at any time in Settings.
 
 ### Setting a Gym's Timezone
 
