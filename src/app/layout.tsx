@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { NewVersionHint } from "@/components/new-version-hint";
 import { branding, getBrandCssVariables } from "@/lib/branding";
+import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -65,15 +66,17 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased">
-        <ServiceWorkerRegistration />
-        <NewVersionHint />
-        {children}
-        {/*
-          Mounted once, outside every page, so a tab change swaps only the
-          content beneath it. The bar itself never unmounts and its active tab
-          moves the moment the link is tapped.
-        */}
-        <BottomNav />
+        <OfflineErrorProvider>
+          <ServiceWorkerRegistration />
+          <NewVersionHint />
+          {children}
+          {/*
+            Mounted once, outside every page, so a tab change swaps only the
+            content beneath it. The bar itself never unmounts and its active tab
+            moves the moment the link is tapped.
+          */}
+          <BottomNav />
+        </OfflineErrorProvider>
       </body>
     </html>
   );
