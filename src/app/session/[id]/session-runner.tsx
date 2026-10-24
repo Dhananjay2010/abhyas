@@ -644,6 +644,13 @@ export function SessionRunner({
         durationSeconds,
       }),
     );
+    
+    // Don't track busy-guard rejections as failures
+    if ((logSetPromise as false | Promise<boolean>) === false) {
+      setSavePending(false);
+      return;
+    }
+    
     const trackedPromise = pendingTracker.track(
       "logSet",
       logSetPromise.then((ok) => ({ ok: ok ?? false })),
