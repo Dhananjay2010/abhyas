@@ -73,6 +73,7 @@ export async function deleteSession(sessionId: string) {
 
 /**
  * Update session date and time.
+ * Recalculates duration_seconds based on the new timestamps.
  */
 export async function updateSessionDateTime(
   sessionId: string,
@@ -85,12 +86,29 @@ export async function updateSessionDateTime(
     return { error: "Not authenticated" };
   }
 
+  // Calculate duration_seconds if both timestamps are provided
+  let durationSeconds: number | null = null;
+  if (startedAt && completedAt) {
+    const startMs = new Date(startedAt).getTime();
+    const endMs = new Date(completedAt).getTime();
+    durationSeconds = Math.round((endMs - startMs) / 1000);
+    
+    // Validate duration
+    if (durationSeconds <= 0) {
+      return { error: "End time must be after start time" };
+    }
+    if (durationSeconds > 36000) { // 10 hours
+      return { error: "Duration cannot exceed 10 hours" };
+    }
+  }
+
   const { error } = await supabase
     .from("sessions")
     .update({
       local_date: localDate,
       started_at: startedAt,
       completed_at: completedAt,
+      duration_seconds: durationSeconds,
     })
     .eq("id", sessionId)
     .eq("user_id", user.id);
