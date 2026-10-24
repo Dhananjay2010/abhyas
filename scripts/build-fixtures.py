@@ -18,14 +18,14 @@ def save_json(path, data):
 def apply_migrations(exercises):
     slug_map = {ex['slug']: ex for ex in exercises}
     
-    # 110100: Flutter Kicks
+    # 140100: Flutter Kicks
     if 'flutter-kicks' in slug_map:
         ex = slug_map['flutter-kicks']
         ex['movement_pattern'] = 'core'
         ex['primary_muscles'] = ['abs']
         ex['mechanic'] = 'isolation'
     
-    # 110100: Butt kicks
+    # 140100: Butt kicks
     for slug in ['double-leg-butt-kick', 'single-leg-butt-kick']:
         if slug in slug_map:
             ex = slug_map[slug]
@@ -33,11 +33,11 @@ def apply_migrations(exercises):
             ex['primary_muscles'] = ['hamstrings']
             ex['mechanic'] = 'compound'
     
-    # 110200: Table row
+    # 140200: Table row
     if 'table-row' in slug_map:
         slug_map['table-row']['equipment_ids'] = []
     
-    # 140000: Shoulder contraindications
+    # 140300: Shoulder contraindications
     shoulder_slugs = [
         'bradford-rocky-presses', 'standing-bradford-press',
         'standing-barbell-press-behind-neck', 'wide-grip-pulldown-behind-the-neck'
@@ -48,7 +48,7 @@ def apply_migrations(exercises):
             if 'shoulder' not in ex['contraindicated_regions']:
                 ex['contraindicated_regions'].append('shoulder')
     
-    # 140000: Crunches lower back
+    # 140300: Crunches lower back
     crunch_slugs = [
         'crunches', 'cross-body-crunch', 'rope-crunch', 'cable-crunch',
         'standing-rope-crunch', 'tuck-crunch', 'reverse-crunch',
@@ -67,13 +67,13 @@ def apply_migrations(exercises):
             if 'lower_back' not in ex['contraindicated_regions']:
                 ex['contraindicated_regions'].append('lower_back')
     
-    # 140000: Goblet squat
+    # 140300: Goblet squat
     if 'goblet-squat' in slug_map:
         ex = slug_map['goblet-squat']
         if 'dumbbell' not in ex['equipment_ids']:
             ex['equipment_ids'].append('dumbbell')
     
-    # 140000: Upright rows
+    # 140300: Upright rows
     upright_row_slugs = [
         'smith-machine-upright-row', 'dumbbell-one-arm-upright-row',
         'smith-machine-one-arm-upright-row', 'standing-dumbbell-upright-row',

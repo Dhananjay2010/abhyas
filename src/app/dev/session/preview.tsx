@@ -200,7 +200,7 @@ export function SessionPreview() {
         warmupAlreadyDone={false}
         startedAt={null}
         warmup={WARMUP}
-        cooldown={WARMUP.slice(0, 5).map((w) => ({ ...w, phase: "stretch" as const }))}
+        cooldown={[]}
         exercises={startFinished ? FINISHED : EXERCISES}
         tomorrow={TOMORROW}
         settings={{

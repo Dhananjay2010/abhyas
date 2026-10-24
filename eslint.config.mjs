@@ -12,8 +12,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // Utility scripts using CommonJS:
-    "scripts/apply_catalogue_fixes.js",
   ]),
 ]);
 

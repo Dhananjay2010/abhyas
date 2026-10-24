@@ -660,14 +660,8 @@ export async function findAlternatives(
   const alternatives = ((poolRes.data ?? []) as unknown as CandidateExercise[])
     .filter((e) => !alreadyInSession.has(e.id))
     .filter((e) => isEligible(e, { ...input, catalogue: [] }))
-    // Exclude plyometrics (high-impact exercises) from beginner swap lists.
-    // A beginner swapping Flutter Kicks should not be offered Knee Tuck Jump.
-    .filter((e) => {
-      if (input.level === "beginner" && e.impact === "high") return false;
-      return true;
-    })
-    .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack), tie: tieBreak(e.slug) }))
-    .sort((a, b) => b.k - a.k || a.tie - b.tie)
+    .map((e) => ({ e, k: score(e, wantCompound, input.level, input.primaryTrack) }))
+    .sort((a, b) => b.k - a.k || tieBreak(a.e.slug) - tieBreak(b.e.slug))
     .slice(0, 6)
     .map(({ e }) => ({
       exerciseId: e.id,
