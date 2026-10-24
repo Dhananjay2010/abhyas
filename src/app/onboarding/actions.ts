@@ -54,7 +54,7 @@ export async function saveAboutYou(input: {
     .single();
 
   // If profile has no timezone and client sent browser timezone, record it
-  let profileUpdate: ProfileUpdate = {
+  const profileUpdate: ProfileUpdate = {
     date_of_birth: input.dateOfBirth,
     sex: input.sex,
     height_cm: input.heightCm,

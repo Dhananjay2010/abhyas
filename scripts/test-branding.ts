@@ -215,6 +215,9 @@ function testCssVariableGeneration() {
 
   const css = getBrandCssVariables(branding);
 
+  // Should be a single-line space-separated list of declarations
+  assert(typeof css === "string" && css.length > 0, "CSS variables must be a non-empty string");
+
   // Must contain all color variables
   const requiredVars = [
     "--color-accent:",
@@ -238,17 +241,21 @@ function testCssVariableGeneration() {
     );
   }
 
-  // Each line should be a valid CSS variable declaration
-  const lines = css.split("\n").filter((line) => line.trim());
-  for (const line of lines) {
-    assert(
-      /^--[\w-]+:\s*#[0-9a-fA-F]{6};?$/.test(line.trim()),
-      `Invalid CSS variable line: ${line}`
-    );
+  // Each declaration should be in format: --var-name: #hex;
+  const declarations = css.split(";").filter((d) => d.trim());
+  for (const decl of declarations) {
+    const trimmed = decl.trim();
+    if (trimmed) {
+      assert(
+        /^--[\w-]+:\s*#[0-9a-fA-F]{6}$/.test(trimmed),
+        `Invalid CSS variable declaration: ${trimmed}`
+      );
+    }
   }
 
-  console.log(`  ✓ Generated ${lines.length} CSS variable declarations`);
+  console.log(`  ✓ Generated ${declarations.length} CSS variable declarations`);
   console.log(`  ✓ All required color variables present`);
+  console.log(`  ✓ Format suitable for inline <style> injection`);
 }
 
 function testBrandIcons() {
@@ -318,7 +325,12 @@ function testManifestUsesConfig() {
   assert(m.display === "standalone", "manifest.display must be 'standalone'");
   assert(m.start_url === "/", "manifest.start_url must be '/'");
   assert(m.scope === "/", "manifest.scope must be '/'");
-  assert(m.orientation === "portrait", "manifest.orientation must be 'portrait'");
+  assert(m.id === "/", "manifest.id must be '/' for PWA identity");
+  // Orientation should not be locked (removed for accessibility)
+  assert(
+    !m.orientation || m.orientation === "any",
+    `manifest.orientation should not lock to portrait (got: ${m.orientation})`
+  );
 
   // Test icons array
   assert(

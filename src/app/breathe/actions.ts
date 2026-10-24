@@ -5,6 +5,7 @@ import type { Database } from "@/lib/database.types";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { MAX_DAYS } from "@/lib/breathing/journey";
 import { parsePhases } from "@/lib/breathing/pattern";
 import {

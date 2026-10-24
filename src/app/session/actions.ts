@@ -5,6 +5,7 @@ import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { hashString, isEligible, score, type CandidateExercise } from "@/lib/program/generate";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import {
   describePersonalBest,
   evaluateProgression,
