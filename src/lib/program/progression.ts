@@ -608,6 +608,7 @@ export function evaluateProgression(input: {
         reduced = bells[targetIndex];
       } else {
         // Standard equipment: snap down to equipment grid (~90%)
+        // Equipment grid step may differ from lift increment (e.g. pin-stack 5kg vs isolation increment 1.25kg)
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
         reduced = roundToGrid(rawReduced, equipmentIds, unit, gridStep, 'down');
       }

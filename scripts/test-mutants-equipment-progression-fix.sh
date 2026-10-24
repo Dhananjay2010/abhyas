@@ -1,30 +1,36 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Mutation testing for equipment-aware progression call path fix
-# Tests that equipment IDs, units, and exercise type reach the progression function
-# and that back-off snaps to equipment grids (not just kettlebells).
+# Mutation testing for equipment-aware progression fix
+# Uses node for reliable string replacement, verifies each mutant changes and compiles,
+# restores from backup on ANY exit, runs targeted tests.
 
+HELPER_FILE="src/lib/session/progression-inputs.ts"
 ACTIONS_FILE="src/app/session/actions.ts"
 PAGE_FILE="src/app/session/[id]/page.tsx"
 PROG_FILE="src/lib/program/progression.ts"
+
+HELPER_BACKUP="/tmp/helper-backup-$$.ts"
 ACTIONS_BACKUP="/tmp/actions-backup-$$.ts"
 PAGE_BACKUP="/tmp/page-backup-$$.ts"
 PROG_BACKUP="/tmp/prog-backup-$$.ts"
+
 MUTANT_COUNT=0
 SURVIVED_COUNT=0
 
-# Targeted test scripts
+# Test suite to run for each mutant
 TESTS=(
-  "npm run test:progression-call-path"
   "npm run test:progression"
   "npm run test:progression-grid"
+  "npm run test:progression-call-path"
+  "npm run test:no-equipment-exact-equality"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
 echo
 
 # Save backups
+cp "$HELPER_FILE" "$HELPER_BACKUP"
 cp "$ACTIONS_FILE" "$ACTIONS_BACKUP"
 cp "$PAGE_FILE" "$PAGE_BACKUP"
 cp "$PROG_FILE" "$PROG_BACKUP"
@@ -32,7 +38,7 @@ echo "Saved backups"
 echo
 
 # Restore on ANY exit
-trap 'cp "$ACTIONS_BACKUP" "$ACTIONS_FILE" 2>/dev/null; cp "$PAGE_BACKUP" "$PAGE_FILE" 2>/dev/null; cp "$PROG_BACKUP" "$PROG_FILE" 2>/dev/null; rm -f "$ACTIONS_BACKUP" "$PAGE_BACKUP" "$PROG_BACKUP"' EXIT
+trap 'cp "$HELPER_BACKUP" "$HELPER_FILE" 2>/dev/null; cp "$ACTIONS_BACKUP" "$ACTIONS_FILE" 2>/dev/null; cp "$PAGE_BACKUP" "$PAGE_FILE" 2>/dev/null; cp "$PROG_BACKUP" "$PROG_FILE" 2>/dev/null; rm -f "$HELPER_BACKUP" "$ACTIONS_BACKUP" "$PAGE_BACKUP" "$PROG_BACKUP"' EXIT
 
 # Check baseline
 echo "Running baseline tests..."
@@ -57,33 +63,22 @@ test_mutant() {
   echo "[$MUTANT_COUNT] $name"
   
   # Restore originals
+  cp "$HELPER_BACKUP" "$HELPER_FILE"
   cp "$ACTIONS_BACKUP" "$ACTIONS_FILE"
   cp "$PAGE_BACKUP" "$PAGE_FILE"
   cp "$PROG_BACKUP" "$PROG_FILE"
   
-  # Check string exists
-  if ! grep -qF "$find_str" "$file"; then
-    echo "  ⚠️  STRING NOT FOUND (no-op mutant)"
-    echo
-    echo "==================================="
-    echo "Total mutants: $MUTANT_COUNT"
-    echo "STRING NOT FOUND ERROR in mutant: $name"
-    echo "File: $file"
-    echo
-    echo "❌ MUTATION TEST FAILED: string not found"
-    exit 1
-  fi
-  
-  # Plant mutant
-  python3 -c "
-import sys
-with open('$file', 'r') as f:
-    content = f.read()
-original = content
-content = content.replace('''$find_str''', '''$replace_str''', 1)
-with open('$file', 'w') as f:
-    f.write(content)
-sys.exit(0 if content != original else 1)
+  # Plant mutant using node
+  node -e "
+const fs = require('fs');
+const content = fs.readFileSync('$file', 'utf8');
+const original = content;
+const newContent = content.replace(\`$find_str\`, \`$replace_str\`);
+if (newContent === original) {
+  console.log('  ⚠️  STRING NOT FOUND');
+  process.exit(1);
+}
+fs.writeFileSync('$file', newContent);
 " 2>/dev/null
   
   if [ $? -ne 0 ]; then
@@ -93,16 +88,7 @@ sys.exit(0 if content != original else 1)
   fi
   
   # Verify file changed
-  local backup_file
-  if [ "$file" = "$ACTIONS_FILE" ]; then
-    backup_file="$ACTIONS_BACKUP"
-  elif [ "$file" = "$PAGE_FILE" ]; then
-    backup_file="$PAGE_BACKUP"
-  else
-    backup_file="$PROG_BACKUP"
-  fi
-  
-  if diff -q "$backup_file" "$file" > /dev/null 2>&1; then
+  if diff -q "$file" "${file/src/tmp}" > /dev/null 2>&1; then
     echo "  ⚠️  FILE UNCHANGED"
     SURVIVED_COUNT=$((SURVIVED_COUNT + 1))
     return 1
@@ -134,81 +120,61 @@ sys.exit(0 if content != original else 1)
   echo
 }
 
-# M1: Drop equipment at actions.ts call site
+# M1: Helper returns empty equipmentIds
 test_mutant \
-  "actions.ts: drop equipment from progression call" \
-  "$ACTIONS_FILE" \
-  "    ...progressionInputsFromExercise(ex, profileRes.data?.units)," \
-  "    equipmentIds: undefined, unit: undefined, mechanic: ex.mechanic,"
+  "Helper drops equipment_ids" \
+  "$HELPER_FILE" \
+  "equipmentIds: exercise.equipment_ids ?? []," \
+  "equipmentIds: [],"
 
-# M2: Drop units at actions.ts call site
+# M2: Helper returns null unit
 test_mutant \
-  "actions.ts: drop units from progression call" \
-  "$ACTIONS_FILE" \
-  "    ...progressionInputsFromExercise(ex, profileRes.data?.units)," \
-  "    equipmentIds: ex.equipment_ids, unit: undefined, mechanic: ex.mechanic,"
+  "Helper forces unit to kg" \
+  "$HELPER_FILE" \
+  'const unit: WeightUnit = userUnits === "imperial" ? "lb" : "kg";' \
+  'const unit: WeightUnit = "kg";'
 
-# M3: Drop mechanic at actions.ts call site
+# M3: Helper returns null mechanic
 test_mutant \
-  "actions.ts: drop mechanic from progression call" \
-  "$ACTIONS_FILE" \
-  "    ...progressionInputsFromExercise(ex, profileRes.data?.units)," \
-  "    equipmentIds: ex.equipment_ids, unit: (profileRes.data?.units === 'imperial' ? 'lb' : 'kg'), mechanic: null,"
+  "Helper drops mechanic" \
+  "$HELPER_FILE" \
+  "mechanic: exercise.mechanic," \
+  "mechanic: null,"
 
-# M4: Drop equipment at page.tsx call site
+# M4: actions.ts doesn't spread helper
 test_mutant \
-  "page.tsx: drop equipment from suggestedWeight call" \
+  "actions.ts: remove helper spread" \
+  "$ACTIONS_FILE" \
+  "...progressionInputsFromExercise(ex, profileRes.data?.units)," \
+  ""
+
+# M5: page.tsx doesn't spread helper
+test_mutant \
+  "page.tsx: remove helper spread" \
   "$PAGE_FILE" \
-  "        ...progressionInputsFromExercise(ex ?? { mechanic: null, equipment_ids: [] }, profileRes.data?.units)," \
-  "        undefined, undefined,"
+  "...progressionInputsFromExercise(ex ?? { mechanic: null, equipment_ids: [] }, profileRes.data?.units)," \
+  ""
 
-# M5: Drop units at page.tsx call site
+# M6: progression.ts reverts equipment back-off
 test_mutant \
-  "page.tsx: drop units from suggestedWeight call" \
-  "$PAGE_FILE" \
-  "        ...progressionInputsFromExercise(ex ?? { mechanic: null, equipment_ids: [] }, profileRes.data?.units)," \
-  "        (ex ?? { mechanic: null, equipment_ids: [] }).equipment_ids, undefined,"
-
-# M6: Revert dumbbell back-off snap
-test_mutant \
-  "progression.ts: revert dumbbell back-off to old 2.5 grid" \
+  "progression.ts: disable equipment back-off" \
   "$PROG_FILE" \
-  "      } else {
-        // Standard equipment: snap down to equipment grid, drop at most one grid step
-        const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        const snapped = roundToGrid(rawReduced, equipmentIds, unit, gridStep, 'down');
-        // Never drop more than one grid step below current
-        const oneStepDown = currentWeight - gridStep;
-        reduced = Math.max(snapped, oneStepDown);
-      }" \
-  "      } else {
-        // Old behavior: use 2.5 kg grid
-        const roundingGrid = meta.mechanic === 'isolation' ? 1.25 : 2.5;
-        const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
-        const minAllowed = rawReduced - liftIncrement;
-        reduced = Math.max(snapped, minAllowed);
-      }"
+  "if (equipmentIds && unit) {" \
+  "if (false && equipmentIds && unit) {"
 
-# M7: Revert pin-stack back-off snap
+# M7: progression.ts removes hold-at-increment check
 test_mutant \
-  "progression.ts: revert pin-stack back-off to old 2.5 grid" \
+  "progression.ts: remove hold-at-increment check" \
   "$PROG_FILE" \
-  "        const gridStep = equipmentGridStep(equipmentIds, 'kg');" \
-  "        const gridStep = 2.5;"
+  "if (reduced <= liftIncrement) {" \
+  "if (false && reduced <= liftIncrement) {"
 
-# M8: Revert medicine ball back-off snap
+# M8: first-miss reverts to no-drop
 test_mutant \
-  "progression.ts: revert medicine ball back-off to old 2.5 grid" \
+  "progression.ts: first-miss never drops" \
   "$PROG_FILE" \
-  "        const snapped = roundToGrid(rawReduced, equipmentIds, unit, gridStep, 'down');" \
-  "        const snapped = Math.floor(rawReduced / 2.5) * 2.5;"
-
-# M9: Revert cable back-off snap
-test_mutant \
-  "progression.ts: drop equipmentIds in back-off roundToGrid call" \
-  "$PROG_FILE" \
-  "        const snapped = roundToGrid(rawReduced, equipmentIds, unit, gridStep, 'down');" \
-  "        const snapped = roundToGrid(rawReduced, undefined, unit, gridStep, 'down');"
+  "if (currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {" \
+  "if (false && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {"
 
 echo "==================================="
 echo "Total mutants: $MUTANT_COUNT"

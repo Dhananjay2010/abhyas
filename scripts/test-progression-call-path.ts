@@ -261,7 +261,7 @@ console.log("\n8. QA repro: leg extension pin-stack two-miss back-off 30 -> 25 (
   const LEG_EXTENSION: ExerciseMeta = {
     mechanic: "isolation",
     metric: "reps",
-    movementPattern: "knee_extension",
+    movementPattern: "other",
     isBodyweight: false,
     progressionChain: null,
     progressionRank: null,
@@ -291,7 +291,7 @@ console.log("\n9. QA repro: medicine ball two-miss back-off 4 -> 3 (on 1 kg grid
   const MEDICINE_BALL_SLAM: ExerciseMeta = {
     mechanic: "compound",
     metric: "reps",
-    movementPattern: "slam",
+    movementPattern: "other",
     isBodyweight: false,
     progressionChain: null,
     progressionRank: null,

@@ -120,6 +120,7 @@ export default async function SessionPage({
         ? null
         : Number(progress.current_working_weight_kg);
     const isBodyweight = (ex?.equipment_ids ?? []).length === 0;
+    const progInputs = progressionInputsFromExercise(ex ?? { mechanic: null, equipment_ids: [] }, profileRes.data?.units);
     return {
       id: r.id,
       exerciseId: ex?.id ?? "",
@@ -151,7 +152,8 @@ export default async function SessionPage({
           progressionChain: null,
           progressionRank: null,
         },
-        ...progressionInputsFromExercise(ex ?? { mechanic: null, equipment_ids: [] }, profileRes.data?.units),
+        progInputs.equipmentIds,
+        progInputs.unit,
       ),
       isBodyweight,
       // Warm-up sets are excluded and the order applied here rather than in the
