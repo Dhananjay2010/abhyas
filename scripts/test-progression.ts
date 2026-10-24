@@ -298,6 +298,24 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
   check("a weighted hold records no estimated one-rep max", weighted.bestE1rm === null,
     `${weighted.bestE1rm}`);
   check("but does record the longest hold", weighted.bestReps === 45, `${weighted.bestReps}`);
+
+  // Progressed target: success check uses currentTargetReps for unloaded holds.
+  const progressedMiss = hold({
+    sets: holds(2, 46),
+    repsMax: 45,
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 50 }),
+  });
+  check("hold with currentTargetReps 50 where every set is held 46s is a miss",
+    progressedMiss.outcome === "hold", progressedMiss.outcome);
+
+  const progressedHit = hold({
+    sets: holds(2, 50),
+    repsMax: 45,
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 50 }),
+  });
+  check("50s on every set progresses to 55",
+    progressedHit.outcome === "progressed" && progressedHit.nextTargetReps === 55,
+    `${progressedHit.outcome} ${progressedHit.nextTargetReps}`);
 }
 
 {
@@ -429,6 +447,15 @@ console.log("\nBodyweight exercises with added weight");
     progressionChain: null,
     progressionRank: null,
   };
+  // Isolation bodyweight: 1.25 kg step regardless of pattern.
+  const LEG_RAISE_BW: ExerciseMeta = {
+    mechanic: "isolation",
+    metric: "reps",
+    movementPattern: "core",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
   const lower = run({
     meta: SQUAT_BW,
     sets: sets(4, 12, 10),
@@ -469,6 +496,15 @@ console.log("\nBodyweight exercises with added weight");
   });
   check("upper-body bodyweight with 5 kg added goes to 6.25 kg",
     upper.nextWorkingWeightKg === 6.25, `${upper.nextWorkingWeightKg}`);
+
+  // Isolation bodyweight: 1.25 kg step even for lower-body pattern.
+  const isolation = run({
+    meta: LEG_RAISE_BW,
+    sets: sets(4, 12, 5),
+    state: fresh({ currentWorkingWeightKg: 5, currentTargetReps: 12 }),
+  });
+  check("isolation bodyweight with 5 kg added goes to 6.25 kg (step 1.25, not 2.5)",
+    isolation.nextWorkingWeightKg === 6.25, `${isolation.nextWorkingWeightKg}`);
 
   // Back-off: two misses subtract two steps (10 - 2.5*2 = 5).
   const backoff = run({
@@ -715,10 +751,10 @@ console.log("\nIssue 4: Deload reduces small added weights, can reach 0");
     progressionRank: null,
   };
 
-  // 1.25 kg upper deload: roundTo(1.25 * 0.7, 1.25) = 1.25, >= 1.25 so w-step = 0.
+  // 1.25 kg upper deload: roundTo(1.25 * 0.7, 1.25) = 1.25, >= 1.25 so w-step = 0 → null.
   const tiny = suggestedWeight({ currentWorkingWeightKg: 1.25 }, true, PUSHUP_LOADED);
-  check("1.25 kg upper deload goes to 0",
-    tiny === 0, `${tiny}`);
+  check("1.25 kg upper deload goes to null (no added weight)",
+    tiny === null, `${tiny}`);
 
   // 2.5 kg upper deload: roundTo(2.5 * 0.7, 1.25) = 1.25, not 0.
   const twoStep = suggestedWeight({ currentWorkingWeightKg: 2.5 }, true, PUSHUP_LOADED);
@@ -786,19 +822,27 @@ console.log("\nGuard checks: loaded squats and unloaded bodyweight unchanged");
   check("and still invents no weight",
     unloaded.nextWorkingWeightKg === null);
 
-  // Guard: loaded bench stored 60, lifted 62.5, success gives 62.5 not 65.
+  // Guard: loaded bench stored 60, lifted 62.5, success gives 62.5 kg (uses stored 60).
   const loadedFromStored = run({
     meta: BENCH,
     sets: sets(4, 12, 62.5),
     state: fresh({ currentWorkingWeightKg: 60 }),
   });
-  check("loaded bench stored 60, lifted 62.5, success gives 65 kg (60+2.5 rounded)",
+  check("loaded bench stored 60, lifted 62.5, success gives 62.5 kg",
     loadedFromStored.nextWorkingWeightKg === 62.5, `${loadedFromStored.nextWorkingWeightKg}`);
 
-  // Guard: loaded bench 2.5 kg deload stays at 2.5 (floor at one step).
+  // Guard: loaded deload floor tests.
   const loadedDeloadFloor = suggestedWeight({ currentWorkingWeightKg: 2.5 }, true, BENCH);
   check("loaded bench 2.5 kg deload stays at 2.5 kg",
     loadedDeloadFloor === 2.5, `${loadedDeloadFloor}`);
+
+  const loadedDeloadFloorTiny = suggestedWeight({ currentWorkingWeightKg: 1.25 }, true, BENCH);
+  check("loaded bench 1.25 kg deload stays at 2.5 kg (floor at step)",
+    loadedDeloadFloorTiny === 2.5, `${loadedDeloadFloorTiny}`);
+
+  const loadedSquatDeloadFloor = suggestedWeight({ currentWorkingWeightKg: 2.5 }, true, SQUAT);
+  check("loaded squat 2.5 kg deload stays at 5 kg (floor at step)",
+    loadedSquatDeloadFloor === 5, `${loadedSquatDeloadFloor}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

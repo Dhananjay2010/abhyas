@@ -3,7 +3,7 @@
  *
  *   npx tsx scripts/test-effective-reps-max.ts
  */
-import { effectiveRepsMax } from "../src/app/session/[id]/page";
+import { effectiveRepsMax } from "../src/lib/program/effective-target";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {

@@ -5,6 +5,7 @@ import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isBodyweightEquipment } from "@/lib/program/bodyweight";
+import { effectiveRepsMax } from "@/lib/program/effective-target";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
@@ -12,20 +13,6 @@ import { isUuid } from "@/lib/ids";
 export const dynamic = "force-dynamic";
 
 type Muscle = Database["public"]["Enums"]["muscle"];
-
-/**
- * Effective target for timer and success check. Bodyweight and hold exercises
- * progress by raising the target; if that happened, use the progressed value
- * instead of the planned one so the timer counts down from the right number.
- */
-export function effectiveRepsMax(
-  plannedMax: number,
-  progressedTarget: number | null | undefined,
-  usedWeight: number | null,
-): number {
-  if (usedWeight !== null && usedWeight > 0) return plannedMax;
-  return progressedTarget ?? plannedMax;
-}
 
 export default async function SessionPage({
   params,
@@ -62,7 +49,7 @@ export default async function SessionPage({
         // session_exercises points at it twice — once for the exercise itself
         // and once for what it was swapped from. Without the hint PostgREST
         // answers PGRST201 rather than guessing.
-        .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, metric, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, mechanic_type, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, duration_seconds, is_warmup_set))")
+        .select("id, status, local_date, is_deload, week_in_block, warmup_completed, started_at, session_exercises(id, order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, feel, metric, exercises!session_exercises_exercise_id_fkey(id, name, cue, movement_pattern, mechanic, primary_muscles, equipment_ids), session_sets(set_number, reps, weight_kg, duration_seconds, is_warmup_set))")
         .eq("id", id)
         .order("order_index", { referencedTable: "session_exercises" })
         .maybeSingle(),
@@ -124,7 +111,7 @@ export default async function SessionPage({
       name: string;
       cue: string | null;
       movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-      mechanic_type: Database["public"]["Enums"]["mechanic_type"] | null;
+      mechanic: Database["public"]["Enums"]["mechanic_type"] | null;
       primary_muscles: Muscle[];
       equipment_ids: string[];
     };
@@ -158,7 +145,7 @@ export default async function SessionPage({
         { currentWorkingWeightKg: working },
         session.is_deload,
         {
-          mechanic: ex?.mechanic_type ?? null,
+          mechanic: ex?.mechanic ?? null,
           movementPattern: ex?.movement_pattern ?? "other",
           metric: r.metric ?? "reps",
           isBodyweight,

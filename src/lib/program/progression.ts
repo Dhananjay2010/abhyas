@@ -1,4 +1,5 @@
 import type { Database } from "@/lib/database.types";
+import { effectiveRepsMax } from "./effective-target";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -253,8 +254,13 @@ export function evaluateProgression(input: {
   const carried = { ...base, bestWeightKg, bestReps, bestE1rm, personalBest };
 
   // Success requires the full set count AND the top of the rep range on each.
+  // For unloaded bodyweight moves, use the progressed target if available.
   const completedAllSets = working.length >= plannedSets;
-  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= repsMax);
+  const target =
+    heaviest === 0 && meta.isBodyweight
+      ? effectiveRepsMax(repsMax, state.currentTargetReps, heaviest)
+      : repsMax;
+  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= target);
   const succeeded = completedAllSets && hitTopOfRange;
 
   if (succeeded) {
@@ -394,12 +400,14 @@ export function suggestedWeight(
   if (!isDeload) return w;
   // Deload: about 70% of working weight, on a loadable increment.
   // Bodyweight exercises with added weight use their own smaller steps. Tiny
-  // added weights (70% rounds up to or above the original) drop one step, floor
-  // at 0. Loaded exercises floor at one step.
+  // added weights (70% rounds up to or above the original) drop one step. If
+  // that reaches 0, return null (no added weight). Loaded exercises floor at
+  // one step.
   const step = meta.isBodyweight ? addedWeightStep(meta) : incrementFor(meta);
   const deloaded = roundTo(w * 0.7, step);
   if (meta.isBodyweight) {
-    return deloaded >= w ? Math.max(0, roundTo(w - step, step)) : deloaded;
+    const result = deloaded >= w ? roundTo(w - step, step) : deloaded;
+    return result <= 0 ? null : result;
   }
   return Math.max(step, deloaded);
 }
