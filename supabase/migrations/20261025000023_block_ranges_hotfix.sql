@@ -77,7 +77,7 @@ begin
   end if;
 
   -- M1: Unified advisory lock per user (same key as rollover_block)
-  perform pg_advisory_xact_lock(public.hashtext('program_block:' || v_user_id::text));
+  perform pg_advisory_xact_lock(hashtext('program_block:' || v_user_id::text));
 
   -- Re-read the active block after acquiring lock
   select id, started_on, week_offset
@@ -223,7 +223,7 @@ begin
   end if;
 
   -- M1: Unified advisory lock per user (same key as rebuild_block)
-  perform pg_advisory_xact_lock(public.hashtext('program_block:' || v_user_id::text));
+  perform pg_advisory_xact_lock(hashtext('program_block:' || v_user_id::text));
 
   -- Re-read the active block after acquiring lock
   select id, started_on, ends_on
