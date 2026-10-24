@@ -33,26 +33,27 @@ function assertEqual<T>(actual: T, expected: T, message?: string) {
   }
 }
 
-// Test the timezone conversion logic
-await test("23:30 to 00:30 calculates next-day timestamp correctly", () => {
-  const startDate = "2026-10-24";
-  const endDate = "2026-10-25"; // Next day
-  const startTime = "23:30";
-  const endTime = "00:30";
-  const timezone = "Asia/Kolkata";
+(async () => {
+  // Test the timezone conversion logic
+  await test("23:30 to 00:30 calculates next-day timestamp correctly", () => {
+    const startDate = "2026-10-24";
+    const endDate = "2026-10-25"; // Next day
+    const startTime = "23:30";
+    const endTime = "00:30";
+    const timezone = "Asia/Kolkata";
 
-  const startedAt = zonedDateTimeToUtc(startDate, startTime, timezone);
-  const completedAt = zonedDateTimeToUtc(endDate, endTime, timezone);
+    const startedAt = zonedDateTimeToUtc(startDate, startTime, timezone);
+    const completedAt = zonedDateTimeToUtc(endDate, endTime, timezone);
 
-  const startMs = new Date(startedAt).getTime();
-  const endMs = new Date(completedAt).getTime();
-  const durationSeconds = Math.round((endMs - startMs) / 1000);
+    const startMs = new Date(startedAt).getTime();
+    const endMs = new Date(completedAt).getTime();
+    const durationSeconds = Math.round((endMs - startMs) / 1000);
 
-  assertEqual(durationSeconds, 3600, "Duration should be 3600 seconds (1 hour)");
-});
+    assertEqual(durationSeconds, 3600, "Duration should be 3600 seconds (1 hour)");
+  });
 
-// Test that the server validation accepts this
-await test("Midnight-crossing session passes server validation", async () => {
+  // Test that the server validation accepts this
+  await test("Midnight-crossing session passes server validation", async () => {
   const startDate = "2026-10-24";
   const endDate = "2026-10-25";
   const startTime = "23:30";
@@ -66,6 +67,7 @@ await test("Midnight-crossing session passes server validation", async () => {
   const localDate = utcToZonedDateTime(startedAt, timezone).date;
 
   // Mock supabase client that returns no overlapping sessions
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mockSupabase: any = {
     from: () => ({
       select: () => ({
@@ -117,6 +119,7 @@ await test("Sessions longer than 10 hours are rejected", async () => {
 
   const localDate = utcToZonedDateTime(startedAt, timezone).date;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mockSupabase: any = {
     from: () => ({
       select: () => ({
@@ -154,5 +157,6 @@ await test("Sessions longer than 10 hours are rejected", async () => {
   }
 });
 
-console.log("\nMidnight-crossing edit tests complete");
-process.exit(exitCode);
+  console.log("\nMidnight-crossing edit tests complete");
+  process.exit(exitCode);
+})();
