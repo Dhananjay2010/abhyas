@@ -63,9 +63,9 @@ test("Success state has role=status with aria-live=polite", () => {
   return hasSuccessStatus;
 });
 
-// Test 6: Week text uses "You stay in Week N" format
+// Test 6: Week text uses "You stay in Week N" format with capital W
 test("Week text says 'You stay in Week N of this block'", () => {
-  return source.includes("You stay in Week") && source.includes("of this block");
+  return source.includes("You stay in Week") && source.includes("of this block.");
 });
 
 // Test 7: Button grid uses grid-cols-2 for equal width
@@ -89,6 +89,20 @@ test("showSuccessState prop controls success display", () => {
     source.includes("showSuccessState?: boolean") &&
     source.includes("if (showSuccessState)")
   );
+});
+
+// Test 11: Confirm sheet has opaque bg-surface background
+test("Confirm sheet has opaque bg-surface (not transparent)", () => {
+  // Should have bg-surface, not bg-accent/10 which is 90% transparent
+  const hasOpaqueBg = source.includes('bg-surface');
+  const noTransparentBg = !source.match(/className="[^"]*rounded-xl border border-accent\/40 bg-accent\/10[^"]*"/);
+  return hasOpaqueBg && noTransparentBg;
+});
+
+// Test 12: Week text does not use toLowerCase
+test("Week text does not use toLowerCase (keeps capital W)", () => {
+  // Should not have .toLowerCase() on weekText
+  return !source.includes("weekText.toLowerCase()");
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

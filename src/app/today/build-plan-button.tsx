@@ -73,8 +73,8 @@ export function BuildPlanButton({
 
   if (asking) {
     const weekText = currentWeek !== null && currentWeek !== undefined
-      ? `You stay in Week ${currentWeek} of this block`
-      : "Your week stays where it is";
+      ? `You stay in Week ${currentWeek} of this block.`
+      : "Your week stays where it is.";
     
     return (
       <div 
@@ -83,12 +83,12 @@ export function BuildPlanButton({
           bottom: "calc(68px + env(safe-area-inset-bottom))"
         }}
       >
-        <div className="rounded-xl border border-accent/40 bg-accent/10 p-4 shadow-lg">
-          <p className="text-sm text-accent">
+        <div className="rounded-xl border border-accent bg-surface p-4 shadow-lg">
+          <p className="text-sm">
             Rebuild your plan? Your exercises for the rest of this block are chosen
-            again from your current answers. Every session you have logged is kept,
-            and {weekText.toLowerCase()}.
+            again from your current answers. Every session you have logged is kept.
           </p>
+          <p className="mt-2 text-sm text-muted">{weekText}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               disabled={pending}

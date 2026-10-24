@@ -7,6 +7,7 @@ import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 import { validateAndUpdateProfile } from "./profile-update-logic";
 import { decideEquipmentUpdate } from "./equipment-logic";
 import { isValidSessionLength } from "@/lib/session-length-options";
+import { ensureGenerationSnapshot } from "@/lib/program/ensure-generation-snapshot";
 
 type SettingsUpdate = Database["public"]["Tables"]["user_settings"]["Update"];
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
@@ -67,6 +68,9 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     }
   }
 
+  // Backfill generation_inputs if null (for existing users)
+  await ensureGenerationSnapshot(supabase, user.id);
+
   // Validate and update with testable logic
   const result = await validateAndUpdateProfile(patch, {
     updateProfile: async (validatedPatch) => {
@@ -100,6 +104,9 @@ export async function updateEquipment(input: {
   if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
+  
+  // Backfill generation_inputs if null (for existing users)
+  await ensureGenerationSnapshot(supabase, user.id);
 
   // Fetch current state
   const { data: profile } = await supabase
@@ -208,6 +215,9 @@ export async function updateInjuries(
   if (rateLimit) return rateLimit;
   
   const { supabase, user } = await requireUser();
+  
+  // Backfill generation_inputs if null (for existing users)
+  await ensureGenerationSnapshot(supabase, user.id);
 
   const { error: clearError } = await supabase
     .from("user_injuries")

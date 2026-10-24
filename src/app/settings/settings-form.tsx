@@ -148,20 +148,14 @@ export function SettingsForm({
   }, [rebuildSuccess]);
 
   useEffect(() => {
-    // Auto-commit undo toast after 5s
+    // Auto-hide undo toast after 5s
     if (undoToast) {
       const timer = setTimeout(() => {
-        // Commit the change
-        if (undoToast.field === 'level') {
-          save(() => actions.updateProfileSettings({ level: s.level! }), true);
-        } else if (undoToast.field === 'track') {
-          save(() => actions.updateProfileSettings({ primary_track: s.primaryTrack! }), true);
-        }
         setUndoToast(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [undoToast, s.level, s.primaryTrack, actions]);
+  }, [undoToast]);
 
   useEffect(() => {
     // F2: Detect browser timezone on client after mount, canonicalized
@@ -235,13 +229,17 @@ export function SettingsForm({
     );
   }
 
-  /** Undo a level or track change before the toast times out */
+  /** Undo a level or track change by saving the old value back */
   function handleUndo() {
     if (!undoToast) return;
     if (undoToast.field === 'level') {
-      setS({ ...s, level: undoToast.oldValue as Level });
+      const oldLevel = undoToast.oldValue as Level;
+      setS({ ...s, level: oldLevel });
+      save(() => actions.updateProfileSettings({ level: oldLevel }), true);
     } else if (undoToast.field === 'track') {
-      setS({ ...s, primaryTrack: undoToast.oldValue as Track });
+      const oldTrack = undoToast.oldValue as Track;
+      setS({ ...s, primaryTrack: oldTrack });
+      save(() => actions.updateProfileSettings({ primary_track: oldTrack }), true);
     }
     setUndoToast(null);
   }
@@ -331,8 +329,9 @@ export function SettingsForm({
                 onClick={() => {
                   const oldLevel = s.level;
                   setS({ ...s, level: o.value });
-                  // Show undo toast instead of saving immediately
+                  // Save immediately and show undo toast
                   setUndoToast({ field: 'level', oldValue: oldLevel! });
+                  save(() => actions.updateProfileSettings({ level: o.value }), true);
                 }}
               />
             ))}
@@ -350,8 +349,9 @@ export function SettingsForm({
                 onClick={() => {
                   const oldTrack = s.primaryTrack;
                   setS({ ...s, primaryTrack: o.value });
-                  // Show undo toast instead of saving immediately
+                  // Save immediately and show undo toast
                   setUndoToast({ field: 'track', oldValue: oldTrack! });
+                  save(() => actions.updateProfileSettings({ primary_track: o.value }), true);
                 }}
               />
             ))}
