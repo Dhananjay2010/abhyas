@@ -2085,7 +2085,7 @@ async function testM3_ConcurrentFlushGuard() {
   const flush2 = outbox.flush();
   
   // Wait for both
-  const result1 = await flush1;
+  await flush1;
   const result2 = await flush2;
 
   // Second flush should be skipped (guarded by isFlushing)
@@ -2104,13 +2104,11 @@ async function testM3_ConcurrentFlushGuard() {
 // ---- M6: Network Error Doesn't Consume Retry Budget ----------------------
 async function testM6_NetworkErrorRetryBudget() {
   const storage = new FakeStorage();
-  let attemptCount = 0;
   
   const sender: OutboxSender = {
-    send: async (_set) => {
-      attemptCount++;
+    send: async () => {
       // Always return network error
-      return { ok: false, error: new TypeError("Failed to fetch"), network: true };
+      return { ok: false, permanent: false, error: "Failed to fetch", network: true };
     }
   };
 
