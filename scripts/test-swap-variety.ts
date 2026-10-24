@@ -15,10 +15,6 @@ import { readFileSync } from "fs";
 import { rankAlternatives, buildPatternList, type AlternativesContext, type ExerciseRow } from "../src/lib/program/alternatives";
 import { score, hashString } from "../src/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "../src/lib/program/exclusions";
-import type { Database } from "../src/lib/database.types";
-
-type Level = Database["public"]["Enums"]["fitness_level"];
-type BodyRegion = Database["public"]["Enums"]["body_region"];
 
 const catalogueRaw = JSON.parse(readFileSync("scripts/fixtures/catalogue.json", "utf8"));
 const catalogue: ExerciseRow[] = catalogueRaw;
@@ -28,26 +24,6 @@ function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`  ${ok ? "✓" : "✗"} ${label}${detail ? ` (${detail})` : ""}`);
 }
-
-// Equipment profiles for all-catalogue testing
-const EQUIPMENT_PROFILES: Record<string, Set<string> | null> = {
-  "full-gym": null,
-  "home-dumbbell-bands": new Set(["dumbbell", "resistance_band", "adjustable_bench"]),
-  "cable-dumbbell": new Set(["cable_machine", "dumbbell"]),
-  "pullup-bar-only": new Set(["pull_up_bar"]),
-  "bodyweight": new Set([]),
-  "barbell-rack": new Set(["barbell", "squat_rack", "flat_bench"]),
-};
-
-const LEVELS: Level[] = ["beginner", "intermediate", "expert"];
-const INJURY_SCENARIOS: { label: string; regions: BodyRegion[] }[] = [
-  { label: "none", regions: [] },
-  { label: "shoulder", regions: ["shoulder"] },
-  { label: "neck", regions: ["neck"] },
-  { label: "knee", regions: ["knee"] },
-  { label: "lower_back", regions: ["lower_back"] },
-];
-const TIE_BREAK_SEEDS = ["seed-1", "seed-2", "seed-3"];
 
 console.log("\n1. Oracle check: Lat Pulldown (wide-grip-lat-pulldown, full gym)");
 {
@@ -521,72 +497,136 @@ console.log("\n8. Pullover scope tests");
   }
 }
 
-console.log("\n9. Pattern match must rank before equipment match (catches mutation 10)");
+console.log("\n9. Horizontal pull never gets a pullover (catches mutation 9)");
 {
-  // Find a case where pattern and equipment conflict
-  // Example: barbell bench press swapping with limited equipment (cable only)
-  // Pattern match (push-up, bodyweight) vs equipment match (cable-crossover, has cable but wrong pattern)
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
   
-  const bench = catalogue.find(e => e.slug === "barbell-bench-press-medium-grip");
-  const pushup = catalogue.find(e => e.slug === "pushups");
-  const cableCross = catalogue.find(e => e.slug === "cable-crossover");
+  const base = (over: Partial<AlternativesContext> = {}): AlternativesContext => ({
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: () => 0,
+    tieBreakFn: () => 0,
+    ...over
+  });
   
-  if (bench && pushup && cableCross) {
-    // pushup: horizontal_press, bodyweight (0 equipment)
-    // cable-crossover: horizontal_press, needs cable_machine
-    // Both match the pattern, but with cable-only equipment, cable-crossover has better equipment fit
-    
-    const pool = [bench, pushup, cableCross];
-    const wantCompound = bench.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: new Set(["cable_machine"]),
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(bench, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    // Both match pattern, but cable-crossover has better equipment fit
-    // Pattern match should still dominate, so both should appear, but if mutation 10
-    // happens (equipment ranked first), the order would change
-    const pushupIndex = slugs.indexOf("pushups");
-    const cableIndex = slugs.indexOf("cable-crossover");
-    
-    check("pattern match ranks before equipment fit", pushupIndex >= 0 && cableIndex >= 0);
-  }
+  const row = find("bent-over-barbell-row");
+  const pull = find("bent-arm-barbell-pullover");
+  const hpPullover: ExerciseRow = {
+    ...pull,
+    id: "t-hp-pullover",
+    slug: "t-hp-pullover",
+    name: "Test Row Pullover",
+    movement_pattern: row.movement_pattern,
+    mechanic: "compound",
+    level_min: "beginner",
+    contraindicated_regions: [],
+    impact: "low",
+    equipment_ids: row.equipment_ids
+  };
+  const other: ExerciseRow = {
+    ...row,
+    id: "t-row-2",
+    slug: "t-row-2",
+    name: "Test Seated Row"
+  };
+  
+  const outA = rankAlternatives(row, [row, hpPullover, other], base()).map(e => e.slug);
+  check("horizontal pull excludes pullover", !outA.includes("t-hp-pullover"));
+  check("horizontal pull includes other alternative", outA.includes("t-row-2"));
 }
 
-console.log("\n10. Impact penalty: high-impact must rank lower than low-impact when equal (catches mutation 11)");
+console.log("\n10. Same pattern outranks better equipment fit (catches mutation 10)");
 {
-  // Find beginner case where high-impact exercise should be penalized
-  const squat = catalogue.find(e => e.slug === "bodyweight-squat");
-  const jumpSquat = catalogue.find(e => e.slug === "freehand-jump-squat");
-  const boxSquat = catalogue.find(e => e.slug === "box-squat");
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
   
-  if (squat && jumpSquat && boxSquat) {
-    const pool = [squat, jumpSquat, boxSquat];
-    const wantCompound = squat.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "beginner",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "beginner", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(squat, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    // For beginners, high-impact (freehand-jump-squat) should be penalized and not appear
-    // or appear after low-impact alternatives
-    check("beginner gets no high-impact", !slugs.includes("freehand-jump-squat"));
-    check("low-impact alternative present", slugs.includes("box-squat"));
-  }
+  const base = (over: Partial<AlternativesContext> = {}): AlternativesContext => ({
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: () => 0,
+    tieBreakFn: () => 0,
+    ...over
+  });
+  
+  const squat = find("barbell-squat");
+  const samePatternPoorFit: ExerciseRow = {
+    ...squat,
+    id: "t-sq-bw",
+    slug: "t-sq-bw",
+    name: "Test Bodyweight Squat Variant",
+    equipment_ids: [],
+    level_min: "beginner",
+    impact: "low",
+    contraindicated_regions: []
+  };
+  const otherPatternPerfectFit: ExerciseRow = {
+    ...squat,
+    id: "t-lunge-bb",
+    slug: "t-lunge-bb",
+    name: "Test Barbell Lunge Variant",
+    movement_pattern: "lunge",
+    level_min: "beginner",
+    impact: "low",
+    contraindicated_regions: []
+  };
+  
+  const outB = rankAlternatives(squat, [squat, otherPatternPerfectFit, samePatternPoorFit], base()).map(e => e.slug);
+  check("same pattern ranks first", outB[0] === "t-sq-bw");
+  check("other pattern ranks second", outB[1] === "t-lunge-bb");
+}
+
+console.log("\n11. High impact ranks after identical low impact (catches mutation 11 and impact comparator)");
+{
+  const find = (slug: string): ExerciseRow => {
+    const ex = catalogue.find(e => e.slug === slug);
+    if (!ex) throw new Error(`Exercise ${slug} not found in catalogue`);
+    return ex;
+  };
+  
+  const base = (over: Partial<AlternativesContext> = {}): AlternativesContext => ({
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: [],
+    limit: 5,
+    scoreFn: () => 0,
+    tieBreakFn: () => 0,
+    ...over
+  });
+  
+  const squat = find("barbell-squat");
+  const low: ExerciseRow = {
+    ...squat,
+    id: "t-low",
+    slug: "t-low",
+    name: "Test Alpha Squat",
+    impact: "low",
+    level_min: "beginner",
+    contraindicated_regions: []
+  };
+  const high: ExerciseRow = {
+    ...squat,
+    id: "t-high",
+    slug: "t-high",
+    name: "Test Bravo Squat",
+    impact: "high",
+    level_min: "beginner",
+    contraindicated_regions: []
+  };
+  
+  const outC = rankAlternatives(squat, [squat, high, low], base({ tieBreakFn: (slug) => (slug === "t-high" ? 0 : 1) })).map(e => e.slug);
+  check("low-impact ranks first", outC[0] === "t-low");
+  check("high-impact ranks second", outC[1] === "t-high");
 }
 
 if (failures === 0) {

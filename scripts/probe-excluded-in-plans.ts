@@ -23,12 +23,12 @@ const EXCLUDED_SLUGS = [
 
 const idToSlug = new Map(catalogue.map(e => [e.id, e.slug]));
 
-const EQUIPMENT_PROFILES = {
-  "full-gym": { ids: [] as string[], hasAll: true },
+const EQUIPMENT_PROFILES: Record<string, { ids: string[]; hasAll: boolean }> = {
+  "full-gym": { ids: [], hasAll: true },
   "barbell-bench": { ids: ["barbell", "squat_rack", "flat_bench"], hasAll: false },
   "dumbbells-bench": { ids: ["dumbbell", "flat_bench"], hasAll: false },
   "cable-machine": { ids: ["cable_machine"], hasAll: false },
-  "bodyweight": { ids: [] as string[], hasAll: false },
+  "bodyweight": { ids: [], hasAll: false },
 };
 
 type BodyRegion = "lower_back" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "hip" | "knee" | "ankle" | "core";

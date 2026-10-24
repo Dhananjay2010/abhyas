@@ -144,6 +144,62 @@ for (let i = 0; i < profiles.length; i++) {
   }
 }
 
+console.log("\n4. Fallback pattern filter at :672 catches excluded slugs");
+{
+  // Filter catalogue so only excluded slugs remain for horizontal_pull and vertical_pull
+  const filteredCatalogue = catalogue.map(e => {
+    if ((e.movement_pattern === "horizontal_pull" || e.movement_pattern === "vertical_pull") &&
+        !EXCLUDED_SLUGS.includes(e.slug)) {
+      return null;
+    }
+    return e;
+  }).filter((e): e is CandidateExercise => e !== null);
+  
+  // Generate plans with this limited catalogue
+  let fallbackChecks = 0;
+  let fallbackFails = 0;
+  
+  for (const level of ["intermediate", "expert"] as const) {
+    for (const days of [2, 3, 4, 5, 6]) {
+      for (const seed of [1, 2, 3]) {
+        const input: GeneratorInput = {
+          userId: `fallback-${level}-${days}-${seed}`,
+          blockNumber: 1,
+          level,
+          equipmentIds: [],
+          hasAllEquipment: true,
+          goal: "muscle_gain",
+          currentInjuryRegions: [],
+          age: 30,
+          bmi: null,
+          daysPerWeek: days,
+          yogaDaysPerWeek: 0,
+          primaryTrack: "weights",
+          preferredSessionMinutes: 75,
+          catalogue: filteredCatalogue,
+        };
+        
+        const program = generateProgram(input);
+        const allExerciseSlugs = program.days.flatMap(day => 
+          day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+        );
+        
+        const hasExcluded = allExerciseSlugs.some(slug => EXCLUDED_SLUGS.includes(slug));
+        if (hasExcluded) {
+          const found = allExerciseSlugs.filter(slug => EXCLUDED_SLUGS.includes(slug));
+          console.log(`  ✗ ${input.userId}: found ${found.join(", ")}`);
+          fallbackFails++;
+        }
+        fallbackChecks++;
+      }
+    }
+  }
+  
+  console.log(`  ${fallbackFails === 0 ? "✓" : "✗"} ${fallbackChecks - fallbackFails}/${fallbackChecks} fallback plans clean`);
+  passCount += fallbackChecks - fallbackFails;
+  failCount += fallbackFails;
+}
+
 console.log(`\n${failCount === 0 ? "✓" : "✗"} ${passCount}/${passCount + failCount} checks passed`);
 
 if (failCount > 0) {

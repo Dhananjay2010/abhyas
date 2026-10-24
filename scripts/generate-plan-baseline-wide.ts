@@ -1,11 +1,12 @@
 /**
- * Generate widened baseline plans from origin/main for no-injury comparison test.
+ * Generate compact SHA256 digest baseline from origin/main for no-injury comparison test.
  * 
- * Wider parameters: all levels, tracks, real equipment sets, 2-6 days, 
- * 30/45/60/75 min, age 30 and 55.
+ * Loop order: equipment, level, days, minutes, age
+ * Produces plan-no-injury-digest.json with SHA256 hashes instead of full plans.
  */
 
 import { writeFileSync, readFileSync } from "fs";
+import { createHash } from "crypto";
 import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf-8"));
@@ -31,13 +32,14 @@ const results: Array<{
   days: number;
   minutes: number;
   age: number;
-  exercises: string[]; // exercise IDs in order
+  sha256: string;
 }> = [];
 
 let count = 0;
 
-for (const level of LEVELS) {
-  for (const [equipmentName, { ids, hasAll, track }] of Object.entries(EQUIPMENT_PROFILES)) {
+// Loop equipment first, then level
+for (const [equipmentName, { ids, hasAll, track }] of Object.entries(EQUIPMENT_PROFILES)) {
+  for (const level of LEVELS) {
     for (const days of DAYS) {
       for (const minutes of MINUTES) {
         for (const age of AGES) {
@@ -66,6 +68,10 @@ for (const level of LEVELS) {
             day.exercises.map(e => e.exerciseId)
           );
           
+          // Compute SHA256 of canonical JSON
+          const canonical = JSON.stringify(exercises);
+          const sha256 = createHash("sha256").update(canonical).digest("hex");
+          
           results.push({
             userId,
             level,
@@ -73,7 +79,7 @@ for (const level of LEVELS) {
             days,
             minutes,
             age,
-            exercises,
+            sha256,
           });
         }
       }
@@ -82,8 +88,8 @@ for (const level of LEVELS) {
 }
 
 writeFileSync(
-  "scripts/fixtures/plan-baseline-wide.json",
+  "scripts/fixtures/plan-no-injury-digest.json",
   JSON.stringify(results, null, 2)
 );
 
-console.log(`Generated ${results.length} baseline plans`);
+console.log(`Generated ${results.length} baseline digests`);
