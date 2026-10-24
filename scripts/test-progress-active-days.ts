@@ -1,0 +1,159 @@
+#!/usr/bin/env tsx
+
+/**
+ * Test: Progress page must filter program_days to status='active' only,
+ * and order by day_index deterministically.
+ * 
+ * Scenario:
+ * - Create program with two days
+ * - Supersede one day (status='superseded')
+ * - Query should only return the active day
+ */
+
+import { strict as assert } from "assert";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types";
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  process.exit(1);
+}
+
+const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+async function main() {
+  console.log("Test: Progress page program_days query filters active and orders by day_index\n");
+
+  // Create test user
+  const testEmail = `test-progress-active-${Date.now()}@example.com`;
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email: testEmail,
+    password: "test123456",
+    email_confirm: true,
+  });
+
+  if (authError || !authData.user) {
+    throw new Error(`Failed to create test user: ${authError?.message}`);
+  }
+
+  const userId = authData.user.id;
+  console.log(`Created test user: ${userId}`);
+
+  try {
+    // Create profile
+    await supabase.from("profiles").insert({
+      id: userId,
+      onboarding_completed_at: new Date().toISOString(),
+      timezone: "America/New_York",
+    });
+
+    // Create program
+    const { data: program, error: programError } = await supabase
+      .from("programs")
+      .insert({
+        user_id: userId,
+        template: "test",
+        phase: "test",
+        status: "current",
+        started_on: "2026-01-01",
+      })
+      .select("id")
+      .single();
+
+    if (programError || !program) {
+      throw new Error(`Failed to create program: ${programError?.message}`);
+    }
+
+    console.log(`Created program: ${program.id}`);
+
+    // Create two program_days
+    const { error: daysError } = await supabase.from("program_days").insert([
+      {
+        program_id: program.id,
+        day_index: 1,
+        day_type: "lower",
+        status: "active",
+      },
+      {
+        program_id: program.id,
+        day_index: 2,
+        day_type: "upper",
+        status: "superseded",
+      },
+    ]);
+
+    if (daysError) {
+      throw new Error(`Failed to create program_days: ${daysError.message}`);
+    }
+
+    console.log(`Created program_days: day 1 (active), day 2 (superseded)`);
+
+    // Simulate the progress page query
+    const { data: allDays } = await supabase
+      .from("program_days")
+      .select("program_id, day_index, day_type, status")
+      .eq("program_id", program.id);
+
+    console.log(`\nAll program_days: ${allDays?.length || 0} rows`);
+    allDays?.forEach((d) => {
+      console.log(`  day_index=${d.day_index}, day_type=${d.day_type}, status=${d.status}`);
+    });
+
+    // The FIXED query with status filter
+    const { data: activeDays } = await supabase
+      .from("program_days")
+      .select("program_id, day_index, day_type")
+      .eq("program_id", program.id)
+      .eq("status", "active")
+      .order("day_index");
+
+    console.log(`\nActive program_days (with filter): ${activeDays?.length || 0} rows`);
+    activeDays?.forEach((d) => {
+      console.log(`  day_index=${d.day_index}, day_type=${d.day_type}`);
+    });
+
+    // Assert only active day is returned
+    assert.equal(activeDays?.length, 1, "Only 1 active day");
+    assert.equal(activeDays?.[0].day_index, 1, "Active day is day_index 1");
+    assert.equal(activeDays?.[0].day_type, "lower", "Active day is lower");
+
+    // Test ordering with multiple active days
+    await supabase.from("program_days").insert([
+      {
+        program_id: program.id,
+        day_index: 3,
+        day_type: "full",
+        status: "active",
+      },
+    ]);
+
+    const { data: multipleActive } = await supabase
+      .from("program_days")
+      .select("day_index")
+      .eq("program_id", program.id)
+      .eq("status", "active")
+      .order("day_index");
+
+    console.log(`\nMultiple active days: ${multipleActive?.map((d) => d.day_index).join(", ")}`);
+
+    assert.equal(multipleActive?.length, 2, "2 active days");
+    assert.equal(multipleActive?.[0].day_index, 1, "First is day_index 1");
+    assert.equal(multipleActive?.[1].day_index, 3, "Second is day_index 3");
+
+    console.log("\n✅ All tests passed!");
+  } finally {
+    // Cleanup
+    await supabase.auth.admin.deleteUser(userId);
+    console.log(`\nCleaned up test user: ${userId}`);
+  }
+}
+
+main().catch((err) => {
+  console.error("\n❌ Test failed:", err);
+  process.exit(1);
+});

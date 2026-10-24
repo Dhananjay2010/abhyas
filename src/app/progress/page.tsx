@@ -71,7 +71,7 @@ export default async function ProgressPage() {
       .select("id, local_date, status, actual_type, is_deload")
       .order("local_date", { ascending: false })
       .limit(500),
-    supabase.from("program_days").select("program_id, day_index, day_type"),
+    supabase.from("program_days").select("program_id, day_index, day_type").eq("status", "active").order("day_index"),
   ]);
 
   const profile = profileRes.data;
