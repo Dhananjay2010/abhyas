@@ -10,6 +10,7 @@
 import { strict as assert } from "assert";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
+import { loadProgramDays } from "../src/lib/progress/load-program-days";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,18 +23,6 @@ if (!SUPABASE_SERVICE_KEY) {
 const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
-
-/**
- * Extract the exact query the progress page uses (line 76 of progress/page.tsx)
- */
-async function loadProgramDays(programId: string) {
-  return await supabase
-    .from("program_days")
-    .select("program_id, day_index, day_type")
-    .eq("program_id", programId)
-    .eq("status", "active")
-    .order("day_index");
-}
 
 async function main() {
   console.log("Test: Progress page program_days query filters active and orders by day_index\n");
@@ -113,7 +102,8 @@ async function main() {
     console.log(`Created program_days: day 1 (active), day 2 (superseded)`);
 
     // Call real data-loading function used by progress page
-    const { data: activeDays } = await loadProgramDays(program.id);
+    const { data: allDays } = await loadProgramDays(supabase);
+    const activeDays = allDays?.filter((d) => d.program_id === program.id);
 
     console.log(`\nReal query returned: ${activeDays?.length || 0} rows`);
     activeDays?.forEach((d) => {
@@ -137,7 +127,8 @@ async function main() {
       },
     ]);
 
-    const { data: multipleActive } = await loadProgramDays(program.id);
+    const { data: allDaysAfter } = await loadProgramDays(supabase);
+    const multipleActive = allDaysAfter?.filter((d) => d.program_id === program.id);
 
     console.log(`\nMultiple active days: ${multipleActive?.map((d) => d.day_index).join(", ")}`);
 

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { addDays, localDateString } from "@/lib/dates";
+import { retirePreviousBlock } from "./retire-previous-block";
 import {
   generateProgram,
   type CandidateExercise,
@@ -256,12 +257,10 @@ export async function createBlockForUser(
 
   // For first builds, use the legacy insert path
   // Retire any previous active block before inserting the new one.
-  // Set ended_on to match rebuild_block convention: ended_on = (new block's started_on) - 1
-  await supabase
-    .from("programs")
-    .update({ status: "completed", ended_on: addDays(today, -1) })
-    .eq("user_id", userId)
-    .eq("status", "active");
+  const retireResult = await retirePreviousBlock(supabase, userId, today);
+  if (!retireResult.ok) {
+    return { ok: false, error: retireResult.error! };
+  }
 
   const startedOn = today;
   const endsOn = addDays(startedOn, 27); // four weeks inclusive

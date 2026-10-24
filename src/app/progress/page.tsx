@@ -8,6 +8,7 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
 import { getUnitsPreference } from "@/lib/units";
 import { LogWeight } from "./log-weight";
+import { loadProgramDays } from "@/lib/progress/load-program-days";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,7 @@ export default async function ProgressPage() {
       .select("id, local_date, status, actual_type, is_deload, duration_seconds")
       .order("local_date", { ascending: false })
       .limit(500),
-    supabase.from("program_days").select("program_id, day_index, day_type").eq("status", "active").order("day_index"),
+    loadProgramDays(supabase),
   ]);
 
   const profile = profileRes.data;

@@ -11,6 +11,7 @@ import { strict as assert } from "assert";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 import { addDays } from "../src/lib/dates";
+import { retirePreviousBlock } from "../src/lib/program/retire-previous-block";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -23,18 +24,6 @@ if (!SUPABASE_SERVICE_KEY) {
 const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
-
-/**
- * Extract the real first-build path from persist.ts (lines 260-264)
- * This is the code that marks old programs completed when creating a new block.
- */
-async function firstBuildMarkCompleted(userId: string, newStartedOn: string) {
-  return await supabase
-    .from("programs")
-    .update({ status: "completed", ended_on: addDays(newStartedOn, -1) })
-    .eq("user_id", userId)
-    .eq("status", "active");
-}
 
 async function main() {
   console.log("Test: First-build path sets ended_on when marking program completed\n");
@@ -89,14 +78,14 @@ async function main() {
 
     console.log(`Created old active program: ${oldProgram.id} (started ${oldStartDate})`);
 
-    // Simulate the first-build path: call real code to mark old program completed
+    // Simulate the first-build path: call real retire function from persist.ts
     const newStartDate = "2026-10-15";
     
-    console.log(`Calling real first-build path code to mark old program completed...`);
-    const { error: updateError } = await firstBuildMarkCompleted(userId, newStartDate);
+    console.log(`Calling real retirePreviousBlock from persist.ts...`);
+    const retireResult = await retirePreviousBlock(supabase, userId, newStartDate);
 
-    if (updateError) {
-      throw new Error(`Failed to update old program: ${updateError.message}`);
+    if (!retireResult.ok) {
+      throw new Error(`Failed to retire old program: ${retireResult.error}`);
     }
 
     console.log(`Marked old program completed with ended_on = ${addDays(newStartDate, -1)}`);
