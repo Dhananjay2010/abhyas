@@ -78,7 +78,10 @@ export function blockNumberFor(
  *
  * Formula: (week_offset ?? 0) + floor(daysBetween(started_on, date) / 7) + 1
  */
-export function cycleWeekFor(b: BlockRange, date: string): number {
+export function cycleWeekFor(
+  b: { started_on: string; week_offset?: number },
+  date: string
+): number {
   if (date < b.started_on) {
     throw new Error(`Date ${date} is before block start ${b.started_on}`);
   }
