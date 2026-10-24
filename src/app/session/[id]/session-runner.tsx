@@ -37,6 +37,7 @@ import {
 } from "@/lib/session/pending-set-controller";
 import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
+import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -853,10 +854,10 @@ export function SessionRunner({
       <div onPointerDown={onAnyTap}>
         {pendingSetState.pending.length > 0 && (
           <div className="mb-5">
-            {pendingSetState.error ? (
+            {getPendingUiMode(pendingSetState) === "replay-error" ? (
               <div className="rounded-xl border border-muted/30 bg-muted/10 px-4 py-3 text-sm text-muted">
                 <p className="font-medium">Failed to save sets</p>
-                <p className="mt-1">{pendingSetState.error}</p>
+                <p className="mt-1">{getReplayErrorMessage(pendingSetState)}</p>
               </div>
             ) : (
               <SessionExpiredPrompt />

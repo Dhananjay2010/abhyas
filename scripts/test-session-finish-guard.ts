@@ -15,22 +15,7 @@ import {
   getFinishButtonText,
 } from "../src/lib/session/finish-guard";
 
-import {
-  canFinishSession,
-  isFinishDisabled,
-  getFinishButtonText,
-} from "../src/lib/session/finish-guard";
-
 let exitCode = 0;
-
-function assert(condition: boolean, message: string): void {
-  if (!condition) {
-    console.error(`❌ ${message}`);
-    exitCode = 1;
-  } else {
-    console.log(`✓ ${message}`);
-  }
-}
 
 function assertEqual<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) {

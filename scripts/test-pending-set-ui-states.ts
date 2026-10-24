@@ -16,7 +16,6 @@ import {
 import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
 import {
   savePendingSet,
-  storageKey,
   type Storage,
 } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
