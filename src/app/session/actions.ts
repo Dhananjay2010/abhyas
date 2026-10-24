@@ -29,7 +29,7 @@ type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: string };
 
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
@@ -304,7 +304,7 @@ export async function logSet(input: {
 
   const sessionStatus = (sessionExercise as { sessions: { status: string } } | null)?.sessions?.status;
   if (sessionStatus && sessionStatus !== "in_progress") {
-    return { ok: false, error: "This session has ended." };
+    return { ok: false, code: "SESSION_ENDED", error: "This session has ended." };
   }
 
   const { error } = await supabase.from("session_sets").upsert(

@@ -203,18 +203,6 @@ console.log("\nMutant E: 23505 error is not handled");
 
 console.log("\n=== logSet TESTS ===\n");
 
-class FakeLogSetClient {
-  private sessionStatus: string;
-
-  constructor(sessionStatus: string) {
-    this.sessionStatus = sessionStatus;
-  }
-
-  async checkSessionStatus(): Promise<string> {
-    return this.sessionStatus;
-  }
-}
-
 (async () => {
 
 console.log("\n5. logSet rejects writes to completed sessions");
