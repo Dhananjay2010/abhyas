@@ -11,7 +11,7 @@
  * 6. mergePendingSets correctly merges pending sets into exercises
  */
 
-import { Outbox, mergePendingSets, nextSetNumberFor, classifyLogSetOutcome, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
+import { Outbox, mergePendingSets, nextSetNumberFor, classifyLogSetOutcome, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult, type OutboxState } from "../src/lib/session/outbox";
 import { isNetworkError } from "../src/lib/session/network-error";
 import { mapErrorToUserMessage, countLoggedSets } from "../src/lib/session/error-messages";
 import {
@@ -2414,7 +2414,7 @@ async function testNEW2_EndEarlyFlushSequence() {
 
 // ---- M15: Online event actually flushes the outbox in production --------
 async function testM15_OnlineEventFlushesOutbox() {
-  let state: { pending: QueuedSet[]; failed: QueuedSet[] } = { pending: [], failed: [] };
+  let state: OutboxState = { pending: [], failed: [] };
   const storage: OutboxStorage = {
     get: () => state,
     set: (newState) => {
