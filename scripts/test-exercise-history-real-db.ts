@@ -123,8 +123,6 @@ async function runTests() {
   const userIdB = authDataB.user.id;
   console.log(`Created test users: A=${userIdA.slice(0, 8)}... B=${userIdB.slice(0, 8)}...\n`);
 
-  // L3 fix: cleanup in finally block
-  let cleanupNeeded = true;
   try {
 
   // Create separate authenticated clients for user queries (sign in to get JWTs)
@@ -575,19 +573,16 @@ async function runTests() {
   }
 
   console.log("\n✅ All real DB tests passed\n");
-  cleanupNeeded = false;
   return true;
   } finally {
-    // L3 fix: cleanup test users and their data
-    if (cleanupNeeded) {
-      console.log("\nCleaning up test users...");
-      try {
-        await adminClient.auth.admin.deleteUser(userIdA);
-        await adminClient.auth.admin.deleteUser(userIdB);
-        console.log("✓ Test users deleted\n");
-      } catch (cleanupError) {
-        console.error("Warning: cleanup failed:", cleanupError);
-      }
+    // Cleanup test users and their data on every path
+    console.log("\nCleaning up test users...");
+    try {
+      await adminClient.auth.admin.deleteUser(userIdA);
+      await adminClient.auth.admin.deleteUser(userIdB);
+      console.log("✓ Test users deleted\n");
+    } catch (cleanupError) {
+      console.error("Warning: cleanup failed:", cleanupError);
     }
   }
 }
