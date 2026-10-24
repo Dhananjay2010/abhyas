@@ -194,7 +194,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     feel: "right",
     state: fresh({ currentWorkingWeightKg: 25, currentTargetReps: 12 }),
   });
-  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 27.5,
+  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 26.25,
     `${weighted.nextWorkingWeightKg}`);
   check("outcome is progressed", weighted.outcome === "progressed", weighted.outcome);
 
@@ -416,6 +416,107 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
   });
   check("while someone with no weight is not told about weights",
     !deloadBw.message.includes("weight"), deloadBw.message);
+}
+
+console.log("\nBodyweight exercises with added weight");
+{
+  // Lower-body bodyweight with added weight: 2.5 kg step, never doubled.
+  const SQUAT_BW: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "squat",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  const lower = run({
+    meta: SQUAT_BW,
+    sets: sets(4, 12, 10),
+    state: fresh({ currentWorkingWeightKg: 10, currentTargetReps: 12 }),
+    feel: "right",
+  });
+  check("lower-body bodyweight with 10 kg added goes to 12.5 kg",
+    lower.nextWorkingWeightKg === 12.5, `${lower.nextWorkingWeightKg}`);
+
+  // Guard: would be 15 kg with the old code (10 + 5).
+  check("NOT 15 kg with old incrementFor", lower.nextWorkingWeightKg !== 15,
+    `got ${lower.nextWorkingWeightKg}, old would give 15`);
+
+  // Easy does NOT double for bodyweight with added weight.
+  const lowerEasy = run({
+    meta: SQUAT_BW,
+    sets: sets(4, 12, 10),
+    state: fresh({ currentWorkingWeightKg: 10, currentTargetReps: 12 }),
+    feel: "easy",
+  });
+  check("easy still gives 12.5 kg, NOT doubled",
+    lowerEasy.nextWorkingWeightKg === 12.5, `${lowerEasy.nextWorkingWeightKg}`);
+  check("NOT 15 kg when easy", lowerEasy.nextWorkingWeightKg !== 15);
+
+  // Upper-body bodyweight with added weight: 1.25 kg step.
+  const PUSHUP_LOADED: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "horizontal_press",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  const upper = run({
+    meta: PUSHUP_LOADED,
+    sets: sets(4, 12, 5),
+    state: fresh({ currentWorkingWeightKg: 5, currentTargetReps: 12 }),
+  });
+  check("upper-body bodyweight with 5 kg added goes to 6.25 kg",
+    upper.nextWorkingWeightKg === 6.25, `${upper.nextWorkingWeightKg}`);
+
+  // Back-off: two misses drop added weight to 0.
+  const backoff = run({
+    meta: SQUAT_BW,
+    sets: sets(4, 10, 10),
+    state: fresh({ currentWorkingWeightKg: 10, consecutiveFailures: 1 }),
+  });
+  check("two misses with added weight drop to 0",
+    backoff.nextWorkingWeightKg === 0, `${backoff.nextWorkingWeightKg}`);
+  check("message says back to bodyweight",
+    backoff.message.includes("back to bodyweight"), backoff.message);
+
+  // Unloaded bodyweight: unchanged behavior (reps progression).
+  const unloaded = run({
+    meta: PUSHUP,
+    sets: sets(4, 12, null),
+    state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 12 }),
+  });
+  check("unloaded bodyweight still progresses reps to 14",
+    unloaded.nextTargetReps === 14, `${unloaded.nextTargetReps}`);
+  check("and invents no weight", unloaded.nextWorkingWeightKg === null);
+
+  // Loaded barbell squat: keeps old behavior (5 kg, doubled when easy).
+  const loadedBarbell = run({
+    meta: SQUAT,
+    sets: sets(4, 12, 100),
+    state: fresh({ currentWorkingWeightKg: 100 }),
+    feel: "easy",
+  });
+  check("loaded squat with easy still gets doubled: 110 kg",
+    loadedBarbell.nextWorkingWeightKg === 110, `${loadedBarbell.nextWorkingWeightKg}`);
+
+  // suggestedWeight rounds to bodyweight step for bodyweight exercises.
+  const suggestedBwLower = suggestedWeight(
+    { currentWorkingWeightKg: 10 },
+    true,
+    SQUAT_BW,
+  );
+  check("deload suggestion for bodyweight lower-body rounds to 2.5 kg step",
+    suggestedBwLower === 7.5, `${suggestedBwLower}`);
+
+  const suggestedBwUpper = suggestedWeight(
+    { currentWorkingWeightKg: 5 },
+    true,
+    PUSHUP_LOADED,
+  );
+  check("deload suggestion for bodyweight upper-body rounds to 1.25 kg step",
+    suggestedBwUpper === 3.75, `${suggestedBwUpper}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

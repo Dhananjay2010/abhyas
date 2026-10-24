@@ -118,6 +118,16 @@ export function incrementFor(meta: ExerciseMeta): number {
   return LOWER_BODY.has(meta.movementPattern) ? 5 : 2.5;
 }
 
+/**
+ * Step size for added weight on bodyweight exercises.
+ * Upper-body and isolation: 1.25 kg. Lower-body: 2.5 kg.
+ * Never 5 kg, and never doubled for 'easy' feel.
+ */
+export function addedWeightStep(meta: ExerciseMeta): number {
+  if (meta.mechanic === "isolation") return 1.25;
+  return LOWER_BODY.has(meta.movementPattern) ? 2.5 : 1.25;
+}
+
 function roundTo(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
@@ -293,9 +303,11 @@ export function evaluateProgression(input: {
       };
     }
 
-    // "Easy" earns a double jump; anything else takes the standard one.
-    const step = incrementFor(meta);
-    const jump = feel === "easy" ? step * 2 : step;
+    // Bodyweight with added weight: smaller steps, never doubled.
+    // Loaded exercises: standard increment, doubled when easy.
+    const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
+    const step = isBodyweightWithAddedWeight ? addedWeightStep(meta) : incrementFor(meta);
+    const jump = isBodyweightWithAddedWeight || feel !== "easy" ? step : step * 2;
     const from = state.currentWorkingWeightKg ?? heaviest;
     const next = roundTo(from + jump, step);
 
@@ -306,7 +318,7 @@ export function evaluateProgression(input: {
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
       message:
-        feel === "easy"
+        feel === "easy" && !isBodyweightWithAddedWeight
           ? `All sets at the top and it felt easy — up to ${next} kg.`
           : `All sets at the top of the range — up to ${next} kg.`,
     };
@@ -317,6 +329,18 @@ export function evaluateProgression(input: {
   const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
   if (failures >= 2 && currentWeight !== null && currentWeight > 0) {
+    // Bodyweight with added weight: drop added weight entirely to rebuild.
+    // Loaded exercises: reduce by ~10%.
+    if (meta.isBodyweight && heaviest > 0) {
+      return {
+        ...carried,
+        outcome: "backed_off",
+        nextWorkingWeightKg: 0,
+        nextTargetReps: repsMax,
+        consecutiveFailures: 0,
+        message: "Missed twice in a row — back to bodyweight to build up again.",
+      };
+    }
     const step = incrementFor(meta);
     const reduced = Math.max(step, roundTo(currentWeight * 0.9, step));
     return {
@@ -355,6 +379,7 @@ export function suggestedWeight(
   if (w === null || w <= 0) return null;
   if (!isDeload) return w;
   // Deload: about 70% of working weight, on a loadable increment.
-  const step = incrementFor(meta);
+  // Bodyweight exercises with added weight use their own smaller steps.
+  const step = meta.isBodyweight && w > 0 ? addedWeightStep(meta) : incrementFor(meta);
   return Math.max(step, roundTo(w * 0.7, step));
 }
