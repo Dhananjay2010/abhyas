@@ -94,7 +94,7 @@ async function callBlockRPC(
   const rpcName = mode === "rebuild" ? "rebuild_block" : "rollover_block";
   const { data, error } = await supabase.rpc(rpcName, {
     p_today: today,
-    p_payload: payload as unknown as Record<string, unknown>,
+    p_payload: payload as unknown as Database["public"]["Functions"][typeof rpcName]["Args"]["p_payload"],
   });
 
   if (error) {

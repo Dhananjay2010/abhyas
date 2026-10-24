@@ -90,7 +90,8 @@ console.log("\n4. blockForDate: overlap detection in non-production");
 
   const oldNodeEnv = process.env.NODE_ENV;
   try {
-    process.env.NODE_ENV = "development";
+    // Use Object.defineProperty to bypass read-only restriction
+    Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true });
     let threw = false;
     try {
       blockForDate(overlapping, "2026-10-20");
@@ -99,14 +100,14 @@ console.log("\n4. blockForDate: overlap detection in non-production");
     }
     check("throws in non-production for overlap", threw);
   } finally {
-    process.env.NODE_ENV = oldNodeEnv;
+    Object.defineProperty(process.env, 'NODE_ENV', { value: oldNodeEnv, writable: true });
   }
 
   // In production, doesn't throw
-  process.env.NODE_ENV = "production";
+  Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', writable: true });
   const result = blockForDate(overlapping, "2026-10-20");
   check("returns first covering block in production", result?.id === "1");
-  process.env.NODE_ENV = oldNodeEnv;
+  Object.defineProperty(process.env, 'NODE_ENV', { value: oldNodeEnv, writable: true });
 }
 
 console.log("\n5. blockNumberFor: 1-based, by started_on order, skips empty ranges");

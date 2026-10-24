@@ -74,7 +74,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // code, of which there is at most a handful. And the day lookup needed the
   // active program's id, so the program is fetched with all seven of its days
   // embedded and the right one is picked once the timezone is known.
-  const [profileRes, openRes, programRes, settingsRes] = await Promise.all([
+  const [profileRes, openRes, settingsRes] = await Promise.all([
     supabase.from("profiles").select("timezone, primary_track").eq("id", user.id).single(),
     supabase
       .from("sessions")
@@ -89,12 +89,6 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       // database happened to hand back first.
       .order("created_at", { ascending: false })
       .limit(10),
-    supabase
-      .from("programs")
-      // One string literal: Supabase infers the row type from it.
-      .select("id, started_on, deload_week, program_days(id, day_index, day_type, focus, label)")
-      .eq("status", "active")
-      .maybeSingle(),
     supabase.from("user_settings").select("resume_session").eq("user_id", user.id).maybeSingle(),
   ]);
 

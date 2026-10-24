@@ -203,7 +203,7 @@ async function callRolloverRPC(
 
   const { data, error } = await supabase.rpc("rollover_block", {
     p_today: today,
-    p_payload: payload as unknown as Record<string, unknown>,
+    p_payload: payload as unknown as Database["public"]["Functions"]["rollover_block"]["Args"]["p_payload"],
   });
 
   if (error) {

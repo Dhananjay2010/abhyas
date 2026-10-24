@@ -389,7 +389,7 @@ async function runTests() {
       const oldBlock = blocks?.find((b) => b.id === oldId);
       check(
         "old block ended_on < started_on (empty)",
-        oldBlock?.ended_on !== null && oldBlock.ended_on < oldBlock.started_on,
+        oldBlock !== undefined && oldBlock.ended_on !== null && oldBlock.ended_on < oldBlock.started_on,
       );
 
       await adminClient.from("programs").delete().eq("user_id", userId);
