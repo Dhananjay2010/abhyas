@@ -265,7 +265,17 @@ export function BarChart({
   // For single-point data, show a narrow bar instead of filling the whole plot
   const slot = points.length === 1 ? 30 : innerW / points.length;
   const barW = Math.max(3, slot - 2);
-  const shown = active === null ? points.length - 1 : active;
+  
+  // Default to last non-deload point for headline and aria-label; fall back to last point if all are deloads
+  const lastNonDeloadIndex = (() => {
+    for (let i = points.length - 1; i >= 0; i--) {
+      if (!points[i].isDeload) return i;
+    }
+    return points.length - 1;
+  })();
+  const allDeloads = points.every(p => p.isDeload);
+  const lastNonDeload = points[lastNonDeloadIndex];
+  const shown = active === null ? lastNonDeloadIndex : active;
 
   return (
     <div>
@@ -273,7 +283,7 @@ export function BarChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full touch-none"
         role="img"
-        aria-label={`${title}. ${points.length} ${points.length === 1 ? "session" : "sessions"}, most recent ${formatValue(points[points.length - 1].value, unit)}.`}
+        aria-label={`${title}. ${points.length} ${points.length === 1 ? "session" : "sessions"}, most recent ${formatValue(lastNonDeload.value, unit)}${allDeloads ? ' (deload)' : ''}.`}
         onPointerDown={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const px = ((e.clientX - rect.left) / rect.width) * width;
@@ -326,7 +336,7 @@ export function BarChart({
 
       <p className="mt-1 text-sm tabular-nums">
         <span className="font-semibold">{formatValue(points[shown].value, unit)}</span>{" "}
-        <span className="text-muted">· {points[shown].label}</span>
+        <span className="text-muted">· {points[shown].label}{allDeloads ? ' (deload)' : ''}</span>
       </p>
 
       {points.length === 1 && (
