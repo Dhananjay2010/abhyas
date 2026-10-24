@@ -52,15 +52,24 @@ interface FakeUpdateChain {
 function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?: string, updateCount?: number): FakeSupabase {
   const calls: Call[] = [];
 
+  // Default session metadata
+  const sessionMetadata = [{
+    started_at: "2026-10-24T14:00:00Z",
+    local_date: "2026-10-24",
+    timezone: "UTC",
+  }];
+
   return {
     calls,
     from: (table: string) => {
       const currentTable = table;
       const filters: Record<string, unknown> = {};
       let updatePayload: Record<string, unknown> = {};
+      let selectColumns = "";
 
       return {
         select: (columns: string) => {
+          selectColumns = columns;
           return {
             eq: async (column: string, value: unknown) => {
               filters[column] = value;
@@ -74,6 +83,12 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
                 return { data: null, error: { message: readError } };
               }
 
+              // Return session metadata for session queries
+              if (currentTable === "sessions" && selectColumns.includes("started_at")) {
+                return { data: sessionMetadata, error: null };
+              }
+
+              // Return exercises for session_exercises queries
               return { data: exercises, error: null };
             },
           };
@@ -113,7 +128,7 @@ function makeFakeSupabase(exercises: unknown[], updateError?: string, readError?
 async function testFinishSessionRequiresInProgressFilter() {
   const exercises = [
     {
-      session_sets: [{ id: "1", is_warmup_set: false }],
+      session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }],
     },
   ];
 
@@ -136,7 +151,7 @@ async function testFinishSessionRequiresInProgressFilter() {
 async function testFinishSessionRespectsDecideAbandonStatusZeroSets() {
   const exercises = [
     {
-      session_sets: [{ id: "1", is_warmup_set: true }], // Only warmup
+      session_sets: [{ id: "1", is_warmup_set: true, completed_at: "2026-10-24T14:05:00Z" }], // Only warmup
     },
   ];
 
@@ -164,8 +179,8 @@ async function testFinishSessionRespectsDecideAbandonStatusWithWorkingSets() {
   const exercises = [
     {
       session_sets: [
-        { id: "1", is_warmup_set: true },
-        { id: "2", is_warmup_set: false }, // Working set
+        { id: "1", is_warmup_set: true, completed_at: "2026-10-24T14:05:00Z" },
+        { id: "2", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }, // Working set
       ],
     },
   ];
@@ -207,7 +222,7 @@ async function testFinishSessionHandlesReadError() {
 async function testFinishSessionHandlesUpdateError() {
   const exercises = [
     {
-      session_sets: [{ id: "1", is_warmup_set: false }],
+      session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }],
     },
   ];
 
@@ -227,7 +242,7 @@ async function testFinishSessionHandlesUpdateError() {
 async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
   const completedExercises = [
     {
-      session_sets: [{ id: "1", is_warmup_set: false }],
+      session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }],
     },
   ];
 
@@ -248,7 +263,7 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
   // Skipped session
   const skippedExercises = [
     {
-      session_sets: [{ id: "1", is_warmup_set: true }],
+      session_sets: [{ id: "1", is_warmup_set: true, completed_at: "2026-10-24T14:05:00Z" }],
     },
   ];
 
@@ -272,7 +287,7 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
 async function testAbandonSessionRequiresInProgressFilter() {
   const exercises = [
     {
-      session_sets: [{ id: "1", is_warmup_set: false }],
+      session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }],
     },
   ];
 
@@ -291,7 +306,7 @@ async function testAbandonSessionRequiresInProgressFilter() {
 async function testAbandonSessionRespectsDecideAbandonStatus() {
   const exercises = [
     {
-      session_sets: [{ id: "1", is_warmup_set: true }], // Only warmup
+      session_sets: [{ id: "1", is_warmup_set: true, completed_at: "2026-10-24T14:05:00Z" }], // Only warmup
     },
   ];
 
