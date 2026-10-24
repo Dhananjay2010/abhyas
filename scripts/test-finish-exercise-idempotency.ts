@@ -11,6 +11,7 @@ import {
   finishExerciseCore,
   type ProgressionFeedback,
 } from "../src/lib/session/finish-exercise";
+import type { FinishExerciseDeps } from "../src/lib/session/finish-exercise-deps";
 
 type ExerciseStatus = "pending" | "completed" | "skipped" | "swapped_out";
 
