@@ -41,9 +41,10 @@ export async function finishSessionCore(
 
   if (readError) return { ok: false, error: readError };
 
-  // Count working sets and find the last logged set timestamp
+  // Count working sets and find the last logged set timestamp and its exercise rest
   let workingSetCount = 0;
   let lastSetCompletedAt: string | null = null;
+  let lastSetRestSeconds: number | null = null;
 
   for (const exercise of exercises ?? []) {
     for (const set of exercise.session_sets ?? []) {
@@ -52,6 +53,7 @@ export async function finishSessionCore(
       }
       if (set.completed_at && (!lastSetCompletedAt || set.completed_at > lastSetCompletedAt)) {
         lastSetCompletedAt = set.completed_at;
+        lastSetRestSeconds = exercise.rest_seconds;
       }
     }
   }
@@ -80,6 +82,7 @@ export async function finishSessionCore(
       startedAt: session.started_at,
       lastSetCompletedAt,
       workingSetCount,
+      restSeconds: lastSetRestSeconds,
     });
 
     status = staleFinish.status;

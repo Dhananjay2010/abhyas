@@ -2,7 +2,7 @@
 /**
  * Test that resolveStaleFinish handles null/invalid startedAt safely.
  *
- * Regression test for mutant #4: if null or invalid startedAt is passed,
+ * Regression test for regression #4: if null or invalid startedAt is passed,
  * Date.parse returns NaN, leading to NaN duration or negative values.
  * The function must fall back safely.
  *

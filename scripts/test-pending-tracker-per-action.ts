@@ -3,7 +3,7 @@
  * Test that PendingTracker correctly tracks the latest result per action,
  * not just a single global latestResult.
  *
- * Regression test for mutant #1: if we store only one latestResult instead
+ * Regression test for regression #1: if we store only one latestResult instead
  * of tracking per-action, an older action resolving after a newer one could
  * incorrectly overwrite the newer result.
  *

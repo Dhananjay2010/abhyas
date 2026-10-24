@@ -2,7 +2,7 @@
 /**
  * Test that warm-up sets are correctly excluded from working set counts.
  *
- * Regression test for mutant #2: if is_warmup_set is ignored, warm-up sets
+ * Regression test for regression #2: if is_warmup_set is ignored, warm-up sets
  * would incorrectly count as working sets.
  *
  *   npx tsx scripts/test-warmup-exclusion.ts

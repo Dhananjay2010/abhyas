@@ -2,7 +2,7 @@
 /**
  * Test that resolveStaleFinish never returns ended_at earlier than lastSetCompletedAt.
  *
- * Regression test for mutant #8: if the guard `Math.max(lastSetMs, endedAtMs)` is
+ * Regression test for regression #8: if the guard `Math.max(lastSetMs, endedAtMs)` is
  * removed, edge cases like negative restSeconds or startedAt far in the future could
  * produce ended_at before the last set's completion time.
  *

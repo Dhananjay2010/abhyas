@@ -9,6 +9,7 @@ export type SessionRow = {
 };
 
 export type SessionExerciseWithSets = {
+  rest_seconds: number | null;
   session_sets: Array<{
     id: string;
     is_warmup_set: boolean;
@@ -65,14 +66,15 @@ export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {
     },
 
     async loadExercises(sessionId) {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from("session_exercises")
-        .select("session_sets(id, is_warmup_set, completed_at)")
+        .select("rest_seconds, session_sets(id, is_warmup_set, completed_at)")
         .eq("session_id", sessionId);
 
       if (error) return { data: null, error: error.message };
 
       const exercises = (data ?? []).map((ex) => ({
+        rest_seconds: ex.rest_seconds,
         session_sets: (ex.session_sets ?? []).map((s) => ({
           id: s.id,
           is_warmup_set: s.is_warmup_set,
