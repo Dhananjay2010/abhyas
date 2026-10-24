@@ -58,11 +58,10 @@ export default async function ProgressPage() {
       .select("exercise_id, exercise_name, local_date, best_e1rm, top_weight_kg")
       .order("local_date", { ascending: false })
       .limit(600),
-    // Ordered oldest-first with created_at breaking same-day ties, so
-    // buildDayRecords can treat the last match as the newest block.
+    // Ordered oldest-first for building day records
     supabase
       .from("programs")
-      .select("id, started_on, ends_on, created_at")
+      .select("id, started_on, ends_on, ended_on, created_at")
       .order("started_on")
       .order("created_at"),
     supabase
@@ -88,6 +87,7 @@ export default async function ProgressPage() {
     id: p.id,
     startedOn: p.started_on,
     endsOn: p.ends_on,
+    endedOn: p.ended_on,
   }));
 
   const allProgramDays = programDaysRes.data;
@@ -227,9 +227,7 @@ export default async function ProgressPage() {
           </p>
           {volumePoints.length < 2 ? (
             <p className="rounded-xl border border-dashed border-border px-5 py-6 text-center text-sm text-muted">
-              {volumePoints.length === 0
-                ? "Complete a workout with logged sets to see your volume."
-                : "One session logged. Your trend will appear after your next workout."}
+              One session logged. Your trend will appear after your next workout.
             </p>
           ) : (
             <BarChart points={volumePoints} unit="kg" title="Volume per session" />

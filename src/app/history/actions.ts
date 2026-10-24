@@ -217,3 +217,118 @@ export async function deleteSet(
 
   return { success: true };
 }
+
+/**
+ * M2, (d): Close out a past-day in-progress session.
+ *
+ * Past-day in-progress sessions are not resumable and must be manually closed
+ * out from History. Uses resolveStaleFinish to set duration (last set time - start,
+ * or 0 for zero-set sessions), endedAt, and status (completed/skipped).
+ *
+ * This action is only intended for past-day in-progress sessions displayed in
+ * History with a "Close out" button.
+ */
+export async function closeOutSession(sessionId: string) {
+  const { supabase, user } = await getAuthedClient();
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
+  // Verify ownership and get session started_at
+  const { data: session, error: sessionError } = await supabase
+    .from("sessions")
+    .select("id, status, started_at")
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (sessionError || !session) {
+    return { error: "Session not found" };
+  }
+
+  if (session.status !== "in_progress") {
+    return { error: "Session is not in progress" };
+  }
+
+  if (!session.started_at) {
+    return { error: "Session missing started_at timestamp" };
+  }
+
+  // Get exercises for this session
+  const { data: exercises } = await supabase
+    .from("session_exercises")
+    .select("id")
+    .eq("session_id", sessionId);
+
+  if (!exercises || exercises.length === 0) {
+    // No exercises: skipped, 0 duration
+    const { error: updateError } = await supabase
+      .from("sessions")
+      .update({
+        status: "skipped",
+        duration_seconds: 0,
+        completed_at: session.started_at,
+      })
+      .eq("id", sessionId)
+      .eq("user_id", user.id);
+
+    if (updateError) {
+      return { error: updateError.message };
+    }
+
+    revalidatePath("/history");
+    revalidatePath("/progress");
+    return { success: true };
+  }
+
+  const exerciseIds = exercises.map((e) => e.id);
+
+  // Count working sets (is_warmup_set = false)
+  const { data: workingSets } = await supabase
+    .from("session_sets")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("is_warmup_set", false)
+    .in("session_exercise_id", exerciseIds);
+
+  const workingSetCount = workingSets?.length ?? 0;
+
+  // Get max completed_at across ALL logged sets (warm-up or working)
+  const { data: allSets } = await supabase
+    .from("session_sets")
+    .select("completed_at")
+    .eq("user_id", user.id)
+    .in("session_exercise_id", exerciseIds)
+    .order("completed_at", { ascending: false })
+    .limit(1);
+
+  const lastSetCompletedAt = allSets?.[0]?.completed_at ?? null;
+
+  // (d) Use shared stale-finish helper
+  const { resolveStaleFinish } = await import("@/lib/session/stale-duration");
+  const { durationSeconds, endedAt, status } = resolveStaleFinish({
+    startedAt: session.started_at,
+    lastSetCompletedAt,
+    workingSetCount,
+  });
+
+  // Update session with resolved values
+  const { error: updateError } = await supabase
+    .from("sessions")
+    .update({
+      status,
+      duration_seconds: durationSeconds,
+      completed_at: endedAt,
+    })
+    .eq("id", sessionId)
+    .eq("user_id", user.id);
+
+  if (updateError) {
+    return { error: updateError.message };
+  }
+
+  revalidatePath("/history");
+  revalidatePath("/progress");
+
+  return { success: true };
+}

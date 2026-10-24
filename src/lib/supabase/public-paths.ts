@@ -17,6 +17,7 @@ export const PUBLIC_PATHS = [
   "/robots.txt",
   "/sitemap.xml",
   "/api/version",
+  "/api/in-progress",
 ];
 
 /** Dev-only harnesses, never routable in production (the pages 404 there too). */
