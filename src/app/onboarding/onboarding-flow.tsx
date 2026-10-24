@@ -135,11 +135,11 @@ export function OnboardingFlow({
   
   const [sex, setSex] = useState<Sex | null>(initial.sex);
   const [units] = useState<UnitsPreference>(initial.units);
-  const [heightInput, setHeightInput] = useState(
+  const [heightCm, setHeightCm] = useState(
     initial.heightCm ? formatHeight(initial.heightCm, units, false) : ""
   );
   const [heightTouched, setHeightTouched] = useState(false);
-  const [weightInput, setWeightInput] = useState(
+  const [weightKg, setWeightKg] = useState(
     initial.weightKg ? formatWeight(initial.weightKg, units, false) : ""
   );
   const [weightTouched, setWeightTouched] = useState(false);
@@ -290,8 +290,8 @@ export function OnboardingFlow({
 
   if (current === "about") {
     // Parse height and weight from user input
-    const heightCm = parseHeight(heightInput, units);
-    const weightKg = parseWeight(weightInput, units);
+    const heightCmValue = parseHeight(heightCm, units);
+    const weightKgValue = parseWeight(weightKg, units);
     
     // Get today as ISO string for validation
     const today = new Date();
@@ -302,12 +302,12 @@ export function OnboardingFlow({
     const dobValidationError = dobTouched && dateOfBirth ? validateDob(dateOfBirth, todayIso) : null;
     const dobError = dobValidationError ? getDobErrorMessage(dobValidationError) : null;
     
-    const heightError = heightTouched && heightInput !== "" && heightCm === null
+    const heightError = heightTouched && heightCm !== "" && heightCmValue === null
       ? units === "imperial"
         ? "Height should be between 3'3\" and 8'2\""
         : "Height should be between 100 and 250 cm"
       : null;
-    const weightError = weightTouched && weightInput !== "" && weightKg === null
+    const weightError = weightTouched && weightKg !== "" && weightKgValue === null
       ? units === "imperial"
         ? "Weight should be between 55 and 661 lb"
         : "Weight should be between 25 and 300 kg"
@@ -316,7 +316,7 @@ export function OnboardingFlow({
     const dobValid = dateOfBirth !== null && dobValidationError === null;
     
     const ready =
-      dobValid && sex !== null && heightCm !== null && weightKg !== null && 
+      dobValid && sex !== null && heightCmValue !== null && weightKgValue !== null && 
       !heightError && !weightError && !pending;
 
     return (
@@ -348,8 +348,8 @@ export function OnboardingFlow({
                   actions.saveAboutYou({
                     dateOfBirth: dateOfBirth!,
                     sex: sex!,
-                    heightCm: heightCm!,
-                    weightKg: weightKg!,
+                    heightCm: heightCmValue!,
+                    weightKg: weightKgValue!,
                     browserTimezone,
                   }),
                 );
@@ -388,8 +388,8 @@ export function OnboardingFlow({
               <input
                 type="text"
                 inputMode={units === "imperial" ? "text" : "decimal"}
-                value={heightInput}
-                onChange={(e) => setHeightInput(e.target.value)}
+                value={heightCm}
+                onChange={(e) => setHeightCm(e.target.value)}
                 onBlur={() => setHeightTouched(true)}
                 placeholder={units === "imperial" ? "e.g. 5'9\"" : "e.g. 175"}
                 className={inputClass}
@@ -399,8 +399,8 @@ export function OnboardingFlow({
               <input
                 type="number"
                 inputMode="decimal"
-                value={weightInput}
-                onChange={(e) => setWeightInput(e.target.value)}
+                value={weightKg}
+                onChange={(e) => setWeightKg(e.target.value)}
                 onBlur={() => setWeightTouched(true)}
                 placeholder={units === "imperial" ? "e.g. 154" : "e.g. 70"}
                 step="any"
