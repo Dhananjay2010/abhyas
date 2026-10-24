@@ -203,6 +203,56 @@ export default async function TodayPage() {
   const allSessions = sessionsRes.data ?? [];
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
 
+  // Fetch any retired program days that sessions reference. After a rebuild,
+  // sessions can point to days from the old block, and we need those to derive
+  // correct labels. Collect unique program_day_ids from sessions that aren't in
+  // the active block's days.
+  const activeDayIds = new Set((days ?? []).map((d) => d.id));
+  const retiredDayIds = Array.from(
+    new Set(
+      allSessions
+        .map((s) => s.program_day_id)
+        .filter((id): id is string => id !== null && !activeDayIds.has(id)),
+    ),
+  );
+
+  let retiredDays:
+    | Array<{
+        id: string;
+        day_index: number;
+        day_type: Database["public"]["Enums"]["day_type"];
+        focus: string | null;
+        label: string | null;
+        program_day_exercises: Array<{
+          order_index: number;
+          target_sets: number | null;
+          target_reps_min: number | null;
+          target_reps_max: number | null;
+          rest_seconds: number | null;
+          exercises: {
+            name: string;
+            cue: string | null;
+            movement_pattern: Database["public"]["Enums"]["movement_pattern"];
+            metric: Database["public"]["Enums"]["exercise_metric"] | null;
+          } | null;
+        }>;
+      }>
+    | undefined;
+
+  if (retiredDayIds.length > 0) {
+    const { data } = await supabase
+      .from("program_days")
+      .select(
+        "id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))",
+      )
+      .in("id", retiredDayIds)
+      .order("order_index", { referencedTable: "program_day_exercises" });
+    retiredDays = data as typeof retiredDays;
+  }
+
+  // Combine active and retired days for lookup.
+  const allDays = [...(days ?? []), ...(retiredDays ?? [])];
+
   const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
 
   /*
@@ -255,8 +305,13 @@ export default async function TodayPage() {
         (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9) ||
         (b.created_at ?? "").localeCompare(a.created_at ?? ""),
     )[0];
+  
+  // The session's own program day, which may be from the active block or a
+  // retired one (after a rebuild). `allDays` includes both, so labels are
+  // correct after a mid-session rebuild: the header and "Your week" label come
+  // from the day the session was planned with, not from what the new block says.
   const overrideDay = override?.program_day_id
-    ? days?.find((d) => d.id === override.program_day_id)
+    ? allDays.find((d) => d.id === override.program_day_id)
     : undefined;
 
   const today = overrideDay ?? scheduled;
@@ -437,8 +492,9 @@ export default async function TodayPage() {
         x.actual_type !== null,
     );
     if (!sess?.actual_type) continue;
+    // Use allDays to find retired program days after a rebuild.
     const chosenDay = sess.program_day_id
-      ? days?.find((pd) => pd.id === sess.program_day_id)
+      ? allDays.find((pd) => pd.id === sess.program_day_id)
       : undefined;
     const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
     if (label !== d.label) chosenByDayIndex.set(d.day_index, label);

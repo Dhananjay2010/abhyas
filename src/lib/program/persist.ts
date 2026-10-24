@@ -8,6 +8,7 @@ import {
   type GeneratorInput,
 } from "./generate";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { repointSessionsAfterRebuild } from "./repoint-sessions";
 
 type Client = SupabaseClient<Database>;
 
@@ -226,6 +227,11 @@ export async function createBlockForUser(
     const { error } = await supabase.from("program_day_exercises").insert(exerciseRows);
     if (error) return { ok: false, error: error.message };
   }
+
+  // Re-point any planned sessions to the new program's matching days. This
+  // prevents "train anyway" and "what about tomorrow?" choices from the old
+  // block surviving the rebuild and loading exercises from the retired plan.
+  await repointSessionsAfterRebuild(supabase, userId, program.id, startedOn);
 
   return {
     ok: true,
