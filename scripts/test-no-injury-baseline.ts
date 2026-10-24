@@ -23,6 +23,9 @@ interface BaselinePlan {
     track: string;
     daysPerWeek: number;
     hasAllEquipment: boolean;
+    age: number;
+    sessionMinutes: number;
+    equipmentIds: string[];
   };
   plan: {
     splitType: string;
@@ -74,13 +77,13 @@ for (const [userId, baselineData] of Object.entries(baseline)) {
     primaryTrack: profile.track as Database["public"]["Enums"]["track_type"],
     daysPerWeek: profile.daysPerWeek,
     yogaDaysPerWeek: 0,
-    age: 30,
+    age: profile.age,
     bmi: 23,
     hasAllEquipment: profile.hasAllEquipment,
-    equipmentIds: profile.hasAllEquipment ? [] : ["barbell", "bench", "dumbbells"],
-    currentInjuryRegions: [], // NO INJURIES
+    equipmentIds: profile.equipmentIds,
+    currentInjuryRegions: [],
     anyKneeInjury: false,
-    preferredSessionMinutes: 60,
+    preferredSessionMinutes: profile.sessionMinutes,
     catalogue,
   };
   
