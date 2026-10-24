@@ -63,11 +63,11 @@ export default async function DevBreathingDetailPage({
   const v = (await searchParams).v;
 
   if (v === "legacy") {
-    return <BreathingDetail name="Breathing" slug={null} localDate="2026-09-03" seconds={600} logs={[]} />;
+    return <BreathingDetail name="Breathing" slug={null} localDate="2026-09-03" startedAt="2026-09-03T10:00:00Z" timezone="UTC" seconds={600} logs={[]} />;
   }
   if (v === "early") {
     const log = { ...FULL, cycles_completed: 7, breaths: 7, seconds: 118, ended_early: true, mood_before: null, mood_after: 4, guidance: "off" };
-    return <BreathingDetail name="Box Breathing" slug="box-breathing" localDate="2026-09-10" seconds={118} logs={[log]} />;
+    return <BreathingDetail name="Box Breathing" slug="box-breathing" localDate="2026-09-10" startedAt="2026-09-10T14:30:00Z" timezone="UTC" seconds={118} logs={[log]} />;
   }
   if (v === "routine") {
     return (
@@ -76,6 +76,8 @@ export default async function DevBreathingDetailPage({
         slug={null}
         isRoutine
         localDate="2026-09-12"
+        startedAt="2026-09-12T18:00:00Z"
+        timezone="UTC"
         seconds={286}
         logs={ROUTINE}
       />
@@ -92,10 +94,12 @@ export default async function DevBreathingDetailPage({
         slug={null}
         isRoutine
         localDate="2026-09-12"
+        startedAt="2026-09-12T18:00:00Z"
+        timezone="UTC"
         seconds={85}
         logs={cut}
       />
     );
   }
-  return <BreathingDetail name="Box Breathing" slug="box-breathing" localDate="2026-09-11" seconds={304} logs={[FULL]} />;
+  return <BreathingDetail name="Box Breathing" slug="box-breathing" localDate="2026-09-11" startedAt="2026-09-11T16:00:00Z" timezone="UTC" seconds={304} logs={[FULL]} />;
 }
