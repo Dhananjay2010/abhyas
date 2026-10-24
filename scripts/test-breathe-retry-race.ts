@@ -60,12 +60,10 @@ async function testConcurrentRace() {
 
   try {
     // Set timeouts to prevent hanging
-    // Note: With advisory locks, one client waits for the other, so lock_timeout
-    // must be longer than the expected transaction duration
-    await client1.query("SET statement_timeout = '30s'");
-    await client1.query("SET lock_timeout = '20s'");
-    await client2.query("SET statement_timeout = '30s'");
-    await client2.query("SET lock_timeout = '20s'");
+    await client1.query("SET statement_timeout = '10s'");
+    await client1.query("SET lock_timeout = '5s'");
+    await client2.query("SET statement_timeout = '10s'");
+    await client2.query("SET lock_timeout = '5s'");
 
     // Get box-breathing pattern id from seed data
     const patternResult = await client1.query(
@@ -97,9 +95,7 @@ async function testConcurrentRace() {
           [JSON.stringify({ sub: TEST_USER_ID })]
         );
 
-        // Run concurrent calls with same log_id
-        // DON'T use Promise.all - it causes deadlock when one holds advisory lock
-        // Instead, start both, then await sequentially
+        // Start both calls (queries are on the wire, not awaited yet)
         const promise1 = client1.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
@@ -109,7 +105,7 @@ async function testConcurrentRace() {
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
 
-        // Add a small delay to increase chance of race
+        // Small delay to encourage race
         await new Promise(resolve => setTimeout(resolve, 10));
 
         const promise2 = client2.query(
@@ -121,11 +117,12 @@ async function testConcurrentRace() {
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
 
-        // Await them separately to avoid deadlock
+        // Await and commit client1 first, releasing the advisory lock
         const result1 = await promise1;
-        const result2 = await promise2;
-
         await client1.query("COMMIT");
+
+        // Now client2 can proceed (lock released)
+        const result2 = await promise2;
         await client2.query("COMMIT");
 
         const sessionId1 = result1.rows[0].session_id;
@@ -189,7 +186,7 @@ async function testConcurrentRace() {
           [JSON.stringify({ sub: TEST_USER_ID })]
         );
 
-        // Concurrent calls - await separately to avoid deadlock
+        // Concurrent calls with same log_id
         const promise1 = client1.query(
           `SELECT record_breathing_practice(
             $1::uuid, $2::date, $3::uuid, NULL::uuid,
@@ -210,10 +207,12 @@ async function testConcurrentRace() {
           [logId, FAR_OFF_DATE, PATTERN_ID]
         );
 
+        // Await and commit client1 first, releasing the advisory lock
         const result1 = await promise1;
-        const result2 = await promise2;
-
         await client1.query("COMMIT");
+
+        // Now client2 can proceed (lock released)
+        const result2 = await promise2;
         await client2.query("COMMIT");
 
         const sessionId1 = result1.rows[0].session_id;
@@ -300,10 +299,12 @@ async function testConcurrentRace() {
           [logId2, FAR_OFF_DATE, PATTERN_ID, sessionId]
         );
 
+        // Await and commit client1 first, releasing the advisory lock
         const result2a = await promise1;
-        const result2b = await promise2;
-
         await client1.query("COMMIT");
+
+        // Now client2 can proceed (lock released)
+        const result2b = await promise2;
         await client2.query("COMMIT");
 
         check("both routine step calls returned same session", result2a.rows[0].session_id === result2b.rows[0].session_id);
