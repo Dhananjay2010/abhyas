@@ -370,14 +370,11 @@ console.log("\n17. No-equipment users can train back and shoulders (after migrat
     (e) => e.movement_pattern === "vertical_press" && e.equipment_ids.length === 0,
   );
   
-  if (noEquipPull.length === 0) {
-    console.log("  note no-equipment horizontal pull missing (migrations not applied yet)");
-  } else {
-    check("catalogue has no-equipment horizontal pull", true, noEquipPull.map((e) => e.name).join(", "));
-  }
+  check("catalogue has no-equipment horizontal pull", noEquipPull.length > 0,
+    noEquipPull.length > 0 ? noEquipPull.map((e) => e.name).join(", ") : "MISSING");
   
   check("catalogue has no-equipment vertical press", noEquipPress.length > 0,
-    noEquipPress.map((e) => e.name).join(", "));
+    noEquipPress.length > 0 ? noEquipPress.map((e) => e.name).join(", ") : "MISSING");
   
   // Only test plan generation if the exercises exist in the catalogue
   if (noEquipPull.length > 0 && noEquipPress.length > 0) {
@@ -387,8 +384,6 @@ console.log("\n17. No-equipment users can train back and shoulders (after migrat
     const patterns = new Set(picked.map((e) => e.movement_pattern));
     check("plan includes horizontal pull", patterns.has("horizontal_pull"));
     check("plan includes vertical press", patterns.has("vertical_press"));
-  } else {
-    console.log("  note skipping plan check until migrations are applied");
   }
 }
 

@@ -33,10 +33,9 @@ WHERE slug IN (
   -- Bradford presses (REAL prod slugs from QA M6)
   'bradford-rocky-presses',
   'standing-bradford-press',
-  -- Behind-neck movements
-  'behind-the-neck-press',
-  'behind-the-neck-pulldown',
-  'behind-neck-barbell-overhead-press'
+  -- Behind-neck movements (using REAL prod slugs)
+  'standing-barbell-press-behind-neck',
+  'wide-grip-pulldown-behind-the-neck'
 )
   AND NOT ('shoulder' = ANY(contraindicated_regions));
 
@@ -123,6 +122,19 @@ WHERE slug IN (
   'tuck-crunch',
   'reverse-crunch',
   'oblique-crunches',
+  -- Additional 12 crunch variants that need lower_back tagging
+  'ab-crunch-machine',
+  'bosu-ball-cable-crunch-with-side-bends',
+  'cable-reverse-crunch',
+  'cable-seated-crunch',
+  'crunch-legs-on-exercise-ball',
+  'decline-oblique-crunch',
+  'decline-reverse-crunch',
+  'exercise-ball-crunch',
+  'gorilla-chin-crunch',
+  'kneeling-cable-crunch-with-alternating-oblique-twists',
+  'oblique-crunches-on-the-floor',
+  'weighted-crunches',
   -- Side jackknife also loads lower back
   'side-jackknife'
 )
@@ -156,8 +168,9 @@ WHERE slug = 'goblet-squat'
 
 -- QA M8: Upright rows are vertical pulls (deltoid-dominant), not horizontal rows
 -- They target side delts primarily, similar to lateral raises
+-- Using REAL prod slugs only
 UPDATE exercises
-SET movement_pattern = 'vertical_pull',
+SET movement_pattern = 'lateral_delt',
     primary_muscles = ARRAY['side_delts']::muscle[],
     secondary_muscles = 
       CASE
@@ -166,10 +179,14 @@ SET movement_pattern = 'vertical_pull',
       END
 WHERE slug IN (
   'smith-machine-upright-row',
-  'dumbbell-upright-row',
-  'band-upright-row'
+  'dumbbell-one-arm-upright-row',
+  'smith-machine-one-arm-upright-row',
+  'standing-dumbbell-upright-row',
+  'upright-cable-row',
+  'upright-barbell-row',
+  'upright-row-with-bands'
 )
-  AND movement_pattern = 'horizontal_pull';
+  AND (movement_pattern = 'horizontal_pull' OR movement_pattern = 'vertical_pull');
 
 -- ====================
 -- Part 5: H3 - Retag mis-classified vertical_press exercises
@@ -188,13 +205,14 @@ WHERE slug IN (
 )
   AND movement_pattern = 'vertical_press';
 
--- Front raises should be front_delt (shoulder isolation), not vertical_press
+-- Front raises should be lateral_delt (shoulder isolation), not vertical_press
+-- Note: These specific slugs don't exist in prod, but keeping for future exercises
+-- Real prod has 'front-raise-and-pullover' and 'side-laterals-to-front-raise'
 UPDATE exercises
-SET movement_pattern = 'front_delt',
+SET movement_pattern = 'lateral_delt',
     mechanic = 'isolation'
 WHERE slug IN (
-  'dumbbell-front-raise',
-  'barbell-front-raise',
-  'cable-front-raise'
+  'front-raise-and-pullover',
+  'side-laterals-to-front-raise'
 )
   AND movement_pattern = 'vertical_press';

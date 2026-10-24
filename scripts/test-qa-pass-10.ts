@@ -17,11 +17,13 @@ import { selectWarmup, selectCooldown, type WarmupRow } from "../src/lib/program
 const fixture = process.argv[2] ?? "scripts/fixtures/catalogue.json";
 const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
 
-// Warmups fixture is optional for generator-only tests
+// Warmups fixture is REQUIRED - test MUST fail if missing
 const warmupsPath = "scripts/fixtures/warmups.json";
-const warmups = existsSync(warmupsPath) 
-  ? JSON.parse(readFileSync(warmupsPath, "utf8")) as WarmupRow[]
-  : [];
+if (!existsSync(warmupsPath)) {
+  console.error(`FATAL: ${warmupsPath} does not exist - warmup tests cannot run`);
+  process.exit(1);
+}
+const warmups = JSON.parse(readFileSync(warmupsPath, "utf8")) as WarmupRow[];
 const byId = new Map(catalogue.map((e) => [e.id, e]));
 
 let failures = 0;
@@ -86,15 +88,36 @@ testSeeds("C1: No plyometric/Olympic/behind-neck/throw/bradford in ANY main slot
     const unsafe = mainSlotExercises.filter(e => {
       const name = e.name.toLowerCase();
       const slug = e.slug.toLowerCase();
-      return (
-        e.impact === "high" && (name.includes("jump") || slug.includes("jump") || slug.includes("plyo")) ||
-        name.includes("snatch") || name.includes("clean") || name.includes("jerk") ||
+      const isBallistic = 
+        e.impact === "high" && (name.includes("jump") || slug.includes("jump") || slug.includes("plyo"));
+      const isOlympic = 
+        name.includes("snatch") || name.includes("clean") || name.includes("jerk");
+      const isDangerous = 
         name.includes("behind-the-neck") || name.includes("behind neck") ||
-        name.includes("throw") || name.includes("bradford") || name.includes("to-neck")
-      );
+        name.includes("throw") || name.includes("bradford") || name.includes("to-neck");
+      return isBallistic || isOlympic || isDangerous;
     });
     
     check(`Seed ${seed}: No unsafe moves in main slots`, unsafe.length === 0, 
+      unsafe.map(e => e.name).join(", "));
+  }
+);
+
+testSeeds("C1: Bodyweight intermediate 4d fat_loss has NO unsafe moves in main slots",
+  { primaryTrack: "bodyweight", goal: "fat_loss", level: "intermediate", daysPerWeek: 4, hasAllEquipment: false, equipmentIds: [] },
+  (plan, picked, seed) => {
+    const mainSlotExercises = plan.days.flatMap(d => 
+      d.exercises.slice(0, 4).map(e => byId.get(e.exerciseId)!)
+    );
+    
+    const unsafe = mainSlotExercises.filter(e => {
+      const name = e.name.toLowerCase();
+      const isBallistic = e.impact === "high" ||
+        name.includes("jump") || name.includes("snatch") || name.includes("bradford");
+      return isBallistic;
+    });
+    
+    check(`Seed ${seed}: BW fat loss has no unsafe main moves`, unsafe.length === 0,
       unsafe.map(e => e.name).join(", "));
   }
 );

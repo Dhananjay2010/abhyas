@@ -181,10 +181,11 @@ export default async function SessionPage({
       : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
   });
 
+  // QA H7: Cool-down filter uses injuries (prehab drills for current, general stretches for all)
   const cooldown = selectCooldown({
     stretches: allWarmupRows,
     trainingMuscles,
-    injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region), // QA H7
+    injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region),
   });
 
   const s = settingsRes.data;

@@ -26,6 +26,7 @@ export type CandidateExercise = {
   spinal_load: Enums["spinal_load_level"];
   tracks: Track[];
   default_rest_seconds: number;
+  category: Enums["exercise_category"];
 };
 
 export type GeneratorInput = {
@@ -91,19 +92,19 @@ function exerciseCountForDuration(
   
   if (effectiveMinutes <= 15) {
     // 30-min session → 15 min exercise time
-    target = Math.max(4, Math.min(4, templateSlots));
+    target = 4;
   } else if (effectiveMinutes <= 30) {
     // 45-min session → 30 min exercise time
-    target = Math.max(5, Math.min(6, templateSlots));
+    target = Math.min(6, templateSlots);
   } else if (effectiveMinutes <= 45) {
     // 60-min session → 45 min exercise time (full template)
-    target = Math.min(6, templateSlots);
+    target = templateSlots;
   } else if (effectiveMinutes <= 60) {
     // 75-min session → 60 min exercise time (template + accessories)
-    target = Math.min(7, templateSlots);
+    target = Math.min(templateSlots + 1, 8);
   } else {
     // 90-min session → 75 min exercise time (template + more accessories)
-    target = Math.min(8, templateSlots);
+    target = Math.min(templateSlots + 2, 9);
   }
   
   return target;
@@ -306,10 +307,22 @@ function shouldExcludeForSafety(
 }
 
 /**
+ * QA Pass 10 H6: Exercises that are safe for knee injuries despite being quad-focused.
+ * These use limited ROM or isometric holds that don't aggravate the knee.
+ * Must be REAL prod slugs only.
+ */
+const KNEE_SAFE_QUAD_EXERCISES = new Set([
+  'leg-extensions',           // Partial ROM, controlled
+  'single-leg-leg-extension', // Controlled, no impact
+  'box-squat',                // Limited depth, box provides safety
+  'step-up-with-knee-raise',  // Controlled, user picks height
+]);
+
+/**
  * QA Pass 10 C2: Derive contraindications from exercise properties.
  * - vertical_press or "overhead" in name → shoulder
  * - spinal_load high or moderate → lower_back
- * - squat, lunge, or jump pattern/name → knee
+ * - squat, lunge, or jump pattern/name → knee (UNLESS in knee-safe list)
  * 
  * Derived contraindications ADD to explicit tags, don't replace them.
  */
@@ -332,16 +345,18 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
     derived.push("lower_back");
   }
   
-  // Squat, lunge, or jump movements load knees
-  if (ex.movement_pattern === "squat" ||
-      ex.movement_pattern === "lunge" ||
-      nameLower.includes("squat") ||
-      nameLower.includes("lunge") ||
-      nameLower.includes("jump") ||
-      slugLower.includes("squat") ||
-      slugLower.includes("lunge") ||
-      slugLower.includes("jump")) {
-    derived.push("knee");
+  // H6: Squat, lunge, or jump movements load knees UNLESS they're in the knee-safe list
+  if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
+    if (ex.movement_pattern === "squat" ||
+        ex.movement_pattern === "lunge" ||
+        nameLower.includes("squat") ||
+        nameLower.includes("lunge") ||
+        nameLower.includes("jump") ||
+        slugLower.includes("squat") ||
+        slugLower.includes("lunge") ||
+        slugLower.includes("jump")) {
+      derived.push("knee");
+    }
   }
   
   return derived;
@@ -357,9 +372,13 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   if (LEVEL_RANK[ex.level_min] > LEVEL_RANK[input.level]) return false;
 
   // Equipment is a hard filter -- SPEC section 4.
+  // M1 fix: Use ANY-of logic so goblet-squat works with either KB or DB
   if (!input.hasAllEquipment) {
     const available = new Set(input.equipmentIds);
-    if (!ex.equipment_ids.every((e) => available.has(e))) return false;
+    // If exercise needs equipment, user must have at least one of them (OR logic)
+    if (ex.equipment_ids.length > 0 && !ex.equipment_ids.some((e) => available.has(e))) {
+      return false;
+    }
   }
 
   // QA Pass 10 C2, C3: Current injuries exclude anything that loads the affected joint.
@@ -682,10 +701,11 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     const pickedExercises: Array<{ ex: CandidateExercise; slotIndex: number }> = [];
     
     // QA H2: Fill template slots up to maxExercises.
-    // Main slots (0-3) use per-day deduplication, accessories use per-block.
+    // Main slots (0-3) use per-block deduplication for variety on second same-type days.
+    // Accessories (4+) use per-day to allow repeating finishers across days if needed.
     const templateCount = Math.min(maxExercises, entry.slots.length);
     entry.slots.slice(0, templateCount).forEach((pattern, i) => {
-      const usedSet = i <= 3 ? usedToday : usedInBlock;
+      const usedSet = i <= 3 ? usedInBlock : usedToday;
       const picked = pickForSlot(pattern, i, pool, usedSet, input, rng, dayIndex);
       if (!picked) return;
       usedSet.add(picked.id);
