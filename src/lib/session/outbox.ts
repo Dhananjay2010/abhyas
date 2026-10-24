@@ -10,6 +10,8 @@
  * implementations without touching localStorage or the network.
  */
 
+import { isNetworkError } from "./network-error";
+
 export type QueuedSet = {
   clientId: string; // UUID, client-side only (not sent to server)
   sessionExerciseId: string;
@@ -44,13 +46,15 @@ export function classifyLogSetOutcome(
     | { ok: true; data: { code?: string } }
     | { ok: false; error: string; data?: { code?: string } }
     | { thrown: unknown }
-): { outcome: LogSetOutcome; error?: string } {
+): { outcome: LogSetOutcome; error?: string; isNetwork?: boolean } {
   // Thrown error (network failure, fetch timeout, etc.)
   if ("thrown" in resultOrThrown) {
     const err = resultOrThrown.thrown;
+    const isNetwork = isNetworkError(err);
     return {
       outcome: "queue",
       error: err instanceof Error ? err.message : "Network error",
+      isNetwork,
     };
   }
 
@@ -74,12 +78,23 @@ export function classifyLogSetOutcome(
 }
 
 /**
+ * Compute the next set number for an exercise.
+ * 
+ * Takes all sets (including failed and unsaved) to avoid collisions.
+ * Pure function for testability.
+ */
+export function nextSetNumberFor(sets: Array<{ setNumber: number }>): number {
+  if (sets.length === 0) return 1;
+  return Math.max(...sets.map((s) => s.setNumber)) + 1;
+}
+
+/**
  * Merge pending sets from the outbox into exercises.
- *
+ * 
  * After a reload, exercises come from the server without pending sets,
  * so nextSetNumber would reuse a queued set's number. This merges
  * pending sets back into the exercises array before computing nextSetNumber.
- *
+ * 
  * Pure function for testability.
  */
 export function mergePendingSets<
@@ -238,6 +253,13 @@ export class Outbox {
   }
 
   /**
+   * Check if a flush is currently in progress.
+   */
+  isFlushing(): boolean {
+    return flushLocks.has(this.storageKey);
+  }
+
+  /**
    * How many sets are waiting to be sent.
    */
   pendingCount(): number {
@@ -262,16 +284,6 @@ export class Outbox {
   }
 
   /**
-   * Clear a permanently failed set from the outbox.
-   */
-  clearFailed(clientId: string): void {
-    const state = this.storage.get();
-    if (!state) return;
-    state.failed = state.failed.filter((f) => f.set.clientId !== clientId);
-    this.storage.set(state);
-  }
-
-  /**
    * Remove a set from both pending and failed lists.
    * Used when undoing a queued or failed set.
    */
@@ -289,6 +301,21 @@ export class Outbox {
   isEmpty(): boolean {
     const state = this.storage.get();
     return !state || (state.pending.length === 0 && state.failed.length === 0);
+  }
+
+  /**
+   * Clear the entire outbox and remove from localStorage.
+   */
+  clear(): void {
+    this.storage.set({ pending: [], failed: [] });
+    // Remove from localStorage
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem(this.storageKey);
+      } catch {
+        // Ignore storage errors
+      }
+    }
   }
 
   /**
@@ -318,6 +345,26 @@ export class Outbox {
       const failedClientIds: string[] = [];
 
       for (const set of state.pending) {
+        // Re-read storage before each send to catch removals (S1a)
+        const currentState = this.storage.get();
+        if (!currentState) break;
+        
+        // Skip if this set was removed during flush
+        const stillPending = currentState.pending.find((s) => s.clientId === set.clientId);
+        if (!stillPending) continue;
+
+        // Move to failed if retries >= 10 (S2)
+        if (set.retries >= 10) {
+          failedClientIds.push(set.clientId);
+          currentState.failed.push({
+            set,
+            error: "Failed after 10 retries",
+            failedAt: Date.now(),
+          });
+          this.storage.set(currentState);
+          continue;
+        }
+
         const result = await this.sender.send({
           sessionExerciseId: set.sessionExerciseId,
           setNumber: set.setNumber,
@@ -331,14 +378,13 @@ export class Outbox {
         } else if (result.permanent) {
           // Permanent error (validation) - move to failed list
           failedClientIds.push(set.clientId);
-          // Add to failed list immediately for tracking
-          const currentState = this.storage.get() ?? { pending: [], failed: [] };
-          currentState.failed.push({
+          const updatedState = this.storage.get() ?? { pending: [], failed: [] };
+          updatedState.failed.push({
             set,
             error: result.error,
             failedAt: Date.now(),
           });
-          this.storage.set(currentState);
+          this.storage.set(updatedState);
         } else {
           // Transient error: stop here, keep this and remaining sets
           // Re-read storage to avoid wiping concurrent enqueues
@@ -366,12 +412,5 @@ export class Outbox {
     } finally {
       flushLocks.delete(this.storageKey);
     }
-  }
-
-  /**
-   * Clear the entire outbox (for testing or emergency).
-   */
-  clear(): void {
-    this.storage.set({ pending: [], failed: [] });
   }
 }

@@ -340,7 +340,7 @@ async function testPermanentError() {
   }
 
   // Clear one from failed list
-  outbox.clearFailed(failed[0].set.clientId);
+  outbox.remove(failed[0].set.clientId);
   if (outbox.getFailed().length !== 2) {
     throw new Error("Failed to clear failed set");
   }
@@ -842,6 +842,67 @@ async function testEnqueueDuringFlush() {
   console.log("✓ Enqueue during flush: new set survives concurrent enqueue");
 }
 
+// ---- Network Error Detection ---------------------------------------------
+async function testNetworkErrorDetection() {
+  const { isNetworkError } = await import("../src/lib/session/network-error");
+
+  // TypeError is the standard fetch network error
+  const typeError = new TypeError("Failed to fetch");
+  if (!isNetworkError(typeError)) {
+    throw new Error("TypeError should be detected as network error");
+  }
+
+  // Error with "Failed to fetch" message
+  const fetchError = new Error("Failed to fetch");
+  if (!isNetworkError(fetchError)) {
+    throw new Error("'Failed to fetch' message should be detected as network error");
+  }
+
+  // Error with "network request failed" message
+  const networkError = new Error("Network request failed");
+  if (!isNetworkError(networkError)) {
+    throw new Error("'Network request failed' message should be detected as network error");
+  }
+
+  // Error with "NetworkError" message
+  const networkError2 = new Error("NetworkError when attempting to fetch resource");
+  if (!isNetworkError(networkError2)) {
+    throw new Error("'NetworkError' message should be detected as network error");
+  }
+
+  // Error with "load failed" message
+  const loadError = new Error("Load failed");
+  if (!isNetworkError(loadError)) {
+    throw new Error("'Load failed' message should be detected as network error");
+  }
+
+  // Validation error should NOT be detected as network error
+  const validationError = new Error("Invalid set data");
+  if (isNetworkError(validationError)) {
+    throw new Error("Validation error should NOT be detected as network error");
+  }
+
+  // Generic error should NOT be detected as network error
+  const genericError = new Error("Something went wrong");
+  if (isNetworkError(genericError)) {
+    throw new Error("Generic error should NOT be detected as network error");
+  }
+
+  // Non-Error object should NOT be detected as network error
+  const stringError = "Some error string";
+  if (isNetworkError(stringError)) {
+    throw new Error("String error should NOT be detected as network error");
+  }
+
+  console.log("✓ Network error detection: TypeError detected");
+  console.log("✓ Network error detection: 'Failed to fetch' message detected");
+  console.log("✓ Network error detection: 'network request failed' message detected");
+  console.log("✓ Network error detection: 'NetworkError' message detected");
+  console.log("✓ Network error detection: 'load failed' message detected");
+  console.log("✓ Network error detection: validation errors excluded");
+  console.log("✓ Network error detection: generic errors excluded");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -860,6 +921,7 @@ async function main() {
   await testConcurrentFlushSkipped();
   await testRemoveMethod();
   await testEnqueueDuringFlush();
+  await testNetworkErrorDetection();
 
   console.log("\n✓ All offline set logging tests passed");
 }

@@ -281,9 +281,21 @@ export async function logSet(input: {
     },
     { onConflict: "session_exercise_id,set_number,is_warmup_set" },
   );
-  return error 
-    ? { ok: false, error: error.message } 
-    : { ok: true, data: {} };
+  
+  if (error) {
+    // Detect permanent database errors (S2)
+    // 22xxx: Data exception (e.g. numeric overflow, string too long)
+    // 23xxx: Integrity constraint violation (e.g. foreign key, unique)
+    // 42501: Insufficient privilege
+    const permanent = /^(22|23)/.test(error.code ?? "") || error.code === "42501";
+    return { 
+      ok: false, 
+      error: error.message, 
+      data: permanent ? { code: "invalid" } : undefined 
+    };
+  }
+  
+  return { ok: true, data: {} };
 }
 
 export async function deleteSet(
