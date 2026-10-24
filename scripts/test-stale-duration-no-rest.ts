@@ -135,7 +135,7 @@ console.log("\n6. Invalid lastSetCompletedAt handled gracefully");
   });
 
   assertEquals(result.status, "completed", "Status is completed");
-  assertTrue(result.durationSeconds >= 0, "Duration is non-negative");
+  assertTrue((result.durationSeconds ?? 0) >= 0, "Duration is non-negative");
   assertTrue(result.endedAt.length > 0, "ended_at is a valid timestamp");
 }
 

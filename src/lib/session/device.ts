@@ -264,7 +264,8 @@ export function getRunnerClockElapsed(
 ): number {
   if (!startedAt) return elapsed;
   
-  // Use lazy import to handle "use client" context
+  // Dynamic import for "use client" context - isStaleSession is server-side
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
   const { isStaleSession } = require("./is-stale-session") as { 
     isStaleSession: (args: { startedAt: string; now: string; timezone: string }) => boolean 
   };

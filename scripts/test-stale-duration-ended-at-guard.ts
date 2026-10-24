@@ -103,7 +103,7 @@ console.log("\n5. lastSet very late, startedAt very early: ended_at >= lastSet")
   const endedAtMs = Date.parse(result.endedAt);
 
   check("ended_at is not before lastSetCompletedAt", endedAtMs >= lastSetMs);
-  check("Duration is correctly large", result.durationSeconds > 36000, `Got ${result.durationSeconds} seconds`);
+  check("Duration is correctly large", (result.durationSeconds ?? 0) > 36000, `Got ${result.durationSeconds} seconds`);
 }
 
 console.log("\n6. Zero rest seconds: ended_at = lastSet exactly");
