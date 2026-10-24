@@ -13,6 +13,8 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { isPlanStale } from "@/app/settings/plan-staleness";
+import type { GenerationInputsSnapshot } from "@/app/settings/plan-staleness";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +28,7 @@ export default async function TodayPage() {
   // Nothing here depends on anything else here, so all three go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes, openRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes, openRes, userEquipmentRes, injuriesRes] = await Promise.all([
     // `maybeSingle`, not `single`: a missing row is a state to handle, not an
     // exception. With `single` PostgREST answers "Cannot coerce the result to a
     // single JSON object", which threw during the server render and reached the
@@ -34,7 +36,7 @@ export default async function TodayPage() {
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
     supabase
       .from("programs")
-      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week, generation_inputs, days_per_week")
       .eq("status", "active")
       .maybeSingle(),
     // A strength plan with no equipment recorded is a misconfiguration that
@@ -49,6 +51,8 @@ export default async function TodayPage() {
       .in("status", ["planned", "in_progress"])
       .order("local_date", { ascending: false })
       .limit(20),
+    supabase.from("user_equipment").select("equipment_id"),
+    supabase.from("user_injuries").select("body_region, severity"),
   ]);
 
   /*
@@ -129,11 +133,35 @@ export default async function TodayPage() {
   if (rollover.status === "rolled_over") {
     const { data: fresh } = await supabase
       .from("programs")
-      .select("id, block_number, split_type, started_on, ends_on, deload_week")
+      .select("id, block_number, split_type, started_on, ends_on, deload_week, generation_inputs, days_per_week")
       .eq("id", rollover.programId)
       .single();
     program = fresh;
   }
+
+  // M1: Compute plan staleness for today page banner
+  const equipmentIds = (userEquipmentRes.data ?? []).map((r) => r.equipment_id);
+  const currentInjuryRegions = (injuriesRes.data ?? [])
+    .filter((i) => i.severity === "current")
+    .map((i) => i.body_region);
+
+  const staleness = program ? isPlanStale(
+    {
+      goal: profile.goal,
+      level: profile.level,
+      primary_track: profile.primary_track,
+      days_per_week: profile.days_per_week,
+      yoga_days_per_week: profile.yoga_days_per_week ?? 0,
+      preferred_session_minutes: profile.preferred_session_minutes ?? 60,
+      has_all_equipment: profile.has_all_equipment ?? false,
+      equipment_ids: equipmentIds,
+      current_injury_regions: currentInjuryRegions,
+    },
+    {
+      generation_inputs: program.generation_inputs as GenerationInputsSnapshot | null,
+      days_per_week: program.days_per_week,
+    }
+  ) : { stale: false, reasons: [] };
 
   const needsEquipment =
     (profile.primary_track === "weights" || profile.primary_track === "bodyweight") &&
@@ -711,9 +739,25 @@ export default async function TodayPage() {
         </ul>
       </section>
 
-      <section className="mt-10">
-        <BuildPlanButton label="Rebuild this block" currentWeek={week} showSuccessState={true} />
-      </section>
+      {/* M1: Plan staleness banner on Today page */}
+      {staleness.stale && (
+        <section className="mt-6">
+          <div className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3">
+            <p className="text-sm text-accent">
+              Your plan doesn&apos;t match your new settings. Rebuild keeps every session you have logged.
+            </p>
+            <div className="mt-3">
+              <BuildPlanButton label="Rebuild this block" currentWeek={week} showSuccessState={true} />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {!staleness.stale && (
+        <section className="mt-10">
+          <BuildPlanButton label="Rebuild this block" currentWeek={week} showSuccessState={true} />
+        </section>
+      )}
 
       <section className="mt-10 space-y-3 text-sm">
         <div className="flex justify-between gap-4 text-muted">

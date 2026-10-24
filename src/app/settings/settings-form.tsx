@@ -113,8 +113,6 @@ export function SettingsForm({
   const [equipmentOffConfirmation, setEquipmentOffConfirmation] = useState<string | null>(null);
   /** QA Issue #7: Confirmation shown when timezone is saved */
   const [timezoneConfirmation, setTimezoneConfirmation] = useState<string | null>(null);
-  /** Set when a change alters what the generator would produce. */
-  const [planStale, setPlanStale] = useState(initialPlanStale);
   /** Success message shown after rebuild */
   const [rebuildSuccess, setRebuildSuccess] = useState(false);
   /** Undo toast for level/track changes that affect the plan */
@@ -123,6 +121,8 @@ export function SettingsForm({
   const [equipmentSequence] = useState(() => createRequestSequence());
   /** F2: Browser timezone detected on client after mount */
   const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
+  /** L3: Per-field saved status */
+  const [savedField, setSavedField] = useState<string | null>(null);
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -171,12 +171,12 @@ export function SettingsForm({
     }
   }, []);
 
-  function save(run: () => Promise<Result>, affectsPlan = false) {
+  function save(run: () => Promise<Result>, affectsPlan = false, fieldName?: string) {
     startTransition(async () => {
       const r = await run();
       if (!r.ok) return setError(r.error);
       setError(null);
-      if (affectsPlan) setPlanStale(true);
+      if (fieldName) setSavedField(fieldName);
       // No router.refresh() here. updateSettings and friends revalidate
       // "/settings", and Next.js returns the re-rendered tree with the action's
       // own response — refreshing on top of that fetched this five-query screen
@@ -209,7 +209,7 @@ export function SettingsForm({
       setSavedEquipment({ hasAll, ids: equipmentIds });
       setEquipmentHint(null);
       setError(null);
-      if (changed) setPlanStale(true);
+      // Equipment changes affect plan generation, server will detect staleness on next render
       
       // Show confirmation toast only after save succeeds and response is current
       if (showConfirmation) {
@@ -279,30 +279,32 @@ export function SettingsForm({
         </div>
       )}
 
-      {planStale && !rebuildSuccess && (
-        <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
-          <p className="text-sm text-accent">
-            Your plan no longer matches these answers. Rebuilding keeps every session
-            you have already logged.
-          </p>
-          <div className="mt-3">
-            <BuildPlanButton 
-              label="Rebuild my block" 
-              currentWeek={currentWeek}
-              showSuccessState={true}
-              onSuccess={() => {
-                setPlanStale(false);
-                setRebuildSuccess(true);
-                router.refresh();
-              }}
-            />
+      {/* M2: Reserved space for staleness banner to prevent layout shift */}
+      <div style={{ minHeight: initialPlanStale ? "120px" : "0px" }}>
+        {initialPlanStale && !rebuildSuccess && (
+          <div className="rounded-xl border border-accent/40 bg-accent/10 p-4">
+            <p className="text-sm text-accent">
+              Your plan no longer matches these answers. Rebuilding keeps every session
+              you have already logged.
+            </p>
+            <div className="mt-3">
+              <BuildPlanButton 
+                label="Rebuild my block" 
+                currentWeek={currentWeek}
+                showSuccessState={true}
+                onSuccess={() => {
+                  setRebuildSuccess(true);
+                  router.refresh();
+                }}
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ---------------- training ---------------- */}
       <Section title="Your training" note="Changing these needs a rebuilt block.">
-        <Field label="Goal">
+        <Field label="Goal" saved={savedField === "goal"}>
           <div className="space-y-2">
             {GOALS.map((o) => (
               <OptionCard
@@ -312,14 +314,14 @@ export function SettingsForm({
                 selected={s.goal === o.value}
                 onClick={() => {
                   setS({ ...s, goal: o.value });
-                  save(() => actions.updateProfileSettings({ goal: o.value }), true);
+                  save(() => actions.updateProfileSettings({ goal: o.value }), true, "goal");
                 }}
               />
             ))}
           </div>
         </Field>
 
-        <Field label="Level">
+        <Field label="Level" saved={savedField === "level"}>
           <div className="space-y-2">
             {LEVELS.map((o) => (
               <OptionCard
@@ -332,14 +334,14 @@ export function SettingsForm({
                   setS({ ...s, level: o.value });
                   // Save immediately and show undo toast
                   setUndoToast({ field: 'level', oldValue: oldLevel! });
-                  save(() => actions.updateProfileSettings({ level: o.value }), true);
+                  save(() => actions.updateProfileSettings({ level: o.value }), true, "level");
                 }}
               />
             ))}
           </div>
         </Field>
 
-        <Field label="Where you train">
+        <Field label="Where you train" saved={savedField === "track"}>
           <div className="space-y-2">
             {[{ value: "weights" as Track, label: "At a gym" }, ...HOME_TRACKS].map((o) => (
               <OptionCard
@@ -352,7 +354,7 @@ export function SettingsForm({
                   setS({ ...s, primaryTrack: o.value });
                   // Save immediately and show undo toast
                   setUndoToast({ field: 'track', oldValue: oldTrack! });
-                  save(() => actions.updateProfileSettings({ primary_track: o.value }), true);
+                  save(() => actions.updateProfileSettings({ primary_track: o.value }), true, "track");
                 }}
               />
             ))}
@@ -374,7 +376,7 @@ export function SettingsForm({
           />
         </Field>
 
-        <Field label="Yoga days" hint="Counted inside your days per week">
+        <Field label="Yoga days" hint="Counted inside your days per week" saved={savedField === "yogaDays"}>
           <Segmented
             options={Array.from({ length: maxYoga + 1 }, (_, n) => ({
               value: n,
@@ -383,7 +385,7 @@ export function SettingsForm({
             value={s.yogaDaysPerWeek}
             onChange={(n) => {
               setS({ ...s, yogaDaysPerWeek: n });
-              save(() => actions.updateProfileSettings({ yoga_days_per_week: n }), true);
+              save(() => actions.updateProfileSettings({ yoga_days_per_week: n }), true, "yogaDays");
             }}
           />
         </Field>
@@ -682,13 +684,13 @@ export function SettingsForm({
           />
         </Field>
 
-        <Field label="Session length">
+        <Field label="Session length" saved={savedField === "sessionLength"}>
           <Segmented
             options={SESSION_LENGTH_OPTIONS.map((n) => ({ value: n, label: `${n}m` }))}
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS({ ...s, preferredSessionMinutes: n });
-              save(() => actions.updateProfileSettings({ preferred_session_minutes: n }), true);
+              save(() => actions.updateProfileSettings({ preferred_session_minutes: n }), true, "sessionLength");
             }}
           />
         </Field>
@@ -799,14 +801,36 @@ function Field({
   label,
   hint,
   children,
+  saved,
 }: {
   label: string;
   hint?: string;
   children: React.ReactNode;
+  saved?: boolean;
 }) {
   return (
     <div>
-      <p className="text-sm font-medium">{label}</p>
+      <p className="text-sm font-medium">
+        {label}
+        {saved && (
+          <span
+            role="status"
+            aria-live="polite"
+            className="inline-flex items-center gap-1 text-xs text-success ml-2"
+          >
+            <svg 
+              className="w-3.5 h-3.5" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Saved
+          </span>
+        )}
+      </p>
       {hint && <p className="mt-0.5 mb-2 text-xs text-muted">{hint}</p>}
       <div className={hint ? "" : "mt-2"}>{children}</div>
     </div>
