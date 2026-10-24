@@ -11,7 +11,7 @@
  * 6. mergePendingSets correctly merges pending sets into exercises
  */
 
-import { Outbox, mergePendingSets, nextSetNumberFor, createLocalStorage, classifyLogSetOutcome, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
+import { Outbox, mergePendingSets, nextSetNumberFor, classifyLogSetOutcome, type OutboxStorage, type OutboxSender, type QueuedSet, type SendResult } from "../src/lib/session/outbox";
 import { isNetworkError } from "../src/lib/session/network-error";
 import { mapErrorToUserMessage, countLoggedSets } from "../src/lib/session/error-messages";
 import {

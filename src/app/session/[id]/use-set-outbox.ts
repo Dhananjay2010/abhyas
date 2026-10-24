@@ -169,7 +169,7 @@ export function useSetOutbox<
         message: mappedMessage,
       });
     }
-  }, []); // All dependencies are stable: refs, state setters, and navigator
+  }, [setExercises]); // setExercises is stable (React setState function)
 
   // Store flush in ref for recursive calls (done in useEffect to avoid render-time ref mutation)
   useEffect(() => {
@@ -303,7 +303,7 @@ export function useSetOutbox<
         clearTimeout(retryTimerRef.current);
       }
     };
-  }, [userId, sessionId, flush]);
+  }, [userId, sessionId, flush, setExercises]);
 
   return {
     syncState,
