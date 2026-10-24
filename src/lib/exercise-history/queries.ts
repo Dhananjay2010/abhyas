@@ -6,6 +6,8 @@
  * 
  * All date/time logic uses the existing resolveTimezoneWithProfile helper to ensure
  * dates are interpreted in the user's timezone, not server time.
+ * 
+ * @module exercise-history/queries
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
