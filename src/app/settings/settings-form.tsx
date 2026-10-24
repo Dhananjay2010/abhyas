@@ -39,7 +39,7 @@ import { DobInput } from "@/components/onboarding/dob-input";
 import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
 import { isSessionExpired } from "@/lib/auth/session-expired";
 import { useSessionExpiredPrompt, notifySessionExpired } from "@/components/session-expired-prompt";
-import { stashPendingChanges, getPendingChanges, clearPendingChanges } from "@/lib/auth/pending-changes";
+import { stashPendingChanges, getPendingChanges, clearPendingChanges, type SaveType } from "@/lib/auth/pending-changes";
 import { usePathname } from "next/navigation";
 import { replayPendingOps } from "@/lib/settings/restore-pending";
 
