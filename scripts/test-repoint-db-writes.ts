@@ -74,8 +74,6 @@ async function runTests() {
         { id: "new-day", day_index: 1, day_type: "weights", label: "Upper", program_id: "new-program" },
       ],
     });
-
-    const initialSessionExerciseCount = (fake.store.session_exercises || []).length;
     
     await repointSessionsAfterRebuild(fake as never, "user1", "new-program", "2026-10-24");
 

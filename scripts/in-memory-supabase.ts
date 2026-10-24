@@ -199,7 +199,8 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
     };
 
     const builder: InsertBuilder = {
-      select: () => builder,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      select: (_columns: string) => builder,
       single: async () => {
         const result = execute();
         return { data: Array.isArray(result.data) ? result.data[0] : result.data, error: null };
@@ -217,7 +218,8 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
     writes,
     store,
     from: (table: string) => ({
-      select: (columns: string) => createQueryBuilder(table),
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      select: (_columns: string) => createQueryBuilder(table),
       insert: (values: unknown) => createInsertBuilder(table, values),
       update: (values: unknown) => createWriteBuilder(table, "update", values),
       delete: () => createWriteBuilder(table, "delete", null),
