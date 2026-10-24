@@ -50,11 +50,11 @@ assert(result1[0]?.label === "Push", "First option label is Push");
 assert(result1[1]?.day_index === 3, "Second option is Wednesday");
 assert(result1[1]?.label === "Pull", "Second option label is Pull");
 
-console.log("\n=== Test 2: Rest day, yesterday missed, today has workout in template ===\n");
+console.log("\n=== Test 2: Rest day, yesterday missed workout ===\n");
 
 const result2 = trainAnywayOptions({
-  yesterdayDay: null,
-  todayDay: day(5, "weights", "Legs"),
+  yesterdayDay: day(4, "weights", "Shoulders"),
+  todayDay: day(5, "rest"),
   upcomingDays: [
     day(6, "rest"),
     day(7, "rest"),
@@ -66,9 +66,9 @@ const result2 = trainAnywayOptions({
   missedYesterday: true,
 });
 
-assert(result2.length === 3, "Returns 3 options (missed + next 2)");
-assert(result2[0]?.day_index === 5, "First option is today's workout (missed yesterday scenario)");
-assert(result2[0]?.label === "Legs", "First option label is Legs");
+assert(result2.length === 3, "Returns 3 options (missed yesterday + next 2)");
+assert(result2[0]?.day_index === 4, "First option is yesterday's workout (Shoulders)");
+assert(result2[0]?.label === "Shoulders", "First option label is Shoulders");
 assert(result2[1]?.day_index === 1, "Second option is Monday");
 assert(result2[1]?.label === "Push", "Second option label is Push");
 assert(result2[2]?.day_index === 3, "Third option is Wednesday");
