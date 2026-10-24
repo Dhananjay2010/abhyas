@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition, useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { createSerialQueue } from "@/lib/serial-queue";
 import {
   BODY_REGIONS,
@@ -18,7 +18,7 @@ import {
 import { ErrorNote, OptionCard } from "@/components/ui";
 import { BuildPlanButton } from "@/app/today/build-plan-button";
 import { branding } from "@/lib/branding";
-import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { resolveTimezoneWithProfile, FALLBACK_TIMEZONE } from "@/lib/timezone";
 import {
   updateEquipment,
   updateInjuries,
@@ -26,7 +26,9 @@ import {
   updateSessionSettings,
   type Result,
 } from "./actions";
-import { decideClientEquipmentUpdate } from "./equipment-logic";
+import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
+import { TimezonePicker } from "./timezone-picker";
+import { canonicalizeTimezone } from "@/lib/timezone-canonical";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -78,10 +80,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 export function SettingsForm({
   initial,
   equipment,
+  timezones,
   actions = REAL_ACTIONS,
 }: {
   initial: SettingsState;
   equipment: EquipmentRow[];
+  timezones: string[];
   actions?: SettingsActions;
 }) {
   const [pending, startTransition] = useTransition();
@@ -99,6 +103,10 @@ export function SettingsForm({
   });
   /** Equipment hint shown when user tries an unsaveable state */
   const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
+  /** Confirmation message shown when turning off "I have access to everything" */
+  const [equipmentOffConfirmation, setEquipmentOffConfirmation] = useState<string | null>(null);
+  /** QA Issue #7: Confirmation shown when timezone is saved */
+  const [timezoneConfirmation, setTimezoneConfirmation] = useState<string | null>(null);
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -106,6 +114,39 @@ export function SettingsForm({
   // Serial queue for optimistic saves
   const [saveQueue] = useState(() => createSerialQueue());
   const [pendingSaves, setPendingSaves] = useState(0);
+  /** L4 QA fix: Request sequence to ignore stale equipment save responses */
+  const [equipmentSequence] = useState(() => createRequestSequence());
+  /** F2: Browser timezone detected on client after mount */
+  const [browserTimezone, setBrowserTimezone] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (equipmentOffConfirmation) {
+      const timer = setTimeout(() => setEquipmentOffConfirmation(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [equipmentOffConfirmation]);
+
+  useEffect(() => {
+    // QA Issue #7: Auto-hide timezone confirmation after 4s
+    if (timezoneConfirmation) {
+      const timer = setTimeout(() => setTimezoneConfirmation(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [timezoneConfirmation]);
+
+  useEffect(() => {
+    // F2: Detect browser timezone on client after mount, canonicalized
+    // (older Chrome reports Asia/Calcutta instead of Asia/Kolkata)
+    try {
+      const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const canonical = canonicalizeTimezone(detected);
+      // This is a valid use of setState in effect - runs once after mount
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBrowserTimezone(canonical);
+    } catch {
+      // Ignore errors in browsers that don't support timeZone
+    }
+  }, []);
 
   // beforeunload guard while saves are pending
   useEffect(() => {
@@ -158,14 +199,24 @@ export function SettingsForm({
   }
 
   /** Save equipment with rollback on error */
-  function saveEquipment(hasAll: boolean, equipmentIds: string[]) {
+  function saveEquipment(hasAll: boolean, equipmentIds: string[], showConfirmation = false) {
     const changed = equipmentChanged(hasAll, equipmentIds);
+    // L4 QA fix: Track request sequence to ignore stale responses
+    const requestSeq = equipmentSequence.next();
+    
     startTransition(async () => {
       const r = await actions.updateEquipment({ hasAll, equipmentIds });
+      
+      // L4 QA fix: Ignore stale responses from overlapping saves
+      if (!equipmentSequence.isCurrent(requestSeq)) {
+        return;
+      }
+      
       if (!r.ok) {
         // Rollback to last saved state
         setS({ ...s, hasAllEquipment: savedEquipment.hasAll, equipmentIds: savedEquipment.ids });
         setEquipmentHint(null);
+        setEquipmentOffConfirmation(null);
         return setError(r.error);
       }
       // Success: update saved state
@@ -173,6 +224,11 @@ export function SettingsForm({
       setEquipmentHint(null);
       setError(null);
       if (changed) setPlanStale(true);
+      
+      // Show confirmation toast only after save succeeds and response is current
+      if (showConfirmation) {
+        setEquipmentOffConfirmation(getEquipmentOffMessage(hasAll === false && equipmentIds.length > 0));
+      }
     });
   }
 
@@ -309,22 +365,44 @@ export function SettingsForm({
       <Section title="Equipment" note="We never suggest an exercise you cannot do.">
         <button
           onClick={() => {
-            const decision = decideClientEquipmentUpdate({
-              currentHasAll: s.hasAllEquipment,
-              currentEquipmentIds: s.equipmentIds,
-              action: "toggle",
-            });
+            // E2: When turning OFF, pre-select the user's saved equipment rows
+            const turningOff = s.hasAllEquipment;
             
-            if (!decision.allow) {
-              // Don't save, just show picker with hint
-              setS({ ...s, hasAllEquipment: false });
-              setEquipmentHint(decision.hint);
-              return;
+            if (turningOff) {
+              // Pre-select saved equipment when turning OFF
+              const restoredIds = savedEquipment.ids.length > 0 
+                ? savedEquipment.ids 
+                : s.equipmentIds;
+              
+              if (restoredIds.length === 0) {
+                // E2: Turning OFF with no saved equipment - show picker with clear message
+                setS({ ...s, hasAllEquipment: false, equipmentIds: [] });
+                setEquipmentHint("Pick at least one item; nothing changes until you do");
+                setEquipmentOffConfirmation(null);
+                return;
+              }
+              
+              // Has saved equipment to restore - turn OFF and save
+              setS({ ...s, hasAllEquipment: false, equipmentIds: restoredIds });
+              // Show confirmation toast after save succeeds
+              saveEquipment(false, restoredIds, true);
+            } else {
+              // Turning ON - validate first
+              const decision = decideClientEquipmentUpdate({
+                currentHasAll: s.hasAllEquipment,
+                currentEquipmentIds: s.equipmentIds,
+                action: "toggle",
+              });
+              
+              if (!decision.allow) {
+                setEquipmentHint(decision.hint);
+                return;
+              }
+              
+              // Turn ON and save
+              setS({ ...s, hasAllEquipment: true });
+              saveEquipment(true, s.equipmentIds);
             }
-            
-            // Allow the toggle and save
-            setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
-            saveEquipment(decision.newHasAll, decision.newEquipmentIds);
           }}
           aria-pressed={s.hasAllEquipment}
           className={`w-full rounded-xl border px-5 py-3 text-left text-sm font-semibold ${
@@ -335,6 +413,16 @@ export function SettingsForm({
         >
           I have access to everything
         </button>
+
+        {equipmentOffConfirmation && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-lg bg-accent/10 px-4 py-2 text-sm text-accent"
+          >
+            {equipmentOffConfirmation}
+          </div>
+        )}
 
         {!s.hasAllEquipment && (
           <div className="mt-5">
@@ -614,27 +702,38 @@ export function SettingsForm({
           label="Your timezone" 
           hint={`Currently using: ${resolveTimezoneWithProfile(s.timezone)}`}
         >
-          <select
-            value={s.timezone ?? ""}
-            onChange={(e) => {
-              const v = e.target.value === "" ? null : e.target.value;
+          <TimezonePicker
+            value={s.timezone}
+            timezones={timezones}
+            deviceZone={browserTimezone}
+            gymDefault={branding.timezone || FALLBACK_TIMEZONE}
+            onChange={(v) => {
               setS({ ...s, timezone: v });
-              save(() => actions.updateProfileSettings({ timezone: v }));
+              // QA Issue #7: Show confirmation only after save succeeds
+              startTransition(async () => {
+                const r = await actions.updateProfileSettings({ timezone: v });
+                if (!r.ok) {
+                  setError(r.error);
+                  setTimezoneConfirmation(null);
+                } else {
+                  setError(null);
+                  setTimezoneConfirmation("Timezone saved");
+                }
+              });
             }}
-            className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm disabled:opacity-60"
             disabled={pending}
-          >
-            <option value="">
-              Use gym default
-              {branding.timezone ? ` (${branding.timezone})` : " (browser detected)"}
-            </option>
-            {Intl.supportedValuesOf("timeZone").map((tz) => (
-              <option key={tz} value={tz}>
-                {tz}
-              </option>
-            ))}
-          </select>
+          />
         </Field>
+
+        {timezoneConfirmation && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-lg bg-accent/10 px-4 py-2 text-sm text-accent"
+          >
+            {timezoneConfirmation}
+          </div>
+        )}
       </Section>
 
       <Section title="Not built yet">
