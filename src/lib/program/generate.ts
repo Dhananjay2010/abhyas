@@ -1767,58 +1767,96 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         ex.orderIndex = idx;
       });
       
-      // PR #73 Task 3a: For CURRENT knee injury, ensure Wall Sit is never in main slots (0-3) and never after core
+      // PR #73 D2: For CURRENT knee injury, ensure Wall Sit is never in main slots and always before core
+      // Use template's actual main slot count, not hardcoded 4
       const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
       if (hasCurrentKnee) {
-        const wallSitIndex = exercises.findIndex(ex => {
-          const e = byId.get(ex.exerciseId);
-          return e?.slug === "wall-sit";
-        });
+        // Calculate main slot count from template (slots before core)
+        const coreSlotIndex = entry.slots.indexOf("core");
+        const mainSlotCount = coreSlotIndex === -1 ? entry.slots.length : coreSlotIndex;
         
-        if (wallSitIndex !== -1 && wallSitIndex < 4) {
-          // Wall Sit is in main slot - move it to accessory area before core
-          // Find position just before first core exercise, or at index 4 if no core
-          const firstCoreIndex = exercises.findIndex(ex => {
+        // D2 fix part 1: Ensure ALL core exercises are in accessory area (or at end for short days)
+        // This must happen before Wall Sit placement so Wall Sit can go before first core
+        const hasAccessoryArea = exercises.length >= mainSlotCount;
+        
+        if (hasAccessoryArea) {
+          // Collect all core and Wall Sit exercises
+          const cores: typeof exercises = [];
+          let wallSit: typeof exercises[0] | null = null;
+          const others: typeof exercises = [];
+          
+          for (const ex of exercises) {
             const e = byId.get(ex.exerciseId);
-            return e?.movement_pattern === "core";
-          });
-          
-          let targetIndex: number;
-          if (firstCoreIndex !== -1 && firstCoreIndex >= 4) {
-            // Core exists in accessory area - insert Wall Sit just before it
-            targetIndex = firstCoreIndex;
-          } else {
-            // No core in accessory area - put Wall Sit at position 4
-            targetIndex = Math.min(4, exercises.length);
+            if (e?.movement_pattern === "core") {
+              cores.push(ex);
+            } else if (e?.slug === "wall-sit") {
+              wallSit = ex;
+            } else {
+              others.push(ex);
+            }
           }
           
-          if (targetIndex !== wallSitIndex) {
-            const [wallSit] = exercises.splice(wallSitIndex, 1);
-            // Adjust target if we removed an element before it
-            const adjustedTarget = targetIndex > wallSitIndex ? targetIndex - 1 : targetIndex;
-            exercises.splice(adjustedTarget, 0, wallSit);
-          }
+          // Rebuild: main exercises (others), then Wall Sit (if exists), then cores
+          // This ensures Wall Sit is at start of accessory area and before all cores
+          exercises.length = 0;
+          exercises.push(...others);
+          if (wallSit) exercises.push(wallSit);
+          exercises.push(...cores);
           
-          // Rebuild orderIndex after move
+          // Rebuild orderIndex
           exercises.forEach((ex, idx) => {
             ex.orderIndex = idx;
           });
         }
+        
+        // D2: For short days without accessory area, still need to ensure Wall Sit is before core
+        if (!hasAccessoryArea) {
+          const wallSitIndex = exercises.findIndex(ex => {
+            const e = byId.get(ex.exerciseId);
+            return e?.slug === "wall-sit";
+          });
+          
+          if (wallSitIndex !== -1) {
+            const firstCoreIndex = exercises.findIndex(ex => {
+              const e = byId.get(ex.exerciseId);
+              return e?.movement_pattern === "core";
+            });
+            
+            if (firstCoreIndex !== -1 && wallSitIndex > firstCoreIndex) {
+              // Short day: Wall Sit is after core - move it before core
+              const [wallSit] = exercises.splice(wallSitIndex, 1);
+              const adjustedCoreIndex = wallSitIndex < firstCoreIndex ? firstCoreIndex - 1 : firstCoreIndex;
+              exercises.splice(adjustedCoreIndex, 0, wallSit);
+              
+              // Rebuild orderIndex
+              exercises.forEach((ex, idx) => {
+                ex.orderIndex = idx;
+              });
+            }
+          }
+        }
       }
       
-      // Ensure no timed holds (metric="seconds") landed in main slots (0-3) after sort
-      // This can happen when force-adding wall-sit or similar accessories
-      // Reuse the byId map from final sort above
+      // D2 fix: Ensure no timed holds (metric="seconds") landed in main slots after sort
+      // Skip Wall Sit (already handled by first block for current knee users)
+      // Use template's actual main slot count instead of hardcoded 4
+      // Calculate main slot count from template (slots before core)
+      const coreSlotIndex = entry.slots.indexOf("core");
+      const mainSlotCount = coreSlotIndex === -1 ? entry.slots.length : coreSlotIndex;
+      
       const timedHoldInMain = exercises.findIndex((ex, idx) => {
-        if (idx >= 4) return false; // Only check main slots
+        if (idx >= mainSlotCount) return false; // Only check main slots
         const e = byId.get(ex.exerciseId);
-        return e?.metric === "seconds";
+        if (!e || e.metric !== "seconds") return false;
+        // Skip wall-sit for current knee users (already handled by first block with core ordering)
+        if (hasCurrentKnee && e.slug === "wall-sit") return false;
+        return true;
       });
       
       if (timedHoldInMain !== -1) {
-        // Find first accessory slot (position 4+) that is NOT a timed hold
+        // Find first accessory slot that is NOT a timed hold
         const firstNonTimedAccessory = exercises.findIndex((ex, idx) => {
-          if (idx < 4) return false; // Only check accessory slots
+          if (idx < mainSlotCount) return false; // Only check accessory slots
           const e = byId.get(ex.exerciseId);
           return e?.metric !== "seconds";
         });

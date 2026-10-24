@@ -21,6 +21,7 @@ import {
   type CandidateExercise,
   type GeneratorInput,
 } from "../src/lib/program/generate";
+import { templatesFor, activeDayIndices, placeYoga } from "../src/lib/program/splits";
 
 // Hard-coded expected knee-safe slugs (independent test oracle)
 // Adding box-squat to this list must make the test FAIL (not just a separate check)
@@ -30,6 +31,38 @@ const EXPECTED_KNEE_SAFE_QUAD_EXERCISES = new Set([
   "wall-sit",
   "spanish-squat",
 ]);
+
+/**
+ * D1 fix: Compute the number of main slots for this profile's day template.
+ * Main slots are all slots BEFORE core (core is always last in template).
+ * Import real template data; no hardcoded slot counts.
+ */
+function getMainSlotCount(daysPerWeek: number, yogaDaysPerWeek: number, dayIndex: number): number {
+  const trainingDays = Math.max(1, daysPerWeek - Math.min(yogaDaysPerWeek, daysPerWeek - 1));
+  const templates = templatesFor(trainingDays);
+  const laidOut = placeYoga(templates, yogaDaysPerWeek);
+  const activeIdx = activeDayIndices(daysPerWeek);
+  
+  const slotPos = activeIdx.indexOf(dayIndex);
+  if (slotPos === -1 || slotPos >= laidOut.length) {
+    return 0; // Rest or yoga day
+  }
+  
+  const entry = laidOut[slotPos];
+  if (!entry || entry.label === "Yoga" || entry.label === "Breathing") {
+    return 0;
+  }
+  
+  // Count non-core slots (main lifts)
+  const coreIndex = entry.slots.indexOf("core");
+  if (coreIndex === -1) {
+    // No core in template (e.g., PUSH, PULL) - all slots are main
+    return entry.slots.length;
+  }
+  
+  // Main slots = everything before core
+  return coreIndex;
+}
 
 // Hard-coded expected floor-pull deadlifts (independent test oracle)
 // Must match FLOOR_PULL_DEADLIFTS in src/lib/program/generate.ts exactly
@@ -519,49 +552,73 @@ for (const seed of testSeeds) {
             
             // Note: Main-lift set count invariants (e.g., main >= accessory sets) are covered by a separate follow-up PR
             
-            // Rule 9 (PR #73 follow-up): No timed hold (metric=seconds) in main slots (0-3) - CURRENT KNEE ONLY
+            // Rule 9 (PR #73 follow-up): No timed hold (metric=seconds) in main slots - CURRENT KNEE ONLY
+            // D1 fix: Use template's actual main slot count, not hardcoded 4
+            // D2 fix: Short days (total exercises <= mainSlotCount) may have timed holds in "main" positions
+            //         as long as they're before core
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
-              const mains = day.exercises.filter((ex, idx) => idx < 4);
+              const mainSlotCount = getMainSlotCount(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
+              const nonCoreCount = day.exercises.filter(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e?.movement_pattern !== "core";
+              }).length;
+              const isShortDay = nonCoreCount <= mainSlotCount;
               
-              for (const mainEx of mains) {
-                const exercise = byId.get(mainEx.exerciseId);
-                if (!exercise) continue;
+              if (!isShortDay) {
+                // Only enforce for days with actual accessory slots
+                const mains = day.exercises.filter((ex, idx) => idx < mainSlotCount);
                 
-                if (exercise.metric === "seconds") {
-                  check(`${profileId} ${day.label}: no timed hold in main slot`, false,
-                    `${exercise.name} [${exercise.slug}] at position ${mainEx.orderIndex + 1}`);
-                  profileFailed = true;
+                for (const mainEx of mains) {
+                  const exercise = byId.get(mainEx.exerciseId);
+                  if (!exercise) continue;
+                  
+                  if (exercise.metric === "seconds") {
+                    check(`${profileId} ${day.label}: no timed hold in main slot`, false,
+                      `${exercise.name} [${exercise.slug}] at position ${mainEx.orderIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
+                    profileFailed = true;
+                  }
                 }
               }
             }
             }
             
-            // Rule 9b (PR #73 quality fix): Wall Sit not in main slots (0-3) or after core - CURRENT KNEE ONLY
+            // Rule 9b (PR #73 quality fix): Wall Sit not in main slots or after core - CURRENT KNEE ONLY
+            // D1 fix: Use template's actual main slot count, not hardcoded 4
+            // Wall Sit must sit BEFORE first core exercise (not after last core)
             if (severity.label === "current-knee") {
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+              const mainSlotCount = getMainSlotCount(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
               const wallSitIndex = day.exercises.findIndex(ex => {
                 const e = byId.get(ex.exerciseId);
                 return e?.slug === "wall-sit";
               });
               
               if (wallSitIndex !== -1) {
-                // Wall Sit found - check it's not in main slots
-                if (wallSitIndex < 4) {
+                const firstCoreIndex = day.exercises.findIndex(ex => {
+                  const e = byId.get(ex.exerciseId);
+                  return e?.movement_pattern === "core";
+                });
+                
+                // D1/D2 fix: For short days (not enough non-core exercises to fill main slots),
+                // Wall Sit may be in a "main" position. The critical requirement is: Wall Sit must be BEFORE core
+                const nonCoreCount = day.exercises.filter(ex => {
+                  const e = byId.get(ex.exerciseId);
+                  return e?.movement_pattern !== "core";
+                }).length;
+                const isShortDay = nonCoreCount <= mainSlotCount;
+                
+                if (!isShortDay && wallSitIndex < mainSlotCount) {
+                  // Only enforce "not in main slot" for days that actually have accessory slots
                   check(`${profileId} ${day.label}: Wall Sit not in main slot`, false,
-                    `Wall Sit at position ${wallSitIndex + 1}`);
+                    `Wall Sit at position ${wallSitIndex + 1} (template has ${mainSlotCount} main slots, day has ${day.exercises.length} exercises)`);
                   profileFailed = true;
                 }
                 
-                // Check it's not after core
-                const lastCoreIndex = day.exercises.map((ex, idx) => {
-                  const e = byId.get(ex.exerciseId);
-                  return e?.movement_pattern === "core" ? idx : -1;
-                }).reduce((max, idx) => Math.max(max, idx), -1);
-                
-                if (lastCoreIndex >= 0 && wallSitIndex > lastCoreIndex) {
+                // Always check: Wall Sit must be BEFORE first core (not after)
+                if (firstCoreIndex >= 0 && wallSitIndex > firstCoreIndex) {
                   check(`${profileId} ${day.label}: Wall Sit not after core`, false,
-                    `Wall Sit at position ${wallSitIndex + 1}, after core at ${lastCoreIndex + 1}`);
+                    `Wall Sit at position ${wallSitIndex + 1}, after first core at ${firstCoreIndex + 1}`);
                   profileFailed = true;
                 }
               }
@@ -570,11 +627,13 @@ for (const seed of testSeeds) {
             
             // Rule 10: No isolation before compound in final order (except core, which goes last)
             // EXCEPTION: For knee-injured users on Lower/Legs days, a knee-safe quad isolation at position 0 is allowed
-            // SCOPE: Only check main slots (0-3); accessory area ordering is less strict
+            // SCOPE: Only check main slots; accessory area ordering is less strict
+            // D1 fix: Use template's actual main slot count, not hardcoded 4
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+              const mainSlotCount = getMainSlotCount(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
               const isLowerOrLegsDay = day.focus === "lower" || day.focus === "legs" || day.focus === "full_body";
               
-              for (let i = 0; i < Math.min(4, day.exercises.length); i++) {
+              for (let i = 0; i < Math.min(mainSlotCount, day.exercises.length); i++) {
                 const current = byId.get(day.exercises[i].exerciseId);
                 if (!current) continue;
                 
@@ -585,11 +644,11 @@ for (const seed of testSeeds) {
                   }
                   
                   // Check if any non-core compound comes after this isolation within main slots
-                  for (let j = i + 1; j < Math.min(4, day.exercises.length); j++) {
+                  for (let j = i + 1; j < Math.min(mainSlotCount, day.exercises.length); j++) {
                     const later = byId.get(day.exercises[j].exerciseId);
                     if (later && later.mechanic === "compound" && later.movement_pattern !== "core") {
                       check(`${profileId} ${day.label}: no isolation before compound`, false,
-                        `${current.name} (isolation) at ${i + 1} before ${later.name} (compound ${later.movement_pattern}) at ${j + 1}`);
+                        `${current.name} (isolation) at ${i + 1} before ${later.name} (compound ${later.movement_pattern}) at ${j + 1} (within ${mainSlotCount} main slots)`);
                       profileFailed = true;
                       break;
                     }
@@ -601,7 +660,9 @@ for (const seed of testSeeds) {
             // Rule 11: Core exercises are last (among their slot category)
             // After PR #73 Task 3a moves Wall Sit to accessories, core may not be absolutely last if accessories follow
             // This is acceptable: core should be last among main slots, but non-core accessories can follow
+            // D1 fix: Use template's actual main slot count, not hardcoded 4
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+              const mainSlotCount = getMainSlotCount(input.daysPerWeek, input.yogaDaysPerWeek, day.dayIndex);
               const lastCoreIndex = day.exercises.map((ex, idx) => {
                 const e = byId.get(ex.exerciseId);
                 return e?.movement_pattern === "core" ? idx : -1;
@@ -610,14 +671,14 @@ for (const seed of testSeeds) {
               if (lastCoreIndex >= 0 && lastCoreIndex < day.exercises.length - 1) {
                 // There's a core exercise, but it's not absolutely last
                 // Only fail if a NON-CORE, NON-ACCESSORY exercise comes after core
-                // i.e., if there's a non-core exercise in main slots (0-3) after the last core in main slots
+                // i.e., if there's a non-core exercise in main slots after the last core in main slots
                 for (let i = lastCoreIndex + 1; i < day.exercises.length; i++) {
                   const laterEx = byId.get(day.exercises[i].exerciseId);
                   if (laterEx && laterEx.movement_pattern !== "core") {
-                    // Only fail if BOTH core and later exercise are in main slots (both < 4)
-                    if (lastCoreIndex < 4 && i < 4) {
+                    // Only fail if BOTH core and later exercise are in main slots
+                    if (lastCoreIndex < mainSlotCount && i < mainSlotCount) {
                       check(`${profileId} ${day.label}: core exercises are last`, false,
-                        `Core at ${lastCoreIndex + 1}, but ${laterEx.name} (${laterEx.movement_pattern}) at ${i + 1} within main slots`);
+                        `Core at ${lastCoreIndex + 1}, but ${laterEx.name} (${laterEx.movement_pattern}) at ${i + 1} within ${mainSlotCount} main slots`);
                       profileFailed = true;
                       break;
                     }
