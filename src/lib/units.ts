@@ -134,15 +134,12 @@ export function formatWeight(
 
   if (units === "imperial") {
     const lb = roundLbToHalf(kgToLb(kg));
-    // Round to 1 decimal place
-    const rounded = Math.round(lb * 10) / 10;
-    const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+    const formatted = lb % 1 === 0 ? lb.toFixed(0) : lb.toFixed(1);
     return includeLabel ? `${formatted} lb` : formatted;
   }
 
-  // Metric: round to 1 decimal place
-  const rounded = Math.round(kg * 10) / 10;
-  const formatted = rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+  // Metric: show 1 decimal if needed
+  const formatted = kg % 1 === 0 ? kg.toFixed(0) : kg.toFixed(1);
   return includeLabel ? `${formatted} kg` : formatted;
 }
 
@@ -169,13 +166,11 @@ export function formatHeight(
   if (units === "imperial") {
     const totalInches = cmToIn(cm);
     const { feet, inches } = inchesToFeetAndInches(totalInches);
-    // Both feet and inches are already whole numbers from inchesToFeetAndInches
     return `${feet}'${inches}"`;
   }
 
-  // Metric: round to integer cm
-  const rounded = Math.round(cm);
-  const formatted = rounded.toFixed(0);
+  // Metric: show 1 decimal if needed
+  const formatted = cm % 1 === 0 ? cm.toFixed(0) : cm.toFixed(1);
   return includeLabel ? `${formatted} cm` : formatted;
 }
 
@@ -267,7 +262,6 @@ export function parseWeight(
   if (input == null || input === "") return null;
 
   let value: number;
-  let explicitUnit: string | null = null;
 
   if (typeof input === "string") {
     const trimmed = input.trim();
@@ -275,7 +269,6 @@ export function parseWeight(
     const match = trimmed.match(/^(\d+\.?\d*)\s*(kg|lb|lbs)?$/i);
     if (!match) return null;
     value = Number(match[1]);
-    explicitUnit = match[2] ? match[2].toLowerCase() : null;
   } else {
     value = input;
   }
@@ -283,35 +276,19 @@ export function parseWeight(
   if (!Number.isFinite(value) || value <= 0) return null;
 
   let kg: number;
-  
-  // Handle explicit unit suffix
-  if (explicitUnit) {
-    if (explicitUnit === "kg") {
-      kg = value;
-    } else if (explicitUnit === "lb" || explicitUnit === "lbs") {
-      // Convert lb to kg explicitly
-      const roundedLb = roundLbToHalf(value);
-      kg = lbToKg(roundedLb);
-    } else {
-      return null;
-    }
+  if (units === "imperial") {
+    // Round to 0.5 lb to match display format, then convert
+    const roundedLb = roundLbToHalf(value);
+    kg = lbToKg(roundedLb);
   } else {
-    // No explicit unit: use the units parameter
-    if (units === "imperial") {
-      // Round to 0.5 lb to match display format, then convert
-      const roundedLb = roundLbToHalf(value);
-      kg = lbToKg(roundedLb);
-    } else {
-      kg = value;
-    }
+    kg = value;
   }
 
   // Reject absurd values: 25 to 300 kg (~55 to ~661 lb)
   // Bounds aligned with server-side validation
   if (kg < WEIGHT_KG_MIN || kg > WEIGHT_KG_MAX) return null;
 
-  // Round to 1 decimal place
-  return Math.round(kg * 10) / 10;
+  return kg;
 }
 
 /**
@@ -354,7 +331,7 @@ export function parseHeight(
       const cm = inToCm(totalInches);
       // Reject absurd values: 100 to 250 cm (aligned with server validation)
       if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
-      return Math.round(cm);
+      return cm;
     }
 
     // If numeric input without separate inches, treat as total inches
@@ -362,16 +339,16 @@ export function parseHeight(
       if (!Number.isFinite(input) || input < 0) return null;
       const cm = inToCm(input);
       if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
-      return Math.round(cm);
+      return cm;
     }
 
     // Parse string formats: "5'9\"", "5' 9\"", "5 9", "5-9"
     if (typeof input === "string") {
       const str = input.trim();
 
-      // Try feet'inches" format: accepts apostrophe, curly apostrophe, prime mark, or space separator
-      // Matches: "5'9", "5'9", "5′9", "5' 9", "5'9\"", "5'9"", "5′9″", etc.
-      const feetInchMatch = str.match(/^(\d+)[''\u2032\s]\s*(\d+)[""\u2033]?$/);
+      // Try feet'inches" format: requires apostrophe or space separator
+      // Matches: "5'9", "5' 9", "5'9\"", "5' 9\"", "5 9"
+      const feetInchMatch = str.match(/^(\d+)[''\s]\s*(\d+)"?$/);
       if (feetInchMatch) {
         const feet = parseInt(feetInchMatch[1], 10);
         const inches = parseInt(feetInchMatch[2], 10);
@@ -380,7 +357,7 @@ export function parseHeight(
         const totalInches = feetAndInchesToInches(feet, inches);
         const cm = inToCm(totalInches);
         if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
-        return Math.round(cm);
+        return cm;
       }
 
       // Try with dash separator: "5-9"
@@ -393,7 +370,7 @@ export function parseHeight(
         const totalInches = feetAndInchesToInches(feet, inches);
         const cm = inToCm(totalInches);
         if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
-        return Math.round(cm);
+        return cm;
       }
 
       // Single number treated as total inches (strict parsing)
@@ -403,7 +380,7 @@ export function parseHeight(
         if (Number.isFinite(value) && value >= 0) {
           const cm = inToCm(value);
           if (cm < HEIGHT_CM_MIN || cm > HEIGHT_CM_MAX) return null;
-          return Math.round(cm);
+          return cm;
         }
       }
     }
@@ -426,9 +403,9 @@ export function parseHeight(
   if (!Number.isFinite(value) || value <= 0) return null;
 
   // Reject absurd values: 100 to 250 cm (aligned with server validation)
-  if (value < HEIGHT_CM_MIN || value > HEIGHT_CM_MAX) return null;
+  if (value < 100 || value > 250) return null;
 
-  return Math.round(value);
+  return value;
 }
 
 export type UnitsPreference = "metric" | "imperial";

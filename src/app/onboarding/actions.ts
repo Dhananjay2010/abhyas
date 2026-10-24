@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import type { Database } from "@/lib/database.types";
@@ -234,15 +233,9 @@ export async function saveSessionLength(minutes: number): Promise<ActionResult> 
 
   const { supabase, user } = await requireUser();
 
-  const result = await persistSessionLength(
+  // TODO: switch to isValidSessionLength from src/lib/session-length-options.ts once PR #54 merges.
+  return persistSessionLength(
     (m) => supabase.from("profiles").update({ preferred_session_minutes: m }).eq("id", user.id),
     minutes
   );
-  
-  if (result.ok) {
-    revalidatePath("/today");
-    revalidatePath("/settings");
-  }
-  
-  return result;
 }

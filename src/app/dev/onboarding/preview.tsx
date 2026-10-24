@@ -18,7 +18,6 @@ const BLANK: InitialState = {
   level: null,
   primaryTrack: null,
   daysPerWeek: null,
-  sessionMinutes: null,
   yogaDaysPerWeek: 0,
   disclaimerAccepted: false,
   hasAllEquipment: false,
@@ -34,7 +33,6 @@ const STUB_ACTIONS: OnboardingActions = {
   saveProfileFields: ok,
   saveEquipment: ok,
   saveInjuries: ok,
-  saveSessionLength: ok,
   completeOnboarding: ok,
 };
 

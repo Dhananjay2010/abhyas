@@ -18,12 +18,6 @@ import {
   type Track,
 } from "@/lib/onboarding/options";
 import {
-  SESSION_LENGTH_OPTIONS,
-  DEFAULT_SESSION_LENGTH,
-} from "@/lib/onboarding/session-length";
-import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
-import { DobInput } from "@/components/onboarding/dob-input";
-import {
   ErrorNote,
   Field,
   GhostButton,
@@ -39,7 +33,6 @@ import {
   saveEquipment,
   saveInjuries,
   saveProfileFields,
-  saveSessionLength,
   type ActionResult,
 } from "./actions";
 import { branding } from "@/lib/branding";
@@ -51,7 +44,6 @@ type StepId =
   | "level"
   | "track"
   | "days"
-  | "session-length"
   | "mix"
   | "equipment"
   | "injuries";
@@ -68,7 +60,6 @@ export type InitialState = {
   level: Level | null;
   primaryTrack: Track | null;
   daysPerWeek: number | null;
-  sessionMinutes: number | null;
   yogaDaysPerWeek: number;
   disclaimerAccepted: boolean;
   hasAllEquipment: boolean;
@@ -90,7 +81,6 @@ export type OnboardingActions = {
   saveProfileFields: typeof saveProfileFields;
   saveEquipment: typeof saveEquipment;
   saveInjuries: typeof saveInjuries;
-  saveSessionLength: typeof saveSessionLength;
   completeOnboarding: typeof completeOnboarding;
 };
 
@@ -100,7 +90,6 @@ const REAL_ACTIONS: OnboardingActions = {
   saveProfileFields,
   saveEquipment,
   saveInjuries,
-  saveSessionLength,
   completeOnboarding,
 };
 
@@ -119,15 +108,42 @@ export function OnboardingFlow({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Date of birth as ISO string (YYYY-MM-DD)
-  const [dateOfBirth, setDateOfBirth] = useState<string | null>(initial.dateOfBirth);
-  const [dobTouched, setDobTouched] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState(initial.dateOfBirth ?? "");
   
+  // Normalize date input: detect typed digit strings like '01011992' and convert to YYYY-MM-DD
+  const normalizeDateInput = (value: string): string => {
+    if (!value) return value;
+    
+    // If it's already in YYYY-MM-DD format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      // But reject year 0001 and other invalid years
+      const year = parseInt(value.slice(0, 4), 10);
+      if (year < 1900 || year > new Date().getFullYear()) {
+        return "";
+      }
+      return value;
+    }
+    
+    // Handle common typed formats: DDMMYYYY (8 digits)
+    if (/^\d{8}$/.test(value)) {
+      const dd = value.slice(0, 2);
+      const mm = value.slice(2, 4);
+      const yyyy = value.slice(4, 8);
+      const year = parseInt(yyyy, 10);
+      
+      // Reject invalid years
+      if (year < 1900 || year > new Date().getFullYear()) {
+        return "";
+      }
+      
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    
+    return value;
+  };
   const [sex, setSex] = useState<Sex | null>(initial.sex);
   const [heightCm, setHeightCm] = useState(initial.heightCm?.toString() ?? "");
-  const [heightTouched, setHeightTouched] = useState(false);
   const [weightKg, setWeightKg] = useState(initial.weightKg?.toString() ?? "");
-  const [weightTouched, setWeightTouched] = useState(false);
   const [goal, setGoal] = useState<Goal | null>(initial.goal);
   const [level, setLevel] = useState<Level | null>(initial.level);
   const [location, setLocation] = useState<"gym" | "home" | null>(
@@ -137,13 +153,9 @@ export function OnboardingFlow({
     initial.primaryTrack && initial.primaryTrack !== "weights" ? initial.primaryTrack : null,
   );
   const [daysPerWeek, setDaysPerWeek] = useState<number | null>(initial.daysPerWeek);
-  const [sessionLength, setSessionLength] = useState<number>(
-    initial.sessionMinutes ?? DEFAULT_SESSION_LENGTH
-  );
   const [yogaDays, setYogaDays] = useState<number | null>(
     initial.yogaDaysPerWeek > 0 ? initial.yogaDaysPerWeek : null
   );
-  const [yogaTouched, setYogaTouched] = useState(false);
   const [hasAllEquipment, setHasAllEquipment] = useState(initial.hasAllEquipment);
   const [selectedEquipment, setSelectedEquipment] = useState<Set<string>>(
     new Set(initial.equipmentIds),
@@ -159,7 +171,7 @@ export function OnboardingFlow({
 
   // Equipment and the yoga mix are meaningless for a yoga- or breathing-led plan.
   const steps = useMemo<StepId[]>(() => {
-    const base: StepId[] = ["disclaimer", "about", "goal", "level", "track", "days", "session-length"];
+    const base: StepId[] = ["disclaimer", "about", "goal", "level", "track", "days"];
     if (trainsPhysically) base.push("mix", "equipment");
     base.push("injuries");
     return base;
@@ -277,27 +289,36 @@ export function OnboardingFlow({
     const height = Number(heightCm);
     const weight = Number(weightKg);
     
-    // Get today as ISO string for validation
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    // Individual field validation for inline display
+    let dobError: string | null = null;
+    if (dateOfBirth !== "") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+        dobError = "Please enter a valid date";
+      } else {
+        const date = new Date(dateOfBirth);
+        const year = date.getFullYear();
+        const currentYear = new Date().getFullYear();
+        
+        if (isNaN(date.getTime())) {
+          dobError = "Please enter a valid date";
+        } else if (year < 1900 || year > currentYear) {
+          dobError = `Year must be between 1900 and ${currentYear}`;
+        } else if (date > new Date()) {
+          dobError = "Date cannot be in the future";
+        }
+      }
+    }
     
-    // Validate DOB
-    const dobValidationError = dobTouched && dateOfBirth ? validateDob(dateOfBirth, todayIso) : null;
-    const dobError = dobValidationError ? getDobErrorMessage(dobValidationError) : null;
-    
-    const heightError = heightTouched && heightCm !== "" && (!Number.isFinite(height) || height < 100 || height > 250)
+    const heightError = heightCm !== "" && (!Number.isFinite(height) || height < 100 || height > 250)
       ? "Height should be between 100 and 250 cm"
       : null;
-    const weightError = weightTouched && weightKg !== "" && (!Number.isFinite(weight) || weight < 25 || weight > 300)
+    const weightError = weightKg !== "" && (!Number.isFinite(weight) || weight < 25 || weight > 300)
       ? "Weight should be between 25 and 300 kg"
       : null;
     
-    const dobValid = dateOfBirth !== null && dobValidationError === null;
-    
     const ready =
-      dobValid && sex !== null && height > 0 && weight > 0 && 
-      !heightError && !weightError && !pending;
+      dateOfBirth !== "" && sex !== null && height > 0 && weight > 0 && 
+      !dobError && !heightError && !weightError && !pending;
 
     return (
       <StepShell
@@ -310,14 +331,6 @@ export function OnboardingFlow({
             <PrimaryButton
               disabled={!ready}
               onClick={() => {
-                // Mark all fields as touched when attempting to continue
-                setDobTouched(true);
-                setHeightTouched(true);
-                setWeightTouched(true);
-                
-                // Only proceed if ready
-                if (!ready) return;
-                
                 // Detect browser timezone on client
                 const browserTimezone =
                   typeof window !== "undefined"
@@ -326,7 +339,7 @@ export function OnboardingFlow({
                 
                 advance(() =>
                   actions.saveAboutYou({
-                    dateOfBirth: dateOfBirth!,
+                    dateOfBirth,
                     sex: sex!,
                     heightCm: height,
                     weightKg: weight,
@@ -341,12 +354,19 @@ export function OnboardingFlow({
         }
       >
         <div className="space-y-5">
-          <DobInput
-            value={dateOfBirth}
-            onChange={setDateOfBirth}
-            error={dobError ?? undefined}
-            onBlur={() => setDobTouched(true)}
-          />
+          <Field label="Date of birth" error={dobError}>
+            <input
+              type="date"
+              value={dateOfBirth}
+              min="1900-01-01"
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => {
+                const normalized = normalizeDateInput(e.target.value);
+                setDateOfBirth(normalized);
+              }}
+              className={inputClass}
+            />
+          </Field>
 
           <div>
             <span className="text-sm font-medium text-fg">Sex</span>
@@ -370,7 +390,6 @@ export function OnboardingFlow({
                 inputMode="decimal"
                 value={heightCm}
                 onChange={(e) => setHeightCm(e.target.value)}
-                onBlur={() => setHeightTouched(true)}
                 placeholder="e.g. 175"
                 min="100"
                 max="250"
@@ -384,7 +403,6 @@ export function OnboardingFlow({
                 inputMode="decimal"
                 value={weightKg}
                 onChange={(e) => setWeightKg(e.target.value)}
-                onBlur={() => setWeightTouched(true)}
                 placeholder="e.g. 70"
                 min="25"
                 max="300"
@@ -561,52 +579,6 @@ export function OnboardingFlow({
     );
   }
 
-  if (current === "session-length") {
-    return (
-      <StepShell
-        {...shell}
-        title="How long are your sessions?"
-        subtitle="Shorter sessions mean fewer exercises per day. You can change this later."
-        footer={
-          <>
-            {error && <ErrorNote>{error}</ErrorNote>}
-            <PrimaryButton
-              disabled={pending}
-              onClick={() =>
-                advance(() => actions.saveSessionLength(sessionLength))
-              }
-            >
-              {pending ? "Saving…" : "Continue"}
-            </PrimaryButton>
-          </>
-        }
-      >
-        <div
-          role="radiogroup"
-          aria-label="Session length"
-          className="flex flex-wrap gap-3"
-        >
-          {SESSION_LENGTH_OPTIONS.map((minutes) => (
-            <button
-              key={minutes}
-              type="button"
-              role="radio"
-              aria-checked={sessionLength === minutes}
-              onClick={() => setSessionLength(minutes)}
-              className={`min-h-[44px] min-w-[44px] rounded-xl border px-6 py-3 text-base font-semibold transition-colors ${
-                sessionLength === minutes
-                  ? "border-accent bg-accent/10 text-accent"
-                  : "border-border bg-surface text-fg hover:border-muted/50"
-              }`}
-            >
-              {minutes}m
-            </button>
-          ))}
-        </div>
-      </StepShell>
-    );
-  }
-
   if (current === "mix") {
     const max = (daysPerWeek ?? 3) - 1;
     const yogaValid = yogaDays !== null;
@@ -617,7 +589,7 @@ export function OnboardingFlow({
         subtitle={`Yoga counts as a training day. Of your ${daysPerWeek} days, some can be yoga instead of training.`}
         footer={
           <>
-            {yogaTouched && !yogaValid && (
+            {!yogaValid && (
               <p className="mb-3 text-sm text-danger" aria-live="polite">
                 Please select how many yoga days you want (or choose &ldquo;No yoga&rdquo;)
               </p>
@@ -625,11 +597,7 @@ export function OnboardingFlow({
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
               disabled={!yogaValid || pending}
-              onClick={() => {
-                setYogaTouched(true);
-                if (!yogaValid) return;
-                advance(() => actions.saveProfileFields({ yoga_days_per_week: yogaDays ?? 0 }));
-              }}
+              onClick={() => advance(() => actions.saveProfileFields({ yoga_days_per_week: yogaDays ?? 0 }))}
             >
               {pending ? "Saving…" : "Continue"}
             </PrimaryButton>
@@ -663,13 +631,6 @@ export function OnboardingFlow({
       (acc[e.category] ??= []).push(e);
       return acc;
     }, {});
-    
-    // Preselect bodyweight equipment for bodyweight track
-    if (isBodyweightOnly && grouped.bodyweight && selectedEquipment.size === 0) {
-      const bodyweightIds = grouped.bodyweight.map((e) => e.id);
-      setSelectedEquipment(new Set(bodyweightIds));
-      setHasAllEquipment(false);
-    }
     
     // Order bodyweight first for home users
     const categories = Object.keys(grouped);
@@ -874,6 +835,5 @@ function initialStepIndex(initial: InitialState): number {
   if (!initial.level) return 3;
   if (!initial.primaryTrack) return 4;
   if (!initial.daysPerWeek) return 5;
-  if (!initial.sessionMinutes) return 6;
-  return 7;
+  return 6;
 }
