@@ -1,13 +1,14 @@
 /**
- * Test: Timezone validation with real IANA zones
+ * Test: Timezone validation and canonicalization with real IANA zones
  *
  * Verifies:
  * - Accepts valid IANA zones with hyphens (America/Port-au-Prince)
- * - Accepts valid IANA zones with digits and signs (Etc/GMT+5, Etc/GMT-5)
  * - Accepts multi-level zones with underscores (America/Argentina/Buenos_Aires)
+ * - Canonicalizes legacy aliases (Asia/Calcutta → Asia/Kolkata)
+ * - Rejects abbreviations (EST, PST)
+ * - Rejects offset formats (Etc/GMT+5, +05:30)
  * - Rejects junk strings (Foo/Bar)
  * - Rejects path traversal attempts (../etc)
- * - Rejects abbreviations (EST, PST)
  */
 
 import { validateTimezone } from "../src/lib/branding";
@@ -22,29 +23,50 @@ function testValidZonesAccepted() {
   console.log("\n▶ Testing valid IANA timezones...");
 
   const validZones = [
-    "UTC",
-    "America/New_York",
-    "America/Los_Angeles",
-    "America/Port-au-Prince",    // hyphen (coordinator requirement)
-    "America/Blanc-Sablon",       // hyphen (coordinator requirement)
-    "Etc/GMT+5",                   // digit and plus sign (coordinator requirement)
-    "Etc/GMT-5",                   // digit and minus sign
-    "America/Argentina/Buenos_Aires", // multi-level with underscore
-    "Asia/Kolkata",
-    "Europe/London",
-    "Pacific/Auckland",
-    "EST",                         // abbreviation (Intl accepts it)
+    { input: "UTC", expected: "UTC" },
+    { input: "America/New_York", expected: "America/New_York" },
+    { input: "America/Los_Angeles", expected: "America/Los_Angeles" },
+    { input: "America/Port-au-Prince", expected: "America/Port-au-Prince" },
+    { input: "America/Blanc-Sablon", expected: "America/Blanc-Sablon" },
+    { input: "America/Argentina/Buenos_Aires", expected: "America/Argentina/Buenos_Aires" },
+    { input: "Asia/Kolkata", expected: "Asia/Kolkata" },
+    { input: "Europe/London", expected: "Europe/London" },
+    { input: "Europe/Kyiv", expected: "Europe/Kyiv" },
+    { input: "Pacific/Auckland", expected: "Pacific/Auckland" },
   ];
 
-  for (const tz of validZones) {
-    const result = validateTimezone(tz);
+  for (const { input, expected } of validZones) {
+    const result = validateTimezone(input);
     assert(
-      result === tz,
-      `Valid timezone "${tz}" should be accepted (got: ${result})`
+      result === expected,
+      `Valid timezone "${input}" should return "${expected}" (got: ${result})`
     );
   }
 
   console.log(`  ✓ All ${validZones.length} valid timezones accepted`);
+}
+
+function testAliasesAreCanonicalized() {
+  console.log("\n▶ Testing legacy alias canonicalization...");
+
+  const aliases = [
+    { input: "Asia/Calcutta", expected: "Asia/Kolkata" },
+    { input: "Europe/Kiev", expected: "Europe/Kyiv" },
+    { input: "Asia/Saigon", expected: "Asia/Ho_Chi_Minh" },
+    { input: "GMT", expected: "UTC" },
+    { input: "Etc/GMT", expected: "UTC" },
+    { input: "Etc/UTC", expected: "UTC" },
+  ];
+
+  for (const { input, expected } of aliases) {
+    const result = validateTimezone(input);
+    assert(
+      result === expected,
+      `Legacy alias "${input}" should canonicalize to "${expected}" (got: ${result})`
+    );
+  }
+
+  console.log(`  ✓ All ${aliases.length} aliases canonicalized correctly`);
 }
 
 function testInvalidZonesRejected() {
@@ -58,6 +80,15 @@ function testInvalidZonesRejected() {
     "America/New.York",     // dot
     "",                     // empty
     "not-a-zone",           // junk string
+    "EST",                  // abbreviation (now rejected)
+    "PST",                  // abbreviation (now rejected)
+    "IST",                  // abbreviation (now rejected)
+    "CET",                  // abbreviation (now rejected)
+    "Etc/GMT+5",            // offset format (now rejected)
+    "Etc/GMT-5",            // offset format (now rejected)
+    "+05:30",               // offset format (now rejected)
+    "-08:00",               // offset format (now rejected)
+    "GMT+5",                // offset format (now rejected)
   ];
 
   for (const tz of invalidZones) {
@@ -87,13 +118,14 @@ function testNullAndUndefined() {
 }
 
 function main() {
-  console.log("Testing timezone validation...");
+  console.log("Testing timezone validation and canonicalization...");
 
   try {
     testValidZonesAccepted();
+    testAliasesAreCanonicalized();
     testInvalidZonesRejected();
     testNullAndUndefined();
-    console.log("\n✅ All timezone validation tests passed!\n");
+    console.log("\n✅ All timezone validation and canonicalization tests passed!\n");
     process.exit(0);
   } catch (error) {
     console.error("\n❌ Timezone validation tests failed:");

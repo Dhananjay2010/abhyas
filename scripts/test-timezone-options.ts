@@ -164,6 +164,46 @@ testTimezoneOptions(
   }
 );
 
+// Test alias deduplication
+function testAliasDeduplication() {
+  const result = buildTimezoneOptions(null);
+  
+  // Check that legacy aliases are NOT in the list
+  const legacyAliases = ["Asia/Calcutta", "Europe/Kiev"];
+  const canonicalNames = ["Asia/Kolkata", "Europe/Kyiv"];
+  
+  for (let i = 0; i < legacyAliases.length; i++) {
+    const legacy = legacyAliases[i];
+    const canonical = canonicalNames[i];
+    
+    if (result.includes(legacy)) {
+      console.error(`❌ Alias deduplication failed - ${legacy} should not be in list (only ${canonical})`);
+      failures++;
+      return;
+    }
+    
+    if (!result.includes(canonical)) {
+      console.error(`❌ Alias deduplication failed - ${canonical} should be in list`);
+      failures++;
+      return;
+    }
+  }
+  
+  console.log("✓ Legacy aliases are canonicalized (Asia/Calcutta → Asia/Kolkata, Europe/Kiev → Europe/Kyiv)");
+}
+
+testAliasDeduplication();
+
+// Test that stored alias is canonicalized
+testTimezoneOptions(
+  "Stored alias Asia/Calcutta is canonicalized to Asia/Kolkata",
+  "Asia/Calcutta",
+  {
+    includesAll: ["Asia/Kolkata"],
+    noDuplicates: true,
+  }
+);
+
 console.log(
   `\n${failures === 0 ? "✓" : "✗"} ${failures === 0 ? "All tests passed" : `${failures} test(s) failed`}`
 );

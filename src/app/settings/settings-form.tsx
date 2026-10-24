@@ -26,6 +26,7 @@ import {
   type Result,
 } from "./actions";
 import { decideClientEquipmentUpdate, getEquipmentOffMessage, createRequestSequence } from "./equipment-logic";
+import { TimezonePicker } from "./timezone-picker";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -622,32 +623,17 @@ export function SettingsForm({
           label="Your timezone" 
           hint={`Currently using: ${resolveTimezoneWithProfile(s.timezone)}`}
         >
-          <select
-            value={s.timezone ?? ""}
-            onChange={(e) => {
-              const v = e.target.value === "" ? null : e.target.value;
+          <TimezonePicker
+            value={s.timezone}
+            timezones={timezones}
+            deviceZone={browserTimezone}
+            gymDefault={branding.timezone || FALLBACK_TIMEZONE}
+            onChange={(v) => {
               setS({ ...s, timezone: v });
               save(() => actions.updateProfileSettings({ timezone: v }));
             }}
-            className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm disabled:opacity-60"
             disabled={pending}
-          >
-            <option value="">
-              Gym default ({branding.timezone || FALLBACK_TIMEZONE})
-            </option>
-            {browserTimezone && 
-             browserTimezone !== (branding.timezone || FALLBACK_TIMEZONE) && 
-             browserTimezone !== s.timezone && (
-              <option value={browserTimezone}>
-                Use this device&apos;s zone ({browserTimezone})
-              </option>
-            )}
-            {timezones.map((tz) => (
-              <option key={tz} value={tz}>
-                {tz}
-              </option>
-            ))}
-          </select>
+          />
         </Field>
       </Section>
 
