@@ -5,8 +5,6 @@
  * Tests that the Shell component renders the informational message with correct styling.
  */
 
-/* eslint-disable react/no-children-prop */
-
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
 import { Shell } from "../src/app/session/[id]/session-runner";
@@ -42,16 +40,19 @@ async function main() {
   // Test 1: No message renders nothing
   await testShellMessage("No message → no message element", () => {
     const html = renderToStaticMarkup(
-      React.createElement(Shell, {
-        title: "TEST",
-        subtitle: null,
-        elapsed: 0,
-        onExit: () => {},
-        wakeLock: { active: false },
-        error: null,
-        message: null,
-        children: React.createElement("div", null, "content"),
-      }),
+      React.createElement(
+        Shell,
+        {
+          title: "TEST",
+          subtitle: null,
+          elapsed: 0,
+          onExit: () => {},
+          wakeLock: { active: false },
+          error: null,
+          message: null,
+        },
+        React.createElement("div", null, "content"),
+      ),
     );
     if (html.includes("mt-4 rounded-lg border border-border bg-surface-2")) {
       throw new Error("Should not render message element when message is null");
@@ -61,16 +62,19 @@ async function main() {
   // Test 2: Message renders with correct styling (border-border bg-surface-2 text-fg)
   await testShellMessage("Message renders with border-border bg-surface-2 text-fg", () => {
     const html = renderToStaticMarkup(
-      React.createElement(Shell, {
-        title: "TEST",
-        subtitle: null,
-        elapsed: 0,
-        onExit: () => {},
-        wakeLock: { active: false },
-        error: null,
-        message: "That set was already saved. Showing your latest sets.",
-        children: React.createElement("div", null, "content"),
-      }),
+      React.createElement(
+        Shell,
+        {
+          title: "TEST",
+          subtitle: null,
+          elapsed: 0,
+          onExit: () => {},
+          wakeLock: { active: false },
+          error: null,
+          message: "That set was already saved. Showing your latest sets.",
+        },
+        React.createElement("div", null, "content"),
+      ),
     );
     assertContains(
       html,
@@ -87,16 +91,19 @@ async function main() {
   // Test 3: Message does not use border-info (regression)
   await testShellMessage("Message does not use border-info", () => {
     const html = renderToStaticMarkup(
-      React.createElement(Shell, {
-        title: "TEST",
-        subtitle: null,
-        elapsed: 0,
-        onExit: () => {},
-        wakeLock: { active: false },
-        error: null,
-        message: "Test message",
-        children: React.createElement("div", null, "content"),
-      }),
+      React.createElement(
+        Shell,
+        {
+          title: "TEST",
+          subtitle: null,
+          elapsed: 0,
+          onExit: () => {},
+          wakeLock: { active: false },
+          error: null,
+          message: "Test message",
+        },
+        React.createElement("div", null, "content"),
+      ),
     );
     if (html.includes("border-info")) {
       throw new Error("Should not use border-info (no such token in globals.css)");
@@ -112,16 +119,19 @@ async function main() {
   // Test 4: Error still uses border-danger
   await testShellMessage("Error renders with border-danger (unchanged)", () => {
     const html = renderToStaticMarkup(
-      React.createElement(Shell, {
-        title: "TEST",
-        subtitle: null,
-        elapsed: 0,
-        onExit: () => {},
-        wakeLock: { active: false },
-        error: "Something went wrong",
-        message: null,
-        children: React.createElement("div", null, "content"),
-      }),
+      React.createElement(
+        Shell,
+        {
+          title: "TEST",
+          subtitle: null,
+          elapsed: 0,
+          onExit: () => {},
+          wakeLock: { active: false },
+          error: "Something went wrong",
+          message: null,
+        },
+        React.createElement("div", null, "content"),
+      ),
     );
     assertContains(
       html,

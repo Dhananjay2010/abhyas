@@ -24,6 +24,29 @@ export type LogSetResult =
       }>;
     };
 
+type SessionSet = Database["public"]["Tables"]["session_sets"]["Row"];
+type SessionSetInsert = Database["public"]["Tables"]["session_sets"]["Insert"];
+
+/**
+ * Narrow interface for logSetCore - only the Supabase methods it actually needs.
+ * This allows test fakes to implement just these methods without the full SupabaseClient surface.
+ */
+export interface LogSetClient {
+  from(table: "session_sets"): {
+    select<T extends string>(columns: T): {
+      eq<K extends keyof SessionSet>(col: K, val: SessionSet[K]): {
+        eq<K2 extends keyof SessionSet>(col: K2, val: SessionSet[K2]): {
+          eq<K3 extends keyof SessionSet>(col: K3, val: SessionSet[K3]): {
+            maybeSingle(): Promise<{ data: Pick<SessionSet, "reps" | "weight_kg" | "duration_seconds"> | null; error: null }>;
+          };
+          order<K4 extends keyof SessionSet>(col: K4): Promise<{ data: Pick<SessionSet, "set_number" | "reps" | "weight_kg" | "duration_seconds">[] | null; error: null }>;
+        };
+      };
+    };
+    insert(payload: SessionSetInsert): Promise<{ data: null; error: { code: string; message: string } | null }>;
+  };
+}
+
 /**
  * Core logic for logging a set. Extracted for testability.
  * 
@@ -33,7 +56,7 @@ export type LogSetResult =
  * - Never calls upsert
  */
 export async function logSetCore(
-  supabase: SupabaseClient<Database>,
+  supabase: SupabaseClient<Database> | LogSetClient,
   userId: string,
   input: LogSetInput,
 ): Promise<LogSetResult> {
