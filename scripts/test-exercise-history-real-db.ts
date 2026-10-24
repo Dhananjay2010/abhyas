@@ -177,6 +177,9 @@ async function runTests() {
   const exerciseE = exercises[4].id;   // Test 9: M2 unfinished
   const exerciseF = exercises[5].id;   // Test 10: L1 warmup-only
   const exerciseG = exercises[6].id;   // Test 11: >1000 rows paging
+  const exerciseL1 = exercises[7].id;  // Test L1: Set paging with stable ordering
+  const exerciseL2 = exercises[8].id;  // Test L2: Bodyweight handling
+  const exerciseL6 = exercises[9].id;  // Test L6: Paging boundary logic
   console.log(`Using ${exercises.length} seeded exercises (dedicated per scenario)\n`);
 
   console.log("1. Out-of-order sessions (insertion order ≠ completion order)");
@@ -1322,7 +1325,7 @@ async function runTests() {
     }
 
     const { error: seErr } = await adminClient.from("session_exercises").insert([
-      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[23].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exerciseL1, metric: "reps", status: "completed", order_index: 0 },
     ]);
     if (seErr) {
       check("L1: Insert paging test session_exercise", false, `error: ${seErr.message}`);
@@ -1347,7 +1350,7 @@ async function runTests() {
       return false;
     }
 
-    const lastPerf = await getLastPerformance(supabaseA, userIdA, exercises[23].id);
+    const lastPerf = await getLastPerformance(supabaseA, userIdA, exerciseL1);
     check("L1: All 15 sets retrieved (no gaps, no duplicates)",
       lastPerf?.sets.length === 15,
       `got ${lastPerf?.sets.length} sets`);
@@ -1378,8 +1381,8 @@ async function runTests() {
     }
 
     const { error: seErr } = await adminClient.from("session_exercises").insert([
-      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[24].id, metric: "reps", status: "completed", order_index: 0 },
-      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[24].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exerciseL2, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exerciseL2, metric: "reps", status: "completed", order_index: 0 },
     ]);
     if (seErr) {
       check("L2: Insert bodyweight test session_exercises", false, `error: ${seErr.message}`);
@@ -1400,7 +1403,7 @@ async function runTests() {
       return false;
     }
 
-    const histL2 = await getExerciseHistory(supabaseA, userIdA, exercises[24].id, { limit: 10 });
+    const histL2 = await getExerciseHistory(supabaseA, userIdA, exerciseL2, { limit: 10 });
     const [sessL2_2, sessL2_1] = histL2.sessions;
     
     check("L2: Bodyweight 20 reps is a most_reps PR",
@@ -1438,7 +1441,7 @@ async function runTests() {
         id: seId,
         user_id: userIdA,
         session_id: sId,
-        exercise_id: exercises[25].id,
+        exercise_id: exerciseL6,
         metric: "reps",
         status: "completed",
         order_index: 0,
@@ -1472,9 +1475,9 @@ async function runTests() {
     }
 
     // Fetch with pagination
-    const page1 = await getExerciseHistory(supabaseA, userIdA, exercises[25].id, { limit: 10, offset: 0 });
-    const page2 = await getExerciseHistory(supabaseA, userIdA, exercises[25].id, { limit: 10, offset: 10 });
-    const page3 = await getExerciseHistory(supabaseA, userIdA, exercises[25].id, { limit: 10, offset: 20 });
+    const page1 = await getExerciseHistory(supabaseA, userIdA, exerciseL6, { limit: 10, offset: 0 });
+    const page2 = await getExerciseHistory(supabaseA, userIdA, exerciseL6, { limit: 10, offset: 10 });
+    const page3 = await getExerciseHistory(supabaseA, userIdA, exerciseL6, { limit: 10, offset: 20 });
 
     check("L6: Page 1 has 10 sessions", page1.sessions.length === 10, `got ${page1.sessions.length}`);
     check("L6: Page 2 has 10 sessions", page2.sessions.length === 10, `got ${page2.sessions.length}`);
