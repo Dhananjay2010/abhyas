@@ -1232,6 +1232,7 @@ export type Database = {
       warmup_exercises: {
         Row: {
           duration_seconds: number
+          equipment_ids: string[]
           id: string
           instructions: string[]
           is_active: boolean
@@ -1243,6 +1244,7 @@ export type Database = {
         }
         Insert: {
           duration_seconds?: number
+          equipment_ids?: string[]
           id?: string
           instructions?: string[]
           is_active?: boolean
@@ -1254,6 +1256,7 @@ export type Database = {
         }
         Update: {
           duration_seconds?: number
+          equipment_ids?: string[]
           id?: string
           instructions?: string[]
           is_active?: boolean

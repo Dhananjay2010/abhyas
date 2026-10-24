@@ -58,7 +58,7 @@ export default async function SessionPage({
         .eq("id", user.id)
         .single(),
       supabase.from("user_injuries").select("body_region"),
-      supabase.from("warmup_exercises").select("id, slug, name, type, target_regions, target_muscles, duration_seconds, instructions, equipment_ids").eq("is_active", true),
+      supabase.from("warmup_exercises").select("*").eq("is_active", true),
       supabase.from("user_equipment").select("equipment_id"),
       supabase
         .from("exercise_progress")
@@ -170,22 +170,7 @@ export default async function SessionPage({
   });
 
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
-  // Equipment_ids added in migration 140500 but DB types not regenerated yet
-  type WarmupData = Record<string, unknown>;
-  const allWarmupRows = ((warmupsRes.data ?? []) as unknown[]).map((w: unknown) => {
-    const data = w as WarmupData;
-    return {
-      id: data.id as string,
-      slug: data.slug as string,
-      name: data.name as string,
-      type: data.type as string,
-      target_regions: data.target_regions as string[],
-      target_muscles: data.target_muscles as string[],
-      duration_seconds: data.duration_seconds as number,
-      instructions: data.instructions as string[],
-      equipment_ids: (data.equipment_ids as string[] | undefined) ?? [],
-    };
-  }) as WarmupRow[];
+  const allWarmupRows = (warmupsRes.data ?? []) as WarmupRow[];
   
   const warmup = selectWarmup({
     warmups: allWarmupRows,

@@ -909,6 +909,83 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }
     }
 
+    // QA: 50+ users (or anyone avoiding high spinal load) get safer loaded hinges on lower days
+    const avoidHighSpinalLoad = input.age !== null && input.age >= 50;
+    if (avoidHighSpinalLoad && isLowerOrFullDay && (input.hasAllEquipment || input.equipmentIds.length > 0)) {
+      const hinges = pickedExercises.filter(p => p.ex.movement_pattern === "hinge");
+      const hasHighSpinalHinge = hinges.some(p => p.ex.spinal_load === "high");
+      const hasSafeLoadedHinge = hinges.some(p => 
+        p.ex.spinal_load !== "high" &&
+        p.ex.equipment_ids.some(id => id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine")
+      );
+      
+      // If we have a high-spinal hinge, try to replace it
+      if (hasHighSpinalHinge) {
+        const saferHinges = pool
+          .filter(e => {
+            if (e.movement_pattern !== "hinge") return false;
+            if (e.spinal_load === "high") return false;
+            if (usedInBlock.has(e.id)) return false;
+            if (!isEligible(e, input)) return false;
+            // Must be loaded (barbell, dumbbell, kettlebell, or cable)
+            const hasLoadedEquipment = e.equipment_ids.some(id => 
+              id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine"
+            );
+            return hasLoadedEquipment;
+          })
+          .sort((a, b) => 
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
+        
+        if (saferHinges.length > 0) {
+          // Replace the first high-spinal hinge with a safer one
+          const highHingeIndex = pickedExercises.findIndex(p => 
+            p.ex.movement_pattern === "hinge" && p.ex.spinal_load === "high"
+          );
+          if (highHingeIndex !== -1) {
+            const replaced = pickedExercises[highHingeIndex];
+            usedInBlock.delete(replaced.ex.id);
+            const safer = saferHinges[0];
+            usedInBlock.add(safer.id);
+            pickedExercises[highHingeIndex] = { ex: safer, slotIndex: replaced.slotIndex };
+          }
+        }
+      }
+      
+      // After replacement, ensure we have at least one safe loaded hinge
+      const hasSafeLoadedHingeNow = pickedExercises.some(p => 
+        p.ex.movement_pattern === "hinge" &&
+        p.ex.spinal_load !== "high" &&
+        p.ex.equipment_ids.some(id => id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine")
+      );
+      
+      if (!hasSafeLoadedHingeNow) {
+        // Force-add a safe loaded hinge
+        const safeHinges = pool
+          .filter(e => {
+            if (e.movement_pattern !== "hinge") return false;
+            if (e.spinal_load === "high") return false;
+            if (usedInBlock.has(e.id)) return false;
+            if (!isEligible(e, input)) return false;
+            const hasLoadedEquipment = e.equipment_ids.some(id => 
+              id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine"
+            );
+            return hasLoadedEquipment;
+          })
+          .sort((a, b) => 
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            a.slug.localeCompare(b.slug)
+          );
+        
+        if (safeHinges.length > 0) {
+          const added = safeHinges[0];
+          usedInBlock.add(added.id);
+          pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+        }
+      }
+    }
+
     // For longer sessions, add extra accessories beyond the template.
     // These are always accessories (slot 4+), so use block-wide deduplication.
     if (maxExercises > entry.slots.length && pickedExercises.length >= entry.slots.length) {

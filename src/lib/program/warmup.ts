@@ -133,11 +133,23 @@ export function selectWarmup(input: {
   }
 
   // 3. Targeted prehab for flagged joints.
-  // QA Pass 10 C2/H7: Prehab was originally designed for past injuries, but
-  // the current function doesn't distinguish. For now, skip prehab when the
-  // injury is current to avoid loading the affected joint during warm-up.
-  // TODO: Add separate currentInjuryRegions vs pastInjuryRegions parameters.
-  const prehab: WarmupRow[] = [];
+  // QA Pass 10 C2/H7: Prehab drills that target the injured region are WANTED
+  // (gentle activation/stability work for the injury). Mobility that LOADS the
+  // injured region is filtered above. Equipment filter ensures BW-only users
+  // get appropriate drills.
+  const prehab = byType("prehab")
+    .filter((w) => {
+      // Only include prehab that targets an injured region
+      const targetsInjury = w.target_regions.some((r) => regions.has(r));
+      if (!targetsInjury) return false;
+      
+      // Filter by available equipment
+      return w.equipment_ids.length === 0 || 
+        availableEquipment === null || 
+        w.equipment_ids.some((id) => availableEquipment.has(id));
+    })
+    .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
+    .slice(0, 3);
 
   return [
     ...(cardio ? [{ ...cardio, phase: "cardio" as const }] : []),

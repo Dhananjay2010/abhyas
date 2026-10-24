@@ -186,9 +186,13 @@ testSeeds("C2: Shoulder injury gets NO vertical_press, overhead, or throws",
       hasAllEquipment: true,
       availableEquipment: null,
     });
-    const badWarmup = warmup.filter(w => w.target_regions.includes("shoulder"));
-    check(`Seed ${seed}: Warmup avoids shoulder`, badWarmup.length === 0,
-      badWarmup.map(w => w.name).join(", "));
+    // Prehab SHOULD target the injured region (targeted drills for the injury).
+    // Mobility/cardio should NOT load the injured region.
+    const badMobility = warmup.filter(w => 
+      (w.type === "mobility" || w.type === "cardio") && w.target_regions.includes("shoulder")
+    );
+    check(`Seed ${seed}: Mobility/cardio avoids shoulder`, badMobility.length === 0,
+      badMobility.map(w => w.name).join(", "));
   }
 );
 
@@ -335,8 +339,11 @@ testSeeds("H6: Knee injury gets at least 1 quad move per Lower day",
       hasAllEquipment: true,
       availableEquipment: null,
     });
-    const hasKneeWarmup = warmup.some(w => w.target_regions.includes("knee"));
-    check(`Seed ${seed}: Warmup avoids knee-loading moves`, !hasKneeWarmup);
+    // Prehab SHOULD target knee (targeted drills). Mobility should NOT load knee.
+    const badMobility = warmup.filter(w => 
+      (w.type === "mobility" || w.type === "cardio") && w.target_regions.includes("knee")
+    );
+    check(`Seed ${seed}: Mobility/cardio avoids knee`, badMobility.length === 0);
   }
 );
 
@@ -355,8 +362,11 @@ testSeeds("H7: Warmup and cooldown filter by injuries",
       hasAllEquipment: true,
       availableEquipment: null,
     });
-    const badWarmup = warmup.filter(w => w.target_regions.includes("knee"));
-    check(`Seed ${seed}: Warmup filtered by knee injury`, badWarmup.length === 0);
+    // Prehab SHOULD target knee. Mobility/cardio should NOT load knee.
+    const badMobility = warmup.filter(w => 
+      (w.type === "mobility" || w.type === "cardio") && w.target_regions.includes("knee")
+    );
+    check(`Seed ${seed}: Mobility/cardio filtered by knee injury`, badMobility.length === 0);
     
     const cooldown = selectCooldown({
       stretches: warmups,
@@ -369,6 +379,39 @@ testSeeds("H7: Warmup and cooldown filter by injuries",
     check(`Seed ${seed}: Cooldown filtered by knee injury`, badCooldown.length === 0);
   }
 );
+
+// ====================
+// QA Prehab: Targeted prehab for injuries, none when healthy
+// ====================
+
+// Iterate a few times to ensure stable behavior (prehab ordering is deterministic by slug)
+for (let i = 0; i < 3; i++) {
+  const warmupWithShoulder = selectWarmup({
+    warmups,
+    trainingMuscles: ["chest", "side_delts"],
+    injuryRegions: ["shoulder"],
+    track: "weights",
+    hasAllEquipment: true,
+    availableEquipment: null,
+  });
+  const shoulderPrehab = warmupWithShoulder.filter(w => 
+    w.type === "prehab" && w.target_regions.includes("shoulder")
+  );
+  check(`Prehab test ${i + 1}: Shoulder injury gets ≥1 shoulder prehab`, shoulderPrehab.length >= 1);
+}
+
+for (let i = 0; i < 3; i++) {
+  const warmupHealthy = selectWarmup({
+    warmups,
+    trainingMuscles: ["chest", "quads"],
+    injuryRegions: [],
+    track: "weights",
+    hasAllEquipment: true,
+    availableEquipment: null,
+  });
+  const prehabItems = warmupHealthy.filter(w => w.type === "prehab");
+  check(`Prehab test ${i + 4}: No injuries gets 0 prehab`, prehabItems.length === 0);
+}
 
 // ====================
 // H8: BW plans have at least 1 pull per upper/full-body day
@@ -436,6 +479,53 @@ testSeeds("Loaded hinge: Gym intermediate 4d includes loaded hinge on lower days
       });
       check(`Seed ${seed}: Every Lower day has a loaded hinge`, hasLoadedHinge);
     }
+  }
+);
+
+// ====================
+// QA: 50+ users get safer (non-high) loaded hinges on lower days
+// ====================
+
+testSeeds("QA 50+: 55-year-old equipped user avoids high-spinal-load hinges on lower days",
+  { level: "intermediate", daysPerWeek: 4, hasAllEquipment: true, age: 55 },
+  (plan, picked, seed) => {
+    const lowerDays = plan.days.filter(d => d.focus === "lower" || d.focus === "legs");
+    if (lowerDays.length > 0) {
+      const allLowerExercises = lowerDays.flatMap(day => 
+        day.exercises.map(e => byId.get(e.exerciseId)!)
+      );
+      
+      // Should have at least one loaded hinge
+      const loadedHinges = allLowerExercises.filter(e => 
+        e.movement_pattern === "hinge" && 
+        (e.equipment_ids.includes("barbell") || 
+         e.equipment_ids.includes("dumbbell") || 
+         e.equipment_ids.includes("kettlebell") || 
+         e.equipment_ids.includes("cable_machine"))
+      );
+      check(`Seed ${seed}: Has loaded hinges`, loadedHinges.length > 0);
+      
+      // None should have high spinal load
+      const highSpinalHinges = allLowerExercises.filter(e => 
+        e.movement_pattern === "hinge" && e.spinal_load === "high"
+      );
+      check(`Seed ${seed}: No high-spinal-load hinges`, highSpinalHinges.length === 0);
+    }
+  }
+);
+
+// ====================
+// QA: Lower back injured users never get romanian-deadlift
+// ====================
+
+testSeeds("QA lower_back injury: Never gets romanian-deadlift",
+  { level: "intermediate", daysPerWeek: 4, hasAllEquipment: true, currentInjuryRegions: ["lower_back"] },
+  (plan, picked, seed) => {
+    const allExercises = plan.days.flatMap(day => 
+      day.exercises.map(e => byId.get(e.exerciseId)!)
+    );
+    const hasRDL = allExercises.some(e => e.slug === "romanian-deadlift");
+    check(`Seed ${seed}: No romanian-deadlift`, !hasRDL);
   }
 );
 
