@@ -54,7 +54,7 @@ function checkButtonsInFile(filePath: string): { ok: boolean; issues: string[] }
         let hasAriaLabel = false;
         let hasTextContent = false;
         
-        // Check for aria-label attribute
+        // Check for aria-label attribute (and validate it's not empty)
         const attributes = ts.isJsxElement(node)
           ? node.openingElement.attributes.properties
           : node.attributes.properties;
@@ -63,7 +63,18 @@ function checkButtonsInFile(filePath: string): { ok: boolean; issues: string[] }
           if (ts.isJsxAttribute(attr)) {
             const attrName = attr.name.getText(sourceFile);
             if (attrName === "aria-label") {
-              hasAriaLabel = true;
+              // Check if aria-label has a non-empty value
+              if (attr.initializer) {
+                if (ts.isStringLiteral(attr.initializer)) {
+                  const value = attr.initializer.text.trim();
+                  if (value.length > 0) {
+                    hasAriaLabel = true;
+                  }
+                } else if (ts.isJsxExpression(attr.initializer) && attr.initializer.expression) {
+                  // Accept JSX expressions for aria-label (can't validate at static time)
+                  hasAriaLabel = true;
+                }
+              }
               break;
             }
           }
@@ -79,10 +90,22 @@ function checkButtonsInFile(filePath: string): { ok: boolean; issues: string[] }
                   return true;
                 }
               } else if (ts.isJsxExpression(child) && child.expression) {
-                // Check if expression is a string literal or template
-                const exprText = child.expression.getText(sourceFile);
-                if (exprText && /[a-zA-Z]/.test(exprText)) {
+                const expr = child.expression;
+                // Accept string literals, template literals, and identifiers (not JSX elements)
+                if (ts.isStringLiteral(expr) || 
+                    ts.isNoSubstitutionTemplateLiteral(expr) ||
+                    ts.isTemplateExpression(expr) ||
+                    (ts.isIdentifier(expr) && !/^[A-Z]/.test(expr.text))) {
                   return true;
+                }
+                // Reject conditional expressions with JSX (e.g., {on ? <svg/> : <svg/>})
+                if (ts.isConditionalExpression(expr)) {
+                  const hasJsxInConditional = 
+                    ts.isJsxElement(expr.whenTrue) || ts.isJsxSelfClosingElement(expr.whenTrue) ||
+                    ts.isJsxElement(expr.whenFalse) || ts.isJsxSelfClosingElement(expr.whenFalse);
+                  if (hasJsxInConditional) {
+                    return false;
+                  }
                 }
               } else if (ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child)) {
                 // Recursively check nested JSX elements (but not aria-hidden ones)

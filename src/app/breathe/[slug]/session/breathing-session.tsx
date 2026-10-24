@@ -149,7 +149,6 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
   const leavingRef = useRef(false);
   const finishedRef = useRef(false);
   const pauseRef = useRef<() => void>(() => {});
-  const backTriggeredRef = useRef(false);
   const { homeHref, run, journey } = props;
 
   // The session the first step opened, and a queue so two steps never race to
@@ -191,7 +190,6 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
         else router.replace(homeHref);
         return;
       }
-      backTriggeredRef.current = true;
       pauseRef.current();
       guard();
     };
@@ -327,7 +325,6 @@ export function BreathingSession({ actions = REAL, ...props }: SessionProps) {
       dayNote={dayNote}
       before={tally}
       registerPause={registerPause}
-      backTriggeredRef={backTriggeredRef}
       onFinished={onFinished}
       onSaved={onSaved}
       onAgain={onAgain}
@@ -358,7 +355,6 @@ type PracticeProps = Omit<SessionProps, "actions" | "homeHref" | "pattern" | "ru
   /** What the earlier steps added up to, for the summary at the end. */
   before: Tally;
   registerPause: (fn: () => void) => void;
-  backTriggeredRef: React.MutableRefObject<boolean>;
   onFinished: (finished: boolean) => void;
   onSaved: (seconds: number) => void;
   onAgain: () => void;
@@ -389,7 +385,6 @@ function Practice({
   dayNote,
   before,
   registerPause,
-  backTriggeredRef,
   onFinished,
   onSaved,
   onAgain,
@@ -1175,7 +1170,7 @@ function Practice({
       </p>
 
       {/* Main session content - inert when pause dialog is open */}
-      <div inert={(paused || undefined) as boolean | undefined}>
+      <div className="contents" inert={(paused || undefined) as boolean | undefined}>
       <header
         className="relative mx-auto w-full max-w-md shrink-0 px-6"
         style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}

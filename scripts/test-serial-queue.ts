@@ -51,7 +51,7 @@ async function runTests() {
     let running = 0;
     let maxConcurrent = 0;
     
-    async function operation(_n: number) {
+    async function operation() {
       running++;
       maxConcurrent = Math.max(maxConcurrent, running);
       await delay(10);
