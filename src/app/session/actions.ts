@@ -252,7 +252,7 @@ export async function logSet(input: {
   durationSeconds?: number | null;
 }): Promise<
   | { ok: true; data: { code?: string } }
-  | { ok: false; error: string; data?: { code?: string } }
+  | { ok: false; error: string; data?: { code?: string; postgresCode?: string } }
 > {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) {
