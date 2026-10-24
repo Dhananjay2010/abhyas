@@ -94,18 +94,28 @@ export default async function HistoryPage({
 
   const volumeById = new Map((volumeData ?? []).map((v) => [v.session_id, v]));
 
-  // Get session exercises to find top sets and PRs
+  // Get session exercises to find top sets and PRs, and to calculate planned sets
   const { data: sessionExercises } = await supabase
     .from("session_exercises")
-    .select("id, session_id, exercise_id, metric")
+    .select("id, session_id, exercise_id, metric, planned_sets")
     .in("session_id", sessionIds.length ? sessionIds : ["00000000-0000-0000-0000-000000000000"])
     .eq("status", "completed");
 
   const exercisesBySession = new Map<string, Array<{ id: string; exercise_id: string; metric: string }>>();
+  const plannedSetsBySession = new Map<string, number>();
+  
   for (const ex of sessionExercises ?? []) {
     const list = exercisesBySession.get(ex.session_id) ?? [];
-    list.push(ex);
+    list.push({ id: ex.id, exercise_id: ex.exercise_id, metric: ex.metric ?? "reps" });
     exercisesBySession.set(ex.session_id, list);
+    
+    // Sum planned_sets to get total planned sets for this session
+    if (ex.planned_sets && ex.planned_sets > 0) {
+      plannedSetsBySession.set(
+        ex.session_id,
+        (plannedSetsBySession.get(ex.session_id) ?? 0) + ex.planned_sets
+      );
+    }
   }
 
   // Detect which sessions had PRs at the time AND get set counts
@@ -189,6 +199,12 @@ export default async function HistoryPage({
         (p) => typeof p === "object" && p !== null && (p as { kind?: string }).kind === "pump"
       );
 
+    const plannedSets = plannedSetsBySession.get(s.id);
+    const endedEarly = 
+      plannedSets !== undefined && 
+      plannedSets > 0 && 
+      workingSetCount < plannedSets;
+
     return {
       id: s.id,
       localDate: s.local_date,
@@ -198,7 +214,8 @@ export default async function HistoryPage({
       startedAt: s.started_at,
       completedAt: s.completed_at,
       isDeload: s.is_deload,
-      endedEarly: false, // TODO: derive from set counts or get from #37
+      endedEarly,
+      plannedSets: plannedSets ?? null,
       programDayLabel: (s.program_days as unknown as { label: string } | null)?.label ?? null,
       setCount: workingSetCount,
       volumeKg: Number(vol?.volume_kg ?? 0),

@@ -10,6 +10,7 @@ export interface SessionListItem {
   completedAt: string | null;
   isDeload: boolean;
   endedEarly: boolean;
+  plannedSets: number | null;
   programDayLabel: string | null;
   setCount: number;
   volumeKg: number;
