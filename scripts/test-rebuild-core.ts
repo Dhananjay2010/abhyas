@@ -55,7 +55,8 @@ async function runTests() {
 
     // Mock RPC to simulate what rebuild_block does: returns the programId
     // The actual program was already created in the fake store above
-    (fake as any).rpc = (name: string, args: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (fake as any).rpc = (name: string, args: Record<string, unknown>) => {
       return Promise.resolve({
         data: "new-program",
         error: null,
