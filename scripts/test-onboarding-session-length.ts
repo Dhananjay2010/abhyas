@@ -2,14 +2,16 @@
  * Test session-length step in onboarding.
  *
  * Validates:
- * - Session-length step comes after days step
- * - 45 minutes is preselected (DEFAULT_SESSION_LENGTH)
- * - Continue calls saveSessionLength with the selected value
- * - Selecting different values works correctly
+ * - Session-length step exists in step sequence
+ * - 45 minutes is default (DEFAULT_SESSION_LENGTH)
+ * - Four options (30, 45, 60, 75) are available
+ * - saveSessionLength action is called
  *
  *   npm run test:onboarding-session-length
  */
 
+import { readFileSync } from "fs";
+import { join } from "path";
 import { DEFAULT_SESSION_LENGTH, SESSION_LENGTH_OPTIONS } from "../src/lib/onboarding/session-length";
 
 let failures = 0;
@@ -25,7 +27,7 @@ console.log("\n1. DEFAULT_SESSION_LENGTH is 45");
     `got ${DEFAULT_SESSION_LENGTH}`);
 }
 
-console.log("\n2. SESSION_LENGTH_OPTIONS contains correct values");
+console.log("\n2. SESSION_LENGTH_OPTIONS contains [30, 45, 60, 75]");
 {
   const expected = [30, 45, 60, 75];
   check("Has 4 options", SESSION_LENGTH_OPTIONS.length === 4);
@@ -36,29 +38,31 @@ console.log("\n2. SESSION_LENGTH_OPTIONS contains correct values");
   check("Options match expected", JSON.stringify([...SESSION_LENGTH_OPTIONS]) === JSON.stringify(expected));
 }
 
-console.log("\n3. Step order: session-length comes after days");
+console.log("\n3. Session-length step in onboarding flow");
 {
-  // The steps array in onboarding-flow.tsx should be:
-  // ["disclaimer", "about", "goal", "level", "track", "days", "session-length", "mix", "equipment", "injuries"]
-  // This is validated by reading the source code
-  check("session-length step exists in StepId type (manual verification)", true);
-  check("session-length comes after 'days' in steps array (manual verification)", true);
+  const flowPath = join(process.cwd(), "src", "app", "onboarding", "onboarding-flow.tsx");
+  const flowSource = readFileSync(flowPath, "utf-8");
+  
+  // Check for session-length step
+  const hasSessionLengthStep = /"session-length"/.test(flowSource);
+  check("session-length step exists", hasSessionLengthStep);
+  
+  // Check for session length options rendering
+  const hasOptionsRendering = /SESSION_LENGTH_OPTIONS/.test(flowSource);
+  check("SESSION_LENGTH_OPTIONS is used", hasOptionsRendering);
+  
+  // Check for saveSessionLength call
+  const callsSaveSessionLength = /saveSessionLength/.test(flowSource);
+  check("saveSessionLength is called", callsSaveSessionLength);
 }
 
-console.log("\n4. InitialState has sessionMinutes field");
+console.log("\n4. State initialization");
 {
-  // This is validated by TypeScript compilation
-  check("InitialState type includes sessionMinutes field (manual verification)", true);
-}
-
-console.log("\n5. Session length state initialization");
-{
-  // When initial.sessionMinutes is null, it should default to DEFAULT_SESSION_LENGTH
+  // Check logic: null ?? DEFAULT_SESSION_LENGTH
   const initial1 = null;
   const sessionLength1 = initial1 ?? DEFAULT_SESSION_LENGTH;
   check("null initializes to DEFAULT_SESSION_LENGTH", sessionLength1 === 45);
   
-  // When initial.sessionMinutes has a value, it should use that value
   const initial2 = 30;
   const sessionLength2 = initial2 ?? DEFAULT_SESSION_LENGTH;
   check("30 initializes to 30", sessionLength2 === 30);
@@ -66,15 +70,6 @@ console.log("\n5. Session length state initialization");
   const initial3 = 60;
   const sessionLength3 = initial3 ?? DEFAULT_SESSION_LENGTH;
   check("60 initializes to 60", sessionLength3 === 60);
-}
-
-console.log("\n6. Single source of truth");
-{
-  // Check that persist.ts, settings/page.tsx use DEFAULT_SESSION_LENGTH
-  // This is validated by reading the source files
-  check("persist.ts uses DEFAULT_SESSION_LENGTH (manual verification)", true);
-  check("settings/page.tsx uses DEFAULT_SESSION_LENGTH (manual verification)", true);
-  check("settings-form.tsx uses SESSION_LENGTH_OPTIONS (manual verification)", true);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

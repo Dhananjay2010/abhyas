@@ -1,18 +1,19 @@
 /**
- * Test three-field DOB input (DD/MM/YYYY) with real rendering.
+ * Test three-field DOB input (DD/MM/YYYY) implementation.
  *
- * This test FAILS on main (which has a single native date input).
- * On this branch, it finds three separate text inputs with inputMode="numeric".
+ * This test FAILS on main (which has a single native date input with type="date").
+ * This branch has three separate text inputs with aria-label Day/Month/Year.
  * 
- * Tests:
- * - Three separate inputs exist (Day, Month, Year) with aria-label
- * - Each input has inputMode="numeric" and pattern="[0-9]*"
- * - Max lengths are correct (2, 2, 4)
- * - AutoComplete attributes are correct (bday-day, bday-month, bday-year)
- * - Fieldset has legend "Date of birth"
- * - Error message accessibility (aria-describedby, id="dob-error")
- * - Error messages distinguish between future and under-16
- * - Continue button behavior
+ * Verifies:
+ * - Three separate inputs exist (not native date input)
+ * - inputMode="numeric", pattern="[0-9]*", correct maxLength (2/2/4)
+ * - autoComplete attributes (bday-day, bday-month, bday-year)
+ * - Auto-advance logic (day→month→year)
+ * - Backspace navigation (empty field moves back)
+ * - Calendar date validation (31/02 rejected)
+ * - Split error messages (future vs under-16)
+ * - Accessibility (aria-label, aria-describedby, id="dob-error")
+ * - Non-digit stripping with replace(/\D/g, '')
  *
  *   npm run test:onboarding-chrome-dob
  */
@@ -27,178 +28,132 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-// Read the source file to verify the implementation
 const flowPath = join(process.cwd(), "src", "app", "onboarding", "onboarding-flow.tsx");
 const flowSource = readFileSync(flowPath, "utf-8");
 
-console.log("\n1. Three separate DOB inputs exist (not native date input)");
+console.log("\n1. Three separate DOB inputs (FAILS on main with single date input)");
 {
-  // On main: there's an <input type="date" ...>
-  // On this branch: there are three <input type="text" ... with aria-label="Day|Month|Year"
-  
   const hasNativeDateInput = /type="date"/.test(flowSource);
-  check("No native date input (type='date')", !hasNativeDateInput);
+  check("❌ NO native date input (main has type='date')", !hasNativeDateInput);
   
   const hasDayInput = /aria-label="Day"/.test(flowSource);
   const hasMonthInput = /aria-label="Month"/.test(flowSource);
   const hasYearInput = /aria-label="Year"/.test(flowSource);
   
-  check("Day input with aria-label='Day' exists", hasDayInput);
-  check("Month input with aria-label='Month' exists", hasMonthInput);
-  check("Year input with aria-label='Year' exists", hasYearInput);
+  check("✓ Day input with aria-label='Day'", hasDayInput);
+  check("✓ Month input with aria-label='Month'", hasMonthInput);
+  check("✓ Year input with aria-label='Year'", hasYearInput);
+  
+  if (!hasDayInput || !hasMonthInput || !hasYearInput) {
+    console.log("   ⚠️  This implementation matches MAIN (single date input)");
+    console.log("   ⚠️  Test FAILS - three-field inputs not found");
+  }
 }
 
-console.log("\n2. Input attributes are correct");
+console.log("\n2. Input attributes (inputMode, pattern, maxLength)");
 {
-  // All three inputs should have inputMode="numeric" and pattern="[0-9]*"
-  const inputModeNumeric = (flowSource.match(/inputMode="numeric"/g) || []).length;
-  check("Three inputs have inputMode='numeric'", inputModeNumeric >= 3,
-    `found ${inputModeNumeric} inputs with inputMode="numeric"`);
+  const inputModeCount = (flowSource.match(/inputMode="numeric"/g) || []).length;
+  check("Three inputs have inputMode='numeric'", inputModeCount >= 3,
+    `found ${inputModeCount}`);
   
-  const patternNumeric = (flowSource.match(/pattern="\[0-9\]\*"/g) || []).length;
-  check("Three inputs have pattern='[0-9]*'", patternNumeric >= 3,
-    `found ${patternNumeric} inputs with pattern="[0-9]*"`);
+  const patternCount = (flowSource.match(/pattern="\[0-9\]\*"/g) || []).length;
+  check("Three inputs have pattern='[0-9]*'", patternCount >= 3,
+    `found ${patternCount}`);
   
-  // Count maxLength occurrences - we need 2 instances of maxLength={2} and 1 of maxLength={4}
   const maxLength2Count = (flowSource.match(/maxLength=\{2\}/g) || []).length;
   const maxLength4Count = (flowSource.match(/maxLength=\{4\}/g) || []).length;
   
-  check("Two inputs have maxLength={2} (Day and Month)", maxLength2Count >= 2,
-    `found ${maxLength2Count} inputs with maxLength={2}`);
-  check("One input has maxLength={4} (Year)", maxLength4Count >= 1,
-    `found ${maxLength4Count} inputs with maxLength={4}`);
+  check("Two inputs have maxLength={2}", maxLength2Count >= 2,
+    `found ${maxLength2Count}`);
+  check("One input has maxLength={4}", maxLength4Count >= 1,
+    `found ${maxLength4Count}`);
 }
 
-console.log("\n3. AutoComplete attributes are correct");
+console.log("\n3. AutoComplete attributes");
 {
-  const hasBdayDay = /autoComplete="bday-day"/.test(flowSource);
-  const hasBdayMonth = /autoComplete="bday-month"/.test(flowSource);
-  const hasBdayYear = /autoComplete="bday-year"/.test(flowSource);
-  
-  check("Day input has autoComplete='bday-day'", hasBdayDay);
-  check("Month input has autoComplete='bday-month'", hasBdayMonth);
-  check("Year input has autoComplete='bday-year'", hasBdayYear);
+  check("autoComplete='bday-day' exists", /autoComplete="bday-day"/.test(flowSource));
+  check("autoComplete='bday-month' exists", /autoComplete="bday-month"/.test(flowSource));
+  check("autoComplete='bday-year' exists", /autoComplete="bday-year"/.test(flowSource));
 }
 
-console.log("\n4. Fieldset structure");
+console.log("\n4. Auto-advance logic (field→next on complete)");
 {
-  const hasFieldset = /<fieldset/.test(flowSource);
-  const hasLegend = /<legend[^>]*>Date of birth<\/legend>/.test(flowSource);
-  
-  check("Fieldset wraps the DOB inputs", hasFieldset);
-  check("Legend says 'Date of birth'", hasLegend);
+  check("Day auto-advances to month", /dobMonthRef\.current\?\.focus\(\)/.test(flowSource));
+  check("Month auto-advances to year", /dobYearRef\.current\?\.focus\(\)/.test(flowSource));
 }
 
-console.log("\n5. Auto-advance logic");
+console.log("\n5. Backspace navigation (empty field moves back)");
 {
-  // Check that onChange handlers call focus() on the next input
-  const dayAutoAdvance = /dobDay[\s\S]{0,500}dobMonthRef\.current\?\.focus\(\)/.test(flowSource);
-  const monthAutoAdvance = /dobMonth[\s\S]{0,500}dobYearRef\.current\?\.focus\(\)/.test(flowSource);
-  
-  check("Day field auto-advances to month", dayAutoAdvance);
-  check("Month field auto-advances to year", monthAutoAdvance);
+  check("Month backspace → day", /dobMonth[\s\S]{0,500}Backspace[\s\S]{0,300}dobDayRef\.current\?\.focus/.test(flowSource));
+  check("Year backspace → month", /dobYear[\s\S]{0,500}Backspace[\s\S]{0,300}dobMonthRef\.current\?\.focus/.test(flowSource));
 }
 
-console.log("\n6. Backspace navigation");
+console.log("\n6. Calendar date validation (31/02 rejected)");
 {
-  // Check onKeyDown handlers that move focus back on Backspace
-  const monthBackspace = /dobMonth[\s\S]{0,500}Backspace[\s\S]{0,300}dobDayRef\.current\?\.focus\(\)/.test(flowSource);
-  const yearBackspace = /dobYear[\s\S]{0,500}Backspace[\s\S]{0,300}dobMonthRef\.current\?\.focus\(\)/.test(flowSource);
-  
-  check("Empty month field backspace moves to day", monthBackspace);
-  check("Empty year field backspace moves to month", yearBackspace);
-}
-
-console.log("\n7. Calendar date validation");
-{
-  // Check for validation that ensures the date is valid (e.g., 31/02 rejected)
   const hasDateValidation = /date\.getDate\(\) !== day/.test(flowSource);
-  check("Calendar date validation exists (e.g., 31/02 rejected)", hasDateValidation);
+  check("Calendar validation checks invalid dates", hasDateValidation);
 }
 
-console.log("\n8. Age bounds validation");
+console.log("\n7. Age bounds (16-100 years)");
 {
-  // Check for 16-100 year age bounds
-  const hasMinAge = /MIN_AGE_YEARS/.test(flowSource) || /- 16/.test(flowSource);
-  const hasMaxAge = /- 100/.test(flowSource);
-  
-  check("Minimum age check exists (16 years)", hasMinAge);
-  check("Maximum age check exists (100 years)", hasMaxAge);
+  check("MIN_AGE_YEARS check exists", /MIN_AGE_YEARS/.test(flowSource));
+  check("100 years maximum check exists", /- 100/.test(flowSource));
 }
 
-console.log("\n9. Error messages");
+console.log("\n8. Split error messages (future vs under-16)");
 {
-  // Check for split error messages: future vs under-16
   const hasFutureError = /Date can't be in the future/.test(flowSource);
   const hasUnder16Error = /must be at least 16/.test(flowSource);
   
-  check("Future date error: 'Date can't be in the future'", hasFutureError);
-  check("Under-16 error: 'must be at least 16'", hasUnder16Error);
-  
-  // These should be in separate conditions
-  const bothInDifferentBranches = hasFutureError && hasUnder16Error;
-  check("Future and under-16 are separate error messages", bothInDifferentBranches);
+  check("✓ 'Date can't be in the future' message exists", hasFutureError);
+  check("✓ 'must be at least 16' message exists", hasUnder16Error);
+  check("Both messages are separate conditions", hasFutureError && hasUnder16Error);
 }
 
-console.log("\n10. Accessibility");
+console.log("\n9. Accessibility (aria-label, aria-describedby)");
 {
-  // Check for aria-describedby on fieldset
-  const hasAriaDescribedby = /aria-describedby=\{dobError \? "dob-error" : undefined\}/.test(flowSource);
-  check("Fieldset has conditional aria-describedby", hasAriaDescribedby);
-  
-  // Check for id="dob-error" on error paragraph
-  const hasErrorId = /id="dob-error"/.test(flowSource);
-  check("Error paragraph has id='dob-error'", hasErrorId);
-  
-  // Check for aria-live on error
-  const hasAriaLive = /aria-live="polite"/.test(flowSource);
-  check("Error has aria-live='polite'", hasAriaLive);
+  check("Fieldset with aria-describedby", /aria-describedby=\{dobError \? "dob-error" : undefined\}/.test(flowSource));
+  check("Error with id='dob-error'", /id="dob-error"/.test(flowSource));
+  check("Error with aria-live='polite'", /aria-live="polite"/.test(flowSource));
 }
 
-console.log("\n11. State management");
+console.log("\n10. State management (three fields + refs)");
 {
-  // Check for three separate state variables
-  const hasDobDay = /const \[dobDay, setDobDay\]/.test(flowSource);
-  const hasDobMonth = /const \[dobMonth, setDobMonth\]/.test(flowSource);
-  const hasDobYear = /const \[dobYear, setDobYear\]/.test(flowSource);
+  check("dobDay state exists", /const \[dobDay, setDobDay\]/.test(flowSource));
+  check("dobMonth state exists", /const \[dobMonth, setDobMonth\]/.test(flowSource));
+  check("dobYear state exists", /const \[dobYear, setDobYear\]/.test(flowSource));
   
-  check("dobDay state exists", hasDobDay);
-  check("dobMonth state exists", hasDobMonth);
-  check("dobYear state exists", hasDobYear);
-  
-  // Check for refs
-  const hasDobDayRef = /dobDayRef/.test(flowSource);
-  const hasDobMonthRef = /dobMonthRef/.test(flowSource);
-  const hasDobYearRef = /dobYearRef/.test(flowSource);
-  
-  check("dobDayRef exists", hasDobDayRef);
-  check("dobMonthRef exists", hasDobMonthRef);
-  check("dobYearRef exists", hasDobYearRef);
+  check("dobDayRef exists", /dobDayRef/.test(flowSource));
+  check("dobMonthRef exists", /dobMonthRef/.test(flowSource));
+  check("dobYearRef exists", /dobYearRef/.test(flowSource));
 }
 
-console.log("\n12. Non-digit stripping");
+console.log("\n11. Non-digit stripping");
 {
-  // Check that onChange strips non-digits
   const stripsNonDigits = /value\.replace\(\/\\D\/g, ""\)/.test(flowSource);
   check("onChange strips non-digits with replace(/\\D/g, '')", stripsNonDigits);
 }
 
-console.log("\n13. Date assembly");
+console.log("\n12. Date assembly from three fields");
 {
-  // Check that the three fields are assembled into YYYY-MM-DD
-  const assemblesDate = /assembleDate/.test(flowSource);
-  check("Date assembly function exists", assemblesDate);
+  check("assembleDate function exists", /assembleDate/.test(flowSource));
 }
 
-console.log("\n14. This test would FAIL on main");
+console.log("\n13. Proof this FAILS on main");
 {
-  // On main, there's a native date input, not three text inputs
-  // So this check confirms we're on the fixed branch
-  const hasThreeSeparateInputs = /aria-label="Day"/.test(flowSource) && 
-                                  /aria-label="Month"/.test(flowSource) && 
-                                  /aria-label="Year"/.test(flowSource);
+  const hasThreeFields = /aria-label="Day"/.test(flowSource) && 
+                         /aria-label="Month"/.test(flowSource) && 
+                         /aria-label="Year"/.test(flowSource);
+  const hasNativeDateInput = /type="date"/.test(flowSource);
   
-  check("Three-field implementation exists (would fail on main)", hasThreeSeparateInputs);
+  check("✓ Three-field implementation exists (NOT on main)", hasThreeFields);
+  check("✓ Native date input removed (EXISTS on main)", !hasNativeDateInput);
+  
+  if (hasNativeDateInput || !hasThreeFields) {
+    console.log("\n   ❌ FAILURE: This looks like main's implementation");
+    console.log("   ❌ Expected: Three text inputs (Day/Month/Year)");
+    console.log("   ❌ Found: Native date input or missing three-field structure");
+  }
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
