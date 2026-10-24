@@ -280,7 +280,7 @@ export async function repointSessionsAfterRebuild(
     const newExercises = prepareSessionExercises(
       r.id,
       sessionData.user_id,
-      dayExercises as any[],
+      dayExercises,
       sessionData.is_deload,
     );
 
