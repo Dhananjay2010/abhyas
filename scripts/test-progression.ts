@@ -919,7 +919,7 @@ console.log("\neffectiveRepsMax unification: page and evaluator agree on target"
     `outcome=${bodyweightWrongTarget.outcome}`);
 }
 
-console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,20,24,28,32");
+console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,18,20,24,28,32");
 {
   const KETTLEBELL: ExerciseMeta = {
     mechanic: "compound",
@@ -931,26 +931,36 @@ console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,20,24,28,32");
     equipmentIds: ["kettlebell"],
   };
 
-  // Success: always go to next bell above
+  // Success: always go to next bell above (16→18→20)
   const kb16 = run({
     meta: KETTLEBELL,
     sets: sets(4, 12, 16),
     state: fresh({ currentWorkingWeightKg: 16 }),
     feel: "right",
   });
-  check("kettlebell 16 kg success goes to next bell 20 kg",
-    kb16.nextWorkingWeightKg === 20 && kb16.outcome === "progressed",
+  check("kettlebell 16 kg success goes to next bell 18 kg",
+    kb16.nextWorkingWeightKg === 18 && kb16.outcome === "progressed",
     `${kb16.nextWorkingWeightKg}, ${kb16.outcome}`);
 
-  // Success with 'easy': two bells up
+  const kb18 = run({
+    meta: KETTLEBELL,
+    sets: sets(4, 12, 18),
+    state: fresh({ currentWorkingWeightKg: 18 }),
+    feel: "right",
+  });
+  check("kettlebell 18 kg success goes to next bell 20 kg",
+    kb18.nextWorkingWeightKg === 20 && kb18.outcome === "progressed",
+    `${kb18.nextWorkingWeightKg}, ${kb18.outcome}`);
+
+  // Success with 'easy': two bells up (16→20)
   const kb16easy = run({
     meta: KETTLEBELL,
     sets: sets(4, 12, 16),
     state: fresh({ currentWorkingWeightKg: 16 }),
     feel: "easy",
   });
-  check("kettlebell 16 kg easy goes two bells up to 24 kg",
-    kb16easy.nextWorkingWeightKg === 24 && kb16easy.outcome === "progressed",
+  check("kettlebell 16 kg easy goes two bells up to 20 kg",
+    kb16easy.nextWorkingWeightKg === 20 && kb16easy.outcome === "progressed",
     `${kb16easy.nextWorkingWeightKg}, ${kb16easy.outcome}`);
 
   // At 32 kg (top): success holds at 32
@@ -964,20 +974,32 @@ console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,20,24,28,32");
     kb32.nextWorkingWeightKg === 32 && kb32.outcome === "hold",
     `${kb32.nextWorkingWeightKg}, ${kb32.outcome}`);
 
-  // Deload: next bell below
+  // Deload: largest bell ≤ 80% of current weight
   const kbDeload20 = suggestedWeight({ currentWorkingWeightKg: 20 }, true, KETTLEBELL);
-  check("kettlebell 20 kg deload goes to next bell below 16 kg",
+  check("kettlebell 20 kg deload: 80% = 16 kg → 16 kg",
     kbDeload20 === 16, `${kbDeload20}`);
 
   const kbDeload24 = suggestedWeight({ currentWorkingWeightKg: 24 }, true, KETTLEBELL);
-  check("kettlebell 24 kg deload goes to 20 kg",
-    kbDeload24 === 20, `${kbDeload24}`);
+  check("kettlebell 24 kg deload: 80% = 19.2 kg → 18 kg (largest bell ≤ 19.2)",
+    kbDeload24 === 18, `${kbDeload24}`);
+
+  const kbDeload32 = suggestedWeight({ currentWorkingWeightKg: 32 }, true, KETTLEBELL);
+  check("kettlebell 32 kg deload: 80% = 25.6 kg → 24 kg",
+    kbDeload32 === 24, `${kbDeload32}`);
 
   const kbDeload4 = suggestedWeight({ currentWorkingWeightKg: 4 }, true, KETTLEBELL);
-  check("kettlebell 4 kg (bottom) deload holds at 4 kg",
+  check("kettlebell 4 kg (bottom) deload: 80% = 3.2 kg → 4 kg",
     kbDeload4 === 4, `${kbDeload4}`);
 
-  // Back-off: next bell below
+  // Back-off: next bell below (not deload formula, just one bell down)
+  const kbBackoff20 = run({
+    meta: KETTLEBELL,
+    sets: sets(4, 10, 20),
+    state: fresh({ currentWorkingWeightKg: 20, consecutiveFailures: 1 }),
+  });
+  check("kettlebell 20 kg miss twice backs off to next bell 18 kg",
+    kbBackoff20.nextWorkingWeightKg === 18, `${kbBackoff20.nextWorkingWeightKg}`);
+
   const kbBackoff28 = run({
     meta: KETTLEBELL,
     sets: sets(4, 10, 28),
@@ -994,25 +1016,26 @@ console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,20,24,28,32");
   check("kettlebell 6 kg miss twice backs off to 4 kg",
     kbBackoff6.nextWorkingWeightKg === 4, `${kbBackoff6.nextWorkingWeightKg}`);
 
-  // Non-standard weight (40 kg, above 32): NOT snapped, uses normal step
+  // Non-standard weight (40 kg, above 32): NOT snapped, uses normal step (5 kg for lower)
   const kb40 = run({
     meta: KETTLEBELL,
     sets: sets(4, 12, 40),
     state: fresh({ currentWorkingWeightKg: 40 }),
     feel: "right",
   });
-  check("kettlebell 40 kg (non-standard, above 32) uses normal step to 45 kg",
+  check("kettlebell 40 kg (non-standard, above 32) uses normal step 5 kg → 45 kg",
     kb40.nextWorkingWeightKg === 45, `${kb40.nextWorkingWeightKg}`);
 
-  // Non-standard weight (18 kg, not in list): NOT snapped, uses normal step
-  const kb18 = run({
-    meta: KETTLEBELL,
-    sets: sets(4, 12, 18),
-    state: fresh({ currentWorkingWeightKg: 18 }),
+  // Non-standard weight (17 kg upper): NOT snapped, uses normal step (2.5 kg for upper)
+  const KB_UPPER: ExerciseMeta = { ...KETTLEBELL, movementPattern: "horizontal_press" };
+  const kb17 = run({
+    meta: KB_UPPER,
+    sets: sets(4, 12, 17),
+    state: fresh({ currentWorkingWeightKg: 17 }),
     feel: "right",
   });
-  check("kettlebell 18 kg (non-standard) uses normal step: roundTo(18+5, 5) = 25 kg",
-    kb18.nextWorkingWeightKg === 25, `${kb18.nextWorkingWeightKg}`);
+  check("kettlebell 17 kg (non-standard, upper) uses normal step 2.5 kg → 19.5 kg",
+    kb17.nextWorkingWeightKg === 19.5, `${kb17.nextWorkingWeightKg}`);
 
   // Isolation mechanic with kettlebell: tests that step doesn't matter for bells
   const KB_ISO: ExerciseMeta = { ...KETTLEBELL, mechanic: "isolation" };
@@ -1022,9 +1045,18 @@ console.log("\nKettlebell rounding: bells at 4,6,8,10,12,14,16,20,24,28,32");
     sets: sets(4, 12, 16),
     state: fresh({ currentWorkingWeightKg: 16 }),
   });
-  check("kettlebell isolation 16 kg goes to next bell 20 kg (NOT held at 16)",
-    kbIso16.nextWorkingWeightKg === 20 && kbIso16.outcome === "progressed",
+  check("kettlebell isolation 16 kg goes to next bell 18 kg (step 1.25 doesn't matter)",
+    kbIso16.nextWorkingWeightKg === 18 && kbIso16.outcome === "progressed",
     `${kbIso16.nextWorkingWeightKg}, ${kbIso16.outcome}`);
+
+  const kbIso20 = run({
+    meta: KB_ISO,
+    sets: sets(4, 12, 20),
+    state: fresh({ currentWorkingWeightKg: 20 }),
+  });
+  check("kettlebell isolation 20 kg goes to next bell 24 kg (NOT held at 20)",
+    kbIso20.nextWorkingWeightKg === 24 && kbIso20.outcome === "progressed",
+    `${kbIso20.nextWorkingWeightKg}, ${kbIso20.outcome}`);
 }
 
 console.log("\nProgression reset: clear targets when goal/block changes");

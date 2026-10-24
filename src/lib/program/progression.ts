@@ -135,13 +135,14 @@ function roundTo(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-const KETTLEBELL_SIZES = [4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
+const KETTLEBELL_SIZES = [4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32];
 
 /**
  * Snap weight to next kettlebell above (for progression).
  * 
+ * Standard bells: 4,6,8,10,12,14,16,18,20,24,28,32 kg.
  * Returns the smallest bell strictly above `from`. At 32 kg (top bell), returns 32.
- * Non-standard or above-32 weights are NOT snapped: returns `from` unchanged.
+ * Non-standard or above-32 weights are NOT snapped: returns null.
  */
 function nextKettlebellAbove(from: number): number | null {
   // Non-standard or above top: don't snap
@@ -159,7 +160,7 @@ function nextKettlebellAbove(from: number): number | null {
 }
 
 /**
- * Snap weight to next kettlebell below (for deload/back-off).
+ * Snap weight to next kettlebell below (for back-off).
  * 
  * Returns the largest bell strictly below `from`. At 4 kg (bottom bell), returns 4.
  * Non-standard or above-32 weights are NOT snapped: returns `from` unchanged.
@@ -177,6 +178,29 @@ function nextKettlebellBelow(from: number): number | null {
   }
   
   return null;
+}
+
+/**
+ * Deload kettlebell weight (for deload week).
+ * 
+ * Returns the largest bell ≤ 80% of current weight.
+ * Example: 20 kg → 80% = 16 kg → 16 kg (exact match).
+ *          24 kg → 80% = 19.2 kg → 18 kg (largest bell ≤ 19.2).
+ * Non-standard or above-32 weights are NOT snapped: returns null.
+ */
+function deloadKettlebell(from: number): number | null {
+  // Non-standard or above top: don't snap
+  if (!KETTLEBELL_SIZES.includes(from) || from > 32) return null;
+  
+  const target = from * 0.8;
+  
+  // Find largest bell ≤ target
+  for (let i = KETTLEBELL_SIZES.length - 1; i >= 0; i--) {
+    if (KETTLEBELL_SIZES[i] <= target) return KETTLEBELL_SIZES[i];
+  }
+  
+  // Shouldn't reach here, but safeguard
+  return KETTLEBELL_SIZES[0];
 }
 
 /** Epley. Only meaningful for a working set, so callers cap the rep count. */
@@ -496,13 +520,13 @@ export function suggestedWeight(
     return result <= 0 ? null : result;
   }
   
-  // Loaded exercises: kettlebells go to next bell below, others floor at step
+  // Loaded exercises: kettlebells use largest bell ≤ 80%, others floor at step
   const hasKettlebell = meta.equipmentIds.includes("kettlebell");
   
   if (hasKettlebell && KETTLEBELL_SIZES.includes(w) && w <= 32) {
-    // Kettlebell: go to next bell below
-    const nextBell = nextKettlebellBelow(w);
-    return nextBell !== null ? nextBell : w; // At 4 kg, hold at 4
+    // Kettlebell: largest bell ≤ 80% of current weight
+    const deloaded = deloadKettlebell(w);
+    return deloaded !== null ? deloaded : w; // Safeguard
   }
   
   // Standard: ~70% of working weight, floor at one step
