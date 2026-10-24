@@ -87,9 +87,9 @@ function makeFakeFinishSessionDeps(
   console.log("1. Skip all exercises then Finish");
   {
     const exercises = [
-      { session_sets: [] }, // All exercises skipped, no sets at all
-      { session_sets: [] },
-      { session_sets: [] },
+      { rest_seconds: null, session_sets: [] }, // All exercises skipped, no sets at all
+      { rest_seconds: null, session_sets: [] },
+      { rest_seconds: null, session_sets: [] },
     ];
 
     const fake = makeFakeFinishSessionDeps(exercises);
@@ -113,9 +113,9 @@ function makeFakeFinishSessionDeps(
   console.log("\n2. Skip all, only warm-up sets logged, then Finish");
   {
     const exercises = [
-      { session_sets: [{ id: "w1", is_warmup_set: true, completed_at: null }, { id: "w2", is_warmup_set: true, completed_at: null }] },
-      { session_sets: [] },
-      { session_sets: [{ id: "w3", is_warmup_set: true, completed_at: null }] },
+      { rest_seconds: null, session_sets: [{ id: "w1", is_warmup_set: true, completed_at: null }, { id: "w2", is_warmup_set: true, completed_at: null }] },
+      { rest_seconds: null, session_sets: [] },
+      { rest_seconds: null, session_sets: [{ id: "w3", is_warmup_set: true, completed_at: null }] },
     ];
 
     const fake = makeFakeFinishSessionDeps(exercises);
@@ -139,8 +139,8 @@ function makeFakeFinishSessionDeps(
   console.log("\n3. End early with 0 working sets");
   {
     const exercises = [
-      { session_sets: [{ id: "w1", is_warmup_set: true, completed_at: null }] },
-      { session_sets: [] },
+      { rest_seconds: null, session_sets: [{ id: "w1", is_warmup_set: true, completed_at: null }] },
+      { rest_seconds: null, session_sets: [] },
     ];
 
     const fake = makeFakeFinishSessionDeps(exercises);
@@ -160,9 +160,9 @@ function makeFakeFinishSessionDeps(
   console.log("\n4. Finish with 1+ working sets");
   {
     const exercises = [
-      { session_sets: [{ id: "w1", is_warmup_set: true, completed_at: null }] },
-      { session_sets: [{ id: "s1", is_warmup_set: false, completed_at: null }] }, // One working set
-      { session_sets: [] },
+      { rest_seconds: null, session_sets: [{ id: "w1", is_warmup_set: true, completed_at: null }] },
+      { rest_seconds: null, session_sets: [{ id: "s1", is_warmup_set: false, completed_at: null }] }, // One working set
+      { rest_seconds: null, session_sets: [] },
     ];
 
     const fake = makeFakeFinishSessionDeps(exercises);
@@ -186,8 +186,8 @@ function makeFakeFinishSessionDeps(
   console.log("\n5. End early with 1+ working sets");
   {
     const exercises = [
-      { session_sets: [{ id: "s1", is_warmup_set: false, completed_at: null }, { id: "s2", is_warmup_set: false, completed_at: null }] },
-      { session_sets: [] }, // Not reached
+      { rest_seconds: null, session_sets: [{ id: "s1", is_warmup_set: false, completed_at: null }, { id: "s2", is_warmup_set: false, completed_at: null }] },
+      { rest_seconds: null, session_sets: [] }, // Not reached
     ];
 
     const fake = makeFakeFinishSessionDeps(exercises);

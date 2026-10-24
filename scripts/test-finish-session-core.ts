@@ -71,7 +71,7 @@ function makeFakeFinishSessionDeps(
 }
 
 function makeFakeAbandonSessionDeps(
-  exercises: Array<{ session_sets: Array<{ id: string; is_warmup_set: boolean }> }>,
+  exercises: Array<{ rest_seconds: null, session_sets: Array<{ id: string; is_warmup_set: boolean }> }>,
   exercisesForUpdate: ExerciseForUpdate[],
   updateError?: string,
   readError?: string
