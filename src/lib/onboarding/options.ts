@@ -121,6 +121,34 @@ export function splitLabelFor(daysPerWeek: number, yogaDays: number): string {
   return SPLIT_BY_DAYS[training] ?? "Full body";
 }
 
+export const SESSION_LENGTHS: Option<number>[] = [
+  {
+    value: 30,
+    label: "30 minutes",
+    description: "Main lifts only. Quick and focused.",
+  },
+  {
+    value: 45,
+    label: "45 minutes (default)",
+    description: "Main lifts plus accessories. Balanced.",
+  },
+  {
+    value: 60,
+    label: "60 minutes",
+    description: "Full workout with more variety.",
+  },
+  {
+    value: 75,
+    label: "75 minutes",
+    description: "Extended sessions for advanced training.",
+  },
+  {
+    value: 90,
+    label: "90 minutes",
+    description: "Maximum volume and exercise selection.",
+  },
+];
+
 export const MIN_AGE_YEARS = 16;
 
 export function ageOn(dateOfBirth: string, on: Date = new Date()): number {

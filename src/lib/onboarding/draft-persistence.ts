@@ -17,6 +17,7 @@ export type OnboardingDraft = {
   homeTrack: Track | null;
   daysPerWeek: number | null;
   yogaDays: number;
+  sessionLength: number | null;
   hasAllEquipment: boolean;
   selectedEquipment: string[];
   injuries: Array<{ bodyRegion: BodyRegion; severity: InjurySeverity | null }>;

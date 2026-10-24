@@ -43,6 +43,7 @@ export default async function OnboardingPage() {
     primaryTrack: profile.primary_track,
     daysPerWeek: profile.days_per_week,
     yogaDaysPerWeek: profile.yoga_days_per_week ?? 0,
+    sessionLengthMinutes: profile.preferred_session_minutes ?? null,
     disclaimerAccepted: Boolean(profile.disclaimer_accepted_at),
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (userEquipmentRes.data ?? []).map((r) => r.equipment_id),

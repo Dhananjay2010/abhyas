@@ -8,6 +8,7 @@ import {
   HOME_TRACKS,
   LEVELS,
   MIN_AGE_YEARS,
+  SESSION_LENGTHS,
   SEXES,
   splitLabelFor,
   type BodyRegion,
@@ -73,6 +74,7 @@ export type InitialState = {
   primaryTrack: Track | null;
   daysPerWeek: number | null;
   yogaDaysPerWeek: number;
+  sessionLengthMinutes: number | null;
   disclaimerAccepted: boolean;
   hasAllEquipment: boolean;
   equipmentIds: string[];
@@ -134,6 +136,9 @@ export function OnboardingFlow({
   );
   const [daysPerWeek, setDaysPerWeek] = useState<number | null>(initial.daysPerWeek);
   const [yogaDays, setYogaDays] = useState(initial.yogaDaysPerWeek);
+  const [sessionLength, setSessionLength] = useState<number | null>(
+    initial.sessionLengthMinutes ?? 45,
+  );
   const [hasAllEquipment, setHasAllEquipment] = useState(initial.hasAllEquipment);
   const [selectedEquipment, setSelectedEquipment] = useState<Set<string>>(
     new Set(initial.equipmentIds),
@@ -546,13 +551,14 @@ export function OnboardingFlow({
             )}
             {error && <ErrorNote>{error}</ErrorNote>}
             <PrimaryButton
-              disabled={!validation.valid || pending}
+              disabled={!validation.valid || pending || !sessionLength}
               onClick={() =>
                 advance(() =>
                   actions.saveProfileFields({
                     days_per_week: daysPerWeek,
                     // Keep the mix inside the chosen number of days.
                     yoga_days_per_week: Math.min(yogaDays, (daysPerWeek ?? 3) - 1),
+                    preferred_session_minutes: sessionLength ?? 45,
                   }),
                 )
               }
@@ -562,19 +568,37 @@ export function OnboardingFlow({
           </>
         }
       >
-        <div className="space-y-3">
-          {[3, 4, 5, 6].map((d) => (
-            <OptionCard
-              key={d}
-              label={`${d} days`}
-              description={trainsPhysically ? splitLabelFor(d, yogaDays) : undefined}
-              selected={daysPerWeek === d}
-              onClick={() => {
-                setDaysPerWeek(d);
-                if (yogaDays > d - 1) setYogaDays(d - 1);
-              }}
-            />
-          ))}
+        <div className="space-y-6">
+          <div className="space-y-3">
+            {[3, 4, 5, 6].map((d) => (
+              <OptionCard
+                key={d}
+                label={`${d} days`}
+                description={trainsPhysically ? splitLabelFor(d, yogaDays) : undefined}
+                selected={daysPerWeek === d}
+                onClick={() => {
+                  setDaysPerWeek(d);
+                  if (yogaDays > d - 1) setYogaDays(d - 1);
+                }}
+              />
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">How long is each session?</h3>
+            <div className="space-y-2">
+              {SESSION_LENGTHS.map((opt) => (
+                <OptionCard
+                  key={opt.value}
+                  compact
+                  label={opt.label}
+                  description={opt.description}
+                  selected={sessionLength === opt.value}
+                  onClick={() => setSessionLength(opt.value)}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </StepShell>
     );

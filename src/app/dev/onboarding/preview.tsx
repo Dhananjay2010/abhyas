@@ -19,6 +19,7 @@ const BLANK: InitialState = {
   primaryTrack: null,
   daysPerWeek: null,
   yogaDaysPerWeek: 0,
+  sessionLengthMinutes: null,
   disclaimerAccepted: false,
   hasAllEquipment: false,
   equipmentIds: [],
