@@ -8,7 +8,7 @@
  */
 
 import { isDeleteConfirmed } from "../src/app/settings/delete-account/form-logic";
-import { performAccountDeletion } from "../src/app/settings/delete-account/deletion-logic";
+import { confirmAndDelete } from "../src/app/settings/delete-account/deletion-logic";
 
 export {}; // Make this a module to avoid global scope conflicts
 
@@ -22,7 +22,7 @@ function check(label: string, ok: boolean, detail = "") {
 console.log("\nDelete account confirmation validation tests");
 console.log("============================================\n");
 
-function runTests() {
+async function runTests() {
   console.log("1. isDeleteConfirmed accepts exact match only");
   {
     check('accepts "DELETE"', isDeleteConfirmed("DELETE") === true);
@@ -44,111 +44,92 @@ function runTests() {
     check('rejects "DELET" (incomplete)', isDeleteConfirmed("DELET") === false);
   }
 
-  console.log("\n3. Server-side rejection prevents deletion");
+  console.log("\n3. Server-side confirmation gate with real code");
   {
-    // Simulate what the server action does: check confirmation BEFORE calling performAccountDeletion
-    // This demonstrates that when confirmation is wrong, performAccountDeletion is never invoked
-    
-    const testCases = [
+    // Test invalid confirmations: neither dependency should be called
+    const invalidInputs = [
       { input: " DELETE ", desc: "with spaces" },
       { input: "delete", desc: "lowercase" },
       { input: "", desc: "empty" },
     ];
 
-    for (const { input, desc } of testCases) {
-      let deletionCalled = false;
+    for (const { input, desc } of invalidInputs) {
+      let rateLimitCalled = false;
+      let deleteAccountCalled = false;
 
-      // This mimics the server action logic: check confirmation first
-      const shouldProceed = isDeleteConfirmed(input);
-      
-      if (shouldProceed) {
-        // Only call deletion if confirmation passed
-        // (We're not actually calling it, just tracking if we would)
-        deletionCalled = true;
-      }
+      const result = await confirmAndDelete(input, {
+        rateLimit: async () => {
+          rateLimitCalled = true;
+          return null;
+        },
+        deleteAccount: async () => {
+          deleteAccountCalled = true;
+          return { ok: true };
+        },
+      });
 
+      check(`invalid confirmation ${desc}: returns error`, !result.ok);
       check(
-        `invalid confirmation ${desc} does not trigger deletion`,
-        !deletionCalled
+        `invalid confirmation ${desc}: error message is correct`,
+        result.ok === false && result.error === "Type DELETE to confirm."
       );
+      check(`invalid confirmation ${desc}: does not call rateLimit`, !rateLimitCalled);
+      check(`invalid confirmation ${desc}: does not call deleteAccount`, !deleteAccountCalled);
     }
-
-    // Verify that valid confirmation WOULD proceed
-    let deletionWouldProceed = false;
-    if (isDeleteConfirmed("DELETE")) {
-      deletionWouldProceed = true;
-    }
-    check("valid confirmation allows proceeding to deletion", deletionWouldProceed);
   }
 
-  console.log("\n4. Server rejection returns correct error");
+  console.log("\n4. Valid confirmation calls dependencies in order");
   {
-    // Verify the rejection message matches the expected format
-    // This would be returned by the server action when confirmation fails
-    const expectedError = "Type DELETE to confirm.";
-    
-    // When isDeleteConfirmed returns false, the action returns this error
-    const wrongInputs = [" DELETE ", "delete", "DELETE\n", "", "Delete"];
-    
-    for (const input of wrongInputs) {
-      if (!isDeleteConfirmed(input)) {
-        // This is the error that would be returned
-        const error = expectedError;
-        check(
-          `rejection for "${input.replace(/\n/g, "\\n")}" has correct error message`,
-          error === "Type DELETE to confirm."
-        );
-      }
-    }
+    let rateLimitCalled = false;
+    let deleteAccountCalled = false;
+    const callOrder: string[] = [];
+
+    const result = await confirmAndDelete("DELETE", {
+      rateLimit: async () => {
+        rateLimitCalled = true;
+        callOrder.push("rateLimit");
+        return null; // No rate limit error
+      },
+      deleteAccount: async () => {
+        deleteAccountCalled = true;
+        callOrder.push("deleteAccount");
+        return { ok: true };
+      },
+    });
+
+    check("valid confirmation: returns success", result.ok === true);
+    check("valid confirmation: calls rateLimit", rateLimitCalled);
+    check("valid confirmation: calls deleteAccount", deleteAccountCalled);
+    check(
+      "valid confirmation: calls in correct order",
+      callOrder[0] === "rateLimit" && callOrder[1] === "deleteAccount"
+    );
   }
 
-  console.log("\n5. Integration verification: deletion only called with valid confirmation");
+  console.log("\n5. Rate limit blocks deletion");
   {
-    // This test verifies the complete flow using the real deletion logic
-    // When confirmation is invalid, performAccountDeletion should never be invoked
-    
-    let deletionRpcCalled = false;
-    
-    const validConfirmation = "DELETE";
-    const invalidConfirmation = " DELETE ";
-    
-    // Test invalid confirmation: should NOT reach performAccountDeletion
-    if (isDeleteConfirmed(invalidConfirmation)) {
-      // Would call performAccountDeletion here, but shouldn't reach this
-      deletionRpcCalled = true;
-    }
-    check("invalid confirmation never calls performAccountDeletion", !deletionRpcCalled);
-    
-    // Test valid confirmation: WOULD reach performAccountDeletion
-    deletionRpcCalled = false;
-    if (isDeleteConfirmed(validConfirmation)) {
-      // Would call performAccountDeletion({ ... }) here
-      // We'll actually call it with mocked deps to verify the path exists
-      (async () => {
-        await performAccountDeletion({
-          user: { id: "test", email: "test@example.com" },
-          callRPC: async () => {
-            deletionRpcCalled = true;
-            return { error: null };
-          },
-          signOut: async () => {},
-          redirect: () => {
-            throw new Error("REDIRECT");
-          },
-        });
-      })().catch(() => {}); // Catch redirect throw
-    }
-    
-    // Give async operation a tick to complete
-    setTimeout(() => {
-      check("valid confirmation reaches performAccountDeletion", deletionRpcCalled);
-      
-      console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
-      process.exit(failures === 0 ? 0 : 1);
-    }, 10);
-    
-    return; // Don't reach the summary yet
+    let deleteAccountCalled = false;
+
+    const result = await confirmAndDelete("DELETE", {
+      rateLimit: async () => {
+        return { ok: false, error: "Rate limit exceeded" };
+      },
+      deleteAccount: async () => {
+        deleteAccountCalled = true;
+        return { ok: true };
+      },
+    });
+
+    check("rate limit error: returns error", !result.ok);
+    check(
+      "rate limit error: returns the rate limit error",
+      result.ok === false && result.error === "Rate limit exceeded"
+    );
+    check("rate limit error: does not call deleteAccount", !deleteAccountCalled);
   }
+
+  console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
+  process.exit(failures === 0 ? 0 : 1);
 }
 
 runTests();
