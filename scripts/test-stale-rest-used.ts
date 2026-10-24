@@ -195,7 +195,6 @@ console.log("\n3. Stale session uses last working set's exercise rest, ignoring 
     assertTrue(result.ok, "finishSession succeeds");
     
     const update = deps.updateCalls[0];
-    const lastWorkingSetTime = new Date("2026-10-23T10:15:00Z").getTime();
     const warmupSetTime = new Date("2026-10-23T10:30:00Z").getTime();
     const startTime = new Date("2026-10-23T10:00:00Z").getTime();
     

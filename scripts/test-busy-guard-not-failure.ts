@@ -25,14 +25,6 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-function assertTrue(condition: boolean, message: string) {
-  if (condition) {
-    passed++;
-  } else {
-    failed++;
-    console.error(`❌ ${message}`);
-  }
-}
 
 async function runTests() {
   console.log("\n1. Busy-guard rejection (false) is not tracked");

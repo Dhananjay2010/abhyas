@@ -18,17 +18,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 let passed = 0;
 let failed = 0;
 
-function assertEquals<T>(actual: T, expected: T, message: string) {
-  if (actual === expected) {
-    console.log(`  ok   ${message}`);
-    passed++;
-  } else {
-    console.error(`❌ ${message}`);
-    console.error(`   Expected: ${JSON.stringify(expected)}`);
-    console.error(`   Actual:   ${JSON.stringify(actual)}`);
-    failed++;
-  }
-}
 
 function assertTrue(condition: boolean, message: string) {
   if (condition) {
@@ -49,7 +38,6 @@ type QueryCall = {
 function makeFakeSupabase() {
   const calls: QueryCall[] = [];
   let chainedTable: string | null = null;
-  let selectFields: string | null = null;
 
   const chainMethods = {
     select(fields: string) {

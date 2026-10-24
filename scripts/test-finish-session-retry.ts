@@ -6,7 +6,7 @@
  */
 
 import { finishSessionCore } from "../src/lib/session/finish-session";
-import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
+import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
 let testsPassed = 0;
 let testsFailed = 0;

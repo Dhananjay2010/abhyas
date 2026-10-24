@@ -5,7 +5,7 @@
  *   npx tsx scripts/test-swapped-in-label.ts
  */
 
-import { countWorkingSets, getCompletionDisplay } from "../src/lib/today/row-helpers";
+import { getCompletionDisplay } from "../src/lib/today/row-helpers";
 
 let passed = 0;
 let failed = 0;

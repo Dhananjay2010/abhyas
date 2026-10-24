@@ -10,11 +10,9 @@ import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
-import type { OpenSession } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
-import { exerciseCompletion } from "@/lib/session/completion";
 import { countWorkingSets, getCompletionDisplay } from "@/lib/today/row-helpers";
 
 export const dynamic = "force-dynamic";

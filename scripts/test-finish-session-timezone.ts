@@ -9,7 +9,7 @@
  */
 
 import { finishSessionCore } from "../src/lib/session/finish-session";
-import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
+import type { FinishSessionDeps } from "../src/lib/session/finish-session-deps";
 
 let passed = 0;
 let failed = 0;
@@ -87,7 +87,6 @@ async function runTests() {
     // In UTC: past day (24th vs 25th)
     // In Asia/Kolkata: same day (25th vs 25th) → NOT stale
     
-    const now = new Date("2026-10-25T00:30:00Z");
     const started = new Date("2026-10-24T23:00:00Z");
     
     const session: SessionRow = {
@@ -130,7 +129,6 @@ async function runTests() {
     // In Asia/Kolkata: past day (24th vs 25th) → stale
     // In UTC: same day (24th vs 24th) → NOT stale in UTC
     
-    const now = new Date("2026-10-24T19:30:00Z"); // 2026-10-25 01:00 in Asia/Kolkata
     const started = new Date("2026-10-24T17:30:00Z"); // 2026-10-24 23:00 in Asia/Kolkata
     
     const session: SessionRow = {
@@ -157,7 +155,6 @@ async function runTests() {
   console.log("\n3. Session past-day in both UTC and user timezone → stale");
   {
     // Clear past-day scenario
-    const now = new Date("2026-10-25T12:00:00Z");
     const started = new Date("2026-10-24T10:00:00Z");
     
     const session: SessionRow = {
@@ -181,7 +178,6 @@ async function runTests() {
   console.log("\n4. Session same day in user timezone → NOT stale");
   {
     // Clear same-day scenario
-    const now = new Date("2026-10-25T12:00:00Z");
     const started = new Date("2026-10-25T10:00:00Z");
     
     const session: SessionRow = {
