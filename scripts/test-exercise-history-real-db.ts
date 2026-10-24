@@ -177,9 +177,9 @@ async function runTests() {
   const exerciseE = exercises[4].id;   // Test 9: M2 unfinished
   const exerciseF = exercises[5].id;   // Test 10: L1 warmup-only
   const exerciseG = exercises[6].id;   // Test 11: >1000 rows paging
-  const exerciseL1 = exercises[7].id;  // Test L1: Set paging with stable ordering
-  const exerciseL2 = exercises[8].id;  // Test L2: Bodyweight handling
-  const exerciseL6 = exercises[9].id;  // Test L6: Paging boundary logic
+  const exerciseL1 = exercises[23].id;  // Test L1: Set paging (isolated, unused by other tests)
+  const exerciseL2 = exercises[24].id;  // Test L2: Bodyweight handling (isolated)
+  const exerciseL6 = exercises[25].id;  // Test L6: Paging boundary logic (isolated)
   console.log(`Using ${exercises.length} seeded exercises (dedicated per scenario)\n`);
 
   console.log("1. Out-of-order sessions (insertion order ≠ completion order)");
