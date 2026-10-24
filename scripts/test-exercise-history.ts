@@ -299,7 +299,7 @@ console.log("\n15. Realistic bench press progression");
   
   const bestE1rmPR = prs.find(pr => pr.type === "best_e1rm");
   check("best e1rm from week 3 (10×62.5)",
-    bestE1rmPR && bestE1rmPR.value > 83 && bestE1rmPR.value < 84,
+    !!(bestE1rmPR && bestE1rmPR.value > 83 && bestE1rmPR.value < 84),
     `${bestE1rmPR?.value}`
   );
 }
@@ -354,21 +354,21 @@ console.log("\n18. Epley formula validation with known values");
   // 95% of 1RM should be around 2 reps
   const at95pct = calculateEpley1RM(2, 95);
   check("95kg × 2 reps ≈ 101.33kg",
-    at95pct && at95pct > 100 && at95pct < 102,
+    !!(at95pct && at95pct > 100 && at95pct < 102),
     `got ${at95pct}`
   );
   
   // 85% of 1RM should be around 5-6 reps
   const at85pct = calculateEpley1RM(5, 85);
   check("85kg × 5 reps ≈ 99.17kg",
-    at85pct && at85pct > 98 && at85pct < 100,
+    !!(at85pct && at85pct > 98 && at85pct < 100),
     `got ${at85pct}`
   );
   
   // 70% of 1RM should be around 10-12 reps
   const at70pct = calculateEpley1RM(12, 70);
   check("70kg × 12 reps ≈ 98kg",
-    at70pct && at70pct > 97 && at70pct < 99,
+    !!(at70pct && at70pct > 97 && at70pct < 99),
     `got ${at70pct}`
   );
 }
