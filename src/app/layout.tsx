@@ -7,8 +7,6 @@ import { NewVersionHint } from "@/components/new-version-hint";
 import { branding, getBrandCssVariables } from "@/lib/branding";
 import { OfflineErrorProvider } from "@/contexts/offline-error-context";
 import { InProgressBar } from "@/components/in-progress-bar";
-import { getInProgressSession } from "@/lib/session/in-progress";
-import { getAuthedClient } from "@/lib/supabase/auth";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -52,18 +50,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   // Inject brand CSS variables on the server to avoid flash of default theme.
   // NEXT_PUBLIC_BRAND is build-time, so no hydration mismatch.
   const brandCssVars = getBrandCssVariables(branding);
-
-  // Check for in-progress session to show the resume bar
-  const { supabase, user } = await getAuthedClient();
-  const inProgressSession = user
-    ? await getInProgressSession(supabase, user.id)
-    : null;
 
   return (
     <html lang="en" className={inter.variable}>
@@ -80,11 +72,13 @@ export default async function RootLayout({
           <NewVersionHint />
           {children}
           {/*
-            In-progress session indicator: shows above the bottom nav when the
-            user has a workout that was started but not finished. Hidden on
-            /session/* routes since the user is already in the session.
+            L1: Client-side in-progress session indicator that fetches on mount
+            and pathname changes. Shows above the bottom nav when the user has a
+            workout that was started but not finished. Hidden while loading,
+            logged out, or on /session/* routes. Root layout does no request-time
+            data fetching so /, /privacy, /terms, and /offline stay static.
           */}
-          {inProgressSession && <InProgressBar session={inProgressSession} />}
+          <InProgressBar />
           {/*
             Mounted once, outside every page, so a tab change swaps only the
             content beneath it. The bar itself never unmounts and its active tab
