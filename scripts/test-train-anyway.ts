@@ -178,4 +178,19 @@ assert(result8.length === 1, "Returns 1 option");
 assert(result8[0]?.day_index === 3, "Returns today's bodyweight workout");
 assert(result8[0]?.label === "Bodyweight A", "Returns correct label");
 
+console.log("\n=== Test 9: Mutant test - upcoming days must actually be used ===\n");
+
+const mutantTestInput9: TrainAnywayInput = {
+  todayDay: { day_index: 7, day_type: "rest", label: null, id: "rest-day", order_index: 7 },
+  upcomingDays: [
+    { day_index: 1, day_type: "weights", label: "Push", id: "push-day", order_index: 1 },
+  ],
+  missedYesterday: false,
+};
+
+const mutantResult9 = trainAnywayOptions(mutantTestInput9);
+
+assert(mutantResult9.length > 0, "Must return non-empty when upcomingDays has training days");
+assert(mutantResult9[0]?.label === "Push", "Must use the actual upcomingDays data");
+
 console.log("\n✅ All train-anyway tests passed\n");

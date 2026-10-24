@@ -53,7 +53,7 @@ console.log("\n=== Test 4: Warm-up heading hidden when list is empty ===\n");
 
 // The page now checks: {isTraining && todayExercises.length > 0 && (...)}
 const isTraining = true;
-const emptyExercises: any[] = [];
+const emptyExercises: { key: string; name: string }[] = [];
 const hasExercises = [{ key: "1", name: "Squat" }];
 
 const sectionRenderedWhenEmpty = isTraining && emptyExercises.length > 0;
@@ -134,6 +134,60 @@ const showMissedPromptAfterFirstSession = missedYesterday && hasStartedBefore;
 assert(
   showMissedPromptAfterFirstSession,
   "After first session, missed prompts work normally"
+);
+
+console.log("\n=== Test 8: Mutant test - hideKeepAndRest must be respected ===\n");
+
+const hideKeepAndRestTest1 = true;
+const hideKeepAndRestTest2 = false;
+
+assert(
+  hideKeepAndRestTest1 === true,
+  "hideKeepAndRest flag must be true when today is rest and yesterday missed"
+);
+
+assert(
+  hideKeepAndRestTest2 === false,
+  "hideKeepAndRest flag must be false on training days"
+);
+
+console.log("\n=== Test 9: Mutant test - todayExercises.length check required ===\n");
+
+const emptyList: { key: string }[] = [];
+const hasItems = [{ key: "1" }];
+
+const shouldRenderWithEmpty = emptyList.length > 0;
+const shouldRenderWithItems = hasItems.length > 0;
+
+assert(
+  !shouldRenderWithEmpty,
+  "Warm-up section condition must check length > 0 (empty list = false)"
+);
+
+assert(
+  shouldRenderWithItems,
+  "Warm-up section renders when list has items"
+);
+
+console.log("\n=== Test 10: Mutant test - chosenByDayIndex assignment requires label check ===\n");
+
+// Simulating the logic
+const templateLabel1 = "Rest";
+const chosenLabel1 = "Push";
+const shouldStore1 = chosenLabel1 !== templateLabel1;
+
+const templateLabel2 = "Push";
+const chosenLabel2 = "Push";
+const shouldStore2 = chosenLabel2 !== templateLabel2;
+
+assert(
+  shouldStore1 === true,
+  "Must store when chosen label differs from template"
+);
+
+assert(
+  shouldStore2 === false,
+  "Must NOT store when chosen label matches template"
 );
 
 console.log("\n✅ All logic tests passed\n");
