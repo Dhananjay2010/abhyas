@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useTransition, useSyncExternalStore } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -32,11 +32,15 @@ import {
   type Result,
 } from "./actions";
 import { decideClientEquipmentUpdate, getEquipmentOffMessage } from "./equipment-logic";
-import { createSaveQueue, type SupersededResult } from "./save-queue";
+import { createSaveQueue } from "./save-queue";
 import { TimezonePicker } from "./timezone-picker";
 import { canonicalizeTimezone } from "@/lib/timezone-canonical";
 import { DobInput } from "@/components/onboarding/dob-input";
 import { validateDob, getDobErrorMessage } from "@/lib/onboarding/dob";
+import { isSessionExpired } from "@/lib/auth/session-expired";
+import { useSessionExpiredPrompt, notifySessionExpired } from "@/components/session-expired-prompt";
+import { stashPendingChanges, getPendingChanges, clearPendingChanges } from "@/lib/auth/pending-changes";
+import { usePathname } from "next/navigation";
 
 /** Injected so the form can be exercised without a signed-in session. */
 export type SettingsActions = {
@@ -185,8 +189,8 @@ export function SettingsForm({
   
   /** Track retry metadata for each key (M1 fix #2) */
   const retryMetadata = useRef<Map<string, {
-    type: 'profile' | 'session' | 'equipment' | 'injury';
-    patch?: Parameters<typeof actions.updateProfileSettings>[0] | Parameters<typeof actions.updateSessionSettings>[0];
+    type: 'profile' | 'session' | 'equipment' | 'injuries';
+    patch?: Parameters<typeof actions.updateProfileSettings>[0] | Parameters<typeof actions.updateSessionSettings>[0] | unknown;
     affectsPlan?: boolean;
     retryFn?: () => void;
   }>>(new Map());
@@ -205,6 +209,9 @@ export function SettingsForm({
   /** Router for refresh on tab focus */
   const router = useRouter();
   const lastRefreshTimestamp = useRef(0);
+
+  const pathname = usePathname();
+  const [sessionExpiredUI] = useSessionExpiredPrompt();
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -231,6 +238,38 @@ export function SettingsForm({
       // Ignore errors
     }
   }, []);
+
+  const restorePendingChanges = useEffectEvent(() => {
+    // Re-apply each stashed save through the appropriate save function
+    const pending = getPendingChanges();
+    if (!pending || pending.returnPath !== pathname) {
+      return;
+    }
+
+    clearPendingChanges();
+
+    for (const change of pending.changes) {
+      const { key, type, patch, affectsPlan } = change;
+      
+      if (type === 'profile' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
+        saveProfile(key, patch as Parameters<typeof actions.updateProfileSettings>[0], affectsPlan);
+      } else if (type === 'session' && patch && typeof patch === 'object' && !Array.isArray(patch)) {
+        saveSession(key, patch as Parameters<typeof actions.updateSessionSettings>[0]);
+      } else if (type === 'equipment' && patch && typeof patch === 'object' && !Array.isArray(patch) && 'hasAll' in patch && 'equipmentIds' in patch) {
+        const equipPatch = patch as { hasAll: boolean; equipmentIds: string[] };
+        saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
+      } else if (type === 'injuries' && Array.isArray(patch)) {
+        // Re-enqueue injuries save directly
+        retryMetadata.current.set("injuries", { type: 'injuries', patch });
+        enqueueSave("injuries", () => actions.updateInjuries(patch as Parameters<typeof actions.updateInjuries>[0]), true);
+      }
+    }
+  });
+
+  useEffect(() => {
+    // Restore pending changes from stashed session state (QA E2)
+    restorePendingChanges();
+  }, [pathname]);
 
   useEffect(() => {
     // Register beforeunload prompt when saves are pending
@@ -511,6 +550,29 @@ export function SettingsForm({
           return;
         }
         
+        // Check for session expiration in result
+        if (isSessionExpired(result)) {
+          // Stash this save using retry metadata
+          const metadata = retryMetadata.current.get(key);
+          if (metadata) {
+            // Accumulate with existing pending changes
+            const existing = getPendingChanges();
+            const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+            const newChange = {
+              key,
+              type: metadata.type,
+              patch: metadata.patch,
+              affectsPlan: metadata.affectsPlan,
+              timestamp: Date.now()
+            };
+            // Replace if same key exists, otherwise append
+            const merged = existingChanges.filter(ch => ch.key !== key).concat(newChange);
+            stashPendingChanges(merged, pathname);
+          }
+          notifySessionExpired();
+          return;
+        }
+        
         // Mark that a save has occurred (for LOW-a)
         setAnySaveOccurred(true);
         
@@ -542,6 +604,29 @@ export function SettingsForm({
           if (affectsPlan) setPlanStale(true);
         }
       } catch (err) {
+        // Check for session expiration in thrown error
+        if (isSessionExpired(err)) {
+          // Stash this save using retry metadata
+          const metadata = retryMetadata.current.get(key);
+          if (metadata) {
+            // Accumulate with existing pending changes
+            const existing = getPendingChanges();
+            const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+            const newChange = {
+              key,
+              type: metadata.type,
+              patch: metadata.patch,
+              affectsPlan: metadata.affectsPlan,
+              timestamp: Date.now()
+            };
+            // Replace if same key exists, otherwise append
+            const merged = existingChanges.filter(ch => ch.key !== key).concat(newChange);
+            stashPendingChanges(merged, pathname);
+          }
+          notifySessionExpired();
+          return;
+        }
+        
         // LOW 2: Only revert if no newer save is pending for THIS key
         const keyHasNewerSave = saveQueue.getInFlightKeys().includes(key) || saveQueue.getQueuedKeys().includes(key);
         
@@ -649,6 +734,12 @@ export function SettingsForm({
   function saveEquipment(hasAll: boolean, equipmentIds: string[], showConfirmation = false) {
     const changed = equipmentChanged(hasAll, equipmentIds);
     
+    // Store retry metadata
+    retryMetadata.current.set("equipment", {
+      type: 'equipment',
+      patch: { hasAll, equipmentIds }
+    });
+    
     startTransition(async () => {
       try {
         const result = await saveQueue.enqueue("equipment", () => 
@@ -657,6 +748,27 @@ export function SettingsForm({
         
         // Handle superseded results
         if (result && typeof result === "object" && "superseded" in result) {
+          return;
+        }
+        
+        // Check for session expiration in result
+        if (isSessionExpired(result)) {
+          const metadata = retryMetadata.current.get("equipment");
+          if (metadata) {
+            // Accumulate with existing pending changes
+            const existing = getPendingChanges();
+            const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+            const newChange = {
+              key: "equipment",
+              type: metadata.type,
+              patch: metadata.patch,
+              timestamp: Date.now()
+            };
+            // Replace if same key exists, otherwise append
+            const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+            stashPendingChanges(merged, pathname);
+          }
+          notifySessionExpired();
           return;
         }
         
@@ -696,6 +808,27 @@ export function SettingsForm({
           }
         }
       } catch (err) {
+        // Check for session expiration in thrown error
+        if (isSessionExpired(err)) {
+          const metadata = retryMetadata.current.get("equipment");
+          if (metadata) {
+            // Accumulate with existing pending changes
+            const existing = getPendingChanges();
+            const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+            const newChange = {
+              key: "equipment",
+              type: metadata.type,
+              patch: metadata.patch,
+              timestamp: Date.now()
+            };
+            // Replace if same key exists, otherwise append
+            const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+            stashPendingChanges(merged, pathname);
+          }
+          notifySessionExpired();
+          return;
+        }
+        
         const rawMessage = err instanceof Error ? err.message : "Unknown error";
         const friendlyError = getFriendlyError("equipment", rawMessage);
         setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
@@ -706,6 +839,11 @@ export function SettingsForm({
 
   /** Save injuries */
   function saveInjuries(injuries: Parameters<typeof actions.updateInjuries>[0]) {
+    // Store retry metadata
+    retryMetadata.current.set("injuries", {
+      type: 'injuries',
+      patch: injuries
+    });
     enqueueSave("injuries", () => actions.updateInjuries(injuries), true);
   }
 
@@ -729,6 +867,7 @@ export function SettingsForm({
 
   return (
     <div className="relative space-y-12">
+      {sessionExpiredUI}
       {/* Sticky autosave status */}
       <div 
         role="status" 
@@ -745,14 +884,23 @@ export function SettingsForm({
                 <span className="text-danger">{errorMsg}</span>
                 <button
                   onClick={() => {
+<<<<<<< HEAD
                     // M1 fix #2: Retry through saveProfile/saveSession or retryFn
                     const metadata = retryMetadata.current.get(key);
+                    // M1 fix #2: Retry through appropriate save function
+                    const metadata = retryMetadata.current.get(key);
                     if (metadata) {
-                      if (metadata.type === 'profile' && metadata.patch) {
-                        saveProfile(key, metadata.patch, metadata.affectsPlan);
-                      } else if (metadata.type === 'session' && metadata.patch) {
-                        saveSession(key, metadata.patch);
+                      if (metadata.type === 'profile' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
+                        saveProfile(key, metadata.patch as Parameters<typeof actions.updateProfileSettings>[0], metadata.affectsPlan);
+                      } else if (metadata.type === 'session' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch)) {
+                        saveSession(key, metadata.patch as Parameters<typeof actions.updateSessionSettings>[0]);
+                      } else if (metadata.type === 'equipment' && metadata.patch && typeof metadata.patch === 'object' && !Array.isArray(metadata.patch) && 'hasAll' in metadata.patch && 'equipmentIds' in metadata.patch) {
+                        const equipPatch = metadata.patch as { hasAll: boolean; equipmentIds: string[] };
+                        saveEquipment(equipPatch.hasAll, equipPatch.equipmentIds);
+                      } else if (metadata.type === 'injuries' && Array.isArray(metadata.patch)) {
+                        saveInjuries(metadata.patch as Parameters<typeof actions.updateInjuries>[0]);
                       } else if (metadata.retryFn) {
+                        // Per-item equipment/injury retry (PRIORITY 1)
                         metadata.retryFn();
                       }
                     }
