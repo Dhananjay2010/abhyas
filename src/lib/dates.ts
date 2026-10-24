@@ -60,3 +60,13 @@ export function isoWeekday(iso: string): number {
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
   return ((dow + 6) % 7) + 1;
 }
+
+/** Parse an ISO 8601 timestamp to milliseconds since epoch. */
+export function parseIsoMs(iso: string): number {
+  return Date.parse(iso);
+}
+
+/** Calculate seconds elapsed from an ISO timestamp to a reference time in milliseconds. */
+export function secondsSinceIso(iso: string, nowMs: number): number {
+  return (nowMs - parseIsoMs(iso)) / 1000;
+}

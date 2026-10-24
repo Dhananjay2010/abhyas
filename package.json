@@ -172,6 +172,7 @@
     "test:settings-flush-network-errors": "tsx scripts/test-settings-flush-network-errors.tsx",
     "test:timezone-session-stale": "tsx scripts/test-timezone-session-stale.ts",
     "test:close-stale-deps": "tsx scripts/test-close-stale-deps.ts",
+    "test:date-helpers": "tsx scripts/test-date-helpers.ts",
     "test:log-set-validation": "tsx scripts/test-log-set-validation.ts",
     "test:today-midnight-resume": "tsx scripts/test-today-midnight-resume.ts"
   },

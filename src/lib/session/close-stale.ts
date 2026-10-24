@@ -3,6 +3,7 @@ import type { Database } from "@/lib/database.types";
 import { resolveStaleFinish, type StaleFinishInput } from "./stale-duration";
 import { buildCloseStaleDeps } from "./close-stale-deps";
 import type { CloseStaleDeps } from "./close-stale-deps";
+import { parseIsoMs, secondsSinceIso } from "@/lib/dates";
 
 export type { CloseStaleDeps };
 
@@ -126,8 +127,7 @@ export async function closeStaleSessionsCore(
     }
 
     const lastActivity = lastSetCompletedAt.get(id) ?? session.started_at;
-    const lastActivityMs = Date.parse(lastActivity);
-    const elapsedSeconds = (nowMs - lastActivityMs) / 1000;
+    const elapsedSeconds = secondsSinceIso(lastActivity, nowMs);
 
     // A session is stale if:
     // 1. It has been inactive for more than 6 hours, OR
