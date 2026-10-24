@@ -105,7 +105,7 @@ export function prescribe(
 /** Week 4 of every block is a deload: less volume, nothing near failure. */
 export function applyDeload(p: Prescription): Prescription {
   return {
-    sets: Math.max(2, Math.round(p.sets * 0.6)),
+    sets: Math.min(p.sets, Math.max(2, Math.round(p.sets * 0.6))),
     repsMin: p.repsMin,
     repsMax: p.repsMax,
     restSeconds: p.restSeconds,
