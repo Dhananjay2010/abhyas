@@ -11,6 +11,7 @@
 import { finishSessionCore } from "../src/lib/session/finish-session";
 import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
 import { abandonSessionCore } from "../src/lib/session/abandon-session";
+import type { AbandonSessionDeps, SessionExerciseRow } from "../src/lib/session/abandon-session-deps";
 
 let passed = 0;
 let failed = 0;
@@ -80,6 +81,30 @@ function makeFakeFinishSessionDeps(
   };
 }
 
+function makeFakeAbandonSessionDeps(exercises: SessionExerciseRow[]): AbandonSessionDeps & { calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> } {
+  const calls: Array<{ method: string; table: string; payload?: Record<string, unknown>; filters?: Record<string, unknown> }> = [];
+
+  return {
+    calls,
+    async loadExercises(sessionId) {
+      calls.push({ method: "loadExercises", table: "session_exercises", filters: { sessionId } });
+      return { data: exercises, error: null };
+    },
+    async updateSession(id, patch) {
+      calls.push({ method: "updateSession", table: "sessions", payload: patch, filters: { id } });
+      return { error: null };
+    },
+    async loadExercisesForUpdate(sessionId) {
+      calls.push({ method: "loadExercisesForUpdate", table: "session_exercises", filters: { sessionId } });
+      return { data: [], error: null };
+    },
+    async updateExerciseStatus(id, status) {
+      calls.push({ method: "updateExerciseStatus", table: "session_exercises", payload: { status }, filters: { id } });
+      return { error: null };
+    },
+  };
+}
+
 (async () => {
   console.log("🧪 Testing 0-working-set rule\n");
 
@@ -104,7 +129,7 @@ function makeFakeFinishSessionDeps(
       assertEquals(result.data.status, "skipped", "Skip all -> status must be 'skipped'");
     }
 
-    const updateCall = fake.calls.find((c) => c.method === "update");
+    const updateCall = fake.calls.find((c) => c.method === "updateSession");
     assertEquals(updateCall?.payload?.status, "skipped", "DB update must save 'skipped'");
     assertEquals(updateCall?.payload?.completed_at, null, "completed_at must be null for skipped");
   }
@@ -130,7 +155,7 @@ function makeFakeFinishSessionDeps(
       assertEquals(result.data.status, "skipped", "Only warm-up sets -> status must be 'skipped'");
     }
 
-    const updateCall = fake.calls.find((c) => c.method === "update");
+    const updateCall = fake.calls.find((c) => c.method === "updateSession");
     assertEquals(updateCall?.payload?.status, "skipped", "DB update must save 'skipped'");
     assertEquals(updateCall?.payload?.completed_at, null, "completed_at must be null for skipped");
   }
@@ -151,7 +176,7 @@ function makeFakeFinishSessionDeps(
       assertEquals(result.data.status, "skipped", "End early with 0 working sets -> status must be 'skipped'");
     }
 
-    const updateCall = fake.calls.find((c) => c.method === "update");
+    const updateCall = fake.calls.find((c) => c.method === "updateSession");
     assertEquals(updateCall?.payload?.status, "skipped", "DB update must save 'skipped'");
     assertEquals(updateCall?.payload?.completed_at, null, "completed_at must be null for skipped");
   }
@@ -177,7 +202,7 @@ function makeFakeFinishSessionDeps(
       assertEquals(result.data.status, "completed", "1+ working sets -> status must be 'completed'");
     }
 
-    const updateCall = fake.calls.find((c) => c.method === "update");
+    const updateCall = fake.calls.find((c) => c.method === "updateSession");
     assertEquals(updateCall?.payload?.status, "completed", "DB update must save 'completed'");
     assertTrue(updateCall?.payload?.completed_at !== null && updateCall?.payload?.completed_at !== undefined, "completed_at must be set for completed");
   }
@@ -198,7 +223,7 @@ function makeFakeFinishSessionDeps(
       assertEquals(result.data.status, "completed", "End early with working sets -> status must be 'completed'");
     }
 
-    const updateCall = fake.calls.find((c) => c.method === "update");
+    const updateCall = fake.calls.find((c) => c.method === "updateSession");
     assertEquals(updateCall?.payload?.status, "completed", "DB update must save 'completed'");
     assertTrue(updateCall?.payload?.completed_at !== null && updateCall?.payload?.completed_at !== undefined, "completed_at must be set for completed");
   }
