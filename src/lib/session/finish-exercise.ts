@@ -53,15 +53,11 @@ export async function finishExerciseCore(
     20260908090000_initial_schema.sql line 314:
       status  exercise_status not null default 'pending'
     
-    So a simple `NOT IN` is safe - it excludes only completed/skipped/swapped_out
-    rows, never NULL. If the exercise was already finished, zero rows are updated
-    and the RETURNING clause gives back an empty array. That's the idempotency
+    So a simple `NOT IN` is safe - it excludes only completed/skipped rows,
+    never NULL. If the exercise was already finished, zero rows are updated and
+    the RETURNING clause gives back an empty array. That's the idempotency
     check: the first call wins the transition and runs progression; every
     subsequent call sees no row and skips it.
-    
-    'swapped_out' exercises must never be finished or progressed: they were
-    replaced mid-session and exist only for the history. Including them here
-    ensures finishExercise is a no-op on a swapped-out row.
     
     Using `.single()` here would throw on the second call, which is exactly the
     wrong behavior for an idempotent action — a retry or double-tap would fail
@@ -75,7 +71,7 @@ export async function finishExerciseCore(
       completed_at: new Date().toISOString(),
     })
     .eq("id", input.sessionExerciseId)
-    .not("status", "in", "(completed,skipped,swapped_out)")
+    .not("status", "in", "(completed,skipped)")
     .select("id");
 
   if (error) return { ok: false, error: error.message };

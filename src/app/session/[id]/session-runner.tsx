@@ -30,6 +30,7 @@ import {
   type SwapResult,
 } from "../actions";
 import { classifyLogSetOutcome, nextSetNumberFor } from "@/lib/session/outbox";
+import { isQuotaError } from "@/lib/session/network-error";
 import { useSetOutbox } from "./use-set-outbox";
 
 /** Injected so the runner can be exercised without a signed-in session. */
@@ -722,39 +723,33 @@ export function SessionRunner({
           startRest(restSeconds);
         }
       } catch (err) {
-        // S4: Cross-browser quota detection
-        const isQuotaError =
-          err instanceof DOMException &&
-          (err.code === 22 ||
-            err.code === 1014 ||
-            err.name === "QuotaExceededError" ||
-            err.name === "NS_ERROR_DOM_QUOTA_REACHED");
-
-        if (isQuotaError) {
-          // Quota exceeded: keep row in memory as 'unsaved' with its values
-          setExercises((prev) =>
-            prev.map((e) =>
-              e.id === current.id
-                ? {
-                    ...e,
-                    sets: [
-                      ...e.sets,
-                      {
-                        setNumber: nextSetNumber,
-                        reps,
-                        weightKg,
-                        durationSeconds,
-                        unsaved: true,
-                      } as LoggedSet & { unsaved?: boolean },
-                    ],
-                  }
-                : e,
-            ),
-          );
-          // Network error + quota: offline-specific message
+        // On ANY enqueue failure, keep row as 'unsaved' (never drop it)
+        setExercises((prev) =>
+          prev.map((e) =>
+            e.id === current.id
+              ? {
+                  ...e,
+                  sets: [
+                    ...e.sets,
+                    {
+                      setNumber: nextSetNumber,
+                      reps,
+                      weightKg,
+                      durationSeconds,
+                      unsaved: true,
+                    } as LoggedSet & { unsaved?: boolean },
+                  ],
+                }
+              : e,
+          ),
+        );
+        
+        // Set syncState and error based on error type
+        if (isQuotaError(err)) {
+          setSyncState({ type: "quota" });
           setError(
             classification.isNetwork
-              ? "You're offline. Your set wasn't saved – tap Log again when you're back online."
+              ? "You're offline and this phone is out of space. Tap Retry on the set when you're back online."
               : "Couldn't save offline. Keep this screen open.",
           );
         } else {
@@ -1000,14 +995,20 @@ export function SessionRunner({
                           busyRef.current = true;
                           setBusy(true);
                           try {
-                            const result = await actions.logSet({
-                              sessionExerciseId: current.id,
-                              setNumber: n,
-                              reps: logged.reps,
-                              weightKg: logged.weightKg,
-                              durationSeconds: logged.durationSeconds,
-                            });
-                            const classification = classifyLogSetOutcome(result);
+                            let classification;
+                            try {
+                              const result = await actions.logSet({
+                                sessionExerciseId: current.id,
+                                setNumber: n,
+                                reps: logged.reps,
+                                weightKg: logged.weightKg,
+                                durationSeconds: logged.durationSeconds,
+                              });
+                              classification = classifyLogSetOutcome(result);
+                            } catch (thrown) {
+                              // Network or other thrown error
+                              classification = classifyLogSetOutcome({ thrown });
+                            }
                             
                             if (classification.outcome === "saved") {
                               // Clear failed/unsaved flags and remove from outbox if clientId exists
@@ -1035,35 +1036,76 @@ export function SessionRunner({
                               );
                               setError(null);
                             } else if (classification.outcome === "queue") {
-                              // Enqueue with same setNumber and mark pending
-                              const clientId = enqueueSet(
-                                current.id,
-                                n,
-                                logged.reps,
-                                logged.weightKg,
-                                logged.durationSeconds,
-                              );
-                              setExercises((prev) =>
-                                prev.map((e) =>
-                                  e.id === current.id
-                                    ? {
-                                        ...e,
-                                        sets: e.sets.map((s) =>
-                                          s.setNumber === n
-                                            ? {
-                                                ...s,
-                                                pending: true,
-                                                failed: false,
-                                                unsaved: false,
-                                                clientId,
-                                              } as typeof s
-                                            : s,
-                                        ),
-                                      }
-                                    : e,
-                                ),
-                              );
-                              setError(null);
+                              // Remove old failed entry before enqueuing
+                              if (setWithMeta.clientId) {
+                                removeSet(setWithMeta.clientId);
+                              }
+                              
+                              // Try to enqueue
+                              try {
+                                const clientId = enqueueSet(
+                                  current.id,
+                                  n,
+                                  logged.reps,
+                                  logged.weightKg,
+                                  logged.durationSeconds,
+                                );
+                                setExercises((prev) =>
+                                  prev.map((e) =>
+                                    e.id === current.id
+                                      ? {
+                                          ...e,
+                                          sets: e.sets.map((s) =>
+                                            s.setNumber === n
+                                              ? {
+                                                  ...s,
+                                                  pending: true,
+                                                  failed: false,
+                                                  unsaved: false,
+                                                  clientId,
+                                                } as typeof s
+                                              : s,
+                                          ),
+                                        }
+                                      : e,
+                                  ),
+                                );
+                                setError(null);
+                                if (classification.isNetwork) {
+                                  setSyncState({ type: "offline" });
+                                }
+                              } catch (enqueueErr) {
+                                // Enqueue failed (quota or other error)
+                                setExercises((prev) =>
+                                  prev.map((e) =>
+                                    e.id === current.id
+                                      ? {
+                                          ...e,
+                                          sets: e.sets.map((s) =>
+                                            s.setNumber === n
+                                              ? {
+                                                  ...s,
+                                                  pending: false,
+                                                  failed: false,
+                                                  unsaved: true,
+                                                } as typeof s
+                                              : s,
+                                          ),
+                                        }
+                                      : e,
+                                  ),
+                                );
+                                if (isQuotaError(enqueueErr)) {
+                                  setSyncState({ type: "quota" });
+                                  setError(
+                                    classification.isNetwork
+                                      ? "You're offline and this phone is out of space. Tap Retry on the set when you're back online."
+                                      : "Couldn't save offline. Keep this screen open.",
+                                  );
+                                } else {
+                                  setError("Failed to save set. Please try again.");
+                                }
+                              }
                             } else {
                               // invalid: keep as failed with message
                               setExercises((prev) =>

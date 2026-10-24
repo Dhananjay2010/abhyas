@@ -10,7 +10,7 @@
  * implementations without touching localStorage or the network.
  */
 
-import { isNetworkError } from "./network-error";
+import { isNetworkError, isQuotaError } from "./network-error";
 
 export type QueuedSet = {
   clientId: string; // UUID, client-side only (not sent to server)
@@ -175,11 +175,8 @@ export function createLocalStorage(key: string): OutboxStorage {
       try {
         localStorage.setItem(key, JSON.stringify(state));
       } catch (err) {
-        // Quota exceeded: DON'T delete data. Keep the state in memory
-        // and surface the error to the user.
-        if (err instanceof Error && err.name === "QuotaExceededError") {
-          throw new Error("QUOTA_EXCEEDED");
-        }
+        // Quota exceeded: DON'T delete data. Rethrow original error
+        // so caller can surface it to the user.
         throw err;
       }
     },
