@@ -1750,6 +1750,59 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         ex.orderIndex = idx;
       });
       
+      // PR #73 Task 3a: For CURRENT knee injury, ensure Wall Sit is never in main slots (0-3) and never after core
+      if (hasCurrentKnee) {
+        const wallSitIndex = exercises.findIndex(ex => {
+          const e = byId.get(ex.exerciseId);
+          return e?.slug === "wall-sit";
+        });
+        
+        if (wallSitIndex !== -1) {
+          // Check if Wall Sit is in main slot (0-3)
+          if (wallSitIndex < 4) {
+            // Move Wall Sit to first accessory position (index 4) if there are at least 4 exercises
+            if (exercises.length >= 5) {
+              const [wallSit] = exercises.splice(wallSitIndex, 1);
+              exercises.splice(4, 0, wallSit);
+            }
+          }
+          
+          // Re-find Wall Sit index after potential move
+          const newWallSitIndex = exercises.findIndex(ex => {
+            const e = byId.get(ex.exerciseId);
+            return e?.slug === "wall-sit";
+          });
+          
+          // Check if Wall Sit is after any core exercise
+          if (newWallSitIndex !== -1) {
+            const lastCoreIndex = exercises
+              .map((ex, idx) => {
+                const e = byId.get(ex.exerciseId);
+                return e?.movement_pattern === "core" ? idx : -1;
+              })
+              .reduce((max, idx) => Math.max(max, idx), -1);
+            
+            if (lastCoreIndex >= 0 && newWallSitIndex > lastCoreIndex) {
+              // Move Wall Sit to position just before first core exercise
+              const firstCoreIndex = exercises.findIndex(ex => {
+                const e = byId.get(ex.exerciseId);
+                return e?.movement_pattern === "core";
+              });
+              
+              if (firstCoreIndex !== -1 && firstCoreIndex !== newWallSitIndex) {
+                const [wallSit] = exercises.splice(newWallSitIndex, 1);
+                exercises.splice(firstCoreIndex, 0, wallSit);
+              }
+            }
+          }
+          
+          // Rebuild orderIndex after all Wall Sit adjustments
+          exercises.forEach((ex, idx) => {
+            ex.orderIndex = idx;
+          });
+        }
+      }
+      
       // Ensure no timed holds (metric="seconds") landed in main slots (0-3) after sort
       // This can happen when force-adding wall-sit or similar accessories
       // Reuse the byId map from final sort above
