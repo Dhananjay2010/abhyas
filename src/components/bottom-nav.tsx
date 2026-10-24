@@ -100,6 +100,11 @@ function getLastPracticeServerSnapshot(): PracticeType | null {
 
 export function BottomNav({ forNotFound }: { forNotFound?: boolean } = {}) {
   const pathname = usePathname();
+  const lastPractice = useSyncExternalStore(
+    subscribe,
+    getLastPracticeSnapshot,
+    getLastPracticeServerSnapshot
+  );
   
   if (forNotFound) {
     if (!needsNotFoundNav(pathname)) return null;
@@ -130,12 +135,6 @@ export function BottomNav({ forNotFound }: { forNotFound?: boolean } = {}) {
   }
   
   const active = activeTab(pathname);
-  
-  const lastPractice = useSyncExternalStore(
-    subscribe,
-    getLastPracticeSnapshot,
-    getLastPracticeServerSnapshot
-  );
   if (!active) return null;
 
   // Map /practice to the appropriate destination using choice logic

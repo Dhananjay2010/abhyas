@@ -78,7 +78,6 @@ async function runTests() {
     const userId = "550e8400-e29b-41d4-a716-446655440000";
     const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
     const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
-    const noQueryClient = createFakeSessionClient(false, true) as unknown as SupabaseClient;
     const errorClient = createFakeSessionClient(false, false, true);
     
     check(
@@ -87,13 +86,14 @@ async function runTests() {
     );
     
     // Check that .eq() was called with correct parameters
+    const eqCalls = (existingClient as unknown as { _eqCalls: Array<[string, string]> })._eqCalls;
     check(
       "queries filter by user_id",
-      (existingClient as any)._eqCalls.some((call: [string, string]) => call[0] === "user_id" && call[1] === userId),
+      eqCalls.some((call: [string, string]) => call[0] === "user_id" && call[1] === userId),
     );
     check(
       "queries filter by id",
-      (existingClient as any)._eqCalls.some((call: [string, string]) => call[0] === "id" && call[1] === "550e8400-e29b-41d4-a716-446655440000"),
+      eqCalls.some((call: [string, string]) => call[0] === "id" && call[1] === "550e8400-e29b-41d4-a716-446655440000"),
     );
     
     check(
@@ -115,7 +115,6 @@ async function runTests() {
   {
     const userId = "550e8400-e29b-41d4-a716-446655440000";
     const existingClient = createFakeSessionClient(true) as unknown as SupabaseClient;
-    const missingClient = createFakeSessionClient(false) as unknown as SupabaseClient;
     const noQueryClient = createFakeSessionClient(false, true) as unknown as SupabaseClient;
     
     check(
