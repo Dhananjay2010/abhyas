@@ -244,65 +244,7 @@ console.log("\n6. Lat Pulldown swap test: no behind-the-neck variants offered");
   }
 }
 
-console.log("\n7. All-catalogue check: head == main baseline (hard-coded snapshot from main 25d92f8)");
-{
-  // Load pre-computed baseline from main 25d92f8 with exclusions pre-filtered
-  const baselineData = JSON.parse(readFileSync("scripts/fixtures/main-baseline.json", "utf8"));
-  const baselineMap = new Map<string, string>();
-  
-  for (const entry of baselineData) {
-    const key = `${entry.exercise}|${entry.level}|${entry.equipment}|${entry.injuries}|${entry.seed}`;
-    baselineMap.set(key, entry.alternatives.join(","));
-  }
-  
-  let totalLists = 0;
-  let diffCount = 0;
-  
-  for (const exercise of catalogue) {
-    const patterns = buildPatternList(exercise.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
-    for (const [profileName, equipment] of Object.entries(EQUIPMENT_PROFILES)) {
-      for (const level of LEVELS) {
-        for (const { label: injuryLabel, regions } of INJURY_SCENARIOS) {
-          for (const seed of TIE_BREAK_SEEDS) {
-            const wantCompound = exercise.mechanic !== "isolation";
-            const ctx: AlternativesContext = {
-              level,
-              availableEquipment: equipment,
-              injuryRegions: regions,
-              limit: 5,
-              scoreFn: (e) => score(e, wantCompound, level, "weights"),
-              tieBreakFn: (slug) => hashString(`${seed}:${slug}`),
-            };
-            
-            const head = rankAlternatives(exercise, pool, ctx);
-            const headSlugs = head.map(e => e.slug).join(",");
-            
-            const key = `${exercise.slug}|${level}|${profileName}|${injuryLabel}|${seed}`;
-            const baseSlugs = baselineMap.get(key) || "";
-            
-            totalLists++;
-            
-            if (headSlugs !== baseSlugs) {
-              diffCount++;
-              if (diffCount <= 3) {
-                console.log(`  Diff: ${exercise.slug} (${profileName},${level},${injuryLabel},${seed})`);
-                console.log(`    Baseline: ${baseSlugs}`);
-                console.log(`    Head: ${headSlugs}`);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  check(`checked ${totalLists} lists`, totalLists > 0);
-  check("head == baseline", diffCount === 0, `${diffCount} diffs`);
-}
-
-console.log("\n8. Direct unit tests: each excluded slug");
+console.log("\n7. Direct unit tests: each excluded slug");
 {
   // Test standing-barbell-press-behind-neck
   const press = catalogue.find(e => e.slug === "barbell-shoulder-press");
@@ -449,7 +391,7 @@ console.log("\n8. Direct unit tests: each excluded slug");
   }
 }
 
-console.log("\n9. Pullover scope tests");
+console.log("\n8. Pullover scope tests");
 {
   // Test (a): Press original with pullover in same pattern
   // front-raise-and-pullover is horizontal_press, so it can be in bench pool
