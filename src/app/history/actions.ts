@@ -86,6 +86,11 @@ export async function updateSessionDateTime(
     return { success: false, error: "Not authenticated" };
   }
 
+  // Validate timestamps are present before proceeding
+  if (!startedAt || !completedAt) {
+    return { success: false, error: "Start and end times are required." };
+  }
+
   // Get profile for timezone and signup date
   const { data: profile } = await supabase
     .from("profiles")
@@ -104,94 +109,21 @@ export async function updateSessionDateTime(
     return { success: false, error: "Unable to determine signup date." };
   }
 
-  // Import validation functions
-  const {
-    validateTimestampsPresent,
-    validateTimestampsParseable,
-    validateDateNotFuture,
-    validateDateAfterSignup,
-    validateLocalDateMatchesStartedAt,
-    checkTimeRangeOverlap,
-  } = await import("@/lib/history/edit-validation");
+  // Call core function
+  const { updateSessionDateTimeCore } = await import("@/lib/history/edit-cores");
+  const result = await updateSessionDateTimeCore(
+    supabase,
+    user.id,
+    sessionId,
+    localDate,
+    startedAt,
+    completedAt,
+    timezone,
+    signupDate
+  );
 
-  // Validate timestamps are present
-  const timestampsPresent = validateTimestampsPresent(startedAt, completedAt);
-  if (!timestampsPresent.valid) {
-    return { success: false, error: timestampsPresent.error };
-  }
-
-  // Validate timestamps are parseable
-  const timestampsParseable = validateTimestampsParseable(startedAt!, completedAt!);
-  if (!timestampsParseable.valid) {
-    return { success: false, error: timestampsParseable.error };
-  }
-
-  // Validate date is not in the future
-  const dateNotFuture = validateDateNotFuture(localDate, timezone);
-  if (!dateNotFuture.valid) {
-    return { success: false, error: dateNotFuture.error };
-  }
-
-  // Validate date is after signup
-  const dateAfterSignup = validateDateAfterSignup(localDate, signupDate, timezone);
-  if (!dateAfterSignup.valid) {
-    return { success: false, error: dateAfterSignup.error };
-  }
-
-  // Validate local_date matches started_at in member's timezone
-  const localDateMatches = validateLocalDateMatchesStartedAt(localDate, startedAt!, timezone);
-  if (!localDateMatches.valid) {
-    return { success: false, error: localDateMatches.error };
-  }
-
-  // Calculate duration_seconds
-  const startMs = new Date(startedAt!).getTime();
-  const endMs = new Date(completedAt!).getTime();
-  const durationSeconds = Math.round((endMs - startMs) / 1000);
-
-  // Validate duration
-  if (durationSeconds <= 0) {
-    return { success: false, error: "End time must be after start time." };
-  }
-  if (durationSeconds > 36000) { // 10 hours
-    return { success: false, error: "Duration cannot exceed 10 hours." };
-  }
-
-  // Check for overlapping sessions on the same date
-  const { data: existingSessions } = await supabase
-    .from("sessions")
-    .select("id, started_at, completed_at")
-    .eq("user_id", user.id)
-    .eq("local_date", localDate)
-    .neq("id", sessionId)
-    .not("started_at", "is", null)
-    .not("completed_at", "is", null);
-
-  if (existingSessions && existingSessions.length > 0) {
-    const overlapCheck = checkTimeRangeOverlap(
-      new Date(startedAt!),
-      new Date(completedAt!),
-      existingSessions
-    );
-    if (!overlapCheck.valid) {
-      return { success: false, error: overlapCheck.error };
-    }
-  }
-
-  const { error } = await supabase
-    .from("sessions")
-    .update({
-      local_date: localDate,
-      started_at: startedAt,
-      completed_at: completedAt,
-      duration_seconds: durationSeconds,
-    })
-    .eq("id", sessionId)
-    .eq("user_id", user.id);
-
-  if (error) {
-    console.error("Database error updating session:", error);
-    return { success: false, error: "Failed to update session. Please try again." };
+  if (!result.success) {
+    return result;
   }
 
   revalidatePath("/history");
@@ -217,69 +149,35 @@ export async function updateSet(
     return { success: false, error: "Not authenticated" };
   }
 
-  // Import validation functions
-  const {
-    validateReps,
-    validateWeightKg,
-    validateSetMetrics,
-  } = await import("@/lib/history/edit-validation");
-
-  // Validate reps
-  const repsValidation = validateReps(reps);
-  if (!repsValidation.valid) {
-    return { success: false, error: repsValidation.error };
-  }
-
-  // Validate weight
-  const weightValidation = validateWeightKg(weightKg);
-  if (!weightValidation.valid) {
-    return { success: false, error: weightValidation.error };
-  }
-
-  // Validate that at least one metric is present
-  const metricsValidation = validateSetMetrics(reps, weightKg, durationSeconds);
-  if (!metricsValidation.valid) {
-    return { success: false, error: metricsValidation.error };
-  }
-
-  // Verify ownership through session_exercises
+  // Get session_id for revalidation
   const { data: sessionExercise } = await supabase
     .from("session_exercises")
-    .select("id, session_id, user_id")
+    .select("session_id")
     .eq("id", sessionExerciseId)
     .eq("user_id", user.id)
     .single();
 
-  if (!sessionExercise) {
-    return { success: false, error: "That exercise no longer exists." };
+  const { updateSetCore } = await import("@/lib/history/edit-cores");
+  const result = await updateSetCore(
+    supabase,
+    user.id,
+    sessionExerciseId,
+    setNumber,
+    reps,
+    weightKg,
+    durationSeconds
+  );
+
+  if (!result.success) {
+    return result;
   }
 
-  const { data: updatedRows, error } = await supabase
-    .from("session_sets")
-    .update({
-      reps,
-      weight_kg: weightKg,
-      duration_seconds: durationSeconds,
-    })
-    .eq("session_exercise_id", sessionExerciseId)
-    .eq("set_number", setNumber)
-    .eq("is_warmup_set", false)
-    .select("id");
-
-  if (error) {
-    console.error("Database error updating set:", error);
-    return { success: false, error: "Failed to update set. Please try again." };
+  if (sessionExercise) {
+    revalidatePath("/history");
+    revalidatePath(`/history/${sessionExercise.session_id}`);
+    revalidatePath("/progress");
+    revalidatePath("/today");
   }
-
-  // Check if the set exists
-  if (!updatedRows || updatedRows.length === 0) {
-    return { success: false, error: "That set no longer exists." };
-  }
-
-  revalidatePath("/history");
-  revalidatePath(`/history/${sessionExercise.session_id}`);
-  revalidatePath("/progress");
-  revalidatePath("/today");
 
   return { success: true };
 }
@@ -305,84 +203,42 @@ export async function deleteSet(
     return { success: false, error: "Not authenticated" };
   }
 
-  // Verify ownership through session_exercises
+  // Get session_id for revalidation before delete
   const { data: sessionExercise } = await supabase
     .from("session_exercises")
-    .select("id, session_id, user_id")
+    .select("session_id")
     .eq("id", sessionExerciseId)
     .eq("user_id", user.id)
     .single();
 
-  if (!sessionExercise) {
-    return { success: false, error: "That exercise no longer exists." };
+  const { deleteSetCore } = await import("@/lib/history/edit-cores");
+  const result = await deleteSetCore(
+    supabase,
+    user.id,
+    sessionExerciseId,
+    setNumber,
+    deleteSessionIfEmpty
+  );
+
+  if (!result.success) {
+    return result;
   }
 
-  // Count total working sets across all exercises in this session
-  const { data: allExercises } = await supabase
-    .from("session_exercises")
-    .select("id")
-    .eq("session_id", sessionExercise.session_id)
-    .eq("user_id", user.id);
-
-  if (!allExercises || allExercises.length === 0) {
-    return { success: false, error: "Session not found." };
-  }
-
-  const exerciseIds = allExercises.map((e) => e.id);
-
-  const { count: totalWorkingSets } = await supabase
-    .from("session_sets")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("is_warmup_set", false)
-    .in("session_exercise_id", exerciseIds);
-
-  // If this is the last working set and deleteSessionIfEmpty is false, refuse
-  if (totalWorkingSets === 1 && !deleteSessionIfEmpty) {
-    return {
-      success: false,
-      error: "last_set",
-      message: "This is the last set. Delete the whole session?",
-    };
-  }
-
-  // Delete the set (RLS ensures user can only delete their own)
-  const { data: deletedRows, error } = await supabase
-    .from("session_sets")
-    .delete()
-    .eq("session_exercise_id", sessionExerciseId)
-    .eq("set_number", setNumber)
-    .eq("user_id", user.id)
-    .select("id");
-
-  if (error) {
-    console.error("Database error deleting set:", error);
-    return { success: false, error: "Failed to delete set. Please try again." };
-  }
-
-  // Check if the set existed
-  if (!deletedRows || deletedRows.length === 0) {
-    return { success: false, error: "That set no longer exists." };
-  }
-
-  // If this was the last working set and deleteSessionIfEmpty is true, delete the session
-  if (totalWorkingSets === 1 && deleteSessionIfEmpty) {
-    const deleteResult = await deleteSession(sessionExercise.session_id);
-    if ("error" in deleteResult && deleteResult.error) {
-      return { success: false, error: deleteResult.error };
-    }
-    if ("success" in deleteResult && !deleteResult.success) {
-      return { success: false, error: "Failed to delete session." };
-    }
-    return { success: true, sessionDeleted: true, redirect: "/history" };
+  if (result.sessionDeleted) {
+    revalidatePath("/history");
+    revalidatePath("/progress");
+    revalidatePath("/today");
+    return result;
   }
 
   // Revalidate History list (updates set counts, volume, PR badges, streak eligibility)
   // and detail page
-  revalidatePath("/history");
-  revalidatePath(`/history/${sessionExercise.session_id}`);
-  revalidatePath("/progress");
-  revalidatePath("/today");
+  if (sessionExercise) {
+    revalidatePath("/history");
+    revalidatePath(`/history/${sessionExercise.session_id}`);
+    revalidatePath("/progress");
+    revalidatePath("/today");
+  }
 
   return { success: true };
 }

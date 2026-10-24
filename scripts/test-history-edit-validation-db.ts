@@ -112,19 +112,20 @@ async function runTests() {
     const exerciseA = exercises[0].id;
     const exerciseB = exercises[1].id;
 
-    console.log("1. Future date validation");
+    console.log("1. Future date validation via updateSessionDateTimeCore");
     {
       const sessionId = randomUUID();
       const seId = randomUUID();
 
-      // Create a session with a future date (2026-10-26)
+      // Create a session with a valid date
       const { error: e1 } = await adminClient.from("sessions").insert({
         id: sessionId,
         user_id: userId,
-        local_date: "2026-10-15", // Valid date for setup
+        local_date: "2026-10-15",
         status: "completed",
         started_at: "2026-10-15T10:00:00Z",
         completed_at: "2026-10-15T11:00:00Z",
+        duration_seconds: 3600,
       });
       if (e1) { console.error("Insert session failed:", e1); return false; }
 
@@ -148,21 +149,52 @@ async function runTests() {
         is_warmup_set: false,
       });
 
-      // Try to update to a future date (validation should reject this)
-      // We can't directly call the action here, but we can verify the validation logic
-      // by checking that the validation function would reject it
-      const { validateDateNotFuture } = await import("../src/lib/history/edit-validation");
+      // Get user-scoped client
+      const { data: sessionData } = await adminClient.auth.signInWithPassword({
+        email: testEmail,
+        password: testPassword,
+      });
+      if (!sessionData.session) {
+        console.error("Failed to sign in test user");
+        return false;
+      }
+
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+        global: {
+          headers: {
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+        },
+      });
+
+      // Try to update to a future date using the core function
+      const { updateSessionDateTimeCore } = await import("../src/lib/history/edit-cores");
+      
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
       const [y, m, d] = today.split("-").map(Number);
       const tomorrow = new Date(Date.UTC(y, m - 1, d + 1));
       const tomorrowStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(tomorrow);
       
-      const result = validateDateNotFuture(tomorrowStr, "Asia/Kolkata");
-      check("Future date is rejected by validation", !result.valid);
+      const result = await updateSessionDateTimeCore(
+        userClient,
+        userId,
+        sessionId,
+        tomorrowStr,
+        "2026-10-15T10:00:00Z",
+        "2026-10-15T11:00:00Z",
+        "Asia/Kolkata",
+        signupDate
+      );
+      
+      check("Future date is rejected by core function", !result.success);
       check("Future date error message is friendly", result.error === "That date is in the future.");
     }
 
-    console.log("\n2. Nonexistent set returns error");
+    console.log("\n2. Nonexistent set returns error via updateSetCore and deleteSetCore");
     {
       const sessionId = randomUUID();
       const seId = randomUUID();
@@ -174,6 +206,7 @@ async function runTests() {
         status: "completed",
         started_at: "2026-10-16T10:00:00Z",
         completed_at: "2026-10-16T11:00:00Z",
+        duration_seconds: 3600,
       });
       if (e1) { console.error("Insert session failed:", e1); return false; }
 
@@ -197,29 +230,58 @@ async function runTests() {
         is_warmup_set: false,
       });
 
-      // Try to update a nonexistent set (set_number 999)
-      const { data: updatedRows } = await adminClient
-        .from("session_sets")
-        .update({ reps: 20 })
-        .eq("session_exercise_id", seId)
-        .eq("set_number", 999)
-        .eq("is_warmup_set", false)
-        .select("id");
+      // Get user-scoped client
+      const { data: sessionData } = await adminClient.auth.signInWithPassword({
+        email: testEmail,
+        password: testPassword,
+      });
+      if (!sessionData.session) {
+        console.error("Failed to sign in test user");
+        return false;
+      }
 
-      check("Update nonexistent set returns 0 rows", !updatedRows || updatedRows.length === 0);
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+        global: {
+          headers: {
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+        },
+      });
+
+      // Try to update a nonexistent set (set_number 999)
+      const { updateSetCore } = await import("../src/lib/history/edit-cores");
+      const updateResult = await updateSetCore(
+        userClient,
+        userId,
+        seId,
+        999,
+        20,
+        null,
+        null
+      );
+
+      check("Update nonexistent set returns error", !updateResult.success);
+      check("Update nonexistent set error message", updateResult.error === "That set no longer exists.");
 
       // Try to delete a nonexistent set
-      const { data: deletedRows } = await adminClient
-        .from("session_sets")
-        .delete()
-        .eq("session_exercise_id", seId)
-        .eq("set_number", 999)
-        .select("id");
+      const { deleteSetCore } = await import("../src/lib/history/edit-cores");
+      const deleteResult = await deleteSetCore(
+        userClient,
+        userId,
+        seId,
+        999,
+        false
+      );
 
-      check("Delete nonexistent set returns 0 rows", !deletedRows || deletedRows.length === 0);
+      check("Delete nonexistent set returns error", !deleteResult.success);
+      check("Delete nonexistent set error message", deleteResult.success === false && deleteResult.error === "That set no longer exists.");
     }
 
-    console.log("\n3. Delete last set behavior");
+    console.log("\n3. Delete last working set behavior via deleteSetCore");
     {
       const sessionId = randomUUID();
       const seId = randomUUID();
@@ -231,6 +293,7 @@ async function runTests() {
         status: "completed",
         started_at: "2026-10-17T10:00:00Z",
         completed_at: "2026-10-17T11:00:00Z",
+        duration_seconds: 3600,
       });
       if (e1) { console.error("Insert session failed:", e1); return false; }
 
@@ -264,36 +327,194 @@ async function runTests() {
 
       check("Session has exactly 1 working set", beforeCount === 1);
 
-      // Delete the last set
-      const { data: deletedRows } = await adminClient
-        .from("session_sets")
-        .delete()
-        .eq("session_exercise_id", seId)
-        .eq("set_number", 1)
-        .select("id");
+      // Get user-scoped client
+      const { data: sessionData } = await adminClient.auth.signInWithPassword({
+        email: testEmail,
+        password: testPassword,
+      });
+      if (!sessionData.session) {
+        console.error("Failed to sign in test user");
+        return false;
+      }
 
-      check("Delete operation succeeded", !!(deletedRows && deletedRows.length > 0));
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+        global: {
+          headers: {
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+        },
+      });
 
-      // Verify session still exists but has 0 sets
+      // Try to delete the last working set without deleteSessionIfEmpty flag
+      const { deleteSetCore } = await import("../src/lib/history/edit-cores");
+      const deleteResult = await deleteSetCore(
+        userClient,
+        userId,
+        seId,
+        1,
+        false
+      );
+
+      check("Delete last working set without flag refused", !deleteResult.success);
+      check("Last set error is 'last_set'", deleteResult.success === false && deleteResult.error === "last_set");
+
+      // Now delete with the flag set to true
+      const deleteWithFlagResult = await deleteSetCore(
+        userClient,
+        userId,
+        seId,
+        1,
+        true
+      );
+
+      check("Delete last working set with flag succeeds", deleteWithFlagResult.success);
+      check("Session deleted flag is set", deleteWithFlagResult.success === true && deleteWithFlagResult.sessionDeleted === true);
+
+      // Verify session no longer exists
       const { data: session } = await adminClient
         .from("sessions")
-        .select("id, status")
+        .select("id")
         .eq("id", sessionId)
         .single();
 
-      check("Session still exists after last set deleted", session !== null);
+      check("Session deleted from database", session === null);
+    }
 
-      const { count: afterCount } = await adminClient
+    console.log("\n4. Delete warmup set when 1 working set remains");
+    {
+      const sessionId = randomUUID();
+      const seId = randomUUID();
+
+      const { error: e1 } = await adminClient.from("sessions").insert({
+        id: sessionId,
+        user_id: userId,
+        local_date: "2026-10-18",
+        status: "completed",
+        started_at: "2026-10-18T10:00:00Z",
+        completed_at: "2026-10-18T11:00:00Z",
+        duration_seconds: 3600,
+      });
+      if (e1) { console.error("Insert session failed:", e1); return false; }
+
+      const { error: e2 } = await adminClient.from("session_exercises").insert({
+        id: seId,
+        user_id: userId,
+        session_id: sessionId,
+        exercise_id: exercises[0].id,
+        metric: "reps",
+        status: "completed",
+        order_index: 0,
+      });
+      if (e2) { console.error("Insert session_exercise failed:", e2); return false; }
+
+      // Insert 1 warmup set and 1 working set
+      await adminClient.from("session_sets").insert([
+        {
+          user_id: userId,
+          session_exercise_id: seId,
+          set_number: 1,
+          reps: 5,
+          weight_kg: 50,
+          is_warmup_set: true,
+        },
+        {
+          user_id: userId,
+          session_exercise_id: seId,
+          set_number: 2,
+          reps: 10,
+          weight_kg: 100,
+          is_warmup_set: false,
+        },
+      ]);
+
+      // Count sets before deletion
+      const { count: workingCount } = await adminClient
         .from("session_sets")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
         .eq("session_exercise_id", seId)
         .eq("is_warmup_set", false);
 
-      check("Session now has 0 working sets", afterCount === 0);
+      check("Session has exactly 1 working set", workingCount === 1);
+
+      const { count: warmupCount } = await adminClient
+        .from("session_sets")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("session_exercise_id", seId)
+        .eq("is_warmup_set", true);
+
+      check("Session has exactly 1 warmup set", warmupCount === 1);
+
+      // Get user-scoped client
+      const { data: sessionData } = await adminClient.auth.signInWithPassword({
+        email: testEmail,
+        password: testPassword,
+      });
+      if (!sessionData.session) {
+        console.error("Failed to sign in test user");
+        return false;
+      }
+
+      const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+        global: {
+          headers: {
+            Authorization: `Bearer ${sessionData.session.access_token}`,
+          },
+        },
+      });
+
+      // Try to delete the warmup set (should succeed without last-set check)
+      const { deleteSetCore } = await import("../src/lib/history/edit-cores");
+      const deleteResult = await deleteSetCore(
+        userClient,
+        userId,
+        seId,
+        1, // warmup set
+        false
+      );
+
+      check("Delete warmup set succeeds even when 1 working set remains", deleteResult.success);
+      check("Session not deleted (only warmup removed)", deleteResult.success === true && !deleteResult.sessionDeleted);
+
+      // Verify warmup set is gone but working set remains
+      const { count: afterWarmupCount } = await adminClient
+        .from("session_sets")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("session_exercise_id", seId)
+        .eq("is_warmup_set", true);
+
+      check("Warmup set deleted", afterWarmupCount === 0);
+
+      const { count: afterWorkingCount } = await adminClient
+        .from("session_sets")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("session_exercise_id", seId)
+        .eq("is_warmup_set", false);
+
+      check("Working set still exists", afterWorkingCount === 1);
+
+      // Verify session still exists
+      const { data: session } = await adminClient
+        .from("sessions")
+        .select("id")
+        .eq("id", sessionId)
+        .single();
+
+      check("Session still exists", session !== null);
     }
 
-    console.log("\n4. Validation: Pre-signup date rejected");
+    console.log("\n5. Validation: Pre-signup date rejected");
     {
       const { validateDateAfterSignup } = await import("../src/lib/history/edit-validation");
       
@@ -307,7 +528,7 @@ async function runTests() {
       check("Signup date itself is valid", sameDay.valid);
     }
 
-    console.log("\n5. Validation: Reps boundaries");
+    console.log("\n6. Validation: Reps boundaries");
     {
       const { validateReps } = await import("../src/lib/history/edit-validation");
       
@@ -320,7 +541,7 @@ async function runTests() {
       check("Reps error message is friendly", error0.error === "Reps must be between 1 and 100.");
     }
 
-    console.log("\n6. Validation: Weight boundaries");
+    console.log("\n7. Validation: Weight boundaries");
     {
       const { validateWeightKg } = await import("../src/lib/history/edit-validation");
       
