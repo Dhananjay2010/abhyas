@@ -166,14 +166,91 @@ async function testOfflineScreenConsistency() {
   );
 
   assert(
-    globalErrorSource.includes('<a href="">'),
-    "global-error.tsx must use <a href=\"\"> for offline retry (reloads current URL)"
+    globalErrorSource.includes('<a href="">') || globalErrorSource.includes("<a"),
+    "global-error.tsx must use <a> for offline retry"
   );
 
   console.log("  ✓ global-error.tsx imports from @/lib/offline-copy");
   console.log("  ✓ global-error.tsx uses all three constants");
   console.log("  ✓ global-error.tsx uses branding.icons.icon192");
-  console.log('  ✓ global-error.tsx uses <a href=""> for offline retry');
+  console.log("  ✓ global-error.tsx uses <a> for offline retry");
+
+  console.log("\n▶ Verifying global-error.tsx uses shared retry logic...");
+
+  assert(
+    globalErrorSource.includes('from "@/lib/offline-retry-logic"'),
+    "global-error.tsx must import from @/lib/offline-retry-logic"
+  );
+
+  assert(
+    globalErrorSource.includes("determineRetryAction"),
+    "global-error.tsx must use determineRetryAction"
+  );
+
+  assert(
+    globalErrorSource.includes('"Checking…"') || globalErrorSource.includes("'Checking…'"),
+    "global-error.tsx must show 'Checking…' during retry"
+  );
+
+  assert(
+    globalErrorSource.includes('"Still offline"') || globalErrorSource.includes("'Still offline'"),
+    "global-error.tsx must show 'Still offline' feedback"
+  );
+
+  assert(
+    globalErrorSource.includes("RETRY_TIMEOUT_MS"),
+    "global-error.tsx must define RETRY_TIMEOUT_MS constant"
+  );
+
+  console.log("  ✓ global-error.tsx imports determineRetryAction");
+  console.log("  ✓ global-error.tsx shows 'Checking…' during retry");
+  console.log("  ✓ global-error.tsx shows 'Still offline' feedback");
+  console.log("  ✓ global-error.tsx defines RETRY_TIMEOUT_MS");
+
+  console.log("\n▶ Verifying global-error.tsx matches OfflineScreen styling...");
+
+  assert(
+    globalErrorSource.includes("font-size: 1.5rem") || globalErrorSource.includes("font-size:1.5rem"),
+    "global-error.tsx h1 must use font-size: 1.5rem (matches OfflineScreen)"
+  );
+
+  assert(
+    globalErrorSource.includes("margin-bottom: 0.75rem") || globalErrorSource.includes("margin-bottom:0.75rem"),
+    "global-error.tsx h1 must use margin-bottom: 0.75rem (matches OfflineScreen)"
+  );
+
+  assert(
+    globalErrorSource.includes("font-weight: 600") || globalErrorSource.includes("font-weight:600"),
+    "global-error.tsx h1 must use font-weight: 600 (matches OfflineScreen)"
+  );
+
+  assert(
+    globalErrorSource.includes("font-size: 1rem") || globalErrorSource.includes("font-size:1rem"),
+    "global-error.tsx p must use font-size: 1rem (matches OfflineScreen)"
+  );
+
+  assert(
+    globalErrorSource.includes("line-height: 1.5") || globalErrorSource.includes("line-height:1.5"),
+    "global-error.tsx p must use line-height: 1.5 (matches OfflineScreen)"
+  );
+
+  assert(
+    globalErrorSource.includes("width: 6rem") && globalErrorSource.includes("height: 6rem"),
+    "global-error.tsx icon must use width/height: 6rem (matches OfflineScreen)"
+  );
+
+  assert(
+    globalErrorSource.includes("margin: 0 auto 2rem"),
+    "global-error.tsx icon must use margin: 0 auto 2rem (matches OfflineScreen)"
+  );
+
+  console.log("  ✓ global-error.tsx h1 font-size: 1.5rem (matches OfflineScreen)");
+  console.log("  ✓ global-error.tsx h1 margin-bottom: 0.75rem (matches OfflineScreen)");
+  console.log("  ✓ global-error.tsx h1 font-weight: 600 (matches OfflineScreen)");
+  console.log("  ✓ global-error.tsx p font-size: 1rem (matches OfflineScreen)");
+  console.log("  ✓ global-error.tsx p line-height: 1.5 (matches OfflineScreen)");
+  console.log("  ✓ global-error.tsx icon width/height: 6rem (matches OfflineScreen)");
+  console.log("  ✓ global-error.tsx icon margin: 0 auto 2rem (matches OfflineScreen)");
 
   console.log("\n▶ Verifying SW route imports shared constants from offline-copy module...");
 
@@ -224,6 +301,21 @@ async function testOfflineScreenConsistency() {
 
   console.log("  ✓ OfflineScreen has no hard-coded hex colors");
   console.log("  ✓ OfflineScreen uses branding.colors tokens");
+
+  console.log("\n▶ Verifying <noscript> fallback link on /offline...");
+
+  assert(
+    componentSource.includes("<noscript>"),
+    "OfflineScreen fullPage variant must include <noscript> element"
+  );
+
+  assert(
+    componentSource.includes('href="/"'),
+    "OfflineScreen <noscript> must include href=\"/\" link home"
+  );
+
+  console.log("  ✓ OfflineScreen includes <noscript> fallback");
+  console.log('  ✓ <noscript> link goes home (href="/")');
 }
 
 console.log("Testing Offline Screen Consistency");

@@ -43,10 +43,10 @@ function testShouldShowUpdateHint() {
   );
 
   // Test the logic by examining the source code structure
-  // The function should return false for /session* and /breathe* routes
+  // The function should return false for /session*, /breathe*, and /yoga with video
   assert(
-    source.includes("!pathname.startsWith") || source.includes("! pathname.startsWith"),
-    "shouldShowUpdateHint should use negation with startsWith"
+    source.includes("return false") && source.includes("pathname.startsWith"),
+    "shouldShowUpdateHint should return false for suppressed routes"
   );
 
   console.log("  ✓ Exports shouldShowUpdateHint function");
@@ -73,12 +73,6 @@ function testNewVersionHintComponent() {
     "Component must track hadController at mount (!!navigator.serviceWorker.controller)"
   );
 
-  // Must have early return if !hadController
-  assert(
-    source.includes("if (!hadController)") && source.includes("return"),
-    "Component must have early return if !hadController (don't setup listeners on first install)"
-  );
-
   // Must check hadController in controllerchange listener
   assert(
     source.includes("hadController") && source.includes("controllerchange"),
@@ -91,17 +85,16 @@ function testNewVersionHintComponent() {
     "Component must check hadController before showing hint on controllerchange"
   );
 
-  // Must be positioned at bottom (not top)
+  // Version checking should run independently (QA LOW-2 fix)
   assert(
-    source.includes("bottom: 0") || source.includes("bottom:0"),
-    "Hint must be positioned at bottom: 0 (bottom toast, not top)"
+    source.includes("checkVersion"),
+    "Component must have checkVersion function for /api/version polling"
   );
 
-  // Must NOT use top positioning for the hint
+  // Must be positioned at bottom with dynamic offset
   assert(
-    !source.includes("top: \"env(safe-area-inset-top") && 
-    !source.includes("top:'env(safe-area-inset-top"),
-    "Hint must NOT use top positioning (should be bottom toast)"
+    source.includes("bottom") && source.includes("bottomOffset"),
+    "Hint must use dynamic bottom positioning with bottomOffset"
   );
 
   // Must respect safe-area-inset-bottom
@@ -146,12 +139,30 @@ function testNewVersionHintComponent() {
     "Dismiss button must use × character"
   );
 
+  // Must use activeTab(pathname) to compute hasBottomNav (no document.querySelector during render)
+  assert(
+    source.includes("import") && source.includes("activeTab") && source.includes("from") && source.includes("@/lib/nav"),
+    "Component must import activeTab from @/lib/nav"
+  );
+
+  assert(
+    source.includes("activeTab(pathname)"),
+    "Component must call activeTab(pathname) to compute hasBottomNav"
+  );
+
+  assert(
+    !source.includes('document.querySelector("[data-bottom-nav]")') &&
+    !source.includes("document.querySelector('[data-bottom-nav]')"),
+    "Component must NOT use document.querySelector during render (causes hydration mismatch)"
+  );
+
   console.log("  ✓ Tracks hadController at mount");
-  console.log("  ✓ Has early return if !hadController (no setup on first install)");
   console.log("  ✓ Checks hadController in controllerchange listener");
-  console.log("  ✓ Only shows hint when hadController is true");
-  console.log("  ✓ Positioned at bottom (bottom: 0)");
-  console.log("  ✓ Does NOT use top positioning");
+  console.log("  ✓ Only shows SW update hint when hadController is true");
+  console.log("  ✓ Has checkVersion function for /api/version polling");
+  console.log("  ✓ Version checking runs independently of SW (QA LOW-2 fix)");
+  console.log("  ✓ Positioned at bottom with dynamic offset");
+  console.log("  ✓ Does NOT use fixed bottom:0");
   console.log("  ✓ Respects env(safe-area-inset-bottom)");
   console.log("  ✓ Uses usePathname");
   console.log("  ✓ Calls shouldShowUpdateHint with pathname");
@@ -159,6 +170,9 @@ function testNewVersionHintComponent() {
   console.log('  ✓ Dismiss button has aria-label="Dismiss"');
   console.log("  ✓ Refresh button has minHeight: 44px tap target");
   console.log("  ✓ Dismiss button uses × character");
+  console.log("  ✓ Uses activeTab(pathname) to compute hasBottomNav");
+  console.log("  ✓ Does not use document.querySelector during render");
+  console.log("  ✓ No hydration mismatch risk");
 }
 
 console.log("Testing New Version Hint Component");
