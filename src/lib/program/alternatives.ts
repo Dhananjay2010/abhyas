@@ -182,9 +182,12 @@ export function rankAlternatives<T extends ExerciseRow>(
     current.impact !== "high";
   
   // Is current a compound pull (for pullover exclusion)?
+  // Exception: if current is itself a pullover, allow pullover swaps
   const isCompoundPull =
     (current.movement_pattern === "horizontal_pull" || current.movement_pattern === "vertical_pull") &&
     current.mechanic === "compound";
+  const isPulloverOriginal =
+    current.name.toLowerCase().includes("pullover") || current.slug.includes("pullover");
   
   const filtered: Array<{ 
     exercise: T; 
@@ -205,7 +208,7 @@ export function rankAlternatives<T extends ExerciseRow>(
     
     // 3. Exclude pullovers when original is a compound pull
     // Pullovers are shoulder-extension moves and not appropriate substitutes
-    if (isCompoundPull) {
+    if (isCompoundPull && !isPulloverOriginal) {
       const nameLower = candidate.name.toLowerCase();
       if (nameLower.includes("pullover") || candidate.slug.includes("pullover")) {
         continue;

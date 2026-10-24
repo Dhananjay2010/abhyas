@@ -2,16 +2,17 @@
  * Tests for swap variety with safety exclusions (QA Task U3 + L-8).
  * 
  * Requirements:
- * 1. Hard-coded exclusions: 4 dangerous exercises
+ * 1. Hard-coded exclusions: 5 dangerous exercises
  * 2. Pullover exclusion for compound pulls (except pullover originals)
- * 3. All-catalogue comparison against main baseline
- * 4. Direct unit tests for each excluded slug
- * 5. Pullover scope tests
+ * 3. All-catalogue comparison against main baseline (hard-coded snapshot from main 25d92f8)
+ * 4. Oracle checks for 4 key exercises
+ * 5. Direct unit tests for each excluded slug
+ * 6. Pullover scope tests with direct pools
  *
  *   npm run test:swap-variety
  */
 import { readFileSync } from "fs";
-import { rankAlternatives, buildPatternList, EXCLUDED_EXERCISE_SLUGS, type AlternativesContext, type ExerciseRow } from "../src/lib/program/alternatives";
+import { rankAlternatives, buildPatternList, type AlternativesContext, type ExerciseRow } from "../src/lib/program/alternatives";
 import { score, hashString } from "../src/lib/program/generate";
 import type { Database } from "../src/lib/database.types";
 
@@ -44,37 +45,6 @@ const INJURY_SCENARIOS: { label: string; regions: BodyRegion[] }[] = [
   { label: "lower_back", regions: ["lower_back"] },
 ];
 const TIE_BREAK_SEEDS = ["seed-1", "seed-2", "seed-3"];
-
-// Baseline: main's ranking with exclusions removed
-function mainBaseline(
-  current: ExerciseRow,
-  pool: ExerciseRow[],
-  ctx: AlternativesContext,
-): ExerciseRow[] {
-  // Filter pool exactly as head does: exclude dangerous slugs, exclude pullovers for compound pulls
-  const isCompoundPull =
-    (current.movement_pattern === "horizontal_pull" || current.movement_pattern === "vertical_pull") &&
-    current.mechanic === "compound";
-  const isPulloverOriginal =
-    current.name.toLowerCase().includes("pullover") || current.slug.includes("pullover");
-  
-  const filtered = pool.filter((candidate) => {
-    if (candidate.id === current.id) return false;
-    if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) return false;
-    
-    if (isCompoundPull && !isPulloverOriginal) {
-      const nameLower = candidate.name.toLowerCase();
-      if (nameLower.includes("pullover") || candidate.slug.includes("pullover")) {
-        return false;
-      }
-    }
-    
-    return true;
-  });
-  
-  // Rank using main's exact algorithm (no other changes)
-  return rankAlternatives(current, filtered, ctx);
-}
 
 console.log("\n1. Oracle check: Lat Pulldown (wide-grip-lat-pulldown, full gym)");
 {
@@ -109,7 +79,6 @@ console.log("\n1. Oracle check: Lat Pulldown (wide-grip-lat-pulldown, full gym)"
     
     console.log(`  Got: ${slugs.join(", ")}`);
     check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
-    check("no excluded slugs", slugs.every(s => !EXCLUDED_EXERCISE_SLUGS.has(s)));
     check("no pullovers", slugs.every(s => !s.includes("pullover")));
   }
 }
@@ -148,7 +117,7 @@ console.log("\n2. Oracle check: Barbell Bench Press (barbell-bench-press-medium-
     console.log(`  Got: ${slugs.join(", ")}`);
     check("matches oracle", JSON.stringify(slugs) === JSON.stringify(expected));
     check("no guillotine", !slugs.includes("barbell-guillotine-bench-press"));
-    check("no excluded slugs", slugs.every(s => !EXCLUDED_EXERCISE_SLUGS.has(s)));
+    check("no neck-press", !slugs.includes("neck-press"));
   }
 }
 
@@ -225,8 +194,17 @@ console.log("\n4. Oracle check: Seated Cable Rows (seated-cable-rows, full gym)"
   }
 }
 
-console.log("\n5. All-catalogue check: head == main baseline across all scenarios");
+console.log("\n5. All-catalogue check: head == main baseline (hard-coded snapshot from main 25d92f8)");
 {
+  // Load pre-computed baseline from main 25d92f8 with exclusions pre-filtered
+  const baselineData = JSON.parse(readFileSync("scripts/fixtures/main-baseline.json", "utf8"));
+  const baselineMap = new Map<string, string>();
+  
+  for (const entry of baselineData) {
+    const key = `${entry.exercise}|${entry.level}|${entry.equipment}|${entry.injuries}|${entry.seed}`;
+    baselineMap.set(key, entry.alternatives.join(","));
+  }
+  
   let totalLists = 0;
   let diffCount = 0;
   
@@ -249,18 +227,18 @@ console.log("\n5. All-catalogue check: head == main baseline across all scenario
             };
             
             const head = rankAlternatives(exercise, pool, ctx);
-            const baseline = mainBaseline(exercise, pool, ctx);
+            const headSlugs = head.map(e => e.slug).join(",");
+            
+            const key = `${exercise.slug}|${level}|${profileName}|${injuryLabel}|${seed}`;
+            const baseSlugs = baselineMap.get(key) || "";
             
             totalLists++;
-            
-            const headSlugs = head.map(e => e.slug).join(",");
-            const baseSlugs = baseline.map(e => e.slug).join(",");
             
             if (headSlugs !== baseSlugs) {
               diffCount++;
               if (diffCount <= 3) {
                 console.log(`  Diff: ${exercise.slug} (${profileName},${level},${injuryLabel},${seed})`);
-                console.log(`    Main: ${baseSlugs}`);
+                console.log(`    Baseline: ${baseSlugs}`);
                 console.log(`    Head: ${headSlugs}`);
               }
             }
@@ -399,13 +377,14 @@ console.log("\n6. Direct unit tests: each excluded slug");
 
 console.log("\n7. Pullover scope tests");
 {
-  // Press original CAN get pullover
+  // Test (a): Press original with pullover in same pattern
+  // front-raise-and-pullover is horizontal_press, so it can be in bench pool
   const bench = catalogue.find(e => e.slug === "barbell-bench-press-medium-grip");
-  const pullover = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
-  const fly = catalogue.find(e => e.slug === "dumbbell-flyes");
+  const frontRaisePullover = catalogue.find(e => e.slug === "front-raise-and-pullover");
+  const incline = catalogue.find(e => e.slug === "barbell-incline-bench-press-medium-grip");
   
-  if (bench && pullover && fly) {
-    const pool = [bench, pullover, fly];
+  if (bench && frontRaisePullover && incline) {
+    const pool = [bench, frontRaisePullover, incline];
     const wantCompound = bench.mechanic !== "isolation";
     const ctx: AlternativesContext = {
       level: "intermediate",
@@ -419,17 +398,16 @@ console.log("\n7. Pullover scope tests");
     const alternatives = rankAlternatives(bench, pool, ctx);
     const slugs = alternatives.map(e => e.slug);
     
-    check("press original can get pullover", slugs.includes("bent-arm-barbell-pullover") || slugs.length < 2);
+    check("press original can get pullover", slugs.includes("front-raise-and-pullover"));
   }
   
-  // Isolation pull CAN get pullover
+  // Test (b): Isolation pull CAN get pullover
   const straightArm = catalogue.find(e => e.slug === "straight-arm-pulldown");
-  const dbPullover = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
+  const bentArmPullover = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
+  const latRaise = catalogue.find(e => e.slug === "v-bar-pulldown");
   
-  if (straightArm && dbPullover) {
-    const patterns = buildPatternList(straightArm.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
+  if (straightArm && bentArmPullover && latRaise) {
+    const pool = [straightArm, bentArmPullover, latRaise];
     const wantCompound = straightArm.mechanic !== "isolation";
     const ctx: AlternativesContext = {
       level: "intermediate",
@@ -443,16 +421,16 @@ console.log("\n7. Pullover scope tests");
     const alternatives = rankAlternatives(straightArm, pool, ctx);
     const slugs = alternatives.map(e => e.slug);
     
-    check("isolation pull can get pullover", !slugs.some(s => s.includes("pullover")) || straightArm.mechanic === "isolation");
+    check("isolation pull can get pullover", slugs.includes("bent-arm-barbell-pullover"));
   }
   
-  // Lat Pulldown (compound pull) CANNOT get pullover
+  // Test (c): Compound vertical pull CANNOT get pullover
   const latPull = catalogue.find(e => e.slug === "wide-grip-lat-pulldown");
+  const pulloverForTest = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
+  const validAlt = catalogue.find(e => e.slug === "close-grip-front-lat-pulldown");
   
-  if (latPull) {
-    const patterns = buildPatternList(latPull.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
+  if (latPull && pulloverForTest && validAlt) {
+    const pool = [latPull, pulloverForTest, validAlt];
     const wantCompound = latPull.mechanic !== "isolation";
     const ctx: AlternativesContext = {
       level: "intermediate",
@@ -466,62 +444,39 @@ console.log("\n7. Pullover scope tests");
     const alternatives = rankAlternatives(latPull, pool, ctx);
     const slugs = alternatives.map(e => e.slug);
     
-    check("compound vertical pull cannot get pullover", !slugs.some(s => s.includes("pullover")));
+    check("compound vertical pull cannot get pullover", !slugs.includes("bent-arm-barbell-pullover"));
+    check("valid alternative present", slugs.includes("close-grip-front-lat-pulldown"));
   }
   
-  // Seated Cable Rows (compound pull) CANNOT get pullover
-  const cableRow = catalogue.find(e => e.slug === "seated-cable-rows");
+  // Test (d): Pullover original CAN get other pullovers
+  const originalPullover = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
   
-  if (cableRow) {
-    const patterns = buildPatternList(cableRow.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
-    const wantCompound = cableRow.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
+  if (originalPullover) {
+    // Create a synthetic pullover in the same pattern
+    const syntheticPullover = {
+      ...originalPullover,
+      id: "test-pullover-id",
+      slug: "test-pullover",
+      name: "Test Pullover",
     };
+    const validAlt2 = catalogue.find(e => e.slug === "close-grip-front-lat-pulldown");
     
-    const alternatives = rankAlternatives(cableRow, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    check("compound horizontal pull cannot get pullover", !slugs.some(s => s.includes("pullover")));
-  }
-  
-  // Pullover original CAN get other pullovers
-  const bentArmPullover = catalogue.find(e => e.slug === "bent-arm-barbell-pullover");
-  
-  if (bentArmPullover) {
-    const patterns = buildPatternList(bentArmPullover.movement_pattern, false);
-    const pool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
-    
-    const wantCompound = bentArmPullover.mechanic !== "isolation";
-    const ctx: AlternativesContext = {
-      level: "intermediate",
-      availableEquipment: null,
-      injuryRegions: [],
-      limit: 5,
-      scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
-      tieBreakFn: (slug) => hashString(`test:${slug}`),
-    };
-    
-    const alternatives = rankAlternatives(bentArmPullover, pool, ctx);
-    const slugs = alternatives.map(e => e.slug);
-    
-    // If other pullovers exist in pool, pullover original should be able to get them
-    const hasOtherPullovers = pool.some(e => 
-      e.id !== bentArmPullover.id && 
-      (e.name.toLowerCase().includes("pullover") || e.slug.includes("pullover"))
-    );
-    
-    if (hasOtherPullovers) {
-      check("pullover original can get other pullovers", slugs.some(s => s.includes("pullover")));
-    } else {
-      check("pullover original pool check", true, "no other pullovers in pool");
+    if (validAlt2) {
+      const pool = [originalPullover, syntheticPullover, validAlt2];
+      const wantCompound = originalPullover.mechanic !== "isolation";
+      const ctx: AlternativesContext = {
+        level: "intermediate",
+        availableEquipment: null,
+        injuryRegions: [],
+        limit: 5,
+        scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+        tieBreakFn: (slug) => hashString(`test:${slug}`),
+      };
+      
+      const alternatives = rankAlternatives(originalPullover, pool, ctx);
+      const slugs = alternatives.map(e => e.slug);
+      
+      check("pullover original can get other pullovers", slugs.includes("test-pullover"));
     }
   }
 }
