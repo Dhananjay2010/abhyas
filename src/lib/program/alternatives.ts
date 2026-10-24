@@ -184,6 +184,14 @@ export function rankAlternatives<T extends ExerciseRow>(
     !isIsometric(current) &&
     current.impact !== "high";
   
+  // Is current a dynamic pull (reps-based, compound, not iso/plyo)?
+  const isDynamicPull = 
+    (current.movement_pattern === "horizontal_pull" || current.movement_pattern === "vertical_pull") &&
+    current.metric === "reps" &&
+    current.mechanic === "compound" &&
+    !isIsometric(current) &&
+    current.impact !== "high";
+  
   const filtered: Array<{ 
     exercise: T; 
     patternRank: number;
@@ -198,8 +206,6 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 1. Exclude current exercise
     if (candidate.id === current.id) continue;
     
-    // 2. Exclude behind-the-neck variants (dangerous shoulder position)
-    if (isBehindTheNeck(candidate)) continue;
     
     // 3. Pattern priority (lower rank = better)
     const patternRank = patternPriority.indexOf(candidate.movement_pattern);
@@ -218,7 +224,15 @@ export function rankAlternatives<T extends ExerciseRow>(
       if (candidate.impact === "high") continue;
     }
     
-    // 7. Injury filtering: exclude if any contraindicated region intersects
+    // 7. For dynamic pull, prefer compound reps-based (exclude isolation and plyometric)
+    if (isDynamicPull) {
+      if (isIsometric(candidate)) continue;
+      if (candidate.impact === "high") continue;
+      // Strongly prefer compound for pulls (isolation straight-arm variants score lower)
+      if (candidate.mechanic === "isolation") continue;
+    }
+    
+    // 8. Injury filtering: exclude if any contraindicated region intersects
     if (
       candidate.contraindicated_regions.some((region) =>
         ctx.injuryRegions.includes(region)
@@ -227,7 +241,7 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 8. Equipment check: all-of semantics
+    // 9. Equipment check: all-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
       const allAvailable = candidate.equipment_ids.every((id) =>
         ctx.availableEquipment!.has(id)
@@ -277,7 +291,7 @@ export function rankAlternatives<T extends ExerciseRow>(
     return a.tieBreak - b.tieBreak;
   });
   
-  // Deduplicate by name BEFORE equipment spreading
+  // Deduplicate by name
   const nameDeduped: Array<typeof filtered[0]> = [];
   const seenNames = new Map<string, boolean>();
   
@@ -290,39 +304,29 @@ export function rankAlternatives<T extends ExerciseRow>(
     nameDeduped.push(item);
   }
   
-  // Group by equipment signature for variety spreading
-  const equipmentGroups = new Map<string, Array<typeof nameDeduped[0]>>();
+  // Apply equipment variety as a tie-break within the relevance-sorted list
+  // First pass: prefer exercises with unseen equipment signatures
+  const result: T[] = [];
+  const seenEquipment = new Set<string>();
   
   for (const item of nameDeduped) {
     const sig = getEquipmentSignature(item.exercise);
-    if (!equipmentGroups.has(sig)) {
-      equipmentGroups.set(sig, []);
+    if (!seenEquipment.has(sig)) {
+      result.push(item.exercise);
+      seenEquipment.add(sig);
+      if (result.length >= limit) break;
     }
-    equipmentGroups.get(sig)!.push(item);
   }
   
-  // Sort equipment signatures deterministically
-  const sortedSigs = Array.from(equipmentGroups.keys()).sort();
-  
-  // Round-robin select from equipment groups to ensure variety
-  const result: T[] = [];
-  
-  while (result.length < limit) {
-    let addedThisRound = false;
-    
-    for (const sig of sortedSigs) {
-      const group = equipmentGroups.get(sig)!;
-      if (group.length > 0) {
-        const item = group.shift()!;
-        result.push(item.exercise);
-        addedThisRound = true;
-        
-        if (result.length >= limit) break;
-      }
+  // Second pass: fill remaining slots with the next best alternatives (in relevance order)
+  if (result.length < limit) {
+    for (const item of nameDeduped) {
+      // Skip if already added
+      if (result.some(e => e.id === item.exercise.id)) continue;
+      
+      result.push(item.exercise);
+      if (result.length >= limit) break;
     }
-    
-    // If we didn't add anything this round, all groups are empty
-    if (!addedThisRound) break;
   }
   
   return result;
