@@ -1,5 +1,5 @@
 /**
- * Test migration 20261025000016_session_minutes_check.sql with real Postgres (PGlite).
+ * Test migration 20261025000019_session_minutes_check.sql with real Postgres (PGlite).
  *
  * Validates:
  * - Value mapping (37→30, 38→45, 52→45, 53→60, 67→60, 68→75, 90→75, 20→30, null→null, 45→45, 60→60)
@@ -54,9 +54,9 @@ async function runTest() {
     check("11 profiles inserted", count === 11, `got ${count}`);
   }
   
-  console.log("\n2. Apply migration 20261025000016_session_minutes_check.sql");
+  console.log("\n2. Apply migration 20261025000019_session_minutes_check.sql");
   {
-    const migrationPath = join(process.cwd(), "supabase", "migrations", "20261025000016_session_minutes_check.sql");
+    const migrationPath = join(process.cwd(), "supabase", "migrations", "20261025000019_session_minutes_check.sql");
     const migration = readFileSync(migrationPath, "utf-8");
     
     await db.exec(migration);
@@ -90,7 +90,7 @@ async function runTest() {
   
   console.log("\n4. Test idempotency (run migration again)");
   {
-    const migrationPath = join(process.cwd(), "supabase", "migrations", "20261025000016_session_minutes_check.sql");
+    const migrationPath = join(process.cwd(), "supabase", "migrations", "20261025000019_session_minutes_check.sql");
     const migration = readFileSync(migrationPath, "utf-8");
     
     await db.exec(migration);
