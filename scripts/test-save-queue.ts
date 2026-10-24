@@ -55,12 +55,12 @@ console.log("▶ Test 1: At most one in-flight request per key");
   }
 
   // Resolve first request
-  if (resolver1) resolver1(4);
+  resolver1!(4);
   await promise1;
   serverWrites.push(4);
 
   // Second should now be in-flight
-  await new Promise(resolve => setTimeout(resolve, 10));
+  await new Promise(done => setTimeout(done, 10));
   const inFlight2 = queue.getInFlightKeys();
   if (inFlight2.length === 1 && inFlight2[0] === "days") {
     console.log("  ✓ Second request moved to in-flight after first completed");
@@ -70,7 +70,7 @@ console.log("▶ Test 1: At most one in-flight request per key");
   }
 
   // Resolve second request
-  if (resolver2) resolver2(5);
+  resolver2!(5);
   await promise2;
   serverWrites.push(5);
 
@@ -118,14 +118,14 @@ console.log("\n▶ Test 2: Coalescing rapid clicks (4→5→3→4)");
   }
 
   // Resolve first request (4)
-  if (currentResolver) currentResolver({ days: 4 });
+  currentResolver!({ days: 4 });
   await p1;
 
   // Second request (the final 4, coalesced) should now be in-flight
-  await new Promise(resolve => setTimeout(resolve, 10));
+  await new Promise(done => setTimeout(done, 10));
   
   // Resolve final request
-  if (currentResolver) currentResolver({ days: 4 });
+  currentResolver!({ days: 4 });
   await Promise.all([p2, p3, p4]);
 
   // Server should have received exactly 2 writes: 4, 4
@@ -155,7 +155,7 @@ console.log("\n▶ Test 3: Independent keys process concurrently");
   const p2 = queue.enqueue("days", makeRequest("days", "4"));
   const p3 = queue.enqueue("session", makeRequest("session", "60"));
 
-  await new Promise(resolve => setTimeout(resolve, 10));
+  await new Promise(done => setTimeout(done, 10));
 
   const inFlight = queue.getInFlightKeys();
   if (inFlight.length === 3) {
@@ -199,7 +199,7 @@ console.log("\n▶ Test 4: Status reporting");
 
   const promise = queue.enqueue("days", request);
 
-  await new Promise(resolve => setTimeout(resolve, 10));
+  await new Promise(done => setTimeout(done, 10));
 
   const status2 = queue.getStatus();
   if (status2.state === "saving") {
@@ -209,7 +209,7 @@ console.log("\n▶ Test 4: Status reporting");
     failures++;
   }
 
-  if (resolver) resolver(4);
+  resolver!(4);
   await promise;
 
   const status3 = queue.getStatus();
@@ -242,9 +242,9 @@ console.log("\n▶ Test 5: Flush sends queued items immediately");
   const flushPromise = queue.flush();
 
   // Resolve all
-  await new Promise(resolve => setTimeout(resolve, 10));
-  for (const resolve of resolvers) {
-    resolve(0);
+  await new Promise(done => setTimeout(done, 10));
+  for (const resolver of resolvers) {
+    resolver(0);
   }
 
   await flushPromise;

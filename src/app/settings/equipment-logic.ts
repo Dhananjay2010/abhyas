@@ -3,9 +3,6 @@
  * Separated from actions.ts because "use server" files require all exports to be async.
  */
 
-// Re-export for backward compatibility
-export { createRequestSequence } from "./request-sequence";
-
 export function decideEquipmentUpdate(input: {
   currentHasAll: boolean;
   currentEquipmentIds: string[];

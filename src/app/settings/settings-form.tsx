@@ -148,6 +148,7 @@ export function SettingsForm({
     try {
       const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const canonical = canonicalizeTimezone(detected);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBrowserTimezone(canonical);
     } catch {
       // Ignore errors
