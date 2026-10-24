@@ -2,35 +2,10 @@
 /*
  * Test: Resume refresh behavior
  *
- * Tests that router.refresh() is called on mount, visibilitychange, and pageshow.
- * This is a pure logic test of the refresh decision function.
+ * Tests the extracted shouldRefreshOnEvent and attachResumeRefresh functions.
  */
 
-export {}; // Make this a module
-
-/**
- * Pure function to decide whether to refresh based on event.
- * Extracted from useResumeRefresh for testability.
- */
-export function shouldRefreshOnEvent(
-  eventType: "mount" | "visibilitychange" | "pageshow",
-  visibilityState?: "visible" | "hidden",
-  pageshowPersisted?: boolean,
-): boolean {
-  if (eventType === "mount") {
-    return true;
-  }
-
-  if (eventType === "visibilitychange") {
-    return visibilityState === "visible";
-  }
-
-  if (eventType === "pageshow") {
-    return pageshowPersisted === true;
-  }
-
-  return false;
-}
+import { shouldRefreshOnEvent, attachResumeRefresh } from "../src/lib/session/use-resume-refresh";
 
 let passed = 0;
 let failed = 0;
@@ -94,6 +69,99 @@ async function main() {
   await testResumeRefresh("B1: resume after backgrounding → refresh", () => {
     const should = shouldRefreshOnEvent("visibilitychange", "visible");
     assertEqualRefresh(should, true, "Should refresh to get fresh data on resume");
+  });
+
+  // Test 7: attachResumeRefresh calls refresh on visibility visible
+  await testResumeRefresh("attachResumeRefresh: visibilitychange visible calls refresh", () => {
+    let refreshCalled = 0;
+    const listeners: Record<string, EventListener[]> = {};
+    
+    const fakeTarget = {
+      visibilityState: "visible",
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!listeners[event]) listeners[event] = [];
+        listeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (listeners[event]) {
+          listeners[event] = listeners[event].filter((h) => h !== handler);
+        }
+      },
+    };
+
+    const cleanup = attachResumeRefresh(fakeTarget, () => {
+      refreshCalled++;
+    });
+
+    // Simulate visibilitychange
+    if (listeners.visibilitychange) {
+      listeners.visibilitychange[0](new Event("visibilitychange"));
+    }
+
+    assertEqualRefresh(refreshCalled, 1, "Should call refresh once");
+    cleanup();
+  });
+
+  // Test 8: attachResumeRefresh does not call refresh on visibility hidden
+  await testResumeRefresh("attachResumeRefresh: visibilitychange hidden does not call refresh", () => {
+    let refreshCalled = 0;
+    const listeners: Record<string, EventListener[]> = {};
+    
+    const fakeTarget = {
+      visibilityState: "hidden",
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!listeners[event]) listeners[event] = [];
+        listeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (listeners[event]) {
+          listeners[event] = listeners[event].filter((h) => h !== handler);
+        }
+      },
+    };
+
+    const cleanup = attachResumeRefresh(fakeTarget, () => {
+      refreshCalled++;
+    });
+
+    // Simulate visibilitychange to hidden
+    if (listeners.visibilitychange) {
+      listeners.visibilitychange[0](new Event("visibilitychange"));
+    }
+
+    assertEqualRefresh(refreshCalled, 0, "Should not call refresh");
+    cleanup();
+  });
+
+  // Test 9: attachResumeRefresh calls refresh on pageshow with persisted
+  await testResumeRefresh("attachResumeRefresh: pageshow persisted calls refresh", () => {
+    let refreshCalled = 0;
+    const listeners: Record<string, EventListener[]> = {};
+    
+    const fakeTarget = {
+      addEventListener: (event: string, handler: EventListener) => {
+        if (!listeners[event]) listeners[event] = [];
+        listeners[event].push(handler);
+      },
+      removeEventListener: (event: string, handler: EventListener) => {
+        if (listeners[event]) {
+          listeners[event] = listeners[event].filter((h) => h !== handler);
+        }
+      },
+    } as unknown as Window;
+
+    const cleanup = attachResumeRefresh(fakeTarget, () => {
+      refreshCalled++;
+    });
+
+    // Simulate pageshow with persisted
+    if (listeners.pageshow) {
+      const event = { persisted: true } as PageTransitionEvent;
+      listeners.pageshow[0](event as unknown as Event);
+    }
+
+    assertEqualRefresh(refreshCalled, 1, "Should call refresh once");
+    cleanup();
   });
 
   // Summary

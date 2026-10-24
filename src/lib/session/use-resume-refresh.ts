@@ -2,6 +2,64 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 /**
+ * Pure decision function: should we refresh based on this event?
+ * Extracted for testability.
+ */
+export function shouldRefreshOnEvent(
+  eventType: "mount" | "visibilitychange" | "pageshow",
+  visibilityState?: "visible" | "hidden",
+  pageshowPersisted?: boolean,
+): boolean {
+  if (eventType === "mount") {
+    return true;
+  }
+
+  if (eventType === "visibilitychange") {
+    return visibilityState === "visible";
+  }
+
+  if (eventType === "pageshow") {
+    return pageshowPersisted === true;
+  }
+
+  return false;
+}
+
+/**
+ * Injectable seam for attaching resume refresh listeners.
+ * Allows testing without DOM.
+ */
+export function attachResumeRefresh(
+  target: {
+    addEventListener: (event: string, handler: EventListener) => void;
+    removeEventListener: (event: string, handler: EventListener) => void;
+    visibilityState?: string;
+  },
+  refresh: () => void,
+): () => void {
+  const handleVisibilityChange = () => {
+    if (shouldRefreshOnEvent("visibilitychange", target.visibilityState as "visible" | "hidden")) {
+      refresh();
+    }
+  };
+
+  const handlePageShow = (event: Event) => {
+    const persisted = (event as PageTransitionEvent).persisted;
+    if (shouldRefreshOnEvent("pageshow", undefined, persisted)) {
+      refresh();
+    }
+  };
+
+  target.addEventListener("visibilitychange", handleVisibilityChange);
+  (target as Window).addEventListener("pageshow", handlePageShow as EventListener);
+
+  return () => {
+    target.removeEventListener("visibilitychange", handleVisibilityChange);
+    (target as Window).removeEventListener("pageshow", handlePageShow as EventListener);
+  };
+}
+
+/**
  * Custom hook to refresh router data on mount, visibilitychange, and pageshow (bfcache).
  * Ensures fresh data when resuming a session after backgrounding or navigation.
  * 
@@ -14,28 +72,14 @@ export function useResumeRefresh() {
   const router = useRouter();
 
   useEffect(() => {
-    // Refresh on mount to ensure we have fresh data
-    router.refresh();
+    // Refresh on mount
+    if (shouldRefreshOnEvent("mount")) {
+      router.refresh();
+    }
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        router.refresh();
-      }
-    };
+    // Attach listeners for visibilitychange and pageshow
+    const cleanup = attachResumeRefresh(document, () => router.refresh());
 
-    const handlePageShow = (event: PageTransitionEvent) => {
-      if (event.persisted) {
-        // Page was restored from bfcache
-        router.refresh();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("pageshow", handlePageShow);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("pageshow", handlePageShow);
-    };
+    return cleanup;
   }, [router]);
 }

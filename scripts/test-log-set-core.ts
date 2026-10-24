@@ -232,12 +232,14 @@ async function main() {
     });
 
     assertEqualCore(result.ok, false, "Should return conflict");
-    if (!result.ok && "reason" in result) {
-      assertEqualCore(result.reason, "set_exists", "Should have set_exists reason");
-      assertTrue(Array.isArray(result.savedSets), "Should have savedSets array");
-      assertEqualCore(result.savedSets[0].reps, 12, "Should return raced set's reps");
-      assertEqualCore(result.savedSets[0].weightKg, 65, "Should return raced set's weight");
-    }
+    assertTrue(!result.ok && "reason" in result, "Result must have reason field");
+    // Type assertion: after assertTrue, we know result has these fields
+    const conflictResult = result as Extract<typeof result, { reason: "set_exists" }>;
+    assertEqualCore(conflictResult.reason, "set_exists", "Should have set_exists reason");
+    assertTrue("savedSets" in conflictResult && Array.isArray(conflictResult.savedSets), "Result must have savedSets array");
+    assertTrue(conflictResult.savedSets.length > 0, "Should have at least one saved set");
+    assertEqualCore(conflictResult.savedSets[0].reps, 12, "Should return raced set's reps");
+    assertEqualCore(conflictResult.savedSets[0].weightKg, 65, "Should return raced set's weight");
   });
 
   // Test 4: 23505 race with identical values returns duplicate_ok
@@ -291,11 +293,14 @@ async function main() {
     });
 
     assertEqualCore(result.ok, false, "Should return conflict");
-    if (!result.ok && "reason" in result && result.savedSets) {
-      assertEqualCore(result.savedSets.length, 1, "Should return 1 saved set");
-      assertEqualCore(result.savedSets[0].reps, 12, "Should return existing reps");
-      assertEqualCore(result.savedSets[0].weightKg, 30, "Should return existing weight");
-    }
+    assertTrue(!result.ok && "reason" in result, "Result must have reason field");
+    // Type assertion: after assertTrue, we know result has these fields
+    const conflictResult = result as Extract<typeof result, { reason: "set_exists" }>;
+    assertEqualCore(conflictResult.reason, "set_exists", "Should have set_exists reason");
+    assertTrue("savedSets" in conflictResult && Array.isArray(conflictResult.savedSets), "Result must have savedSets array");
+    assertEqualCore(conflictResult.savedSets.length, 1, "Should return 1 saved set");
+    assertEqualCore(conflictResult.savedSets[0].reps, 12, "Should return existing reps");
+    assertEqualCore(conflictResult.savedSets[0].weightKg, 30, "Should return existing weight");
   });
 
   // Test 6: No existing set → insert succeeds
