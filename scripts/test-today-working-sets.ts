@@ -57,19 +57,27 @@ function runTests() {
     //   if (sessionEnded) { ... show labels ... }
 
     type SessionStatus = "in_progress" | "completed" | "skipped";
-    const inProgress: SessionStatus = "in_progress";
-    const ended: SessionStatus = "completed";
+
+    function shouldShowLabels(status: SessionStatus): boolean {
+      return status !== "in_progress";
+    }
 
     assertEquals(
-      inProgress === "in_progress",
-      true,
+      shouldShowLabels("in_progress"),
+      false,
       "In-progress session should NOT show completion labels",
     );
 
     assertEquals(
-      ended !== "in_progress",
+      shouldShowLabels("completed"),
       true,
       "Ended session should show completion labels",
+    );
+
+    assertEquals(
+      shouldShowLabels("skipped"),
+      true,
+      "Skipped session should show completion labels",
     );
   }
 
