@@ -16,6 +16,8 @@ import {
   validateSettingsFields,
   validateTimezone,
   validateDateOfBirth,
+  ONBOARDING_ALLOWED_COLUMNS,
+  SETTINGS_ALLOWED_COLUMNS,
 } from "../src/lib/profile/validation";
 import type { Database } from "../src/lib/database.types";
 
@@ -280,6 +282,72 @@ console.log("\n7. P3-M5: Height and weight NaN/Infinity handling");
   check("rejects weight < 25", !testHeightWeight(175, 24));
   check("rejects weight > 300", !testHeightWeight(175, 301));
 }
+
+// ============================================================
+// 8. Allow-lists match migration grant statement
+// ============================================================
+console.log("\n8. Allow-lists match migration grant statement");
+
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const migrationPath = join(
+  __dirname,
+  "..",
+  "supabase",
+  "migrations",
+  "20261024120000_profile_security_hardening.sql",
+);
+const migrationSql = readFileSync(migrationPath, "utf8");
+
+// Extract the grant update (...) statement
+const grantMatch = migrationSql.match(/grant update \(([\s\S]+?)\) on public\.profiles/i);
+if (!grantMatch) {
+  console.error("   FAIL  Could not find grant update statement in migration");
+  process.exit(1);
+}
+
+const grantColumns = grantMatch[1]
+  .split(",")
+  .map((col) => col.trim())
+  .filter((col) => col.length > 0)
+  .sort();
+
+// Union of all allow-lists plus saveAboutYou columns plus ensureProfileRows columns
+const appColumns = new Set<string>([
+  // ensureProfileRows (auth)
+  "avatar_url",
+  "display_name",
+  // saveAboutYou (onboarding)
+  "date_of_birth",
+  "sex",
+  "height_cm",
+  // ONBOARDING_ALLOWED_COLUMNS
+  ...ONBOARDING_ALLOWED_COLUMNS,
+  // SETTINGS_ALLOWED_COLUMNS (subset of onboarding)
+  ...SETTINGS_ALLOWED_COLUMNS,
+  // saveEquipment (onboarding/settings)
+  "has_all_equipment",
+]);
+
+const appColumnsSorted = Array.from(appColumns).sort();
+
+const onlyInGrant = grantColumns.filter((col) => !appColumns.has(col));
+const onlyInApp = appColumnsSorted.filter((col) => !grantColumns.includes(col));
+
+if (onlyInGrant.length > 0 || onlyInApp.length > 0) {
+  console.error("   FAIL  Mismatch between app allow-lists and migration grant");
+  if (onlyInGrant.length > 0) {
+    console.error("   Granted but not in app:", onlyInGrant.join(", "));
+  }
+  if (onlyInApp.length > 0) {
+    console.error("   In app but not granted:", onlyInApp.join(", "));
+  }
+  process.exit(1);
+}
+
+console.log("   ok   app allow-lists match migration grant statement");
+console.log(`        (${appColumnsSorted.length} columns verified)`);
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

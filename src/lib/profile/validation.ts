@@ -16,7 +16,7 @@ type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
  * Columns that can be set through saveProfileFields (onboarding).
  * This is the wider list; settings use a stricter subset.
  */
-const ONBOARDING_ALLOWED_COLUMNS: ReadonlySet<keyof ProfileRow> = new Set([
+export const ONBOARDING_ALLOWED_COLUMNS: ReadonlySet<keyof ProfileRow> = new Set([
   "display_name",
   "goal",
   "level",
@@ -32,7 +32,7 @@ const ONBOARDING_ALLOWED_COLUMNS: ReadonlySet<keyof ProfileRow> = new Set([
  * Columns that can be changed through updateProfileSettings (settings screen).
  * Narrower than onboarding: display_name and units are not in Settings.
  */
-const SETTINGS_ALLOWED_COLUMNS: ReadonlySet<keyof ProfileRow> = new Set([
+export const SETTINGS_ALLOWED_COLUMNS: ReadonlySet<keyof ProfileRow> = new Set([
   "goal",
   "level",
   "primary_track",

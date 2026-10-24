@@ -57,7 +57,10 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
 >>>>>>> c3a8e82 (feat: harden profile data access and fix auth open redirect)
   const { supabase, user } = await requireUser();
   const { error } = await supabase.from("profiles").update(validation.data).eq("id", user.id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("updateProfileSettings update failed:", error);
+    return { ok: false, error: "Couldn't save your settings. Please try again." };
+  }
   revalidatePath("/settings");
   revalidatePath("/today");
   return { ok: true };

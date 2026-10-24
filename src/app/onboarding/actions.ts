@@ -120,7 +120,11 @@ export async function saveProfileFields(fields: ProfileUpdate): Promise<ActionRe
 >>>>>>> c3a8e82 (feat: harden profile data access and fix auth open redirect)
   const { supabase, user } = await requireUser();
   const { error } = await supabase.from("profiles").update(validation.data).eq("id", user.id);
-  return error ? { ok: false, error: error.message } : { ok: true };
+  if (error) {
+    console.error("saveProfileFields update failed:", error);
+    return { ok: false, error: "Couldn't save your settings. Please try again." };
+  }
+  return { ok: true };
 }
 
 export async function saveEquipment(input: {
@@ -198,7 +202,10 @@ export async function completeOnboarding(): Promise<ActionResult> {
     )
     .eq("id", user.id)
     .single();
-  if (readError) return { ok: false, error: readError.message };
+  if (readError) {
+    console.error("completeOnboarding profile read failed:", readError);
+    return { ok: false, error: "Couldn't load your profile. Please try again." };
+  }
 
   const missing = Object.entries({
     "the disclaimer": profile.disclaimer_accepted_at,
@@ -215,18 +222,30 @@ export async function completeOnboarding(): Promise<ActionResult> {
   if (missing.length > 0)
     return { ok: false, error: `Still missing: ${missing.join(", ")}.` };
 
-  // Build the first block before marking onboarding done, so a user never lands
-  // on Today with a completed profile and no plan.
-  const block = await createBlockForUser(supabase, user.id);
-  if (!block.ok) return { ok: false, error: block.error };
-
   /**
    * M5 fix: Call SECURITY DEFINER RPC that sets timestamp server-side
    * and checks prerequisites (disclaimer, DOB, height, goal, level, track, days).
+   * Run this BEFORE creating the block so that if the RPC fails, the user can
+   * retry without creating duplicate blocks.
    */
   // @ts-expect-error - RPC exists in migration but types not yet generated
   const { error } = await supabase.rpc("complete_onboarding");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("completeOnboarding RPC failed:", error);
+    // The RPC enforces age >= 16; surface that message but hide other DB errors
+    if (error.message?.includes("16 years old")) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: false, error: "Couldn't complete onboarding. Please try again." };
+  }
+
+  // Build the first block after marking onboarding done. If block creation fails,
+  // the user can rebuild from Today or Settings (onboarding is already complete).
+  const block = await createBlockForUser(supabase, user.id);
+  if (!block.ok) {
+    console.error("completeOnboarding block creation failed:", block.error);
+    return { ok: false, error: block.error };
+  }
 
   revalidateTrainingData();
   return { ok: true };

@@ -215,12 +215,17 @@ create trigger profiles_validate_fields
 revoke update on public.profiles from authenticated;
 
 -- Grant UPDATE only on columns that the app legitimately writes as the user
--- Checked callers: saveProfileFields (onboarding), updateProfileSettings (settings)
--- Allow-list union: goal, level, primary_track, days_per_week, yoga_days_per_week,
---                   preferred_session_minutes, has_all_equipment, units, display_name
--- Plus: date_of_birth, sex, height_cm (saveAboutYou)
--- Plus: timezone (if Settings exposes it in future; currently not written by client)
+-- Checked callers:
+--   - ensureProfileRows (auth): avatar_url, display_name
+--   - saveAboutYou (onboarding): date_of_birth, sex, height_cm
+--   - saveProfileFields (onboarding): goal, level, primary_track, days_per_week,
+--                                     yoga_days_per_week, preferred_session_minutes,
+--                                     has_all_equipment, units, display_name
+--   - updateProfileSettings (settings): goal, level, primary_track, days_per_week,
+--                                       yoga_days_per_week, preferred_session_minutes
+--   - saveEquipment (onboarding/settings): has_all_equipment
 grant update (
+  avatar_url,
   display_name,
   date_of_birth,
   sex,
