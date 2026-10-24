@@ -305,7 +305,7 @@ export default async function TodayPage() {
         (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9) ||
         (b.created_at ?? "").localeCompare(a.created_at ?? ""),
     )[0];
-  
+
   // The session's own program day, which may be from the active block or a
   // retired one (after a rebuild). `allDays` includes both, so labels are
   // correct after a mid-session rebuild: the header and "Your week" label come

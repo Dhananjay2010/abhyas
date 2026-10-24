@@ -13,6 +13,8 @@ type SessionRow = {
   actual_type: DayType | null;
   planned_type: DayType | null;
   program_day_id: string | null;
+  old_day_label: string | null;
+  old_day_index: number | null;
   has_sets: boolean;
 };
 
@@ -21,6 +23,7 @@ type SessionRow = {
  */
 type NewProgramDay = {
   id: string;
+  day_index: number;
   day_type: DayType;
   label: string | null;
 };
@@ -79,11 +82,25 @@ export function planRepointSessions(
       continue;
     }
 
-    // Match by day_type, preferring the first match. For splits where multiple
-    // days share a type (e.g. upper/lower has two Upper days), this picks the
-    // first one in day_index order. Ties are deterministic because the caller
-    // orders `newDays` by day_index.
-    const match = newDays.find((d) => d.day_type === chosenType);
+    // Match by label first (e.g., "Upper A" → "Upper A"), then day_index
+    // (Monday → Monday), then day_type (weights → weights). This prevents
+    // "Lower" becoming "Upper" after a rebuild.
+    let match: NewProgramDay | undefined;
+
+    // 1. Try to match by label (exact match)
+    if (session.old_day_label) {
+      match = newDays.find((d) => d.label === session.old_day_label);
+    }
+
+    // 2. If no label match, try day_index (same weekday)
+    if (!match && session.old_day_index !== null) {
+      match = newDays.find((d) => d.day_index === session.old_day_index);
+    }
+
+    // 3. If still no match, fall back to day_type (any training day)
+    if (!match) {
+      match = newDays.find((d) => d.day_type === chosenType);
+    }
 
     if (match) {
       toUpdate.push({ id: session.id, newProgramDayId: match.id });
@@ -100,48 +117,80 @@ export function planRepointSessions(
 /**
  * Re-point planned sessions to the new program after a rebuild.
  *
- * Called by `createBlockForUser` after the new program is inserted.
+ * Called by `createBlockForUser` after the new program is inserted, ONLY when
+ * mode is "rebuild" (not on rollover or onboarding).
  */
 export async function repointSessionsAfterRebuild(
   supabase: Client,
   userId: string,
   newProgramId: string,
   today: string,
-): Promise<void> {
-  // Fetch planned sessions that might need re-pointing. Include session_sets
-  // count to distinguish started from unstarted.
-  const { data: sessions } = await supabase
+): Promise<{ ok: boolean; error?: string }> {
+  // Fetch planned sessions that might need re-pointing. Select through
+  // session_exercises to get session_sets (there's no direct FK from sessions
+  // to session_sets). Also fetch the old program day's label and day_index for
+  // matching.
+  const { data: sessions, error: selectError } = await supabase
     .from("sessions")
-    .select("id, local_date, actual_type, planned_type, program_day_id, session_sets(id)")
+    .select(`
+      id,
+      local_date,
+      actual_type,
+      planned_type,
+      program_day_id,
+      program_days!sessions_program_day_id_fkey(label, day_index),
+      session_exercises(session_sets(id))
+    `)
     .eq("user_id", userId)
     .eq("status", "planned")
     .gte("local_date", today);
 
-  if (!sessions || sessions.length === 0) return;
+  if (selectError) {
+    console.error("repointSessionsAfterRebuild: failed to select sessions", selectError);
+    return { ok: false, error: selectError.message };
+  }
+
+  if (!sessions || sessions.length === 0) return { ok: true };
 
   // Fetch the new program's days, ordered by day_index for deterministic matching.
-  const { data: newDays } = await supabase
+  const { data: newDays, error: newDaysError } = await supabase
     .from("program_days")
-    .select("id, day_type, label")
+    .select("id, day_index, day_type, label")
     .eq("program_id", newProgramId)
     .order("day_index");
 
-  if (!newDays || newDays.length === 0) return;
+  if (newDaysError) {
+    console.error("repointSessionsAfterRebuild: failed to select new days", newDaysError);
+    return { ok: false, error: newDaysError.message };
+  }
+
+  if (!newDays || newDays.length === 0) return { ok: true };
 
   // Transform to the shape the pure function expects.
-  const sessionRows: SessionRow[] = sessions.map((s) => ({
-    id: s.id,
-    local_date: s.local_date,
-    actual_type: s.actual_type,
-    planned_type: s.planned_type,
-    program_day_id: s.program_day_id,
-    has_sets: Array.isArray(s.session_sets) && s.session_sets.length > 0,
-  }));
+  const sessionRows: SessionRow[] = sessions.map((s) => {
+    const oldDay = Array.isArray(s.program_days) ? s.program_days[0] : s.program_days;
+    const sessionExercises = Array.isArray(s.session_exercises) ? s.session_exercises : [];
+    const hasSets = sessionExercises.some((se: any) => {
+      const sets = Array.isArray(se.session_sets) ? se.session_sets : [];
+      return sets.length > 0;
+    });
+
+    return {
+      id: s.id,
+      local_date: s.local_date,
+      actual_type: s.actual_type,
+      planned_type: s.planned_type,
+      program_day_id: s.program_day_id,
+      old_day_label: oldDay?.label ?? null,
+      old_day_index: oldDay?.day_index ?? null,
+      has_sets: hasSets,
+    };
+  });
 
   const { toUpdate, toDelete } = planRepointSessions(sessionRows, newDays, today);
 
-  // Apply the updates in parallel.
-  await Promise.all([
+  // Apply the updates in parallel, checking errors.
+  const updateResults = await Promise.all([
     ...toUpdate.map((u) =>
       supabase
         .from("sessions")
@@ -152,4 +201,15 @@ export async function repointSessionsAfterRebuild(
       ? supabase.from("sessions").delete().in("id", toDelete)
       : Promise.resolve({ error: null }),
   ]);
+
+  const failures = updateResults.filter((r) => r.error);
+  if (failures.length > 0) {
+    console.error(
+      "repointSessionsAfterRebuild: some updates failed",
+      failures.map((f) => f.error?.message),
+    );
+    return { ok: false, error: `${failures.length} session updates failed` };
+  }
+
+  return { ok: true };
 }

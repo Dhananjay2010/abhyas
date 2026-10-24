@@ -228,10 +228,23 @@ export async function createBlockForUser(
     if (error) return { ok: false, error: error.message };
   }
 
-  // Re-point any planned sessions to the new program's matching days. This
-  // prevents "train anyway" and "what about tomorrow?" choices from the old
-  // block surviving the rebuild and loading exercises from the retired plan.
-  await repointSessionsAfterRebuild(supabase, userId, program.id, startedOn);
+  // Re-point any planned sessions to the new program's matching days, but ONLY
+  // on rebuild (not on rollover or first-time onboarding). This prevents "train
+  // anyway" and "what about tomorrow?" choices from the old block surviving the
+  // rebuild and loading exercises from the retired plan.
+  if (rebuildOf) {
+    const localToday = localDateString(timezone);
+    const repointResult = await repointSessionsAfterRebuild(
+      supabase,
+      userId,
+      program.id,
+      localToday,
+    );
+    if (!repointResult.ok) {
+      console.error("Failed to re-point sessions after rebuild:", repointResult.error);
+      // Continue anyway - the program is created, re-pointing is a cleanup step.
+    }
+  }
 
   return {
     ok: true,

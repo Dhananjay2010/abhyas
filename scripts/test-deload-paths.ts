@@ -37,7 +37,7 @@ console.log("\n2. Verify prepareSessionExercises is called from startSession");
 {
   const startSessionIndex = actionsContent.indexOf("export async function startSession()");
   check("startSession exists", startSessionIndex !== -1);
-  
+
   if (startSessionIndex !== -1) {
     const endIndex = actionsContent.indexOf("\nexport async function", startSessionIndex + 1);
     const startSessionBody = actionsContent.substring(startSessionIndex, endIndex);
@@ -57,7 +57,7 @@ console.log("\n3. Verify prepareSessionExercises is called from ensureSessionExe
 {
   const ensureIndex = actionsContent.indexOf("async function ensureSessionExercises(");
   check("ensureSessionExercises exists", ensureIndex !== -1);
-  
+
   if (ensureIndex !== -1) {
     const endIndex = actionsContent.indexOf("\nexport", ensureIndex + 1);
     const ensureBody = actionsContent.substring(ensureIndex, endIndex !== -1 ? endIndex : undefined);
@@ -83,7 +83,7 @@ console.log("\n4. Verify prepareSessionExercises applies deload correctly");
   if (funcIndex !== -1) {
     const endIndex = actionsContent.indexOf("\n}", funcIndex);
     const funcBody = actionsContent.substring(funcIndex, endIndex + 2);
-    
+
     check(
       "function accepts isDeload parameter",
       funcBody.includes("isDeload: boolean") || funcBody.includes("isDeload,"),
@@ -103,7 +103,7 @@ console.log("\n5. Verify applyDeload import and usage");
 {
   check(
     "applyDeload is imported from prescription",
-    actionsContent.includes('import') && 
+    actionsContent.includes('import') &&
     actionsContent.includes('applyDeload') &&
     actionsContent.includes('prescription'),
   );
@@ -143,7 +143,7 @@ console.log("\n8. Verify ensureSessionExercises comment mentions deload");
     const commentStart = actionsContent.lastIndexOf("/**", ensureIndex);
     const funcStart = actionsContent.indexOf("async function ensureSessionExercises", commentStart);
     const comment = actionsContent.substring(commentStart, funcStart);
-    
+
     check(
       "ensureSessionExercises JSDoc mentions deload",
       comment.toLowerCase().includes("deload"),
@@ -157,7 +157,7 @@ console.log("\n9. Verify prepareSessionExercises handles null target values");
   if (funcIndex !== -1) {
     const endIndex = actionsContent.indexOf("\n}", funcIndex);
     const funcBody = actionsContent.substring(funcIndex, endIndex + 2);
-    
+
     // Should have fallback values like p.target_sets ?? 3
     check(
       "handles null target_sets with fallback",
@@ -173,11 +173,11 @@ console.log("\n10. Integration check: paths that create sessions");
   const hasStartSession = actionsContent.includes("export async function startSession()");
   const hasEnsureSessionExercises = actionsContent.includes("async function ensureSessionExercises(");
   const hasPlanDay = actionsContent.includes("export async function planDay(");
-  
+
   check("startSession exists", hasStartSession);
   check("ensureSessionExercises exists", hasEnsureSessionExercises);
   check("planDay exists (creates planned sessions)", hasPlanDay);
-  
+
   // planDay creates session rows with is_deload set, but doesn't create exercises
   // until startSession is called, which will use ensureSessionExercises
   if (hasPlanDay) {
