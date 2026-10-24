@@ -15,6 +15,7 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { exerciseCompletion } from "@/lib/session/completion";
+import { countWorkingSets, getCompletionDisplay } from "@/lib/today/row-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -401,27 +402,14 @@ export default async function TodayPage() {
   const todayExercises: TodayRow[] =
     actual && actual.length > 0
       ? actual.map((r) => {
-          const workingSetsLogged = (r.session_sets ?? []).filter(
-            (s) => !s.is_warmup_set,
-          ).length;
+          const workingSetsLogged = countWorkingSets(r.session_sets ?? []);
           const plannedSets = r.planned_sets ?? 0;
-          const completion = exerciseCompletion(workingSetsLogged, plannedSets);
 
-          let completionLabel = "";
-          let strikethrough = false;
-
-          // Only show completion status for ended sessions
-          const sessionEnded = performed?.status !== "in_progress";
-
-          if (sessionEnded) {
-            if (completion === "skipped") {
-              completionLabel = "Skipped";
-              strikethrough = true;
-            } else if (completion === "partial") {
-              completionLabel = `Partly done · ${workingSetsLogged} of ${plannedSets} sets`;
-              strikethrough = false;
-            }
-          }
+          const { label: completionLabel, strikethrough } = getCompletionDisplay(
+            performed?.status ?? "in_progress",
+            workingSetsLogged,
+            plannedSets,
+          );
 
           return {
             key: `s${r.order_index}`,

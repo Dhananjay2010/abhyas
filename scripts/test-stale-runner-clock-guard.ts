@@ -5,9 +5,7 @@
  *   npx tsx scripts/test-stale-runner-clock-guard.ts
  */
 
-import { renderToStaticMarkup } from "react-dom/server";
-import React from "react";
-import { formatClock } from "../src/lib/session/device";
+import { formatClock, displayElapsed } from "../src/lib/session/device";
 import { isStaleSession } from "../src/lib/session/is-stale-session";
 
 let passed = 0;
@@ -40,7 +38,7 @@ async function runTests() {
 
   const THREE_HOURS_SECONDS = 3 * 60 * 60; // 10800 seconds = 180:00
 
-  console.log("1. Fresh session (< 3 hours): clock shows actual elapsed");
+  console.log("1. Fresh session (< 3 hours): displayElapsed returns actual elapsed");
   {
     const startedAt = new Date(Date.now() - 90 * 60 * 1000).toISOString(); // 90 min ago
     const now = new Date().toISOString();
@@ -50,13 +48,16 @@ async function runTests() {
     assertEquals(stale, false, "Session is not stale");
 
     const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
-    const clockText = formatClock(elapsed);
+    const display = displayElapsed(elapsed, stale);
     
-    assertTrue(elapsed < THREE_HOURS_SECONDS, "Elapsed < 3 hours");
+    assertEquals(display, elapsed, "displayElapsed returns actual elapsed for non-stale");
+    assertTrue(display < THREE_HOURS_SECONDS, "Display < 3 hours");
+    
+    const clockText = formatClock(display);
     assertTrue(clockText.startsWith("90:") || clockText.startsWith("91:"), "Clock shows ~90 minutes");
   }
 
-  console.log("\n2. Stale session (past day): clock should be capped");
+  console.log("\n2. Stale session (past day): displayElapsed caps at 179:59");
   {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -67,21 +68,17 @@ async function runTests() {
     const stale = isStaleSession({ startedAt, now, timezone });
     assertEquals(stale, true, "Session is stale (past day)");
 
-    // Actual elapsed would be ~24 hours = 1440 minutes
     const actualElapsed = Math.floor((Date.now() - yesterday.getTime()) / 1000);
     assertTrue(actualElapsed >= THREE_HOURS_SECONDS, "Actual elapsed >= 3 hours");
 
-    // For display purposes, if we guard the clock, it should never show >= 180:00
-    // The guard would cap display at 179:59
-    const MAX_DISPLAY_SECONDS = THREE_HOURS_SECONDS - 1; // 179:59
-    const guardedElapsed = Math.min(actualElapsed, MAX_DISPLAY_SECONDS);
-    const clockText = formatClock(guardedElapsed);
+    const display = displayElapsed(actualElapsed, stale);
+    const clockText = formatClock(display);
 
-    assertTrue(guardedElapsed < THREE_HOURS_SECONDS, "Guarded elapsed < 3 hours");
-    assertEquals(clockText, "179:59", "Clock capped at 179:59");
+    assertEquals(display, THREE_HOURS_SECONDS - 1, "displayElapsed capped at 179:59");
+    assertEquals(clockText, "179:59", "Clock shows 179:59");
   }
 
-  console.log("\n3. Stale session (> 3 hours idle same day): clock should be capped");
+  console.log("\n3. Stale session (> 3 hours idle same day): displayElapsed caps at 179:59");
   {
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
     const now = new Date().toISOString();
@@ -93,27 +90,28 @@ async function runTests() {
     const actualElapsed = Math.floor((Date.now() - new Date(fourHoursAgo).getTime()) / 1000);
     assertTrue(actualElapsed >= THREE_HOURS_SECONDS, "Actual elapsed >= 3 hours");
 
-    const MAX_DISPLAY_SECONDS = THREE_HOURS_SECONDS - 1;
-    const guardedElapsed = Math.min(actualElapsed, MAX_DISPLAY_SECONDS);
-    const clockText = formatClock(guardedElapsed);
+    const display = displayElapsed(actualElapsed, stale);
+    const clockText = formatClock(display);
 
-    assertTrue(guardedElapsed < THREE_HOURS_SECONDS, "Guarded elapsed < 3 hours");
-    assertEquals(clockText, "179:59", "Clock capped at 179:59");
+    assertEquals(display, THREE_HOURS_SECONDS - 1, "displayElapsed capped at 179:59");
+    assertEquals(clockText, "179:59", "Clock shows 179:59");
   }
 
-  console.log("\n4. Render test: Clock component with capped elapsed time");
+  console.log("\n4. displayElapsed edge cases");
   {
-    const MockClock = ({ elapsed }: { elapsed: number }) => {
-      const THREE_HOURS = 3 * 60 * 60;
-      const displayElapsed = elapsed >= THREE_HOURS ? THREE_HOURS - 1 : elapsed;
-      return React.createElement("span", {}, formatClock(displayElapsed));
-    };
-
-    const staleElapsed = 5 * 60 * 60; // 5 hours
-    const html = renderToStaticMarkup(React.createElement(MockClock, { elapsed: staleElapsed }));
-
-    assertEquals(html, "<span>179:59</span>", "Rendered clock shows 179:59");
-    assertTrue(!html.includes("300:"), "Does not show 300+ minutes");
+    // Exactly 3 hours, stale
+    const threeHours = 3 * 60 * 60;
+    assertEquals(displayElapsed(threeHours, true), threeHours - 1, "Exactly 3h stale → 179:59");
+    
+    // Just under 3 hours, stale
+    assertEquals(displayElapsed(threeHours - 1, true), threeHours - 1, "179:59 stale → 179:59");
+    
+    // Just under 3 hours, not stale
+    assertEquals(displayElapsed(threeHours - 1, false), threeHours - 1, "179:59 non-stale → 179:59");
+    
+    // Way over 3 hours, stale
+    const fiveHours = 5 * 60 * 60;
+    assertEquals(displayElapsed(fiveHours, true), threeHours - 1, "5h stale → 179:59");
   }
 
   console.log("\n5. formatClock function test: various times");
@@ -124,8 +122,8 @@ async function runTests() {
     assertEquals(formatClock(3599), "59:59", "59:59");
     assertEquals(formatClock(3600), "60:00", "1 hour");
     assertEquals(formatClock(10799), "179:59", "179:59");
-    assertEquals(formatClock(10800), "180:00", "180:00 (3 hours, should not display for stale)");
-    assertEquals(formatClock(14400), "240:00", "240:00 (4 hours, should not display for stale)");
+    assertEquals(formatClock(10800), "180:00", "180:00 (3 hours)");
+    assertEquals(formatClock(14400), "240:00", "240:00 (4 hours)");
   }
 
   console.log(`\n✅ Passed: ${passed}`);

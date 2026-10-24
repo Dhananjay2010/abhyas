@@ -7,6 +7,7 @@
  */
 
 import { exerciseCompletion } from "../src/lib/session/completion";
+import { countWorkingSets, shouldShowCompletionLabels, getCompletionDisplay } from "../src/lib/today/row-helpers";
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -26,9 +27,8 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
 function runTests() {
   console.log("\nTesting today page working set counting\n");
 
-  console.log("1. Working sets counted as !is_warmup_set");
+  console.log("1. countWorkingSets: excludes warmup sets");
   {
-    // Simulate data from today page query
     const sessionSets = [
       { is_warmup_set: true },
       { is_warmup_set: false },
@@ -36,7 +36,7 @@ function runTests() {
       { is_warmup_set: false },
     ];
 
-    const workingSetsLogged = sessionSets.filter((s) => !s.is_warmup_set).length;
+    const workingSetsLogged = countWorkingSets(sessionSets);
     assertEquals(workingSetsLogged, 3, "3 working sets (excluding warmup)");
   }
 
@@ -48,37 +48,48 @@ function runTests() {
     assertEquals(exerciseCompletion(0, 0), "skipped", "0 of 0 = skipped (no sets logged)");
   }
 
-  console.log("\n3. Completion labels only shown when session ended");
+  console.log("\n3. shouldShowCompletionLabels: only for ended sessions");
   {
-    // This test documents the behavior: in-progress sessions should NOT
-    // show "Skipped" or "Partly done" labels or strikethrough.
-    // The implementation in today/page.tsx checks:
-    //   const sessionEnded = performed?.status !== "in_progress";
-    //   if (sessionEnded) { ... show labels ... }
-
-    type SessionStatus = "in_progress" | "completed" | "skipped";
-
-    function shouldShowLabels(status: SessionStatus): boolean {
-      return status !== "in_progress";
-    }
-
     assertEquals(
-      shouldShowLabels("in_progress"),
+      shouldShowCompletionLabels("in_progress"),
       false,
       "In-progress session should NOT show completion labels",
     );
 
     assertEquals(
-      shouldShowLabels("completed"),
+      shouldShowCompletionLabels("completed"),
       true,
       "Ended session should show completion labels",
     );
 
     assertEquals(
-      shouldShowLabels("skipped"),
+      shouldShowCompletionLabels("skipped"),
       true,
       "Skipped session should show completion labels",
     );
+  }
+
+  console.log("\n4. getCompletionDisplay: combines status and completion logic");
+  {
+    // In-progress: no label regardless of completion
+    const inProgress = getCompletionDisplay("in_progress", 0, 3);
+    assertEquals(inProgress.label, "", "In-progress: empty label");
+    assertEquals(inProgress.strikethrough, false, "In-progress: no strikethrough");
+
+    // Ended, skipped exercise
+    const skipped = getCompletionDisplay("completed", 0, 3);
+    assertEquals(skipped.label, "Skipped", "Ended, 0 sets: 'Skipped'");
+    assertEquals(skipped.strikethrough, true, "Ended, 0 sets: strikethrough");
+
+    // Ended, partial completion
+    const partial = getCompletionDisplay("completed", 2, 3);
+    assertEquals(partial.label, "Partly done · 2 of 3 sets", "Ended, 2 of 3: 'Partly done'");
+    assertEquals(partial.strikethrough, false, "Ended, partial: no strikethrough");
+
+    // Ended, completed
+    const completed = getCompletionDisplay("completed", 3, 3);
+    assertEquals(completed.label, "", "Ended, completed: empty label");
+    assertEquals(completed.strikethrough, false, "Ended, completed: no strikethrough");
   }
 
   console.log(`\n✅ Passed: ${testsPassed}`);

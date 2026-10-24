@@ -5,6 +5,9 @@
  *   npx tsx scripts/test-finish-session-retry.ts
  */
 
+import { finishSessionCore } from "../src/lib/session/finish-session";
+import type { FinishSessionDeps, SessionRow, SessionExerciseWithSets, ExerciseForUpdate } from "../src/lib/session/finish-session-deps";
+
 let testsPassed = 0;
 let testsFailed = 0;
 
@@ -20,92 +23,59 @@ function assertEquals<T>(actual: T, expected: T, message: string) {
   }
 }
 
-type MockSupabaseClient = {
-  from: (table: string) => {
-    update: (data: unknown, opts?: { count: string }) => {
-      eq: (col: string, val: unknown) => {
-        eq: (col: string, val: unknown) => Promise<{ error: null; count: number }>;
+function makeFakeDeps(config: {
+  updatedCount: number;
+  storedStatus?: "completed" | "skipped" | "in_progress";
+}): FinishSessionDeps {
+  return {
+    async loadSession() {
+      return {
+        data: {
+          started_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+          local_date: new Date().toISOString().split("T")[0],
+        },
+        error: null,
       };
-    };
-    select: (cols: string) => {
-      eq: (col: string, val: unknown) => Promise<{ data: unknown[]; error: null }>;
-    };
+    },
+    async loadExercises() {
+      return {
+        data: [
+          {
+            session_sets: [
+              { id: "set1", is_warmup_set: false, completed_at: new Date().toISOString() },
+            ],
+          },
+        ],
+        error: null,
+      };
+    },
+    async updateSession() {
+      return { error: null, updatedCount: config.updatedCount };
+    },
+    async loadSessionStatus() {
+      return {
+        data: config.storedStatus ? { status: config.storedStatus } : null,
+        error: null,
+      };
+    },
+    async loadExercisesForUpdate() {
+      return { data: [], error: null };
+    },
+    async updateExerciseStatus() {
+      return { error: null };
+    },
   };
-};
-
-async function finishSessionCore(
-  supabase: MockSupabaseClient,
-  params: {
-    sessionId: string;
-    status: "completed" | "skipped";
-    durationSeconds: number;
-    cooldownCompleted: boolean;
-  },
-): Promise<{ ok: boolean; error?: string; data?: { status: string } }> {
-  const status = params.status;
-  const endedAt = new Date().toISOString();
-  const clampedDuration = Math.max(0, Math.min(21600, Math.round(params.durationSeconds)));
-
-  const { error, count } = await supabase
-    .from("sessions")
-    .update(
-      {
-        status,
-        completed_at: status === "completed" ? endedAt : null,
-        duration_seconds: clampedDuration,
-        cooldown_completed: status === "completed" ? params.cooldownCompleted : undefined,
-      },
-      { count: "exact" },
-    )
-    .eq("id", params.sessionId)
-    .eq("status", "in_progress");
-
-  if (error) return { ok: false, error: "error.message" };
-
-  // If 0 rows were updated, the session was already finished - re-read the actual status
-  if (count === 0) {
-    const { data: session, error: rereadError } = await supabase
-      .from("sessions")
-      .select("status")
-      .eq("id", params.sessionId);
-
-    if (rereadError) return { ok: false, error: "rereadError.message" };
-
-    const actualStatus =
-      Array.isArray(session) && session.length > 0
-        ? (session[0] as { status: string }).status
-        : "skipped";
-
-    return { ok: true, data: { status: actualStatus as "completed" | "skipped" } };
-  }
-
-  return { ok: true, data: { status } };
 }
 
 async function runTests() {
   console.log("\nTesting finish-session retry re-read behavior\n");
 
-  console.log("1. First finish attempt succeeds (count = 1)");
+  console.log("1. First finish attempt succeeds (updatedCount = 1)");
   {
-    const mockSupabase: MockSupabaseClient = {
-      from: () => ({
-        update: (_, opts) => {
-          assertEquals(opts?.count, "exact", "count: 'exact' requested on update");
-          return {
-            eq: () => ({
-              eq: async () => ({ error: null, count: 1 }),
-            }),
-          };
-        },
-        select: () => ({
-          eq: async () => ({ data: [], error: null }),
-        }),
-      }),
-    };
+    const deps = makeFakeDeps({ updatedCount: 1 });
 
-    const result = await finishSessionCore(mockSupabase, {
+    const result = await finishSessionCore(deps, {
       sessionId: "session-1",
-      status: "completed",
       durationSeconds: 1800,
       cooldownCompleted: true,
     });
@@ -114,32 +84,12 @@ async function runTests() {
     assertEquals(result.data?.status, "completed", "Returns 'completed' status");
   }
 
-  console.log("\n2. Retry after already finished (count = 0, re-read returns stored status)");
+  console.log("\n2. Retry after already finished (updatedCount = 0, re-read returns stored status)");
   {
-    const mockSupabase: MockSupabaseClient = {
-      from: (table) => {
-        if (table === "sessions") {
-          return {
-            update: () => ({
-              eq: () => ({
-                eq: async () => ({ error: null, count: 0 }),
-              }),
-            }),
-            select: () => ({
-              eq: async () => ({
-                data: [{ status: "completed" }],
-                error: null,
-              }),
-            }),
-          };
-        }
-        throw new Error("Unexpected table");
-      },
-    };
+    const deps = makeFakeDeps({ updatedCount: 0, storedStatus: "completed" });
 
-    const result = await finishSessionCore(mockSupabase, {
+    const result = await finishSessionCore(deps, {
       sessionId: "session-1",
-      status: "skipped",
       durationSeconds: 1800,
       cooldownCompleted: false,
     });
@@ -148,36 +98,16 @@ async function runTests() {
     assertEquals(
       result.data?.status,
       "completed",
-      "Returns stored 'completed' (not retry's 'skipped')",
+      "Returns stored 'completed' from re-read",
     );
   }
 
   console.log("\n3. Retry returns actual stored status (skipped)");
   {
-    const mockSupabase: MockSupabaseClient = {
-      from: (table) => {
-        if (table === "sessions") {
-          return {
-            update: () => ({
-              eq: () => ({
-                eq: async () => ({ error: null, count: 0 }),
-              }),
-            }),
-            select: () => ({
-              eq: async () => ({
-                data: [{ status: "skipped" }],
-                error: null,
-              }),
-            }),
-          };
-        }
-        throw new Error("Unexpected table");
-      },
-    };
+    const deps = makeFakeDeps({ updatedCount: 0, storedStatus: "skipped" });
 
-    const result = await finishSessionCore(mockSupabase, {
+    const result = await finishSessionCore(deps, {
       sessionId: "session-1",
-      status: "completed",
       durationSeconds: 1800,
       cooldownCompleted: true,
     });
@@ -186,7 +116,7 @@ async function runTests() {
     assertEquals(
       result.data?.status,
       "skipped",
-      "Returns stored 'skipped' (not retry's 'completed')",
+      "Returns stored 'skipped' from re-read",
     );
   }
 

@@ -235,3 +235,16 @@ export function formatClock(totalSeconds: number): string {
   const s = totalSeconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
+
+/**
+ * Cap displayed elapsed time for stale sessions.
+ * Stale sessions (past-day or >3h idle) should never show >= 180:00 on the clock.
+ * Returns the elapsed time capped at 179:59 (3 hours - 1 second).
+ */
+export function displayElapsed(elapsed: number, stale: boolean): number {
+  const THREE_HOURS_SECONDS = 3 * 60 * 60;
+  if (stale && elapsed >= THREE_HOURS_SECONDS) {
+    return THREE_HOURS_SECONDS - 1;
+  }
+  return elapsed;
+}
