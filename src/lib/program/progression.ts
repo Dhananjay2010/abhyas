@@ -207,9 +207,8 @@ export function nextBest(
     What improved, if anything. Only one line is reported, because "heaviest set
     yet" and "best estimated 1RM yet" are usually the same event described twice
     and the summary should read like a person wrote it. Weight wins when both
-    change: seeing a weight plate attached for the first time is clearer than a
-    number. Holds never have weight or 1RM, so they're first; bodyweight exercises
-    have no weight but can still rack up an 1RM, so reps-only comes before E1RM.
+    moved; the e1rm is what catches the real case the weight misses -- more reps
+    at a weight already lifted.
   */
   let personalBest: PersonalBest | null = null;
   const beat = (now: number | null, before: number | null) =>
