@@ -426,16 +426,40 @@ EQUIPMENT_LABEL = {
 
 def build_cue(mechanic, pattern, primary, equipment) -> str:
     """Our own one-line summary, derived from attributes. Not imported prose."""
-    bits = []
-    if mechanic:
-        bits.append(mechanic.capitalize())
-    if pattern and pattern != "static":
-        bits.append(f"{pattern.replace('_', ' ')} movement")
-    head = " ".join(bits) if bits else "Exercise"
-    muscles = ", ".join(MUSCLE_LABEL.get(m, m) for m in primary[:3])
-    kit = ", ".join(dict.fromkeys(EQUIPMENT_LABEL.get(e, e) for e in equipment))
-    out = f"{head} targeting {muscles}." if muscles else f"{head}."
-    return f"{out} {kit}." if kit else out
+    mechanic_label = mechanic or ''
+    pattern_label = pattern.replace('_', ' ') if pattern else ''
+    
+    skip_pattern = (
+        not pattern_label or
+        pattern_label == 'other' or
+        pattern_label == 'static' or
+        (len(primary) == 1 and primary[0] and pattern_label == MUSCLE_LABEL.get(primary[0], ''))
+    )
+    
+    if skip_pattern:
+        movement_prefix = (
+            mechanic_label if mechanic_label
+            else pattern_label if pattern_label not in ('other', 'static')
+            else ''
+        )
+    else:
+        movement_prefix = (
+            f"{mechanic_label} {pattern_label}" if mechanic_label
+            else pattern_label
+        )
+    
+    muscle_labels = [MUSCLE_LABEL.get(m, m) for m in primary[:3]]
+    equipment_suffix = f" with {EQUIPMENT_LABEL.get(equipment[0], equipment[0])}." if equipment and EQUIPMENT_LABEL.get(equipment[0]) else "."
+    
+    base = (
+        f"{movement_prefix} movement targeting {', '.join(muscle_labels)}" if movement_prefix
+        else f"Targets {', '.join(muscle_labels)}"
+    )
+    
+    if not mechanic and base:
+        base = base[0].upper() + base[1:]
+    
+    return base + equipment_suffix
 
 
 def main() -> None:

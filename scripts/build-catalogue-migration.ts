@@ -1,71 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-
-const MUSCLE_LABEL: Record<string, string> = {
-  'abs': 'abs', 'obliques': 'obliques', 'chest': 'chest', 'lats': 'lats',
-  'upper_back': 'upper back', 'lower_back': 'lower back', 'traps': 'traps',
-  'front_delts': 'front delts', 'side_delts': 'side delts',
-  'rear_delts': 'rear delts', 'biceps': 'biceps', 'triceps': 'triceps',
-  'forearms': 'forearms', 'glutes': 'glutes', 'quads': 'quads',
-  'hamstrings': 'hamstrings', 'calves': 'calves', 'hip_flexors': 'hip flexors',
-  'adductors': 'adductors', 'abductors': 'abductors', 'neck': 'neck',
-};
-
-const EQUIPMENT_LABEL: Record<string, string> = {
-  'barbell': 'Barbell', 'dumbbell': 'Dumbbells', 'cable_machine': 'Cable machine',
-  'kettlebell': 'Kettlebell', 'resistance_band': 'Bands', 'ez_bar': 'EZ bar',
-  'machine_generic': 'Machine', 'leg_press': 'Leg press', 'hack_squat': 'Hack squat',
-  'leg_curl': 'Leg curl', 'leg_extension': 'Leg extension',
-  'lat_pulldown': 'Lat pulldown', 'pec_deck': 'Pec deck',
-  'chest_press_machine': 'Chest press', 'seated_row_machine': 'Seated row',
-  'smith_machine': 'Smith machine', 'pull_up_bar': 'Pull-up bar',
-  'dip_bars': 'Dip bars', 'flat_bench': 'Bench', 'adjustable_bench': 'Bench',
-  'squat_rack': 'Rack', 'medicine_ball': 'Medicine ball',
-  'stability_ball': 'Stability ball', 'foam_roller': 'Foam roller',
-  'jump_rope': 'Jump rope', 'ab_wheel': 'Ab wheel',
-};
-
-function buildCue(mechanic: string | null, pattern: string, primaryMuscles: string[], equipment: string[]): string {
-  const bits: string[] = [];
-  
-  if (mechanic) {
-    bits.push(mechanic.charAt(0).toUpperCase() + mechanic.slice(1));
-  }
-  
-  // Never output meaningless patterns
-  const patternWord = pattern.replace(/_/g, ' ');
-  const isMeaninglessPattern = 
-    pattern === 'other' ||
-    pattern === 'static' ||
-    (primaryMuscles.length > 0 && primaryMuscles[0] === pattern);  // e.g. "biceps movement targeting biceps"
-  
-  if (!isMeaninglessPattern) {
-    bits.push(`${patternWord} movement`);
-  }
-  
-  const head = bits.length > 0 ? bits.join(' ') : 'Exercise';
-  
-  // Up to 3 muscles
-  const muscleLabels = primaryMuscles.slice(0, 3).map(m => MUSCLE_LABEL[m] || m.replace(/_/g, ' '));
-  const muscleStr = muscleLabels.join(', ');
-  
-  // Equipment with human labels, de-duplicated
-  const equipLabels = [...new Set(equipment.map(e => EQUIPMENT_LABEL[e] || e))];
-  const kitStr = equipLabels.join(', ');
-  
-  let out = muscleStr ? `${head} targeting ${muscleStr}.` : `${head}.`;
-  if (kitStr) {
-    out = `${out} ${kitStr}.`;
-  }
-  
-  // Ensure first letter is capitalized
-  if (out.length > 0) {
-    out = out.charAt(0).toUpperCase() + out.slice(1);
-  }
-  
-  return out;
-}
+import { buildCue } from './lib/cue-builder';
 
 function sqlEscape(str: string): string {
   return str.replace(/'/g, "''");
@@ -177,7 +113,12 @@ async function main() {
     const primaryMuscles = parseArray(row.primary_muscles);
     const equipmentIds = parseArray(row.equipment_ids);
     
-    const newCue = buildCue(row.mechanic, row.movement_pattern, primaryMuscles, equipmentIds);
+    const newCue = buildCue({
+      mechanic: row.mechanic,
+      pattern: row.movement_pattern,
+      primaryMuscles,
+      equipment: equipmentIds[0] || null
+    });
     
     const category = row.movement_pattern;
     if (!updatesByCategory[category]) {
