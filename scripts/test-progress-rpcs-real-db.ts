@@ -463,15 +463,19 @@ async function runTests() {
         is_warmup_set: false,
       });
 
-      // Session 2: in_progress from 2 days ago (past in_progress - should appear)
+      // Session 2: completed from 2 days ago (should appear)
+      // Changed from in_progress to completed to comply with migration 20261025000022's
+      // unique index (one in_progress session per user). Cannot have both sess2 and sess3
+      // as in_progress for the same user.
       const sess2Id = randomUUID();
       await adminClient.from("sessions").insert({
         id: sess2Id,
         user_id: userIdA,
         local_date: "2026-10-22",
-        status: "in_progress",
+        status: "completed",
         actual_type: "weights",
         started_at: "2026-10-22T09:00:00Z",
+        completed_at: "2026-10-22T10:00:00Z",
       });
 
       // Session 3: in_progress today with 0 sets (should appear)
@@ -529,8 +533,8 @@ async function runTests() {
         page1Ids.includes(sess3Id),
         `sess3Id ${sess3Id.slice(0, 8)} in page: ${page1Ids.includes(sess3Id)}`);
 
-      // Verify past in_progress appears
-      check("past-day in_progress session appears", 
+      // Verify past completed session appears
+      check("past-day completed session appears", 
         page1Ids.includes(sess2Id),
         `sess2Id ${sess2Id.slice(0, 8)} in page: ${page1Ids.includes(sess2Id)}`);
 
