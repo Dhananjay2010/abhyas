@@ -6,19 +6,18 @@
 import { buildSwapResult } from "./swap-decision";
 import { prescribe } from "../program/prescription";
 
-interface QueryBuilder {
-  eq(column: string, value: string): this;
-  maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
-  single(): Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
-}
-
-interface TableBuilder {
-  select(columns: string): QueryBuilder;
-  update(data: Record<string, unknown>): { eq(column: string, value: string): Promise<{ error: { message: string } | null }> };
-}
-
 interface TestableSupabaseClient {
-  from(table: string): TableBuilder;
+  from(table: string): {
+    select(columns: string): {
+      eq(column: string, value: string): {
+        maybeSingle(): Promise<{ data: unknown; error: unknown }>;
+        single(): Promise<{ data: unknown; error: unknown }>;
+      };
+    };
+    update(data: unknown): {
+      eq(column: string, value: string): Promise<{ error: unknown }>;
+    };
+  };
 }
 
 export async function swapExerciseCore(
@@ -76,7 +75,9 @@ export async function swapExerciseCore(
     movement_pattern: string;
     equipment_ids: string[];
   } | null;
-  const metric = replacement?.metric || current.metric;
+  if (!replacement) return { ok: false, error: "Exercise not found" };
+
+  const metric = replacement.metric || current.metric || "reps";
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data as { goal: string; level: string } | null;
 

@@ -743,17 +743,13 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const result = await swapExerciseCore({ supabase: supabase as unknown as Parameters<typeof swapExerciseCore>[0]["supabase"], userId: user.id }, input);
+  const result = await swapExerciseCore({ supabase, userId: user.id }, input);
 
   if (!result.ok) return result;
 
   revalidateTrainingData();
   return result as Result<SwapResult>;
 }
-
-
-/**
-
 
 /**
  * Make sure a session has its exercises, copying them from the program day.
