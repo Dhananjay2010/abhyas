@@ -11,6 +11,7 @@ import { SessionActions } from "./session-actions";
 import { exerciseCompletion } from "@/lib/session/completion";
 import { countWorkingSets } from "@/lib/session/count-sets";
 import { formatVolume, getUnitsPreference } from "@/lib/units";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +40,10 @@ export default async function SessionDetailPage({
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
-  // Fetch profile for units preference
+  // Fetch profile for units and timezone
   const { data: profile } = await supabase
     .from("profiles")
-    .select("units")
+    .select("units, timezone")
     .eq("id", user.id)
     .single();
   
@@ -131,6 +132,7 @@ export default async function SessionDetailPage({
         localDate={session.local_date}
         startedAt={session.started_at}
         completedAt={session.completed_at}
+        timezone={resolveTimezoneWithProfile(profile?.timezone)}
       />
 
       <dl className="mt-6 grid grid-cols-3 gap-2 text-center">
