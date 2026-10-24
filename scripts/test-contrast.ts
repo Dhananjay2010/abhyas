@@ -202,6 +202,7 @@ function testAllBrandsContrastRequirements() {
     const surface2 = brand.colors.surface2;
     const border = brand.colors.border;
     const muted = brand.colors.muted;
+    const warning = brand.colors.warning;
 
     // Border requirements: at least 3:1 against bg, surface, and surface-2
     const borderVsBg = contrastRatio(border, bg);
@@ -239,6 +240,28 @@ function testAllBrandsContrastRequirements() {
       `Brand ${brand.id}: muted vs surface2 must be >= 4.5:1 (got ${mutedVsSurface2.toFixed(2)}:1)`
     );
 
+    // Warning requirements: at least 4.5:1 against bg and surface
+    const warningVsBg = contrastRatio(warning, bg);
+    const warningVsSurface = contrastRatio(warning, surface);
+    const warningFg = brand.colors.warningFg;
+
+    assert(
+      warningVsBg >= 4.5,
+      `Brand ${brand.id}: warning vs bg must be >= 4.5:1 (got ${warningVsBg.toFixed(2)}:1)`
+    );
+    assert(
+      warningVsSurface >= 4.5,
+      `Brand ${brand.id}: warning vs surface must be >= 4.5:1 (got ${warningVsSurface.toFixed(2)}:1)`
+    );
+
+    // WarningFg requirements: at least 4.5:1 against warning background
+    const warningFgVsWarning = contrastRatio(warningFg, warning);
+
+    assert(
+      warningFgVsWarning >= 4.5,
+      `Brand ${brand.id}: warningFg vs warning must be >= 4.5:1 (got ${warningFgVsWarning.toFixed(2)}:1)`
+    );
+
     console.log(`  ✓ Brand ${brand.id}: border ${border}`);
     console.log(`    - vs bg (${bg}): ${borderVsBg.toFixed(2)}:1 (>= 3:1)`);
     console.log(`    - vs surface (${surface}): ${borderVsSurface.toFixed(2)}:1 (>= 3:1)`);
@@ -247,6 +270,11 @@ function testAllBrandsContrastRequirements() {
     console.log(`    - vs bg (${bg}): ${mutedVsBg.toFixed(2)}:1 (>= 4.5:1)`);
     console.log(`    - vs surface (${surface}): ${mutedVsSurface.toFixed(2)}:1 (>= 4.5:1)`);
     console.log(`    - vs surface2 (${surface2}): ${mutedVsSurface2.toFixed(2)}:1 (>= 4.5:1)`);
+    console.log(`  ✓ Brand ${brand.id}: warning ${warning}`);
+    console.log(`    - vs bg (${bg}): ${warningVsBg.toFixed(2)}:1 (>= 4.5:1)`);
+    console.log(`    - vs surface (${surface}): ${warningVsSurface.toFixed(2)}:1 (>= 4.5:1)`);
+    console.log(`  ✓ Brand ${brand.id}: warningFg ${warningFg}`);
+    console.log(`    - vs warning (${warning}): ${warningFgVsWarning.toFixed(2)}:1 (>= 4.5:1)`);
   }
 
   console.log(`  ✓ All ${allBrands.length} brand(s) meet contrast requirements`);

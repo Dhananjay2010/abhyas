@@ -25,7 +25,6 @@ export {
   calculateSetVolume,
   findTopSet,
   detectPersonalRecords,
-  detectSetPRs,
   
   // Types
   type SetData,

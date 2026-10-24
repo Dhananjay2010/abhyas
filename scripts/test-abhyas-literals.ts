@@ -24,7 +24,7 @@ function assert(condition: boolean, message: string): void {
 /**
  * Check if a line is inside a comment.
  * This is a simple heuristic that works for most cases.
- * Lines starting with // or * (block comment continuation).
+ * Lines starting with // or (only for JSDoc) * (block comment continuation).
  * Lines with // after code.
  * Does not handle multi-line comments in complex cases.
  */
@@ -32,10 +32,6 @@ function isCommentLine(line: string): boolean {
   const trimmed = line.trim();
   // Line comment
   if (trimmed.startsWith("//")) {
-    return true;
-  }
-  // Block comment line (continuation line inside /** */ or /* */)
-  if (trimmed.startsWith("*")) {
     return true;
   }
   // Check if 'Abhyas' appears only in a // comment at the end of the line
@@ -48,15 +44,34 @@ function isCommentLine(line: string): boolean {
 }
 
 /**
- * Per-line allow patterns for genuine exceptions.
- * Each pattern should be as narrow as possible.
+ * Check if a line is a JSDoc comment line.
+ * Lines starting with * inside JSDoc blocks.
  */
-function isAllowedLineException(filePath: string, lineContent: string): boolean {
-  // TODO(white-label): Review these exceptions during white-label audit
+function isJSDocLine(line: string): boolean {
+  const trimmed = line.trim();
+  // JSDoc continuation line (inside /** */ block)
+  return trimmed.startsWith("*");
+}
+
+/**
+ * Per-line allow patterns for genuine exceptions.
+ * Each pattern should be as narrow as possible: file path + line content.
+ * Use ONLY for files outside this PR's scope (owned by other developers).
+ */
+function isAllowedLineException(filePath: string, lineNum: string, lineContent: string): boolean {
+  // TODO(white-label): These are outside this PR's scope; owners will fix separately
   
-  // PWA manifest description (needs branding)
-  if (filePath.includes("manifest.ts") && lineContent.includes("description:") && lineContent.includes("progressive web app")) {
-    return true;
+  // Files outside our lane (session, today, program, onboarding actions)
+  // Format: "path:lineNum:content fragment"
+  const allowlist: Array<[string, string, string]> = [
+    // Add specific exceptions here as needed
+    // Example: ["src/app/onboarding/actions.ts", "42", "Abhyas"],
+  ];
+  
+  for (const [allowedPath, allowedLine, allowedFragment] of allowlist) {
+    if (filePath.includes(allowedPath) && lineNum === allowedLine && lineContent.includes(allowedFragment)) {
+      return true;
+    }
   }
   
   return false;
@@ -100,17 +115,22 @@ function testNoHardcodedAbhyasInUI() {
       continue;
     }
 
-    // Skip if it's an actual comment line
+    // Skip if it's a line comment
     if (isCommentLine(lineContent)) {
       continue;
     }
 
-    // Check per-line exceptions
-    if (isAllowedLineException(filePath, lineContent)) {
+    // Skip if it's a JSDoc comment line
+    if (isJSDocLine(lineContent)) {
       continue;
     }
 
-    // Files outside our lane: onboarding/settings actions, today/history/session/breathe/progress
+    // Check per-line exceptions (narrow allowlist with line numbers)
+    if (isAllowedLineException(filePath, lineNum, lineContent)) {
+      continue;
+    }
+
+    // Files outside our lane: onboarding/settings actions, today/history/session/breathe/progress/program
     const outsideLanePatterns = [
       /onboarding\/actions\.ts/,
       /settings\/actions\.ts/,
@@ -119,6 +139,7 @@ function testNoHardcodedAbhyasInUI() {
       /session\/.*\.tsx?/,
       /breathe\/.*\.tsx?/,
       /progress\/.*\.tsx?/,
+      /program\/.*\.tsx?/,
     ];
 
     if (outsideLanePatterns.some(pattern => pattern.test(filePath))) {

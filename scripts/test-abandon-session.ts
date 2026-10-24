@@ -175,7 +175,7 @@ console.log("\n7. Early-ended completed session counts toward streak");
     },
     completedSessions: [
       // Monday weights, abandoned early but had working sets so it's completed
-      { local_date: "2026-09-08", actual_type: "weights" },
+      { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 },
     ],
     today: "2026-09-08",
   });
