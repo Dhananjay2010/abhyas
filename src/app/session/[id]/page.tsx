@@ -220,6 +220,7 @@ export default async function SessionPage({
     <SessionRunner
       sessionId={session.id}
       sessionStatus={session.status}
+      userId={user.id}
       isDeload={session.is_deload}
       week={session.week_in_block ?? 1}
       warmupAlreadyDone={session.warmup_completed}

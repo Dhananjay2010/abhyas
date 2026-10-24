@@ -20,7 +20,7 @@ function check(label: string, ok: boolean, detail = "") {
 
 async function callRPC(
   pool: Pool,
-  userId: string = "test-user-id",
+  userId: string,
   rpcName: string,
   args: { p_today: string; p_payload: Record<string, unknown> }
 ) {
@@ -104,7 +104,7 @@ async function runTests() {
 
   async function callRPC(
     pool: Pool,
-    userId: string = "test-user-id",
+    userId: string,
     rpcName: string,
     args: { p_today: string; p_payload: Record<string, unknown> }
   ) {
@@ -152,7 +152,7 @@ async function runTests() {
       return userId;
     }
 
-    let userId: string = "test-user-id";
+    let userId: string;
 
     console.log("TEST 0: SQL vs TypeScript parity for cycle_week_for");
     {

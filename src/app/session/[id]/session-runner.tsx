@@ -119,6 +119,7 @@ const FEELS: { value: Feel; label: string }[] = [
 export function SessionRunner({
   sessionId,
   sessionStatus,
+  userId,
   isDeload,
   week,
   warmupAlreadyDone,
@@ -133,6 +134,7 @@ export function SessionRunner({
 }: {
   sessionId: string;
   sessionStatus: Database["public"]["Enums"]["session_status"];
+  userId: string;
   isDeload: boolean;
   week: number;
   warmupAlreadyDone: boolean;
@@ -170,7 +172,7 @@ export function SessionRunner({
       logSet: actions.logSet,
       sessionId,
       sessionStatus,
-      userId: "", // TODO: Get from session
+      userId,
       onChange: setPendingSetState,
       deps: createPendingSetDeps(),
     });

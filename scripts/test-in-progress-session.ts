@@ -50,7 +50,7 @@ class FakeSupabase {
 
   addSession(
     id: string,
-    userId: string = "test-user-id",
+    userId: string,
     status: string,
     startedAt: string,
     localDate: string,
@@ -66,7 +66,7 @@ class FakeSupabase {
     });
   }
 
-  addProfile(userId: string = "test-user-id", timezone: string | null) {
+  addProfile(userId: string, timezone: string | null) {
     this.profiles.push({
       id: userId,
       timezone,
@@ -79,7 +79,7 @@ class FakeSupabase {
 
   addSet(
     id: string,
-    userId: string = "test-user-id",
+    userId: string,
     exerciseId: string,
     isWarmup: boolean
   ) {

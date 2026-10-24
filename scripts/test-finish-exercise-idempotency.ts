@@ -86,7 +86,7 @@ function createProgressionSpy() {
   return {
     fn: async (
       _supabase: SupabaseClient,
-      userId: string = "test-user-id",
+      userId: string,
       sessionExerciseId: string,
       feel: string | null,
     ) => {
