@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo } from "react";
 import { updateSessionDateTime } from "../actions";
 import { utcToZonedDateTime, zonedDateTimeToUtc } from "@/lib/timezone";
 import { localDateString } from "@/lib/dates";
+import { validateSessionTimes } from "@/lib/history/validate-session-times";
 
 interface EditSessionProps {
   sessionId: string;
@@ -53,38 +54,18 @@ export function EditSession({
       return;
     }
     
-    // Parse times to compare
-    const [startHour, startMin] = editedStartTime.split(":").map(Number);
-    const [endHour, endMin] = editedEndTime.split(":").map(Number);
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
+    // Validate session times
+    const validation = validateSessionTimes(editedDate, editedStartTime, editedEndTime);
     
-    // Midnight-crossing fix: when end ≤ start, assume end is on the next day
-    let durationMinutes: number;
-    let endDate: string;
-    
-    if (endMinutes <= startMinutes) {
-      // End is on the next calendar day
-      durationMinutes = (24 * 60 - startMinutes) + endMinutes;
-      // Calculate next day
-      const dateParts = editedDate.split("-").map(Number);
-      const nextDay = new Date(Date.UTC(dateParts[0], dateParts[1] - 1, dateParts[2] + 1));
-      endDate = nextDay.toISOString().slice(0, 10);
-    } else {
-      // Same day
-      durationMinutes = endMinutes - startMinutes;
-      endDate = editedDate;
-    }
-    
-    if (durationMinutes > 600) { // 10 hours
-      setError("Duration cannot exceed 10 hours");
+    if (!validation.success) {
+      setError(validation.error);
       return;
     }
 
     startTransition(async () => {
       // Convert from member's timezone to UTC
       const newStartedAt = zonedDateTimeToUtc(editedDate, editedStartTime, timezone);
-      const newCompletedAt = zonedDateTimeToUtc(endDate, editedEndTime, timezone);
+      const newCompletedAt = zonedDateTimeToUtc(validation.endDate, editedEndTime, timezone);
       
       // Extract local date in member's timezone from the start time
       const startZonedDate = utcToZonedDateTime(newStartedAt, timezone).date;
