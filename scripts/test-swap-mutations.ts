@@ -28,7 +28,7 @@ interface InjuryRow {
 }
 
 const fixture = "scripts/fixtures/catalogue.json";
-const catalogue = JSON.parse(readFileSync(fixture, "utf8")) as CandidateExercise[];
+const catalogue: CandidateExercise[] = JSON.parse(readFileSync(fixture, "utf8"));
 
 let passed = 0;
 let failed = 0;
