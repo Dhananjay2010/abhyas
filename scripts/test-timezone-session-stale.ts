@@ -282,7 +282,7 @@ console.log("\n10. Same session loaded 6 hours later is closed with ended_at at 
   const session = fake.getSession("stale-morning");
   check("session closed", session?.status === "completed");
   const endedAtMatch = session?.completed_at && new Date(session.completed_at).getTime() === Date.parse(lastSet);
-  check("ended_at matches last set", endedAtMatch, `${session?.completed_at} vs ${lastSet}`);
+  check("ended_at matches last set", !!endedAtMatch, `${session?.completed_at} vs ${lastSet}`);
 }
 
 console.log("\n=== MUTANT TESTS ===\n");
