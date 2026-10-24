@@ -315,26 +315,51 @@ The local database is seeded with deterministic test data from `supabase/seed.sq
    - Password: `testpass123`
    - UUID: `00000000-0000-0000-0000-000000000001`
 
-**⚠️ Important:** The app's UI only offers **Google OAuth sign-in** (no email/password form). The seeded user **cannot sign in through the app UI as-is**. To use the seeded test user locally:
+**⚠️ Important:** The app's UI only offers **Google OAuth sign-in** (no email/password form). The seeded user **cannot sign in through the app UI as-is**. To use the seeded test data locally:
 
-**Option 1: Enable email authentication locally (for testing without Google)**
+**Option 1: Sign in programmatically with the seeded user (for testing without Google)**
 
-Edit `supabase/config.toml` and set:
-```toml
-[auth.email]
-enable_signup = true
-enable_confirmations = false  # Already confirmed in seed
+The email provider is enabled in local Supabase, but there's no password form in the app UI. You can get a session programmatically using supabase-js:
+
+```typescript
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  'http://127.0.0.1:54321',
+  'your-local-anon-key'  // From `npm run supabase:start` output
+)
+
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'test@example.com',
+  password: 'testpass123'
+})
 ```
 
-Then restart local Supabase (`npm run supabase:reset`) and sign in via Supabase Studio's SQL Editor or a custom sign-in flow (not provided in the app).
+This gives you a valid session for the seeded user without adding login UI to the app.
 
-**Option 2: Use Google OAuth locally (matches production)**
+**Option 2: Sign in with Google, then use the seeded data**
 
-Configure Google OAuth in `supabase/config.toml` under `[auth.external.google]` with local redirect URLs, then sign in through the app's Google sign-in button. After signing in, you can replace your Google user's UUID in the database with `00000000-0000-0000-0000-000000000001` to see the seeded test data.
+Configure Google OAuth in `supabase/config.toml` under `[auth.external.google]` with local redirect URLs, then sign in through the app's Google sign-in button. After signing in, re-point the seeded data to your own user id:
+
+```sql
+-- Get your user id after signing in with Google
+SELECT id, email FROM auth.users;
+
+-- Update seeded data to point to your user id (replace 'your-actual-uuid')
+UPDATE profiles SET id = 'your-actual-uuid' 
+WHERE id = '00000000-0000-0000-0000-000000000001';
+
+UPDATE user_equipment SET user_id = 'your-actual-uuid' 
+WHERE user_id = '00000000-0000-0000-0000-000000000001';
+
+-- Do the same for programs, sessions, exercise_progress, body_metrics, etc.
+```
+
+Or simply use your own account and create data through the app's normal onboarding and workout flows.
 
 **Option 3: Use the seeded user programmatically**
 
-Access the local database directly (via Studio SQL Editor or psql) to query/modify the seeded user's data for testing server-side logic, migrations, or database queries.
+Access the local database directly (via Studio SQL Editor at http://127.0.0.1:54323 or psql) to query/modify the seeded user's data for testing server-side logic, migrations, or database queries without needing to sign in.
 
 The seed data is **clearly fake** (display name "Test User", birthdate 1990-01-01, test@example.com) and safe to commit. The password `testpass123` is a local-only test credential.
 
