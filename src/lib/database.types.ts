@@ -1351,7 +1351,7 @@ export type Database = {
         Row: {
           completed_at: string | null
           exercise_id: string | null
-          exercise_status: Database["public"]["Enums"]["session_exercise_status"] | null
+          exercise_status: Database["public"]["Enums"]["exercise_status"] | null
           local_date: string | null
           metric: Database["public"]["Enums"]["exercise_metric"] | null
           session_exercise_id: string | null

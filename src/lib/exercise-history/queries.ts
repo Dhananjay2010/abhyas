@@ -69,7 +69,7 @@ export async function getLastPerformance(
     .limit(1)
     .maybeSingle();
 
-  if (historyError || !historyRow) {
+  if (historyError || !historyRow || !historyRow.session_exercise_id || !historyRow.session_id || !historyRow.local_date || !historyRow.metric) {
     return null;
   }
 
@@ -245,7 +245,9 @@ export async function getExerciseHistory(
   }
 
   // Get sets for these session_exercises
-  const sessionExerciseIds = historyRows.map(row => row.session_exercise_id);
+  const sessionExerciseIds = historyRows
+    .map(row => row.session_exercise_id)
+    .filter((id): id is string => id !== null);
   const { data: allSets, error: setsError } = await supabase
     .from("session_sets")
     .select("session_exercise_id, reps, weight_kg, duration_seconds, completed_at")
@@ -282,7 +284,7 @@ export async function getExerciseHistory(
   while (true) {
     const { data: batch, error: batchError } = await supabase
       .from("exercise_history")
-      .select("session_exercise_id, metric, completed_at")
+      .select("session_exercise_id, session_id, local_date, metric, completed_at")
       .eq("user_id", userId)
       .eq("exercise_id", exerciseId)
       .order("completed_at", { ascending: true }) // Oldest first for chronological
@@ -297,7 +299,9 @@ export async function getExerciseHistory(
   }
 
   // Get ALL sets for PR detection (paginated)
-  const allHistorySessionExIds = allHistoryRows.map(row => row.session_exercise_id);
+  const allHistorySessionExIds = allHistoryRows
+    .map(row => row.session_exercise_id)
+    .filter((id): id is string => id !== null);
   const allHistorySets: SetData[] = [];
   
   // Fetch sets in batches to avoid URL length limits
@@ -330,6 +334,11 @@ export async function getExerciseHistory(
   const allHistoryMap = new Map(allHistoryRows.map(row => [row.session_exercise_id, row]));
 
   for (const historyRow of historyRows) {
+    // Skip rows with missing data
+    if (!historyRow.session_exercise_id || !historyRow.session_id || !historyRow.local_date) {
+      continue;
+    }
+
     const sets = setsBySessionExercise.get(historyRow.session_exercise_id) ?? [];
     if (sets.length === 0) continue;
 
@@ -342,8 +351,12 @@ export async function getExerciseHistory(
 
     // For PR detection: find all sets from strictly earlier sessions
     const currentCompletedAt = historyRow.completed_at;
-    const earlierRows = allHistoryRows.filter(row => row.completed_at < currentCompletedAt);
-    const earlierSessionExIds = earlierRows.map(row => row.session_exercise_id);
+    const earlierRows = allHistoryRows.filter(row => 
+      row.completed_at && currentCompletedAt && row.completed_at < currentCompletedAt
+    );
+    const earlierSessionExIds = earlierRows
+      .map(row => row.session_exercise_id)
+      .filter((id): id is string => id !== null);
     
     const setsBeforeThisSession = allHistorySets.filter((_set, idx) => {
       // Find which session_exercise this set belongs to by matching with allHistorySets order
