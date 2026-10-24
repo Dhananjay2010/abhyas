@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import { buildCycle, cyclesForMinutes, lengthLabel, type Cycle } from "./engine";
 import { INTENTS, needsConfirming, type Intent, type Pattern } from "./pattern";
+import { formatDuration } from "../format-duration";
 
 type RoutineRow = Database["public"]["Tables"]["breathing_routines"]["Row"];
 
@@ -142,8 +143,10 @@ export function resolveRoutine(routine: Routine, patterns: Pattern[]): ResolvedR
 
 /** "About 5 min", for a routine card. Rounded, because the steps rarely land on a whole minute. */
 export function routineLength(seconds: number): string {
-  const minutes = Math.round(seconds / 60);
-  return minutes < 1 ? "Under a minute" : `About ${minutes} min`;
+  if (seconds === 0) return "";
+  const base = formatDuration(seconds);
+  if (base === "Under a minute") return base;
+  return `About ${base}`;
 }
 
 /** "Sigh · Extended Exhale · Coherent", for the card. */

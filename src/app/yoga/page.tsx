@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { getCachedYogaData } from "@/lib/supabase/cached-queries";
@@ -62,7 +63,9 @@ export default async function YogaPage() {
           Work through a series day by day, or pick a single practice.
         </p>
 
-        <YogaPlayer playlists={playlists} channelUrl={channelUrl} />
+        <Suspense fallback={<p className="text-muted">Loading...</p>}>
+          <YogaPlayer playlists={playlists} channelUrl={channelUrl} />
+        </Suspense>
       </div>
     </main>
   );

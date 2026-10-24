@@ -1,3 +1,4 @@
+export {};
 /**
  * The breathing timeline, lengths, clock and stats.
  *
@@ -235,8 +236,8 @@ console.log("\n9. Length in minutes, and 4-7-8 in breaths with a hard cap (bug B
   const box = buildCycle(BOX);
   const plan = lengthPlan(box, null);
   check("box is chosen in minutes", plan.unit === "minutes");
-  check("1/3/5/10 min become whole cycles",
-    plan.options.map((o) => o.cycles).join(",") === "4,11,19,38", plan.options.map((o) => o.cycles).join(","));
+  check("cycles are ceiled to meet or exceed labeled duration",
+    plan.options.map((o) => o.cycles).join(",") === "4,12,19,38", plan.options.map((o) => o.cycles).join(","));
   check("custom goes up to an hour", plan.maxMinutes === 60);
 
   const fse = buildCycle(FOUR_SEVEN_EIGHT);
@@ -256,7 +257,7 @@ console.log("\n9. Length in minutes, and 4-7-8 in breaths with a hard cap (bug B
   check("custom stops at the cap", long.maxMinutes === 5, `${long.maxMinutes}`);
 
   const nadi = lengthPlan(buildCycle(NADI), null);
-  check("Nadi Shodhana's 1 min is two full rounds", nadi.options[0].cycles === 2, `${nadi.options[0].cycles}`);
+  check("Nadi Shodhana's shortest option is two cycles (64s, rounds up from 1 min)", nadi.options[0].cycles === 2, `${nadi.options[0].cycles}`);
 }
 
 console.log("\n10. Where the length starts, and how it reads");
@@ -273,8 +274,19 @@ console.log("\n10. Where the length starts, and how it reads");
     initialCycles({ cycle: box, maxCycles: null, defaultCycles: 10, preferredMinutes: 5, lastCycles: null }) === 19);
   check("box, 19 cycles reads 5 min", lengthLabel(box, 19, null) === "5 min", lengthLabel(box, 19, null));
   check("4-7-8, 4 cycles reads 4 breaths", lengthLabel(fse, 4, 8) === "4 breaths");
-  check("under a minute reads in seconds", lengthLabel(buildCycle(SIGH), 2, null) === "18 sec");
+  check("under a minute reads in seconds", lengthLabel(buildCycle(SIGH), 2, null) === "Under a minute");
   check("one breath is singular", lengthPlan(fse, 1).options[0].label === "1 breath", lengthPlan(fse, 1).options[0].label);
+  
+  // Every option's label must match its actual duration
+  check("every box option label matches real duration",
+    lengthPlan(box, null).options.every((o) => o.label === lengthLabel(box, o.cycles, null)),
+    lengthPlan(box, null).options.map((o) => `${o.label} vs ${lengthLabel(box, o.cycles, null)}`).join(", "));
+  check("every 4-7-8 option label matches real duration",
+    lengthPlan(fse, 8).options.every((o) => o.label === lengthLabel(fse, o.cycles, 8)),
+    lengthPlan(fse, 8).options.map((o) => `${o.label} vs ${lengthLabel(fse, o.cycles, 8)}`).join(", "));
+  check("every Nadi Shodhana option label matches real duration",
+    lengthPlan(buildCycle(NADI), null).options.every((o) => o.label === lengthLabel(buildCycle(NADI), o.cycles, null)),
+    lengthPlan(buildCycle(NADI), null).options.map((o) => `${o.label} vs ${lengthLabel(buildCycle(NADI), o.cycles, null)}`).join(", "));
 }
 
 console.log("\n11. Easing");

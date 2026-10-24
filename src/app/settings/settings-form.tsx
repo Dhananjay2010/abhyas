@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
+import { createSerialQueue } from "@/lib/serial-queue";
 import {
   BODY_REGIONS,
   GOALS,
@@ -108,6 +109,11 @@ export function SettingsForm({
   const [timezoneConfirmation, setTimezoneConfirmation] = useState<string | null>(null);
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  
+  // Serial queue for optimistic saves
+  const [saveQueue] = useState(() => createSerialQueue());
+  const [pendingSaves, setPendingSaves] = useState(0);
   /** L4 QA fix: Request sequence to ignore stale equipment save responses */
   const [equipmentSequence] = useState(() => createRequestSequence());
   /** F2: Browser timezone detected on client after mount */
@@ -142,16 +148,53 @@ export function SettingsForm({
     }
   }, []);
 
+  // beforeunload guard while saves are pending
+  useEffect(() => {
+    if (pendingSaves === 0) return;
+    
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [pendingSaves]);
+
+  // Auto-clear "saved" status after 2 seconds
+  useEffect(() => {
+    if (saveStatus !== "saved") return;
+    const timer = setTimeout(() => setSaveStatus("idle"), 2000);
+    return () => clearTimeout(timer);
+  }, [saveStatus]);
+
   function save(run: () => Promise<Result>, affectsPlan = false) {
-    startTransition(async () => {
-      const r = await run();
-      if (!r.ok) return setError(r.error);
-      setError(null);
-      if (affectsPlan) setPlanStale(true);
-      // No router.refresh() here. updateSettings and friends revalidate
-      // "/settings", and Next.js returns the re-rendered tree with the action's
-      // own response — refreshing on top of that fetched this five-query screen
-      // a second time, on every single toggle.
+    setPendingSaves(n => n + 1);
+    setSaveStatus("saving");
+    
+    saveQueue.enqueue(async () => {
+      return new Promise<void>((resolve) => {
+        startTransition(async () => {
+          try {
+            const r = await run();
+            if (!r.ok) {
+              setError(r.error);
+              setSaveStatus("idle");
+            } else {
+              setError(null);
+              if (affectsPlan) setPlanStale(true);
+              setSaveStatus("saved");
+            }
+          } catch {
+            setError("Save failed. Please try again.");
+            setSaveStatus("idle");
+          } finally {
+            setPendingSaves(n => n - 1);
+            resolve();
+          }
+        });
+      });
     });
   }
 
@@ -204,6 +247,21 @@ export function SettingsForm({
 
   return (
     <div className="space-y-12">
+      {/* Fixed-height status bar to prevent layout shift */}
+      <div
+        role="status"
+        aria-live="polite"
+        className="min-h-[52px] flex items-center rounded-xl border px-4 py-3 text-sm transition-colors duration-200"
+        style={{
+          borderColor: saveStatus === "saving" ? "var(--color-accent)" : saveStatus === "saved" ? "var(--color-success)" : "transparent",
+          backgroundColor: saveStatus === "saving" ? "color-mix(in srgb, var(--color-accent) 10%, transparent)" : saveStatus === "saved" ? "color-mix(in srgb, var(--color-success) 10%, transparent)" : "transparent",
+          color: saveStatus === "saving" ? "var(--color-accent)" : saveStatus === "saved" ? "var(--color-success)" : "transparent",
+        }}
+      >
+        {saveStatus === "saving" && "Saving changes…"}
+        {saveStatus === "saved" && "Changes saved"}
+        {saveStatus === "idle" && <span aria-hidden="true">&nbsp;</span>}
+      </div>
       {error && <ErrorNote>{error}</ErrorNote>}
 
       {planStale && (
@@ -275,6 +333,7 @@ export function SettingsForm({
           <Segmented
             options={[3, 4, 5, 6].map((n) => ({ value: n, label: `${n}` }))}
             value={s.daysPerWeek}
+            ariaLabel="Days per week"
             onChange={(n) => {
               const yoga = Math.min(s.yogaDaysPerWeek, n - 1);
               setS({ ...s, daysPerWeek: n, yogaDaysPerWeek: yoga });
@@ -293,6 +352,7 @@ export function SettingsForm({
               label: `${n}`,
             }))}
             value={s.yogaDaysPerWeek}
+            ariaLabel="Yoga days"
             onChange={(n) => {
               setS({ ...s, yogaDaysPerWeek: n });
               save(() => actions.updateProfileSettings({ yoga_days_per_week: n }), true);
@@ -404,7 +464,7 @@ export function SettingsForm({
                           setS({ ...s, hasAllEquipment: decision.newHasAll, equipmentIds: decision.newEquipmentIds });
                           saveEquipment(decision.newHasAll, decision.newEquipmentIds);
                         }}
-                        className={`rounded-full border px-4 py-2 text-sm ${
+                        className={`rounded-full border px-4 py-2 text-sm min-h-[44px] flex items-center ${
                           on
                             ? "border-accent bg-accent/10 text-accent"
                             : "border-border bg-surface text-muted"
@@ -440,7 +500,7 @@ export function SettingsForm({
                   setS({ ...s, injuries: next });
                   save(() => actions.updateInjuries(next), true);
                 }}
-                className={`rounded-full border px-4 py-2 text-sm ${
+                className={`rounded-full border px-4 py-2 text-sm min-h-[44px] flex items-center ${
                   found
                     ? "border-accent bg-accent/10 text-accent"
                     : "border-border bg-surface text-muted"
@@ -770,18 +830,21 @@ function Segmented<T extends string | number>({
   options,
   value,
   onChange,
+  ariaLabel,
 }: {
   options: { value: T; label: string }[];
   value: T | null;
   onChange: (v: T) => void;
+  ariaLabel?: string;
 }) {
   return (
-    <div className="flex flex-wrap gap-1 rounded-xl bg-surface-2 p-1">
+    <div className="flex flex-wrap gap-1 rounded-xl bg-surface-2 p-1" role="group" aria-label={ariaLabel}>
       {options.map((o) => (
         <button
           key={String(o.value)}
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
+          aria-label={ariaLabel ? `${ariaLabel} ${o.label}` : undefined}
           className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
             value === o.value ? "bg-accent text-accent-fg" : "text-muted"
           }`}

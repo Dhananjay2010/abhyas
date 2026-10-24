@@ -135,8 +135,8 @@ export default async function BreathePage({
   }
   const latest = solo[0];
   const latestKey = latest ? (latest.user_pattern_id ?? latest.pattern_id) : null;
-  // A practice of your own is keyed by your row; a built-in by the built-in,
-  // even when you have retimed it.
+  // Your own practice or a retimed built-in is keyed by user_pattern_id; an
+  // unadjusted built-in by pattern_id. findPatternByLogKey matches via p.userPatternId or p.id.
   const lastPattern = latestKey ? findPatternByLogKey(patterns, latestKey) : undefined;
   const last: LastPractice | null =
     lastPattern && latest ? { patternId: lastPattern.id, cycles: latest.planned_cycles } : null;

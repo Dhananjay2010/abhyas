@@ -11,6 +11,8 @@
  * or a tab that slept for a minute all fall out of the arithmetic.
  */
 
+import { formatDuration } from "../format-duration";
+
 /**
  * `pump` and `rest` exist for Kapalabhati, which the other three cannot
  * express. Thirty rapid pumps would be sixty phases, past the twenty-four a
@@ -311,7 +313,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** Whole cycles closest to the requested minutes. A practice never stops mid-breath. */
 export function cyclesForMinutes(cycle: Cycle, minutes: number, maxCycles: number | null): number {
-  const n = Math.max(1, Math.round((minutes * 60) / cycle.seconds));
+  const n = Math.max(1, Math.ceil((minutes * 60) / cycle.seconds));
   return maxCycles ? Math.min(n, maxCycles) : n;
 }
 
@@ -350,12 +352,15 @@ export function lengthPlan(cycle: Cycle, maxCycles: number | null): LengthPlan {
   const seen = new Set<number>();
   const options: LengthOption[] = [];
   for (const m of MINUTE_CHOICES) {
-    const raw = Math.max(1, Math.round((m * 60) / cycle.seconds));
+    const raw = Math.max(1, Math.ceil((m * 60) / cycle.seconds));
     // A capped pattern must not offer a "10 min" that quietly runs for three.
     if (maxCycles && raw > maxCycles) continue;
     if (seen.has(raw)) continue;
     seen.add(raw);
-    options.push({ cycles: raw, label: `${m} min` });
+    // Use the actual computed duration for the label
+    const actualSeconds = Math.round(raw * cycle.seconds);
+    const actualLabel = formatDuration(actualSeconds);
+    options.push({ cycles: raw, label: actualLabel });
   }
 
   const maxMinutes = maxCycles
@@ -370,7 +375,7 @@ export function lengthLabel(cycle: Cycle, cycles: number, maxCycles: number | nu
   if (unit === "rounds") return plural(cycles, "round");
   if (unit === "breaths") return plural(cycles * cycle.breaths, "breath");
   const seconds = Math.round(cycle.seconds * cycles);
-  return seconds < 60 ? `${seconds} sec` : `${Math.round(seconds / 60)} min`;
+  return formatDuration(seconds);
 }
 
 /**

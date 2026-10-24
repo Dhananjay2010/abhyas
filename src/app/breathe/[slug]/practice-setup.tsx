@@ -19,6 +19,7 @@ import {
 import { warmUpSpeech } from "@/lib/breathing/speech";
 import { validatePatternDraft, type PrefsPatch } from "@/lib/breathing/validation";
 import { formatClock } from "@/lib/session/device";
+import { formatDuration } from "@/lib/format-duration";
 import {
   resetPatternTiming,
   savePatternTiming,
@@ -244,7 +245,7 @@ export function PracticeSetup({
             {formatClock(seconds)}
           </span>
         </div>
-        <div role="radiogroup" aria-label="Length" className="mt-2 flex gap-1 rounded-xl bg-surface-2 p-1">
+        <div role="radiogroup" aria-label="Length" className="mt-2 flex flex-wrap gap-1 rounded-xl bg-surface-2 p-1">
           {plan.options.map((o) => {
             const on = !custom && o.cycles === cycles;
             return (
@@ -288,7 +289,7 @@ export function PracticeSetup({
               −
             </button>
             <span aria-live="polite" className="text-lg font-semibold tabular-nums">
-              {minutes} min
+              {formatDuration(seconds)}
             </span>
             <button
               type="button"

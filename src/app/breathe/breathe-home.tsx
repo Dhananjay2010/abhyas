@@ -24,6 +24,7 @@ import type { BreathingStats, CalmShift } from "@/lib/breathing/stats";
 import type { Suggestion } from "@/lib/breathing/suggest";
 import { CARD_BG } from "@/lib/breathing/theme";
 import { MOODS } from "@/lib/breathing/pattern";
+import { formatWeekDuration } from "@/lib/format-duration";
 import { updateBreathingPrefs } from "./actions";
 import { Icon, WeekStrip } from "./controls";
 import { PrefsSheet } from "./prefs-sheet";
@@ -53,13 +54,7 @@ function lengthFor(p: Pattern, prefs: BreathingPrefs, lastCycles: number | null)
 }
 
 function weekLine(stats: BreathingStats): string {
-  const s = stats.weekSeconds;
-  const week =
-    s === 0
-      ? "Nothing yet this week"
-      : s < 60
-        ? "Under a minute this week"
-        : `${Math.round(s / 60)} min this week`;
+  const week = formatWeekDuration(stats.weekSeconds);
   return stats.streak >= 2 ? `${week} · ${stats.streak}-day streak` : week;
 }
 

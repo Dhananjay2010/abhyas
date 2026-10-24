@@ -44,6 +44,7 @@ jobs:
 
   database-seed-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -76,6 +77,24 @@ jobs:
 
       - name: Run database reset with seed
         run: supabase db reset
+
+      - name: Test breathe backstop (duplicate detection)
+        run: npx tsx scripts/test-breathe-backstop.ts
+        timeout-minutes: 3
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: Test breathe retry race condition
+        run: npx tsx scripts/test-breathe-retry-race.ts
+        timeout-minutes: 3
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+
+      - name: Test breathe lost response retry
+        run: npx tsx scripts/test-breathe-lost-response.ts
+        timeout-minutes: 3
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
       - name: Verify seed data
         run: |

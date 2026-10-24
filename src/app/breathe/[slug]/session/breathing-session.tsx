@@ -35,6 +35,7 @@ import {
 } from "@/lib/breathing/speech";
 import { openedFromApp, uuid } from "@/lib/breathing/client";
 import { PausableClock } from "@/lib/breathing/clock";
+import { createSaveOnce } from "@/lib/breathe/save-once";
 import {
   buildCycle,
   nextPhaseStart,
@@ -48,6 +49,7 @@ import { MOODS, moodLabel, type Pattern, type SessionOptions } from "@/lib/breat
 import type { ResolvedStep, Routine } from "@/lib/breathing/routine";
 import { GLOW_BG, HALO_BG, ORB_BG, SESSION_BG } from "@/lib/breathing/theme";
 import { formatClock, useWakeLock, vibrate } from "@/lib/session/device";
+import { formatDuration, formatWeekDuration } from "@/lib/format-duration";
 import { focusTrap } from "@/lib/focus-trap";
 import {
   rateBreathingPractice,
@@ -506,62 +508,75 @@ function Practice({
     [actions, logId],
   );
 
+  // Create a save-once wrapper around recordBreathingPractice
+  const guardedSave = useMemo(
+    () =>
+      createSaveOnce(
+        (o: Outcome, guidance: "off" | "tones" | "ocean" | "voice") =>
+          actions.recordBreathingPractice({
+            logId,
+            patternId: pattern.kind === "mine" ? null : pattern.id,
+            userPatternId: pattern.userPatternId,
+            cycles: o.cycles,
+            plannedCycles: options.cycles,
+            breaths: o.breaths,
+            seconds: o.seconds,
+            endedEarly: o.endedEarly,
+            moodBefore,
+            guidance,
+            routineId: routine?.id ?? null,
+            routineStep: routine ? stepIndex + 1 : null,
+          }),
+        (result: unknown) => {
+          // Only mark as success if result has ok: true
+          return typeof result === "object" && result !== null && "ok" in result && (result as { ok: boolean }).ok === true;
+        }
+      ),
+    [actions, logId, pattern.kind, pattern.id, pattern.userPatternId, options.cycles, moodBefore, routine, stepIndex],
+  );
+
   const doSave = useCallback(
     (o: Outcome) => {
+      // Don't save again if already saved successfully
+      if (savedOkRef.current) {
+        return;
+      }
+
       setSave({ state: "saving" });
-      actions
-        .recordBreathingPractice({
-          logId,
-          // A practice of your own has no built-in behind it; a built-in you
-          // have retimed carries both, so history still groups it correctly.
-          patternId: pattern.kind === "mine" ? null : pattern.id,
-          userPatternId: pattern.userPatternId,
-          cycles: o.cycles,
-          plannedCycles: options.cycles,
-          breaths: o.breaths,
-          seconds: o.seconds,
-          endedEarly: o.endedEarly,
-          moodBefore,
-          guidance: soundOnRef.current ? modeRef.current : "off",
-          routineId: routine?.id ?? null,
-          routineStep: routine ? stepIndex + 1 : null,
-        })
-        .then(
-          (r) => {
-            if (!r.ok) {
-              setSave({ state: "error", error: r.error });
-              savedOkRef.current = false;
-              return;
-            }
-            setSave({ state: "saved" });
-            savedOkRef.current = true;
+      const guidance = soundOnRef.current ? modeRef.current : "off";
+      guardedSave(o, guidance).then(
+        (r) => {
+          if (!r) {
+            // After success, guardedSave returns undefined (no-op)
+            return;
+          }
+          if (!r.ok) {
+            setSave({ state: "error", error: r.error });
+            savedOkRef.current = false;
+            return;
+          }
+          setSave({ state: "saved" });
+          // Only call onSaved if this is the first successful save (not a retry)
+          const wasAlreadySaved = savedOkRef.current;
+          savedOkRef.current = true;
+          if (!wasAlreadySaved) {
             onSaved(o.seconds);
-            const m = pendingMood.current;
-            if (m !== null) {
-              pendingMood.current = null;
-              sendMood(m);
-            }
-          },
-          () =>
-            setSave({
-              state: "error",
-              error: "Could not reach the server. Check your connection and try again.",
-            }),
-        );
+          }
+          const m = pendingMood.current;
+          if (m !== null) {
+            pendingMood.current = null;
+            sendMood(m);
+          }
+        },
+        () => {
+          setSave({
+            state: "error",
+            error: "Could not reach the server. Check your connection and try again.",
+          });
+        }
+      );
     },
-    [
-      actions,
-      logId,
-      pattern.id,
-      pattern.kind,
-      pattern.userPatternId,
-      options.cycles,
-      moodBefore,
-      onSaved,
-      sendMood,
-      routine,
-      stepIndex,
-    ],
+    [guardedSave, onSaved, sendMood],
   );
   const doSaveRef = useRef(doSave);
   useEffect(() => {
@@ -580,6 +595,24 @@ function Practice({
     setPaused(true);
   }, [clock, settle, total, cycle, options.cycles]);
 
+  /**
+   * Unlock Web Audio context and warm up speech synthesis from inside a gesture.
+   * iOS grants Web Audio and speech separately, and both only from inside a
+   * gesture -- speech again after the app has been in the background, which is
+   * why Resume warms it up too.
+   */
+  const allowSound = useCallback(() => {
+    if (!soundOn) return;
+    unlockBreathAudio();
+    if (mode === "voice") warmUpSpeech(options.voiceLang);
+  }, [soundOn, mode, options.voiceLang]);
+
+  const resume = useCallback(() => {
+    allowSound();
+    setPaused(false);
+    setControls(true);
+  }, [allowSound]);
+
   useEffect(() => {
     registerPause(requestPause);
   }, [registerPause, requestPause]);
@@ -589,15 +622,12 @@ function Practice({
     if (!paused || !pauseDialogRef.current) return;
     const trap = focusTrap({
       element: pauseDialogRef.current,
-      onEscape: () => {
-        setPaused(false);
-        setControls(true);
-      },
+      onEscape: resume,
       returnFocusTo: pauseTriggerRef.current,
       initialFocus: true,
     });
     return () => trap.release();
-  }, [paused]);
+  }, [paused, resume]);
 
   // Leaving the app pauses the practice. iOS stops the audio at that point
   // anyway, and coming back to a practice that raced on without you is worse.
@@ -609,19 +639,23 @@ function Practice({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [requestPause]);
 
-  // Space pauses and resumes; Escape pauses.
+  // Space pauses and resumes; Escape on the pause dialog resumes.
   useEffect(() => {
     if (stage !== "running") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== " " && e.key !== "Escape") return;
       if ((e.target as HTMLElement | null)?.closest("button")) return;
       e.preventDefault();
+      if (e.key === "Escape" && paused) {
+        resume();
+        return;
+      }
       if (!paused) requestPause();
       else if (e.key === " ") setPaused(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [stage, paused, requestPause]);
+  }, [stage, paused, requestPause, resume]);
 
   useEffect(() => {
     if (paused) resumeRef.current?.focus();
@@ -910,29 +944,10 @@ function Practice({
 
   // ---- actions -------------------------------------------------------------
 
-  /**
-   * Everything sound needs from a tap, in one place.
-   *
-   * iOS grants Web Audio and speech separately, and both only from inside a
-   * gesture -- speech again after the app has been in the background, which is
-   * why Resume warms it up too.
-   */
-  const allowSound = () => {
-    if (!soundOn) return;
-    unlockBreathAudio();
-    if (mode === "voice") warmUpSpeech(options.voiceLang);
-  };
-
   const begin = () => {
     allowSound();
     setTapped(true);
     setStage("running");
-  };
-
-  const resume = () => {
-    allowSound();
-    setPaused(false);
-    setControls(true);
   };
 
   const skipSettle = () => {
@@ -1033,8 +1048,7 @@ function Practice({
   }
 
   if (stage === "finished" && outcome) {
-    const weekMinutes =
-      week.seconds === 0 ? "0 min" : week.seconds < 60 ? "Under a minute" : `${Math.round(week.seconds / 60)} min`;
+    const weekMinutes = formatWeekDuration(week.seconds);
     // A routine's summary is the whole thing, not just its last step.
     const seconds = before.seconds + outcome.seconds;
     const breaths = before.breaths + outcome.breaths;
@@ -1054,7 +1068,7 @@ function Practice({
           <p className="mt-2 text-center text-sm text-breath-ink/70">
             {/* A pumping practice counts its pumps, the same word the round
                 itself used. A routine mixes practices, so it stays breaths. */}
-            {formatClock(seconds)} · {breaths}{" "}
+            {formatDuration(seconds)} · {breaths}{" "}
             {!routine && pumps
               ? breaths === 1
                 ? "pump"
@@ -1169,6 +1183,8 @@ function Practice({
         {announce}
       </p>
 
+      {/* Main session content - inert when pause dialog is open */}
+      <div className="contents" inert={(paused || undefined) as boolean | undefined}>
       <header
         className="relative mx-auto w-full max-w-md shrink-0 px-6"
         style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
@@ -1334,17 +1350,20 @@ function Practice({
             </button>
             <button
               type="button"
+              aria-label="End practice"
               onClick={(e) => {
                 e.stopPropagation();
                 requestPause();
               }}
-              className={`h-12 w-12 text-sm text-breath-ink/80 ${fade}`}
+              className={`h-12 w-12 rounded-full flex items-center justify-center text-sm text-breath-ink/80 ${fade} focus-visible:opacity-100`}
             >
               End
             </button>
           </>
         )}
       </footer>
+      </div>
+      {/* End of inert content */}
 
       {needsTap && (
         <div
@@ -1388,7 +1407,7 @@ function Practice({
             <h2 id="pause-title" className="text-xl font-semibold tracking-tight">
               Paused
             </h2>
-            <p className="mt-1 text-sm text-breath-ink/70">
+            <p className="mt-1 text-base text-breath-ink">
               {view.sub === "settle"
                 ? "You have not started yet."
                 : view.sub === "winddown"
