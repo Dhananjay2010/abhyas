@@ -14,7 +14,6 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isSessionOverride } from "@/lib/program/detect-override";
-import { resolveTodayDays } from "@/lib/resolve-today-days";
 
 export const dynamic = "force-dynamic";
 
