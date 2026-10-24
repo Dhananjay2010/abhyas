@@ -60,7 +60,7 @@ type SessionExerciseRow = {
  * deload, used by every path that creates session exercises (startSession,
  * ensureSessionExercises, train-anyway, swap, tomorrow-choice, rebuild re-point).
  */
-function prepareSessionExercises(
+export function prepareSessionExercises(
   sessionId: string,
   userId: string,
   programDayExercises: ProgramDayExercise[],

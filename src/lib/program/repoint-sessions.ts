@@ -29,6 +29,67 @@ type NewProgramDay = {
 };
 
 /**
+ * Find the best matching day in the new program for a session from the old program.
+ *
+ * Matching priority:
+ * 1. Label match (exact): "Upper A" → "Upper A"
+ * 2. Day index match (same weekday): Monday → Monday
+ * 3. Day type match (fallback): weights → weights
+ *
+ * Returns the matching day or null if no match exists.
+ */
+export function matchNewDay(
+  oldSession: {
+    old_day_label: string | null;
+    old_day_index: number | null;
+    actual_type: DayType | null;
+    planned_type: DayType | null;
+  },
+  newDays: NewProgramDay[],
+): NewProgramDay | null {
+  const chosenType = oldSession.actual_type ?? oldSession.planned_type;
+  if (!chosenType) return null;
+
+  // Non-training days (rest, yoga, meditation) have no program_day
+  if (chosenType === "rest" || chosenType === "yoga" || chosenType === "meditation") {
+    return null;
+  }
+
+  // 1. Try to match by label (exact match)
+  if (oldSession.old_day_label) {
+    const labelMatch = newDays.find((d) => d.label === oldSession.old_day_label);
+    if (labelMatch) return labelMatch;
+  }
+
+  // 2. If no label match, try day_index (same weekday)
+  if (oldSession.old_day_index !== null) {
+    const indexMatch = newDays.find((d) => d.day_index === oldSession.old_day_index);
+    if (indexMatch) return indexMatch;
+  }
+
+  // 3. If still no match, fall back to day_type (any training day)
+  const typeMatch = newDays.find((d) => d.day_type === chosenType);
+  return typeMatch ?? null;
+}
+
+/**
+ * Decide whether a session should be kept, updated, or deleted after a rebuild.
+ *
+ * Returns:
+ * - "keep": session has logged sets, don't touch it
+ * - "update": planned session with no sets, should be re-pointed
+ * - "delete": planned session before today, don't re-point
+ */
+export function decideRepointAction(
+  session: { has_sets: boolean; local_date: string },
+  today: string,
+): "keep" | "update" | "delete" {
+  if (session.has_sets) return "keep";
+  if (session.local_date < today) return "delete";
+  return "update";
+}
+
+/**
  * Re-point planned-but-unstarted sessions to the new program after a rebuild.
  *
  * A rebuild replaces `programs` and `program_days`, which leaves any `sessions`
@@ -62,46 +123,14 @@ export function planRepointSessions(
   const toUpdate: Array<{ id: string; newProgramDayId: string }> = [];
   const toDelete: string[] = [];
 
-  // Sessions that qualify for re-pointing: planned, no sets, today or later.
-  const candidates = oldSessions.filter(
-    (s) => !s.has_sets && s.local_date >= today,
-  );
-
-  for (const session of candidates) {
-    // The type the user chose for this day: `actual_type` for a "train anyway"
-    // or tomorrow-choice override, `planned_type` for a Keep or scheduled day.
-    const chosenType = session.actual_type ?? session.planned_type;
-    if (!chosenType) {
-      // No type recorded: shouldn't happen, but skip rather than crashing.
+  for (const session of oldSessions) {
+    const action = decideRepointAction(session, today);
+    if (action === "keep" || action === "delete") {
+      if (action === "delete") toDelete.push(session.id);
       continue;
     }
 
-    // Non-training days (rest, yoga, breathing) have no program_day, so
-    // there's nothing to re-point: they are type-only overrides.
-    if (chosenType === "rest" || chosenType === "yoga" || chosenType === "meditation") {
-      continue;
-    }
-
-    // Match by label first (e.g., "Upper A" → "Upper A"), then day_index
-    // (Monday → Monday), then day_type (weights → weights). This prevents
-    // "Lower" becoming "Upper" after a rebuild.
-    let match: NewProgramDay | undefined;
-
-    // 1. Try to match by label (exact match)
-    if (session.old_day_label) {
-      match = newDays.find((d) => d.label === session.old_day_label);
-    }
-
-    // 2. If no label match, try day_index (same weekday)
-    if (!match && session.old_day_index !== null) {
-      match = newDays.find((d) => d.day_index === session.old_day_index);
-    }
-
-    // 3. If still no match, fall back to day_type (any training day)
-    if (!match) {
-      match = newDays.find((d) => d.day_type === chosenType);
-    }
-
+    const match = matchNewDay(session, newDays);
     if (match) {
       toUpdate.push({ id: session.id, newProgramDayId: match.id });
     } else {
