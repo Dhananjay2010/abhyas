@@ -85,7 +85,7 @@ console.log("\n2. Every set at the top of the range progresses the weight");
 }
 {
   const d = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 15 }), sets: sets(4, 12, 15), equipmentIds: ["dumbbell"], unit: "kg" });
-  check("curl 15 -> 16.25 kg", d.nextWorkingWeightKg === 16.25, `${d.nextWorkingWeightKg}`);
+  check("curl 15 -> 17.5 kg (isolation 1.25 + grid round up)", d.nextWorkingWeightKg === 17.5, `${d.nextWorkingWeightKg}`);
 }
 
 console.log("\n3. 'Easy' earns a double jump; Hard holds weight (U1 fix)");
@@ -201,7 +201,7 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     equipmentIds: ["dip_belt"],
     unit: "kg",
   });
-  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 26.25,
+  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 27.5,
     `${weighted.nextWorkingWeightKg}`);
   check("outcome is progressed", weighted.outcome === "progressed", weighted.outcome);
 
@@ -480,8 +480,8 @@ console.log("\nBodyweight exercises with added weight");
     equipmentIds: ["dip_belt"],
     unit: "kg",
   });
-  check("upper-body bodyweight with 5 kg added goes to 6.25 kg",
-    upper.nextWorkingWeightKg === 6.25, `${upper.nextWorkingWeightKg}`);
+  check("upper-body bodyweight with 5 kg added goes to 7.5 kg (grid round up)",
+    upper.nextWorkingWeightKg === 7.5, `${upper.nextWorkingWeightKg}`);
 
   // Back-off: two misses drop added weight to 0.
   const backoff = run({

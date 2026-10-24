@@ -19,7 +19,6 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "../src/lib/program/progression";
-import { KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB } from "../src/lib/session/equipment-grid";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -44,8 +43,6 @@ const BENCH: ExerciseMeta = {
   progressionChain: null,
   progressionRank: null,
 };
-
-const SQUAT: ExerciseMeta = { ...BENCH, movementPattern: "squat" };
 
 const KETTLEBELL_SWING: ExerciseMeta = {
   mechanic: "compound",
@@ -509,11 +506,156 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
           );
         }
       }
+      
+      // Test first miss drops exactly one grid step
+      const successWeight = 40;
+      const successSets = sets(4, 12, successWeight);
+      const successDecision = run({
+        meta: liftType.meta,
+        sets: successSets,
+        state: fresh({ currentWorkingWeightKg: successWeight }),
+        equipmentIds: equipment.ids,
+        unit: equipment.unit,
+        feel: "right",
+      });
+      
+      if (successDecision.outcome === "progressed" && successDecision.nextWorkingWeightKg) {
+        const progressedWeight = successDecision.nextWorkingWeightKg;
+        // Now miss at progressed weight
+        const missedSets = [
+          { reps: 10, loadKg: progressedWeight, feel: null },
+          { reps: 12, loadKg: progressedWeight, feel: null },
+          { reps: 12, loadKg: progressedWeight, feel: null },
+          { reps: 12, loadKg: progressedWeight, feel: null },
+        ];
+        const missDecision = run({
+          meta: liftType.meta,
+          sets: missedSets,
+          state: fresh({ currentWorkingWeightKg: progressedWeight }),
+          equipmentIds: equipment.ids,
+          unit: equipment.unit,
+        });
+        
+        // Should drop exactly one grid step back to success weight or slightly lower
+        const dropped = progressedWeight - (missDecision.nextWorkingWeightKg ?? 0);
+        check(
+          `${equipment.name} × ${liftType.name}: first miss drops one grid step`,
+          missDecision.nextWorkingWeightKg !== null && missDecision.nextWorkingWeightKg < progressedWeight && missDecision.nextWorkingWeightKg <= successWeight,
+          `progressed: ${progressedWeight}, after miss: ${missDecision.nextWorkingWeightKg}`
+        );
+      }
+      
+      // Test nothing goes to 0 for loaded lift
+      if (equipment.name.includes("non-loadable") || equipment.name.includes("added weight")) {
+        const addedWeight = 10;
+        const d = run({
+          meta: liftType.meta,
+          sets: sets(4, 12, addedWeight),
+          state: fresh({ currentWorkingWeightKg: addedWeight }),
+          equipmentIds: equipment.ids,
+          unit: equipment.unit,
+        });
+        check(
+          `${equipment.name} × ${liftType.name}: loaded lift never goes to 0`,
+          d.nextWorkingWeightKg !== 0,
+          `weight: ${d.nextWorkingWeightKg}`
+        );
+      }
+      
+      // For kettlebell, verify one-bell step
+      if (equipment.name === "kettlebell") {
+        const kb16 = 16;
+        const d = run({
+          meta: liftType.meta,
+          sets: sets(4, 12, kb16),
+          state: fresh({ currentWorkingWeightKg: kb16 }),
+          equipmentIds: equipment.ids,
+          unit: equipment.unit,
+          feel: "right",
+        });
+        if (d.outcome === "progressed") {
+          const nextBell = 20; // One bell up from 16
+          check(
+            `${equipment.name} × ${liftType.name}: normal success steps one bell (16→20)`,
+            d.nextWorkingWeightKg === nextBell,
+            `${kb16} → ${d.nextWorkingWeightKg}`
+          );
+        }
+      }
     }
   }
 }
 
-console.log("\n14. MUTANT TESTS");
+console.log("\n14. KG/LB UNIT TEST");
+{
+  // Test that kg values use kg grid and lb values use lb grid
+  const kgWeight = 20; // 20 kg
+  const dKg = run({
+    meta: BENCH,
+    sets: sets(4, 12, kgWeight),
+    state: fresh({ currentWorkingWeightKg: kgWeight }),
+    equipmentIds: ["barbell"],
+    unit: "kg",
+  });
+  
+  // Barbell kg grid: 2.5 kg steps
+  // 20 + 2.5 = 22.5
+  check(
+    "kg: barbell 20 kg progresses on kg grid (22.5 kg)",
+    dKg.nextWorkingWeightKg === 22.5,
+    `${dKg.nextWorkingWeightKg}`
+  );
+  
+  // Test lb
+  const lbWeight = 45; // 45 lb (on 5 lb grid)
+  const dLb = run({
+    meta: BENCH,
+    sets: sets(4, 12, lbWeight),
+    state: fresh({ currentWorkingWeightKg: lbWeight }),
+    equipmentIds: ["barbell"],
+    unit: "lb",
+  });
+  
+  // Barbell lb grid: 5 lb steps
+  // 45 + 5 = 50
+  check(
+    "lb: barbell 45 lb progresses on lb grid (50 lb)",
+    dLb.nextWorkingWeightKg === 50,
+    `${dLb.nextWorkingWeightKg}`
+  );
+  
+  // Kettlebell kg
+  const kbKg = 16;
+  const dKbKg = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 12, kbKg),
+    state: fresh({ currentWorkingWeightKg: kbKg }),
+    equipmentIds: ["kettlebell"],
+    unit: "kg",
+  });
+  check(
+    "kg: kettlebell 16 kg → 20 kg (kg bell)",
+    dKbKg.nextWorkingWeightKg === 20,
+    `${dKbKg.nextWorkingWeightKg}`
+  );
+  
+  // Kettlebell lb
+  const kbLb = 35; // 35 lb
+  const dKbLb = run({
+    meta: KETTLEBELL_SWING,
+    sets: sets(4, 12, kbLb),
+    state: fresh({ currentWorkingWeightKg: kbLb }),
+    equipmentIds: ["kettlebell"],
+    unit: "lb",
+  });
+  check(
+    "lb: kettlebell 35 lb → 44 lb (lb bell)",
+    dKbLb.nextWorkingWeightKg === 44,
+    `${dKbLb.nextWorkingWeightKg}`
+  );
+}
+
+console.log("\n15. MUTANT TESTS");
 
 console.log("\n  (a) Mutant: Rounding removed");
 {
@@ -531,7 +673,7 @@ console.log("\n  (a) Mutant: Rounding removed");
   console.log("    Expected fail count for mutant (a): 1+");
 }
 
-console.log("\n  (b) Mutant: Hard raises weight again");
+console.log("\n  (b) Mutant: Hard raises weight again (manual check)");
 {
   // If Hard raises weight, the U1 repro would fail
   const d = run({
