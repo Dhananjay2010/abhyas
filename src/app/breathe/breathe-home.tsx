@@ -150,9 +150,6 @@ export function BreatheHome({
             <Icon.Sliders />
           </button>
         </div>
-        
-        {/* PracticeSwitch will be imported and added by page */}
-        <div id="practice-switch-container" />
       </header>
 
       <WeekStrip days={stats.weekDays} todayIndex={todayIndex} className="mt-6" />
