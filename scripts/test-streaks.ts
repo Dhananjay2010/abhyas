@@ -118,8 +118,8 @@ console.log("\n7. Streaks span blocks");
   // in both. A streak must not reset just because the block rolled over.
   const records = buildDayRecords({
     programs: [
-      { id: "b1", startedOn: "2026-08-31", endsOn: "2026-09-04" },
-      { id: "b2", startedOn: "2026-09-05", endsOn: "2026-10-02" },
+      { id: "b1", startedOn: "2026-08-31", endsOn: "2026-09-04", endedOn: "2026-09-04" },
+      { id: "b2", startedOn: "2026-09-05", endsOn: "2026-10-02", endedOn: null },
     ],
     dayTypesByProgram: {
       b1: { 1: "weights", 2: "rest", 3: "weights", 4: "rest", 5: "weights", 6: "rest", 7: "rest" },
