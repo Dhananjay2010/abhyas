@@ -36,6 +36,20 @@ async function requireUser() {
   return { supabase, user };
 }
 
+/**
+ * The metric to stamp on a session exercise, from an embedded `exercises` row.
+ *
+ * PostgREST types a to-one embed as either an object or an array depending on
+ * how it infers the relationship, and the shape is not worth arguing with at
+ * four call sites. `reps` is the safe default: it is the column default too,
+ * and it is what every exercise was before `metric` existed.
+ */
+function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metric"] {
+  const row = Array.isArray(embedded) ? embedded[0] : embedded;
+  const m = (row as { metric?: string } | null | undefined)?.metric;
+  return m === "seconds" ? "seconds" : "reps";
+}
+
 
 /**
  * Start (or resume) today's session.
