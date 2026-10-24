@@ -67,14 +67,14 @@ async function main() {
 
     check(
       "valid UUID returns 'ok' (mock always returns data)",
-      (await checkSessionRoute(fakeSupabase as any, userId, sessionId)) === "ok",
+      (await checkSessionRoute(fakeSupabase as unknown, userId, sessionId)) === "ok",
     );
     
     // Critical test: Mock returns data for ANY id, proving UUID validation happens BEFORE query
     // If UUID validation were removed, this would incorrectly return 'ok'
     check(
       "invalid UUID returns 'not_found' without querying database",
-      (await checkSessionRoute(fakeSupabase as any, userId, "not-a-uuid")) === "not_found",
+      (await checkSessionRoute(fakeSupabase as unknown, userId, "not-a-uuid")) === "not_found",
     );
 
     // Test error propagation
@@ -91,7 +91,7 @@ async function main() {
     };
 
     try {
-      await checkSessionRoute(errorSupabase as any, userId, sessionId);
+      await checkSessionRoute(errorSupabase as unknown, userId, sessionId);
       check("checkSessionRoute throws when maybeSingle returns error", false);
     } catch (err) {
       check("checkSessionRoute throws when maybeSingle returns error", true);
@@ -102,7 +102,7 @@ async function main() {
   {
     const { checkBreatheRoute } = await import("../src/lib/route-guards.js");
     const userId = "00000000-0000-0000-0000-000000000001";
-    const fakeSupabase = {} as any;
+    const fakeSupabase = {} as unknown;
 
     type FakeLoadedPractice = {
       pattern: { kind: string; id: string; slug?: string };
@@ -120,7 +120,7 @@ async function main() {
     });
     check(
       "valid builtin slug returns 'ok'",
-      (await checkBreatheRoute(fakeSupabase, userId, "coherent", builtinLoader as any)) === "ok",
+      (await checkBreatheRoute(fakeSupabase, userId, "coherent", builtinLoader as unknown)) === "ok",
     );
 
     // User's own pattern (mine-<uuid>)
@@ -132,14 +132,14 @@ async function main() {
     });
     check(
       "valid custom pattern (mine-<uuid>) owned by user returns 'ok'",
-      (await checkBreatheRoute(fakeSupabase, userId, `mine-${userId}`, ownedLoader as any)) === "ok",
+      (await checkBreatheRoute(fakeSupabase, userId, `mine-${userId}`, ownedLoader as unknown)) === "ok",
     );
 
     // Pattern owned by someone else or missing
     const notOwnedLoader = async (): Promise<null> => null;
     check(
       "custom pattern owned by someone else returns 'not_found'",
-      (await checkBreatheRoute(fakeSupabase, "other-user-id", `mine-${userId}`, notOwnedLoader as any)) === "not_found",
+      (await checkBreatheRoute(fakeSupabase, "other-user-id", `mine-${userId}`, notOwnedLoader as unknown)) === "not_found",
     );
 
     // Retimed builtin pattern
@@ -151,14 +151,14 @@ async function main() {
     });
     check(
       "retimed builtin pattern returns 'ok'",
-      (await checkBreatheRoute(fakeSupabase, userId, "some-key", retimedLoader as any)) === "ok",
+      (await checkBreatheRoute(fakeSupabase, userId, "some-key", retimedLoader as unknown)) === "ok",
     );
 
     // Invalid slug
     const invalidLoader = async (): Promise<null> => null;
     check(
       "invalid slug returns 'not_found'",
-      (await checkBreatheRoute(fakeSupabase, userId, "invalid-slug", invalidLoader as any)) === "not_found",
+      (await checkBreatheRoute(fakeSupabase, userId, "invalid-slug", invalidLoader as unknown)) === "not_found",
     );
   }
 
