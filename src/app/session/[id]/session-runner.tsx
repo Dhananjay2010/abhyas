@@ -156,23 +156,15 @@ export function SessionRunner({
     replayed: [],
   });
 
-  const [controller, setController] = useState<ReturnType<
-    typeof createPendingSetController
-  > | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || controller) return;
-    const ctrl = createPendingSetController({
+  const [controller] = useState(() => {
+    if (typeof window === "undefined") return null;
+    return createPendingSetController({
       storage: window.localStorage,
       logSet: actions.logSet,
       sessionId,
-      onChange: (state) => {
-        // Use callback form to avoid dependency on setPendingSetState
-        setPendingSetState(state);
-      },
+      onChange: setPendingSetState,
     });
-    setController(ctrl);
-  }, [sessionId, controller, actions.logSet]);
+  });
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -252,12 +244,22 @@ export function SessionRunner({
   }, [controller]);
 
   // ---- process replayed sets -----------------------------------------------
+  // Track which sets have been processed to avoid re-processing
+  const processedReplayedRef = useRef(new Set<string>());
+  
   useEffect(() => {
-    if (pendingSetState.replayed.length === 0) return;
+    const newReplayed = pendingSetState.replayed.filter(
+      (s) => !processedReplayedRef.current.has(s.clientId)
+    );
+    
+    if (newReplayed.length === 0) return;
+    
+    // Mark as processed
+    newReplayed.forEach((s) => processedReplayedRef.current.add(s.clientId));
 
     setExercises((prevExercises) => {
       return prevExercises.map((e) => {
-        const replayedForExercise = pendingSetState.replayed.filter(
+        const replayedForExercise = newReplayed.filter(
           (s) => s.sessionExerciseId === e.id
         );
         if (replayedForExercise.length === 0) return e;
