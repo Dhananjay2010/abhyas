@@ -2,17 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { signOutAction } from "@/lib/auth/signout";
+import { storageKey } from "@/lib/session/pending-set-retry";
 
-export function SignOutButton() {
+export function SignOutButton({ userId }: { userId: string }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   async function handleSignOut() {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(storageKey(userId));
+    }
+    
     startTransition(async () => {
       const result = await signOutAction();
-      // If we reach here, signOut failed (success redirects and never returns)
       if (!result.ok) {
-        // Show a friendly error message instead of exposing internal error details
         setError("Unable to sign out. Please try again.");
       }
     });
