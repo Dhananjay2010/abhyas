@@ -103,12 +103,19 @@ export function prescribe(
 }
 
 /**
+ * Maximum sets the planner ever prescribes. Main exercises can have up to 5 sets;
+ * accessories are capped at 4. See generate.ts adjustment strategies.
+ */
+export const MAX_PLANNER_SETS = 5;
+
+/**
  * Week 4 of every block is a deload: less volume, nothing near failure.
  *
  * Input contract:
- * - sets must be a finite number >= 0
+ * - sets must be a finite number >= 0 and <= MAX_PLANNER_SETS
  * - Non-finite values (NaN, Infinity, -Infinity) throw RangeError
  * - Negative values throw RangeError
+ * - Values > MAX_PLANNER_SETS throw RangeError
  * - Validation occurs BEFORE rounding to catch negative fractional values
  * - After validation passes, non-integers are rounded to nearest integer
  *
@@ -129,6 +136,12 @@ export function applyDeload(p: Prescription): Prescription {
   if (sets < 0) {
     throw new RangeError(
       `applyDeload: sets must be >= 0, got ${p.sets}`
+    );
+  }
+  
+  if (sets > MAX_PLANNER_SETS) {
+    throw new RangeError(
+      `applyDeload: sets must be <= ${MAX_PLANNER_SETS}, got ${p.sets}`
     );
   }
 

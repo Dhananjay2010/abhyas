@@ -20,6 +20,7 @@
  */
 import {
   applyDeload,
+  MAX_PLANNER_SETS,
   type Prescription,
 } from "../src/lib/program/prescription";
 import {
@@ -37,7 +38,7 @@ function check(label: string, ok: boolean, detail = "") {
   }
 }
 
-console.log("\n1. applyDeload: exhaustive sweep sets 1-10, unchanged vs current formula");
+console.log("\n1. applyDeload: exhaustive sweep sets 1-5 (MAX_PLANNER_SETS)");
 {
   const cases = [
     { sets: 1, expected: 1 },
@@ -45,11 +46,6 @@ console.log("\n1. applyDeload: exhaustive sweep sets 1-10, unchanged vs current 
     { sets: 3, expected: 2 },
     { sets: 4, expected: 2 },
     { sets: 5, expected: 3 },
-    { sets: 6, expected: 4 },
-    { sets: 7, expected: 4 },
-    { sets: 8, expected: 5 },
-    { sets: 9, expected: 5 },
-    { sets: 10, expected: 6 },
   ];
 
   for (const { sets, expected } of cases) {
@@ -134,6 +130,130 @@ console.log("\n2. applyDeload: bad input validation");
     negZeroResult.sets === 0,
     `got ${negZeroResult.sets}`
   );
+}
+
+console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
+{
+  // Maximum is accepted
+  const maxP: Prescription = {
+    sets: MAX_PLANNER_SETS,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
+  };
+  
+  let maxThrew = false;
+  let maxResult;
+  try {
+    maxResult = applyDeload(maxP);
+  } catch (e) {
+    maxThrew = true;
+  }
+  
+  check(
+    `applyDeload(${MAX_PLANNER_SETS}) succeeds`,
+    !maxThrew && maxResult !== undefined,
+    maxThrew ? "threw unexpectedly" : ""
+  );
+  
+  if (maxResult) {
+    const expectedMax = Math.min(MAX_PLANNER_SETS, Math.max(2, Math.round(MAX_PLANNER_SETS * 0.6)));
+    check(
+      `applyDeload(${MAX_PLANNER_SETS}) = ${expectedMax}`,
+      maxResult.sets === expectedMax,
+      `got ${maxResult.sets}`
+    );
+  }
+  
+  // Maximum + 1 throws
+  const overMaxP: Prescription = {
+    sets: MAX_PLANNER_SETS + 1,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
+  };
+  
+  let overMaxThrew = false;
+  let overMaxThrewRangeError = false;
+  try {
+    applyDeload(overMaxP);
+  } catch (e) {
+    overMaxThrew = true;
+    overMaxThrewRangeError = e instanceof RangeError;
+  }
+  
+  check(
+    `applyDeload(${MAX_PLANNER_SETS + 1}) throws RangeError`,
+    overMaxThrew && overMaxThrewRangeError,
+    overMaxThrew
+      ? overMaxThrewRangeError
+        ? ""
+        : "threw but not RangeError"
+      : "did not throw"
+  );
+  
+  // 1e308 throws
+  const hugeP: Prescription = {
+    sets: 1e308,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
+  };
+  
+  let hugeThrew = false;
+  let hugeThrewRangeError = false;
+  try {
+    applyDeload(hugeP);
+  } catch (e) {
+    hugeThrew = true;
+    hugeThrewRangeError = e instanceof RangeError;
+  }
+  
+  check(
+    "applyDeload(1e308) throws RangeError",
+    hugeThrew && hugeThrewRangeError,
+    hugeThrew
+      ? hugeThrewRangeError
+        ? ""
+        : "threw but not RangeError"
+      : "did not throw"
+  );
+  
+  // Maximum + 0.4: rounds to 5, which is at the boundary
+  // Validation happens BEFORE rounding, so 5.4 > 5 and should throw
+  const nearMaxP: Prescription = {
+    sets: MAX_PLANNER_SETS + 0.4,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
+  };
+  
+  let nearMaxThrew = false;
+  let nearMaxThrewRangeError = false;
+  try {
+    applyDeload(nearMaxP);
+  } catch (e) {
+    nearMaxThrew = true;
+    nearMaxThrewRangeError = e instanceof RangeError;
+  }
+  
+  check(
+    `applyDeload(${MAX_PLANNER_SETS + 0.4}) throws (validation before rounding)`,
+    nearMaxThrew && nearMaxThrewRangeError,
+    nearMaxThrew
+      ? nearMaxThrewRangeError
+        ? ""
+        : "threw but not RangeError"
+      : "did not throw (but validation is BEFORE rounding, so 5.4 > 5 should be rejected)"
+  );
+}
+
+console.log("\n2b. Mutant: upper bound removed");
+{
+  // If upper bound is removed, 1e308 would not throw
+  // This is already tested above, just documenting expected fail count
+  console.log("    Expected fail count for mutant (upper bound removed): 3");
+  console.log("    (tests for MAX+1, 1e308, and MAX+0.4 would fail)");
 }
 
 console.log("\n3. Rep trim: 2-set bodyweight reps 8-12 becomes 5-8");
@@ -394,7 +514,7 @@ console.log("\n8. Non-deload rows get no trim");
 
 console.log("\n9. loadReducible undefined: exact backward compatibility sweep");
 {
-  for (let sets = 1; sets <= 10; sets++) {
+  for (let sets = 1; sets <= MAX_PLANNER_SETS; sets++) {
     const planned: PlannedExercise = {
       target_sets: sets,
       target_reps_min: 8,

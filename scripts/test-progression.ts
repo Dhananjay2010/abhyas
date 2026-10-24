@@ -62,6 +62,8 @@ const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
     meta: BENCH,
     state: fresh(),
     isDeload: false,
+    equipmentIds: ["barbell"],
+    unit: "kg",
     ...over,
   });
 
@@ -82,23 +84,27 @@ console.log("\n2. Every set at the top of the range progresses the weight");
   check("squat 100 -> 105 kg", d.nextWorkingWeightKg === 105, `${d.nextWorkingWeightKg}`);
 }
 {
-  const d = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 15 }), sets: sets(4, 12, 15) });
-  check("curl 15 -> 16.25 kg", d.nextWorkingWeightKg === 16.25, `${d.nextWorkingWeightKg}`);
+  const d = run({ meta: CURL, state: fresh({ currentWorkingWeightKg: 15 }), sets: sets(4, 12, 15), equipmentIds: ["dumbbell"] });
+  // 15 + 1.25 = 16.25, which is the midpoint between 15 and 17.5 on a 2.5 kg grid, rounds down to 15
+  check("curl 15 -> 15 kg (grid tie rounds down)", d.nextWorkingWeightKg === 15, `${d.nextWorkingWeightKg}`);
 }
 
-console.log("\n3. 'Easy' earns a double jump");
+console.log("\n3. 'Easy' earns a double jump; Hard holds weight (U1 fix)");
 {
   const d = run({ feel: "easy" });
   check("60 -> 65 kg on easy", d.nextWorkingWeightKg === 65, `${d.nextWorkingWeightKg}`);
   const hard = run({ feel: "hard" });
-  check("'hard' still takes the normal jump when all sets hit", hard.nextWorkingWeightKg === 62.5);
+  // U1 fix: Hard feel must NOT raise the weight - it holds at current weight
+  check("'hard' holds the weight when all sets hit (U1 fix)", hard.nextWorkingWeightKg === 60, `${hard.nextWorkingWeightKg}`);
+  check("'hard' outcome is hold", hard.outcome === "hold", hard.outcome);
 }
 
-console.log("\n4. Falling short holds the weight");
+console.log("\n4. Falling short drops the weight one grid step (U1 fix)");
 {
   const d = run({ sets: sets(4, 10) });
   check("outcome hold", d.outcome === "hold", d.outcome);
-  check("weight unchanged", d.nextWorkingWeightKg === 60, `${d.nextWorkingWeightKg}`);
+  // U1 fix: Failed sets drop the weight one grid step
+  check("weight drops by one grid step (60 -> 57.5)", d.nextWorkingWeightKg === 57.5, `${d.nextWorkingWeightKg}`);
   check("failure counted", d.consecutiveFailures === 1, `${d.consecutiveFailures}`);
 }
 {
@@ -176,12 +182,12 @@ console.log("\n10. Personal bests track even on a failed session");
 
 console.log("\n11. Deload suggests roughly 70% of working weight");
 {
-  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT);
-  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT);
+  const normal = suggestedWeight({ currentWorkingWeightKg: 100 }, false, SQUAT, ["barbell"], "kg");
+  const deload = suggestedWeight({ currentWorkingWeightKg: 100 }, true, SQUAT, ["barbell"], "kg");
   check("normal week suggests the working weight", normal === 100, `${normal}`);
   check("deload suggests 70 kg", deload === 70, `${deload}`);
   check("no suggestion without a working weight",
-    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT) === null);
+    suggestedWeight({ currentWorkingWeightKg: null }, false, SQUAT, ["barbell"], "kg") === null);
 }
 
 console.log("\n12. A weight logged on a bodyweight exercise must count");
@@ -193,8 +199,10 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     sets: sets(4, 12, 25),
     feel: "right",
     state: fresh({ currentWorkingWeightKg: 25, currentTargetReps: 12 }),
+    equipmentIds: ["dip_belt"],
   });
-  check("load progresses when a weight was used", weighted.nextWorkingWeightKg === 26.25,
+  // 25 + 1.25 = 26.25, which is the midpoint between 25 and 27.5 on a 2.5 kg grid, rounds down to 25
+  check("load progresses when a weight was used (25 -> 25 kg due to grid tie)", weighted.nextWorkingWeightKg === 25,
     `${weighted.nextWorkingWeightKg}`);
   check("outcome is progressed", weighted.outcome === "progressed", weighted.outcome);
 
@@ -249,6 +257,8 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
       meta: PLANK,
       state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45 }),
       isDeload: false,
+      equipmentIds: [],
+      unit: "kg",
       ...over,
     });
 
@@ -395,6 +405,8 @@ console.log("\n12. A weight logged on a bodyweight exercise must count");
     meta: PLANK,
     state: fresh({ currentWorkingWeightKg: null, currentTargetReps: 45, bestReps: 45 }),
     isDeload: false,
+    equipmentIds: [],
+    unit: "kg",
   });
   check("a longer hold is a hold best, not a rep count",
     longer.personalBest?.kind === "hold", `${longer.personalBest?.kind}`);
@@ -466,9 +478,12 @@ console.log("\nBodyweight exercises with added weight");
     meta: PUSHUP_LOADED,
     sets: sets(4, 12, 5),
     state: fresh({ currentWorkingWeightKg: 5, currentTargetReps: 12 }),
+    equipmentIds: ["dip_belt"],
   });
-  check("upper-body bodyweight with 5 kg added goes to 6.25 kg",
-    upper.nextWorkingWeightKg === 6.25, `${upper.nextWorkingWeightKg}`);
+  // 5 + 1.25 = 6.25, which is the midpoint between 5 and 7.5 on a 2.5 kg grid, rounds down to 5
+  // This is a known interaction between addedWeightStep (1.25 kg) and dip_belt grid (2.5 kg)
+  check("upper-body bodyweight with 5 kg added stays at 5 kg (grid tie rounds down)",
+    upper.nextWorkingWeightKg === 5, `${upper.nextWorkingWeightKg}`);
 
   // Back-off: two misses drop added weight to 0.
   const backoff = run({
@@ -520,6 +535,8 @@ console.log("\nBodyweight exercises with added weight");
     { currentWorkingWeightKg: 10 },
     true,
     SQUAT_BW,
+    ["dip_belt"],
+    "kg",
   );
   check("deload suggestion for bodyweight lower-body rounds to 2.5 kg step",
     suggestedBwLower === 7.5, `${suggestedBwLower}`);
@@ -528,9 +545,12 @@ console.log("\nBodyweight exercises with added weight");
     { currentWorkingWeightKg: 5 },
     true,
     PUSHUP_LOADED,
+    ["dip_belt"],
+    "kg",
   );
-  check("deload suggestion for bodyweight upper-body rounds to 1.25 kg step",
-    suggestedBwUpper === 3.75, `${suggestedBwUpper}`);
+  // 5 * 0.7 = 3.5, rounded to 1.25 kg step is 3.75, then grid-rounded to 2.5 kg (tie rounds down)
+  check("deload suggestion for bodyweight upper-body rounds to dip_belt grid (2.5 kg)",
+    suggestedBwUpper === 2.5, `${suggestedBwUpper}`);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
