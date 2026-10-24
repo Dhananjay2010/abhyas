@@ -56,7 +56,18 @@ console.log("\n2. sitemap.xml generation");
   check("deterministic (two calls deep-equal)", equal);
   
   const firstEntry = sitemapData[0];
-  check("lastModified is fixed constant", firstEntry.lastModified instanceof Date);
+  const hasLastModified = firstEntry.lastModified instanceof Date;
+  const hasNoLastModified = firstEntry.lastModified === undefined;
+  check("lastModified is Date or omitted", hasLastModified || hasNoLastModified);
+  
+  // If NEXT_PUBLIC_BUILD_TIME is set, all entries should have lastModified
+  const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME;
+  if (buildTime) {
+    check("with NEXT_PUBLIC_BUILD_TIME, entries have lastModified", hasLastModified);
+    for (const entry of sitemapData) {
+      check(`lastModified present for ${entry.url}`, entry.lastModified instanceof Date);
+    }
+  }
 }
 
 console.log("\n3. Middleware matcher behavioral tests (using exported config.matcher)");
