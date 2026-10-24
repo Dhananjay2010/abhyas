@@ -320,12 +320,9 @@ export default async function TodayPage() {
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
-  const { isYesterdayStillInProgress } = await import("@/lib/today/session-detection");
-  const yesterdayStillInProgress = isYesterdayStillInProgress(yesterdaySessions);
   const missedYesterday =
     (yesterdayDay?.day_type === "weights" || yesterdayDay?.day_type === "bodyweight") &&
-    !yesterdaySessions.some((s) => s.status === "completed" && isStrength(s.actual_type)) &&
-    !yesterdayStillInProgress;
+    !yesterdaySessions.some((s) => s.status === "completed" && isStrength(s.actual_type));
   // Only worth asking while today is still open to being changed.
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
