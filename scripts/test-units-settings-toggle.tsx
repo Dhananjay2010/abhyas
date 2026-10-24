@@ -167,12 +167,14 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
   console.log("\n3. LogWeight: Type 176 lb, click Save, assert ~79.8 kg sent; type 50 lb shows error, no save");
 
   {
-    let savedKg: number | null = null;
-    let saveCallCount = 0;
+    const spy = {
+      savedKg: null as number | null,
+      callCount: 0,
+    };
 
     const mockLogAction = async (kg: number) => {
-      savedKg = kg;
-      saveCallCount++;
+      spy.savedKg = kg;
+      spy.callCount++;
       return { ok: true } as const;
     };
 
@@ -205,16 +207,15 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
           check(
             "Typing 176 lb, clicking Save sends ~79.8 kg (79.7-79.9)",
-            savedKg !== null && savedKg >= 79.7 && savedKg <= 79.9,
-            `got ${savedKg?.toFixed(2)}`
+            spy.savedKg !== null && spy.savedKg >= 79.7 && spy.savedKg <= 79.9,
+            spy.savedKg !== null ? `got ${spy.savedKg.toFixed(2)}` : `got ${spy.savedKg}`
           );
         }
       }
     }
 
     // Test 2: Type 50 lb (out of range), assert error shown and no save
-    savedKg = null;
-    const initialCallCount = saveCallCount;
+    const initialCallCount = spy.callCount;
 
     const { container: container2 } = render(
       React.createElement(LogWeight, {
@@ -249,8 +250,8 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
           check(
             "logAction NOT called for out-of-range value",
-            saveCallCount === initialCallCount,
-            `calls: ${saveCallCount}`
+            spy.callCount === initialCallCount,
+            `calls: ${spy.callCount}`
           );
         }
       }
@@ -260,16 +261,18 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
   console.log("\n4. OnboardingFlow about step with imperial: hints show lb/ft-in, submission converts");
 
   {
-    let savedHeight: number | null = null;
-    let savedWeight: number | null = null;
-    let saveCallCount = 0;
+    const aboutSpy = {
+      savedHeight: null as number | null,
+      savedWeight: null as number | null,
+      callCount: 0,
+    };
 
     const mockOnboardingActions: OnboardingActions = {
       acceptDisclaimer: async () => ({ ok: true }),
       saveAboutYou: async (input) => {
-        savedHeight = input.heightCm;
-        savedWeight = input.weightKg;
-        saveCallCount++;
+        aboutSpy.savedHeight = input.heightCm;
+        aboutSpy.savedWeight = input.weightKg;
+        aboutSpy.callCount++;
         return { ok: true };
       },
       saveProfileFields: async () => ({ ok: true }),
@@ -378,14 +381,14 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
 
       check(
         "saveAboutYou called with heightCm ~175 (174-176)",
-        savedHeight !== null && savedHeight >= 174 && savedHeight <= 176,
-        `got ${savedHeight}`
+        aboutSpy.savedHeight !== null && aboutSpy.savedHeight >= 174 && aboutSpy.savedHeight <= 176,
+        `got ${aboutSpy.savedHeight}`
       );
 
       check(
         "saveAboutYou called with weightKg ~79.8 (79.7-79.9)",
-        savedWeight !== null && savedWeight >= 79.7 && savedWeight <= 79.9,
-        `got ${savedWeight?.toFixed(2)}`
+        aboutSpy.savedWeight !== null && aboutSpy.savedWeight >= 79.7 && aboutSpy.savedWeight <= 79.9,
+        aboutSpy.savedWeight !== null ? `got ${aboutSpy.savedWeight.toFixed(2)}` : `got ${aboutSpy.savedWeight}`
       );
     }
   }
@@ -393,12 +396,12 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
   console.log("\n5. OnboardingFlow: Out-of-range height/weight show imperial error, no save");
 
   {
-    let saveCallCount = 0;
+    const errorSpy = { callCount: 0 };
 
     const mockOnboardingActions: OnboardingActions = {
       acceptDisclaimer: async () => ({ ok: true }),
       saveAboutYou: async () => {
-        saveCallCount++;
+        errorSpy.callCount++;
         return { ok: true };
       },
       saveProfileFields: async () => ({ ok: true }),
@@ -496,7 +499,7 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
       }
     }
 
-    check("saveAboutYou NOT called for out-of-range values", saveCallCount === 0);
+    check("saveAboutYou NOT called for out-of-range values", errorSpy.callCount === 0);
   }
 
   console.log("\n6. Validation: parseWeight/parseHeight return null outside valid ranges");
