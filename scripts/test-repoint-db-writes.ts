@@ -370,6 +370,77 @@ async function runTests() {
     );
     check("session_exercises NOT inserted (decision a)", insertWrites.length === 0);
   }
+
+  console.log("\nNEW decision (b): Planned session exercises replaced correctly (delete by ID, not all)");
+  {
+    // Test that when a planned session is repointed with exercises,
+    // old exercises are deleted by ID only (not all by session_id)
+    const fake = createInMemorySupabase({
+      sessions: [
+        {
+          id: "s1",
+          user_id: "user1",
+          local_date: "2026-10-25",
+          actual_type: "weights",
+          planned_type: "weights",
+          program_day_id: "old-upper",
+          program_id: "old-program",
+          status: "planned",
+          program_days: { label: "Upper", day_index: 1, day_type: "weights" },
+          session_exercises: [
+            { id: "se1", session_id: "s1", program_day_exercise_id: "pde1", exercise_id: "ex1" },
+            { id: "se2", session_id: "s1", program_day_exercise_id: "pde2", exercise_id: "ex2" },
+          ],
+        },
+      ],
+      session_exercises: [
+        { id: "se1", session_id: "s1", program_day_exercise_id: "pde1", exercise_id: "ex1", session_sets: [] },
+        { id: "se2", session_id: "s1", program_day_exercise_id: "pde2", exercise_id: "ex2", session_sets: [] },
+      ],
+      program_days: [
+        { id: "old-upper", program_id: "old-program", user_id: "user1", day_index: 1, day_type: "weights", label: "Upper" },
+        { id: "new-upper", program_id: "new-program", user_id: "user1", day_index: 1, day_type: "weights", label: "Upper" },
+      ],
+      program_day_exercises: [
+        // Old program exercises
+        { id: "pde1", program_day_id: "old-upper", exercise_id: "ex1", set_type: "working", order_number: 1 },
+        { id: "pde2", program_day_id: "old-upper", exercise_id: "ex2", set_type: "working", order_number: 2 },
+        // New program exercises (different)
+        { id: "pde3", program_day_id: "new-upper", exercise_id: "ex3", set_type: "working", order_number: 1 },
+        { id: "pde4", program_day_id: "new-upper", exercise_id: "ex4", set_type: "working", order_number: 2 },
+      ],
+      programs: [{ id: "new-program", is_deload: false }],
+    });
+
+    await repointSessionsAfterRebuild(fake as never, "user1", "new-program", "2026-10-24");
+
+    const session = fake.store.sessions[0];
+    
+    // Session should be repointed
+    check("session updated to new program", session.program_id === "new-program");
+    check("session updated to new day", session.program_day_id === "new-upper");
+    
+    // Check that old exercises were deleted by ID
+    const deleteWrites = fake.writes.filter(
+      (w) => w.table === "session_exercises" && w.operation === "delete"
+    );
+    check("session_exercises delete operation performed", deleteWrites.length === 1);
+    
+    if (deleteWrites.length > 0) {
+      const deleteFilters = deleteWrites[0].filters;
+      const hasIdFilter = "id__in" in deleteFilters && Array.isArray(deleteFilters["id__in"]);
+      const hasSessionIdFilter = "session_id" in deleteFilters;
+      check("delete used .in('id', [old IDs]) not .eq('session_id')", hasIdFilter && !hasSessionIdFilter);
+    }
+    
+    // Verify final state: should have new exercises (ex3, ex4), not old (ex1, ex2)
+    const sessionExercises = fake.store.session_exercises.filter(se => se.session_id === "s1");
+    const exerciseIds = sessionExercises.map(se => se.exercise_id).sort();
+    check("session has new exercises only",
+      JSON.stringify(exerciseIds) === JSON.stringify(["ex3", "ex4"]),
+      `expected ["ex3","ex4"], got ${JSON.stringify(exerciseIds)}`
+    );
+  }
 }
 
 runTests().then(() => {
