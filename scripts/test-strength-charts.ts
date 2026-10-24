@@ -89,14 +89,16 @@ console.log("\nbuildStrengthChartsFromDescendingRows tests");
   check("Order: last label is 2024-01-05", charts[0].points[2].label === "2024-01-05");
 }
 
-// Test 5: Numeric string best_e1rm (PostgREST format)
+// Test 5: Numeric string best_e1rm (PostgREST can return numbers as strings)
 {
-  const rows: StrengthHistoryRow[] = [
-    { exercise_id: "ex1", exercise_name: "Row", local_date: "2024-01-02", best_e1rm: "120.5" as any, top_weight_kg: 110 },
-    { exercise_id: "ex1", exercise_name: "Row", local_date: "2024-01-01", best_e1rm: "115" as any, top_weight_kg: 105 },
+  // Type assertion to simulate PostgREST returning numeric strings
+  type RowWithStringNumber = Omit<StrengthHistoryRow, "best_e1rm"> & { best_e1rm: string | number | null };
+  const rows: RowWithStringNumber[] = [
+    { exercise_id: "ex1", exercise_name: "Row", local_date: "2024-01-02", best_e1rm: "120.5", top_weight_kg: 110 },
+    { exercise_id: "ex1", exercise_name: "Row", local_date: "2024-01-01", best_e1rm: "115", top_weight_kg: 105 },
   ];
   
-  const charts = buildStrengthChartsFromDescendingRows(rows, (d) => d, "metric", new Set());
+  const charts = buildStrengthChartsFromDescendingRows(rows as StrengthHistoryRow[], (d) => d, "metric", new Set());
   
   check("String: '120.5' parses to 120.5", charts[0].points[1].value === 120.5);
   check("String: '115' parses to 115", charts[0].points[0].value === 115);
