@@ -10,7 +10,7 @@ import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { Database } from "@/lib/database.types";
 import { closeStaleSessions } from "@/lib/session/close-stale";
-import { todayCloseInput } from "@/lib/today/session-detection";
+import { todayCloseInput, creditedBannerText } from "@/lib/today/session-detection";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
@@ -476,9 +476,7 @@ export default async function TodayPage() {
 
       {credited > 0 && (
         <p className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-          {credited === 1
-            ? "A session you had left open has been counted — you had logged sets in it."
-            : `${credited} sessions you had left open have been counted — you had logged sets in them.`}
+          {creditedBannerText(credited)}
         </p>
       )}
 

@@ -76,6 +76,18 @@ export function todayCloseInput(
 }
 
 /**
+ * Get the credited sessions banner text for Today page.
+ * Returns null if no banner should be shown.
+ */
+export function creditedBannerText(credited: number): string | null {
+  if (credited === 0) return null;
+  if (credited === 1) {
+    return "A session you had left open has been counted — you had logged sets in it.";
+  }
+  return `${credited} sessions you had left open have been counted — you had logged sets in them.`;
+}
+
+/**
  * Determine if a session should redirect to /today based on its status.
  * Only completed sessions redirect; in_progress and planned stay accessible.
  */

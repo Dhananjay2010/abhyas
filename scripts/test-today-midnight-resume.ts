@@ -11,6 +11,7 @@ import {
   findOpenStrengthSession,
   prepareOpenSessions,
   todayCloseInput,
+  creditedBannerText,
   shouldRedirectSession,
   type OpenSessionForClose
 } from "../src/lib/today/session-detection";
@@ -142,6 +143,14 @@ console.log("\n11. todayCloseInput wraps prepareOpenSessions for page use");
   check("s1 local_date preserved", input[0].local_date === "2026-10-25");
   check("s2 null started_at preserved", input[1].started_at === null);
   check("handles null input", todayCloseInput(null).length === 0);
+}
+
+console.log("\n12. creditedBannerText generates correct message for Today page");
+{
+  check("0 credited returns null", creditedBannerText(0) === null);
+  check("1 credited returns singular", creditedBannerText(1) === "A session you had left open has been counted — you had logged sets in it.");
+  check("2 credited returns plural", creditedBannerText(2) === "2 sessions you had left open have been counted — you had logged sets in them.");
+  check("5 credited returns plural", creditedBannerText(5)?.startsWith("5 sessions") === true);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
