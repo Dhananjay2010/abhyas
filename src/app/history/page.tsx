@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { localDateString } from "@/lib/dates";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { getUnitsPreference } from "@/lib/units";
 import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
@@ -26,7 +27,7 @@ export default async function HistoryPage({
 
   const profileRes = await supabase
     .from("profiles")
-    .select("timezone, onboarding_completed_at")
+    .select("timezone, onboarding_completed_at, units")
     .eq("id", user.id)
     .single();
 
@@ -36,6 +37,7 @@ export default async function HistoryPage({
 
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const today = localDateString(timezone);
+  const units = getUnitsPreference(profile.units);
 
   // Build the query based on filter
   let query = supabase
@@ -103,12 +105,12 @@ export default async function HistoryPage({
 
   const exercisesBySession = new Map<string, Array<{ id: string; exercise_id: string; metric: string }>>();
   const plannedSetsBySession = new Map<string, number>();
-  
+
   for (const ex of sessionExercises ?? []) {
     const list = exercisesBySession.get(ex.session_id) ?? [];
     list.push({ id: ex.id, exercise_id: ex.exercise_id, metric: ex.metric ?? "reps" });
     exercisesBySession.set(ex.session_id, list);
-    
+
     // Sum planned_sets to get total planned sets for this session
     if (ex.planned_sets && ex.planned_sets > 0) {
       plannedSetsBySession.set(
@@ -134,7 +136,7 @@ export default async function HistoryPage({
   const sessionExerciseIds = (sessionExercises ?? []).map((se) => se.id);
   const allSets: Array<{ session_exercise_id: string; reps: number | null; weight_kg: number | null; duration_seconds: number | null; is_warmup_set: boolean | null }> = [];
   const chunkSize = 100;
-  
+
   for (let i = 0; i < sessionExerciseIds.length; i += chunkSize) {
     const chunk = sessionExerciseIds.slice(i, i + chunkSize);
     const { data } = await supabase
@@ -200,9 +202,9 @@ export default async function HistoryPage({
       );
 
     const plannedSets = plannedSetsBySession.get(s.id);
-    const endedEarly = 
-      plannedSets !== undefined && 
-      plannedSets > 0 && 
+    const endedEarly =
+      plannedSets !== undefined &&
+      plannedSets > 0 &&
       workingSetCount < plannedSets;
 
     return {
@@ -247,6 +249,7 @@ export default async function HistoryPage({
       totalCount={count ?? 0}
       today={today}
       timezone={timezone}
+      units={units}
     />
   );
 }

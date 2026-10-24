@@ -175,6 +175,40 @@ export function formatHeight(
 }
 
 /**
+ * Format volume for display (B7).
+ * - Below 100,000: full number with commas (e.g., "11,500 kg")
+ * - 100,000+: abbreviated with "k" and 1 decimal (e.g., "115.2k kg")
+ * - Never uses tonnes ("t")
+ * - Converts to imperial when appropriate
+ *
+ * @param volumeKg - Volume in kilograms
+ * @param units - 'metric' or 'imperial'
+ * @returns Formatted volume string
+ */
+export function formatVolume(volumeKg: number, units: UnitsPreference = "metric"): string {
+  if (!Number.isFinite(volumeKg) || volumeKg <= 0) return "0 kg";
+
+  let value = volumeKg;
+  let label = "kg";
+
+  if (units === "imperial") {
+    value = kgToLb(volumeKg);
+    label = "lb";
+  }
+
+  if (value >= 100000) {
+    // Abbreviated with k
+    const k = value / 1000;
+    return `${k.toFixed(1)}k ${label}`;
+  } else {
+    // Full number with commas
+    const rounded = Math.round(value);
+    const formatted = rounded.toLocaleString("en-US");
+    return `${formatted} ${label}`;
+  }
+}
+
+/**
  * Get the unit label for weight.
  */
 export function weightLabel(units: string): string {
@@ -411,31 +445,31 @@ export function isValidWeightKg(kg: unknown): kg is number {
  */
 export function isValidDateOfBirth(dateString: string): boolean {
   if (!dateString || typeof dateString !== "string") return false;
-  
+
   // Check format: YYYY-MM-DD
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return false;
-  
+
   const date = new Date(dateString);
   // Check if date is valid (not Invalid Date)
   if (isNaN(date.getTime())) return false;
-  
+
   // Verify that parsing didn't change the date (e.g., 2020-02-30 -> 2020-03-01)
   const [yearStr, monthStr, dayStr] = dateString.split("-");
   if (date.getUTCFullYear() !== parseInt(yearStr, 10)) return false;
   if (date.getUTCMonth() !== parseInt(monthStr, 10) - 1) return false;
   if (date.getUTCDate() !== parseInt(dayStr, 10)) return false;
-  
+
   // Check year is 4 digits (1000-9999)
   const year = date.getFullYear();
   if (year < 1000 || year > 9999) return false;
-  
+
   // Check year is in sane range (1900 to current year)
   const currentYear = new Date().getFullYear();
   if (year < 1900 || year > currentYear) return false;
-  
+
   // Check date is not in the future
   if (date > new Date()) return false;
-  
+
   return true;
 }
 
