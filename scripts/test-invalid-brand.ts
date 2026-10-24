@@ -57,7 +57,7 @@ function testValidBrandsLoad() {
   // Test default brand
   try {
     const result = execSync(
-      `NEXT_PUBLIC_BRAND=default npx tsx -e "import('./src/lib/branding').then(m => { if (m.branding.id !== 'default') throw new Error('Wrong brand'); })"`,
+      `NEXT_PUBLIC_BRAND=default npx tsx scripts/test-brand-load-default.ts`,
       { encoding: "utf-8", stdio: "pipe" }
     );
     console.log("  ✓ Default brand loads successfully");
@@ -72,7 +72,7 @@ function testValidBrandsLoad() {
   // Test example brand
   try {
     const result = execSync(
-      `NEXT_PUBLIC_BRAND=example npx tsx -e "import('./src/lib/branding').then(m => { if (m.branding.id !== 'example') throw new Error('Wrong brand'); })"`,
+      `NEXT_PUBLIC_BRAND=example npx tsx scripts/test-brand-load-example.ts`,
       { encoding: "utf-8", stdio: "pipe" }
     );
     console.log("  ✓ Example brand loads successfully");
