@@ -42,6 +42,9 @@ export type StartSessionCoreResult =
  * Checks for an existing in_progress session for this user + local date.
  * If found, returns it. If not, creates a new one.
  * 
+ * Handles 23505 unique violation (one in_progress session per user constraint)
+ * by re-reading and returning the existing session.
+ * 
  * This is the core logic extracted from startSession to enable testing.
  */
 export async function startSessionCore(
@@ -85,10 +88,39 @@ export async function startSessionCore(
     .select("id")
     .single();
 
-  if (error || !session) {
+  if (error) {
+    // 23505: unique_violation - the partial unique index rejected a duplicate in_progress session
+    // Re-read and return the existing in_progress session for this user
+    if (error.code === "23505") {
+      const { data: existing } = await supabase
+        .from("sessions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("status", "in_progress")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          ok: true,
+          sessionId: existing.id,
+          existed: true,
+        };
+      }
+    }
+
+    // Not a 23505, or re-read failed
     return {
       ok: false,
-      error: error?.message ?? "Could not start the session",
+      error: error.message ?? "Could not start the session",
+    };
+  }
+
+  if (!session) {
+    return {
+      ok: false,
+      error: "Could not start the session",
     };
   }
 
