@@ -400,13 +400,13 @@ async function runTests() {
         [userId]
       ) as {rows: Array<{id: string; status: string; started_on: string; ended_on: string | null}>};
 
-      // Second same-day rebuild with DIFFERENT payload should create 3 blocks total
-      check("three blocks total", blocks.length === 3, `${blocks.length} blocks`);
+      // L4 fix: same-day rebuild updates in place, so only 2 blocks (original superseded + final active)
+      check("two blocks total (original superseded + final active)", blocks.length === 2, `${blocks.length} blocks`);
 
       const emptyRanges = blocks.filter(
         (b) => b.ended_on !== null && b.ended_on < b.started_on
       );
-      check("two empty ranges (original + first rebuild)", emptyRanges.length === 2, `${emptyRanges.length}`);
+      check("no empty ranges (L4 fix)", emptyRanges.length === 0, `${emptyRanges.length}`);
 
       console.log("  PASS: Test 4\n");
     }
