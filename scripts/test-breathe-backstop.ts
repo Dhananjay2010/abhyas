@@ -61,7 +61,7 @@ async function testBackstop() {
     console.log("1. Read migration and create test function without advisory lock");
     
     // Read the migration file
-    const migrationPath = join(process.cwd(), 'supabase/migrations/20261024200000_breathe_idempotent_retry.sql');
+    const migrationPath = join(process.cwd(), 'supabase/migrations/20261025000014_breathe_idempotent_retry.sql');
     const migrationContent = readFileSync(migrationPath, 'utf-8');
     
     // Extract the function body (from create or replace function to the final $$)

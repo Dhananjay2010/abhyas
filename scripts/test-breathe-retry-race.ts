@@ -13,7 +13,7 @@ export {};
  *
  * IMPORTANT: This test PASSES with the advisory lock in place, proving the guard works.
  * To test the backstop (duplicate detection without lock), temporarily comment out the
- * pg_advisory_xact_lock line in supabase/migrations/20261024200000_breathe_idempotent_retry.sql
+ * pg_advisory_xact_lock line in supabase/migrations/20261025000014_breathe_idempotent_retry.sql
  * and run this test - it should still pass, as the backstop deletes orphan sessions.
  */
 

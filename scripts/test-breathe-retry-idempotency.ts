@@ -1,6 +1,6 @@
 export {};
 /**
- * Test: Migration 20261024200000 guards against race conditions
+ * Test: Migration 20261025000014 guards against race conditions
  *
  * Verifies that the migration SQL contains the correct guards:
  * - Advisory lock before existence check and session insert
@@ -14,7 +14,7 @@ import { join } from "path";
 
 const migrationPath = join(
   process.cwd(),
-  "supabase/migrations/20261024200000_breathe_idempotent_retry.sql"
+  "supabase/migrations/20261025000014_breathe_idempotent_retry.sql"
 );
 
 let failures = 0;
