@@ -25,13 +25,8 @@
     "test:public-paths": "tsx scripts/test-public-paths.ts",
     "test:rate-limit": "tsx scripts/test-rate-limit.ts",
     "test:rate-limit-endpoint": "tsx scripts/test-rate-limit-endpoint.ts",
-<<<<<<< HEAD
-    "test:signout": "tsx scripts/test-signout.ts"
-=======
     "test:signout": "tsx scripts/test-signout.ts",
-    "test:finish-exercise-idempotency": "tsx scripts/test-finish-exercise-idempotency.ts",
     "test:sentry": "tsx scripts/test-sentry.ts"
->>>>>>> origin/main
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
