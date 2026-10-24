@@ -72,6 +72,7 @@ import userEvent from '@testing-library/user-event';
 import { SESSION_EXPIRED_CODE } from '../src/lib/auth/session-expired';
 import { resetSessionExpiredState } from '../src/components/session-expired-prompt';
 import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
+import { getPendingChanges, clearPendingChanges, stashPendingChanges } from '../src/lib/auth/pending-changes';
 
 interface TestResult {
   passed: boolean;
@@ -410,6 +411,73 @@ async function runTests(): Promise<TestResult[]> {
         });
       }
     }
+  }
+
+  // Test 6: Multiple field types can be stashed (profile + session + equipment)
+  {
+    resetSessionExpiredState();
+    clearPendingChanges();
+    
+    // Verify we can stash multiple different field types with exact patches
+    stashPendingChanges([
+      {
+        key: 'session:cool_down_enabled',
+        type: 'session',
+        patch: { cool_down_enabled: false },
+        timestamp: Date.now()
+      },
+      {
+        key: 'profile:preferred_session_minutes',
+        type: 'profile',
+        patch: { preferred_session_minutes: 60 },
+        affectsPlan: true,
+        timestamp: Date.now()
+      },
+      {
+        key: 'equipment:selected',
+        type: 'equipment',
+        patch: { hasAll: false, equipmentIds: ['barbell'] },
+        timestamp: Date.now()
+      }
+    ], '/settings');
+    
+    const pending = getPendingChanges();
+    const hasThreeChanges = pending !== null && pending.changes.length === 3;
+    const hasSession = pending?.changes.some(ch => ch.type === 'session');
+    const hasProfile = pending?.changes.some(ch => ch.type === 'profile');
+    const hasEquipment = pending?.changes.some(ch => ch.type === 'equipment');
+    
+    const sessionChange = pending?.changes.find(ch => ch.type === 'session');
+    const profileChange = pending?.changes.find(ch => ch.type === 'profile');
+    const equipmentChange = pending?.changes.find(ch => ch.type === 'equipment');
+    
+    const sessionPatchValid = sessionChange && 
+      typeof sessionChange.patch === 'object' && 
+      sessionChange.patch !== null &&
+      'cool_down_enabled' in sessionChange.patch;
+    
+    const profilePatchValid = profileChange && 
+      typeof profileChange.patch === 'object' && 
+      profileChange.patch !== null &&
+      'preferred_session_minutes' in profileChange.patch;
+    
+    const equipmentPatchValid = equipmentChange && 
+      typeof equipmentChange.patch === 'object' && 
+      equipmentChange.patch !== null &&
+      'hasAll' in equipmentChange.patch &&
+      'equipmentIds' in equipmentChange.patch;
+
+    clearPendingChanges();
+
+    const passed = hasThreeChanges && hasSession === true && hasProfile === true && hasEquipment === true &&
+                   sessionPatchValid === true && profilePatchValid === true && equipmentPatchValid === true;
+
+    results.push({
+      passed,
+      message: passed
+        ? 'Test 6: Multiple field types (profile + session + equipment) can be stashed with exact patches'
+        : `Test 6: FAILED - has3: ${hasThreeChanges}, hasSession: ${hasSession}, hasProfile: ${hasProfile}, hasEquip: ${hasEquipment}, sessionPatch: ${sessionPatchValid}, profilePatch: ${profilePatchValid}, equipPatch: ${equipmentPatchValid}`
+    });
   }
 
   return results;
