@@ -2906,7 +2906,9 @@
       "cable_machine"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -10483,7 +10485,9 @@
       "kettlebell"
     ],
     "level_min": "intermediate",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
@@ -15061,7 +15065,9 @@
       "cable_machine"
     ],
     "level_min": "beginner",
-    "contraindicated_regions": [],
+    "contraindicated_regions": [
+      "lower_back"
+    ],
     "impact": "low",
     "spinal_load": "none",
     "tracks": [
