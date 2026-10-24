@@ -311,5 +311,42 @@ console.log("\n15. Epley formula validation with known values");
   );
 }
 
+console.log("\n16. Weighted rep PR rule edge cases");
+{
+  // Case 1: 100×5 / 80×8 / 80×9 -> 80×9 IS a PR
+  const case1: SetData[] = [
+    set(5, 100, null),
+    set(8, 80, null),
+    set(9, 80, null),
+  ];
+  const prs1 = detectPersonalRecords(case1, "reps");
+  const mostReps1 = prs1.find(pr => pr.type === "most_reps");
+  check("100×5 / 80×8 / 80×9: 80×9 IS a rep PR", 
+    mostReps1?.value === 9 && mostReps1?.set.weight_kg === 80,
+    `got ${mostReps1?.set.weight_kg}×${mostReps1?.value}`);
+
+  // Case 2: 100×5 / 110×3 -> 110×3 is NOT a rep PR (no earlier set at 110)
+  const case2: SetData[] = [
+    set(5, 100, null),
+    set(3, 110, null),
+  ];
+  const prs2 = detectPersonalRecords(case2, "reps");
+  const mostReps2 = prs2.find(pr => pr.type === "most_reps");
+  check("100×5 / 110×3: NOT a rep PR (no earlier set at 110)", 
+    mostReps2 === undefined,
+    `got ${mostReps2 ? mostReps2.set.weight_kg + '×' + mostReps2.value : 'none'}`);
+
+  // Case 3: 100×5 / 100×5 -> tie is NOT a PR
+  const case3: SetData[] = [
+    set(5, 100, null),
+    set(5, 100, null),
+  ];
+  const prs3 = detectPersonalRecords(case3, "reps");
+  const mostReps3 = prs3.find(pr => pr.type === "most_reps");
+  check("100×5 / 100×5: tie is NOT a PR", 
+    mostReps3 === undefined,
+    `got ${mostReps3 ? mostReps3.set.weight_kg + '×' + mostReps3.value : 'none'}`);
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

@@ -48,10 +48,17 @@ export function calculateEpley1RM(
 /**
  * Check if a set achieves a rep PR for weighted exercises.
  * 
- * Rules:
- * 1. Current weight must be >= max earlier weight (no deloads)
- * 2. Must have an earlier set at EXACTLY the same weight
- * 3. Current reps > best earlier reps at that weight
+ * For a working set at weight w with r reps to be a rep PR:
+ * (a) There must be at least one earlier working set at exactly w, AND
+ * (b) r must be greater than the reps of EVERY earlier working set at weight >= w
+ * 
+ * Both conditions must hold. Deload sessions will be excluded later through
+ * the deload flag, not by this function.
+ * 
+ * Examples:
+ * - 100×5, then 80×8, then 80×9: 80×9 IS a PR (beats 80×8 at same weight, and 9 > 5)
+ * - 100×5, then 110×3: NOT a PR (no earlier set at 110)
+ * - 100×5, then 100×5: NOT a PR (tie, not greater)
  * 
  * @param currentSet - The set to check
  * @param earlierSets - All sets that came before chronologically
@@ -66,24 +73,28 @@ export function checkWeightedRepPR(
   
   if (currentReps === 0) return false;
 
-  // Find max weight among earlier sets
-  const maxEarlierWeight = Math.max(...earlierSets.map(s => s.weight_kg ?? 0), 0);
-  
-  // Skip if current weight is less than max earlier weight (deload)
-  if (currentWeight < maxEarlierWeight) return false;
-
-  // Find the best reps at EXACTLY this weight in earlier sets
-  let bestEarlierRepsAtWeight = 0;
+  // (a) Must have at least one earlier set at exactly this weight
   let hasEarlierSetAtWeight = false;
   for (const earlierSet of earlierSets) {
     if (earlierSet.weight_kg === currentWeight) {
       hasEarlierSetAtWeight = true;
-      bestEarlierRepsAtWeight = Math.max(bestEarlierRepsAtWeight, earlierSet.reps ?? 0);
+      break;
+    }
+  }
+  
+  if (!hasEarlierSetAtWeight) return false;
+
+  // (b) Current reps must beat ALL earlier sets at weight >= current weight
+  for (const earlierSet of earlierSets) {
+    const earlierWeight = earlierSet.weight_kg ?? 0;
+    const earlierReps = earlierSet.reps ?? 0;
+    
+    if (earlierWeight >= currentWeight && earlierReps >= currentReps) {
+      return false; // Found an earlier set at >= weight with >= reps
     }
   }
 
-  // PR only if there was an earlier set at this weight AND current beats it
-  return hasEarlierSetAtWeight && currentReps > bestEarlierRepsAtWeight;
+  return true;
 }
 
 /**

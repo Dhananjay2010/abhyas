@@ -162,9 +162,9 @@ async function runTests() {
     .from("exercises")
     .select("id, name")
     .order("id")
-    .limit(20);
+    .limit(23);
 
-  if (exError || !exercises || exercises.length < 20) {
+  if (exError || !exercises || exercises.length < 23) {
     console.error("Failed to fetch seeded exercises:", exError);
     return false;
   }
@@ -1211,6 +1211,88 @@ async function runTests() {
       `s2 prs: ${sessB_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
     check("Item B: first session gets no PRs (baseline rule)",
       sessB_1?.prs.length === 0);
+  }
+
+  console.log("\n21. Weighted rep PR rule edge cases");
+  {
+    // Case 1: 100×5 / 80×8 / 80×9 -> 80×9 IS a rep PR
+    const s1 = randomUUID(), s2 = randomUUID(), s3 = randomUUID();
+    const se1 = randomUUID(), se2 = randomUUID(), se3 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s1, user_id: userIdA, local_date: "2026-09-20", status: "completed", completed_at: "2026-09-20T10:00:00Z" },
+      { id: s2, user_id: userIdA, local_date: "2026-09-21", status: "completed", completed_at: "2026-09-21T10:00:00Z" },
+      { id: s3, user_id: userIdA, local_date: "2026-09-22", status: "completed", completed_at: "2026-09-22T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se1, user_id: userIdA, session_id: s1, exercise_id: exercises[20].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se2, user_id: userIdA, session_id: s2, exercise_id: exercises[20].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se3, user_id: userIdA, session_id: s3, exercise_id: exercises[20].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se1, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se2, set_number: 1, reps: 8, weight_kg: 80, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se3, set_number: 1, reps: 9, weight_kg: 80, is_warmup_set: false },
+    ]);
+
+    const histCase1 = await getExerciseHistory(supabaseA, userIdA, exercises[20].id, { limit: 10 });
+    const [sessCase1_3, sessCase1_2, sessCase1_1] = histCase1.sessions;
+
+    check("Case 1: 80×9 IS a rep PR (beats 80×8)",
+      sessCase1_3?.prs.some(pr => pr.type === "most_reps" && pr.value === 9),
+      `s3 prs: ${sessCase1_3?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+    const mostRepsPRCase1 = histCase1.currentPRs.find(pr => pr.type === "most_reps");
+    check("Case 1: currentPRs.most_reps is 80×9",
+      mostRepsPRCase1?.set.weight_kg === 80 && mostRepsPRCase1?.value === 9,
+      `got ${mostRepsPRCase1?.set.weight_kg}×${mostRepsPRCase1?.value}`);
+
+    // Case 2: 100×5 / 110×3 -> 110×3 is NOT a rep PR
+    const s4 = randomUUID(), s5 = randomUUID();
+    const se4 = randomUUID(), se5 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s4, user_id: userIdA, local_date: "2026-09-23", status: "completed", completed_at: "2026-09-23T10:00:00Z" },
+      { id: s5, user_id: userIdA, local_date: "2026-09-24", status: "completed", completed_at: "2026-09-24T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se4, user_id: userIdA, session_id: s4, exercise_id: exercises[21].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se5, user_id: userIdA, session_id: s5, exercise_id: exercises[21].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se4, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se5, set_number: 1, reps: 3, weight_kg: 110, is_warmup_set: false },
+    ]);
+
+    const histCase2 = await getExerciseHistory(supabaseA, userIdA, exercises[21].id, { limit: 10 });
+    const [sessCase2_2, sessCase2_1] = histCase2.sessions;
+
+    check("Case 2: 110×3 is NOT a rep PR (no earlier set at 110)",
+      !sessCase2_2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sessCase2_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
+
+    // Case 3: 100×5 / 100×5 -> tie is NOT a PR
+    const s6 = randomUUID(), s7 = randomUUID();
+    const se6 = randomUUID(), se7 = randomUUID();
+
+    await adminClient.from("sessions").insert([
+      { id: s6, user_id: userIdA, local_date: "2026-09-25", status: "completed", completed_at: "2026-09-25T10:00:00Z" },
+      { id: s7, user_id: userIdA, local_date: "2026-09-26", status: "completed", completed_at: "2026-09-26T10:00:00Z" },
+    ]);
+    await adminClient.from("session_exercises").insert([
+      { id: se6, user_id: userIdA, session_id: s6, exercise_id: exercises[22].id, metric: "reps", status: "completed", order_index: 0 },
+      { id: se7, user_id: userIdA, session_id: s7, exercise_id: exercises[22].id, metric: "reps", status: "completed", order_index: 0 },
+    ]);
+    await adminClient.from("session_sets").insert([
+      { user_id: userIdA, session_exercise_id: se6, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+      { user_id: userIdA, session_exercise_id: se7, set_number: 1, reps: 5, weight_kg: 100, is_warmup_set: false },
+    ]);
+
+    const histCase3 = await getExerciseHistory(supabaseA, userIdA, exercises[22].id, { limit: 10 });
+    const [sessCase3_2, sessCase3_1] = histCase3.sessions;
+
+    check("Case 3: 100×5 tie is NOT a rep PR",
+      !sessCase3_2?.prs.some(pr => pr.type === "most_reps"),
+      `s2 prs: ${sessCase3_2?.prs.map(p => `${p.type}=${p.value}`).join(", ")}`);
   }
 
   if (failures > 0) {
