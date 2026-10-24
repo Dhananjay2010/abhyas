@@ -104,6 +104,7 @@ function makeFakeAbandonSessionDeps(
 async function testFinishSessionRequiresInProgressFilter() {
   const exercises = [
     {
+      rest_seconds: null,
       session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }],
     },
   ];
@@ -127,6 +128,7 @@ async function testFinishSessionRequiresInProgressFilter() {
 async function testFinishSessionRespectsDecideAbandonStatusZeroSets() {
   const exercises = [
     {
+      rest_seconds: null,
       session_sets: [{ id: "1", is_warmup_set: true, completed_at: "2026-10-24T14:05:00Z" }], // Only warmup
     },
   ];
@@ -151,6 +153,7 @@ async function testFinishSessionRespectsDecideAbandonStatusZeroSets() {
 async function testFinishSessionRespectsDecideAbandonStatusWithWorkingSets() {
   const exercises = [
     {
+      rest_seconds: null,
       session_sets: [
         { id: "1", is_warmup_set: true, completed_at: "2026-10-24T14:05:00Z" },
         { id: "2", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }, // Working set
@@ -192,6 +195,7 @@ async function testFinishSessionHandlesReadError() {
 async function testFinishSessionHandlesUpdateError() {
   const exercises = [
     {
+      rest_seconds: null,
       session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }],
     },
   ];
@@ -212,6 +216,7 @@ async function testFinishSessionHandlesUpdateError() {
 async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
   const completedExercises = [
     {
+      rest_seconds: null,
       session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:10:00Z" }],
     },
   ];
@@ -228,6 +233,7 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
   // Skipped session
   const skippedExercises = [
     {
+      rest_seconds: null,
       session_sets: [{ id: "1", is_warmup_set: true, completed_at: "2026-10-24T14:05:00Z" }],
     },
   ];
@@ -247,6 +253,7 @@ async function testFinishSessionSetsCooldownCompletedOnlyWhenCompleted() {
 async function testAbandonSessionRequiresInProgressFilter() {
   const exercises = [
     {
+      rest_seconds: null,
       session_sets: [{ id: "1", is_warmup_set: false }],
     },
   ];
@@ -266,6 +273,7 @@ async function testAbandonSessionRequiresInProgressFilter() {
 async function testAbandonSessionRespectsDecideAbandonStatus() {
   const exercises = [
     {
+      rest_seconds: null,
       session_sets: [{ id: "1", is_warmup_set: true }], // Only warmup
     },
   ];

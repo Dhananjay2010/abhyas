@@ -41,6 +41,7 @@ function makeFakeDeps(config: {
       return {
         data: [
           {
+        rest_seconds: null,
             session_sets: [
               { id: "set1", is_warmup_set: false, completed_at: new Date().toISOString() },
             ],

@@ -45,6 +45,7 @@ function makeFakeDeps(alreadyCompleted: boolean) {
       return {
         data: [
           {
+        rest_seconds: null,
             session_sets: [
               { id: "set1", is_warmup_set: false, completed_at: "2026-10-24T10:30:00Z" },
             ],
@@ -124,6 +125,7 @@ async function runTests() {
         return {
           data: [
             {
+        rest_seconds: null,
               session_sets: [
                 { id: "set1", is_warmup_set: false, completed_at: "2026-10-24T10:30:00Z" },
               ],

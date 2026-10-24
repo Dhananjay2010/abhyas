@@ -33,6 +33,7 @@ type ExerciseRow = {
   id: string;
   planned_sets: number;
   status: Database["public"]["Enums"]["exercise_status"];
+  rest_seconds: number | null;
   session_sets: Array<{ id: string; is_warmup_set: boolean; completed_at: string | null }> | null;
 };
 
@@ -50,6 +51,7 @@ function makeFakeFinishSessionDeps(
     },
     async loadExercises() {
       return { data: exercisesData.map(ex => ({
+        rest_seconds: ex.rest_seconds,
         session_sets: ex.session_sets,
       })), error: null };
     },
@@ -106,6 +108,7 @@ async function runTests() {
         id: "ex1",
         planned_sets: 3,
         status: "pending" as const,
+        rest_seconds: null,
         session_sets: [
           { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
           { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
@@ -137,6 +140,7 @@ async function runTests() {
         id: "ex2",
         planned_sets: 4,
         status: "pending" as const,
+        rest_seconds: null,
         session_sets: [
           { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
           { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
@@ -166,6 +170,7 @@ async function runTests() {
         id: "ex3",
         planned_sets: 3,
         status: "pending" as const,
+        rest_seconds: null,
         session_sets: [],
       },
     ];
@@ -188,6 +193,7 @@ async function runTests() {
         id: "ex4",
         planned_sets: 5,
         status: "pending" as const,
+        rest_seconds: null,
         session_sets: [
           { id: "s1", is_warmup_set: false, completed_at: null },
           { id: "s2", is_warmup_set: false, completed_at: null },
@@ -219,6 +225,7 @@ async function runTests() {
         id: "ex5a",
         planned_sets: 3,
         status: "pending" as const,
+        rest_seconds: null,
         session_sets: [
           { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
           { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
@@ -229,6 +236,7 @@ async function runTests() {
         id: "ex5b",
         planned_sets: 4,
         status: "pending" as const,
+        rest_seconds: null,
         session_sets: [
           { id: "s4", is_warmup_set: false, completed_at: new Date().toISOString() },
         ],
@@ -237,6 +245,7 @@ async function runTests() {
         id: "ex5c",
         planned_sets: 3,
         status: "pending" as const,
+        rest_seconds: null,
         session_sets: [],
       },
     ];
@@ -265,6 +274,7 @@ async function runTests() {
         id: "ex6",
         planned_sets: 3,
         status: "completed" as const,
+        rest_seconds: null,
         session_sets: [
           { id: "s1", is_warmup_set: false, completed_at: new Date().toISOString() },
           { id: "s2", is_warmup_set: false, completed_at: new Date().toISOString() },
