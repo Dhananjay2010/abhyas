@@ -335,6 +335,8 @@ export function evaluateProgression(input: {
     nextWorkingWeightKg: currentWeight,
     nextTargetReps: state.currentTargetReps ?? repsMax,
     consecutiveFailures: failures,
+    // "this weight" is meaningless for a hold, and for any unloaded bodyweight
+    // movement -- both were being told to stay at a weight they never had.
     message: isTimed
       ? `Stay at this hold length until all sets reach ${repsMax} seconds.`
       : currentWeight === null
