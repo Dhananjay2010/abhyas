@@ -1,5 +1,5 @@
 import { strict as assert } from "node:assert";
-import { loadStartProgram, createSupabaseDeps, type ProgramDay } from "../src/lib/session/load-start-program";
+import { loadStartProgram, createSupabaseDeps } from "../src/lib/session/load-start-program";
 import { createFakeDb, json, type Row } from "./helpers/fake-postgrest";
 
 (async () => {
@@ -34,40 +34,44 @@ import { createFakeDb, json, type Row } from "./helpers/fake-postgrest";
     assert.equal(filter, value, `Expected filter ${column}=${value}, got ${column}=${filter}`);
   }
 
+  function servePrograms(fake: ReturnType<typeof createFakeDb>) {
+    fake.beforeRequest = (req) => {
+      if (req.table === "programs" && req.method === "GET") {
+        const statusFilter = req.filters["program_days.status"];
+        const idFilter = req.filters["id"];
+        if (!idFilter) return undefined;
+        
+        const programId = idFilter.replace(/^eq\./, "");
+        const program = fake.tables.programs.find(p => p.id === programId);
+        if (!program) return json(200, []);
+        
+        // Model PostgREST: no status filter → return all days; with filter → return matching
+        let days = fake.tables.program_days.filter(d => d.program_id === programId);
+        if (statusFilter) {
+          const statusValue = statusFilter.replace(/^eq\./, "");
+          days = days.filter(d => d.status === statusValue);
+        }
+        
+        return json(200, [{
+          ...program,
+          program_days: days.map(d => ({
+            id: d.id,
+            day_index: d.day_index,
+            day_type: d.day_type,
+            focus: d.focus,
+            label: d.label,
+          })),
+        }]);
+      }
+      return undefined;
+    };
+  }
+
   // Test 1: loads active day successfully and verifies filters
   let fake = createFakeDb({
     tables: { programs: [programRow("prog-1")], program_days: [dayRow("day-1", "prog-1", 1, "active")] },
   });
-  fake.beforeRequest = (req) => {
-    if (req.table === "programs" && req.method === "GET") {
-      const statusFilter = req.filters["program_days.status"];
-      const idFilter = req.filters["id"];
-      if (!statusFilter || !idFilter) return undefined;
-      
-      // Extract program id
-      const programId = idFilter.replace(/^eq\./, "");
-      const program = fake.tables.programs.find((p: Row) => p.id === programId);
-      if (!program) return json(200, []);
-      
-      // Filter program_days by status
-      const statusValue = statusFilter.replace(/^eq\./, "");
-      const days = (fake.tables.program_days as Row[])
-        .filter((d: Row) => d.program_id === programId && d.status === statusValue)
-        .map((d: Row) => ({
-          id: d.id,
-          day_index: d.day_index,
-          day_type: d.day_type,
-          focus: d.focus,
-          label: d.label,
-        }));
-      
-      return json(200, {
-        ...program,
-        program_days: days,
-      });
-    }
-    return undefined;
-  };
+  servePrograms(fake);
   
   let result = await loadStartProgram(createSupabaseDeps(fake.client), "prog-1", 1);
   assert(result.ok, "load should succeed for active day");
@@ -82,34 +86,7 @@ import { createFakeDb, json, type Row } from "./helpers/fake-postgrest";
   fake = createFakeDb({
     tables: { programs: [programRow("prog-1")], program_days: [dayRow("day-superseded", "prog-1", 3, "superseded")] },
   });
-  fake.beforeRequest = (req) => {
-    if (req.table === "programs" && req.method === "GET") {
-      const statusFilter = req.filters["program_days.status"];
-      const idFilter = req.filters["id"];
-      if (!statusFilter || !idFilter) return undefined;
-      
-      const programId = idFilter.replace(/^eq\./, "");
-      const program = fake.tables.programs.find((p: Row) => p.id === programId);
-      if (!program) return json(200, []);
-      
-      const statusValue = statusFilter.replace(/^eq\./, "");
-      const days = (fake.tables.program_days as Row[])
-        .filter((d: Row) => d.program_id === programId && d.status === statusValue)
-        .map((d: Row) => ({
-          id: d.id,
-          day_index: d.day_index,
-          day_type: d.day_type,
-          focus: d.focus,
-          label: d.label,
-        }));
-      
-      return json(200, {
-        ...program,
-        program_days: days,
-      });
-    }
-    return undefined;
-  };
+  servePrograms(fake);
   
   result = await loadStartProgram(createSupabaseDeps(fake.client), "prog-1", 3);
   assert(!result.ok, "superseded day should not be picked when filter is applied");
@@ -127,34 +104,7 @@ import { createFakeDb, json, type Row } from "./helpers/fake-postgrest";
       ],
     },
   });
-  fake.beforeRequest = (req) => {
-    if (req.table === "programs" && req.method === "GET") {
-      const statusFilter = req.filters["program_days.status"];
-      const idFilter = req.filters["id"];
-      if (!statusFilter || !idFilter) return undefined;
-      
-      const programId = idFilter.replace(/^eq\./, "");
-      const program = fake.tables.programs.find((p: Row) => p.id === programId);
-      if (!program) return json(200, []);
-      
-      const statusValue = statusFilter.replace(/^eq\./, "");
-      const days = (fake.tables.program_days as Row[])
-        .filter((d: Row) => d.program_id === programId && d.status === statusValue)
-        .map((d: Row) => ({
-          id: d.id,
-          day_index: d.day_index,
-          day_type: d.day_type,
-          focus: d.focus,
-          label: d.label,
-        }));
-      
-      return json(200, {
-        ...program,
-        program_days: days,
-      });
-    }
-    return undefined;
-  };
+  servePrograms(fake);
   
   result = await loadStartProgram(createSupabaseDeps(fake.client), "prog-2", 1);
   assert(result.ok, "should load when status filter returns only active day");
