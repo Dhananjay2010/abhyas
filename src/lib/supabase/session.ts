@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { PERF_ENABLED } from "@/lib/perf";
 import { isPublicPath } from "./public-paths";
+import { buildSignInRedirectSearch } from "@/lib/auth/sign-in-redirect";
 
 export async function updateSession(request: NextRequest) {
   const started = performance.now();
@@ -48,6 +49,7 @@ export async function updateSession(request: NextRequest) {
   if (!signedIn && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
+    url.search = buildSignInRedirectSearch(pathname, request.nextUrl.search, request.method);
     return finish(NextResponse.redirect(url), started, pathname, signedIn);
   }
 
