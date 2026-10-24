@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 
 /**
  * Check if a request is from the same origin (CSRF protection).
@@ -53,14 +52,12 @@ export async function POST(request: Request) {
   const { error } = await supabase.auth.signOut({ scope: "local" });
 
   if (error) {
-    // If signOut fails, return a 500 response.
-    // Forms that POST here won't see this error in the UI, but at least they
-    // won't be redirected as if signed out.
-    return new NextResponse(error.message, { status: 500 });
+    // Log the actual error for debugging, but return a generic message to the client
+    console.error("Sign-out failed:", error.message);
+    return new NextResponse("Sign-out failed", { status: 500 });
   }
 
-  // After signOut completes and cookies are cleared, redirect.
-  // The redirect must happen via Next.js's redirect() to ensure the cleared
-  // cookies are included in the response.
-  redirect("/");
+  // After signOut completes and cookies are cleared, redirect with 303.
+  // Cookies set through the server client's cookies() are included in the response.
+  return NextResponse.redirect(new URL("/", request.url), { status: 303 });
 }

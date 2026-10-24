@@ -14,7 +14,7 @@
  * Run with: npm run test:signout
  */
 
-import { performSignOut } from "../src/lib/auth/signout";
+import { performSignOut } from "../src/lib/auth/signout-logic";
 import { isSameOriginRequest } from "../src/app/auth/signout/route";
 
 let failures = 0;
