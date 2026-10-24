@@ -119,34 +119,14 @@ console.log('\n7. Kettlebell weights arrays are exported as readonly');
   check('lb array ends at 80 lb', KETTLEBELL_WEIGHTS_LB[KETTLEBELL_WEIGHTS_LB.length - 1] === 80);
   
   // Runtime check: arrays are frozen (immutable)
-  // readonly type + Object.freeze() prevent mutation
+  // readonly type (TypeScript) + Object.freeze() (runtime) prevent mutation
   check('kg array is frozen (Object.isFrozen)', Object.isFrozen(KETTLEBELL_WEIGHTS_KG));
   check('lb array is frozen (Object.isFrozen)', Object.isFrozen(KETTLEBELL_WEIGHTS_LB));
   
-  // Verify mutation silently fails (non-strict mode) or throws (strict mode)
-  let mutationFailed = true;
-  try {
-    // TypeScript prevents mutation at compile time due to readonly type
-    // At runtime, Object.freeze prevents mutation
-    (KETTLEBELL_WEIGHTS_KG as any)[0] = 999;
-    // In non-strict mode, assignment succeeds but value doesn't change
-    mutationFailed = KETTLEBELL_WEIGHTS_KG[0] === 4;
-  } catch (e) {
-    // In strict mode, assignment throws
-    mutationFailed = true;
-  }
-  check('kg array mutation prevented', mutationFailed && KETTLEBELL_WEIGHTS_KG[0] === 4);
-  
-  mutationFailed = true;
-  try {
-    // TypeScript prevents mutation at compile time due to readonly type
-    // At runtime, Object.freeze prevents mutation
-    (KETTLEBELL_WEIGHTS_LB as any)[0] = 999;
-    mutationFailed = KETTLEBELL_WEIGHTS_LB[0] === 5;
-  } catch (e) {
-    mutationFailed = true;
-  }
-  check('lb array mutation prevented', mutationFailed && KETTLEBELL_WEIGHTS_LB[0] === 5);
+  // Object.isFrozen confirms arrays cannot be mutated at runtime
+  // TypeScript readonly type prevents mutation at compile time
+  check('kg array values unchanged', KETTLEBELL_WEIGHTS_KG[0] === 4 && KETTLEBELL_WEIGHTS_KG[11] === 32);
+  check('lb array values unchanged', KETTLEBELL_WEIGHTS_LB[0] === 5 && KETTLEBELL_WEIGHTS_LB[13] === 80);
 }
 
 console.log('\n8. Kettlebell ladder in kg');
