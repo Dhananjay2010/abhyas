@@ -303,38 +303,6 @@ export async function getExerciseHistory(
   // Use the first session's metric as primary (should be consistent for an exercise)
   const primaryMetric = (allHistoryRows[0]?.metric || "reps") as "reps" | "seconds";
 
-  // Compute current PRs across all history (must be done regardless of displayed page)
-  const allSets: SetData[] = [];
-  for (const row of allHistoryRows) {
-    if (row.session_exercise_id) {
-      const sets = allSetsBySessionExercise.get(row.session_exercise_id) ?? [];
-      allSets.push(...sets);
-    }
-  }
-  const currentPRs = detectPersonalRecords(allSets, primaryMetric);
-
-  // Get paginated history rows for display
-  const { data: historyRows, error: historyError } = await supabase
-    .from("exercise_history")
-    .select("session_exercise_id, session_id, local_date, metric, completed_at")
-    .eq("user_id", userId)
-    .eq("exercise_id", exerciseId)
-    .order("completed_at", { ascending: false })
-    .order("session_exercise_id", { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (historyError) {
-    throw new Error(`Failed to fetch paginated history: ${historyError.message}`);
-  }
-
-  if (!historyRows || historyRows.length === 0) {
-    return {
-      sessions: [],
-      totalCount,
-      currentPRs,
-    };
-  }
-
   // Get sets for ALL session_exercises (for PR detection)
   const allSessionExerciseIds = allHistoryRows
     .map(row => row.session_exercise_id)
@@ -383,6 +351,38 @@ export async function getExerciseHistory(
 
       setOffset += setPageSize;
     }
+  }
+
+  // Compute current PRs across all history (must be done regardless of displayed page)
+  const allSets: SetData[] = [];
+  for (const row of allHistoryRows) {
+    if (row.session_exercise_id) {
+      const sets = allSetsBySessionExercise.get(row.session_exercise_id) ?? [];
+      allSets.push(...sets);
+    }
+  }
+  const currentPRs = detectPersonalRecords(allSets, primaryMetric);
+
+  // Get paginated history rows for display
+  const { data: historyRows, error: historyError } = await supabase
+    .from("exercise_history")
+    .select("session_exercise_id, session_id, local_date, metric, completed_at")
+    .eq("user_id", userId)
+    .eq("exercise_id", exerciseId)
+    .order("completed_at", { ascending: false })
+    .order("session_exercise_id", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (historyError) {
+    throw new Error(`Failed to fetch paginated history: ${historyError.message}`);
+  }
+
+  if (!historyRows || historyRows.length === 0) {
+    return {
+      sessions: [],
+      totalCount,
+      currentPRs,
+    };
   }
 
   // Build a map of session_exercise_id -> index for PR detection
