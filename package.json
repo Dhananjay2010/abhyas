@@ -60,6 +60,7 @@
     "test:new-version-hint": "tsx scripts/test-new-version-hint.ts",
     "test:settings-timezone": "tsx scripts/test-settings-timezone.ts",
     "test:offline-retry": "tsx scripts/test-offline-retry.ts",
+    "test:yoga-e2e": "tsx scripts/test-yoga-streak-e2e.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
