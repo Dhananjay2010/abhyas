@@ -2,7 +2,7 @@
 /**
  * Test that finishSessionCore uses exact updatedCount to detect idempotent retries.
  *
- * Regression test for mutant #3: if the updatedCount check is removed or replaced
+ * Regression test for regression #3: if the updatedCount check is removed or replaced
  * with a looser check (e.g., just checking error), concurrent or retry calls won't
  * be handled correctly.
  *
