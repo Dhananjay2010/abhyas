@@ -55,6 +55,7 @@ export function createSupabaseDeps(client: SupabaseClient<Database>): LoadStartP
       const { data, error } = await client
         .from("programs")
         .select("id, started_on, deload_week, week_offset, program_days(id, day_index, day_type, focus, label)")
+        .eq("program_days.status", "active")
         .eq("id", programId)
         .maybeSingle();
       
