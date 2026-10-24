@@ -67,7 +67,7 @@ export default async function ProgressPage() {
       .order("created_at"),
     supabase
       .from("sessions")
-      .select("local_date, status, actual_type")
+      .select("local_date, status, actual_type, is_deload")
       .order("local_date", { ascending: false })
       .limit(500),
     supabase.from("program_days").select("program_id, day_index, day_type"),
@@ -139,8 +139,14 @@ export default async function ProgressPage() {
   // Per-lift strength as small multiples: a five-line chart is unreadable on a
   // phone, and each lift is its own question anyway. Data is fetched newest-first;
   // the helper reverses it so charts plot chronologically (oldest to newest).
+  // B1: Exclude deload weeks from strength charts
+  const deloadDates = new Set(
+    (sessionsRes.data ?? [])
+      .filter(s => s.is_deload === true)
+      .map(s => s.local_date)
+  );
   const strengthCharts = buildStrengthChartsFromDescendingRows(
-    strengthRes.data ?? [],
+    (strengthRes.data ?? []).filter(row => !deloadDates.has(row.local_date)),
     shortDate,
     units
   ).slice(0, 6);
