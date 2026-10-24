@@ -1,237 +1,215 @@
 /**
  * Controlled DobInput tests - reproduce the round-trip bug from PR #72 QA report.
  * 
- * Uses @testing-library/react + jsdom.
- * Tests that typing the year doesn't cause the "0001" bug.
- * 
- * Note: In the jsdom test environment, fireEvent.change updates input.value
- * but doesn't reliably trigger React onChange callbacks. We test input values
- * directly to verify the fix.
+ * Based on QA harness that properly reproduces the bug using @testing-library/user-event.
+ * Uses key-by-key typing with a stateful parent that feeds value back to DobInput.
  */
 
-// Set up jsdom before importing RTL
-import { JSDOM } from "jsdom";
-const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>", {
-  url: "http://localhost/",
-  pretendToBeVisual: true,
-  runScripts: "dangerously",
-});
+/* eslint-disable react-hooks/rules-of-hooks, react-hooks/globals, react-hooks/preserve-manual-memoization */
 
-Object.defineProperty(global, "window", { value: dom.window, writable: true, configurable: true });
-Object.defineProperty(global, "document", { value: dom.window.document, writable: true, configurable: true });
-Object.defineProperty(global, "HTMLElement", { value: dom.window.HTMLElement, writable: true, configurable: true });
+// Setup jsdom BEFORE any React imports
+import "./helpers/setup-jsdom";
 
-import { render, cleanup, fireEvent, act } from "@testing-library/react";
+// Then import React libraries
+import { render, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState, useCallback } from "react";
 import { DobInput } from "../src/components/onboarding/dob-input";
 
 let passed = 0;
 let failed = 0;
 
-function assert(condition: boolean, message: string) {
+function check(condition: boolean, message: string) {
   if (condition) {
     passed++;
+    console.log(`PASS ${message}`);
   } else {
     failed++;
-    console.error(`❌ ${message}`);
+    console.error(`FAIL ${message}`);
   }
 }
 
-async function test(name: string, fn: () => Promise<void>) {
+// Controlled parent that mimics onboarding-flow.tsx
+let parentVal: string | null;
+let emitted: (string | null)[] = [];
+let blurs = 0;
+
+function Parent({ 
+  init = null as string | null, 
+  inlineOnChange = false 
+}: { 
+  init?: string | null; 
+  inlineOnChange?: boolean;
+}) {
+  const [v, setV] = useState<string | null>(init);
+  parentVal = v;
+  
+  // Test with both inline and memoized onChange (both should work)
+  const onChange = inlineOnChange 
+    ? (x: string | null) => { emitted.push(x); setV(x); }
+    : useCallback((x: string | null) => { emitted.push(x); setV(x); }, []);
+  
+  return (
+    <div>
+      <DobInput value={v} onChange={onChange} onBlur={() => blurs++} />
+      <button>Sex</button>
+      <button onClick={() => setV("1985-11-03")}>Ext</button>
+      <button onClick={() => setV(null)}>Reset</button>
+    </div>
+  );
+}
+
+const q = (name: string) => 
+  document.querySelector(`input[aria-label="${name}"]`) as HTMLInputElement;
+
+const screenBtn = (text: string) => 
+  [...document.querySelectorAll("button")].find(b => b.textContent === text)!;
+
+async function scenario(
+  name: string, 
+  init: string | null, 
+  inline: boolean, 
+  fn: (u: ReturnType<typeof userEvent.setup>) => Promise<void>
+) {
+  emitted = [];
+  blurs = 0;
+  const u = userEvent.setup({ document });
+  render(<Parent init={init} inlineOnChange={inline} />);
+  
   try {
-    await fn();
-  } catch (err) {
-    failed++;
-    console.error(`❌ ${name}: ${err}`);
-  } finally {
-    cleanup();
+    await fn(u);
+  } catch (e) {
+    check(false, `${name}: threw ${e}`);
   }
+  
+  cleanup();
 }
 
-console.log("\n🧪 Testing DobInput for PR #72 C1, M1, L1 fixes\n");
+console.log("\n🧪 Testing DobInput controlled round-trip (PR #72 C1, M1, L1)\n");
 
 async function runTests() {
-
-// Test C1: The CRITICAL bug - typing "1" in the year should show "1", not "0001"
-// This test FAILS on main (before the fix) and PASSES after the fix
-await test("C1: Typing year digit-by-digit shows typed value, not padded '0001'", async () => {
-  const { getByRole } = render(<DobInput value={null} onChange={() => {}} />);
-  
-  const dayInput = getByRole("textbox", { name: "Day" }) as HTMLInputElement;
-  const monthInput = getByRole("textbox", { name: "Month" }) as HTMLInputElement;
-  const yearInput = getByRole("textbox", { name: "Year" }) as HTMLInputElement;
-  
-  // Type 12 in day, 05 in month
-  fireEvent.change(dayInput, { target: { value: "12" } });
-  fireEvent.change(monthInput, { target: { value: "05" } });
-  
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  });
-  
-  assert(dayInput.value === "12", "Day should be '12'");
-  assert(monthInput.value === "05", "Month should be '05'");
-  
-  // Type "1" in year - THIS IS THE CRITICAL BUG TEST
-  // On main (before fix): this shows "0001" because the component pads the year
-  // After fix: this shows "1" because we don't pad until year.length === 4
-  fireEvent.change(yearInput, { target: { value: "1" } });
-  
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  });
-  
-  assert(yearInput.value === "1", "Year should be '1' (NOT '0001' - this is the bug fix)");
-  
-  // Continue typing: 19, 199, 1992
-  fireEvent.change(yearInput, { target: { value: "19" } });
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  });
-  assert(yearInput.value === "19", "Year should be '19' (NOT '0019')");
-  
-  fireEvent.change(yearInput, { target: { value: "199" } });
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  });
-  assert(yearInput.value === "199", "Year should be '199' (NOT '0199')");
-  
-  fireEvent.change(yearInput, { target: { value: "1992" } });
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  });
-  assert(yearInput.value === "1992", "Year should be '1992'");
-  assert(dayInput.value === "12", "Day should still be '12'");
-  assert(monthInput.value === "05", "Month should still be '05'");
-});
-
-// Test M1: Partial year (3 digits) shows correctly
-await test("M1: Typing partial year (199) shows '199', not '0000' or padded", async () => {
-  const { getByRole } = render(<DobInput value={null} onChange={() => {}} />);
-  
-  const dayInput = getByRole("textbox", { name: "Day" }) as HTMLInputElement;
-  const monthInput = getByRole("textbox", { name: "Month" }) as HTMLInputElement;
-  const yearInput = getByRole("textbox", { name: "Year" }) as HTMLInputElement;
-  
-  // Type 12/05/199 (partial year)
-  fireEvent.change(dayInput, { target: { value: "12" } });
-  fireEvent.change(monthInput, { target: { value: "05" } });
-  fireEvent.change(yearInput, { target: { value: "199" } });
-  
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  });
-  
-  assert(yearInput.value === "199", "Year should be '199' (partial, not padded)");
-  assert(dayInput.value === "12", "Day should be '12'");
-  assert(monthInput.value === "05", "Month should be '05'");
-});
-
-// Test: Backspace from 1992 to 199 shows 199
-await test("Backspace from 1992 to 199 shows '199'", async () => {
-  const { getByRole } = render(<DobInput value="1992-05-12" onChange={() => {}} />);
-  
-  const yearInput = getByRole("textbox", { name: "Year" }) as HTMLInputElement;
-  
-  // Initial state: "1992"
-  assert(yearInput.value === "1992", "Initial year should be '1992'");
-  
-  // Backspace to "199"
-  fireEvent.change(yearInput, { target: { value: "199" } });
-  
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  });
-  
-  assert(yearInput.value === "199", "After backspace, year should be '199' (not '0000' or '0199')");
-});
-
-// Test: Clearing the year clears the input
-await test("Clearing year clears the input", async () => {
-  const { getByRole } = render(<DobInput value="1992-05-12" onChange={() => {}} />);
-  
-  const yearInput = getByRole("textbox", { name: "Year" }) as HTMLInputElement;
-  
-  // Initial state: "1992"
-  assert(yearInput.value === "1992", "Initial year should be '1992'");
-  
-  // Clear the year
-  fireEvent.change(yearInput, { target: { value: "" } });
-  
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  });
-  
-  assert(yearInput.value === "", "After clearing, year should be empty (not re-padded to '0000')");
-});
-
-// Test: Valid prefilled value still displays correctly
-await test("Valid prefilled value displays correctly", async () => {
-  const { getByRole } = render(<DobInput value="1985-11-03" onChange={() => {}} />);
-  
-  const dayInput = getByRole("textbox", { name: "Day" }) as HTMLInputElement;
-  const monthInput = getByRole("textbox", { name: "Month" }) as HTMLInputElement;
-  const yearInput = getByRole("textbox", { name: "Year" }) as HTMLInputElement;
-  
-  assert(dayInput.value === "03", "Prefilled day should be '03'");
-  assert(monthInput.value === "11", "Prefilled month should be '11'");
-  assert(yearInput.value === "1985", "Prefilled year should be '1985'");
-});
-
-// Test L1: No error shown while typing (before blur)
-// Note: This test verifies the component doesn't show errors before blur,
-// but the actual error display logic is in the parent (onboarding-flow.tsx)
-await test("L1: Component ready for error-on-blur pattern", async () => {
-  const { getByRole } = render(<DobInput value={null} onChange={() => {}} />);
-  
-  const dayInput = getByRole("textbox", { name: "Day" }) as HTMLInputElement;
-  const monthInput = getByRole("textbox", { name: "Month" }) as HTMLInputElement;
-  const yearInput = getByRole("textbox", { name: "Year" }) as HTMLInputElement;
-  
-  // Type partial date
-  fireEvent.change(dayInput, { target: { value: "12" } });
-  fireEvent.change(monthInput, { target: { value: "05" } });
-  fireEvent.change(yearInput, { target: { value: "19" } });
-  
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 10));
-  });
-  
-  // Component should still work normally with partial values
-  assert(yearInput.value === "19", "Partial year should display as '19'");
-  
-  // No error shown yet (error prop not passed in this test)
-  const errorElement = document.querySelector("#dob-error");
-  assert(errorElement === null, "No error should be shown (none passed to component)");
-});
-
-// Test: Multiple partial edits work correctly
-await test("Multiple partial edits work correctly without value corruption", async () => {
-  const { getByRole } = render(<DobInput value={null} onChange={() => {}} />);
-  
-  const yearInput = getByRole("textbox", { name: "Year" }) as HTMLInputElement;
-  
-  // Type and edit the year multiple times
-  fireEvent.change(yearInput, { target: { value: "2" } });
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
-  assert(yearInput.value === "2", "Year should be '2'");
-  
-  fireEvent.change(yearInput, { target: { value: "20" } });
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
-  assert(yearInput.value === "20", "Year should be '20'");
-  
-  fireEvent.change(yearInput, { target: { value: "2" } });
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
-  assert(yearInput.value === "2", "Year should be back to '2'");
-  
-  fireEvent.change(yearInput, { target: { value: "19" } });
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
-  assert(yearInput.value === "19", "Year should be '19'");
-  
-  fireEvent.change(yearInput, { target: { value: "1995" } });
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
-  assert(yearInput.value === "1995", "Year should be '1995'");
-});
-
+  // Test with both inline and memoized onChange
+  for (const inline of [false, true]) {
+    const tag = inline ? "[inline onChange]" : "[memo onChange]";
+    
+    // Scenario 1: Type from empty
+    await scenario("type", null, inline, async (u) => {
+      await u.click(q("Day"));
+      await u.keyboard("12051992");
+      
+      check(
+        q("Day").value === "12" && q("Month").value === "05",
+        `${tag} C1 day/month '12'/'05' after key-by-key (got ${q("Day").value}/${q("Month").value})`
+      );
+      
+      check(
+        q("Year").value === "1992",
+        `${tag} C1 year typed key-by-key shows 1992 (got '${q("Year").value}')`
+      );
+      
+      check(
+        parentVal === "1992-05-12",
+        `${tag} C1 parent value 1992-05-12 (got ${parentVal})`
+      );
+      
+      check(
+        !emitted.some(e => e && e.startsWith("000")),
+        `${tag} C1 no 000x emissions (emitted ${JSON.stringify(emitted)})`
+      );
+      
+      check(
+        blurs === 0,
+        `${tag} L1 no onBlur while moving within fieldset (blurs=${blurs})`
+      );
+      
+      await u.click(document.querySelector("button")!);
+      check(
+        blurs === 1,
+        `${tag} L1 onBlur once when leaving fieldset (blurs=${blurs})`
+      );
+      
+      // Backspace to partial year
+      await u.click(q("Year"));
+      await u.keyboard("{Backspace}");
+      check(
+        q("Year").value === "199" && parentVal === null,
+        `${tag} M1 backspace to 199 shows 199 and parent null (got '${q("Year").value}', ${parentVal})`
+      );
+      
+      // Clear year completely
+      await u.keyboard("{Backspace}{Backspace}{Backspace}");
+      check(
+        q("Year").value === "" && parentVal === null,
+        `${tag} M1 cleared year -> parent null (got '${q("Year").value}', ${parentVal})`
+      );
+      
+      // Backspace in empty year moves to month
+      await u.keyboard("{Backspace}");
+      check(
+        document.activeElement === q("Month"),
+        `${tag} backspace in empty year moves to month`
+      );
+      
+      // Retype year
+      await u.click(q("Year"));
+      await u.keyboard("2001");
+      check(
+        parentVal === "2001-05-12",
+        `${tag} retype year -> 2001-05-12 (got ${parentVal})`
+      );
+      
+      // External set
+      await u.click(screenBtn("Ext"));
+      check(
+        q("Day").value === "03" && q("Month").value === "11" && q("Year").value === "1985" && parentVal === "1985-11-03",
+        `${tag} external set 1985-11-03 reflected (got ${q("Day").value}/${q("Month").value}/${q("Year").value}, parent ${parentVal})`
+      );
+      
+      // External reset
+      await u.click(screenBtn("Reset"));
+      check(
+        q("Day").value === "" && q("Year").value === "" && parentVal === null,
+        `${tag} external reset clears fields (got '${q("Day").value}'/'${q("Year").value}', parent ${parentVal})`
+      );
+    });
+    
+    // Scenario 2: Edit prefilled value
+    await scenario("prefilled-edit", "1992-05-12", inline, async (u) => {
+      check(
+        q("Year").value === "1992",
+        `${tag} prefilled shows 1992`
+      );
+      
+      await u.tripleClick(q("Year"));
+      await u.keyboard("1990");
+      check(
+        q("Year").value === "1990" && parentVal === "1990-05-12",
+        `${tag} select-all year and type 1990 (got '${q("Year").value}', parent ${parentVal})`
+      );
+      
+      await u.tripleClick(q("Day"));
+      await u.keyboard("3");
+      check(
+        q("Day").value === "3" && parentVal === "1990-05-03",
+        `${tag} single-digit day 3 -> 1990-05-03 (got '${q("Day").value}', ${parentVal})`
+      );
+    });
+    
+    // Scenario 3: Transient partial states
+    await scenario("transient", null, inline, async (u) => {
+      await u.click(q("Day"));
+      await u.keyboard("1");
+      await u.click(q("Month"));
+      await u.keyboard("0");
+      await u.click(q("Year"));
+      await u.keyboard("1990");
+      
+      check(
+        true,
+        `${tag} INFO day '1' month '0' year 1990 -> parent ${parentVal} (emitted ${JSON.stringify(emitted)})`
+      );
+    });
+  }
 }
 
 runTests().then(() => {
