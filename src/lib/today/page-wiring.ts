@@ -48,28 +48,25 @@ export type PageWiringInput = {
 
 export type PageWiringOutput = {
   hasStartedAny: boolean | null;
-  todayStateInput: BuildTodayStateInput | null;
+  todayStateInput: BuildTodayStateInput;
 };
 
 /**
  * Build today state input from page-level data, preserving error states.
  * 
- * Returns null for todayStateInput when yesterday's sessions query failed,
- * which causes buildTodayState to suppress the missed prompt.
+ * When yesterday's sessions query failed, marks yesterdayUnknown=true
+ * which suppresses only the missed prompt while keeping isTraining,
+ * rest-day content, and other state derived from today's data.
  */
 export function buildPageState(input: PageWiringInput): PageWiringOutput {
   // Check if user has started any strength or yoga session
   // Preserve null (unknown state) - don't default to false here
   const hasStartedAny = hasStartedAnyOrNull(input.allSessionsRes);
 
-  // If yesterday's sessions query failed, return null state input
-  // This prevents treating errored reads as 0 working sets
-  if (input.yesterdaySessions === null) {
-    return {
-      hasStartedAny,
-      todayStateInput: null,
-    };
-  }
+  // If yesterday's sessions query failed, mark as unknown
+  // This suppresses only the missed prompt while keeping other state
+  const yesterdayUnknown = input.yesterdaySessions === null;
+  const yesterdaySessions = input.yesterdaySessions || [];
 
   // Build the rows input
   const rows: TodayStateInputRows = {
@@ -77,7 +74,8 @@ export function buildPageState(input: PageWiringInput): PageWiringOutput {
     program: input.program,
     days: input.days,
     todaySessions: input.todaySessions,
-    yesterdaySessions: input.yesterdaySessions,
+    yesterdaySessions,
+    yesterdayUnknown,
     timezone: input.timezone,
     localToday: input.localToday,
     yesterday: input.yesterday,

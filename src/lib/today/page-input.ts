@@ -33,6 +33,7 @@ export interface TodayStateInputRows {
     program_id: string | null;
     working_set_count?: number;
   }>;
+  yesterdayUnknown: boolean;
   timezone: string;
   localToday: string;
   yesterday: string;
@@ -67,6 +68,7 @@ export function todayStateInputFromRows(rows: TodayStateInputRows) {
         working_set_count: s.working_set_count,
       })),
     },
+    yesterdayUnknown: rows.yesterdayUnknown,
     timezone: rows.timezone,
     localToday: rows.localToday,
     yesterday: rows.yesterday,

@@ -408,6 +408,7 @@ export default async function TodayPage() {
   const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
 
+  // Build today state - always has input now (yesterdayUnknown flag handles errors)
   const todayState = buildTodayState(stateInput);
   const { promptType, missedYesterday, isTraining, nextTrainingDay: nextTraining } = todayState;
 

@@ -57,6 +57,9 @@ export interface BuildTodayStateInput {
     }>;
   };
 
+  // Yesterday's data availability
+  yesterdayUnknown: boolean;
+
   // Current date and timezone
   timezone: string;
   localToday: string;
@@ -79,23 +82,13 @@ export interface BuildTodayStateOutput {
   nextTrainingDay: { dayName: string; dayIndex: number } | null;
 }
 
-export function buildTodayState(input: BuildTodayStateInput | null): BuildTodayStateOutput {
-  // If input is null (working set counts query failed), suppress missed prompt
-  if (input === null) {
-    return {
-      promptType: "none",
-      missedYesterday: false,
-      answeredToday: false,
-      isTraining: false,
-      nextTrainingDay: null,
-    };
-  }
-  
+export function buildTodayState(input: BuildTodayStateInput): BuildTodayStateOutput {
   const {
     profile,
     program,
     days,
     sessions,
+    yesterdayUnknown,
     timezone,
     localToday,
     yesterday,
@@ -109,7 +102,8 @@ export function buildTodayState(input: BuildTodayStateInput | null): BuildTodayS
   const yesterdayDay = days.find((d) => d.day_index === yesterdayIndex);
 
   // Check if yesterday was missed
-  const missedYesterday = isMissedTrainingDay({
+  // If yesterday's data is unknown (errored read), treat as not missed
+  const missedYesterday = !yesterdayUnknown && isMissedTrainingDay({
     date: yesterday,
     programStartedOn: program.started_on,
     profileCreatedAt: profile.created_at,
