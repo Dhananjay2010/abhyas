@@ -343,6 +343,66 @@ function runTests(): TestResult[] {
     });
   }
   
+  // Test 8: Verify program_day_exercises have explicit ORDER BY in ROW_NUMBER() OVER
+  const hasOrderBy = /ROW_NUMBER\(\)\s*OVER\s*\(\s*ORDER\s+BY/i.test(seedContent);
+  if (hasOrderBy) {
+    results.push({
+      passed: true,
+      message: 'program_day_exercises use ORDER BY in ROW_NUMBER() OVER (deterministic ordering)'
+    });
+  } else {
+    results.push({
+      passed: false,
+      message: 'program_day_exercises use ROW_NUMBER() OVER () without ORDER BY (non-deterministic ordering)'
+    });
+  }
+  
+  // Test 9: Verify compound lifts come first in each program day
+  // Look for CASE statements in ORDER BY that categorize exercises (compound=0, isolation=1)
+  const orderByPattern = /ROW_NUMBER\(\)\s*OVER\s*\(\s*ORDER\s+BY\s+(CASE[\s\S]*?END[\s\S]*?e\.slug[\s\S]*?)\)/gi;
+  const orderByClauses = [];
+  let match;
+  while ((match = orderByPattern.exec(seedContent)) !== null) {
+    orderByClauses.push(match[1]);
+  }
+  
+  let allHaveCompoundFirst = true;
+  let checkedCount = 0;
+  
+  for (const clause of orderByClauses) {
+    // Look for WHEN clauses that lead to THEN 0 (compound lift category)
+    if (/WHEN[\s\S]*?THEN\s+0/i.test(clause)) {
+      checkedCount++;
+      // Extract the WHEN condition that leads to THEN 0
+      const whenZeroMatch = clause.match(/WHEN[\s\S]*?THEN\s+0/i);
+      if (whenZeroMatch) {
+        const whenZeroClause = whenZeroMatch[0];
+        // Check if it mentions compound exercise slugs
+        const hasCompounds = /(barbell-bench-press|barbell-squat|barbell-deadlift|pullups|bent-over-barbell-row|barbell-shoulder-press|dips-triceps|romanian-deadlift|leg-press|front-barbell-squat|dumbbell-lunges)/i.test(whenZeroClause);
+        if (!hasCompounds) {
+          allHaveCompoundFirst = false;
+        }
+      }
+    }
+  }
+  
+  if (checkedCount >= 4 && allHaveCompoundFirst) {
+    results.push({
+      passed: true,
+      message: `All ${checkedCount} program days prioritize compound lifts first (CASE ... THEN 0)`
+    });
+  } else if (checkedCount > 0) {
+    results.push({
+      passed: false,
+      message: `Only ${checkedCount} program days found with compound prioritization (expected 4)`
+    });
+  } else {
+    results.push({
+      passed: false,
+      message: 'No compound lift prioritization found in ORDER BY clauses'
+    });
+  }
+  
   return results;
 }
 
