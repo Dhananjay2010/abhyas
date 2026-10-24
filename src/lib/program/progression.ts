@@ -353,78 +353,6 @@ export function nextBest(
 }
 
 /**
- * Compute what the two-miss back-off logic would return for a given weight.
- * Used to enforce the invariant: first-miss result >= two-miss result.
- */
-function computeTwoMissWeight(
-  currentWeight: number,
-  meta: ExerciseMeta,
-  equipmentIds: string[],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _unit: WeightUnit,
-): number {
-  const liftIncrement = incrementFor(meta);
-  
-  // Two-miss holds at light weight
-  if (currentWeight <= liftIncrement) {
-    return currentWeight;
-  }
-  
-  const rawReduced = currentWeight * 0.9;
-  let reduced: number;
-  
-  if (equipmentIds.includes('kettlebell')) {
-    // Kettlebell logic (same as in evaluateProgression two-miss)
-    const bells = KETTLEBELL_WEIGHTS_KG;
-    const currentIndex = bells.indexOf(currentWeight);
-    let targetIndex: number;
-    
-    if (currentIndex >= 0) {
-      targetIndex = Math.max(0, currentIndex - 1);
-    } else {
-      targetIndex = bells.findIndex(b => b >= rawReduced);
-      if (targetIndex === -1) {
-        targetIndex = bells.length - 1;
-      } else if (bells[targetIndex] > rawReduced && targetIndex > 0) {
-        targetIndex--;
-      }
-      const currentBellIndex = bells.findIndex(b => b >= currentWeight);
-      if (currentBellIndex > 0 && targetIndex < currentBellIndex - 1) {
-        targetIndex = currentBellIndex - 1;
-      }
-    }
-    reduced = bells[targetIndex];
-  } else {
-    // Standard equipment or no equipment: use 2.5 kg grid (1.25 kg for isolation)
-    const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
-    const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
-    const minAllowed = rawReduced - liftIncrement;
-    reduced = Math.max(snapped, minAllowed);
-    
-    // With equipment: snap to equipment grid to ensure loadability
-    if (equipmentIds.length > 0) {
-      const equipSnapped = roundToGrid(reduced, equipmentIds, 'kg', roundingGrid, 'down');
-      // Only apply if it doesn't violate the "at most one increment below 90%" cap
-      if (equipSnapped >= minAllowed - 0.001) {
-        reduced = equipSnapped;
-      }
-    }
-  }
-  
-  // Never raise
-  if (reduced > currentWeight) {
-    reduced = currentWeight;
-  }
-  
-  // Hold at light weight
-  if (reduced <= liftIncrement) {
-    return currentWeight;
-  }
-  
-  return reduced;
-}
-
-/**
  * Double progression.
  *
  * Stay at a weight until every set reaches the TOP of the rep range, then add
@@ -626,6 +554,71 @@ export function evaluateProgression(input: {
   const failures = state.consecutiveFailures + 1;
   const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
 
+  /**
+   * Shared helper: compute what the two-miss back-off would return.
+   * Used by both the actual two-miss path and the first-miss invariant clamp.
+   */
+  function computeTwoMissResult(weight: number): number {
+    const liftIncrement = incrementFor(meta);
+    
+    // Hold at light weight
+    if (weight <= liftIncrement) {
+      return weight;
+    }
+    
+    const rawReduced = weight * 0.9;
+    let reduced: number;
+    
+    if (equipmentIds && equipmentIds.includes('kettlebell')) {
+      const bells = KETTLEBELL_WEIGHTS_KG;
+      const currentIndex = bells.indexOf(weight);
+      let targetIndex: number;
+      
+      if (currentIndex >= 0) {
+        targetIndex = Math.max(0, currentIndex - 1);
+      } else {
+        targetIndex = bells.findIndex(b => b >= rawReduced);
+        if (targetIndex === -1) {
+          targetIndex = bells.length - 1;
+        } else if (bells[targetIndex] > rawReduced && targetIndex > 0) {
+          targetIndex--;
+        }
+        const currentBellIndex = bells.findIndex(b => b >= weight);
+        if (currentBellIndex > 0 && targetIndex < currentBellIndex - 1) {
+          targetIndex = currentBellIndex - 1;
+        }
+      }
+      reduced = bells[targetIndex];
+    } else {
+      const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
+      const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
+      const minAllowed = rawReduced - liftIncrement;
+      reduced = Math.max(snapped, minAllowed);
+    }
+    
+    // Never raise
+    if (reduced > weight) {
+      reduced = weight;
+    }
+    
+    // Hold at light weight
+    if (reduced <= liftIncrement) {
+      return weight;
+    }
+    
+    // Equipment snap (after light-weight check)
+    if (equipmentIds && unit) {
+      const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
+      const equipSnapped = roundToGrid(reduced, equipmentIds, unit, roundingGrid, 'down');
+      const minAllowed = rawReduced - liftIncrement;
+      if (equipSnapped >= minAllowed - 0.001) {
+        reduced = equipSnapped;
+      }
+    }
+    
+    return reduced;
+  }
+
   if (failures >= 2 && currentWeight !== null && currentWeight > 0) {
     // Bodyweight with any stored or used added weight: drop to bodyweight entirely.
     // Loaded exercises: reduce by ~10%.
@@ -785,7 +778,7 @@ export function evaluateProgression(input: {
     
     // Invariant: first-miss result >= two-miss result
     // Compute what two-miss would do (without actually being at two misses)
-    const twoMissFloor = computeTwoMissWeight(currentWeight, meta, equipmentIds, unit);
+    const twoMissFloor = computeTwoMissResult(currentWeight);
     candidateWeight = Math.max(candidateWeight, twoMissFloor);
     
     nextWeight = candidateWeight;
