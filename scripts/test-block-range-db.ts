@@ -393,15 +393,19 @@ async function runTests() {
       });
 
       check("second rebuild succeeds (different payload)", !result2.error, result2.error || "");
-      check("second rebuild creates NEW block", result2.data !== result1.data, `both returned ${result1.data}`);
+      
+      // L4 fix: both rebuilds are on same day as original block (2026-10-15), so both update in place
+      // Result: only 1 block (the original, updated twice), both calls return same id
+      check("both rebuilds return same id (in-place update)", result2.data === result1.data && result1.data === blockId1, `result1=${result1.data}, result2=${result2.data}, original=${blockId1}`);
 
       const { rows: blocks } = await pool.query(
         "SELECT id, status, started_on, ended_on FROM programs WHERE user_id = $1 ORDER BY created_at",
         [userId]
       ) as {rows: Array<{id: string; status: string; started_on: string; ended_on: string | null}>};
 
-      // L4 fix: same-day rebuild updates in place, so only 2 blocks (original superseded + final active)
-      check("two blocks total (original superseded + final active)", blocks.length === 2, `${blocks.length} blocks`);
+      // L4 fix: all rebuilds were same-day, so only 1 block (updated in place)
+      check("one block total (updated in place)", blocks.length === 1, `${blocks.length} blocks`);
+      check("block is active", blocks[0]?.status === "active", `status=${blocks[0]?.status}`);
 
       const emptyRanges = blocks.filter(
         (b) => b.ended_on !== null && b.ended_on < b.started_on
