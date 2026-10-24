@@ -12,15 +12,9 @@ import { exerciseCompletion } from "@/lib/session/completion";
 import { countWorkingSets } from "@/lib/session/count-sets";
 import { formatVolume, getUnitsPreference } from "@/lib/units";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 
 export const dynamic = "force-dynamic";
-
-function longDate(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-GB", {
-    weekday: "long", day: "numeric", month: "long", timeZone: "UTC",
-  }).format(new Date(Date.UTC(y, m - 1, d)));
-}
 
 const FEEL_LABEL: Record<string, string> = {
   easy: "felt easy",
@@ -70,6 +64,7 @@ export default async function SessionDetailPage({
       .sort((a, b) => (a.routine_step ?? 1) - (b.routine_step ?? 1));
     const first = logs[0] ?? null;
     const routineName = first?.routine_name ?? null;
+    const timezone = resolveTimezoneWithProfile(profile?.timezone);
     return (
       <BreathingDetail
         name={routineName ?? pattern?.name ?? first?.pattern_name ?? "Breathing"}
@@ -79,6 +74,8 @@ export default async function SessionDetailPage({
         slug={routineName ? null : (pattern?.slug ?? null)}
         isRoutine={routineName !== null}
         localDate={session.local_date}
+        startedAt={session.started_at}
+        timezone={timezone}
         seconds={
           logs.length > 0 ? logs.reduce((n, l) => n + l.seconds, 0) : session.duration_seconds
         }
@@ -114,6 +111,10 @@ export default async function SessionDetailPage({
     0,
   );
 
+  // TZ-2: Format date and time consistently
+  const timezone = resolveTimezoneWithProfile(profile?.timezone);
+  const dateTimeLabel = formatSessionDateTime(session.started_at, session.local_date, timezone);
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-16">
       <Link href="/history" className="text-sm text-muted underline underline-offset-2">
@@ -122,7 +123,7 @@ export default async function SessionDetailPage({
 
       <h1 className="mt-4 text-3xl font-bold tracking-tight">{label}</h1>
       <p className="mt-1 text-sm text-muted">
-        {longDate(session.local_date)}
+        {dateTimeLabel}
         {session.week_in_block && ` · week ${session.week_in_block}`}
         {session.is_deload && " · deload"}
       </p>

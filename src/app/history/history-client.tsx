@@ -9,6 +9,7 @@ import { sessionCompletion } from "@/lib/session/session-completion";
 import { formatVolume, formatTopSet, type UnitsPreference } from "@/lib/units";
 import { closeOutSession } from "./actions";
 import { getSessionLabel, type SessionStatus, type ActualType } from "@/lib/history/session-label";
+import { formatSessionDateTime } from "@/lib/history/format-session-datetime";
 
 // Helper for proper pluralization
 function pluralize(count: number, singular: string, plural?: string): string {
@@ -32,6 +33,7 @@ interface HistoryClientProps {
   today: string;
   timezone: string;
   units: UnitsPreference;
+  hasErrors: boolean;
 }
 
 const FILTER_LABELS: Record<SessionType, string> = {
@@ -83,6 +85,7 @@ export function HistoryClient({
   today,
   timezone,
   units,
+  hasErrors,
 }: HistoryClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -134,6 +137,13 @@ export function HistoryClient({
         ))}
       </div>
 
+      {/* Error banner (QA Bot 3 M3) */}
+      {hasErrors && (
+        <p className="mt-4 rounded-lg border-[var(--color-destructive)]/50 bg-[var(--color-destructive)]/10 px-4 py-2 text-sm text-[var(--color-destructive)]">
+          Couldn&apos;t load some stats
+        </p>
+      )}
+
       {/* Session count */}
       <p className="mt-4 text-sm text-muted">
         {totalCount === 0
@@ -156,19 +166,15 @@ export function HistoryClient({
               // M2: Detect past-day in_progress sessions
               const isPastInProgress = item.status === "in_progress" && item.localDate !== today;
 
-              // Format time label with timezone-aware time for same-day sessions
+              // TZ-2: Format date and time consistently (both from started_at or local_date)
               let timeLabel = "";
               if (isPastInProgress) {
                 timeLabel = `Unfinished from ${longDate(item.localDate)}`;
-              } else if (item.localDate === today && item.completedAt) {
-                timeLabel = `Today · ${formatTime(item.completedAt, timezone)}`;
               } else if (item.localDate === today) {
                 timeLabel = "Today";
-              } else if (item.completedAt) {
-                // For older sessions, show date + time
-                timeLabel = `${longDate(item.localDate)} · ${formatTime(item.completedAt, timezone)}`;
               } else {
-                timeLabel = longDate(item.localDate);
+                // Use TZ-2 formatter: date and time both from started_at in current zone
+                timeLabel = formatSessionDateTime(item.startedAt, item.localDate, timezone);
               }
 
               const durationLabel = formatMinutes(item.durationSeconds);

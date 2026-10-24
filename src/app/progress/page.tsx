@@ -37,7 +37,7 @@ export default async function ProgressPage() {
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("timezone, onboarding_completed_at, units")
+      .select("timezone, onboarding_completed_at, units, primary_track")
       .eq("id", user.id)
       .single(),
     // Fetch recent data descending, reverse for processing. NEVER order
@@ -79,6 +79,7 @@ export default async function ProgressPage() {
   const timezone = resolveTimezoneWithProfile(profile.timezone);
   const today = localDateString(timezone);
   const units = getUnitsPreference(profile.units);
+  const primaryTrack = profile.primary_track;
 
   // ---- progress summary (days trained, volume) ------------------------
   // Use RPC to avoid 414 URI too long errors (was passing 500+ session IDs in .in())
@@ -126,10 +127,14 @@ export default async function ProgressPage() {
 
   // Use RPC to get set counts without unbounded .in() filter
   // @ts-expect-error - RPC function not in generated types yet
-  const { data: setCountsData } = await supabase.rpc("get_session_set_counts", {
+  const { data: setCountsData, error: setCountsError } = await supabase.rpc("get_session_set_counts", {
     p_user: user.id,
     p_session_ids: sessionIds,
   });
+  
+  if (setCountsError) {
+    console.error("Failed to load session set counts:", setCountsError);
+  }
 
   type SetCountRow = { session_id: string; set_count: number };
   const setCounts = (setCountsData ?? []) as unknown as SetCountRow[];
@@ -207,44 +212,93 @@ export default async function ProgressPage() {
   // totalVolume now comes from progress_summary RPC (computed server-side)
   const hasAnything = weights.length > 0 || volumeRows.length > 0;
 
+  // ---- yoga/breathing stats (QA M-4) ------------------------------------
+  // For yoga and breathing members, compute stats from completed sessions
+  const isYogaOrBreathing = primaryTrack === "yoga" || primaryTrack === "meditation";
+  let yogaStats = null;
+  if (isYogaOrBreathing) {
+    const { computeYogaStats } = await import("@/lib/progress/yoga-stats");
+    // Filter to completed yoga or breathing sessions
+    const yogaBreathingSessions = (sessionsRes.data ?? [])
+      .filter((s) => 
+        s.status === "completed" && 
+        (s.actual_type === "yoga" || s.actual_type === "meditation")
+      )
+      .map((s) => ({
+        local_date: s.local_date,
+        duration_seconds: s.duration_seconds,
+      }));
+    yogaStats = computeYogaStats(yogaBreathingSessions, today);
+  }
+
+  // Check if member has any strength data (to decide whether to show volume/strength sections)
+  const hasStrengthData = volumeRows.length > 0 || (strengthRes.data ?? []).length > 0;
+
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-28">
       <h1 className="text-3xl font-bold tracking-tight">Progress</h1>
 
       <section className="mt-6 grid grid-cols-2 gap-3">
-        <StatTile
-          label="Streak"
-          value={progressQueryFailed ? "—" : `${streaks.current}`}
-          sub={progressQueryFailed ? "error loading" : (streaks.current === 1 ? "day in a row" : "days in a row")}
-        />
-        <StatTile
-          label="Best streak"
-          value={progressQueryFailed ? "—" : `${streaks.longest}`}
-          sub={progressQueryFailed ? "error loading" : (streaks.longest === 1 ? "day" : "days")}
-        />
-        <StatTile 
-          label="Days trained" 
-          value={progressQueryFailed ? "—" : `${streaks.totalSessions}`} 
-          sub={progressQueryFailed ? "error loading" : "all time"} 
-        />
-        <StatTile
-          label="Volume lifted"
-          value={
-            progressQueryFailed 
-              ? "—"
-              : totalVolume! >= 10000
-                ? `${Math.round(totalVolume! / 1000)}t`
-                : totalVolume! >= 1000
-                  ? `${(totalVolume! / 1000).toFixed(1)}t`
-                  : `${Math.round(totalVolume!)}kg`
-          }
-          sub={progressQueryFailed ? "error loading" : "all time"}
-        />
+        {isYogaOrBreathing && yogaStats ? (
+          <>
+            <StatTile
+              label="Sessions this week"
+              value={`${yogaStats.sessionsThisWeek}`}
+              sub="Mon to today"
+            />
+            <StatTile
+              label="Minutes this week"
+              value={`${yogaStats.minutesThisWeek}`}
+              sub="Mon to today"
+            />
+            <StatTile
+              label="Minutes this month"
+              value={`${yogaStats.minutesThisMonth}`}
+              sub={today.slice(0, 7).replace(/-/, " ")}
+            />
+            <StatTile
+              label="Sessions all time"
+              value={`${yogaStats.sessionsAllTime}`}
+              sub="total completed"
+            />
+          </>
+        ) : (
+          <>
+            <StatTile
+              label="Streak"
+              value={progressQueryFailed ? "—" : `${streaks.current}`}
+              sub={progressQueryFailed ? "error loading" : (streaks.current === 1 ? "day in a row" : "days in a row")}
+            />
+            <StatTile
+              label="Best streak"
+              value={progressQueryFailed ? "—" : `${streaks.longest}`}
+              sub={progressQueryFailed ? "error loading" : (streaks.longest === 1 ? "day" : "days")}
+            />
+            <StatTile 
+              label="Days trained" 
+              value={progressQueryFailed ? "—" : `${streaks.totalSessions}`} 
+              sub={progressQueryFailed ? "error loading" : "all time"} 
+            />
+            <StatTile
+              label="Volume lifted"
+              value={
+                progressQueryFailed 
+                  ? "—"
+                  : totalVolume! >= 10000
+                    ? `${Math.round(totalVolume! / 1000)}t`
+                    : totalVolume! >= 1000
+                      ? `${(totalVolume! / 1000).toFixed(1)}t`
+                      : `${Math.round(totalVolume!)}kg`
+              }
+              sub={progressQueryFailed ? "error loading" : "all time"}
+            />
+          </>
+        )}
       </section>
       
-      {progressQueryFailed && (
-        <p className="mt-3 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          Couldn&apos;t load your progress. Try refreshing the page.
+      {(progressQueryFailed || setCountsError) && (
+        <p className="mt-3 rounded-lg border-[var(--color-destructive)]/50 bg-[var(--color-destructive)]/10 px-4 py-2 text-sm text-[var(--color-destructive)]">
+          Couldn&apos;t load some stats
         </p>
       )}
       
@@ -273,7 +327,7 @@ export default async function ProgressPage() {
         <LogWeight current={latestWeight} />
       </section>
 
-      {volumeRows.length > 0 && (
+      {(!isYogaOrBreathing || hasStrengthData) && volumeRows.length > 0 && (
         <section className="mt-10">
           <h2 className="text-sm font-semibold">Volume per session</h2>
           <p className="mb-3 text-xs text-muted">
@@ -289,7 +343,7 @@ export default async function ProgressPage() {
         </section>
       )}
 
-      {strengthCharts.length > 0 && (
+      {(!isYogaOrBreathing || hasStrengthData) && strengthCharts.length > 0 && (
         <section className="mt-10">
           <h2 className="text-sm font-semibold">Strength by lift</h2>
           <p className="mb-4 text-xs text-muted">
