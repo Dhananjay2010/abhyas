@@ -125,11 +125,9 @@ export function planRepointSessions(
   newDays: NewProgramDay[],
   today: string,
 ): {
-  toUpdate: Array<{ id: string; newProgramDayId: string }>;
   toRebuild: Array<{ id: string; newProgramDayId: string }>;
   toDelete: string[];
 } {
-  const toUpdate: Array<{ id: string; newProgramDayId: string }> = [];
   const toRebuild: Array<{ id: string; newProgramDayId: string }> = [];
   const toDelete: string[] = [];
 
@@ -148,11 +146,7 @@ export function planRepointSessions(
 
     const match = matchNewDay(session, newDays);
     if (match) {
-      if (action === "rebuild") {
-        toRebuild.push({ id: session.id, newProgramDayId: match.id });
-      } else {
-        toUpdate.push({ id: session.id, newProgramDayId: match.id });
-      }
+      toRebuild.push({ id: session.id, newProgramDayId: match.id });
     } else {
       // No matching day in the new plan (e.g. 5→4 days, or bodyweight-only
       // can't support this choice): delete the planned row.
@@ -160,7 +154,7 @@ export function planRepointSessions(
     }
   }
 
-  return { toUpdate, toRebuild, toDelete };
+  return { toRebuild, toDelete };
 }
 
 /**
@@ -238,7 +232,7 @@ export async function repointSessionsAfterRebuild(
     };
   });
 
-  const { toUpdate, toRebuild, toDelete } = planRepointSessions(sessionRows, newDays, today);
+  const { toRebuild, toDelete } = planRepointSessions(sessionRows, newDays, today);
 
   // For sessions that need rebuilding (0 sets), fetch their new program day exercises
   const rebuildPromises = toRebuild.map(async (r) => {
@@ -305,12 +299,6 @@ export async function repointSessionsAfterRebuild(
 
   // Apply the updates in parallel, checking errors.
   const updateResults = await Promise.all([
-    ...toUpdate.map((u) =>
-      supabase
-        .from("sessions")
-        .update({ program_day_id: u.newProgramDayId, program_id: newProgramId })
-        .eq("id", u.id),
-    ),
     ...rebuildPromises,
     toDelete.length > 0
       ? supabase.from("sessions").delete().in("id", toDelete)

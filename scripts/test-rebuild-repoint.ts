@@ -61,10 +61,10 @@ console.log("\n1. Re-point by label: Lower session stays Lower (not Upper)");
     day("new-upper", 1, "weights", "Upper"),
     day("new-lower", 2, "weights", "Lower"),
   ];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("session is re-pointed", toUpdate.length === 1);
-  check("Lower re-points to Lower (not Upper)", toUpdate[0]?.newProgramDayId === "new-lower");
+  check("session is re-pointed", toRebuild.length === 1);
+  check("Lower re-points to Lower (not Upper)", toRebuild[0]?.newProgramDayId === "new-lower");
   check("nothing deleted", toDelete.length === 0);
 }
 
@@ -75,9 +75,9 @@ console.log("\n2. Delete a train-anyway session when the new plan has no matchin
     session("s1", "2026-10-24", { actual_type: "bodyweight", planned_type: "rest" }),
   ];
   const newDays = [day("new-upper", 1, "weights", "Upper"), day("new-lower", 2, "weights", "Lower")];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("nothing re-pointed", toUpdate.length === 0);
+  check("nothing re-pointed", toRebuild.length === 0);
   check("session is deleted", toDelete.length === 1 && toDelete[0] === "s1");
 }
 
@@ -87,9 +87,9 @@ console.log("\n3. Sessions with logged sets are kept unchanged");
     session("s1", "2026-10-24", { has_sets: true, actual_type: "weights" }),
   ];
   const newDays = [day("new-upper", 1, "weights", "Upper")];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("nothing re-pointed", toUpdate.length === 0, `toUpdate=${JSON.stringify(toUpdate)}`);
+  check("nothing re-pointed", toRebuild.length === 0, `toRebuild=${JSON.stringify(toRebuild)}`);
   check("nothing deleted", toDelete.length === 0);
 }
 
@@ -99,9 +99,9 @@ console.log("\n4. Sessions before today are not re-pointed");
     session("s1", "2026-10-23", { actual_type: "weights" }),
   ];
   const newDays = [day("new-upper", 1, "weights", "Upper")];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("nothing re-pointed", toUpdate.length === 0);
+  check("nothing re-pointed", toRebuild.length === 0);
   check("nothing deleted", toDelete.length === 0);
 }
 
@@ -113,9 +113,9 @@ console.log("\n5. Rest, yoga, and breathing overrides are kept as-is");
     session("s3", "2026-10-26", { actual_type: "meditation", planned_type: "weights" }),
   ];
   const newDays = [day("new-upper", 1, "weights", "Upper")];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("nothing re-pointed", toUpdate.length === 0, "non-training overrides have no program_day");
+  check("nothing re-pointed", toRebuild.length === 0, "non-training overrides have no program_day");
   check("nothing deleted", toDelete.length === 0);
 }
 
@@ -127,9 +127,9 @@ console.log("\n6. Multiple sessions on different days are re-pointed correctly")
     session("s3", "2026-10-26", { actual_type: "weights", planned_type: "rest" }), // train-anyway
   ];
   const newDays = [day("new-upper", 1, "weights", "Upper"), day("new-lower", 2, "weights", "Lower")];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("all three re-pointed", toUpdate.length === 3);
+  check("all three re-pointed", toRebuild.length === 3);
   check("nothing deleted", toDelete.length === 0);
 }
 
@@ -140,9 +140,9 @@ console.log("\n7. Bodyweight-only rebuild: weights sessions are deleted");
     session("s1", "2026-10-24", { actual_type: "weights", planned_type: "rest" }),
   ];
   const newDays = [day("new-full-body", 1, "bodyweight", "Full Body A")];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("nothing re-pointed", toUpdate.length === 0, "new plan has no 'weights' day");
+  check("nothing re-pointed", toRebuild.length === 0, "new plan has no 'weights' day");
   check("weights session deleted", toDelete.length === 1 && toDelete[0] === "s1");
 }
 
@@ -158,9 +158,9 @@ console.log("\n8. 3→5 days: sessions still re-point to matching types");
     day("new-upper", 5, "weights", "Upper"),
     day("new-lower", 6, "weights", "Lower"),
   ];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("nothing re-pointed", toUpdate.length === 0, "bodyweight session, new plan has only weights");
+  check("nothing re-pointed", toRebuild.length === 0, "bodyweight session, new plan has only weights");
   check("session deleted", toDelete.length === 1, "no matching bodyweight day in 5-day weights plan");
 }
 
@@ -173,12 +173,12 @@ console.log("\n9. Match by actual_type for train-anyway, planned_type for Keep")
     session("s2", "2026-10-25", { actual_type: "weights", planned_type: "weights" }),
   ];
   const newDays = [day("new-upper", 1, "weights", "Upper"), day("new-lower", 2, "weights", "Lower")];
-  const { toUpdate, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild, toDelete } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("both re-pointed", toUpdate.length === 2);
+  check("both re-pointed", toRebuild.length === 2);
   check("nothing deleted", toDelete.length === 0);
-  check("train-anyway matched", toUpdate.some((u) => u.id === "s1"));
-  check("keep matched", toUpdate.some((u) => u.id === "s2"));
+  check("train-anyway matched", toRebuild.some((u) => u.id === "s1"));
+  check("keep matched", toRebuild.some((u) => u.id === "s2"));
 }
 
 console.log("\n10. Deterministic matching: label match wins over day_index");
@@ -196,9 +196,9 @@ console.log("\n10. Deterministic matching: label match wins over day_index");
     day("new-upper-a", 2, "weights", "Upper A"), // Different weekday but same label
     day("new-lower", 1, "weights", "Lower"), // Same weekday but different label
   ];
-  const { toUpdate } = planRepointSessions(oldSessions, newDays, "2026-10-24");
+  const { toRebuild } = planRepointSessions(oldSessions, newDays, "2026-10-24");
 
-  check("re-pointed by label (not day_index)", toUpdate.length === 1 && toUpdate[0]?.newProgramDayId === "new-upper-a");
+  check("re-pointed by label (not day_index)", toRebuild.length === 1 && toRebuild[0]?.newProgramDayId === "new-upper-a");
 }
 
 if (failures > 0) {
