@@ -125,8 +125,6 @@
     "test:onboarding-session-length": "tsx scripts/test-onboarding-session-length.ts",
     "test:session-length-validation": "tsx scripts/test-session-length-validation.ts",
     "test:session-length-migration": "tsx scripts/test-session-length-migration.ts",
-    "test:settings-dob-validation": "tsx scripts/test-settings-dob-validation.ts",
-    "test:settings-dob-ui": "tsx scripts/test-settings-dob-ui.ts",
     "test:robots-sitemap": "tsx scripts/test-robots-sitemap.ts",
     "test:node-version": "tsx scripts/test-node-version.ts"
   },
