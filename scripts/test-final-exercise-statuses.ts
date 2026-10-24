@@ -56,13 +56,13 @@ function makeFakeSupabase(
         };
       } else if (table === "session_exercises") {
         return {
-          select: (columns: string) => ({
+          select: () => ({
             eq: async () => ({ data: exercisesData, error: null }),
           }),
           update: (payload: { status: string; completed_at?: string }) => {
             return {
-              eq: (column: string, value: string) => ({
-                eq: async (column2: string, value2: string) => {
+              eq: (_column: string, value: string) => ({
+                eq: async () => {
                   fake.exerciseUpdates.push({ id: value, status: payload.status });
                   return { error: null };
                 },

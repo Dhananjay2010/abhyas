@@ -54,7 +54,7 @@ function makeFakeSupabase(
           }),
           update: (payload: { status: string; completed_at: string | null; duration_seconds: number }) => {
             return {
-              eq: async (column: string, value: string) => {
+              eq: async (_column: string, value: string) => {
                 fake.sessionUpdates.push({ id: value, ...payload });
                 return { error: null };
               },

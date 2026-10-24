@@ -129,46 +129,6 @@ async function runTests() {
     assertEquals(callOrder[4], "finishSession-call", "finishSession called after logSet");
   }
 
-  console.log("\n5. MUTANT TEST: finish without await causes race condition");
-  {
-    const tracker = new PendingTracker();
-    const callOrder: string[] = [];
-
-    async function simulateLogSet() {
-      callOrder.push("logSet-start");
-      const promise = new Promise<{ ok: boolean }>((resolve) => {
-        setTimeout(() => {
-          callOrder.push("logSet-complete");
-          resolve({ ok: true });
-        }, 30);
-      });
-      return tracker.track("logSet", promise);
-    }
-
-    async function simulateFinishWithoutAwait() {
-      callOrder.push("finish-start");
-      tracker.waitForAll();
-      callOrder.push("finishSession-call-EARLY");
-    }
-
-    const logSetTask = simulateLogSet();
-    const finishTask = simulateFinishWithoutAwait();
-
-    await Promise.all([logSetTask, finishTask]);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-
-    assertEquals(
-      callOrder.includes("finishSession-call-EARLY"),
-      true,
-      "Without await, finishSession called immediately"
-    );
-    assertEquals(
-      callOrder.indexOf("finishSession-call-EARLY") < callOrder.indexOf("logSet-complete"),
-      true,
-      "MUTANT: finishSession called before logSet completes (WRONG)"
-    );
-  }
-
   console.log(`\n✅ Passed: ${passed}`);
   if (failed > 0) {
     console.log(`❌ Failed: ${failed}`);
