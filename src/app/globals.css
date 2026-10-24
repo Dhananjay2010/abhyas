@@ -83,3 +83,8 @@ button {
     animation: none;
   }
 }
+
+/* Hide bottom nav on offline page (it won't work anyway since there's no network) */
+[data-hide-nav] ~ nav {
+  display: none;
+}

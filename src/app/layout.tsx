@@ -52,6 +52,8 @@ export default function RootLayout({
           Mounted once, outside every page, so a tab change swaps only the
           content beneath it. The bar itself never unmounts and its active tab
           moves the moment the link is tapped.
+          
+          Hidden on /offline via the [data-hide-nav] attribute.
         */}
         <BottomNav />
       </body>

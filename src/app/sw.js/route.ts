@@ -46,11 +46,13 @@ export async function GET() {
 const CACHE_NAME = "abhyas-offline-${buildVersion}";
 const OFFLINE_URL = "/offline";
 
-// Install: cache the offline page
+// Install: cache the offline page and its dependencies
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
+      // Precache the offline page (rendered by Next.js with the root layout)
+      // This includes the CSS and any inline assets
       await cache.add(new Request(OFFLINE_URL, { cache: "reload" }));
       await self.skipWaiting();
     })()
