@@ -1,9 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup-cooldown";
+import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { progressionInputsFromExercise } from "@/lib/session/progression-inputs";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
@@ -119,6 +120,7 @@ export default async function SessionPage({
         ? null
         : Number(progress.current_working_weight_kg);
     const isBodyweight = (ex?.equipment_ids ?? []).length === 0;
+    const progInputs = progressionInputsFromExercise(ex ?? { equipment_ids: [] }, profileRes.data?.units);
     return {
       id: r.id,
       exerciseId: ex?.id ?? "",
@@ -150,6 +152,8 @@ export default async function SessionPage({
           progressionChain: null,
           progressionRank: null,
         },
+        progInputs.equipmentIds,
+        progInputs.unit,
       ),
       isBodyweight,
       // Warm-up sets are excluded and the order applied here rather than in the

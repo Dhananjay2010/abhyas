@@ -184,7 +184,8 @@
     "test:progression-call-path": "tsx scripts/test-progression-call-path.ts",
     "test:no-equipment-exact-equality": "tsx scripts/test-no-equipment-exact-equality.ts",
     "test:call-site-wiring": "tsx scripts/test-call-site-wiring.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:imperial-wording": "tsx scripts/test-imperial-wording.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

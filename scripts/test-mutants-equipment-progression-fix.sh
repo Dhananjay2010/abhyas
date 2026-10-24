@@ -2,6 +2,8 @@
 # Mutation testing for equipment-aware progression fix
 # Tests call-site wiring and helper behavior
 
+set -euo pipefail
+
 HELPER_FILE="src/lib/session/progression-inputs.ts"
 ACTIONS_FILE="src/app/session/actions.ts"
 PAGE_FILE="src/app/session/[id]/page.tsx"
@@ -22,9 +24,21 @@ TESTS=(
   "npm run test:progression-call-path"
   "npm run test:call-site-wiring"
   "npm run test:no-equipment-exact-equality"
+  "npm run test:imperial-wording"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
+echo
+
+# Validate all test scripts exist
+for test in "${TESTS[@]}"; do
+  script_name=$(echo "$test" | sed 's/npm run //')
+  if ! grep -q "\"$script_name\":" package.json; then
+    echo "ERROR: Test script '$script_name' not found in package.json"
+    exit 1
+  fi
+done
+echo "✓ All test scripts validated"
 echo
 
 # Save backups
@@ -43,7 +57,9 @@ baseline_ok=1
 for test in "${TESTS[@]}"; do
   if ! $test > /dev/null 2>&1; then
     echo "ERROR: Baseline test failed: $test"
+    $test 2>&1 | tail -20
     baseline_ok=0
+    break
   fi
 done
 
@@ -62,40 +78,42 @@ test_mutant() {
   local replace_str="$4"
   
   MUTANT_COUNT=$((MUTANT_COUNT + 1))
-  printf "%-50s " "[$MUTANT_COUNT] $name"
+  printf "%-60s " "[$MUTANT_COUNT] $name"
+  
+  # Validate search string exists
+  if ! grep -qF "$find_str" "$file" 2>/dev/null; then
+    echo "⚠️  SKIP (search string not found)"
+    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+    return 1
+  fi
   
   # Restore originals
   cp "$HELPER_BACKUP" "$HELPER_FILE"
   cp "$ACTIONS_BACKUP" "$ACTIONS_FILE"
   cp "$PAGE_BACKUP" "$PAGE_FILE"
   
-  # Plant mutant using node
-  node -e "
-const fs = require('fs');
-const content = fs.readFileSync('$file', 'utf8');
-const original = content;
-const newContent = content.replace(\`$find_str\`, \`$replace_str\`);
-if (newContent === original) {
-  console.log('STRING_NOT_FOUND');
-  process.exit(1);
-}
-fs.writeFileSync('$file', newContent);
-" 2>/dev/null
-  
-  if [ $? -ne 0 ]; then
-    echo "⚠️  SKIP (string not found)"
+  # Plant mutant using perl
+  perl -i -pe 'BEGIN{undef $/;} s/\Q'"$find_str"'\E/'"$replace_str"'/s' "$file" 2>/dev/null || {
+    echo "⚠️  SKIP (perl failed)"
     SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     return 1
+  }
+  
+  # Verify file changed (compare against backup)
+  local backup_file="$HELPER_BACKUP"
+  if [ "$file" = "$ACTIONS_FILE" ]; then
+    backup_file="$ACTIONS_BACKUP"
+  elif [ "$file" = "$PAGE_FILE" ]; then
+    backup_file="$PAGE_BACKUP"
   fi
   
-  # Verify file changed
-  if cmp -s "$file" "${file/src/tmp}"; then
+  if cmp -s "$file" "$backup_file"; then
     echo "⚠️  SKIP (file unchanged)"
     SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
     return 1
   fi
   
-  # Verify still compiles (whole project)
+  # Verify still compiles
   if ! npm run typecheck > /dev/null 2>&1; then
     echo "⚠️  SKIP (does not compile)"
     SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
@@ -120,53 +138,62 @@ fs.writeFileSync('$file', newContent);
   fi
 }
 
-# M1: Helper returns empty array instead of omitting
+# M1: Helper returns equipmentIds/unit for empty
 test_mutant \
-  "Helper returns [] not {}" \
+  "Helper returns equipment for empty array" \
   "$HELPER_FILE" \
   "return {};" \
-  "return { equipmentIds: [], unit: 'kg' };"
+  "return { equipmentIds: [], unit: 'kg' as WeightUnit };" || true
 
-# M2: Helper always returns equipmentIds (even for empty array)
-test_mutant \
-  "Helper ignores empty check" \
-  "$HELPER_FILE" \
-  "if (!exercise.equipment_ids || exercise.equipment_ids.length === 0) {
-    return {};
-  }" \
-  "if (!exercise.equipment_ids) {
-    return {};
-  }
-  // length check removed - empty array treated as having equipment"
-
-# M3: Helper forces unit to kg
+# M2: Helper forces unit to kg (breaks imperial wording)
 test_mutant \
   "Helper forces unit to kg" \
   "$HELPER_FILE" \
   'const unit: WeightUnit = userUnits === "imperial" ? "lb" : "kg";' \
-  'const unit: WeightUnit = "kg";'
+  'const unit: WeightUnit = "kg";' || true
 
-# M4: actions.ts doesn't spread helper
+# M3: actions.ts doesn't spread helper
 test_mutant \
   "actions.ts: remove helper spread" \
   "$ACTIONS_FILE" \
   "...progressionInputsFromExercise(ex, profileRes.data?.units)," \
-  ""
+  "" || true
 
-# M5': page.tsx doesn't pass equipmentIds/unit
-test_mutant \
-  "page.tsx: remove equipmentIds/unit args" \
-  "$PAGE_FILE" \
-  "progInputs.equipmentIds,
-        progInputs.unit," \
-  ""
-
-# M5'': page.tsx hardcodes mechanic to null
+# M4: page.tsx hardcodes mechanic to null
 test_mutant \
   "page.tsx: mechanic hardcoded to null" \
   "$PAGE_FILE" \
   "mechanic: ex?.mechanic ?? null," \
-  "mechanic: null,"
+  "mechanic: null," || true
+
+# M5: page.tsx doesn't select mechanic from exercises
+test_mutant \
+  "page.tsx: mechanic not selected from exercises" \
+  "$PAGE_FILE" \
+  "movement_pattern, mechanic, primary_muscles" \
+  "movement_pattern, primary_muscles" || true
+
+# M6: page.tsx passes undefined units to helper
+test_mutant \
+  "page.tsx: undefined units to helper" \
+  "$PAGE_FILE" \
+  "progressionInputsFromExercise(ex ?? { equipment_ids: [] }, profileRes.data?.units)" \
+  "progressionInputsFromExercise(ex ?? { equipment_ids: [] }, undefined)" || true
+
+# M7: page.tsx doesn't pass equipmentIds
+test_mutant \
+  "page.tsx: remove equipmentIds from suggestedWeight" \
+  "$PAGE_FILE" \
+  "        progInputs.equipmentIds,
+        progInputs.unit," \
+  "        progInputs.unit," || true
+
+# M8: page.tsx doesn't pass unit
+test_mutant \
+  "page.tsx: remove unit from suggestedWeight" \
+  "$PAGE_FILE" \
+  "progInputs.unit," \
+  "" || true
 
 echo
 echo "==================================="

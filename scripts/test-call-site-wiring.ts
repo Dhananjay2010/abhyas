@@ -48,8 +48,8 @@ console.log("\n2. Check page.tsx wiring");
 const pageContent = fs.readFileSync("src/app/session/[id]/page.tsx", "utf8");
 
 check(
-  "does NOT import progressionInputsFromExercise (not needed)",
-  !pageContent.includes('progressionInputsFromExercise')
+  "imports progressionInputsFromExercise",
+  pageContent.includes('import { progressionInputsFromExercise } from "@/lib/session/progression-inputs"')
 );
 
 check(
@@ -65,8 +65,15 @@ check(
 );
 
 check(
-  "does NOT call progressionInputsFromExercise (not needed)",
-  !pageContent.includes('progressionInputsFromExercise(')
+  "passes profileRes.data?.units to helper (not undefined)",
+  pageContent.includes('progressionInputsFromExercise') && 
+  pageContent.includes('profileRes.data?.units') &&
+  !pageContent.includes('progressionInputsFromExercise(ex ?? { equipment_ids: [] }, undefined)')
+);
+
+check(
+  "calls progressionInputsFromExercise",
+  pageContent.includes('progressionInputsFromExercise(')
 );
 
 check(
@@ -76,8 +83,18 @@ check(
 );
 
 check(
-  "suggestedWeight called WITHOUT equipment params (no rounding)",
-  !pageContent.includes('progInputs')
+  "mechanic queried from exercises (not hardcoded to null)",
+  /exercises![^(]*\([^)]*\bmechanic\b[^)]*\)/.test(pageContent)
+);
+
+check(
+  "passes progInputs.equipmentIds to suggestedWeight",
+  pageContent.includes('progInputs.equipmentIds,')
+);
+
+check(
+  "passes progInputs.unit to suggestedWeight",
+  pageContent.includes('progInputs.unit,')
 );
 
 console.log("\n3. Helper behavior tests");
