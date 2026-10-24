@@ -235,6 +235,55 @@ console.log("\n8. Session with no started_at is skipped");
   check("no sessions closed when started_at is null", closed === 0);
 }
 
+console.log("\n9. Midnight crossing: session started 23:43, last set 23:55, loaded at 00:01 stays open");
+{
+  const fake = new FakeCloseStaleDeps();
+  const started = "2026-10-24T23:43:00Z";
+  const lastSet = "2026-10-24T23:55:00Z";
+  const loadTime = Date.parse("2026-10-25T00:01:00Z");
+  
+  fake.setSession("midnight", "in_progress");
+  fake.setSessionExercises("midnight", [
+    {
+      session_id: "midnight",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: lastSet },
+      ],
+    },
+  ]);
+  
+  const open: OpenSession[] = [{ id: "midnight", local_date: "2026-10-24", started_at: started }];
+  await closeStaleSessionsCore(fake, open, loadTime);
+  
+  const session = fake.getSession("midnight");
+  check("session still in_progress after midnight", session?.status === "in_progress");
+}
+
+console.log("\n10. Same session loaded 6 hours later is closed with ended_at at last set");
+{
+  const fake = new FakeCloseStaleDeps();
+  const started = "2026-10-24T23:43:00Z";
+  const lastSet = "2026-10-24T23:55:00Z";
+  const loadTime = Date.parse("2026-10-25T06:00:00Z");
+  
+  fake.setSession("stale-morning", "in_progress");
+  fake.setSessionExercises("stale-morning", [
+    {
+      session_id: "stale-morning",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: lastSet },
+      ],
+    },
+  ]);
+  
+  const open: OpenSession[] = [{ id: "stale-morning", local_date: "2026-10-24", started_at: started }];
+  await closeStaleSessionsCore(fake, open, loadTime);
+  
+  const session = fake.getSession("stale-morning");
+  check("session closed", session?.status === "completed");
+  check("ended_at matches last set", session?.completed_at === lastSet);
+}
+
 console.log("\n=== MUTANT TESTS ===\n");
 
 console.log("Mutant A: auto-close reverts to local_date comparison");
