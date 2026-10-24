@@ -379,6 +379,18 @@ export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'kettlebell-one-legged-deadlift', // Single-leg floor pull (knee stability demand)
 ]);
 
+// PR #53: Loaded windmill and side-bend exercises excluded for lower_back injury
+export const LOADED_WINDMILL_SIDE_BEND: ReadonlySet<string> = new Set([
+  'advanced-kettlebell-windmill',
+  'barbell-side-bend',
+  'bosu-ball-cable-crunch-with-side-bends',
+  'double-kettlebell-windmill',
+  'dumbbell-side-bend',
+  'kettlebell-windmill',
+  'one-arm-high-pulley-cable-side-bends',
+  'weighted-ball-side-bend',
+]);
+
 /**
  * QA Pass 10 C2: Derive contraindications from exercise properties.
  * - vertical_press or "overhead" in name → shoulder
@@ -705,7 +717,22 @@ function pickForSlot(
     
     if (filtered.length === 0) continue;
     
-    const ranked = filtered
+    // Apply same filters as main pattern loop
+    let finalCandidates = filtered;
+    
+    // Exclude timed holds from main slots
+    if (isMainSlot) {
+      finalCandidates = finalCandidates.filter((e) => e.metric !== "seconds");
+      if (finalCandidates.length === 0) continue;
+    }
+    
+    // Prevent adjacent hinges for knee-injured users
+    if (prevIsHinge && input.currentInjuryRegions.includes("knee")) {
+      finalCandidates = finalCandidates.filter((e) => e.movement_pattern !== "hinge");
+      if (finalCandidates.length === 0) continue;
+    }
+    
+    const ranked = finalCandidates
       .map((e) => ({
         e,
         score: score(e, slotIndex < 4, input.level, input.primaryTrack),
@@ -949,10 +976,11 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     if (hasKneeInjury && isLowerOrFullDay) {
       const hasQuadWork = pickedExercises.some(p => p.ex.primary_muscles.includes("quads"));
       if (!hasQuadWork) {
-        // Force-add a knee-safe quad exercise
+        // Force-add a knee-safe quad exercise (non-timed only for main slots)
         const kneeSafeOptions = pool
           .filter(e => {
             if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+            if (e.metric === "seconds") return false; // Exclude timed holds
             if (!e.primary_muscles.includes("quads")) return false;
             if (usedInBlock.has(e.id)) return false;
             
@@ -1133,18 +1161,27 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       return a.ex.slug.localeCompare(b.ex.slug);
     });
 
+    // Filter out timed holds that ended up in main slots after sorting
+    // This can happen when there are fewer than 4 compounds picked
+    const filteredOrdered = ordered.filter((item, idx) => {
+      if (idx < 4 && item.ex.metric === "seconds") {
+        return false; // Remove timed holds from main slots
+      }
+      return true;
+    });
+
     // Convert sorted picks to GeneratedExercise with correct orderIndex.
     // Apply volume floor: ensure each pattern gets minimum working sets (at least 2)
     // even when session length cuts exercises or sets.
     const patternSets = new Map<Pattern, number>();
-    for (const item of ordered) {
+    for (const item of filteredOrdered) {
       patternSets.set(
         item.ex.movement_pattern,
         (patternSets.get(item.ex.movement_pattern) || 0) + 1
       );
     }
 
-    ordered.forEach((item, orderIndex) => {
+    filteredOrdered.forEach((item, orderIndex) => {
       const isolation = item.ex.mechanic === "isolation";
       let p: Prescription = prescribe(
         input.goal,

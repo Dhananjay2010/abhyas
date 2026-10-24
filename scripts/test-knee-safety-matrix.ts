@@ -22,32 +22,13 @@ import {
   type GeneratorInput,
   KNEE_SAFE_QUAD_EXERCISES,
   FLOOR_PULL_DEADLIFTS,
+  LOADED_WINDMILL_SIDE_BEND,
 } from "../src/lib/program/generate";
 
 // Load real catalogue
-let catalogue: CandidateExercise[] = JSON.parse(
+const catalogue: CandidateExercise[] = JSON.parse(
   readFileSync("scripts/fixtures/catalogue.json", "utf8")
 );
-
-// Inject synthetic untagged lunge to make the untagged-squat check bite
-const syntheticLunge: CandidateExercise = {
-  id: "synthetic-untagged-lunge-test",
-  slug: "synthetic-untagged-lunge",
-  name: "Synthetic Untagged Lunge",
-  movement_pattern: "lunge",
-  mechanic: "compound",
-  level_min: "beginner",
-  equipment_ids: [],
-  primary_muscles: ["quads", "glutes"],
-  tracks: ["bodyweight"],
-  metric: "reps",
-  contraindicated_regions: [], // NOT tagged as knee contraindicated
-  impact: "low",
-  spinal_load: "low",
-  default_rest_seconds: 90,
-  category: "strength",
-};
-catalogue = [...catalogue, syntheticLunge];
 
 const byId = new Map(catalogue.map((e) => [e.id, e]));
 
@@ -81,6 +62,7 @@ console.log("\nKnee Safety Matrix Test");
 console.log("=======================\n");
 console.log("Knee-safe allowlist (from PR #53):", Array.from(KNEE_SAFE_QUAD_EXERCISES).join(", "));
 console.log("Floor-pull deadlifts (PR #73):", Array.from(FLOOR_PULL_DEADLIFTS).join(", "));
+console.log("Loaded windmill/side-bend (PR #53):", Array.from(LOADED_WINDMILL_SIDE_BEND).join(", "));
 console.log();
 
 // Test: Every slug in FLOOR_PULL_DEADLIFTS must exist in the catalogue
@@ -91,8 +73,25 @@ for (const slug of FLOOR_PULL_DEADLIFTS) {
 }
 console.log();
 
-// Test: Synthetic untagged lunge is rejected by isEligible for knee injury
+// Synthetic untagged lunge test (ONLY for this dedicated test, not used in matrix)
 console.log("Synthetic untagged lunge rejection test");
+const syntheticLunge: CandidateExercise = {
+  id: "synthetic-untagged-lunge-test",
+  slug: "synthetic-untagged-lunge",
+  name: "Synthetic Untagged Lunge",
+  movement_pattern: "lunge",
+  mechanic: "compound",
+  level_min: "beginner",
+  equipment_ids: [],
+  primary_muscles: ["quads", "glutes"],
+  tracks: ["bodyweight"],
+  metric: "reps",
+  contraindicated_regions: [], // NOT tagged as knee contraindicated
+  impact: "low",
+  spinal_load: "low",
+  default_rest_seconds: 90,
+  category: "strength",
+};
 const kneeInput = base({ currentInjuryRegions: ["knee"] });
 const syntheticIsEligible = isEligible(syntheticLunge, kneeInput);
 check("Synthetic untagged lunge rejected for knee injury", !syntheticIsEligible,
@@ -204,7 +203,6 @@ for (const seed of testSeeds) {
             }
             
             // Rule 1: First LOWER BODY exercise on Lower/Full days is non-timed knee-safe quad OR knee-safe hip-dominant
-            // Timed knee-safe quad (e.g., wall-sit) if it exists AND is non-timed, otherwise glute bridge/hip thrust/RDL
             for (const day of lowerDays) {
               if (day.exercises.length === 0) continue;
               
@@ -236,7 +234,7 @@ for (const seed of testSeeds) {
               const isAcceptable = isKneeSafeQuad || isKneeSafeHipDominant;
               
               if (!isAcceptable) {
-                check(`${profileId} ${day.label}: first lower exercise is knee-safe`, false, 
+                check(`${profileId} ${day.label}: first lower is knee-safe`, false, 
                   `Got ${exercise.name} [${exercise.slug}] - expected non-timed knee-safe quad or knee-safe hip-dominant`);
                 profileFailed = true;
               }
@@ -380,6 +378,22 @@ for (const seed of testSeeds) {
               }
             }
             
+            // Rule 9 (PR #73 follow-up): No timed hold (metric=seconds) in main slots (0-3)
+            for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+              const mains = day.exercises.filter(ex => ex.orderIndex < 4);
+              
+              for (const mainEx of mains) {
+                const exercise = byId.get(mainEx.exerciseId);
+                if (!exercise) continue;
+                
+                if (exercise.metric === "seconds") {
+                  check(`${profileId} ${day.label}: no timed hold in main slot`, false,
+                    `${exercise.name} [${exercise.slug}] at slot ${mainEx.orderIndex + 1}`);
+                  profileFailed = true;
+                }
+              }
+            }
+            
             if (!profileFailed) {
               profilesPassed++;
             }
@@ -430,14 +444,7 @@ for (const level of levels) {
             const exercise = byId.get(ex.exerciseId);
             if (!exercise) continue;
             
-            const nameLower = exercise.name.toLowerCase();
-            const slugLower = exercise.slug.toLowerCase();
-            const isLoadedWindmillOrSideBend = 
-              (nameLower.includes("windmill") || slugLower.includes("windmill") ||
-               nameLower.includes("side bend") || slugLower.includes("side-bend")) &&
-              exercise.equipment_ids.length > 0;
-            
-            if (isLoadedWindmillOrSideBend) {
+            if (LOADED_WINDMILL_SIDE_BEND.has(exercise.slug)) {
               check(`${profileId} ${day.label}: no loaded windmill/side-bend`, false,
                 `Got ${exercise.name}`);
               profileFailed = true;
@@ -524,14 +531,7 @@ for (const level of levels) {
             const exercise = byId.get(ex.exerciseId);
             if (!exercise) continue;
             
-            const nameLower = exercise.name.toLowerCase();
-            const slugLower = exercise.slug.toLowerCase();
-            const isLoadedWindmillOrSideBend = 
-              (nameLower.includes("windmill") || slugLower.includes("windmill") ||
-               nameLower.includes("side bend") || slugLower.includes("side-bend")) &&
-              exercise.equipment_ids.length > 0;
-            
-            if (isLoadedWindmillOrSideBend) {
+            if (LOADED_WINDMILL_SIDE_BEND.has(exercise.slug)) {
               check(`${profileId} ${day.label}: no loaded windmill/side-bend`, false);
               profileFailed = true;
             }

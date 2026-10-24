@@ -13,6 +13,7 @@
     "test:alternatives": "tsx scripts/test-alternatives.ts",
     "test:qa-pass-10": "tsx scripts/test-qa-pass-10.ts",
     "test:qa-pass-11": "tsx scripts/test-qa-pass-11.ts",
+    "test:knee-safety-matrix": "tsx scripts/test-knee-safety-matrix.ts",
     "test:revert-53-regression": "tsx scripts/test-revert-53-regression.ts",
     "test:progression": "tsx scripts/test-progression.ts",
     "test:input-step": "tsx scripts/test-input-step.ts",
