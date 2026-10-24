@@ -9,23 +9,7 @@
  *   npm run test:public-paths
  */
 
-/** Routes reachable without a session. Everything else redirects to "/". */
-const PUBLIC_PATHS = ["/", "/auth", "/legal", "/privacy", "/terms"];
-
-/** Dev-only harnesses. */
-const DEV_PATHS: string[] = [];
-
-/** Probe paths (empty when PERF_TOKEN is not set). */
-const PROBE_PATHS: string[] = [];
-
-/**
- * Simulates the isPublic check from session.ts
- */
-function isPublicPath(pathname: string): boolean {
-  return [...PUBLIC_PATHS, ...DEV_PATHS, ...PROBE_PATHS].some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
-}
+import { isPublicPath } from "../src/lib/supabase/public-paths";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
