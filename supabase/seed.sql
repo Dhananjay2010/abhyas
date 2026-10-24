@@ -238,7 +238,14 @@ BEGIN
     test_program_day_id,
     test_user_id,
     e.id,
-    ROW_NUMBER() OVER (),
+    ROW_NUMBER() OVER (ORDER BY 
+      CASE 
+        -- Compound lifts first (0), isolation exercises second (1)
+        WHEN e.slug IN ('barbell-bench-press-medium-grip', 'barbell-shoulder-press', 'dips-triceps-version') THEN 0
+        ELSE 1
+      END,
+      e.slug  -- Stable tiebreaker within each category
+    ),
     CASE e.slug
       WHEN 'barbell-bench-press-medium-grip' THEN 4
       WHEN 'barbell-shoulder-press' THEN 4
@@ -317,7 +324,14 @@ BEGIN
     test_program_day_id,
     test_user_id,
     e.id,
-    ROW_NUMBER() OVER (),
+    ROW_NUMBER() OVER (ORDER BY 
+      CASE 
+        -- Compound lifts first (0), isolation exercises second (1)
+        WHEN e.slug IN ('barbell-squat', 'romanian-deadlift', 'leg-press') THEN 0
+        ELSE 1
+      END,
+      e.slug  -- Stable tiebreaker within each category
+    ),
     CASE e.slug
       WHEN 'barbell-squat' THEN 4
       WHEN 'romanian-deadlift' THEN 4
@@ -400,7 +414,14 @@ BEGIN
     test_program_day_id,
     test_user_id,
     e.id,
-    ROW_NUMBER() OVER (),
+    ROW_NUMBER() OVER (ORDER BY 
+      CASE 
+        -- Compound lifts first (0), isolation exercises second (1)
+        WHEN e.slug IN ('barbell-deadlift', 'front-barbell-squat', 'dumbbell-lunges') THEN 0
+        ELSE 1
+      END,
+      e.slug  -- Stable tiebreaker within each category
+    ),
     CASE e.slug
       WHEN 'barbell-deadlift' THEN 4
       WHEN 'front-barbell-squat' THEN 4
@@ -485,7 +506,14 @@ BEGIN
     test_program_day_id,
     test_user_id,
     e.id,
-    ROW_NUMBER() OVER (),
+    ROW_NUMBER() OVER (ORDER BY 
+      CASE 
+        -- Compound lifts first (0), isolation exercises second (1)
+        WHEN e.slug IN ('bent-over-barbell-row', 'pullups') THEN 0
+        ELSE 1
+      END,
+      e.slug  -- Stable tiebreaker within each category
+    ),
     CASE e.slug
       WHEN 'bent-over-barbell-row' THEN 4
       WHEN 'pullups' THEN 4

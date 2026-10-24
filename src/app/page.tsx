@@ -4,16 +4,24 @@ import { SignInButton } from "./sign-in-button";
 import { Footer } from "@/components/footer";
 import { branding } from "@/lib/branding";
 import { BrandLogo } from "@/components/brand-logo";
+import { safeNextPath } from "@/lib/auth/redirect-origin";
 
 export default async function LandingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
   const { supabase, user } = await getAuthedClient();
 
   if (user) {
+    // If there's a next parameter, redirect to it after validating
+    if (next) {
+      const safePath = safeNextPath(next);
+      redirect(safePath);
+    }
+
+    // Otherwise, use the default onboarding vs today routing
     const { data: profile } = await supabase
       .from("profiles")
       .select("onboarding_completed_at")
@@ -67,7 +75,7 @@ export default async function LandingPage({
             Sign-in did not complete. Please try again.
           </p>
         )}
-        <SignInButton />
+        <SignInButton next={next} />
       </div>
 
       <Footer />

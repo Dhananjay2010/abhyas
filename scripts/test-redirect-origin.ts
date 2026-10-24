@@ -69,6 +69,28 @@ function runTests(): TestResult[] {
     }
   }
 
+  // Test: Paths longer than 512 characters are rejected
+  {
+    const longPath = '/history' + '?x=' + 'a'.repeat(600);
+    const result = safeNextPath(longPath);
+    if (result === '/today') {
+      results.push({ passed: true, message: `safeNextPath(${longPath.length}-char path) = '/today' (rejected, too long)` });
+    } else {
+      results.push({ passed: false, message: `safeNextPath(${longPath.length}-char path): expected '/today', got '${result}'` });
+    }
+  }
+
+  // Test: Paths at or under 512 characters are accepted
+  {
+    const acceptablePath = '/history' + '?x=' + 'a'.repeat(500);
+    const result = safeNextPath(acceptablePath);
+    if (result === acceptablePath) {
+      results.push({ passed: true, message: `safeNextPath(${acceptablePath.length}-char path) accepted` });
+    } else {
+      results.push({ passed: false, message: `safeNextPath(${acceptablePath.length}-char path): expected path to be accepted, got '${result}'` });
+    }
+  }
+
   // ===================================================================
   // getRedirectOrigin tests
   // ===================================================================
@@ -171,6 +193,38 @@ function runTests(): TestResult[] {
       results.push({ passed: true, message: 'No x-forwarded-proto: uses request protocol' });
     } else {
       results.push({ passed: false, message: `No x-forwarded-proto: expected https://example.com, got ${origin}` });
+    }
+  }
+
+  // Test 8: Localhost ignores x-forwarded headers (not in brand allowlist)
+  {
+    const request = new Request('http://localhost:3000/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'http://localhost:3000') {
+      results.push({ passed: true, message: 'Localhost ignores x-forwarded headers (not in brand allowlist)' });
+    } else {
+      results.push({ passed: false, message: `Localhost with forwarded headers: expected http://localhost:3000, got ${origin}` });
+    }
+  }
+
+  // Test 9: Brand host trusts x-forwarded headers
+  {
+    const request = new Request('http://internal.vercel.com/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'abhyas-indol.vercel.app',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'https://abhyas-indol.vercel.app') {
+      results.push({ passed: true, message: 'Brand host trusts x-forwarded headers' });
+    } else {
+      results.push({ passed: false, message: `Brand host with forwarded headers: expected https://abhyas-indol.vercel.app, got ${origin}` });
     }
   }
 

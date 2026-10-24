@@ -4,14 +4,19 @@ import { branding } from '@/lib/branding';
  * Validate a `next` parameter for safe same-origin redirects.
  * 
  * Accepts only relative paths starting with a single '/', not '//' and not '/\\'.
- * Rejects paths with backslashes, control characters, and URLs that resolve to
- * a different origin.
+ * Rejects paths with backslashes, control characters, paths longer than 512 characters,
+ * and URLs that resolve to a different origin.
  * 
  * @param next - The next path from query params
  * @returns The validated path, or '/today' if invalid
  */
 export function safeNextPath(next: string | null | undefined): string {
   if (!next || typeof next !== 'string') {
+    return '/today';
+  }
+
+  // Reject paths longer than 512 characters to avoid oversized headers
+  if (next.length > 512) {
     return '/today';
   }
 
@@ -47,12 +52,9 @@ export function safeNextPath(next: string | null | undefined): string {
 /**
  * Build a safe redirect origin for auth callbacks.
  * 
- * Uses x-forwarded-proto and x-forwarded-host when present (Vercel prod),
- * otherwise falls back to the request URL's protocol and host.
- * 
- * Validates the host against an allowlist to prevent open redirects:
- * - The request's own host (always safe)
- * - The brand site URL host (configured in branding)
+ * Trusts x-forwarded-proto and x-forwarded-host when the forwarded host
+ * is an allowlisted brand host. For localhost requests, never trusts
+ * forwarded headers to prevent local dev from being tricked by spoofed headers.
  * 
  * @param request - The incoming request
  * @returns A safe origin (protocol + host, no trailing slash)
@@ -70,6 +72,23 @@ export function getRedirectOrigin(request: Request): string {
     return requestOrigin;
   }
 
+  // Never trust forwarded headers for localhost (prevents local spoofing)
+  if (requestUrl.hostname === 'localhost' || requestUrl.hostname.startsWith('127.')) {
+    return requestOrigin;
+  }
+
+  // Build allowlist of forwarded hosts we trust
+  const brandSiteHost = new URL(branding.siteUrl).host;
+  const allowedForwardedHosts = new Set([
+    brandSiteHost,        // The configured brand host
+    requestUrl.host,      // The request's own host (always safe)
+  ]);
+  
+  // Only trust forwarded host if it's in the allowlist
+  if (!allowedForwardedHosts.has(forwardedHost)) {
+    return requestOrigin;
+  }
+
   // If x-forwarded-proto has multiple values (comma-separated list), take the first
   if (forwardedProto && forwardedProto.includes(',')) {
     forwardedProto = forwardedProto.split(',')[0].trim();
@@ -80,21 +99,5 @@ export function getRedirectOrigin(request: Request): string {
     ? forwardedProto
     : requestUrl.protocol.replace(':', '');
   
-  const forwardedOrigin = `${proto}://${forwardedHost}`;
-  
-  // Allowlist: request's own host + brand site URL host
-  const brandSiteHost = new URL(branding.siteUrl).host;
-  const allowedHosts = new Set([
-    requestUrl.host,
-    brandSiteHost,
-  ]);
-  
-  // Check if the forwarded host is in the allowlist
-  if (allowedHosts.has(forwardedHost)) {
-    return forwardedOrigin;
-  }
-  
-  // If the forwarded host is not allowed, fall back to the request's own origin
-  // (prevents open redirects via spoofed x-forwarded-host)
-  return requestOrigin;
+  return `${proto}://${forwardedHost}`;
 }

@@ -119,18 +119,38 @@ max_frequency = "1m0s"
 
 **These settings protect production.** Running `supabase config push` with relaxed local dev settings would disable signups and break email confirmations in production.
 
-**For local development:**
-- The seed script creates test users (see QA Sign-In section below)
-- The CI workflow automatically overrides these settings via `sed` before running database tests
-- If you need to test signup flows locally, override temporarily in your local copy (never commit):
+**For local development with magic links or email signup:**
 
-```bash
-# Edit supabase/config.toml (local only, do not commit):
-site_url = "http://localhost:3000"
-enable_signup = true
-enable_confirmations = false
-max_frequency = "1s"
-```
+1. **Create a git-ignored local override file** (recommended):
+   ```bash
+   # Copy the template and edit for local development
+   cp supabase/config.toml supabase/config.local.toml
+   git add supabase/config.local.toml
+   # (already in .gitignore)
+   
+   # Edit supabase/config.local.toml:
+   # - Set site_url = "http://localhost:3000"
+   # - Set enable_signup = true
+   # - Set enable_confirmations = false
+   # - Set max_frequency = "1s"
+   
+   # Start Supabase with the local config
+   supabase start -c supabase/config.local.toml
+   ```
+
+2. **Or apply CI-style sed overrides to a temporary copy** (used in CI):
+   ```bash
+   # The database-seed-test CI job does this automatically
+   sed -i.bak 's|site_url = "https://abhyas-indol.vercel.app"|site_url = "http://localhost:54321"|' supabase/config.toml
+   sed -i.bak 's/enable_signup = false/enable_signup = true/' supabase/config.toml
+   sed -i.bak 's/enable_confirmations = true/enable_confirmations = false/' supabase/config.toml
+   sed -i.bak 's/max_frequency = "1m0s"/max_frequency = "1s"/' supabase/config.toml
+   
+   # After testing, restore from backup
+   mv supabase/config.toml.bak supabase/config.toml
+   ```
+
+**⚠️ Never commit local auth overrides.** Do not run `supabase config push` with local settings; it would break production auth.
 
 ---
 
@@ -352,15 +372,17 @@ The local database is seeded with deterministic test data from `supabase/seed.sq
 
 ### Local QA Sign-In Options
 
-**⚠️ Important:** The app's UI only offers **Google OAuth sign-in** (no email/password form). The seeded test user can sign in locally via magic link (email is enabled in local config) or an admin-created session.
+**⚠️ Important:** The app's UI only offers **Google OAuth sign-in** (no email/password form). The seeded test user can sign in locally via magic link (requires local auth config override) or an admin-created session.
 
 #### Option 1: Magic link via Mailpit (recommended for local testing)
 
-The local Supabase stack includes **Mailpit** (formerly Inbucket), a test email server at [http://localhost:54324](http://localhost:54324). Email sign-ups and confirmations are enabled in the local `supabase/config.toml` for development.
+The local Supabase stack includes **Mailpit** (formerly Inbucket), a test email server at [http://localhost:54324](http://localhost:54324).
+
+**Prerequisites:** Follow the local auth config override steps above to enable email signup and disable confirmations for local development.
 
 **Sign in with the seeded test user:**
 
-1. Start local Supabase: `npm run supabase:start`
+1. Start local Supabase with your local config override (see auth settings section above)
 2. Request a magic link via the Supabase CLI:
    ```bash
    # Send a magic link email to the test user
@@ -376,7 +398,7 @@ The local Supabase stack includes **Mailpit** (formerly Inbucket), a test email 
 5. Click the "Confirm your email" or "Log in" link in the email
 6. You'll be redirected to the app and signed in
 
-**Note:** The app UI has no "Send magic link" form, so you must trigger the email via the CLI or API. The local config enables `enable_signup = true` and `enable_confirmations = false` for easier testing.
+**Note:** The app UI has no "Send magic link" form, so you must trigger the email via the CLI or API.
 
 #### Option 2: Admin-created session via service role key
 
