@@ -390,6 +390,70 @@ function runTests(): TestResult[] {
     }
   }
 
+  // Test: Case-insensitive hostname matching
+  {
+    const request = new Request('http://internal.vercel.com/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'ABHYAS-INDOL.VERCEL.APP',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'https://ABHYAS-INDOL.VERCEL.APP') {
+      results.push({ passed: true, message: 'Case-insensitive hostname match: ABHYAS-INDOL.VERCEL.APP accepted' });
+    } else {
+      results.push({ passed: false, message: `Case-insensitive: expected https://ABHYAS-INDOL.VERCEL.APP, got ${origin}` });
+    }
+  }
+
+  // Test: Mixed case hostname
+  {
+    const request = new Request('http://internal.vercel.com/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'Abhyas-Indol.Vercel.App',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'https://Abhyas-Indol.Vercel.App') {
+      results.push({ passed: true, message: 'Case-insensitive hostname match: Abhyas-Indol.Vercel.App accepted' });
+    } else {
+      results.push({ passed: false, message: `Case-insensitive: expected https://Abhyas-Indol.Vercel.App, got ${origin}` });
+    }
+  }
+
+  // Test: Hostname with explicit port matching (port ignored in comparison)
+  {
+    const request = new Request('http://internal.vercel.com/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'https',
+        'x-forwarded-host': 'abhyas-indol.vercel.app:443',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'https://abhyas-indol.vercel.app:443') {
+      results.push({ passed: true, message: 'Hostname with explicit port :443 accepted (port in comparison ignored)' });
+    } else {
+      results.push({ passed: false, message: `Explicit port: expected https://abhyas-indol.vercel.app:443, got ${origin}` });
+    }
+  }
+
+  // Test: Hostname with non-standard port
+  {
+    const request = new Request('http://internal.vercel.com/auth/callback', {
+      headers: {
+        'x-forwarded-proto': 'http',
+        'x-forwarded-host': 'abhyas-indol.vercel.app:8080',
+      },
+    });
+    const origin = getRedirectOrigin(request);
+    if (origin === 'http://abhyas-indol.vercel.app:8080') {
+      results.push({ passed: true, message: 'Hostname with non-standard port :8080 accepted' });
+    } else {
+      results.push({ passed: false, message: `Non-standard port: expected http://abhyas-indol.vercel.app:8080, got ${origin}` });
+    }
+  }
+
   // Test 17: TRUST_PROXY not set (default behavior)
   {
     const originalEnv = process.env.TRUST_PROXY;
