@@ -2603,7 +2603,7 @@ async function main() {
   await testNEW2_EndEarlyFlushSequence();
   await testM15_OnlineEventFlushesOutbox();
   await testMutantA_OnlineEventTriggersFlush();
-  testMutantD_BannerVisibility();
+  await testMutantD_BannerVisibility();
 
   console.log("\n✓ All offline set logging tests passed");
 }
