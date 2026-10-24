@@ -10,5 +10,5 @@ export function nextSetNumberFor(
   setsDone: number,
   pendingSetsForExercise: number
 ): number {
-  return setsDone + pendingSetsForExercise + 1;
+  return setsDone + 1;
 }

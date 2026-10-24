@@ -8,9 +8,10 @@
  * - Pure helper function for runner to use
  */
 
+(function() {
 let exitCode = 0;
 
-function assert(condition: boolean, message: string) {
+function assert(condition: boolean, message: string): void {
   if (!condition) {
     console.error(`❌ ${message}`);
     exitCode = 1;
@@ -19,7 +20,7 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-function assertEqual<T>(actual: T, expected: T, message: string) {
+function assertEqual<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) {
     console.error(`❌ ${message}`);
     console.error(`   Expected: ${expected}`);
@@ -94,3 +95,4 @@ assertEqual(disabled4, true, "Button disabled when busy even with no pending");
 
 console.log(exitCode === 0 ? "\n✅ All finish-while-pending tests passed" : "\n❌ Some tests failed");
 process.exit(exitCode);
+})();
