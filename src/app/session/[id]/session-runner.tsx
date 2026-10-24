@@ -20,6 +20,7 @@ import { runFinish, runEndEarly } from "@/lib/session/finish-flow";
 import { endEarlyConfirmTitle, sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { focusTrap } from "@/lib/focus-trap";
 import { formatNumber } from "@/lib/format";
+import { PendingTracker } from "@/lib/session/pending-tracker";
 import {
   abandonSession,
   deleteSet,
@@ -272,6 +273,9 @@ export function SessionRunner({
    */
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
+  const pendingTracker = useRef(new PendingTracker()).current;
+  const [savePending, setSavePending] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it
@@ -306,6 +310,13 @@ export function SessionRunner({
   }
 
   async function finish(cooldownCompleted: boolean) {
+    await pendingTracker.waitForAll();
+    if (pendingTracker.hasRecentFailures()) {
+      setSaveError("Couldn't save your last set. Please retry.");
+      return;
+    }
+    setSavePending(false);
+    setSaveError(null);
     setBusy(true);
     setNeedsFinishRetry(false);
     await runFinish(
@@ -423,10 +434,10 @@ export function SessionRunner({
           ))}
         </ul>
         <div className="mt-10 space-y-3">
-          <BigButton disabled={busy} onClick={() => finish(true)}>
-            Done
+          <BigButton disabled={busy || savePending} onClick={() => finish(true)}>
+            {savePending ? "Saving your set…" : "Done"}
           </BigButton>
-          <GhostButton disabled={busy} onClick={() => finish(false)}>
+          <GhostButton disabled={busy || savePending} onClick={() => finish(false)}>
             Skip cool-down
           </GhostButton>
         </div>
@@ -622,7 +633,9 @@ export function SessionRunner({
     weightKg: number | null,
     durationSeconds: number | null = null,
   ) {
-    const ok = await run(() =>
+    setSavePending(true);
+    setSaveError(null);
+    const logSetPromise = run(() =>
       actions.logSet({
         sessionExerciseId: current.id,
         setNumber: nextSetNumber,
@@ -631,7 +644,16 @@ export function SessionRunner({
         durationSeconds,
       }),
     );
-    if (!ok) return;
+    const trackedPromise = pendingTracker.track(
+      "logSet",
+      logSetPromise.then((ok) => ({ ok: ok ?? false })),
+    );
+    const ok = await trackedPromise.then((r) => r.ok);
+    setSavePending(pendingTracker.hasPending());
+    if (!ok) {
+      setSaveError("Couldn't save your set. Try again.");
+      return;
+    }
     setExercises((prev) =>
       prev.map((e) =>
         e.id === current.id
@@ -980,11 +1002,16 @@ export function SessionRunner({
           )}
           <GhostButton
             buttonRef={endEarlyTriggerRef}
-            disabled={busy}
+            disabled={busy || savePending}
             onClick={() => setConfirming("end_early")}
           >
-            End session early
+            {savePending ? "Saving your set…" : "End session early"}
           </GhostButton>
+          {saveError && (
+            <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3">
+              <p className="text-sm text-danger">{saveError}</p>
+            </div>
+          )}
           {needsFinishRetry && error && (
             <BigButton disabled={busy} onClick={() => finish(false)}>
               Try again
@@ -1002,6 +1029,14 @@ export function SessionRunner({
                 setEndEarlyOfflineError(false);
               }}
               onConfirm={async () => {
+                await pendingTracker.waitForAll();
+                if (pendingTracker.hasRecentFailures()) {
+                  setSaveError("Couldn't save your last set. Please retry.");
+                  setConfirming(null);
+                  return;
+                }
+                setSavePending(false);
+                setSaveError(null);
                 await runEndEarly(
                   {
                     abandonSession: actions.abandonSession,
