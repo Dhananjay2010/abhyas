@@ -90,8 +90,12 @@ console.log("\n5. Edges");
   check("no history is zero", computeStreaks([], "2026-09-05").current === 0);
   const allRest = [d("2026-09-01", "rest", false, null), d("2026-09-02", "rest", false, null)];
   check("only rest days is zero, not a break", computeStreaks(allRest, "2026-09-02").current === 0);
+  
+  // TZ-1: Completed sessions always count, even if dated beyond today
   const future = [d("2026-09-10", "weights", true, "weights"), d("2026-09-01", "weights", true, "weights")];
-  check("future days are ignored", computeStreaks([future[1], future[0]], "2026-09-05").current === 1);
+  check("completed sessions count even when dated beyond today (TZ-1)", 
+    computeStreaks([future[1], future[0]], "2026-09-05").current === 2,
+    `got ${computeStreaks([future[1], future[0]], "2026-09-05").current}`);
   const longestPast = [
     d("2026-09-01", "weights", true, "weights"), d("2026-09-02", "weights", true, "weights"),
     d("2026-09-03", "weights", true, "weights"), d("2026-09-04", "weights", false, null),
@@ -294,6 +298,40 @@ console.log("\n14. Breathe-only on scheduled training day breaks streak");
   check("breathe-only on training day breaks streak", s.current === 1, `${s.current}`);
   check("breathe-only on training day: days trained is 2", s.totalSessions === 2, `${s.totalSessions}`);
   check("longest streak before break was 1", s.longest === 1, `${s.longest}`);
+}
+
+console.log("\n15. TZ-1: Completed session after timezone change");
+{
+  // After a timezone change, a completed session can have local_date > today.
+  // Example: yesterday's session at 11pm PST becomes "tomorrow" at 4pm JST (+17 hours).
+  // RULE: Completed sessions ALWAYS count, even if dated beyond today.
+  const records = buildDayRecords({
+    programs: [{ id: "p1", startedOn: "2026-09-08", endsOn: "2026-10-05" }],
+    dayTypesByProgram: {
+      p1: { 1: "weights", 2: "weights", 3: "weights", 4: "rest", 5: "rest", 6: "rest", 7: "rest" },
+    },
+    completedSessions: [
+      { local_date: "2026-09-08", actual_type: "weights", status: "completed", working_set_count: 3 }, // Mon
+      { local_date: "2026-09-09", actual_type: "weights", status: "completed", working_set_count: 3 }, // Tue
+      { local_date: "2026-09-11", actual_type: "weights", status: "completed", working_set_count: 3 }, // "Tomorrow" after TZ change
+    ],
+    today: "2026-09-10",
+  });
+  
+  console.log(`  buildDayRecords generated ${records.length} days from ${records[0]?.localDate} to ${records[records.length - 1]?.localDate}`);
+  console.log(`  Future session (2026-09-11) included: ${records.some(r => r.localDate === "2026-09-11" && r.completed)}`);
+  
+  const s = computeStreaks(records, "2026-09-10");
+  console.log(`  Streak: ${s.current}, Days trained: ${s.totalSessions}`);
+  
+  check("buildDayRecords includes the future-dated completed session", 
+    records.some(r => r.localDate === "2026-09-11" && r.completed),
+    `found: ${records.filter(r => r.localDate === "2026-09-11").map(r => `${r.localDate} completed=${r.completed}`)}`
+  );
+  
+  check("TZ-1: streak includes future-dated completed session", s.current === 3, `got ${s.current}, expected 3`);
+  check("TZ-1: days trained includes future-dated completed session", s.totalSessions === 3, `got ${s.totalSessions}, expected 3`);
+  check("TZ-1: streak and days trained agree", s.current === s.totalSessions);
 }
 
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);

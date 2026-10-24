@@ -55,15 +55,15 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
   let current = 0;
   for (let i = days.length - 1; i >= 0; i--) {
     const d = days[i];
-    if (d.localDate > today) continue;
     
-    // If completed, count it (buildDayRecords already filtered to qualifying sessions)
+    // TZ-1: COMPLETED sessions always count, even if dated beyond today in new timezone
     if (d.completed && d.actualSessionType) {
       current++;
       continue;
     }
     
-    // Not completed: rest days don't break streak, training days do
+    // Not completed: skip future planned days, rest days, and today
+    if (d.localDate > today) continue; // Future planned day
     if (d.localDate === today) continue; // Today incomplete is not a failure
     if (RESTFUL.has(d.dayType)) continue; // Template rest day, no session
     // Missed a scheduled training day
@@ -73,16 +73,15 @@ export function computeStreaks(days: DayRecord[], today: string): Streaks {
   let longest = 0;
   let run = 0;
   for (const d of days) {
-    if (d.localDate > today) break;
-    
-    // If completed, count it (buildDayRecords already filtered to qualifying sessions)
+    // TZ-1: COMPLETED sessions always count, even if dated beyond today in new timezone
     if (d.completed && d.actualSessionType) {
       run++;
       if (run > longest) longest = run;
       continue;
     }
     
-    // Not completed: rest days don't break streak, training days do
+    // Not completed: skip future planned days, rest days, and today
+    if (d.localDate > today) break; // Stop at future planned days
     if (d.localDate === today) continue;
     if (RESTFUL.has(d.dayType)) continue;
     // Missed a scheduled training day
@@ -152,7 +151,15 @@ export function buildDayRecords(input: {
     }
   }
 
-  return dateRange(first, today).map((date) => {
+  // TZ-1: Include days beyond today if there are completed sessions on those dates
+  // (happens after timezone change: yesterday's session becomes "tomorrow" in new zone)
+  const latestSessionDate = Array.from(sessionsByDate.keys()).reduce(
+    (latest, date) => (date > latest ? date : latest),
+    today
+  );
+  const lastDate = latestSessionDate > today ? latestSessionDate : today;
+
+  return dateRange(first, lastDate).map((date) => {
     const covering = blockForDate(blocks, date);
 
     const dayType =
