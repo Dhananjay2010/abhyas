@@ -74,12 +74,16 @@ export async function updateProfileSettings(patch: ProfileUpdate): Promise<Resul
     return { ok: false, error: "Enter your full date of birth" };
   }
 
-  // Fetch current profile to get timezone for DOB validation
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", user.id)
-    .single();
+  // Only fetch timezone when validating DOB (avoid extra roundtrip for timezone-only/other saves)
+  let profile: { timezone: string | null } | null = null;
+  if (patch.date_of_birth !== undefined) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("timezone")
+      .eq("id", user.id)
+      .single();
+    profile = data;
+  }
 
   // Validate and update with testable logic
   const result = await validateAndUpdateProfile(patch, {

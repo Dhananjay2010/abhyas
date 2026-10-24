@@ -123,6 +123,7 @@ export function SettingsForm({
   const [dobTouched, setDobTouched] = useState(false);
   /** Last successfully saved DOB (baseline to prevent re-saves) */
   const lastSavedDob = useRef<string | null>(initial.dateOfBirth);
+  const currentDob = useRef<string | null>(initial.dateOfBirth);
 
   useEffect(() => {
     if (equipmentOffConfirmation) {
@@ -650,7 +651,8 @@ export function SettingsForm({
           <DobInput
             value={s.dateOfBirth}
             onChange={(iso) => {
-              setS({ ...s, dateOfBirth: iso });
+              currentDob.current = iso;
+              setS(prev => ({ ...prev, dateOfBirth: iso }));
               if (dobTouched) {
                 const todayIso = getTodayIsoInTimezone(s.timezone ?? null);
                 const err = iso ? validateDob(iso, todayIso) : null;
@@ -659,34 +661,37 @@ export function SettingsForm({
             }}
             onBlur={() => {
               setDobTouched(true);
+              const dobToSave = currentDob.current;
               const todayIso = getTodayIsoInTimezone(s.timezone ?? null);
               
               // Incomplete DOB (null from partial input) - don't save, show error
-              if (s.dateOfBirth === null && lastSavedDob.current !== null) {
+              if (dobToSave === null && lastSavedDob.current !== null) {
                 setDobError("Enter your full date of birth");
                 return;
               }
               
-              const err = s.dateOfBirth ? validateDob(s.dateOfBirth, todayIso) : null;
+              const err = dobToSave ? validateDob(dobToSave, todayIso) : null;
               if (err) {
                 setDobError(getDobErrorMessage(err));
-              } else {
-                setDobError(null);
-                // Only save if changed from last saved and not null
-                if (s.dateOfBirth !== lastSavedDob.current && s.dateOfBirth !== null) {
-                  startTransition(async () => {
-                    const r = await actions.updateProfileSettings({ date_of_birth: s.dateOfBirth });
-                    if (!r.ok) {
-                      // On failed save, revert to last saved value and show error
-                      setS({ ...s, dateOfBirth: lastSavedDob.current });
-                      setDobError(r.error);
-                    } else {
-                      // On successful save, update baseline
-                      lastSavedDob.current = s.dateOfBirth;
-                      setError(null);
-                    }
-                  });
-                }
+                return;
+              }
+              
+              setDobError(null);
+              // Only save if changed from last saved and not null
+              if (dobToSave !== lastSavedDob.current && dobToSave !== null) {
+                startTransition(async () => {
+                  const r = await actions.updateProfileSettings({ date_of_birth: dobToSave });
+                  if (!r.ok) {
+                    // On failed save, revert to last saved value and show error
+                    currentDob.current = lastSavedDob.current;
+                    setS(prev => ({ ...prev, dateOfBirth: lastSavedDob.current }));
+                    setDobError(r.error);
+                  } else {
+                    // On successful save, update baseline
+                    lastSavedDob.current = dobToSave;
+                    setError(null);
+                  }
+                });
               }
             }}
             error={dobTouched ? dobError ?? undefined : undefined}
