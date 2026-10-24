@@ -187,6 +187,31 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
+console.log("\n0. Verify mock catalogue has correct tags (migration verification)");
+{
+  // Verify pike push-ups have wrist tags
+  const pikePushUp = MOCK_CATALOGUE.find(e => e.slug === "pike-push-up");
+  check("pike-push-up has wrist tag", pikePushUp?.contraindicated_regions.includes("wrist") ?? false);
+  
+  const elevatedPike = MOCK_CATALOGUE.find(e => e.slug === "elevated-pike-push-up");
+  check("elevated-pike-push-up has wrist tag", elevatedPike?.contraindicated_regions.includes("wrist") ?? false);
+  
+  // Verify dips have wrist tags
+  const dipsTriceps = MOCK_CATALOGUE.find(e => e.slug === "dips-triceps-version");
+  check("dips-triceps-version has wrist tag", dipsTriceps?.contraindicated_regions.includes("wrist") ?? false);
+  
+  const benchDips = MOCK_CATALOGUE.find(e => e.slug === "bench-dips");
+  check("bench-dips has wrist tag", benchDips?.contraindicated_regions.includes("wrist") ?? false);
+  
+  // Verify front-rack squats have wrist tags
+  const frontSquat = MOCK_CATALOGUE.find(e => e.slug === "front-barbell-squat");
+  check("front-barbell-squat has wrist tag", frontSquat?.contraindicated_regions.includes("wrist") ?? false);
+  
+  // Verify jefferson squats have lower_back tag
+  const jeffersonSquats = MOCK_CATALOGUE.find(e => e.slug === "jefferson-squats");
+  check("jefferson-squats has lower_back tag", jeffersonSquats?.contraindicated_regions.includes("lower_back") ?? false);
+}
+
 const baseInput: Omit<GeneratorInput, "currentInjuryRegions" | "blockNumber"> = {
   userId: "test-user-m3",
   goal: "strength",

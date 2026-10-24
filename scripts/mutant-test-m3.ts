@@ -87,7 +87,7 @@ function revertMutant(mutant: typeof MUTANTS[0]): void {
 
 function runTests(): boolean {
   try {
-    execSync("npm test -- test-m3-wrist-lowerback-contraindications.ts", {
+    execSync("npm run test:m3-wrist", {
       stdio: "pipe",
       encoding: "utf-8",
     });
