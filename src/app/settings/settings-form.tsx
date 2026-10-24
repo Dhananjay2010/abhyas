@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   BODY_REGIONS,
   GOALS,
@@ -103,6 +103,12 @@ export function SettingsForm({
   });
   /** L2 QA fix: Track saved session length for rollback on error */
   const [savedSessionLength, setSavedSessionLength] = useState(initial.preferredSessionMinutes);
+  const savedSessionLengthRef = useRef(initial.preferredSessionMinutes);
+  
+  // Keep ref in sync when saved value changes
+  useEffect(() => {
+    savedSessionLengthRef.current = savedSessionLength;
+  }, [savedSessionLength]);
   /** Equipment hint shown when user tries an unsaveable state */
   const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
   /** Confirmation message shown when turning off "I have access to everything" */
@@ -603,12 +609,12 @@ export function SettingsForm({
             value={s.preferredSessionMinutes}
             onChange={(n) => {
               setS({ ...s, preferredSessionMinutes: n });
-              // L2 QA fix: Rollback on validation error
+              // L2 QA fix: Rollback on validation error using functional updater to avoid stale closure
               startTransition(async () => {
                 const r = await actions.updateProfileSettings({ preferred_session_minutes: n });
                 if (!r.ok) {
-                  // Revert to last saved value
-                  setS({ ...s, preferredSessionMinutes: savedSessionLength });
+                  // Revert to last saved value using ref to avoid stale closure
+                  setS(prev => ({ ...prev, preferredSessionMinutes: savedSessionLengthRef.current }));
                   return setError(r.error);
                 }
                 // Success: update saved value

@@ -33,6 +33,8 @@ export default async function SettingsPage() {
     primaryTrack: profile.primary_track,
     daysPerWeek: profile.days_per_week,
     yogaDaysPerWeek: profile.yoga_days_per_week ?? 0,
+    // M2 QA fix: Fall back to 45 when preferred_session_minutes is NULL
+    // (happens for new users after migration 20261025000021, before they save the step)
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (userEquipmentRes.data ?? []).map((r) => r.equipment_id),

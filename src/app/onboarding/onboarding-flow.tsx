@@ -866,14 +866,20 @@ export function OnboardingFlow({
   );
 }
 
-/** Resume where they left off, based on what is already saved. */
-function initialStepIndex(initial: InitialState): number {
+/** 
+ * Determine initial step index based on what is already saved.
+ * 
+ * The session-length step (index 6) is only counted as 'done' when
+ * sessionMinutes is non-null, meaning the user explicitly saved it.
+ * A DB default or null value means the step is not done.
+ */
+export function initialStepIndex(initial: InitialState): number {
   if (!initial.disclaimerAccepted) return 0;
   if (!initial.dateOfBirth || !initial.sex || !initial.heightCm || !initial.weightKg) return 1;
   if (!initial.goal) return 2;
   if (!initial.level) return 3;
   if (!initial.primaryTrack) return 4;
   if (!initial.daysPerWeek) return 5;
-  if (!initial.sessionMinutes) return 6;
+  if (!initial.sessionMinutes) return 6; // Null means not explicitly saved
   return 7;
 }

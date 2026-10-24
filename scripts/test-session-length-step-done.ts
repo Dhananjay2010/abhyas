@@ -11,6 +11,8 @@
  *   npm run test:session-length-step-done
  */
 
+import { initialStepIndex, type InitialState } from "../src/app/onboarding/onboarding-flow";
+
 let failures = 0;
 
 function check(label: string, ok: boolean, detail = "") {
@@ -18,37 +20,12 @@ function check(label: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-// Simulate the initialStepIndex logic from onboarding-flow.tsx
-type ProfileState = {
-  disclaimerAccepted: boolean;
-  dateOfBirth: string | null;
-  sex: string | null;
-  heightCm: number | null;
-  weightKg: number | null;
-  goal: string | null;
-  level: string | null;
-  primaryTrack: string | null;
-  daysPerWeek: number | null;
-  sessionMinutes: number | null;
-};
-
-function getStepIndex(profile: ProfileState): number {
-  if (!profile.disclaimerAccepted) return 0;
-  if (!profile.dateOfBirth || !profile.sex || !profile.heightCm || !profile.weightKg) return 1;
-  if (!profile.goal) return 2;
-  if (!profile.level) return 3;
-  if (!profile.primaryTrack) return 4;
-  if (!profile.daysPerWeek) return 5;
-  if (!profile.sessionMinutes) return 6; // Session-length step
-  return 7; // Beyond session-length
-}
-
 console.log("\n1. DB default value without explicit save means NOT done");
 {
   // Before the migration: DB has default 60, but user never saved explicitly
   // After the migration: DB has NULL (no default)
-  const profileWithNull: ProfileState = {
-    disclaimerAccepted: true,
+  const profileWithNull: InitialState = {
+    displayName: "Test User",
     dateOfBirth: "1990-01-01",
     sex: "male",
     heightCm: 175,
@@ -58,17 +35,22 @@ console.log("\n1. DB default value without explicit save means NOT done");
     primaryTrack: "weights",
     daysPerWeek: 4,
     sessionMinutes: null, // No explicit save yet
+    yogaDaysPerWeek: 0,
+    disclaimerAccepted: true,
+    hasAllEquipment: false,
+    equipmentIds: [],
+    injuries: [],
   };
   
-  const stepIndex = getStepIndex(profileWithNull);
+  const stepIndex = initialStepIndex(profileWithNull);
   check("NULL session_minutes lands on session-length step (index 6)", stepIndex === 6,
     `got index ${stepIndex}`);
 }
 
 console.log("\n2. Explicit save means done");
 {
-  const profileWithSaved: ProfileState = {
-    disclaimerAccepted: true,
+  const profileWithSaved: InitialState = {
+    displayName: "Test User",
     dateOfBirth: "1990-01-01",
     sex: "male",
     heightCm: 175,
@@ -78,9 +60,14 @@ console.log("\n2. Explicit save means done");
     primaryTrack: "weights",
     daysPerWeek: 4,
     sessionMinutes: 45, // User explicitly saved 45
+    yogaDaysPerWeek: 0,
+    disclaimerAccepted: true,
+    hasAllEquipment: false,
+    equipmentIds: [],
+    injuries: [],
   };
   
-  const stepIndex = getStepIndex(profileWithSaved);
+  const stepIndex = initialStepIndex(profileWithSaved);
   check("Saved 45 skips session-length step (index 7)", stepIndex === 7,
     `got index ${stepIndex}`);
 }
@@ -89,8 +76,8 @@ console.log("\n3. Any explicitly saved value means done");
 {
   const values = [30, 45, 60, 75];
   for (const minutes of values) {
-    const profile: ProfileState = {
-      disclaimerAccepted: true,
+    const profile: InitialState = {
+      displayName: "Test User",
       dateOfBirth: "1990-01-01",
       sex: "male",
       heightCm: 175,
@@ -100,9 +87,14 @@ console.log("\n3. Any explicitly saved value means done");
       primaryTrack: "weights",
       daysPerWeek: 4,
       sessionMinutes: minutes,
+      yogaDaysPerWeek: 0,
+      disclaimerAccepted: true,
+      hasAllEquipment: false,
+      equipmentIds: [],
+      injuries: [],
     };
     
-    const stepIndex = getStepIndex(profile);
+    const stepIndex = initialStepIndex(profile);
     check(`Saved ${minutes} skips session-length step`, stepIndex === 7,
       `got index ${stepIndex}`);
   }
@@ -112,8 +104,8 @@ console.log("\n4. Reload without save must land on session-length step");
 {
   // User opens /onboarding, sees session-length step, closes browser
   // Reopens /onboarding later - should still be on session-length step
-  const profileAfterReload: ProfileState = {
-    disclaimerAccepted: true,
+  const profileAfterReload: InitialState = {
+    displayName: "Test User",
     dateOfBirth: "1990-01-01",
     sex: "male",
     heightCm: 175,
@@ -123,9 +115,14 @@ console.log("\n4. Reload without save must land on session-length step");
     primaryTrack: "weights",
     daysPerWeek: 4,
     sessionMinutes: null, // Still null after reload
+    yogaDaysPerWeek: 0,
+    disclaimerAccepted: true,
+    hasAllEquipment: false,
+    equipmentIds: [],
+    injuries: [],
   };
   
-  const stepIndex = getStepIndex(profileAfterReload);
+  const stepIndex = initialStepIndex(profileAfterReload);
   check("Reload without save lands on session-length step (index 6)", stepIndex === 6,
     `got index ${stepIndex}`);
 }
