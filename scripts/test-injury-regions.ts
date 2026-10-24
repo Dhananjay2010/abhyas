@@ -1,98 +1,105 @@
-import { selectionInjuryRegions, type InjuryRow } from "../src/lib/program/injury-regions";
+import { currentInjuryRegions, hasAnyKneeInjury, hasPastKneeInjury, type InjuryRow } from "../src/lib/program/injury-regions";
 
-console.log("Testing selectionInjuryRegions helper");
+console.log("Testing injury-regions helpers");
 console.log("=====================================\n");
+
+// Test cases
+const testCases = [
+  {
+    name: "Current knee only",
+    injuries: [{ region: "knee", severity: "current" }] as InjuryRow[],
+    expectedCurrent: ["knee"],
+    expectedAnyKnee: true,
+    expectedPastKnee: false,
+  },
+  {
+    name: "Past knee only",
+    injuries: [{ region: "knee", severity: "past" }] as InjuryRow[],
+    expectedCurrent: [],
+    expectedAnyKnee: true,
+    expectedPastKnee: true,
+  },
+  {
+    name: "Current knee + past knee",
+    injuries: [
+      { region: "knee", severity: "current" },
+      { region: "knee", severity: "past" },
+    ] as InjuryRow[],
+    expectedCurrent: ["knee"],
+    expectedAnyKnee: true,
+    expectedPastKnee: true,
+  },
+  {
+    name: "Current shoulder + past knee",
+    injuries: [
+      { region: "shoulder", severity: "current" },
+      { region: "knee", severity: "past" },
+    ] as InjuryRow[],
+    expectedCurrent: ["shoulder"],
+    expectedAnyKnee: true,
+    expectedPastKnee: true,
+  },
+  {
+    name: "Past shoulder only (no knee)",
+    injuries: [{ region: "shoulder", severity: "past" }] as InjuryRow[],
+    expectedCurrent: [],
+    expectedAnyKnee: false,
+    expectedPastKnee: false,
+  },
+  {
+    name: "Multiple current injuries",
+    injuries: [
+      { region: "knee", severity: "current" },
+      { region: "lower_back", severity: "current" },
+    ] as InjuryRow[],
+    expectedCurrent: ["knee", "lower_back"],
+    expectedAnyKnee: true,
+    expectedPastKnee: false,
+  },
+  {
+    name: "No injuries",
+    injuries: [] as InjuryRow[],
+    expectedCurrent: [],
+    expectedAnyKnee: false,
+    expectedPastKnee: false,
+  },
+];
 
 let passed = 0;
 let failed = 0;
 
-function check(name: string, condition: boolean, details?: string) {
-  if (condition) {
-    console.log(`✓ ${name}`);
+for (const testCase of testCases) {
+  console.log(`Test: ${testCase.name}`);
+  
+  const current = currentInjuryRegions(testCase.injuries);
+  const anyKnee = hasAnyKneeInjury(testCase.injuries);
+  const pastKnee = hasPastKneeInjury(testCase.injuries);
+  
+  const currentMatch = JSON.stringify(current.sort()) === JSON.stringify(testCase.expectedCurrent.sort());
+  const anyKneeMatch = anyKnee === testCase.expectedAnyKnee;
+  const pastKneeMatch = pastKnee === testCase.expectedPastKnee;
+  
+  if (currentMatch && anyKneeMatch && pastKneeMatch) {
+    console.log("  ✓ PASS");
     passed++;
   } else {
-    console.log(`✗ ${name}${details ? ` — ${details}` : ""}`);
+    console.log("  ✗ FAIL");
+    if (!currentMatch) {
+      console.log(`    currentInjuryRegions: expected ${JSON.stringify(testCase.expectedCurrent)}, got ${JSON.stringify(current)}`);
+    }
+    if (!anyKneeMatch) {
+      console.log(`    hasAnyKneeInjury: expected ${testCase.expectedAnyKnee}, got ${anyKnee}`);
+    }
+    if (!pastKneeMatch) {
+      console.log(`    hasPastKneeInjury: expected ${testCase.expectedPastKnee}, got ${pastKnee}`);
+    }
     failed++;
   }
+  console.log();
 }
 
-// Test 1: Empty array
-const result1 = selectionInjuryRegions([]);
-check("Empty array returns empty", result1.length === 0);
-
-// Test 2: Current injuries only
-const result2 = selectionInjuryRegions([
-  { region: "knee", severity: "current" },
-  { region: "shoulder", severity: "current" },
-]);
-check(
-  "Current injuries included",
-  result2.length === 2 && result2.includes("knee") && result2.includes("shoulder")
-);
-
-// Test 3: Past knee only
-const result3 = selectionInjuryRegions([
-  { region: "knee", severity: "past" },
-]);
-check(
-  "Past knee injury included",
-  result3.length === 1 && result3[0] === "knee"
-);
-
-// Test 4: Past non-knee injuries excluded
-const result4 = selectionInjuryRegions([
-  { region: "shoulder", severity: "past" },
-  { region: "lower_back", severity: "past" },
-]);
-check(
-  "Past non-knee injuries excluded",
-  result4.length === 0
-);
-
-// Test 5: Mixed injuries
-const result5 = selectionInjuryRegions([
-  { region: "knee", severity: "past" },
-  { region: "shoulder", severity: "past" },
-  { region: "lower_back", severity: "current" },
-]);
-check(
-  "Mixed: past knee + past shoulder + current lower_back",
-  result5.length === 2 && result5.includes("knee") && result5.includes("lower_back"),
-  result5.length === 2 ? "correct" : `got [${result5.join(", ")}]`
-);
-
-// Test 6: Multiple past knees (de-duplication)
-const result6 = selectionInjuryRegions([
-  { region: "knee", severity: "past" },
-  { region: "knee", severity: "past" },
-]);
-check(
-  "Multiple past knee entries",
-  result6.length === 2 && result6.every(r => r === "knee"),
-  "duplicates allowed (array not de-duped)"
-);
-
-// Test 7: Owner scenario (past knee only)
-const result7 = selectionInjuryRegions([
-  { region: "knee", severity: "past" },
-]);
-check(
-  "Owner scenario: past knee surgery",
-  result7.length === 1 && result7[0] === "knee"
-);
-
-// Test 8: Both current and past knee
-const result8 = selectionInjuryRegions([
-  { region: "knee", severity: "current" },
-  { region: "knee", severity: "past" },
-]);
-check(
-  "Both current and past knee",
-  result8.length === 2 && result8.every(r => r === "knee"),
-  "both included (can be de-duped by caller if needed)"
-);
-
-console.log(`\n${passed} passed, ${failed} failed`);
+console.log("=====================================");
+console.log(`Results: ${passed} passed, ${failed} failed`);
 
 if (failed > 0) {
   process.exit(1);

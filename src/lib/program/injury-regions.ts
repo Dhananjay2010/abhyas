@@ -9,42 +9,62 @@ export interface InjuryRow {
 }
 
 /**
- * Returns body regions that should be treated as active injuries for exercise selection.
+ * Returns body regions that should be treated as CURRENT injuries for exercise selection.
  * 
  * For program generation and swap suggestions:
  * - All CURRENT injuries are included
- * - PAST knee injuries are included (owner has past knee surgery, needs protection)
- * - Other past injuries are excluded (only affect warm-up/prehab, not exercise selection)
+ * - Past injuries are excluded (only affect warm-up/prehab and specific rules below)
  * 
  * This applies to:
- * - Squat/lunge allowlist filtering (only knee-safe quads allowed)
- * - Floor-pull deadlift exclusion (all RDL and conventional deadlifts excluded)
- * - Adjacent hinge constraints
+ * - Squat allowlist filtering (only knee-safe quads for CURRENT knee)
+ * - Floor-pull deadlift exclusion (CURRENT knee only)
+ * - Adjacent hinge constraints (CURRENT knee only)
  * 
  * @param injuries - Array of injury records with region and severity
  * @returns Array of body regions to filter exercises against
  * 
  * @example
- * selectionInjuryRegions([
+ * currentInjuryRegions([
  *   { region: "knee", severity: "past" },
  *   { region: "shoulder", severity: "past" },
  *   { region: "lower_back", severity: "current" }
  * ])
- * // => ["knee", "lower_back"]
+ * // => ["lower_back"]
  */
-export function selectionInjuryRegions(injuries: InjuryRow[]): BodyRegion[] {
+export function currentInjuryRegions(injuries: InjuryRow[]): BodyRegion[] {
   const regions: BodyRegion[] = [];
   
   for (const injury of injuries) {
-    // All current injuries count
     if (injury.severity === "current") {
-      regions.push(injury.region);
-    }
-    // ONLY past knee injuries count for selection (owner requirement)
-    else if (injury.severity === "past" && injury.region === "knee") {
       regions.push(injury.region);
     }
   }
   
   return regions;
+}
+
+/**
+ * Checks if user has any knee injury (current OR past) for jump/plyometric exclusion.
+ * 
+ * Past knee surgery requires jump exclusion but NOT squat allowlist restriction.
+ * 
+ * @param injuries - Array of injury records
+ * @returns true if any knee injury exists (current or past)
+ */
+export function hasAnyKneeInjury(injuries: InjuryRow[]): boolean {
+  return injuries.some(injury => 
+    injury.region === "knee" && (injury.severity === "current" || injury.severity === "past")
+  );
+}
+
+/**
+ * Checks if user has past knee injury specifically (for lunge/split-squat safety list).
+ * 
+ * @param injuries - Array of injury records
+ * @returns true if past knee injury exists
+ */
+export function hasPastKneeInjury(injuries: InjuryRow[]): boolean {
+  return injuries.some(injury => 
+    injury.region === "knee" && injury.severity === "past"
+  );
 }

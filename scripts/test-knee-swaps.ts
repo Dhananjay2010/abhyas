@@ -10,7 +10,7 @@
  */
 import { readFileSync } from "node:fs";
 import type { CandidateExercise } from "../src/lib/program/generate";
-import { selectionInjuryRegions } from "../src/lib/program/injury-regions";
+import { hasAnyKneeInjury, hasPastKneeInjury } from "../src/lib/program/injury-regions";
 
 // Type definitions (matching database schema)
 type BodyRegion = "core" | "neck" | "shoulder" | "elbow" | "wrist" | "upper_back" | "lower_back" | "hip" | "knee" | "ankle";
@@ -132,21 +132,21 @@ console.log("─".repeat(60));
 for (const testCase of TEST_CASES) {
   console.log(`\n${testCase.name}`);
   
-  const regions = selectionInjuryRegions(testCase.injuries);
-  const hasKneeInjury = regions.includes("knee");
+  const anyKneeInjury = hasAnyKneeInjury(testCase.injuries);
+  const pastKneeInjury = hasPastKneeInjury(testCase.injuries);
   
   check(
-    "selectionInjuryRegions() includes knee",
-    hasKneeInjury,
-    `Got [${regions.join(", ")}]`
+    "hasAnyKneeInjury() returns true",
+    anyKneeInjury,
+    `Got ${anyKneeInjury}`
   );
   
   for (const pattern of TEST_PATTERNS) {
     // Filter catalogue by pattern and knee safety
-    const patternList = filterByPattern(pattern, hasKneeInjury);
+    const patternList = filterByPattern(pattern, anyKneeInjury);
     
     // Check that list is non-empty for lower-body patterns except lunge
-    // (lunges have no knee-safe variants in current catalogue)
+    // (lunges have limited knee-safe variants in current catalogue)
     const expectNonEmpty = ["squat", "hinge"].includes(pattern);
     if (expectNonEmpty) {
       check(

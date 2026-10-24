@@ -8,7 +8,7 @@ import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import { rankAlternatives, buildPatternList } from "@/lib/program/alternatives";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { isEligible, score, hashString, type CandidateExercise } from "@/lib/program/generate";
-import { selectionInjuryRegions } from "@/lib/program/injury-regions";
+import { currentInjuryRegions, hasAnyKneeInjury, hasPastKneeInjury } from "@/lib/program/injury-regions";
 import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
@@ -618,9 +618,10 @@ export async function findAlternatives(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
   );
   
-  const currentInjuryRegions = selectionInjuryRegions(
-    (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }))
-  );
+  const injuries = (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }));
+  const injuryRegions = currentInjuryRegions(injuries);
+  const anyKneeInjury = hasAnyKneeInjury(injuries);
+  const pastKneeInjury = hasPastKneeInjury(injuries);
 
   const input = {
     userId: user.id,
@@ -634,7 +635,9 @@ export async function findAlternatives(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions,
+    currentInjuryRegions: injuryRegions,
+    anyKneeInjury,
+    pastKneeInjury,
     catalogue: [] as CandidateExercise[],
   };
 
@@ -664,7 +667,7 @@ export async function findAlternatives(
   const tieBreak = (slug: string) => hashString(`${sessionExerciseId}:${slug}`);
   
   // Build pattern list (current + fallbacks + knee-safe if applicable)
-  const hasKneeInjury = currentInjuryRegions.includes("knee");
+  const hasKneeInjury = injuryRegions.includes("knee");
   const patterns = buildPatternList(pattern, hasKneeInjury);
   
   // Helper to cast Supabase rows to typed pool rows

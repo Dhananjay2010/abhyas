@@ -3,7 +3,7 @@ import type { Database } from "@/lib/database.types";
 import { generateProgram, CARRY_OVER_SLOTS, type GeneratorInput, type CandidateExercise } from "./generate";
 import { ageOn } from "@/lib/onboarding/options";
 import { addDays } from "@/lib/dates";
-import { selectionInjuryRegions } from "./injury-regions";
+import { currentInjuryRegions, hasAnyKneeInjury, hasPastKneeInjury } from "./injury-regions";
 
 type Client = SupabaseClient<Database>;
 
@@ -163,7 +163,13 @@ async function callRolloverRPC(
     bmi,
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
-    currentInjuryRegions: selectionInjuryRegions(
+    currentInjuryRegions: currentInjuryRegions(
+      (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }))
+    ),
+    anyKneeInjury: hasAnyKneeInjury(
+      (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }))
+    ),
+    pastKneeInjury: hasPastKneeInjury(
       (injuriesRes.data ?? []).map(inj => ({ region: inj.body_region, severity: inj.severity }))
     ),
     preferredSessionMinutes: profile.preferred_session_minutes ?? 60,

@@ -145,6 +145,8 @@
     "test:deload-best": "tsx scripts/test-deload-best.ts",
     "test:deload-best-cases": "tsx scripts/test-deload-best-cases.ts",
     "test:write-progress": "tsx scripts/test-write-progress.ts",
+    "test:injury-regions": "tsx scripts/test-injury-regions.ts",
+    "test:past-knee-coordinator": "tsx scripts/test-past-knee-coordinator.ts",
     "test:knee-safety-matrix": "tsx scripts/test-knee-safety-matrix.ts",
     "test:knee-swaps": "tsx scripts/test-knee-swaps.ts",
     "test:mutations": "bash scripts/test-mutations.sh"

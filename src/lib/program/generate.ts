@@ -43,6 +43,10 @@ export type GeneratorInput = {
   equipmentIds: string[];
   /** Current injuries hard-filter. Past ones only drive warm-up prehab. */
   currentInjuryRegions: BodyRegion[];
+  /** True if user has any knee injury (current or past) - for jump/plyometric exclusion. */
+  anyKneeInjury?: boolean;
+  /** True if user has past knee injury - for knee-safe lunge/split-squat list. */
+  pastKneeInjury?: boolean;
   /** Preferred session length in minutes. Affects exercise count. */
   preferredSessionMinutes?: number;
   catalogue: CandidateExercise[];
@@ -355,6 +359,33 @@ export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * KNEE-SAFE LUNGE EXERCISES for current OR past knee injuries (PR #73 coordinator requirement).
+ * 
+ * Step-up variants and controlled split squats only. Excludes deficit/elevated lunges,
+ * pistol squats, and side split squat.
+ * Must be REAL prod slugs only. Exported for testing.
+ */
+export const KNEE_SAFE_LUNGE_EXERCISES: ReadonlySet<string> = new Set([
+  'step-up-with-knee-raise',      // Controlled step-up, knee-safe
+  'barbell-step-ups',             // Step-up variant
+  'dumbbell-step-ups',            // Step-up variant
+  'split-squat-with-dumbbells',   // Controlled split squat
+  'smith-single-leg-split-squat', // Controlled split squat
+]);
+
+/**
+ * UNSAFE LUNGE EXERCISES for ANY knee injury (current or past).
+ * 
+ * Deficit lunges, pistols, and side split squat are excluded for any knee.
+ */
+export const UNSAFE_KNEE_LUNGES: ReadonlySet<string> = new Set([
+  'elevated-back-lunge',          // Deficit lunge (coordinator: drop for any knee)
+  'barbell-side-split-squat',     // Side split squat (coordinator: drop for any knee)
+  'kettlebell-pistol-squat',      // Pistol (baseline: exclude for gym past-knee)
+  'smith-machine-pistol-squat',   // Pistol (baseline: exclude for gym past-knee)
+]);
+
+/**
  * Floor-pull deadlifts with deep knee flexion, contraindicated for current knee injury.
  * These variants load the knee significantly during the initial pull from the floor.
  * For knee-injured users, prefer hip-dominant hinges (glute bridge, hip thrust).
@@ -515,6 +546,25 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
 
   // QA Pass 10 followup (restored from PR #53): Beginners get no high-impact plyometric moves (knee tuck jump, etc.)
   if (input.level === "beginner" && ex.impact === "high") return false;
+
+  // PR #73 coordinator requirement: ANY knee injury (current or past) excludes jump/plyometric moves on ALL slots
+  // Applies to both generation and swaps via isEligible
+  if (input.anyKneeInjury && ex.slug.includes("jump")) {
+    return false;
+  }
+
+  // PR #73 coordinator requirement: ANY knee injury (current or past) excludes unsafe lunges
+  // (deficit lunges, pistol squats, side split squat)
+  if (input.anyKneeInjury && UNSAFE_KNEE_LUNGES.has(ex.slug)) {
+    return false;
+  }
+
+  // PR #73 coordinator requirement: current or past knee uses knee-safe lunge list
+  if ((input.anyKneeInjury || input.pastKneeInjury) && ex.movement_pattern === "lunge") {
+    if (!KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
+      return false;
+    }
+  }
 
   return true;
 }
