@@ -284,6 +284,108 @@ console.log("\n10. Same session loaded 6 hours later is closed with ended_at at 
   check("ended_at matches last set", !!endedAtMatch, `${session?.completed_at} vs ${lastSet}`);
 }
 
+console.log("\n11. Boundary: exactly 6h (21600s) is stale");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T20:00:00Z");
+  const exactly6hAgo = new Date(now - 21600 * 1000).toISOString();
+  
+  fake.setSession("boundary", "in_progress");
+  fake.setSessionExercises("boundary", [
+    {
+      session_id: "boundary",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: exactly6hAgo },
+      ],
+    },
+  ]);
+  
+  const open: OpenSession[] = [{ id: "boundary", local_date: "2026-10-24", started_at: exactly6hAgo }];
+  await closeStaleSessionsCore(fake, open, now);
+  
+  const session = fake.getSession("boundary");
+  check("session closed at exactly 6h", session?.status === "completed");
+}
+
+console.log("\n12. Boundary: 21599s (1s under 6h) is still active");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T20:00:00Z");
+  const just21599sAgo = new Date(now - 21599 * 1000).toISOString();
+  
+  fake.setSession("just-under", "in_progress");
+  fake.setSessionExercises("just-under", [
+    {
+      session_id: "just-under",
+      session_sets: [
+        { id: "set1", is_warmup_set: false, completed_at: just21599sAgo },
+      ],
+    },
+  ]);
+  
+  const open: OpenSession[] = [{ id: "just-under", local_date: "2026-10-24", started_at: just21599sAgo }];
+  await closeStaleSessionsCore(fake, open, now);
+  
+  const session = fake.getSession("just-under");
+  check("session still active 1s under threshold", session?.status === "in_progress");
+}
+
+console.log("\n13. Newer-session rule: session with newer started_at closes older session");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T15:00:00Z");
+  const olderStarted = "2026-10-24T14:00:00Z";
+  const newerStarted = "2026-10-24T14:30:00Z";
+  
+  fake.setSession("older", "in_progress");
+  fake.setSession("newer", "in_progress");
+  
+  fake.setSessionExercises("older", [
+    { session_id: "older", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: "2026-10-24T14:05:00Z" }] },
+  ]);
+  fake.setSessionExercises("newer", [
+    { session_id: "newer", session_sets: [{ id: "s2", is_warmup_set: false, completed_at: "2026-10-24T14:35:00Z" }] },
+  ]);
+  
+  const open: OpenSession[] = [
+    { id: "older", local_date: "2026-10-24", started_at: olderStarted },
+    { id: "newer", local_date: "2026-10-24", started_at: newerStarted },
+  ];
+  
+  await closeStaleSessionsCore(fake, open, now);
+  
+  check("older session closed by newer-session rule", fake.getSession("older")?.status === "completed");
+  check("newer session remains open", fake.getSession("newer")?.status === "in_progress");
+}
+
+console.log("\n14. Newer-session rule: closes session only minutes old if newer exists");
+{
+  const fake = new FakeCloseStaleDeps();
+  const now = Date.parse("2026-10-24T15:00:00Z");
+  const fiveMinutesAgo = new Date(now - 5 * 60 * 1000).toISOString();
+  const twoMinutesAgo = new Date(now - 2 * 60 * 1000).toISOString();
+  
+  fake.setSession("five-min-old", "in_progress");
+  fake.setSession("two-min-old", "in_progress");
+  
+  fake.setSessionExercises("five-min-old", [
+    { session_id: "five-min-old", session_sets: [{ id: "s1", is_warmup_set: false, completed_at: fiveMinutesAgo }] },
+  ]);
+  fake.setSessionExercises("two-min-old", [
+    { session_id: "two-min-old", session_sets: [{ id: "s2", is_warmup_set: false, completed_at: twoMinutesAgo }] },
+  ]);
+  
+  const open: OpenSession[] = [
+    { id: "five-min-old", local_date: "2026-10-24", started_at: fiveMinutesAgo },
+    { id: "two-min-old", local_date: "2026-10-24", started_at: twoMinutesAgo },
+  ];
+  
+  await closeStaleSessionsCore(fake, open, now);
+  
+  check("5-minute-old session closed despite recent activity", fake.getSession("five-min-old")?.status === "completed");
+  check("2-minute-old session (newer) remains open", fake.getSession("two-min-old")?.status === "in_progress");
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);
 

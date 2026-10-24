@@ -95,9 +95,19 @@ export async function closeStaleSessionsCore(
     }
   }
 
-  // Identify truly stale sessions based on elapsed time
+  // Identify truly stale sessions based on elapsed time OR newer session rule
   const stale: string[] = [];
   const byId = new Map(open.map((s) => [s.id, s]));
+
+  // Find the newest session (latest started_at)
+  let newestStartedAt: string | null = null;
+  for (const session of open) {
+    if (session.started_at) {
+      if (!newestStartedAt || session.started_at > newestStartedAt) {
+        newestStartedAt = session.started_at;
+      }
+    }
+  }
 
   for (const id of ids) {
     const session = byId.get(id);
@@ -107,7 +117,13 @@ export async function closeStaleSessionsCore(
     const lastActivityMs = Date.parse(lastActivity);
     const elapsedSeconds = (nowMs - lastActivityMs) / 1000;
 
-    if (elapsedSeconds > STALE_INACTIVITY_THRESHOLD_SECONDS) {
+    // A session is stale if:
+    // 1. It has been inactive for more than 6 hours, OR
+    // 2. A newer session exists (newer started_at)
+    const hasNewerSession = newestStartedAt && session.started_at < newestStartedAt;
+    const isInactive = elapsedSeconds >= STALE_INACTIVITY_THRESHOLD_SECONDS;
+
+    if (isInactive || hasNewerSession) {
       stale.push(id);
     }
   }
