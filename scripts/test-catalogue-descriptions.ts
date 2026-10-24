@@ -92,7 +92,7 @@ function parseExercisesFromBaseMigration(): Map<string, ExerciseFromSeed> {
 const baseExercises = parseExercisesFromBaseMigration();
 
 // Apply our fixes
-for (const fix of cueFixes as any[]) {
+for (const fix of cueFixes as Array<{ slug: string; oldCue: string; newCue: string }>) {
   const exercise = baseExercises.get(fix.slug);
   if (exercise && exercise.cue === fix.oldCue) {
     exercise.cue = fix.newCue;
@@ -100,7 +100,10 @@ for (const fix of cueFixes as any[]) {
 }
 
 // Audit the updated exercises
-const mismatches: any[] = [];
+interface Mismatch extends ExerciseFromSeed {
+  issues: string[];
+}
+const mismatches: Mismatch[] = [];
 for (const exercise of baseExercises.values()) {
   const issues = auditExercise(exercise);
   if (issues.length > 0) {
