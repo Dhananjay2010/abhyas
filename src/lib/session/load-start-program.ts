@@ -1,7 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../database.types";
-
-export type LoadStartProgramClient = Pick<SupabaseClient<Database>, "from">;
 
 export type ProgramWithDays = {
   id: string;
@@ -17,32 +14,45 @@ export type ProgramWithDays = {
   }>;
 };
 
+export type LoadStartProgramDeps = {
+  fetchProgram: (programId: string) => Promise<ProgramWithDays | null>;
+};
+
 export type LoadStartProgramResult =
   | { ok: true; program: ProgramWithDays; dayId: string }
   | { ok: false; error: string };
 
 export async function loadStartProgram(
-  client: LoadStartProgramClient,
+  deps: LoadStartProgramDeps,
   programId: string,
   dayIndex: number,
 ): Promise<LoadStartProgramResult> {
-  const { data: program } = await client
-    .from("programs")
-    .select("id, started_on, deload_week, week_offset, program_days!inner(id, day_index, day_type, focus, label)")
-    .eq("program_days.status", "active")
-    .eq("id", programId)
-    .maybeSingle();
+  const program = await deps.fetchProgram(programId);
 
   if (!program) {
     return { ok: false, error: "No plan for today." };
   }
 
-  const typedProgram = program as unknown as ProgramWithDays;
-  const day = typedProgram.program_days.find((d) => d.day_index === dayIndex);
+  const day = program.program_days.find((d) => d.day_index === dayIndex);
 
   if (!day) {
     return { ok: false, error: "No plan for today." };
   }
 
-  return { ok: true, program: typedProgram, dayId: day.id };
+  return { ok: true, program, dayId: day.id };
+}
+
+export function createSupabaseDeps(client: { from: (table: string) => any }): LoadStartProgramDeps {
+  return {
+    async fetchProgram(programId: string) {
+      const { data } = await client
+        .from("programs")
+        .select("id, started_on, deload_week, week_offset, program_days(id, day_index, day_type, focus, label)")
+        .eq("program_days.status", "active")
+        .eq("id", programId)
+        .maybeSingle();
+      
+      return data as ProgramWithDays | null;
+    },
+  };
 }

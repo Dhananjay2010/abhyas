@@ -26,8 +26,8 @@ import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { loadStartProgram } from "@/lib/session/load-start-program";
-import { loadPlanDay } from "@/lib/session/load-plan-day";
+import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
+import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -168,7 +168,11 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // midnight boundary.
   const dayIndex = isoWeekday(today);
 
-  const loadResult = await loadStartProgram(supabase, rolloverResult.programId, dayIndex);
+  const loadResult = await loadStartProgram(
+    createLoadStartProgramDeps(supabase),
+    rolloverResult.programId,
+    dayIndex
+  );
   if (!loadResult.ok) return { ok: false, error: loadResult.error };
 
   const { program, dayId: dayId } = loadResult;
@@ -1008,7 +1012,10 @@ export async function planDay(input: {
   let programDayId: string | null = null;
 
   if (input.plan.kind === "training") {
-    const dayResult = await loadPlanDay(supabase, input.plan.programDayId);
+    const dayResult = await loadPlanDay(
+      createLoadPlanDayDeps(supabase),
+      input.plan.programDayId
+    );
     if (!dayResult.ok) return { ok: false, error: dayResult.error };
     actualType = dayResult.day.day_type;
     programDayId = dayResult.day.id;

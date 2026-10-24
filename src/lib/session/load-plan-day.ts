@@ -1,11 +1,12 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../database.types";
-
-export type LoadPlanDayClient = Pick<SupabaseClient<Database>, "from">;
 
 export type PlanDay = {
   id: string;
   day_type: Database["public"]["Enums"]["day_type"];
+};
+
+export type LoadPlanDayDeps = {
+  fetchDay: (dayId: string) => Promise<PlanDay | null>;
 };
 
 export type LoadPlanDayResult =
@@ -13,19 +14,29 @@ export type LoadPlanDayResult =
   | { ok: false; error: string };
 
 export async function loadPlanDay(
-  client: LoadPlanDayClient,
+  deps: LoadPlanDayDeps,
   dayId: string,
 ): Promise<LoadPlanDayResult> {
-  const { data: day } = await client
-    .from("program_days")
-    .select("id, day_type")
-    .eq("id", dayId)
-    .eq("status", "active")
-    .maybeSingle();
+  const day = await deps.fetchDay(dayId);
 
   if (!day) {
     return { ok: false, error: "That day is not in your block." };
   }
 
   return { ok: true, day };
+}
+
+export function createSupabaseDeps(client: { from: (table: string) => any }): LoadPlanDayDeps {
+  return {
+    async fetchDay(dayId: string) {
+      const { data } = await client
+        .from("program_days")
+        .select("id, day_type")
+        .eq("id", dayId)
+        .eq("status", "active")
+        .maybeSingle();
+      
+      return data as PlanDay | null;
+    },
+  };
 }
