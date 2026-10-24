@@ -299,8 +299,6 @@ export function SettingsForm({
       rest_seconds_override: "restOverrideSeconds",
       bodyweight_prompt: "bodyweightPrompt",
       timezone: "timezone",
-      rest_timer_sound: "restSound",
-      rest_timer_vibrate: "restVibrate",
     };
     return mapping[apiKey] || null;
   }
@@ -400,7 +398,7 @@ export function SettingsForm({
       () => {
         // On success: update lastSavedValues
         if (stateKey && stateKey in lastSavedValues.current) {
-          (lastSavedValues.current as any)[stateKey] = newValue;
+          lastSavedValues.current[stateKey] = newValue as never;
         }
       },
       () => {
@@ -429,7 +427,7 @@ export function SettingsForm({
       () => {
         // On success: update lastSavedValues
         if (stateKey && stateKey in lastSavedValues.current) {
-          (lastSavedValues.current as any)[stateKey] = newValue;
+          lastSavedValues.current[stateKey] = newValue as never;
         }
       },
       () => {
