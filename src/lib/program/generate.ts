@@ -348,11 +348,13 @@ function shouldExcludeForSafety(
  * Must be REAL prod slugs only. H6 test requires hasAllEquipment: true.
  */
 const KNEE_SAFE_QUAD_EXERCISES = new Set([
-  'leg-extensions',           // Partial ROM, pain-free range (machine)
-  'single-leg-leg-extension', // Partial ROM, pain-free range (machine)
-  'box-squat',                // Box at parallel or higher (barbell, squat_rack)
-  'wall-sit',                 // Isometric hold, no dynamic stress (bodyweight, seconds metric)
-  'spanish-squat',            // Band-resisted, controlled (resistance_band)
+  'leg-extensions',           // Partial ROM, controlled (requires leg_extension machine)
+  'single-leg-leg-extension', // Controlled, no impact (requires leg_extension machine)
+  'box-squat',                // Limited depth, box provides safety (requires barbell, squat_rack)
+  'step-up-with-knee-raise',  // Controlled, user picks height (bodyweight)
+  'dumbbell-step-ups',        // Controlled step-ups (requires dumbbell)
+  'hip-flexion-with-band',    // Quad isolation without knee stress (requires resistance_band)
+  'barbell-step-ups',         // Controlled step-ups (requires barbell)
 ]);
 
 /**
@@ -379,13 +381,6 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   
   // High spinal load affects lower back (moderate is manageable for most)
   if (ex.spinal_load === "high") {
-    derived.push("lower_back");
-  }
-  
-  // QA Pass 10 followup: Loaded lateral-flexion moves (kettlebell windmill, etc.) contraindicated for lower_back
-  if ((nameLower.includes("windmill") || slugLower.includes("windmill") ||
-       nameLower.includes("side bend") || slugLower.includes("side-bend")) &&
-      ex.equipment_ids.length > 0) {
     derived.push("lower_back");
   }
   
@@ -462,9 +457,6 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   // Also block high spinal load for current lower_back injury (handled above via derived contraindications)
   if (input.age !== null && input.age >= 50 && ex.spinal_load === "high") return false;
 
-  // QA Pass 10 followup: Beginners get no high-impact plyometric moves (knee tuck jump, etc.)
-  if (input.level === "beginner" && ex.impact === "high") return false;
-
   return true;
 }
 
@@ -480,7 +472,6 @@ export function score(
   wantCompound: boolean,
   level: Level,
   primaryTrack: Track = "weights",
-  currentInjuryRegions: BodyRegion[] = [],
 ): number {
   let s = 0;
   if (wantCompound && ex.mechanic === "compound") s += 4;
@@ -506,12 +497,6 @@ export function score(
   // is what bench press needs, not a reason to avoid it.
   if (primaryTrack === "bodyweight") {
     s -= Math.max(0, ex.equipment_ids.length - 1);
-  }
-
-  // QA Pass 10 followup: Knee injury bonus for knee-safe quad exercises
-  // Coordinator decision: leg-extensions, single-leg-leg-extension, box-squat, wall-sit, spanish-squat
-  if (currentInjuryRegions.includes("knee") && KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
-    s += 15; // Much higher than compound bonus (4), so knee-safe options rank first
   }
 
   return s;
@@ -630,7 +615,7 @@ function pickForSlot(
     const ranked = candidates
       .map((e) => ({
         e,
-        score: score(e, wantCompound, input.level, input.primaryTrack, input.currentInjuryRegions),
+        score: score(e, wantCompound, input.level, input.primaryTrack),
         stapleKey: isMainSlot
           ? stapleSortKey(e, p, input.hasAllEquipment, input.primaryTrack)
           : `1:${e.slug}`, // Non-main slots: no staple bonus
@@ -669,7 +654,7 @@ function pickForSlot(
     const ranked = filtered
       .map((e) => ({
         e,
-        score: score(e, slotIndex < 4, input.level, input.primaryTrack, input.currentInjuryRegions),
+        score: score(e, slotIndex < 4, input.level, input.primaryTrack),
         stapleKey: stapleSortKey(e, altPattern, input.hasAllEquipment, input.primaryTrack),
         rng: rng(),
       }))
@@ -820,7 +805,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           })
           .map(e => ({
             e,
-            score: score(e, i < 4, input.level, input.primaryTrack, input.currentInjuryRegions),
+            score: score(e, i < 4, input.level, input.primaryTrack),
             stapleKey: stapleSortKey(e, pattern, input.hasAllEquipment, input.primaryTrack),
             rng: rng(),
           }))
@@ -884,7 +869,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return true;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -912,7 +897,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return isEligible(e, input);
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -949,7 +934,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -989,7 +974,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -1093,8 +1078,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         .filter((e) => !usedInBlock.has(e.id))
         .sort(
           (a, b) =>
-            score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
-              score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
+            score(b, true, input.level, input.primaryTrack) -
+              score(a, true, input.level, input.primaryTrack) ||
             a.slug.localeCompare(b.slug),
         );
       
@@ -1143,38 +1128,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       });
     }
 
-    // QA Pass 10 followup: Never allow two hinge-pattern exercises back to back
-    // Check for adjacent hinges and swap the second one if found
-    for (let i = 0; i < exercises.length - 1; i++) {
-      const current = pool.find(e => e.id === exercises[i].exerciseId);
-      const next = pool.find(e => e.id === exercises[i + 1].exerciseId);
-      
-      if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
-        // Find a non-hinge exercise to swap with
-        const swapCandidates = exercises.slice(i + 2).map((ex, idx) => ({ ex, idx: idx + i + 2 }))
-          .filter(({ ex }) => {
-            const candidate = pool.find(e => e.id === ex.exerciseId);
-            return candidate && candidate.movement_pattern !== "hinge";
-          });
-        
-        if (swapCandidates.length > 0) {
-          // Swap with the first non-hinge exercise after the adjacent hinges
-          const { idx: swapIdx } = swapCandidates[0];
-          [exercises[i + 1], exercises[swapIdx]] = [exercises[swapIdx], exercises[i + 1]];
-          // Update order indices
-          exercises[i + 1].orderIndex = i + 1;
-          exercises[swapIdx].orderIndex = swapIdx;
-        }
-      }
-    }
-
     // M3: Adjust volume to hit target session length (±5 min)
     if (input.preferredSessionMinutes && exercises.length > 0) {
       const targetMin = input.preferredSessionMinutes;
       const lowerBound = targetMin - 5;
       const upperBound = targetMin + 5;
-      // For very short sessions (20-30 min), allow dropping to 3 exercises; otherwise min 4
-      const minExercises = targetMin <= 25 ? 3 : Math.max(4, Math.floor(entry.slots.length * 0.8));
+      const minExercises = Math.max(4, Math.floor(entry.slots.length * 0.8)); // Allow dropping to 80% of template, minimum 4
       
       // Iteratively adjust volume to hit target ±5 min
       let estimate = estimateSessionMinutes({ exercises });
@@ -1259,95 +1218,50 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         break; // Can't reduce further
       }
       
-      // Second pass: if under target, add exercises first (respecting pattern balance), then sets
-      // Cap: beginners 3 sets, intermediates 4, advanced 5
-      const setCapByLevel: Record<Level, number> = {
-        beginner: 3,
-        intermediate: 4,
-        expert: 5,
-      };
-      const maxSets = setCapByLevel[input.level];
-      
+      // Second pass: if under target, add sets or exercises
       while (estimate < lowerBound && iterations < MAX_ITERATIONS) {
         iterations++;
         
-        // Strategy 1: Add another exercise first (respecting pattern balance: add a pull when pushes outnumber pulls)
-        const slots: Pattern[] = (entry.slots ?? []) as Pattern[];
-        const accessoryPatterns: Pattern[] = slots.length >= 2 ? slots.slice(-2) : ["core" as Pattern]; // Last 2 patterns, or default to core
-        // Allow exercises beyond slot count for longer sessions
-        // Calculate based on time target: longer sessions or strict set caps need more exercises
-        // Base: slots.length, allow up to +50% more exercises for very long sessions
-        const baseMax = slots.length + 2;
-        const timeBasedMax = Math.ceil(sessionMinutes / 6); // ~6 min per exercise avg for bodyweight
-        const maxExercises = Math.max(baseMax, Math.min(12, timeBasedMax));
-        if (exercises.length < maxExercises && accessoryPatterns.length > 0) {
-          // Check pattern balance to decide what to add
-          const pushPatterns = ["horizontal_press", "vertical_press"];
-          const pullPatterns = ["horizontal_pull", "vertical_pull"];
+        // Strategy 1: Add a set to accessories (slots 4+, up to 4 sets max)
+        const accessories = exercises
+          .map((ex, idx) => ({ ex, idx }))
+          .filter(({ idx }) => idx >= 4 && exercises[idx].targetSets < 4);
+        
+        if (accessories.length > 0) {
+          // Deterministic: pick first accessory that can take another set
+          accessories[0].ex.targetSets++;
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        // Strategy 2: Add a set to main exercises (up to 5 sets max for main lifts)
+        const mainExercises = exercises
+          .map((ex, idx) => ({ ex, idx }))
+          .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < 5);
+        
+        if (mainExercises.length > 0) {
+          mainExercises[0].ex.targetSets++;
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        // Strategy 3: Add another accessory exercise
+        const accessoryPatterns = entry.slots.slice(-2); // Last 2 patterns
+        if (accessoryPatterns.length > 0) {
+          const pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
+          const candidates = pool
+            .filter((e) => 
+              e.movement_pattern === pattern &&
+              !usedInBlock.has(e.id) &&
+              isEligible(e, input)
+            )
+            .sort((a, b) => 
+              score(b, true, input.level, input.primaryTrack) -
+              score(a, true, input.level, input.primaryTrack) ||
+              a.slug.localeCompare(b.slug)
+            );
           
-          const pushCount = exercises.filter(e => {
-            const ex = pool.find(p => p.id === e.exerciseId);
-            return ex && pushPatterns.includes(ex.movement_pattern);
-          }).reduce((sum, e) => sum + e.targetSets, 0);
-          
-          const pullCount = exercises.filter(e => {
-            const ex = pool.find(p => p.id === e.exerciseId);
-            return ex && pullPatterns.includes(ex.movement_pattern);
-          }).reduce((sum, e) => sum + e.targetSets, 0);
-          
-          // Prefer a pull pattern if pushes outnumber pulls by more than 1 set-group
-          let preferredPatterns = accessoryPatterns;
-          if (pushCount > pullCount + 1 && accessoryPatterns.some(p => pullPatterns.includes(p))) {
-            preferredPatterns = accessoryPatterns.filter(p => pullPatterns.includes(p));
-          }
-          
-          // Try preferred pattern first, then fall back to any pattern from template if no candidates
-          let candidates: typeof pool = [];
-          let pickedPattern: Pattern | null = null;
-          
-          for (const pattern of preferredPatterns) {
-            candidates = pool
-              .filter((e) => 
-                e.movement_pattern === pattern &&
-                !usedInBlock.has(e.id) &&
-                isEligible(e, input)
-              )
-              .sort((a, b) => 
-                score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
-                score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
-                a.slug.localeCompare(b.slug)
-              );
-            
-            if (candidates.length > 0) {
-              pickedPattern = pattern;
-              break;
-            }
-          }
-          
-          // If preferred patterns exhausted, try any slot pattern
-          if (candidates.length === 0) {
-            for (const pattern of slots) {
-              if (pattern === "core") continue; // Skip core to avoid too many core exercises
-              candidates = pool
-                .filter((e) => 
-                  e.movement_pattern === pattern &&
-                  !usedInBlock.has(e.id) &&
-                  isEligible(e, input)
-                )
-                .sort((a, b) => 
-                  score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
-                  score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
-                  a.slug.localeCompare(b.slug)
-                );
-              
-              if (candidates.length > 0) {
-                pickedPattern = pattern;
-                break;
-              }
-            }
-          }
-          
-          if (candidates.length > 0 && pickedPattern) {
+          if (candidates.length > 0) {
             const picked = candidates[0];
             usedInBlock.add(picked.id);
             const p = prescribe(
@@ -1368,150 +1282,12 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               restSeconds: p.restSeconds,
             });
             estimate = estimateSessionMinutes({ exercises });
-            continue;
-          }
-        }
-        
-        // Strategy 2: Add a set to accessories (slots 4+, up to level cap)
-        // Prioritize adding sets to underrepresented patterns (push vs pull balance)
-        const accessories = exercises
-          .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx >= 4 && exercises[idx].targetSets < maxSets);
-        
-        if (accessories.length > 0) {
-          const pushPatterns = ["horizontal_press", "vertical_press"];
-          const pullPatterns = ["horizontal_pull", "vertical_pull"];
-          
-          const pushCount = exercises.reduce((sum, e) => {
-            const ex = pool.find(p => p.id === e.exerciseId);
-            return sum + (ex && pushPatterns.includes(ex.movement_pattern) ? e.targetSets : 0);
-          }, 0);
-          
-          const pullCount = exercises.reduce((sum, e) => {
-            const ex = pool.find(p => p.id === e.exerciseId);
-            return sum + (ex && pullPatterns.includes(ex.movement_pattern) ? e.targetSets : 0);
-          }, 0);
-          
-          // Pick an accessory from the underrepresented pattern if imbalanced
-          let picked = accessories[0];
-          if (pullCount > pushCount + 1) {
-            // Prioritize push accessories
-            const pushAccessory = accessories.find(({ ex }) => {
-              const e = pool.find(p => p.id === ex.exerciseId);
-              return e && pushPatterns.includes(e.movement_pattern);
-            });
-            if (pushAccessory) picked = pushAccessory;
-          } else if (pushCount > pullCount + 1) {
-            // Prioritize pull accessories
-            const pullAccessory = accessories.find(({ ex }) => {
-              const e = pool.find(p => p.id === ex.exerciseId);
-              return e && pullPatterns.includes(e.movement_pattern);
-            });
-            if (pullAccessory) picked = pullAccessory;
-          }
-          
-          picked.ex.targetSets++;
-          estimate = estimateSessionMinutes({ exercises });
-          continue;
-        }
-        
-        // Strategy 3: Add a set to main exercises (up to level cap)
-        const mainExercises = exercises
-          .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < maxSets);
-        
-        if (mainExercises.length > 0) {
-          mainExercises[0].ex.targetSets++;
-          estimate = estimateSessionMinutes({ exercises });
-          continue;
-        }
-        
-        // Strategy 4: If still under target, but respect level caps strictly
-        // Do NOT exceed level caps (beginner 3, intermediate 4, advanced 5)
-        // If we can't add more within caps, accept being slightly under-target
-        
-        break; // Can't add more
-      }
-    }
-
-    // Post-pacing balance: Ensure push/pull balance within ±1 set-group
-    // Only apply to sessions with both push and pull exercises
-    // Respect level caps: beginner 3, intermediate 4, advanced 5
-    const setCapByLevel: Record<Level, number> = {
-      beginner: 3,
-      intermediate: 4,
-      expert: 5,
-    };
-    const maxSets = setCapByLevel[input.level];
-    
-    const pushPatterns = ["horizontal_press", "vertical_press"];
-    const pullPatterns = ["horizontal_pull", "vertical_pull"];
-    
-    const pushExercises = exercises.filter(e => {
-      const ex = pool.find(p => p.id === e.exerciseId);
-      return ex && pushPatterns.includes(ex.movement_pattern);
-    });
-    
-    const pullExercises = exercises.filter(e => {
-      const ex = pool.find(p => p.id === e.exerciseId);
-      return ex && pullPatterns.includes(ex.movement_pattern);
-    });
-    
-    if (pushExercises.length > 0 && pullExercises.length > 0) {
-      let pushCount = pushExercises.reduce((sum, e) => sum + e.targetSets, 0);
-      let pullCount = pullExercises.reduce((sum, e) => sum + e.targetSets, 0);
-      
-      // If imbalanced by more than 1, rebalance (respecting level caps)
-      while (pullCount > pushCount + 1) {
-        // Try to add a set to a push exercise first
-        const pushToBoost = pushExercises.find(e => e.targetSets < maxSets);
-        if (pushToBoost) {
-          pushToBoost.targetSets++;
-        }
-        
-        // If no push exercise can be boosted (all at cap), reduce pull instead
-        // Allow reducing down to 1 set minimum for balance
-        if (!pushToBoost || pullCount > pushCount + 2) {
-          const pullToReduce = pullExercises.filter(e => e.targetSets > 1).sort((a, b) => b.targetSets - a.targetSets)[0];
-          if (pullToReduce) {
-            pullToReduce.targetSets--;
           } else {
-            break; // Can't rebalance further
+            break; // No more accessories available
           }
+        } else {
+          break; // No accessory patterns to work with
         }
-        
-        // Recalculate counts
-        pushCount = pushExercises.reduce((sum, e) => sum + e.targetSets, 0);
-        pullCount = pullExercises.reduce((sum, e) => sum + e.targetSets, 0);
-        if (Math.abs(pullCount - pushCount) <= 1) break;
-      }
-      
-      // Recalculate for the opposite case
-      pushCount = pushExercises.reduce((sum, e) => sum + e.targetSets, 0);
-      pullCount = pullExercises.reduce((sum, e) => sum + e.targetSets, 0);
-      
-      while (pushCount > pullCount + 1) {
-        // Try to add a set to a pull exercise first
-        const pullToBoost = pullExercises.find(e => e.targetSets < maxSets);
-        if (pullToBoost) {
-          pullToBoost.targetSets++;
-        }
-        
-        // If no pull exercise can be boosted (all at cap), reduce push instead
-        // Allow reducing down to 1 set minimum for balance
-        if (!pullToBoost || pushCount > pullCount + 2) {
-          const pushToReduce = pushExercises.filter(e => e.targetSets > 1).sort((a, b) => b.targetSets - a.targetSets)[0];
-          if (pushToReduce) {
-            pushToReduce.targetSets--;
-          } else {
-            break; // Can't rebalance further
-          }
-        }
-        
-        // Recalculate counts
-        pushCount = pushExercises.reduce((sum, e) => sum + e.targetSets, 0);
-        pullCount = pullExercises.reduce((sum, e) => sum + e.targetSets, 0);
-        if (Math.abs(pullCount - pushCount) <= 1) break;
       }
     }
 
