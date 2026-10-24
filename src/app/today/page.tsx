@@ -13,6 +13,7 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { weekInBlock } from "@/lib/program/prescription";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { RefetchOnResume } from "./refetch-on-resume";
 
 export const dynamic = "force-dynamic";
 
@@ -446,6 +447,7 @@ export default async function TodayPage() {
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-36">
+      <RefetchOnResume />
       <header>
         <p className="text-sm text-muted">
           {DAY_NAMES[todayIndex - 1]} · Block {program.block_number} · Week {week} of 4
