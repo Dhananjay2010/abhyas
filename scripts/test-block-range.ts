@@ -133,16 +133,15 @@ console.log("\n6. cycleWeekFor: week_offset carries deload across rebuild");
   check("missing week_offset defaults to 0", cycleWeekFor(legacy, "2026-10-01") === 1);
 }
 
-console.log("\n7. cycleWeekFor: throws on date before block start");
+console.log("\n7. cycleWeekFor: clamps to week 1 for date before block start");
 {
   const block = b("1", "2026-10-15", null);
-  let threw = false;
-  try {
-    cycleWeekFor(block, "2026-10-14");
-  } catch (error) {
-    threw = error instanceof Error && error.message.includes("before block start");
-  }
-  check("throws for date before started_on", threw);
+  const week = cycleWeekFor(block, "2026-10-14");
+  check("clamps to week 1 for date before started_on", week === 1, `got ${week}`);
+  
+  const blockWithOffset = b("2", "2026-10-15", null, 2);
+  const weekWithOffset = cycleWeekFor(blockWithOffset, "2026-10-14");
+  check("clamps to week 1 even with week_offset", weekWithOffset === 1, `got ${weekWithOffset}`);
 }
 
 console.log("\n8. blockForDate: throws on overlap in non-production");

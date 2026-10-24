@@ -59,9 +59,11 @@ export default async function ProgressPage() {
       .order("local_date", { ascending: false })
       .limit(600),
     // Ordered oldest-first for building day records
+    // Exclude superseded blocks (preserve history only, not used for streaks/charts)
     supabase
       .from("programs")
       .select("id, started_on, ends_on, ended_on, created_at")
+      .neq("status", "superseded")
       .order("started_on")
       .order("created_at"),
     supabase
