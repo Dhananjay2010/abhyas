@@ -185,7 +185,7 @@ async function testLoadPendingSetsWithInvalidStorage() {
   const storage = createStorage();
   storage.setItem(storageKey("test-user-id"), "invalid json");
 
-  const result = loadPendingSets(storage, "session-1", createPendingSetDeps());
+  const result = loadPendingSets(storage, "test-user-id", "session-1", createPendingSetDeps());
 
   assertEqual(result, [], "Returns empty array when storage is invalid");
   assertEqual(storage.getItem(storageKey("test-user-id")), null, "Invalid storage is cleared");

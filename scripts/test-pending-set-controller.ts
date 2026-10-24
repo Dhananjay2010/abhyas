@@ -10,6 +10,7 @@ import {
 import { SESSION_EXPIRED_CODE, resolveAuth } from "../src/lib/session/auth-result";
 import type { Result } from "../src/app/session/actions";
 import type { Storage } from "../src/lib/session/pending-set-retry";
+import { storageKey } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {
