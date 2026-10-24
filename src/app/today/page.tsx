@@ -348,7 +348,7 @@ export default async function TodayPage() {
     yesterday,
     dayType,
     strengthDone,
-    strengthOpen: !!strengthPlanned,
+    strengthOpen: !!strengthOpen,
     hasStartedAny,
   });
 
@@ -375,7 +375,7 @@ export default async function TodayPage() {
   // H2: Always load plannable days for rest days (not just when yesterday was missed)
   // so "Or train today anyway" can offer workout options even when yesterday was done.
   const needsPlannableDays =
-    (dayType === "rest" || missedYesterday) && !strengthDone && !strengthPlanned;
+    (dayType === "rest" || missedYesterday) && !strengthDone && !strengthOpen;
 
   const [plannable, daysForTrainAnyway, performedRows] = await Promise.all([
     needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
@@ -611,7 +611,7 @@ export default async function TodayPage() {
               Session complete. Well done.
             </p>
           ) : (
-            <StartSessionButton label="Start session" />
+            <StartSessionButton label={strengthOpen?.started_at ? "Resume session" : "Start session"} />
           )}
         </div>
       )}
