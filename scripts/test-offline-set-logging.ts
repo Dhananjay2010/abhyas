@@ -947,7 +947,7 @@ async function testSetRemovedDuringFlush() {
     weightKg: 100,
     durationSeconds: null,
   });
-  
+
   const clientId2 = outbox.enqueue({
     sessionExerciseId: "ex1",
     setNumber: 2,
@@ -973,11 +973,11 @@ async function testSetRemovedDuringFlush() {
   if (sender.sent.length !== 1) {
     throw new Error(`Expected 1 sent, got ${sender.sent.length}`);
   }
-  
+
   if (!result.sentClientIds.includes(clientId1)) {
     throw new Error("First set should be sent");
   }
-  
+
   if (result.sentClientIds.includes(clientId2)) {
     throw new Error("Second set should NOT be sent (was removed)");
   }
@@ -1013,7 +1013,7 @@ async function testMaxRetries() {
   if (!state || state.pending.length !== 1) {
     throw new Error("Set should still be pending after 10 flushes");
   }
-  
+
   if (state.pending[0].retries !== 10) {
     throw new Error(`Expected retries=10, got ${state.pending[0].retries}`);
   }
@@ -1025,11 +1025,11 @@ async function testMaxRetries() {
   if (!state || state.pending.length !== 0) {
     throw new Error("Set should be removed from pending");
   }
-  
+
   if (state.failed.length !== 1) {
     throw new Error(`Expected 1 failed set, got ${state.failed.length}`);
   }
-  
+
   if (!state.failed[0].error.includes("multiple attempts")) {
     throw new Error(`Expected 'multiple attempts' in error, got: ${state.failed[0].error}`);
   }

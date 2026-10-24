@@ -1,6 +1,6 @@
 /**
  * Count logged sets that are saved or pending (exclude failed/unsaved).
- * 
+ *
  * Pure function for testability. Handles:
  * - Doesn't count failed or unsaved rows
  * - Doesn't double-count (deduplicates by setNumber)
@@ -27,7 +27,7 @@ export function countLoggedSets(
 
 /**
  * Map Postgres error codes and raw error text to user-friendly messages.
- * 
+ *
  * Pure function for testability.
  */
 export function mapErrorToUserMessage(code: string | null | undefined, rawMessage?: string): string {
@@ -39,35 +39,35 @@ export function mapErrorToUserMessage(code: string | null | undefined, rawMessag
     if (code === "22P02" || code === "22003" || code === "23514") {
       return "Not saved, check the numbers";
     }
-    
+
     // 42501: Insufficient privilege
     if (code === "42501") {
       return "Not saved, please sign in again";
     }
   }
-  
+
   // Map raw text patterns
   if (rawMessage) {
     const lower = rawMessage.toLowerCase();
-    
+
     // Quota exceeded errors
     if (lower.includes("quota") || lower === "quota_exceeded" || lower.includes("exceeded the quota")) {
       return "Not saved, out of space";
     }
-    
+
     // Max retries
     if (lower.includes("failed after") && lower.includes("retries")) {
       return "Not saved after multiple attempts";
     }
   }
-  
+
   // Default message for any other error
   return "Not saved, tap Retry";
 }
 
 /**
  * Compute retry delay in milliseconds based on attempt count.
- * 
+ *
  * Schedule: 15s, 30s, 60s (then stays at 60s).
  * Pure function for testability.
  */

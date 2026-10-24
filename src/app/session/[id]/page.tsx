@@ -18,9 +18,9 @@ export default async function SessionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  
+
   if (!isUuid(id)) notFound();
-  
+
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
@@ -171,7 +171,7 @@ export default async function SessionPage({
 
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
   const allWarmupRows = (warmupsRes.data ?? []) as WarmupRow[];
-  
+
   const warmup = selectWarmup({
     warmups: allWarmupRows,
     trainingMuscles,

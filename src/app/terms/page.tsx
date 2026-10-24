@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function TermsOfServicePage() {
   const { gymName, supportEmail, gymAddress, gymPhone, appName } = getSiteInfo();
-  
+
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10 pb-28">
       <Link
@@ -17,7 +17,7 @@ export default function TermsOfServicePage() {
       >
         ← Back
       </Link>
-      
+
       <div className="mt-6 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
         <p className="text-sm font-medium text-warning">
           ⚠️ Draft — Pending Legal Review
@@ -229,11 +229,11 @@ export default function TermsOfServicePage() {
           <h2 className="text-xl font-semibold">12. Governing Law and Disputes</h2>
           <p>
             These Terms are governed by the laws of India, without regard to conflict of
-            law principles. This agreement is subject to the provisions of the Digital Personal Data 
+            law principles. This agreement is subject to the provisions of the Digital Personal Data
             Protection Act, 2023 (DPDP Act) and the Information Technology Act, 2000.
           </p>
           <p>
-            Any disputes arising from these Terms or your use of the App shall be subject to the 
+            Any disputes arising from these Terms or your use of the App shall be subject to the
             exclusive jurisdiction of the courts in [CITY, STATE], India.
           </p>
         </section>

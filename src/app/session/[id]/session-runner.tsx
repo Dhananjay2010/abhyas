@@ -144,10 +144,10 @@ export function SessionRunner({
   const router = useRouter();
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
-  
+
   // Start from initialExercises and merge pending/failed in mount effect (avoid hydration mismatch)
   const [exercises, setExercises] = useState(initialExercises);
-  
+
   const [error, setError] = useState<string | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [progressNotes, setProgressNotes] = useState<
@@ -282,7 +282,7 @@ export function SessionRunner({
       return meta.unsaved;
     }).length;
   }, 0), [exercises]);
-  
+
   const failedCount = useMemo(() => exercises.reduce((sum, ex) => {
     return sum + ex.sets.filter((s) => {
       const meta = s as unknown as { failed?: boolean };
@@ -296,7 +296,7 @@ export function SessionRunner({
     const prev = prevCountsRef.current;
     const allClear = pendingCount === 0 && lostCount === 0 && failedCount === 0;
     const wasNotClear = prev.pending > 0 || prev.lost > 0 || prev.failed > 0;
-    
+
     // Only clear when transitioning from "not clear" to "all clear"
     if (allClear && wasNotClear) {
       setError((currentError) => {
@@ -306,7 +306,7 @@ export function SessionRunner({
         return currentError;
       });
     }
-    
+
     prevCountsRef.current = { pending: pendingCount, lost: lostCount, failed: failedCount };
   }, [pendingCount, lostCount, failedCount]);
 
@@ -627,7 +627,7 @@ export function SessionRunner({
 
   // Find the highest actually logged setNumber (for undo targeting)
   const lastLoggedSetNumber = undoTargetSetNumber(current.sets);
-  
+
   // B1b: Block logging if any failed or unsaved rows exist
   const hasFailedOrUnsaved = current.sets.some((s) => {
     const meta = s as unknown as { failed?: boolean; unsaved?: boolean };
@@ -760,12 +760,12 @@ export function SessionRunner({
 
         // Clear any previous error banner
         setError(null);
-        
+
         // Set offline state if network error
         if (classification.isNetwork) {
           setSyncState({ type: "offline" });
         }
-        
+
         // Start rest timer for queued sets too (safe in localStorage)
         if (settings.restAutostart && nextSetNumber < current.plannedSets) {
           startRest(restSeconds);
@@ -791,7 +791,7 @@ export function SessionRunner({
               : e,
           ),
         );
-        
+
         // Set error based on error type (don't set syncState to "quota" - no banner)
         if (isQuotaError(err)) {
           setError(
@@ -815,7 +815,7 @@ export function SessionRunner({
     const currentExercise = exercises.find((e) => e.id === current.id);
     const setToRemove = currentExercise?.sets.find((s) => s.setNumber === setNumber);
     const setWithMeta = setToRemove as unknown as { pending?: boolean; failed?: boolean; unsaved?: boolean; clientId?: string };
-    
+
     // B1c: Only remove matching local row (same setNumber AND pending/failed/unsaved)
     if (setWithMeta?.pending || setWithMeta?.failed || setWithMeta?.unsaved) {
       // S1c: Defensively call deleteSet in case server saved it but response was lost.
@@ -823,7 +823,7 @@ export function SessionRunner({
       if (setWithMeta.pending || setWithMeta.failed) {
         void actions.deleteSet(current.id, setNumber).catch(() => {});
       }
-      
+
       // Local-only set - remove from UI and outbox
       if (setWithMeta.clientId) {
         removeSet(setWithMeta.clientId);
@@ -1031,7 +1031,7 @@ export function SessionRunner({
                     Retry: per-row retry for failed and unsaved sets (B2).
                     Undo, offered on the most recently logged set for saved sets.
                     For failed/unsaved sets, allow undo regardless of position.
-                    
+
                     Restricting saved sets to the last keeps numbering contiguous:
                     removing set 2 of 3 would leave a hole that the next "Log set"
                     would collide with.
@@ -1066,7 +1066,7 @@ export function SessionRunner({
                               // Network or other thrown error
                               classification = classifyLogSetOutcome({ thrown });
                             }
-                            
+
                             if (classification.outcome === "saved") {
                               // Clear failed/unsaved flags and remove from outbox if clientId exists
                               if (setWithMeta.clientId) {
@@ -1097,7 +1097,7 @@ export function SessionRunner({
                               if (setWithMeta.clientId) {
                                 removeSet(setWithMeta.clientId);
                               }
-                              
+
                               // Try to enqueue
                               try {
                                 const clientId = enqueueSet(

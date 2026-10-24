@@ -57,7 +57,7 @@ function metricOf(embedded: unknown): Database["public"]["Enums"]["exercise_metr
 export async function startSession(): Promise<Result<{ sessionId: string }>> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<{ sessionId: string }>;
-  
+
   const { supabase, user } = await requireUser();
 
   // ---- wave 1 -------------------------------------------------------------
@@ -234,7 +234,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
 export async function markWarmupDone(sessionId: string): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("sessions")
@@ -259,7 +259,7 @@ export async function logSet(input: {
     // Rate limit returns ActionResult, extract error
     return { ok: false, error: "error" in rateLimit ? String(rateLimit.error) : "Rate limit exceeded" };
   }
-  
+
   const durationSeconds = input.durationSeconds ?? null;
   const invalid = validateSet(input.reps, input.weightKg, durationSeconds);
   if (invalid) {
@@ -281,7 +281,7 @@ export async function logSet(input: {
     },
     { onConflict: "session_exercise_id,set_number,is_warmup_set" },
   );
-  
+
   if (error) {
     const classification = classifyLogSetError(error);
     return {
@@ -293,7 +293,7 @@ export async function logSet(input: {
       }
     };
   }
-  
+
   return { ok: true, data: {} };
 }
 
@@ -303,7 +303,7 @@ export async function deleteSet(
 ): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("session_sets")
@@ -336,7 +336,7 @@ export async function finishExercise(input: {
 }): Promise<Result<ProgressionFeedback | null>> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<ProgressionFeedback | null>;
-  
+
   const { supabase, user } = await requireUser();
 
   return finishExerciseCore(supabase, user.id, input, { applyProgression });
@@ -512,7 +512,7 @@ export async function finishSession(input: {
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase } = await requireUser();
   const { error } = await supabase
     .from("sessions")
@@ -593,7 +593,7 @@ export async function findAlternatives(
 ): Promise<Result<Alternative[]>> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<Alternative[]>;
-  
+
   const { supabase, user } = await requireUser();
 
   const { data: current } = await supabase
@@ -709,7 +709,7 @@ export async function swapExercise(input: {
 }): Promise<Result<SwapResult>> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit as Result<SwapResult>;
-  
+
   const { supabase, user } = await requireUser();
 
   const [currentRes, replacementRes, profileRes] = await Promise.all([
@@ -883,7 +883,7 @@ export async function planDay(input: {
 }): Promise<Result> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
-  
+
   const { supabase, user } = await requireUser();
 
   const { data: profile } = await supabase

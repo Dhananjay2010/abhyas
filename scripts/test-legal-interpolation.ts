@@ -79,11 +79,11 @@ function testAllBrandsRender() {
     // Brand names should not start or end with alphanumeric that would
     // create concatenation when interpolated
     const name = brand.name;
-    
+
     // Test example sentence: "By using {appName}, you consent"
     // Should render as "By using Abhyas, you consent" not "By usingAbhyas, you consent"
     const testSentence = `By using ${name}, you consent`;
-    
+
     assert(
       !testSentence.includes(`using${name.charAt(0)}`),
       `Brand "${name}" creates concatenation in test sentence`

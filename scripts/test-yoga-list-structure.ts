@@ -18,7 +18,7 @@ function testYogaListStructure() {
   console.log("\n▶ Testing yoga list container structure...");
 
   const yogaPlayerPath = path.join(__dirname, "..", "src", "app", "yoga", "yoga-player.tsx");
-  
+
   assert(
     fs.existsSync(yogaPlayerPath),
     "src/app/yoga/yoga-player.tsx must exist"
@@ -84,10 +84,10 @@ function testYogaListNoBusyBorders() {
   // Count occurrences of space-y-1.5 or space-y-2 in video list sections
   // (these would indicate separate bordered rows with gaps)
   const listSectionMatch = source.match(/videoGroups \? \([\s\S]*?\) : \(/);
-  
+
   if (listSectionMatch) {
     const listSection = listSectionMatch[0];
-    
+
     // Should NOT have space-y between list items in the new design
     // (space-y would indicate gaps between separately bordered cards)
     assert(
@@ -99,7 +99,7 @@ function testYogaListNoBusyBorders() {
   // Individual video buttons should not have their own border classes
   // when in a divided list (border would be redundant with divide-y)
   const buttonClassMatch = source.match(/button[^>]*className=.*?\{/g);
-  
+
   if (buttonClassMatch) {
     // In the new design, buttons should not have 'border' in their dynamic classes
     // when they're in a divide-y container

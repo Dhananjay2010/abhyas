@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function PrivacyPolicyPage() {
   const { gymName, supportEmail, gymAddress, gymPhone, appName } = getSiteInfo();
-  
+
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10 pb-28">
       <Link
@@ -17,7 +17,7 @@ export default function PrivacyPolicyPage() {
       >
         ← Back
       </Link>
-      
+
       <div className="mt-6 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
         <p className="text-sm font-medium text-warning">
           ⚠️ Draft — Pending Legal Review
@@ -51,7 +51,7 @@ export default function PrivacyPolicyPage() {
 
         <section>
           <h2 className="text-xl font-semibold">2. Information We Collect</h2>
-          
+
           <h3 className="text-base font-medium mt-4">Account Information</h3>
           <p>When you create an account, we collect:</p>
           <ul className="list-disc pl-6 space-y-1">
@@ -134,8 +134,8 @@ export default function PrivacyPolicyPage() {
               policy applies when you watch these videos.
             </li>
             <li>
-              <strong>Sentry:</strong> For error monitoring and diagnostics. Error reports are 
-              sent to Sentry with personally identifiable information scrubbed. Sentry&apos;s 
+              <strong>Sentry:</strong> For error monitoring and diagnostics. Error reports are
+              sent to Sentry with personally identifiable information scrubbed. Sentry&apos;s
               privacy policy applies to this data.
             </li>
           </ul>
@@ -176,12 +176,12 @@ export default function PrivacyPolicyPage() {
           <h2 className="text-xl font-semibold">7. Data Retention</h2>
           <p>
             We retain your information for as long as your account is active. When you delete your
-            account through Settings, all your personal data and workout history is <strong>permanently 
-            and immediately deleted</strong> from our systems with no recovery period. This deletion is 
+            account through Settings, all your personal data and workout history is <strong>permanently
+            and immediately deleted</strong> from our systems with no recovery period. This deletion is
             final and cannot be undone.
           </p>
           <p>
-            Under the DPDP Act 2023, you have the right to request erasure of your personal data, 
+            Under the DPDP Act 2023, you have the right to request erasure of your personal data,
             which can be exercised through the account deletion feature in Settings.
           </p>
         </section>
