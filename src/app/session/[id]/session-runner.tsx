@@ -834,6 +834,11 @@ export function SessionRunner({
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
+        // Guard: don't finish if sets are still pending
+        if (pendingSetState.pending.length > 0) {
+          setPhase("cooldown");
+          return;
+        }
         await run(() =>
           actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
         );
@@ -1153,13 +1158,14 @@ export function SessionRunner({
             </GhostButton>
           )}
           <GhostButton
-            disabled={busy}
+            disabled={busy || pendingSetState.pending.length > 0}
             onClick={async () => {
               if (await run(() => actions.abandonSession(sessionId, elapsed))) {
                 if (onExit) onExit();
                 else router.push("/today");
               }
             }}
+            title={pendingSetState.pending.length > 0 ? "Cannot end early while sets are pending" : undefined}
           >
             End session early
           </GhostButton>
