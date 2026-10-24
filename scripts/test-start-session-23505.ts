@@ -1,8 +1,11 @@
+#!/usr/bin/env tsx
 /**
  * Test startSession handles 23505 unique violation on insert path
  * 
  * Mutant: startSession 23505 not handled - should be KILLED by this test
  */
+
+export {}; // Make this a module
 
 let failures = 0;
 

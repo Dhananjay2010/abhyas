@@ -1,3 +1,4 @@
+#!/usr/bin/env tsx
 /**
  * Test Today page refetches on resume
  * 
@@ -5,6 +6,7 @@
  * so stale Start/Resume button isn't shown after logging in another tab.
  */
 
+export {}; // Make this a module
 
 let failures = 0;
 
