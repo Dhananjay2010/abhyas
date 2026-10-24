@@ -1,29 +1,26 @@
 /**
- * Presentational component for Today prompts.
- * Extracted from today-prompts.tsx to enable render testing.
+ * Presentational component for Today "both" prompt (rest + missed).
+ * Shared between TodayPrompts and tests.
+ * Pure UI component without Next.js dependencies for testing.
  */
 
 import Link from "next/link";
 import { labelForDayType } from "@/lib/program/day-plan";
-import type { PromptBlocks } from "@/lib/today/prompt-blocks";
 import type { Database } from "@/lib/database.types";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
 type Props = {
-  promptBlocks: PromptBlocks;
   yesterdayDay: { day_type: DayType; label: string | null } | null;
+  renderDayPlanPrompt?: () => React.ReactNode;
 };
 
 /**
- * Presentational-only prompts for testing.
- * Only renders the 'both' prompt state (showBothPrompt).
+ * Rest day with missed yesterday: unified prompt.
+ * Renders rest content + missed heading.
+ * Optionally renders DayPlanPrompt via callback to avoid Next.js dependency in tests.
  */
-export function TodayPromptsBothUI({ promptBlocks, yesterdayDay }: Props) {
-  if (!promptBlocks.showBothPrompt) {
-    return null;
-  }
-
+export function TodayPromptsBothUI({ yesterdayDay, renderDayPlanPrompt }: Props) {
   return (
     <>
       <p className="mt-6 text-muted">
@@ -56,6 +53,7 @@ export function TodayPromptsBothUI({ promptBlocks, yesterdayDay }: Props) {
             yesterdayDay?.label ?? null,
           )} did not happen.
         </h3>
+        {renderDayPlanPrompt && renderDayPlanPrompt()}
       </div>
     </>
   );

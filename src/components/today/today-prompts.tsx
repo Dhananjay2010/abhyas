@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import { StartFirstSessionButton } from "./start-first-session-button";
+import { TodayPromptsBothUI } from "./today-prompts-ui";
 import { labelForDayType } from "@/lib/program/day-plan";
 import type { PromptBlocks } from "@/lib/today/prompt-blocks";
 import type { Database } from "@/lib/database.types";
