@@ -20,6 +20,7 @@ import { todayStateInputFromRows } from "@/lib/today/page-input";
 import { todayPromptBlocks } from "@/lib/today/prompt-blocks";
 import { hasStartedAnySession } from "@/lib/today/has-started-any";
 import { TodayPrompts } from "@/components/today/today-prompts";
+import { getInProgressSession } from "@/lib/session/in-progress";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +35,10 @@ export default async function TodayPage() {
   const hasDismissedWelcome = cookieStore.has(`abhyas_welcome_dismissed_${user.id}`);
 
   // ---- wave 1 -------------------------------------------------------------
-  // Nothing here depends on anything else here, so all four go at once. This
+  // Nothing here depends on anything else here, so all these go at once. This
   // page used to await eight queries one after another; the two that remain
   // are the only genuine dependencies in the screen.
-  const [profileRes, programRes, equipmentRes, openRes, allSessionsRes] = await Promise.all([
+  const [profileRes, programRes, equipmentRes, openRes, allSessionsRes, inProgressSessionRes] = await Promise.all([
     // `maybeSingle`, not `single`: a missing row is a state to handle, not an
     // exception. With `single` PostgREST answers "Cannot coerce the result to a
     // single JSON object", which threw during the server render and reached the
@@ -67,6 +68,8 @@ export default async function TodayPage() {
       .not("started_at", "is", null)
       .in("actual_type", ["weights", "bodyweight", "yoga"])
       .limit(1),
+    // In-progress session for day-1, missed-day, and resume decisions
+    getInProgressSession(supabase, user.id),
   ]);
 
   /*
@@ -303,9 +306,10 @@ export default async function TodayPage() {
   const strengthDone = todaySessions.some(
     (s) => s.status === "completed" && ownsPlannedWorkout(s.actual_type),
   );
-  const strengthOpen = todaySessions.find(
-    (s) => (s.status === "in_progress" || s.status === "planned") && ownsPlannedWorkout(s.actual_type),
+  const strengthPlanned = todaySessions.find(
+    (s) => s.status === "planned" && ownsPlannedWorkout(s.actual_type) && !s.started_at,
   );
+  const inProgressSession = inProgressSessionRes;
 
   /*
     The day's workout, once it is a thing that happened rather than a thing that
@@ -350,7 +354,7 @@ export default async function TodayPage() {
     yesterday,
     dayType,
     strengthDone,
-    strengthOpen: !!strengthOpen,
+    strengthOpen: !!inProgressSession || !!strengthPlanned,
     hasStartedAny,
   });
 
@@ -370,7 +374,7 @@ export default async function TodayPage() {
   // The prompt offers "Swap the day", which needs the strength/bodyweight options.
   // The session's own exercises are loaded only when a workout has been started.
   const needsPlannableDays =
-    (dayType === "rest" || missedYesterday) && !strengthDone && !strengthOpen;
+    (dayType === "rest" || missedYesterday) && !strengthDone && !inProgressSession && !strengthPlanned;
 
   const [plannable, performedRows] = await Promise.all([
     needsPlannableDays ? plannableDays(supabase, program.id) : Promise.resolve([]),
@@ -587,16 +591,15 @@ export default async function TodayPage() {
             <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
               Session complete. Well done.
             </p>
-          ) : (
+          ) : inProgressSession ? (
             /*
-              "Resume" only once something has actually been started. A day
-              planned through "what about tomorrow?" is a session row that was
-              never begun, and calling that a resume told the user they had left
-              a workout half-done when they had not.
+              Don't show a resume button here - the global in-progress bar already
+              provides resume functionality. Only show "Start session" for planned
+              but not yet started sessions.
             */
-            <StartSessionButton
-              label={strengthOpen?.started_at ? "Resume session" : "Start session"}
-            />
+            null
+          ) : (
+            <StartSessionButton label="Start session" />
           )}
         </div>
       )}

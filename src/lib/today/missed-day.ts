@@ -96,10 +96,12 @@ export function isMissedTrainingDay(input: MissedDayInput): boolean {
   // 1. A completed session that counts toward streaks (weights/bodyweight/yoga)
   //    Per streak rule: a completed strength session (1+ working sets), bodyweight, or yoga settles the day.
   //    Skipped sessions (0 working sets) do NOT settle the day.
+  //    Note: For missed-day purposes, we assume completed strength sessions had working sets (pass 1).
+  //    The stricter check for actual working_set_count happens in streak calculation.
   const settledBySession = sessions.some(
     (s) => 
       s.status === "completed" && 
-      countsTowardStreak(s.actual_type) && 
+      countsTowardStreak(s.actual_type, s.status, 1) && 
       s.program_id === programId
   );
   if (settledBySession) {
