@@ -36,6 +36,7 @@ function testNoHardcodedTimezoneInAppCode() {
     "src/lib/timezone-patch.ts",  // Settings validation helper with examples
     "src/lib/timezone-options.ts",  // Comments explaining deduplication behavior
     "src/app/settings/settings-form.tsx",  // Comment explaining client canonicalization
+    "src/app/settings/timezone-picker-logic.ts",  // Pure logic helper with QA issue documentation
   ];
 
   const violations: string[] = [];

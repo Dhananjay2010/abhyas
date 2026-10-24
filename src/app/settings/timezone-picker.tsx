@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { canonicalizeTimezone } from "@/lib/timezone-canonical";
+import { getTimezoneDisplayValue, decideTimezoneCommit } from "./timezone-picker-logic";
 
 /**
  * (c) Searchable timezone picker that works at 390px.
@@ -31,75 +31,63 @@ export function TimezonePicker({
   const [isValid, setIsValid] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // (a) Compute display value for special options
-  const getDisplayValue = (val: string | null): string => {
-    if (val === null || val === "") {
-      return `Gym default (${gymDefault})`;
-    }
-    if (deviceZone && val === deviceZone) {
-      return `Use this device's zone (${deviceZone})`;
-    }
-    return val;
-  };
-
   // Derive display value from current prop - this is the value shown when not editing
-  const displayValue = getDisplayValue(value);
+  const displayValue = getTimezoneDisplayValue(value, deviceZone, gymDefault);
   
   // Track local editing state
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
+  const [cancelRequested, setCancelRequested] = useState(false);
 
   const handleFocus = () => {
     setIsEditing(true);
     setEditValue(displayValue);
     setIsValid(true);
+    setCancelRequested(false);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditValue(e.target.value);
     setIsValid(true); // Reset validation while typing
+    setCancelRequested(false); // Clear cancel flag if user continues typing
   };
 
   const handleBlur = () => {
     setIsEditing(false);
-    const trimmed = editValue.trim();
     
-    // Check for special options (a)
-    if (deviceZone && (trimmed === `Use this device's zone (${deviceZone})` || trimmed === deviceZone)) {
-      onChange(deviceZone);
+    // QA Issue #7: Use pure commit/cancel logic
+    const decision = decideTimezoneCommit(
+      editValue,
+      timezones,
+      deviceZone,
+      gymDefault,
+      cancelRequested
+    );
+    
+    // Reset cancel flag
+    setCancelRequested(false);
+    
+    if (decision.commit) {
+      // Valid input - commit the change
+      onChange(decision.value);
       setIsValid(true);
-      return;
-    }
-    
-    if (trimmed === `Gym default (${gymDefault})` || trimmed === "") {
-      onChange(null);
+    } else if (cancelRequested) {
+      // Escape pressed - restore previous value without error
       setIsValid(true);
-      return;
+    } else {
+      // Invalid input - show error but don't change value
+      setIsValid(false);
     }
-    
-    // Canonicalize input and check if the canonical value is in the list
-    // This allows 'asia/calcutta', 'Asia/Calcutta', 'utc' to work
-    const canonical = canonicalizeTimezone(trimmed);
-    if (canonical && timezones.includes(canonical)) {
-      onChange(canonical);
-      setIsValid(true);
-      return;
-    }
-    
-    // Also accept if typed value is already in the list (exact match)
-    if (timezones.includes(trimmed)) {
-      onChange(trimmed);
-      setIsValid(true);
-      return;
-    }
-    
-    // Invalid - show error but don't change value
-    setIsValid(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
+      inputRef.current?.blur();
+    } else if (e.key === "Escape") {
+      // QA Issue #7: Escape must CANCEL - restore previous, no onChange, blur
+      e.preventDefault();
+      setCancelRequested(true);
       inputRef.current?.blur();
     }
   };

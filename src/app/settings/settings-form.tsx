@@ -104,6 +104,8 @@ export function SettingsForm({
   const [equipmentHint, setEquipmentHint] = useState<string | null>(null);
   /** Confirmation message shown when turning off "I have access to everything" */
   const [equipmentOffConfirmation, setEquipmentOffConfirmation] = useState<string | null>(null);
+  /** QA Issue #7: Confirmation shown when timezone is saved */
+  const [timezoneConfirmation, setTimezoneConfirmation] = useState<string | null>(null);
   /** Set when a change alters what the generator would produce. */
   const [planStale, setPlanStale] = useState(false);
   /** L4 QA fix: Request sequence to ignore stale equipment save responses */
@@ -117,6 +119,14 @@ export function SettingsForm({
       return () => clearTimeout(timer);
     }
   }, [equipmentOffConfirmation]);
+
+  useEffect(() => {
+    // QA Issue #7: Auto-hide timezone confirmation after 4s
+    if (timezoneConfirmation) {
+      const timer = setTimeout(() => setTimezoneConfirmation(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [timezoneConfirmation]);
 
   useEffect(() => {
     // F2: Detect browser timezone on client after mount, canonicalized
@@ -639,11 +649,31 @@ export function SettingsForm({
             gymDefault={branding.timezone || FALLBACK_TIMEZONE}
             onChange={(v) => {
               setS({ ...s, timezone: v });
-              save(() => actions.updateProfileSettings({ timezone: v }));
+              // QA Issue #7: Show confirmation only after save succeeds
+              startTransition(async () => {
+                const r = await actions.updateProfileSettings({ timezone: v });
+                if (!r.ok) {
+                  setError(r.error);
+                  setTimezoneConfirmation(null);
+                } else {
+                  setError(null);
+                  setTimezoneConfirmation("Timezone saved");
+                }
+              });
             }}
             disabled={pending}
           />
         </Field>
+
+        {timezoneConfirmation && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="rounded-lg bg-accent/10 px-4 py-2 text-sm text-accent"
+          >
+            {timezoneConfirmation}
+          </div>
+        )}
       </Section>
 
       <Section title="Not built yet">
