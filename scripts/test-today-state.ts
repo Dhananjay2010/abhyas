@@ -196,12 +196,14 @@ assert(
   "Planned weights session (never started): still counts as missed"
 );
 
-console.log("\n=== Test 6: Signup day guard (date <= started_on) ===\n");
+console.log("\n=== Test 6: Signup day guard (date < earliestCountableDate) ===\n");
 
 // Test with weights template on the signup day itself
 // 2026-10-26 is Mon (training day in 3-day plan), program starts 2026-10-26
+// NEW BEHAVIOR: Signup day itself CAN be missed (if no sessions)
+// Only dates BEFORE signup are protected
 assert(
-  !isMissedTrainingDay({
+  isMissedTrainingDay({
     date: "2026-10-26", // Mon (signup day, training day)
     programStartedOn: "2026-10-26", // Mon (same day)
     profileCreatedAt: "2026-10-26T10:00:00Z",
@@ -209,9 +211,9 @@ assert(
     programId: TEST_PROGRAM_ID,
     templateDayType: TEMPLATE_3DAY[isoWeekday("2026-10-26")], // Mon = weights
     sessions: [],
-  hasStartedAny: true,
+    hasStartedAny: true,
   }),
-  "Signup day with weights template: should NOT be missed (must fail if <= becomes <)"
+  "Signup day with weights template: CAN be missed (date >= earliestCountableDate)"
 );
 
 // Test that fails if the guard is removed
@@ -228,6 +230,55 @@ assert(
   hasStartedAny: true,
   }),
   "Day before signup: should NOT be missed (fails if date <= started_on guard removed)"
+);
+
+console.log("\n=== Test 6a: Defense-in-depth - plan started before signup ===\n");
+
+// Program started Wed 2026-10-20, user signed up Sat 2026-10-23
+// Fri 2026-10-22 was a training day in the template but before user signup
+// Defense-in-depth: should NOT be missed (date < max(created_at local, started_on))
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-22", // Fri (training day, 1 day before signup)
+    programStartedOn: "2026-10-20", // Wed (program started 3 days before signup)
+    profileCreatedAt: "2026-10-23T10:00:00Z", // Sat signup
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: "weights",
+    sessions: [],
+    hasStartedAny: true,
+  }),
+  "Defense-in-depth: training day before signup is NOT missed (plan started 3 days before)"
+);
+
+// Start date yesterday → yesterday IS countable (if missed)
+assert(
+  isMissedTrainingDay({
+    date: "2026-10-22", // Fri (yesterday, training day)
+    programStartedOn: "2026-10-22", // Fri (started yesterday)
+    profileCreatedAt: "2026-10-22T10:00:00Z", // Fri signup
+    timezone: "UTC",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: "weights",
+    sessions: [], // No sessions, so missed
+    hasStartedAny: true,
+  }),
+  "Defense-in-depth: start date yesterday → yesterday IS countable as missed"
+);
+
+// Timezone edge: created_at UTC late evening, but next day in Asia/Kolkata
+assert(
+  !isMissedTrainingDay({
+    date: "2026-10-22", // Fri (training day)
+    programStartedOn: "2026-10-20", // Wed
+    profileCreatedAt: "2026-10-22T19:00:00Z", // 00:30 IST on Sat 10-23
+    timezone: "Asia/Kolkata",
+    programId: TEST_PROGRAM_ID,
+    templateDayType: "weights",
+    sessions: [],
+    hasStartedAny: true,
+  }),
+  "Defense-in-depth TZ edge: created_at 2026-10-22T19:00Z is Sat 10-23 local → Fri 10-22 NOT missed"
 );
 
 console.log("\n=== Test 7: Rebuilt block (current block's started_on) ===\n");
@@ -615,15 +666,15 @@ assert(
 
 console.log("\n=== Test 13: Timezone UTC vs IST boundary ===\n");
 
-// created_at: 2026-10-22T19:00Z (00:30 IST on Fri 10-23)
-// started_on: 2026-10-20
-// date: 2026-10-23 (Fri) with weights template
+// created_at: 2026-10-22T19:00Z (00:30 IST on Sat 10-23)
+// started_on: 2026-10-20 (Wed)
+// date: 2026-10-22 (Fri, before local signup day Sat 10-23)
 // timezone: Asia/Kolkata
-// This MUST NOT be missed (slicing UTC date would incorrectly mark it missed)
+// Fri 2026-10-22 is BEFORE the user's local signup day (Sat 2026-10-23), so NOT missed
 const timezoneResult = isMissedTrainingDay({
-  date: "2026-10-23", // Fri (training day)
-  programStartedOn: "2026-10-20",
-  profileCreatedAt: "2026-10-22T19:00:00Z", // 00:30 IST on Fri 10-23
+  date: "2026-10-22", // Fri (before local signup day)
+  programStartedOn: "2026-10-20", // Wed
+  profileCreatedAt: "2026-10-22T19:00:00Z", // 00:30 IST on Sat 10-23
   timezone: "Asia/Kolkata",
   programId: TEST_PROGRAM_ID,
   templateDayType: "weights",
@@ -633,7 +684,7 @@ const timezoneResult = isMissedTrainingDay({
 
 assert(
   !timezoneResult,
-  "Timezone test: created_at 2026-10-22T19:00Z (00:30 IST Fri 10-23) with date 2026-10-23 is NOT missed"
+  "Timezone test: Fri 10-22 before local signup (Sat 10-23 00:30 IST) is NOT missed"
 );
 
 console.log("\n=== Test 14: 'both' state renders single prompt ===\n");
