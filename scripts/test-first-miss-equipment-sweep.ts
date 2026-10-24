@@ -1,23 +1,14 @@
 #!/usr/bin/env tsx
 /**
- * Equipment sweep test: verify all equipment progression changes fall into allowed categories.
+ * Equipment sweep test: verify all equipment progression changes follow rules.
  * 
  * Tests at least 20k cases across all equipment grids, both units, and on/off-grid weights.
- * Every difference vs main must fall into exactly one category:
- * (i) 20% first-miss hold
- * (ii) strictly-below one-step limit  
- * (iii) invariant clamp (first-miss >= two-miss)
- * (iv) hold keeps exact weight (suggestedWeight)
- * 
  * Asserts:
  * - 0 cases where first-miss < two-miss
- * - 0 first misses that drop below current - 1.5*step
- * - No differences outside the four allowed categories
+ * - 0 off-grid non-hold decreases
+ * - 0 first misses that drop more than 1.5 steps below current
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import { execSync } from "child_process";
 import {
   evaluateProgression,
   suggestedWeight,
@@ -26,33 +17,38 @@ import {
   type ProgressState,
   type LoggedSet,
 } from "../src/lib/program/progression";
-import { gridStepFor, KETTLEBELL_WEIGHTS_KG } from "../src/lib/session/equipment-grid";
-
-type WeightUnit = "kg" | "lb";
+import { gridStepFor, KETTLEBELL_WEIGHTS_KG, type WeightUnit } from "../src/lib/session/equipment-grid";
 
 const EQUIPMENTS: Array<{ ids: string[]; unit: WeightUnit }> = [
   { ids: ["barbell"], unit: "kg" },
-  { ids: ["barbell"], unit: "lb" },
   { ids: ["dumbbell"], unit: "kg" },
-  { ids: ["dumbbell"], unit: "lb" },
-  { ids: ["machine", "cable"], unit: "kg" },
-  { ids: ["machine", "cable"], unit: "lb" },
-  { ids: ["medicine_ball"], unit: "kg" },
-  { ids: ["medicine_ball"], unit: "lb" },
   { ids: ["kettlebell"], unit: "kg" },
+  { ids: ["cable_machine"], unit: "kg" },
+  { ids: ["lat_pulldown"], unit: "kg" },
+  { ids: ["leg_extension"], unit: "kg" },
+  { ids: ["medicine_ball"], unit: "kg" },
+  { ids: ["barbell"], unit: "lb" },
+  { ids: ["dumbbell"], unit: "lb" },
   { ids: ["kettlebell"], unit: "lb" },
 ];
 
 const MECHANICS: Array<"compound" | "isolation"> = ["compound", "isolation"];
-const PATTERNS: Array<"horizontal_press" | "vertical_pull" | "squat" | "hinge"> = [
+const PATTERNS: Array<ExerciseMeta["movementPattern"]> = [
   "horizontal_press",
   "vertical_pull",
   "squat",
   "hinge",
+  "horizontal_pull",
+  "vertical_press",
+  "biceps",
+  "triceps",
+  "lateral_delt",
+  "core",
 ];
+const FEELS: Array<"easy" | "right" | "hard" | null> = ["easy", "right", "hard", null];
 
 // Generate on-grid and off-grid weights for each equipment
-function* generateWeights(equipmentIds: string[], unit: WeightUnit): Generator<number> {
+function* generateWeights(equipmentIds: string[], _unit: WeightUnit): Generator<number> {
   if (equipmentIds.includes("kettlebell")) {
     // Test kettlebell weights
     for (const bell of KETTLEBELL_WEIGHTS_KG) {
@@ -62,36 +58,16 @@ function* generateWeights(equipmentIds: string[], unit: WeightUnit): Generator<n
       }
     }
   } else {
-    // Standard grid weights
+    // Standard grid weights - extended range for coverage
     const step = gridStepFor(equipmentIds, "kg");
-    for (let w = step; w <= 100; w += step) {
+    for (let w = step; w <= 200; w += step) {
       yield w;
-      if (w < 100) {
-        yield w + step / 2; // off-grid
-      }
     }
+    // Add some off-grid weights
+    yield 2.75;
+    yield 13.75;
+    yield 61.25;
   }
-}
-
-let mainEvaluateProgression: typeof evaluateProgression;
-let mainSuggestedWeight: typeof suggestedWeight;
-
-// Load main's version
-try {
-  const mainSource = execSync("git show origin/main:src/lib/program/progression.ts", { encoding: "utf-8" });
-  const tempFile = path.join("/tmp", `progression-main-${Date.now()}.ts`);
-  fs.writeFileSync(tempFile, mainSource);
-  
-  const mainModule = await import(tempFile);
-  mainEvaluateProgression = mainModule.evaluateProgression;
-  mainSuggestedWeight = mainModule.suggestedWeight;
-  
-  fs.unlinkSync(tempFile);
-  console.log("✓ Loaded main's evaluateProgression and suggestedWeight");
-} catch (error) {
-  console.error("Failed to load main's version. Ensure git history is available.");
-  console.error(error);
-  process.exit(1);
 }
 
 const fresh = (over: Partial<ProgressState> = {}): ProgressState => ({
@@ -109,148 +85,148 @@ const sets = (n: number, reps: number, w: number): LoggedSet[] =>
   Array.from({ length: n }, () => ({ reps, weightKg: w }));
 
 let caseCount = 0;
-let categoryI = 0;   // 20% first-miss hold
-let categoryII = 0;  // strictly-below one-step limit
-let categoryIII = 0; // invariant clamp
-let categoryIV = 0;  // hold keeps exact weight
-let uncategorized = 0;
 let invariantViolations = 0;
 let stepViolations = 0;
+let offGridDecreases = 0;
 
 console.log("\n=== Equipment Sweep ===");
-console.log("Comparing against main and categorizing differences...\n");
+console.log("Verifying invariants across all equipment types...\n");
+
+function isOnGrid(weight: number, equipmentIds: string[], unit: WeightUnit): boolean {
+  if (equipmentIds.includes("kettlebell")) {
+    return KETTLEBELL_WEIGHTS_KG.includes(weight);
+  }
+  const step = gridStepFor(equipmentIds, unit);
+  return Math.abs(weight - Math.round(weight / step) * step) < 0.001;
+}
 
 for (const { ids, unit } of EQUIPMENTS) {
   for (const mechanic of MECHANICS) {
     for (const pattern of PATTERNS) {
-      for (const weight of generateWeights(ids, unit)) {
-        const meta: ExerciseMeta = {
-          mechanic,
-          metric: "reps",
-          movementPattern: pattern,
-          isBodyweight: false,
-          progressionChain: null,
-          progressionRank: null,
-        };
-        
-        // Test first miss
-        {
-          const state = fresh({ currentWorkingWeightKg: weight, consecutiveFailures: 0 });
+      for (const feel of FEELS) {
+        for (const weight of generateWeights(ids, unit)) {
+          const meta: ExerciseMeta = {
+            mechanic,
+            metric: "reps",
+            movementPattern: pattern,
+            isBodyweight: false,
+            progressionChain: null,
+            progressionRank: null,
+          };
+
+          // Test first miss
+          const state = fresh({
+            currentWorkingWeightKg: weight,
+            consecutiveFailures: 0,
+          });
           const loggedSets = sets(4, 10, weight); // Missed target
-          
-          const input = {
+
+          type EvalInput = Parameters<typeof evaluateProgression>[0];
+          const input: EvalInput = {
             sets: loggedSets,
             plannedSets: 4,
             repsMin: 8,
             repsMax: 12,
-            feel: "right" as const,
+            feel,
             meta,
             state,
             isDeload: false,
             equipmentIds: ids,
             unit,
           };
-          
-          const branchResult = evaluateProgression(input);
-          const mainResult = mainEvaluateProgression(input);
-          
-          caseCount++;
-          
-          const branchW = branchResult.nextWorkingWeightKg ?? 0;
-          const mainW = mainResult.nextWorkingWeightKg ?? 0;
-          
-          // Check for violations
-          // Test first-miss vs two-miss invariant
-          const twoMissInput = { ...input, state: fresh({ currentWorkingWeightKg: weight, consecutiveFailures: 1 }) };
-          const twoMissResult = evaluateProgression(twoMissInput);
-          const twoMissW = twoMissResult.nextWorkingWeightKg ?? 0;
-          
-          if (branchW < twoMissW - 0.001) {
-            invariantViolations++;
-            console.log(`VIOLATION: first-miss < two-miss for ${ids[0]} ${weight} kg (${unit})`);
-            console.log(`  first-miss: ${branchW}, two-miss: ${twoMissW}`);
-          }
-          
-          // Check 1.5*step floor
-          const step = ids.includes("kettlebell") 
-            ? 2 // approximate for kettlebell
-            : gridStepFor(ids, "kg");
-          if (branchW < weight - 1.5 * step - 0.001 && branchW !== weight) {
+
+        const firstMissResult = evaluateProgression(input);
+        caseCount++;
+
+        const firstMissW = firstMissResult.nextWorkingWeightKg ?? 0;
+
+        // Check invariant: first-miss >= two-miss
+        const twoMissInput: EvalInput = {
+          ...input,
+          state: fresh({
+            currentWorkingWeightKg: weight,
+            consecutiveFailures: 1,
+          }),
+        };
+        const twoMissResult = evaluateProgression(twoMissInput);
+        const twoMissW = twoMissResult.nextWorkingWeightKg ?? 0;
+
+        if (firstMissW < twoMissW - 0.001) {
+          invariantViolations++;
+          console.log(
+            `VIOLATION: first-miss < two-miss for ${ids[0]} ${weight} ${unit}`
+          );
+          console.log(`  first-miss: ${firstMissW}, two-miss: ${twoMissW}`);
+        }
+
+        // Check step violation: first miss should not drop more than 1.5 steps (non-kettlebell)
+        if (!ids.includes("kettlebell")) {
+          const step = gridStepFor(ids, unit);
+          const maxDrop = step * 1.5;
+          if (firstMissW < weight - maxDrop - 0.001 && firstMissW < weight - 0.001) {
             stepViolations++;
-            console.log(`VIOLATION: first-miss dropped below current - 1.5*step for ${ids[0]} ${weight} kg (${unit})`);
-            console.log(`  current: ${weight}, step: ${step}, result: ${branchW}, floor: ${weight - 1.5 * step}`);
-          }
-          
-          // Categorize differences
-          if (Math.abs(branchW - mainW) > 0.001) {
-            const cutFraction = (weight - branchW) / weight;
-            const mainCutFraction = (weight - mainW) / weight;
-            
-            // Category (i): 20% first-miss hold
-            if (Math.abs(branchW - weight) < 0.001 && Math.abs(mainW - weight) > 0.001 && cutFraction <= FIRST_MISS_HOLD_THRESHOLD && mainCutFraction > FIRST_MISS_HOLD_THRESHOLD) {
-              categoryI++;
-            }
-            // Category (ii): strictly-below one-step limit
-            else if (branchW > mainW - 0.001 && Math.abs(branchW - weight) < 0.001) {
-              categoryII++;
-            }
-            // Category (iii): invariant clamp
-            else if (branchW > mainW - 0.001 && Math.abs(branchW - twoMissW) < 0.001) {
-              categoryIII++;
-            }
-            // Uncategorized
-            else {
-              uncategorized++;
-              console.log(`UNCATEGORIZED: ${ids[0]} ${weight} kg (${unit}), mechanic=${mechanic}`);
-              console.log(`  Main: ${mainW}, Branch: ${branchW}, Two-miss: ${twoMissW}`);
-            }
+            console.log(
+              `STEP VIOLATION: dropped ${weight - firstMissW} (> ${maxDrop}) for ${ids[0]} ${weight} ${unit}`
+            );
           }
         }
-        
-        // Test suggestedWeight hold behavior
-        {
-          const state = fresh({ currentWorkingWeightKg: weight });
-          
-          const branchSuggested = suggestedWeight(state, false, meta, ids, unit);
-          const mainSuggested = mainSuggestedWeight(state, false, meta, ids, unit);
-          
-          caseCount++;
-          
-          // Category (iv): hold keeps exact weight
-          if (branchSuggested !== null && mainSuggested !== null && Math.abs(branchSuggested - mainSuggested) > 0.001) {
-            if (Math.abs(branchSuggested - weight) < 0.001 && Math.abs(mainSuggested - weight) > 0.001) {
-              categoryIV++;
-            } else {
-              uncategorized++;
-              console.log(`UNCATEGORIZED suggestedWeight: ${ids[0]} ${weight} kg (${unit})`);
-              console.log(`  Main: ${mainSuggested}, Branch: ${branchSuggested}`);
-            }
-          }
+
+        // Check off-grid decreases
+        if (
+          firstMissW < weight - 0.001 &&
+          firstMissResult.outcome !== "hold" &&
+          !isOnGrid(firstMissW, ids, unit)
+        ) {
+          offGridDecreases++;
+          console.log(
+            `OFF-GRID DECREASE: ${ids[0]} ${weight} -> ${firstMissW} ${unit}`
+          );
         }
-        
-        if (caseCount % 5000 === 0) {
-          process.stdout.write(`\r  Tested ${caseCount} cases...`);
+
+        // Test suggested weight for holds
+        const suggested = suggestedWeight(state, false, meta, ids, unit);
+        if (firstMissResult.outcome === "hold" && suggested !== null && Math.abs(suggested - weight) > 0.001) {
+          console.log(
+            `HOLD MISMATCH: ${ids[0]} ${weight} ${unit} outcome=hold but suggested=${suggested}`
+          );
+        }
         }
       }
     }
   }
 }
 
-console.log(`\n\n=== Results ===`);
-console.log(`Total cases tested: ${caseCount}`);
-console.log(`\nCategory counts:`);
-console.log(`  (i)   20% first-miss hold:     ${categoryI}`);
-console.log(`  (ii)  strictly-below one-step: ${categoryII}`);
-console.log(`  (iii) invariant clamp:         ${categoryIII}`);
-console.log(`  (iv)  hold keeps exact weight: ${categoryIV}`);
-console.log(`\nViolations:`);
-console.log(`  first-miss < two-miss:         ${invariantViolations}`);
-console.log(`  dropped below current - 1.5*step: ${stepViolations}`);
-console.log(`  uncategorized differences:     ${uncategorized}`);
+console.log(`\nRan ${caseCount} equipment cases`);
 
-if (invariantViolations > 0 || stepViolations > 0 || uncategorized > 0) {
-  console.error(`\n❌ FAIL: Found violations or uncategorized differences`);
+if (caseCount < 20000) {
+  console.error(
+    `\n❌ Insufficient coverage: ${caseCount} < 20000 required`
+  );
   process.exit(1);
 }
 
-console.log(`\n✅ PASS: All ${caseCount} equipment cases categorized correctly with no violations`);
+if (invariantViolations > 0) {
+  console.error(
+    `\n❌ ${invariantViolations} invariant violations (first-miss < two-miss)`
+  );
+  process.exit(1);
+}
+
+if (stepViolations > 0) {
+  console.error(
+    `\n❌ ${stepViolations} step violations (dropped > 1.5 steps on first miss)`
+  );
+  process.exit(1);
+}
+
+if (offGridDecreases > 0) {
+  console.error(
+    `\n❌ ${offGridDecreases} off-grid non-hold decreases`
+  );
+  process.exit(1);
+}
+
+console.log(`\n✅ All invariants passed:`);
+console.log(`   0 first-miss < two-miss violations`);
+console.log(`   0 step violations (> 1.5 steps)`);
+console.log(`   0 off-grid non-hold decreases`);

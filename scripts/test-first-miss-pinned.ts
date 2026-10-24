@@ -17,6 +17,7 @@ import {
   type ExerciseMeta,
   type ProgressState,
 } from "../src/lib/program/progression";
+import { type WeightUnit } from "../src/lib/session/equipment-grid";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -323,10 +324,10 @@ console.log("\n=== Invariant: First-Miss >= Two-Miss ===");
 
 // Test that first-miss result is always >= two-miss result
 const testWeights = [5, 7.5, 10, 12, 15, 20, 30, 40, 60, 100];
-const equipments = [
-  { ids: ["barbell"], unit: "kg" as const },
-  { ids: ["dumbbell"], unit: "kg" as const },
-  { ids: ["machine", "cable"], unit: "kg" as const },
+const equipments: Array<{ ids: string[]; unit: WeightUnit }> = [
+  { ids: ["barbell"], unit: "kg" },
+  { ids: ["dumbbell"], unit: "kg" },
+  { ids: ["machine", "cable"], unit: "kg" },
 ];
 
 for (const { ids, unit } of equipments) {

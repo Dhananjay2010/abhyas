@@ -689,15 +689,6 @@ export function evaluateProgression(input: {
       // Never drop more than one lift increment below the 90% value
       const minAllowed = rawReduced - liftIncrement;
       reduced = Math.max(snapped, minAllowed);
-      
-      // With equipment: snap to equipment grid to ensure loadability
-      if (equipmentIds && unit) {
-        const equipSnapped = roundToGrid(reduced, equipmentIds, unit, roundingGrid, 'down');
-        // Only apply if it doesn't violate the "at most one increment below 90%" cap
-        if (equipSnapped >= minAllowed - 0.001) {
-          reduced = equipSnapped;
-        }
-      }
     }
     
     // Never RAISE on back-off
@@ -705,7 +696,7 @@ export function evaluateProgression(input: {
       reduced = currentWeight;
     }
     
-    // HOLD if the computed weight is at or below the minimum step
+    // HOLD if the computed weight is at or below the minimum step (check BEFORE equipment snap)
     if (reduced <= liftIncrement) {
       return {
         ...carried,
@@ -715,6 +706,17 @@ export function evaluateProgression(input: {
         consecutiveFailures: 0,
         message: "Missed twice in a row but already at light weight — holding to build back up.",
       };
+    }
+    
+    // With equipment: snap to equipment grid to ensure loadability (after light-weight check)
+    if (equipmentIds && unit) {
+      const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
+      const equipSnapped = roundToGrid(reduced, equipmentIds, unit, roundingGrid, 'down');
+      const minAllowed = rawReduced - liftIncrement;
+      // Only apply if it doesn't violate the "at most one increment below 90%" cap
+      if (equipSnapped >= minAllowed - 0.001) {
+        reduced = equipSnapped;
+      }
     }
     return {
       ...carried,
