@@ -14,7 +14,7 @@
  */
 
 import { resolveSessionTargets } from "../src/lib/program/session-targets";
-import { buildSessionExerciseRows } from "../src/app/session/actions";
+import { buildSessionExerciseRows } from "../src/lib/session/build-session-exercises";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
