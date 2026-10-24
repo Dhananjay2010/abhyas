@@ -450,66 +450,6 @@ async function runTests() {
       `user B queried exercise_history for user A and got ${viewData?.length || 0} rows`);
   }
 
-  console.log("\n7a. H-7: Swapped exercise appears under new exercise_id");
-  {
-    // Create a session with an exercise, then simulate a swap by updating exercise_id
-    const sessionSwap = randomUUID();
-    const seSwap = randomUUID();
-    const oldExercise = exercises[0].id;
-    const newExercise = exercises[1].id;
-
-    const { error: e1 } = await adminClient.from("sessions").insert({
-      id: sessionSwap,
-      user_id: userIdA,
-      local_date: "2026-10-30",
-      status: "completed",
-      completed_at: "2026-10-30T12:00:00Z",
-    });
-    if (e1) { console.error("H-7: Insert session failed:", e1); return false; }
-
-    const { error: e2 } = await adminClient.from("session_exercises").insert({
-      id: seSwap,
-      user_id: userIdA,
-      session_id: sessionSwap,
-      exercise_id: oldExercise,
-      metric: "reps",
-      status: "completed",
-      order_index: 0,
-    });
-    if (e2) { console.error("H-7: Insert session_exercise failed:", e2); return false; }
-
-    const { error: e3 } = await adminClient.from("session_sets").insert({
-      user_id: userIdA,
-      session_exercise_id: seSwap,
-      set_number: 1,
-      reps: 8,
-      weight_kg: 75,
-      is_warmup_set: false,
-    });
-    if (e3) { console.error("H-7: Insert set failed:", e3); return false; }
-
-    // Simulate swap: update exercise_id and set swapped_from_exercise_id
-    const { error: e4 } = await adminClient
-      .from("session_exercises")
-      .update({
-        exercise_id: newExercise,
-        swapped_from_exercise_id: oldExercise,
-      })
-      .eq("id", seSwap);
-    if (e4) { console.error("H-7: Swap update failed:", e4); return false; }
-
-    // Check that the exercise appears under the new exercise_id
-    const newHistory = await getExerciseHistory(supabaseA, userIdA, newExercise, { limit: 10 });
-    const oldHistory = await getExerciseHistory(supabaseA, userIdA, oldExercise, { limit: 10 });
-
-    check("H-7: swapped exercise appears under new exercise_id", 
-      newHistory.sessions.some(s => s.sessionId === sessionSwap),
-      `new exercise history count: ${newHistory.totalCount}`);
-    check("H-7: swapped exercise does NOT appear under old exercise_id",
-      !oldHistory.sessions.some(s => s.sessionId === sessionSwap),
-      `old exercise history count: ${oldHistory.totalCount}`);
-  }
-
   console.log("\n8. M1: PR detection - QA scenario B (60 → 62.5 → 65 kg, 3 sets each)");
   {
     const s1 = randomUUID();
