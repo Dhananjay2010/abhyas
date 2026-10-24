@@ -7,6 +7,19 @@
 import type * as Sentry from "@sentry/nextjs";
 
 /**
+ * Sensitive query parameter names that should be redacted.
+ */
+const SENSITIVE_QUERY_PARAMS = [
+  "code",
+  "token",
+  "access_token",
+  "refresh_token",
+  "apikey",
+  "api_key",
+  "auth",
+];
+
+/**
  * Scrub PII and secrets from error events before sending to Sentry.
  */
 export function scrubPII(event: Sentry.ErrorEvent): Sentry.ErrorEvent | null {
@@ -50,26 +63,34 @@ export function scrubPII(event: Sentry.ErrorEvent): Sentry.ErrorEvent | null {
 
     if (event.request.query_string) {
       if (typeof event.request.query_string === "string") {
-        // Parse as query string, redact sensitive params, rebuild
+        // Parse as query string, redact sensitive params case-insensitively, rebuild
         event.request.query_string = scrubEmailsFromString(event.request.query_string);
         try {
           const params = new URLSearchParams(event.request.query_string);
-          const sensitiveParams = ["code", "token", "access_token", "refresh_token", "apikey", "api_key", "auth"];
-          for (const param of sensitiveParams) {
-            if (params.has(param)) {
-              params.set(param, "[Redacted]");
+          // Match parameter names case-insensitively
+          for (const key of params.keys()) {
+            if (SENSITIVE_QUERY_PARAMS.includes(key.toLowerCase())) {
+              params.set(key, "[Redacted]");
             }
           }
           event.request.query_string = params.toString();
         } catch {
           // If parsing fails, leave it as-is after email scrubbing
         }
+      } else if (Array.isArray(event.request.query_string)) {
+        // Array of [key, value] pairs - map and redact by key
+        event.request.query_string = event.request.query_string.map(([key, value]) => {
+          if (SENSITIVE_QUERY_PARAMS.includes(key.toLowerCase())) {
+            return [key, "[Redacted]"];
+          } else {
+            return [key, typeof value === "string" ? scrubEmailsFromString(value) : String(value)];
+          }
+        }) as typeof event.request.query_string;
       } else {
-        // Object or array of pairs - redact by key
-        const sensitiveParams = ["code", "token", "access_token", "refresh_token", "apikey", "api_key", "auth"];
+        // Object - redact by key
         const scrubbed: Record<string, string> = {};
         for (const [key, value] of Object.entries(event.request.query_string)) {
-          if (sensitiveParams.includes(key.toLowerCase())) {
+          if (SENSITIVE_QUERY_PARAMS.includes(key.toLowerCase())) {
             scrubbed[key] = "[Redacted]";
           } else {
             scrubbed[key] = typeof value === "string" ? scrubEmailsFromString(value) : String(value);
@@ -132,16 +153,7 @@ export function scrubTokensFromURL(url: string): string {
     const parsed = new URL(url);
     
     // Scrub sensitive query parameters
-    const sensitiveParams = [
-      "token",
-      "access_token",
-      "refresh_token",
-      "apikey",
-      "api_key",
-      "auth",
-      "code", // Supabase auth callback code
-    ];
-    for (const param of sensitiveParams) {
+    for (const param of SENSITIVE_QUERY_PARAMS) {
       if (parsed.searchParams.has(param)) {
         parsed.searchParams.set(param, "[Redacted]");
       }

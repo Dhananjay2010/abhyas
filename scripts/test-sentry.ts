@@ -246,6 +246,20 @@ test("scrubPII scrubs tokens from query_string when it's a string", () => {
   match(qs, /other=value/);
 });
 
+test("scrubPII scrubs tokens from query_string case-insensitively (string)", () => {
+  const event = {
+    request: {
+      query_string: "Code=abc&ACCESS_TOKEN=xyz&Token=secret&other=value",
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  const qs = result?.request?.query_string as string;
+  match(qs, /Code=%5BRedacted%5D/);
+  match(qs, /ACCESS_TOKEN=%5BRedacted%5D/);
+  match(qs, /Token=%5BRedacted%5D/);
+  match(qs, /other=value/);
+});
+
 test("scrubPII scrubs tokens from query_string when it's an object", () => {
   const event = {
     request: {
@@ -269,6 +283,69 @@ test("scrubPII scrubs tokens from query_string when it's an object", () => {
   strictEqual(qs.api_key, "[Redacted]");
   strictEqual(qs.auth, "[Redacted]");
   strictEqual(qs.other, "value");
+});
+
+test("scrubPII scrubs tokens from query_string case-insensitively (object)", () => {
+  const event = {
+    request: {
+      query_string: {
+        Code: "abc123",
+        ACCESS_TOKEN: "xyz",
+        Token: "secret",
+        other: "value",
+      },
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  const qs = result?.request?.query_string as Record<string, string>;
+  strictEqual(qs.Code, "[Redacted]");
+  strictEqual(qs.ACCESS_TOKEN, "[Redacted]");
+  strictEqual(qs.Token, "[Redacted]");
+  strictEqual(qs.other, "value");
+});
+
+test("scrubPII scrubs tokens from query_string when it's an array of pairs", () => {
+  const event = {
+    request: {
+      query_string: [
+        ["code", "abc123"],
+        ["token", "secret"],
+        ["refresh_token", "refresh"],
+        ["other", "value"],
+      ] as Array<[string, string]>,
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  const qs = result?.request?.query_string as Array<[string, string]>;
+  ok(Array.isArray(qs), "query_string should remain an array");
+  deepStrictEqual(qs, [
+    ["code", "[Redacted]"],
+    ["token", "[Redacted]"],
+    ["refresh_token", "[Redacted]"],
+    ["other", "value"],
+  ]);
+});
+
+test("scrubPII scrubs tokens from query_string case-insensitively (array of pairs)", () => {
+  const event = {
+    request: {
+      query_string: [
+        ["Code", "abc123"],
+        ["ACCESS_TOKEN", "xyz"],
+        ["Token", "secret"],
+        ["other", "value"],
+      ] as Array<[string, string]>,
+    },
+  } as unknown as Sentry.ErrorEvent;
+  const result = scrubPII(event);
+  const qs = result?.request?.query_string as Array<[string, string]>;
+  ok(Array.isArray(qs), "query_string should remain an array");
+  deepStrictEqual(qs, [
+    ["Code", "[Redacted]"],
+    ["ACCESS_TOKEN", "[Redacted]"],
+    ["Token", "[Redacted]"],
+    ["other", "value"],
+  ]);
 });
 
 test("scrubPII scrubs emails from query_string object values", () => {
