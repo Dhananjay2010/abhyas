@@ -2,19 +2,37 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
+import { branding } from "@/lib/branding";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Abhyas",
-  description:
-    "One hour a day. Abhyas tells you exactly what to train, guides you through it, and makes next week harder than this one.",
-  applicationName: "Abhyas",
-  appleWebApp: { capable: true, title: "Abhyas", statusBarStyle: "black-translucent" },
+  title: branding.name,
+  description: branding.description,
+  applicationName: branding.name,
+  appleWebApp: {
+    capable: true,
+    title: branding.shortName,
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [
+      { url: branding.icons.favicon, sizes: "32x32" },
+      { url: branding.icons.icon192, sizes: "192x192", type: "image/png" },
+      { url: branding.icons.icon512, sizes: "512x512", type: "image/png" },
+    ],
+    apple: {
+      url: branding.icons.appleTouchIcon,
+      sizes: "180x180",
+      type: "image/png",
+    },
+  },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0c0e",
+  themeColor: branding.themeColor,
   width: "device-width",
   initialScale: 1,
   // The guided session has fixed controls; zooming breaks the layout mid-set.
@@ -28,6 +46,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased">
+        <ServiceWorkerRegistration />
         {children}
         {/*
           Mounted once, outside every page, so a tab change swaps only the
