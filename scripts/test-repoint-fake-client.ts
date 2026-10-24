@@ -2,9 +2,9 @@
  * Mutant-killing unit tests for repointSessionsAfterRebuild with fake client.
  *
  * Tests error handling and mode guard without a real database:
- * - Errors on select return {ok: false}
- * - Errors on update return {ok: false}
- * - Errors on delete return {ok: false}
+ * - Errors on select return {ok: true, warning} (decision c: non-fatal)
+ * - Errors on update return {ok: true, warning} (decision c: non-fatal)
+ * - Errors on delete return {ok: true, warning} (decision c: non-fatal)
  *
  * npm run test:repoint-fake-client
  */
@@ -324,7 +324,7 @@ function createFakeClient(
   };
 }
 
-console.log("\n1. Error on sessions select returns {ok: false}");
+console.log("\n1. Error on sessions select returns {ok: true, warning}");
 {
   const client = createFakeClient(
     { data: null, error: { message: "Database connection failed", code: "CONNECTION_ERROR" } },
@@ -333,12 +333,12 @@ console.log("\n1. Error on sessions select returns {ok: false}");
 
   repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
     .then((result) => {
-      check("returns ok: false", result.ok === false);
-      check("error message included", result.error?.includes("Database connection failed") ?? false);
+      check("returns ok: true (non-fatal)", result.ok === true);
+      check("warning message included", result.warning?.includes("Database connection failed") ?? false);
     });
 }
 
-console.log("\n2. Error on program_days select returns {ok: false}");
+console.log("\n2. Error on program_days select returns {ok: true, warning}");
 {
   const client = createFakeClient(
     { data: [{ id: "s1", local_date: "2026-10-24", actual_type: "weights", planned_type: "weights", program_day_id: "old-day", program_days: { label: "Upper", day_index: 1 }, session_exercises: [] }], error: null },
@@ -347,12 +347,12 @@ console.log("\n2. Error on program_days select returns {ok: false}");
 
   repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
     .then((result) => {
-      check("returns ok: false", result.ok === false);
-      check("error message included", result.error?.includes("Failed to fetch program days") ?? false);
+      check("returns ok: true (non-fatal)", result.ok === true);
+      check("warning message included", result.warning?.includes("Failed to fetch program days") ?? false);
     });
 }
 
-console.log("\n3. Error on update returns {ok: false}");
+console.log("\n3. Error on update returns {ok: true, warning}");
 {
   const client = createFakeClient(
     {
@@ -378,12 +378,12 @@ console.log("\n3. Error on update returns {ok: false}");
 
   repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
     .then((result) => {
-      check("returns ok: false", result.ok === false);
-      check("error indicates update failure", result.error?.includes("session updates failed") ?? false);
+      check("returns ok: true (non-fatal)", result.ok === true);
+      check("warning indicates update failure", result.warning?.includes("session updates failed") ?? false);
     });
 }
 
-console.log("\n4. Error on delete returns {ok: false}");
+console.log("\n4. Error on delete returns {ok: true, warning}");
 {
   const client = createFakeClient(
     {
@@ -410,8 +410,8 @@ console.log("\n4. Error on delete returns {ok: false}");
 
   repointSessionsAfterRebuild(client as never, "user1", "program1", "2026-10-24")
     .then((result) => {
-      check("returns ok: false", result.ok === false);
-      check("error indicates delete failure", result.error?.includes("session updates failed") ?? false);
+      check("returns ok: true (non-fatal)", result.ok === true);
+      check("warning indicates delete failure", result.warning?.includes("session updates failed") ?? false);
     });
 }
 
