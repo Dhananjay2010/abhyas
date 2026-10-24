@@ -63,10 +63,11 @@ export function selectWarmup(input: {
   // QA Pass 10 (h): Equipment filter helper - ALL-of logic, same as exercises
   const canUseEquipment = (w: WarmupRow) => {
     if (hasAllEquipment) return true;
-    if (w.equipment_ids.length === 0) return true;
+    const equipmentIds = w.equipment_ids ?? [];
+    if (equipmentIds.length === 0) return true;
     if (!availableEquipment) return false;
     // ALL equipment required (AND logic)
-    return w.equipment_ids.every((e) => availableEquipment.has(e));
+    return equipmentIds.every((e) => availableEquipment.has(e));
   };
 
   const byType = (t: WarmupRow["type"]) => 
@@ -143,10 +144,11 @@ export function selectWarmup(input: {
       const targetsInjury = w.target_regions.some((r) => regions.has(r));
       if (!targetsInjury) return false;
       
-      // Filter by available equipment
-      return w.equipment_ids.length === 0 || 
+      // Filter by available equipment - prehab uses ALL-of logic (every), consistent with warm-up and cool-down
+      const equipmentIds = w.equipment_ids ?? [];
+      return equipmentIds.length === 0 || 
         availableEquipment === null || 
-        w.equipment_ids.some((id) => availableEquipment.has(id));
+        equipmentIds.every((id) => availableEquipment.has(id));
     })
     .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
     .slice(0, 3);
@@ -184,13 +186,14 @@ export function selectCooldown(input: {
   // QA Pass 10 (h): Equipment filter - ALL-of logic
   const canUseEquipment = (w: WarmupRow) => {
     if (hasAllEquipment) return true;
-    if (w.equipment_ids.length === 0) return true;
+    const equipmentIds = w.equipment_ids ?? [];
+    if (equipmentIds.length === 0) return true;
     if (!availableEquipment) return false;
     // ALL equipment required (AND logic)
-    return w.equipment_ids.every((e) => availableEquipment.has(e));
+    return equipmentIds.every((e) => availableEquipment.has(e));
   };
 
-  // QA H7: Filter for stretch exercises AND filter out injury contraindications AND equipment
+  // QA: Filter for stretch exercises ONLY (not mobility/warmup drills), filter out injury contraindications AND equipment
   const byType = stretches.filter((w) => 
     w.type === "stretch" && 
     !w.target_regions.some((r) => regions.has(r)) &&

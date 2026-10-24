@@ -3907,7 +3907,9 @@
       "abs"
     ],
     "secondary_muscles": [],
-    "equipment_ids": [],
+    "equipment_ids": [
+      "stability_ball"
+    ],
     "level_min": "beginner",
     "contraindicated_regions": [
       "lower_back"
@@ -5204,7 +5206,7 @@
     "slug": "dumbbell-one-arm-upright-row",
     "name": "Dumbbell One-Arm Upright Row",
     "movement_pattern": "lateral_delt",
-    "mechanic": "compound",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
       "side_delts"
@@ -7034,11 +7036,11 @@
     "id": "29e5add1-805e-4c21-a701-a8731dadca8d",
     "slug": "hip-flexion-with-band",
     "name": "Hip Flexion with Band",
-    "movement_pattern": "squat",
-    "mechanic": "compound",
+    "movement_pattern": "other",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
-      "quads"
+      "hip_flexors"
     ],
     "secondary_muscles": [],
     "equipment_ids": [
@@ -14157,7 +14159,7 @@
     "slug": "smith-machine-one-arm-upright-row",
     "name": "Smith Machine One-Arm Upright Row",
     "movement_pattern": "lateral_delt",
-    "mechanic": "compound",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
       "side_delts"
@@ -14331,7 +14333,7 @@
     "slug": "smith-machine-upright-row",
     "name": "Smith Machine Upright Row",
     "movement_pattern": "lateral_delt",
-    "mechanic": "compound",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
       "side_delts"
@@ -15325,7 +15327,7 @@
     "slug": "standing-dumbbell-upright-row",
     "name": "Standing Dumbbell Upright Row",
     "movement_pattern": "lateral_delt",
-    "mechanic": "compound",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
       "side_delts"
@@ -16785,7 +16787,7 @@
     "slug": "upright-barbell-row",
     "name": "Upright Barbell Row",
     "movement_pattern": "lateral_delt",
-    "mechanic": "compound",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
       "side_delts"
@@ -16813,7 +16815,7 @@
     "slug": "upright-cable-row",
     "name": "Upright Cable Row",
     "movement_pattern": "lateral_delt",
-    "mechanic": "compound",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
       "side_delts"
@@ -16841,7 +16843,7 @@
     "slug": "upright-row-with-bands",
     "name": "Upright Row - With Bands",
     "movement_pattern": "lateral_delt",
-    "mechanic": "compound",
+    "mechanic": "isolation",
     "metric": "reps",
     "primary_muscles": [
       "side_delts"

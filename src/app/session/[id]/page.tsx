@@ -57,7 +57,7 @@ export default async function SessionPage({
         .select("primary_track, has_all_equipment, timezone")
         .eq("id", user.id)
         .single(),
-      supabase.from("user_injuries").select("body_region"),
+      supabase.from("user_injuries").select("body_region, severity").eq("severity", "current"),
       supabase.from("warmup_exercises").select("*").eq("is_active", true),
       supabase.from("user_equipment").select("equipment_id"),
       supabase
@@ -175,8 +175,7 @@ export default async function SessionPage({
   const warmup = selectWarmup({
     warmups: allWarmupRows,
     trainingMuscles,
-    // Prehab uses past injuries too -- they do not block a movement, but they
-    // are exactly what is worth warming up.
+    // Prehab uses CURRENT injuries only (filtered by severity='current' in the query above)
     injuryRegions: (injuriesRes.data ?? []).map((i) => i.body_region),
     track: profileRes.data?.primary_track ?? "weights",
     hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
@@ -185,7 +184,7 @@ export default async function SessionPage({
       : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
   });
 
-  // QA H7: Cool-down filter uses injuries (prehab drills for current, general stretches for all)
+  // Cool-down filter uses CURRENT injuries only (filtered by severity='current' in the query above)
   const cooldown = selectCooldown({
     stretches: allWarmupRows,
     trainingMuscles,

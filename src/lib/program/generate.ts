@@ -351,10 +351,15 @@ const KNEE_SAFE_QUAD_EXERCISES = new Set([
   'leg-extensions',           // Partial ROM, controlled (requires leg_extension machine)
   'single-leg-leg-extension', // Controlled, no impact (requires leg_extension machine)
   'box-squat',                // Limited depth, box provides safety (requires barbell, squat_rack)
+  'box-squat-with-bands',     // Limited depth box squat with bands
+  'box-squat-with-chains',    // Limited depth box squat with chains
   'step-up-with-knee-raise',  // Controlled, user picks height (bodyweight)
   'dumbbell-step-ups',        // Controlled step-ups (requires dumbbell)
-  'hip-flexion-with-band',    // Quad isolation without knee stress (requires resistance_band)
   'barbell-step-ups',         // Controlled step-ups (requires barbell)
+  'goblet-squat',             // Controlled squat with limited load (requires kettlebell)
+  'wall-sit',                 // Isometric hold, no dynamic stress
+  'barbell-squat-to-a-bench', // Limited ROM squat to bench
+  'dumbbell-squat-to-a-bench', // Limited ROM squat to bench
 ]);
 
 /**
@@ -381,6 +386,13 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   
   // High spinal load affects lower back (moderate is manageable for most)
   if (ex.spinal_load === "high") {
+    derived.push("lower_back");
+  }
+  
+  // QA Pass 10 followup: Loaded lateral-flexion moves (kettlebell windmill, etc.) contraindicated for lower_back
+  if ((nameLower.includes("windmill") || slugLower.includes("windmill") ||
+       nameLower.includes("side bend") || slugLower.includes("side-bend")) &&
+      ex.equipment_ids.length > 0) {
     derived.push("lower_back");
   }
   
@@ -457,6 +469,9 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   // Also block high spinal load for current lower_back injury (handled above via derived contraindications)
   if (input.age !== null && input.age >= 50 && ex.spinal_load === "high") return false;
 
+  // QA Pass 10 followup: Beginners get no high-impact plyometric moves (knee tuck jump, etc.)
+  if (input.level === "beginner" && ex.impact === "high") return false;
+
   return true;
 }
 
@@ -472,6 +487,7 @@ export function score(
   wantCompound: boolean,
   level: Level,
   primaryTrack: Track = "weights",
+  currentInjuryRegions: BodyRegion[] = [],
 ): number {
   let s = 0;
   if (wantCompound && ex.mechanic === "compound") s += 4;
@@ -497,6 +513,18 @@ export function score(
   // is what bench press needs, not a reason to avoid it.
   if (primaryTrack === "bodyweight") {
     s -= Math.max(0, ex.equipment_ids.length - 1);
+  }
+
+  // QA Pass 10 followup: Knee injury bonus for knee-safe quad exercises
+  // Prefer box squat, goblet squat, wall sit, leg extension, controlled step-up for knee-injured users
+  if (currentInjuryRegions.includes("knee") && ex.primary_muscles.includes("quads") && ex.movement_pattern === "squat") {
+    const kneeSafeSlugs = [
+      "box-squat", "goblet-squat", "wall-sit", "leg-extension", 
+      "step-up", "bench-squat", "squat-to-a-bench"
+    ];
+    if (kneeSafeSlugs.some(slug => ex.slug.includes(slug))) {
+      s += 10; // Much higher than compound bonus (4), so knee-safe options rank first
+    }
   }
 
   return s;
@@ -615,7 +643,7 @@ function pickForSlot(
     const ranked = candidates
       .map((e) => ({
         e,
-        score: score(e, wantCompound, input.level, input.primaryTrack),
+        score: score(e, wantCompound, input.level, input.primaryTrack, input.currentInjuryRegions),
         stapleKey: isMainSlot
           ? stapleSortKey(e, p, input.hasAllEquipment, input.primaryTrack)
           : `1:${e.slug}`, // Non-main slots: no staple bonus
@@ -654,7 +682,7 @@ function pickForSlot(
     const ranked = filtered
       .map((e) => ({
         e,
-        score: score(e, slotIndex < 4, input.level, input.primaryTrack),
+        score: score(e, slotIndex < 4, input.level, input.primaryTrack, input.currentInjuryRegions),
         stapleKey: stapleSortKey(e, altPattern, input.hasAllEquipment, input.primaryTrack),
         rng: rng(),
       }))
@@ -805,7 +833,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           })
           .map(e => ({
             e,
-            score: score(e, i < 4, input.level, input.primaryTrack),
+            score: score(e, i < 4, input.level, input.primaryTrack, input.currentInjuryRegions),
             stapleKey: stapleSortKey(e, pattern, input.hasAllEquipment, input.primaryTrack),
             rng: rng(),
           }))
@@ -869,7 +897,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return true;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -897,7 +925,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return isEligible(e, input);
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -934,7 +962,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -974,7 +1002,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.currentInjuryRegions) - score(a, false, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -1078,8 +1106,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         .filter((e) => !usedInBlock.has(e.id))
         .sort(
           (a, b) =>
-            score(b, true, input.level, input.primaryTrack) -
-              score(a, true, input.level, input.primaryTrack) ||
+            score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
+              score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
             a.slug.localeCompare(b.slug),
         );
       
@@ -1126,6 +1154,31 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           restSeconds: p.restSeconds,
         });
       });
+    }
+
+    // QA Pass 10 followup: Never allow two hinge-pattern exercises back to back
+    // Check for adjacent hinges and swap the second one if found
+    for (let i = 0; i < exercises.length - 1; i++) {
+      const current = pool.find(e => e.id === exercises[i].exerciseId);
+      const next = pool.find(e => e.id === exercises[i + 1].exerciseId);
+      
+      if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
+        // Find a non-hinge exercise to swap with
+        const swapCandidates = exercises.slice(i + 2).map((ex, idx) => ({ ex, idx: idx + i + 2 }))
+          .filter(({ ex }) => {
+            const candidate = pool.find(e => e.id === ex.exerciseId);
+            return candidate && candidate.movement_pattern !== "hinge";
+          });
+        
+        if (swapCandidates.length > 0) {
+          // Swap with the first non-hinge exercise after the adjacent hinges
+          const { idx: swapIdx } = swapCandidates[0];
+          [exercises[i + 1], exercises[swapIdx]] = [exercises[swapIdx], exercises[i + 1]];
+          // Update order indices
+          exercises[i + 1].orderIndex = i + 1;
+          exercises[swapIdx].orderIndex = swapIdx;
+        }
+      }
     }
 
     // M3: Adjust volume to hit target session length (±5 min)
@@ -1218,37 +1271,42 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         break; // Can't reduce further
       }
       
-      // Second pass: if under target, add sets or exercises
+      // Second pass: if under target, add exercises first (respecting pattern balance), then sets
+      // Cap: beginners 3 sets, intermediates 4, advanced 5
+      const setCapByLevel: Record<Level, number> = {
+        beginner: 3,
+        intermediate: 4,
+        expert: 5,
+      };
+      const maxSets = setCapByLevel[input.level];
+      
       while (estimate < lowerBound && iterations < MAX_ITERATIONS) {
         iterations++;
         
-        // Strategy 1: Add a set to accessories (slots 4+, up to 4 sets max)
-        const accessories = exercises
-          .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx >= 4 && exercises[idx].targetSets < 4);
-        
-        if (accessories.length > 0) {
-          // Deterministic: pick first accessory that can take another set
-          accessories[0].ex.targetSets++;
-          estimate = estimateSessionMinutes({ exercises });
-          continue;
-        }
-        
-        // Strategy 2: Add a set to main exercises (up to 5 sets max for main lifts)
-        const mainExercises = exercises
-          .map((ex, idx) => ({ ex, idx }))
-          .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < 5);
-        
-        if (mainExercises.length > 0) {
-          mainExercises[0].ex.targetSets++;
-          estimate = estimateSessionMinutes({ exercises });
-          continue;
-        }
-        
-        // Strategy 3: Add another accessory exercise
+        // Strategy 1: Add another exercise first (respecting pattern balance: add a pull when pushes outnumber pulls)
         const accessoryPatterns = entry.slots.slice(-2); // Last 2 patterns
-        if (accessoryPatterns.length > 0) {
-          const pattern = accessoryPatterns[exercises.length % accessoryPatterns.length];
+        if (exercises.length < entry.slots.length && accessoryPatterns.length > 0) {
+          // Check pattern balance to decide what to add
+          const pushPatterns = ["horizontal_press", "vertical_press"];
+          const pullPatterns = ["horizontal_pull", "vertical_pull"];
+          
+          const pushCount = exercises.filter(e => {
+            const ex = pool.find(p => p.id === e.exerciseId);
+            return ex && pushPatterns.includes(ex.movement_pattern);
+          }).reduce((sum, e) => sum + e.targetSets, 0);
+          
+          const pullCount = exercises.filter(e => {
+            const ex = pool.find(p => p.id === e.exerciseId);
+            return ex && pullPatterns.includes(ex.movement_pattern);
+          }).reduce((sum, e) => sum + e.targetSets, 0);
+          
+          // Prefer a pull pattern if pushes outnumber pulls by more than 1 set-group
+          let preferredPatterns = accessoryPatterns;
+          if (pushCount > pullCount + 1 && accessoryPatterns.some(p => pullPatterns.includes(p))) {
+            preferredPatterns = accessoryPatterns.filter(p => pullPatterns.includes(p));
+          }
+          
+          const pattern = preferredPatterns[exercises.length % preferredPatterns.length];
           const candidates = pool
             .filter((e) => 
               e.movement_pattern === pattern &&
@@ -1256,8 +1314,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               isEligible(e, input)
             )
             .sort((a, b) => 
-              score(b, true, input.level, input.primaryTrack) -
-              score(a, true, input.level, input.primaryTrack) ||
+              score(b, true, input.level, input.primaryTrack, input.currentInjuryRegions) -
+              score(a, true, input.level, input.primaryTrack, input.currentInjuryRegions) ||
               a.slug.localeCompare(b.slug)
             );
           
@@ -1282,12 +1340,33 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               restSeconds: p.restSeconds,
             });
             estimate = estimateSessionMinutes({ exercises });
-          } else {
-            break; // No more accessories available
+            continue;
           }
-        } else {
-          break; // No accessory patterns to work with
         }
+        
+        // Strategy 2: Add a set to accessories (slots 4+, up to level cap)
+        const accessories = exercises
+          .map((ex, idx) => ({ ex, idx }))
+          .filter(({ idx }) => idx >= 4 && exercises[idx].targetSets < maxSets);
+        
+        if (accessories.length > 0) {
+          accessories[0].ex.targetSets++;
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        // Strategy 3: Add a set to main exercises (up to level cap)
+        const mainExercises = exercises
+          .map((ex, idx) => ({ ex, idx }))
+          .filter(({ idx }) => idx < 4 && exercises[idx].targetSets < maxSets);
+        
+        if (mainExercises.length > 0) {
+          mainExercises[0].ex.targetSets++;
+          estimate = estimateSessionMinutes({ exercises });
+          continue;
+        }
+        
+        break; // Can't add more
       }
     }
 
