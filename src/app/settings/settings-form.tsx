@@ -267,11 +267,12 @@ export function SettingsForm({
           className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 flex items-center justify-between gap-3"
         >
           <span className="text-sm text-accent">
-            {undoToast.field === 'level' ? 'Level' : 'Training type'} changed. This will mark your plan as stale.
+            {undoToast.field === 'level' ? 'Level' : 'Training type'} updated. Your plan will be rebuilt for this when you choose Rebuild.
           </span>
           <button
             onClick={handleUndo}
-            className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+            disabled={pending}
+            className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Undo
           </button>
