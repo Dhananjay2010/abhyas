@@ -19,9 +19,6 @@ import { buildTodayState } from "../src/lib/today/build-state";
 
 type DayType = Database["public"]["Enums"]["day_type"];
 
-let totalTests = 0;
-let passedTests = 0;
-
 function assert(condition: boolean, message: string) {
   totalTests++;
   if (!condition) {

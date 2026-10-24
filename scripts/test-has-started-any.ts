@@ -6,9 +6,6 @@
  */
 
 import { hasStartedAnySession } from "../src/lib/today/has-started-any";
-import type { Database } from "../src/lib/database.types";
-
-type DayType = Database["public"]["Enums"]["day_type"];
 
 function test(name: string, fn: () => void) {
   try {

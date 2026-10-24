@@ -8,7 +8,6 @@
  */
 
 import { todayStateInputFromRows } from "../src/lib/today/page-input";
-import { resolveTimezoneWithProfile } from "../src/lib/timezone";
 import type { Database } from "../src/lib/database.types";
 
 type DayType = Database["public"]["Enums"]["day_type"];
