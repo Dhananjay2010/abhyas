@@ -20,6 +20,7 @@
  */
 import {
   applyDeload,
+  MAX_PLANNER_SETS,
   type Prescription,
 } from "../src/lib/program/prescription";
 import {
@@ -37,7 +38,7 @@ function check(label: string, ok: boolean, detail = "") {
   }
 }
 
-console.log("\n1. applyDeload: exhaustive sweep sets 1-10, unchanged vs current formula");
+console.log("\n1. applyDeload: exhaustive sweep sets 1-5 (MAX_PLANNER_SETS)");
 {
   const cases = [
     { sets: 1, expected: 1 },
@@ -45,11 +46,6 @@ console.log("\n1. applyDeload: exhaustive sweep sets 1-10, unchanged vs current 
     { sets: 3, expected: 2 },
     { sets: 4, expected: 2 },
     { sets: 5, expected: 3 },
-    { sets: 6, expected: 4 },
-    { sets: 7, expected: 4 },
-    { sets: 8, expected: 5 },
-    { sets: 9, expected: 5 },
-    { sets: 10, expected: 6 },
   ];
 
   for (const { sets, expected } of cases) {
@@ -134,6 +130,140 @@ console.log("\n2. applyDeload: bad input validation");
     negZeroResult.sets === 0,
     `got ${negZeroResult.sets}`
   );
+}
+
+console.log("\n2a. applyDeload: upper bound validation (L2 from QA)");
+{
+  // Maximum is accepted
+  const maxP: Prescription = {
+    sets: MAX_PLANNER_SETS,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
+  };
+  
+  let maxThrew = false;
+  let maxResult;
+  try {
+    maxResult = applyDeload(maxP);
+  } catch {
+    maxThrew = true;
+  }
+  
+  check(
+    `applyDeload(${MAX_PLANNER_SETS}) succeeds`,
+    !maxThrew && maxResult !== undefined,
+    maxThrew ? "threw unexpectedly" : ""
+  );
+  
+  if (maxResult) {
+    const expectedMax = 3;
+    check(
+      `applyDeload(${MAX_PLANNER_SETS}) = ${expectedMax}`,
+      maxResult.sets === expectedMax,
+      `got ${maxResult.sets}`
+    );
+  }
+  
+  // Maximum + 1 clamps to MAX_PLANNER_SETS
+  const overMaxP: Prescription = {
+    sets: MAX_PLANNER_SETS + 1,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
+  };
+  
+  let overMaxThrew = false;
+  try {
+    applyDeload(overMaxP);
+  } catch {
+    overMaxThrew = true;
+  }
+  
+  check(
+    `applyDeload(${MAX_PLANNER_SETS + 1}) clamps to ${MAX_PLANNER_SETS} then deloads to 3`,
+    !overMaxThrew && applyDeload(overMaxP).sets === 3,
+    overMaxThrew
+      ? "threw (should clamp instead)"
+      : applyDeload(overMaxP).sets === 3
+        ? ""
+        : `got ${applyDeload(overMaxP).sets}`
+  );
+  
+  // 1e308 clamps to MAX_PLANNER_SETS
+  const hugeP: Prescription = {
+    sets: 1e308,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
+  };
+  
+  let hugeThrew = false;
+  try {
+    applyDeload(hugeP);
+  } catch {
+    hugeThrew = true;
+  }
+  
+  check(
+    "applyDeload(1e308) clamps to MAX_PLANNER_SETS then deloads to 3",
+    !hugeThrew && applyDeload(hugeP).sets === 3,
+    hugeThrew
+      ? "threw (should clamp instead)"
+      : applyDeload(hugeP).sets === 3
+        ? ""
+        : `got ${applyDeload(hugeP).sets}`
+  );
+  
+  // Maximum + 0.4: rounds to 5, which is at the boundary
+  // Validation happens BEFORE rounding, so 5.4 > 5 and should throw
+  const nearMaxP: Prescription = {
+    sets: MAX_PLANNER_SETS + 0.4,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
+  };
+  
+  let nearMaxThrew = false;
+  try {
+    applyDeload(nearMaxP);
+  } catch {
+    nearMaxThrew = true;
+  }
+  
+  check(
+    `applyDeload(${MAX_PLANNER_SETS + 0.4}) clamps to ${MAX_PLANNER_SETS} before rounding, then deloads to 3`,
+    !nearMaxThrew && applyDeload(nearMaxP).sets === 3,
+    nearMaxThrew
+      ? "threw (should clamp instead)"
+      : applyDeload(nearMaxP).sets === 3
+        ? ""
+        : `got ${applyDeload(nearMaxP).sets}`
+  );
+  
+  // Test 6-10 all clamp to MAX_PLANNER_SETS
+  for (let sets = 6; sets <= 10; sets++) {
+    const p: Prescription = {
+      sets,
+      repsMin: 8,
+      repsMax: 12,
+      restSeconds: 90,
+    };
+    
+    let threw = false;
+    let result;
+    try {
+      result = applyDeload(p);
+    } catch {
+      threw = true;
+    }
+    
+    check(
+      `applyDeload(${sets}) clamps to ${MAX_PLANNER_SETS} then deloads to 3`,
+      !threw && !!result && result.sets === 3,
+      threw ? "threw (should clamp instead)" : (result ? (result.sets === 3 ? "" : `got ${result.sets}`) : "no result")
+    );
+  }
 }
 
 console.log("\n3. Rep trim: 2-set bodyweight reps 8-12 becomes 5-8");
@@ -394,7 +524,7 @@ console.log("\n8. Non-deload rows get no trim");
 
 console.log("\n9. loadReducible undefined: exact backward compatibility sweep");
 {
-  for (let sets = 1; sets <= 10; sets++) {
+  for (let sets = 1; sets <= MAX_PLANNER_SETS; sets++) {
     const planned: PlannedExercise = {
       target_sets: sets,
       target_reps_min: 8,
