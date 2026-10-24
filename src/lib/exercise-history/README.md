@@ -186,11 +186,12 @@ interface PersonalRecord {
 ## Notes
 
 - **Read-only**: No mutations. This layer only queries history.
-- **Timezone-aware**: Dates use user's timezone via `resolveTimezoneWithProfile`.
+- **Dates**: local_date is stored as a date type in the user's timezone; no conversion needed.
 - **Warmup sets excluded**: Only working sets are included in calculations.
 - **Bodyweight handling**: Zero or null weight is treated as bodyweight.
 - **Unit consistency**: All weights in kg, all durations in seconds.
 - **PR detection**: Real-time as sets are logged (use `detectSetPRs`) and historical (use `detectPersonalRecords`).
+- **e1RM formula**: Reps are capped at 12 to match exercise_strength_history (Progress view).
 
 ## Testing
 

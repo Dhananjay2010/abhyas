@@ -142,15 +142,15 @@ export function YogaPlayer({
                   <h3 className="mb-2 text-xs font-semibold tracking-wider text-muted uppercase">
                     {group.label}
                   </h3>
-                  <ul className="space-y-1.5">
+                  <ul className="divide-y divide-border rounded-lg border border-border bg-surface overflow-hidden">
                     {group.videos.map((v) => (
                       <li key={v.id}>
                         <button
                           onClick={() => setPlayingId(v.id)}
-                          className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                          className={`flex w-full items-start justify-between gap-3 px-3 py-3 text-left text-sm transition-colors min-h-[44px] ${
                             v.id === playing?.id
-                              ? "border-accent bg-accent/10"
-                              : "border-border bg-surface hover:border-muted/50"
+                              ? "bg-accent/10"
+                              : "hover:bg-surface-2"
                           }`}
                         >
                           <span className="flex min-w-0 items-start gap-2">
@@ -176,15 +176,15 @@ export function YogaPlayer({
             </div>
           ) : (
             // Ungrouped list for non-series playlists
-            <ul className="space-y-1.5">
+            <ul className="divide-y divide-border rounded-lg border border-border bg-surface overflow-hidden">
               {open.videos.map((v) => (
                 <li key={v.id}>
                   <button
                     onClick={() => setPlayingId(v.id)}
-                    className={`flex w-full items-start justify-between gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors ${
+                    className={`flex w-full items-start justify-between gap-3 px-3 py-3 text-left text-sm transition-colors min-h-[44px] ${
                       v.id === playing?.id
-                        ? "border-accent bg-accent/10"
-                        : "border-border bg-surface hover:border-muted/50"
+                        ? "bg-accent/10"
+                        : "hover:bg-surface-2"
                     }`}
                   >
                     <span className="flex min-w-0 items-start gap-2">
