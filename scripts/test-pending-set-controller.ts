@@ -1,5 +1,5 @@
 /**
- * Test pending-set controller - catches all mutants.
+ * Test pending-set controller behavior.
  */
 
 import {
@@ -50,8 +50,8 @@ function assertEqual<T>(actual: T, expected: T, message: string) {
   }
 }
 
-async function testMutantC_RapidFocusAndReplay() {
-  console.log("\n--- Mutant (c): Rapid onFocus + replay calls logSet once per set ---");
+async function testRapidFocusAndReplay() {
+  console.log("\n--- Rapid onFocus + replay calls logSet once per set ---");
 
   const storage = createStorage();
   const sessionId = "session-123";
@@ -114,8 +114,8 @@ async function testMutantC_RapidFocusAndReplay() {
   assert(!states[states.length - 1].expired, "Expired flag cleared");
 }
 
-async function testMutantD_PrefilledStorage() {
-  console.log("\n--- Mutant (d): Pre-filled storage loads and replays ---");
+async function testPrefilledStorageLoadsAndReplays() {
+  console.log("\n--- Pre-filled storage loads and replays ---");
 
   const storage = createStorage();
   const sessionId = "session-456";
@@ -162,8 +162,8 @@ async function testMutantD_PrefilledStorage() {
   );
 }
 
-async function testMutantE_UnresolvedPromise() {
-  console.log("\n--- Mutant (e): Unresolved promise doesn't mark as saved ---");
+async function testUnresolvedPromiseNotMarkedSaved() {
+  console.log("\n--- Unresolved promise doesn't mark as saved ---");
 
   const storage = createStorage();
   const sessionId = "session-789";
@@ -202,8 +202,8 @@ async function testMutantE_UnresolvedPromise() {
   assertEqual(result.status, "saved", "Marked as saved only after promise resolves");
 }
 
-async function testMutantF_ServerSideAuth() {
-  console.log("\n--- Mutant (f): Server-side auth returns code, doesn't throw ---");
+async function testServerSideAuthReturnsCode() {
+  console.log("\n--- Server-side auth returns code, doesn't throw ---");
 
   const noUser = async () => ({ user: null });
   const hasUser = async () => ({ user: { id: "user-123" } });
@@ -237,8 +237,8 @@ async function testMutantF_ServerSideAuth() {
   }
 }
 
-async function testMutantG_ReplayGuard() {
-  console.log("\n--- Mutant (g): Single-flight guard prevents concurrent replays ---");
+async function testSingleFlightReplayGuard() {
+  console.log("\n--- Single-flight guard prevents concurrent replays ---");
 
   const storage = createStorage();
   const sessionId = "session-999";
@@ -531,11 +531,11 @@ async function testReplayedSetsReported() {
 async function main() {
   console.log("Testing pending-set controller\n");
 
-  await testMutantC_RapidFocusAndReplay();
-  await testMutantD_PrefilledStorage();
-  await testMutantE_UnresolvedPromise();
-  await testMutantF_ServerSideAuth();
-  await testMutantG_ReplayGuard();
+  await testRapidFocusAndReplay();
+  await testPrefilledStorageLoadsAndReplays();
+  await testUnresolvedPromiseNotMarkedSaved();
+  await testServerSideAuthReturnsCode();
+  await testSingleFlightReplayGuard();
   await testSessionExpiredHandling();
   await testDuplicate23505();
   await testNetworkErrorKeepsPending();
