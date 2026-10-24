@@ -35,7 +35,7 @@ const mutants: Mutant[] = [
     name: "Disable high-impact lower-body ban for knee injury",
     file: "src/lib/program/generate.ts",
     pattern: /if \(input\.anyKneeInjury && ex\.impact === "high"\) {/,
-    mutate: 'if (false && input.anyKneeInjury && ex.impact === "high") {',
+    mutate: 'if (!input.anyKneeInjury && ex.impact === "high") {',
     tests: ["test:knee-safety-matrix"],
   },
 
@@ -44,7 +44,7 @@ const mutants: Mutant[] = [
     name: "Disable past-knee lunge filter (allow unsafe lunges for past knee)",
     file: "src/lib/program/generate.ts",
     pattern: /if \(hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES\.has\(ex\.slug\)\) {/,
-    mutate: 'if (false && hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {',
+    mutate: 'if (!hasPastKnee && !PAST_KNEE_LUNGE_EXERCISES.has(ex.slug)) {',
     tests: ["test:knee-safety-matrix"],
   },
 
@@ -53,7 +53,7 @@ const mutants: Mutant[] = [
     name: "Disable beginner high-impact exclusion for knee injury",
     file: "src/lib/program/generate.ts",
     pattern: /\/\/ SAFETY: Beginners with knee injury \(any\) exclude ALL high-impact exercises\n\s+if \(input\.level === "beginner"\) \{/,
-    mutate: '// SAFETY: Beginners with knee injury (any) exclude ALL high-impact exercises\n    if (false && input.level === "beginner") {',
+    mutate: '// SAFETY: Beginners with knee injury (any) exclude ALL high-impact exercises\n    if (input.level !== "beginner") {',
     tests: ["test:knee-safety-matrix"],
   },
 
@@ -62,7 +62,7 @@ const mutants: Mutant[] = [
     name: "Disable force-add quad work for knee injury (allow empty quad days)",
     file: "src/lib/program/generate.ts",
     pattern: /if \(\(hasKneeInjury \|\| hasPastKnee\) && isLowerOrFullDay\) {/,
-    mutate: 'if (false && (hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {',
+    mutate: 'if (!(hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {',
     tests: ["test:knee-safety-matrix"],
   },
 ];

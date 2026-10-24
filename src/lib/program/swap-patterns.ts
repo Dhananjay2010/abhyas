@@ -12,7 +12,7 @@ export function getSwapPatterns(
   pattern: MovementPattern,
   input: Pick<GeneratorInput, "anyKneeInjury" | "currentInjuryRegions">,
 ): MovementPattern[] {
-  const hasKneeInjury = input.anyKneeInjury;
+  const hasKneeInjury = input.anyKneeInjury ?? false;
   const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
   return buildPatternList(pattern, hasKneeInjury, hasCurrentKnee);
 }
