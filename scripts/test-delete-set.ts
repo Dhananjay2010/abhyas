@@ -10,19 +10,29 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/lib/database.types";
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const anonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const inRealDB = process.env.REAL_DB === "1";
 
-if (!supabaseUrl || (!supabaseServiceKey && !anonKey)) {
-  console.error("Missing Supabase credentials");
-  console.error("SUPABASE_URL:", supabaseUrl ? "set" : "missing");
-  console.error("SUPABASE_SERVICE_ROLE_KEY:", supabaseServiceKey ? "set" : "missing");
-  console.error("SUPABASE_ANON_KEY:", anonKey ? "set" : "missing");
-  process.exit(1);
+let supabaseUrl: string;
+let supabaseKey: string;
+
+if (inRealDB) {
+  supabaseUrl = "http://127.0.0.1:54321";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    console.error("Missing SUPABASE_SERVICE_ROLE_KEY for real DB test");
+    process.exit(1);
+  }
+  supabaseKey = serviceRoleKey;
+} else {
+  supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("Missing Supabase credentials");
+    process.exit(1);
+  }
 }
 
-const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
   auth: { persistSession: false },
 });
 
