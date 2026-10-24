@@ -12,6 +12,7 @@ import { routeDecision, PROTECTED_PREFIXES } from "../src/lib/supabase/session";
 import { isPublicPath } from "../src/lib/supabase/public-paths";
 import { branding } from "../src/lib/branding";
 import { config } from "../src/proxy";
+import type { NextRequest } from "next/server";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -178,15 +179,7 @@ console.log("\n5. isPublicPath - exact matching, no prefix collision");
 
 console.log("\n6. Route decision logic (deny-by-default)");
 {
-  interface MockNextUrl {
-    clone: () => { pathname: string; search: string; toString: () => string };
-  }
-  
-  interface MockRequest {
-    nextUrl: MockNextUrl;
-  }
-  
-  const mockRequest = (pathname: string): MockRequest => ({
+  const mockRequest = (pathname: string) => ({
     nextUrl: {
       clone: () => ({
         pathname,
@@ -194,7 +187,7 @@ console.log("\n6. Route decision logic (deny-by-default)");
         toString: () => `http://localhost:3000${pathname}?foo=bar`,
       }),
     },
-  });
+  }) as unknown as NextRequest;
 
   // Test all public paths pass
   check("public / passes", routeDecision("/", false, mockRequest("/")).kind === "pass");
@@ -268,15 +261,7 @@ console.log("\n7. 404 HTML response - branding and format");
 
 console.log("\n8. Redirect URL structure");
 {
-  interface MockNextUrl {
-    clone: () => { pathname: string; search: string; toString: () => string };
-  }
-  
-  interface MockRequest {
-    nextUrl: MockNextUrl;
-  }
-  
-  const mockRequest = (pathname: string): MockRequest => ({
+  const mockRequest = (pathname: string) => ({
     nextUrl: {
       clone: () => ({
         pathname,
@@ -284,7 +269,7 @@ console.log("\n8. Redirect URL structure");
         toString: () => `http://localhost:3000${pathname}?foo=bar`,
       }),
     },
-  });
+  }) as unknown as NextRequest;
 
   const redirectDecision = routeDecision("/today", false, mockRequest("/today"));
   check("redirect returns structured result", redirectDecision.kind === "redirect");
