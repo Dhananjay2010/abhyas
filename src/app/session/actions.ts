@@ -26,6 +26,8 @@ import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
+import { loadStartProgram } from "@/lib/session/load-start-program";
+import { loadPlanDay } from "@/lib/session/load-plan-day";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -161,25 +163,16 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     return { ok: false, error: rolloverResult.error };
   }
 
-  // Re-read the program after rollover to get the fresh block
-  const program = (
-    await supabase
-      .from("programs")
-      .select("id, started_on, deload_week, week_offset, program_days!inner(id, day_index, day_type, focus, label)")
-      .eq("program_days.status", "active")
-      .eq("id", rolloverResult.programId)
-      .maybeSingle()
-  ).data;
-
-  if (!program) return { ok: false, error: "Could not load the training block." };
-
   // From the local date already computed above, not a second read of the clock:
   // deriving them separately let the weekday and the date disagree across a
   // midnight boundary.
   const dayIndex = isoWeekday(today);
 
-  const day = (program.program_days ?? []).find((d) => d.day_index === dayIndex);
-  if (!day) return { ok: false, error: "No plan for today." };
+  const loadResult = await loadStartProgram(supabase, rolloverResult.programId, dayIndex);
+  if (!loadResult.ok) return { ok: false, error: loadResult.error };
+
+  const { program, dayId: dayId } = loadResult;
+  const day = program.program_days.find((d) => d.id === dayId)!;
 
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
   const isDeloadWeek = week === program.deload_week;
@@ -1015,17 +1008,10 @@ export async function planDay(input: {
   let programDayId: string | null = null;
 
   if (input.plan.kind === "training") {
-    // Read the day rather than trusting the id: RLS already scopes it to this
-    // user, and this also gets the type right without the client naming it.
-    const { data: day } = await supabase
-      .from("program_days")
-      .select("id, day_type")
-      .eq("id", input.plan.programDayId)
-      .eq("status", "active")
-      .maybeSingle();
-    if (!day) return { ok: false, error: "That day is not in your block." };
-    actualType = day.day_type;
-    programDayId = day.id;
+    const dayResult = await loadPlanDay(supabase, input.plan.programDayId);
+    if (!dayResult.ok) return { ok: false, error: dayResult.error };
+    actualType = dayResult.day.day_type;
+    programDayId = dayResult.day.id;
   } else {
     actualType = OVERRIDE_TYPE[input.plan.kind];
   }
