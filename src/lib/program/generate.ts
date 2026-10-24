@@ -359,6 +359,9 @@ export const KNEE_SAFE_QUAD_EXERCISES: ReadonlySet<string> = new Set([
  * These variants load the knee significantly during the initial pull from the floor.
  * For knee-injured users, prefer hip-dominant hinges (RDL, hip thrust, glute bridge).
  * Exported for testing.
+ * 
+ * Note: kettlebell-one-legged-deadlift is included because the single-leg stance
+ * requires significant knee stability and flexion control during the floor pull.
  */
 export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'barbell-deadlift',              // Conventional deadlift
@@ -373,6 +376,7 @@ export const FLOOR_PULL_DEADLIFTS: ReadonlySet<string> = new Set([
   'cable-deadlifts',               // Cable variation
   'leverage-deadlift',             // Machine leverage deadlift
   'one-arm-side-deadlift',         // Single-arm floor pull
+  'kettlebell-one-legged-deadlift', // Single-leg floor pull (knee stability demand)
 ]);
 
 /**
@@ -474,20 +478,9 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
       return false;
     }
     
-    // Additional knee injury rules (PR #73 follow-up):
-    // For current knee injury, squat/lunge pattern exercises are ONLY eligible if in KNEE_SAFE_QUAD_EXERCISES
-    // This prevents untagged variants (split squats, step-ups, pistols) from leaking through
-    if (input.currentInjuryRegions.includes("knee")) {
-      if (ex.movement_pattern === "squat" || ex.movement_pattern === "lunge") {
-        if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
-          return false;
-        }
-      }
-      
-      // Floor-pull deadlifts with deep knee flexion are completely excluded for knee injuries
-      if (FLOOR_PULL_DEADLIFTS.has(ex.slug)) {
-        return false;
-      }
+    // Floor-pull deadlifts with deep knee flexion are completely excluded for knee injuries
+    if (input.currentInjuryRegions.includes("knee") && FLOOR_PULL_DEADLIFTS.has(ex.slug)) {
+      return false;
     }
   }
 
@@ -1221,36 +1214,6 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           }
         }
       }
-
-      // Rule 2: Ensure knee-safe quad comes before any hinge
-      const firstHingeIndex = exercises.findIndex(ex => {
-        const e = pool.find(p => p.id === ex.exerciseId);
-        return e && e.movement_pattern === "hinge";
-      });
-
-      if (firstHingeIndex !== -1) {
-        const kneeSafeBeforeHinge = exercises.slice(0, firstHingeIndex).some(ex => {
-          const e = pool.find(p => p.id === ex.exerciseId);
-          return e && KNEE_SAFE_QUAD_EXERCISES.has(e.slug);
-        });
-
-        if (!kneeSafeBeforeHinge) {
-          // Find a knee-safe quad after the hinge and move it before
-          const kneeSafeAfterHinge = exercises.findIndex((ex, idx) => {
-            if (idx <= firstHingeIndex) return false;
-            const e = pool.find(p => p.id === ex.exerciseId);
-            return e && KNEE_SAFE_QUAD_EXERCISES.has(e.slug);
-          });
-
-          if (kneeSafeAfterHinge !== -1) {
-            // Move it right before the hinge
-            const kneeSafe = exercises.splice(kneeSafeAfterHinge, 1)[0];
-            exercises.splice(firstHingeIndex, 0, kneeSafe);
-            // Update orderIndex
-            exercises.forEach((e, idx) => { e.orderIndex = idx; });
-          }
-        }
-      }
     }
 
     // Rule 4 (for ALL days with knee injury): No two hinges are adjacent
@@ -1260,15 +1223,19 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         const next = pool.find(e => e.id === exercises[i + 1].exerciseId);
         
         if (current?.movement_pattern === "hinge" && next?.movement_pattern === "hinge") {
-          // Find a non-hinge exercise to swap with
+          // Find a non-hinge exercise to swap with, but don't pull accessories into main slots
+          const isMainSlot = (i + 1) < 4;
           const swapCandidates = exercises.slice(i + 2).map((ex, idx) => ({ ex, idx: idx + i + 2 }))
-            .filter(({ ex }) => {
+            .filter(({ ex, idx }) => {
               const candidate = pool.find(e => e.id === ex.exerciseId);
-              return candidate && candidate.movement_pattern !== "hinge";
+              if (!candidate || candidate.movement_pattern === "hinge") return false;
+              // If position i+1 is a main slot, only swap with other main slots
+              if (isMainSlot && idx >= 4) return false;
+              return true;
             });
           
           if (swapCandidates.length > 0) {
-            // Swap with the first non-hinge exercise after the adjacent hinges
+            // Swap with the first eligible non-hinge exercise
             const { idx: swapIdx } = swapCandidates[0];
             [exercises[i + 1], exercises[swapIdx]] = [exercises[swapIdx], exercises[i + 1]];
             // Update orderIndex
