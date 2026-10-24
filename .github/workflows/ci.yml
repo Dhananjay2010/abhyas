@@ -33,6 +33,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Generate offline page
+        run: npx tsx scripts/generate-offline-page.ts
+
       - name: Run tests
         run: npm test
 
