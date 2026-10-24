@@ -1,5 +1,6 @@
 -- Workout Quality Fixes: Exercise ordering, catalogue data quality, and cool-down stretches
 -- This migration is idempotent (safe to re-run)
+-- Depends on: 20261024110000_add_stretch_warmup_type.sql
 
 -- Part 0: Add missing staple exercises needed for proper plan generation
 -- These fill gaps where beginners have no equipment-free options for key patterns
@@ -124,6 +125,7 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- Part 1: Fix exercise catalogue data quality issues
 -- These are the exercises found by QA with wrong movement patterns, mechanics, or difficulty
+-- All updates are idempotent and scoped by slug
 
 -- Flutter Kicks: Core exercise, not hinge. Targets abs, not glutes.
 UPDATE exercises 
@@ -176,6 +178,7 @@ WHERE slug IN ('tuck-crunch', 'standing-cable-wood-chop')
 
 
 -- Part 1B: Fix additional mis-tagged exercises found in production review
+-- All updates are idempotent and scoped by slug
 
 -- Rows tagged as isolation should be compound
 UPDATE exercises
@@ -204,21 +207,9 @@ WHERE slug = 'lunge-sprint'
   AND (level_min = 'beginner' OR impact != 'high');
 
 
--- Part 2: Add 'stretch' type to warmup_type enum for cool-down exercises
-DO $$ 
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_enum e
-    JOIN pg_type t ON e.enumtypid = t.oid
-    WHERE t.typname = 'warmup_type' AND e.enumlabel = 'stretch'
-  ) THEN
-    ALTER TYPE warmup_type ADD VALUE 'stretch';
-  END IF;
-END $$;
-
-
--- Part 3: Add stretch exercises for cool-down
+-- Part 2: Add stretch exercises for cool-down
 -- These are timed holds (30s each) of actual stretches, not the mobility work from warm-up
+-- Depends on warmup_type enum having 'stretch' value (from 20261024110000)
 
 INSERT INTO warmup_exercises (slug, name, type, target_regions, target_muscles, duration_seconds, instructions) 
 VALUES
@@ -403,46 +394,3 @@ VALUES
     ]
   )
 ON CONFLICT (slug) DO NOTHING;
-
-
--- Part 4: Create helper function to select cool-down stretches based on what was trained
--- This will be used by the session runner to pick appropriate stretches
-
-CREATE OR REPLACE FUNCTION select_cooldown_stretches(
-  p_trained_muscles muscle[]
-) RETURNS TABLE (
-  id uuid,
-  slug text,
-  name text,
-  duration_seconds int,
-  instructions text[]
-) LANGUAGE sql STABLE AS $$
-  WITH muscle_match AS (
-    SELECT 
-      w.id,
-      w.slug,
-      w.name,
-      w.duration_seconds,
-      w.instructions,
-      -- Count how many of today's muscles this stretch targets
-      (SELECT COUNT(*) 
-       FROM unnest(w.target_muscles) m 
-       WHERE m = ANY(p_trained_muscles)
-      ) as overlap
-    FROM warmup_exercises w
-    WHERE w.type = 'stretch' AND w.is_active = true
-  )
-  -- Return stretches that hit trained muscles first, then general stretches
-  SELECT 
-    muscle_match.id, 
-    muscle_match.slug, 
-    muscle_match.name, 
-    muscle_match.duration_seconds, 
-    muscle_match.instructions
-  FROM muscle_match
-  ORDER BY overlap DESC, name ASC
-  LIMIT 5;
-$$;
-
-COMMENT ON FUNCTION select_cooldown_stretches IS 
-  'Returns 5 stretches prioritizing muscles that were trained in the session';

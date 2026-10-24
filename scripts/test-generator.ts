@@ -603,5 +603,229 @@ console.log("\n22. Intermediate 4-day 45-min gym: QA production review test");
   check("intermediate 45-min plan is deterministic", slugs1 === slugs2);
 }
 
+console.log("\n23. P1 regression: beginner bodyweight with knee + lower back injury");
+{
+  // Profile P1 from pass 5: fat loss, beginner, bodyweight (no equipment),
+  // 3 days, with current knee and lower back injuries.
+  const p1 = base({
+    goal: "fat_loss",
+    level: "beginner",
+    primaryTrack: "bodyweight",
+    hasAllEquipment: false,
+    equipmentIds: [],
+    daysPerWeek: 3,
+    preferredSessionMinutes: 45,
+    currentInjuryRegions: ["knee", "lower_back"],
+  });
+
+  const plan = generateProgram(p1);
+  const allExercises = plan.days.flatMap((d) =>
+    d.exercises.map((e) => ({
+      ...e,
+      ex: byId.get(e.exerciseId)!,
+      day: d.label,
+    }))
+  );
+
+  // CRITICAL: No contraindicated exercises for knee or lower back
+  const contraindicated = allExercises.filter((e) =>
+    e.ex.contraindicated_regions.some((r) => ["knee", "lower_back"].includes(r))
+  );
+  check(
+    "P1: no knee or lower-back contraindicated exercises",
+    contraindicated.length === 0,
+    contraindicated.length > 0
+      ? `found: ${contraindicated.map((e) => `${e.ex.name} (${e.ex.contraindicated_regions.join(", ")})`).join(", ")}`
+      : undefined
+  );
+
+  // Should have at least some lower-body work via safe alternatives
+  const lowerBody = allExercises.filter((e) =>
+    e.ex.primary_muscles.some((m) => ["glutes", "hamstrings", "quads"].includes(m as string))
+  );
+  check(
+    "P1: has some lower-body work via safe alternatives",
+    lowerBody.length > 0,
+    `found ${lowerBody.length} exercises: ${lowerBody.map((e) => e.ex.name).join(", ")}`
+  );
+
+  // Friday should not be just 2 exercises - minimum coverage check
+  const friday = plan.days.find((d) => d.label.includes("FB C"));
+  if (friday) {
+    check(
+      "P1: Friday has reasonable exercise count (not just 2)",
+      friday.exercises.length >= 3,
+      `got ${friday.exercises.length} exercises`
+    );
+  }
+
+  // Staples in main slots for bodyweight users
+  const mainSlots = allExercises.filter((e) => e.orderIndex <= 1);
+  const bodyweightStaples = ["pushups", "push-up-wide", "inverted-row", "pike-push-up", "glute-bridge"];
+  const hasBodyweightStaple = mainSlots.some((e) => bodyweightStaples.includes(e.ex.slug));
+  check(
+    "P1: main slots include bodyweight staples",
+    hasBodyweightStaple,
+    `main exercises: ${mainSlots.map((e) => e.ex.slug).join(", ")}`
+  );
+}
+
+console.log("\n24. P2 regression: advanced gym user, 6 days, no injuries");
+{
+  // Profile P2 from pass 5: strength, expert, all gym equipment, 6 days
+  const p2 = base({
+    goal: "strength",
+    level: "expert",
+    primaryTrack: "weights",
+    hasAllEquipment: true,
+    daysPerWeek: 6,
+    preferredSessionMinutes: 45,
+    currentInjuryRegions: [],
+  });
+
+  const plan = generateProgram(p2);
+  const allExercises = plan.days.flatMap((d) =>
+    d.exercises.map((e) => ({
+      ...e,
+      ex: byId.get(e.exerciseId)!,
+      day: d.label,
+    }))
+  );
+
+  // CRITICAL: Main lifts should be strength staples (squat, bench, deadlift, OHP)
+  const mainSlots = allExercises.filter((e) => e.orderIndex <= 1);
+  const strengthStaples = [
+    "barbell-squat",
+    "barbell-bench-press-medium-grip",
+    "barbell-deadlift",
+    "standing-military-press",
+    "bent-over-barbell-row",
+    "wide-grip-lat-pulldown",
+    "chin-up",
+  ];
+  const mainSlugs = mainSlots.map((e) => e.ex.slug);
+  const hasStrengthStaples = mainSlugs.some((s) => strengthStaples.includes(s));
+  check(
+    "P2: main slots include strength staples",
+    hasStrengthStaples,
+    `main slugs: ${mainSlugs.join(", ")}`
+  );
+
+  // No plyometric or Olympic lifts in main slots for strength
+  const problematicMain = mainSlots.filter((e) =>
+    ["plyo", "snatch", "clean", "jerk", "jump"].some((keyword) =>
+      e.ex.name.toLowerCase().includes(keyword)
+    )
+  );
+  check(
+    "P2: no plyometric/Olympic lifts in main slots",
+    problematicMain.length === 0,
+    problematicMain.length > 0
+      ? `found: ${problematicMain.map((e) => e.ex.name).join(", ")}`
+      : undefined
+  );
+
+  // Should have arm and core work even at 45 min (coverage requirement)
+  const armWork = allExercises.filter((e) =>
+    e.ex.primary_muscles.some((m) => ["biceps", "triceps"].includes(m as string))
+  );
+  const coreWork = allExercises.filter((e) => e.ex.movement_pattern === "core");
+  check(
+    "P2: has arm work at 45 min",
+    armWork.length > 0,
+    `found ${armWork.length} arm exercises`
+  );
+  check(
+    "P2: has core work at 45 min",
+    coreWork.length > 0,
+    `found ${coreWork.length} core exercises`
+  );
+}
+
+console.log("\n25. P3 regression: intermediate dumbbells with shoulder injury");
+{
+  // Profile P3 from pass 5: muscle gain, intermediate, bodyweight track
+  // (dumbbells + bench), 5 days (1 yoga), current shoulder injury
+  const p3 = base({
+    goal: "muscle_gain",
+    level: "intermediate",
+    primaryTrack: "bodyweight",
+    hasAllEquipment: false,
+    equipmentIds: ["dumbbell", "adjustable_bench"],
+    daysPerWeek: 5,
+    yogaDaysPerWeek: 1,
+    preferredSessionMinutes: 45,
+    currentInjuryRegions: ["shoulder"],
+  });
+
+  const plan = generateProgram(p3);
+  const allExercises = plan.days.flatMap((d) =>
+    d.exercises.map((e) => ({
+      ...e,
+      ex: byId.get(e.exerciseId)!,
+      day: d.label,
+    }))
+  );
+
+  // CRITICAL: No shoulder-contraindicated exercises
+  const shoulderContra = allExercises.filter((e) =>
+    e.ex.contraindicated_regions.includes("shoulder" as any)
+  );
+  check(
+    "P3: no shoulder-contraindicated exercises",
+    shoulderContra.length === 0,
+    shoulderContra.length > 0
+      ? `found: ${shoulderContra.map((e) => e.ex.name).join(", ")}`
+      : undefined
+  );
+
+  // No pullovers, overhead front raises, or snatches
+  const problematicSlugs = [
+    "pullover",
+    "straight-arm-dumbbell-pullover",
+    "standing-dumbbell-straight-arm-front-delt-raise-above-head",
+    "single-dumbbell-raise",
+    "snatch",
+  ];
+  const problematic = allExercises.filter((e) =>
+    problematicSlugs.some((slug) => e.ex.slug.includes(slug))
+  );
+  check(
+    "P3: no pullovers, overhead raises, or snatches",
+    problematic.length === 0,
+    problematic.length > 0 ? `found: ${problematic.map((e) => e.ex.name).join(", ")}` : undefined
+  );
+
+  // Should have staples appropriate for dumbbell training
+  const mainSlots = allExercises.filter((e) => e.orderIndex <= 1);
+  const dumbbellStaples = [
+    "dumbbell-bench-press",
+    "incline-dumbbell-press",
+    "goblet-squat",
+    "dumbbell-squat",
+    "romanian-deadlift",
+    "one-arm-dumbbell-row",
+  ];
+  const mainSlugs = mainSlots.map((e) => e.ex.slug);
+  const hasDumbbellStaple = mainSlugs.some((s) =>
+    dumbbellStaples.some((staple) => s.includes(staple) || staple.includes(s))
+  );
+  check(
+    "P3: main slots include dumbbell-appropriate staples",
+    hasDumbbellStaple,
+    `main slugs: ${mainSlugs.join(", ")}`
+  );
+
+  // No jumps or cleans in main slots (hypertrophy, not power)
+  const jumpClean = mainSlots.filter((e) =>
+    ["jump", "clean"].some((keyword) => e.ex.name.toLowerCase().includes(keyword))
+  );
+  check(
+    "P3: no jumps or cleans in main slots",
+    jumpClean.length === 0,
+    jumpClean.length > 0 ? `found: ${jumpClean.map((e) => e.ex.name).join(", ")}` : undefined
+  );
+}
+
 console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} FAILURES`}\n`);
 process.exit(failures === 0 ? 0 : 1);

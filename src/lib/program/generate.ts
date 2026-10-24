@@ -218,31 +218,57 @@ export function hashString(s: string): number {
 }
 
 /**
- * Exercises to exclude from main compound slots (slots 0-1) for hypertrophy.
+ * Exercises to exclude from strength slots for hypertrophy goals.
+ * 
  * Behind-the-neck exercises put shoulders in risky positions. Plyometric and
  * Olympic lifts are power/athletic movements, not suitable for 8-12 rep
  * hypertrophy work in automated programming.
+ * 
+ * Based on catalogue properties (impact = 'high', category plyometric/olympic,
+ * "behind-the-neck"/"behind neck" in slug or name) with a small backstop list
+ * for known problematic exercises that don't fit the property rules.
  */
-const EXCLUDE_FROM_MAIN_SLOTS = [
+function shouldExcludeFromStrengthSlot(ex: CandidateExercise): boolean {
+  const nameLower = ex.name.toLowerCase();
+  const slugLower = ex.slug.toLowerCase();
+  
   // Behind-the-neck variants (dangerous shoulder position)
-  "wide-grip-rear-pull-up",
-  "wide-grip-pulldown-behind-the-neck",
-  "standing-barbell-press-behind-neck",
-  "low-pulley-row-to-neck",
-  "neck-press",
-  // Olympic lifts (technique-intensive, not for high-rep hypertrophy)
-  "power-clean",
-  "smith-machine-hang-power-clean",
-  "clean-and-jerk",
-  "clean-and-press",
-  "hang-clean",
-  // Plyometric jumps (explosive power, not hypertrophy main lifts)
-  "dumbbell-seated-box-jump",
-  "bench-jump",
-  "box-jump",
-  "rocket-jump",
-  "knee-tuck-jump",
-];
+  if (nameLower.includes("behind-the-neck") || 
+      nameLower.includes("behind neck") ||
+      slugLower.includes("behind-the-neck") ||
+      slugLower.includes("behind-neck")) {
+    return true;
+  }
+  
+  // Olympic lifts: identified by common names (property-based detection)
+  const olympicPatterns = [
+    "clean", "snatch", "jerk", "hang clean", "power clean", 
+    "hang snatch", "power snatch"
+  ];
+  if (olympicPatterns.some(pattern => nameLower.includes(pattern))) {
+    return true;
+  }
+  
+  // Plyometric and high-impact jumps for main compound slots
+  // (not all high-impact is bad, but jumps/bounds in main slots are)
+  if (ex.impact === "high" && 
+      (nameLower.includes("jump") || 
+       nameLower.includes("bound") || 
+       nameLower.includes("plyo"))) {
+    return true;
+  }
+  
+  // Backstop: known problematic exercises that don't fit the above rules
+  const backstopSlugs = [
+    "neck-press", // Not behind-neck but similar risk
+    "jefferson-curl", // High injury risk
+  ];
+  if (backstopSlugs.includes(ex.slug)) {
+    return true;
+  }
+  
+  return false;
+}
 
 export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolean {
   // Track: a bodyweight-at-home user must never be shown gym-only work.
@@ -332,6 +358,20 @@ function stapleSortKey(ex: CandidateExercise, pattern: Pattern): string {
   return `1:${ex.slug}`;
 }
 
+/**
+ * Safe alternative exercises when a slot pattern is fully filtered out.
+ * These are low-risk movements that can substitute for common patterns.
+ */
+const SAFE_ALTERNATIVES: Partial<Record<Pattern, Pattern[]>> = {
+  squat: ["hinge", "core"], // Bridge, wall sit, or core when squats are contraindicated
+  lunge: ["squat", "hinge", "core"],
+  hinge: ["core", "squat"],
+  horizontal_press: ["vertical_press", "triceps"],
+  vertical_press: ["horizontal_press", "lateral_delt"],
+  horizontal_pull: ["vertical_pull", "biceps"],
+  vertical_pull: ["horizontal_pull", "rear_delt"],
+};
+
 function pickForSlot(
   pattern: Pattern,
   slotIndex: number,
@@ -360,10 +400,13 @@ function pickForSlot(
     let candidates = pool.filter((e) => e.movement_pattern === p && !used.has(e.id));
     if (candidates.length === 0) continue;
 
-    // For main slots (0-1), exclude problematic exercises (behind-the-neck,
-    // plyometric, Olympic lifts) that shouldn't be hypertrophy main lifts.
-    if (slotIndex < CARRY_OVER_SLOTS) {
-      candidates = candidates.filter((e) => !EXCLUDE_FROM_MAIN_SLOTS.includes(e.slug));
+    // For strength goals, exclude problematic exercises from all strength slots:
+    // behind-the-neck, plyometric jumps, Olympic lifts. These are technique-
+    // intensive or risky movements not suitable for automated hypertrophy
+    // programming at any slot position.
+    const isStrengthGoal = ["strength", "muscle_gain"].includes(input.goal);
+    if (isStrengthGoal) {
+      candidates = candidates.filter((e) => !shouldExcludeFromStrengthSlot(e));
       if (candidates.length === 0) continue; // Try fallback pattern if filtered out
     }
 
@@ -380,14 +423,52 @@ function pickForSlot(
       .sort((a, b) => {
         // 1. Highest score wins
         if (a.score !== b.score) return b.score - a.score;
-        // 2. Among tied scores, staples win (lexicographic "0:..." < "1:...")
-        if (a.stapleKey !== b.stapleKey) return a.stapleKey.localeCompare(b.stapleKey);
+        // 2. Among tied scores, staples win (deterministic code-unit comparison)
+        if (a.stapleKey !== b.stapleKey) {
+          return a.stapleKey < b.stapleKey ? -1 : a.stapleKey > b.stapleKey ? 1 : 0;
+        }
         // 3. Among tied non-staples, rng breaks the tie
         return b.rng - a.rng;
       });
 
     return ranked[0].e;
   }
+  
+  // If no exercise found for this pattern or its fallback, try safe alternatives
+  // before giving up. This prevents dropping slots entirely when injuries filter
+  // out all primary options (e.g., knee injury rules out squats/lunges).
+  const alternatives = SAFE_ALTERNATIVES[pattern] ?? [];
+  for (const altPattern of alternatives) {
+    const altCandidates = pool.filter(
+      (e) => e.movement_pattern === altPattern && !used.has(e.id)
+    );
+    if (altCandidates.length === 0) continue;
+    
+    const isStrengthGoal = ["strength", "muscle_gain"].includes(input.goal);
+    const filtered = isStrengthGoal
+      ? altCandidates.filter((e) => !shouldExcludeFromStrengthSlot(e))
+      : altCandidates;
+    
+    if (filtered.length === 0) continue;
+    
+    const ranked = filtered
+      .map((e) => ({
+        e,
+        score: score(e, slotIndex < 4, input.level, input.primaryTrack),
+        stapleKey: stapleSortKey(e, altPattern),
+        rng: rng(),
+      }))
+      .sort((a, b) => {
+        if (a.score !== b.score) return b.score - a.score;
+        if (a.stapleKey !== b.stapleKey) {
+          return a.stapleKey < b.stapleKey ? -1 : a.stapleKey > b.stapleKey ? 1 : 0;
+        }
+        return b.rng - a.rng;
+      });
+    
+    return ranked[0].e;
+  }
+  
   return null;
 }
 

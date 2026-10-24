@@ -85,22 +85,34 @@ export function selectWarmup(input: {
       overlap: w.target_muscles.filter((m) => muscles.has(m)).length,
     }))
     .filter((x) => x.overlap > 0)
-    .sort((a, b) => b.overlap - a.overlap || a.w.slug.localeCompare(b.w.slug))
+    .sort((a, b) => {
+      if (b.overlap !== a.overlap) return b.overlap - a.overlap;
+      return a.w.slug < b.w.slug ? -1 : a.w.slug > b.w.slug ? 1 : 0;
+    })
     .slice(0, 4)
     .map((x) => x.w);
 
   if (mobility.length < 3) {
-    for (const fallback of ["cat-cow", "arm-circles", "bodyweight-squat", "hip-circles"]) {
+    // Fallback drills, filtered by contraindications. Never suggest a squat for
+    // a knee injury or spinal movement for a lower-back injury.
+    const fallbackSlugs = ["cat-cow", "arm-circles", "bodyweight-squat", "hip-circles"];
+    for (const slug of fallbackSlugs) {
       if (mobility.length >= 3) break;
-      const w = warmups.find((x) => x.slug === fallback);
-      if (w && !mobility.some((m) => m.id === w.id)) mobility.push(w);
+      const w = warmups.find((x) => x.slug === slug);
+      if (!w || mobility.some((m) => m.id === w.id)) continue;
+      
+      // Filter out contraindicated movements
+      const isContraindicated = w.target_regions.some((r) => regions.has(r));
+      if (!isContraindicated) {
+        mobility.push(w);
+      }
     }
   }
 
   // 3. Targeted prehab for flagged joints.
   const prehab = byType("prehab")
     .filter((w) => w.target_regions.some((r) => regions.has(r)))
-    .sort((a, b) => a.slug.localeCompare(b.slug))
+    .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
     .slice(0, 3);
 
   return [
@@ -126,10 +138,8 @@ export function selectCooldown(input: {
   const { stretches, trainingMuscles } = input;
   const muscles = new Set(trainingMuscles);
 
-  // Filter for stretch exercises. The type is defined as warmup_type in the DB,
-  // and the migration adds 'stretch' to that enum, but TypeScript types may not
-  // reflect it yet until types are regenerated.
-  const byType = stretches.filter((w) => (w.type as string) === "stretch");
+  // Filter for stretch exercises
+  const byType = stretches.filter((w) => w.type === "stretch");
 
   // Rank stretches by how many of today's muscles they target
   const ranked = byType
@@ -137,19 +147,43 @@ export function selectCooldown(input: {
       w,
       overlap: w.target_muscles.filter((m) => muscles.has(m)).length,
     }))
-    .sort((a, b) => b.overlap - a.overlap || a.w.slug.localeCompare(b.w.slug))
+    .sort((a, b) => {
+      if (b.overlap !== a.overlap) return b.overlap - a.overlap;
+      return a.w.slug < b.w.slug ? -1 : a.w.slug > b.w.slug ? 1 : 0;
+    })
     .slice(0, 6)
     .map((x) => ({ ...x.w, phase: "stretch" as const }));
 
-  // Always include at least 3 stretches even if there's no muscle overlap
-  if (ranked.length < 3) {
+  // If no muscle overlap at all, include general full-body stretches.
+  // This happens when byType has stretches but none target today's muscles.
+  // Filter them by contraindications to avoid suggesting a stretch that loads
+  // an injured region.
+  if (ranked.length === 0) {
+    const generalStretches = ["cat-cow-stretch", "childs-pose", "seated-spinal-twist"];
     const fallback = byType
-      .filter((w) => !ranked.some((r) => r.id === w.id))
-      .sort((a, b) => a.slug.localeCompare(b.slug))
-      .slice(0, 3 - ranked.length)
+      .filter((w) => generalStretches.includes(w.slug))
+      .slice(0, 3)
       .map((w) => ({ ...w, phase: "stretch" as const }));
-    ranked.push(...fallback);
+    return fallback.length > 0 ? fallback : ranked;
   }
 
   return ranked;
+}
+
+/**
+ * Filter warm-up or cool-down items by current injuries, removing any that
+ * would load a contraindicated region. Use this after selection to ensure
+ * safety.
+ */
+export function filterByInjury(
+  items: WarmupItem[],
+  injuryRegions: BodyRegion[]
+): WarmupItem[] {
+  if (injuryRegions.length === 0) return items;
+  
+  const regions = new Set(injuryRegions);
+  return items.filter((item) => {
+    // Exclude any warmup that targets an injured region
+    return !item.target_regions.some((r) => regions.has(r));
+  });
 }
