@@ -1,19 +1,17 @@
 #!/usr/bin/env tsx
 /**
- * Integration test: allSessionsRes error handling behavior
+ * Test: Sessions load error integration with real helpers
+ *
+ * Tests the real load-failure-guard helper (hasStartedAnyOrNull)
+ * and buildTodayView's handling of null hasStartedAny.
  * 
- * When allSessionsRes query fails, the page must set hasStartedAny to null (not false).
- * This test verifies the CONTRACT between page.tsx and the helper functions:
- * - hasStartedAny = null means "unknown state" (query error)
- * - hasStartedAny = false means "user never started" (no error)
- * 
- * These two states must behave differently:
- * - null: hide first-session offer, show normal Today
- * - false: show first-session offer, show welcome card
+ * This replaces the previous hand-fed test that claimed to test page.tsx
+ * but never ran any page code.
  */
 
-import { todayPromptBlocks } from "../src/lib/today/prompt-blocks";
-import { isMissedTrainingDay } from "../src/lib/today/missed-day";
+import { hasStartedAnyOrNull } from "../src/lib/today/load-failure-guard";
+import { buildTodayView } from "../src/lib/today/page-helpers";
+import { buildTodayState } from "../src/lib/today/build-state";
 
 let totalTests = 0;
 let passedTests = 0;
@@ -29,111 +27,145 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-console.log("\n=== CONTRACT: hasStartedAny = null vs false must behave differently ===\n");
+console.log("\n=== Test 1: hasStartedAnyOrNull with failed query ===\n");
 
-// Scenario: Rest day, user never started (no error)
-const blocksNeverStarted = todayPromptBlocks({
-  promptType: "rest_plan",
-  missedYesterday: false,
-  hasStartedAny: false, // User never started (no error)
-  nextTrainingDay: { dayName: "Monday", dayIndex: 1 },
-  isTraining: false,
-  firstTrainingDay: { dayIndex: 1, label: "Push" },
-});
+// Scenario: allSessionsRes has an error
+// Expected: returns null (unknown state)
 
-// Scenario: Rest day, query error (unknown state)
-const blocksQueryError = todayPromptBlocks({
-  promptType: "rest_plan",
-  missedYesterday: false,
-  hasStartedAny: null, // Query error (unknown state)
-  nextTrainingDay: { dayName: "Monday", dayIndex: 1 },
-  isTraining: false,
-  firstTrainingDay: null, // Page must nullify this when hasStartedAny is null
-});
+const failedQuery = {
+  data: null,
+  error: { message: "Network error", code: "NETWORK_ERROR" },
+};
 
-console.log("\n=== Test 1: false (never started) shows first-session offer ===\n");
-assert(
-  blocksNeverStarted.showFirstSessionOffer === true,
-  "hasStartedAny=false → showFirstSessionOffer=true (user never started)"
-);
+const result1 = hasStartedAnyOrNull(failedQuery);
 
 assert(
-  blocksNeverStarted.showFirstDayWelcome === true,
-  "hasStartedAny=false → showFirstDayWelcome=true (welcome card)"
+  result1 === null,
+  "Failed query returns null (unknown state)"
 );
 
-console.log("\n=== Test 2: null (query error) hides first-session offer ===\n");
+console.log("\n=== Test 2: hasStartedAnyOrNull with successful empty query ===\n");
+
+// Scenario: allSessionsRes succeeded but returned empty array
+// Expected: returns false (user has not started)
+
+const emptyQuery = {
+  data: [],
+  error: null,
+};
+
+const result2 = hasStartedAnyOrNull(emptyQuery);
+
 assert(
-  blocksQueryError.showFirstSessionOffer === false,
-  "hasStartedAny=null → showFirstSessionOffer=false (hide offer on error)"
+  result2 === false,
+  "Empty sessions returns false (user has not started)"
 );
+
+console.log("\n=== Test 3: hasStartedAnyOrNull with successful query with sessions ===\n");
+
+// Scenario: allSessionsRes succeeded with sessions
+// Expected: returns true (user has started)
+
+const successQuery = {
+  data: [
+    { actual_type: "weights", started_at: "2026-10-20T10:00:00Z" },
+  ],
+  error: null,
+};
+
+const result3 = hasStartedAnyOrNull(successQuery);
 
 assert(
-  blocksQueryError.showFirstDayWelcome === false,
-  "hasStartedAny=null → showFirstDayWelcome=false (no welcome card on error)"
+  result3 === true,
+  "Sessions exist returns true (user has started)"
 );
 
-console.log("\n=== Test 3: Missed-day detection respects null vs false ===\n");
+console.log("\n=== Test 4: buildTodayView with null hasStartedAny ===\n");
 
-// Scenario: Yesterday was a training day, no completed session
-// User never started (false) → suppress missed (day-one guard)
-const missedNeverStarted = isMissedTrainingDay({
-  date: "2026-10-23",
-  programStartedOn: "2026-10-20",
-  profileCreatedAt: "2026-10-20T10:00:00Z",
-  timezone: "UTC",
-  templateDayType: "weights",
-  programId: "program-1",
-  sessions: [],
-  hasStartedAny: false, // User never started
-});
+// Scenario: hasStartedAny is null (query error)
+// Expected: firstTrainingDay is null (hide first-session offer on error)
 
-// Query error (null) → also suppress missed (unknown state)
-const missedQueryError = isMissedTrainingDay({
-  date: "2026-10-23",
-  programStartedOn: "2026-10-20",
-  profileCreatedAt: "2026-10-20T10:00:00Z",
-  timezone: "UTC",
-  templateDayType: "weights",
-  programId: "program-1",
-  sessions: [],
+const viewWithNullStarted = buildTodayView({
+  program: {
+    started_on: "2026-10-20",
+    week_offset: 0,
+    deload_week: null,
+  },
+  localToday: "2026-10-24",
+  days: [
+    { id: "day-1", day_index: 1, day_type: "rest", label: null },
+    { id: "day-2", day_index: 2, day_type: "weights", label: "Push" },
+    { id: "day-3", day_index: 3, day_type: "weights", label: "Pull" },
+  ],
   hasStartedAny: null, // Query error
+  chosenByDayIndex: new Map(),
 });
 
 assert(
-  missedNeverStarted === false,
-  "hasStartedAny=false → isMissedTrainingDay=false (day-one guard)"
+  viewWithNullStarted.firstTrainingDay === null,
+  "null hasStartedAny hides firstTrainingDay (no offer on error)"
+);
+
+console.log("\n=== Test 5: buildTodayState with null input ===\n");
+
+// Scenario: stateInput is null (working set counts query error)
+// Expected: suppresses missed prompt (promptType = "none", missedYesterday = false)
+
+const stateWithNullInput = buildTodayState(null);
+
+assert(
+  stateWithNullInput.promptType === "none",
+  "null input suppresses prompt (promptType = none)"
 );
 
 assert(
-  missedQueryError === false,
-  "hasStartedAny=null → isMissedTrainingDay=false (error state guard)"
+  stateWithNullInput.missedYesterday === false,
+  "null input suppresses missed-yesterday"
 );
 
-console.log("\n=== Test 4: User has started → both null and false should differ from true ===\n");
+assert(
+  stateWithNullInput.isTraining === false,
+  "null input treats as non-training day"
+);
 
-// User has started (true) → missed prompt should fire
-const missedHasStarted = isMissedTrainingDay({
-  date: "2026-10-23",
-  programStartedOn: "2026-10-20",
-  profileCreatedAt: "2026-10-20T10:00:00Z",
-  timezone: "UTC",
-  templateDayType: "weights",
-  programId: "program-1",
-  sessions: [],
-  hasStartedAny: true, // User has started before
+console.log("\n=== Test 6: Integration - failed load prevents first-session offer ===\n");
+
+// Scenario: Full integration test
+// 1. Query fails
+// 2. hasStartedAnyOrNull returns null
+// 3. buildTodayView gets null and hides firstTrainingDay
+// Expected: No first-session offer when query fails
+
+const failedSessionsRes = {
+  data: null,
+  error: { message: "Database connection lost" },
+};
+
+const hasStartedAny = hasStartedAnyOrNull(failedSessionsRes);
+const todayView = buildTodayView({
+  program: {
+    started_on: "2026-10-20",
+    week_offset: 0,
+    deload_week: null,
+  },
+  localToday: "2026-10-24",
+  days: [
+    { id: "day-1", day_index: 1, day_type: "rest", label: null },
+    { id: "day-2", day_index: 2, day_type: "weights", label: "Push" },
+    { id: "day-3", day_index: 3, day_type: "weights", label: "Pull" },
+  ],
+  hasStartedAny,
+  chosenByDayIndex: new Map(),
 });
 
 assert(
-  missedHasStarted === true,
-  "hasStartedAny=true → isMissedTrainingDay=true (user has started, missed yesterday)"
+  hasStartedAny === null,
+  "Integration: failed query produces null hasStartedAny"
 );
 
-console.log("\n=== INTEGRATION CONTRACT VERIFIED ===\n");
-console.log("The page must:");
-console.log("1. Set hasStartedAny=null when allSessionsRes.error is truthy");
-console.log("2. Set hasStartedAny=false only when query succeeds and user never started");
-console.log("3. Pass hasStartedAny to todayPromptBlocks and buildTodayView");
-console.log("4. Nullify firstTrainingDay when hasStartedAny is null");
+assert(
+  todayView.firstTrainingDay === null,
+  "Integration: null hasStartedAny hides firstTrainingDay"
+);
 
-console.log(`\n✅ All ${passedTests}/${totalTests} integration contract tests passed!\n`);
+console.log(`\n✅ All ${passedTests}/${totalTests} sessions load error integration tests passed!\n`);
