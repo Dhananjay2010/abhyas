@@ -1232,6 +1232,7 @@ export type Database = {
       warmup_exercises: {
         Row: {
           duration_seconds: number
+          equipment_ids: string[]
           id: string
           instructions: string[]
           is_active: boolean
@@ -1243,6 +1244,7 @@ export type Database = {
         }
         Insert: {
           duration_seconds?: number
+          equipment_ids?: string[]
           id?: string
           instructions?: string[]
           is_active?: boolean
@@ -1254,6 +1256,7 @@ export type Database = {
         }
         Update: {
           duration_seconds?: number
+          equipment_ids?: string[]
           id?: string
           instructions?: string[]
           is_active?: boolean
@@ -1518,7 +1521,7 @@ export type Database = {
       spinal_load_level: "none" | "low" | "high"
       split_type: "full_body" | "upper_lower" | "ppl" | "custom"
       track_type: "weights" | "bodyweight" | "yoga" | "meditation"
-      warmup_type: "cardio" | "mobility" | "prehab"
+      warmup_type: "cardio" | "mobility" | "prehab" | "stretch"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1758,7 +1761,7 @@ export const Constants = {
       spinal_load_level: ["none", "low", "high"],
       split_type: ["full_body", "upper_lower", "ppl", "custom"],
       track_type: ["weights", "bodyweight", "yoga", "meditation"],
-      warmup_type: ["cardio", "mobility", "prehab"],
+      warmup_type: ["cardio", "mobility", "prehab", "stretch"],
     },
   },
 } as const

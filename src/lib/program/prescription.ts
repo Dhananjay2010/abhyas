@@ -58,9 +58,17 @@ export function prescribe(
   level: Level,
   isolation: boolean,
   metric: Metric = "reps",
+  sessionMinutes?: number,
+  equipmentIds: string[] = [],
 ): Prescription {
   const base = BY_GOAL[goal];
-  const sets = Math.max(2, base.sets + SET_ADJUSTMENT[level]);
+  let sets = Math.max(2, base.sets + SET_ADJUSTMENT[level]);
+
+  // QA feedback: 45 min sessions were cutting exercises but keeping 4 sets each,
+  // still overrunning time. Reduce sets for shorter sessions to keep coverage.
+  if (sessionMinutes !== undefined && sessionMinutes <= 45) {
+    sets = Math.max(2, sets - 1);
+  }
 
   if (metric === "seconds") {
     const hold = HOLD_SECONDS_BY_GOAL[goal];
@@ -72,9 +80,17 @@ export function prescribe(
     };
   }
 
-  // Isolation work does not need heavy-single rest periods, and strength rep
-  // ranges make no sense on a lateral raise.
-  if (isolation) {
+  // QA Pass 10 H5: Check if exercise is bodyweight-only or band-based
+  const isBodyweightOnly = equipmentIds.length === 0;
+  const isBandBased = equipmentIds.some(id => 
+    id.toLowerCase().includes("band") || 
+    id.toLowerCase().includes("resistance")
+  );
+  
+  // QA Pass 10 H5: Isolation, bodyweight, and band exercises get higher reps
+  // and moderate rest. Strength prescription (3-6 reps @ 180s) only makes sense
+  // for loaded compound movements.
+  if (isolation || (goal === "strength" && (isBodyweightOnly || isBandBased))) {
     return {
       sets: Math.max(2, sets - 1),
       repsMin: Math.max(base.repsMin, 8),
