@@ -1,4 +1,5 @@
 import type { Database } from "../database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type ProgramWithDays = {
   id: string;
@@ -42,7 +43,7 @@ export async function loadStartProgram(
   return { ok: true, program, dayId: day.id };
 }
 
-export function createSupabaseDeps(client: { from: (table: string) => { select: (...args: unknown[]) => unknown } }): LoadStartProgramDeps {
+export function createSupabaseDeps(client: SupabaseClient<Database>): LoadStartProgramDeps {
   return {
     async fetchProgram(programId: string) {
       const { data } = await client
@@ -52,7 +53,7 @@ export function createSupabaseDeps(client: { from: (table: string) => { select: 
         .eq("id", programId)
         .maybeSingle();
       
-      return data as ProgramWithDays | null;
+      return data;
     },
   };
 }

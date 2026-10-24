@@ -1,12 +1,14 @@
 import { strict as assert } from "node:assert";
 import { loadPlanDay, createSupabaseDeps } from "../src/lib/session/load-plan-day";
+import type { Database } from "../src/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 (async () => {
   console.log("✓ setup complete");
 
   let queryCalls: Array<{ select: string; filters: Array<{ field: string; value: string }> }> = [];
 
-  const mockClient: { from: (table: string) => { select: (...args: unknown[]) => unknown } } = {
+  const mockClient = {
     from: (table: string) => {
       let selectClause = "";
       const filters: Array<{ field: string; value: string }> = [];
@@ -54,7 +56,7 @@ import { loadPlanDay, createSupabaseDeps } from "../src/lib/session/load-plan-da
   };
 
   queryCalls = [];
-  const result1 = await loadPlanDay(createSupabaseDeps(mockClient), "day-active");
+  const result1 = await loadPlanDay(createSupabaseDeps(mockClient as unknown as SupabaseClient<Database>), "day-active");
   assert(result1.ok, "load should succeed for active day");
   assert.equal(result1.day.id, "day-active");
   assert.equal(result1.day.day_type, "weights");
@@ -65,19 +67,19 @@ import { loadPlanDay, createSupabaseDeps } from "../src/lib/session/load-plan-da
   console.log("✓ day filtered by status='active'");
 
   queryCalls = [];
-  const result2 = await loadPlanDay(createSupabaseDeps(mockClient), "day-superseded");
+  const result2 = await loadPlanDay(createSupabaseDeps(mockClient as unknown as SupabaseClient<Database>), "day-superseded");
   assert(!result2.ok, "superseded day should not be loaded");
   assert.equal(result2.error, "That day is not in your block.");
   console.log("✓ superseded day returns 'That day is not in your block.'");
 
   queryCalls = [];
-  const result3 = await loadPlanDay(createSupabaseDeps(mockClient), "day-inactive");
+  const result3 = await loadPlanDay(createSupabaseDeps(mockClient as unknown as SupabaseClient<Database>), "day-inactive");
   assert(!result3.ok, "inactive day should not be loaded");
   assert.equal(result3.error, "That day is not in your block.");
   console.log("✓ inactive day returns 'That day is not in your block.'");
 
   queryCalls = [];
-  const result4 = await loadPlanDay(createSupabaseDeps(mockClient), "day-missing");
+  const result4 = await loadPlanDay(createSupabaseDeps(mockClient as unknown as SupabaseClient<Database>), "day-missing");
   assert(!result4.ok, "missing day should fail");
   assert.equal(result4.error, "That day is not in your block.");
   console.log("✓ missing day returns 'That day is not in your block.'");
