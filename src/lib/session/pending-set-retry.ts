@@ -7,6 +7,8 @@
  * double-saves.
  */
 
+import type { PendingSetDeps } from "./pending-set-deps";
+
 export type PendingSet = {
   sessionExerciseId: string;
   setNumber: number;
@@ -117,8 +119,7 @@ function isValidTimestampedSets(value: unknown): value is PendingSetsWithTimesta
 /**
  * Prune stale entries older than STALE_THRESHOLD_MS.
  */
-function pruneStaleEntries(data: PendingSetsWithTimestamp): PendingSetsWithTimestamp {
-  const now = Date.now();
+function pruneStaleEntries(data: PendingSetsWithTimestamp, now: number): PendingSetsWithTimestamp {
   const pruned: PendingSetsWithTimestamp = {};
   
   for (const sessionId in data) {
@@ -134,16 +135,14 @@ function pruneStaleEntries(data: PendingSetsWithTimestamp): PendingSetsWithTimes
 /**
  * Load all pending sets from storage with pruning.
  */
-function loadAllPendingSetsWithTimestamp(storage: Storage): PendingSetsWithTimestamp {
+function loadAllPendingSetsWithTimestamp(storage: Storage, deps: PendingSetDeps): PendingSetsWithTimestamp {
   try {
     const raw = storage.getItem(storageKey());
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     
-    // Try new timestamped format first
     if (isValidTimestampedSets(parsed)) {
-      const pruned = pruneStaleEntries(parsed);
-      // Save pruned version back to storage
+      const pruned = pruneStaleEntries(parsed, deps.now());
       if (Object.keys(pruned).length === 0) {
         storage.removeItem(storageKey());
       } else if (Object.keys(pruned).length < Object.keys(parsed).length) {
@@ -152,9 +151,8 @@ function loadAllPendingSetsWithTimestamp(storage: Storage): PendingSetsWithTimes
       return pruned;
     }
     
-    // Legacy format (plain object of arrays) - migrate to timestamped
     if (isValidPendingSets(parsed)) {
-      const now = Date.now();
+      const now = deps.now();
       const timestamped: PendingSetsWithTimestamp = {};
       for (const sessionId in parsed) {
         timestamped[sessionId] = {
@@ -166,11 +164,9 @@ function loadAllPendingSetsWithTimestamp(storage: Storage): PendingSetsWithTimes
       return timestamped;
     }
     
-    // Invalid shape - clear storage and return empty
     storage.removeItem(storageKey());
     return {};
   } catch {
-    // Invalid JSON - clear storage and return empty
     storage.removeItem(storageKey());
     return {};
   }
@@ -179,8 +175,8 @@ function loadAllPendingSetsWithTimestamp(storage: Storage): PendingSetsWithTimes
 /**
  * Load all pending sets from storage.
  */
-export function loadAllPendingSets(storage: Storage): PendingSets {
-  const timestamped = loadAllPendingSetsWithTimestamp(storage);
+export function loadAllPendingSets(storage: Storage, deps: PendingSetDeps): PendingSets {
+  const timestamped = loadAllPendingSetsWithTimestamp(storage, deps);
   const result: PendingSets = {};
   
   for (const sessionId in timestamped) {
@@ -195,9 +191,10 @@ export function loadAllPendingSets(storage: Storage): PendingSets {
  */
 export function loadPendingSets(
   storage: Storage,
-  sessionId: string
+  sessionId: string,
+  deps: PendingSetDeps
 ): PendingSet[] {
-  const all = loadAllPendingSets(storage);
+  const all = loadAllPendingSets(storage, deps);
   return all[sessionId] ?? [];
 }
 
@@ -207,9 +204,10 @@ export function loadPendingSets(
 export function savePendingSet(
   storage: Storage,
   sessionId: string,
-  pending: PendingSet
+  pending: PendingSet,
+  deps: PendingSetDeps
 ): void {
-  const all = loadAllPendingSetsWithTimestamp(storage);
+  const all = loadAllPendingSetsWithTimestamp(storage, deps);
   const existing = all[sessionId]?.sets ?? [];
   
   const alreadySaved = existing.some(
@@ -222,7 +220,7 @@ export function savePendingSet(
   if (!alreadySaved) {
     all[sessionId] = {
       sets: [...existing, pending],
-      timestamp: Date.now(),
+      timestamp: deps.now(),
     };
     storage.setItem(storageKey(), JSON.stringify(all));
   }
@@ -231,8 +229,8 @@ export function savePendingSet(
 /**
  * Clear all pending sets for a session.
  */
-export function clearPendingSets(storage: Storage, sessionId: string): void {
-  const all = loadAllPendingSetsWithTimestamp(storage);
+export function clearPendingSets(storage: Storage, sessionId: string, deps: PendingSetDeps): void {
+  const all = loadAllPendingSetsWithTimestamp(storage, deps);
   delete all[sessionId];
   if (Object.keys(all).length === 0) {
     storage.removeItem(storageKey());
@@ -247,9 +245,10 @@ export function clearPendingSets(storage: Storage, sessionId: string): void {
 export function clearPendingSet(
   storage: Storage,
   sessionId: string,
-  clientId: string
+  clientId: string,
+  deps: PendingSetDeps
 ): void {
-  const all = loadAllPendingSetsWithTimestamp(storage);
+  const all = loadAllPendingSetsWithTimestamp(storage, deps);
   const existing = all[sessionId]?.sets ?? [];
   const filtered = existing.filter((s) => s.clientId !== clientId);
   
@@ -263,7 +262,7 @@ export function clearPendingSet(
   } else {
     all[sessionId] = {
       sets: filtered,
-      timestamp: all[sessionId].timestamp, // Preserve timestamp
+      timestamp: all[sessionId].timestamp,
     };
     storage.setItem(storageKey(), JSON.stringify(all));
   }
@@ -285,12 +284,3 @@ export function isDuplicateError(errOrResponse: unknown): boolean {
   
   return false;
 }
-
-/**
- * Attempt to log a set, handling session expiry by persisting for retry.
- * 
- * Returns:
- * - { ok: true, saved: true } - Set was saved successfully
- * - { ok: true, saved: false, sessionExpired: true } - Session expired, set is pending
- * - { ok: false, error: string } - Non-auth failure
- */

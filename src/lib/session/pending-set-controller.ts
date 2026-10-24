@@ -16,6 +16,7 @@ import {
   type PendingSet,
   type Storage,
 } from "./pending-set-retry";
+import type { PendingSetDeps } from "./pending-set-deps";
 
 export type LogSetFunction = (input: {
   sessionExerciseId: string;
@@ -59,8 +60,9 @@ export function createPendingSetController(config: {
   sessionId: string;
   userId?: string;
   onChange: (state: PendingSetState) => void;
+  deps: PendingSetDeps;
 }): PendingSetController {
-  const { storage, logSet, sessionId, onChange } = config;
+  const { storage, logSet, sessionId, onChange, deps } = config;
 
   let state: PendingSetState = {
     pending: [],
@@ -79,7 +81,7 @@ export function createPendingSetController(config: {
   }
 
   function load(): void {
-    const loaded = loadPendingSets(storage, sessionId);
+    const loaded = loadPendingSets(storage, sessionId, deps);
     if (loaded.length > 0) {
       setState({
         pending: loaded,
@@ -118,9 +120,9 @@ export function createPendingSetController(config: {
           durationSeconds: set.durationSeconds ?? null,
           clientId: set.clientId,
         };
-        savePendingSet(storage, sessionId, pending);
+        savePendingSet(storage, sessionId, pending, deps);
 
-        const loaded = loadPendingSets(storage, sessionId);
+        const loaded = loadPendingSets(storage, sessionId, deps);
         setState({
           pending: loaded,
           expired: true,
@@ -146,9 +148,9 @@ export function createPendingSetController(config: {
           durationSeconds: set.durationSeconds ?? null,
           clientId: set.clientId,
         };
-        savePendingSet(storage, sessionId, pending);
+        savePendingSet(storage, sessionId, pending, deps);
 
-        const loaded = loadPendingSets(storage, sessionId);
+        const loaded = loadPendingSets(storage, sessionId, deps);
         setState({
           pending: loaded,
           expired: true,
@@ -176,7 +178,7 @@ export function createPendingSetController(config: {
     replayPromise = (async () => {
       replayAttempted = true;
 
-      const toReplay = loadPendingSets(storage, sessionId);
+      const toReplay = loadPendingSets(storage, sessionId, deps);
       if (toReplay.length === 0) {
         setState({
           pending: [],
@@ -202,7 +204,7 @@ export function createPendingSetController(config: {
           });
 
           if (result.ok || isDuplicateError(result)) {
-            clearPendingSet(storage, sessionId, set.clientId);
+            clearPendingSet(storage, sessionId, set.clientId, deps);
             successfullyReplayed.push(set);
           } else if (isSessionExpired(result)) {
             if (!firstError) firstError = "Session still expired";
@@ -211,7 +213,7 @@ export function createPendingSetController(config: {
           }
         } catch (err) {
           if (isDuplicateError(err)) {
-            clearPendingSet(storage, sessionId, set.clientId);
+            clearPendingSet(storage, sessionId, set.clientId, deps);
             successfullyReplayed.push(set);
           } else if (err instanceof Error && err.message.startsWith("SESSION_EXPIRED:")) {
             if (!firstError) firstError = "Session still expired";
@@ -221,7 +223,7 @@ export function createPendingSetController(config: {
         }
       }
 
-      const remaining = loadPendingSets(storage, sessionId);
+      const remaining = loadPendingSets(storage, sessionId, deps);
       setState({
         pending: remaining,
         expired: remaining.length > 0,
@@ -236,7 +238,7 @@ export function createPendingSetController(config: {
   }
 
   function onFocus(): void {
-    const loaded = loadPendingSets(storage, sessionId);
+    const loaded = loadPendingSets(storage, sessionId, deps);
     if (loaded.length > 0 && !replayAttempted) {
       setState({
         pending: loaded,

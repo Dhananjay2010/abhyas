@@ -60,3 +60,8 @@ export function isoWeekday(iso: string): number {
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
   return ((dow + 6) % 7) + 1;
 }
+
+/** Current timestamp in milliseconds. */
+export function nowMs(): number {
+  return Date.now();
+}

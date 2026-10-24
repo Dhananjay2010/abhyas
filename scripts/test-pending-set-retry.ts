@@ -12,6 +12,7 @@ import {
   type Storage,
 } from "../src/lib/session/pending-set-retry";
 import { SESSION_EXPIRED_CODE, isSessionExpired } from "../src/lib/session/session-expired-shim";
+import { createPendingSetDeps, type PendingSetDeps } from "../src/lib/session/pending-set-deps";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -26,6 +27,10 @@ function createStorage(): Storage {
       store.delete(key);
     },
   };
+}
+
+function createTestDeps(): PendingSetDeps {
+  return createPendingSetDeps();
 }
 
 let exitCode = 0;
@@ -56,6 +61,7 @@ async function testStorageOperations() {
   console.log("\n--- Storage operations ---");
   
   const storage = createStorage();
+  const deps = createTestDeps();
   const sessionId = "session-123";
   
   const pending1: PendingSet = {
@@ -76,24 +82,24 @@ async function testStorageOperations() {
     clientId: "client-790",
   };
   
-  savePendingSet(storage, sessionId, pending1);
-  savePendingSet(storage, sessionId, pending2);
+  savePendingSet(storage, sessionId, pending1, deps);
+  savePendingSet(storage, sessionId, pending2, deps);
   
-  const loaded = loadPendingSets(storage, sessionId);
+  const loaded = loadPendingSets(storage, sessionId, deps);
   assertEqual(loaded.length, 2, "Storage stores multiple pending sets");
   assertEqual(loaded[0], pending1, "First set preserved");
   assertEqual(loaded[1], pending2, "Second set preserved");
   
-  clearPendingSet(storage, sessionId, "client-789");
-  const afterClear = loadPendingSets(storage, sessionId);
+  clearPendingSet(storage, sessionId, "client-789", deps);
+  const afterClear = loadPendingSets(storage, sessionId, deps);
   assertEqual(afterClear.length, 1, "Clearing one set leaves others");
   assertEqual(afterClear[0], pending2, "Correct set remains");
   
-  clearPendingSets(storage, sessionId);
-  const afterClearAll = loadPendingSets(storage, sessionId);
+  clearPendingSets(storage, sessionId, deps);
+  const afterClearAll = loadPendingSets(storage, sessionId, deps);
   assertEqual(afterClearAll, [], "Clear all removes all sets");
   
-  const empty = loadPendingSets(storage, "nonexistent");
+  const empty = loadPendingSets(storage, "nonexistent", deps);
   assertEqual(empty, [], "Load from empty storage returns empty array");
 }
 

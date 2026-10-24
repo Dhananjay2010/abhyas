@@ -13,6 +13,7 @@ import {
 } from "../src/lib/session/pending-set-controller";
 import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
 import type { Storage } from "../src/lib/session/pending-set-retry";
+import { nextSetNumberFor } from "../src/lib/session/next-set-number";
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
@@ -101,13 +102,11 @@ async function testReplayPlusNextSetNoCollision() {
     "Set 1 is pending"
   );
 
-  // Step 2: Simulate calculating nextSetNumber WITH accounting for pending
-  // In the fixed runner: const nextSetNumber = current.sets.length + pendingCount + 1
-  const setsInUI = 0; // No sets saved yet
+  const setsInUI = 0;
   const pendingCount = states[states.length - 1].pending.filter(
     (s) => s.sessionExerciseId === exerciseId
   ).length;
-  const correctNextSetNumber = setsInUI + pendingCount + 1; // Should be 2
+  const correctNextSetNumber = nextSetNumberFor(setsInUI, pendingCount);
 
   console.log(`  Current sets: ${setsInUI}, Pending: ${pendingCount}`);
   console.log(`  Next set number (accounting for pending): ${correctNextSetNumber}`);
@@ -115,10 +114,9 @@ async function testReplayPlusNextSetNoCollision() {
   // Step 3: Replay the pending set (async, doesn't block UI)
   const replayPromise = controller.replay();
 
-  // Step 4: User immediately logs another set with correct nextSetNumber
-  const result2 = await controller.submit({
+  await controller.submit({
     sessionExerciseId: exerciseId,
-    setNumber: correctNextSetNumber, // Using correct logic that accounts for pending
+    setNumber: correctNextSetNumber,
     reps: 12,
     weightKg: 50,
     durationSeconds: null,
@@ -252,10 +250,8 @@ async function testReplayedSetsUpdateUI() {
   assertEqual(finalState.replayed.length, 2, "Both sets reported as replayed");
   assertEqual(finalState.pending.length, 0, "No sets remain pending");
   
-  // The UI should use finalState.replayed to update exercises[].sets
-  // so that nextSetNumber = exercises[].sets.length + 1 advances correctly
   const maxSetNumber = Math.max(...finalState.replayed.map((s) => s.setNumber));
-  const correctNextSetNumber = maxSetNumber + 1;
+  const correctNextSetNumber = nextSetNumberFor(maxSetNumber, 0);
   
   assertEqual(correctNextSetNumber, 3, "After replaying sets 1 and 2, nextSetNumber should be 3");
 }
