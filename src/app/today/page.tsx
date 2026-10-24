@@ -206,7 +206,6 @@ export default async function TodayPage() {
   const todaySessions = allSessions.filter((s) => s.local_date === localToday);
 
   // Resolve all days (active + retired from old blocks).
-  // MUTANT X8, X9, X16: removing this call or ignoring retired days fails tests.
   const allDays = await resolveTodayDays(supabase, days ?? [], allSessions);
 
   const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";

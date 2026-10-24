@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 import { ageOn } from "@/lib/onboarding/options";
 import { addDays, localDateString } from "@/lib/dates";
 import {
@@ -17,19 +19,6 @@ type Enums = Database["public"]["Enums"];
 const CATALOGUE_COLUMNS =
   "id, slug, name, movement_pattern, mechanic, metric, primary_muscles, equipment_ids, " +
   "level_min, contraindicated_regions, impact, spinal_load, tracks, default_rest_seconds";
-
-/**
- * Compute the block start date in the user's timezone.
- * 
- * Exported for testing timezone date arithmetic (X11).
- * 
- * @param now - Date object or ISO timestamp
- * @param timezone - IANA timezone (e.g., "America/New_York")
- * @returns Local date string (e.g., "2026-10-25")
- */
-export function blockStartDate(now: Date, timezone: string): string {
-  return localDateString(timezone, now);
-}
 
 export type BuildResult =
   | {
@@ -202,20 +191,6 @@ export async function persistBlock(
     (d) => d.dayType === "weights" || d.dayType === "bodyweight",
   );
 
-  // MUTANT X1, X2: Re-point sessions ONLY on rebuild
-  if (options.rebuildOf) {
-    const localToday = localDateString(options.timezone);
-    const repointResult = await repointSessionsAfterRebuild(
-      supabase,
-      userId,
-      program.id,
-      localToday,
-    );
-    if (!repointResult.ok) {
-      console.error("Failed to re-point sessions after rebuild:", repointResult.error);
-    }
-  }
-
   return {
     ok: true,
     programId: program.id,
@@ -284,6 +259,7 @@ export async function createBlockForUser(
       supabase
         .from("programs")
         .select("block_number")
+        .not("status", "in", "(superseded,retired)")
         .order("block_number", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -362,6 +338,17 @@ export async function createBlockForUser(
   if (rebuildOf) {
     const result = await callBlockRPC(supabase, "rebuild", today, plan, input);
     if (!result.ok) return result;
+
+    // Re-point sessions AFTER the rebuild RPC succeeds
+    const repointResult = await repointSessionsAfterRebuild(
+      supabase,
+      userId,
+      result.programId,
+      today,
+    );
+    if (!repointResult.ok) {
+      console.error("Failed to re-point sessions after rebuild:", repointResult.error);
+    }
 
     return {
       ok: true,

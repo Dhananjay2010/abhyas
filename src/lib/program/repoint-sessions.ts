@@ -171,8 +171,8 @@ export async function repointSessionsAfterRebuild(
   userId: string,
   newProgramId: string,
   today: string,
-): Promise<{ ok: boolean; error?: string }> {
-  // Fetch sessions that might need re-pointing: planned or in_progress with 0 sets.
+): Promise<{ ok: boolean; error?: string; warning?: string }> {
+  // Fetch sessions that might need re-pointing: planned sessions only with 0 sets.
   // Select through session_exercises to get session_sets (there's no direct FK from
   // sessions to session_sets). Also fetch the old program day's label and day_index.
   const { data: sessions, error: selectError } = await supabase
@@ -188,12 +188,12 @@ export async function repointSessionsAfterRebuild(
       session_exercises(session_sets(id))
     `)
     .eq("user_id", userId)
-    .in("status", ["planned", "in_progress"])
+    .eq("status", "planned")
     .gte("local_date", today);
 
   if (selectError) {
     console.error("repointSessionsAfterRebuild: failed to select sessions", selectError);
-    return { ok: false, error: selectError.message };
+    return { ok: true, warning: selectError.message };
   }
 
   if (!sessions || sessions.length === 0) return { ok: true };
@@ -207,7 +207,7 @@ export async function repointSessionsAfterRebuild(
 
   if (newDaysError) {
     console.error("repointSessionsAfterRebuild: failed to select new days", newDaysError);
-    return { ok: false, error: newDaysError.message };
+    return { ok: true, warning: newDaysError.message };
   }
 
   if (!newDays || newDays.length === 0) return { ok: true };
@@ -256,17 +256,7 @@ export async function repointSessionsAfterRebuild(
       return { error: { message: `Session ${r.id} not found` } };
     }
 
-    // Delete old session_exercises
-    const { error: deleteError } = await supabase
-      .from("session_exercises")
-      .delete()
-      .eq("session_id", r.id);
-
-    if (deleteError) {
-      return { error: deleteError };
-    }
-
-    // Prepare new session exercises (use session's is_deload from database)
+    // Fetch session data for is_deload
     const { data: sessionData, error: sessionError } = await supabase
       .from("sessions")
       .select("user_id, is_deload")
@@ -277,6 +267,7 @@ export async function repointSessionsAfterRebuild(
       return { error: sessionError };
     }
 
+    // Prepare new session exercises (use session's is_deload from database)
     const newExercises = prepareSessionExercises(
       r.id,
       sessionData.user_id,
@@ -284,13 +275,38 @@ export async function repointSessionsAfterRebuild(
       sessionData.is_deload,
     );
 
-    // Insert new session_exercises
+    // Read old exercise IDs before inserting new ones
+    const { data: oldExercises, error: readError } = await supabase
+      .from("session_exercises")
+      .select("id")
+      .eq("session_id", r.id);
+
+    if (readError) {
+      return { error: readError };
+    }
+
+    const oldExerciseIds = (oldExercises ?? []).map((e) => e.id);
+
+    // Insert new session_exercises first
     const { error: insertError } = await supabase
       .from("session_exercises")
       .insert(newExercises);
 
     if (insertError) {
+      // If insert fails, leave old rows alone
       return { error: insertError };
+    }
+
+    // Delete old rows by their IDs only after insert succeeds
+    if (oldExerciseIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("session_exercises")
+        .delete()
+        .in("id", oldExerciseIds);
+
+      if (deleteError) {
+        return { error: deleteError };
+      }
     }
 
     // Update session's program_day_id and program_id
@@ -320,7 +336,7 @@ export async function repointSessionsAfterRebuild(
       "repointSessionsAfterRebuild: some updates failed",
       failures.map((f) => f.error?.message),
     );
-    return { ok: false, error: `${failures.length} session updates failed` };
+    return { ok: true, warning: `${failures.length} session updates failed` };
   }
 
   return { ok: true };

@@ -37,8 +37,8 @@ async function runTests() {
       program_day_exercises: [],
     });
 
-    const mockPlan = {
-      splitType: "push_pull_legs" as const,
+    const mockPlan: ReturnType<typeof import("../src/lib/program/generate").generateProgram> = {
+      splitType: "ppl" as const,
       daysPerWeek: 4,
       blockNumber: 1,
       deloadWeek: 4,
@@ -58,7 +58,7 @@ async function runTests() {
       endsOn: "2026-11-20",
       rebuildOf: null, // First build, not a rebuild!
       timezone: "UTC",
-      primaryTrack: "strength",
+      primaryTrack: "weights",
       goal: "general_fitness",
       level: "intermediate",
     });
@@ -98,8 +98,8 @@ async function runTests() {
       program_day_exercises: [],
     });
 
-    const mockPlan = {
-      splitType: "push_pull_legs" as const,
+    const mockPlan: ReturnType<typeof import("../src/lib/program/generate").generateProgram> = {
+      splitType: "ppl" as const,
       daysPerWeek: 4,
       blockNumber: 2,
       deloadWeek: 4,
@@ -126,7 +126,7 @@ async function runTests() {
       endsOn: "2026-11-20",
       rebuildOf: { block_number: 1, started_on: "2026-10-24" },
       timezone: "UTC",
-      primaryTrack: "strength",
+      primaryTrack: "weights",
       goal: "general_fitness",
       level: "intermediate",
     });
@@ -173,8 +173,8 @@ async function runTests() {
       program_day_exercises: [],
     });
 
-    const mockPlan = {
-      splitType: "push_pull_legs" as const,
+    const mockPlan: ReturnType<typeof import("../src/lib/program/generate").generateProgram> = {
+      splitType: "ppl" as const,
       daysPerWeek: 4,
       blockNumber: 2,
       deloadWeek: 4,
@@ -187,6 +187,7 @@ async function runTests() {
           exercises: [
             {
               exerciseId: "ex1",
+              name: "Bench Press",
               orderIndex: 0,
               targetSets: 3,
               targetRepsMin: 8,
@@ -203,7 +204,7 @@ async function runTests() {
       endsOn: "2026-11-20",
       rebuildOf: { block_number: 1, started_on: "2026-10-17" },
       timezone: "UTC",
-      primaryTrack: "strength",
+      primaryTrack: "weights",
       goal: "general_fitness",
       level: "intermediate",
     });

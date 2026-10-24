@@ -46,9 +46,6 @@ type Session = {
 
 /**
  * Resolve all days (active + retired) for a user's sessions.
- * 
- * MUTANT X8, X9, X16: Removing the retired day query or ignoring the results
- * must fail tests that depend on old block days.
  */
 export async function resolveTodayDays(
   supabase: Client,

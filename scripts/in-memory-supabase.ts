@@ -236,9 +236,11 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
         // Strip the __referenced__ marker if present
         const col = orderBy.column.replace("__referenced__", "");
         result.sort((a, b) => {
-          const aVal = a[col];
-          const bVal = b[col];
+          const aVal = a[col] as string | number | boolean | null;
+          const bVal = b[col] as string | number | boolean | null;
           if (aVal === bVal) return 0;
+          if (aVal === null) return orderBy.ascending ? -1 : 1;
+          if (bVal === null) return orderBy.ascending ? 1 : -1;
           const cmp = aVal < bVal ? -1 : 1;
           return orderBy.ascending ? cmp : -cmp;
         });
@@ -394,7 +396,6 @@ export function createInMemorySupabase(initialData: InMemoryStore = {}) {
     writes,
     store,
     from: (table: string) => ({
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       select: (_columns: string) => createQueryBuilder(table),
       insert: (values: unknown) => createInsertBuilder(table, values),
       update: (values: unknown) => createWriteBuilder(table, "update", values),

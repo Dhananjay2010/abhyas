@@ -1,10 +1,8 @@
 /**
  * Session exercise preparation utilities.
  *
- * Shared logic for creating session exercise rows from program day exercises,
- * applying deload when needed.
+ * Shared logic for creating session exercise rows from program day exercises.
  */
-import { applyDeload } from "@/lib/program/prescription";
 import type { Database } from "@/lib/database.types";
 
 /**
@@ -36,12 +34,10 @@ type SessionExerciseRow = {
 };
 
 /**
- * Convert program day exercises to session exercise rows, applying deload if needed.
+ * Convert program day exercises to session exercise rows.
  *
- * Week 4 of a block cuts volume; the weight suggestion is reduced separately
- * when the session is rendered. This is the ONE shared function that applies
- * deload, used by every path that creates session exercises (startSession,
- * ensureSessionExercises, train-anyway, swap, tomorrow-choice, rebuild re-point).
+ * The is_deload parameter is kept for future use but not currently applied
+ * (deload handling is owned by another PR).
  */
 export function prepareSessionExercises(
   sessionId: string,
@@ -50,28 +46,15 @@ export function prepareSessionExercises(
   isDeload: boolean,
 ): SessionExerciseRow[] {
   return programDayExercises.map((p) => {
-    const dose = isDeload
-      ? applyDeload({
-          sets: p.target_sets ?? 3,
-          repsMin: p.target_reps_min ?? 8,
-          repsMax: p.target_reps_max ?? 12,
-          restSeconds: p.rest_seconds ?? 75,
-        })
-      : {
-          sets: p.target_sets ?? 3,
-          repsMin: p.target_reps_min ?? 8,
-          repsMax: p.target_reps_max ?? 12,
-          restSeconds: p.rest_seconds ?? 75,
-        };
     return {
       session_id: sessionId,
       user_id: userId,
       exercise_id: p.exercise_id,
       order_index: p.order_index,
-      planned_sets: dose.sets,
-      planned_reps_min: dose.repsMin,
-      planned_reps_max: dose.repsMax,
-      rest_seconds: dose.restSeconds,
+      planned_sets: p.target_sets ?? 3,
+      planned_reps_min: p.target_reps_min ?? 8,
+      planned_reps_max: p.target_reps_max ?? 12,
+      rest_seconds: p.rest_seconds ?? 75,
       metric: metricOf(p.exercises),
     };
   });
