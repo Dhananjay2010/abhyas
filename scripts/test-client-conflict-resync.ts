@@ -157,6 +157,47 @@ async function main() {
     assertEqualClient(resolution.exercises[0].sets.length, 0, "Should clear sets");
   });
 
+  // Test 7: Case (A) - Stale client whole exercise behind, logs set, gets conflict, resyncs to correct exercise
+  await testClientConflict("Case (A): Stale client (exercise 1), server (exercise 2 set 1), log overwrites nothing", () => {
+    // Server state: exercise 1 complete, exercise 2 set 1 already saved (12 reps @ 25kg)
+    // Client state: stale on exercise 1 (thinks it's still pending with no sets logged)
+    const exercises: TestExercise[] = [
+      { id: "ex-1", name: "Bench", sets: [], status: "pending", plannedSets: 3 }, // Client thinks ex-1 is current
+      { id: "ex-2", name: "Row", sets: [], status: "pending", plannedSets: 4 },
+    ];
+
+    // Client tries to log "set 1" for exercise 1, but server already has exercise 1 complete
+    // and exercise 2 set 1 saved. Server returns conflict with saved sets from exercise 2.
+    const conflict: ConflictResult = {
+      ok: false,
+      reason: "set_exists",
+      savedSets: [
+        { setNumber: 1, reps: 12, weightKg: 25, durationSeconds: null }, // Server has this for ex-2
+      ],
+    };
+
+    // The conflict is for exercise 2 (server is ahead)
+    const resolution = resolveSetConflict(exercises, "ex-2", 1, conflict);
+
+    // Exercise 2 should get the server's saved sets
+    assertEqualClient(resolution.exercises[1].sets.length, 1, "Ex-2 should have 1 saved set from server");
+    assertEqualClient(resolution.exercises[1].sets[0].reps, 12, "Should have server's 12 reps, not client's attempt");
+    assertEqualClient(resolution.exercises[1].sets[0].weightKg, 25, "Should have server's 25kg, not client's attempt");
+
+    // Should advance to ex-2 set 2 (first unlogged set)
+    assertEqualClient(resolution.nextExerciseIndex, 1, "Should stay on exercise 2");
+    
+    // Message should inform about the resync
+    assertEqualClient(
+      resolution.message,
+      "That set was already saved. Showing your latest sets.",
+      "Should show resync message",
+    );
+
+    // No row should have been overwritten (10x20 becoming 12x25) - the 12x25 was already there
+    // The client's stale attempt was rejected and the server state (12x25) was preserved
+  });
+
   // Summary
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);

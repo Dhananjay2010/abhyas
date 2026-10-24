@@ -151,18 +151,25 @@ export function vibrate(pattern: number | number[]) {
 
 /** Counts elapsed seconds, resilient to the tab being backgrounded. */
 export function useElapsed(startedAtIso: string | null): number {
-  // Lazy state initialisers run once and are the sanctioned place for a clock
-  // read; a ref would be impure during render.
   const [start] = useState(() =>
-    startedAtIso ? new Date(startedAtIso).getTime() : Date.now(),
+    startedAtIso ? new Date(startedAtIso).getTime() : null,
   );
-  const [now, setNow] = useState(() => Date.now());
+  
+  // Initial state is null to defer clock-dependent rendering until after hydration.
+  // Server render and client hydration both see null; the clock starts in the effect.
+  const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
+    // Set the initial time after mount (client-only)
+    setNow(Date.now());
+    
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
 
+  // Return 0 during SSR and before the first effect runs (hydration-safe)
+  if (now === null || start === null) return 0;
+  
   return Math.max(0, Math.floor((now - start) / 1000));
 }
 

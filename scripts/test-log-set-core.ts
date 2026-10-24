@@ -320,6 +320,55 @@ async function main() {
     assertEqualCore(fake.wasUpsertCalled(), false, "Upsert should never be called");
   });
 
+  // Test 7: Two-tab scenario - stale tab logs set 2 after fresh tab already saved it
+  await testLogSetCore("Two tabs: stale tab tries to log set 2 after fresh tab saved it", async () => {
+    // Simulate: fresh tab already saved set 2 with 12 reps @ 65kg
+    const existingSet = {
+      session_exercise_id: "ex-7",
+      user_id: "user-1",
+      set_number: 2,
+      reps: 12,
+      weight_kg: 65,
+      duration_seconds: null,
+      is_warmup_set: false,
+      completed_at: "2026-10-24T12:00:00Z",
+    };
+
+    // Stale tab doesn't know about this row (initial lookup returns null because it has stale cache),
+    // but insert will hit unique constraint (23505) because the row exists
+    const fake = createRecordingFakeClient([], { raceMode: true, racedSet: existingSet });
+
+    // Stale tab tries to log set 2 with different values: 10 reps @ 60kg
+    const result = await logSetCore(fake as unknown as SupabaseClient<Database>, "user-1", {
+      sessionExerciseId: "ex-7",
+      setNumber: 2,
+      reps: 10,
+      weightKg: 60,
+      durationSeconds: null,
+    });
+
+    // Should return conflict with the existing row
+    assertEqualCore(result.ok, false, "Should return conflict");
+    assertTrue(!result.ok && "reason" in result, "Result must have reason field");
+    const conflictResult = result as Extract<typeof result, { reason: "set_exists" }>;
+    assertEqualCore(conflictResult.reason, "set_exists", "Should have set_exists reason");
+    assertTrue("savedSets" in conflictResult && Array.isArray(conflictResult.savedSets), "Result must have savedSets array");
+    assertTrue(conflictResult.savedSets.length > 0, "Should have at least one saved set");
+    
+    // Should return the existing row from the fresh tab, unchanged
+    assertEqualCore(conflictResult.savedSets[0].setNumber, 2, "Should return set number 2");
+    assertEqualCore(conflictResult.savedSets[0].reps, 12, "Should return existing 12 reps from fresh tab");
+    assertEqualCore(conflictResult.savedSets[0].weightKg, 65, "Should return existing 65kg from fresh tab");
+    
+    // Existing row should be unchanged (not overwritten by stale tab)
+    const calls = fake.getCalls();
+    const insertCall = calls.find((c) => c.method === "insert");
+    assertTrue(insertCall !== undefined, "Insert should have been called");
+    
+    // The 23505 error prevents the stale tab's values from being written
+    assertEqualCore(fake.wasUpsertCalled(), false, "Upsert should never be called");
+  });
+
   // Summary
   console.log(`\n${passed + failed} tests, ${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
