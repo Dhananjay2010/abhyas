@@ -743,7 +743,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const result = await swapExerciseCore({ supabase, userId: user.id }, input);
+  const result = await swapExerciseCore({ supabase: supabase as any, userId: user.id }, input);
 
   if (!result.ok) return result;
 
