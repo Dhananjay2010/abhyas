@@ -1,38 +1,14 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { selectWarmup, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { suggestedWeight } from "@/lib/program/progression";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
-import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
 type Muscle = Database["public"]["Enums"]["muscle"];
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  
-  if (!isUuid(id)) notFound();
-  
-  const { supabase, user } = await getAuthedClient();
-  if (!user) return {};
-  
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
-  
-  if (!session) notFound();
-  
-  return {};
-}
 
 export default async function SessionPage({
   params,
@@ -40,9 +16,7 @@ export default async function SessionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  
-  if (!isUuid(id)) notFound();
-  
+
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
@@ -91,17 +65,14 @@ export default async function SessionPage({
   // which is indistinguishable from a genuinely empty session. It hid a
   // PGRST201 ambiguous-embed error for the entire life of this page, so a real
   // failure is raised rather than swallowed.
-  //
-  // The one exception is a route parameter that is not a UUID at all: Postgres
-  // rejects it as invalid input (22P02), and the honest answer to "/session/
-  // nonsense" is 404, not a server error.
   if (sessionRes.error) {
-    if (sessionRes.error.code === "22P02") notFound();
     throw new Error(`Could not load this session: ${sessionRes.error.message}`);
   }
 
   const session = sessionRes.data;
-  if (!session) notFound();
+  if (!session) {
+    throw new Error("Session not found");
+  }
   if (session.status === "completed") redirect("/today");
 
   const rows = session.session_exercises ?? [];

@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { sessionLabel } from "@/components/session-row";
 import { getAuthedClient } from "@/lib/supabase/auth";
 import { BreathingDetail, type BreathingLog } from "./breathing-detail";
 import { Stat } from "./stat";
-import { isUuid } from "@/lib/ids";
 
 export const dynamic = "force-dynamic";
 
@@ -21,38 +20,13 @@ const FEEL_LABEL: Record<string, string> = {
   hard: "felt hard",
 };
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  
-  if (!isUuid(id)) notFound();
-  
-  const { supabase, user } = await getAuthedClient();
-  if (!user) return {};
-  
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
-  
-  if (!session) notFound();
-  
-  return {};
-}
-
 export default async function SessionDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  
-  if (!isUuid(id)) notFound();
-  
+
   const { supabase, user } = await getAuthedClient();
   if (!user) redirect("/");
 
@@ -67,7 +41,9 @@ export default async function SessionDetailPage({
   if (sessionError) {
     throw new Error(`Could not load this session: ${sessionError.message}`);
   }
-  if (!session) notFound();
+  if (!session) {
+    throw new Error("Session not found");
+  }
 
   if (session.actual_type === "meditation") {
     const pattern = session.breathing_patterns as unknown as { name: string; slug: string } | null;

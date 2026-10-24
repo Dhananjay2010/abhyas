@@ -3,17 +3,33 @@
  *
  * The bug (QA Bot 2): routes with loading.tsx were returning HTTP 200 for
  * nonexistent or malformed IDs because notFound() was called after streaming
- * started. The fix moves validation to generateMetadata, which runs before
- * any streaming begins.
+ * started. The fix moves validation to layout.tsx, which runs OUTSIDE the
+ * loading.tsx Suspense boundary.
  *
  *   npx tsx scripts/test-not-found-ids.ts
  */
 import { isUuid } from "../src/lib/ids";
+import { checkSessionRoute, checkHistoryRoute } from "../src/lib/route-guards";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? ` -- ${detail}` : ""}`);
+}
+
+function createFakeClient(shouldExist: boolean) {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: shouldExist ? { id: "550e8400-e29b-41d4-a716-446655440000" } : null,
+          }),
+        }),
+      }),
+    }),
+  };
 }
 
 async function runTests() {
@@ -36,75 +52,54 @@ async function runTests() {
     check("rejects SQL injection attempt", !isUuid("'; DROP TABLE sessions; --"));
   }
 
-  console.log("\n2. shouldFetchSession decides whether to query the database");
+  console.log("\n2. checkSessionRoute validates and queries");
   {
-    type FakeClient = {
-      from: () => {
-        select: () => {
-          eq: () => {
-            maybeSingle: () => Promise<{ data: { id: string } | null }>;
-          };
-        };
-      };
-    };
-    
-    async function shouldFetchSession(
-      id: string,
-      fakeClient: FakeClient,
-    ): Promise<boolean> {
-      if (!isUuid(id)) return false;
-      
-      const { data } = await fakeClient
-        .from()
-        .select()
-        .eq()
-        .maybeSingle();
-      
-      return data !== null;
-    }
-    
-    const existingSession: FakeClient = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({ data: { id: "550e8400-e29b-41d4-a716-446655440000" } }),
-          }),
-        }),
-      }),
-    };
-    
-    const missingSession: FakeClient = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () => ({ data: null }),
-          }),
-        }),
-      }),
-    };
+    const existingClient = createFakeClient(true) as unknown as SupabaseClient;
+    const missingClient = createFakeClient(false) as unknown as SupabaseClient;
     
     check(
-      "valid UUID that exists returns true",
-      await shouldFetchSession("550e8400-e29b-41d4-a716-446655440000", existingSession),
+      "valid UUID that exists returns 'ok'",
+      (await checkSessionRoute(existingClient, "550e8400-e29b-41d4-a716-446655440000")) === "ok",
     );
     
     check(
-      "valid UUID that doesn't exist returns false",
-      !(await shouldFetchSession("550e8400-e29b-41d4-a716-446655440000", missingSession)),
+      "valid UUID that doesn't exist returns 'not_found'",
+      (await checkSessionRoute(missingClient, "550e8400-e29b-41d4-a716-446655440000")) === "not_found",
     );
     
     check(
-      "malformed ID skips database query",
-      !(await shouldFetchSession("not-a-uuid", missingSession)),
+      "malformed ID returns 'not_found' without query",
+      (await checkSessionRoute(missingClient, "not-a-uuid")) === "not_found",
     );
     
     check(
-      "empty string skips database query",
-      !(await shouldFetchSession("", missingSession)),
+      "empty string returns 'not_found' without query",
+      (await checkSessionRoute(missingClient, "")) === "not_found",
     );
   }
 
-  console.log("\n3. Edge cases that should fail validation");
+  console.log("\n3. checkHistoryRoute validates and queries");
+  {
+    const existingClient = createFakeClient(true) as unknown as SupabaseClient;
+    const missingClient = createFakeClient(false) as unknown as SupabaseClient;
+    
+    check(
+      "valid UUID that exists returns 'ok'",
+      (await checkHistoryRoute(existingClient, "550e8400-e29b-41d4-a716-446655440000")) === "ok",
+    );
+    
+    check(
+      "valid UUID that doesn't exist returns 'not_found'",
+      (await checkHistoryRoute(missingClient, "550e8400-e29b-41d4-a716-446655440000")) === "not_found",
+    );
+    
+    check(
+      "malformed ID returns 'not_found' without query",
+      (await checkHistoryRoute(missingClient, "not-a-uuid")) === "not_found",
+    );
+  }
+
+  console.log("\n4. Edge cases that should fail validation");
   {
     check("UUID with uppercase and invalid char", !isUuid("C56A4180-65AA-42EC-A945-5FD21DEC053Z"));
     check("UUID with spaces", !isUuid("550e8400 e29b 41d4 a716 446655440000"));
