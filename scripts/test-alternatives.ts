@@ -272,7 +272,7 @@ const dummyTieBreak = (slug: string) => hashString(slug);
     impact: "low",
     contraindicated_regions: ["knee"],
     equipment_ids: ["barbell"],
-    spinal_load: "moderate",
+    spinal_load: "low",
     tracks: ["weights"],
     default_rest_seconds: 90,
     category: "strength",
