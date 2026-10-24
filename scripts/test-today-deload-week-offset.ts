@@ -40,12 +40,16 @@ const deloadWeek = 4;
 
 const weekWithOffset = cycleWeekFor(programWithOffset, testDate);
 const weekNoOffset = cycleWeekFor(programNoOffset, testDate);
+const isDeloadWithOffset = weekWithOffset === deloadWeek;
 const isDeloadNoOffset = weekNoOffset === deloadWeek;
 
-console.log(`\nDeload detection (deload_week=${deloadWeek}):`);
-console.log(`  With offset=2: isDeload=${isDeloadWithOffset}`);
-console.log(`  Without offset: isDeload=${isDeloadNoOffset}`);
+console.log(`Test date: ${testDate}`);
+console.log(`  Week with offset=2: ${weekWithOffset}`);
+console.log(`  Week without offset: ${weekNoOffset}`);
+console.log(`  Deload week: ${deloadWeek}`);
 
+assert(weekWithOffset === 4, "Week 2 + offset 2 = week 4");
+assert(weekNoOffset === 2, "Week without offset is 2");
 assert(isDeloadWithOffset === true, "With offset=2: week 4 IS deload week");
 assert(isDeloadNoOffset === false, "Without offset: week 2 is NOT deload week");
 

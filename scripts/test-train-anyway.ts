@@ -31,6 +31,7 @@ function day(index: number, type: DayType, label: string | null = null): TrainAn
 console.log("=== Test 1: Rest day, yesterday done, next training day is tomorrow ===\n");
 
 const result1 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(6, "rest"),
   upcomingDays: [
     day(7, "rest"),       // Sun
@@ -52,6 +53,7 @@ assert(result1[1]?.label === "Pull", "Second option label is Pull");
 console.log("\n=== Test 2: Rest day, yesterday missed, today has workout in template ===\n");
 
 const result2 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(5, "weights", "Legs"),
   upcomingDays: [
     day(6, "rest"),
@@ -75,6 +77,7 @@ assert(result2[2]?.label === "Pull", "Third option label is Pull");
 console.log("\n=== Test 3: Last day of week (Sunday), wraps to Monday ===\n");
 
 const result3 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(7, "rest"),
   upcomingDays: [
     day(1, "weights", "Push"),  // Mon (wraps to next week)
@@ -96,6 +99,7 @@ assert(result3[1]?.label === "Pull", "Second option label is Pull");
 console.log("\n=== Test 4: Block with no weights days (all rest/yoga/meditation) ===\n");
 
 const result4 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(3, "rest"),
   upcomingDays: [
     day(4, "meditation"),
@@ -113,6 +117,7 @@ assert(result4.length === 0, "Returns empty array (no training days in block)");
 console.log("\n=== Test 5: Rest day with yesterday missed, but today is also rest ===\n");
 
 const result5 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(6, "rest"),
   upcomingDays: [
     day(7, "rest"),
@@ -134,6 +139,7 @@ assert(result5[1]?.label === "Pull", "Second option label is Pull");
 console.log("\n=== Test 6: Bodyweight training days (not just weights) ===\n");
 
 const result6 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(4, "rest"),
   upcomingDays: [
     day(5, "bodyweight", "Bodyweight A"),
@@ -156,6 +162,7 @@ assert(result6[1]?.label === "Bodyweight B", "Second option label is Bodyweight 
 console.log("\n=== Test 7: Mixed weights and bodyweight ===\n");
 
 const result7 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(2, "rest"),
   upcomingDays: [
     day(3, "weights", "Push"),
@@ -177,6 +184,7 @@ assert(result7[1]?.label === "Bodyweight", "Second option label is Bodyweight");
 console.log("\n=== Test 8: Yesterday missed AND today has bodyweight workout ===\n");
 
 const result8 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(3, "bodyweight", "Bodyweight A"),
   upcomingDays: [
     day(4, "rest"),
@@ -200,6 +208,7 @@ assert(result8[2]?.label === "Bodyweight B", "Third option label is Bodyweight B
 console.log("\n=== Test 9: Rest day after a missed training day ===\n");
 
 const result9 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(6, "rest"),
   upcomingDays: [
     day(7, "rest"),
@@ -223,6 +232,7 @@ assert(result9[1]?.label === "Pull", "Second option is Pull");
 console.log("\n=== Test 10: Rest day after missed day, today IS training in template ===\n");
 
 const result10 = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: day(6, "weights", "Legs"),  // Today (Sat) IS a training day in template, but user chose rest
   upcomingDays: [
     day(7, "rest"),

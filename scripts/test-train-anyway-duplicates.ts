@@ -31,6 +31,7 @@ const upcomingDays = [
 ];
 
 const result = trainAnywayOptions({
+  yesterdayDay: null,
   todayDay: null,
   upcomingDays,
   missedYesterday: false,
