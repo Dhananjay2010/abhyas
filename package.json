@@ -33,6 +33,7 @@
     "test:rate-limit-endpoint": "tsx scripts/test-rate-limit-endpoint.ts",
     "test:signout": "tsx scripts/test-signout.ts",
     "test:finish-exercise-idempotency": "tsx scripts/test-finish-exercise-idempotency.ts",
+    "test:not-found-ids": "tsx scripts/test-not-found-ids.ts",
     "test:sentry": "tsx scripts/test-sentry.ts",
     "test:seed-validity": "tsx scripts/test-seed-validity.ts",
     "test:redirect-origin": "tsx scripts/test-redirect-origin.ts",
