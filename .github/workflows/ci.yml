@@ -24,8 +24,16 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
 
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Start Supabase
+        run: supabase start
 
       - name: Lint
         run: npm run lint
@@ -35,9 +43,15 @@ jobs:
 
       - name: Run tests
         run: npm test
+        env:
+          REAL_DB: "1"
 
       - name: Build
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
