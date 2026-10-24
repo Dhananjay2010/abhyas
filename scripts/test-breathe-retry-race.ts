@@ -60,10 +60,12 @@ async function testConcurrentRace() {
 
   try {
     // Set timeouts to prevent hanging
-    await client1.query("SET statement_timeout = '10s'");
-    await client1.query("SET lock_timeout = '5s'");
-    await client2.query("SET statement_timeout = '10s'");
-    await client2.query("SET lock_timeout = '5s'");
+    // Note: With advisory locks, one client waits for the other, so lock_timeout
+    // must be longer than the expected transaction duration
+    await client1.query("SET statement_timeout = '30s'");
+    await client1.query("SET lock_timeout = '20s'");
+    await client2.query("SET statement_timeout = '30s'");
+    await client2.query("SET lock_timeout = '20s'");
 
     // Get box-breathing pattern id from seed data
     const patternResult = await client1.query(

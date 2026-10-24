@@ -86,7 +86,7 @@ jobs:
 
       - name: Test breathe retry race condition
         run: npx tsx scripts/test-breathe-retry-race.ts
-        timeout-minutes: 2
+        timeout-minutes: 5
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
 
