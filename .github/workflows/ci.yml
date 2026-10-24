@@ -219,6 +219,12 @@ jobs:
         env:
           REAL_DB: "1"
 
+      - name: Run program block range DB tests
+        run: |
+          # Get DATABASE_URL from Supabase status
+          export DATABASE_URL=$(supabase status -o env | grep '^DB_URL=' | cut -d '=' -f 2- | tr -d '"')
+          npm run test:block-range-db
+
       - name: Stop Supabase
         if: always()
         run: supabase stop
