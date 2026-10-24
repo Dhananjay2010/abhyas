@@ -9,9 +9,8 @@ import { randomUUID } from "crypto";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
-  console.log("\n⏭️  Skipping DB tests (DATABASE_URL not set)");
-  console.log("   Set DATABASE_URL=postgres://postgres:postgres@localhost/abhyas_test to run\n");
-  process.exit(0);
+  console.error("DATABASE_URL environment variable required");
+  process.exit(1);
 }
 
 let testsFailed = 0;
