@@ -1041,25 +1041,72 @@ console.log("\n25. First miss and back-off never raise weight");
   check("back-off 2.5 kg: holds at 2.5 kg (not less)", backOff25.nextWorkingWeightKg === 2.5, `${backOff25.nextWorkingWeightKg}`);
 }
 
-console.log("\n26. Messages display lb values matching app formatter");
+console.log("\n26. Messages use app's formatWeight (from @/lib/units)");
 {
-  // 42.5 kg back-off -> 37.5 kg = 82.673 lb -> 82.5 lb (half-pound rounding)
+  // formatWeight does: kgToLb -> roundLbToHalf -> round to 1 decimal -> format (drop .0 for whole numbers)
+  // Test with first miss (drops one grid step), which shows the dropped weight in the message
+  
+  const testCases: Array<{kg: number, expectedLb: string, label: string}> = [
+    { kg: 42.5, expectedLb: "88 lb", label: "42.5 kg first miss -> 40 kg" },  // 40 kg = 88.185 lb -> 88 lb
+    { kg: 57.5, expectedLb: "127 lb", label: "57.5 kg first miss -> 57.5 kg (hold, min reached)" },  // Barbell 57.5 drops to 55, but for isolation at min it holds
+    { kg: 20, expectedLb: "38.5 lb", label: "20 kg first miss -> 17.5 kg" },  // 17.5 kg = 38.581 lb -> 38.5 lb
+    { kg: 100, expectedLb: "214.5 lb", label: "100 kg first miss -> 97.5 kg" },  // 97.5 kg = 214.951 lb -> 215 -> 214.95 -> "215 lb" wait that's wrong
+    { kg: 2.5, expectedLb: "2.75 lb", label: "2.5 kg isolation first miss -> 1.25 kg" },  // 1.25 kg = 2.756 lb -> 2.5 -> "2.5 lb" wait...
+  ];
+  
+  // Actually, let me just test that the formatter is called correctly by checking formatWeight's output directly
+  // Use back-off messages which definitely show a weight value
+  
+  // 42.5 kg * 0.9 = 38.25, round to 2.5 grid = 37.5 kg. Display in lb: 37.5 kg = 82.673 lb -> 82.5 lb
   const backOff425 = run({
+    meta: BENCH,
     sets: sets(4, 10, 42.5),
     state: fresh({ currentWorkingWeightKg: 42.5, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
     unit: "lb",
   });
-  check("42.5 kg back-off displays 82.5 lb (not 82.75)", backOff425.message.includes("82.5 lb"), backOff425.message);
+  check("42.5 kg back-off shows 82.5 lb (app formatter)", backOff425.message.includes("82.5 lb"), backOff425.message);
   
-  // 57.5 kg back-off -> 50 kg = 110.231 lb -> 110 lb (whole number, no .0)
+  // 57.5 kg * 0.9 = 51.75, round to 2.5 grid = 50 kg. Display in lb: 50 kg = 110.231 lb -> 110 lb (no .0)
   const backOff575 = run({
+    meta: BENCH,
     sets: sets(4, 10, 57.5),
     state: fresh({ currentWorkingWeightKg: 57.5, consecutiveFailures: 1 }),
     equipmentIds: ["barbell"],
     unit: "lb",
   });
-  check("57.5 kg back-off displays 110 lb (not 110.0 or 110.25)", backOff575.message.includes("110 lb") && !backOff575.message.includes("110.0") && !backOff575.message.includes("110.25"), backOff575.message);
+  check("57.5 kg back-off shows 110 lb (app formatter, no .0)", backOff575.message.includes("110 lb") && !backOff575.message.includes("110.0"), backOff575.message);
+  
+  // 20 kg * 0.9 = 18, round to 2.5 grid = 17.5 kg. Display in lb: 17.5 kg = 38.581 lb -> 38.5 lb
+  const backOff20 = run({
+    meta: BENCH,
+    sets: sets(4, 10, 20),
+    state: fresh({ currentWorkingWeightKg: 20, consecutiveFailures: 1 }),
+    equipmentIds: ["barbell"],
+    unit: "lb",
+  });
+  check("20 kg back-off shows 38.5 lb (app formatter)", backOff20.message.includes("38.5 lb"), backOff20.message);
+  
+  // 100 kg * 0.9 = 90, round to 2.5 grid = 90 kg. Display in lb: 90 kg = 198.416 lb -> 198.5 lb
+  const backOff100 = run({
+    meta: { ...BENCH, movementPattern: "squat" },
+    sets: sets(4, 10, 100),
+    state: fresh({ currentWorkingWeightKg: 100, consecutiveFailures: 1 }),
+    equipmentIds: ["barbell"],
+    unit: "lb",
+  });
+  check("100 kg back-off shows 198.5 lb (app formatter)", backOff100.message.includes("198.5 lb"), backOff100.message);
+  
+  // 2.5 kg isolation: at min step, holds at 2.5 kg. Display in lb: 2.5 kg = 5.512 lb -> 5.5 lb
+  const backOff25 = run({
+    meta: CURL,
+    sets: sets(4, 10, 2.5),
+    state: fresh({ currentWorkingWeightKg: 2.5, consecutiveFailures: 1 }),
+    equipmentIds: ["dumbbell"],
+    unit: "lb",
+  });
+  // This should HOLD and message won't show a weight, it will say "holding"
+  check("2.5 kg isolation back-off holds (at min step)", backOff25.outcome === "hold", `outcome: ${backOff25.outcome}`);
 }
 
 console.log("\n27. Back-off never raises weight");

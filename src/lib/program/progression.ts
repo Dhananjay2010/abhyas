@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import { KETTLEBELL_WEIGHTS_KG, LOADABLE_EQUIPMENT_IDS, gridStepFor as equipmentGridStep, type WeightUnit } from "@/lib/session/equipment-grid";
+import { formatWeight } from "@/lib/units";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -130,19 +131,14 @@ export function addedWeightStep(meta: ExerciseMeta): number {
 }
 
 /**
- * Convert kg weight to user's display unit.
- * For lb, uses the same rounding as the app's formatter (nearest 0.5 lb),
- * returning a number suitable for message display.
+ * Format weight for display in progression messages using the app's UI formatter.
+ * Returns formatted string like "93.5 lb" or "42.5 kg" with unit label.
  */
-function displayWeight(kgValue: number, unit: WeightUnit | undefined): number {
-  if (unit === 'lb') {
-    // Match app's formatWeight: kgToLb, round to 0.5, then round to 1 decimal
-    const lb = kgValue * 2.20462262185;
-    const roundedToHalf = Math.round(lb * 2) / 2;
-    const roundedToDecimal = Math.round(roundedToHalf * 10) / 10;
-    return roundedToDecimal;
-  }
-  return kgValue;
+function displayWeight(kgValue: number, unit: WeightUnit | undefined): string {
+  // Use the app's actual UI formatter (from @/lib/units)
+  // For imperial: kgToLb -> roundLbToHalf -> round to 1 decimal -> format (no .0 for whole numbers)
+  // For metric: round to 1 decimal -> format (no .0 for whole numbers)
+  return formatWeight(kgValue, unit === 'lb' ? 'imperial' : 'metric', true);
 }
 
 function roundTo(value: number, step: number): number {
@@ -540,8 +536,8 @@ export function evaluateProgression(input: {
       consecutiveFailures: 0,
       message:
         feel === "easy" && !isBodyweightWithAddedWeight
-          ? `All sets at the top and it felt easy — up to ${displayNext} ${unit || 'kg'}.`
-          : `All sets at the top of the range — up to ${displayNext} ${unit || 'kg'}.`,
+          ? `All sets at the top and it felt easy — up to ${displayNext}.`
+          : `All sets at the top of the range — up to ${displayNext}.`,
     };
   }
 
@@ -636,7 +632,7 @@ export function evaluateProgression(input: {
       nextWorkingWeightKg: reduced,
       nextTargetReps: repsMax,
       consecutiveFailures: 0,
-      message: `Missed twice in a row — dropping to ${displayWeight(reduced, unit)} ${unit || 'kg'} to build back.`,
+      message: `Missed twice in a row — dropping to ${displayWeight(reduced, unit)} to build back.`,
     };
   }
 
@@ -671,7 +667,7 @@ export function evaluateProgression(input: {
     : currentWeight === null
       ? "Staying here until every set reaches the top of the range."
       : nextWeight !== null && nextWeight !== currentWeight
-        ? `Missed the target — dropping to ${displayWeight(nextWeight, unit)} ${unit || 'kg'}.`
+        ? `Missed the target — dropping to ${displayWeight(nextWeight, unit)}.`
         : "Staying at this weight until every set reaches the top of the range.";
   
   return {
