@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { revalidateTrainingData } from "@/lib/revalidate";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { getCachedUserTimezone } from "@/lib/supabase/cached-profile";
 import { localDateString } from "@/lib/dates";
 import { checkActionRateLimit } from "@/lib/rate-limit/server-action";
 
@@ -25,19 +24,19 @@ export async function markYogaVideoDone(videoId: string): Promise<Result> {
   const { supabase, user } = await getAuthedClient();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  const [videoRes, timezone] = await Promise.all([
-    supabase
-      .from("yoga_videos")
-      .select("id, playlist_id, duration_minutes")
-      .eq("id", videoId)
-      .maybeSingle(),
-    getCachedUserTimezone(),
-  ]);
-
-  const video = videoRes.data;
+  const { data: video } = await supabase
+    .from("yoga_videos")
+    .select("id, playlist_id, duration_minutes")
+    .eq("id", videoId)
+    .maybeSingle();
   if (!video) return { ok: false, error: "That video is not in the library." };
 
-  const today = localDateString(timezone);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", user.id)
+    .single();
+  const today = localDateString(profile?.timezone || "Asia/Kolkata");
 
   // Append without duplicating, so re-marking the same video is harmless.
   const { data: existing } = await supabase

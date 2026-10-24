@@ -30,7 +30,6 @@ import {
   getCachedBreathingRoutines,
   getCachedBreathingJourneys,
 } from "@/lib/supabase/cached-queries";
-import { getCachedUserTimezone } from "@/lib/supabase/cached-profile";
 
 type Client = SupabaseClient<Database>;
 
@@ -178,14 +177,14 @@ export async function loadJourney(
   userId: string,
   slug: string,
 ): Promise<LoadedJourney | null> {
-  const [journeys, builtins, timezone, mineRes, progressRes, settingsRes, logsRes, countRes] =
+  const [journeys, builtins, mineRes, progressRes, settingsRes, profileRes, logsRes, countRes] =
     await Promise.all([
       getCachedBreathingJourneys(),
       getCachedBreathingPatterns(),
-      getCachedUserTimezone(),
       supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS),
       supabase.from("user_journey_progress").select(PROGRESS_COLUMNS),
       supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", userId).maybeSingle(),
+      supabase.from("profiles").select("timezone").eq("id", userId).single(),
       supabase
         .from("breathing_logs")
         .select("pattern_name, routine_name, mood_before, mood_after")
@@ -201,7 +200,7 @@ export async function loadJourney(
     .map(userPatternFromRow)
     .filter((p): p is UserPattern => p !== null);
 
-  const today = localDateString(timezone);
+  const today = localDateString(profileRes.data?.timezone || "Asia/Kolkata");
   const shifts = calmShifts(
     (logsRes.data ?? []).map(
       (l): MoodLog => ({

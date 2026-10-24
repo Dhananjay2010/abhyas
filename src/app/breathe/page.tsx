@@ -26,7 +26,6 @@ import {
   getCachedBreathingRoutines,
   getCachedBreathingJourneys,
 } from "@/lib/supabase/cached-queries";
-import { getCachedUserTimezone } from "@/lib/supabase/cached-profile";
 import { breathingStats, calmShifts, type MoodLog } from "@/lib/breathing/stats";
 import { suggestPractice } from "@/lib/breathing/suggest";
 import { BreatheHome, type LastPractice } from "./breathe-home";
@@ -62,10 +61,10 @@ export default async function BreathePage({
     builtinPatterns,
     routinesData,
     journeysData,
-    timezone,
     mineRes,
     progressRes,
     settingsRes,
+    profileRes,
     practicesRes,
     logsRes,
     trainingRes,
@@ -73,10 +72,10 @@ export default async function BreathePage({
     getCachedBreathingPatterns(),
     getCachedBreathingRoutines(),
     getCachedBreathingJourneys(),
-    getCachedUserTimezone(),
     supabase.from("user_breathing_patterns").select(USER_PATTERN_COLUMNS).order("created_at"),
     supabase.from("user_journey_progress").select(PROGRESS_COLUMNS),
     supabase.from("user_settings").select(PREFS_COLUMNS).eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select("timezone").eq("id", user.id).single(),
     supabase
       .from("sessions")
       .select("local_date, duration_seconds")
@@ -108,6 +107,8 @@ export default async function BreathePage({
   const routines = routinesData
     .map((routine) => resolveRoutine(routine, patterns))
     .filter((r): r is ResolvedRoutine => r !== null);
+
+  const timezone = profileRes.data?.timezone || "Asia/Kolkata";
   const today = localDateString(timezone);
   const stats = breathingStats(
     (practicesRes.data ?? []).map((s) => ({
