@@ -181,8 +181,6 @@ testSeeds("2. Knee injury: first lower main exercise is knee-safe quad (from all
           firstEx.mechanic === "compound" &&
           firstEx.metric !== "seconds";
         
-        const firstIsAcceptable = firstIsKneeSafeQuad || firstIsKneeSafeHipDominant;
-        
         // Check adjacent hinges: no two hinges in a row
         for (let i = 0; i < day.exercises.length - 1; i++) {
           const curr = byId.get(day.exercises[i].exerciseId);

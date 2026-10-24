@@ -20,10 +20,40 @@ import {
   isEligible,
   type CandidateExercise,
   type GeneratorInput,
-  KNEE_SAFE_QUAD_EXERCISES,
-  FLOOR_PULL_DEADLIFTS,
-  LOADED_WINDMILL_SIDE_BEND,
 } from "../src/lib/program/generate";
+
+// Hard-coded expected knee-safe slugs (independent test oracle)
+// Adding box-squat to this list must make the test FAIL (not just a separate check)
+const EXPECTED_KNEE_SAFE_QUAD_EXERCISES = new Set([
+  "leg-extensions",
+  "single-leg-leg-extension",
+  "wall-sit",
+  "spanish-squat",
+]);
+
+// Hard-coded expected floor-pull deadlifts (independent test oracle)
+const EXPECTED_FLOOR_PULL_DEADLIFTS = new Set([
+  "deadlift",
+  "sumo-deadlift",
+  "trap-bar-deadlift",
+  "deficit-deadlift",
+  "snatch-grip-deadlift",
+  "stiff-leg-deadlift",
+  "romanian-deadlift",
+  "single-leg-romanian-deadlift",
+  "sumo-romanian-deadlift",
+  "dumbbell-romanian-deadlift",
+  "single-leg-dumbbell-romanian-deadlift",
+  "kettlebell-romanian-deadlift",
+  "single-leg-kettlebell-romanian-deadlift",
+]);
+
+// Hard-coded expected loaded windmill/side-bend exclusions (independent test oracle)
+const EXPECTED_LOADED_WINDMILL_SIDE_BEND = new Set([
+  "dumbbell-side-bend",
+  "cable-side-bend",
+  "kettlebell-windmill",
+]);
 
 // Load real catalogue
 const catalogue: CandidateExercise[] = JSON.parse(
@@ -60,14 +90,14 @@ function base(overrides: Partial<GeneratorInput> = {}): GeneratorInput {
 
 console.log("\nKnee Safety Matrix Test");
 console.log("=======================\n");
-console.log("Knee-safe allowlist (from PR #53):", Array.from(KNEE_SAFE_QUAD_EXERCISES).join(", "));
-console.log("Floor-pull deadlifts (PR #73):", Array.from(FLOOR_PULL_DEADLIFTS).join(", "));
-console.log("Loaded windmill/side-bend (PR #53):", Array.from(LOADED_WINDMILL_SIDE_BEND).join(", "));
+console.log("Expected knee-safe allowlist (independent oracle):", Array.from(EXPECTED_KNEE_SAFE_QUAD_EXERCISES).join(", "));
+console.log("Expected floor-pull deadlifts (independent oracle):", Array.from(EXPECTED_FLOOR_PULL_DEADLIFTS).join(", "));
+console.log("Expected loaded windmill/side-bend (independent oracle):", Array.from(EXPECTED_LOADED_WINDMILL_SIDE_BEND).join(", "));
 console.log();
 
-// Test: Every slug in FLOOR_PULL_DEADLIFTS must exist in the catalogue
+// Test: Every slug in EXPECTED_FLOOR_PULL_DEADLIFTS must exist in the catalogue
 console.log("Catalogue validation: Floor-pull deadlift slugs");
-for (const slug of FLOOR_PULL_DEADLIFTS) {
+for (const slug of EXPECTED_FLOOR_PULL_DEADLIFTS) {
   const exists = catalogue.some(e => e.slug === slug);
   check(`  ${slug} exists in catalogue`, exists);
 }
@@ -149,6 +179,12 @@ const equipmentProfiles: Array<{ name: string; hasAll: boolean; ids: string[] }>
   { name: "gym", hasAll: true, ids: [] },
   { name: "home-dumbbell", hasAll: false, ids: ["dumbbell"] },
   { name: "bodyweight", hasAll: false, ids: [] },
+  { name: "leg-extension", hasAll: false, ids: ["leg_extension"] },
+  { name: "leg-extension+dumbbell", hasAll: false, ids: ["leg_extension", "dumbbell"] },
+  { name: "band", hasAll: false, ids: ["band"] },
+  { name: "barbell+rack", hasAll: false, ids: ["barbell", "rack"] },
+  { name: "kettlebell", hasAll: false, ids: ["kettlebell"] },
+  { name: "cable", hasAll: false, ids: ["cable_machine"] },
 ];
 const sessionLengths = [30, 45, 60, 75];
 const frequencies = [2, 3, 4, 5];
@@ -227,7 +263,7 @@ for (const seed of testSeeds) {
               
               // Check if non-timed knee-safe quads are available for this profile
               const availableKneeSafeQuads = catalogue.filter(e => {
-                if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
+                if (!EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
                 if (e.metric === "seconds") return false;
                 if (!e.primary_muscles.includes("quads")) return false;
                 if (!e.tracks.includes(input.primaryTrack)) return false;
@@ -245,7 +281,7 @@ for (const seed of testSeeds) {
                 return true;
               });
               
-              const isKneeSafeQuad = KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug) && exercise.metric !== "seconds";
+              const isKneeSafeQuad = EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug) && exercise.metric !== "seconds";
               const isKneeSafeHipDominant = (exercise.movement_pattern === "hinge" || 
                                             exercise.slug.includes("bridge") || 
                                             exercise.slug.includes("hip-thrust")) && 
@@ -298,7 +334,7 @@ for (const seed of testSeeds) {
                   const kneeSafeBeforeHinge = day.exercises.slice(0, firstHingeIndex).some(e => {
                     const ex = byId.get(e.exerciseId);
                     if (!ex) return false;
-                    return KNEE_SAFE_QUAD_EXERCISES.has(ex.slug) && ex.metric !== "seconds";
+                    return EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(ex.slug) && ex.metric !== "seconds";
                   });
                   
                   if (!kneeSafeBeforeHinge) {
@@ -355,14 +391,14 @@ for (const seed of testSeeds) {
               }
             }
             
-            // Rule 6 (PR #73 follow-up): All squat/lunge pattern exercises must be in KNEE_SAFE_QUAD_EXERCISES
+            // Rule 6 (PR #73 follow-up): All squat/lunge pattern exercises must be in EXPECTED_KNEE_SAFE_QUAD_EXERCISES
             for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
               for (const ex of day.exercises) {
                 const exercise = byId.get(ex.exerciseId);
                 if (!exercise) continue;
                 
                 if (exercise.movement_pattern === "squat" || exercise.movement_pattern === "lunge") {
-                  if (!KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug)) {
+                  if (!EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(exercise.slug)) {
                     check(`${profileId} ${day.label}: squat/lunge in allowlist`, false,
                       `${exercise.name} [${exercise.slug}] is ${exercise.movement_pattern} but not in allowlist`);
                     profileFailed = true;
@@ -377,7 +413,7 @@ for (const seed of testSeeds) {
                 const exercise = byId.get(ex.exerciseId);
                 if (!exercise) continue;
                 
-                if (FLOOR_PULL_DEADLIFTS.has(exercise.slug)) {
+                if (EXPECTED_FLOOR_PULL_DEADLIFTS.has(exercise.slug)) {
                   check(`${profileId} ${day.label}: no floor-pull deadlift anywhere`, false,
                     `${exercise.name} [${exercise.slug}] at slot ${ex.orderIndex + 1}`);
                   profileFailed = true;
@@ -418,6 +454,47 @@ for (const seed of testSeeds) {
                 if (exercise.metric === "seconds") {
                   check(`${profileId} ${day.label}: no timed hold in main slot`, false,
                     `${exercise.name} [${exercise.slug}] at slot ${mainEx.orderIndex + 1}`);
+                  profileFailed = true;
+                }
+              }
+            }
+            
+            // Rule 10: No isolation before compound in final order (except core, which goes last)
+            for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+              for (let i = 0; i < day.exercises.length; i++) {
+                const current = byId.get(day.exercises[i].exerciseId);
+                if (!current) continue;
+                
+                if (current.mechanic === "isolation") {
+                  // Check if any non-core compound comes after this isolation
+                  for (let j = i + 1; j < day.exercises.length; j++) {
+                    const later = byId.get(day.exercises[j].exerciseId);
+                    if (later && later.mechanic === "compound" && later.movement_pattern !== "core") {
+                      check(`${profileId} ${day.label}: no isolation before compound`, false,
+                        `${current.name} (isolation) at ${i + 1} before ${later.name} (compound ${later.movement_pattern}) at ${j + 1}`);
+                      profileFailed = true;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Rule 11: Core exercises are last
+            for (const day of plan.days.filter(d => d.dayType === "weights" || d.dayType === "bodyweight")) {
+              const lastCoreIndex = day.exercises.map((ex, idx) => {
+                const e = byId.get(ex.exerciseId);
+                return e?.movement_pattern === "core" ? idx : -1;
+              }).reduce((max, idx) => Math.max(max, idx), -1);
+              
+              if (lastCoreIndex >= 0 && lastCoreIndex < day.exercises.length - 1) {
+                // There's a core exercise, but it's not last
+                const lastEx = byId.get(day.exercises[day.exercises.length - 1].exerciseId);
+                const coreEx = byId.get(day.exercises[lastCoreIndex].exerciseId);
+                
+                if (lastEx && lastEx.movement_pattern !== "core") {
+                  check(`${profileId} ${day.label}: core exercises are last`, false,
+                    `${coreEx?.name || "core"} at ${lastCoreIndex + 1}, but ${lastEx.name} (${lastEx.movement_pattern}) is last`);
                   profileFailed = true;
                 }
               }
@@ -473,7 +550,7 @@ for (const level of levels) {
             const exercise = byId.get(ex.exerciseId);
             if (!exercise) continue;
             
-            if (LOADED_WINDMILL_SIDE_BEND.has(exercise.slug)) {
+            if (EXPECTED_LOADED_WINDMILL_SIDE_BEND.has(exercise.slug)) {
               check(`${profileId} ${day.label}: no loaded windmill/side-bend`, false,
                 `Got ${exercise.name}`);
               profileFailed = true;
@@ -540,7 +617,7 @@ for (const level of levels) {
           
           const firstEx = byId.get(firstLowerEx.exerciseId);
           if (firstEx) {
-            const isKneeSafeQuad = KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug) && firstEx.metric !== "seconds";
+            const isKneeSafeQuad = EXPECTED_KNEE_SAFE_QUAD_EXERCISES.has(firstEx.slug) && firstEx.metric !== "seconds";
             const isKneeSafeHipDominant = (firstEx.movement_pattern === "hinge" || 
                                           firstEx.slug.includes("bridge") || 
                                           firstEx.slug.includes("hip-thrust")) && 
@@ -560,7 +637,7 @@ for (const level of levels) {
             const exercise = byId.get(ex.exerciseId);
             if (!exercise) continue;
             
-            if (LOADED_WINDMILL_SIDE_BEND.has(exercise.slug)) {
+            if (EXPECTED_LOADED_WINDMILL_SIDE_BEND.has(exercise.slug)) {
               check(`${profileId} ${day.label}: no loaded windmill/side-bend`, false);
               profileFailed = true;
             }

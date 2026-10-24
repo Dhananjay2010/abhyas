@@ -622,6 +622,59 @@ const SAFE_ALTERNATIVES: Partial<Record<Pattern, Pattern[]>> = {
   vertical_pull: ["horizontal_pull", "rear_delt"],
 };
 
+/**
+ * Check if adding a candidate exercise would violate constraints in the FINAL sorted order.
+ * This is the single source of truth for knee-safe constraints.
+ * Exported for testing.
+ */
+export function wouldViolateConstraints(
+  candidate: CandidateExercise,
+  slotIndex: number,
+  pickedSoFar: Array<{ ex: CandidateExercise; slotIndex: number }>,
+  input: GeneratorInput,
+): boolean {
+  const isMainSlot = slotIndex < 4;
+  const hasKneeInjury = input.currentInjuryRegions.includes("knee");
+  
+  // Main slots cannot have timed holds
+  if (isMainSlot && candidate.metric === "seconds") {
+    return true;
+  }
+  
+  // For knee-injured users, check adjacent hinges in FINAL sorted order
+  if (hasKneeInjury && candidate.movement_pattern === "hinge") {
+    // Simulate the sorted order with this candidate added
+    const withCandidate = [...pickedSoFar, { ex: candidate, slotIndex }];
+    const sorted = withCandidate.sort((a, b) => {
+      const aCore = a.ex.movement_pattern === "core";
+      const bCore = b.ex.movement_pattern === "core";
+      if (aCore && !bCore) return 1;
+      if (!aCore && bCore) return -1;
+      
+      const aCompound = a.ex.mechanic === "compound";
+      const bCompound = b.ex.mechanic === "compound";
+      if (aCompound && !bCompound) return -1;
+      if (!aCompound && bCompound) return 1;
+      
+      if (a.slotIndex !== b.slotIndex) return a.slotIndex - b.slotIndex;
+      return a.ex.slug.localeCompare(b.ex.slug);
+    });
+    
+    // Find candidate's position in sorted order
+    const candidateIdx = sorted.findIndex(item => item.ex.slug === candidate.slug && item.slotIndex === slotIndex);
+    
+    // Check if adjacent exercises are also hinges
+    if (candidateIdx > 0 && sorted[candidateIdx - 1].ex.movement_pattern === "hinge") {
+      return true;
+    }
+    if (candidateIdx < sorted.length - 1 && sorted[candidateIdx + 1].ex.movement_pattern === "hinge") {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 function pickForSlot(
   pattern: Pattern,
   slotIndex: number,
@@ -647,10 +700,6 @@ function pickForSlot(
     }
   }
   
-  // Get the previous exercise to check for adjacent hinges
-  const prevEx = pickedSoFar.length > 0 ? pickedSoFar[pickedSoFar.length - 1].ex : null;
-  const prevIsHinge = prevEx?.movement_pattern === "hinge";
-
   for (const p of [pattern, PATTERN_FALLBACK[pattern]]) {
     if (!p) continue;
     let candidates = pool.filter((e) => e.movement_pattern === p && !used.has(e.id));
@@ -661,17 +710,9 @@ function pickForSlot(
     candidates = candidates.filter((e) => !shouldExcludeForSafety(e, input, slotIndex));
     if (candidates.length === 0) continue; // Try fallback pattern if filtered out
     
-    // Exclude timed holds (isometric exercises with metric=seconds) from main slots
-    if (isMainSlot) {
-      candidates = candidates.filter((e) => e.metric !== "seconds");
-      if (candidates.length === 0) continue;
-    }
-    
-    // Prevent adjacent hinges for knee-injured users
-    if (prevIsHinge && input.currentInjuryRegions.includes("knee")) {
-      candidates = candidates.filter((e) => e.movement_pattern !== "hinge");
-      if (candidates.length === 0) continue;
-    }
+    // Apply shared constraint checker (timed holds in mains, adjacent hinges for knee injury)
+    candidates = candidates.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
+    if (candidates.length === 0) continue;
 
     // Rank by score, then staple preference for main pattern slots (0-3),
     // then by RNG. QA: apply staples to vertical_press (slot 3) at all levels
@@ -717,20 +758,9 @@ function pickForSlot(
     
     if (filtered.length === 0) continue;
     
-    // Apply same filters as main pattern loop
-    let finalCandidates = filtered;
-    
-    // Exclude timed holds from main slots
-    if (isMainSlot) {
-      finalCandidates = finalCandidates.filter((e) => e.metric !== "seconds");
-      if (finalCandidates.length === 0) continue;
-    }
-    
-    // Prevent adjacent hinges for knee-injured users
-    if (prevIsHinge && input.currentInjuryRegions.includes("knee")) {
-      finalCandidates = finalCandidates.filter((e) => e.movement_pattern !== "hinge");
-      if (finalCandidates.length === 0) continue;
-    }
+    // Apply shared constraint checker
+    const finalCandidates = filtered.filter((e) => !wouldViolateConstraints(e, slotIndex, pickedSoFar, input));
+    if (finalCandidates.length === 0) continue;
     
     const ranked = finalCandidates
       .map((e) => ({
@@ -857,46 +887,34 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       if (hasKneeInjury && isLowerOrFullDay && isLowerBodyPattern && !firstQuadSlotHandled) {
         firstQuadSlotHandled = true;
         
-        // Find knee-safe quad exercises (non-timed holds only) - bypass normal contraindication checks for these
+        // Priority 1: Find knee-safe quad exercises (compound OR isolation, non-timed holds only)
+        // bypass normal contraindication checks for these
         const kneeSafeCandidates = pool
           .filter(e => {
             if (!KNEE_SAFE_QUAD_EXERCISES.has(e.slug)) return false;
-            if (e.metric === "seconds") return false; // Exclude timed holds from main slots
             if (!e.primary_muscles.includes("quads")) return false;
             if (usedSet.has(e.id)) return false;
             
-            // Check basic eligibility without contraindications
-            if (e.level_min === "expert" && input.level === "beginner") return false;
-            if (e.level_min === "intermediate" && input.level === "beginner") return false;
-            if (!e.tracks.includes(input.primaryTrack)) return false;
+            // Apply shared constraint checker (will exclude timed holds from main slots, check adjacent hinges)
+            if (wouldViolateConstraints(e, i, pickedExercises, input)) return false;
             
-            // Equipment check (same logic as isEligible)
-            if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
-              const altSets = EQUIPMENT_ALTERNATIVES[e.slug];
-              if (altSets) {
-                const hasAny = e.equipment_ids.every((eid: string) => input.equipmentIds.includes(eid)) ||
-                              altSets.some((altSet: string[]) => altSet.every((aid: string) => input.equipmentIds.includes(aid)));
-                if (!hasAny) return false;
-              } else {
-                const hasAll = e.equipment_ids.every((eid: string) => input.equipmentIds.includes(eid));
-                if (!hasAll) return false;
-              }
-            }
-            
-            return true;
+            // Use isEligible for level, track, equipment checks (same logic as pickForSlot)
+            return isEligible(e, input);
           })
           .map(e => ({
             e,
             score: score(e, i < 4, input.level, input.primaryTrack),
-            stapleKey: stapleSortKey(e, pattern, input.hasAllEquipment, input.primaryTrack),
+            // Prefer compounds over isolations, then by slug
+            isCompound: e.mechanic === "compound" ? 0 : 1,
             rng: rng(),
           }))
           .sort((a, b) => {
+            // Compounds before isolations
+            if (a.isCompound !== b.isCompound) return a.isCompound - b.isCompound;
+            // Then by score
             if (a.score !== b.score) return b.score - a.score;
-            if (a.stapleKey !== b.stapleKey) {
-              return a.stapleKey < b.stapleKey ? -1 : a.stapleKey > b.stapleKey ? 1 : 0;
-            }
-            return b.rng - a.rng;
+            // Deterministic tiebreaker
+            return a.e.slug.localeCompare(b.e.slug);
           });
         
         if (kneeSafeCandidates.length > 0) {
@@ -909,11 +927,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           return;
         }
         
-        // Fallback: If no non-timed knee-safe quad exists (e.g., bodyweight), use knee-safe hip-dominant move
-        // Apply same constraints as pickForSlot: no adjacent hinges, safety filters, etc.
-        const prevEx = pickedExercises.length > 0 ? pickedExercises[pickedExercises.length - 1].ex : null;
-        const prevIsHinge = prevEx?.movement_pattern === "hinge";
-        
+        // Priority 2 (Fallback): If no knee-safe quad exists, use knee-safe hip-dominant move
         const kneeSafeHipDominant = pool
           .filter(e => {
             // Glute bridge, hip thrust, single-leg bridge, bodyweight RDL
@@ -921,35 +935,17 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
                                  e.slug.includes("bridge") || 
                                  e.slug.includes("hip-thrust");
             if (!isHipDominant) return false;
-            if (e.metric === "seconds") return false; // Exclude timed holds
             if (e.mechanic !== "compound") return false;
             if (usedSet.has(e.id)) return false;
             
-            // Prevent adjacent hinges
-            if (prevIsHinge && e.movement_pattern === "hinge") return false;
-            
-            // Apply safety filter (same as pickForSlot)
+            // Apply safety filter
             if (shouldExcludeForSafety(e, input, i)) return false;
             
-            // Check basic eligibility
-            if (e.level_min === "expert" && input.level === "beginner") return false;
-            if (e.level_min === "intermediate" && input.level === "beginner") return false;
-            if (!e.tracks.includes(input.primaryTrack)) return false;
+            // Apply shared constraint checker (timed holds, adjacent hinges)
+            if (wouldViolateConstraints(e, i, pickedExercises, input)) return false;
             
-            // Equipment check
-            if (!input.hasAllEquipment && e.equipment_ids.length > 0) {
-              const altSets = EQUIPMENT_ALTERNATIVES[e.slug];
-              if (altSets) {
-                const hasAny = e.equipment_ids.every((eid: string) => input.equipmentIds.includes(eid)) ||
-                              altSets.some((altSet: string[]) => altSet.every((aid: string) => input.equipmentIds.includes(aid)));
-                if (!hasAny) return false;
-              } else {
-                const hasAll = e.equipment_ids.every((eid: string) => input.equipmentIds.includes(eid));
-                if (!hasAll) return false;
-              }
-            }
-            
-            return true;
+            // Use isEligible for level, track, equipment checks
+            return isEligible(e, input);
           })
           .map(e => ({
             e,
@@ -1171,48 +1167,18 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       return a.ex.slug.localeCompare(b.ex.slug);
     });
 
-    // Filter out timed holds that ended up in main slots after sorting
-    // This can happen when there are fewer than 4 compounds picked
-    const filteredOrdered = ordered.filter((item, idx) => {
-      if (idx < 4 && item.ex.metric === "seconds") {
-        return false; // Remove timed holds from main slots
-      }
-      return true;
-    });
-    
-    // Fix adjacent hinges that may have been created by sorting (e.g., core moved after hinge)
-    if (hasKneeInjury) {
-      for (let idx = 0; idx < filteredOrdered.length - 1; idx++) {
-        const curr = filteredOrdered[idx];
-        const next = filteredOrdered[idx + 1];
-        
-        if (curr.ex.movement_pattern === "hinge" && next.ex.movement_pattern === "hinge") {
-          // Find a non-hinge to swap with next
-          for (let swapIdx = idx + 2; swapIdx < filteredOrdered.length; swapIdx++) {
-            const candidate = filteredOrdered[swapIdx];
-            if (candidate.ex.movement_pattern !== "hinge") {
-              // Swap next with candidate
-              filteredOrdered[idx + 1] = candidate;
-              filteredOrdered[swapIdx] = next;
-              break;
-            }
-          }
-        }
-      }
-    }
-
     // Convert sorted picks to GeneratedExercise with correct orderIndex.
     // Apply volume floor: ensure each pattern gets minimum working sets (at least 2)
     // even when session length cuts exercises or sets.
     const patternSets = new Map<Pattern, number>();
-    for (const item of filteredOrdered) {
+    for (const item of ordered) {
       patternSets.set(
         item.ex.movement_pattern,
         (patternSets.get(item.ex.movement_pattern) || 0) + 1
       );
     }
 
-    filteredOrdered.forEach((item, orderIndex) => {
+    ordered.forEach((item, orderIndex) => {
       const isolation = item.ex.mechanic === "isolation";
       let p: Prescription = prescribe(
         input.goal,
