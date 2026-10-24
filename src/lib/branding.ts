@@ -50,6 +50,11 @@ export const branding = {
    */
   icons: {
     /**
+     * Favicon (32×32 PNG as .ico). Served at /favicon.ico by Next.js from public/.
+     */
+    favicon: "/favicon.ico",
+
+    /**
      * Standard 192×192 icon, any purpose (Android, iOS when no apple-touch-icon).
      */
     icon192: "/icons/icon-192.png",
@@ -73,10 +78,5 @@ export const branding = {
      * Apple touch icon (180×180). Used on iOS home screen.
      */
     appleTouchIcon: "/icons/apple-touch-icon.png",
-
-    /**
-     * Favicon (32×32 and 16×16 will be generated from this).
-     */
-    favicon: "/favicon.ico",
   },
 } as const;
