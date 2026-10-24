@@ -352,12 +352,15 @@ export function lengthPlan(cycle: Cycle, maxCycles: number | null): LengthPlan {
   const seen = new Set<number>();
   const options: LengthOption[] = [];
   for (const m of MINUTE_CHOICES) {
-    const raw = Math.max(1, Math.round((m * 60) / cycle.seconds));
+    const raw = Math.max(1, Math.floor((m * 60) / cycle.seconds));
     // A capped pattern must not offer a "10 min" that quietly runs for three.
     if (maxCycles && raw > maxCycles) continue;
     if (seen.has(raw)) continue;
     seen.add(raw);
-    options.push({ cycles: raw, label: `${m} min` });
+    // Use the actual computed duration for the label
+    const actualSeconds = Math.round(raw * cycle.seconds);
+    const actualLabel = formatDuration(actualSeconds);
+    options.push({ cycles: raw, label: actualLabel });
   }
 
   const maxMinutes = maxCycles
