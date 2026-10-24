@@ -283,11 +283,8 @@ export async function logSet(input: {
   );
   
   if (error) {
-    // Detect permanent database errors (S2)
-    // 22xxx: Data exception (e.g. numeric overflow, string too long)
-    // 23xxx: Integrity constraint violation (e.g. foreign key, unique)
-    // 42501: Insufficient privilege
-    const permanent = /^(22|23)/.test(error.code ?? "") || error.code === "42501";
+    // Detect permanent database errors using pure classifier
+    const permanent = isPostgresPermanentError(error.code);
     return { 
       ok: false, 
       error: error.message, 
@@ -316,6 +313,7 @@ export async function deleteSet(
 }
 
 import { finishExerciseCore, type ProgressionFeedback } from "@/lib/session/finish-exercise";
+import { isPostgresPermanentError } from "@/lib/session/outbox";
 
 export type { ProgressionFeedback };
 

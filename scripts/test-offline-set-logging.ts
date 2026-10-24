@@ -39,10 +39,16 @@ class FakeSender implements OutboxSender {
   sent: SentSet[] = [];
   private shouldFail: "none" | "transient" | "permanent" = "none";
   private failCount = 0;
+  private delayMs = 0;
   callCount = 0;
 
   async send(set: Omit<QueuedSet, "clientId" | "queuedAt" | "retries">): Promise<SendResult> {
     this.callCount++;
+
+    // Simulate delay if set
+    if (this.delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, this.delayMs));
+    }
 
     if (this.shouldFail === "transient") {
       this.failCount++;
@@ -69,6 +75,10 @@ class FakeSender implements OutboxSender {
     }
 
     return { ok: true };
+  }
+
+  setDelay(ms: number) {
+    this.delayMs = ms;
   }
 
   simulateTransientError() {
@@ -903,6 +913,222 @@ async function testNetworkErrorDetection() {
   console.log("✓ Network error detection: generic errors excluded");
 }
 
+// ---- M1: Set Removed During Flush ----------------------------------------
+async function testSetRemovedDuringFlush() {
+  const storage = new FakeStorage();
+  const sender = new FakeSender();
+  const outbox = new Outbox(storage, sender, "test");
+
+  // Enqueue two sets
+  const clientId1 = outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 100,
+    durationSeconds: null,
+  });
+  
+  const clientId2 = outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 2,
+    reps: 10,
+    weightKg: 100,
+    durationSeconds: null,
+  });
+
+  // Make sender slow
+  sender.setDelay(50);
+
+  // Start flush (doesn't await)
+  const flushPromise = outbox.flush();
+
+  // Remove second set while flush is in progress
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  outbox.remove(clientId2);
+
+  // Wait for flush to complete
+  const result = await flushPromise;
+
+  // Only first set should be sent
+  if (sender.sent.length !== 1) {
+    throw new Error(`Expected 1 sent, got ${sender.sent.length}`);
+  }
+  
+  if (!result.sentClientIds.includes(clientId1)) {
+    throw new Error("First set should be sent");
+  }
+  
+  if (result.sentClientIds.includes(clientId2)) {
+    throw new Error("Second set should NOT be sent (was removed)");
+  }
+
+  console.log("✓ M1: Set removed during flush isn't sent");
+}
+
+// ---- M2: Set Goes to Failed After 10 Retries ----------------------------
+async function testMaxRetries() {
+  const storage = new FakeStorage();
+  const sender = new FakeSender();
+  const outbox = new Outbox(storage, sender, "test");
+
+  // Enqueue a set
+  outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 100,
+    durationSeconds: null,
+  });
+
+  // Make sender fail transiently
+  sender.simulateTransientError();
+
+  // Flush 10 times (should increment retries to 10)
+  for (let i = 0; i < 10; i++) {
+    await outbox.flush();
+  }
+
+  // Set should still be pending (retries = 10)
+  let state = storage.get();
+  if (!state || state.pending.length !== 1) {
+    throw new Error("Set should still be pending after 10 flushes");
+  }
+  
+  if (state.pending[0].retries !== 10) {
+    throw new Error(`Expected retries=10, got ${state.pending[0].retries}`);
+  }
+
+  // One more flush should move it to failed (retries >= 10)
+  await outbox.flush();
+
+  state = storage.get();
+  if (!state || state.pending.length !== 0) {
+    throw new Error("Set should be removed from pending");
+  }
+  
+  if (state.failed.length !== 1) {
+    throw new Error(`Expected 1 failed set, got ${state.failed.length}`);
+  }
+  
+  if (!state.failed[0].error.includes("10 retries")) {
+    throw new Error(`Expected '10 retries' in error, got: ${state.failed[0].error}`);
+  }
+
+  console.log("✓ M2: Set goes to failed after 10 retries");
+}
+
+// ---- M4: nextSetNumberFor Handles Gaps -----------------------------------
+function testNextSetNumberWithGaps() {
+  const { nextSetNumberFor } = require("../src/lib/session/outbox");
+
+  // Empty array
+  if (nextSetNumberFor([]) !== 1) {
+    throw new Error("Empty array should return 1");
+  }
+
+  // Contiguous sets
+  if (nextSetNumberFor([{ setNumber: 1 }, { setNumber: 2 }]) !== 3) {
+    throw new Error("Contiguous [1,2] should return 3");
+  }
+
+  // Gap: [1, 3] should return 4 (max + 1, not 2)
+  if (nextSetNumberFor([{ setNumber: 1 }, { setNumber: 3 }]) !== 4) {
+    throw new Error("[1,3] should return 4");
+  }
+
+  // Out of order: [3, 1, 2] should return 4
+  if (
+    nextSetNumberFor([
+      { setNumber: 3 },
+      { setNumber: 1 },
+      { setNumber: 2 },
+    ]) !== 4
+  ) {
+    throw new Error("[3,1,2] should return 4");
+  }
+
+  console.log("✓ M4: nextSetNumberFor([1,3]) === 4");
+}
+
+// ---- M6: isFlushing() During Flush ---------------------------------------
+async function testIsFlushingDuringFlush() {
+  const storage = new FakeStorage();
+  const sender = new FakeSender();
+  const outbox = new Outbox(storage, sender, "test");
+
+  // Enqueue a set
+  outbox.enqueue({
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 100,
+    durationSeconds: null,
+  });
+
+  // Make sender slow
+  sender.setDelay(50);
+
+  // isFlushing should be false before flush
+  if (outbox.isFlushing()) {
+    throw new Error("isFlushing should be false before flush");
+  }
+
+  // Start flush
+  const flushPromise = outbox.flush();
+
+  // isFlushing should be true during flush
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  if (!outbox.isFlushing()) {
+    throw new Error("isFlushing should be true during flush");
+  }
+
+  // Wait for flush to complete
+  await flushPromise;
+
+  // isFlushing should be false after flush
+  if (outbox.isFlushing()) {
+    throw new Error("isFlushing should be false after flush");
+  }
+
+  console.log("✓ M6: isFlushing() is true during flush");
+}
+
+// ---- M8: Postgres Error Classification -----------------------------------
+function testPostgresErrorClassification() {
+  const { isPostgresPermanentError } = require("../src/lib/session/outbox");
+
+  // 22P02: Data exception (invalid text representation)
+  if (!isPostgresPermanentError("22P02")) {
+    throw new Error("22P02 should be permanent");
+  }
+
+  // 23505: Unique violation
+  if (!isPostgresPermanentError("23505")) {
+    throw new Error("23505 should be permanent");
+  }
+
+  // 42501: Insufficient privilege
+  if (!isPostgresPermanentError("42501")) {
+    throw new Error("42501 should be permanent");
+  }
+
+  // 53300: Too many connections (transient)
+  if (isPostgresPermanentError("53300")) {
+    throw new Error("53300 should be transient");
+  }
+
+  // Null/undefined
+  if (isPostgresPermanentError(null)) {
+    throw new Error("null should be transient");
+  }
+  
+  if (isPostgresPermanentError(undefined)) {
+    throw new Error("undefined should be transient");
+  }
+
+  console.log("✓ M8: Postgres 22P02, 23505, 42501 classify as invalid");
+}
+
 // ---- Main ----------------------------------------------------------------
 async function main() {
   console.log("Testing offline-safe set logging...\n");
@@ -922,6 +1148,11 @@ async function main() {
   await testRemoveMethod();
   await testEnqueueDuringFlush();
   await testNetworkErrorDetection();
+  await testSetRemovedDuringFlush();
+  await testMaxRetries();
+  testNextSetNumberWithGaps();
+  await testIsFlushingDuringFlush();
+  testPostgresErrorClassification();
 
   console.log("\n✓ All offline set logging tests passed");
 }
