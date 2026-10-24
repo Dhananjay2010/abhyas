@@ -16,6 +16,12 @@ import type { Database } from "../src/lib/database.types";
 
 const supabaseUrl = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const supabaseKey = process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+if (!supabaseServiceKey) {
+  console.error("SUPABASE_SERVICE_ROLE_KEY is required for user cleanup");
+  process.exit(1);
+}
 
 let passed = 0;
 let failed = 0;
@@ -35,27 +41,31 @@ async function testTwoClientInjuries() {
   console.log("\n📋 Two-client injuries data loss test\n");
   
   const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+  const adminClient = createClient<Database>(supabaseUrl, supabaseServiceKey);
   
+  let userId: string | undefined;
+  
+  try {
   // Create test user
-  const testEmail = `test-injuries-${Date.now()}@example.com`;
-  const testPassword = "test-password-123";
-  
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-    email: testEmail,
-    password: testPassword,
-  });
-  
-  if (signUpError) {
-    // If it's a network error, skip the test (Supabase not available)
-    if (signUpError.message.includes("fetch failed") || signUpError.message.includes("Failed to fetch")) {
-      console.log("\n⏭️  Skipping test (Supabase not available)");
-      console.log("   This test requires a running Supabase instance\n");
-      console.log("\n✅ Test skipped (would pass with Supabase)\n");
-      process.exit(0);
+      const testEmail = `test-injuries-${Date.now()}@example.com`;
+    const testPassword = "test-password-123";
+    
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: testEmail,
+      password: testPassword,
+    });
+    
+    if (signUpError) {
+      // If it's a network error, skip the test (Supabase not available)
+      if (signUpError.message.includes("fetch failed") || signUpError.message.includes("Failed to fetch")) {
+        console.log("\n⏭️  Skipping test (Supabase not available)");
+        console.log("   This test requires a running Supabase instance\n");
+        console.log("\n✅ Test skipped (would pass with Supabase)\n");
+        process.exit(0);
+      }
+      throw new Error(`Sign up failed: ${signUpError.message}`);
     }
-    throw new Error(`Sign up failed: ${signUpError.message}`);
-  }
-  const userId = signUpData.user!.id;
+    userId = signUpData.user!.id;
   
   console.log(`  Created test user: ${userId}`);
   
@@ -132,13 +142,16 @@ async function testTwoClientInjuries() {
     .select("body_region")
     .eq("user_id", userId);
   
-  assert(finalData2?.length === 1, "Still exactly 1 injury after redundant remove");
-  assert(!finalData2?.some(i => i.body_region === "shoulder"), "Shoulder still removed (idempotent)");
-  
-  // Cleanup
-  await supabase.auth.admin.deleteUser(userId);
-  
-  console.log(`  Cleaned up test user`);
+    assert(finalData2?.length === 1, "Still exactly 1 injury after redundant remove");
+    assert(!finalData2?.some(i => i.body_region === "shoulder"), "Shoulder still removed (idempotent)");
+    
+  } finally {
+    // L2 fix: Cleanup with admin client in finally block
+    if (userId) {
+      await adminClient.auth.admin.deleteUser(userId);
+      console.log(`  Cleaned up test user`);
+    }
+  }
 }
 
 (async () => {

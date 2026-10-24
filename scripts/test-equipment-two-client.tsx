@@ -16,6 +16,12 @@ import type { Database } from "../src/lib/database.types";
 
 const supabaseUrl = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const supabaseKey = process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+if (!supabaseServiceKey) {
+  console.error("SUPABASE_SERVICE_ROLE_KEY is required for user cleanup");
+  process.exit(1);
+}
 
 let passed = 0;
 let failed = 0;
@@ -35,7 +41,11 @@ async function testTwoClientEquipment() {
   console.log("\n📋 Two-client equipment data loss test\n");
   
   const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+  const adminClient = createClient<Database>(supabaseUrl, supabaseServiceKey);
   
+  let userId: string | undefined;
+  
+  try {
   // Create test user
   const testEmail = `test-equipment-${Date.now()}@example.com`;
   const testPassword = "test-password-123";
@@ -150,14 +160,17 @@ async function testTwoClientEquipment() {
     .select("equipment_id")
     .eq("user_id", userId);
   
-  const finalIds2 = finalData2?.map(e => e.equipment_id).sort() || [];
-  assert(finalIds2.length === 2, "Still exactly 2 items after redundant remove");
-  assert(!finalIds2.includes(barbell.id), "Barbell still removed (idempotent)");
-  
-  // Cleanup
-  await supabase.auth.admin.deleteUser(userId);
-  
-  console.log(`  Cleaned up test user`);
+    const finalIds2 = finalData2?.map(e => e.equipment_id).sort() || [];
+    assert(finalIds2.length === 2, "Still exactly 2 items after redundant remove");
+    assert(!finalIds2.includes(barbell.id), "Barbell still removed (idempotent)");
+    
+  } finally {
+    // L2 fix: Cleanup with admin client in finally block
+    if (userId) {
+      await adminClient.auth.admin.deleteUser(userId);
+      console.log(`  Cleaned up test user`);
+    }
+  }
 }
 
 (async () => {

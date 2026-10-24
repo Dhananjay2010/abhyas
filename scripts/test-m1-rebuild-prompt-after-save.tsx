@@ -1,0 +1,228 @@
+#!/usr/bin/env tsx
+/**
+ * M1 Regression test: Rebuild prompt never shows after per-item saves
+ * 
+ * This test verifies that the "Rebuild my block" prompt appears after
+ * changes to session-length, equipment, or injuries through per-item operations.
+ * 
+ * Expected to FAIL on bd82ecba (per-item saves never call setPlanStale).
+ * Expected to PASS after fix (per-item saves set planStale for plan-affecting changes).
+ */
+
+import './helpers/setup-jsdom';
+import { render, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { SettingsForm, type SettingsState, type SettingsActions } from '../src/app/settings/settings-form';
+
+const initialState: SettingsState = {
+  goal: 'muscle_gain',
+  level: 'intermediate',
+  primaryTrack: 'weights',
+  daysPerWeek: 4,
+  yogaDaysPerWeek: 1,
+  preferredSessionMinutes: 45,
+  hasAllEquipment: false,
+  equipmentIds: ['barbell', 'dumbbells'],
+  injuries: [],
+  planningMode: 'progression',
+  perSetLogging: true,
+  resumeSession: true,
+  cooldownEnabled: true,
+  restAutostart: true,
+  restSound: true,
+  restVibrate: false,
+  restOverrideSeconds: null,
+  bodyweightPrompt: 'weekly',
+  timezone: null,
+  dateOfBirth: null,
+};
+
+const equipment = [
+  { id: 'barbell', name: 'Barbell', category: 'free_weight' },
+  { id: 'dumbbells', name: 'Dumbbells', category: 'free_weight' },
+  { id: 'kettlebell', name: 'Kettlebell', category: 'free_weight' },
+];
+
+const timezones = ['America/New_York'];
+
+async function testM1_RebuildPromptAfterEquipmentChange(): Promise<boolean> {
+  const userId = '00000000-0000-0000-0000-000000000001';
+  let equipmentChanged = false;
+
+  const actions: SettingsActions = {
+    updateProfileSettings: async () => ({ ok: true }),
+    updateSessionSettings: async () => ({ ok: true }),
+    updateEquipment: async () => ({ ok: true }),
+    updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => {
+      equipmentChanged = true;
+      return { ok: true };
+    },
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
+  };
+
+  const { getByText, queryByText } = render(
+    <SettingsForm
+      userId={userId}
+      initial={initialState}
+      equipment={equipment}
+      timezones={timezones}
+      actions={actions}
+    />
+  );
+
+  const user = userEvent.setup();
+
+  // Click kettlebell to add it (plan-affecting change)
+  const kettlebellChip = getByText('Kettlebell');
+  await user.click(kettlebellChip);
+
+  // Wait for the save to complete
+  await waitFor(() => {
+    if (!equipmentChanged) throw new Error('Equipment not changed yet');
+  }, { timeout: 2000 });
+
+  // Wait a bit for state updates
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  // Check if rebuild prompt appears
+  const rebuildPrompt = queryByText(/rebuild.*block/i);
+  
+  if (!rebuildPrompt) {
+    console.error('  ❌ Rebuild prompt did not appear after equipment change');
+    return false;
+  }
+
+  console.log('  ✓ Rebuild prompt appeared after equipment change');
+  return true;
+}
+
+async function testM1_RebuildPromptAfterInjuryChange(): Promise<boolean> {
+  const userId = '00000000-0000-0000-0000-000000000002';
+  let injuryChanged = false;
+
+  const actions: SettingsActions = {
+    updateProfileSettings: async () => ({ ok: true }),
+    updateSessionSettings: async () => ({ ok: true }),
+    updateEquipment: async () => ({ ok: true }),
+    updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => {
+      injuryChanged = true;
+      return { ok: true };
+    },
+  };
+
+  const { getByText, queryByText } = render(
+    <SettingsForm
+      userId={userId}
+      initial={initialState}
+      equipment={equipment}
+      timezones={timezones}
+      actions={actions}
+    />
+  );
+
+  const user = userEvent.setup();
+
+  // Click shoulder injury to add it (plan-affecting change)
+  const shoulderChip = getByText('Shoulder');
+  await user.click(shoulderChip);
+
+  // Wait for the save to complete
+  await waitFor(() => {
+    if (!injuryChanged) throw new Error('Injury not changed yet');
+  }, { timeout: 2000 });
+
+  // Wait a bit for state updates
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  // Check if rebuild prompt appears
+  const rebuildPrompt = queryByText(/rebuild.*block/i);
+  
+  if (!rebuildPrompt) {
+    console.error('  ❌ Rebuild prompt did not appear after injury change');
+    return false;
+  }
+
+  console.log('  ✓ Rebuild prompt appeared after injury change');
+  return true;
+}
+
+async function testM1_RebuildPromptAfterSessionLengthChange(): Promise<boolean> {
+  const userId = '00000000-0000-0000-0000-000000000003';
+  let sessionLengthChanged = false;
+
+  const actions: SettingsActions = {
+    updateProfileSettings: async (patch) => {
+      if ('preferred_session_minutes' in patch) {
+        sessionLengthChanged = true;
+      }
+      return { ok: true };
+    },
+    updateSessionSettings: async () => ({ ok: true }),
+    updateEquipment: async () => ({ ok: true }),
+    updateInjuries: async () => ({ ok: true }),
+    setEquipmentItem: async () => ({ ok: true }),
+    setHasAllEquipment: async () => ({ ok: true }),
+    setInjury: async () => ({ ok: true }),
+  };
+
+  const { getByText, queryByText } = render(
+    <SettingsForm
+      userId={userId}
+      initial={initialState}
+      equipment={equipment}
+      timezones={timezones}
+      actions={actions}
+    />
+  );
+
+  const user = userEvent.setup();
+
+  // Click the 60-minute session length option
+  const sixtyMinOption = getByText('60 min');
+  await user.click(sixtyMinOption);
+
+  // Wait for the save to complete
+  await waitFor(() => {
+    if (!sessionLengthChanged) throw new Error('Session length not changed yet');
+  }, { timeout: 2000 });
+
+  // Wait a bit for state updates
+  await new Promise(resolve => setTimeout(resolve, 100));
+
+  // Check if rebuild prompt appears
+  const rebuildPrompt = queryByText(/rebuild.*block/i);
+  
+  if (!rebuildPrompt) {
+    console.error('  ❌ Rebuild prompt did not appear after session length change');
+    return false;
+  }
+
+  console.log('  ✓ Rebuild prompt appeared after session length change');
+  return true;
+}
+
+(async () => {
+  console.log('\n🧪 M1 Regression: Rebuild prompt never shows after per-item saves\n');
+
+  try {
+    const result1 = await testM1_RebuildPromptAfterEquipmentChange();
+    const result2 = await testM1_RebuildPromptAfterInjuryChange();
+    const result3 = await testM1_RebuildPromptAfterSessionLengthChange();
+
+    if (result1 && result2 && result3) {
+      console.log('\n✅ All M1 tests passed!\n');
+      process.exit(0);
+    } else {
+      console.log('\n❌ Some M1 tests failed\n');
+      process.exit(1);
+    }
+  } catch (error) {
+    console.error('\n❌ Test error:', error);
+    process.exit(1);
+  }
+})();

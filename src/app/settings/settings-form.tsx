@@ -269,8 +269,8 @@ export function SettingsForm({
           notifySessionExpired();
           return;
         }
-        // For other errors, clear the stash and re-throw
-        clearPendingChanges();
+        // L5 fix: For other errors, keep the stash (don't clear it)
+        // The user may be able to retry after fixing the issue
         throw err;
       }
     });
@@ -1101,11 +1101,18 @@ export function SettingsForm({
                     if (next.size === 0) setError(null);
                     return next;
                   });
+                  // M1 fix: Set plan stale after equipment change
+                  setPlanStale(true);
                   if (!newState) {
-                    // Show confirmation when turning off
-                    setEquipmentOffConfirmation(
-                      getEquipmentOffMessage(s.equipmentIds.length > 0)
-                    );
+                    // L1 fix: Show guard message if no equipment selected
+                    if (s.equipmentIds.length === 0) {
+                      setEquipmentHint("Pick at least one item; nothing changes until you do");
+                    } else {
+                      // Show confirmation when turning off
+                      setEquipmentOffConfirmation(
+                        getEquipmentOffMessage(true)
+                      );
+                    }
                   }
                 }
               } catch (err) {
@@ -1233,7 +1240,15 @@ export function SettingsForm({
                                     patch: { operation: 'setItem' as const, equipmentId, enabled: newState },
                                     timestamp: Date.now()
                                   };
-                                  const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+                                  // M2 fix: Accumulate per-item equipment changes by equipmentId
+                                  const merged = existingChanges.filter(ch => {
+                                    if (ch.key !== "equipment") return true;
+                                    const p = ch.patch;
+                                    if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                        'operation' in p && p.operation === 'setItem' && 
+                                        'equipmentId' in p && p.equipmentId === equipmentId) return false;
+                                    return true;
+                                  }).concat(newChange);
                                   stashPendingChanges(merged, pathname, userId);
                                 }
                                 notifySessionExpired();
@@ -1251,12 +1266,14 @@ export function SettingsForm({
                                 setFieldErrors(prev => new Map(prev).set("equipment", friendlyError));
                                 setError(friendlyError);
                               } else {
+                                // M1 fix: Set plan stale after equipment change
                                 setFieldErrors(prev => {
                                   const next = new Map(prev);
                                   next.delete("equipment");
                                   if (next.size === 0) setError(null);
                                   return next;
                                 });
+                                setPlanStale(true);
                               }
                             } catch (err) {
                               // Check for session expiration in thrown error
@@ -1271,7 +1288,15 @@ export function SettingsForm({
                                     patch: { operation: 'setItem' as const, equipmentId, enabled: newState },
                                     timestamp: Date.now()
                                   };
-                                  const merged = existingChanges.filter(ch => ch.key !== "equipment").concat(newChange);
+                                  // M2 fix: Accumulate per-item equipment changes by equipmentId
+                                  const merged = existingChanges.filter(ch => {
+                                    if (ch.key !== "equipment") return true;
+                                    const p = ch.patch;
+                                    if (p && typeof p === 'object' && !Array.isArray(p) && 
+                                        'operation' in p && p.operation === 'setItem' && 
+                                        'equipmentId' in p && p.equipmentId === equipmentId) return false;
+                                    return true;
+                                  }).concat(newChange);
                                   stashPendingChanges(merged, pathname, userId);
                                 }
                                 notifySessionExpired();
@@ -1349,25 +1374,68 @@ export function SettingsForm({
                   
                   // Atomic server save (set explicit state)
                   startTransition(async () => {
-                    const result = await actions.setInjury({ 
-                      bodyRegion, 
-                      present: newState,
-                      severity
-                    });
-                    if (!result.ok) {
-                      // Revert on error
-                      setS(prev => ({ ...prev, injuries: found ? [found, ...prev.injuries] : prev.injuries.filter(i => i.bodyRegion !== bodyRegion) }));
-                      const friendlyError = getFriendlyError("injuries", result.error);
-                      setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
-                      setError(friendlyError);
-                    } else {
-                      // Success: clear injuries errors
-                      setFieldErrors(prev => {
-                        const next = new Map(prev);
-                        next.delete("injuries");
-                        if (next.size === 0) setError(null);
-                        return next;
+                    try {
+                      const result = await actions.setInjury({ 
+                        bodyRegion, 
+                        present: newState,
+                        severity
                       });
+                      
+                      // Check for session expiration in result
+                      if (isSessionExpired(result)) {
+                        const metadata = retryMetadata.current.get("injuries");
+                        if (metadata) {
+                          const existing = getPendingChanges(userId);
+                          const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                          const newChange = {
+                            key: "injuries",
+                            type: "injuries" as SaveType,
+                            patch: metadata.patch,
+                            timestamp: Date.now()
+                          };
+                          const merged = existingChanges.filter(ch => ch.key !== "injuries").concat(newChange);
+                          stashPendingChanges(merged, pathname, userId);
+                        }
+                        notifySessionExpired();
+                        return;
+                      }
+                      
+                      if (!result.ok) {
+                        // Revert on error
+                        setS(prev => ({ ...prev, injuries: found ? [found, ...prev.injuries] : prev.injuries.filter(i => i.bodyRegion !== bodyRegion) }));
+                        const friendlyError = getFriendlyError("injuries", result.error);
+                        setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                        setError(friendlyError);
+                      } else {
+                        // Success: clear injuries errors and set plan stale (M1 fix)
+                        setFieldErrors(prev => {
+                          const next = new Map(prev);
+                          next.delete("injuries");
+                          if (next.size === 0) setError(null);
+                          return next;
+                        });
+                        setPlanStale(true);
+                      }
+                    } catch (err) {
+                      // Check for session expiration in thrown error
+                      if (isSessionExpired(err)) {
+                        const metadata = retryMetadata.current.get("injuries");
+                        if (metadata) {
+                          const existing = getPendingChanges(userId);
+                          const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                          const newChange = {
+                            key: "injuries",
+                            type: "injuries" as SaveType,
+                            patch: metadata.patch,
+                            timestamp: Date.now()
+                          };
+                          const merged = existingChanges.filter(ch => ch.key !== "injuries").concat(newChange);
+                          stashPendingChanges(merged, pathname, userId);
+                        }
+                        notifySessionExpired();
+                        return;
+                      }
+                      throw err;
                     }
                   });
                 }}
@@ -1418,7 +1486,10 @@ export function SettingsForm({
                             startTransition(async () => {
                               const result = await actions.setInjury({ bodyRegion, present: true, severity });
                               if (!result.ok) {
-                                setS(prev => ({ ...prev, injuries: s.injuries }));
+                                // L4 fix: Revert using functional update
+                                setS(prev => ({ ...prev, injuries: prev.injuries.map(i => 
+                                  i.bodyRegion === bodyRegion ? inj : i
+                                )}));
                                 const friendlyError = getFriendlyError("injuries", result.error);
                                 setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
                                 setError(friendlyError);
@@ -1429,6 +1500,7 @@ export function SettingsForm({
                                   if (next.size === 0) setError(null);
                                   return next;
                                 });
+                                setPlanStale(true);
                               }
                             });
                           }
@@ -1436,21 +1508,66 @@ export function SettingsForm({
                         
                         // Atomic server save (set explicit state with new severity)
                         startTransition(async () => {
-                          const result = await actions.setInjury({ bodyRegion, present: true, severity });
-                          if (!result.ok) {
-                            // Revert on error
-                            setS(prev => ({ ...prev, injuries: s.injuries }));
-                            const friendlyError = getFriendlyError("injuries", result.error);
-                            setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
-                            setError(friendlyError);
-                          } else {
-                            // Success: clear injuries errors
-                            setFieldErrors(prev => {
-                              const next = new Map(prev);
-                              next.delete("injuries");
-                              if (next.size === 0) setError(null);
-                              return next;
-                            });
+                          try {
+                            const result = await actions.setInjury({ bodyRegion, present: true, severity });
+                            
+                            // Check for session expiration in result
+                            if (isSessionExpired(result)) {
+                              const metadata = retryMetadata.current.get("injuries");
+                              if (metadata) {
+                                const existing = getPendingChanges(userId);
+                                const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                const newChange = {
+                                  key: "injuries",
+                                  type: "injuries" as SaveType,
+                                  patch: metadata.patch,
+                                  timestamp: Date.now()
+                                };
+                                const merged = existingChanges.filter(ch => ch.key !== "injuries").concat(newChange);
+                                stashPendingChanges(merged, pathname, userId);
+                              }
+                              notifySessionExpired();
+                              return;
+                            }
+                            
+                            if (!result.ok) {
+                              // L4 fix: Revert using functional update with latest state
+                              setS(prev => ({ ...prev, injuries: prev.injuries.map(i => 
+                                i.bodyRegion === bodyRegion ? inj : i
+                              )}));
+                              const friendlyError = getFriendlyError("injuries", result.error);
+                              setFieldErrors(prev => new Map(prev).set("injuries", friendlyError));
+                              setError(friendlyError);
+                            } else {
+                              // Success: clear injuries errors and set plan stale (M1 fix)
+                              setFieldErrors(prev => {
+                                const next = new Map(prev);
+                                next.delete("injuries");
+                                if (next.size === 0) setError(null);
+                                return next;
+                              });
+                              setPlanStale(true);
+                            }
+                          } catch (err) {
+                            // Check for session expiration in thrown error
+                            if (isSessionExpired(err)) {
+                              const metadata = retryMetadata.current.get("injuries");
+                              if (metadata) {
+                                const existing = getPendingChanges(userId);
+                                const existingChanges = existing && existing.returnPath === pathname ? existing.changes : [];
+                                const newChange = {
+                                  key: "injuries",
+                                  type: "injuries" as SaveType,
+                                  patch: metadata.patch,
+                                  timestamp: Date.now()
+                                };
+                                const merged = existingChanges.filter(ch => ch.key !== "injuries").concat(newChange);
+                                stashPendingChanges(merged, pathname, userId);
+                              }
+                              notifySessionExpired();
+                              return;
+                            }
+                            throw err;
                           }
                         });
                       }}

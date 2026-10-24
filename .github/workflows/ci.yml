@@ -287,5 +287,6 @@ jobs:
         run: |
           npm run test:block-range-db
           npm run test:block-range-cleanup
+          npm run test:block-range-db-followup
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/abhyas_test
