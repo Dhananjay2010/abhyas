@@ -245,14 +245,16 @@ export function detectPersonalRecords(
 
       // Find the best reps at EXACTLY this weight in earlier sets
       let bestEarlierRepsAtWeight = 0;
+      let hasEarlierSetAtWeight = false;
       for (let j = 0; j < i; j++) {
         if (allSets[j].weight_kg === currentWeight) {
+          hasEarlierSetAtWeight = true;
           bestEarlierRepsAtWeight = Math.max(bestEarlierRepsAtWeight, allSets[j].reps ?? 0);
         }
       }
 
-      // PR if this set beats earlier sets at exactly this weight
-      if (currentReps > bestEarlierRepsAtWeight) {
+      // PR only if there was an earlier set at this weight AND current beats it
+      if (hasEarlierSetAtWeight && currentReps > bestEarlierRepsAtWeight) {
         if (bestRepPRSet === null || currentReps > bestRepPRValue) {
           bestRepPRSet = currentSet;
           bestRepPRValue = currentReps;

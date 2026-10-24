@@ -531,14 +531,16 @@ export async function getExerciseHistory(
 
           // Find the best reps at EXACTLY this weight in earlier sessions
           let bestEarlierRepsAtWeight = 0;
+          let hasEarlierSetAtWeight = false;
           for (const earlierSet of setsBeforeThisSession) {
             if (earlierSet.weight_kg === currentWeight) {
+              hasEarlierSetAtWeight = true;
               bestEarlierRepsAtWeight = Math.max(bestEarlierRepsAtWeight, earlierSet.reps ?? 0);
             }
           }
 
-          // PR if current beats best earlier at exactly this weight
-          if (currentReps > bestEarlierRepsAtWeight) {
+          // PR only if there was an earlier set at this weight AND current beats it
+          if (hasEarlierSetAtWeight && currentReps > bestEarlierRepsAtWeight) {
             if (!hasRepPR || currentReps > repPRValue) {
               hasRepPR = true;
               repPRSet = currentSet;
