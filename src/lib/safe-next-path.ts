@@ -5,6 +5,9 @@
  * Rejects paths with backslashes, control characters, paths longer than 512 characters,
  * and URLs that resolve to a different origin.
  * 
+ * URL-encoded slashes (%2F%2F, %2f%2f) and backslashes (%5C, %5c) are only checked in
+ * the PATH part (before ? or #), not in query strings or fragments.
+ * 
  * @param next - The next path from query params
  * @param fallback - The fallback path if validation fails (defaults to '/today')
  * @returns The validated path, or the fallback if invalid
@@ -35,8 +38,17 @@ export function safeNextPath(next: string | null | undefined, fallback = '/today
     return fallback;
   }
 
-  // Reject URL-encoded slashes that could bypass the '//' check (case-insensitive)
-  if (lowerNext.includes('%2f%2f')) {
+  // Extract path part (before ? or #) to check for encoded slashes and backslashes
+  const queryIndex = next.indexOf('?');
+  const hashIndex = next.indexOf('#');
+  let pathEnd = next.length;
+  if (queryIndex !== -1) pathEnd = Math.min(pathEnd, queryIndex);
+  if (hashIndex !== -1) pathEnd = Math.min(pathEnd, hashIndex);
+  const pathPart = next.substring(0, pathEnd);
+
+  // Reject URL-encoded double slashes and backslashes in PATH only (case-insensitive)
+  const lowerPath = pathPart.toLowerCase();
+  if (lowerPath.includes('%2f%2f') || lowerPath.includes('%5c')) {
     return fallback;
   }
 
