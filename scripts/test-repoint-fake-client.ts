@@ -29,12 +29,7 @@ function check(label: string, ok: boolean, detail = "") {
 /**
  * Create a fake Supabase client that returns controlled responses.
  */
-function createFakeClient(
-  selectResponse: SupabaseResponse<unknown>,
-  newDaysResponse: SupabaseResponse<unknown>,
-  updateErrors: SupabaseError[] = [],
-  deleteError: SupabaseError | null = null,
-): {
+type FakeClient = {
   from: (table: string) => {
     select: (query: string) => {
       eq: (column: string, value: unknown) => {
@@ -45,6 +40,7 @@ function createFakeClient(
           gte: (column3: string, value3: unknown) => Promise<SupabaseResponse<unknown>>;
         };
         single: () => Promise<SupabaseResponse<unknown>>;
+        order: (column: string) => Promise<SupabaseResponse<unknown>>;
       };
     };
     update: (data: unknown) => {
@@ -56,7 +52,14 @@ function createFakeClient(
     };
     insert: (data: unknown) => Promise<SupabaseResponse<unknown>>;
   };
-} {
+};
+
+function createFakeClient(
+  selectResponse: SupabaseResponse<unknown>,
+  newDaysResponse: SupabaseResponse<unknown>,
+  updateErrors: SupabaseError[] = [],
+  deleteError: SupabaseError | null = null,
+): FakeClient {
   let updateCallCount = 0;
 
   return {
@@ -92,6 +95,10 @@ function createFakeClient(
                       data: { user_id: "user1", is_deload: false },
                       error: null,
                     });
+                  },
+                  order(column: string) {
+                    void column;
+                    return Promise.resolve(selectResponse);
                   },
                 };
               },
@@ -154,6 +161,10 @@ function createFakeClient(
                   single() {
                     return Promise.resolve(newDaysResponse);
                   },
+                  order(column: string) {
+                    void column;
+                    return Promise.resolve(newDaysResponse);
+                  },
                 };
               },
             };
@@ -213,6 +224,10 @@ function createFakeClient(
                   single() {
                     return Promise.resolve({ data: [], error: null });
                   },
+                  order(column: string) {
+                    void column;
+                    return Promise.resolve({ data: [], error: null });
+                  },
                 };
               },
             };
@@ -270,6 +285,10 @@ function createFakeClient(
                     };
                   },
                   single() {
+                    return Promise.resolve({ data: null, error: null });
+                  },
+                  order(column: string) {
+                    void column;
                     return Promise.resolve({ data: null, error: null });
                   },
                 };
