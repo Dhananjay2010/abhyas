@@ -3,66 +3,21 @@
  * Pure, deterministic functions with no React dependencies.
  */
 
-export type WeightUnit = 'kg' | 'lb';
+import { gridStepFor, KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB, type WeightUnit } from './equipment-grid';
 
-/**
- * Standard kettlebell weights in kg.
- * These follow the international competition standard progression.
- * Frozen to prevent mutation of the shared constant.
- */
-export const KETTLEBELL_WEIGHTS_KG: readonly number[] = Object.freeze([4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 28, 32]);
-
-/**
- * Standard kettlebell weights in lb.
- * Based on conventional US retail offerings: 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80 lb.
- * Source: Common US gym and retail standards (Rogue, Kettlebell Kings, etc.)
- * Frozen to prevent mutation of the shared constant.
- */
-export const KETTLEBELL_WEIGHTS_LB: readonly number[] = Object.freeze([5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80]);
+export { KETTLEBELL_WEIGHTS_KG, KETTLEBELL_WEIGHTS_LB, kettlebellBounds, type WeightUnit } from './equipment-grid';
 
 /**
  * Returns the weight step increment for given equipment.
  * 
- * Equipment-specific steps:
- * - barbell: 2.5 kg / 5 lb (smallest standard plate)
- * - dumbbell: 2.5 kg / 5 lb (standard gym increments)
- * - kettlebell: uses nextWeight ladder, not a fixed step
- * - machine/cable: 2.5 kg / 5 lb (aligned with barbell)
- * - bodyweight added load: 2.5 kg / 5 lb (dip belt / weighted vest)
- * 
- * Multi-equipment exercises: uses the largest increment (most conservative choice).
- * Unknown equipment: defaults to 2.5 kg / 5 lb (same as barbell).
+ * Delegates to gridStepFor in equipment-grid.ts for consistent grid logic.
  * 
  * @param equipmentIds - Array of equipment IDs from the catalogue
  * @param unit - Weight unit ('kg' or 'lb')
  * @returns The step increment in the given unit
  */
 export function stepFor(equipmentIds: string[], unit: WeightUnit): number {
-  const machineIds = [
-    'leg_press', 'hack_squat', 'leg_curl', 'leg_extension',
-    'chest_press_machine', 'pec_deck', 'lat_pulldown',
-    'seated_row_machine', 'shoulder_press_machine', 'smith_machine'
-  ];
-
-  const steps: number[] = [];
-
-  for (const id of equipmentIds) {
-    if (machineIds.includes(id) || id === 'cable_machine') {
-      steps.push(unit === 'kg' ? 2.5 : 5);
-    } else if (id === 'barbell' || id === 'ez_bar' || id === 'trap_bar') {
-      steps.push(unit === 'kg' ? 2.5 : 5);
-    } else if (id === 'dumbbell') {
-      steps.push(unit === 'kg' ? 2.5 : 5);
-    }
-  }
-
-  // If we found any equipment-specific steps, return the largest
-  if (steps.length > 0) {
-    return Math.max(...steps);
-  }
-
-  // Default: same as barbell (most common fallback)
-  return unit === 'kg' ? 2.5 : 5;
+  return gridStepFor(equipmentIds, unit);
 }
 
 /**
@@ -160,18 +115,4 @@ export function nextReps(
 ): number {
   const result = current + (direction * REPS_STEP);
   return Math.max(options.min, Math.min(options.max, result));
-}
-
-/**
- * Returns the kettlebell weight bounds for a given unit.
- * 
- * @param unit - Weight unit ('kg' or 'lb')
- * @returns Object with min and max kettlebell weights
- */
-export function kettlebellBounds(unit: WeightUnit): { min: number; max: number } {
-  const bells = unit === 'kg' ? KETTLEBELL_WEIGHTS_KG : KETTLEBELL_WEIGHTS_LB;
-  return {
-    min: bells[0],
-    max: bells[bells.length - 1],
-  };
 }
