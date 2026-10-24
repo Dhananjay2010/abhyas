@@ -158,7 +158,9 @@ async function testPrefilledStorageLoadsAndReplays() {
     onChange: (state) => states.push(state),
   });
 
-  assert(states[0].pending.length === 1, "Pending set loaded from storage on construct");
+  controller.load();
+
+  assert(states[0].pending.length === 1, "Pending set loaded from storage after load()");
   assert(states[0].expired, "Expired flag set when pending sets exist");
 
   await controller.replay();
