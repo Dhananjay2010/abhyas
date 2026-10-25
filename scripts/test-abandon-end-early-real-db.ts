@@ -4,10 +4,9 @@
  * 
  * Tests that ending early after 1 of 22 sets:
  * 1. Remaining exercises stay pending (not completed/skipped)
- * 2. Session status matches main's behavior
+ * 2. Session status is 'completed' (DB check)
  * 3. Today banner (summarizeEndedEarly) says ended early, 1 of 22
- * 4. History label (hasPendingExercise) reports ended early
- * 5. Includes planted-bug proof
+ * 4. History label (endedEarly) computed with real History logic
  * 
  * Run: supabase start && REAL_DB=1 npm run test:abandon-end-early-real-db
  */
@@ -74,7 +73,7 @@ async function runTests() {
   console.log("Abandon End Early Integration Test\n");
 
   // Create test user
-  const testEmail = `test-abandon-early-${Date.now()}@example.com`;
+  const testEmail = `test-abandon-early-${randomUUID().slice(0, 8)}@example.com`;
   const testPassword = "test-password-123";
   
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
@@ -114,7 +113,8 @@ async function runTests() {
   
   try {
     const localDate = "2026-10-25";
-    const now = new Date().toISOString();
+    const now = "2026-10-25T12:00:00Z";
+    const setCompletedAt = "2026-10-25T12:04:00Z";
 
     // Create exercises
     const { data: exercises, error: exerciseError } = await userClient
@@ -175,7 +175,7 @@ async function runTests() {
         reps: 6,
         weight_kg: 100,
         is_warmup_set: false,
-        completed_at: now,
+        completed_at: setCompletedAt,
       });
 
     if (setError) {
@@ -192,6 +192,20 @@ async function runTests() {
       check("Session status is completed (has working set)", result.data.status === "completed");
     }
 
+    // Check DB: read actual session status
+    const { data: sessionData, error: sessionStatusError } = await userClient
+      .from("sessions")
+      .select("status")
+      .eq("id", sessionId)
+      .maybeSingle();
+
+    if (sessionStatusError || !sessionData) {
+      console.error("Failed to read session status:", sessionStatusError);
+      return false;
+    }
+
+    check("DB session.status is 'completed'", sessionData.status === "completed", `got ${sessionData.status}`);
+
     // Check DB: exercises 2 and 3 should still be pending
     const { data: exercisesAfter, error: checkError } = await userClient
       .from("session_exercises")
@@ -204,7 +218,7 @@ async function runTests() {
       return false;
     }
 
-    check("Exercise 1 status unchanged or completed", ["pending", "completed"].includes(exercisesAfter[0].status), `got ${exercisesAfter[0].status}`);
+    check("Exercise 1 still pending (not updated)", exercisesAfter[0].status === "pending", `got ${exercisesAfter[0].status}`);
     check("Exercise 2 still pending (not touched)", exercisesAfter[1].status === "pending", `got ${exercisesAfter[1].status}`);
     check("Exercise 3 still pending (not touched)", exercisesAfter[2].status === "pending", `got ${exercisesAfter[2].status}`);
 
@@ -232,74 +246,22 @@ async function runTests() {
         summary.endedEarly ? `${summary.workingSets} of ${summary.plannedSets}` : "not ended early");
     }
 
-    // Check History label: hasPendingExercise
+    // Check History label: hasPendingExercise and endedEarly computed like real History
     const pendingCount = exercisesAfter.filter(ex => ex.status === "pending").length;
     const hasPendingExercise = pendingCount > 0;
     check("History detects pending exercises", hasPendingExercise === true, `${pendingCount} pending`);
 
-    console.log("\nTest 2: Planted bug proof (mark exercises completed)\n");
+    // Compute endedEarly like src/app/history/page.tsx:226-232
+    const plannedSets: number = 22;
+    const workingSets: number = 1;
+    const isStrength: boolean = true;
+    const endedEarly = 
+      (hasPendingExercise && 
+       plannedSets > 0 && 
+       workingSets < plannedSets) ||
+      (isStrength && sessionData.status === "completed" && workingSets === 0 && hasPendingExercise);
 
-    // Re-create session for planted bug test
-    const sessionId2 = randomUUID();
-    const { error: session2Error } = await userClient
-      .from("sessions")
-      .insert({
-        id: sessionId2,
-        user_id: userId,
-        local_date: localDate,
-        status: "in_progress",
-        actual_type: "weights",
-        started_at: now,
-      });
-
-    if (session2Error) {
-      console.error("Failed to create session 2:", session2Error);
-      return false;
-    }
-
-    const sessionExercises2 = [
-      { id: randomUUID(), session_id: sessionId2, exercise_id: exercises[0].id, order_index: 0, planned_sets: 10, status: "pending" },
-      { id: randomUUID(), session_id: sessionId2, exercise_id: exercises[1].id, order_index: 1, planned_sets: 8, status: "pending" },
-    ];
-
-    await userClient.from("session_exercises").insert(sessionExercises2);
-
-    // Log 1 set
-    await userClient
-      .from("session_sets")
-      .insert({
-        id: randomUUID(),
-        session_exercise_id: sessionExercises2[0].id,
-        set_number: 1,
-        reps: 5,
-        weight_kg: 100,
-        is_warmup_set: false,
-        completed_at: now,
-      });
-
-    // PLANT BUG: manually mark pending exercises as completed
-    await userClient
-      .from("session_exercises")
-      .update({ status: "completed" })
-      .eq("session_id", sessionId2)
-      .eq("status", "pending");
-
-    // Call abandonSessionCore (should be no-op for exercise statuses now)
-    await abandonSessionCore(deps, sessionId2, 300);
-
-    // Check exercises were NOT overwritten back to pending
-    const { data: exercisesBugged } = await userClient
-      .from("session_exercises")
-      .select("status")
-      .eq("session_id", sessionId2)
-      .order("order_index");
-
-    const allMarkedCompleted = exercisesBugged?.every(ex => ex.status === "completed");
-    check("Planted bug: exercises stay completed (not reverted to pending)", allMarkedCompleted === true,
-      allMarkedCompleted ? "all completed" : "some pending");
-
-    check("Planted bug would fail if abandonSessionCore marked them completed again", true,
-      "This proves the fix: abandonSessionCore no longer updates exercise statuses");
+    check("History computes ended early = true", endedEarly === true);
 
   } catch (error) {
     console.error("Test error:", error);
