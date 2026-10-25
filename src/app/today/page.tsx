@@ -382,7 +382,6 @@ export default async function TodayPage() {
     localToday,
   });
 
-
   // Recompute week and isDeload for UI display (header, deload banner, etc.)
   const { cycleWeekFor } = await import("@/lib/program/block-range");
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
