@@ -688,8 +688,7 @@ export function SessionRunner({
           startRest(restSeconds);
         }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Network error. Check your connection.";
-        setError(errorMessage);
+        setError(runnerErrorMessage(err));
       } finally {
         setBusy(false);
       }

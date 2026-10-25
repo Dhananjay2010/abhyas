@@ -195,65 +195,77 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   }
 
   // No existing in_progress session, create a new one and read the plan
-  const [insertResult, plannedRes] = await Promise.all([
-    startSessionCore(supabase, user.id, {
-      user_id: user.id,
-      program_id: program.id,
-      program_day_id: day.id,
-      local_date: today,
-      week_in_block: week,
-      is_deload: isDeloadWeek,
-      planned_type: day.day_type,
-      actual_type: day.day_type,
-      status: "in_progress",
-      started_at: new Date().toISOString(),
-    }),
-    supabase
-      .from("program_day_exercises")
-      // The exercise's metric comes along so the session can record the unit it
-      // was run in -- see `session_exercises.metric` and SPEC section 7.
-      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
-      .eq("program_day_id", day.id)
-      .order("order_index"),
-  ]);
+  const insertResult = await startSessionCore(supabase, user.id, {
+    user_id: user.id,
+    program_id: program.id,
+    program_day_id: day.id,
+    local_date: today,
+    week_in_block: week,
+    is_deload: isDeloadWeek,
+    planned_type: day.day_type,
+    actual_type: day.day_type,
+    status: "in_progress",
+    started_at: new Date().toISOString(),
+  });
 
   if (!insertResult.ok) {
     return { ok: false, error: insertResult.error };
   }
 
-  const planned = plannedRes.data;
-  if (planned && planned.length > 0) {
-    const { error } = await supabase.from("session_exercises").insert(
-      planned.map((p) => {
-        // Week 4 of a block cuts volume; the weight suggestion is reduced
-        // separately when the session is rendered.
-        const dose = isDeloadWeek
-          ? applyDeload({
-              sets: p.target_sets,
-              repsMin: p.target_reps_min,
-              repsMax: p.target_reps_max,
-              restSeconds: p.rest_seconds,
-            })
-          : {
-              sets: p.target_sets,
-              repsMin: p.target_reps_min,
-              repsMax: p.target_reps_max,
-              restSeconds: p.rest_seconds,
-            };
-        return {
-          session_id: insertResult.sessionId,
-          user_id: user.id, // corrected by the definer trigger
-          exercise_id: p.exercise_id,
-          order_index: p.order_index,
-          planned_sets: dose.sets,
-          planned_reps_min: dose.repsMin,
-          planned_reps_max: dose.repsMax,
-          rest_seconds: dose.restSeconds,
-          metric: metricOf(p.exercises),
-        };
-      }),
-    );
-    if (error) return { ok: false, error: error.message };
+  // Check if this session already has exercises. When startSessionCore handled
+  // a 23505 race and returned the winner's session, that session already has
+  // exercises from the winner's insert, so skip our insert to avoid a duplicate
+  // key error on (session_id, order_index).
+  const { data: existingExercises } = await supabase
+    .from("session_exercises")
+    .select("id")
+    .eq("session_id", insertResult.sessionId)
+    .limit(1);
+
+  if (!existingExercises || existingExercises.length === 0) {
+    // No exercises yet; this is a freshly created session, so populate it.
+    const plannedRes = await supabase
+      .from("program_day_exercises")
+      // The exercise's metric comes along so the session can record the unit it
+      // was run in -- see `session_exercises.metric` and SPEC section 7.
+      .select("exercise_id, order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises!program_day_exercises_exercise_id_fkey(metric)")
+      .eq("program_day_id", day.id)
+      .order("order_index");
+
+    const planned = plannedRes.data;
+    if (planned && planned.length > 0) {
+      const { error } = await supabase.from("session_exercises").insert(
+        planned.map((p) => {
+          // Week 4 of a block cuts volume; the weight suggestion is reduced
+          // separately when the session is rendered.
+          const dose = isDeloadWeek
+            ? applyDeload({
+                sets: p.target_sets,
+                repsMin: p.target_reps_min,
+                repsMax: p.target_reps_max,
+                restSeconds: p.rest_seconds,
+              })
+            : {
+                sets: p.target_sets,
+                repsMin: p.target_reps_min,
+                repsMax: p.target_reps_max,
+                restSeconds: p.rest_seconds,
+              };
+          return {
+            session_id: insertResult.sessionId,
+            user_id: user.id, // corrected by the definer trigger
+            exercise_id: p.exercise_id,
+            order_index: p.order_index,
+            planned_sets: dose.sets,
+            planned_reps_min: dose.repsMin,
+            planned_reps_max: dose.repsMax,
+            rest_seconds: dose.restSeconds,
+            metric: metricOf(p.exercises),
+          };
+        }),
+      );
+      if (error) return { ok: false, error: error.message };
+    }
   }
 
   // Deliberately NOT revalidating. This action is invoked from a button on
