@@ -59,7 +59,7 @@ function makeFakeAbandonDeps(
       return { error: null };
     },
     async loadSessionMetadata() {
-      return { data: { started_at: new Date().toISOString(), user_id: "user1" }, error: null };
+      return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };
     },
     async loadTimezone() {
       return { data: { timezone: "UTC" }, error: null };

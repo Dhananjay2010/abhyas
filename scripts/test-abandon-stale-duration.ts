@@ -27,10 +27,10 @@ function check(label: string, ok: boolean, detail = "") {
   }
 }
 
-const NOW_DATE = new Date();
-const THIRTY_MIN_AGO = new Date(NOW_DATE.getTime() - 30 * 60 * 1000).toISOString();
-const FOUR_HOURS_AGO = new Date(NOW_DATE.getTime() - 4 * 60 * 60 * 1000).toISOString();
-const LAST_SET_TIME = new Date(NOW_DATE.getTime() - 5 * 60 * 1000).toISOString(); // 5 min ago
+const NOW_DATE = "2026-10-25T12:00:00Z";
+const THIRTY_MIN_AGO = "2026-10-25T11:30:00Z";
+const FOUR_HOURS_AGO = "2026-10-25T08:00:00Z";
+const LAST_SET_TIME = "2026-10-25T11:55:00Z";
 
 function makeFakeDeps(config: {
   startedAt: string | null;
@@ -59,8 +59,9 @@ function makeFakeDeps(config: {
       };
     },
     async loadExercisesWithSets() {
+      const completedAt = config.lastSetCompletedAt ?? "2026-10-25T11:55:00Z";
       const sets = Array.from({ length: config.workingSetCount }, () => ({
-        completed_at: config.lastSetCompletedAt!,
+        completed_at: completedAt,
         is_warmup_set: false,
       }));
       return {
