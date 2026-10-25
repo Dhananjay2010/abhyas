@@ -67,7 +67,7 @@ const sets = (n: number, reps: number, w: number | null = 60) =>
 
 const run = (over: Partial<Parameters<typeof evaluateProgression>[0]> = {}) =>
   evaluateProgression({
-    sets: sets(4, 10),  // Missed target (12)
+    sets: sets(4, 7),  // Real miss (below repsMin of 8)
     plannedSets: 4,
     repsMin: 8,
     repsMax: 12,
