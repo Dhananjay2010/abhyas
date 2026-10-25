@@ -29,13 +29,14 @@ type SessionExerciseRow = {
  * - Only 'pending' and 'completed' exercises count toward planned sets
  * - 'skipped' and 'swapped_out' are excluded
  * - Warmup sets are not counted as working sets
+ * - hasNoExercises means "no COMPLETED exercises" (matches History's logic)
  * 
  * @param exercises Array of session_exercises with their sets
  * @returns Summary with endedEarly flag and set counts
  */
 export function summarizeEndedEarly(exercises: SessionExerciseRow[]): EndedEarlySummary {
   let hasPendingExercise = false;
-  const hasNoExercises = exercises.length === 0;
+  let completedExerciseCount = 0;
   let totalPlannedSets = 0;
   let completedSetCount = 0;
   
@@ -43,12 +44,18 @@ export function summarizeEndedEarly(exercises: SessionExerciseRow[]): EndedEarly
     if (ex.status === "pending") {
       hasPendingExercise = true;
     }
+    if (ex.status === "completed") {
+      completedExerciseCount += 1;
+    }
     // Only sum planned_sets from pending or completed exercises (exclude skipped/swapped_out)
     if (ex.status === "pending" || ex.status === "completed") {
       totalPlannedSets += ex.planned_sets ?? 0;
     }
     completedSetCount += countWorkingSets(ex.session_sets);
   }
+  
+  // Match History's notion: hasNoExercises means no COMPLETED exercises
+  const hasNoExercises = completedExerciseCount === 0;
   
   const endedEarly = isEndedEarly({
     isStrength: true,
@@ -79,12 +86,12 @@ export async function loadEndedEarlySummary(
 ): Promise<EndedEarlySummary | null> {
   const { data, error } = await supabase
     .from("session_exercises")
-    .select("id, status, planned_sets, session_sets(reps, duration_seconds, is_warmup_set)")
+    .select<"id, status, planned_sets, session_sets(reps, duration_seconds, is_warmup_set)", SessionExerciseRow>("id, status, planned_sets, session_sets(reps, duration_seconds, is_warmup_set)")
     .eq("session_id", sessionId);
   
   if (error || !data) {
     return null;
   }
   
-  return summarizeEndedEarly(data as SessionExerciseRow[]);
+  return summarizeEndedEarly(data);
 }

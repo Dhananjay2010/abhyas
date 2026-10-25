@@ -392,6 +392,62 @@ async function runTests() {
       check("Planned sets = 2", summary?.plannedSets === 2);
     }
 
+    // Test 6: All exercises skipped (matches History's "ended early" for all-skipped sessions)
+    console.log("Test 6: All exercises skipped");
+    console.log();
+    {
+      const sessionId = randomUUID();
+      
+      const { error: sessionError } = await adminClient.from("sessions").insert({
+        id: sessionId,
+        user_id: userId,
+        local_date: "2026-10-25",
+        status: "completed",
+        actual_type: "weights",
+      });
+      check("Insert session", !sessionError, sessionError?.message);
+
+      // Create 3 skipped exercises with no sets
+      const ex1Id = randomUUID();
+      const ex2Id = randomUUID();
+      const ex3Id = randomUUID();
+      
+      const { error: exError } = await adminClient.from("session_exercises").insert([
+        {
+          id: ex1Id,
+          session_id: sessionId,
+          order_index: 1,
+          exercise_id: exercise1.id,
+          planned_sets: 4,
+          status: "skipped",
+        },
+        {
+          id: ex2Id,
+          session_id: sessionId,
+          order_index: 2,
+          exercise_id: exercise2.id,
+          planned_sets: 3,
+          status: "skipped",
+        },
+        {
+          id: ex3Id,
+          session_id: sessionId,
+          order_index: 3,
+          exercise_id: exercise1.id,
+          planned_sets: 3,
+          status: "skipped",
+        },
+      ]);
+      check("Insert skipped exercises", !exError, exError?.message);
+
+      // Load summary
+      const summary = await loadEndedEarlySummary(userClient, sessionId);
+      check("Summary loaded", summary !== null);
+      check("Ended early", summary?.endedEarly === true);
+      check("Working sets = 0", summary?.workingSets === 0);
+      check("Planned sets = 0 (skipped excluded)", summary?.plannedSets === 0);
+    }
+
     if (failures === 0) {
       console.log("\n✅ All ended-early real-db tests passed\n");
     } else {

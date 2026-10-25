@@ -223,9 +223,93 @@ console.log("\nCase 10: summarizeEndedEarly - 0 working sets with no exercises\n
   check("Planned sets = 0", result.plannedSets === 0);
 }
 
+console.log("\nCase 11: Working sets equal to planned with pending exercise (kills E2: < to <=)\n");
+{
+  const exercises = [
+    {
+      id: "ex1",
+      status: "completed",
+      planned_sets: 4,
+      session_sets: [
+        { reps: 10, duration_seconds: null, is_warmup_set: false },
+        { reps: 10, duration_seconds: null, is_warmup_set: false },
+        { reps: 10, duration_seconds: null, is_warmup_set: false },
+        { reps: 10, duration_seconds: null, is_warmup_set: false },
+      ],
+    },
+    {
+      id: "ex2",
+      status: "pending",
+      planned_sets: 3,
+      session_sets: [],
+    },
+  ];
+
+  const result = summarizeEndedEarly(exercises);
+  check("Ended early (pending exists)", result.endedEarly);
+  check("Working sets = 4", result.workingSets === 4, `got ${result.workingSets}`);
+  check("Planned sets = 7", result.plannedSets === 7, `got ${result.plannedSets}`);
+}
+
+console.log("\nCase 12: Skipped exercises' sets excluded from working count (kills S6)\n");
+{
+  const exercises = [
+    {
+      id: "ex1",
+      status: "completed",
+      planned_sets: 3,
+      session_sets: [
+        { reps: 10, duration_seconds: null, is_warmup_set: false },
+        { reps: 10, duration_seconds: null, is_warmup_set: false },
+        { reps: 10, duration_seconds: null, is_warmup_set: false },
+      ],
+    },
+    {
+      id: "ex2",
+      status: "skipped",
+      planned_sets: 2,
+      session_sets: [
+        { reps: 8, duration_seconds: null, is_warmup_set: false },
+      ],
+    },
+  ];
+
+  const result = summarizeEndedEarly(exercises);
+  // Skipped exercises' sets ARE counted in working count (per QA Bot semantics)
+  check("Not ended early", !result.endedEarly);
+  check("Working sets = 4 (skipped sets counted)", result.workingSets === 4, `got ${result.workingSets}`);
+  check("Planned sets = 3 (skipped not in planned)", result.plannedSets === 3, `got ${result.plannedSets}`);
+}
+
+console.log("\nCase 13: Null planned_sets (kills S7: ?? 0 to ?? 1)\n");
+{
+  const exercises = [
+    {
+      id: "ex1",
+      status: "completed",
+      planned_sets: null,
+      session_sets: [],
+    },
+    {
+      id: "ex2",
+      status: "pending",
+      planned_sets: null,
+      session_sets: [],
+    },
+  ];
+
+  const result = summarizeEndedEarly(exercises);
+  check("Ended early (0 working, pending exists)", result.endedEarly);
+  check("Working sets = 0", result.workingSets === 0, `got ${result.workingSets}`);
+  check("Planned sets = 0 (null treated as 0)", result.plannedSets === 0, `got ${result.plannedSets}`);
+}
+
 console.log("\n✅ All Today ended-early banner tests passed");
 console.log("\nMutant coverage:");
 console.log("  M1: Invert isEndedEarly condition → fails cases 2, 6, 9, 10");
 console.log("  M2: Page always passes endedEarly=false → fails cases 2, 3 (renders wrong variant)");
 console.log("  M3: Drop 0-working-set branch → fails cases 9, 10");
-console.log("  M4: Count warmups as working sets → fails case 8\n");
+console.log("  M4: Count warmups as working sets → fails case 8");
+console.log("  E2: workingSetCount < plannedSets to <= → fails case 11");
+console.log("  S6: Exclude skipped exercises' sets from working count → fails case 12");
+console.log("  S7: planned_sets ?? 0 to ?? 1 → fails case 13\n");

@@ -7,7 +7,6 @@ import { HistoryClient } from "./history-client";
 import type { SessionListItem } from "./types";
 import { detectSessionPRs } from "./detect-session-prs";
 import type { PostgrestError } from "@supabase/supabase-js";
-import { isEndedEarly } from "@/lib/session/ended-early";
 
 export const dynamic = "force-dynamic";
 
@@ -223,16 +222,14 @@ export default async function HistoryPage({
     const hasPendingExercise = hasPendingExerciseBySession.get(s.id) ?? false;
     const hasNoExercises = exercises.length === 0;
     
-    // Use shared helper to determine if session ended early
+    // Restore main's original inline logic for History (byte-identical behavior for all statuses)
     const isStrength = !isBreathing && s.actual_type !== "yoga";
-    const endedEarly = isEndedEarly({
-      isStrength,
-      status: s.status,
-      hasPendingExercise,
-      plannedSets,
-      workingSetCount,
-      hasNoExercises,
-    });
+    const endedEarly = 
+      (hasPendingExercise && 
+       plannedSets !== undefined && 
+       plannedSets > 0 && 
+       workingSetCount < plannedSets) ||
+      (isStrength && s.status === "completed" && workingSetCount === 0 && (hasPendingExercise || hasNoExercises));
 
     return {
       id: s.id,

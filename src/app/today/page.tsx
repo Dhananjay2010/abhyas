@@ -19,6 +19,7 @@ import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
 import { StrengthDoneBanner } from "./strength-done-banner";
+import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
 
 export const dynamic = "force-dynamic";
 
@@ -254,9 +255,7 @@ export default async function TodayPage() {
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
-  const completedStrengthSession = todaySessions
-    .filter((s) => s.status === "completed" && isStrength(s.actual_type))
-    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0];
+  const completedStrengthSession = pickLatestCompletedStrength(todaySessions);
   const strengthDone = completedStrengthSession !== undefined;
   // Resume detection: from loader (searches all sessions, not just today)
   const strengthOpen = sessionState.strengthOpen;

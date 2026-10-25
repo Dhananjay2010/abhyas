@@ -159,4 +159,17 @@ test("Returns false when some sets logged but no pending exercises", () => {
   assert(result === false, "Should return false when no pending exercises despite incomplete sets");
 });
 
+// Test 11: All exercises skipped (0 working sets, no completed exercises)
+test("Returns true when all exercises skipped (0 working sets, no completed exercises)", () => {
+  const result = isEndedEarly({
+    isStrength: true,
+    status: "completed",
+    hasPendingExercise: false,
+    plannedSets: 0,
+    workingSetCount: 0,
+    hasNoExercises: true,
+  });
+  assert(result === true, "Should return true when all exercises skipped");
+});
+
 console.log("\nAll tests passed! ✓");
