@@ -6,7 +6,7 @@ import type { Decision } from "@/lib/program/progression";
 export interface ProgressClient {
   from: (table: string) => {
     upsert: (
-      data: Record<string, unknown>,
+      data: ProgressWrite,
       opts: { onConflict: string }
     ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
   };

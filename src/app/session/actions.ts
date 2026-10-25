@@ -13,8 +13,10 @@ import { isEligible, score, hashString, buildInjuryFlags, type CandidateExercise
 import { ageOn } from "@/lib/onboarding/options";
 import {
   describePersonalBest,
+  evaluateProgression,
 } from "@/lib/program/progression";
-import { applyDeload, prescribe } from "@/lib/program/prescription";
+import { buildProgressionInput } from "@/lib/session/build-progression-input";
+import { applyDeload } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
@@ -23,15 +25,16 @@ import { updateSessionCore } from "@/lib/session/update-session-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
 import { logSetCore } from "@/lib/session/log-set-core";
+import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
-import { applyProgressionCore, buildApplyProgressionInputFromRows } from "@/lib/session/apply-progression-core";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { progressForPlanningMode, resolveSwapResultPayload } from "@/lib/session/swap-progress";
-import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
+import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
+import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
+
+export type { SwapResult };
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -429,17 +432,27 @@ async function applyProgression(
     supabase.from("profiles").select("units").eq("id", userId).maybeSingle(),
   ]);
 
-  const decision = await applyProgressionCore(
+  const prior = progressRes.data;
+  const totalSessions = prior?.total_sessions ?? 0;
+
+  const decision = evaluateProgression(
+    buildProgressionInput(
+      se,
+      setsRes.data ?? [],
+      prior,
+      sessionRes.data ?? { is_deload: null, local_date: null, program_id: null },
+      feel,
+      profileRes.data?.units
+    )
+  );
+
+  await writeExerciseProgressCore(
     supabase,
     userId,
-    buildApplyProgressionInputFromRows({
-      se: { ...se, exercises: ex },
-      sessionRow: sessionRes.data,
-      setsRows: setsRes.data ?? [],
-      progressRow: progressRes.data,
-      profileRow: profileRes.data,
-      feel,
-    })
+    se.exercise_id,
+    decision,
+    totalSessions,
+    sessionRes.data?.local_date ?? null,
   );
 
   // Outgrew a bodyweight variation: upgrade the plan so next time is harder.
@@ -726,18 +739,6 @@ export async function findAlternatives(
   return { ok: true, data: alternatives };
 }
 
-/** What the runner needs to redraw the exercise after a swap. */
-export type SwapResult = {
-  metric: Database["public"]["Enums"]["exercise_metric"];
-  repsMin: number | null;
-  repsMax: number | null;
-  equipmentIds: string[];
-  weightPrefill: number | null;
-  workingWeightKg: number | null;
-  currentTargetReps: number | null;
-  isBodyweight: boolean;
-};
-
 export async function swapExercise(input: {
   sessionExerciseId: string;
   newExerciseId: string;
@@ -747,81 +748,15 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
-    supabase
-      .from("session_exercises")
-      .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
-      .eq("id", input.sessionExerciseId)
-      .maybeSingle(),
-    /*
-      The unit can change with the swap: the alternatives for a core slot
-      include holds, deliberately -- making a plank reachable from the swap list
-      was the point of ranking that list. Without carrying the metric the
-      session went on asking for reps while the screen named a plank.
-      
-      equipment_ids is also needed: when the session loads, isBodyweight is 
-      derived from whether equipment_ids is empty, and without it here a barbell
-      exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
-      
-      movement_pattern is needed for swap prefill via suggestedWeight.
-    */
-    supabase
-      .from("exercises")
-      .select("metric, mechanic, equipment_ids, movement_pattern")
-      .eq("id", input.newExerciseId)
-      .maybeSingle(),
-    supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
-    supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
-  ]);
+  const guardResult = await canSwapExercise(
+    createSupabaseSwapGuardDeps(supabase),
+    input.sessionExerciseId,
+  );
+  if (!guardResult.allowed) {
+    return { ok: false, error: guardResult.error };
+  }
 
-  const current = currentRes.data;
-  if (!current) return { ok: false, error: "Exercise not found" };
-
-  const replacement = replacementRes.data;
-  const profile = profileRes.data;
-
-  // Call the core with injected dependencies (testable with fakes)
-  const { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = 
-    await swapExerciseCore(
-      {
-        resolveSwapWeights: (sessionId, newExerciseId, equipmentIds, metric, movementPattern) =>
-          resolveSwapWeights(supabase, user.id, sessionId, newExerciseId, equipmentIds, metric, movementPattern),
-      },
-      {
-        newExerciseId: input.newExerciseId,
-        current,
-        replacement,
-        profile,
-      },
-    );
-
-  // Filter target reps for daily_menu users (they don't remember weights/targets)
-  const swapPayload = resolveSwapResultPayload({
-    planningMode: settingsRes.data?.planning_mode,
-    rawCurrentTargetReps: currentTargetReps,
-    rawWorkingWeightKg: workingWeightKg,
-    planRepsMin: repsMin,
-    planRepsMax: repsMax,
-  });
-  const filteredTargetReps = swapPayload.currentTargetReps;
-
-  const { error } = await supabase
-    .from("session_exercises")
-    .update({
-      exercise_id: input.newExerciseId,
-      swapped_from_exercise_id: current.exercise_id,
-      metric,
-      planned_reps_min: repsMin,
-      planned_reps_max: repsMax,
-    })
-    .eq("id", input.sessionExerciseId);
-
-  // Returned rather than left for the client to guess: the runner is mid-session
-  // and must not re-fetch, but it does have to redraw the target and the
-  // hold button with the range that was just written.
-  return error
-    ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps: filteredTargetReps, isBodyweight } };
+  return swapExerciseForUser(supabase, user.id, input);
 }
 
 // ---------------------------------------------------------------------------
