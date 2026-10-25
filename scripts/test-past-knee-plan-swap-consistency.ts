@@ -48,7 +48,7 @@ for (const level of levels) {
       hasAllEquipment: equip.hasAll,
       equipmentIds: equip.ids,
       currentInjuryRegions: [],
-      pastKneeInjury: true,
+      anyKneeInjury: true,
       catalogue,
     };
     
@@ -96,9 +96,9 @@ for (const level of levels) {
       level: input.level,
       availableEquipment: equip.hasAll ? null : new Set(equip.ids),
       injuryRegions: input.currentInjuryRegions,
-      pastKneeInjury: input.pastKneeInjury,
+      anyKneeInjury: input.anyKneeInjury,
       limit: 10,
-      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
+      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
       tieBreakFn: (slug) => hashString(`ranking:${slug}`),
     };
     

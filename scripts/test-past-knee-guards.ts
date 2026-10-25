@@ -79,7 +79,7 @@ if (squatsWithBands) {
     hasAllEquipment: true,
     equipmentIds: [],
     currentInjuryRegions: [],
-    pastKneeInjury: true,
+    anyKneeInjury: true,
     catalogue,
   };
   
@@ -128,7 +128,7 @@ if (cableHipAdduction) {
     hasAllEquipment: true,
     equipmentIds: [],
     currentInjuryRegions: [],
-    pastKneeInjury: false,
+    anyKneeInjury: false,
     catalogue,
   };
   

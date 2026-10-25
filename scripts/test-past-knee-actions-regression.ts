@@ -73,7 +73,7 @@ console.log("\n2. Test with pool select columns (swap pool query)");
     hasAllEquipment: false,
     equipmentIds: ["barbell", "dumbbell", "flat_bench", "squat_rack", "medicine_ball"],
     currentInjuryRegions: [],
-    pastKneeInjury: true,
+    anyKneeInjury: true,
     catalogue: [],
   };
   
@@ -116,9 +116,9 @@ console.log("\n2. Test with pool select columns (swap pool query)");
         level: input.level,
         availableEquipment: new Set(input.equipmentIds),
         injuryRegions: input.currentInjuryRegions,
-        pastKneeInjury: input.pastKneeInjury,
+        anyKneeInjury: input.anyKneeInjury,
         limit: 5,
-        scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
+        scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
         tieBreakFn: (slug) => hashString(`ranking:${slug}`),
       };
       
@@ -158,7 +158,7 @@ console.log("\n3. Test with inactive select columns (fallback query)");
     hasAllEquipment: false,
     equipmentIds: ["barbell", "dumbbell", "flat_bench", "squat_rack", "medicine_ball"],
     currentInjuryRegions: [],
-    pastKneeInjury: true,
+    anyKneeInjury: true,
     catalogue: [],
   };
   
@@ -197,9 +197,9 @@ console.log("\n3. Test with inactive select columns (fallback query)");
         level: input.level,
         availableEquipment: new Set(input.equipmentIds),
         injuryRegions: input.currentInjuryRegions,
-        pastKneeInjury: input.pastKneeInjury,
+        anyKneeInjury: input.anyKneeInjury,
         limit: 5,
-        scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
+        scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
         tieBreakFn: (slug) => hashString(`ranking:${slug}`),
       };
       

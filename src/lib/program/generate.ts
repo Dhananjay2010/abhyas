@@ -3,6 +3,8 @@ import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "./past-knee-lunge-order";
+import { isExcludedForPastKnee } from "./past-knee";
+
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -505,6 +507,11 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   // Compute knee flags once
   const hasCurrentKnee = input.currentInjuryRegions.includes("knee");
   const hasPastKnee = (input.anyKneeInjury ?? false) && !hasCurrentKnee;
+
+  // Past-knee exclusions (pistol squats, jumps, band/chain squats, etc.)
+  if (hasPastKnee && isExcludedForPastKnee(ex)) {
+    return false;
+  }
 
   // Level: never prescribe something above the user's stated experience.
   // UNLESS: past-knee tier-1 (dumbbell-rear-lunge) for beginners

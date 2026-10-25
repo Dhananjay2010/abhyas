@@ -33,7 +33,7 @@ console.log("\n1. Gym user - 4-day Upper/Lower split with past knee");
     hasAllEquipment: true,
     equipmentIds: [],
     currentInjuryRegions: [],
-    pastKneeInjury: true,
+    anyKneeInjury: true,
     catalogue,
   };
   
@@ -89,7 +89,7 @@ console.log("\n2. DB-only user (dumbbell only) with past knee");
     hasAllEquipment: false,
     equipmentIds: ["dumbbell", "flat_bench"],
     currentInjuryRegions: [],
-    pastKneeInjury: true,
+    anyKneeInjury: true,
     catalogue,
   };
   
@@ -133,7 +133,7 @@ console.log("\n3. Beginner with dumbbells gets dumbbell-rear-lunge (no level gat
     hasAllEquipment: false,
     equipmentIds: ["dumbbell"],
     currentInjuryRegions: [],
-    pastKneeInjury: true,
+    anyKneeInjury: true,
     catalogue,
   };
   
@@ -177,7 +177,7 @@ console.log("\n4. No-dumbbell user (barbell + squat_rack) with past knee");
     hasAllEquipment: false,
     equipmentIds: ["barbell", "squat_rack", "flat_bench"],
     currentInjuryRegions: [],
-    pastKneeInjury: true,
+    anyKneeInjury: true,
     catalogue,
   };
   
@@ -227,7 +227,7 @@ console.log("\n5. Kettlebell-only user with past knee");
     hasAllEquipment: false,
     equipmentIds: ["kettlebell"],
     currentInjuryRegions: [],
-    pastKneeInjury: true,
+    anyKneeInjury: true,
     catalogue,
   };
   
@@ -278,7 +278,7 @@ console.log("\n6. Non-past-knee beginner with dumbbells (identity check)");
     hasAllEquipment: false,
     equipmentIds: ["dumbbell"],
     currentInjuryRegions: [],
-    pastKneeInjury: false,  // NOT past-knee
+    anyKneeInjury: false,  // NOT past-knee
     catalogue,
   };
   
@@ -326,7 +326,7 @@ console.log("\n7. Past-knee + current HIP injury must NOT get dumbbell-rear-lung
     hasAllEquipment: false,
     equipmentIds: ["dumbbell", "flat_bench"],
     currentInjuryRegions: ["hip"], // Current hip injury
-    pastKneeInjury: true,
+    anyKneeInjury: true,
     catalogue,
   };
   

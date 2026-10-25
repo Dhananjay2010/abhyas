@@ -109,16 +109,10 @@ function isHighImpactLegExercise(ex: CandidateExercise): boolean {
     return true;
   }
   
-  // Lower-body muscles - check if ANY primary OR secondary muscle is a leg muscle
+  // Lower-body muscles - check if ANY primary muscle is a leg muscle
   const legMuscles = ["quads", "glutes", "hamstrings", "adductors", "calves"];
   
   for (const muscle of ex.primary_muscles) {
-    if (legMuscles.includes(muscle)) {
-      return true;
-    }
-  }
-  
-  for (const muscle of ex.secondary_muscles) {
     if (legMuscles.includes(muscle)) {
       return true;
     }

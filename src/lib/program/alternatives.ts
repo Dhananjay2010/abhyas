@@ -2,6 +2,8 @@ import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "@/lib/program/past-knee-lunge-order";
+import { isExcludedForPastKnee } from "@/lib/program/past-knee";
+
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -205,6 +207,9 @@ export function rankAlternatives<T extends ExerciseRow>(
     
     // 2. Exclude dangerous/problematic exercises (hard-coded exclusion set)
     if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) continue;
+    
+    // 2b. Past-knee exclusions (pistol squats, jumps, band/chain squats, etc.)
+    if (hasPastKnee && isExcludedForPastKnee(candidate)) continue;
     
     // 3. Exclude pullovers when original is a compound pull
     // Pullovers are shoulder-extension moves and not appropriate substitutes
