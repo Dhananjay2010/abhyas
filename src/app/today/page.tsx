@@ -14,6 +14,8 @@ import { closeStaleSessions } from "@/lib/session/close-stale";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { countWorkingSets, getCompletionDisplay } from "@/lib/today/row-helpers";
+import { sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { RefetchOnResume } from "./refetch-on-resume";
 
 export const dynamic = "force-dynamic";
@@ -339,7 +341,7 @@ export default async function TodayPage() {
           // `metric` from the session row, not from `exercises`: it records the
           // unit the session was RUN in. Reading the catalogue's current metric
           // rendered a plank prescribed in reps last week as "2 x 8-12s".
-          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue)")
+          .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue), session_sets!session_sets_session_exercise_id_fkey(is_warmup_set)")
           .eq("session_id", performed.id)
           .order("order_index")
       : Promise.resolve(null),
@@ -360,7 +362,8 @@ export default async function TodayPage() {
     repsMin: number | null;
     repsMax: number | null;
     restSeconds: number | null;
-    skipped: boolean;
+    completionLabel: string;
+    strikethrough: boolean;
     swappedIn: boolean;
   };
 
@@ -390,22 +393,45 @@ export default async function TodayPage() {
       name: string;
       cue: string | null;
     } | null;
+    session_sets: Array<{
+      is_warmup_set: boolean;
+    }>;
   }> | null;
 
   const todayExercises: TodayRow[] =
     actual && actual.length > 0
-      ? actual.map((r) => ({
-          key: `s${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.metric ?? null,
-          sets: r.planned_sets,
-          repsMin: r.planned_reps_min,
-          repsMax: r.planned_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: r.status === "skipped",
-          swappedIn: r.swapped_from_exercise_id !== null,
-        }))
+      ? actual.map((r) => {
+          const workingSetsLogged = countWorkingSets(r.session_sets ?? []);
+          const plannedSets = r.planned_sets ?? 0;
+
+          const sessionStatus = performed?.status;
+          const effectiveStatus =
+            sessionStatus === "completed" || sessionStatus === "skipped"
+              ? sessionStatus
+              : "in_progress";
+
+          const isSwappedIn = r.swapped_from_exercise_id !== null;
+          const { label: completionLabel, strikethrough } = getCompletionDisplay(
+            effectiveStatus,
+            workingSetsLogged,
+            plannedSets,
+            isSwappedIn,
+          );
+
+          return {
+            key: `s${r.order_index}`,
+            name: r.exercises?.name ?? "",
+            cue: r.exercises?.cue ?? null,
+            metric: r.metric ?? null,
+            sets: r.planned_sets,
+            repsMin: r.planned_reps_min,
+            repsMax: r.planned_reps_max,
+            restSeconds: r.rest_seconds,
+            completionLabel,
+            strikethrough,
+            swappedIn: isSwappedIn,
+          };
+        })
       : template.map((r) => ({
           key: `p${r.order_index}`,
           name: r.exercises?.name ?? "",
@@ -415,9 +441,15 @@ export default async function TodayPage() {
           repsMin: r.target_reps_min,
           repsMax: r.target_reps_max,
           restSeconds: r.rest_seconds,
-          skipped: false,
+          completionLabel: "",
+          strikethrough: false,
           swappedIn: false,
         }));
+
+  // Determine if the completed session was ended early (has pending exercises)
+  const endedEarly = performed && performed.status === "completed" && actual
+    ? actual.some((ex) => ex.status === "pending")
+    : false;
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show
@@ -590,7 +622,7 @@ export default async function TodayPage() {
         <div className="mt-7">
           {strengthDone ? (
             <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
-              Session complete. Well done.
+              {sessionSummaryTitle(endedEarly)}
             </p>
           ) : (
             /*
@@ -629,7 +661,7 @@ export default async function TodayPage() {
                 className="rounded-xl border border-border bg-surface px-4 py-3.5"
               >
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
+                  <span className={`font-semibold ${row.strikethrough ? "text-muted line-through" : ""}`}>
                     {row.name}
                   </span>
                   <span className="shrink-0 text-sm tabular-nums text-accent">
@@ -637,9 +669,9 @@ export default async function TodayPage() {
                     {row.metric === "seconds" ? "s" : ""}
                   </span>
                 </div>
-                {(row.swappedIn || row.skipped) && (
+                {row.completionLabel && (
                   <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
-                    {row.skipped ? "Skipped" : "Swapped in"}
+                    {row.completionLabel}
                   </p>
                 )}
                 {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}
