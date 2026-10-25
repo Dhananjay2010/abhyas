@@ -101,18 +101,18 @@ async function runTests() {
   const userId = authData.user.id;
   console.log(`✓ Created test user: ${userId}\n`);
 
-  // Create profile
+  // Update profile (createUser trigger already created it)
   const { error: profileError } = await adminClient
     .from("profiles")
-    .insert({
-      id: userId,
+    .update({
       goal: "muscle_gain",
       level: "intermediate",
       primary_track: "weights",
       onboarding_completed_at: new Date().toISOString(),
-    });
+    })
+    .eq("id", userId);
 
-  check("Profile created", !profileError, profileError?.message);
+  check("Profile updated", !profileError, profileError?.message);
   if (profileError) return false;
 
   // Get test exercises
