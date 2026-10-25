@@ -37,7 +37,11 @@ function makeFakeClient(restSeconds: number | null) {
   const stubFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
-    const body = init?.body ? JSON.parse(init.body as string) : null;
+    
+    let body: unknown = null;
+    if (init?.body && typeof init.body === "string") {
+      body = JSON.parse(init.body);
+    }
 
     requests.push({ url, method, body });
 

@@ -26,7 +26,15 @@ function makeFakeAbandonDeps(
   exercises: SessionExercise[],
   initialStatus: string
 ) {
-  const sessionState = { status: initialStatus, completed_at: null as string | null, duration_seconds: null as number | null };
+  const sessionState: {
+    status: string;
+    completed_at: string | null;
+    duration_seconds: number | null;
+  } = {
+    status: initialStatus,
+    completed_at: null,
+    duration_seconds: null,
+  };
 
   return {
     getSession: () => sessionState,

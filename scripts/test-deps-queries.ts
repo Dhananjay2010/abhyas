@@ -44,14 +44,31 @@ function makeFakeSupabase() {
   const stubFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     const method = init?.method ?? "GET";
-    const body = init?.body ? JSON.parse(init.body as string) : null;
-    const headers: Record<string, string> = {};
     
+    let body: unknown = null;
+    if (init?.body) {
+      if (typeof init.body === "string") {
+        body = JSON.parse(init.body);
+      }
+    }
+    
+    const headers: Record<string, string> = {};
     if (init?.headers) {
-      const headersInit = init.headers as Record<string, string>;
-      Object.entries(headersInit).forEach(([key, value]) => {
-        headers[key.toLowerCase()] = value;
-      });
+      if (init.headers instanceof Headers) {
+        init.headers.forEach((value, key) => {
+          headers[key.toLowerCase()] = value;
+        });
+      } else if (Array.isArray(init.headers)) {
+        init.headers.forEach(([key, value]) => {
+          headers[key.toLowerCase()] = value;
+        });
+      } else {
+        Object.entries(init.headers).forEach(([key, value]) => {
+          if (typeof value === "string") {
+            headers[key.toLowerCase()] = value;
+          }
+        });
+      }
     }
 
     requests.push({ url, method, body, headers });
