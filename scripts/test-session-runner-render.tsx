@@ -330,7 +330,7 @@ async function testN7() {
   await act(async () => {});
   
   // Assert the UI shows "2 sets waiting to save" and "Saving..." rows
-  assert(screen.queryByText(/2 sets waiting to save/i), "Shows '2 sets waiting to save' text");
+  assert(!!screen.queryByText(/2 sets waiting to save/i), "Shows '2 sets waiting to save' text");
   
   assert((screen.queryAllByText(/saving/i) || []).length >= 2, "Shows 'Saving...' rows for pending sets");
   

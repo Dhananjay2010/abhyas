@@ -7,7 +7,7 @@
 
 import type { Database } from "../database.types";
 
-type Session = Database["public"]["Tables"]["sessions"]["Row"];
+type SessionLike = { status: Database["public"]["Enums"]["session_status"] };
 type User = { id: string };
 
 export interface RunnerPropsCore {
@@ -20,7 +20,7 @@ export interface RunnerPropsCore {
  * N6: userId must be user.id
  * N6s: sessionStatus must be session.status
  */
-export function buildRunnerProps(session: Session, user: User): RunnerPropsCore {
+export function buildRunnerProps(session: SessionLike, user: User): RunnerPropsCore {
   return {
     userId: user.id,          // N6
     sessionStatus: session.status,  // N6s
