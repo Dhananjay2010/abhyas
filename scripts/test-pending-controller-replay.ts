@@ -62,13 +62,7 @@ async function runTests() {
     let logSetCallCount = 0;
     let lastState: { pending: unknown[]; error: string | null } = { pending: [], error: null };
 
-    const mockLogSet = async (_input: {
-      sessionExerciseId: string;
-      setNumber: number;
-      reps: number | null;
-      weightKg: number | null;
-      durationSeconds?: number | null;
-    }) => {
+    const mockLogSet = async () => {
       logSetCallCount++;
       // First call fails
       if (logSetCallCount === 1) {
