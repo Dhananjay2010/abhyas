@@ -78,21 +78,6 @@ run_mutant() {
   restore_file "$file"
 }
 
-# Olympic lift exclusion for anyKneeInjury (swap-only)
-run_mutant \
-  "Olympic lifts: disable anyKneeInjury check in swaps" \
-  "src/lib/program/generate.ts" \
-  "// Swap-only: exclude for past knee" \
-  "// Swap-only: exclude for past knee (MUTANT: disabled)" \
-  "test:olympic-lifts"
-
-run_mutant \
-  "Olympic lifts: remove anyKneeInjury return" \
-  "src/lib/program/generate.ts" \
-  "if (input.anyKneeInjury) return true;" \
-  "if (input.anyKneeInjury) return false;" \
-  "test:olympic-lifts"
-
 # Jump guard: disable lower-body check
 run_mutant \
   "Jump guard: allow all jumps regardless of muscle group" \

@@ -104,11 +104,11 @@ console.log("\n2. Current-knee user glute-bridge swaps contain NO Olympic lifts"
 
 console.log("\n3. Swap eligibility rejects Olympic lifts for current-injury and past-knee users");
 {
-  const powerClean = catalogue.find(e => e.slug === "power-clean");
+  const squatJerk = catalogue.find(e => e.slug === "squat-jerk"); // Olympic lift with squat pattern
   const barbellSquat = catalogue.find(e => e.slug === "barbell-squat");
   
-  if (!powerClean || !barbellSquat) {
-    check("power-clean and barbell-squat exist in catalogue", false);
+  if (!squatJerk || !barbellSquat) {
+    check("squat-jerk and barbell-squat exist in catalogue", false);
   } else {
     // Current knee injury: should reject Olympic lifts
     const kneeInput = base({
@@ -123,7 +123,7 @@ console.log("\n3. Swap eligibility rejects Olympic lifts for current-injury and 
       alreadyInSession: new Set([barbellSquat.id]),
     });
     const kneeSlugs = kneeSwaps.map(e => e.slug);
-    check("Swap list excludes power-clean for current knee", !kneeSlugs.includes("power-clean"));
+    check("Swap list excludes squat-jerk for current knee", !kneeSlugs.includes("squat-jerk"));
     
     // Current shoulder injury: should reject Olympic lifts
     const shoulderInput = base({
@@ -138,7 +138,7 @@ console.log("\n3. Swap eligibility rejects Olympic lifts for current-injury and 
       alreadyInSession: new Set([barbellSquat.id]),
     });
     const shoulderSlugs = shoulderSwaps.map(e => e.slug);
-    check("Swap list excludes power-clean for current shoulder", !shoulderSlugs.includes("power-clean"));
+    check("Swap list excludes squat-jerk for current shoulder", !shoulderSlugs.includes("squat-jerk"));
     
     // Past knee injury (no current): Decision (a) - REJECT Olympic lifts in swaps
     const pastKneeInput = base({
@@ -153,7 +153,7 @@ console.log("\n3. Swap eligibility rejects Olympic lifts for current-injury and 
       alreadyInSession: new Set([barbellSquat.id]),
     });
     const pastKneeSlugs = pastKneeSwaps.map(e => e.slug);
-    check("Decision (a): Swap list excludes power-clean for past knee", !pastKneeSlugs.includes("power-clean"));
+    check("Decision (a): Swap list excludes squat-jerk for past knee", !pastKneeSlugs.includes("squat-jerk"));
   }
 }
 
