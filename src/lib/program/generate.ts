@@ -889,6 +889,29 @@ export function getMainSlotCount(templateSlots: Pattern[]): number {
   return coreIndex;
 }
 
+/**
+ * Get the main slot count for a specific day in a week.
+ * Main slots are those before core exercises.
+ */
+export function getMainSlotCountForDay(daysPerWeek: number, yogaDaysPerWeek: number, dayIndex: number): number {
+  const trainingDays = Math.max(1, daysPerWeek - Math.min(yogaDaysPerWeek, daysPerWeek - 1));
+  const templates = templatesFor(trainingDays);
+  const laidOut = placeYoga(templates, yogaDaysPerWeek);
+  const activeIdx = activeDayIndices(daysPerWeek);
+  
+  const slotPos = activeIdx.indexOf(dayIndex);
+  if (slotPos === -1 || slotPos >= laidOut.length) {
+    return 0; // Rest or yoga day
+  }
+  
+  const entry = laidOut[slotPos];
+  if (!entry || typeof entry === "string" || entry.label === "Yoga" || entry.label === "Breathing") {
+    return 0;
+  }
+  
+  return getMainSlotCount(entry.slots);
+}
+
 export function generateProgram(input: GeneratorInput): GeneratedProgram {
   // A yoga- or breathing-led plan is a week of that practice plus rest. It is
   // NOT a strength split: previously these tracks fell through to push/pull/
@@ -1138,22 +1161,20 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
     if ((hasKneeInjury || hasPastKnee) && isLowerOrFullDay) {
       const hasQuadWork = pickedExercises.some(p => p.ex.primary_muscles.includes("quads"));
       if (!hasQuadWork) {
-        // PR #73 Task 3a: For CURRENT knee, skip wall-sit if no accessory slots available
+        // PR #73 Run 11: For CURRENT knee, force wall-sit as last non-core accessory when it's the only option
         const hasCurrentKneeLocal = input.currentInjuryRegions.includes("knee");
-        const totalSlots = maxExercises;
-        const hasAccessorySlots = totalSlots > 4;
         
         // Select appropriate list: KNEE_SAFE_QUAD_EXERCISES for current, PAST_KNEE_LUNGE_EXERCISES for past
         const allowedSlugs = hasPastKnee ? PAST_KNEE_LUNGE_EXERCISES : KNEE_SAFE_QUAD_EXERCISES;
         
-        // Force-add a knee-safe quad exercise (including wall-sit as accessory)
+        // Find knee-safe quad options (allow wall-sit reuse for current-knee)
         const kneeSafeOptions = pool
           .filter(e => {
             if (!allowedSlugs.has(e.slug)) return false;
-            // PR #73 Task 3a: Skip wall-sit for current-knee if no accessory slots
-            if (hasCurrentKneeLocal && e.slug === "wall-sit" && !hasAccessorySlots) return false;
             if (!e.primary_muscles.includes("quads")) return false;
-            if (usedInBlock.has(e.id)) return false;
+            // For current-knee, allow wall-sit reuse; for past-knee, check usedInBlock
+            if (!hasCurrentKneeLocal && usedInBlock.has(e.id)) return false;
+            if (hasCurrentKneeLocal && e.slug !== "wall-sit" && usedInBlock.has(e.id)) return false;
             
             // Use shared eligibility check
             return isEligible(e, input);
@@ -1165,8 +1186,38 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         
         if (kneeSafeOptions.length > 0) {
           const added = kneeSafeOptions[0];
-          usedInBlock.add(added.id);
-          pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+          
+          // For current-knee with wall-sit as only option, place as last non-core accessory
+          if (hasCurrentKneeLocal && added.slug === "wall-sit" && kneeSafeOptions.length === 1) {
+            // If day is full, replace last non-core accessory
+            const mainSlotCount = getMainSlotCount(entry.slots);
+            
+            if (pickedExercises.length >= maxExercises) {
+              // Find last non-core accessory to replace
+              let replaceIdx = -1;
+              for (let i = pickedExercises.length - 1; i >= 0; i--) {
+                if (pickedExercises[i].slotIndex < mainSlotCount) continue; // Skip main slots
+                if (pickedExercises[i].ex.movement_pattern === "core") continue; // Skip core
+                replaceIdx = i;
+                break;
+              }
+              
+              if (replaceIdx >= 0) {
+                pickedExercises[replaceIdx] = { ex: added, slotIndex: pickedExercises[replaceIdx].slotIndex };
+              } else {
+                // No replaceable accessory, just add (shouldn't happen)
+                pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+              }
+            } else {
+              // Room available, add at end
+              pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+            }
+            // Don't mark as used in block for wall-sit (allow reuse)
+          } else {
+            // Normal case: add and mark used
+            usedInBlock.add(added.id);
+            pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
+          }
         }
       }
       

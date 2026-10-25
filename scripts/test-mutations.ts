@@ -138,6 +138,24 @@ const mutants: Mutant[] = [
     }`,
     tests: ["test:knee-safety-matrix", "test:knee-swaps"],
   },
+
+  // B0. BMI>=30 high-impact ban (no-injury baseline proof)
+  {
+    name: "Drop BMI>=30 high-impact ban",
+    file: "src/lib/program/generate.ts",
+    pattern: /if \(input\.bmi !== null && input\.bmi >= 30 && ex\.impact === "high"\) return false;/,
+    mutate: '// MUTANT: Removed BMI>=30 high-impact ban',
+    tests: ["test:no-injury-baseline"],
+  },
+
+  // B1. Remove anyKneeInjury from buildSwapContext
+  {
+    name: "Drop anyKneeInjury from swap context",
+    file: "src/lib/program/swap-context.ts",
+    pattern: /anyKneeInjury: input\.anyKneeInjury,/,
+    mutate: 'anyKneeInjury: false,',
+    tests: ["test:swap-context"],
+  },
 ];
 
 let killed = 0;
@@ -178,10 +196,11 @@ function runMutation(mutant: Mutant): void {
     }
     writeFileSync(file, mutated, "utf8");
     
-    // 3b. Verify file actually changed (compare against backup)
-    const mutatedHash = sha256(mutated);
-    if (mutatedHash === originalHash) {
-      console.log(`  ⊘ SKIP: File hash unchanged after mutation`);
+    // 3b. Verify file actually changed (re-read from disk and compare)
+    const writtenContent = readFileSync(file, "utf8");
+    const writtenHash = sha256(writtenContent);
+    if (writtenHash === originalHash) {
+      console.log(`  ⊘ SKIP: File hash unchanged after mutation (on-disk check)`);
       skipped++;
       return;
     }

@@ -618,7 +618,7 @@ export async function findAlternatives(
   const alreadyInSession = new Set(
     (siblingsRes.data ?? []).map((s) => s.exercise_id),
   );
-
+  
   const input = {
     userId: user.id,
     blockNumber: 1,

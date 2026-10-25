@@ -18,11 +18,10 @@ import { readFileSync } from "node:fs";
 import {
   generateProgram,
   isEligible,
-  getMainSlotCount,
+  getMainSlotCountForDay,
   type CandidateExercise,
   type GeneratorInput,
 } from "../src/lib/program/generate";
-import { templatesFor, activeDayIndices, placeYoga } from "../src/lib/program/splits";
 
 // Hard-coded expected knee-safe slugs (independent test oracle)
 // Adding box-squat to this list must make the test FAIL (not just a separate check)
@@ -41,31 +40,6 @@ const EXPECTED_KNEE_SAFE_LUNGE_EXERCISES = new Set([
   "split-squat-with-dumbbells",
   "smith-single-leg-split-squat",
 ]);
-
-/**
- * D1 fix: Compute the number of main slots for this profile's day template.
- * Main slots are all slots BEFORE core (core is always last in template).
- * Import real template data and use exported getMainSlotCount from generate.ts.
- */
-function getMainSlotCountForDay(daysPerWeek: number, yogaDaysPerWeek: number, dayIndex: number): number {
-  const trainingDays = Math.max(1, daysPerWeek - Math.min(yogaDaysPerWeek, daysPerWeek - 1));
-  const templates = templatesFor(trainingDays);
-  const laidOut = placeYoga(templates, yogaDaysPerWeek);
-  const activeIdx = activeDayIndices(daysPerWeek);
-  
-  const slotPos = activeIdx.indexOf(dayIndex);
-  if (slotPos === -1 || slotPos >= laidOut.length) {
-    return 0; // Rest or yoga day
-  }
-  
-  const entry = laidOut[slotPos];
-  if (!entry || typeof entry === "string" || entry.label === "Yoga" || entry.label === "Breathing") {
-    return 0;
-  }
-  
-  // Use exported function from generate.ts
-  return getMainSlotCount(entry.slots);
-}
 
 // Hard-coded expected floor-pull deadlifts (independent test oracle)
 // Must match FLOOR_PULL_DEADLIFTS in src/lib/program/generate.ts exactly
