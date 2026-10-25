@@ -219,13 +219,21 @@ async function runTests() {
 
   console.log("\n✅ All built SW output tests passed\n");
   } finally {
-    // Stop the server
+    // Stop the server and wait for it to exit
     server.kill("SIGTERM");
-    // Give it a moment to shut down gracefully
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    if (!server.killed) {
-      server.kill("SIGKILL");
-    }
+    
+    // Wait for the server to exit (max 2 seconds)
+    const exitPromise = new Promise<void>((resolve) => {
+      server.on("exit", () => resolve());
+      setTimeout(() => {
+        if (!server.killed) {
+          server.kill("SIGKILL");
+        }
+        resolve();
+      }, 2000);
+    });
+    
+    await exitPromise;
   }
 }
 
