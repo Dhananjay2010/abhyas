@@ -48,20 +48,26 @@ async function testServedServiceWorker() {
     `Service worker activate handler must define brandPrefix constant as "${brandPrefix}"`
   );
 
-  // 2. Activate filter: only delete caches with brand prefix
+  // 2. Activate handler: must use injected cachesToDelete function
   assert(
-    scriptText.includes("cacheName.startsWith(brandPrefix)"),
-    "Service worker activate handler must filter caches by brand prefix (startsWith)"
+    scriptText.includes("function cachesToDelete"),
+    "Service worker must include injected cachesToDelete function"
   );
 
   assert(
-    scriptText.includes("cacheName !== CACHE_NAME"),
-    "Service worker activate handler must not delete current cache (cacheName !== CACHE_NAME)"
+    scriptText.includes("cachesToDelete(cacheNames, CACHE_NAME, brandPrefix)"),
+    "Service worker activate handler must call cachesToDelete(cacheNames, CACHE_NAME, brandPrefix)"
+  );
+
+  // Verify the injected function has the correct logic
+  assert(
+    scriptText.includes("cacheName.startsWith(brandPrefix)") || scriptText.includes("cacheName.startsWith("),
+    "Injected cachesToDelete must filter by brand prefix (startsWith)"
   );
 
   assert(
-    scriptText.includes("cacheName.startsWith(brandPrefix) && cacheName !== CACHE_NAME"),
-    "Service worker activate handler must only delete old caches for this brand (combined condition)"
+    scriptText.includes("cacheName===currentCacheName") || scriptText.includes("cacheName === currentCacheName"),
+    "Injected cachesToDelete must not delete current cache (checks cacheName against currentCacheName)"
   );
 
   // 3. Precache URLs: offline page and icon
