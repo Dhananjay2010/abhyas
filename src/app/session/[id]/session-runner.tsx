@@ -285,16 +285,16 @@ export function SessionRunner({
   const current = exercises[exerciseIndex];
   const restSeconds = settings.restOverrideSeconds ?? current?.restSeconds ?? 90;
 
-  // MUTANT 1: useEffect removed to demonstrate test failure
-  // useEffect(() => {
-  //   const currentId = current?.id;
-  //   if (currentId && alternativesForExerciseId && alternativesForExerciseId !== currentId) {
-  //     // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: clearing stale UI state when the active exercise changes
-  //     setAlternatives(null);
-  //     setAlternativesForExerciseId(null);
-  //     setLoadingAlternatives(false);
-  //   }
-  // }, [current?.id, alternativesForExerciseId]);
+  // Close the swap sheet when the active exercise changes
+  useEffect(() => {
+    const currentId = current?.id;
+    if (currentId && alternativesForExerciseId && alternativesForExerciseId !== currentId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Valid: clearing stale UI state when the active exercise changes
+      setAlternatives(null);
+      setAlternativesForExerciseId(null);
+      setLoadingAlternatives(false);
+    }
+  }, [current?.id, alternativesForExerciseId]);
 
   const totalSetsPlanned = useMemo(
     () => exercises.reduce((n, e) => n + e.plannedSets, 0),
