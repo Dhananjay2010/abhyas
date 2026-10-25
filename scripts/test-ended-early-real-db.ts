@@ -23,8 +23,12 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
-  if (!ok) failures++;
-  console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
+  if (!ok) {
+    failures++;
+    console.log(`  FAIL ${label}${detail ? `  -- ${detail}` : ""}`);
+  } else {
+    console.log(`  ok   ${label}${detail ? `  -- ${detail}` : ""}`);
+  }
 }
 
 async function testDatabaseConnection() {
@@ -145,14 +149,14 @@ async function runTests() {
       check("Insert exercise 1", !ex1Error, ex1Error?.message);
 
       // Add 4 working sets
-      const sets1 = Array(4).fill(null).map(() => ({
-        id: randomUUID(),
+      const sets1 = Array(4).fill(null).map((_, i) => ({
         session_exercise_id: ex1Id,
+        set_number: i + 1,
         reps: 10,
         is_warmup_set: false,
       }));
       const { error: sets1Error } = await adminClient.from("session_sets").insert(sets1);
-      check("Insert sets for ex1", !sets1Error);
+      check("Insert sets for ex1", !sets1Error, sets1Error?.message);
 
       // Create completed exercise 2
       const ex2Id = randomUUID();
@@ -167,14 +171,14 @@ async function runTests() {
       check("Insert exercise 2", !ex2Error, ex2Error?.message);
 
       // Add 3 working sets
-      const sets2 = Array(3).fill(null).map(() => ({
-        id: randomUUID(),
+      const sets2 = Array(3).fill(null).map((_, i) => ({
         session_exercise_id: ex2Id,
+        set_number: i + 1,
         reps: 12,
         is_warmup_set: false,
       }));
       const { error: sets2Error } = await adminClient.from("session_sets").insert(sets2);
-      check("Insert sets for ex2", !sets2Error);
+      check("Insert sets for ex2", !sets2Error, sets2Error?.message);
 
       // Load summary
       const summary = await loadEndedEarlySummary(userClient, sessionId);
@@ -196,11 +200,11 @@ async function runTests() {
         status: "completed",
         actual_type: "weights",
       });
-      check("Insert session", !sessionError);
+      check("Insert session", !sessionError, sessionError?.message);
 
       // Completed exercise with 4 sets
       const ex1Id = randomUUID();
-      await adminClient.from("session_exercises").insert({
+      const { error: ex1Error } = await adminClient.from("session_exercises").insert({
         id: ex1Id,
         session_id: sessionId,
         order_index: 1,
@@ -208,31 +212,37 @@ async function runTests() {
         planned_sets: 4,
         status: "completed",
       });
-      const sets1 = Array(4).fill(null).map(() => ({
-        id: randomUUID(),
+      check("Insert exercise 1", !ex1Error, ex1Error?.message);
+      
+      const sets1 = Array(4).fill(null).map((_, i) => ({
         session_exercise_id: ex1Id,
+        set_number: i + 1,
         reps: 10,
         is_warmup_set: false,
       }));
-      await adminClient.from("session_sets").insert(sets1);
+      const { error: sets1Error } = await adminClient.from("session_sets").insert(sets1);
+      check("Insert sets for ex1", !sets1Error, sets1Error?.message);
 
       // Pending exercise with only 1 set
       const ex2Id = randomUUID();
-      await adminClient.from("session_exercises").insert({
+      const { error: ex2Error } = await adminClient.from("session_exercises").insert({
         id: ex2Id,
         session_id: sessionId,
-        order_index: 1,
-        exercise_id: exercise1.id,
+        order_index: 2,
+        exercise_id: exercise2.id,
         planned_sets: 3,
         status: "pending",
       });
+      check("Insert exercise 2", !ex2Error, ex2Error?.message);
+      
       const sets2 = [{
-        id: randomUUID(),
         session_exercise_id: ex2Id,
+        set_number: 1,
         reps: 12,
         is_warmup_set: false,
       }];
-      await adminClient.from("session_sets").insert(sets2);
+      const { error: sets2Error } = await adminClient.from("session_sets").insert(sets2);
+      check("Insert sets for ex2", !sets2Error, sets2Error?.message);
 
       // Load summary
       const summary = await loadEndedEarlySummary(userClient, sessionId);
@@ -247,20 +257,21 @@ async function runTests() {
     {
       const sessionId = randomUUID();
       
-      await adminClient.from("sessions").insert({
+      const { error: sessionError } = await adminClient.from("sessions").insert({
         id: sessionId,
         user_id: userId,
         local_date: "2026-10-25",
         status: "completed",
         actual_type: "weights",
       });
+      check("Insert session", !sessionError, sessionError?.message);
 
       // Pending exercises with no sets
-      await adminClient.from("session_exercises").insert([
+      const { error: exError } = await adminClient.from("session_exercises").insert([
         {
           id: randomUUID(),
           session_id: sessionId,
-        order_index: 1,
+          order_index: 1,
           exercise_id: exercise1.id,
           planned_sets: 4,
           status: "pending",
@@ -268,12 +279,13 @@ async function runTests() {
         {
           id: randomUUID(),
           session_id: sessionId,
-        order_index: 1,
-          exercise_id: exercise1.id,
+          order_index: 2,
+          exercise_id: exercise2.id,
           planned_sets: 3,
           status: "pending",
         },
       ]);
+      check("Insert exercises", !exError, exError?.message);
 
       // Load summary
       const summary = await loadEndedEarlySummary(userClient, sessionId);
@@ -288,17 +300,18 @@ async function runTests() {
     {
       const sessionId = randomUUID();
       
-      await adminClient.from("sessions").insert({
+      const { error: sessionError } = await adminClient.from("sessions").insert({
         id: sessionId,
         user_id: userId,
         local_date: "2026-10-25",
         status: "completed",
         actual_type: "weights",
       });
+      check("Insert session", !sessionError, sessionError?.message);
 
       // Completed exercise
       const ex1Id = randomUUID();
-      await adminClient.from("session_exercises").insert({
+      const { error: ex1Error } = await adminClient.from("session_exercises").insert({
         id: ex1Id,
         session_id: sessionId,
         order_index: 1,
@@ -306,23 +319,27 @@ async function runTests() {
         planned_sets: 4,
         status: "completed",
       });
-      const sets1 = Array(4).fill(null).map(() => ({
-        id: randomUUID(),
+      check("Insert exercise 1", !ex1Error, ex1Error?.message);
+      
+      const sets1 = Array(4).fill(null).map((_, i) => ({
         session_exercise_id: ex1Id,
+        set_number: i + 1,
         reps: 10,
         is_warmup_set: false,
       }));
-      await adminClient.from("session_sets").insert(sets1);
+      const { error: sets1Error } = await adminClient.from("session_sets").insert(sets1);
+      check("Insert sets for ex1", !sets1Error, sets1Error?.message);
 
       // Skipped exercise (should not count toward planned)
-      await adminClient.from("session_exercises").insert({
+      const { error: ex2Error } = await adminClient.from("session_exercises").insert({
         id: randomUUID(),
         session_id: sessionId,
-        order_index: 1,
-        exercise_id: exercise1.id,
+        order_index: 2,
+        exercise_id: exercise2.id,
         planned_sets: 3,
         status: "skipped",
       });
+      check("Insert exercise 2 (skipped)", !ex2Error, ex2Error?.message);
 
       // Load summary
       const summary = await loadEndedEarlySummary(userClient, sessionId);
@@ -337,16 +354,17 @@ async function runTests() {
     {
       const sessionId = randomUUID();
       
-      await adminClient.from("sessions").insert({
+      const { error: sessionError } = await adminClient.from("sessions").insert({
         id: sessionId,
         user_id: userId,
         local_date: "2026-10-25",
         status: "completed",
         actual_type: "weights",
       });
+      check("Insert session", !sessionError, sessionError?.message);
 
       const exId = randomUUID();
-      await adminClient.from("session_exercises").insert({
+      const { error: exError } = await adminClient.from("session_exercises").insert({
         id: exId,
         session_id: sessionId,
         order_index: 1,
@@ -354,15 +372,17 @@ async function runTests() {
         planned_sets: 2,
         status: "completed",
       });
+      check("Insert exercise", !exError, exError?.message);
 
       // 2 warmup sets + 2 working sets
       const sets = [
-        { id: randomUUID(), session_exercise_id: exId, reps: 5, is_warmup_set: true },
-        { id: randomUUID(), session_exercise_id: exId, reps: 5, is_warmup_set: true },
-        { id: randomUUID(), session_exercise_id: exId, reps: 10, is_warmup_set: false },
-        { id: randomUUID(), session_exercise_id: exId, reps: 10, is_warmup_set: false },
+        { session_exercise_id: exId, set_number: 1, reps: 5, is_warmup_set: true },
+        { session_exercise_id: exId, set_number: 2, reps: 5, is_warmup_set: true },
+        { session_exercise_id: exId, set_number: 3, reps: 10, is_warmup_set: false },
+        { session_exercise_id: exId, set_number: 4, reps: 10, is_warmup_set: false },
       ];
-      await adminClient.from("session_sets").insert(sets);
+      const { error: setsError } = await adminClient.from("session_sets").insert(sets);
+      check("Insert sets", !setsError, setsError?.message);
 
       // Load summary
       const summary = await loadEndedEarlySummary(userClient, sessionId);
@@ -372,7 +392,11 @@ async function runTests() {
       check("Planned sets = 2", summary?.plannedSets === 2);
     }
 
-    console.log("\n✅ All ended-early real-db tests passed\n");
+    if (failures === 0) {
+      console.log("\n✅ All ended-early real-db tests passed\n");
+    } else {
+      console.log(`\n❌ ${failures} test(s) failed\n`);
+    }
 
   } finally {
     // Clean up test user and all related data
