@@ -466,7 +466,8 @@ export function evaluateProgression(input: {
 
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
-  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= repsMax);
+  const target = heaviest === 0 ? (state.currentTargetReps ?? repsMax) : repsMax;
+  const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= target);
   const succeeded = completedAllSets && hitTopOfRange;
 
   if (succeeded) {

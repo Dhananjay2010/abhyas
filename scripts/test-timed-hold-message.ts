@@ -74,4 +74,40 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
   check("Message seconds matches nextTargetReps", messageSeconds === result.nextTargetReps);
 }
 
+// T6: stored 45 + 3x40s -> not progressed (40 < 45)
+{
+  const result = evaluateProgression({
+    sets: [makeSet(40), makeSet(40), makeSet(40)],
+    plannedSets: 3,
+    repsMin: 20,
+    repsMax: 40,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: PLANK,
+    state: fresh({ currentTargetReps: 45, currentWorkingWeightKg: null }),
+    isDeload: false,
+  });
+  
+  check("Plank stored 45 + 3x40s → not progressed (40 < 45)", result.outcome !== "progressed" && result.nextTargetReps !== 50);
+}
+
+// T6: 3x45s -> 50 (45 meets current target 45, progress to 50)
+{
+  const result = evaluateProgression({
+    sets: [makeSet(45), makeSet(45), makeSet(45)],
+    plannedSets: 3,
+    repsMin: 20,
+    repsMax: 40,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: PLANK,
+    state: fresh({ currentTargetReps: 45, currentWorkingWeightKg: null }),
+    isDeload: false,
+  });
+  
+  check("Plank 3x45s (currentTargetReps=45) → progressed to 50s", result.outcome === "progressed" && result.nextTargetReps === 50);
+}
+
 console.log("\n✅ All timed-hold message tests passed\n");
