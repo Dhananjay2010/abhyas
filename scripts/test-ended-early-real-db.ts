@@ -137,7 +137,6 @@ async function runTests() {
       const { error: ex1Error } = await adminClient.from("session_exercises").insert({
         id: ex1Id,
         session_id: sessionId,
-        order_index: 1,
         exercise_id: exercise1.id,
         order_index: 1,
         planned_sets: 4,
