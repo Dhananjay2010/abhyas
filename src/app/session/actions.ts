@@ -768,6 +768,45 @@ export async function findAlternatives(
   return { ok: true, data: alternatives };
 }
 
+/**
+ * Fetch progress data for a swapped exercise.
+ * Respects planning_mode: returns null for daily_menu mode.
+ * 
+ * @param supabase - Supabase client
+ * @param userId - User ID to filter by
+ * @param exerciseId - Exercise ID to fetch progress for
+ * @param planningMode - Planning mode from user_settings
+ * @returns Progress data or null
+ */
+export async function fetchSwapProgress(
+  supabase: {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => {
+          eq: (column: string, value: string) => {
+            maybeSingle: () => Promise<{ data: { current_target_reps: number | null; current_working_weight_kg: number | null } | null }>;
+          };
+        };
+      };
+    };
+  },
+  userId: string,
+  exerciseId: string,
+  planningMode: string | null,
+): Promise<{ current_target_reps: number | null; current_working_weight_kg: number | null } | null> {
+  const remembersWeights = planningMode !== "daily_menu";
+  if (!remembersWeights) return null;
+  
+  const { data } = await supabase
+    .from("exercise_progress")
+    .select("current_target_reps, current_working_weight_kg")
+    .eq("user_id", userId)
+    .eq("exercise_id", exerciseId)
+    .maybeSingle();
+  
+  return data;
+}
+
 /** What the runner needs to redraw the exercise after a swap. */
 export type SwapResult = {
   metric: Database["public"]["Enums"]["exercise_metric"];
@@ -788,7 +827,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes, settingsRes, progressRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
     supabase
       .from("session_exercises")
       .select("exercise_id, metric, planned_reps_min, planned_reps_max")
@@ -811,12 +850,6 @@ export async function swapExercise(input: {
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
     supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
-    supabase
-      .from("exercise_progress")
-      .select("current_target_reps, current_working_weight_kg")
-      .eq("user_id", user.id)
-      .eq("exercise_id", input.newExerciseId)
-      .maybeSingle(),
   ]);
 
   const current = currentRes.data;
@@ -827,9 +860,13 @@ export async function swapExercise(input: {
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
   
-  // Respect planning_mode for progress data (same as page.tsx)
-  const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
-  const progress = remembersWeights ? progressRes.data : null;
+  // Fetch progress data using extracted function
+  const progress = await fetchSwapProgress(
+    supabase,
+    user.id,
+    input.newExerciseId,
+    settingsRes.data?.planning_mode ?? null,
+  );
 
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range

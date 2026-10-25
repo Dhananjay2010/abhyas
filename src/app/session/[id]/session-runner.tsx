@@ -981,14 +981,19 @@ export function SessionRunner({
                           equipment_ids: swapped.equipmentIds ?? [],
                         };
                         
-                        const updated = applySwap(current, swappedData, swappedProgress, true);
+                        const replacementPlan = {
+                          repsMin: swapped.repsMin,
+                          repsMax: swapped.repsMax,
+                        };
+                        
+                        const updated = applySwap(current, swappedData, replacementPlan, swappedProgress, true);
                         
                         setExercises((prev) =>
                           prev.map((e) =>
                             e.id === current.id
                               ? {
                                   ...updated,
-                                  // Update planned range from server
+                                  // Keep unchanged fields from current exercise
                                   plannedSets: current.plannedSets,
                                   restSeconds: current.restSeconds,
                                   status: current.status,
