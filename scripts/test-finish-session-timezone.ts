@@ -100,20 +100,20 @@ function makeFakeClient(memberTimezone: string | null, startedAt: string, localD
 async function runTests() {
   console.log("\nTesting finish-session timezone handling\n");
 
-  console.log("1. Session started yesterday in Asia/Kolkata is treated as stale (7, 7b)");
+  console.log("1. Session started yesterday in America/Los_Angeles is treated as stale (7, 7b)");
   {
-    // Scenario: Started at 23:30 IST yesterday, now it's 00:30 IST today
-    // In IST these are different days -> stale
+    // Scenario: Started at 23:30 PDT yesterday, now it's 00:30 PDT today
+    // In PDT (UTC-7) these are different days -> stale
     // Pin the timestamps:
-    // - started_at: 2026-10-24T18:00:00Z (= 2026-10-24 23:30 IST)
-    // - now:        2026-10-24T19:00:00Z (= 2026-10-25 00:30 IST)
-    // This is a 1-hour elapsed session, but crosses midnight in IST so it's stale.
+    // - started_at: 2026-10-25T06:30:00Z (= 2026-10-24 23:30 PDT)
+    // - now:        2026-10-25T07:30:00Z (= 2026-10-25 00:30 PDT)
+    // This is a 1-hour elapsed session, but crosses midnight in PDT so it's stale.
     
-    const startedAt = "2026-10-24T18:00:00Z";
-    const nowPinned = "2026-10-24T19:00:00Z";
-    const localDate = "2026-10-24"; // Started on 2026-10-24 in IST
+    const startedAt = "2026-10-25T06:30:00Z";
+    const nowPinned = "2026-10-25T07:30:00Z";
+    const localDate = "2026-10-24"; // Started on 2026-10-24 in PDT
 
-    const { client, getSavedDuration } = makeFakeClient("Asia/Kolkata", startedAt, localDate);
+    const { client, getSavedDuration } = makeFakeClient("America/Los_Angeles", startedAt, localDate);
     const deps = makeFinishSessionDeps(client);
     // Inject pinned "now"
     deps.now = () => nowPinned;
@@ -126,7 +126,7 @@ async function runTests() {
 
     if (result.ok) {
       assertTrue(true, "finishSessionCore should succeed");
-      // The session is stale (crossed midnight in IST), so duration should be capped
+      // The session is stale (crossed midnight in PDT), so duration should be capped
       // With 1 set and 60s rest, capped duration should be much less than 3600s
       const duration = getSavedDuration();
       assertTrue(
@@ -145,14 +145,15 @@ async function runTests() {
     }
   }
 
-  console.log("\n2. Null timezone falls back to UTC");
+  console.log("\n2. Null timezone falls back to Asia/Kolkata (default), not America/Los_Angeles");
   {
     // Pin timestamps for deterministic test
-    const startedAt = "2026-10-24T16:00:00Z";
-    const nowPinned = "2026-10-24T18:00:00Z";
+    // If timezone is null and falls back to Asia/Kolkata, this same-day session should NOT be stale
+    const startedAt = "2026-10-24T16:00:00Z"; // 21:30 IST
+    const nowPinned = "2026-10-24T18:00:00Z"; // 23:30 IST (same day in IST)
     const localDate = "2026-10-24";
 
-    const { client } = makeFakeClient(null, startedAt, localDate);
+    const { client, getSavedDuration } = makeFakeClient(null, startedAt, localDate);
     const deps = makeFinishSessionDeps(client);
     deps.now = () => nowPinned;
 
@@ -163,6 +164,13 @@ async function runTests() {
     });
 
     assertTrue(result.ok, "finishSessionCore should succeed with null timezone");
+    // Since it's same-day in the fallback timezone, duration should NOT be capped
+    const duration = getSavedDuration();
+    assertTrue(
+      duration === 7200,
+      "Duration should NOT be capped for same-day session in fallback timezone",
+      `Got ${duration}s, expected 7200s`
+    );
   }
 
   console.log(`\n✅ Passed: ${passed}`);
