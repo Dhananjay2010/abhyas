@@ -39,6 +39,8 @@ TESTS=(
   "npm run test:timed-hold-message"
   "npm run test:undo-consistency"
   "npm run test:progression-display-target-consistency"
+  "npm run test:progression-display-consistency"
+  "npm run test:qa-bot-1-full-path"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
@@ -183,6 +185,24 @@ m12() {
   sed -i 's/const successTarget = resolveTarget(/const successTarget = resolveTarget(/; s/}).max;$/}).min;/' "$PROG"
 }
 test_mutant "Success check uses resolveTarget.min (not .max)" m12
+
+# M13: Success check uses successTarget - 1 (off-by-one)
+m13() {
+  sed -i 's/const hitTopOfRange = working\.every((set) => (valueOf(set) ?? 0) >= successTarget);/const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= successTarget - 1);/' "$PROG"
+}
+test_mutant "Success check uses successTarget - 1 (off-by-one)" m13
+
+# M14: Success check uses repsMax (old plan-max judge)
+m14() {
+  perl -i -p0e 's/const successTarget = resolveTarget\(\{[^\}]+\}\)\.max;/const successTarget = repsMax;/s' "$PROG"
+}
+test_mutant "Success check uses repsMax (old plan-max judge)" m14
+
+# M15: Success check uses Math.min(successTarget, repsMax)
+m15() {
+  perl -i -p0e 's/(const successTarget = )(resolveTarget\(\{[^\}]+\}\)\.max);/\1Math.min(\2, repsMax);/s' "$PROG"
+}
+test_mutant "Success check uses Math.min(successTarget, repsMax)" m15
 
 echo
 echo "==================================="

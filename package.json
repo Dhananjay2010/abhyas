@@ -245,7 +245,18 @@
     "test:log-set-idempotent-retry": "tsx scripts/test-log-set-idempotent-retry.ts",
     "test:start-session-date-guard": "tsx scripts/test-start-session-date-guard.ts",
     "test:today-previous-day-resume": "tsx scripts/test-today-previous-day-resume.ts",
-    "test:timed-target-display": "tsx scripts/test-timed-target-display.ts"
+    "test:timed-target-display": "tsx scripts/test-timed-target-display.ts",
+    "test:progression-display-consistency": "tsx scripts/test-progression-display-consistency.ts",
+    "test:qa-bot-1-full-path": "tsx scripts/test-qa-bot-1-full-path.ts",
+    "test:first-miss-two-miss-invariant": "tsx scripts/test-first-miss-two-miss-invariant.ts",
+    "test:increase-cap": "tsx scripts/test-increase-cap.ts",
+    "test:message-weight-consistency": "tsx scripts/test-message-weight-consistency.ts",
+    "test:timed-hold-message": "tsx scripts/test-timed-hold-message.ts",
+    "test:undo-consistency": "tsx scripts/test-undo-consistency.ts",
+    "test:kettlebell-success": "tsx scripts/test-kettlebell-success.ts",
+    "test:progression-display-target-consistency": "tsx scripts/test-progression-display-target-consistency.ts",
+    "test:mutants-equipment-progression-fix": "bash scripts/test-mutants-equipment-progression-fix.sh",
+    "test:qa-bot-1-must-covers": "tsx scripts/test-qa-bot-1-must-covers.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",

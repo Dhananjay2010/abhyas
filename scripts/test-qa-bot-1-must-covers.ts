@@ -1,12 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * QA Bot 1 Must-Covers: Three critical progression scenarios
+ * QA Bot 1 Must-Cover (7): Timed holds only progress when reaching the target
  * 
- * (7) Timed holds only progress when reaching the target
- * (2) Equipment grid: no 1.25 kg steps on pin-stack machines
- * (3) Heavier actual weight: base progression on what was actually lifted
+ * Multi-session test proving that 40s holds with a stored 45s target
+ * do not progress, across 3 consecutive sessions.
  * 
- * All tests use the REAL progression path through evaluateProgression.
+ * NOTE: Must-covers (2) and (3) are now in test-qa-bot-1-full-path.ts
+ * which tests through the complete write path with ProgressClient.
  */
 
 import { evaluateProgression, type ExerciseMeta, type ProgressState } from "../src/lib/program/progression.js";
@@ -38,24 +38,6 @@ const PLANK: ExerciseMeta = {
   metric: "seconds",
   movementPattern: "core",
   isBodyweight: true,
-  progressionChain: null,
-  progressionRank: null,
-};
-
-const CALF_RAISE: ExerciseMeta = {
-  mechanic: "isolation",
-  metric: "reps",
-  movementPattern: "other",
-  isBodyweight: false,
-  progressionChain: null,
-  progressionRank: null,
-};
-
-const DEADLIFT: ExerciseMeta = {
-  mechanic: "compound",
-  metric: "reps",
-  movementPattern: "hinge",
-  isBodyweight: false,
   progressionChain: null,
   progressionRank: null,
 };
@@ -162,107 +144,6 @@ console.log("\n=== QA Bot 1 Must-Cover (7): Timed Holds Only Progress When Reach
   check("3x45s → target rises to 50s", result.nextTargetReps === 50, `${result.nextTargetReps}`);
 }
 
-console.log("\n=== QA Bot 1 Must-Cover (2): Equipment Grid - No 1.25kg Steps on Pin-Stack Machines ===\n");
-
-// Calf raises on a pin-stack machine (e.g., standing calf raise machine)
-// Pin-stack machines have 5 kg steps, not 1.25 kg
-// 40 kg must go to 45 kg (NOT 41.25 kg)
-{
-  const result = evaluateProgression({
-    sets: [
-      { reps: 12, weightKg: 40 },
-      { reps: 12, weightKg: 40 },
-      { reps: 12, weightKg: 40 },
-    ],
-    plannedSets: 3,
-    repsMin: 8,
-    repsMax: 12,
-    feel: "right",
-    meta: CALF_RAISE,
-    state: fresh({ currentWorkingWeightKg: 40 }),
-    isDeload: false,
-    equipmentIds: ["leg_extension"], // Pin-stack machine with 5 kg steps
-    unit: "kg",
-  });
-  
-  check("Calf raise 40 kg on pin-stack → progresses", result.outcome === "progressed");
-  check("Calf raise 40 kg → 45 kg (5 kg step, NOT 41.25)", result.nextWorkingWeightKg === 45, `${result.nextWorkingWeightKg}`);
-  check("Calf raise 40 kg → NOT 41.25 kg", result.nextWorkingWeightKg !== 41.25);
-}
-
-// Also test with a different pin-stack machine
-{
-  const result = evaluateProgression({
-    sets: [
-      { reps: 12, weightKg: 40 },
-      { reps: 12, weightKg: 40 },
-      { reps: 12, weightKg: 40 },
-    ],
-    plannedSets: 3,
-    repsMin: 8,
-    repsMax: 12,
-    feel: "right",
-    meta: CALF_RAISE,
-    state: fresh({ currentWorkingWeightKg: 40 }),
-    isDeload: false,
-    equipmentIds: ["seated_row_machine"], // Another pin-stack machine
-    unit: "kg",
-  });
-  
-  check("Pin-stack seated_row_machine 40 kg → 45 kg", result.nextWorkingWeightKg === 45, `${result.nextWorkingWeightKg}`);
-}
-
-console.log("\n=== QA Bot 1 Must-Cover (3): Heavier Actual Weight - Base on What Was Lifted ===\n");
-
-// Deadlift: stored 90 kg, but user lifted 95 kg successfully
-// Next weight must be based on 95 kg (what was actually lifted), not 90 kg (stored)
-{
-  const result = evaluateProgression({
-    sets: [
-      { reps: 12, weightKg: 95 },
-      { reps: 12, weightKg: 95 },
-      { reps: 12, weightKg: 95 },
-    ],
-    plannedSets: 3,
-    repsMin: 8,
-    repsMax: 12,
-    feel: "right",
-    meta: DEADLIFT,
-    state: fresh({ currentWorkingWeightKg: 90 }), // Stored is 90
-    isDeload: false,
-    equipmentIds: ["barbell"],
-    unit: "kg",
-  });
-  
-  check("Deadlift stored 90, lifted 95 → progresses", result.outcome === "progressed");
-  check("Deadlift lifted 95 → next weight >= 95", result.nextWorkingWeightKg !== null && result.nextWorkingWeightKg >= 95, `${result.nextWorkingWeightKg}`);
-  check("Deadlift lifted 95 → next is 97.5 (95 + 2.5)", result.nextWorkingWeightKg === 97.5, `${result.nextWorkingWeightKg}`);
-}
-
-// Calf raise: performed 45 kg, must not suggest 43.75
-{
-  const result = evaluateProgression({
-    sets: [
-      { reps: 12, weightKg: 45 },
-      { reps: 12, weightKg: 45 },
-      { reps: 12, weightKg: 45 },
-    ],
-    plannedSets: 3,
-    repsMin: 8,
-    repsMax: 12,
-    feel: "right",
-    meta: CALF_RAISE,
-    state: fresh({ currentWorkingWeightKg: 40 }), // Stored is 40
-    isDeload: false,
-    equipmentIds: ["leg_extension"], // Pin-stack machine
-    unit: "kg",
-  });
-  
-  check("Calf performed 45 → progresses", result.outcome === "progressed");
-  check("Calf performed 45 → next weight >= 45", result.nextWorkingWeightKg !== null && result.nextWorkingWeightKg >= 45, `${result.nextWorkingWeightKg}`);
-  check("Calf performed 45 → NOT 43.75", result.nextWorkingWeightKg !== 43.75);
-  check("Calf performed 45 on pin-stack → next is 50 (45 + 5)", result.nextWorkingWeightKg === 50, `${result.nextWorkingWeightKg}`);
-}
 
 console.log("\n=== SUMMARY ===");
 if (failures > 0) {
