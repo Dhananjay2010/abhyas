@@ -56,7 +56,7 @@ async function runTests() {
   try {
     const fakeStorage = new FakeStorage();
     const fakeDeps: PendingSetDeps = {
-      now: () => Date.now(),
+      now: () => 1700000000000,
     };
 
     let logSetCallCount = 0;
