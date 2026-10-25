@@ -263,7 +263,8 @@
     "test:timed-target-display": "tsx scripts/test-timed-target-display.ts",
     "test:week-window": "tsx scripts/test-week-window.ts",
     "test:week-window-wiring": "tsx scripts/test-week-window-wiring.ts",
-    "test:warmup-deload-label": "tsx scripts/test-warmup-deload-label.tsx"
+    "test:warmup-deload-label": "tsx scripts/test-warmup-deload-label.tsx",
+    "test:start-session-ensure-exercises": "tsx scripts/test-start-session-ensure-exercises.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
