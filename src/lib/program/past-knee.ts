@@ -82,6 +82,11 @@ function isJumpingExercise(ex: CandidateExercise): boolean {
   const nameLower = ex.name.toLowerCase();
   const slugLower = ex.slug.toLowerCase();
   
+  // Plyometric category exercises are jumping moves
+  if (ex.category === "plyometric") {
+    return true;
+  }
+  
   // High-impact exercises with jump/bound/plyo keywords
   if (ex.impact === "high" && (
     nameLower.includes("jump") || 

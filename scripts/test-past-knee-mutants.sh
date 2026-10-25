@@ -85,7 +85,8 @@ run_mutant() {
   if npm run test:past-knee 2>&1 | tee /tmp/mutant-output.txt | tail -5 && \
      npm run test:past-knee-plan-lunge-pick 2>&1 | tee -a /tmp/mutant-output.txt | tail -5 && \
      npm run test:past-knee-plan-swap-consistency 2>&1 | tee -a /tmp/mutant-output.txt | tail -5 && \
-     npm run test:past-knee-call-sites 2>&1 | tee -a /tmp/mutant-output.txt | tail -5 && \
+     npm run test:past-knee-input-wiring 2>&1 | tee -a /tmp/mutant-output.txt | tail -5 && \
+     npm run test:past-knee-jump-guard 2>&1 | tee -a /tmp/mutant-output.txt | tail -5 && \
      npm run test:past-knee-guards 2>&1 | tee -a /tmp/mutant-output.txt | tail -5; then
     echo "✗ Test passed (mutation survived)"
     SURVIVED_MUTANTS+=("$name")
@@ -270,5 +271,11 @@ restore_file "src/lib/program/past-knee.ts"
 sed -i '/const PAST_KNEE_EXCLUDED_SLUGS/,/];/{s/"elevated-back-lunge",/"elevated-back-lunge",\n  "cable-hip-adduction",/}' src/lib/program/past-knee.ts
 run_mutant "Skip cable-hip-adduction for everyone" "src/lib/program/past-knee.ts" || true
 restore_file "src/lib/program/past-knee.ts"
+
+# Mutant 25: Disable jump/plyo guard in generate.ts (item 12)
+restore_file "src/lib/program/generate.ts"
+sed -i '/PR #73 coordinator: ANY knee injury.*excludes jump\/plyometric/,/^  }$/s/if (input.anyKneeInjury && ex.impact === "high") {/if (false \&\& input.anyKneeInjury \&\& ex.impact === "high") {/' src/lib/program/generate.ts
+run_mutant "Disable jump/plyo guard for knee injuries" "src/lib/program/generate.ts" || true
+restore_file "src/lib/program/generate.ts"
 
 echo ""

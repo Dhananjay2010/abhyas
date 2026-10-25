@@ -157,23 +157,21 @@ console.log("\n2. High-impact leg exercise rule (data-driven from catalogue fiel
 {
   console.log(`    Expecting ${EXPECTED_HIGH_IMPACT_LEG_SLUGS.length} high-impact leg exercises`);
   
-  // TODO-PUSH2 item 12: high-impact leg exclusion count disabled pending implementation
-  // let highImpactLegExcluded = 0;
+  // All expected high-impact leg exercises must be excluded
+  let highImpactLegExcluded = 0;
   for (const slug of EXPECTED_HIGH_IMPACT_LEG_SLUGS) {
     const ex = bySlug.get(slug);
     if (!ex) {
       check(`${slug} (high impact leg) exists in catalogue`, false);
       continue;
     }
-    // TODO-PUSH2 item 12: high-impact leg check disabled pending implementation
-    // if (isExcludedForPastKnee(ex)) {
-    //   highImpactLegExcluded++;
-    // } else {
-    //   check(`${slug} (high impact leg) excluded`, false);
-    // }
+    if (isExcludedForPastKnee(ex)) {
+      highImpactLegExcluded++;
+    } else {
+      check(`${slug} (high impact leg) excluded`, false);
+    }
   }
-  // TODO-PUSH2: medicine-ball-scoop-throw aggregate check disabled pending item 12 implementation
-  // check(`All ${EXPECTED_HIGH_IMPACT_LEG_SLUGS.length} high-impact leg exercises excluded`, highImpactLegExcluded === EXPECTED_HIGH_IMPACT_LEG_SLUGS.length);
+  check(`All ${EXPECTED_HIGH_IMPACT_LEG_SLUGS.length} high-impact leg exercises excluded`, highImpactLegExcluded === EXPECTED_HIGH_IMPACT_LEG_SLUGS.length);
   
   // Explicit wired checks for jumping rule killing mutant 5
   const plyoPushUp = bySlug.get("plyo-push-up");
