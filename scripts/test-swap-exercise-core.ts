@@ -28,14 +28,28 @@ async function main() {
   const NEW_EXERCISE_ID = "new-exercise-id";
   const SESSION_ID = "session-123";
 
-  // Fake resolveSwapWeights that records which exercise id it received
+  // Fake resolveSwapWeights that records which exercise id and remembersWeights it received
   let capturedExerciseId: string | null = null;
+  let capturedRemembersWeights: boolean | null = null;
   const fakeResolveSwapWeights: SwapExerciseDeps["resolveSwapWeights"] = async (
-    _,
+    _sessionId,
     newExerciseId,
     equipmentIds,
+    _metric,
+    _movementPattern,
+    remembersWeights,
   ) => {
     capturedExerciseId = newExerciseId;
+    capturedRemembersWeights = remembersWeights;
+    // Return weights only when remembersWeights is true (simulates real behavior)
+    if (!remembersWeights) {
+      return {
+        weightPrefill: null,
+        workingWeightKg: null,
+        currentTargetReps: null,
+        isBodyweight: equipmentIds.length === 0,
+      };
+    }
     // Return distinct values so we can verify they're passed through unchanged
     return {
       weightPrefill: 42.5,
@@ -64,9 +78,10 @@ async function main() {
       goal: "muscle_gain" as const,
       level: "intermediate" as const,
     },
+    remembersWeights: true,
   };
 
-  console.log("Case 1: Normal swap with barbell exercise\n");
+  console.log("Case 1: remembersWeights=true (progression mode)\n");
 
   const result = await swapExerciseCore({ resolveSwapWeights: fakeResolveSwapWeights }, input);
 
@@ -75,6 +90,13 @@ async function main() {
     "S3: passes NEW exercise id (not old)",
     capturedExerciseId === NEW_EXERCISE_ID,
     `got ${capturedExerciseId}, expected ${NEW_EXERCISE_ID}`,
+  );
+
+  // Must forward remembersWeights flag correctly
+  check(
+    "forwards remembersWeights=true to dep",
+    capturedRemembersWeights === true,
+    `got ${capturedRemembersWeights}`,
   );
 
   // S1: Must return weightPrefill unchanged
@@ -91,9 +113,9 @@ async function main() {
     `got ${result.workingWeightKg}, expected 100`,
   );
 
-  // currentTargetReps: Must be passed through unchanged
+  // Must return currentTargetReps unchanged
   check(
-    "currentTargetReps passed through unchanged",
+    "returns currentTargetReps unchanged",
     result.currentTargetReps === 10,
     `got ${result.currentTargetReps}, expected 10`,
   );
@@ -105,9 +127,53 @@ async function main() {
     `got ${result.isBodyweight}`,
   );
 
-  console.log("\nCase 2: Bodyweight exercise\n");
+  console.log("\nCase 2: remembersWeights=false (daily_menu mode)\n");
 
   capturedExerciseId = null;
+  capturedRemembersWeights = null;
+  const noMemoryInput: SwapExerciseCoreInput = {
+    ...input,
+    remembersWeights: false,
+  };
+
+  const result2 = await swapExerciseCore({ resolveSwapWeights: fakeResolveSwapWeights }, noMemoryInput);
+
+  check(
+    "S3: passes NEW exercise id",
+    capturedExerciseId === NEW_EXERCISE_ID,
+    `got ${capturedExerciseId}`,
+  );
+
+  // Critical: must forward remembersWeights=false correctly
+  check(
+    "forwards remembersWeights=false to dep",
+    capturedRemembersWeights === false,
+    `got ${capturedRemembersWeights}`,
+  );
+
+  // When remembersWeights is false, fake returns null (simulating real behavior)
+  check(
+    "S1: returns null weightPrefill when remembersWeights=false",
+    result2.weightPrefill === null,
+    `got ${result2.weightPrefill}`,
+  );
+
+  check(
+    "S2: returns null workingWeightKg when remembersWeights=false",
+    result2.workingWeightKg === null,
+    `got ${result2.workingWeightKg}`,
+  );
+
+  check(
+    "returns null currentTargetReps when remembersWeights=false",
+    result2.currentTargetReps === null,
+    `got ${result2.currentTargetReps}`,
+  );
+
+  console.log("\nCase 3: Bodyweight exercise\n");
+
+  capturedExerciseId = null;
+  capturedRemembersWeights = null;
   const bodyweightInput: SwapExerciseCoreInput = {
     ...input,
     replacement: {
@@ -119,11 +185,15 @@ async function main() {
   };
 
   const fakeBWResolveSwapWeights: SwapExerciseDeps["resolveSwapWeights"] = async (
-    _,
+    _sessionId,
     newExerciseId,
     equipmentIds,
+    _metric,
+    _movementPattern,
+    remembersWeights,
   ) => {
     capturedExerciseId = newExerciseId;
+    capturedRemembersWeights = remembersWeights;
     return {
       weightPrefill: null,
       workingWeightKg: null,
@@ -138,6 +208,12 @@ async function main() {
     "S3: passes NEW exercise id for bodyweight",
     capturedExerciseId === NEW_EXERCISE_ID,
     `got ${capturedExerciseId}`,
+  );
+
+  check(
+    "forwards remembersWeights=true for bodyweight",
+    capturedRemembersWeights === true,
+    `got ${capturedRemembersWeights}`,
   );
 
   check(
@@ -162,7 +238,9 @@ async function main() {
   console.log("\nMutants covered:");
   console.log("  S3: passing OLD exercise id → FAILS S3 check");
   console.log("  S1: returning null weightPrefill → FAILS S1 check");
-  console.log("  S2: returning null workingWeightKg → FAILS S2 check\n");
+  console.log("  S2: returning null workingWeightKg → FAILS S2 check");
+  console.log("  remembersWeights plumbing: hardcoded true → FAILS case 2");
+  console.log("  remembersWeights plumbing: not forwarded → FAILS dep capture checks\n");
 }
 
 main().catch((e) => {

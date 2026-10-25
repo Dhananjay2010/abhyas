@@ -149,6 +149,7 @@ async function testResolveSwapWeights() {
     ["barbell"],
     "reps",
     "horizontal_press",
+    true,
   );
 
   check("Returns non-null prefill", result1.weightPrefill !== null, `got ${result1.weightPrefill}`);
@@ -165,10 +166,26 @@ async function testResolveSwapWeights() {
     ["barbell"],
     "reps",
     "horizontal_press",
+    true,
   );
 
   check("Non-deload prefill is higher", result2.weightPrefill! > result1.weightPrefill!, `${result2.weightPrefill} vs ${result1.weightPrefill}`);
   check("Working weight unchanged", result2.workingWeightKg === 100);
+
+  console.log("\nCase 2b: remembersWeights=false\n");
+  const result2b = await resolveSwapWeights(
+    adminClient,
+    userId,
+    normalSessionId,
+    newExerciseId,
+    ["barbell"],
+    "reps",
+    "horizontal_press",
+    false,
+  );
+
+  check("remembersWeights=false gives null prefill", result2b.weightPrefill === null, `got ${result2b.weightPrefill}`);
+  check("remembersWeights=false gives null working weight", result2b.workingWeightKg === null, `got ${result2b.workingWeightKg}`);
 
   console.log("\nCase 3: Never-done exercise (no progress or history)\n");
   const neverDoneId = randomUUID();
@@ -180,6 +197,7 @@ async function testResolveSwapWeights() {
     ["dumbbell"],
     "reps",
     "horizontal_pull",
+    true,
   );
 
   check("Prefill is null for never-done", result3.weightPrefill === null);
@@ -195,6 +213,7 @@ async function testResolveSwapWeights() {
     [],
     "reps",
     "vertical_press",
+    true,
   );
 
   check("Bodyweight flag set", result4.isBodyweight);
@@ -208,6 +227,7 @@ async function testResolveSwapWeights() {
     ["barbell"],
     "reps",
     "horizontal_press",
+    true,
   );
 
   check("Session error gives null prefill", result5.weightPrefill === null);
@@ -222,6 +242,7 @@ async function testResolveSwapWeights() {
     ["barbell"],
     "reps",
     "horizontal_press",
+    true,
   );
 
   check("Progress error gives null working weight", result6.workingWeightKg === null);
