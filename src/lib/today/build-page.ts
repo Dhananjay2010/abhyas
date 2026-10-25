@@ -204,27 +204,22 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
   const todayIndex = isoWeekday(localToday);
   const allSessions = allSessionsRes.data ?? [];
   const chosenByDayIndex = new Map<number, string>();
-  console.log(`[chosenByDayIndex] todayIndex=${todayIndex}, allSessions count=${allSessions.length}`);
   for (const d of days) {
     // The next time this weekday comes round, which is today for today
     const date = addDays(localToday, (d.day_index - todayIndex + 7) % 7);
-    console.log(`[chosenByDayIndex] Processing d.day_index=${d.day_index}, date=${date}`);
     const sess = allSessions.find(
       (x) =>
         x.local_date === date &&
         (x.status === "planned" || x.status === "in_progress") &&
         x.actual_type !== null,
     );
-    console.log(`[chosenByDayIndex]   sess found: ${!!sess}`);
     if (!sess?.actual_type) continue;
     const chosenDay = sess.program_day_id
       ? days.find((pd) => pd.id === sess.program_day_id)
       : undefined;
     const label = labelForDayType(sess.actual_type, chosenDay?.label ?? null);
-    console.log(`[chosenByDayIndex]   label=${label}, d.label=${d.label}, adding=${label !== d.label}`);
     if (label !== d.label) chosenByDayIndex.set(d.day_index, label);
   }
-  console.log(`[chosenByDayIndex] Final map:`, chosenByDayIndex);
 
   // Build today view
   const todayView = buildTodayView({
@@ -245,7 +240,7 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
   const { promptType, missedYesterday, isTraining, nextTrainingDay } = todayState;
 
   // Yesterday day info
-  const yesterdayIndex = new Date(yesterday + "T12:00:00Z").getDay() || 7;
+  const yesterdayIndex = isoWeekday(yesterday);
   const yesterdayDay = days.find((d) => d.day_index === yesterdayIndex) ?? null;
 
   // Build prompt blocks
