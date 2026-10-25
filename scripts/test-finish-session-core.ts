@@ -336,12 +336,17 @@ async function testFinishSessionNullDurationForNullStartedAt() {
     cooldownCompleted: true,
   });
 
-  assertEquals(result.ok, false, "finishSession with null started_at must return error");
-  if (!result.ok) {
-    assertTrue(result.error.includes("invalid timestamps"), "Error message must mention invalid timestamps");
+  assertTrue(result.ok, "finishSession with null started_at must succeed (owner decision: never error)");
+  if (result.ok) {
+    assertEquals(result.data.status, "completed", "Status must be completed");
   }
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
-  assertEquals(updateCall, undefined, "finishSession must NOT call update when timestamps invalid");
+  assertTrue(updateCall !== undefined, "finishSession must call update (saves completed_at=now, duration=null)");
+  if (updateCall && updateCall.patch) {
+    assertEquals(updateCall.patch.status, "completed", "Update must save completed status");
+    assertEquals(updateCall.patch.duration_seconds, null, "Duration must be null for invalid timestamps");
+    assertTrue(updateCall.patch.completed_at !== null && !String(updateCall.patch.completed_at).includes("1970"), "completed_at must be now (not 1970)");
+  }
 }
 
 async function testFinishSessionNullDurationForInvalidStartedAt() {
@@ -370,12 +375,17 @@ async function testFinishSessionNullDurationForInvalidStartedAt() {
     cooldownCompleted: true,
   });
 
-  assertEquals(result.ok, false, "finishSession with invalid started_at must return error");
-  if (!result.ok) {
-    assertTrue(result.error.includes("invalid timestamps"), "Error message must mention invalid timestamps");
+  assertTrue(result.ok, "finishSession with invalid started_at must succeed (owner decision)");
+  if (result.ok) {
+    assertEquals(result.data.status, "completed", "Status must be completed");
   }
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
-  assertEquals(updateCall, undefined, "finishSession must NOT call update when timestamps invalid");
+  assertTrue(updateCall !== undefined, "finishSession must call update (saves completed_at=now, duration=null)");
+  if (updateCall && updateCall.patch) {
+    assertEquals(updateCall.patch.status, "completed", "Update must save completed status");
+    assertEquals(updateCall.patch.duration_seconds, null, "Duration must be null for invalid timestamps");
+    assertTrue(updateCall.patch.completed_at !== null && !String(updateCall.patch.completed_at).includes("1970"), "completed_at must be now (not 1970)");
+  }
 }
 
 async function testFinishSessionNullDurationForInvalidLastSetTime() {
@@ -394,12 +404,17 @@ async function testFinishSessionNullDurationForInvalidLastSetTime() {
     cooldownCompleted: true,
   });
 
-  assertEquals(result.ok, false, "finishSession with invalid lastSet time must return error");
-  if (!result.ok) {
-    assertTrue(result.error.includes("invalid timestamps"), "Error message must mention invalid timestamps");
+  assertTrue(result.ok, "finishSession with invalid lastSet time must succeed (owner decision)");
+  if (result.ok) {
+    assertEquals(result.data.status, "completed", "Status must be completed");
   }
   const updateCall = fake.calls.find((c: Call) => c.method === "update");
-  assertEquals(updateCall, undefined, "finishSession must NOT call update when timestamps invalid");
+  assertTrue(updateCall !== undefined, "finishSession must call update (saves completed_at=now, duration=null)");
+  if (updateCall && updateCall.patch) {
+    assertEquals(updateCall.patch.status, "completed", "Update must save completed status");
+    assertEquals(updateCall.patch.duration_seconds, null, "Duration must be null for invalid timestamps");
+    assertTrue(updateCall.patch.completed_at !== null && !String(updateCall.patch.completed_at).includes("1970"), "completed_at must be now (not 1970)");
+  }
 }
 
 // --- Run all tests ---
