@@ -20,3 +20,36 @@ export function progressForPlanningMode(
   const remembersWeights = planningMode !== "daily_menu";
   return remembersWeights ? row : null;
 }
+
+/**
+ * Resolve swap result payload from raw progress and planning mode.
+ * 
+ * For daily_menu: returns null currentTargetReps (uses plan range)
+ * For progression: returns stored currentTargetReps
+ * 
+ * This is the core logic swapExercise uses to determine what to return.
+ */
+export function resolveSwapResultPayload(input: {
+  planningMode: string | null | undefined;
+  rawCurrentTargetReps: number | null;
+  rawWorkingWeightKg: number | null;
+  planRepsMin: number | null;
+  planRepsMax: number | null;
+}): {
+  currentTargetReps: number | null;
+  workingWeightKg: number | null;
+  repsMin: number | null;
+  repsMax: number | null;
+} {
+  const filteredProgress = progressForPlanningMode(input.planningMode, {
+    current_target_reps: input.rawCurrentTargetReps,
+    current_working_weight_kg: input.rawWorkingWeightKg,
+  });
+
+  return {
+    currentTargetReps: filteredProgress?.current_target_reps ?? null,
+    workingWeightKg: filteredProgress?.current_working_weight_kg ?? null,
+    repsMin: input.planRepsMin,
+    repsMax: input.planRepsMax,
+  };
+}

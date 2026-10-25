@@ -34,7 +34,7 @@ import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/
 import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { progressForPlanningMode } from "@/lib/session/swap-progress";
+import { progressForPlanningMode, resolveSwapResultPayload } from "@/lib/session/swap-progress";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -832,13 +832,6 @@ export async function swapExercise(input: {
     replacementRes.data?.movement_pattern ?? "other",
   );
 
-  // Filter target reps for daily_menu users (they don't remember weights/targets)
-  const filteredProgress = progressForPlanningMode(
-    settingsRes.data?.planning_mode,
-    { current_target_reps: currentTargetReps, current_working_weight_kg: workingWeightKg }
-  );
-  const filteredTargetReps = filteredProgress?.current_target_reps ?? null;
-
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
     in the exercise's own metric, so swapping eight-to-twelve reps for a hold
@@ -863,6 +856,16 @@ export async function swapExercise(input: {
 
   const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
   const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
+
+  // Filter target reps for daily_menu users (they don't remember weights/targets)
+  const swapPayload = resolveSwapResultPayload({
+    planningMode: settingsRes.data?.planning_mode,
+    rawCurrentTargetReps: currentTargetReps,
+    rawWorkingWeightKg: workingWeightKg,
+    planRepsMin: repsMin,
+    planRepsMax: repsMax,
+  });
+  const filteredTargetReps = swapPayload.currentTargetReps;
 
   const { error } = await supabase
     .from("session_exercises")

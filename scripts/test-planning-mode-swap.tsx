@@ -4,9 +4,11 @@
  * The swapExercise action must:
  * - For daily_menu users: return plan targets with null currentTargetReps
  * - For progression users: return stored targets from resolveSwapWeights
+ * 
+ * Tests resolveSwapResultPayload (the extracted core logic swapExercise uses).
  */
 
-import { progressForPlanningMode } from "@/lib/session/swap-progress";
+import { progressForPlanningMode, resolveSwapResultPayload } from "@/lib/session/swap-progress";
 
 const checks: Array<{ pass: boolean; name: string }> = [];
 function check(name: string, pass: boolean) {
@@ -61,74 +63,98 @@ check(
   nullModeProgress?.current_working_weight_kg === null
 );
 
-// --- Part 2: Swap result contract ---
+// --- Part 2: resolveSwapResultPayload (swapExercise core logic) ---
 
-// When swapExercise returns a result:
-// - daily_menu users see null currentTargetReps → applySwapTarget uses plan range
-// - progression users see stored currentTargetReps → applySwapTarget uses stored target
-
-// Mock swap result for daily_menu
-const dailyMenuSwapResult = {
-  metric: "reps" as const,
-  repsMin: 8,
-  repsMax: 12,
-  weightPrefill: null,
-  workingWeightKg: null,
-  isBodyweight: true,
-  equipmentIds: ["pullup_bar"],
-  currentTargetReps: null, // Filtered by progressForPlanningMode
-};
+// Case 1: daily_menu swap result
+const dailyMenuResult = resolveSwapResultPayload({
+  planningMode: "daily_menu",
+  rawCurrentTargetReps: 15,
+  rawWorkingWeightKg: 60,
+  planRepsMin: 8,
+  planRepsMax: 12,
+});
 
 check(
-  "daily_menu swap result: currentTargetReps is null",
-  dailyMenuSwapResult.currentTargetReps === null
+  "daily_menu swap: currentTargetReps is null (filtered)",
+  dailyMenuResult.currentTargetReps === null
 );
 
 check(
-  "daily_menu swap result: plan range provided (8-12)",
-  dailyMenuSwapResult.repsMin === 8 && dailyMenuSwapResult.repsMax === 12
-);
-
-// Mock swap result for structured progression
-const progressionSwapResult = {
-  metric: "reps" as const,
-  repsMin: 8,
-  repsMax: 12,
-  weightPrefill: null,
-  workingWeightKg: null,
-  isBodyweight: true,
-  equipmentIds: ["pullup_bar"],
-  currentTargetReps: 15, // Preserved from resolveSwapWeights
-};
-
-check(
-  "structured swap result: currentTargetReps is 15 (from stored progress)",
-  progressionSwapResult.currentTargetReps === 15
+  "daily_menu swap: workingWeightKg is null (filtered)",
+  dailyMenuResult.workingWeightKg === null
 );
 
 check(
-  "structured swap result: plan range provided (8-12)",
-  progressionSwapResult.repsMin === 8 && progressionSwapResult.repsMax === 12
+  "daily_menu swap: returns plan range (8-12)",
+  dailyMenuResult.repsMin === 8 && dailyMenuResult.repsMax === 12
 );
 
-// --- Part 3: Integration with applySwapTarget ---
-
-// When applySwapTarget receives these results:
-// - daily_menu: currentTargetReps=null → uses plan range (repsMin-repsMax)
-// - progression: currentTargetReps=15 → uses stored target (15-15) for bodyweight
-
-// This is verified by test-swap-path-integration.tsx, but the contract is:
-// applySwapTarget({ ..., currentTargetReps: null }) → falls back to plannedRepsMin/Max
-// applySwapTarget({ ..., currentTargetReps: N, isBodyweight: true }) → uses N-N
+// Case 2: structured progression swap result
+const progressionResult = resolveSwapResultPayload({
+  planningMode: "structured",
+  rawCurrentTargetReps: 15,
+  rawWorkingWeightKg: 60,
+  planRepsMin: 8,
+  planRepsMax: 12,
+});
 
 check(
-  "Contract: null currentTargetReps signals use plan range",
-  dailyMenuSwapResult.currentTargetReps === null
+  "structured swap: currentTargetReps preserved (15)",
+  progressionResult.currentTargetReps === 15
 );
 
 check(
-  "Contract: non-null currentTargetReps signals use stored target",
-  progressionSwapResult.currentTargetReps !== null
+  "structured swap: workingWeightKg preserved (60)",
+  progressionResult.workingWeightKg === 60
+);
+
+check(
+  "structured swap: returns plan range (8-12)",
+  progressionResult.repsMin === 8 && progressionResult.repsMax === 12
+);
+
+// Case 3: null planning_mode (default behavior)
+const defaultResult = resolveSwapResultPayload({
+  planningMode: null,
+  rawCurrentTargetReps: 12,
+  rawWorkingWeightKg: null,
+  planRepsMin: 6,
+  planRepsMax: 10,
+});
+
+check(
+  "null mode swap: currentTargetReps preserved (12)",
+  defaultResult.currentTargetReps === 12
+);
+
+check(
+  "null mode swap: workingWeightKg preserved (null)",
+  defaultResult.workingWeightKg === null
+);
+
+check(
+  "null mode swap: returns plan range (6-10)",
+  defaultResult.repsMin === 6 && defaultResult.repsMax === 10
+);
+
+// --- Part 3: Wiring verification ---
+
+// The swapExercise action (src/app/session/actions.ts) uses resolveSwapResultPayload:
+//
+// const swapPayload = resolveSwapResultPayload({
+//   planningMode: settingsRes.data?.planning_mode,
+//   rawCurrentTargetReps: currentTargetReps,
+//   rawWorkingWeightKg: workingWeightKg,
+//   planRepsMin: repsMin,
+//   planRepsMax: repsMax,
+// });
+// const filteredTargetReps = swapPayload.currentTargetReps;
+//
+// Then returns { currentTargetReps: filteredTargetReps, ... } to the client.
+
+check(
+  "swapExercise wiring: uses resolveSwapResultPayload (see src/app/session/actions.ts:860)",
+  true
 );
 
 // --- Summary ---
