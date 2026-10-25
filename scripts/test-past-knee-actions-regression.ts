@@ -1,14 +1,13 @@
 /**
- * Regression test: past-knee swap path in actions.ts must select secondary_muscles
+ * Regression test: past-knee swap path in actions.ts must select required columns
  * 
- * actions.ts has TWO exercises.select() queries:
- * - Pool query (~723): .from("exercises").select("...").in("movement_pattern", patterns)
- * - Inactive fallback (~741): .from("exercises").select("...").eq("id", current.exercise_id)
+ * actions.ts has exercise queries in swapExercise:
+ * - Replacement query: .from("exercises").select("...").eq("id", input.newExerciseId)
+ * - Current exercise query: .from("exercises").select("...").eq("id", current.exercise_id)
+ * - Pool query: .from("exercises").select("...").in("movement_pattern", patterns)
  * 
- * isHighImpactLegExercise loops over ex.secondary_muscles, throwing TypeError
- * when it's undefined. This test extracts BOTH column strings, asserts each contains
- * secondary_muscles, and runs isEligible/rankAlternatives on patterns with high-impact
- * exercises that have leg secondaries.
+ * QA (i): secondary_muscles is NOT needed since 66aea16. This test verifies
+ * the queries include necessary columns for isEligible/rankAlternatives without crashes.
  * 
  * npm run test:past-knee-actions-regression
  */
@@ -43,12 +42,15 @@ function check(label: string, ok: boolean, detail: string = ""): void {
   console.log(`  ${ok ? "ok  " : "FAIL"} ${label}${detail ? `  -- ${detail}` : ""}`);
 }
 
-console.log("\n1. Verify both actions.ts select columns extracted from source");
+console.log("\n1. Verify actions.ts select columns extracted from source");
 {
   console.log(`    Pool select: ${POOL_SELECT_COLUMNS.size} columns`);
-  check("Pool select includes secondary_muscles", POOL_SELECT_COLUMNS.has("secondary_muscles"));
+  // QA (i): secondary_muscles no longer needed since 66aea16
+  check("Pool select includes primary_muscles", POOL_SELECT_COLUMNS.has("primary_muscles"));
+  check("Pool select includes movement_pattern", POOL_SELECT_COLUMNS.has("movement_pattern"));
   console.log(`    Inactive select: ${INACTIVE_SELECT_COLUMNS.size} columns`);
-  check("Inactive select includes secondary_muscles", INACTIVE_SELECT_COLUMNS.has("secondary_muscles"));
+  check("Inactive select includes primary_muscles", INACTIVE_SELECT_COLUMNS.has("primary_muscles"));
+  check("Inactive select includes movement_pattern", INACTIVE_SELECT_COLUMNS.has("movement_pattern"));
 }
 
 console.log("\n2. Test with pool select columns (swap pool query)");

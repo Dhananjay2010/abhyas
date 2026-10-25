@@ -202,9 +202,9 @@ console.log("\n4. No-dumbbell user (barbell + squat_rack) with past knee");
   }
   
   if (foundLunge) {
-    // Barbell-only past-knee users should get tier-3 split squat (barbell-side-split-squat)
-    check("Barbell-only fallback is barbell-side-split-squat", lungeSlug === "barbell-side-split-squat",
-      `Expected barbell-side-split-squat, got ${lungeSlug}`);
+    // Barbell-only past-knee users should get barbell-step-ups (barbell-side-split-squat is banned in generate.ts ~441)
+    check("Barbell-only fallback is barbell-step-ups", lungeSlug === "barbell-step-ups",
+      `Expected barbell-step-ups, got ${lungeSlug}`);
     console.log(`  Barbell-only fallback: ${lungeSlug}`);
   } else {
     failures++;

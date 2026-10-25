@@ -807,7 +807,7 @@ export async function swapExercise(input: {
     */
     supabase
       .from("exercises")
-      .select("id, metric, mechanic, equipment_ids, movement_pattern, slug, primary_muscles, secondary_muscles, contraindicated_regions, impact, spinal_load, level_min, tracks, default_rest_seconds, category, name, cue")
+      .select("id, metric, mechanic, equipment_ids, movement_pattern, slug, primary_muscles, contraindicated_regions, impact, spinal_load, level_min, tracks, default_rest_seconds, category, name, cue")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("*").eq("id", user.id).single(),
