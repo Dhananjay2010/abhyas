@@ -4,6 +4,7 @@ import { getCachedEquipment } from "@/lib/supabase/cached-queries";
 import { SettingsForm, type SettingsState } from "./settings-form";
 import { getSiteInfo } from "@/lib/legal/site-info";
 import { SignOutButton } from "./signout-button";
+import { getSignOutButtonUserId } from "./settings-page-props";
 import { buildTimezoneOptions } from "@/lib/timezone-options";
 import { DEFAULT_SESSION_LENGTH } from "@/lib/onboarding/session-length";
 
@@ -102,7 +103,7 @@ export default async function SettingsPage() {
         <section>
           <h2 className="text-lg font-semibold mb-2">Account</h2>
           <div className="space-y-3">
-            <SignOutButton userId={user.id} />
+            <SignOutButton userId={getSignOutButtonUserId(user)} />
             <a
               href="/settings/delete-account"
               className="block rounded-xl border border-danger/30 bg-danger/10 px-6 py-3 text-sm font-medium text-danger transition-colors hover:bg-danger/20"

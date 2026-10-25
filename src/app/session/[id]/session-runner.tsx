@@ -40,6 +40,8 @@ import { createPendingSetDeps } from "@/lib/session/pending-set-deps";
 import { isFinishDisabled, getFinishButtonText } from "@/lib/session/finish-guard";
 import { getPendingUiMode, getReplayErrorMessage } from "@/lib/session/pending-ui-state";
 import { registerFocusRetry } from "@/lib/session/focus-retry";
+import { getPendingCountForExercise } from "@/lib/session/pending-count";
+import { shouldShowCooldownForPending, isEndEarlyDisabled } from "@/lib/session/session-finish-decisions";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -654,10 +656,10 @@ export function SessionRunner({
 
   const setsDone = current.sets.length;
   const allSetsDone = setsDone >= current.plannedSets;
-  // Count pending sets for this exercise to avoid reusing set_number values
-  const pendingSetsForExercise = pendingSetState.pending.filter(
-    (s) => s.sessionExerciseId === current.id
-  ).length;
+  const pendingSetsForExercise = getPendingCountForExercise(
+    pendingSetState.pending,
+    current.id
+  );
   const nextSetNumber = nextSetNumberFor(setsDone, pendingSetsForExercise);
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
@@ -804,8 +806,7 @@ export function SessionRunner({
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
-        // Guard: don't finish if sets are still pending
-        if (pendingSetState.pending.length > 0) {
+        if (shouldShowCooldownForPending(settings.cooldownEnabled, pendingSetState.pending.length)) {
           setPhase("cooldown");
           return;
         }
@@ -1128,7 +1129,7 @@ export function SessionRunner({
             </GhostButton>
           )}
           <GhostButton
-            disabled={busy || pendingSetState.pending.length > 0}
+            disabled={isEndEarlyDisabled(busy, pendingSetState.pending.length)}
             onClick={async () => {
               if (await run(() => actions.abandonSession(sessionId, elapsed))) {
                 if (onExit) onExit();
