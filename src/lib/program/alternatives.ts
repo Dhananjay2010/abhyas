@@ -1,7 +1,10 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
-import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
+import { pastKneeLungeTier, isPastKneeTier1LevelExempt } from "@/lib/program/past-knee-lunge-order";
+import { isExcludedForPastKnee, isExcludedForCurrentKneeOnly, shouldExcludeOlympicLift } from "@/lib/program/past-knee";
+import { PAST_KNEE_LUNGE_EXERCISES } from "@/lib/program/generate";
+
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -42,9 +45,12 @@ export function buildPatternList(
   const patterns: MovementPattern[] = [currentPattern];
   
   // For CURRENT knee injuries on lunge pattern, DON'T add squat fallback
-  // (would widen to barbell-squat, hack-squat, etc. which aren't on the knee-safe list)
-  // For PAST knee, DO add squat fallback (PAST_KNEE_LUNGE_EXERCISES are squat pattern)
-  const skipFallback = (hasCurrentKnee ?? hasKneeInjury) && currentPattern === "lunge";
+  // (current knee has NO lunges; would incorrectly widen swaps to barbell-squat, etc.)
+  // For PAST knee on lunge pattern, DO add squat fallback
+  // (past-knee lunge tier includes split squats and step-ups which are squat pattern)
+  // When hasCurrentKnee is undefined, treat hasKneeInjury as current knee (backwards compat)
+  const isCurrentKnee = (hasCurrentKnee === true) || (hasCurrentKnee === undefined && hasKneeInjury);
+  const skipFallback = isCurrentKnee && currentPattern === "lunge";
   
   if (!skipFallback) {
     // Add direct fallback (lunge↔squat)
@@ -190,7 +196,11 @@ export function rankAlternatives<T extends ExerciseRow>(
   
   const filtered: Array<{ 
     exercise: T; 
+    /** Ranked as on main but never returned (see "Subset rule" below). */
+    hidden: boolean;
     patternRank: number;
+    pastKneeTier: number;
+    squatPriority: number;
     equipmentScore: number;
     primaryScore: number; 
     impactPenalty: number;
@@ -205,6 +215,21 @@ export function rankAlternatives<T extends ExerciseRow>(
     // 2. Exclude dangerous/problematic exercises (hard-coded exclusion set)
     if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) continue;
     
+    // 2a. Item 14: Current knee exclusions include BOTH current-knee-only AND past-knee exclusions
+    // 2b. Past-knee exclusions (pistol squats, jumps, band/chain squats, thrusters, squat-jerk)
+    // 2c. Item 16: Olympic lifts excluded for beginners and injured members (same rule as generator)
+    const prExcluded =
+      (hasKneeInjury && (isExcludedForCurrentKneeOnly(candidate) || isExcludedForPastKnee(candidate))) ||
+      (hasPastKnee && isExcludedForPastKnee(candidate)) ||
+      shouldExcludeOlympicLift(candidate, { currentInjuryRegions: ctx.injuryRegions, anyKneeInjury: ctx.anyKneeInjury, level: ctx.level });
+    // Subset rule: past-knee members get the new past-knee ranking, so their
+    // exclusions apply before ranking. Everyone else must see main's list minus
+    // the newly excluded exercises -- a strict subset, never a backfill -- so
+    // for them an excluded exercise keeps its ranked slot and is dropped after
+    // the limit is applied.
+    if (prExcluded && hasPastKnee) continue;
+    const hidden = prExcluded;
+    
     // 3. Exclude pullovers when original is a compound pull
     // Pullovers are shoulder-extension moves and not appropriate substitutes
     if (isCompoundPull && !isPulloverOriginal) {
@@ -218,16 +243,27 @@ export function rankAlternatives<T extends ExerciseRow>(
     const patternRank = patternPriority.indexOf(candidate.movement_pattern);
     if (patternRank === -1) continue; // Not in our pattern list
     
-    // 4b. Past-knee lunge swaps: ONLY allow the 4-exercise quad list
+    // 4b. Past-knee lunge swaps: use tier ordering for lunge-pattern candidates (allow tier > 0)
+    // Item 10/Steer 2: Squat-pattern candidates allowed ONLY if in quad-isolation list (leg-extensions, wall-sit, etc.)
     if (hasPastKnee && current.movement_pattern === "lunge") {
-      if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
-        continue;
+      if (candidate.movement_pattern === "lunge") {
+        if (pastKneeLungeTier(candidate) === 0) {
+          continue;
+        }
+      } else if (candidate.movement_pattern === "squat") {
+        // Only allow squat-pattern if it's in the quad-isolation list
+        if (!PAST_KNEE_LUNGE_EXERCISES.has(candidate.slug)) {
+          continue;
+        }
       }
     }
     
     // 5. Level check: candidate level must be <= user level
-    const candidateLevelRank = LEVEL_ORDER[candidate.level_min];
-    if (candidateLevelRank > userLevelRank) continue;
+    // UNLESS: past-knee tier-1 (dumbbell-rear-lunge) for beginners
+    if (!isPastKneeTier1LevelExempt(candidate, ctx.anyKneeInjury ?? false, hasKneeInjury)) {
+      const candidateLevelRank = LEVEL_ORDER[candidate.level_min];
+      if (candidateLevelRank > userLevelRank) continue;
+    }
     
     // 6. Beginners never get high-impact (plyometric) moves
     if (ctx.level === "beginner" && candidate.impact === "high") continue;
@@ -283,9 +319,28 @@ export function rankAlternatives<T extends ExerciseRow>(
     // Penalty for high-impact moves (e.g., Lunge Sprint)
     const impactPenalty = candidate.impact === "high" ? 1 : 0;
     
+    // Past-knee lunge tier (lower = higher priority)
+    const pastKneeTier = (hasPastKnee && current.movement_pattern === "lunge") 
+      ? pastKneeLungeTier(candidate)
+      : 999;
+    
+    // Item 15: Past-knee squat ordering (barbell-squat after goblet, box, bodyweight, leg-press)
+    let squatPriority = 0;
+    if (hasPastKnee && current.movement_pattern === "squat" && candidate.movement_pattern === "squat") {
+      const preferredSquats = ["goblet-squat", "box-squat", "bodyweight-squat", "leg-press"];
+      if (preferredSquats.includes(candidate.slug)) {
+        squatPriority = -10; // High priority
+      } else if (candidate.slug === "barbell-squat") {
+        squatPriority = 10; // Lower priority (comes after preferred)
+      }
+    }
+    
     filtered.push({ 
       exercise: candidate, 
+      hidden,
       patternRank,
+      pastKneeTier,
+      squatPriority,
       equipmentScore,
       primaryScore,
       impactPenalty,
@@ -294,25 +349,30 @@ export function rankAlternatives<T extends ExerciseRow>(
     });
   }
   
-  // Sort: pattern priority, equipment fit, primary muscle, low impact penalty, generator score, hash
+  // Sort: pattern priority, past-knee tier, squat priority, equipment fit, primary muscle, low impact penalty, generator score, hash
   filtered.sort((a, b) => {
     // 1. Same pattern first
     if (a.patternRank !== b.patternRank) return a.patternRank - b.patternRank;
-    // 2. Equipment fit (higher = better)
+    // 2. Past-knee lunge tier (lower tier = higher priority)
+    if (a.pastKneeTier !== b.pastKneeTier) return a.pastKneeTier - b.pastKneeTier;
+    // 3. Item 15: Past-knee squat priority (lower = better)
+    if (a.squatPriority !== b.squatPriority) return a.squatPriority - b.squatPriority;
+    // 4. Equipment fit (higher = better)
     if (b.equipmentScore !== a.equipmentScore) return b.equipmentScore - a.equipmentScore;
-    // 3. Primary muscle match
+    // 5. Primary muscle match
     if (b.primaryScore !== a.primaryScore) return b.primaryScore - a.primaryScore;
-    // 4. Avoid high-impact
+    // 6. Avoid high-impact
     if (a.impactPenalty !== b.impactPenalty) return a.impactPenalty - b.impactPenalty;
-    // 5. Generator score
+    // 7. Generator score
     if (b.genScore !== a.genScore) return b.genScore - a.genScore;
-    // 6. Hash tiebreak
+    // 8. Hash tiebreak
     return a.tieBreak - b.tieBreak;
   });
   
   // Deduplicate AFTER sorting so the best-ranked variant wins
   const seen = new Map<string, boolean>();
   const deduplicated: T[] = [];
+  let slotsTaken = 0;
   
   for (const item of filtered) {
     const normalizedName = normalizeName(item.exercise.name);
@@ -321,10 +381,22 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (seen.has(dedupeKey)) continue;
     seen.set(dedupeKey, true);
     
-    deduplicated.push(item.exercise);
+    // A hidden (newly excluded) exercise still takes its slot: no backfill.
+    slotsTaken++;
+    if (!item.hidden) deduplicated.push(item.exercise);
     
     // Stop once we have enough
-    if (deduplicated.length >= limit) break;
+    if (slotsTaken >= limit) break;
+  }
+  
+  // QA Steer (k): Demote wall-sit to the end for past-knee squat swaps
+  // Wall-sit must never be index 0, and when 3+ items exist, it should be index >= 2
+  if (hasPastKnee && current.movement_pattern === "squat" && deduplicated.length >= 3) {
+    const wallSitIndex = deduplicated.findIndex(e => e.slug === "wall-sit");
+    if (wallSitIndex !== -1 && wallSitIndex < 2) {
+      const [wallSit] = deduplicated.splice(wallSitIndex, 1);
+      deduplicated.push(wallSit);
+    }
   }
   
   return deduplicated;
