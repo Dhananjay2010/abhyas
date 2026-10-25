@@ -17,6 +17,9 @@ import { RefetchOnResume } from "./refetch-on-resume";
 import { buildTodayRowsForProgram } from "@/lib/today/build-today-rows-for-program";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
+import { loadEndedEarlySummary } from "@/lib/session/load-ended-early-summary";
+import { StrengthDoneBanner } from "./strength-done-banner";
+import { pickLatestCompletedStrength } from "@/lib/today/pick-latest-completed-strength";
 import { WarmupSection } from "@/components/today/warmup-section";
 
 export const dynamic = "force-dynamic";
@@ -253,9 +256,8 @@ export default async function TodayPage() {
       (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
   const isTraining = dayType === "weights" || dayType === "bodyweight";
 
-  const strengthDone = todaySessions.some(
-    (s) => s.status === "completed" && isStrength(s.actual_type),
-  );
+  const completedStrengthSession = pickLatestCompletedStrength(todaySessions);
+  const strengthDone = completedStrengthSession !== undefined;
   // Resume detection: from loader (searches all sessions, not just today)
   const strengthOpen = sessionState.strengthOpen;
 
@@ -295,7 +297,6 @@ export default async function TodayPage() {
       (s) => s.status === "completed" && isStrength(s.actual_type),
     ),
   });
-
   // Only worth asking while today is still open to being changed.
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
@@ -304,7 +305,7 @@ export default async function TodayPage() {
   // only on a day following a missed one, the session's own exercises only once
   // a workout has been started. Run together so the uncommon day that needs
   // both still costs one round trip.
-  const [plannable, performedRows] = await Promise.all([
+  const [plannable, performedRows, endedEarlySummary] = await Promise.all([
     askAboutToday ? plannableDays(supabase, program.id) : Promise.resolve([]),
     performed
       ? supabase
@@ -315,6 +316,10 @@ export default async function TodayPage() {
           .select("order_index, planned_sets, planned_reps_min, planned_reps_max, rest_seconds, status, swapped_from_exercise_id, metric, exercises!session_exercises_exercise_id_fkey(name, cue)")
           .eq("session_id", performed.id)
           .order("order_index")
+      : Promise.resolve(null),
+    // Load ended-early summary for completed strength session
+    completedStrengthSession
+      ? loadEndedEarlySummary(supabase, completedStrengthSession.id)
       : Promise.resolve(null),
   ]);
 
@@ -426,7 +431,6 @@ export default async function TodayPage() {
         )}
       </header>
 
-
       {needsEquipment && (
         <p className="mt-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
           You have no equipment listed, so your plan is limited to what needs
@@ -504,14 +508,14 @@ export default async function TodayPage() {
                 </Link>
               </div>
             </div>
-          <DayPlanPrompt
-            localDate={localToday}
-            dayLabel="Today"
-            plannedLabel="Rest"
-            days={plannable}
-            heading="Or train today anyway"
-            intro="Pick what you'd like to do instead."
-          />
+            <DayPlanPrompt
+              localDate={localToday}
+              dayLabel="Today"
+              plannedLabel="Rest"
+              days={plannable}
+              heading="Or train today anyway"
+              intro="Pick what you'd like to do instead."
+            />
           </div>
         </>
       )}
@@ -551,9 +555,11 @@ export default async function TodayPage() {
       {isTraining && (
         <div className="mt-7">
           {strengthDone ? (
-            <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
-              Session complete. Well done.
-            </p>
+            <StrengthDoneBanner
+              endedEarly={endedEarlySummary?.endedEarly ?? false}
+              workingSets={endedEarlySummary?.workingSets ?? 0}
+              plannedSets={endedEarlySummary?.plannedSets ?? 0}
+            />
           ) : (() => {
             const resumeHref = previousDayResumeHref(strengthOpen, localToday);
             return resumeHref ? (
@@ -579,13 +585,52 @@ export default async function TodayPage() {
       )}
 
       {isTraining && (
-        <WarmupSection
-          todayExercises={todayExercises}
-          actual={performedRows?.data ?? null}
-          strengthDone={strengthDone}
-          isDeload={isDeload}
-          isTraining={isTraining}
-        />
+        <section className="mt-7">
+          {/*
+            The heading said "15 min warm-up", which is what SPEC section 7 asks
+            for and not what the session builds: five items totalling nine
+            minutes, with no ramp-up-sets phase. Naming a duration the app does
+            not deliver is worse than naming none.
+          */}
+          <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
+            {!(actual && actual.length > 0)
+              ? "Warm-up, then"
+              : strengthDone
+                ? "What you did"
+                : /* Started and left: the list is real, but it is not finished. */
+                  "Where you got to"}
+          </h2>
+          <ol className="space-y-2">
+            {todayExercises.map((row) => (
+              <li
+                key={row.key}
+                className="rounded-xl border border-border bg-surface px-4 py-3.5"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
+                    {row.name}
+                  </span>
+                  <span className="shrink-0 text-sm tabular-nums text-accent">
+                    {row.sets} × {row.repsMin}–{row.repsMax}
+                    {row.metric === "seconds" ? "s" : ""}
+                  </span>
+                </div>
+                {(row.swappedIn || row.skipped || (isDeload && isTraining && !row.skipped && !(actual && actual.length > 0))) && (
+                  <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
+                    {row.skipped ? "Skipped" : row.swappedIn ? "Swapped in" : "Deload"}
+                  </p>
+                )}
+                {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}
+                <p className="mt-1 text-xs text-muted">{row.restSeconds}s rest</p>
+              </li>
+            ))}
+          </ol>
+          {!(actual && actual.length > 0) && (
+            <p className="mt-4 text-center text-xs text-muted">
+              Warm-up is built from today&apos;s muscles and any joint you flagged.
+            </p>
+          )}
+        </section>
       )}
 
       {/*
