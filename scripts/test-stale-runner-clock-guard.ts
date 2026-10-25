@@ -40,14 +40,15 @@ async function runTests() {
 
   console.log("1. Fresh session (< 3 hours): displayElapsed returns actual elapsed");
   {
-    const startedAt = new Date(Date.now() - 90 * 60 * 1000).toISOString(); // 90 min ago
-    const now = new Date().toISOString();
+    // Use a fixed "now" time in the middle of the day to avoid day boundary issues
+    const now = new Date("2026-10-25T12:00:00Z").toISOString();
+    const startedAt = new Date("2026-10-25T10:30:00Z").toISOString(); // 90 min before now
     const timezone = "UTC";
 
     const stale = isStaleSession({ startedAt, now, timezone });
     assertEquals(stale, false, "Session is not stale");
 
-    const elapsed = Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000);
+    const elapsed = Math.floor((new Date(now).getTime() - new Date(startedAt).getTime()) / 1000);
     const display = displayElapsed(elapsed, stale);
     
     assertEquals(display, elapsed, "displayElapsed returns actual elapsed for non-stale");
