@@ -3,14 +3,12 @@
  * Test: Exact 20% cut is always clamped with equipment.
  * 
  * Proof that mutant (c) `> to >=` is equivalent:
- * An exact 20% cut with equipment is always clamped by Rule 2 or equipment constraints:
- * - Bodyweight: ceil(0.9*w) = w (holds at w)
- * - KB: no bell between 90% and 100% (holds at w)
- * - Medicine ball: smallest is equipment minimum
- * - Standard equipment: grid constraints clamp to w
+ * Grid step g: candidate w−g; an exact 20% cut means w=5g; RAW 0.9w=4.5g ceils to 5g=w, 
+ * so two-miss holds and Rule 2 holds the first miss. Kettlebells: the only adjacent 20% 
+ * pair is 10→8, and no bell lies in [9,10). No equipment: no Rule 1.
  */
 
-import { evaluateProgression, type ExerciseMeta, type ProgressState, type LoggedSet } from "../src/lib/program/progression.js";
+import { evaluateProgression, type ExerciseMeta, type ProgressState } from "../src/lib/program/progression.js";
 
 const CURL: ExerciseMeta = {
   mechanic: "isolation",

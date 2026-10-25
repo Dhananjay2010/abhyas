@@ -124,11 +124,9 @@ run_mutant \
   "export const FIRST_MISS_HOLD_THRESHOLD = 0.50;"
 
 # Mutant (c): > to >= - EQUIVALENT
-# Proof: An exact 20% cut with equipment is always clamped by Rule 2 or equipment constraints:
-# - Bodyweight w=5kg: ceil(0.9*5kg)=5kg (holds at w)
-# - KB 10kg->8kg: no bell in [9,10) so holds at 10kg
-# - Medicine ball w=5kg: smallest is 5kg
-# - No equipment: no Rule 1 at all
+# Proof: Grid step g: candidate w−g; an exact 20% cut means w=5g; RAW 0.9w=4.5g ceils to 5g=w, 
+# so two-miss holds and Rule 2 holds the first miss. Kettlebells: the only adjacent 20% pair is 
+# 10→8, and no bell lies in [9,10). No equipment: no Rule 1.
 # Therefore (c) is equivalent to the original and cannot be killed by tests.
 echo "Testing mutant: (c) > to >="
 echo "  ⚠️  EQUIVALENT: exact 20% cut always clamped (see script comment)"

@@ -391,9 +391,14 @@ export function evaluateProgression(input: {
 
   const bests = nextBest(sets, state, meta);
 
+  // Sanitize stored target: treat null, non-finite, or <= 0 as absent
+  const sanitizedTarget = (state.currentTargetReps != null && isFinite(state.currentTargetReps) && state.currentTargetReps > 0) 
+    ? state.currentTargetReps 
+    : null;
+
   const base = {
     nextWorkingWeightKg: state.currentWorkingWeightKg,
-    nextTargetReps: state.currentTargetReps ?? repsMax,
+    nextTargetReps: sanitizedTarget ?? repsMax,
     consecutiveFailures: state.consecutiveFailures,
     wantsHarderVariation: false,
     bestWeightKg: bests.bestWeightKg,
@@ -466,7 +471,7 @@ export function evaluateProgression(input: {
 
   // Success requires the full set count AND the top of the rep range on each.
   const completedAllSets = working.length >= plannedSets;
-  const target = heaviest === 0 ? (state.currentTargetReps ?? repsMax) : repsMax;
+  const target = heaviest === 0 ? (sanitizedTarget ?? repsMax) : repsMax;
   const hitTopOfRange = working.every((set) => (valueOf(set) ?? 0) >= target);
   const succeeded = completedAllSets && hitTopOfRange;
 
@@ -493,7 +498,7 @@ export function evaluateProgression(input: {
     if (heaviest === 0) {
       const canProgressVariation = meta.isBodyweight && meta.progressionChain !== null;
       const step = isTimed ? HOLD_STEP_SECONDS : 2;
-      const nextTarget = (state.currentTargetReps ?? repsMax) + step;
+      const nextTarget = (sanitizedTarget ?? repsMax) + step;
       // Reps run out of usefulness relative to the range they started in; a
       // hold runs out at an absolute length, whatever it was prescribed at.
       const ceiling = isTimed ? HOLD_CEILING_SECONDS : repsMax + 4;
@@ -814,7 +819,7 @@ export function evaluateProgression(input: {
     ...carried,
     outcome: "hold",
     nextWorkingWeightKg: nextWeight,
-    nextTargetReps: state.currentTargetReps ?? repsMax,
+    nextTargetReps: sanitizedTarget ?? repsMax,
     consecutiveFailures: failures,
     message,
   };

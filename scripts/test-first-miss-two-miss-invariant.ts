@@ -88,7 +88,6 @@ const mechanics: Array<{meta: ExerciseMeta, name: string}> = [
 ];
 
 let totalTests = 0;
-let violations = 0;
 
 console.log("=== First-Miss >= Two-Miss Invariant: Full Grid ===");
 console.log(`Testing ${equipmentSets.length} equipment sets × ${units.length} units × ${mechanics.length} mechanics × ${testWeights.length} weights`);
@@ -132,7 +131,6 @@ for (const { ids, name } of equipmentSets) {
         const twoW = twoMiss.nextWorkingWeightKg ?? 0;
         
         if (firstW < twoW - 0.001) {
-          violations++;
           console.log(`VIOLATION: ${name} ${mechanicName} ${weight} kg (${unit})`);
           console.log(`  First-miss: ${firstW} kg`);
           console.log(`  Two-miss:   ${twoW} kg`);

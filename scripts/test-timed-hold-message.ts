@@ -142,4 +142,102 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
   check("Weighted barbell currentTargetReps=12, repsMax=10, 4x10 → progressed (weighted uses repsMax)", result.outcome === "progressed");
 }
 
+// C-2: stored target 0 behaves like null for timed hold
+{
+  const result = evaluateProgression({
+    sets: [makeSet(40), makeSet(40), makeSet(40)],
+    plannedSets: 3,
+    repsMin: 20,
+    repsMax: 40,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: PLANK,
+    state: fresh({ currentTargetReps: 0, currentWorkingWeightKg: null }),
+    isDeload: false,
+  });
+  
+  check("C-2: stored target 0 behaves like null for timed hold (3x40s → 45s)", result.outcome === "progressed" && result.nextTargetReps === 45);
+}
+
+// C-2: stored target -5 behaves like null for timed hold
+{
+  const result = evaluateProgression({
+    sets: [makeSet(40), makeSet(40), makeSet(40)],
+    plannedSets: 3,
+    repsMin: 20,
+    repsMax: 40,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: PLANK,
+    state: fresh({ currentTargetReps: -5, currentWorkingWeightKg: null }),
+    isDeload: false,
+  });
+  
+  check("C-2: stored target -5 behaves like null for timed hold (3x40s → 45s)", result.outcome === "progressed" && result.nextTargetReps === 45);
+}
+
+// C-2: stored target 0 behaves like null for reps exercise
+{
+  const PUSHUP: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "horizontal_press",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  
+  const result = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 0 },
+      { reps: 12, weightKg: 0 },
+      { reps: 12, weightKg: 0 },
+    ],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: PUSHUP,
+    state: fresh({ currentTargetReps: 0, currentWorkingWeightKg: 0 }),
+    isDeload: false,
+  });
+  
+  check("C-2: stored target 0 behaves like null for reps exercise (3x12 → 14 reps)", result.outcome === "progressed" && result.nextTargetReps === 14);
+}
+
+// C-2: stored target -5 behaves like null for reps exercise
+{
+  const PUSHUP: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "horizontal_press",
+    isBodyweight: true,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  
+  const result = evaluateProgression({
+    sets: [
+      { reps: 12, weightKg: 0 },
+      { reps: 12, weightKg: 0 },
+      { reps: 12, weightKg: 0 },
+    ],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    feel: "right",
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: PUSHUP,
+    state: fresh({ currentTargetReps: -5, currentWorkingWeightKg: 0 }),
+    isDeload: false,
+  });
+  
+  check("C-2: stored target -5 behaves like null for reps exercise (3x12 → 14 reps)", result.outcome === "progressed" && result.nextTargetReps === 14);
+}
+
 console.log("\n✅ All timed-hold message tests passed\n");
