@@ -10,10 +10,10 @@
  * npm run test:past-knee
  */
 import { readFileSync } from "node:fs";
-import { generateProgram, score, hashString, isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, score, hashString, isEligible, KNEE_SAFE_QUAD_EXERCISES, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, buildPatternList, type AlternativesContext } from "../src/lib/program/alternatives";
-import { isExcludedForPastKnee } from "../src/lib/program/past-knee";
-import { selectWarmup, type WarmupRow } from "../src/lib/program/warmup";
+import { isExcludedForPastKnee, getPastKneeExcludedSlugs, getCurrentKneeOnlyExcludedSlugs } from "../src/lib/program/past-knee";
+import { selectWarmup, buildWarmupInput, type WarmupRow } from "../src/lib/program/warmup";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));
 const warmupFixture: WarmupRow[] = JSON.parse(readFileSync(__dirname + "/fixtures/warmups.json", "utf8"));
@@ -584,8 +584,6 @@ console.log("\n6. Goblet squat OR-logic: dumbbell-only past-knee vs healthy");
 
 console.log("\n7. Item 14: Thruster/push press/kettlebell jerk tier rules");
 {
-  // Import the functions to get the exclusion lists
-  const { getPastKneeExcludedSlugs, getCurrentKneeOnlyExcludedSlugs } = require("../src/lib/program/past-knee");
   const pastKneeExcluded = getPastKneeExcludedSlugs();
   const currentKneeOnlyExcluded = getCurrentKneeOnlyExcludedSlugs();
   
@@ -622,8 +620,6 @@ console.log("\n7. Item 14: Thruster/push press/kettlebell jerk tier rules");
   const kbThruster = bySlug.get("kettlebell-thruster");
   
   if (kbPushPress && kbJerk && kbThruster) {
-    const { isEligible } = require("../src/lib/program/generate");
-    
     // Current knee: push press and jerk banned, thruster banned
     check("Current knee: double-kettlebell-push-press BANNED", !isEligible(kbPushPress, currentKneeInput));
     check("Current knee: double-kettlebell-jerk BANNED", !isEligible(kbJerk, currentKneeInput));
@@ -678,7 +674,7 @@ console.log("\n7. Item 14: Thruster/push press/kettlebell jerk tier rules");
 
 console.log("\n8. Item 14: Monotonicity test (every past-knee-banned is also current-knee-banned)");
 {
-  const { getPastKneeExcludedSlugs, getCurrentKneeOnlyExcludedSlugs } = require("../src/lib/program/past-knee");
+  
   const pastKneeExcluded = getPastKneeExcludedSlugs();
   const currentKneeOnlyExcluded = getCurrentKneeOnlyExcludedSlugs();
   
@@ -697,7 +693,7 @@ console.log("\n8. Item 14: Monotonicity test (every past-knee-banned is also cur
       equipmentIds: ex.equipment_ids.length > 0 ? ex.equipment_ids : ["barbell"],
     });
     
-    const { isEligible } = require("../src/lib/program/generate");
+    
     const bannedForCurrent = !isEligible(ex, currentKneeInput);
     
     check(`Monotonicity: ${slug} banned for current knee (since it's banned for past)`, bannedForCurrent,
@@ -709,7 +705,7 @@ console.log("\n8. Item 14: Monotonicity test (every past-knee-banned is also cur
 
 console.log("\n9. Item 15: Past-knee squat rule - banned exercises");
 {
-  const { getPastKneeExcludedSlugs } = require("../src/lib/program/past-knee");
+  
   const pastKneeExcluded = getPastKneeExcludedSlugs();
   
   // Banned for past knee (and current knee via monotonicity)
@@ -736,7 +732,7 @@ console.log("\n9. Item 15: Past-knee squat rule - banned exercises");
         anyKneeInjury: true,
         equipmentIds: ex.equipment_ids.length > 0 ? ex.equipment_ids : ["barbell"],
       });
-      const { isEligible } = require("../src/lib/program/generate");
+      
       check(`Item 15: ${slug} BANNED for past knee`, !isEligible(ex, pastKneeInput));
     }
   }
@@ -753,7 +749,7 @@ console.log("\n9. Item 15: Past-knee squat rule - banned exercises");
         anyKneeInjury: true,
         equipmentIds: ex.equipment_ids.length > 0 ? ex.equipment_ids : ["barbell", "squat_rack"],
       });
-      const { isEligible } = require("../src/lib/program/generate");
+      
       check(`Item 15: ${slug} ALLOWED for past knee`, isEligible(ex, pastKneeInput));
     }
   }
@@ -767,7 +763,7 @@ console.log("\n9. Item 15: Past-knee squat rule - banned exercises");
       anyKneeInjury: true,
       equipmentIds: ["barbell"],
     });
-    const { isEligible } = require("../src/lib/program/generate");
+    
     check(`Item 15: barbell-deadlift ALLOWED for past knee`, isEligible(floorDeadlift, pastKneeInput));
   }
 }
@@ -818,7 +814,7 @@ console.log("\n11. Item 13: Current-knee 4-move quad list enforced in CODE (not 
   // Strip contraindicated_regions tags from a test copy of the catalogue
   const strippedCatalogue = catalogue.map(e => ({ ...e, contraindicated_regions: [] }));
   
-  const { KNEE_SAFE_QUAD_EXERCISES, isEligible } = require("../src/lib/program/generate");
+  
   const kneeSafeQuadSlugs = Array.from(KNEE_SAFE_QUAD_EXERCISES) as string[];
   
   console.log(`    Hardcoded KNEE_SAFE_QUAD_EXERCISES: ${kneeSafeQuadSlugs.join(", ")}`);
@@ -865,7 +861,7 @@ console.log("\n11. Item 13: Current-knee 4-move quad list enforced in CODE (not 
 
 console.log("\n12. Item 8: Warm-up input builder and past-knee exclusions");
 {
-  const { buildWarmupInput, selectWarmup } = require("../src/lib/program/warmup");
+  
   const warmupFixture = JSON.parse(readFileSync(__dirname + "/fixtures/warmups.json", "utf8"));
   
   // Test buildWarmupInput with past knee injury
@@ -890,15 +886,15 @@ console.log("\n12. Item 8: Warm-up input builder and past-knee exclusions");
   
   // Test warm-up selection excludes past-knee problematic moves
   const warmup = selectWarmup(warmupInput);
-  const warmupSlugs = warmup.map((w: any) => w.slug);
+  const warmupSlugs = warmup.map((w) => w.slug);
   
   check("Item 8: walking-lunge NOT in past-knee warmup", !warmupSlugs.includes("walking-lunge"));
   check("Item 8: skipping-light NOT in past-knee warmup", !warmupSlugs.includes("skipping-light"));
   check("Item 8: worlds-greatest NOT in past-knee warmup", !warmupSlugs.includes("worlds-greatest"));
   
   // Test that instructions don't contain "full depth" for knee injuries
-  const hasFullDepth = warmup.some((w: any) => 
-    w.instructions.some((inst: string) => inst.toLowerCase().includes("full depth"))
+  const hasFullDepth = warmup.some((w: WarmupRow) => 
+    w.instructions && w.instructions.some((inst: string) => inst.toLowerCase().includes("full depth"))
   );
   check("Item 8: no 'full depth' instructions for past-knee warmup", !hasFullDepth);
   
