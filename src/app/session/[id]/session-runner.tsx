@@ -330,8 +330,7 @@ export function SessionRunner({
         };
       });
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- setExercises is stable (wrapped in useCallback with empty deps array wrapping stable dispatch)
-  }, [pendingSetState.replayed]);
+  }, [pendingSetState.replayed, setExercises]);
 
   // ---- rest timer -------------------------------------------------------
   const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
