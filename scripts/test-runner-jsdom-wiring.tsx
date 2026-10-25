@@ -399,9 +399,7 @@ console.log("\n4. Offline error shows runnerErrorMessage text, no unhandled reje
   const clock = createFakeClock(Date.parse("2026-10-25T12:00:00Z"));
   let unhandledRejections = 0;
 
-  const originalHandler = process.listeners("unhandledRejection")[0] as
-    | ((...args: unknown[]) => void)
-    | undefined;
+  const originalHandler = process.listeners("unhandledRejection").at(0);
   const testHandler = () => { unhandledRejections++; };
   process.removeAllListeners("unhandledRejection");
   process.on("unhandledRejection", testHandler);
