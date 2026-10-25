@@ -9,6 +9,7 @@
 
 import { buildTodayView } from "../src/lib/today/page-helpers";
 
+import { assertDefined } from "./test-helpers";
 function assert(condition: boolean, message: string) {
   if (!condition) {
     console.error(`❌ FAIL: ${message}`);
@@ -78,11 +79,11 @@ const m6bResult = buildTodayView({
 
 const day3Row = m6bResult.weekRowsWithChoices.find((r) => r.dayIndex === 3);
 assert(day3Row !== undefined, "Day 3 row exists");
-assert(day3Row!.label === "Upper", "Day 3 shows chosen label 'Upper'");
-assert(day3Row!.isChoice === true, "Day 3 is marked as choice");
+assert(assertDefined(day3Row, 'day3Row').label === "Upper", "Day 3 shows chosen label 'Upper'");
+assert(assertDefined(day3Row, 'day3Row').isChoice === true, "Day 3 is marked as choice");
 
 const day2Row = m6bResult.weekRowsWithChoices.find((r) => r.dayIndex === 2);
-assert(day2Row!.label === "Push", "Day 2 (unchosen) shows template label 'Push'");
-assert(day2Row!.isChoice === false, "Day 2 is not marked as choice");
+assert(assertDefined(day2Row, 'day2Row').label === "Push", "Day 2 (unchosen) shows template label 'Push'");
+assert(assertDefined(day2Row, 'day2Row').isChoice === false, "Day 2 is not marked as choice");
 
 console.log("\n✅ All page helper tests passed (m2, m4, m6b killed)\n");

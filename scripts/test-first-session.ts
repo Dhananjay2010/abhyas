@@ -12,6 +12,7 @@ import { findFirstTrainingDay } from "../src/lib/today/first-training-day";
 import { todayPromptBlocks } from "../src/lib/today/prompt-blocks";
 import { isMissedTrainingDay } from "../src/lib/today/missed-day";
 
+import { assertDefined } from "./test-helpers";
 function assert(condition: boolean, message: string) {
   if (!condition) {
     console.error(`❌ FAIL: ${message}`);

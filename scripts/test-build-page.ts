@@ -14,6 +14,7 @@
 
 import { buildPage } from "../src/lib/today/build-page";
 
+import { assertDefined } from "./test-helpers";
 function assert(condition: boolean, message: string) {
   if (!condition) {
     console.error(`❌ FAIL: ${message}`);
@@ -386,12 +387,12 @@ assert(
 );
 
 assert(
-  tuesdayRow!.label === "Pull",
-  `Tomorrow choice shows label "Pull", got "${tuesdayRow!.label}"`
+  assertDefined(tuesdayRow, 'tuesdayRow').label === "Pull",
+  `Tomorrow choice shows label "Pull", got "${assertDefined(tuesdayRow, 'tuesdayRow').label}"`
 );
 
 assert(
-  tuesdayRow!.isChoice === true,
+  assertDefined(tuesdayRow, 'tuesdayRow').isChoice === true,
   "Tomorrow choice has isChoice=true"
 );
 
@@ -399,7 +400,7 @@ assert(
 const mondayRow = result7.todayView.weekRowsWithChoices.find(r => r.dayIndex === 1);
 
 assert(
-  mondayRow!.label === "Push" && mondayRow!.isChoice === false,
+  assertDefined(mondayRow, 'mondayRow').label === "Push" && assertDefined(mondayRow, 'mondayRow').isChoice === false,
   "Monday (today) shows template with no choice"
 );
 
