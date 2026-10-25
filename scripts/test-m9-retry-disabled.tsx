@@ -42,6 +42,7 @@ const deps = createPendingSetDeps(FIXED_TIME);
 console.log("\n🧪 M9 TEST: Retry button disabled while retrying\n");
 
 let logSetCalls = 0;
+let logSetResolve: (() => void) | null = null;
 
 const exercise: RunnerExercise = {
   id: "ex-1",
@@ -78,9 +79,9 @@ const actions: SessionActions = {
   markWarmupDone: async () => ({ ok: true }),
   logSet: async () => {
     logSetCalls++;
-    // Return a promise that hangs indefinitely to simulate slow network
-    return new Promise(() => {
-      // Never resolves
+    // Return a deferred promise to hold "retrying" state
+    return new Promise<{ ok: true; data: { setId: string } }>((resolve) => {
+      logSetResolve = () => resolve({ ok: true, data: { setId: "set-1" } });
     });
   },
   deleteSet: async () => ({ ok: true }),
@@ -91,9 +92,9 @@ const actions: SessionActions = {
   refreshAfterSession: async () => ({ ok: true }),
   swapExercise: async () => ({ ok: true, data: { workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
   findAlternatives: async () => ({ ok: true, data: [] }),
-} as unknown as SessionActions;
+};
 
-async function runTest() {
+function runTest() {
   render(
     <SessionRunner
       sessionId="test-session"
@@ -118,32 +119,27 @@ async function runTest() {
     />
   );
 
-  // Wait for retry button to appear
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 100));
-  });
-
   const retryButton = screen.queryByText(/Retry saving/i);
-  assert(!!retryButton, "Retry button found");
-  assert(!(retryButton as HTMLButtonElement).disabled, "Retry button initially enabled");
+  assert(retryButton !== null, "Retry button found");
+  assert(retryButton instanceof HTMLButtonElement, "Retry button is HTMLButtonElement");
+  assert(!retryButton.disabled, "Retry button initially enabled");
 
   // Click retry
-  await act(async () => {
-    fireEvent.click(retryButton!);
-    await new Promise(resolve => setTimeout(resolve, 50));
+  act(() => {
+    fireEvent.click(retryButton);
   });
 
   assert(logSetCalls === 1, "logSet called once after clicking Retry");
 
   // Button should now be disabled while retrying
-  const retryButtonDuringReplay = screen.queryByText(/Saving.*set/i);
-  assert(!!retryButtonDuringReplay, "M9: Button shows 'Saving...' text while retrying");
-  assert((retryButtonDuringReplay as HTMLButtonElement).disabled, "M9: Button is disabled while retrying");
+  const savingButton = screen.queryByText(/Saving.*set/i);
+  assert(savingButton !== null, "M9: Button shows 'Saving...' text while retrying");
+  assert(savingButton instanceof HTMLButtonElement, "M9: Saving button is HTMLButtonElement");
+  assert(savingButton.disabled, "M9: Button is disabled while retrying");
 
   // Try to click again (should be blocked)
-  await act(async () => {
-    fireEvent.click(retryButtonDuringReplay!);
-    await new Promise(resolve => setTimeout(resolve, 50));
+  act(() => {
+    fireEvent.click(savingButton);
   });
 
   assert(logSetCalls === 1, "M9: logSet NOT called again (button disabled prevents double-click)");
@@ -152,7 +148,9 @@ async function runTest() {
   process.exit(0);
 }
 
-runTest().catch((e) => {
+try {
+  runTest();
+} catch (e) {
   console.error("\n❌ M9 TEST FAILED:", e);
   process.exit(1);
-});
+}

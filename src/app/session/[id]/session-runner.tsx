@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { nextSetNumberFor } from "@/lib/session/next-set-number";
+import { nextSetTarget } from "@/lib/session/resume-state";
 import type { Database } from "@/lib/database.types";
 import type { WarmupItem } from "@/lib/program/warmup";
 import {
@@ -791,11 +791,12 @@ export function SessionRunner({
 
   const setsDone = current.sets.length;
   const allSetsDone = setsDone >= current.plannedSets;
-  const pendingSetsForExercise = getPendingCountForExercise(
-    pendingSetState.pending,
-    current.id
+  const nextSetNumberTarget = nextSetTarget(
+    exercises,
+    current.id,
+    pendingSetState.pending
   );
-  const nextSetNumber = nextSetNumberFor(setsDone, pendingSetsForExercise);
+  const nextSetNumber = nextSetNumberTarget?.setNumber ?? 1;
   // Prefer a weight already logged this session; otherwise start from where
   // progression left this lift (reduced during a deload week).
   const lastWeight =

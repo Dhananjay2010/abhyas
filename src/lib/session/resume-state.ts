@@ -78,14 +78,14 @@ export function nextSetTarget<T extends ResumeExercise>(
   const exercise = exercises.find((e) => e.id === displayedExerciseId);
   if (!exercise || exercise.status !== "pending") return null;
   
-  // Count confirmed sets
-  const confirmedCount = exercise.sets.length;
+  // Find the highest set number from confirmed sets and pending sets for THIS exercise
+  const highest = Math.max(
+    0,
+    ...exercise.sets.map((s) => s.setNumber),
+    ...(pendingSets ?? [])
+      .filter((p) => p.sessionExerciseId === exercise.id)
+      .map((p) => p.setNumber),
+  );
   
-  // Count pending sets for THIS exercise
-  const pendingCount = (pendingSets || [])
-    .filter(p => p.sessionExerciseId === exercise.id)
-    .length;
-  
-  // Next set number is total confirmed + pending + 1
-  return { sessionExerciseId: exercise.id, setNumber: confirmedCount + pendingCount + 1 };
+  return { sessionExerciseId: exercise.id, setNumber: highest + 1 };
 }
