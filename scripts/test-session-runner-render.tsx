@@ -98,13 +98,12 @@ function createDeferred<T>(): Deferred<T> {
 
 // Fake timer for tests - calls callbacks immediately
 const fakeTimer: RunnerTimer = {
-  setTimeout: (callback: () => void, _ms: number) => {
-    // Call immediately for deterministic tests
+  setTimeout: (callback: () => void) => {
     callback();
     return 0;
   },
-  clearTimeout: (_id: number | NodeJS.Timeout) => {
-    // No-op
+  clearTimeout: () => {
+    // no-op
   },
 };
 
@@ -269,8 +268,7 @@ async function test1b1d() {
   }
   
   assert(logSetCalls.length === 1, "logSet called once after click");
-  console.log("  [DEBUG] Logged set number:", logSetCalls[0].setNumber);
-  assert(logSetCalls[0].setNumber === 3, `logSet called with setNumber: 3 (accounting for 2 pending sets), got ${logSetCalls[0].setNumber}`);
+  assert(logSetCalls[0].setNumber === 3, "logSet called with setNumber: 3 (accounting for 2 pending sets)");
   
   fakeStorage.clear();
 }
@@ -606,7 +604,6 @@ async function test8d8e() {
   let listenerCallCount = 0;
   
   const logSetCalls: unknown[] = [];
-  let replayCount = 0;
   
   const mockAddEventListener = (type: string, handler: () => void) => {
     listenerCallCount++;
@@ -629,7 +626,6 @@ async function test8d8e() {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async (input) => {
       logSetCalls.push(input);
-      replayCount++;
       // All replays succeed - we just want to verify handlers trigger replays
       return { ok: true };
     },
