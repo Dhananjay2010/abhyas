@@ -121,14 +121,6 @@ export function buildTrainAnywayDays({
     const day = availableDays.find((d) => d.day_index === dayIndex);
     if (!day) continue;
     
-    // For rest day Lift option, only include days in the same cycle week
-    if (isRestDay && program && todayCycleWeek !== null && isTrainingDay(day.day_type)) {
-      const futureDate = addDays(localToday, offset);
-      const futureCycleWeek = cycleWeekFor(program, futureDate);
-      if (futureCycleWeek !== todayCycleWeek) {
-        continue; // Skip strength days in future cycle weeks
-      }
-    }
     
     upcomingDays.push({
       day_index: day.day_index,
