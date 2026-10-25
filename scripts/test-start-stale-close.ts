@@ -481,6 +481,149 @@ async function testRemainingCheckFiltersStatus() {
   console.log("✓ Test (f): Remaining-check filters status=in_progress");
 }
 
+/**
+ * Test (B2): Second user's in_progress row is not closed (user_id filter)
+ */
+async function testSecondUserNotClosed() {
+  const USER_TWO = "user-two";
+  
+  const userOneSession: Session = {
+    id: "sess-user-one",
+    user_id: USER_ID,
+    program_id: "prog-1",
+    program_day_id: "day-1",
+    local_date: YESTERDAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
+    actual_type: "weights",
+    status: "in_progress",
+    started_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(), // 8h ago
+    completed_at: null,
+    created_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+    updated_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+  };
+
+  const userTwoSession: Session = {
+    id: "sess-user-two",
+    user_id: USER_TWO,
+    program_id: "prog-1",
+    program_day_id: "day-1",
+    local_date: YESTERDAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
+    actual_type: "weights",
+    status: "in_progress",
+    started_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(), // 8h ago
+    completed_at: null,
+    created_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+    updated_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+  };
+
+  const sessions = [userOneSession, userTwoSession];
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+  });
+
+  // Only userOneSession is in openSessions
+  const openSessions: OpenSession[] = [{
+    id: userOneSession.id,
+    status: userOneSession.status,
+    local_date: userOneSession.local_date,
+    actual_type: userOneSession.actual_type,
+    started_at: userOneSession.started_at,
+  }];
+
+  const deps = buildStartSessionStaleDeps(client, USER_ID, openSessions, TODAY, NOW_MS);
+  const result = await startSessionStaleCore(deps);
+
+  if (!result.ok) {
+    throw new Error(`Test (B2) failed: ${result.error}`);
+  }
+  if (!result.shouldInsert) {
+    throw new Error(`Test (B2) failed: Expected shouldInsert=true, got false`);
+  }
+  if (sessions[0].status === "in_progress") {
+    throw new Error(`Test (B2) failed: user one's session should be closed`);
+  }
+  if (sessions[1].status !== "in_progress") {
+    throw new Error(`Test (B2) failed: user two's session should remain in_progress`);
+  }
+
+  console.log("✓ Test (B2): Second user's in_progress row not closed (user_id filter works)");
+}
+
+/**
+ * Test (B5): today parameter changes the outcome
+ * 
+ * If today is YESTERDAY, then the session is same-date (not stale candidate).
+ * If today is TODAY, then the session is cross-date (stale candidate, closed).
+ */
+async function testTodayChangesOutcome() {
+  const sessionOnYesterday: Session = {
+    id: "sess-yesterday",
+    user_id: USER_ID,
+    program_id: "prog-1",
+    program_day_id: "day-1",
+    local_date: YESTERDAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
+    actual_type: "weights",
+    status: "in_progress",
+    started_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(), // 8h ago
+    completed_at: null,
+    created_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+    updated_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+  };
+
+  const sessions = [{ ...sessionOnYesterday }];
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+  });
+
+  const openSessions: OpenSession[] = [{
+    id: sessionOnYesterday.id,
+    status: sessionOnYesterday.status,
+    local_date: sessionOnYesterday.local_date,
+    actual_type: sessionOnYesterday.actual_type,
+    started_at: sessionOnYesterday.started_at,
+  }];
+
+  // Case 1: today = YESTERDAY (same date as session)
+  const depsYesterday = buildStartSessionStaleDeps(client, USER_ID, openSessions, YESTERDAY, NOW_MS);
+  const resultYesterday = await startSessionStaleCore(depsYesterday);
+
+  if (!resultYesterday.ok) {
+    throw new Error(`Test (B5) case 1 failed: ${resultYesterday.error}`);
+  }
+  if (!resultYesterday.shouldInsert) {
+    throw new Error(`Test (B5) case 1 failed: Expected shouldInsert=true (no stale candidates), got false`);
+  }
+  if (sessions[0].status !== "in_progress") {
+    throw new Error(`Test (B5) case 1 failed: Session should remain in_progress (same date)`);
+  }
+
+  // Case 2: today = TODAY (cross-date, stale candidate)
+  // Reset session to in_progress for second test
+  sessions[0].status = "in_progress";
+  const depsToday = buildStartSessionStaleDeps(client, USER_ID, openSessions, TODAY, NOW_MS);
+  const resultToday = await startSessionStaleCore(depsToday);
+
+  if (!resultToday.ok) {
+    throw new Error(`Test (B5) case 2 failed: ${resultToday.error}`);
+  }
+  if (!resultToday.shouldInsert) {
+    throw new Error(`Test (B5) case 2 failed: Expected shouldInsert=true (stale closed), got false`);
+  }
+  if (sessions[0].status === "in_progress") {
+    throw new Error(`Test (B5) case 2 failed: Session should be closed (cross-date stale)`);
+  }
+
+  console.log("✓ Test (B5): today parameter changes outcome (same-date vs cross-date)");
+}
+
 // Run all tests
 (async () => {
   try {
@@ -490,6 +633,8 @@ async function testRemainingCheckFiltersStatus() {
     await testPlannedSkippedNotPassed();
     await testCloseThrowHandled();
     await testRemainingCheckFiltersStatus();
+    await testSecondUserNotClosed();
+    await testTodayChangesOutcome();
     console.log("\n✅ All tests passed");
     process.exit(0);
   } catch (error) {
