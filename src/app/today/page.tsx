@@ -9,14 +9,16 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { addDays, isoWeekday, localDateString, DAY_NAMES as WEEKDAY_NAMES } from "@/lib/dates";
 import { labelForDayType, plannableDays } from "@/lib/program/day-plan";
 import type { Database } from "@/lib/database.types";
-import { closeStaleSessions } from "@/lib/session/close-stale";
+import { loadTodaySessionState, makeTodayLoaderDeps } from "@/lib/today/loader";
 import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { TodayPrompts } from "@/components/today/today-prompts";
 import { WarmupSection } from "@/components/today/warmup-section";
 import { buildPage } from "@/lib/today/build-page";
 import { RefetchOnResume } from "./refetch-on-resume";
-import { weekWindow } from "@/lib/today/week-window";
+import { buildTodayRows } from "@/lib/today/build-today-rows";
+import { previousDayResumeHref } from "@/lib/today/session-detection";
+import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 
 export const dynamic = "force-dynamic";
 
@@ -101,18 +103,6 @@ export default async function TodayPage({
   const firstName = profile.display_name?.split(" ")[0] ?? "";
   const localToday = localDateString(timezone);
 
-  // Session state loading (including closing stale sessions) is handled by the loader (#111)
-
-  // A four-week block that has run its course rolls over here, on load. Handing
-  // it the block we just read makes the common case — the block is current —
-  // free: it compares two dates and returns, with no query of its own.
-  const rollover = await ensureCurrentBlock(
-    supabase,
-    user.id,
-    localToday,
-    programRes.data,
-  );
-
   /*
     The days "Your week" can be about, plus yesterday.
 
@@ -124,6 +114,21 @@ export default async function TodayPage({
     next occurrence, which is today for today.
   */
   const yesterday = addDays(localToday, -1);
+
+  // Load session state and ensure current block in parallel. The rollover
+  // doesn't write sessions, so these are independent.
+  const [sessionState, rollover] = await Promise.all([
+    loadTodaySessionState(
+      makeTodayLoaderDeps(supabase, { yesterday, weekAheadEnd }),
+      localToday
+    ),
+    ensureCurrentBlock(
+      supabase,
+      user.id,
+      localToday,
+      programRes.data,
+    ),
+  ]);
 
   // A rollover replaced the active block, so the row read above is stale.
   // This happens on one day in twenty-eight. Query for the new block by its
@@ -165,101 +170,147 @@ export default async function TodayPage({
   // The week's days arrive with each day's exercises embedded. That is one
   // round trip instead of two, and it removes the dependency that forced the
   // exercise query to wait for the day query to name today's row.
-  const [daysRes, sessionsRes] = await Promise.all([
-    supabase
-      .from("program_days")
-      // One string literal: Supabase infers the row type from it, and a
-      // concatenation degrades the result to GenericStringError.
-      .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
-      .eq("status", "active")
-      .eq("program_id", program.id)
-      .order("day_index")
-      .order("order_index", { referencedTable: "program_day_exercises" }),
-    // Judged per training type, not "most recent session of any kind". A
-    // one-minute breathing session used to be the newest row and made Today
-    // announce "Session complete", hiding the Start button and locking the user
-    // out of their actual workout for the rest of the day.
-    // Yesterday comes along for the ride, because SPEC section 7 asks the same
-    // "what about tomorrow?" question about today when yesterday was a training
-    // day nobody finished. One extra date in an `in` filter is free; a second
-    // query would not be.
-    /*
-    Session window from cycle week start through today+6.
-    This catches pull-forwards done earlier in the cycle week and covers
-    "Your week" choices. Uses weekWindow helper to ensure consistency.
-    */
-    supabase
-      .from("sessions")
-      .select("id, status, actual_type, local_date, program_id, program_day_id, started_at, created_at")
-      .gte("local_date", sessionWindow.start)
-      .lte("local_date", sessionWindow.end)
-      // Newest first, which is how `startSession` breaks the same tie.
-      .order("created_at", { ascending: false }),
-  ]);
+  const daysRes = await supabase
+    .from("program_days")
+    // One string literal: Supabase infers the row type from it, and a
+    // concatenation degrades the result to GenericStringError.
+    .select("id, day_index, day_type, focus, label, program_day_exercises(order_index, target_sets, target_reps_min, target_reps_max, rest_seconds, exercises(name, cue, movement_pattern, metric))")
+    .eq("status", "active")
+    .eq("program_id", program.id)
+    .order("day_index")
+    .order("order_index", { referencedTable: "program_day_exercises" });
 
   const days = daysRes.data;
 
-  // Fetch session_exercises for yesterday (needed for missed-day detection)
-  const allSessions = sessionsRes.data ?? [];
+  // Session state already loaded before wave 2, with allSessions and todaySessions
+  const { allSessions, todaySessions } = sessionState;
+
+  const isStrength = (t: string | null) => t === "weights" || t === "bodyweight";
+
+  /*
+    Which of today's session rows speaks for the day.
+
+    A "what about tomorrow?" choice made yesterday is a planned row for today,
+    and it wins over the weekday template -- without that the choice would be
+    written and then quietly ignored, which is worse than not offering it. But
+    the state of that row is not the point. Whatever the user actually did today
+    keeps the day's identity through every state it passes: planned, started,
+    abandoned, finished.
+
+    Reading only `planned` meant that starting a swapped day and leaving it
+    part-way flipped Today back to the block's label while "Resume session"
+    still resumed the swapped one -- the screen said Legs and the button gave
+    you Pull. Adding `in_progress` fixed that case and left two more: a session
+    ABANDONED (which is resumable now, so Start hands back a day the screen has
+    stopped naming) and a session FINISHED (where the header reverted to the
+    block's label above a list of the exercises that were actually done).
+
+    Yoga and breathing are the exception in every state but `planned`: they are
+    anytime activities and a six-minute breathing session does not rename the
+    day.
+  */
+  const ownsToday = (s: (typeof todaySessions)[number]) =>
+    s.actual_type !== null &&
+    (s.status === "planned" ||
+      (isStrength(s.actual_type) &&
+        (s.status === "in_progress" || s.status === "completed" || s.status === "skipped")));
+
+  // Finished beats under way beats intended beats abandoned. Only the last two
+  // can genuinely coexist -- abandon a day, then choose something else for it.
+  const OWNER_RANK: Record<string, number> = {
+    completed: 0,
+    in_progress: 1,
+    planned: 2,
+    skipped: 3,
+  };
+  /*
+    Rank first, then newest. The tie is real: an account can carry several
+    abandoned rows for one day -- anything written before a restart began
+    reusing them does -- and `startSession` resumes the most recent of those.
+    Deciding it differently here would put Today's label and the Start button
+    back out of step, which is the bug this whole block exists to prevent.
+  */
+  const override = todaySessions
+    .filter(ownsToday)
+    .sort(
+      (a, b) =>
+        (OWNER_RANK[a.status] ?? 9) - (OWNER_RANK[b.status] ?? 9) ||
+        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+    )[0];
+  const overrideDay = override?.program_day_id
+    ? days?.find((d) => d.id === override.program_day_id)
+    : undefined;
+
+  const today = overrideDay ?? scheduled;
+  const dayType = override?.actual_type ?? scheduled?.day_type ?? null;
+  const dayLabel = labelForDayType(dayType ?? "rest", today?.label ?? null);
+  /*
+    Only worth explaining when it actually differs from what the block said.
+
+    This compared program-day ids alone, which is wrong in the one case where
+    the id cannot be resolved: a rebuild replaces `program_days`, so every
+    session from before it points at a day of the retired block. `overrideDay`
+    is then undefined, the id comparison says "differs", and Today announced
+    "You chose this for today, so it replaces the Legs your block had
+    scheduled" -- on a Legs day, about a session nobody had chosen anything for.
+
+    So the type is checked first, which is what a rest, yoga or breathing
+    override changes, and the day ids only when the override's day is one this
+    block still has. An unresolvable id says nothing either way, and the label
+    on screen is the block's own in that case anyway.
+  */
+  const overrideDiffers =
+    override !== undefined &&
+    (override.actual_type !== (scheduled?.day_type ?? null) ||
+      (overrideDay !== undefined && overrideDay.id !== (scheduled?.id ?? null)));
+  const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
+  const isDeload = week === program.deload_week;
+  const isTraining = dayType === "weights" || dayType === "bodyweight";
+
+  const strengthDone = todaySessions.some(
+    (s) => s.status === "completed" && isStrength(s.actual_type),
+  );
+  // Resume detection: from loader (searches all sessions, not just today)
+  const strengthOpen = sessionState.strengthOpen;
+
+  /*
+    The day's workout, once it is a thing that happened rather than a thing that
+    was planned: started, or finished. Today used to list the block's template
+    for the rest of the day regardless, so after a session in which an exercise
+    was swapped, "Session complete. Well done." sat above the five exercises the
+    day STARTED with -- including the one swapped away and never performed. The
+    plan is what you intended; the screen should show what you did.
+
+    A day merely planned through "what about tomorrow?" has no session exercises
+    of its own yet, so it keeps the template.
+  */
+  const performed =
+    override &&
+    isStrength(override.actual_type) &&
+    (override.status === "completed" || override.started_at !== null)
+      ? override
+      : undefined;
+
+  /*
+    Yesterday was a training day and nothing was completed on it. SPEC section 7
+    asks the same question in that case, about today rather than tomorrow --
+    the point being that a missed day should prompt a decision rather than
+    quietly becoming a hole in the week.
+  */
+  const yesterdayIndex = isoWeekday(yesterday);
+  const yesterdayDay = days?.find((d) => d.day_index === yesterdayIndex);
   const yesterdaySessions = allSessions.filter((s) => s.local_date === yesterday);
-  const yesterdaySessionIds = yesterdaySessions.map((s) => s.id);
-  
-  const sessionExercisesRes = yesterdaySessionIds.length > 0
-    ? await supabase
-        .from("session_exercises")
-        .select("session_id, session_sets(is_warmup_set, reps, duration_seconds)")
-        .in("session_id", yesterdaySessionIds)
-    : { data: null, error: null };
-
-  // Build all Today page state using buildPage helper
-  const pageResult = buildPage({
-    profile: {
-      id: profile.id,
-      created_at: profile.created_at,
-      timezone: profile.timezone,
-    },
-    program: {
-      id: program.id,
-      started_on: program.started_on,
-      week_offset: program.week_offset,
-      deload_week: program.deload_week,
-    },
-    days: days ?? [],
-    allSessionsRes: { data: null, error: null }, // Provided by loader in (#111)
-    weekSessionsRes: sessionsRes,
-    todaySessionsRes: sessionsRes,
-    yesterdaySessionsRes: sessionsRes,
-    sessionExercisesRes,
-    timezone,
-    localToday,
+  const missedYesterday = isMissedYesterday({
     yesterday,
+    programStartedOn: program.started_on,
+    yesterdayIsTrainingDay:
+      yesterdayDay?.day_type === "weights" || yesterdayDay?.day_type === "bodyweight",
+    hadCompletedStrengthYesterday: yesterdaySessions.some(
+      (s) => s.status === "completed" && isStrength(s.actual_type),
+    ),
   });
-
-  const {
-    todayView,
-    todayState,
-    promptBlocks,
-    trainAnywayDays,
-    yesterdayDay,
-    scheduled,
-    today,
-    dayType,
-    dayLabel,
-    overrideDiffers,
-    pulledForwardMessage,
-    pulledForward,
-    strengthDone,
-    strengthOpen,
-    performed,
-    needsPlannableDays,
-  } = pageResult;
-
-  const { week, isDeload, weekRowsWithChoices } = todayView;
-  const { isTraining, nextTrainingDay: nextTraining } = todayState;
-  const firstTrainingDay = todayView.firstTrainingDay;
-
-  // For display purposes only (not derivation)
-  const todayIndex = isoWeekday(localToday);
+  // Only worth asking while today is still open to being changed.
+  const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
 
   // ---- wave 3 -------------------------------------------------------------
   // Load plannable days when the DayPlanPrompt can render (rest day or missed-yesterday).
@@ -323,7 +374,7 @@ export default async function TodayPage({
     planned_reps_min: number | null;
     planned_reps_max: number | null;
     rest_seconds: number | null;
-    status: string | null;
+    status: Database["public"]["Enums"]["exercise_status"] | null;
     swapped_from_exercise_id: string | null;
     metric: Database["public"]["Enums"]["exercise_metric"] | null;
     exercises: {
@@ -332,32 +383,7 @@ export default async function TodayPage({
     } | null;
   }> | null;
 
-  const todayExercises: TodayRow[] =
-    actual && actual.length > 0
-      ? actual.map((r) => ({
-          key: `s${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.metric ?? null,
-          sets: r.planned_sets,
-          repsMin: r.planned_reps_min,
-          repsMax: r.planned_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: r.status === "skipped",
-          swappedIn: r.swapped_from_exercise_id !== null,
-        }))
-      : template.map((r) => ({
-          key: `p${r.order_index}`,
-          name: r.exercises?.name ?? "",
-          cue: r.exercises?.cue ?? null,
-          metric: r.exercises?.metric ?? null,
-          sets: r.target_sets,
-          repsMin: r.target_reps_min,
-          repsMax: r.target_reps_max,
-          restSeconds: r.rest_seconds,
-          skipped: false,
-          swappedIn: false,
-        }));
+  const todayExercises: TodayRow[] = buildTodayRows({ actual, template, isDeload });
 
   return (
     <main className="mx-auto w-full max-w-md px-6 py-10 pb-36">
@@ -393,7 +419,11 @@ export default async function TodayPage({
         </p>
       )}
 
-      {/* Credited sessions notification moved to loader in #111 */}
+      {sessionState.creditedBanner && (
+        <p className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+          {sessionState.creditedBanner}
+        </p>
+      )}
 
       {rollover.status === "rolled_over" && (
         <p className="mt-4 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
@@ -465,13 +495,78 @@ export default async function TodayPage({
             <p className="rounded-xl border border-success/30 bg-success/10 px-5 py-4 text-center text-sm text-success">
               Session complete. Well done.
             </p>
-          ) : (
-            <StartSessionButton label={strengthOpen?.started_at ? "Resume session" : "Start session"} />
-          )}
+          ) : (() => {
+            const resumeHref = previousDayResumeHref(strengthOpen, localToday);
+            return resumeHref ? (
+              <Link
+                href={resumeHref}
+                className="block w-full rounded-xl bg-accent px-6 py-5 text-center text-lg font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+              >
+                Resume session
+              </Link>
+            ) : (
+              /*
+                "Resume" only once something has actually been started. A day
+                planned through "what about tomorrow?" is a session row that was
+                never begun, and calling that a resume told the user they had left
+                a workout half-done when they had not.
+              */
+              <StartSessionButton
+                label={strengthOpen?.started_at ? "Resume session" : "Start session"}
+              />
+            );
+          })()}
         </div>
       )}
 
-      {isTraining && <WarmupSection todayExercises={todayExercises} actual={actual} strengthDone={strengthDone} />}
+      {isTraining && (
+        <section className="mt-7">
+          {/*
+            The heading said "15 min warm-up", which is what SPEC section 7 asks
+            for and not what the session builds: five items totalling nine
+            minutes, with no ramp-up-sets phase. Naming a duration the app does
+            not deliver is worse than naming none.
+          */}
+          <h2 className="mb-3 text-xs font-semibold tracking-wider text-muted uppercase">
+            {!(actual && actual.length > 0)
+              ? "Warm-up, then"
+              : strengthDone
+                ? "What you did"
+                : /* Started and left: the list is real, but it is not finished. */
+                  "Where you got to"}
+          </h2>
+          <ol className="space-y-2">
+            {todayExercises.map((row) => (
+              <li
+                key={row.key}
+                className="rounded-xl border border-border bg-surface px-4 py-3.5"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className={`font-semibold ${row.skipped ? "text-muted line-through" : ""}`}>
+                    {row.name}
+                  </span>
+                  <span className="shrink-0 text-sm tabular-nums text-accent">
+                    {row.sets} × {row.repsMin}–{row.repsMax}
+                    {row.metric === "seconds" ? "s" : ""}
+                  </span>
+                </div>
+                {(row.swappedIn || row.skipped || (isDeload && isTraining && !row.skipped && !(actual && actual.length > 0))) && (
+                  <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
+                    {row.skipped ? "Skipped" : row.swappedIn ? "Swapped in" : "Deload"}
+                  </p>
+                )}
+                {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}
+                <p className="mt-1 text-xs text-muted">{row.restSeconds}s rest</p>
+              </li>
+            ))}
+          </ol>
+          {!(actual && actual.length > 0) && (
+            <p className="mt-4 text-center text-xs text-muted">
+              Warm-up is built from today&apos;s muscles and any joint you flagged.
+            </p>
+          )}
+        </section>
+      )}
 
       {/*
         Always reachable, whatever today is. These previously appeared only on
