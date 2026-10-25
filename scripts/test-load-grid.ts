@@ -45,6 +45,9 @@ console.log('\n1. gridStepFor returns correct increments');
   check('leg_curl kg is 5 (pin-stack)', gridStepFor(['leg_curl'], 'kg') === 5);
   check('leg_curl lb is 10 (pin-stack)', gridStepFor(['leg_curl'], 'lb') === 10);
   
+  check('machine_generic kg is 5 (pin-stack)', gridStepFor(['machine_generic'], 'kg') === 5);
+  check('machine_generic lb is 10 (pin-stack)', gridStepFor(['machine_generic'], 'lb') === 10);
+  
   check('leg_press kg is 2.5 (plate-loaded)', gridStepFor(['leg_press'], 'kg') === 2.5);
   check('smith_machine kg is 2.5 (plate-loaded)', gridStepFor(['smith_machine'], 'kg') === 2.5);
   check('hack_squat kg is 2.5 (plate-loaded)', gridStepFor(['hack_squat'], 'kg') === 2.5);
