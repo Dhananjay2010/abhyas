@@ -98,13 +98,12 @@ function createDeferred<T>(): Deferred<T> {
 
 // Fake timer for tests - calls callbacks immediately
 const fakeTimer: RunnerTimer = {
-  setTimeout: (callback: () => void, _ms: number) => {
-    // Call immediately for deterministic tests
+  setTimeout: (callback: () => void) => {
     callback();
     return 0;
   },
-  clearTimeout: (_id: number | NodeJS.Timeout) => {
-    // No-op
+  clearTimeout: () => {
+    // no-op
   },
 };
 
@@ -605,7 +604,6 @@ async function test8d8e() {
   let listenerCallCount = 0;
   
   const logSetCalls: unknown[] = [];
-  let replayCount = 0;
   
   const mockAddEventListener = (type: string, handler: () => void) => {
     listenerCallCount++;
@@ -1495,15 +1493,13 @@ async function testRetryButton() {
   console.log("\n📋 Test Retry: Click Retry button to replay pending sets");
   
   const logSetCalls: unknown[] = [];
-  let replayCount = 0;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async (input) => {
       logSetCalls.push(input);
-      replayCount++;
       // First call fails to keep pending set around for Retry button
-      if (replayCount === 1) {
+      if (logSetCalls.length === 1) {
         throw new Error("Network error");
       }
       return { ok: true };
