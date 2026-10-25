@@ -19,7 +19,7 @@ import { buildTodayRows } from "@/lib/today/build-today-rows";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { weekWindow } from "@/lib/today/week-window";
-import { pulledForwardDays } from "@/lib/today/pulled-forward";
+import { pulledForwardDays, pulledForwardMessage as makePulledForwardMessage } from "@/lib/today/pulled-forward";
 
 export const dynamic = "force-dynamic";
 
@@ -102,13 +102,17 @@ export default async function TodayPage() {
     next occurrence, which is today for today.
   */
   const yesterday = addDays(localToday, -1);
-  const weekAheadEnd = addDays(localToday, 6);
+  
+  // Compute the session query window (cycle-week start through today+6) for H4
+  const sessionWindow = programRes.data
+    ? weekWindow({ started_on: programRes.data.started_on, week_offset: programRes.data.week_offset }, localToday)
+    : { start: yesterday, end: addDays(localToday, 6) };
 
   // Load session state and ensure current block in parallel. The rollover
   // doesn't write sessions, so these are independent.
   const [sessionState, rollover] = await Promise.all([
     loadTodaySessionState(
-      makeTodayLoaderDeps(supabase, { yesterday, weekAheadEnd }),
+      makeTodayLoaderDeps(supabase, { yesterday: sessionWindow.start, weekAheadEnd: sessionWindow.end }),
       localToday
     ),
     ensureCurrentBlock(
@@ -307,10 +311,8 @@ export default async function TodayPage() {
     days: days ?? [],
     localToday,
   });
-  const pulledForwardMessage =
-    pulledForward.size === 1
-      ? pulledForward.values().next().value
-      : null;
+  const pulledForwardInfo = pulledForward.size === 1 ? pulledForward.values().next().value : null;
+  const pulledForwardMessage = pulledForwardInfo ? makePulledForwardMessage(pulledForwardInfo) : null;
 
   // Only worth asking while today is still open to being changed.
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
@@ -430,6 +432,10 @@ export default async function TodayPage() {
           </p>
         )}
       </header>
+
+      {pulledForwardMessage && (
+        <p className="mt-4 text-sm text-gray-600">{pulledForwardMessage}</p>
+      )}
 
       {needsEquipment && (
         <p className="mt-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
