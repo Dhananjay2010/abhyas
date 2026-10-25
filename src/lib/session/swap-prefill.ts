@@ -31,6 +31,7 @@ type TypedSupabase = SupabaseClient<Database>;
  * @param metric - Exercise metric
  * @param movementPattern - Movement pattern (for suggestedWeight)
  * @param progressValue - Optional pre-fetched progress value (removes duplicate query)
+ * @param remembersWeights - Whether to use remembered weights (false in daily_menu mode)
  * @returns Weight prefill in kg, or null
  */
 export async function resolveSwapPrefill(
@@ -41,12 +42,18 @@ export async function resolveSwapPrefill(
   equipmentIds: string[],
   metric: Database["public"]["Enums"]["exercise_metric"],
   movementPattern: Database["public"]["Enums"]["movement_pattern"],
-  progressValue?: number | null,
+  progressValue: number | null | undefined,
+  remembersWeights: boolean,
 ): Promise<number | null> {
   try {
+    // When remembersWeights is false (daily_menu mode), skip progress/history entirely
+    // (same rule as the session page)
+    if (!remembersWeights) {
+      return null;
+    }
+
     // Use pre-fetched progress if provided (removes duplicate query from resolveSwapWeights)
     let currentWorkingWeight: number | null = null;
-    
     if (progressValue !== undefined) {
       currentWorkingWeight = progressValue;
     } else {
@@ -59,6 +66,7 @@ export async function resolveSwapPrefill(
         .maybeSingle();
       currentWorkingWeight = progress?.current_working_weight_kg ?? null;
     }
+
 
     if (currentWorkingWeight !== null && currentWorkingWeight !== undefined) {
       const working = Number(currentWorkingWeight);
