@@ -14,7 +14,6 @@ import type { Result } from "../src/app/session/actions";
 import { savePendingSet, loadPendingSets, storageKey, type Storage } from "../src/lib/session/pending-set-retry";
 import { createPendingSetDeps } from "../src/lib/session/pending-set-deps";
 
-const FIXED_TIME = 1700000000000; // Nov 14, 2023
 
 function createStorage(): Storage {
   const store = new Map<string, string>();
