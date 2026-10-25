@@ -111,26 +111,31 @@ function makeFakeDeps(startedAt: string | null): FinishSessionDeps & { calls: Ca
   };
 }
 
-// Case 1: null started_at with working sets
-{
-  const deps = makeFakeDeps(null);
-  const result = await finishSessionCore(deps, {
-    sessionId: "s1",
-    durationSeconds: 100,
-    cooldownCompleted: true,
-  });
-  
-  check("null started_at → returns ok:false", result.ok === false);
-  if (!result.ok) {
-    check("null started_at → error mentions invalid timestamps", result.error.includes("invalid timestamps"));
+// Test (b): finishSessionCore with null started_at and working sets
+console.log("\n(b) finishSessionCore with null started_at and working sets");
+
+(async () => {
+  // Case 1: null started_at with working sets
+  {
+    const deps = makeFakeDeps(null);
+    const result = await finishSessionCore(deps, {
+      sessionId: "s1",
+      durationSeconds: 100,
+      cooldownCompleted: true,
+    });
+    
+    check("null started_at → returns ok:false", result.ok === false);
+    if (!result.ok) {
+      check("null started_at → error mentions invalid timestamps", result.error.includes("invalid timestamps"));
+    }
+    check("null started_at → no update call made", deps.calls.length === 0);
   }
-  check("null started_at → no update call made", deps.calls.length === 0);
-}
 
-console.log(`\n✅ Passed: ${passed}`);
-if (failed > 0) {
-  console.log(`❌ Failed: ${failed}`);
-  process.exit(1);
-}
+  console.log(`\n✅ Passed: ${passed}`);
+  if (failed > 0) {
+    console.log(`❌ Failed: ${failed}`);
+    process.exit(1);
+  }
 
-console.log("\n✨ All 1970 epoch protection tests passed!\n");
+  console.log("\n✨ All 1970 epoch protection tests passed!\n");
+})();
