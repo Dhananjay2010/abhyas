@@ -1,6 +1,8 @@
 import type { AbandonSessionDeps } from "./abandon-session-deps";
 import { resolveStaleFinishExtended } from "./stale-duration";
 import { isStaleSession } from "./is-stale-session";
+import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { extractLastSetMetadata } from "./last-set-metadata";
 
 export type SessionSet = {
   id: string;
@@ -59,8 +61,16 @@ export async function abandonSessionCore(
   // Load session metadata for stale detection
   const { data: sessionMeta, error: metaError } = await deps.loadSessionMetadata(sessionId);
   if (metaError) return { ok: false, error: metaError };
+  if (!sessionMeta) return { ok: false, error: "Session not found" };
 
-  const startedAt = sessionMeta?.started_at ?? null;
+  const startedAt = sessionMeta.started_at;
+  const userId = sessionMeta.user_id;
+
+  // Load profile timezone
+  const { data: timezoneData, error: timezoneError } = await deps.loadTimezone(userId);
+  if (timezoneError) return { ok: false, error: timezoneError };
+
+  const timezone = resolveTimezoneWithProfile(timezoneData?.timezone);
 
   // Check if any working sets were logged
   const { data: exercises, error: readError } = await deps.loadExercises(sessionId);
@@ -69,55 +79,48 @@ export async function abandonSessionCore(
 
   const status = decideAbandonStatus(exercises ?? []);
 
-  // Determine duration: use stale logic if session is stale
-  let durationSeconds: number | null;
+  const now = deps.now?.() ?? new Date().toISOString();
 
+  // Check if session is stale (null or invalid timestamps are treated as stale)
   const stale = !startedAt || isStaleSession({
-    startedAt: startedAt,
-    now: new Date().toISOString(),
-    timezone: "UTC",
+    startedAt,
+    now,
+    timezone,
   });
+
+  let durationSeconds: number | null;
 
   if (stale) {
     // Load exercises with sets for stale calculation
     const { data: exercisesWithSets, error: setsError } = await deps.loadExercisesWithSets(sessionId);
     if (setsError) return { ok: false, error: setsError };
 
-    // Find last set completed_at and rest_seconds
-    let lastSetCompletedAt: string | null = null;
-    let restSeconds: number | null = null;
-    let workingSetCount = 0;
-
-    for (const ex of exercisesWithSets ?? []) {
-      for (const set of ex.session_sets ?? []) {
-        if (!set.is_warmup_set) {
-          workingSetCount++;
-          if (!lastSetCompletedAt || set.completed_at > lastSetCompletedAt) {
-            lastSetCompletedAt = set.completed_at;
-            restSeconds = ex.rest_seconds;
-          }
-        }
-      }
-    }
+    // Extract last set metadata using shared helper
+    const { workingSetCount, lastSetCompletedAt, lastSetRestSeconds } = extractLastSetMetadata(exercisesWithSets ?? []);
 
     const staleFinish = resolveStaleFinishExtended({
       startedAt,
       lastSetCompletedAt,
       workingSetCount,
-      restSeconds,
+      restSeconds: lastSetRestSeconds,
     });
 
     durationSeconds = staleFinish.durationSeconds;
   } else {
-    // Non-stale: use passed elapsed time, clamped to sane range (0 to 6 hours)
-    durationSeconds = Math.max(0, Math.min(21600, Math.round(elapsedSeconds)));
+    // Non-stale: use passed elapsed time
+    durationSeconds = elapsedSeconds;
   }
+
+  // Clamp duration to sane range: 0 to 6 hours, or keep null for invalid timestamps
+  const clampedDuration = durationSeconds === null
+    ? null
+    : Math.max(0, Math.min(21600, Math.round(durationSeconds)));
 
   // Safety: Only update if status is 'in_progress' to prevent double-accumulation on retry.
   const { error, updatedCount } = await deps.updateSession(sessionId, {
     status,
-    completed_at: status === "completed" ? new Date().toISOString() : null,
-    duration_seconds: durationSeconds,
+    completed_at: status === "completed" ? now : null,
+    duration_seconds: clampedDuration,
   });
 
   if (error) return { ok: false, error };

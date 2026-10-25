@@ -59,7 +59,10 @@ function makeFakeAbandonDeps(
       return { error: null };
     },
     async loadSessionMetadata() {
-      return { data: { started_at: new Date().toISOString() }, error: null };
+      return { data: { started_at: new Date().toISOString(), user_id: "user1" }, error: null };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercisesWithSets() {
       return { data: [], error: null };

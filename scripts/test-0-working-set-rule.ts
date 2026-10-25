@@ -88,7 +88,7 @@ function makeFakeFinishSessionDeps(
     },
     async loadSessionMetadata(id: string) {
       calls.push({ method: "loadSessionMetadata", table: "sessions", filters: { id } });
-      return { data: { started_at: session.started_at }, error: null };
+      return { data: { started_at: session.started_at, user_id: "user1" }, error: null };
     },
     async loadExercisesWithSets(sessionId: string) {
       calls.push({ method: "loadExercisesWithSets", table: "session_exercises", filters: { sessionId } });

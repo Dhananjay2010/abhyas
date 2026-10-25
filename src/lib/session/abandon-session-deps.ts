@@ -26,8 +26,10 @@ export type AbandonSessionDeps = {
   loadSessionStatus(id: string): Promise<{ data: { status: "completed" | "skipped" | "in_progress" } | null; error: string | null }>;
   loadExercisesForUpdate(sessionId: string): Promise<{ data: ExerciseForUpdate[] | null; error: string | null }>;
   updateExerciseStatus(id: string, status: Database["public"]["Enums"]["exercise_status"]): Promise<{ error: string | null }>;
-  loadSessionMetadata(id: string): Promise<{ data: { started_at: string | null } | null; error: string | null }>;
+  loadSessionMetadata(id: string): Promise<{ data: { started_at: string | null; user_id: string } | null; error: string | null }>;
   loadExercisesWithSets(sessionId: string): Promise<{ data: Array<{ rest_seconds: number | null; session_sets: Array<{ completed_at: string; is_warmup_set: boolean }> | null }> | null; error: string | null }>;
+  loadTimezone(userId: string): Promise<{ data: { timezone: string | null } | null; error: string | null }>;
+  now?: () => string;
 };
 
 export function makeAbandonSessionDeps(supabase: Client): AbandonSessionDeps {
@@ -114,8 +116,19 @@ export function makeAbandonSessionDeps(supabase: Client): AbandonSessionDeps {
     async loadSessionMetadata(id) {
       const { data, error } = await supabase
         .from("sessions")
-        .select("started_at")
+        .select("started_at, user_id")
         .eq("id", id)
+        .maybeSingle();
+
+      if (error) return { data: null, error: error.message };
+      return { data, error: null };
+    },
+
+    async loadTimezone(userId) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("timezone")
+        .eq("id", userId)
         .maybeSingle();
 
       if (error) return { data: null, error: error.message };

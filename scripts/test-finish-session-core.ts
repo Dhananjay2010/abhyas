@@ -109,7 +109,10 @@ function makeFakeAbandonSessionDeps(
       return { error: null };
     },
     async loadSessionMetadata() {
-      return { data: { started_at: THIRTY_MIN_AGO }, error: null };
+      return { data: { started_at: THIRTY_MIN_AGO, user_id: "user-123" }, error: null };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercisesWithSets() {
       return { data: exercises.map(ex => ({

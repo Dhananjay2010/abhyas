@@ -3,6 +3,7 @@ import { resolveStaleFinishExtended } from "./stale-duration";
 import { isStaleSession } from "./is-stale-session";
 import { exerciseCompletion } from "./completion";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
+import { extractLastSetMetadata } from "./last-set-metadata";
 import type { FinishSessionDeps } from "./finish-session-deps";
 
 export type Result<T = undefined> =
@@ -48,22 +49,8 @@ export async function finishSessionCore(
 
   if (readError) return { ok: false, error: readError };
 
-  // Count working sets and find the last logged set timestamp and its exercise rest
-  let workingSetCount = 0;
-  let lastSetCompletedAt: string | null = null;
-  let lastSetRestSeconds: number | null = null;
-
-  for (const exercise of exercises ?? []) {
-    for (const set of exercise.session_sets ?? []) {
-      if (!set.is_warmup_set) {
-        workingSetCount++;
-      }
-      if (set.completed_at && (!lastSetCompletedAt || set.completed_at > lastSetCompletedAt)) {
-        lastSetCompletedAt = set.completed_at;
-        lastSetRestSeconds = exercise.rest_seconds;
-      }
-    }
-  }
+  // Extract last set metadata using shared helper
+  const { workingSetCount, lastSetCompletedAt, lastSetRestSeconds } = extractLastSetMetadata(exercises ?? []);
 
   const now = deps.now?.() ?? new Date().toISOString();
 

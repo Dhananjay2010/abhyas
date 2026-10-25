@@ -43,7 +43,10 @@ function makeFakeDeps(config: {
   return {
     getSavedDuration: () => state.savedDuration,
     async loadSessionMetadata() {
-      return { data: { started_at: config.startedAt }, error: null };
+      return { data: { started_at: config.startedAt, user_id: "user1" }, error: null };
+    },
+    async loadTimezone() {
+      return { data: { timezone: "UTC" }, error: null };
     },
     async loadExercises() {
       const sets = Array.from({ length: config.workingSetCount }, (_, i) => ({
