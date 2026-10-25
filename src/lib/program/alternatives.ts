@@ -45,9 +45,13 @@ export function buildPatternList(
   const patterns: MovementPattern[] = [currentPattern];
   
   // For CURRENT knee injuries on lunge pattern, DON'T add squat fallback
-  // (would widen to barbell-squat, hack-squat, etc. which aren't on the knee-safe list)
-  // For PAST knee, DO add squat fallback (PAST_KNEE_LUNGE_EXERCISES are squat pattern)
-  const skipFallback = (hasCurrentKnee ?? hasKneeInjury) && currentPattern === "lunge";
+  // (current knee has NO lunges; would incorrectly widen swaps to barbell-squat, etc.)
+  // For PAST knee on lunge pattern, DO add squat fallback
+  // (past-knee lunge tier includes split squats and step-ups which are squat pattern)
+  // When hasCurrentKnee is undefined, treat hasKneeInjury as current knee (backwards compat)
+  const isPastKnee = hasCurrentKnee === false && hasKneeInjury;
+  const isCurrentKnee = (hasCurrentKnee === true) || (hasCurrentKnee === undefined && hasKneeInjury);
+  const skipFallback = isCurrentKnee && currentPattern === "lunge";
   
   if (!skipFallback) {
     // Add direct fallback (lunge↔squat)

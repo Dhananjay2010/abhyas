@@ -495,8 +495,7 @@ function getDerivedContraindications(ex: CandidateExercise): BodyRegion[] {
   }
   
   // H6: Squat, lunge, or jump movements load knees UNLESS they're in the knee-safe list
-  // Item 13: Also skip knee derivation for KNEE_SAFE_LUNGE_EXERCISES (hardcoded enforcement)
-  if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug) && !KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
+  if (!KNEE_SAFE_QUAD_EXERCISES.has(ex.slug)) {
     if (ex.movement_pattern === "squat" ||
         ex.movement_pattern === "lunge" ||
         nameLower.includes("squat") ||
@@ -570,20 +569,13 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
 
   // QA Pass 10 C2, C3: Current injuries exclude anything that loads the affected joint.
   // Use both explicit tags AND derived contraindications.
-  // Item 13: For current knee, KNEE_SAFE_LUNGE_EXERCISES are exempt from knee contraindication
   if (input.currentInjuryRegions.length > 0) {
     const allContraindications = [
       ...ex.contraindicated_regions,
       ...getDerivedContraindications(ex),
     ];
     
-    // Item 13: Skip knee contraindication for hardcoded safe lunges (enforcement in CODE not tags)
-    const skipKneeCheck = hasCurrentKnee && KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug);
-    const contraToCheck = skipKneeCheck 
-      ? allContraindications.filter(r => r !== "knee")
-      : allContraindications;
-    
-    if (contraToCheck.some((r) => input.currentInjuryRegions.includes(r))) {
+    if (allContraindications.some((r) => input.currentInjuryRegions.includes(r))) {
       return false;
     }
     
@@ -628,11 +620,12 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
   }
 
   // PR #73 QA scoped policy: Lunge slots use different lists for current vs past knee
-  // Current knee: step-ups and split squats only (KNEE_SAFE_LUNGE_EXERCISES - strict 4-list)
+  // Current knee: NO lunge-pattern exercises (only KNEE_SAFE_QUAD_EXERCISES for quad slots)
   // Past knee: tier-based ordering (dumbbell-rear-lunge, reverse lunges, split squats, step-ups)
   
   if (ex.movement_pattern === "lunge") {
-    if (hasCurrentKnee && !KNEE_SAFE_LUNGE_EXERCISES.has(ex.slug)) {
+    // Current knee: ALL lunge-pattern exercises are ineligible
+    if (hasCurrentKnee) {
       return false;
     }
     // Past knee: allow lunges in tier ordering (tier > 0)
