@@ -15,7 +15,7 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
-import { todayPrescription } from "@/lib/today/deload-prescription";
+import { mapTemplateRows } from "@/lib/today/map-template-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -407,21 +407,7 @@ export default async function TodayPage() {
           skipped: r.status === "skipped",
           swappedIn: r.swapped_from_exercise_id !== null,
         }))
-      : template.map((r) => {
-          const p = todayPrescription(r, isDeload);
-          return {
-            key: `p${r.order_index}`,
-            name: r.exercises?.name ?? "",
-            cue: r.exercises?.cue ?? null,
-            metric: r.exercises?.metric ?? null,
-            sets: p.sets,
-            repsMin: p.repsMin,
-            repsMax: p.repsMax,
-            restSeconds: p.restSeconds,
-            skipped: false,
-            swappedIn: false,
-          };
-        });
+      : mapTemplateRows(template, isDeload);
 
   /*
     One-day overrides across this week, keyed by weekday so "Your week" can show

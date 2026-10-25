@@ -754,6 +754,8 @@ export type SwapResult = {
   repsMax: number | null;
   equipmentIds: string[];
   weightPrefill: number | null;
+  workingWeightKg: number | null;
+  isBodyweight: boolean;
 };
 
 export async function swapExercise(input: {
@@ -819,6 +821,17 @@ export async function swapExercise(input: {
     replacementRes.data?.movement_pattern ?? "other",
   );
 
+  // Get working weight from exercise_progress for the new exercise
+  const { data: progress } = await supabase
+    .from("exercise_progress")
+    .select("current_working_weight_kg")
+    .eq("user_id", user.id)
+    .eq("exercise_id", input.newExerciseId)
+    .maybeSingle();
+
+  const workingWeightKg = progress?.current_working_weight_kg ?? null;
+  const isBodyweight = equipmentIds.length === 0;
+
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
     in the exercise's own metric, so swapping eight-to-twelve reps for a hold
@@ -860,7 +873,7 @@ export async function swapExercise(input: {
   // hold button with the range that was just written.
   return error
     ? { ok: false, error: error.message }
-    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill } };
+    : { ok: true, data: { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, isBodyweight } };
 }
 
 
@@ -881,7 +894,7 @@ async function ensureSessionExercises(
   // when they have already been waiting once.
   const { data: session } = await supabase
     .from("sessions")
-    .select("program_day_id, actual_type, session_exercises(id)")
+    .select("program_day_id, actual_type, is_deload, session_exercises(id)")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -898,18 +911,33 @@ async function ensureSessionExercises(
     .order("order_index");
   if (!planned || planned.length === 0) return;
 
+  // HIGH-2: Apply deload the same way as the fresh start path (actions.ts:232)
+  const isDeload = session.is_deload ?? false;
+
   await supabase.from("session_exercises").insert(
-    planned.map((p) => ({
-      session_id: sessionId,
-      user_id: userId,
-      exercise_id: p.exercise_id,
-      order_index: p.order_index,
-      planned_sets: p.target_sets,
-      planned_reps_min: p.target_reps_min,
-      planned_reps_max: p.target_reps_max,
-      rest_seconds: p.rest_seconds,
-      metric: metricOf(p.exercises),
-    })),
+    planned.map((p) => {
+      const prescription = {
+        sets: p.target_sets ?? 0,
+        repsMin: p.target_reps_min ?? 0,
+        repsMax: p.target_reps_max ?? 0,
+        restSeconds: p.rest_seconds ?? 0,
+      };
+      
+      // Apply deload transform when needed
+      const transformed = isDeload ? applyDeload(prescription) : prescription;
+      
+      return {
+        session_id: sessionId,
+        user_id: userId,
+        exercise_id: p.exercise_id,
+        order_index: p.order_index,
+        planned_sets: transformed.sets,
+        planned_reps_min: transformed.repsMin,
+        planned_reps_max: transformed.repsMax,
+        rest_seconds: transformed.restSeconds,
+        metric: metricOf(p.exercises),
+      };
+    }),
   );
 }
 

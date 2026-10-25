@@ -885,7 +885,7 @@ export function SessionRunner({
               be logged against it and fed to progression. It also left a stale
               number in a hold's seconds field.
             */
-            key={`${current.id}:${nextSetNumber}`}
+            key={`${current.id}:${current.exerciseId}:${nextSetNumber}`}
             perSetLogging={settings.perSetLogging}
             metric={current.metric}
             targetSeconds={current.repsMax}
@@ -970,6 +970,8 @@ export function SessionRunner({
                                   repsMin: swapped.repsMin ?? e.repsMin,
                                   repsMax: swapped.repsMax ?? e.repsMax,
                                   suggestedWeightKg: swapped.weightPrefill,
+                                  workingWeightKg: swapped.workingWeightKg,
+                                  isBodyweight: swapped.isBodyweight,
                                 }
                               : e,
                           ),

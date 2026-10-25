@@ -18,8 +18,10 @@ type TypedSupabase = SupabaseClient<Database>;
  * 
  * Priority:
  * 1. If exercise_progress exists: use suggestedWeight (respects deload)
- * 2. Else if last performance exists: use top set weight
+ * 2. Else if last performance exists: use top set weight (with deload reduction)
  * 3. Else: null
+ * 
+ * Best-effort: returns null on any error to ensure the swap still succeeds.
  * 
  * @param supabase - Authenticated Supabase client
  * @param userId - User ID
@@ -28,6 +30,7 @@ type TypedSupabase = SupabaseClient<Database>;
  * @param equipmentIds - Equipment IDs for the exercise (for bodyweight detection)
  * @param metric - Exercise metric
  * @param movementPattern - Movement pattern (for suggestedWeight)
+ * @param unit - Weight unit for grid snapping
  * @returns Weight prefill in kg, or null
  */
 export async function resolveSwapPrefill(
@@ -39,21 +42,52 @@ export async function resolveSwapPrefill(
   metric: Database["public"]["Enums"]["exercise_metric"],
   movementPattern: Database["public"]["Enums"]["movement_pattern"],
 ): Promise<number | null> {
-  // Check for exercise progress (the primary source)
-  const { data: progress } = await supabase
-    .from("exercise_progress")
-    .select("current_working_weight_kg")
-    .eq("user_id", userId)
-    .eq("exercise_id", exerciseId)
-    .maybeSingle();
+  try {
+    // Check for exercise progress (the primary source)
+    const { data: progress } = await supabase
+      .from("exercise_progress")
+      .select("current_working_weight_kg")
+      .eq("user_id", userId)
+      .eq("exercise_id", exerciseId)
+      .maybeSingle();
 
-  if (progress?.current_working_weight_kg !== null && progress?.current_working_weight_kg !== undefined) {
-    const working = Number(progress.current_working_weight_kg);
-    if (working > 0) {
-      // Use the same suggestedWeight logic as session/[id]/page.tsx:141
+    if (progress?.current_working_weight_kg !== null && progress?.current_working_weight_kg !== undefined) {
+      const working = Number(progress.current_working_weight_kg);
+      if (working > 0) {
+        // Use the same suggestedWeight logic as session/[id]/page.tsx:141
+        const isBodyweight = equipmentIds.length === 0;
+        // TODO: MEDIUM-3 - Pass equipmentIds and unit for grid snapping once #120 lands
+        // For now, pass undefined to use the existing simple deload calculation
+        return suggestedWeight(
+          { currentWorkingWeightKg: working },
+          isDeload,
+          {
+            mechanic: null,
+            movementPattern,
+            metric,
+            isBodyweight,
+            progressionChain: null,
+            progressionRank: null,
+          },
+          undefined,
+          undefined,
+        );
+      }
+    }
+
+    // Fall back to last performance
+    const lastPerf = await getLastPerformance(supabase, userId, exerciseId);
+    if (lastPerf?.topSet?.weight_kg !== undefined && lastPerf.topSet.weight_kg !== null) {
+      const weight = lastPerf.topSet.weight_kg;
+      
+      // L2: Return null for bodyweight (0 weight) or truly zero weight
+      if (weight <= 0) return null;
+      
+      // L1: Apply deload reduction to history fallback too
       const isBodyweight = equipmentIds.length === 0;
+      // TODO: MEDIUM-3 - Pass equipmentIds and unit for grid snapping once #120 lands
       return suggestedWeight(
-        { currentWorkingWeightKg: working },
+        { currentWorkingWeightKg: weight },
         isDeload,
         {
           mechanic: null,
@@ -63,15 +97,15 @@ export async function resolveSwapPrefill(
           progressionChain: null,
           progressionRank: null,
         },
+        undefined,
+        undefined,
       );
     }
-  }
 
-  // Fall back to last performance
-  const lastPerf = await getLastPerformance(supabase, userId, exerciseId);
-  if (lastPerf?.topSet?.weight_kg !== undefined && lastPerf.topSet.weight_kg !== null) {
-    return lastPerf.topSet.weight_kg;
+    return null;
+  } catch (error) {
+    // MEDIUM-2: Best-effort - log the error but return null so swap succeeds
+    console.error("[resolveSwapPrefill] Failed to resolve weight prefill:", error);
+    return null;
   }
-
-  return null;
 }
