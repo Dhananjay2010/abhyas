@@ -282,6 +282,42 @@ console.log("\n3. Warm-up test: walking-lunge, skipping-light, 'full depth' neve
     warmupsWithFullDepth > 0 ? `${warmupsWithFullDepth} warmups had "full depth"` : "");
   
   console.log(`    Checked ${warmupsChecked} warmup profiles`);
+  
+  // Positive control: skipping-light SHOULD be selected for non-past-knee users
+  // Filter to only skipping-light as cardio option to ensure it's selectable
+  const filteredWarmups = warmupFixture.filter(w => 
+    w.type !== "cardio" || w.slug === "skipping-light"
+  );
+  const healthyWarmup = selectWarmup({
+    warmups: filteredWarmups,
+    trainingMuscles: ["quads", "glutes"],
+    injuryRegions: [],
+    prehabRegions: [],
+    track: "bodyweight",
+    availableEquipment: new Set(["jump_rope"]),
+    hasAllEquipment: false,
+    pastKneeInjury: false,
+  });
+  
+  const cardioSlug = healthyWarmup.find(w => w.phase === "cardio")?.slug;
+  check(`skipping-light IS selectable for healthy users`, cardioSlug === "skipping-light",
+    `Expected skipping-light with jump_rope + pastKneeInjury: false, got: ${cardioSlug}`);
+  
+  // Negative control: skipping-light MUST be excluded for past-knee users (same filtered set)
+  const pastKneeWarmup = selectWarmup({
+    warmups: filteredWarmups,
+    trainingMuscles: ["quads", "glutes"],
+    injuryRegions: [],
+    prehabRegions: [],
+    track: "bodyweight",
+    availableEquipment: new Set(["jump_rope"]),
+    hasAllEquipment: false,
+    pastKneeInjury: true,
+  });
+  
+  const pastKneeSlugs = pastKneeWarmup.map(w => w.slug);
+  check(`skipping-light excluded for past-knee users`, !pastKneeSlugs.includes("skipping-light"),
+    `Expected NO skipping-light with pastKneeInjury: true, but got: ${pastKneeSlugs.join(", ")}`);
 }
 
 console.log("\n4. Swap ranking test: top-5 assertions");
@@ -334,6 +370,56 @@ console.log("\n4. Swap ranking test: top-5 assertions");
   console.log(`    Squat top 5: ${squatSwaps.join(", ")}`);
   console.log(`    Lunge top 5: ${lungeSwaps.join(", ")}`);
   console.log(`    Leg ext top 5: ${legExtSwaps.join(", ")}`);
+}
+
+console.log("\n5. Goblet squat OR-logic: dumbbell-only past-knee vs healthy");
+{
+  // Goblet squat in catalogue requires kettlebell. For past-knee users, it also accepts dumbbell.
+  // Test that this OR-logic ONLY applies when pastKneeInjury === true.
+  
+  const dbOnly = ["dumbbell", "adjustable_bench"];
+  
+  // Past-knee user with dumbbell-only: goblet-squat SHOULD be in swaps (OR-logic accepts dumbbell)
+  function getRankedSwapsWithInjury(exerciseSlug: string, equipmentIds: string[], pastKnee: boolean): string[] {
+    const current = bySlug.get(exerciseSlug);
+    if (!current) throw new Error(`Exercise ${exerciseSlug} not found`);
+    
+    const input = base({
+      pastKneeInjury: pastKnee,
+      equipmentIds,
+      hasAllEquipment: false,
+    });
+    
+    const patterns = buildPatternList(current.movement_pattern, false);
+    const rawPool = catalogue.filter(e => patterns.includes(e.movement_pattern));
+    
+    const wantCompound = current.mechanic === "compound";
+    const ctx: AlternativesContext = {
+      level: input.level,
+      availableEquipment: new Set(equipmentIds),
+      injuryRegions: input.currentInjuryRegions,
+      pastKneeInjury: pastKnee,
+      limit: 10,
+      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, pastKnee, 0),
+      tieBreakFn: (slug) => hashString(`ranking:${slug}`),
+    };
+    
+    const pool = rawPool.filter(e => {
+      if (e.id === current.id) return false;
+      if (wantCompound && e.mechanic !== "compound") return false;
+      return true;
+    });
+    
+    return rankAlternatives(current, pool, ctx).slice(0, 10).map(e => e.slug);
+  }
+  
+  const pastKneeDbSwaps = getRankedSwapsWithInjury("barbell-squat", dbOnly, true);
+  const healthyDbSwaps = getRankedSwapsWithInjury("barbell-squat", dbOnly, false);
+  
+  check("Past-knee + DB: goblet-squat in swaps", pastKneeDbSwaps.includes("goblet-squat"),
+    `Expected goblet-squat with DB for past-knee, got: ${pastKneeDbSwaps.join(", ")}`);
+  check("Healthy + DB: goblet-squat NOT in swaps", !healthyDbSwaps.includes("goblet-squat"),
+    `Expected NO goblet-squat with DB for healthy, but got: ${healthyDbSwaps.join(", ")}`);
 }
 
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);

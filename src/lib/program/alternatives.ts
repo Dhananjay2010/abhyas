@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
+import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
 import { isExcludedForPastKnee, getKneeFriendlyRankingBoost } from "@/lib/program/past-knee";
 
 export type ExerciseRow = CandidateExercise;
@@ -137,25 +138,6 @@ function scoreEquipmentFit(current: ExerciseRow, candidate: ExerciseRow): number
   return 50 + overlap * 20;
 }
 
-/**
- * Check if exercise is knee-friendly for past-knee users
- */
-function isKneeFriendlyForRanking(exercise: ExerciseRow): boolean {
-  const kneeFriendlySlug = new Set([
-    "goblet-squat",
-    "box-squat", 
-    "leg-press",
-    "split-squat-with-dumbbells",
-    "dumbbell-rear-lunge",
-    "barbell-rear-lunge",
-    "barbell-step-ups",
-    "dumbbell-step-ups",
-    "step-up-with-knee-raise",
-    "wall-sit",
-  ]);
-  
-  return kneeFriendlySlug.has(exercise.slug);
-}
 
 /**
  * Rank and filter exercise alternatives.
@@ -208,6 +190,9 @@ export function rankAlternatives<T extends ExerciseRow>(
     if (candidate.id === current.id) continue;
     
     // 2. Exclude dangerous/problematic exercises (hard-coded exclusion set)
+    if (EXCLUDED_EXERCISE_SLUGS.has(candidate.slug)) continue;
+    
+    // 3. Pullovers are shoulder-extension moves and not appropriate substitutes
     // Pullovers are shoulder-extension moves and not appropriate substitutes
     if (isCompoundPull && !isPulloverOriginal) {
       const nameLower = candidate.name.toLowerCase();

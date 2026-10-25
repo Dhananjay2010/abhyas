@@ -95,6 +95,8 @@ export function selectWarmup(input: {
   };
   
   const cardioPool = byType("cardio");
+  // Find cardio that's usable, not excluded, preferring from preference list.
+  // Last resort: any non-excluded cardio, even if equipment is missing.
   const cardio =
     preference
       .filter(canUse)
@@ -102,8 +104,7 @@ export function selectWarmup(input: {
       .map((slug) => cardioPool.find((w) => w.slug === slug))
       .find(Boolean) ??
     cardioPool.find(w => canUse(w.slug) && !isExcludedForPastKnee(w.slug)) ??
-    cardioPool.find(w => !isExcludedForPastKnee(w.slug)) ??
-    cardioPool[0];
+    cardioPool.find(w => !isExcludedForPastKnee(w.slug));
 
   // QA Pass 10 H7: Filter mobility pool by injuries BEFORE ranking
   const mobilityPool = byType("mobility").filter((w) => {
