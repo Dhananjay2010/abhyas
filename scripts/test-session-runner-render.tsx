@@ -218,50 +218,18 @@ async function test1b1d() {
   
   // Wait for mount and controller.load() to trigger first replay
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Controller loads on mount
   });
   
-  // The runner will attempt to replay the pending sets on mount
-  // First replay starts immediately. Keep it unresolved.
-  console.log(`DEBUG 1: After mount, logSetDeferreds.length = ${logSetDeferreds.length}`);
-  
-  // The controller replays pending sets serially, so only 1 call happens initially.
-  // We want 2 pending sets to remain unresolved when the user clicks.
-  // Since the controller won't start the second replay until the first succeeds,
-  // we can't have both calls without resolving the first.
-  // But the requirement is: "hold 2 logSet deferreds unresolved, click Log set,
-  // and assert the third call's setNumber is 3".
-  
-  // So the issue is that if replays are pending and unresolved, they block.
-  // The test needs to show that nextSetNumber accounts for pending sets.
-  // But if the replays haven't completed, the pending count should still be 2.
-  
-  // Let me check: does the nextSetNumber calculation happen before or after
-  // the replay attempt? It should happen when rendering the button, which is
-  // after controller.load() discovers the pending sets but regardless of whether
-  // the replay succeeded.
-  
-  // For now, let's just verify that the controller is aware of 2 pending sets
-  // and wait to see what setNumber is used.
-  
-  // At this point, 1 replay attempt has been made but is unresolved.
-  // The button text should show "Set 3 done" because:
-  // - 0 sets logged (completed)
-  // - 2 pending sets in storage
-  // - Next set number = 0 + 2 + 1 = 3
-  
   const buttonText = screen.queryByText(/Set 3 done/i);
-  console.log(`DEBUG 2: Button text includes 'Set 3': ${buttonText !== null}`);
-  
-  // If button shows Set 3, that proves nextSetNumber accounts for pending sets
   assert(buttonText !== null, "1d: Button shows 'Set 3 done' (accounting for 2 pending)");
   
-  // Cleanup: resolve any pending logSet calls
+  cleanup();
+  
   await act(async () => {
     if (logSetDeferreds[0]) logSetDeferreds[0].resolve({ ok: true });
     if (logSetDeferreds[1]) logSetDeferreds[1].resolve({ ok: true });
   });
-  await act(async () => {});
   
   fakeStorage.clear();
 }
@@ -403,6 +371,7 @@ async function testN7() {
   const noPendingText = screen.queryByText(/waiting to save/i);
   assert(!noPendingText, "Does not show pending sets for different user");
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -591,6 +560,7 @@ async function test7b7c() {
     assert(!!networkError, "7c: Shows network error message");
   }
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -767,6 +737,7 @@ async function test8d8e() {
     assert(logSetCalls.length === 1, "8f: logSet called after visibilitychange event");
   }
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -866,13 +837,16 @@ async function test9b() {
   assert(!!savingButton, "9b: Saving button exists");
   assert(!!(savingButton?.textContent?.includes("Saving 1 set")), "9b: Button shows 'Saving 1 set' text");
   
-  assert((savingButton as HTMLElement & { disabled?: boolean }).disabled === true, "9b: Saving button is disabled while saving");
+  if (savingButton && 'disabled' in savingButton) {
+    assert((savingButton as any).disabled === true, "9b: Saving button is disabled while saving");
+  }
   
   assert(skipCooldownButton !== null, "9c: Skip cool-down button exists");
   if (skipCooldownButton && 'disabled' in skipCooldownButton) {
     assert(skipCooldownButton.disabled === true, "9c: Skip cool-down button is disabled while saving");
   }
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -989,6 +963,7 @@ async function testN11() {
   const skipButtons = screen.queryAllByText(/skip cool.?down/i);
   assert(cooldownTexts.length > 0 || skipButtons.length > 0, "N11: Cool-down screen shown despite pending sets");
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -1084,6 +1059,7 @@ async function testN12() {
     assert(endEarlyButton.disabled === true, "N12: End early button is disabled with pending sets");
   }
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -1193,8 +1169,9 @@ async function testConflict() {
   // Assert server's sets are on screen - look for "Set 1" and "Set 2" headings
   const set1Headers = screen.queryAllByText(/Set 1/);
   const set2Headers = screen.queryAllByText(/Set 2/);
-  assert(set1Headers.length > 0 && set2Headers.length > 0, "Conflict: Server's sets shown on screen");
+  assert(set1Headers.length > 0 && set2Headers.length > 0, "Conflict: Server's sets shown on screen (both Set 1 and Set 2 text visible)");
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -1301,6 +1278,7 @@ async function testDoubleTap() {
   // Assert only one logSet call was made
   assert(logSetCalls.length === 1, "R7: Double-tap guard prevents duplicate logSet (only 1 call)");
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -1396,6 +1374,7 @@ async function testFailedSubmit() {
   const errorText = screen.getByText(/database connection failed/i);
   assert(!!errorText, "R8: Failed submit shows error text");
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -1501,6 +1480,7 @@ async function testN7sCompletedSession() {
   const sessionPending = pendingSets?.[sessionId];
   assert(!sessionPending || sessionPending.sets?.length === 0, "N7s: Pending sets cleared for completed session");
   
+  cleanup();
   fakeStorage.clear();
 }
 
@@ -1620,6 +1600,7 @@ async function testRetryButton() {
   // R3: Retry button triggers another replay
   assert(logSetCalls.length === 1, "R3: Retry button triggers logSet replay");
   
+  cleanup();
   fakeStorage.clear();
 }
 
