@@ -328,7 +328,7 @@
     "test:session-finish-decisions": "tsx scripts/test-session-finish-decisions.ts",
     "test:session-finish-guard": "tsx scripts/test-session-finish-guard.ts",
     "test:session-runner-render": "tsx scripts/test-session-runner-render.tsx",
-    "test:session-runner-retry-button": "tsx scripts/test-session-runner-retry-button.ts",
+    "test:session-runner-retry-button": "tsx scripts/test-session-runner-retry-button.tsx",
     "test:set-exists-replay": "tsx scripts/test-set-exists-replay.ts",
     "test:set-exists-submit-success": "tsx scripts/test-set-exists-submit-success.ts",
     "test:set-number-with-pending": "tsx scripts/test-set-number-with-pending.tsx",
