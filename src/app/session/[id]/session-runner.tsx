@@ -969,29 +969,30 @@ export function SessionRunner({
                           prev.map((e) => {
                             if (e.id !== current.id) return e;
                             
-                            // Main's inline update
+                            // Main's inline update with planned range
+                            const plannedRepsMin = swapped.repsMin ?? e.plannedRepsMin;
+                            const plannedRepsMax = swapped.repsMax ?? e.plannedRepsMax;
+                            
                             const updated = {
                               ...e,
                               name: a.name,
                               cue: a.cue,
                               exerciseId: a.exerciseId,
                               metric: swapped.metric,
-                              repsMin: swapped.repsMin ?? e.repsMin,
-                              repsMax: swapped.repsMax ?? e.repsMax,
+                              plannedRepsMin,
+                              plannedRepsMax,
+                              repsMin: plannedRepsMin,
+                              repsMax: plannedRepsMax,
                             };
                             
-                            // #127: Apply target resolution if we have progress data
-                            if (swapped.currentTargetReps !== undefined || swapped.currentWorkingWeightKg !== undefined) {
-                              return applySwapTarget(updated, {
-                                equipmentIds: swapped.equipmentIds,
-                                currentTargetReps: swapped.currentTargetReps,
-                                currentWorkingWeightKg: swapped.currentWorkingWeightKg,
-                                plannedRepsMin: swapped.repsMin ?? e.repsMin,
-                                plannedRepsMax: swapped.repsMax ?? e.repsMax,
-                              });
-                            }
-                            
-                            return updated;
+                            // #127: Always apply target resolution
+                            return applySwapTarget(updated, {
+                              equipmentIds: swapped.equipmentIds,
+                              currentTargetReps: swapped.currentTargetReps,
+                              currentWorkingWeightKg: swapped.currentWorkingWeightKg,
+                              plannedRepsMin,
+                              plannedRepsMax,
+                            });
                           }),
                         );
                         setAlternatives(null);

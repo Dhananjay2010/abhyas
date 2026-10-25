@@ -787,7 +787,17 @@ export type SwapResult = {
  * Exported for testing.
  */
 export async function fetchSwapProgress(
-  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  supabase: {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => {
+          eq: (column: string, value: string) => {
+            maybeSingle: () => Promise<{ data: { current_target_reps: number | null; current_working_weight_kg: number | null } | null }>;
+          };
+        };
+      };
+    };
+  },
   userId: string,
   exerciseId: string,
   planningMode: string | null,
@@ -814,7 +824,7 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes, settingsRes] = await Promise.all([
+  const [currentRes, replacementRes, profileRes, settingsRes, progressRes] = await Promise.all([
     supabase
       .from("session_exercises")
       .select("exercise_id, metric, planned_reps_min, planned_reps_max")
@@ -837,6 +847,13 @@ export async function swapExercise(input: {
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
     supabase.from("user_settings").select("planning_mode").eq("user_id", user.id).single(),
+    // #127: Fetch progress in parallel
+    supabase
+      .from("exercise_progress")
+      .select("current_target_reps, current_working_weight_kg")
+      .eq("user_id", user.id)
+      .eq("exercise_id", input.newExerciseId)
+      .maybeSingle(),
   ]);
 
   const current = currentRes.data;
@@ -847,13 +864,9 @@ export async function swapExercise(input: {
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
   
-  // #127: Fetch progress for target resolution
-  const progress = await fetchSwapProgress(
-    supabase,
-    user.id,
-    input.newExerciseId,
-    settingsRes.data?.planning_mode ?? null,
-  );
+  // #127: Apply planning_mode filter
+  const remembersWeights = settingsRes.data?.planning_mode !== "daily_menu";
+  const progress = remembersWeights ? progressRes.data : null;
 
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
@@ -904,8 +917,8 @@ export async function swapExercise(input: {
           repsMax, 
           equipmentIds,
           // #127: Add progress for target resolution (optional fields)
-          currentTargetReps: progress?.current_target_reps ?? undefined,
-          currentWorkingWeightKg: progress?.current_working_weight_kg ?? undefined,
+          currentTargetReps: progress?.current_target_reps ?? null,
+          currentWorkingWeightKg: progress?.current_working_weight_kg ?? null,
         } 
       };
 }

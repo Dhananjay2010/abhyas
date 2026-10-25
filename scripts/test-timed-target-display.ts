@@ -568,6 +568,24 @@ const mutantSwap = applySwap(
 check("Mutant test: plan uses replacementPlan not exercise.repsMin", mutantSwap.repsMin === 6);
 check("Mutant test: plan uses replacementPlan not exercise.repsMax", mutantSwap.repsMax === 10);
 
+// Test: swap with null repsMin/Max from server (old exercise showing stored 14, plan 8-12)
+const oldExerciseWithStored14 = {
+  ...originalExercise,
+  repsMin: 14,
+  repsMax: 14,
+  plannedRepsMin: 8,
+  plannedRepsMax: 12,
+};
+const swapWithNullPlan = applySwap(
+  oldExerciseWithStored14,
+  swapToBodyweightData,
+  { repsMin: null, repsMax: null }, // server returns null
+  undefined, // no progress
+  true
+);
+check("Swap with null plan → min=8 (uses old plannedRepsMin, not old repsMin 14)", swapWithNullPlan.repsMin === 8);
+check("Swap with null plan → max=12 (uses old plannedRepsMax, not old repsMax 14)", swapWithNullPlan.repsMax === 12);
+
 // ============================================================================
 // Part 8: fetchSwapProgress behavioral test with fake client
 // ============================================================================
@@ -578,8 +596,17 @@ import { fetchSwapProgress } from "../src/app/session/actions.js";
 (async () => {
   // Fake client that tracks method calls
   const fakeCalls: string[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fakeClient: any = {
+  const fakeClient: {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => {
+          eq: (column: string, value: string) => {
+            maybeSingle: () => Promise<{ data: { current_target_reps: number | null; current_working_weight_kg: number | null } | null }>;
+          };
+        };
+      };
+    };
+  } = {
     from: (table: string) => {
       fakeCalls.push(`from:${table}`);
       return {
