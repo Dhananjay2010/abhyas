@@ -11,6 +11,26 @@
 console.log("Testing Service Worker Fetch Handler");
 console.log("====================================\n");
 
+type FakeRequest = {
+  url: string;
+  method: string;
+  mode: string;
+  destination: string;
+  headers: Headers;
+};
+
+type FakeFetchEvent = {
+  request: FakeRequest;
+  respondWith(response: Response | Promise<Response>): void;
+};
+
+type FakeActivateEvent = {
+  waitUntil(promise: Promise<unknown>): void;
+};
+
+type FakeFetchHandler = (event: FakeFetchEvent) => void;
+type FakeActivateHandler = (event: FakeActivateEvent) => void;
+
 async function runTests() {
   console.log("▶ Testing fetch handler does not cache navigations...");
 
@@ -66,23 +86,29 @@ async function runTests() {
     },
   };
 
-  let fetchHandler: ((event: FetchEvent) => void) | null = null;
-  let activateHandler: ((event: ExtendableEvent) => void) | null = null;
+  const handlers: {
+    fetch: FakeFetchHandler | null;
+    activate: FakeActivateHandler | null;
+  } = {
+    fetch: null,
+    activate: null,
+  };
+
+  type EventMap = {
+    fetch: FakeFetchHandler;
+    activate: FakeActivateHandler;
+  };
 
   const fakeGlobal = {
     caches: fakeCaches,
     clients: {
       claim: async () => undefined,
     },
-    addEventListener: (
-      _event: string,
-      handler: (...args: unknown[]) => void
-    ) => {
-      if (_event === "fetch") {
-        fetchHandler = handler as (event: FetchEvent) => void;
-      } else if (_event === "activate") {
-        activateHandler = handler as (event: ExtendableEvent) => void;
-      }
+    addEventListener<K extends keyof EventMap>(
+      event: K,
+      handler: EventMap[K]
+    ) {
+      handlers[event] = handler;
     },
     skipWaiting: async () => undefined,
     location: { origin: "http://localhost:3000" },
@@ -103,7 +129,7 @@ async function runTests() {
     fakeGlobal.clients
   );
 
-  if (!fetchHandler) {
+  if (!handlers.fetch) {
     throw new Error("SW did not register a fetch handler");
   }
 
@@ -115,11 +141,11 @@ async function runTests() {
 
   // Create a mock Request-like object with mode: navigate
   // (Node.js Request doesn't support "navigate" mode)
-  const navRequest = {
+  const navRequest: FakeRequest = {
     url: "http://localhost:3000/today",
     method: "GET",
-    mode: "navigate" as RequestMode,
-    destination: "" as RequestDestination,
+    mode: "navigate",
+    destination: "",
     headers: new Headers(),
   };
 
@@ -131,7 +157,7 @@ async function runTests() {
   let respondWithCalled = false;
   let respondWithResponse: Response | undefined;
 
-  const navEvent = {
+  const navEvent: FakeFetchEvent = {
     request: navRequest,
     respondWith: (response: Response | Promise<Response>) => {
       respondWithCalled = true;
@@ -139,13 +165,19 @@ async function runTests() {
     },
   };
 
-  // Simulate successful network fetch
-  globalThis.fetch = async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" 
-      ? input 
-      : input instanceof URL 
-      ? input.href 
-      : (input as { url: string }).url;
+  // Simulate successful network fetch - widen type to accept FakeRequest
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input: RequestInfo | URL | FakeRequest) => {
+    let url: string;
+    if (typeof input === "string") {
+      url = input;
+    } else if (input instanceof URL) {
+      url = input.href;
+    } else if (input instanceof Request) {
+      url = input.url;
+    } else {
+      url = input.url;
+    }
     
     if (url.includes("/today")) {
       return navResponse.clone();
@@ -153,7 +185,7 @@ async function runTests() {
     return new Response("", { status: 404 });
   };
 
-  fetchHandler(navEvent as FetchEvent);
+  handlers.fetch(navEvent);
 
   console.log("  ✓ Fetch handler called for navigation request");
 
@@ -173,11 +205,11 @@ async function runTests() {
   cachedResponses.length = 0;
 
   // Create a mock Request-like object for static asset
-  const staticRequest = {
+  const staticRequest: FakeRequest = {
     url: "http://localhost:3000/_next/static/chunks/main.js",
     method: "GET",
-    mode: "cors" as RequestMode,
-    destination: "script" as RequestDestination,
+    mode: "cors",
+    destination: "script",
     headers: new Headers(),
   };
 
@@ -186,19 +218,24 @@ async function runTests() {
     headers: { "Content-Type": "application/javascript" },
   });
 
-  const staticEvent = {
+  const staticEvent: FakeFetchEvent = {
     request: staticRequest,
     respondWith: (response: Response | Promise<Response>) => {
       // Will be called for cache-first strategy
     },
   };
 
-  globalThis.fetch = async (input: RequestInfo | URL) => {
-    const url = typeof input === "string" 
-      ? input 
-      : input instanceof URL 
-      ? input.href 
-      : (input as { url: string }).url;
+  globalThis.fetch = async (input: RequestInfo | URL | FakeRequest) => {
+    let url: string;
+    if (typeof input === "string") {
+      url = input;
+    } else if (input instanceof URL) {
+      url = input.href;
+    } else if (input instanceof Request) {
+      url = input.url;
+    } else {
+      url = input.url;
+    }
     
     if (url.includes("/_next/static/chunks/main.js")) {
       return staticResponse.clone();
@@ -206,7 +243,7 @@ async function runTests() {
     return new Response("", { status: 404 });
   };
 
-  fetchHandler(staticEvent as FetchEvent);
+  handlers.fetch(staticEvent);
 
   console.log("  ✓ Fetch handler called for static asset request");
 
@@ -224,16 +261,6 @@ async function runTests() {
   }
 
   console.log("\n✅ All fetch handler tests passed\n");
-}
-
-// Define minimal FetchEvent and ExtendableEvent types for this test
-interface ExtendableEvent {
-  waitUntil(promise: Promise<unknown>): void;
-}
-
-interface FetchEvent extends ExtendableEvent {
-  request: Request;
-  respondWith(response: Response | Promise<Response>): void;
 }
 
 runTests().catch((error) => {
