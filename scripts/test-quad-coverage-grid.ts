@@ -28,11 +28,13 @@ const ages = [25, 35, 45, 55]; // Various age brackets
 
 // Equipment scenarios to test (current-knee needs leg-extension machine or wall-sit space)
 const equipmentScenarios = [
-  { name: "all", hasAllEquipment: true, equipmentIds: [] },
-  { name: "db-bench", hasAllEquipment: false, equipmentIds: ["flat_bench", "dumbbells"] },
-  { name: "barbell-rack", hasAllEquipment: false, equipmentIds: ["barbell", "squat_rack"] },
-  { name: "machines", hasAllEquipment: false, equipmentIds: ["cable_machine", "leg_extension", "leg_curl"] },
-  { name: "kettlebell", hasAllEquipment: false, equipmentIds: ["kettlebell", "pull_up_bar"] },
+  { name: "all", hasAllEquipment: true, equipmentIds: [], track: "weights" as const },
+  { name: "db-bench", hasAllEquipment: false, equipmentIds: ["flat_bench", "dumbbell"], track: "weights" as const },
+  { name: "barbell-rack", hasAllEquipment: false, equipmentIds: ["barbell", "squat_rack"], track: "weights" as const },
+  { name: "machines", hasAllEquipment: false, equipmentIds: ["cable_machine", "leg_extension", "leg_curl"], track: "weights" as const },
+  { name: "kettlebell", hasAllEquipment: false, equipmentIds: ["kettlebell", "pull_up_bar"], track: "weights" as const },
+  { name: "bodyweight", hasAllEquipment: false, equipmentIds: ["bodyweight"], track: "bodyweight" as const },
+  { name: "no-equipment", hasAllEquipment: false, equipmentIds: [], track: "bodyweight" as const },
 ];
 
 let totalPlans = 0;
@@ -56,7 +58,7 @@ for (const goal of goals) {
                 blockNumber,
                 goal,
                 level,
-                primaryTrack: "weights",
+                primaryTrack: equipment.track,
                   daysPerWeek,
                   yogaDaysPerWeek: 0,
                   age,
@@ -70,7 +72,6 @@ for (const goal of goals) {
                   catalogue,
                 };
             
-            try {
               const program = generateProgram(input);
               const byId = new Map(catalogue.map(e => [e.id, e]));
               
@@ -92,9 +93,6 @@ for (const goal of goals) {
                   console.log(`  MISSING QUAD: ${input.userId} ${day.label} (${day.exercises.length} exercises)`);
                 }
               }
-            } catch (err) {
-              console.error(`  ERROR generating ${input.userId}:`, err);
-            }
               }
             }
           }

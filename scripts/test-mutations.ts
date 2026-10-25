@@ -168,6 +168,24 @@ const mutants: Mutant[] = [
     mutate: '// MUTANT: Disabled wall-sit reuse\n            if (usedInBlock.has(e.id)) return false;',
     tests: ["test:quad-coverage-grid", "test:knee-safety-matrix"],
   },
+  
+  // PR #73 Run 18: Sissy squat ban mutant
+  {
+    name: "Remove sissy-squat ban (allow for any knee injury)",
+    file: "src/lib/program/generate.ts",
+    pattern: /\/\/ PR #73 coordinator: ANY knee injury excludes sissy squats \(including weighted-sissy-squat\)\s+if \(input\.anyKneeInjury && ex\.slug\.includes\("sissy"\)\) \{/,
+    mutate: '// MUTANT: Removed sissy-squat ban\n  if (false) {',
+    tests: ["test:sissy-squat-ban"],
+  },
+  
+  // PR #73 Run 18: Knee-safe quad/lunge exclusion filter mutant
+  {
+    name: "Remove EXCLUDED_EXERCISE_SLUGS filter from knee-safe selection",
+    file: "src/lib/program/generate.ts",
+    pattern: /\.filter\(\(item\) => !EXCLUDED_EXERCISE_SLUGS\.has\(item\.e\.slug\)\);/,
+    mutate: '; // MUTANT: Removed EXCLUDED_EXERCISE_SLUGS filter',
+    tests: ["test:knee-safe-quad-exclusions"],
+  },
 ];
 
 let killed = 0;
@@ -264,8 +282,7 @@ function runMutation(mutant: Mutant): void {
 console.log("Knee Safety Mutation Testing");
 console.log("─".repeat(60));
 
-// Baseline: ensure tests pass before any mutations
-// Note: test:knee-safety-matrix has 73 known failures (≤2 core rule, pre-existing from main c00c8487)
+// Baseline: ensure all tests pass before any mutations
 console.log("\nRunning baseline tests...");
 const testedAlready = new Set<string>();
 for (const mutant of mutants) {
@@ -273,28 +290,16 @@ for (const mutant of mutants) {
     if (testedAlready.has(test)) continue;
     testedAlready.add(test);
     
-    // Run test and capture output
+    // Run test - must pass with exit code 0
     try {
       execSync(`npm run ${test}`, { stdio: "pipe", encoding: "utf8" });
-      // Test passed with exit code 0
-    } catch (error: unknown) {
-      const err = error as { stdout?: Buffer | string; stderr?: Buffer | string; output?: (Buffer | string | null)[] };
-      const output = (err.stdout?.toString() || err.output?.[1]?.toString() || "");
-      
-      // For test:knee-safety-matrix, allow exactly 73 failures (known issue from main)
-      if (test === "test:knee-safety-matrix" && output.includes("✗ 73 test(s) failed")) {
-        console.log(`  ${test}: 73 known failures (≤2 core rule, pre-existing from main)`);
-        continue;
-      }
-      
-      // Unexpected failure
-      console.error(`❌ FATAL: Baseline test ${test} failed unexpectedly`);
-      console.error(output);
+    } catch {
+      console.error(`❌ FATAL: Baseline test ${test} failed`);
       process.exit(1);
     }
   }
 }
-console.log("✓ Baseline tests pass (with 73 known failures)\n");
+console.log("✓ Baseline tests pass\n");
 
 // Setup SIGINT/SIGTERM trap to restore files on interrupt
 const backupFiles: string[] = [];

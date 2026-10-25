@@ -93,6 +93,9 @@ const catalogue: CandidateExercise[] = JSON.parse(
 const byId = new Map(catalogue.map((e) => [e.id, e]));
 
 let failures = 0;
+let fullBodyPullViolations = 0;
+let fullBodyPushViolations = 0;
+
 function check(label: string, ok: boolean, detail = "") {
   if (ok) {
     // Pass
@@ -696,11 +699,6 @@ for (const seed of testSeeds) {
                 return e.primary_muscles.some(m => lowerBodyMuscles.includes(m));
               });
               
-              const coreExercises = day.exercises.filter(ex => {
-                const e = byId.get(ex.exerciseId);
-                return e?.movement_pattern === "core";
-              });
-              
               // Check minimum lower-body count (at least 2) - PR #73 Run 13: no exemptions
               if (nonCoreLowerExercises.length < 2) {
                 // Count available knee-safe lower-body exercises for this equipment
@@ -743,6 +741,48 @@ for (const seed of testSeeds) {
                 check(`${profileId} ${day.label}: ≥1 quads-primary exercise`, false,
                   `No quads-primary exercises found on ${day.focus} day`);
                 profileFailed = true;
+              }
+              
+              // PR #73 Run 18: full_body days must preserve pull/push coverage whenever the uninjured version has them
+              if (day.focus === "full_body") {
+                const pulls = day.exercises.filter(ex => {
+                  const e = byId.get(ex.exerciseId);
+                  return e?.movement_pattern === "horizontal_pull" || e?.movement_pattern === "vertical_pull";
+                });
+                const pushes = day.exercises.filter(ex => {
+                  const e = byId.get(ex.exerciseId);
+                  return e?.movement_pattern === "horizontal_press" || e?.movement_pattern === "vertical_press";
+                });
+                
+                // Generate uninjured baseline for comparison
+                const uninjuredInput = { ...input, currentInjuryRegions: [], anyKneeInjury: false };
+                const uninjuredPlan = generateProgram(uninjuredInput);
+                const uninjuredDay = uninjuredPlan.days.find(d => d.label === day.label);
+                
+                if (uninjuredDay) {
+                  const uninjuredPulls = uninjuredDay.exercises.filter(ex => {
+                    const e = byId.get(ex.exerciseId);
+                    return e?.movement_pattern === "horizontal_pull" || e?.movement_pattern === "vertical_pull";
+                  });
+                  const uninjuredPushes = uninjuredDay.exercises.filter(ex => {
+                    const e = byId.get(ex.exerciseId);
+                    return e?.movement_pattern === "horizontal_press" || e?.movement_pattern === "vertical_press";
+                  });
+                  
+                  if (uninjuredPulls.length > 0 && pulls.length === 0) {
+                    check(`${profileId} ${day.label}: preserve pull from uninjured baseline`, false,
+                      `Uninjured has ${uninjuredPulls.length} pulls, injured has 0`);
+                    profileFailed = true;
+                    fullBodyPullViolations++;
+                  }
+                  
+                  if (uninjuredPushes.length > 0 && pushes.length === 0) {
+                    check(`${profileId} ${day.label}: preserve push from uninjured baseline`, false,
+                      `Uninjured has ${uninjuredPushes.length} pushes, injured has 0`);
+                    profileFailed = true;
+                    fullBodyPushViolations++;
+                  }
+                }
               }
             }
             }
@@ -969,6 +1009,10 @@ check(
   deterministicFailures === 0,
   deterministicFailures > 0 ? `${deterministicFailures} profiles failed` : ""
 );
+
+console.log("\nFull-body pull/push coverage summary:");
+console.log(`  Full-body days missing pulls: ${fullBodyPullViolations}`);
+console.log(`  Full-body days missing pushes: ${fullBodyPushViolations}`);
 
 console.log(`\n${failures === 0 ? "✓ All tests passed!" : `✗ ${failures} test(s) failed`}`);
 process.exit(failures > 0 ? 1 : 0);

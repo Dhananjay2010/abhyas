@@ -1220,8 +1220,48 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             const isShortDay = entry.slots.length === mainSlotCount + coreSlotCount;
             
             if (isShortDay && insertIdx > 0) {
-              // Short day: REPLACE the last non-core exercise to stay within template limits
-              pickedExercises[insertIdx - 1] = { ex: added, slotIndex: pickedExercises[insertIdx - 1].slotIndex };
+              // Short day: REPLACE carefully to preserve pull/push coverage on full_body days
+              let replaceIdx = insertIdx - 1;
+              
+              // On full_body days, never replace the only pull or push
+              if (entry.focus === "full_body") {
+                const pulls = pickedExercises.filter(p => 
+                  p.ex.movement_pattern === "horizontal_pull" || p.ex.movement_pattern === "vertical_pull"
+                );
+                const pushes = pickedExercises.filter(p =>
+                  p.ex.movement_pattern === "horizontal_press" || p.ex.movement_pattern === "vertical_press"
+                );
+                const targetEx = pickedExercises[replaceIdx].ex;
+                const isPull = targetEx.movement_pattern === "horizontal_pull" || targetEx.movement_pattern === "vertical_pull";
+                const isPush = targetEx.movement_pattern === "horizontal_press" || targetEx.movement_pattern === "vertical_press";
+                
+                if ((isPull && pulls.length === 1) || (isPush && pushes.length === 1)) {
+                  // Prefer replacing a core exercise if available
+                  const coreIdx = pickedExercises.findIndex(p => p.ex.movement_pattern === "core");
+                  if (coreIdx >= 0) {
+                    replaceIdx = coreIdx;
+                  } else {
+                    // Find a duplicate pattern (second squat/hinge/lunge)
+                    const patterns = pickedExercises.filter(p => p.ex.movement_pattern !== "core").map(p => p.ex.movement_pattern);
+                    const duplicatePattern = patterns.find((pat, i) => patterns.indexOf(pat) !== i);
+                    if (duplicatePattern) {
+                      replaceIdx = pickedExercises.findIndex((p, i) => 
+                        i > 0 && p.ex.movement_pattern === duplicatePattern && 
+                        pickedExercises.slice(0, i).some(prev => prev.ex.movement_pattern === duplicatePattern)
+                      );
+                    } else {
+                      // No safe replacement: skip wall-sit for this day to preserve pull/push
+                      continue;
+                    }
+                  }
+                }
+              }
+              
+              // Release the replaced exercise from usedInBlock
+              const replacedEx = pickedExercises[replaceIdx].ex;
+              usedInBlock.delete(replacedEx.id);
+              
+              pickedExercises[replaceIdx] = { ex: added, slotIndex: pickedExercises[replaceIdx].slotIndex };
             } else {
               // Normal day with accessory slots: INSERT as last non-core item
               pickedExercises.splice(insertIdx, 0, { ex: added, slotIndex: Math.max(mainSlotCount, insertIdx) });
@@ -1317,83 +1357,9 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
       }
     }
 
-    // QA: 50+ users (or anyone avoiding high spinal load) get safer loaded hinges on lower days
-    const avoidHighSpinalLoad = input.age !== null && input.age >= 50;
-    if (avoidHighSpinalLoad && (entry.focus === "lower" || entry.focus === "full" || entry.focus === "legs") && (input.hasAllEquipment || input.equipmentIds.length > 0)) {
-      const hinges = pickedExercises.filter(p => p.ex.movement_pattern === "hinge");
-      const hasHighSpinalHinge = hinges.some(p => p.ex.spinal_load === "high");
-      const hasSafeLoadedHinge = hinges.some(p => 
-        p.ex.spinal_load !== "high" &&
-        p.ex.equipment_ids.some(id => id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine")
-      );
-      
-      // If we have a high-spinal hinge, try to replace it
-      if (hasHighSpinalHinge) {
-        const saferHinges = pool
-          .filter(e => {
-            if (e.movement_pattern !== "hinge") return false;
-            if (e.spinal_load === "high") return false;
-            if (usedInBlock.has(e.id)) return false;
-            if (!isEligible(e, input)) return false;
-            // Must be loaded (barbell, dumbbell, kettlebell, or cable)
-            const hasLoadedEquipment = e.equipment_ids.some(id => 
-              id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine"
-            );
-            return hasLoadedEquipment;
-          })
-          .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
-            a.slug.localeCompare(b.slug)
-          );
-        
-        if (saferHinges.length > 0) {
-          // Replace the first high-spinal hinge with a safer one
-          const highHingeIndex = pickedExercises.findIndex(p => 
-            p.ex.movement_pattern === "hinge" && p.ex.spinal_load === "high"
-          );
-          if (highHingeIndex !== -1) {
-            const replaced = pickedExercises[highHingeIndex];
-            usedInBlock.delete(replaced.ex.id);
-            const safer = saferHinges[0];
-            usedInBlock.add(safer.id);
-            pickedExercises[highHingeIndex] = { ex: safer, slotIndex: replaced.slotIndex };
-          }
-        }
-      }
-      
-      // After replacement, ensure we have at least one safe loaded hinge
-      const hasSafeLoadedHingeNow = pickedExercises.some(p => 
-        p.ex.movement_pattern === "hinge" &&
-        p.ex.spinal_load !== "high" &&
-        p.ex.equipment_ids.some(id => id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine")
-      );
-      
-      if (!hasSafeLoadedHingeNow) {
-        // Force-add a safe loaded hinge
-        const safeHinges = pool
-          .filter(e => {
-            if (e.movement_pattern !== "hinge") return false;
-            if (e.spinal_load === "high") return false;
-            if (usedInBlock.has(e.id)) return false;
-            if (!isEligible(e, input)) return false;
-            const hasLoadedEquipment = e.equipment_ids.some(id => 
-              id === "barbell" || id === "dumbbell" || id === "kettlebell" || id === "cable_machine"
-            );
-            return hasLoadedEquipment;
-          })
-          .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
-            a.slug.localeCompare(b.slug)
-          );
-        
-        if (safeHinges.length > 0) {
-          const added = safeHinges[0];
-          usedInBlock.add(added.id);
-          pickedExercises.push({ ex: added, slotIndex: pickedExercises.length });
-        }
-      }
-    }
 
+    // NOTE: High spinal load replacement is handled by isEligible (line 551)
+    // which blocks all high-spinal-load exercises for age >= 50
     // For longer sessions, add extra accessories beyond the template.
     // These are always accessories (slot 4+), so use block-wide deduplication.
     if (maxExercises > entry.slots.length && pickedExercises.length >= entry.slots.length) {
