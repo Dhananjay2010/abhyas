@@ -33,7 +33,7 @@ import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } fr
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { progressForPlanningMode } from "@/lib/session/swap-progress";
-import { swapExerciseForUser } from "@/lib/session/swap-exercise-for-user";
+import { swapExerciseForUser, type SwapResult } from "@/lib/session/swap-exercise-for-user";
 import { canSwapExercise, createSupabaseSwapGuardDeps } from "@/lib/session/swap-guard";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
@@ -763,18 +763,6 @@ export async function findAlternatives(
 
   return { ok: true, data: alternatives };
 }
-
-/** What the runner needs to redraw the exercise after a swap. */
-export type SwapResult = {
-  metric: Database["public"]["Enums"]["exercise_metric"];
-  repsMin: number | null;
-  repsMax: number | null;
-  equipmentIds: string[];
-  weightPrefill: number | null;
-  workingWeightKg: number | null;
-  currentTargetReps: number | null;
-  isBodyweight: boolean;
-};
 
 export async function swapExercise(input: {
   sessionExerciseId: string;
