@@ -442,6 +442,37 @@ export function evaluateProgression(input: {
   }
 
   const heaviest = Math.max(...working.map((s) => s.weightKg ?? 0));
+  
+  /**
+   * Find the most common working-set weight (mode).
+   * Ties go to the lower weight.
+   * Returns 0 if no weights logged.
+   */
+  function mostCommonWorkingWeight(sets: LoggedSet[]): number {
+    const weights = sets.map(s => s.weightKg ?? 0).filter(w => w > 0);
+    if (weights.length === 0) return 0;
+    
+    const counts = new Map<number, number>();
+    for (const w of weights) {
+      counts.set(w, (counts.get(w) ?? 0) + 1);
+    }
+    
+    let maxCount = 0;
+    let modeWeight = weights[0];
+    for (const [w, count] of counts) {
+      if (count > maxCount || (count === maxCount && w < modeWeight)) {
+        maxCount = count;
+        modeWeight = w;
+      }
+    }
+    return modeWeight;
+  }
+  
+  // Progression base is what was ACTUALLY lifted this session (mode), not stored weight.
+  // Only use stored weight when there are no logged working sets.
+  const modeWeight = mostCommonWorkingWeight(working);
+  const baseWeight = modeWeight > 0 ? modeWeight : state.currentWorkingWeightKg;
+  
   const carried = { ...base };
 
   // Success requires the full set count AND the top of the rep range on each.
@@ -465,7 +496,7 @@ export function evaluateProgression(input: {
 
   if (succeeded) {
     // Hard feel: with equipment, hold at current weight; without equipment, progress normally
-    const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+    const currentWeight = baseWeight ?? (heaviest > 0 ? heaviest : null);
     if (feel === "hard" && currentWeight !== null && currentWeight > 0 && equipmentIds && unit) {
       // Hold at current weight (don't snap down)
       return {
@@ -501,10 +532,12 @@ export function evaluateProgression(input: {
       
       // Reps run out of usefulness relative to the range they started in; a
       // hold runs out at an absolute length, whatever it was prescribed at.
-      // Cap: 120s for timed, 2×repsMax for reps
-      const ceiling = isTimed ? HOLD_CEILING_SECONDS : 2 * repsMax;
+      // Variation trigger: repsMax+4 (main's threshold)
+      // Reps cap for non-variation exercises: 2×repsMax
+      const variationCeiling = isTimed ? HOLD_CEILING_SECONDS : repsMax + 4;
+      const repsCap = isTimed ? HOLD_CEILING_SECONDS : 2 * repsMax;
 
-      if (canProgressVariation && nextTarget > ceiling) {
+      if (canProgressVariation && nextTarget > variationCeiling) {
         return {
           ...carried,
           outcome: "variation_up",
@@ -517,7 +550,7 @@ export function evaluateProgression(input: {
 
       // A hold with nowhere harder to go stops growing rather than marching on
       // to five-minute planks. Loading it is the honest next step.
-      if (isTimed && nextTarget > ceiling) {
+      if (isTimed && nextTarget > HOLD_CEILING_SECONDS) {
         return {
           ...carried,
           outcome: "hold",
@@ -528,7 +561,7 @@ export function evaluateProgression(input: {
       }
 
       // Reps ceiling: cap at 2×repsMax
-      const cappedTarget = nextTarget > ceiling ? ceiling : nextTarget;
+      const cappedTarget = nextTarget > repsCap ? repsCap : nextTarget;
       const targetMoved = cappedTarget !== resolvedTarget;
 
       return {
@@ -549,7 +582,7 @@ export function evaluateProgression(input: {
     // Bodyweight with added weight: smaller steps, never doubled.
     // Loaded exercises: with equipment, ONE grid step only (never doubled); without equipment, standard increment (doubled on easy).
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
-    const from = state.currentWorkingWeightKg ?? heaviest;
+    const from = baseWeight ?? heaviest;
     
     let next: number;
     if (equipmentIds && unit) {
@@ -637,7 +670,7 @@ export function evaluateProgression(input: {
 
   // MISS: sets incomplete, or any set's reps below repsMin. Increment consecutiveFailures.
   const failures = state.consecutiveFailures + 1;
-  const currentWeight = state.currentWorkingWeightKg ?? (heaviest > 0 ? heaviest : null);
+  const currentWeight = baseWeight ?? (heaviest > 0 ? heaviest : null);
 
   /**
    * Shared helper: compute what the two-miss back-off would return.
