@@ -141,20 +141,8 @@ export function SessionRunner({
   tomorrow,
   actions = REAL_ACTIONS,
   onExit,
-  addEventListener = (type: string, handler: () => void) => {
-    if (type === "focus") {
-      window.addEventListener(type, handler);
-    } else {
-      document.addEventListener(type, handler);
-    }
-  },
-  removeEventListener = (type: string, handler: () => void) => {
-    if (type === "focus") {
-      window.removeEventListener(type, handler);
-    } else {
-      document.removeEventListener(type, handler);
-    }
-  },
+  addEventListener: addEventListenerProp,
+  removeEventListener: removeEventListenerProp,
 }: {
   sessionId: string;
   sessionStatus: Database["public"]["Enums"]["session_status"];
@@ -174,6 +162,26 @@ export function SessionRunner({
   addEventListener?: (type: string, handler: () => void) => void;
   removeEventListener?: (type: string, handler: () => void) => void;
 }) {
+  // Stable event listener functions for focus retry
+  const addEventListener = useCallback((type: string, handler: () => void) => {
+    if (addEventListenerProp) {
+      addEventListenerProp(type, handler);
+    } else if (type === "focus") {
+      window.addEventListener(type, handler);
+    } else {
+      document.addEventListener(type, handler);
+    }
+  }, [addEventListenerProp]);
+  
+  const removeEventListener = useCallback((type: string, handler: () => void) => {
+    if (removeEventListenerProp) {
+      removeEventListenerProp(type, handler);
+    } else if (type === "focus") {
+      window.removeEventListener(type, handler);
+    } else {
+      document.removeEventListener(type, handler);
+    }
+  }, [removeEventListenerProp]);
   const router = useRouter();
   const elapsed = useElapsed(startedAt);
   const beeper = useBeeper(settings.restSound);
