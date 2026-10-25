@@ -12,9 +12,12 @@ import {
   vibrate,
   vibrationSupported,
 } from "@/lib/session/device";
+import { withBusyGuard } from "@/lib/session/busy-guard";
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
+import { shouldShowFinishRetry } from "@/lib/session/finish-flow";
+import { endEarlyConfirmTitle, sessionSummaryTitle } from "@/lib/session/end-early-text";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import {
   abandonSession,
@@ -35,6 +38,9 @@ import { useResumeRefresh } from "@/lib/session/use-resume-refresh";
 import { exercisesReducer } from "@/lib/session/exercises-reducer";
 import { nextSetTarget, pickCurrentExerciseIndex } from "@/lib/session/resume-state";
 import { createConcurrentGuard } from "@/lib/session/guard-concurrent";
+import { focusTrap } from "@/lib/focus-trap";
+import { formatNumber } from "@/lib/format";
+import { PendingTracker } from "@/lib/session/pending-tracker";
 
 /** Injected so the runner can be exercised without a signed-in session. */
 export type SessionActions = {
@@ -63,8 +69,8 @@ const REAL_ACTIONS: SessionActions = {
   planDay,
 };
 
-type Feel = Database["public"]["Enums"]["set_feel"];
-type Muscle = Database["public"]["Enums"]["muscle"];
+export type Feel = Database["public"]["Enums"]["set_feel"];
+export type Muscle = Database["public"]["Enums"]["muscle"];
 
 export type LoggedSet = {
   setNumber: number;
@@ -120,6 +126,7 @@ export function SessionRunner({
   week,
   warmupAlreadyDone,
   startedAt,
+  isStale,
   warmup,
   cooldown,
   exercises: initialExercises,
@@ -133,6 +140,7 @@ export function SessionRunner({
   week: number;
   warmupAlreadyDone: boolean;
   startedAt: string | null;
+  isStale: boolean;
   warmup: WarmupItem[];
   cooldown: WarmupItem[];
   exercises: RunnerExercise[];
@@ -143,7 +151,22 @@ export function SessionRunner({
   onExit?: () => void;
 }) {
   const router = useRouter();
-  const elapsed = useElapsed(startedAt);
+  const rawElapsed = useElapsed(startedAt);
+  const frozenElapsedRef = useRef<number | null>(null);
+  const elapsed = isStale 
+    ? Math.min(rawElapsed, 10799) // Cap at 179:59 for stale sessions
+    : (frozenElapsedRef.current ?? rawElapsed);
+  
+  const stopElapsed = useCallback(() => {
+    const current = rawElapsed;
+    frozenElapsedRef.current = current;
+    return current;
+  }, [rawElapsed]);
+  
+  const resumeElapsed = useCallback(() => {
+    frozenElapsedRef.current = null;
+  }, []);
+  
   const beeper = useBeeper(settings.restSound);
   
   // Use reducer to manage exercises with server data merging
@@ -164,10 +187,12 @@ export function SessionRunner({
   }, []);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [needsFinishRetry, setNeedsFinishRetry] = useState(false);
   const [alternatives, setAlternatives] = useState<Alternative[] | null>(null);
   const [progressNotes, setProgressNotes] = useState<
     { name: string; message: string; personalBest: string | null }[]
   >([]);
+  const [endedEarly, setEndedEarly] = useState(false);
   /*
     Which exercise screen the "what just changed" banner belongs on.
 
@@ -312,6 +337,8 @@ export function SessionRunner({
    */
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
+  
+  const pendingTracker = useMemo(() => new PendingTracker(), []);
 
   /**
    * Skipping an exercise cannot be undone — there is no navigation back to it
@@ -322,23 +349,18 @@ export function SessionRunner({
    */
   const [confirming, setConfirming] = useState<"skip" | null>(null);
 
-  async function run<T extends { ok: boolean; error?: string }>(fn: () => Promise<T>) {
-    if (busyRef.current) return false;
-    busyRef.current = true;
-    setBusy(true);
-    try {
-      const r = await fn();
-      if (!r.ok) setError("error" in r ? (r.error ?? "Something went wrong") : "Failed");
-      else setError(null);
-      return r.ok;
-    } catch (err) {
-      // h2: Catch network errors (offline, timeout, etc)
-      setError(runnerErrorMessage(err));
+  async function run<T extends { ok: boolean; error?: string }>(
+    fn: () => Promise<T>
+  ): Promise<boolean> {
+    const result = await withBusyGuard(() => busyRef.current, setBusy, fn);
+    if (result.busy) return false;
+    const { ok, error } = result.result;
+    if (!ok) {
+      setError(error ?? "Something went wrong");
       return false;
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
     }
+    setError(null);
+    return true;
   }
 
   // ---- warm-up ----------------------------------------------------------
@@ -439,21 +461,52 @@ export function SessionRunner({
           <BigButton
             disabled={busy}
             onClick={async () => {
-              await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: true }),
+              const frozen = stopElapsed();
+              const succeeded = await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
               );
-              setPhase("done");
+              if (succeeded) {
+                setPhase("done");
+              } else {
+                resumeElapsed();
+              }
+              setNeedsFinishRetry(shouldShowFinishRetry(succeeded, true));
             }}
           >
             Done
           </BigButton>
+          {needsFinishRetry && error && (
+            <BigButton
+              disabled={busy}
+              onClick={async () => {
+                const frozen = stopElapsed();
+                const succeeded = await run(() =>
+                  actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: true })
+                );
+                if (succeeded) {
+                  setPhase("done");
+                } else {
+                  resumeElapsed();
+                }
+                setNeedsFinishRetry(shouldShowFinishRetry(succeeded, true));
+              }}
+            >
+              Try again
+            </BigButton>
+          )}
           <GhostButton
             disabled={busy}
             onClick={async () => {
-              await run(() =>
-                actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+              const frozen = stopElapsed();
+              const succeeded = await run(() =>
+                actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
               );
-              setPhase("done");
+              if (succeeded) {
+                setPhase("done");
+              } else {
+                resumeElapsed();
+              }
+              setNeedsFinishRetry(shouldShowFinishRetry(succeeded, false));
             }}
           >
             Skip cool-down
@@ -754,10 +807,16 @@ export function SessionRunner({
     if (next === -1) {
       if (settings.cooldownEnabled) setPhase("cooldown");
       else {
-        await run(() =>
-          actions.finishSession({ sessionId, durationSeconds: elapsed, cooldownCompleted: false }),
+        const frozen = stopElapsed();
+        const succeeded = await run(() =>
+          actions.finishSession({ sessionId, durationSeconds: frozen, cooldownCompleted: false })
         );
-        setPhase("done");
+        if (succeeded) {
+          setPhase("done");
+        } else {
+          resumeElapsed();
+        }
+        setNeedsFinishRetry(shouldShowFinishRetry(succeeded, false));
       }
     } else {
       setExerciseIndex(next);
