@@ -1,39 +1,32 @@
 import type { Database } from "@/lib/database.types";
 import { resolveTarget } from "./display-target";
 
-type Muscle = Database["public"]["Enums"]["muscle"];
 type ExerciseMetric = Database["public"]["Enums"]["exercise_metric"];
 
 /**
- * Mapped exercise data for the session runner.
- * Extracted from page.tsx session-exercises mapping for testability (M-2).
+ * Structural input types for mapSessionExercise.
+ * These accept the actual Supabase query results without casts.
+ * Only the fields that mapSessionExercise reads are specified.
  */
-export type SessionExerciseRow = {
-  id: string;
-  planned_sets: number | null;
-  planned_reps_min: number | null;
-  planned_reps_max: number | null;
-  rest_seconds: number | null;
-  metric: ExerciseMetric | null;
-  exercises: {
-    id: string;
-    name: string;
-    cue: string | null;
-    movement_pattern: Database["public"]["Enums"]["movement_pattern"];
-    primary_muscles: Muscle[];
-    equipment_ids: string[];
+
+export type SessionExerciseInput = {
+  readonly planned_reps_min: number | null;
+  readonly planned_reps_max: number | null;
+  readonly metric: ExerciseMetric | null;
+  readonly exercises: {
+    readonly id: string;
+    readonly equipment_ids: readonly string[];
   } | null;
 };
 
-export type ExerciseProgressRow = {
-  exercise_id: string;
-  current_working_weight_kg: number | null;
-  current_target_reps: number | null;
-};
+export type ProgressInput = {
+  readonly current_working_weight_kg: number | null;
+  readonly current_target_reps: number | null;
+} | undefined;
 
 export type RunnerExerciseInput = {
-  row: SessionExerciseRow;
-  progress: ExerciseProgressRow | undefined;
+  row: SessionExerciseInput;
+  progress: ProgressInput;
   remembersWeights: boolean;
 };
 

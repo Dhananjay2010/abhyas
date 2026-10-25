@@ -7,7 +7,7 @@ import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
 import { SessionRunner, type RunnerExercise, type RunnerSettings } from "./session-runner";
 import { isUuid } from "@/lib/ids";
-import { mapSessionExercise, type SessionExerciseRow, type ExerciseProgressRow } from "@/lib/session/build-runner-exercises";
+import { mapSessionExercise } from "@/lib/session/build-runner-exercises";
 
 export const dynamic = "force-dynamic";
 
@@ -123,8 +123,8 @@ export default async function SessionPage({
     
     // Use extracted pure function for target resolution (M-2)
     const mapped = mapSessionExercise({
-      row: r as SessionExerciseRow,
-      progress: progress as ExerciseProgressRow | undefined,
+      row: r,
+      progress,
       remembersWeights,
     });
     

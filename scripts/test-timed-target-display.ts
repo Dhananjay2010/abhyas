@@ -17,7 +17,7 @@
  * - Swap outputs
  */
 
-import { mapSessionExercise, type SessionExerciseRow, type ExerciseProgressRow } from "../src/lib/session/build-runner-exercises.js";
+import { mapSessionExercise, type SessionExerciseInput, type ProgressInput } from "../src/lib/session/build-runner-exercises.js";
 
 let passed = 0;
 let failed = 0;
@@ -36,24 +36,16 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
 
 // Test 1: Bodyweight plank (seconds) stored at 45s → shows 45s
 {
-  const row: SessionExerciseRow = {
-    id: "se1",
-    planned_sets: 3,
+  const row: SessionExerciseInput = {
     planned_reps_min: 30,
     planned_reps_max: 60,
-    rest_seconds: 90,
     metric: "seconds",
     exercises: {
       id: "ex-plank",
-      name: "Plank",
-      cue: null,
-      movement_pattern: "other",
-      primary_muscles: ["abs"],
       equipment_ids: [], // bodyweight
     },
   };
-  const progress: ExerciseProgressRow = {
-    exercise_id: "ex-plank",
+  const progress: ProgressInput = {
     current_working_weight_kg: null,
     current_target_reps: 45,
   };
@@ -68,24 +60,16 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
 
 // Test 2: Weighted plank (added weight) → stays on plan
 {
-  const row: SessionExerciseRow = {
-    id: "se2",
-    planned_sets: 3,
+  const row: SessionExerciseInput = {
     planned_reps_min: 20,
     planned_reps_max: 40,
-    rest_seconds: 90,
     metric: "seconds",
     exercises: {
       id: "ex-weighted-plank",
-      name: "Weighted Plank",
-      cue: null,
-      movement_pattern: "other",
-      primary_muscles: ["abs"],
       equipment_ids: [], // bodyweight base, but has added weight
     },
   };
-  const progress: ExerciseProgressRow = {
-    exercise_id: "ex-weighted-plank",
+  const progress: ProgressInput = {
     current_working_weight_kg: 10, // added weight
     current_target_reps: 35,
   };
@@ -98,24 +82,16 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
 
 // Test 3: Bodyweight push-ups stored at 14 → shows 14
 {
-  const row: SessionExerciseRow = {
-    id: "se3",
-    planned_sets: 3,
+  const row: SessionExerciseInput = {
     planned_reps_min: 8,
     planned_reps_max: 12,
-    rest_seconds: 90,
     metric: "reps",
     exercises: {
       id: "ex-pushup",
-      name: "Push-up",
-      cue: null,
-      movement_pattern: "horizontal_press",
-      primary_muscles: ["chest"],
       equipment_ids: [],
     },
   };
-  const progress: ExerciseProgressRow = {
-    exercise_id: "ex-pushup",
+  const progress: ProgressInput = {
     current_working_weight_kg: null,
     current_target_reps: 14,
   };
@@ -128,24 +104,16 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
 
 // Test 4: Reps stored at 12 on seconds plan (below min 30) → ignored, uses plan
 {
-  const row: SessionExerciseRow = {
-    id: "se4",
-    planned_sets: 3,
+  const row: SessionExerciseInput = {
     planned_reps_min: 30,
     planned_reps_max: 60,
-    rest_seconds: 90,
     metric: "seconds",
     exercises: {
       id: "ex-plank2",
-      name: "Plank",
-      cue: null,
-      movement_pattern: "other",
-      primary_muscles: ["abs"],
       equipment_ids: [],
     },
   };
-  const progress: ExerciseProgressRow = {
-    exercise_id: "ex-plank2",
+  const progress: ProgressInput = {
     current_working_weight_kg: null,
     current_target_reps: 12, // Below plan min of 30
   };
@@ -158,24 +126,16 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
 
 // Test 5: Stored 500s gets capped at 120s
 {
-  const row: SessionExerciseRow = {
-    id: "se5",
-    planned_sets: 3,
+  const row: SessionExerciseInput = {
     planned_reps_min: 30,
     planned_reps_max: 60,
-    rest_seconds: 90,
     metric: "seconds",
     exercises: {
       id: "ex-long-plank",
-      name: "Plank",
-      cue: null,
-      movement_pattern: "other",
-      primary_muscles: ["abs"],
       equipment_ids: [],
     },
   };
-  const progress: ExerciseProgressRow = {
-    exercise_id: "ex-long-plank",
+  const progress: ProgressInput = {
     current_working_weight_kg: null,
     current_target_reps: 500,
   };
@@ -188,24 +148,16 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
 
 // Test 6: Stored reps at 50 (2×planMax=24) gets capped
 {
-  const row: SessionExerciseRow = {
-    id: "se6",
-    planned_sets: 3,
+  const row: SessionExerciseInput = {
     planned_reps_min: 8,
     planned_reps_max: 12,
-    rest_seconds: 90,
     metric: "reps",
     exercises: {
       id: "ex-high-reps",
-      name: "Push-up",
-      cue: null,
-      movement_pattern: "horizontal_press",
-      primary_muscles: ["chest"],
       equipment_ids: [],
     },
   };
-  const progress: ExerciseProgressRow = {
-    exercise_id: "ex-high-reps",
+  const progress: ProgressInput = {
     current_working_weight_kg: null,
     current_target_reps: 50,
   };
@@ -218,24 +170,16 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
 
 // Test 7: Negative stored value → ignored, uses plan
 {
-  const row: SessionExerciseRow = {
-    id: "se7",
-    planned_sets: 3,
+  const row: SessionExerciseInput = {
     planned_reps_min: 8,
     planned_reps_max: 12,
-    rest_seconds: 90,
     metric: "reps",
     exercises: {
       id: "ex-neg",
-      name: "Push-up",
-      cue: null,
-      movement_pattern: "horizontal_press",
-      primary_muscles: ["chest"],
       equipment_ids: [],
     },
   };
-  const progress: ExerciseProgressRow = {
-    exercise_id: "ex-neg",
+  const progress: ProgressInput = {
     current_working_weight_kg: null,
     current_target_reps: -5,
   };
@@ -248,24 +192,16 @@ console.log("M-2: Wiring test for display-target through real mapping function\n
 
 // Test 8: Zero stored value → ignored, uses plan
 {
-  const row: SessionExerciseRow = {
-    id: "se8",
-    planned_sets: 3,
+  const row: SessionExerciseInput = {
     planned_reps_min: 8,
     planned_reps_max: 12,
-    rest_seconds: 90,
     metric: "reps",
     exercises: {
       id: "ex-zero",
-      name: "Push-up",
-      cue: null,
-      movement_pattern: "horizontal_press",
-      primary_muscles: ["chest"],
       equipment_ids: [],
     },
   };
-  const progress: ExerciseProgressRow = {
-    exercise_id: "ex-zero",
+  const progress: ProgressInput = {
     current_working_weight_kg: null,
     current_target_reps: 0,
   };
