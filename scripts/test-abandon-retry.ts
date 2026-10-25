@@ -61,23 +61,6 @@ async function runTests() {
       async loadSessionStatus() {
         return { data: { status: "completed" as const }, error: null };
       },
-      async loadExercisesForUpdate() {
-        return {
-          data: [
-            {
-              id: "ex1",
-              planned_sets: 3,
-              status: "pending" as const,
-              session_sets: [{ id: "s1", is_warmup_set: false }],
-            },
-          ],
-          error: null,
-        };
-      },
-      async updateExerciseStatus() {
-        exerciseUpdateCount++;
-        return { error: null };
-      },
       async loadSessionMetadata() {
         return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };
       },
@@ -126,23 +109,6 @@ async function runTests() {
         loadStatusCalled = true;
         return { data: { status: "completed" as const }, error: null };
       },
-      async loadExercisesForUpdate() {
-        return {
-          data: [
-            {
-              id: "ex1",
-              planned_sets: 3,
-              status: "completed" as const, // Already updated
-              session_sets: [{ id: "s1", is_warmup_set: false }],
-            },
-          ],
-          error: null,
-        };
-      },
-      async updateExerciseStatus() {
-        exerciseUpdateCount++;
-        return { error: null };
-      },
       async loadSessionMetadata() {
         return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };
       },
@@ -184,12 +150,6 @@ async function runTests() {
       async loadSessionStatus() {
         return { data: { status: "skipped" as const }, error: null };
       },
-      async loadExercisesForUpdate() {
-        return { data: [], error: null };
-      },
-      async updateExerciseStatus() {
-        return { error: null };
-      },
       async loadSessionMetadata() {
         return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };
       },
@@ -221,12 +181,6 @@ async function runTests() {
       async loadSessionStatus() {
         return { data: null, error: "Database error" };
       },
-      async loadExercisesForUpdate() {
-        return { data: [], error: null };
-      },
-      async updateExerciseStatus() {
-        return { error: null };
-      },
       async loadSessionMetadata() {
         return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };
       },
@@ -257,12 +211,6 @@ async function runTests() {
       },
       async loadSessionStatus() {
         return { data: { status: "in_progress" as const }, error: null };
-      },
-      async loadExercisesForUpdate() {
-        return { data: [], error: null };
-      },
-      async updateExerciseStatus() {
-        return { error: null };
       },
       async loadSessionMetadata() {
         return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };

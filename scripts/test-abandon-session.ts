@@ -52,12 +52,6 @@ function makeFakeAbandonDeps(
     async loadSessionStatus() {
       return { data: { status: sessionState.status }, error: null };
     },
-    async loadExercisesForUpdate() {
-      return { data: [], error: null };
-    },
-    async updateExerciseStatus() {
-      return { error: null };
-    },
     async loadSessionMetadata() {
       return { data: { started_at: "2026-10-25T11:30:00Z", user_id: "user1" }, error: null };
     },

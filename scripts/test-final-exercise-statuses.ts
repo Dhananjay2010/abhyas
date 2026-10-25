@@ -97,13 +97,6 @@ function makeFakeAbandonSessionDeps(exercisesData: ExerciseRow[]) {
     async loadSessionStatus() {
       return { data: { status: "completed" as const }, error: null };
     },
-    async loadExercisesForUpdate() {
-      return { data: exercisesData, error: null };
-    },
-    async updateExerciseStatus(id: string, status: string) {
-      exerciseUpdates.push({ id, status });
-      return { error: null };
-    },
     async loadSessionMetadata() {
       return { data: { started_at: THIRTY_MIN_AGO, user_id: "user-123" }, error: null };
     },

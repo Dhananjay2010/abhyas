@@ -101,13 +101,6 @@ function makeFakeAbandonSessionDeps(
     async loadSessionStatus() {
       return { data: { status: "completed" as const }, error: null };
     },
-    async loadExercisesForUpdate() {
-      if (readError) return { data: null, error: readError };
-      return { data: exercisesForUpdate, error: null };
-    },
-    async updateExerciseStatus() {
-      return { error: null };
-    },
     async loadSessionMetadata() {
       return { data: { started_at: THIRTY_MIN_AGO, user_id: "user-123" }, error: null };
     },

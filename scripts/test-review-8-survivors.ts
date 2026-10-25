@@ -140,12 +140,6 @@ async function runTests() {
       async loadSessionStatus() {
         return { data: { status: "in_progress" }, error: null };
       },
-      async loadExercisesForUpdate() {
-        return { data: [], error: null };
-      },
-      async updateExerciseStatus() {
-        return { error: null };
-      },
       async updateSession() {
         return { error: null, updatedCount: 1 };
       },

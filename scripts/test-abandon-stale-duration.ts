@@ -79,12 +79,6 @@ function makeFakeDeps(config: {
     async loadSessionStatus() {
       return { data: { status: "completed" as const }, error: null };
     },
-    async loadExercisesForUpdate() {
-      return { data: [], error: null };
-    },
-    async updateExerciseStatus() {
-      return { error: null };
-    },
   };
 }
 
