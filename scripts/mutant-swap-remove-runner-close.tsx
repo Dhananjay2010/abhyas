@@ -65,7 +65,6 @@ console.log("MUTANT TEST: Remove runner close-on-set-logged effect\n");
 
   const exercise = makeExercise("ex-1", "military-press", "Military Press", 3);
 
-  let swapCalled = false;
   const actions: SessionActions = {
     markWarmupDone: ok,
     logSet: async () => ({ ok: true as const }),
@@ -77,7 +76,6 @@ console.log("MUTANT TEST: Remove runner close-on-set-logged effect\n");
     planDay: ok,
     refreshAfterSession: async () => ({ ok: true as const }),
     swapExercise: async () => {
-      swapCalled = true;
       return {
         ok: true as const,
         data: {

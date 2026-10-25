@@ -113,16 +113,17 @@ async function canSwapExerciseMutant(
     metric: "reps",
   });
 
-  const { data: sessionData } = await adminClient.auth.admin.generateLink({
-    type: "magiclink",
+  const client = createClient(SUPABASE_URL, process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0");
+  const { error: signInError } = await client.auth.signInWithPassword({
     email: testEmail,
+    password: testPassword,
   });
 
-  const client = createClient(SUPABASE_URL, process.env.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0");
-  await client.auth.setSession({
-    access_token: sessionData.properties?.access_token!,
-    refresh_token: sessionData.properties?.refresh_token!,
-  });
+  if (signInError) {
+    console.error("❌ Failed to sign in:", signInError);
+    await adminClient.auth.admin.deleteUser(userId);
+    process.exit(1);
+  }
 
   const deps: SwapGuardDeps = {
     query: async (seId: string) => {
