@@ -859,20 +859,19 @@ async function test9b() {
   
   await act(async () => {});
   
-  // Assert Done and Skip buttons show "Saving 1 set..." and are disabled
+  // Assert cooldown Done and Skip buttons show "Saving 1 set..." and are disabled
   const buttons = screen.getAllByRole("button");
-  const doneButton = buttons.find(b => b.textContent?.toLowerCase().includes("done") || b.textContent?.toLowerCase().includes("saving"));
-  const skipButton = buttons.find(b => b.textContent?.toLowerCase().includes("skip"));
+  // In cooldown phase, the buttons are "Saving 1 set…" (Done) and "Skip cool-down"
+  const savingButton = buttons.find(b => b.textContent?.includes("Saving"));
+  const skipCooldownButton = buttons.find(b => b.textContent?.includes("Skip cool-down"));
   
-  assert(!!doneButton, "9b: Done button exists");
-  assert(!!(doneButton?.textContent?.includes("Saving 1 set") || doneButton?.textContent?.includes("Saving")), "9b: Done button shows 'Saving' text");
+  assert(!!savingButton, "9b: Saving button exists");
+  assert(!!(savingButton?.textContent?.includes("Saving 1 set")), "9b: Button shows 'Saving 1 set' text");
   
-  if (doneButton instanceof HTMLButtonElement) {
-    assert(doneButton.disabled === true, "9b: Done button is disabled while saving");
-  }
+  assert((savingButton as HTMLElement & { disabled?: boolean }).disabled === true, "9b: Saving button is disabled while saving");
   
-  if (skipButton && skipButton instanceof HTMLButtonElement) {
-    assert(skipButton.disabled === true, "9c: Skip button is disabled while saving");
+  if (skipCooldownButton) {
+    assert((skipCooldownButton as HTMLElement & { disabled?: boolean }).disabled === true, "9c: Skip cool-down button is disabled while saving");
   }
   
   fakeStorage.clear();
@@ -971,8 +970,10 @@ async function testN11() {
   
   await act(async () => {});
   
-  // Click through the feel prompt - find and click "Right" button
-  const rightButton = screen.getByRole("button", { name: /right/i });
+  // Click through the feel prompt - find and click "Just right" button
+  const rightButtons = screen.getAllByRole("button", { name: /right/i });
+  // Take the last one (the most recent render)
+  const rightButton = rightButtons[rightButtons.length - 1];
   await act(async () => {
     rightButton.click();
   });
@@ -982,9 +983,10 @@ async function testN11() {
   // Assert finishSession was NOT called (pending sets prevent it)
   assert(!finishSessionCalled, "N11: finishSession not called with pending sets present");
   
-  // Assert cool-down screen is showing (or equivalent text)
-  const cooldownText = screen.queryByText(/cool.?down/i) || screen.queryByText(/done|skip/i);
-  assert(!!cooldownText, "N11: Cool-down screen shown despite pending sets");
+  // Assert cool-down screen is showing - check for cooldown text or skip button
+  const cooldownTexts = screen.queryAllByText(/cool.?down/i);
+  const skipButtons = screen.queryAllByText(/skip cool.?down/i);
+  assert(cooldownTexts.length > 0 || skipButtons.length > 0, "N11: Cool-down screen shown despite pending sets");
   
   fakeStorage.clear();
 }
@@ -1071,13 +1073,12 @@ async function testN12() {
   
   await act(async () => {});
   
-  // Find "End early" button
-  const endEarlyButton = screen.getByRole("button", { name: /end early/i });
+  // Find "End early" button (there may be multiple renders)
+  const endEarlyButtons = screen.getAllByRole("button", { name: /end.*early/i });
+  const endEarlyButton = endEarlyButtons[endEarlyButtons.length - 1];
   assert(!!endEarlyButton, "N12: End early button exists");
   
-  if (endEarlyButton instanceof HTMLButtonElement) {
-    assert(endEarlyButton.disabled === true, "N12: End early button is disabled with pending sets");
-  }
+  assert((endEarlyButton as HTMLElement & { disabled?: boolean }).disabled === true, "N12: End early button is disabled with pending sets");
   
   fakeStorage.clear();
 }
@@ -1157,7 +1158,8 @@ async function testConflict() {
   await act(async () => {});
   
   // Click Log set to trigger conflict
-  const logButton = screen.getByRole("button", { name: /set [0-9]+ done/i });
+  const logButtons = screen.getAllByRole("button", { name: /set [0-9]+ done/i });
+  const logButton = logButtons[logButtons.length - 1];
   await act(async () => {
     logButton.click();
   });
@@ -1175,13 +1177,13 @@ async function testConflict() {
   });
   
   // Assert conflict message is shown
-  const conflictMessage = screen.getByText(/that set was already saved/i);
-  assert(!!conflictMessage, "Conflict: Shows 'That set was already saved' message");
+  const conflictMessages = screen.queryAllByText(/that set was already saved/i);
+  assert(conflictMessages.length > 0, "Conflict: Shows 'That set was already saved' message");
   
-  // Assert server's sets are on screen
-  const set1Text = screen.getByText(/12/);
-  const set2Text = screen.getByText(/11/);
-  assert(!!set1Text && !!set2Text, "Conflict: Server's sets shown on screen");
+  // Assert server's sets are on screen (12 and 11 reps)
+  const set1Texts = screen.queryAllByText(/12/);
+  const set2Texts = screen.queryAllByText(/11/);
+  assert(set1Texts.length > 0 && set2Texts.length > 0, "Conflict: Server's sets shown on screen");
   
   fakeStorage.clear();
 }
