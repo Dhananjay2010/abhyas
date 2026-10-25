@@ -174,6 +174,8 @@ async function runTests() {
     deload_week: 4,
     started_on: "2026-10-01",
     ends_on: "2026-11-17",
+    block_number: 1,
+    week_offset: 0,
     status: "active",
   });
   check("Program created for user 1", !programError1, programError1?.message);
@@ -185,6 +187,7 @@ async function runTests() {
     user_id: userId1,
     day_index: 1,
     day_type: "weights",
+    status: "active",
   });
   check("Program day created", !dayError1, dayError1?.message);
 
@@ -217,6 +220,7 @@ async function runTests() {
       planned_reps_max: 12,
       rest_seconds: 90,
       metric: "reps",
+      status: "pending",
     });
   check("Session exercise created", !sessionExerciseError1, sessionExerciseError1?.message);
 
@@ -261,6 +265,9 @@ async function runTests() {
     days_per_week: 3,
     deload_week: 4,
     started_on: "2026-10-01",
+    ends_on: "2026-11-17",
+    block_number: 1,
+    week_offset: 0,
     status: "active",
   });
   check("Program created for user 2", !programError2, programError2?.message);
@@ -272,6 +279,7 @@ async function runTests() {
     user_id: userId2,
     day_index: 1,
     day_type: "weights",
+    status: "active",
   });
   check("Program day created for user 2", !dayError2, dayError2?.message);
 
@@ -304,6 +312,7 @@ async function runTests() {
       planned_reps_max: 12,
       rest_seconds: 90,
       metric: "reps",
+      status: "pending",
     });
   check("Session exercise created for user 2", !sessionExerciseError2, sessionExerciseError2?.message);
 
