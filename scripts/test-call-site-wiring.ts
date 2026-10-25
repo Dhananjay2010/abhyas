@@ -48,11 +48,6 @@ console.log("\n2. Check page.tsx wiring");
 const pageContent = fs.readFileSync("src/app/session/[id]/page.tsx", "utf8");
 
 check(
-  "imports progressionInputsFromExercise",
-  pageContent.includes('import { progressionInputsFromExercise } from "@/lib/session/progression-inputs"')
-);
-
-check(
   "queries mechanic from exercises",
   pageContent.includes('mechanic') && pageContent.includes('equipment_ids') && pageContent.includes('exercises!'),
   "mechanic in exercises select"
@@ -65,21 +60,8 @@ check(
 );
 
 check(
-  "passes profileRes.data?.units to helper (not undefined)",
-  pageContent.includes('progressionInputsFromExercise') && 
-  pageContent.includes('profileRes.data?.units') &&
-  !pageContent.includes('progressionInputsFromExercise(ex ?? { equipment_ids: [] }, undefined)')
-);
-
-check(
-  "calls progressionInputsFromExercise",
-  pageContent.includes('progressionInputsFromExercise(')
-);
-
-check(
-  "passes mechanic: ex?.mechanic ?? null",
-  pageContent.includes('mechanic: ex?.mechanic ?? null'),
-  "not hardcoded to null"
+  "passes profileRes.data?.units to buildRunnerExercise",
+  pageContent.includes('userUnits: profileRes.data?.units')
 );
 
 check(
@@ -87,17 +69,36 @@ check(
   /exercises![^(]*\([^)]*\bmechanic\b[^)]*\)/.test(pageContent)
 );
 
+console.log("\n3. Check buildRunnerExercise wiring");
+const builderContent = fs.readFileSync("src/lib/session/build-runner-exercises.ts", "utf8");
+
+check(
+  "imports progressionInputsFromExercise",
+  builderContent.includes('import { progressionInputsFromExercise } from "./progression-inputs"')
+);
+
+check(
+  "calls progressionInputsFromExercise",
+  builderContent.includes('progressionInputsFromExercise(')
+);
+
+check(
+  "passes mechanic: ex?.mechanic ?? null",
+  builderContent.includes('mechanic: ex?.mechanic ?? null'),
+  "not hardcoded to null"
+);
+
 check(
   "passes progInputs.equipmentIds to suggestedWeight",
-  pageContent.includes('progInputs.equipmentIds,')
+  builderContent.includes('progInputs.equipmentIds,')
 );
 
 check(
   "passes progInputs.unit to suggestedWeight",
-  pageContent.includes('progInputs.unit,')
+  builderContent.includes('progInputs.unit,')
 );
 
-console.log("\n3. Helper behavior tests");
+console.log("\n4. Helper behavior tests");
 
 // With equipment
 const withEquip = progressionInputsFromExercise({ equipment_ids: ["barbell", "cable"] }, "metric");
