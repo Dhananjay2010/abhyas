@@ -57,6 +57,12 @@ check(
   actionsContent.includes('buildApplyProgressionInputFromRows({')
 );
 
+check(
+  "actions.ts passes real applyProgression to finishExerciseCore (not () => null) - kills U1",
+  actionsContent.includes('finishExerciseCore(supabase, user.id, input, { applyProgression })') &&
+  actionsContent.includes('async function applyProgression(')
+);
+
 console.log("\n2. Check page.tsx wiring");
 const pageContent = fs.readFileSync("src/app/session/[id]/page.tsx", "utf8");
 
@@ -517,6 +523,178 @@ async function runBehavioralTests() {
     "buildApplyProgressionInputFromRows: imperial units → message has ' lb' - kills A2",
     rowsDecision2.message.includes(" lb") && !rowsDecision2.message.includes(" kg"),
     `got: ${rowsDecision2.message}`
+  );
+
+  // Test 12: Chin-ups (pull_up_bar) 3x11 at stored target 11 progresses to 13 - kills C1, C4
+  const chinupsInput1 = buildApplyProgressionInputFromRows({
+    se: {
+      id: "se_chinups",
+      exercise_id: "ex_chinups",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "vertical_pull",
+        equipment_ids: ["pull_up_bar"],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    },
+    sessionRow: { is_deload: false, local_date: "2026-10-25" },
+    setsRows: [
+      { reps: 11, weight_kg: null, duration_seconds: null },
+      { reps: 11, weight_kg: null, duration_seconds: null },
+      { reps: 11, weight_kg: null, duration_seconds: null },
+    ],
+    progressRow: {
+      current_working_weight_kg: null,
+      current_target_reps: 11,
+      consecutive_failures: 0,
+      best_weight_kg: null,
+      best_reps: 11,
+      best_e1rm: null,
+      total_sessions: 3,
+    },
+    profileRow: { units: "metric" },
+    feel: "right",
+  });
+
+  const chinupsDecision1 = await applyProgressionCore(testClient, "user_chinups1", chinupsInput1);
+  check(
+    "Chin-ups (pull_up_bar) 3x11 at stored 11 → progresses to 13 - kills C1, C4",
+    chinupsDecision1.nextTargetReps === 13 && chinupsDecision1.outcome === "progressed",
+    `got nextTargetReps: ${chinupsDecision1.nextTargetReps}, outcome: ${chinupsDecision1.outcome}`
+  );
+
+  // Test 13: Chin-ups 3x10 at stored target 11 holds at 11 - kills C1
+  const chinupsInput2 = buildApplyProgressionInputFromRows({
+    se: {
+      id: "se_chinups2",
+      exercise_id: "ex_chinups2",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "vertical_pull",
+        equipment_ids: ["pull_up_bar"],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    },
+    sessionRow: { is_deload: false, local_date: "2026-10-25" },
+    setsRows: [
+      { reps: 10, weight_kg: null, duration_seconds: null },
+      { reps: 10, weight_kg: null, duration_seconds: null },
+      { reps: 10, weight_kg: null, duration_seconds: null },
+    ],
+    progressRow: {
+      current_working_weight_kg: null,
+      current_target_reps: 11,
+      consecutive_failures: 0,
+      best_weight_kg: null,
+      best_reps: 11,
+      best_e1rm: null,
+      total_sessions: 3,
+    },
+    profileRow: { units: "metric" },
+    feel: "right",
+  });
+
+  const chinupsDecision2 = await applyProgressionCore(testClient, "user_chinups2", chinupsInput2);
+  check(
+    "Chin-ups 3x10 at stored 11 → holds at 11 - kills C1",
+    chinupsDecision2.nextTargetReps === 11 && chinupsDecision2.outcome === "hold",
+    `got nextTargetReps: ${chinupsDecision2.nextTargetReps}, outcome: ${chinupsDecision2.outcome}`
+  );
+
+  // Test 14: Bodyweight Push-ups (empty equipment_ids) 3x12 at stored 12 progresses to 14 - kills C4
+  const pushupsInput = buildApplyProgressionInputFromRows({
+    se: {
+      id: "se_pushups",
+      exercise_id: "ex_pushups",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "horizontal_press",
+        equipment_ids: [],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    },
+    sessionRow: { is_deload: false, local_date: "2026-10-25" },
+    setsRows: [
+      { reps: 12, weight_kg: null, duration_seconds: null },
+      { reps: 12, weight_kg: null, duration_seconds: null },
+      { reps: 12, weight_kg: null, duration_seconds: null },
+    ],
+    progressRow: {
+      current_working_weight_kg: null,
+      current_target_reps: 12,
+      consecutive_failures: 0,
+      best_weight_kg: null,
+      best_reps: 12,
+      best_e1rm: null,
+      total_sessions: 3,
+    },
+    profileRow: { units: "metric" },
+    feel: "right",
+  });
+
+  const pushupsDecision = await applyProgressionCore(testClient, "user_pushups", pushupsInput);
+  check(
+    "Bodyweight Push-ups (empty equipment_ids) 3x12 at stored 12 → progresses to 14 - kills C4",
+    pushupsDecision.nextTargetReps === 14 && pushupsDecision.outcome === "progressed",
+    `got nextTargetReps: ${pushupsDecision.nextTargetReps}, outcome: ${pushupsDecision.outcome}`
+  );
+
+  // Test 15: Bodyweight with weight (weighted dips): two consecutive failures → back to bodyweight (0 kg) - kills C4
+  const weightedDipsInput = buildApplyProgressionInputFromRows({
+    se: {
+      id: "se_wdips",
+      exercise_id: "ex_wdips",
+      planned_sets: 3,
+      planned_reps_min: 8,
+      planned_reps_max: 12,
+      metric: "reps",
+      exercises: {
+        mechanic: "compound",
+        movement_pattern: "vertical_press",
+        equipment_ids: [],
+        progression_chain: null,
+        progression_rank: null,
+      },
+    },
+    sessionRow: { is_deload: false, local_date: "2026-10-25" },
+    setsRows: [
+      { reps: 7, weight_kg: 10, duration_seconds: null },
+      { reps: 7, weight_kg: 10, duration_seconds: null },
+      { reps: 7, weight_kg: 10, duration_seconds: null },
+    ],
+    progressRow: {
+      current_working_weight_kg: 10,
+      current_target_reps: 12,
+      consecutive_failures: 1,
+      best_weight_kg: 10,
+      best_reps: 10,
+      best_e1rm: null,
+      total_sessions: 5,
+    },
+    profileRow: { units: "metric" },
+    feel: "right",
+  });
+
+  const weightedDipsDecision = await applyProgressionCore(testClient, "user_wdips", weightedDipsInput);
+  check(
+    "Bodyweight with weight (weighted dips, empty equipment_ids): 2nd miss → back to 0 kg - kills C4",
+    weightedDipsDecision.nextWorkingWeightKg === 0 && weightedDipsDecision.outcome === "backed_off",
+    `got nextWorkingWeightKg: ${weightedDipsDecision.nextWorkingWeightKg}, outcome: ${weightedDipsDecision.outcome}`
   );
 
   // Test 5: buildRunnerExercise deload - equipment grid snapping

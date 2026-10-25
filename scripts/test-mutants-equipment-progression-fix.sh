@@ -310,6 +310,24 @@ b4() {
 }
 test_mutant "Drop local_date in buildApplyProgressionInput - kills B4" b4 "CORE"
 
+# U1: actions.ts passes no-op applyProgression to finishExerciseCore
+u1() {
+  sed -i 's/finishExerciseCore(supabase, user\.id, input, { applyProgression })/finishExerciseCore(supabase, user.id, input, { applyProgression: async () => null })/' "$ACTIONS"
+}
+test_mutant "actions.ts passes no-op applyProgression - kills U1" u1 "ACTIONS"
+
+# C1: apply-progression-core ignores stored target (always uses plan max)
+c1() {
+  sed -i 's/currentTargetReps: prior?.current_target_reps ?? null,/currentTargetReps: null, \/\/ C1 mutant/' "$CORE"
+}
+test_mutant "apply-progression-core ignores stored target - kills C1" c1 "CORE"
+
+# C4: isBodyweight forced to false
+c4() {
+  sed -i 's/isBodyweight: ex\.equipment_ids\.length === 0,/isBodyweight: false, \/\/ C4 mutant/' "$CORE"
+}
+test_mutant "isBodyweight forced to false - kills C4" c4 "CORE"
+
 echo
 echo "==================================="
 echo "Killed $KILLED | Survived $SURVIVED | Skipped $SKIPPED"
@@ -320,10 +338,10 @@ if [ "$SURVIVED" -gt 0 ] || [ "$SKIPPED" -gt 0 ]; then
   exit 1
 fi
 
-if [ "$KILLED" -ne 25 ]; then
-  echo "❌ FAILED: Expected 25 killed, got $KILLED"
+if [ "$KILLED" -ne 28 ]; then
+  echo "❌ FAILED: Expected 28 killed, got $KILLED"
   exit 1
 fi
 
-echo "✅ PASSED: All 25 mutants killed"
+echo "✅ PASSED: All 28 mutants killed"
 exit 0
