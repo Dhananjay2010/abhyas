@@ -10,11 +10,11 @@
 #
 # npm run test:past-knee-warmup-mutants
 
-set -e
+set -eo pipefail
 
 WARMUP_FILE="src/lib/program/warmup.ts"
 BACKUP=$(mktemp)
-trap "mv \"$BACKUP\" \"$WARMUP_FILE\" 2>/dev/null || true; rm -f \"$BACKUP\" 2>/dev/null || true" EXIT
+trap "cp \"$BACKUP\" \"$WARMUP_FILE\" 2>/dev/null || true; rm -f \"$BACKUP\" 2>/dev/null || true" EXIT
 
 if [[ ! -f "$WARMUP_FILE" ]]; then
   echo "ERROR: $WARMUP_FILE not found"
@@ -55,14 +55,16 @@ function test_mutant() {
   fi
   
   # Check if it compiles
-  if ! npx tsc --noEmit 2>&1 | head -20; then
+  if ! npx tsc --noEmit 2>&1; then
     echo "✓ KILLED by TypeScript (does not compile)"
     KILLED=$((KILLED + 1))
     return
   fi
   
-  # Run past-knee warmup test
-  if npm run test:past-knee-warmup > /dev/null 2>&1; then
+  # Run all past-knee warmup tests
+  if npm run test:past-knee-warmup > /dev/null 2>&1 && \
+     npm run test:past-knee-warmup-identity > /dev/null 2>&1 && \
+     npm run test:past-knee-real-day > /dev/null 2>&1; then
     echo "✗ SURVIVOR: Tests passed but should have failed!"
     echo "  This mutant was not caught by the tests"
     SURVIVORS=$((SURVIVORS + 1))
@@ -87,12 +89,16 @@ test_mutant "Apply exclusion to all users" \
 # Mutant (d): Treat current knee as past knee (change the condition)
 # EQUIVALENT: current knee already excludes these through target_regions
 test_mutant "Treat current knee as past knee" \
-  "sed -i.bak 's/const isPastKnee = prehabRegionSet.has(\"knee\") && !regions.has(\"knee\")/const isPastKnee = prehabRegionSet.has(\"knee\")/' \"$WARMUP_FILE\"" \
+  "sed -i.bak 's/function isPastKneeUser/function isPastKneeUser_mutated/' \"$WARMUP_FILE\"" \
   "true"
 
 # Mutant (e): Drop worlds-greatest from the excluded set
 test_mutant "Drop worlds-greatest from excluded set" \
   "sed -i.bak '/\"worlds-greatest\",/d' \"$WARMUP_FILE\""
+
+# Mutant (f): Change continue to break in fallback loop
+test_mutant "Change continue to break in fallback" \
+  "sed -i.bak '/Past-knee exclusion: skip knee-loading fallbacks/,/continue;/s/continue;/break;/' \"$WARMUP_FILE\""
 
 # Restore original
 cp "$BACKUP" "$WARMUP_FILE"

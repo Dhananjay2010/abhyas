@@ -30,6 +30,16 @@ export const PAST_KNEE_EXCLUDED_WARMUP_SLUGS: ReadonlySet<string> = new Set([
   "worlds-greatest",
 ]);
 
+/**
+ * Detect if user has past knee injury (knee in prehab but not current).
+ */
+function isPastKneeUser(
+  injuryRegions: Set<BodyRegion>,
+  prehabRegions: Set<BodyRegion>
+): boolean {
+  return prehabRegions.has("knee") && !injuryRegions.has("knee");
+}
+
 /** Cardio options in order of preference, by where the user trains. */
 const CARDIO_PREFERENCE: Record<string, string[]> = {
   gym: ["easy-bike", "easy-row", "brisk-walk", "march-in-place"],
@@ -76,8 +86,7 @@ export function selectWarmup(input: {
   const regions = new Set(injuryRegions);
   const prehabRegionSet = new Set(prehabRegions);
 
-  // Past-knee user: knee in prehabRegions (any severity) but not in injuryRegions (current)
-  const isPastKnee = prehabRegionSet.has("knee") && !regions.has("knee");
+  const isPastKnee = isPastKneeUser(regions, prehabRegionSet);
 
   // QA Pass 10 (h): Equipment filter helper - ALL-of logic, same as exercises
   const canUseEquipment = (w: WarmupRow) => {
@@ -147,7 +156,11 @@ export function selectWarmup(input: {
   if (mobility.length < 3) {
     // Fallback drills, filtered by contraindications. Never suggest a squat for
     // a knee injury or spinal movement for a lower-back injury.
-    const fallbackSlugs = ["cat-cow", "arm-circles", "bodyweight-squat", "hip-circles"];
+    // For past-knee users training lower body, prefer knee-safe lower-body drills.
+    const fallbackSlugs = isPastKnee 
+      ? ["glute-bridge", "hip-circles", "leg-swing-front", "leg-swing-side", "cat-cow", "arm-circles"]
+      : ["cat-cow", "arm-circles", "bodyweight-squat", "hip-circles"];
+    
     for (const slug of fallbackSlugs) {
       if (mobility.length >= 3) break;
       
@@ -161,7 +174,7 @@ export function selectWarmup(input: {
       
       // Filter out contraindicated movements
       const isContraindicated = w.target_regions.some((r) => regions.has(r));
-      if (!isContraindicated) {
+      if (!isContraindicated && canUseEquipment(w)) {
         mobility.push(w);
       }
     }

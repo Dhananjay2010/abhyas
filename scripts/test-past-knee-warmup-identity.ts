@@ -12,6 +12,7 @@
  * npm run test:past-knee-warmup-identity
  */
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { selectWarmup, type WarmupRow } from "../src/lib/program/warmup";
 import type { Database } from "../src/lib/database.types";
 
@@ -119,7 +120,6 @@ if (baselineMode) {
   console.log("Generating baseline from main...");
   
   // Verify we're on main with the correct commit
-  const { execSync } = require("node:child_process");
   const currentCommit = execSync("git rev-parse HEAD", { encoding: "utf8" }).trim();
   const mainCommit = execSync("git rev-parse origin/main", { encoding: "utf8" }).trim();
   

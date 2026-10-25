@@ -205,6 +205,10 @@ check("Fallback path excludes bodyweight-squat for past-knee",
   !hasBWSquatPastKnee,
   `Mobility: ${pastKneeMobility.map(w => w.slug).join(", ")}`
 );
+check("Past-knee minimal has fewer than 3 mobility drills (fallback ran but excluded bodyweight-squat)",
+  pastKneeMobility.length < 3,
+  `got ${pastKneeMobility.length} drills`
+);
 
 // No-injury user: should get bodyweight-squat in the result (proves fallback ran and added it)
 const noInjuryFallback = selectWarmup({
@@ -222,6 +226,10 @@ const hasBWSquatNoInjury = noInjuryMobility.some(w => w.slug === "bodyweight-squ
 check("Fallback path includes bodyweight-squat for no-injury", 
   hasBWSquatNoInjury,
   `Mobility: ${noInjuryMobility.map(w => w.slug).join(", ")}`
+);
+check("No-injury minimal has at least 2 mobility drills (including bodyweight-squat from fallback)",
+  noInjuryMobility.length >= 2 && hasBWSquatNoInjury,
+  `got ${noInjuryMobility.length} drills: ${noInjuryMobility.map(w => w.slug).join(", ")}`
 );
 
 // Test 6: Past knee + another region (e.g., past shoulder) should still exclude
