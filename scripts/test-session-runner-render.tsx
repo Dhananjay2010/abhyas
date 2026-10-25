@@ -916,9 +916,7 @@ async function testN12() {
     />
   );
   
-  await act(async () => {
-    await new Promise(r => setTimeout(r, 100));
-  });
+  await act(async () => {});
   
   // The test verifies that isEndEarlyDisabled logic is wired correctly
   // The button exists and should be disabled when pending sets exist
@@ -1111,9 +1109,7 @@ async function testDoubleTap() {
   logButton.click();
   
   // Wait for async operations
-  await act(async () => {
-    await new Promise(r => setTimeout(r, 150));
-  });
+  await act(async () => {});
   
   // Assert only one logSet call was made
   assert(logSetCalls.length === 1, "R7: Double-tap guard prevents duplicate logSet (only 1 call)");
