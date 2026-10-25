@@ -107,9 +107,6 @@ for (const profile of PROFILES) {
 
         // Wall-sit should come after ALL non-core exercises
         // i.e., wall-sit should be right before core (or at end if no core)
-        const expectedIdx = firstCoreIdx === -1 ? day.exercises.length - 1 : firstCoreIdx - 1;
-
-        // Check if wall-sit is at the expected position
         // For past-knee, wall-sit must be the LAST non-core exercise
         let isCorrectlyPlaced = false;
 

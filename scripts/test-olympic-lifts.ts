@@ -95,8 +95,8 @@ console.log("\n2. Current-knee user glute-bridge swaps contain NO Olympic lifts"
         injuryRegions: ["knee"],
         anyKneeInjury: true,
         limit: 20,
-        scoreFn: (_e) => 0,
-        tieBreakFn: (_slug) => 0,
+        scoreFn: () => 0,
+        tieBreakFn: () => 0,
       }
     );
     
@@ -157,8 +157,8 @@ console.log("\n4. Healthy user is offered Olympic lifts where equipment allows")
         injuryRegions: [],
         anyKneeInjury: false,
         limit: 20,
-        scoreFn: (_e) => 0,
-        tieBreakFn: (_slug) => 0,
+        scoreFn: () => 0,
+        tieBreakFn: () => 0,
       }
     );
     
@@ -215,8 +215,8 @@ console.log("\n5. Swap-eligible ⊆ generator-eligible for every injury profile"
         injuryRegions: input.currentInjuryRegions,
         anyKneeInjury: input.anyKneeInjury,
         limit: 50,
-        scoreFn: (_e) => 0,
-        tieBreakFn: (_slug) => 0,
+        scoreFn: () => 0,
+        tieBreakFn: () => 0,
       }
     );
     

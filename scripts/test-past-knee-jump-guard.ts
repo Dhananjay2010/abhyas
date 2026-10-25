@@ -101,7 +101,6 @@ console.log("\n1. All 16 upper-body plyos ALLOWED for past knee");
   
   const { isEligible } = await import("../src/lib/program/generate");
   
-  let allowed = 0;
   let banned = 0;
   const bannedSlugs: string[] = [];
   
@@ -112,9 +111,7 @@ console.log("\n1. All 16 upper-body plyos ALLOWED for past knee");
       continue;
     }
     
-    if (isEligible(ex, input)) {
-      allowed++;
-    } else {
+    if (!isEligible(ex, input)) {
       banned++;
       if (bannedSlugs.length < 5) bannedSlugs.push(slug);
     }
@@ -148,7 +145,6 @@ console.log("\n2. All 16 upper-body plyos ALLOWED for current knee");
   
   const { isEligible } = await import("../src/lib/program/generate");
   
-  let allowed = 0;
   let banned = 0;
   const bannedSlugs: string[] = [];
   
@@ -156,9 +152,7 @@ console.log("\n2. All 16 upper-body plyos ALLOWED for current knee");
     const ex = bySlug.get(slug);
     if (!ex) continue;
     
-    if (isEligible(ex, input)) {
-      allowed++;
-    } else {
+    if (!isEligible(ex, input)) {
       banned++;
       if (bannedSlugs.length < 5) bannedSlugs.push(slug);
     }

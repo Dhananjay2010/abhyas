@@ -34,13 +34,12 @@ console.log("\n1. Past-knee lunge swaps: no barbell-squat, leg-press, goblet or 
         injuryRegions: [],
         anyKneeInjury: true,
         limit: 20,
-        scoreFn: (_e) => 0,
-        tieBreakFn: (_slug) => 0,
+        scoreFn: () => 0,
+        tieBreakFn: () => 0,
       }
     );
     
-    // Check for forbidden squats
-    const forbiddenSquats = ["barbell-squat", "leg-press", "goblet-squat", "box-squat", "bodyweight-squat"];
+    // Check for forbidden squats (non-quad-isolation squats)
     const violations = swaps.filter(e => 
       e.movement_pattern === "squat" && 
       !PAST_KNEE_LUNGE_EXERCISES.has(e.slug)
@@ -72,8 +71,8 @@ console.log("\n2. Past-knee lunge swaps: only tiered lunges + quad-isolation lis
         injuryRegions: [],
         anyKneeInjury: true,
         limit: 20,
-        scoreFn: (_e) => 0,
-        tieBreakFn: (_slug) => 0,
+        scoreFn: () => 0,
+        tieBreakFn: () => 0,
       }
     );
     

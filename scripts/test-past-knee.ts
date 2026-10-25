@@ -642,8 +642,8 @@ console.log("\n7. Item 14: Thruster/push press/kettlebell jerk tier rules");
       injuryRegions: ["knee"],
       anyKneeInjury: true,
       limit: 20,
-      scoreFn: (_e) => 0,
-      tieBreakFn: (_slug) => 0,
+      scoreFn: () => 0,
+      tieBreakFn: () => 0,
     }
   );
   const currentKneeSlugs = currentKneeSwaps.map(e => e.slug);
@@ -661,8 +661,8 @@ console.log("\n7. Item 14: Thruster/push press/kettlebell jerk tier rules");
       injuryRegions: [],
       anyKneeInjury: true,
       limit: 20,
-      scoreFn: (_e) => 0,
-      tieBreakFn: (_slug) => 0,
+      scoreFn: () => 0,
+      tieBreakFn: () => 0,
     }
   );
   const pastKneeSlugs = pastKneeSwaps.map(e => e.slug);
@@ -784,8 +784,8 @@ console.log("\n10. Item 15: Swap ordering (barbell-squat after preferred squats)
         injuryRegions: [],
         anyKneeInjury: true,
         limit: 20,
-        scoreFn: (_e) => 0,
-        tieBreakFn: (_slug) => 0,
+        scoreFn: () => 0,
+        tieBreakFn: () => 0,
       }
     );
     const swapSlugs = pastKneeSwaps.map(e => e.slug);

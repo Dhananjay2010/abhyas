@@ -130,8 +130,8 @@ console.log("\n2. Barbell-squat appears only after preferred squats in swap list
         injuryRegions: [],
         anyKneeInjury: true,
         limit: 20,
-        scoreFn: (_e) => 0,
-        tieBreakFn: (_slug) => 0,
+        scoreFn: () => 0,
+        tieBreakFn: () => 0,
       }
     );
     

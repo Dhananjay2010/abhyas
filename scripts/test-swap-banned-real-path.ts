@@ -48,7 +48,6 @@ async function testBannedSwap(
   testName: string,
   currentExerciseSlug: string,
   targetExerciseSlug: string,
-  _injuries: Array<{ body_region: string; severity: "current" | "past" }>,
 ) {
   console.log(`\n${testName}`);
   
@@ -102,7 +101,6 @@ async function testBannedSwap(
     "Test 1: barbell-full-squat refused for current knee",
     "goblet-squat", // Current exercise (knee-friendly)
     "barbell-full-squat", // Target (contraindicated for knee)
-    [{ body_region: "knee", severity: "current" }],
   );
 
   // Test 2: arnold-dumbbell-press for current shoulder injury
@@ -110,7 +108,6 @@ async function testBannedSwap(
     "Test 2: arnold-dumbbell-press refused for current shoulder",
     "dumbbell-shoulder-press", // Current exercise
     "arnold-dumbbell-press", // Target (contraindicated for shoulder)
-    [{ body_region: "shoulder", severity: "current" }],
   );
 
   console.log("\n=== Summary ===");
