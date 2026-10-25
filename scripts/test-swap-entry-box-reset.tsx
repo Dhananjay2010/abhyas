@@ -1,154 +1,498 @@
+#!/usr/bin/env tsx
 /**
  * Test swap entry box reset (HIGH-1): ensures weight field resets on swap.
- * Tests that the entry box key includes exerciseId and remounts on swap.
+ * Renders the REAL SessionRunner and drives actual swaps through the UI.
  * 
  * This test must FAIL on head 493710f5 (before the fix) and PASS after.
  */
 
-import React from "react";
-import { renderToString } from "react-dom/server";
+import "./helpers/setup-jsdom";
+import { render, waitFor, act, fireEvent } from "@testing-library/react";
+import {
+  SessionRunner,
+  type RunnerExercise,
+  type SessionActions,
+} from "../src/app/session/[id]/session-runner";
 
-type SetEntryProps = {
-  sessionExerciseId: string;
-  exerciseId: string;
-  setNumber: number;
-  defaultWeight: number | null;
+const ok = async () => ({ ok: true }) as const;
+
+function makeActions(
+  swapName: string,
+  swapExerciseId: string,
+  metric: "reps" | "time" | "distance",
+  repsMin: number | null,
+  repsMax: number | null,
+  weightPrefill: number | null,
+  workingWeightKg: number | null,
+  isBodyweight: boolean,
+): SessionActions {
+  return {
+    markWarmupDone: ok,
+    logSet: ok,
+    deleteSet: ok,
+    finishExercise: async () =>
+      ({ ok: true as const, data: { outcome: "hold", message: "", personalBest: null } }),
+    finishSession: ok,
+    abandonSession: ok,
+    planDay: ok,
+    refreshAfterSession: async () => ({ ok: true as const }),
+    swapExercise: async () => ({
+      ok: true as const,
+      data: {
+        metric,
+        repsMin,
+        repsMax,
+        equipmentIds: ["dumbbell"],
+        weightPrefill,
+        workingWeightKg,
+        isBodyweight,
+      },
+    }),
+    findAlternatives: async () => ({
+      ok: true as const,
+      data: [
+        {
+          exerciseId: swapExerciseId,
+          name: swapName,
+          cue: null,
+          metric,
+        },
+      ],
+    }),
+  } as unknown as SessionActions;
+}
+
+const settings = {
+  perSetLogging: true,
+  restAutostart: false,
+  restSound: false,
+  restVibrate: false,
+  restOverrideSeconds: null,
+  cooldownEnabled: false,
 };
-
-// Simulate the SetEntry component with the OLD keying (493710f5)
-function SetEntryOld(props: SetEntryProps) {
-  const key = `${props.sessionExerciseId}:${props.setNumber}`;
-  return React.createElement("input", {
-    key,
-    "data-key": key,
-    "data-default": props.defaultWeight,
-    type: "number",
-  });
-}
-
-// Simulate the SetEntry component with the NEW keying (with exerciseId)
-function SetEntryNew(props: SetEntryProps) {
-  const key = `${props.sessionExerciseId}:${props.exerciseId}:${props.setNumber}`;
-  return React.createElement("input", {
-    key,
-    "data-key": key,
-    "data-default": props.defaultWeight,
-    type: "number",
-  });
-}
 
 function check(label: string, pass: boolean, detail?: string) {
   if (pass) {
-    console.log(`  ok   ${label}${detail ? `  -- ${detail}` : ""}`);
+    console.log(`  ✓ ${label}${detail ? `  -- ${detail}` : ""}`);
   } else {
-    console.log(`  FAIL ${label}${detail ? `  -- ${detail}` : ""}`);
+    console.log(`  ✗ FAIL ${label}${detail ? `  -- ${detail}` : ""}`);
     process.exit(1);
   }
 }
 
-console.log("\nTest swap entry box reset (HIGH-1):\n");
+async function testSwapScenario(
+  label: string,
+  initialExercise: RunnerExercise,
+  actions: SessionActions,
+  swapExerciseName: string,
+  expectedInput: string,
+  expectedHeaderMatch: string | null,
+  isBodyweightAfterSwap: boolean,
+) {
+  console.log(`\n${label}:`);
+  const r = render(
+    <SessionRunner
+      sessionId="s1"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[{ ...initialExercise }]}
+      settings={settings}
+      actions={actions}
+    />,
+  );
 
-// Case 1: Normal week - Military Press 42.5 → Barbell Shoulder Press (never done)
-// Expected: input empty (null prefill), no working weight
-console.log("Case 1: Military Press → Barbell Shoulder Press (never done)");
-const oldKey1 = SetEntryOld({
-  sessionExerciseId: "se1",
-  exerciseId: "military-press-id",
-  setNumber: 1,
-  defaultWeight: 42.5,
-});
-const newKey1 = SetEntryNew({
-  sessionExerciseId: "se1",
-  exerciseId: "barbell-shoulder-press-id",
-  setNumber: 1,
-  defaultWeight: null, // never done
-});
+  const weightInput = () =>
+    [...r.container.querySelectorAll("input")].find((i) =>
+      (i.closest("label")?.textContent ?? "").match(/Weight \(kg\)|Added weight/),
+    ) as HTMLInputElement | undefined;
 
-check(
-  "OLD key unchanged after swap",
-  oldKey1.key === "se1:1",
-  "component won't remount, keeps 42.5",
-);
-check(
-  "NEW key includes exerciseId",
-  newKey1.key === "se1:barbell-shoulder-press-id:1",
-  "component remounts with null",
-);
-check("NEW key changes when exerciseId changes", oldKey1.key !== newKey1.key);
+  await waitFor(() => {
+    if (!weightInput()) throw new Error("no weight input");
+  });
 
-// Case 2: Normal week - Wide-Grip Lat Pulldown 52.5 → Underhand Cable Pulldowns (never done)
-console.log("\nCase 2: Wide-Grip Lat Pulldown → Underhand Cable Pulldowns (never done)");
-const oldKey2_before = SetEntryOld({
-  sessionExerciseId: "se2",
-  exerciseId: "wide-grip-lat-id",
-  setNumber: 1,
-  defaultWeight: 52.5,
-});
-const oldKey2_after = SetEntryOld({
-  sessionExerciseId: "se2",
-  exerciseId: "underhand-cable-id",
-  setNumber: 1,
-  defaultWeight: null,
-});
-check(
-  "OLD key same before/after swap",
-  oldKey2_before.key === oldKey2_after.key,
-  "se2:1 both times",
-);
+  const swapBtn = [...r.container.querySelectorAll("button")].find((b) =>
+    /Swap this exercise/.test(b.textContent ?? ""),
+  );
+  if (!swapBtn) throw new Error("Swap button not found");
 
-const newKey2 = SetEntryNew({
-  sessionExerciseId: "se2",
-  exerciseId: "underhand-cable-id",
-  setNumber: 1,
-  defaultWeight: null,
-});
-check(
-  "NEW key different after swap",
-  newKey2.key !== oldKey2_before.key,
-  "se2:underhand-cable-id:1",
-);
+  await act(async () => {
+    fireEvent.click(swapBtn);
+  });
 
-// Case 3: Body Tricep Press 41.25 → Body-Up (never done, bodyweight)
-console.log("\nCase 3: Body Tricep Press → Body-Up (bodyweight, never done)");
-const newKey3 = SetEntryNew({
-  sessionExerciseId: "se3",
-  exerciseId: "body-up-id",
-  setNumber: 1,
-  defaultWeight: null,
-});
-check("Bodyweight swap remounts", newKey3.key?.includes("body-up-id") ?? false);
+  await waitFor(() => {
+    if (
+      ![...r.container.querySelectorAll("button")].some((b) =>
+        new RegExp(swapExerciseName).test(b.textContent ?? ""),
+      )
+    )
+      throw new Error("alternative not shown");
+  });
 
-// Case 4: Deload - Standing Military Press 30 → Barbell Shoulder Press (ww 47.5, today 32.5)
-console.log("\nCase 4: Deload - Standing Military → Barbell Shoulder (done before)");
-const oldKey4 = SetEntryOld({
-  sessionExerciseId: "se4",
-  exerciseId: "standing-military-id",
-  setNumber: 1,
-  defaultWeight: 30,
-});
-const newKey4 = SetEntryNew({
-  sessionExerciseId: "se4",
-  exerciseId: "barbell-shoulder-press-id",
-  setNumber: 1,
-  defaultWeight: 32.5, // 47.5 working weight at ~70%
-});
-check(
-  "OLD key unchanged (deload)",
-  oldKey4.key === "se4:1",
-  "stays 30, wrong",
-);
-check(
-  "NEW key changes (deload)",
-  newKey4.key === "se4:barbell-shoulder-press-id:1",
-  "remounts with 32.5",
-);
-check("NEW default is 32.5", newKey4.props["data-default"] === 32.5);
+  const alt = [...r.container.querySelectorAll("button")].find((b) =>
+    new RegExp(swapExerciseName).test(b.textContent ?? ""),
+  );
+  if (!alt) throw new Error("Alternative button not found");
 
-// Summary
-console.log("\n📋 Key format comparison:");
-console.log(`  OLD: {sessionExerciseId}:{setNumber}`);
-console.log(`  NEW: {sessionExerciseId}:{exerciseId}:{setNumber}`);
-console.log("\n✅ All entry box key tests passed");
-console.log(
-  "\n⚠️  This test MUST FAIL on 493710f5 (old key format) and PASS after the fix.\n",
-);
+  await act(async () => {
+    fireEvent.click(alt);
+  });
+
+  await waitFor(() => {
+    if (!new RegExp(swapExerciseName).test(r.container.textContent ?? ""))
+      throw new Error("not swapped");
+  });
+
+  const actualInput = weightInput()?.value ?? "";
+  check(`Input value is "${expectedInput}"`, actualInput === expectedInput);
+
+  const text = r.container.textContent ?? "";
+  if (expectedHeaderMatch === null) {
+    check("No 'Working weight' line present", !text.includes("Working weight"));
+  } else {
+    const headerMatch = text.match(/Working weight[^·]*?kg( · today [0-9.]+ kg)?/)?.[0];
+    check(
+      `Header matches "${expectedHeaderMatch}"`,
+      headerMatch === expectedHeaderMatch,
+      headerMatch ? `got: "${headerMatch}"` : "not found",
+    );
+  }
+
+  if (isBodyweightAfterSwap) {
+    check("Bodyweight label visible", text.includes("Added weight"));
+  }
+
+  r.unmount();
+}
+
+async function testUserTypeSurvival() {
+  console.log("\nCase 5: User-typed value survives re-render");
+  const initialEx: RunnerExercise = {
+    id: "e5",
+    exerciseId: "ex5",
+    name: "Initial Exercise",
+    cue: null,
+    metric: "reps",
+    primaryMuscles: ["chest"],
+    plannedSets: 3,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 60,
+    workingWeightKg: 50,
+    suggestedWeightKg: 50,
+    status: "pending",
+    feel: null,
+    sets: [],
+    isBodyweight: false,
+  };
+
+  const actions = makeActions(
+    "Swapped Exercise",
+    "swapped-ex",
+    "reps",
+    8,
+    12,
+    60,
+    60,
+    false,
+  );
+
+  const r = render(
+    <SessionRunner
+      sessionId="s1"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[{ ...initialEx }]}
+      settings={settings}
+      actions={actions}
+    />,
+  );
+
+  const weightInput = () =>
+    [...r.container.querySelectorAll("input")].find((i) =>
+      (i.closest("label")?.textContent ?? "").match(/Weight \(kg\)|Added weight/),
+    ) as HTMLInputElement | undefined;
+
+  await waitFor(() => {
+    if (!weightInput()) throw new Error("no weight input");
+  });
+
+  const swapBtn = [...r.container.querySelectorAll("button")].find((b) =>
+    /Swap this exercise/.test(b.textContent ?? ""),
+  );
+  if (!swapBtn) throw new Error("Swap button not found");
+
+  await act(async () => {
+    fireEvent.click(swapBtn);
+  });
+
+  await waitFor(() => {
+    if (
+      ![...r.container.querySelectorAll("button")].some((b) =>
+        /Swapped Exercise/.test(b.textContent ?? ""),
+      )
+    )
+      throw new Error("alternative not shown");
+  });
+
+  const alt = [...r.container.querySelectorAll("button")].find((b) =>
+    /Swapped Exercise/.test(b.textContent ?? ""),
+  );
+  if (!alt) throw new Error("Alternative button not found");
+
+  await act(async () => {
+    fireEvent.click(alt);
+  });
+
+  await waitFor(() => {
+    if (!/Swapped Exercise/.test(r.container.textContent ?? ""))
+      throw new Error("not swapped");
+  });
+
+  await act(async () => {
+    fireEvent.change(weightInput()!, { target: { value: "75.5" } });
+  });
+
+  const valueBefore = weightInput()?.value;
+  check("User typed 75.5", valueBefore === "75.5");
+
+  r.rerender(
+    <SessionRunner
+      sessionId="s1"
+      isDeload={false}
+      week={1}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[
+        {
+          ...initialEx,
+          exerciseId: "swapped-ex",
+          name: "Swapped Exercise",
+          suggestedWeightKg: 60,
+          workingWeightKg: 60,
+        },
+      ]}
+      settings={settings}
+      actions={actions}
+    />,
+  );
+
+  const valueAfter = weightInput()?.value;
+  check("Typed value survives re-render", valueAfter === "75.5");
+
+  r.unmount();
+}
+
+console.log("Test swap entry box reset (HIGH-1):\n");
+
+(async () => {
+  // Case 1: Military Press 42.5 → Barbell Shoulder Press (never done)
+  const case1: RunnerExercise = {
+    id: "se1",
+    exerciseId: "military-press-id",
+    name: "Military Press",
+    cue: null,
+    metric: "reps",
+    primaryMuscles: ["front_delts"],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 60,
+    workingWeightKg: 42.5,
+    suggestedWeightKg: 42.5,
+    status: "pending",
+    feel: null,
+    sets: [],
+    isBodyweight: false,
+  };
+  await testSwapScenario(
+    "Case 1: Military Press 42.5 → Barbell Shoulder Press (never done)",
+    case1,
+    makeActions("Barbell Shoulder Press", "barbell-shoulder-press-id", "reps", 8, 12, null, null, false),
+    "Barbell Shoulder Press",
+    "",
+    null,
+    false,
+  );
+
+  // Case 2: Wide-Grip Lat Pulldown 52.5 → Underhand Cable Pulldowns (never done)
+  const case2: RunnerExercise = {
+    id: "se2",
+    exerciseId: "wide-grip-lat-id",
+    name: "Wide-Grip Lat Pulldown",
+    cue: null,
+    metric: "reps",
+    primaryMuscles: ["lats"],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 60,
+    workingWeightKg: 52.5,
+    suggestedWeightKg: 52.5,
+    status: "pending",
+    feel: null,
+    sets: [],
+    isBodyweight: false,
+  };
+  await testSwapScenario(
+    "Case 2: Wide-Grip Lat Pulldown 52.5 → Underhand Cable Pulldowns (never done)",
+    case2,
+    makeActions("Underhand Cable Pulldowns", "underhand-cable-id", "reps", 8, 12, null, null, false),
+    "Underhand Cable Pulldowns",
+    "",
+    null,
+    false,
+  );
+
+  // Case 3: Body Tricep Press 41.25 → Body-Up (never done, bodyweight)
+  const case3: RunnerExercise = {
+    id: "se3",
+    exerciseId: "body-tricep-press-id",
+    name: "Body Tricep Press",
+    cue: null,
+    metric: "reps",
+    primaryMuscles: ["triceps"],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 60,
+    workingWeightKg: 41.25,
+    suggestedWeightKg: 41.25,
+    status: "pending",
+    feel: null,
+    sets: [],
+    isBodyweight: false,
+  };
+  await testSwapScenario(
+    "Case 3: Body Tricep Press 41.25 → Body-Up (never done, bodyweight)",
+    case3,
+    makeActions("Body-Up", "body-up-id", "reps", 8, 12, null, null, true),
+    "Body-Up",
+    "",
+    null,
+    true,
+  );
+
+  // Case 4: Deload - Standing Military Press 30 → Barbell Shoulder Press (ww 47.5, today 32.5)
+  const case4: RunnerExercise = {
+    id: "se4",
+    exerciseId: "standing-military-id",
+    name: "Standing Military Press",
+    cue: null,
+    metric: "reps",
+    primaryMuscles: ["front_delts"],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 60,
+    workingWeightKg: 30,
+    suggestedWeightKg: 30,
+    status: "pending",
+    feel: null,
+    sets: [],
+    isBodyweight: false,
+  };
+
+  const case4Actions = makeActions(
+    "Barbell Shoulder Press",
+    "barbell-shoulder-press-id",
+    "reps",
+    8,
+    12,
+    32.5,
+    47.5,
+    false,
+  );
+
+  const r = render(
+    <SessionRunner
+      sessionId="s1"
+      isDeload={true}
+      week={4}
+      warmupAlreadyDone={true}
+      startedAt={new Date().toISOString()}
+      warmup={[]}
+      cooldown={[]}
+      exercises={[{ ...case4 }]}
+      settings={settings}
+      actions={case4Actions}
+    />,
+  );
+
+  console.log("\nCase 4: Deload - Standing Military Press 30 → Barbell Shoulder Press (ww 47.5, today 32.5):");
+
+  const weightInput = () =>
+    [...r.container.querySelectorAll("input")].find((i) =>
+      (i.closest("label")?.textContent ?? "").match(/Weight \(kg\)|Added weight/),
+    ) as HTMLInputElement | undefined;
+
+  await waitFor(() => {
+    if (!weightInput()) throw new Error("no weight input");
+  });
+
+  const swapBtn = [...r.container.querySelectorAll("button")].find((b) =>
+    /Swap this exercise/.test(b.textContent ?? ""),
+  );
+  if (!swapBtn) throw new Error("Swap button not found");
+
+  await act(async () => {
+    fireEvent.click(swapBtn);
+  });
+
+  await waitFor(() => {
+    if (
+      ![...r.container.querySelectorAll("button")].some((b) =>
+        /Barbell Shoulder Press/.test(b.textContent ?? ""),
+      )
+    )
+      throw new Error("alternative not shown");
+  });
+
+  const alt = [...r.container.querySelectorAll("button")].find((b) =>
+    /Barbell Shoulder Press/.test(b.textContent ?? ""),
+  );
+  if (!alt) throw new Error("Alternative button not found");
+
+  await act(async () => {
+    fireEvent.click(alt);
+  });
+
+  await waitFor(() => {
+    if (!/Barbell Shoulder Press/.test(r.container.textContent ?? ""))
+      throw new Error("not swapped");
+  });
+
+  const actualInput = weightInput()?.value ?? "";
+  check(`Input value is "32.5"`, actualInput === "32.5");
+
+  const text = r.container.textContent ?? "";
+  const headerMatch = text.match(/Working weight 47\.5 kg · today 32\.5 kg/)?.[0];
+  check(
+    'Header shows "Working weight 47.5 kg · today 32.5 kg"',
+    headerMatch !== undefined,
+    headerMatch ? `got: "${headerMatch}"` : "not found",
+  );
+
+  r.unmount();
+
+  // Case 5: User-typed value survives re-render
+  await testUserTypeSurvival();
+
+  console.log("\n✅ All entry box swap tests passed");
+  console.log(
+    "\n⚠️  This test MUST FAIL on 493710f5 (old key format) and PASS after the fix.\n",
+  );
+  process.exit(0);
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
