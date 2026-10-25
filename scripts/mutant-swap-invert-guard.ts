@@ -54,9 +54,10 @@ async function canSwapExerciseMutant(
   });
 
   const testEmail = `test-mutant-invert-${Date.now()}@example.com`;
+  const testPassword = "test-password-123";
   const { data: authData } = await adminClient.auth.admin.createUser({
     email: testEmail,
-    password: "test-password-123",
+    password: testPassword,
     email_confirm: true,
   });
 
