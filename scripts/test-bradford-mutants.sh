@@ -155,6 +155,39 @@ if ! cmp -s "$GENERATE_FILE" "$GENERATE_BACKUP"; then
 fi
 echo ""
 
+# Mutation 4: Add around-the-worlds to EXCLUDED_EXERCISE_SLUGS (must be killed)
+echo "4. Mutation: Add around-the-worlds to EXCLUDED_EXERCISE_SLUGS (ATW global)"
+
+# Add ATW to the global exclusion set using a simpler sed approach
+sed -i '/neck-press/a\  "around-the-worlds", // MUTANT: ATW should NOT be globally excluded' "$EXCLUSIONS_FILE"
+
+# Verify mutation changed the file
+if cmp -s "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"; then
+  echo "  ✗ FATAL: Mutation did not change the file"
+  cleanup
+  exit 1
+fi
+
+# Verify mutation marker is present
+if ! grep -qF -- "// MUTANT: ATW should NOT be globally excluded" "$EXCLUSIONS_FILE"; then
+  echo "  ✗ FATAL: Mutation marker not found"
+  cleanup
+  exit 1
+fi
+
+if ! run_test_and_verify_caught "Add ATW to EXCLUDED_EXERCISE_SLUGS"; then
+  cleanup
+  exit 1
+fi
+
+# Restore
+cp "$EXCLUSIONS_BACKUP" "$EXCLUSIONS_FILE"
+if ! cmp -s "$EXCLUSIONS_FILE" "$EXCLUSIONS_BACKUP"; then
+  echo "  ✗ FATAL: Restore failed"
+  exit 1
+fi
+echo ""
+
 echo "=== Mutation Testing Results ==="
 echo "✓ All mutations caught"
 exit 0

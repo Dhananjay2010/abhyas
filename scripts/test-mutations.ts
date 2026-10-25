@@ -28,6 +28,7 @@ type Mutant = {
   mutate: string;
   tests: string[]; // Test script names (test:knee-swaps, test:catalogue-knee-jumps, etc.)
   notes?: string; // Optional explanation for why a mutant behaves a certain way
+  equivalent?: boolean; // Marks mutant as equivalent (survives but is not a failure)
 };
 
 const mutants: Mutant[] = [
@@ -68,12 +69,16 @@ const mutants: Mutant[] = [
   },
 
   // 5a. Drop knee high-impact filter in swap path (alternatives.ts)
+  // EQUIVALENT for current-knee users: PR #124 adds isExcludedForPastKnee() to
+  // rankAlternatives, which also runs for current-knee users and already removes
+  // high-impact lower-body work, making this filter redundant for current knee.
   {
     name: "Drop knee high-impact filter in alternatives (swaps)",
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ 6b\. PR #73: Knee injuries exclude high-impact lower-body moves\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.impact === "high"\) \{/,
     mutate: '// 6b. PR #73: Knee injuries exclude high-impact lower-body moves\n    if (!(ctx.anyKneeInjury ?? false) && candidate.impact === "high") {',
     tests: ["test:swap-mutations"],
+    equivalent: true,
   },
 
   // 5b. Drop past-knee 4-list restriction in swaps (alternatives.ts)
@@ -98,8 +103,8 @@ const mutants: Mutant[] = [
   {
     name: "Force hasCurrentKnee to false in buildPatternList",
     file: "src/lib/program/alternatives.ts",
-    pattern: /const skipFallback = \(hasCurrentKnee \?\? hasKneeInjury\) && currentPattern === "lunge";/,
-    mutate: 'const skipFallback = (false) && currentPattern === "lunge";',
+    pattern: /const isCurrentKnee = \(hasCurrentKnee === true\) \|\| \(hasCurrentKnee === undefined && hasKneeInjury\);/,
+    mutate: 'const isCurrentKnee = false;',
     tests: ["test:knee-swaps"],
   },
 
@@ -182,12 +187,16 @@ const mutants: Mutant[] = [
     tests: ["test:sissy-squat-ban"],
   },
   
+  // EQUIVALENT for current-knee users: PR #124 adds isExcludedForPastKnee() to
+  // rankAlternatives, which runs for current-knee users and already bans sissy
+  // squats (via the slug check), making this filter redundant for current knee.
   {
     name: "Remove sissy-squat ban in rankAlternatives (swap generation)",
     file: "src/lib/program/alternatives.ts",
     pattern: /\/\/ 6c\. PR #73: ANY knee injury excludes sissy squats \(defense-in-depth with isEligible\)\s+if \(\(ctx\.anyKneeInjury \?\? false\) && candidate\.slug\.includes\("sissy"\)\) \{\s+continue;\s+\}/,
     mutate: '// MUTANT: Removed sissy ban from swaps',
     tests: ["test:sissy-squat-ban"],
+    equivalent: true,
   },
   
   // PR #73 Run 20: M3 protection - never drop the only pull on knee-injured full-body days
@@ -212,6 +221,7 @@ const mutants: Mutant[] = [
 let killed = 0;
 let survived = 0;
 let skipped = 0;
+let equivalent = 0;
 
 function sha256(content: string): string {
   return createHash("sha256").update(content, "utf8").digest("hex");
@@ -280,6 +290,9 @@ function runMutation(mutant: Mutant): void {
     if (testFailed) {
       console.log(`  ✓ KILLED`);
       killed++;
+    } else if (mutant.equivalent) {
+      console.log(`  ≡ EQUIVALENT (expected to survive)`);
+      equivalent++;
     } else {
       console.log(`  ✗ SURVIVED (tests passed with mutation)`);
       survived++;
@@ -359,15 +372,16 @@ for (const mutant of mutants) {
 }
 
 console.log("\n" + "─".repeat(60));
-console.log(`Mutants killed:   ${killed}`);
-console.log(`Mutants survived: ${survived}`);
-console.log(`Mutants skipped:  ${skipped}`);
+console.log(`Mutants killed:     ${killed}`);
+console.log(`Mutants equivalent: ${equivalent}`);
+console.log(`Mutants survived:   ${survived}`);
+console.log(`Mutants skipped:    ${skipped}`);
 console.log("");
 
 if (survived > 0 || skipped > 0) {
   console.log(`FAILED: ${survived} survived, ${skipped} skipped`);
   process.exit(1);
 } else {
-  console.log("PASSED: All mutants killed");
+  console.log("PASSED: All mutants killed or equivalent");
   process.exit(0);
 }
