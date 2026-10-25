@@ -784,7 +784,7 @@ console.log("\n11. Item 13: Current-knee 4-move lunge list enforced in CODE (not
   const strippedCatalogue = catalogue.map(e => ({ ...e, contraindicated_regions: [] as any[] }));
   
   const { KNEE_SAFE_LUNGE_EXERCISES } = require("../src/lib/program/generate");
-  const kneeSafeLungeSlugs = Array.from(KNEE_SAFE_LUNGE_EXERCISES);
+  const kneeSafeLungeSlugs = Array.from(KNEE_SAFE_LUNGE_EXERCISES) as string[];
   
   console.log(`    Hardcoded KNEE_SAFE_LUNGE_EXERCISES: ${kneeSafeLungeSlugs.join(", ")}`);
   
