@@ -19,11 +19,16 @@ import { applyDeload, prescribe } from "@/lib/program/prescription";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { validateSet } from "@/lib/session/validation";
 import { abandonSessionCore } from "@/lib/session/abandon-session";
+import { startSessionCore } from "@/lib/session/start-session-core";
+import { updateSessionCore } from "@/lib/session/update-session-core";
 import { pickReusableSession } from "@/lib/session/reusable-session";
 import { isoWeekday, localDateString } from "@/lib/dates";
+import { logSetCore } from "@/lib/session/log-set-core";
 import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
+import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
+import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -31,6 +36,17 @@ type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
 export type Result<T = undefined> =
   | ({ ok: true } & (T extends undefined ? object : { data: T }))
   | { ok: false; error: string; code?: string };
+
+export type SetConflictResult = {
+  ok: false;
+  reason: "set_exists";
+  savedSets: Array<{
+    setNumber: number;
+    reps: number | null;
+    weightKg: number | null;
+    durationSeconds: number | null;
+  }>;
+};
 
 async function requireUser() {
   const { supabase, user } = await getAuthedClient();
@@ -108,27 +124,35 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     // Returning it as-is used to strand the user on "this session has no
     // exercises" with no way forward, permanently, because this branch would
     // keep returning the same empty shell.
-    await Promise.all([
-      supabase
-        .from("sessions")
-        .update({
-          status: "in_progress",
-          /*
-            Stamped on a first start, and again when a deliberately abandoned
-            session is restarted. The session clock is wall time since
-            `started_at`, so carrying the old stamp across a quit at 7am and a
-            restart at 1pm would record a six-hour workout. Resuming an
-            `in_progress` session keeps its stamp, because that is the
-            phone-locked-mid-set case the clock is meant to survive.
-          */
-          ...(existing.started_at === null || existing.status === "skipped"
-            ? { started_at: new Date().toISOString() }
-            : {}),
-        })
-        .eq("id", existing.id),
+    /*
+      This is the update path. The session exists with status 'skipped' or
+      status 'completed' and started_at: null (unstarted). The user pressed
+      "Start" from the Today page.
+
+      Stamped on a first start, and again when a deliberately abandoned
+      session is restarted. The session clock is wall time since
+      `started_at`, so carrying the old stamp across a quit at 7am and a
+      restart at 1pm would record a six-hour workout. Resuming an
+      `in_progress` session keeps its stamp, because that is the
+      phone-locked-mid-set case the clock is meant to survive.
+    */
+    const updatePayload = {
+      status: "in_progress" as const,
+      ...(existing.started_at === null || existing.status === "skipped"
+        ? { started_at: new Date().toISOString() }
+        : {}),
+    };
+
+    const [updateResult] = await Promise.all([
+      updateSessionCore(supabase, existing.id, user.id, today, updatePayload),
       ensureSessionExercises(supabase, user.id, existing.id),
     ]);
-    return { ok: true, data: { sessionId: existing.id } };
+
+    if (!updateResult.ok) {
+      return { ok: false, error: updateResult.error };
+    }
+
+    return { ok: true, data: { sessionId: updateResult.sessionId } };
   }
 
   // Ensure we have a current block before creating a session (fixes E-5: stale tab bug)
@@ -140,48 +164,51 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
     return { ok: false, error: rolloverResult.error };
   }
 
-  // Re-read the program after rollover to get the fresh block
-  const program = (
-    await supabase
-      .from("programs")
-      .select("id, started_on, deload_week, week_offset, program_days(id, day_index, day_type, focus, label)")
-      .eq("id", rolloverResult.programId)
-      .maybeSingle()
-  ).data;
-
-  if (!program) return { ok: false, error: "Could not load the training block." };
-
   // From the local date already computed above, not a second read of the clock:
   // deriving them separately let the weekday and the date disagree across a
   // midnight boundary.
   const dayIndex = isoWeekday(today);
 
-  const day = (program.program_days ?? []).find((d) => d.day_index === dayIndex);
-  if (!day) return { ok: false, error: "No plan for today." };
+  const loadResult = await loadStartProgram(
+    createLoadStartProgramDeps(supabase),
+    rolloverResult.programId,
+    dayIndex
+  );
+  if (!loadResult.ok) return { ok: false, error: loadResult.error };
+
+  const { program, day } = loadResult;
 
   const week = cycleWeekFor({ started_on: program.started_on, week_offset: program.week_offset }, today);
   const isDeloadWeek = week === program.deload_week;
 
   // ---- wave 2 -------------------------------------------------------------
-  // Creating the session and reading what to put in it are independent: both
-  // need only the day, which wave one already produced.
-  const [sessionRes, plannedRes] = await Promise.all([
-    supabase
-      .from("sessions")
-      .insert({
-        user_id: user.id,
-        program_id: program.id,
-        program_day_id: day.id,
-        local_date: today,
-        week_in_block: week,
-        is_deload: isDeloadWeek,
-        planned_type: day.day_type,
-        actual_type: day.day_type,
-        status: "in_progress",
-        started_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single(),
+  // Case C: Idempotent session start - check for existing in_progress session first
+  const { data: existingInProgressSessions } = await supabase
+    .from("sessions")
+    .select("id, status, local_date, actual_type")
+    .eq("user_id", user.id)
+    .eq("local_date", today)
+    .eq("status", "in_progress");
+
+  if (existingInProgressSessions && existingInProgressSessions.length > 0) {
+    // An in_progress session already exists for this user + date, return it (idempotent)
+    return { ok: true, data: { sessionId: existingInProgressSessions[0].id } };
+  }
+
+  // No existing in_progress session, create a new one and read the plan
+  const [insertResult, plannedRes] = await Promise.all([
+    startSessionCore(supabase, user.id, {
+      user_id: user.id,
+      program_id: program.id,
+      program_day_id: day.id,
+      local_date: today,
+      week_in_block: week,
+      is_deload: isDeloadWeek,
+      planned_type: day.day_type,
+      actual_type: day.day_type,
+      status: "in_progress",
+      started_at: new Date().toISOString(),
+    }),
     supabase
       .from("program_day_exercises")
       // The exercise's metric comes along so the session can record the unit it
@@ -191,9 +218,8 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
       .order("order_index"),
   ]);
 
-  const session = sessionRes.data;
-  if (sessionRes.error || !session) {
-    return { ok: false, error: sessionRes.error?.message ?? "Could not start the session" };
+  if (!insertResult.ok) {
+    return { ok: false, error: insertResult.error };
   }
 
   const planned = plannedRes.data;
@@ -216,7 +242,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
               restSeconds: p.rest_seconds,
             };
         return {
-          session_id: session.id,
+          session_id: insertResult.sessionId,
           user_id: user.id, // corrected by the definer trigger
           exercise_id: p.exercise_id,
           order_index: p.order_index,
@@ -244,7 +270,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // if they quit. The worst case is that returning to Today within the client
   // cache's window shows "Start session" instead of "Resume session" — and
   // pressing it finds this very session and resumes it.
-  return { ok: true, data: { sessionId: session.id } };
+  return { ok: true, data: { sessionId: insertResult.sessionId } };
 }
 
 export async function markWarmupDone(sessionId: string): Promise<Result> {
@@ -266,7 +292,7 @@ export async function logSet(input: {
   weightKg: number | null;
   /** Seconds held, for a `seconds` exercise. Its `reps` stays null. */
   durationSeconds?: number | null;
-}): Promise<Result> {
+}): Promise<Result | SetConflictResult> {
   const rateLimit = await checkActionRateLimit("session");
   if (rateLimit) return rateLimit;
   
@@ -284,20 +310,13 @@ export async function logSet(input: {
     return validationResult;
   }
 
-  const { error } = await supabase.from("session_sets").upsert(
-    {
-      session_exercise_id: input.sessionExerciseId,
-      user_id: user.id,
-      set_number: input.setNumber,
-      reps: input.reps,
-      weight_kg: input.weightKg,
-      duration_seconds: durationSeconds,
-      is_warmup_set: false,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "session_exercise_id,set_number,is_warmup_set" },
-  );
-  return error ? { ok: false, error: error.message } : { ok: true };
+  return logSetCore(supabase, user.id, {
+    sessionExerciseId: input.sessionExerciseId,
+    setNumber: input.setNumber,
+    reps: input.reps,
+    weightKg: input.weightKg,
+    durationSeconds,
+  });
 }
 
 export async function deleteSet(
@@ -1001,16 +1020,13 @@ export async function planDay(input: {
   let programDayId: string | null = null;
 
   if (input.plan.kind === "training") {
-    // Read the day rather than trusting the id: RLS already scopes it to this
-    // user, and this also gets the type right without the client naming it.
-    const { data: day } = await supabase
-      .from("program_days")
-      .select("id, day_type")
-      .eq("id", input.plan.programDayId)
-      .maybeSingle();
-    if (!day) return { ok: false, error: "That day is not in your block." };
-    actualType = day.day_type;
-    programDayId = day.id;
+    const dayResult = await loadPlanDay(
+      createLoadPlanDayDeps(supabase),
+      input.plan.programDayId
+    );
+    if (!dayResult.ok) return { ok: false, error: dayResult.error };
+    actualType = dayResult.day.day_type;
+    programDayId = dayResult.day.id;
   } else {
     actualType = OVERRIDE_TYPE[input.plan.kind];
   }
