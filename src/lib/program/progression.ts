@@ -700,14 +700,18 @@ export function evaluateProgression(input: {
 
   /**
    * Shared helper: compute what the two-miss back-off would return.
-   * Used by both the actual two-miss path and the first-miss invariant clamp.
+   * Used by both the actual two-miss path and the first-miss invariant clamp (Rule 2).
    * 
-   * M1: Backs off from pre-miss weight (weightAtFailureStartKg), not from first-miss-dropped weight.
+   * M1: For actual two-miss back-off, backs off from pre-miss weight and snaps DOWN.
+   * For Rule 2 floor check, uses original behavior: finds smallest loadable >= target (snap UP).
    * 
-   * Returns the SMALLEST loadable value >= 90% (rounded down to grid, at most one increment below) and < current.
+   * @param weight - Weight to compute from
+   * @param snapDown - M1: true for two-miss back-off (snap DOWN), false for Rule 2 floor (snap UP, original)
+   * 
+   * Returns the loadable value (snapped according to mode) >= 90% (at most one increment below) and < current.
    * If no such value exists, returns current (hold).
    */
-  function computeTwoMissResult(weight: number): number {
+  function computeTwoMissResult(weight: number, snapDown: boolean = false): number {
     const liftIncrement = incrementFor(meta);
     
     // Hold at light weight
@@ -718,7 +722,7 @@ export function evaluateProgression(input: {
     const rawReduced = weight * 0.9;
     const roundingGrid = meta.mechanic === "isolation" ? 1.25 : 2.5;
     
-    // Snap DOWN to 2.5 or 1.25 grid, at most one increment below 90%
+    // Snap to 2.5 or 1.25 grid, at most one increment below 90%
     const snapped = Math.floor(rawReduced / roundingGrid) * roundingGrid;
     const cap = rawReduced - liftIncrement;
     const target = Math.max(snapped, cap);
@@ -728,7 +732,7 @@ export function evaluateProgression(input: {
       return weight;
     }
     
-    // With equipment: find SMALLEST loadable value >= target and < current, SNAPPED DOWN
+    // With equipment: find loadable value relative to target
     if (equipmentIds) {
       let candidate: number | null = null;
       
@@ -742,12 +746,21 @@ export function evaluateProgression(input: {
           }
         }
       } else {
-        // Standard equipment: snap DOWN to loadable grid
+        // Standard equipment: snap to loadable grid
         const gridStep = equipmentGridStep(equipmentIds, 'kg');
-        // M1: Snap DOWN (floor), not up (ceil)
-        const snappedDown = Math.floor(target / gridStep) * gridStep;
-        if (snappedDown < weight - 0.001 && snappedDown > 0) {
-          candidate = snappedDown;
+        
+        if (snapDown) {
+          // M1 two-miss: snap DOWN (floor) - may be < target
+          const snappedDown = Math.floor(target / gridStep) * gridStep;
+          if (snappedDown < weight - 0.001 && snappedDown > 0) {
+            candidate = snappedDown;
+          }
+        } else {
+          // Rule 2 floor: snap UP (ceil) - smallest loadable >= target (original behavior)
+          const snappedUp = Math.ceil(target / gridStep) * gridStep;
+          if (snappedUp < weight - 0.001) {
+            candidate = snappedUp;
+          }
         }
       }
       
@@ -784,7 +797,7 @@ export function evaluateProgression(input: {
     
     // M1: Use pre-miss weight if available, otherwise fall back to current weight
     const weightToBackOffFrom = state.weightAtFailureStartKg ?? currentWeight;
-    const reduced = computeTwoMissResult(weightToBackOffFrom);
+    const reduced = computeTwoMissResult(weightToBackOffFrom, true); // M1: snap DOWN for two-miss back-off
     
     // If helper returned same weight, it's a hold
     if (reduced === weightToBackOffFrom) {
@@ -861,7 +874,7 @@ export function evaluateProgression(input: {
     
     // Rule 2: if candidate < two-miss result, hold instead
     if (candidateWeight !== currentWeight) {
-      const twoMissFloor = computeTwoMissResult(currentWeight);
+      const twoMissFloor = computeTwoMissResult(currentWeight, false); // Rule 2: snap UP (original behavior)
       if (candidateWeight < twoMissFloor) {
         candidateWeight = currentWeight;
         holdReason = 'twomiss';
