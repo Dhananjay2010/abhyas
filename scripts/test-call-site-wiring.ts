@@ -35,15 +35,16 @@ check(
 );
 
 check(
-  "actions.ts queries units from profiles",
-  actionsContent.includes('supabase.from("profiles").select("units")') &&
-  actionsContent.indexOf('profileRes') !== -1 && actionsContent.indexOf('Promise.all') !== -1
+  "actions.ts does NOT query units from profiles (M2: imperial removed)",
+  !actionsContent.includes('supabase.from("profiles").select("units")') ||
+  !actionsContent.includes('profileRes'),
+  "units query removed per M2"
 );
 
 check(
-  "actions.ts passes profileRes.data?.units to buildProgressionInput",
-  actionsContent.includes('profileRes.data?.units') &&
-  actionsContent.includes('buildProgressionInput(')
+  "actions.ts does NOT pass units to buildProgressionInput",
+  !actionsContent.includes('profileRes.data?.units'),
+  "userUnits parameter removed per M2"
 );
 
 console.log("\n2. Check page.tsx wiring");
@@ -56,13 +57,15 @@ check(
 );
 
 check(
-  "queries units from profiles",
-  pageContent.includes('profiles') && pageContent.includes('select') && pageContent.includes('units'),
-  "units in profiles select"
+  "does NOT query units from profiles (M2: imperial removed)",
+  !pageContent.includes('profileRes.data?.units'),
+  "units removed per M2"
 );
 
 check(
-  "passes profileRes.data?.units to buildRunnerExercise",
+  "does NOT pass units to buildRunnerExercise",
+  !pageContent.includes('userUnits:'),
+  "userUnits parameter removed per M2"
 );
 
 check(
@@ -94,27 +97,18 @@ check(
   builderContent.includes('progInputs.equipmentIds,')
 );
 
-check(
-  "passes undefined to suggestedWeight",
-  builderContent.includes('undefined,')
-);
-
 console.log("\n4. Helper behavior tests");
 
-// With equipment
-const withEquip = progressionInputsFromExercise({ equipment_ids: ["barbell", "cable"] }, "metric");
+// With equipment (M2: no unit parameter)
+const withEquip = progressionInputsFromExercise({ equipment_ids: ["barbell", "cable"] });
 check("returns equipmentIds when equipment present", withEquip.equipmentIds !== undefined);
 check("equipmentIds is the array", JSON.stringify(withEquip.equipmentIds) === '["barbell","cable"]');
-check("unit is kg for metric", withEquip.unit === "kg");
-
-const withEquipImperial = progressionInputsFromExercise({ equipment_ids: ["dumbbell"] }, "imperial");
-check("unit is lb for imperial", withEquipImperial.unit === "lb");
+check("unit is NOT returned (M2: removed)", (withEquip as any).unit === undefined);
 
 // No equipment
-const noEquip = progressionInputsFromExercise({ equipment_ids: [] }, "metric");
+const noEquip = progressionInputsFromExercise({ equipment_ids: [] });
 check("returns empty object for empty array", Object.keys(noEquip).length === 0);
 check("equipmentIds undefined for no equipment", noEquip.equipmentIds === undefined);
-check("unit undefined for no equipment", noEquip.unit === undefined);
 
 // Test backward compatibility: old code path
 const META: ExerciseMeta = {
@@ -150,8 +144,8 @@ const oldResult = evaluateProgression({
   isDeload: false,
 });
 
-// New call: spread empty helper result
-const helperResult = progressionInputsFromExercise({ equipment_ids: [] }, "metric");
+// New call: spread empty helper result (M2: no unit)
+const helperResult = progressionInputsFromExercise({ equipment_ids: [] });
 const newResult = evaluateProgression({
   sets,
   plannedSets: 4,
@@ -172,7 +166,7 @@ check(
 
 console.log("\n5. Real buildProgressionInput + evaluateProgression tests");
 
-// Test that the real call path works with equipment and units
+// Test that the real call path works with equipment (M2: no units)
 const realInput1 = buildProgressionInput(
   {
     id: "se_test",
@@ -203,6 +197,7 @@ const realInput1 = buildProgressionInput(
     best_reps: 12,
     best_e1rm: null,
     total_sessions: 3,
+    weight_at_failure_start_kg: null,
   },
   {
     is_deload: false,
@@ -210,7 +205,6 @@ const realInput1 = buildProgressionInput(
     program_id: null,
   },
   "right",
-  "metric"
 );
 
 const decision1 = evaluateProgression(realInput1);
@@ -221,17 +215,17 @@ check(
 );
 
 check(
-  "metric: message contains ' kg' (not ' lb')",
+  "M2: message contains ' kg' (not ' lb')",
   decision1.message.includes(" kg") && !decision1.message.includes(" lb"),
   `got: ${decision1.message}`
 );
 
-// Test imperial units
+// M2: No imperial - test that kg is used consistently
 const realInput2 = buildProgressionInput(
   {
-    id: "se_imperial",
-    session_id: "sess_imperial",
-    exercise_id: "ex_imperial",
+    id: "se_test2",
+    session_id: "sess_test2",
+    exercise_id: "ex_test2",
     planned_sets: 3,
     planned_reps_min: 8,
     planned_reps_max: 12,
@@ -257,6 +251,7 @@ const realInput2 = buildProgressionInput(
     best_reps: 12,
     best_e1rm: null,
     total_sessions: 3,
+    weight_at_failure_start_kg: null,
   },
   {
     is_deload: false,
@@ -264,13 +259,12 @@ const realInput2 = buildProgressionInput(
     program_id: null,
   },
   "right",
-  "imperial"
 );
 
 const decision2 = evaluateProgression(realInput2);
 check(
-  "imperial: message contains ' lb' (not ' kg')",
-  decision2.message.includes(" lb") && !decision2.message.includes(" kg"),
+  "M2: dumbbell message contains ' kg' (not ' lb')",
+  decision2.message.includes(" kg") && !decision2.message.includes(" lb"),
   `got: ${decision2.message}`
 );
 
@@ -305,6 +299,7 @@ const deloadInput = buildProgressionInput(
     best_reps: 12,
     best_e1rm: null,
     total_sessions: 3,
+    weight_at_failure_start_kg: null,
   },
   {
     is_deload: true,
@@ -312,7 +307,6 @@ const deloadInput = buildProgressionInput(
     program_id: null,
   },
   "right",
-  "metric"
 );
 
 const deloadDecision = evaluateProgression(deloadInput);

@@ -558,10 +558,10 @@ console.log("\n13. STALL TEST: 10 successful sessions strictly increase weight f
         const expectedDrop = isKb
           ? null // Variable bell spacing, so we don't check exact drop
           : equipment.name === "pin-stack machine" 
-            ? (equipment.unit === "kg" ? 5 : 10)
+            ? ("kg" === "kg" ? 5 : 10)
             : equipment.name === "medicine_ball"
-              ? (equipment.unit === "kg" ? 1 : 2)
-              : (equipment.unit === "kg" ? 2.5 : 5); // Standard grid
+              ? ("kg" === "kg" ? 1 : 2)
+              : ("kg" === "kg" ? 2.5 : 5); // Standard grid
         const dropped = progressedWeight - (missDecision.nextWorkingWeightKg ?? 0);
         check(
           `${equipment.name} × ${liftType.name}: first miss drops or holds`,
@@ -971,15 +971,15 @@ console.log("\n23. Back-off: 90% rounded to 2.5 kg grid, never more than one inc
 console.log("\n24. Suggestion never raises weight");
 {
   // Deload suggestion for 1 kg: 1 * 0.7 = 0.7, should not raise to 2.5
-  const deloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, true, CURL, ["dumbbell"], "kg");
+  const deloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, true, CURL, ["dumbbell"]);
   check("deload suggestion for 1 kg: stays <= 1 kg (not 2.5)", deloadSugg1 !== null && deloadSugg1 <= 1, `${deloadSugg1}`);
   
   // Non-deload suggestion for 1 kg: should not raise to 2.5
-  const nonDeloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, false, CURL, ["dumbbell"], "kg");
+  const nonDeloadSugg1 = suggestedWeight({ currentWorkingWeightKg: 1 }, false, CURL, ["dumbbell"]);
   check("non-deload suggestion for 1 kg: stays <= 1 kg (not 2.5)", nonDeloadSugg1 !== null && nonDeloadSugg1 <= 1, `${nonDeloadSugg1}`);
   
   // Kettlebell deload suggestion for 2 kg: 2 * 0.7 = 1.4, should not raise to 4
-  const kbDeloadSugg2 = suggestedWeight({ currentWorkingWeightKg: 2 }, true, KETTLEBELL_SWING, ["kettlebell"], "kg");
+  const kbDeloadSugg2 = suggestedWeight({ currentWorkingWeightKg: 2 }, true, KETTLEBELL_SWING, ["kettlebell"]);
   check("KB deload suggestion for 2 kg: stays <= 2 kg (not 4)", kbDeloadSugg2 !== null && kbDeloadSugg2 <= 2, `${kbDeloadSugg2}`);
 }
 
@@ -1150,7 +1150,7 @@ console.log("\n30. Isolation back-off uses 1.25 kg grid (not 2.5 kg)");
   });
   check("isolation back-off 13.75 kg: 13.75 -> 12.5 kg (loadable)", backOffIso.nextWorkingWeightKg === 12.5, `${backOffIso.nextWorkingWeightKg}`);
   check("isolation back-off 13.75 kg message says 'dropping to 12.5 kg'", backOffIso.message.includes("dropping to 12.5 kg") || backOffIso.message.includes("27"), backOffIso.message);
-  const curl15 = run({ meta: CURL, sets: sets(4, 12, 15), state: fresh({ currentWorkingWeightKg: 15 }), equipmentIds: undefined, unit: undefined });
+  const curl15 = run({ meta: CURL, sets: sets(4, 12, 15), state: fresh({ currentWorkingWeightKg: 15 }), equipmentIds: undefined });
   check("unwired curl 15 kg -> 'up to 16.25 kg' (main's kg wording, not 16.3)", curl15.nextWorkingWeightKg === 16.25 && curl15.message.includes("up to 16.25 kg"), curl15.message);
 }
 

@@ -276,7 +276,7 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
   check("Increase from 12kg dumbbell lands on loadable value", decision.nextWorkingWeightKg === 12.5);
   
   // suggestedWeight just returns that value
-  const w = suggestedWeight({ currentWorkingWeightKg: 12.5 }, false, CURL, ["dumbbell"], "kg");
+  const w = suggestedWeight({ currentWorkingWeightKg: 12.5 }, false, CURL, ["dumbbell"]);
   check("  suggestedWeight returns 12.5 (loadable)", w === 12.5);
 }
 
@@ -294,28 +294,28 @@ console.log("\n=== suggestedWeight: Increases, Decreases, Holds ===");
   check("Decrease from 13.75kg isolation returns computed value", decision.nextWorkingWeightKg !== null);
   
   // suggestedWeight returns as-is (might be off-grid, acceptable)
-  const w = suggestedWeight({ currentWorkingWeightKg: decision.nextWorkingWeightKg! }, false, CURL, ["dumbbell"], "kg");
+  const w = suggestedWeight({ currentWorkingWeightKg: decision.nextWorkingWeightKg! }, false, CURL, ["dumbbell"]);
   check("  suggestedWeight returns as-is", w === decision.nextWorkingWeightKg);
 }
 
 // Test holds return exact
 {
-  const w1 = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, ["dumbbell"], "kg");
+  const w1 = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, ["dumbbell"]);
   check("Hold at 12kg returns 12 exact", w1 === 12);
   
-  const w2 = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, ["barbell"], "kg");
+  const w2 = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, ["barbell"]);
   check("Hold at 13.75kg returns 13.75 exact", w2 === 13.75);
 }
 
 console.log("\n=== suggestedWeight: No Equipment (unchanged) ===");
 
 {
-  const w = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL, undefined, undefined);
+  const w = suggestedWeight({ currentWorkingWeightKg: 12 }, false, CURL);
   check("suggestedWeight no-equipment: 12 kg → 12 kg (same as main)", w === 12);
 }
 
 {
-  const w = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH, undefined, undefined);
+  const w = suggestedWeight({ currentWorkingWeightKg: 13.75 }, false, BENCH);
   check("suggestedWeight no-equipment: 13.75 kg → 13.75 kg (same as main)", w === 13.75);
 }
 
@@ -323,23 +323,21 @@ console.log("\n=== Invariant: First-Miss >= Two-Miss ===");
 
 // Test that first-miss result is always >= two-miss result
 const testWeights = [5, 7.5, 10, 12, 15, 20, 30, 40, 60, 100];
-const equipments: Array<{ ids: string[]; unit: WeightUnit }> = [
+const equipments = [
   { ids: ["barbell"] },
   { ids: ["dumbbell"] },
   { ids: ["machine", "cable"] },
 ];
 
-for (const { ids, unit } of equipments) {
+for (const { ids } of equipments) {
   for (const weight of testWeights) {
     const firstMiss = run({
       equipmentIds: ids,
-      unit,
       meta: BENCH,
       state: fresh({ currentWorkingWeightKg: weight, consecutiveFailures: 0 }),
     });
     const twoMiss = run({
       equipmentIds: ids,
-      unit,
       meta: BENCH,
       state: fresh({ currentWorkingWeightKg: weight, consecutiveFailures: 1 }),
     });

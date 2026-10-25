@@ -158,10 +158,10 @@ async function main() {
 
     check("Miss: outcome hold (first miss)", decision.outcome === "hold", decision.outcome);
     check("Miss: failures=1", decision.consecutiveFailures === 1, `${decision.consecutiveFailures}`);
-    // #120: Now wired with equipmentIds and unit, first-miss drops one grid step (60 -> 57.5 for barbell)
+    // #120: Now wired with equipmentIds (M2: unit removed)
     check("Miss: weight drops to 57.5 (first-miss with equipment)", decision.nextWorkingWeightKg === 57.5, `${decision.nextWorkingWeightKg}`);
     check("Builder: has equipmentIds", "equipmentIds" in input && Array.isArray(input.equipmentIds), `${JSON.stringify(input.equipmentIds)}`);
-    check("Builder: has unit", "unit" in input && input.unit === "kg", `${input.unit}`);
+    check("M2: unit removed (no longer in input)", !("unit" in input), "unit property removed");
   }
 
   console.log("\n3. State weight test: current=50 vs best=60 (would catch best_weight_kg swap)");

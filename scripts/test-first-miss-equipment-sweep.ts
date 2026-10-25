@@ -18,7 +18,7 @@ import {
 } from "../src/lib/program/progression";
 import { gridStepFor, KETTLEBELL_WEIGHTS_KG, type WeightUnit } from "../src/lib/session/equipment-grid";
 
-const EQUIPMENTS: Array<{ ids: string[]; unit: WeightUnit }> = [
+const EQUIPMENTS: Array<{ ids: string[] }> = [
   { ids: ["barbell"] },
   { ids: ["dumbbell"] },
   { ids: ["kettlebell"] },
@@ -28,9 +28,6 @@ const EQUIPMENTS: Array<{ ids: string[]; unit: WeightUnit }> = [
   { ids: ["leg_press"] },
   { ids: ["leg_curl"] },
   { ids: ["medicine_ball"] },
-  { ids: ["barbell"], unit: "lb" },
-  { ids: ["dumbbell"], unit: "lb" },
-  { ids: ["kettlebell"], unit: "lb" },
 ];
 
 const MECHANICS: Array<"compound" | "isolation"> = ["compound", "isolation"];
@@ -102,7 +99,7 @@ function isOnGrid(weight: number, equipmentIds: string[]): boolean {
   return Math.abs(weight - Math.round(weight / step) * step) < 0.001;
 }
 
-for (const { ids, unit } of EQUIPMENTS) {
+for (const { ids } of EQUIPMENTS) {
   for (const mechanic of MECHANICS) {
     for (const pattern of PATTERNS) {
       for (const feel of FEELS) {
@@ -134,7 +131,6 @@ for (const { ids, unit } of EQUIPMENTS) {
             state,
             isDeload: false,
             equipmentIds: ids,
-            unit,
           };
 
         const firstMissResult = evaluateProgression(input);
@@ -156,7 +152,7 @@ for (const { ids, unit } of EQUIPMENTS) {
         if (firstMissW < twoMissW - 0.001) {
           invariantViolations++;
           console.log(
-            `VIOLATION: first-miss < two-miss for ${ids[0]} ${weight} ${unit}`
+            `VIOLATION: first-miss < two-miss for ${ids[0]} ${weight} "kg"`
           );
           console.log(`  first-miss: ${firstMissW}, two-miss: ${twoMissW}`);
         }
@@ -168,7 +164,7 @@ for (const { ids, unit } of EQUIPMENTS) {
           if (firstMissW < weight - maxDrop - 0.001 && firstMissW < weight - 0.001) {
             stepViolations++;
             console.log(
-              `STEP VIOLATION: dropped ${weight - firstMissW} (> ${maxDrop}) for ${ids[0]} ${weight} ${unit}`
+              `STEP VIOLATION: dropped ${weight - firstMissW} (> ${maxDrop}) for ${ids[0]} ${weight} "kg"`
             );
           }
         }
@@ -177,14 +173,14 @@ for (const { ids, unit } of EQUIPMENTS) {
         if (firstMissW < weight - 0.001 && !isOnGrid(firstMissW, ids)) {
           offGridDecreases++;
           console.log(
-            `OFF-GRID FIRST-MISS: ${ids[0]} ${weight} -> ${firstMissW} ${unit}`
+            `OFF-GRID FIRST-MISS: ${ids[0]} ${weight} -> ${firstMissW} "kg"`
           );
         }
         
         if (twoMissW < weight - 0.001 && !isOnGrid(twoMissW, ids)) {
           offGridDecreases++;
           console.log(
-            `OFF-GRID TWO-MISS: ${ids[0]} ${weight} -> ${twoMissW} ${unit}`
+            `OFF-GRID TWO-MISS: ${ids[0]} ${weight} -> ${twoMissW} "kg"`
           );
         }
 
@@ -192,14 +188,14 @@ for (const { ids, unit } of EQUIPMENTS) {
         if (firstMissW > weight + 0.001) {
           invariantViolations++;
           console.log(
-            `NEVER-RAISE VIOLATION (first-miss): ${ids[0]} ${weight} -> ${firstMissW} ${unit}`
+            `NEVER-RAISE VIOLATION (first-miss): ${ids[0]} ${weight} -> ${firstMissW} "kg"`
           );
         }
         
         if (twoMissW > weight + 0.001) {
           invariantViolations++;
           console.log(
-            `NEVER-RAISE VIOLATION (two-miss): ${ids[0]} ${weight} -> ${twoMissW} ${unit}`
+            `NEVER-RAISE VIOLATION (two-miss): ${ids[0]} ${weight} -> ${twoMissW} "kg"`
           );
         }
         
@@ -211,16 +207,16 @@ for (const { ids, unit } of EQUIPMENTS) {
           if (twoMissW < cap - 0.001 && twoMissW < weight - 0.001) {
             invariantViolations++;
             console.log(
-              `TWO-MISS BELOW CAP: ${ids[0]} ${weight} -> ${twoMissW} (cap: ${cap.toFixed(2)}) ${unit}`
+              `TWO-MISS BELOW CAP: ${ids[0]} ${weight} -> ${twoMissW} (cap: ${cap.toFixed(2)}) "kg"`
             );
           }
         }
 
-        // Test suggested weight for holds
-        const suggested = suggestedWeight(state, false, meta, ids, unit);
+        // Test suggested weight for holds (M2: no unit)
+        const suggested = suggestedWeight(state, false, meta, ids);
         if (firstMissResult.outcome === "hold" && suggested !== null && Math.abs(suggested - weight) > 0.001) {
           console.log(
-            `HOLD MISMATCH: ${ids[0]} ${weight} ${unit} outcome=hold but suggested=${suggested}`
+            `HOLD MISMATCH: ${ids[0]} ${weight} "kg" outcome=hold but suggested=${suggested}`
           );
         }
         }
