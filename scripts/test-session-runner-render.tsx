@@ -87,12 +87,15 @@ type Deferred<T> = {
 };
 
 function createDeferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  let reject!: (error: Error) => void;
+  let resolve: ((value: T) => void) | null = null;
+  let reject: ((error: Error) => void) | null = null;
   const promise = new Promise<T>((res, rej) => {
     resolve = res;
     reject = rej;
   });
+  if (!resolve || !reject) {
+    throw new Error("Promise executor did not run synchronously");
+  }
   return { promise, resolve, reject };
 }
 
@@ -237,8 +240,7 @@ async function test1b1d() {
   const logButton = logButtons[logButtons.length - 1];
   
   // Verify button is enabled
-  const buttonDisabled = (logButton as HTMLButtonElement).disabled;
-  if (buttonDisabled) {
+  if (logButton.disabled) {
     throw new Error(`Button is still disabled after replay: ${logButton.textContent}`);
   }
   
@@ -856,9 +858,8 @@ async function test9b() {
   
   assert((savingButton as HTMLElement & { disabled?: boolean }).disabled === true, "9b: Saving button is disabled while saving");
   
-  if (skipCooldownButton) {
-    assert((skipCooldownButton as HTMLElement & { disabled?: boolean }).disabled === true, "9c: Skip cool-down button is disabled while saving");
-  }
+  assert(skipCooldownButton !== null, "9c: Skip cool-down button exists");
+  assert(skipCooldownButton.disabled === true, "9c: Skip cool-down button is disabled while saving");
   
   fakeStorage.clear();
 }
@@ -1064,7 +1065,7 @@ async function testN12() {
   const endEarlyButton = endEarlyButtons[endEarlyButtons.length - 1];
   assert(!!endEarlyButton, "N12: End early button exists");
   
-  assert((endEarlyButton as HTMLElement & { disabled?: boolean }).disabled === true, "N12: End early button is disabled with pending sets");
+  assert(endEarlyButton.disabled === true, "N12: End early button is disabled with pending sets");
   
   fakeStorage.clear();
 }
