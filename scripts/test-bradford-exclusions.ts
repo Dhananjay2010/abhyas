@@ -8,7 +8,7 @@
  */
 
 import { readFileSync } from "fs";
-import { generateProgram, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
+import { generateProgram, isEligible, type CandidateExercise, type GeneratorInput } from "../src/lib/program/generate";
 import { rankAlternatives, buildPatternList, type AlternativesContext, type ExerciseRow } from "../src/lib/program/alternatives";
 import { score, hashString } from "../src/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "../src/lib/program/exclusions";
@@ -22,6 +22,8 @@ const BRADFORD_SLUGS = [
 ];
 
 const ALL_EXCLUDED_SLUGS = Array.from(EXCLUDED_EXERCISE_SLUGS);
+
+const SHOULDER_CONTRAINDICATED_SLUG = "around-the-worlds";
 
 let passCount = 0;
 let failCount = 0;
@@ -206,6 +208,102 @@ console.log("\n3. Profile grid: Bradford exercises never appear in swap lists");
   console.log(`  ${swapFailCount === 0 ? "✓" : "✗"} ${swapPassCount}/${swapPassCount + swapFailCount} swap tests clean`);
   passCount += swapPassCount;
   failCount += swapFailCount;
+}
+
+console.log("\n4. Around The Worlds contraindication: never appears for shoulder-injured users");
+{
+  const shoulderProfiles: Array<{
+    level: "beginner" | "intermediate" | "expert";
+    equipmentIds: string[];
+    hasAll: boolean;
+  }> = [
+    { level: "beginner", equipmentIds: [], hasAll: true },
+    { level: "intermediate", equipmentIds: ["dumbbell"], hasAll: false },
+    { level: "expert", equipmentIds: [], hasAll: true },
+  ];
+  
+  let aroundWorldsPassCount = 0;
+  let aroundWorldsFailCount = 0;
+  
+  for (const profile of shoulderProfiles) {
+    const input: GeneratorInput = {
+      userId: `shoulder-${profile.level}`,
+      blockNumber: 1,
+      level: profile.level,
+      equipmentIds: profile.equipmentIds,
+      hasAllEquipment: profile.hasAll,
+      goal: "muscle_gain",
+      currentInjuryRegions: ["shoulder"],
+      age: 30,
+      bmi: null,
+      daysPerWeek: 4,
+      yogaDaysPerWeek: 0,
+      primaryTrack: "weights",
+      preferredSessionMinutes: 75,
+      catalogue,
+    };
+    
+    const program = generateProgram(input);
+    const allExerciseSlugs = program.days.flatMap(day => 
+      day.exercises.map(e => idToSlug.get(e.exerciseId) || e.exerciseId)
+    );
+    
+    if (allExerciseSlugs.includes(SHOULDER_CONTRAINDICATED_SLUG)) {
+      console.log(`  ✗ ${input.userId}: found ${SHOULDER_CONTRAINDICATED_SLUG} in plan`);
+      aroundWorldsFailCount++;
+    } else {
+      aroundWorldsPassCount++;
+    }
+  }
+  
+  // Also test swaps for a chest exercise (isEligible + rankAlternatives path)
+  const chestExercise = find("barbell-bench-press-medium-grip");
+  const patterns = buildPatternList(chestExercise.movement_pattern, false);
+  const rawPool = catalogue.filter((e) => patterns.includes(e.movement_pattern));
+  
+  // Filter through isEligible first (as the action.ts swap path does)
+  const swapInput: GeneratorInput = {
+    userId: "test-swap-shoulder",
+    blockNumber: 1,
+    level: "intermediate",
+    equipmentIds: [],
+    hasAllEquipment: true,
+    goal: "muscle_gain",
+    currentInjuryRegions: ["shoulder"],
+    age: null,
+    bmi: null,
+    daysPerWeek: 4,
+    yogaDaysPerWeek: 0,
+    primaryTrack: "weights",
+    preferredSessionMinutes: 75,
+    catalogue,
+  };
+  
+  const pool = rawPool.filter((e) => isEligible(e, swapInput));
+  
+  const wantCompound = chestExercise.mechanic !== "isolation";
+  const ctx: AlternativesContext = {
+    level: "intermediate",
+    availableEquipment: null,
+    injuryRegions: ["shoulder"],
+    limit: 10,
+    scoreFn: (e) => score(e, wantCompound, "intermediate", "weights"),
+    tieBreakFn: (slug) => hashString(`test-around-worlds:${slug}`),
+  };
+  
+  const alternatives = rankAlternatives(chestExercise, pool, ctx);
+  const slugs = alternatives.map(e => e.slug);
+  
+  if (slugs.includes(SHOULDER_CONTRAINDICATED_SLUG)) {
+    console.log(`  ✗ around-the-worlds in swaps for shoulder-injured`);
+    aroundWorldsFailCount++;
+  } else {
+    aroundWorldsPassCount++;
+  }
+  
+  console.log(`  ${aroundWorldsFailCount === 0 ? "✓" : "✗"} ${aroundWorldsPassCount}/${aroundWorldsPassCount + aroundWorldsFailCount} Around The Worlds checks clean`);
+  passCount += aroundWorldsPassCount;
+  failCount += aroundWorldsFailCount;
 }
 
 console.log(`\n${failCount === 0 ? "✓" : "✗"} ${passCount}/${passCount + failCount} checks passed`);

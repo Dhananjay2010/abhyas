@@ -107,6 +107,45 @@ fi
 cp "$EXCLUSIONS_BACKUP" "$EXCLUSIONS_FILE"
 echo ""
 
+# Mutation 3: Remove around-the-worlds from shoulder contraindications
+echo "3. Mutation: Remove around-the-worlds from SHOULDER_CONTRAINDICATED_SLUGS"
+
+GENERATE_FILE="$SCRIPT_DIR/../src/lib/program/generate.ts"
+GENERATE_BACKUP=$(mktemp)
+cp "$GENERATE_FILE" "$GENERATE_BACKUP"
+
+sed -i 's/"around-the-worlds",/\/\/ MUTANT: removed/' "$GENERATE_FILE"
+
+# Verify mutation changed the file
+if cmp -s "$GENERATE_FILE" "$GENERATE_BACKUP"; then
+  echo "  ✗ FATAL: Mutation did not change the file"
+  cp "$GENERATE_BACKUP" "$GENERATE_FILE" 2>/dev/null || true
+  rm -f "$GENERATE_BACKUP"
+  cleanup
+  exit 1
+fi
+
+# Verify mutation marker is present
+if ! grep -qF -- "// MUTANT: removed" "$GENERATE_FILE"; then
+  echo "  ✗ FATAL: Mutation marker not found"
+  cp "$GENERATE_BACKUP" "$GENERATE_FILE" 2>/dev/null || true
+  rm -f "$GENERATE_BACKUP"
+  cleanup
+  exit 1
+fi
+
+if ! run_test_and_verify_caught "Remove around-the-worlds"; then
+  cp "$GENERATE_BACKUP" "$GENERATE_FILE" 2>/dev/null || true
+  rm -f "$GENERATE_BACKUP"
+  cleanup
+  exit 1
+fi
+
+# Restore
+cp "$GENERATE_BACKUP" "$GENERATE_FILE"
+rm -f "$GENERATE_BACKUP"
+echo ""
+
 echo "=== Mutation Testing Results ==="
 echo "✓ All mutations caught"
 exit 0
