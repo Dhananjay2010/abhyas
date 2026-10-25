@@ -87,7 +87,7 @@ for (const mechanic of MECHANICS) {
             const loggedSets: LoggedSet[] =
               missCount === 0
                 ? sets(4, 12, weight)
-                : sets(4, 10, weight); // Miss = 10 reps < 12 target
+                : sets(4, 7, weight); // Real miss = 7 reps < 8 repsMin
 
             type EvalInput = Parameters<typeof evaluateProgression>[0];
             const input: EvalInput = {
