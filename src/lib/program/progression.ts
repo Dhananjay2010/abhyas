@@ -948,6 +948,6 @@ export function suggestedWeight(
   const rawDeload = isKettlebell ? w * 0.7 : roundTo(w * 0.7, step);
   
   // Apply grid rounding DOWN, but never raise above current weight
-  const snapped = roundToGrid(rawDeload, equipmentIds, undefined, step, 'down');
+  const snapped = roundToGrid(rawDeload, equipmentIds, 'kg', step, 'down'); // M2: always kg
   return Math.min(w, snapped);
 }
