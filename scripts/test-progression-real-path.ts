@@ -618,6 +618,7 @@ async function main() {
       { reps: 12, weight_kg: "10", duration_seconds: null },
       { reps: 12, weight_kg: "10", duration_seconds: null },
       { reps: 12, weight_kg: "10", duration_seconds: null },
+      { reps: 12, weight_kg: "10", duration_seconds: null },
     ];
 
     const dipProgress: ExerciseProgressRow = {

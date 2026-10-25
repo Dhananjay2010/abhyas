@@ -58,6 +58,8 @@ TESTS=(
   "npm run test:qa-bot-1-full-path"
   "npm run test:call-site-wiring"
   "npm run test:progression-real-path"
+  "npm run test:msg-bodyweight-zero"
+  "npm run test:med3-third-miss"
 )
 
 echo "=== MUTATION TESTING: equipment progression fix ==="
