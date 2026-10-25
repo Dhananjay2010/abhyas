@@ -13,11 +13,13 @@ import { abandonSessionCore } from "./abandon-session";
 import { makeAbandonSessionDeps } from "./abandon-session-deps";
 import { finishExerciseCore } from "./finish-exercise";
 import { makeFinishExerciseDeps } from "./finish-exercise-deps";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 
-type SupabaseClient = any; // Will be properly typed by caller
+type AppSupabaseClient = SupabaseClient<Database>;
 
 export async function finishSessionAction(
-  supabase: SupabaseClient,
+  supabase: AppSupabaseClient,
   input: {
     sessionId: string;
     durationSeconds: number;
@@ -28,7 +30,7 @@ export async function finishSessionAction(
 }
 
 export async function abandonSessionAction(
-  supabase: SupabaseClient,
+  supabase: AppSupabaseClient,
   sessionId: string,
   elapsedSeconds: number,
 ): Promise<Result> {
@@ -37,7 +39,7 @@ export async function abandonSessionAction(
 }
 
 export async function finishExerciseAction(
-  supabase: SupabaseClient,
+  supabase: AppSupabaseClient,
   userId: string,
   input: {
     sessionExerciseId: string;
@@ -45,7 +47,7 @@ export async function finishExerciseAction(
     skipped?: boolean;
   },
   applyProgressionFn: (
-    supabase: SupabaseClient,
+    supabase: AppSupabaseClient,
     userId: string,
     sessionExerciseId: string,
     feel: SetFeel | null,
