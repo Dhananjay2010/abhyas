@@ -46,7 +46,6 @@ export function trainAnywayOptions(input: TrainAnywayInput): TrainAnywayDay[] {
   const seenIndices = new Set<number>();
   const seenLabels = new Set<string>();
 
-  const isRestDay = !todayDay || todayDay.day_type === "rest";
   const trainingDays = upcomingDays.filter((d) => isTrainingDay(d.day_type));
   
   // If yesterday was missed, offer yesterday's workout first

@@ -153,9 +153,6 @@ export default async function TodayPage() {
   }
 
   // ---- wave 2 -------------------------------------------------------------
-  // Compute the session query window once (cycle-week start through today+6)
-  const sessionWindow = weekWindow({ started_on: program.started_on, week_offset: program.week_offset }, localToday);
-
   // The week's days arrive with each day's exercises embedded. That is one
   // round trip instead of two, and it removes the dependency that forced the
   // exercise query to wait for the day query to name today's row.
