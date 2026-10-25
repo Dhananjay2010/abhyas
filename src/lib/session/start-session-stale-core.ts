@@ -1,8 +1,4 @@
-import type { Database } from "@/lib/database.types";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OpenSession } from "./close-stale";
-
-export type StartSessionStaleClient = Pick<SupabaseClient<Database>, "from">;
 
 export interface StartSessionStaleDeps {
   /**
@@ -46,7 +42,7 @@ export type StartSessionStaleResult =
  * 
  * The decision rules:
  * 1. If there are sessions from other dates (local_date !== today), close stale ones
- * 2. After closing, check if any in_progress session remains for today
+ * 2. After closing, check if ANY in_progress session remains (regardless of date)
  * 3. If yes, resume that session (cross-date fresh session kept by #111's 6h rule)
  * 4. If no, insert a new session for today
  * 

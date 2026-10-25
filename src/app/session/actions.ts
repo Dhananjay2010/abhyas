@@ -31,11 +31,12 @@ import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { buildLogSetValidationDeps, validateSessionForLogSet } from "@/lib/session/log-set-validation";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { closeStaleSessions } from "@/lib/session/close-stale";
+import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
-import { startSessionStaleCore, type StartSessionStaleDeps } from "@/lib/session/start-session-stale-core";
+import { startSessionStaleCore } from "@/lib/session/start-session-stale-core";
 import { insertSessionExercises } from "@/lib/session/insert-session-exercises";
+import { buildStartSessionStaleDeps } from "@/lib/session/build-start-session-stale-deps";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -206,28 +207,7 @@ export async function startSession(): Promise<Result<{ sessionId: string }>> {
   // that hasn't reloaded Today (so the loader's closeStaleSessions never ran) would otherwise
   // hit 23505 and resume into yesterday's session with an 8-hour clock. closeStaleSessions
   // applies #111's 6h inactivity rule, so calling it is safe for timezone shifts.
-  const staleDeps: StartSessionStaleDeps = {
-    today,
-    readOpenSessions: async () => openRes.data ?? [],
-    closeStaleSessions: async (sessions, date) => {
-      await closeStaleSessions(supabase, sessions, date);
-      return 0; // closeStaleSessions returns void, we don't use the credited count
-    },
-    checkRemainingInProgress: async () => {
-      // Check for ANY in_progress session (regardless of date) after closing stale ones.
-      // This catches fresh cross-date sessions (< 6h) that weren't closed.
-      const { data } = await supabase
-        .from("sessions")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("status", "in_progress")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data?.id ?? null;
-    },
-  };
-
+  const staleDeps = buildStartSessionStaleDeps(supabase, user.id, openRes.data ?? [], today);
   const staleResult = await startSessionStaleCore(staleDeps);
   if (!staleResult.ok) {
     return { ok: false, error: staleResult.error };

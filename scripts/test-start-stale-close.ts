@@ -1,172 +1,484 @@
 /**
  * Test the start-session stale-close logic (L3 from actions.ts).
  * 
- * This tests the extracted core (start-session-stale-core.ts) with dependency
- * injection. It covers three cases:
+ * This tests buildStartSessionStaleDeps + startSessionStaleCore with a real
+ * createClient<Database> + stub fetch (fake PostgREST), driving the real
+ * closeStaleSessions/closeStaleSessionsCore with injected clock.
  * 
- * (a) Stale cross-date in_progress row (>6h) is closed, today's session is inserted
- * (b) Fresh cross-date row (<6h) is not closed, resumed via #111's existingSessionId
- * (c) Same-date row is caught by Case C pre-check (no stale candidates)
+ * Cases tested:
+ * (a) Stale 8h cross-date in_progress row is closed in DB, shouldInsert=true
+ * (b) Fresh 2h cross-date row is resumed with existing id, row untouched
+ * (c) Same-date row handled (no stale candidates)
+ * (d) Other-date planned/skipped rows are not passed to close
+ * (e) Close throw returns {ok:false}
+ * (f) Remaining-session check filters status=in_progress
  * 
- * These tests MUST fail if:
- * - The L3 call to closeStaleSessions is removed from actions.ts
- * - The decision logic is inverted (insert when should resume, or resume when should insert)
- * - The code always inserts regardless of stale logic
+ * Must catch breaks: a (core call removed), a2 (no-op adapter), c2 (resume ignored),
+ * e, e2 (status filter), f (throw)
  */
 
-import { startSessionStaleCore, type StartSessionStaleDeps } from "@/lib/session/start-session-stale-core";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
+import { startSessionStaleCore } from "@/lib/session/start-session-stale-core";
+import { buildStartSessionStaleDeps } from "@/lib/session/build-start-session-stale-deps";
 import type { OpenSession } from "@/lib/session/close-stale";
 
-// Test constants
-const TODAY = "2026-10-25";
-const YESTERDAY = "2026-10-24";
+// Minimal session type for testing
+type Session = {
+  id: string;
+  user_id: string;
+  program_id: string;
+  program_day_id: string;
+  local_date: string;
+  week_in_block: number;
+  is_deload: boolean;
+  planned_type: string;
+  actual_type: string | null;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type SessionExercise = { session_id: string; exercise_id: string };
+type SessionSet = { session_id: string; set_number: number };
+
+const USER_ID = "user-test";
+const TODAY = "2026-10-26";
+const YESTERDAY = "2026-10-25";
+
+// Inject a fixed clock
+const NOW_MS = new Date("2026-10-26T10:00:00Z").getTime();
 
 /**
- * Test case (a): Stale cross-date in_progress row (>6h) gets closed,
- * and today's session should be inserted.
+ * Create a stub fetch that responds to Supabase PostgREST queries.
+ * Maintains in-memory state for sessions, exercises, and sets.
+ */
+function createStubFetch(
+  sessions: Session[],
+  exercises: SessionExercise[],
+  sets: SessionSet[]
+) {
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const method = init?.method ?? "GET";
+    const body = init?.body ? JSON.parse(init.body as string) : null;
+
+    // SELECT sessions
+    if (url.includes("/sessions?") && method === "GET") {
+      let filtered = [...sessions];
+      
+      // Parse filters from URL
+      if (url.includes("user_id=eq.")) {
+        const userId = url.match(/user_id=eq\.([^&]+)/)?.[1];
+        filtered = filtered.filter(s => s.user_id === userId);
+      }
+      if (url.includes("status=eq.")) {
+        const status = url.match(/status=eq\.([^&]+)/)?.[1];
+        filtered = filtered.filter(s => s.status === status);
+      }
+      if (url.includes("local_date=eq.")) {
+        const localDate = url.match(/local_date=eq\.([^&]+)/)?.[1];
+        filtered = filtered.filter(s => s.local_date === localDate);
+      }
+      if (url.includes("status=in.")) {
+        const statuses = url.match(/status=in\.\(([^)]+)\)/)?.[1].split(",") ?? [];
+        filtered = filtered.filter(s => statuses.includes(s.status));
+      }
+      
+      // Order and limit
+      if (url.includes("order=created_at.desc")) {
+        filtered.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
+      }
+      if (url.includes("limit=1")) {
+        filtered = filtered.slice(0, 1);
+      }
+      
+      return new Response(JSON.stringify(filtered), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // PATCH sessions (close stale)
+    if (url.includes("/sessions?") && method === "PATCH" && body) {
+      const sessionId = url.match(/id=eq\.([^&]+)/)?.[1];
+      const session = sessions.find(s => s.id === sessionId);
+      if (session && body.status) {
+        session.status = body.status;
+        if (body.completed_at) session.completed_at = body.completed_at;
+      }
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // SELECT session_exercises
+    if (url.includes("/session_exercises?") && method === "GET") {
+      const sessionId = url.match(/session_id=eq\.([^&]+)/)?.[1];
+      const filtered = exercises.filter(e => e.session_id === sessionId);
+      return new Response(JSON.stringify(filtered), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // SELECT session_exercise_sets
+    if (url.includes("/session_exercise_sets?") && method === "GET") {
+      const sessionId = url.match(/session_id=eq\.([^&]+)/)?.[1];
+      const filtered = sets.filter(s => s.session_id === sessionId);
+      return new Response(JSON.stringify(filtered), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Default: empty array
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+}
+
+/**
+ * Test (a): Stale 8h cross-date in_progress row is closed in DB, shouldInsert=true
  */
 async function testStaleSessionClosed() {
-  let closeStaleWasCalled = false;
-  let closedSessionId: string | null = null;
-
-  const staleSession: OpenSession = {
-    id: "sess-stale-yesterday",
-    status: "in_progress",
+  const staleSession: Session = {
+    id: "sess-stale",
+    user_id: USER_ID,
+    program_id: "prog-1",
+    program_day_id: "day-1",
     local_date: YESTERDAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
     actual_type: "weights",
-    started_at: new Date(Date.now() - 8 * 3600 * 1000).toISOString(), // 8h ago
+    status: "in_progress",
+    started_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(), // 8h ago
+    completed_at: null,
+    created_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+    updated_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
   };
 
-  const deps: StartSessionStaleDeps = {
-    today: TODAY,
-    readOpenSessions: async () => [staleSession],
-    closeStaleSessions: async (sessionsToClose) => {
-      // Mock: simulate closeStaleSessions closing the stale session
-      closeStaleWasCalled = true;
-      if (sessionsToClose.length > 0 && sessionsToClose[0].id === staleSession.id) {
-        closedSessionId = sessionsToClose[0].id;
-      }
-      return 0;
-    },
-    checkRemainingInProgress: async () => {
-      // After close, no in_progress session remains
-      return null;
-    },
-  };
+  const sessions = [staleSession];
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+  });
 
+  const openSessions: OpenSession[] = [{
+    id: staleSession.id,
+    status: staleSession.status,
+    local_date: staleSession.local_date,
+    actual_type: staleSession.actual_type,
+    started_at: staleSession.started_at,
+  }];
+
+  const deps = buildStartSessionStaleDeps(client, USER_ID, openSessions, TODAY, NOW_MS);
   const result = await startSessionStaleCore(deps);
 
   if (!result.ok) {
     throw new Error(`Test (a) failed: ${result.error}`);
   }
   if (!result.shouldInsert) {
-    throw new Error(
-      `Test (a) failed: Expected shouldInsert=true (stale session closed), got shouldInsert=false`
-    );
+    throw new Error(`Test (a) failed: Expected shouldInsert=true, got false`);
   }
-  if (!closeStaleWasCalled) {
-    throw new Error(
-      `Test (a) failed: Expected closeStaleSessions to be called`
-    );
-  }
-  if (closedSessionId !== staleSession.id) {
-    throw new Error(
-      `Test (a) failed: Expected stale session ${staleSession.id} to be passed to closeStaleSessions, got ${closedSessionId}`
-    );
+  if (sessions[0].status === "in_progress") {
+    throw new Error(`Test (a) failed: Expected session closed, still in_progress`);
   }
 
-  console.log("✓ Test (a) passed: Stale cross-date session closed, shouldInsert=true");
+  console.log("✓ Test (a): Stale 8h cross-date session closed in DB, shouldInsert=true");
 }
 
 /**
- * Test case (b): Fresh cross-date row (<6h) is not closed,
- * and the result should be to resume the existing id.
+ * Test (b): Fresh 2h cross-date row resumed with existing id, row untouched
  */
 async function testFreshSessionResumed() {
-  let closeStaleWasCalled = false;
-
-  const freshSession: OpenSession = {
-    id: "sess-fresh-yesterday",
-    status: "in_progress",
+  const freshSession: Session = {
+    id: "sess-fresh",
+    user_id: USER_ID,
+    program_id: "prog-1",
+    program_day_id: "day-1",
     local_date: YESTERDAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
     actual_type: "weights",
-    started_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), // 2h ago
+    status: "in_progress",
+    started_at: new Date(NOW_MS - 2 * 3600 * 1000).toISOString(), // 2h ago
+    completed_at: null,
+    created_at: new Date(NOW_MS - 2 * 3600 * 1000).toISOString(),
+    updated_at: new Date(NOW_MS - 2 * 3600 * 1000).toISOString(),
   };
 
-  const deps: StartSessionStaleDeps = {
-    today: TODAY,
-    readOpenSessions: async () => [freshSession],
-    closeStaleSessions: async () => {
-      // Mock: simulate closeStaleSessions NOT closing the fresh session
-      // (because it's < 6h old)
-      closeStaleWasCalled = true;
-      return 0;
-    },
-    checkRemainingInProgress: async () => {
-      // After close attempt, the fresh session still exists (not closed because < 6h)
-      return freshSession.id;
-    },
-  };
+  const sessions = [freshSession];
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+  });
 
+  const openSessions: OpenSession[] = [{
+    id: freshSession.id,
+    status: freshSession.status,
+    local_date: freshSession.local_date,
+    actual_type: freshSession.actual_type,
+    started_at: freshSession.started_at,
+  }];
+
+  const deps = buildStartSessionStaleDeps(client, USER_ID, openSessions, TODAY, NOW_MS);
   const result = await startSessionStaleCore(deps);
 
   if (!result.ok) {
     throw new Error(`Test (b) failed: ${result.error}`);
   }
-  if (!closeStaleWasCalled) {
-    throw new Error(`Test (b) failed: Expected closeStaleSessions to be called`);
-  }
   if (result.shouldInsert) {
-    throw new Error(
-      `Test (b) failed: Expected shouldInsert=false (fresh session not closed), got shouldInsert=true`
-    );
+    throw new Error(`Test (b) failed: Expected shouldInsert=false, got true`);
   }
   if (result.resumeSessionId !== freshSession.id) {
-    throw new Error(
-      `Test (b) failed: Expected resumeSessionId=${freshSession.id}, got ${result.resumeSessionId}`
-    );
+    throw new Error(`Test (b) failed: Expected resumeSessionId=${freshSession.id}, got ${result.resumeSessionId}`);
+  }
+  if (sessions[0].status !== "in_progress") {
+    throw new Error(`Test (b) failed: Expected session untouched (in_progress), got ${sessions[0].status}`);
   }
 
-  console.log("✓ Test (b) passed: Fresh cross-date session not closed, shouldInsert=false, resumeSessionId correct");
+  console.log("✓ Test (b): Fresh 2h cross-date session resumed, row untouched");
 }
 
 /**
- * Test case (c): Same-date row is caught by Case C pre-check.
- * 
- * This test verifies the stale core behavior when there are no cross-date sessions.
+ * Test (c): Same-date row (no stale candidates)
  */
 async function testSameDateNoStaleCandidates() {
-  const todaySession: OpenSession = {
+  const todaySession: Session = {
     id: "sess-today",
-    status: "in_progress",
+    user_id: USER_ID,
+    program_id: "prog-1",
+    program_day_id: "day-1",
     local_date: TODAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
     actual_type: "weights",
-    started_at: new Date().toISOString(),
+    status: "in_progress",
+    started_at: new Date(NOW_MS).toISOString(),
+    completed_at: null,
+    created_at: new Date(NOW_MS).toISOString(),
+    updated_at: new Date(NOW_MS).toISOString(),
   };
 
-  const deps: StartSessionStaleDeps = {
-    today: TODAY,
-    readOpenSessions: async () => [todaySession],
-    closeStaleSessions: async () => {
-      throw new Error("closeStaleSessions should not be called for same-date sessions");
-    },
-    checkRemainingInProgress: async () => {
-      throw new Error("checkRemainingInProgress should not be called when no cross-date sessions");
-    },
-  };
+  const sessions = [todaySession];
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+  });
 
+  const openSessions: OpenSession[] = [{
+    id: todaySession.id,
+    status: todaySession.status,
+    local_date: todaySession.local_date,
+    actual_type: todaySession.actual_type,
+    started_at: todaySession.started_at,
+  }];
+
+  const deps = buildStartSessionStaleDeps(client, USER_ID, openSessions, TODAY, NOW_MS);
   const result = await startSessionStaleCore(deps);
 
   if (!result.ok) {
     throw new Error(`Test (c) failed: ${result.error}`);
   }
   if (!result.shouldInsert) {
-    throw new Error(
-      `Test (c) failed: Expected shouldInsert=true (no cross-date sessions), got shouldInsert=false`
-    );
+    throw new Error(`Test (c) failed: Expected shouldInsert=true (no stale candidates), got false`);
   }
 
-  console.log("✓ Test (c) passed: Same-date session, no stale candidates, shouldInsert=true");
+  console.log("✓ Test (c): Same-date session, no stale candidates, shouldInsert=true");
+}
+
+/**
+ * Test (d): Other-date planned/skipped rows are not passed to close
+ */
+async function testPlannedSkippedNotPassed() {
+  const plannedSession: Session = {
+    id: "sess-planned",
+    user_id: USER_ID,
+    program_id: "prog-1",
+    program_day_id: "day-1",
+    local_date: YESTERDAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
+    actual_type: null,
+    status: "planned",
+    started_at: null,
+    completed_at: null,
+    created_at: new Date(NOW_MS - 24 * 3600 * 1000).toISOString(),
+    updated_at: new Date(NOW_MS - 24 * 3600 * 1000).toISOString(),
+  };
+
+  const skippedSession: Session = {
+    id: "sess-skipped",
+    user_id: USER_ID,
+    program_id: "prog-1",
+    program_day_id: "day-2",
+    local_date: YESTERDAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "yoga",
+    actual_type: "yoga",
+    status: "skipped",
+    started_at: null,
+    completed_at: null,
+    created_at: new Date(NOW_MS - 24 * 3600 * 1000).toISOString(),
+    updated_at: new Date(NOW_MS - 24 * 3600 * 1000).toISOString(),
+  };
+
+  const sessions = [plannedSession, skippedSession];
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+  });
+
+  const openSessions: OpenSession[] = [
+    {
+      id: plannedSession.id,
+      status: plannedSession.status,
+      local_date: plannedSession.local_date,
+      actual_type: plannedSession.actual_type,
+      started_at: plannedSession.started_at,
+    },
+    {
+      id: skippedSession.id,
+      status: skippedSession.status,
+      local_date: skippedSession.local_date,
+      actual_type: skippedSession.actual_type,
+      started_at: skippedSession.started_at,
+    },
+  ];
+
+  const deps = buildStartSessionStaleDeps(client, USER_ID, openSessions, TODAY, NOW_MS);
+  const result = await startSessionStaleCore(deps);
+
+  if (!result.ok) {
+    throw new Error(`Test (d) failed: ${result.error}`);
+  }
+  if (!result.shouldInsert) {
+    throw new Error(`Test (d) failed: Expected shouldInsert=true (no in_progress to close), got false`);
+  }
+  // Verify sessions were not touched (still planned/skipped)
+  if (sessions[0].status !== "planned") {
+    throw new Error(`Test (d) failed: planned session was modified to ${sessions[0].status}`);
+  }
+  if (sessions[1].status !== "skipped") {
+    throw new Error(`Test (d) failed: skipped session was modified to ${sessions[1].status}`);
+  }
+
+  console.log("✓ Test (d): Other-date planned/skipped not passed to close");
+}
+
+/**
+ * Test (e): Close throw returns {ok:false}
+ */
+async function testCloseThrowHandled() {
+  const staleSession: Session = {
+    id: "sess-stale-throw",
+    user_id: USER_ID,
+    program_id: "prog-1",
+    program_day_id: "day-1",
+    local_date: YESTERDAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
+    actual_type: "weights",
+    status: "in_progress",
+    started_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+    completed_at: null,
+    created_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+    updated_at: new Date(NOW_MS - 8 * 3600 * 1000).toISOString(),
+  };
+
+  // Create a fetch stub that throws on session_exercises query (simulating DB error during close)
+  const throwingFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    
+    // Throw on session_exercises query (closeStaleSessionsCore reads these to check for sets)
+    if (url.includes("/session_exercises?")) {
+      throw new Error("Simulated DB error");
+    }
+    
+    // Delegate to normal stub for other queries
+    return createStubFetch([staleSession], [], [])(input, init);
+  };
+
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: throwingFetch as typeof fetch },
+  });
+
+  const openSessions: OpenSession[] = [{
+    id: staleSession.id,
+    status: staleSession.status,
+    local_date: staleSession.local_date,
+    actual_type: staleSession.actual_type,
+    started_at: staleSession.started_at,
+  }];
+
+  const deps = buildStartSessionStaleDeps(client, USER_ID, openSessions, TODAY, NOW_MS);
+  const result = await startSessionStaleCore(deps);
+
+  if (result.ok) {
+    throw new Error(`Test (e) failed: Expected {ok:false}, got ok=true`);
+  }
+  // Just check that an error was returned
+  if (!result.error || result.error.length === 0) {
+    throw new Error(`Test (e) failed: Expected error message, got empty string`);
+  }
+
+  console.log("✓ Test (e): Close throw returns {ok:false, error}");
+}
+
+/**
+ * Test (f): Remaining-session check filters status=in_progress
+ */
+async function testRemainingCheckFiltersStatus() {
+  const completedSession: Session = {
+    id: "sess-completed",
+    user_id: USER_ID,
+    program_id: "prog-1",
+    program_day_id: "day-1",
+    local_date: YESTERDAY,
+    week_in_block: 1,
+    is_deload: false,
+    planned_type: "weights",
+    actual_type: "weights",
+    status: "completed",
+    started_at: new Date(NOW_MS - 2 * 3600 * 1000).toISOString(),
+    completed_at: new Date(NOW_MS - 1 * 3600 * 1000).toISOString(),
+    created_at: new Date(NOW_MS - 2 * 3600 * 1000).toISOString(),
+    updated_at: new Date(NOW_MS - 1 * 3600 * 1000).toISOString(),
+  };
+
+  const sessions = [completedSession];
+  const client = createClient<Database>("http://localhost:54321", "test-key", {
+    global: { fetch: createStubFetch(sessions, [], []) as typeof fetch },
+  });
+
+  // The openSessions still reports it as in_progress (simulating a race or stale read)
+  const openSessions: OpenSession[] = [{
+    id: completedSession.id,
+    status: "in_progress", // Stale status from openRes
+    local_date: completedSession.local_date,
+    actual_type: completedSession.actual_type,
+    started_at: completedSession.started_at,
+  }];
+
+  const deps = buildStartSessionStaleDeps(client, USER_ID, openSessions, TODAY, NOW_MS);
+  const result = await startSessionStaleCore(deps);
+
+  if (!result.ok) {
+    throw new Error(`Test (f) failed: ${result.error}`);
+  }
+  if (!result.shouldInsert) {
+    throw new Error(`Test (f) failed: Expected shouldInsert=true (completed session filtered out), got false`);
+  }
+
+  console.log("✓ Test (f): Remaining-check filters status=in_progress");
 }
 
 // Run all tests
@@ -175,6 +487,9 @@ async function testSameDateNoStaleCandidates() {
     await testStaleSessionClosed();
     await testFreshSessionResumed();
     await testSameDateNoStaleCandidates();
+    await testPlannedSkippedNotPassed();
+    await testCloseThrowHandled();
+    await testRemainingCheckFiltersStatus();
     console.log("\n✅ All tests passed");
     process.exit(0);
   } catch (error) {

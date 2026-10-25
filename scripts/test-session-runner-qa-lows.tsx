@@ -48,6 +48,32 @@ function createFakeTimer() {
   };
 }
 
+/**
+ * Set an HTMLInputElement value using the value setter descriptor.
+ * Throws if the property descriptor is not available.
+ */
+function setInputValue(input: HTMLInputElement, value: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  if (!descriptor || !descriptor.set) {
+    throw new Error("HTMLInputElement.value setter not available");
+  }
+  descriptor.set.call(input, value);
+}
+
+/**
+ * Find the first number input and set its value.
+ * Throws if no input is found or if it's not an HTMLInputElement.
+ */
+function fillRepsInput(container: HTMLElement, value: string) {
+  const inputs = Array.from(container.querySelectorAll('input[type="number"]'));
+  const repsInput = inputs[0];
+  if (!(repsInput instanceof HTMLInputElement)) {
+    throw new Error("Expected first input to be HTMLInputElement");
+  }
+  setInputValue(repsInput, value);
+  repsInput.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
 const baseExercise = (id: string, name: string): RunnerExercise => ({
   id,
   exerciseId: `exercise-${id}`,
@@ -133,12 +159,7 @@ console.log("1. L4: logSet throws SESSION_EXPIRED → friendly error message sho
 
   // Fill in reps and click log set button
   await act(async () => {
-    const inputs = Array.from(container.querySelectorAll('input[type="number"]'));
-    const repsInput = inputs[0];
-    if (repsInput instanceof HTMLInputElement) {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "10");
-      repsInput.dispatchEvent(new Event("change", { bubbles: true }));
-    }
+    fillRepsInput(container, "10");
   });
 
   await act(async () => {
@@ -227,12 +248,7 @@ console.log("\n2. L1: conflict on last set → feel prompt appears");
 
   // Fill in reps and click log set 3
   await act(async () => {
-    const inputs = Array.from(container.querySelectorAll('input[type="number"]'));
-    const repsInput = inputs[0];
-    if (repsInput instanceof HTMLInputElement) {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "8");
-      repsInput.dispatchEvent(new Event("change", { bubbles: true }));
-    }
+    fillRepsInput(container, "8");
   });
 
   await act(async () => {
@@ -321,12 +337,7 @@ console.log("\n3. L1: picking feel after conflict advances to next exercise");
 
   // Fill in reps and click log set 3
   await act(async () => {
-    const inputs = Array.from(container.querySelectorAll('input[type="number"]'));
-    const repsInput = inputs[0];
-    if (repsInput instanceof HTMLInputElement) {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(repsInput, "8");
-      repsInput.dispatchEvent(new Event("change", { bubbles: true }));
-    }
+    fillRepsInput(container, "8");
   });
 
   await act(async () => {
