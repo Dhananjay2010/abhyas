@@ -20,7 +20,8 @@ cp "$SRC_FILE" "$TEMP_DIR/build-progression-input.ts.orig"
 echo "=== MUTANT 1: repsMin <- planned_reps_max ==="
 echo "This brings back the original bug: 4×10 in 8-12 becomes a miss"
 cp "$TEMP_DIR/build-progression-input.ts.orig" "$SRC_FILE"
-sed -i 's/repsMin: sessionExercise\.planned_reps_min ?? 8,/repsMin: sessionExercise.planned_reps_max ?? 12, \/\/ MUTANT: wired to max/' "$SRC_FILE"
+# Target the else branch where loaded exercises use plannedMin
+sed -i 's/repsMin = plannedMin;/repsMin = plannedMax; \/\/ MUTANT: wired to max/' "$SRC_FILE"
 
 echo "Running test with mutant..."
 if npx tsx scripts/test-progression-real-path.ts 2>&1 | tee "$TEMP_DIR/mutant1-output.txt" | grep -q "FAIL"; then
@@ -37,7 +38,8 @@ echo ""
 echo "=== MUTANT 2: repsMin dropped ==="
 echo "Remove repsMin from the return, making it undefined"
 cp "$TEMP_DIR/build-progression-input.ts.orig" "$SRC_FILE"
-sed -i '/repsMin: sessionExercise\.planned_reps_min ?? 8,/d' "$SRC_FILE"
+# Remove the entire repsMin line from the return statement
+sed -i '/^    repsMin,$/d' "$SRC_FILE"
 
 echo "Running test with mutant..."
 if npx tsx scripts/test-progression-real-path.ts 2>&1 | tee "$TEMP_DIR/mutant2-output.txt" | grep -q "FAIL\|error\|Error"; then
