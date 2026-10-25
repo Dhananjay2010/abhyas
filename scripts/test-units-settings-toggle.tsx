@@ -69,6 +69,9 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
       },
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const initial: SettingsState = {
@@ -606,6 +609,9 @@ function approxEqual(a: number, b: number, epsilon = 0.5): boolean {
       },
       updateEquipment: async () => ({ ok: true }),
       updateInjuries: async () => ({ ok: true }),
+      setEquipmentItem: async () => ({ ok: true }),
+      setHasAllEquipment: async () => ({ ok: true }),
+      setInjury: async () => ({ ok: true }),
     };
 
     const initial: SettingsState = {

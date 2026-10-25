@@ -62,14 +62,15 @@ function makeActions(
   } as unknown as SessionActions;
 }
 
-const settings = {
-  perSetLogging: true,
-  restAutostart: false,
-  restSound: false,
-  restVibrate: false,
-  restOverrideSeconds: null,
-  cooldownEnabled: false,
-};
+  const settings = {
+    perSetLogging: true,
+    restAutostart: false,
+    restSound: false,
+    restVibrate: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+    units: "metric" as const,
+  };
 
 function check(label: string, pass: boolean, detail?: string) {
   if (pass) {
