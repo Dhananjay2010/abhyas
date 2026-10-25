@@ -606,16 +606,23 @@ console.log("\n9. Dips (bodyweight on dip_bars) - stored 14");
 {
   const row: SessionExerciseInput = {
     id: "se_dips",
-    exercise_id: "dips_exercise",
     planned_sets: 3,
     planned_reps_min: 8,
     planned_reps_max: 12,
     metric: "reps",
+    rest_seconds: 90,
+    status: "pending",
+    feel: null,
     exercises: {
+      id: "dips_exercise",
+      name: "Dips",
+      cue: null,
       movement_pattern: "vertical_press",
       mechanic: "compound",
+      primary_muscles: ["chest", "triceps"],
       equipment_ids: ["dip_bars"],
     },
+    session_sets: [],
   };
   
   const progress = { current_working_weight_kg: null, current_target_reps: 14 };
@@ -627,7 +634,7 @@ console.log("\n9. Dips (bodyweight on dip_bars) - stored 14");
     userUnits: "kg",
   });
   const progInputs = progressionInputsFromExercise(
-    { movement_pattern: "vertical_press", mechanic: "compound", equipment_ids: ["dip_bars"], progression_chain: null, progression_rank: null },
+    { equipment_ids: ["dip_bars"] },
     "kg"
   );
   
@@ -680,16 +687,23 @@ console.log("\n10. Push-ups stored 26 → capped at 24");
 {
   const row: SessionExerciseInput = {
     id: "se_pushups",
-    exercise_id: "pushups_exercise",
     planned_sets: 3,
     planned_reps_min: 8,
     planned_reps_max: 12,
     metric: "reps",
+    rest_seconds: 90,
+    status: "pending",
+    feel: null,
     exercises: {
+      id: "pushups_exercise",
+      name: "Push-Ups",
+      cue: null,
       movement_pattern: "horizontal_press",
       mechanic: "compound",
+      primary_muscles: ["chest", "triceps"],
       equipment_ids: [],
     },
+    session_sets: [],
   };
   
   const progress = { current_working_weight_kg: null, current_target_reps: 26 };
@@ -705,7 +719,7 @@ console.log("\n10. Push-ups stored 26 → capped at 24");
   // Hit 24 exactly
   const state = fresh({ currentTargetReps: 26, totalSessions: 10 });
   const progInputs = progressionInputsFromExercise(
-    { movement_pattern: "horizontal_press", mechanic: "compound", equipment_ids: [], progression_chain: null, progression_rank: null },
+    { equipment_ids: [] },
     "kg"
   );
   
@@ -754,16 +768,23 @@ console.log("\n11. Stored 6 below plan min 8 → shows 8");
 {
   const row: SessionExerciseInput = {
     id: "se_stored_below_min",
-    exercise_id: "squat_exercise",
     planned_sets: 3,
     planned_reps_min: 8,
     planned_reps_max: 12,
     metric: "reps",
+    rest_seconds: 120,
+    status: "pending",
+    feel: null,
     exercises: {
+      id: "squat_exercise",
+      name: "Squat",
+      cue: null,
       movement_pattern: "squat",
       mechanic: "compound",
+      primary_muscles: ["quads", "glutes"],
       equipment_ids: ["barbell"],
     },
+    session_sets: [],
   };
   
   const progress = { current_target_reps: 6, current_working_weight_kg: 60 };
@@ -778,7 +799,7 @@ console.log("\n11. Stored 6 below plan min 8 → shows 8");
   
   const state = fresh({ currentTargetReps: 6, currentWorkingWeightKg: 60, totalSessions: 2 });
   const progInputs = progressionInputsFromExercise(
-    { movement_pattern: "squat", mechanic: "compound", equipment_ids: ["barbell"], progression_chain: null, progression_rank: null },
+    { equipment_ids: ["barbell"] },
     "kg"
   );
   
@@ -809,16 +830,23 @@ console.log("\n12. Stored 0 → shows plan min");
 {
   const row: SessionExerciseInput = {
     id: "se_stored_zero",
-    exercise_id: "deadlift_exercise",
     planned_sets: 3,
     planned_reps_min: 5,
     planned_reps_max: 8,
     metric: "reps",
+    rest_seconds: 150,
+    status: "pending",
+    feel: null,
     exercises: {
+      id: "deadlift_exercise",
+      name: "Deadlift",
+      cue: null,
       movement_pattern: "hinge",
       mechanic: "compound",
+      primary_muscles: ["glutes", "hamstrings"],
       equipment_ids: ["barbell"],
     },
+    session_sets: [],
   };
   
   const progress = { current_target_reps: 0, current_working_weight_kg: 100 };
@@ -837,16 +865,23 @@ console.log("\n13. Weighted pull-ups (pull_up_bar + dip_belt)");
 {
   const row: SessionExerciseInput = {
     id: "se_weighted_pullups",
-    exercise_id: "weighted_pullups_exercise",
     planned_sets: 3,
     planned_reps_min: 5,
     planned_reps_max: 8,
     metric: "reps",
+    rest_seconds: 150,
+    status: "pending",
+    feel: null,
     exercises: {
+      id: "weighted_pullups_exercise",
+      name: "Weighted Pull-Ups",
+      cue: null,
       movement_pattern: "vertical_pull",
       mechanic: "compound",
+      primary_muscles: ["lats", "biceps"],
       equipment_ids: ["pull_up_bar", "dip_belt"],
     },
+    session_sets: [],
   };
   
   const progress = { current_target_reps: 8, current_working_weight_kg: 10 };
@@ -861,7 +896,7 @@ console.log("\n13. Weighted pull-ups (pull_up_bar + dip_belt)");
   
   const state = fresh({ currentTargetReps: 8, currentWorkingWeightKg: 10, totalSessions: 8 });
   const progInputs = progressionInputsFromExercise(
-    { movement_pattern: "vertical_pull", mechanic: "compound", equipment_ids: ["pull_up_bar", "dip_belt"], progression_chain: null, progression_rank: null },
+    { equipment_ids: ["pull_up_bar", "dip_belt"] },
     "kg"
   );
   
@@ -910,16 +945,23 @@ console.log("\n14. Chin-ups stored 11 on 8-12 range → 11 progresses");
 {
   const row: SessionExerciseInput = {
     id: "se_chinups",
-    exercise_id: "chinups_exercise",
     planned_sets: 3,
     planned_reps_min: 8,
     planned_reps_max: 12,
     metric: "reps",
+    rest_seconds: 150,
+    status: "pending",
+    feel: null,
     exercises: {
+      id: "chinups_exercise",
+      name: "Chin-Ups",
+      cue: null,
       movement_pattern: "vertical_pull",
       mechanic: "compound",
+      primary_muscles: ["lats", "biceps"],
       equipment_ids: ["pull_up_bar"],
     },
+    session_sets: [],
   };
   
   const progress = { current_working_weight_kg: null, current_target_reps: 11 };
@@ -934,7 +976,7 @@ console.log("\n14. Chin-ups stored 11 on 8-12 range → 11 progresses");
   
   const state = fresh({ currentTargetReps: 11, totalSessions: 7 });
   const progInputs = progressionInputsFromExercise(
-    { movement_pattern: "vertical_pull", mechanic: "compound", equipment_ids: ["pull_up_bar"], progression_chain: null, progression_rank: null },
+    { equipment_ids: ["pull_up_bar"] },
     "kg"
   );
   
