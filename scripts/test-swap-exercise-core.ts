@@ -47,6 +47,7 @@ async function main() {
 
   const input: SwapExerciseCoreInput = {
     newExerciseId: NEW_EXERCISE_ID,
+    sessionExerciseId: "session-exercise-123",
     current: {
       exercise_id: OLD_EXERCISE_ID,
       metric: "reps" as const,
@@ -69,6 +70,18 @@ async function main() {
   console.log("Case 1: Normal swap with barbell exercise\n");
 
   const result = await swapExerciseCore({ resolveSwapWeights: fakeResolveSwapWeights }, input);
+
+  // Check that result succeeded
+  check(
+    "Result succeeded (ok: true)",
+    result.ok === true,
+    `got ok=${result.ok}`,
+  );
+  
+  if (!result.ok) {
+    console.error("Result failed:", result.error);
+    process.exit(1);
+  }
 
   // S3: Must pass the NEW exercise id, not the old one
   check(
@@ -133,6 +146,17 @@ async function main() {
   };
 
   const bwResult = await swapExerciseCore({ resolveSwapWeights: fakeBWResolveSwapWeights }, bodyweightInput);
+
+  check(
+    "Bodyweight result succeeded (ok: true)",
+    bwResult.ok === true,
+    `got ok=${bwResult.ok}`,
+  );
+  
+  if (!bwResult.ok) {
+    console.error("Bodyweight result failed:", bwResult.error);
+    process.exit(1);
+  }
 
   check(
     "S3: passes NEW exercise id for bodyweight",

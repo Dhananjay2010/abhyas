@@ -34,6 +34,7 @@ import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } fr
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
 import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 import { resolveSwapWeights } from "@/lib/session/resolve-swap-weights";
+import { swapExerciseCore } from "@/lib/session/swap-exercise-core";
 import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 import { progressForPlanningMode } from "@/lib/session/swap-progress";
 
@@ -916,57 +917,54 @@ export async function swapExercise(input: {
     }
   );
   
-  // Check if the requested exercise is in the eligible swap list
-  const isInSwapList = ranked.some(e => e.id === input.newExerciseId);
-  if (!isInSwapList) {
-    return { ok: false, error: "This exercise is not available as a swap for your profile" };
+  // QA Steer (l): Call swapExerciseCore with validator
+  const validateSwapTarget = async (validateInput: { newExerciseId: string; sessionExerciseId: string }) => {
+    // Check if the requested exercise is in the eligible swap list
+    return ranked.some(e => e.id === validateInput.newExerciseId);
+  };
+  
+  const coreResult = await swapExerciseCore(
+    {
+      resolveSwapWeights: (sessionId, newExerciseId, equipmentIds, metric, movementPattern) =>
+        resolveSwapWeights(supabase, user.id, sessionId, newExerciseId, equipmentIds, metric, movementPattern),
+      validateSwapTarget,
+    },
+    {
+      newExerciseId: input.newExerciseId,
+      sessionExerciseId: input.sessionExerciseId,
+      current: {
+        exercise_id: current.exercise_id,
+        metric: current.metric,
+        planned_reps_min: current.planned_reps_min,
+        planned_reps_max: current.planned_reps_max,
+        session_id: current.session_id,
+      },
+      replacement: replacement ? {
+        metric: replacement.metric,
+        mechanic: replacement.mechanic,
+        equipment_ids: replacement.equipment_ids,
+        movement_pattern: replacement.movement_pattern,
+      } : null,
+      profile: profile ? {
+        goal: profile.goal,
+        level: profile.level,
+      } : null,
+    }
+  );
+  
+  // Handle validation failure
+  if (!coreResult.ok) {
+    return { ok: false, error: coreResult.error };
   }
   
-  const metric = metricOf(replacement);
-  const equipmentIds = replacement?.equipment_ids ?? [];
-
-  // Resolve weight prefill and working weight for the swapped-in exercise
-  const { weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = await resolveSwapWeights(
-    supabase,
-    user.id,
-    current.session_id,
-    input.newExerciseId,
-    equipmentIds,
-    metric,
-    replacementRes.data?.movement_pattern ?? "other",
-  );
-
+  const { metric, repsMin, repsMax, equipmentIds, weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = coreResult;
+  
   // Filter target reps for daily_menu users (they don't remember weights/targets)
   const filteredProgress = progressForPlanningMode(
     settingsRes.data?.planning_mode,
     { current_target_reps: currentTargetReps, current_working_weight_kg: workingWeightKg }
   );
   const filteredTargetReps = filteredProgress?.current_target_reps ?? null;
-
-  /*
-    A changed unit needs a changed range. `planned_reps_min/max` are the range
-    in the exercise's own metric, so swapping eight-to-twelve reps for a hold
-    without re-prescribing would ask for an eight-second plank. The goal's hold
-    table is the same one the generator uses, so a swap lands on what the
-    planner would have prescribed for that slot.
-
-    Only the range is re-derived. Sets stay as the day dosed them -- including a
-    deload week's reduction, which `applyDeload` applies to sets and not to the
-    range -- because the swap is a substitution within the session, not a
-    re-planning of it.
-  */
-  const reranged =
-    metric !== current.metric && profile?.goal && profile?.level
-      ? prescribe(
-          profile.goal,
-          profile.level,
-          replacementRes.data?.mechanic === "isolation",
-          metric,
-        )
-      : null;
-
-  const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
-  const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
 
   const { error } = await supabase
     .from("session_exercises")
