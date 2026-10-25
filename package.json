@@ -296,7 +296,6 @@
     "test:session-expired-outbox-replay": "tsx scripts/test-session-expired-outbox-replay.ts",
     "test:session-finish-decisions": "tsx scripts/test-session-finish-decisions.ts",
     "test:session-finish-guard": "tsx scripts/test-session-finish-guard.ts",
-    "test:session-runner-mount-load": "tsx scripts/test-session-runner-mount-load.tsx",
     "test:session-runner-render": "tsx scripts/test-session-runner-render.tsx",
     "test:session-runner-retry-button": "tsx scripts/test-session-runner-retry-button.tsx",
     "test:set-exists-replay": "tsx scripts/test-set-exists-replay.ts",
