@@ -969,7 +969,7 @@ export function SessionRunner({
                                   metric: swapped.metric,
                                   repsMin: swapped.repsMin ?? e.repsMin,
                                   repsMax: swapped.repsMax ?? e.repsMax,
-                                  suggestedWeightKg: swapped.weightPrefill ?? e.suggestedWeightKg,
+                                  suggestedWeightKg: swapped.weightPrefill,
                                 }
                               : e,
                           ),

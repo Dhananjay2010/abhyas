@@ -28,7 +28,7 @@ import { writeExerciseProgressCore } from "@/lib/session/write-progress";
 import { ensureCurrentBlock } from "@/lib/program/rollover";
 import { loadStartProgram, createSupabaseDeps as createLoadStartProgramDeps } from "@/lib/session/load-start-program";
 import { loadPlanDay, createSupabaseDeps as createLoadPlanDayDeps } from "@/lib/session/load-plan-day";
-import { getLastPerformance } from "@/lib/exercise-history";
+import { resolveSwapPrefill } from "@/lib/session/swap-prefill";
 
 type SetFeel = Database["public"]["Enums"]["set_feel"];
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -765,10 +765,10 @@ export async function swapExercise(input: {
   
   const { supabase, user } = await requireUser();
 
-  const [currentRes, replacementRes, profileRes, lastPerf] = await Promise.all([
+  const [currentRes, replacementRes, profileRes] = await Promise.all([
     supabase
       .from("session_exercises")
-      .select("exercise_id, metric, planned_reps_min, planned_reps_max")
+      .select("exercise_id, metric, planned_reps_min, planned_reps_max, session_id")
       .eq("id", input.sessionExerciseId)
       .maybeSingle(),
     /*
@@ -780,15 +780,15 @@ export async function swapExercise(input: {
       equipment_ids is also needed: when the session loads, isBodyweight is 
       derived from whether equipment_ids is empty, and without it here a barbell
       exercise swapped in would show "Added weight (kg)" instead of "Weight (kg)".
+      
+      movement_pattern is needed for swap prefill via suggestedWeight.
     */
     supabase
       .from("exercises")
-      .select("metric, mechanic, equipment_ids")
+      .select("metric, mechanic, equipment_ids, movement_pattern")
       .eq("id", input.newExerciseId)
       .maybeSingle(),
     supabase.from("profiles").select("goal, level").eq("id", user.id).single(),
-    // Prefill weight from the user's last performance of the swapped-in exercise.
-    getLastPerformance(supabase, user.id, input.newExerciseId).catch(() => null),
   ]);
 
   const current = currentRes.data;
@@ -798,6 +798,26 @@ export async function swapExercise(input: {
   const metric = metricOf(replacement);
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
+
+  // Get session to read is_deload for weight prefill (outside start-session block)
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("is_deload")
+    .eq("id", current.session_id)
+    .maybeSingle();
+
+  const isDeload = session?.is_deload ?? false;
+
+  // Resolve weight prefill using the same logic as session/[id]/page.tsx
+  const weightPrefill = await resolveSwapPrefill(
+    supabase,
+    user.id,
+    input.newExerciseId,
+    isDeload,
+    equipmentIds,
+    metric,
+    replacementRes.data?.movement_pattern ?? "other",
+  );
 
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
@@ -823,8 +843,6 @@ export async function swapExercise(input: {
 
   const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
   const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
-
-  const weightPrefill = lastPerf?.topSet?.weight_kg ?? null;
 
   const { error } = await supabase
     .from("session_exercises")

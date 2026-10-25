@@ -1,13 +1,15 @@
 /**
- * Real database test: Exercise swap prefills weight from last performance.
+ * Real database test: resolveSwapPrefill computes weight correctly.
  * 
- * This test verifies that when an exercise is swapped during a session,
- * the new exercise gets its weight prefilled from the user's last
- * performance, or stays null when there is no history.
+ * This test verifies that resolveSwapPrefill():
+ * 1. Uses suggestedWeight when exercise_progress exists (respects deload)
+ * 2. Falls back to getLastPerformance top set when no progress
+ * 3. Returns null when the exercise has never been trained
  * 
  * Tests:
- * - Swap with prior history: weight prefills from topSet
- * - Swap with no history: weight stays null
+ * - With progress: applies suggestedWeight (deload reduces to ~70%)
+ * - Without progress but with history: returns last performance weight
+ * - No history at all: returns null
  * - All inserts checked for errors
  * 
  * Run: supabase start && REAL_DB=1 npm run test:swap-prefill-real-db
@@ -15,6 +17,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
+import { resolveSwapPrefill } from "../src/lib/session/swap-prefill";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "http://127.0.0.1:54321";
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
@@ -114,29 +117,75 @@ async function runTests() {
   check("Profile created", !profileError, profileError?.message);
   if (profileError) return false;
 
-  // Get two exercises: bench press (with history) and a swap target (no history initially)
+  // Get test exercises
   const { data: exercises } = await adminClient
     .from("exercises")
-    .select("id, name")
-    .in("name", ["Barbell Bench Press - Medium Grip", "Dumbbell Bench Press"])
-    .limit(2);
+    .select("id, name, movement_pattern, equipment_ids")
+    .in("name", ["Barbell Bench Press - Medium Grip", "Dumbbell Bench Press", "Incline Dumbbell Press"])
+    .limit(3);
 
-  if (!exercises || exercises.length < 2) {
+  if (!exercises || exercises.length < 3) {
     console.error("❌ Failed to fetch test exercises");
     return false;
   }
 
   const benchPress = exercises.find(e => e.name === "Barbell Bench Press - Medium Grip");
   const dumbbell = exercises.find(e => e.name === "Dumbbell Bench Press");
+  const incline = exercises.find(e => e.name === "Incline Dumbbell Press");
 
-  if (!benchPress || !dumbbell) {
+  if (!benchPress || !dumbbell || !incline) {
     console.error("❌ Required exercises not found");
     return false;
   }
 
-  console.log(`Using exercises:\n  - ${benchPress.name} (${benchPress.id})\n  - ${dumbbell.name} (${dumbbell.id})\n`);
+  console.log(`Using exercises:\n  - ${benchPress.name}\n  - ${dumbbell.name}\n  - ${incline.name}\n`);
 
-  // Create a program
+  // Test 1: With progress (uses suggestedWeight)
+  console.log("Test 1: With exercise_progress:");
+  
+  // Create progress entry for bench press at 100kg
+  const { error: progressError } = await adminClient
+    .from("exercise_progress")
+    .insert({
+      user_id: userId,
+      exercise_id: benchPress.id,
+      current_working_weight_kg: 100,
+      current_target_reps: 12,
+    });
+
+  check("Progress entry created", !progressError, progressError?.message);
+  if (progressError) return false;
+
+  // Non-deload: should return 100kg (working weight as-is)
+  const prefillNonDeload = await resolveSwapPrefill(
+    adminClient,
+    userId,
+    benchPress.id,
+    false,
+    benchPress.equipment_ids ?? [],
+    "reps",
+    benchPress.movement_pattern ?? "push",
+  );
+
+  check("Non-deload with progress returns working weight", prefillNonDeload === 100, `got ${prefillNonDeload}`);
+
+  // Deload: should return ~70kg (70% of 100kg)
+  const prefillDeload = await resolveSwapPrefill(
+    adminClient,
+    userId,
+    benchPress.id,
+    true,
+    benchPress.equipment_ids ?? [],
+    "reps",
+    benchPress.movement_pattern ?? "push",
+  );
+
+  check("Deload with progress returns ~70%", prefillDeload !== null && prefillDeload >= 67.5 && prefillDeload <= 72.5, `got ${prefillDeload}`);
+
+  // Test 2: Without progress but with history
+  console.log("\nTest 2: Without progress, with history:");
+
+  // Create a completed session with dumbbell (30kg)
   const programId = randomUUID();
   const { error: programError } = await adminClient
     .from("programs")
@@ -155,7 +204,6 @@ async function runTests() {
   check("Program created", !programError, programError?.message);
   if (programError) return false;
 
-  // Create a program day
   const dayId = randomUUID();
   const { error: dayError } = await adminClient
     .from("program_days")
@@ -172,25 +220,6 @@ async function runTests() {
   check("Program day created", !dayError, dayError?.message);
   if (dayError) return false;
 
-  // Add bench press to the day
-  const pdExId = randomUUID();
-  const { error: pdExError } = await adminClient
-    .from("program_day_exercises")
-    .insert({
-      id: pdExId,
-      program_day_id: dayId,
-      exercise_id: benchPress.id,
-      order_index: 1,
-      target_sets: 4,
-      target_reps_min: 8,
-      target_reps_max: 12,
-      rest_seconds: 90,
-    });
-
-  check("Program day exercise created", !pdExError, pdExError?.message);
-  if (pdExError) return false;
-
-  // Create a completed prior session with the dumbbell exercise (the swap target)
   const priorSessionId = randomUUID();
   const { error: priorSessionError } = await adminClient
     .from("sessions")
@@ -212,7 +241,6 @@ async function runTests() {
   check("Prior session created", !priorSessionError, priorSessionError?.message);
   if (priorSessionError) return false;
 
-  // Add a session exercise for the dumbbell (the one we'll swap TO)
   const priorSessExId = randomUUID();
   const { error: priorSessExError } = await adminClient
     .from("session_exercises")
@@ -227,12 +255,13 @@ async function runTests() {
       rest_seconds: 90,
       metric: "reps",
       status: "completed",
+      completed_at: "2026-10-20T10:25:00Z",
     });
 
   check("Prior session exercise created", !priorSessExError, priorSessExError?.message);
   if (priorSessExError) return false;
 
-  // Log sets for the dumbbell: 3 sets at 30kg
+  // Log sets at 30kg
   const sets = [
     { set_number: 1, reps: 12, weight_kg: 30, is_warmup_set: false },
     { set_number: 2, reps: 11, weight_kg: 30, is_warmup_set: false },
@@ -251,95 +280,33 @@ async function runTests() {
     if (setError) return false;
   }
 
-  // Mark the prior session exercise as completed
-  const { error: completeError } = await adminClient
-    .from("session_exercises")
-    .update({ completed_at: "2026-10-20T10:25:00Z" })
-    .eq("id", priorSessExId);
+  // Dumbbell has no progress, should fall back to last performance (30kg)
+  const prefillHistory = await resolveSwapPrefill(
+    adminClient,
+    userId,
+    dumbbell.id,
+    false,
+    dumbbell.equipment_ids ?? [],
+    "reps",
+    dumbbell.movement_pattern ?? "push",
+  );
 
-  check("Prior session exercise marked complete", !completeError, completeError?.message);
-  if (completeError) return false;
+  check("Without progress, with history returns last performance", prefillHistory === 30, `got ${prefillHistory}`);
 
-  console.log(""); // Blank line before swap tests
+  // Test 3: No history at all
+  console.log("\nTest 3: No history:");
 
-  // Create a new session for today
-  const todaySessionId = randomUUID();
-  const { error: todaySessionError } = await adminClient
-    .from("sessions")
-    .insert({
-      id: todaySessionId,
-      user_id: userId,
-      program_id: programId,
-      program_day_id: dayId,
-      local_date: "2026-10-25",
-      week_in_block: 1,
-      is_deload: false,
-      planned_type: "weights",
-      actual_type: "weights",
-      status: "in_progress",
-      started_at: "2026-10-25T10:00:00Z",
-    });
+  const prefillNoHistory = await resolveSwapPrefill(
+    adminClient,
+    userId,
+    incline.id,
+    false,
+    incline.equipment_ids ?? [],
+    "reps",
+    incline.movement_pattern ?? "push",
+  );
 
-  check("Today's session created", !todaySessionError, todaySessionError?.message);
-  if (todaySessionError) return false;
-
-  // Add the bench press to today's session
-  const todaySessExId = randomUUID();
-  const { error: todaySessExError } = await adminClient
-    .from("session_exercises")
-    .insert({
-      id: todaySessExId,
-      session_id: todaySessionId,
-      exercise_id: benchPress.id,
-      order_index: 1,
-      planned_sets: 4,
-      planned_reps_min: 8,
-      planned_reps_max: 12,
-      rest_seconds: 90,
-      metric: "reps",
-      status: "planned",
-    });
-
-  check("Today's session exercise created", !todaySessExError, todaySessExError?.message);
-  if (todaySessExError) return false;
-
-  // Now simulate a swap: update the session exercise to use the dumbbell
-  // This mimics what the swapExercise action does
-  const { error: swapError } = await adminClient
-    .from("session_exercises")
-    .update({
-      exercise_id: dumbbell.id,
-      swapped_from_exercise_id: benchPress.id,
-    })
-    .eq("id", todaySessExId);
-
-  check("Exercise swapped", !swapError, swapError?.message);
-  if (swapError) return false;
-
-  // Now test the getLastPerformance to verify it returns the 30kg
-  const { getLastPerformance } = await import("../src/lib/exercise-history/queries");
-  
-  const lastPerf = await getLastPerformance(adminClient, userId, dumbbell.id);
-  
-  check("Last performance retrieved", lastPerf !== null);
-  check("Last performance has top set", lastPerf?.topSet !== null);
-  check("Top set weight is 30kg", lastPerf?.topSet?.weight_kg === 30, `got ${lastPerf?.topSet?.weight_kg}`);
-
-  console.log("\nTest with no history:");
-
-  // Get another exercise that has no history
-  const { data: noHistoryEx } = await adminClient
-    .from("exercises")
-    .select("id, name")
-    .eq("name", "Incline Dumbbell Press")
-    .maybeSingle();
-
-  if (!noHistoryEx) {
-    console.log("⚠️  Incline Dumbbell Press not found, skipping no-history test");
-  } else {
-    const noHistoryPerf = await getLastPerformance(adminClient, userId, noHistoryEx.id);
-    check("No history returns null", noHistoryPerf === null, noHistoryPerf ? `got ${JSON.stringify(noHistoryPerf)}` : "");
-  }
+  check("No history returns null", prefillNoHistory === null, `got ${prefillNoHistory}`);
 
   // Cleanup
   console.log("\nCleaning up...");

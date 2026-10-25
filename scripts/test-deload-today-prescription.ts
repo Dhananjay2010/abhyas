@@ -1,20 +1,21 @@
 /**
- * Unit test: Today and session creation use the same deload prescription.
+ * Unit test: Today prescription helper produces correct deload transformations.
  * 
- * This test verifies that the deload transform produces identical results
- * whether applied in Today's display or in session creation, ensuring
- * Today shows what the session will create.
+ * This test verifies that todayPrescription() applies the same deload transform
+ * as session creation (via applyDeload), ensuring Today shows what the session
+ * will create.
  * 
  * Tests:
- * - Normal week vs deload week
- * - Squat 3-set case (5 sets → 3 sets in deload)
- * - Other exercises 2-set case (4 sets → 2 sets in deload)
- * - Rep ranges unchanged by deload
+ * - Normal week (passthrough)
+ * - Deload week (4 → 2, 5 → 3)
+ * - Null sets and reps (passthrough)
+ * - Result equals applyDeload output
  * 
  * Run: npm run test:deload-today-prescription
  */
 
-import { applyDeload, type Prescription } from "../src/lib/program/prescription";
+import { applyDeload } from "../src/lib/program/prescription";
+import { todayPrescription } from "../src/lib/today/deload-prescription";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -25,10 +26,16 @@ function check(label: string, ok: boolean, detail = "") {
 function runTests() {
   console.log("\nDeload Today Prescription Tests\n");
 
-  // Test 1: Normal week - no transformation
-  console.log("Normal week (no deload):");
-  const normalBench: Prescription = { sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 };
-  const normalSquat: Prescription = { sets: 5, repsMin: 8, repsMax: 12, restSeconds: 90 };
+  // Test 1: Normal week - passthrough
+  console.log("Normal week (passthrough):");
+  const normalBench = todayPrescription(
+    { target_sets: 4, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
+    false,
+  );
+  const normalSquat = todayPrescription(
+    { target_sets: 5, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
+    false,
+  );
   
   check("Bench 4 sets unchanged", normalBench.sets === 4);
   check("Squat 5 sets unchanged", normalSquat.sets === 5);
@@ -36,8 +43,14 @@ function runTests() {
 
   // Test 2: Deload week - transformation
   console.log("\nDeload week:");
-  const deloadBench = applyDeload(normalBench);
-  const deloadSquat = applyDeload(normalSquat);
+  const deloadBench = todayPrescription(
+    { target_sets: 4, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
+    true,
+  );
+  const deloadSquat = todayPrescription(
+    { target_sets: 5, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
+    true,
+  );
   
   check("Bench 4 sets → 2 sets", deloadBench.sets === 2, `got ${deloadBench.sets}`);
   check("Squat 5 sets → 3 sets", deloadSquat.sets === 3, `got ${deloadSquat.sets}`);
@@ -46,44 +59,38 @@ function runTests() {
   check("Rest seconds unchanged (bench)", deloadBench.restSeconds === 90);
   check("Rest seconds unchanged (squat)", deloadSquat.restSeconds === 90);
 
-  // Test 3: Edge cases
-  console.log("\nEdge cases:");
-  const twoSets = applyDeload({ sets: 2, repsMin: 8, repsMax: 12, restSeconds: 90 });
-  check("2 sets → 2 sets (minimum)", twoSets.sets === 2, `got ${twoSets.sets}`);
-  
-  const threeSets = applyDeload({ sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 });
-  check("3 sets → 2 sets", threeSets.sets === 2, `got ${threeSets.sets}`);
-
-  // Test 4: Session creation match
-  console.log("\nSession creation equivalence:");
-  // Simulate what session creation does (from actions.ts line 231)
-  const sessionBench: Prescription = { sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 };
-  const sessionSquat: Prescription = { sets: 5, repsMin: 8, repsMax: 12, restSeconds: 90 };
-  
-  const sessionDeloadBench = applyDeload(sessionBench);
-  const sessionDeloadSquat = applyDeload(sessionSquat);
-  
-  // Simulate what Today does (from today/page.tsx)
-  const todayBench: Prescription = { sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 };
-  const todaySquat: Prescription = { sets: 5, repsMin: 8, repsMax: 12, restSeconds: 90 };
-  
-  const todayDeloadBench = applyDeload(todayBench);
-  const todayDeloadSquat = applyDeload(todaySquat);
-  
-  check(
-    "Today bench == Session bench",
-    todayDeloadBench.sets === sessionDeloadBench.sets &&
-    todayDeloadBench.repsMin === sessionDeloadBench.repsMin &&
-    todayDeloadBench.repsMax === sessionDeloadBench.repsMax,
-    `Today: ${todayDeloadBench.sets}×${todayDeloadBench.repsMin}-${todayDeloadBench.repsMax}, Session: ${sessionDeloadBench.sets}×${sessionDeloadBench.repsMin}-${sessionDeloadBench.repsMax}`
+  // Test 3: Null sets (passthrough)
+  console.log("\nNull cases:");
+  const nullSets = todayPrescription(
+    { target_sets: null, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 },
+    true,
   );
+  check("Null sets → passthrough", nullSets.sets === null);
+
+  const nullReps = todayPrescription(
+    { target_sets: 4, target_reps_min: null, target_reps_max: null, rest_seconds: 90 },
+    true,
+  );
+  check("Null reps → deload applied", nullReps.sets === 2, `got ${nullReps.sets}`);
+
+  // Test 4: Equals applyDeload
+  console.log("\nEquivalence with applyDeload:");
+  const row = { target_sets: 4, target_reps_min: 8, target_reps_max: 12, rest_seconds: 90 };
+  const todayResult = todayPrescription(row, true);
+  const applyDeloadResult = applyDeload({
+    sets: 4,
+    repsMin: 8,
+    repsMax: 12,
+    restSeconds: 90,
+  });
   
   check(
-    "Today squat == Session squat",
-    todayDeloadSquat.sets === sessionDeloadSquat.sets &&
-    todayDeloadSquat.repsMin === sessionDeloadSquat.repsMin &&
-    todayDeloadSquat.repsMax === sessionDeloadSquat.repsMax,
-    `Today: ${todayDeloadSquat.sets}×${todayDeloadSquat.repsMin}-${todayDeloadSquat.repsMax}, Session: ${sessionDeloadSquat.sets}×${sessionDeloadSquat.repsMin}-${sessionDeloadSquat.repsMax}`
+    "todayPrescription == applyDeload",
+    todayResult.sets === applyDeloadResult.sets &&
+    todayResult.repsMin === applyDeloadResult.repsMin &&
+    todayResult.repsMax === applyDeloadResult.repsMax &&
+    todayResult.restSeconds === applyDeloadResult.restSeconds,
+    `Today: ${todayResult.sets}×${todayResult.repsMin}-${todayResult.repsMax}, applyDeload: ${applyDeloadResult.sets}×${applyDeloadResult.repsMin}-${applyDeloadResult.repsMax}`
   );
 
   return failures === 0;

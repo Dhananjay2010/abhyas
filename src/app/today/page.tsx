@@ -15,7 +15,7 @@ import { ensureProfileRows } from "@/lib/auth/ensure-profile";
 import { cycleWeekFor } from "@/lib/program/block-range";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import { RefetchOnResume } from "./refetch-on-resume";
-import { applyDeload } from "@/lib/program/prescription";
+import { todayPrescription } from "@/lib/today/deload-prescription";
 
 export const dynamic = "force-dynamic";
 
@@ -408,24 +408,16 @@ export default async function TodayPage() {
           swappedIn: r.swapped_from_exercise_id !== null,
         }))
       : template.map((r) => {
-          const base = {
-            sets: r.target_sets,
-            repsMin: r.target_reps_min,
-            repsMax: r.target_reps_max,
-            restSeconds: r.rest_seconds,
-          };
-          const prescription = isDeload && base.sets !== null
-            ? applyDeload({ sets: base.sets, repsMin: base.repsMin ?? 0, repsMax: base.repsMax ?? 0, restSeconds: base.restSeconds ?? 0 })
-            : base;
+          const p = todayPrescription(r, isDeload);
           return {
             key: `p${r.order_index}`,
             name: r.exercises?.name ?? "",
             cue: r.exercises?.cue ?? null,
             metric: r.exercises?.metric ?? null,
-            sets: prescription.sets,
-            repsMin: prescription.repsMin,
-            repsMax: prescription.repsMax,
-            restSeconds: prescription.restSeconds,
+            sets: p.sets,
+            repsMin: p.repsMin,
+            repsMax: p.repsMax,
+            restSeconds: p.restSeconds,
             skipped: false,
             swappedIn: false,
           };
