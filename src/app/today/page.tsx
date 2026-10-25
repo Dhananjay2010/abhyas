@@ -127,7 +127,6 @@ export default async function TodayPage() {
     next occurrence, which is today for today.
   */
   const yesterday = addDays(localToday, -1);
-  const weekAheadEnd = addDays(localToday, 6);
 
   // A rollover replaced the active block, so the row read above is stale.
   // This happens on one day in twenty-eight. Query for the new block by its

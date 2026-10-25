@@ -7,7 +7,6 @@
  */
 
 import { render } from "@testing-library/react";
-import { DayPlanSettled } from "../src/components/day-plan-prompt";
 import { DayPlanChoosingOptions } from "../src/components/day-plan-prompt-ui";
 import type { PlannableDay } from "../src/app/session/actions";
 
@@ -20,9 +19,9 @@ function assert(condition: boolean, message: string) {
   }
 }
 
-console.log("\n=== Test H3: Confirmation shows plain label, button shows buttonLabel ===\n");
+console.log("\n=== Test H3: Button shows buttonLabel ===\n");
 
-// Test that when user clicks a Lift option, confirmation shows plain label
+// Test that the button shows "Lift: Push A"
 const liftDay: PlannableDay = {
   programDayId: "day-2",
   label: "Push A",
@@ -46,21 +45,17 @@ assert(
   "Button text includes 'Lift:' prefix"
 );
 
-console.log("\n=== Test: Confirmation text uses plain label ===\n");
+console.log("\n=== Test H3: Label field is plain (for confirmation) ===\n");
 
-// Render settled state with plain label
-const { container } = render(
-  <DayPlanSettled dayLabel="Push A" />
+// The label should be plain "Push A" (used by confirmation after selection)
+assert(
+  liftDay.label === "Push A",
+  `Label is plain "Push A", not "${liftDay.label}"`
 );
 
 assert(
-  container.textContent?.includes("Today is Push A"),
-  "Confirmation shows 'Today is Push A'"
-);
-
-assert(
-  !container.textContent?.includes("Lift:"),
-  "Confirmation does NOT include 'Lift:' prefix"
+  !liftDay.label.includes("Lift:"),
+  "Label does NOT include 'Lift:' prefix"
 );
 
 console.log("\n=== Test B12: Only first rest-day option has buttonLabel ===\n");

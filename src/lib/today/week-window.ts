@@ -6,7 +6,7 @@
  * cover "Your week" choices.
  */
 
-import { addDays, isoWeekday } from "@/lib/dates";
+import { addDays } from "@/lib/dates";
 import { cycleWeekFor } from "@/lib/program/block-range";
 
 export interface WeekWindowInput {
