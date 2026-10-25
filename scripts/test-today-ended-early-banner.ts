@@ -215,7 +215,7 @@ console.log("\nCase 9: summarizeEndedEarly - 0 working sets with pending exercis
 
 console.log("\nCase 10: summarizeEndedEarly - 0 working sets with no exercises\n");
 {
-  const exercises: any[] = [];
+  const exercises: never[] = [];
 
   const result = summarizeEndedEarly(exercises);
   check("Ended early", result.endedEarly);

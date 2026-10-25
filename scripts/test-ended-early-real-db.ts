@@ -99,6 +99,23 @@ async function runTests() {
 
   console.log("✓ Signed in as test user\n");
 
+  // Get test exercises from seed data
+  const { data: exercises } = await adminClient
+    .from("exercises")
+    .select("id, name")
+    .in("name", ["Barbell Bench Press - Medium Grip", "Dumbbell Bench Press"])
+    .limit(2);
+
+  if (!exercises || exercises.length < 2) {
+    console.error("❌ Failed to fetch test exercises");
+    await adminClient.auth.admin.deleteUser(userId);
+    return false;
+  }
+
+  const exercise1 = exercises[0];
+  const exercise2 = exercises[1];
+  console.log(`✓ Using exercises: ${exercise1.name}, ${exercise2.name}\n`);
+
   try {
     // Test 1: Fully completed session
     console.log("Test 1: Fully completed session\n");
@@ -120,11 +137,11 @@ async function runTests() {
       const { error: ex1Error } = await adminClient.from("session_exercises").insert({
         id: ex1Id,
         session_id: sessionId,
-        exercise_id: randomUUID(),
+        exercise_id: exercise1.id,
         planned_sets: 4,
         status: "completed",
       });
-      check("Insert exercise 1", !ex1Error);
+      check("Insert exercise 1", !ex1Error, ex1Error?.message);
 
       // Add 4 working sets
       const sets1 = Array(4).fill(null).map(() => ({
@@ -141,11 +158,11 @@ async function runTests() {
       const { error: ex2Error } = await adminClient.from("session_exercises").insert({
         id: ex2Id,
         session_id: sessionId,
-        exercise_id: randomUUID(),
+        exercise_id: exercise2.id,
         planned_sets: 3,
         status: "completed",
       });
-      check("Insert exercise 2", !ex2Error);
+      check("Insert exercise 2", !ex2Error, ex2Error?.message);
 
       // Add 3 working sets
       const sets2 = Array(3).fill(null).map(() => ({
@@ -184,7 +201,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: ex1Id,
         session_id: sessionId,
-        exercise_id: randomUUID(),
+        exercise_id: exercise1.id,
         planned_sets: 4,
         status: "completed",
       });
@@ -201,7 +218,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: ex2Id,
         session_id: sessionId,
-        exercise_id: randomUUID(),
+        exercise_id: exercise1.id,
         planned_sets: 3,
         status: "pending",
       });
@@ -239,14 +256,14 @@ async function runTests() {
         {
           id: randomUUID(),
           session_id: sessionId,
-          exercise_id: randomUUID(),
+          exercise_id: exercise1.id,
           planned_sets: 4,
           status: "pending",
         },
         {
           id: randomUUID(),
           session_id: sessionId,
-          exercise_id: randomUUID(),
+          exercise_id: exercise1.id,
           planned_sets: 3,
           status: "pending",
         },
@@ -278,7 +295,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: ex1Id,
         session_id: sessionId,
-        exercise_id: randomUUID(),
+        exercise_id: exercise1.id,
         planned_sets: 4,
         status: "completed",
       });
@@ -294,7 +311,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: randomUUID(),
         session_id: sessionId,
-        exercise_id: randomUUID(),
+        exercise_id: exercise1.id,
         planned_sets: 3,
         status: "skipped",
       });
@@ -324,7 +341,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: exId,
         session_id: sessionId,
-        exercise_id: randomUUID(),
+        exercise_id: exercise1.id,
         planned_sets: 2,
         status: "completed",
       });

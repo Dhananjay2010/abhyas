@@ -35,7 +35,7 @@ type SessionExerciseRow = {
  */
 export function summarizeEndedEarly(exercises: SessionExerciseRow[]): EndedEarlySummary {
   let hasPendingExercise = false;
-  let hasNoExercises = exercises.length === 0;
+  const hasNoExercises = exercises.length === 0;
   let totalPlannedSets = 0;
   let completedSetCount = 0;
   
