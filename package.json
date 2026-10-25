@@ -276,7 +276,6 @@
     "test:format-target-range": "tsx scripts/test-format-target-range.tsx",
     "test:session-hydration-418": "tsx scripts/test-session-hydration-418.tsx",
     "test:m3-wrist": "tsx scripts/test-m3-wrist-lowerback-contraindications.ts",
-    "test:auto-replay-on-mount": "tsx scripts/test-auto-replay-on-mount.ts",
     "test:controller-load-on-mount": "tsx scripts/test-controller-load-on-mount.ts",
     "test:critical-behaviors": "tsx scripts/test-critical-behaviors.ts",
     "test:focus-retry-registration": "tsx scripts/test-focus-retry-registration.ts",
