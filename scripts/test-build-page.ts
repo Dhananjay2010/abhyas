@@ -47,6 +47,15 @@ const baseInput = {
   allSessionsRes: {
     data: [
       {
+        actual_type: "weights" as const,
+        started_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [
+      {
         id: "old-session",
         local_date: "2026-01-10",
         status: "completed",
@@ -95,7 +104,7 @@ const baseInput = {
   },
   timezone: "America/New_York",
   localToday: "2026-01-12", // Monday (day_index 1)
-  yesterday: "2026-01-11", // Sunday (day_index 0, rest)
+  yesterday: "2026-01-11", // Sunday (day_index 7, rest)
 };
 
 console.log("\n=== Test 1: Basic page build ===\n");
@@ -151,27 +160,64 @@ console.log("\n=== Test 3: P3 - Warm-ups as working ===\n");
 // Warm-ups should NOT count as working sets
 // Use a day that's actually a training day in the template (day 6 = Saturday = Upper/weights)
 const yesterdayTrainingDay = "2026-01-10"; // Saturday (day_index 6)
-const sessionsWithYesterday = [
-  ...baseInput.allSessionsRes.data!,
-  {
-    id: "s1",
-    local_date: yesterdayTrainingDay,
-    status: "completed",
-    actual_type: "weights" as const,
-    program_id: "prog-1",
-    program_day_id: "day6",
-    started_at: "2026-01-10T10:00:00Z",
-    created_at: "2026-01-10T10:00:00Z",
-  },
-];
-
 const warmupInput = {
   ...baseInput,
   localToday: "2026-01-11", // Sunday (day after Saturday)
   yesterday: yesterdayTrainingDay,
-  allSessionsRes: { data: sessionsWithYesterday, error: null },
-  todaySessionsRes: { data: sessionsWithYesterday, error: null },
-  yesterdaySessionsRes: { data: sessionsWithYesterday, error: null },
+  allSessionsRes: {
+    data: [
+      {
+        actual_type: "weights" as const,
+        started_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [
+      {
+        id: "s1",
+        local_date: yesterdayTrainingDay,
+        status: "completed",
+        actual_type: "weights" as const,
+        program_id: "prog-1",
+        program_day_id: "day6",
+        started_at: "2026-01-10T10:00:00Z",
+        created_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  todaySessionsRes: {
+    data: [
+      {
+        id: "s1",
+        local_date: yesterdayTrainingDay,
+        status: "completed",
+        actual_type: "weights" as const,
+        program_id: "prog-1",
+        program_day_id: "day6",
+        started_at: "2026-01-10T10:00:00Z",
+        created_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  yesterdaySessionsRes: {
+    data: [
+      {
+        id: "s1",
+        local_date: yesterdayTrainingDay,
+        status: "completed",
+        actual_type: "weights" as const,
+        program_id: "prog-1",
+        program_day_id: "day6",
+        started_at: "2026-01-10T10:00:00Z",
+        created_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
   sessionExercisesRes: {
     data: [
       {
@@ -228,6 +274,11 @@ assert(
 assert(
   result4.todayView.firstTrainingDay === null,
   "P4b/P5: Errored hasStartedAny sets firstTrainingDay to null"
+);
+
+assert(
+  result4.promptBlocks.showFirstDayWelcome === false,
+  "P4b: Errored hasStartedAny suppresses 'Welcome to your first workout'"
 );
 
 console.log("\n=== Test 5: P6 - allSessionsRes error ===\n");
@@ -293,21 +344,26 @@ const tomorrowChoiceInput = {
   yesterday: "2026-01-11", // Sunday
   allSessionsRes: {
     data: [
+      // User has started before (only actual_type, started_at)
+      {
+        actual_type: "weights" as const,
+        started_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [
       // A planned session for Tuesday (tomorrow) with actual_type "weights" pointing to Pull
       {
+        id: "sess-1",
         local_date: "2026-01-13", // Tuesday (day_index 2)
         status: "planned",
         actual_type: "weights" as const,
+        program_id: "prog-1",
         program_day_id: "day3", // Pull
         started_at: null,
-      },
-      // User has started before
-      {
-        local_date: "2026-01-10",
-        status: "completed",
-        actual_type: "weights" as const,
-        program_day_id: "day1",
-        started_at: "2026-01-10T10:00:00Z",
+        created_at: "2026-01-13T09:00:00Z",
       },
     ],
     error: null,
@@ -340,7 +396,7 @@ assert(
 );
 
 // Monday should show its template (Push) with no choice
-const mondayRow = result6.todayView.weekRowsWithChoices.find(r => r.dayIndex === 1);
+const mondayRow = result7.todayView.weekRowsWithChoices.find(r => r.dayIndex === 1);
 
 assert(
   mondayRow!.label === "Push" && mondayRow!.isChoice === false,
@@ -356,21 +412,26 @@ const unchangedPlanInput = {
   yesterday: "2026-01-11", // Sunday
   allSessionsRes: {
     data: [
+      // User has started before (only actual_type, started_at)
+      {
+        actual_type: "weights" as const,
+        started_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [
       // A planned session for Monday matching the template (Push)
       {
+        id: "sess-1",
         local_date: "2026-01-12", // Monday
         status: "planned",
         actual_type: "weights" as const,
+        program_id: "prog-1",
         program_day_id: "day1", // Push - matches template
         started_at: null,
-      },
-      // User has started before
-      {
-        local_date: "2026-01-10",
-        status: "completed",
-        actual_type: "weights" as const,
-        program_day_id: "day1",
-        started_at: "2026-01-10T10:00:00Z",
+        created_at: "2026-01-12T09:00:00Z",
       },
     ],
     error: null,
@@ -389,6 +450,56 @@ assert(
 assert(
   mondayRow7!.isChoice === false,
   "Unchanged plan has isChoice=false (no override)"
+);
+
+console.log("\n=== Test 8b: F1 - Production-shaped allSessionsRes ===\n");
+
+// Test that week choices work with production-shaped allSessionsRes
+// (only actual_type, started_at, no full session data)
+const productionShapedInput = {
+  ...baseInput,
+  localToday: "2026-01-12", // Monday (day_index 1)
+  yesterday: "2026-01-11", // Sunday
+  allSessionsRes: {
+    data: [
+      // Production shape: only actual_type and started_at
+      {
+        actual_type: "weights" as const,
+        started_at: "2026-01-10T10:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  weekSessionsRes: {
+    data: [
+      // Tuesday has a planned Pull session (different from template Rest)
+      {
+        id: "sess-tuesday",
+        local_date: "2026-01-13", // Tuesday (day_index 2)
+        status: "planned",
+        actual_type: "weights" as const,
+        program_id: "prog-1",
+        program_day_id: "day3", // Pull
+        started_at: null,
+        created_at: "2026-01-13T09:00:00Z",
+      },
+    ],
+    error: null,
+  },
+  days: [
+    { id: "day1", day_index: 1, day_type: "weights" as const, label: "Push" },
+    { id: "day2", day_index: 2, day_type: "rest" as const, label: null }, // Tuesday template is Rest
+    { id: "day3", day_index: 3, day_type: "weights" as const, label: "Pull" },
+  ],
+};
+
+const result8b = buildPage(productionShapedInput);
+
+const tuesdayRow8b = result8b.todayView.weekRowsWithChoices.find(r => r.dayIndex === 2);
+
+assert(
+  tuesdayRow8b !== undefined && tuesdayRow8b.label === "Pull" && tuesdayRow8b.isChoice === true,
+  "F1: Week loop reads weekSessionsRes (not allSessionsRes), so planned Pull shows"
 );
 
 console.log("\n=== Test 9: P-MISSED-ANY - Veteran user, missed yesterday, empty week ===\n");
@@ -440,6 +551,11 @@ assert(
 
 assert(
   result9.promptBlocks.showFirstSessionOffer === false,
+  "P-MISSED-ANY: Veteran user doesn't get first session offer"
+);
+
+assert(
+  result9.promptBlocks.showFirstDayWelcome === false,
   "P-MISSED-ANY: Veteran user doesn't get 'Welcome to your first workout'"
 );
 
@@ -550,10 +666,10 @@ assert(
   "P-YEST-ERROR: Errored sessions read preserves isTraining"
 );
 
-console.log("\n=== Test 12: P8 - Planned session today on missed day ===\n");
+console.log("\n=== Test 12: P8 - In-progress session from old block suppresses missed ===\n");
 
-// User has a planned session today (strengthOpen), missed yesterday
-// Should not show missed prompt (in-progress settles missed)
+// User rebuilt the block (new program_id), has an in_progress session today from old block,
+// and missed yesterday. Only strengthOpen (not isTodayAnswered) suppresses the missed prompt.
 const plannedTodayInput = {
   ...baseInput,
   yesterday: "2026-01-10", // Saturday (training day)
@@ -561,10 +677,7 @@ const plannedTodayInput = {
   allSessionsRes: {
     data: [
       {
-        local_date: "2026-01-05",
-        status: "completed",
         actual_type: "weights" as const,
-        program_day_id: "day1",
         started_at: "2026-01-05T10:00:00Z",
       },
     ],
@@ -573,13 +686,13 @@ const plannedTodayInput = {
   todaySessionsRes: {
     data: [
       {
-        id: "today-planned",
+        id: "today-in-progress",
         local_date: "2026-01-11",
-        status: "planned",
+        status: "in_progress",
         actual_type: "weights" as const,
-        program_id: "prog-1",
-        program_day_id: "day1",
-        started_at: null,
+        program_id: "old-prog-id", // Old block, so isTodayAnswered = false
+        program_day_id: "old-day1",
+        started_at: "2026-01-11T10:00:00Z",
         created_at: "2026-01-11T09:00:00Z",
       },
     ],
@@ -599,12 +712,17 @@ const result12 = buildPage(plannedTodayInput);
 
 assert(
   result12.todayState.promptType === "none",
-  "P8: Planned session today (strengthOpen) suppresses missed prompt"
+  "P8: In-progress session (strengthOpen) suppresses missed prompt"
 );
 
 assert(
   result12.strengthOpen !== undefined,
-  "P8: strengthOpen is set when planned session exists"
+  "P8: strengthOpen is set when in_progress session exists"
+);
+
+assert(
+  result12.needsPlannableDays === false,
+  "P8: strengthOpen suppresses needsPlannableDays"
 );
 
 console.log("\n✅ All buildPage tests passed!\n");

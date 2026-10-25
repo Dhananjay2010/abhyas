@@ -7,11 +7,11 @@ import { addDays, isoWeekday } from "@/lib/dates";
 import { ownsPlannedWorkout } from "@/lib/progress/training-days";
 import type { Database } from "@/lib/database.types";
 
-type SessionType = Database["public"]["Enums"]["day_type"];
+type DayType = Database["public"]["Enums"]["day_type"];
 
 export interface ProgramDay {
   day_index: number;
-  day_type: SessionType;
+  day_type: DayType;
 }
 
 const DAY_NAMES = [

@@ -232,6 +232,7 @@ export default async function TodayPage() {
     },
     days: days ?? [],
     allSessionsRes: hasStartedAnyRes,
+    weekSessionsRes: sessionsRes,
     todaySessionsRes: sessionsRes,
     yesterdaySessionsRes: sessionsRes,
     sessionExercisesRes,
