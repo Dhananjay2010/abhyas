@@ -726,12 +726,15 @@ export async function findAlternatives(
     alreadyInSession,
   });
 
-  const alternatives = ranked.map((e) => ({
-    exerciseId: e.id,
-    name: e.name,
-    cue: (e as any).cue ?? null,
-    metric: e.metric ?? ("reps" as const),
-  }));
+  const alternatives = ranked.map((e) => {
+    const poolRow = pool.find(p => p.id === e.id);
+    return {
+      exerciseId: e.id,
+      name: e.name,
+      cue: poolRow?.cue ?? null,
+      metric: e.metric ?? ("reps" as const),
+    };
+  });
 
   return { ok: true, data: alternatives };
 }
