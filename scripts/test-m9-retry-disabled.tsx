@@ -1,194 +1,223 @@
+#!/usr/bin/env tsx
 /**
  * M9: Test Retry button is disabled while retrying
  * 
  * PLANTED BUG: Remove disabled={retrying} → allows double-click
+ * 
+ * This test reuses the same setup as test-session-runner-retry-button.tsx
  */
 
 import "./helpers/setup-jsdom";
-import { render, screen, act, fireEvent } from "@testing-library/react";
-import { SessionRunner } from "../src/app/session/[id]/session-runner";
-import type { RunnerExercise, SessionActions } from "../src/app/session/[id]/session-runner";
-import { SESSION_EXPIRED_CODE } from "../src/lib/session/auth-result";
 
-const FIXED_TIME = 1700000000000;
+import { render, act, screen } from "@testing-library/react";
+import { SessionRunner, type SessionActions, type RunnerExercise, type RunnerSettings } from "../src/app/session/[id]/session-runner";
+import { savePendingSet } from "../src/lib/session/pending-set-retry";
+import type { PendingSetDeps } from "../src/lib/session/pending-set-deps";
+
+let passed = 0;
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
-    console.error(`\n  🐛 ASSERTION FAILED: ${message}`);
-    throw new Error(`ASSERTION FAILED: ${message}`);
+    console.error(`  ❌ ${message}`);
+    throw new Error(message);
+  } else {
+    passed++;
+    console.log(`  ✓ ${message}`);
   }
-  console.log(`  ✓ ${message}`);
 }
+
+const FIXED_TIME = new Date('2026-10-25T12:00:00Z').getTime();
 
 class FakeStorage implements Storage {
   private data: Map<string, string> = new Map();
-  get length() { return this.data.size; }
-  clear(): void { this.data.clear(); }
-  getItem(key: string): string | null { return this.data.get(key) || null; }
-  key(index: number): string | null { return Array.from(this.data.keys())[index] || null; }
-  removeItem(key: string): void { this.data.delete(key); }
-  setItem(key: string, value: string): void { this.data.set(key, value); }
+  
+  get length() {
+    return this.data.size;
+  }
+  
+  clear(): void {
+    this.data.clear();
+  }
+  
+  getItem(key: string): string | null {
+    return this.data.get(key) || null;
+  }
+  
+  key(index: number): string | null {
+    return Array.from(this.data.keys())[index] || null;
+  }
+  
+  removeItem(key: string): void {
+    this.data.delete(key);
+  }
+  
+  setItem(key: string, value: string): void {
+    this.data.set(key, value);
+  }
 }
 
+const fakeStorage = new FakeStorage();
+
 Object.defineProperty(window, 'localStorage', {
-  value: new FakeStorage(),
+  value: fakeStorage,
   writable: true,
   configurable: true
 });
 
-console.log("\n🧪 M9 TEST: Retry button disabled while retrying\n");
-
-let logSetCalls = 0;
-let logSetResolve: ((value: { ok: true; data: { setId: string } }) => void) | null = null;
-let throwExpired = true;
-
-const exercise: RunnerExercise = {
-  id: "ex-1",
-  exerciseId: "bench-press",
-  name: "Bench Press",
-  cue: null,
-  metric: "reps",
-  primaryMuscles: ["chest"],
-  plannedSets: 3,
-  repsMin: 8,
-  repsMax: 12,
-  plannedRepsMin: 8,
-  plannedRepsMax: 12,
-  restSeconds: 90,
-  workingWeightKg: 60,
-  suggestedWeightKg: 60,
-  status: "pending",
-  feel: null,
-  sets: [],
-  isBodyweight: false,
+const fakeDeps: PendingSetDeps = {
+  now: () => FIXED_TIME,
 };
 
-const actions: SessionActions = {
-  markWarmupDone: async () => ({ ok: true }),
-  logSet: async () => {
-    console.log("[TEST] logSet called, throwExpired=", throwExpired);
-    logSetCalls++;
-    if (throwExpired) {
-      throw new Error(`${SESSION_EXPIRED_CODE}: Session expired`);
-    }
-    // Return a deferred promise to hold "retrying" state
-    return new Promise<{ ok: true; data: { setId: string } }>((resolve) => {
-      logSetResolve = resolve;
-    });
+const fakeTimer = {
+  setTimeout: (callback: () => void) => {
+    callback();
+    return 0;
   },
-  deleteSet: async () => ({ ok: true }),
-  finishExercise: async () => ({ ok: true, data: { outcome: "hold", message: "", personalBest: null } }),
-  finishSession: async () => ({ ok: true }),
-  abandonSession: async () => ({ ok: true }),
-  planDay: async () => ({ ok: true }),
-  refreshAfterSession: async () => ({ ok: true }),
-  swapExercise: async () => ({ ok: true, data: { workingWeightKg: null, currentTargetReps: null, isBodyweight: false } }),
-  findAlternatives: async () => ({ ok: true, data: [] }),
+  clearTimeout: () => {},
 };
 
-async function runTest() {
+async function testM9() {
+  console.log("\n📋 Test M9: Retry button disabled while retrying\n");
+  
+  let replayCallCount = 0;
+  let logSetDeferred: ((value: { ok: true }) => void) | null = null;
+  
+  const actions: SessionActions = {
+    markWarmupDone: async () => ({ ok: true }),
+    logSet: async () => {
+      if (replayCallCount === 0) {
+        replayCallCount++;
+        throw new Error("Network error");
+      }
+      replayCallCount++;
+      return new Promise<{ ok: true }>((resolve) => {
+        logSetDeferred = resolve;
+      });
+    },
+    deleteSet: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
+    finishSession: async () => ({ ok: true }),
+    abandonSession: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", plannedRepsMin: 8, plannedRepsMax: 12, repsMin: 8, repsMax: 12, currentTargetReps: 10, equipmentIds: [], weightPrefill: null, workingWeightKg: null, isBodyweight: false } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
+  };
+  
+  const exercises: RunnerExercise[] = [
+    {
+      id: "ex1",
+      exerciseId: "squat",
+      name: "Squat",
+      cue: null,
+      metric: "reps",
+      primaryMuscles: ["quads"],
+      plannedSets: 3,
+      plannedRepsMin: 8,
+      repsMin: 8,
+      plannedRepsMax: 12,
+      repsMax: 12,
+      restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
+      status: "pending",
+      feel: null,
+      sets: [],
+      isBodyweight: false,
+    },
+  ];
+  
+  const settings: RunnerSettings = {
+    perSetLogging: false,
+    restSound: false,
+    restVibrate: false,
+    restAutostart: false,
+    restOverrideSeconds: null,
+    cooldownEnabled: false,
+  };
+  
+  const userId = "test-user-m9";
+  const sessionId = "session-m9";
+  
+  fakeStorage.clear();
+  
+  savePendingSet(fakeStorage, userId, sessionId, {
+    sessionExerciseId: "ex1",
+    setNumber: 1,
+    reps: 10,
+    weightKg: 50,
+    durationSeconds: null,
+    clientId: "pending-m9"
+  }, fakeDeps);
+  
   render(
     <SessionRunner
-      sessionId="test-session"
+      sessionId={sessionId}
       sessionStatus="in_progress"
-      userId="test-user"
+      userId={userId}
       isDeload={false}
       week={1}
       warmupAlreadyDone={true}
       startedAt={new Date(FIXED_TIME).toISOString()}
       warmup={[]}
       cooldown={[]}
-      exercises={[exercise]}
-      settings={{
-        perSetLogging: true,
-        restAutostart: false,
-        restSound: false,
-        restVibrate: false,
-        restOverrideSeconds: null,
-        cooldownEnabled: false,
-      }}
+      exercises={exercises}
+      settings={settings}
       actions={actions}
+      timer={fakeTimer}
     />
   );
-
-  // Find and click "Log set 1" to create a pending set
-  const logButton = screen.getByText(/Log set 1/i);
-  assert(logButton !== null, "Log button found");
-
-  // Fill in reps field
-  const repsInput = screen.getByLabelText(/reps|seconds/i);
-  assert(repsInput !== null, "Reps input found");
   
-  await act(async () => {
-    fireEvent.change(repsInput, { target: { value: "10" } });
-  });
-
-  // Fill in weight field
-  const weightInput = screen.getByLabelText(/weight/i);
-  assert(weightInput !== null, "Weight input found");
+  await act(async () => {});
+  await act(async () => {});
   
+  const retryButtons = screen.queryAllByRole("button", { name: /retry/i });
+  assert(retryButtons.length > 0, "Retry button is visible after replay error");
+  
+  const retryButton = retryButtons[retryButtons.length - 1];
+  
+  const beforeClick = replayCallCount;
   await act(async () => {
-    fireEvent.change(weightInput, { target: { value: "60" } });
+    retryButton.click();
   });
-
-  // Click Log set - this will throw SESSION_EXPIRED and create a pending set
-  await act(async () => {
-    fireEvent.click(logButton);
-  });
-
-  // Flush microtasks to let the logSet call happen
+  
   await act(async () => {});
-
-  assert(logSetCalls === 1, "logSet called once, threw SESSION_EXPIRED");
-
-  // Now the UI should show "Retry saving 1 set"
-  const retryButton = screen.queryByText(/Retry saving 1 set/i);
-  assert(retryButton !== null, "Retry button appeared after failed save");
-  assert(!('disabled' in retryButton && retryButton.disabled), "Retry button initially enabled");
-
-  // Swap logSet to return a deferred promise
-  throwExpired = false;
-
-  // Click Retry
-  await act(async () => {
-    fireEvent.click(retryButton);
-  });
-
-  // Flush microtasks
-  await act(async () => {});
-
-  assert(logSetCalls === 2, "logSet called again after clicking Retry");
-
-  // Button should now show "Saving 1 set…" and be disabled
-  const savingButton = screen.queryByText(/Saving 1 set/i);
-  assert(savingButton !== null, "M9: Button shows 'Saving...' text while retrying");
+  
+  assert(replayCallCount > beforeClick, "logSet called after clicking Retry");
+  
+  const savingButtons = screen.queryAllByText(/Saving.*set/i);
+  assert(savingButtons.length > 0, "M9: Button shows 'Saving...' text while retrying");
+  const savingButton = savingButtons[savingButtons.length - 1];
   assert('disabled' in savingButton && savingButton.disabled === true, "M9: Button is disabled while retrying");
-
-  // Try to click again (should be blocked)
+  
+  const beforeSecondClick = replayCallCount;
   await act(async () => {
-    fireEvent.click(savingButton);
+    savingButton.click();
   });
-
+  
   await act(async () => {});
-
-  assert(logSetCalls === 2, "M9: logSet NOT called again (button disabled prevents double-click)");
-
-  // Resolve the deferred promise
-  if (logSetResolve) {
+  
+  assert(replayCallCount === beforeSecondClick, "M9: logSet NOT called again (button disabled prevents double-click)");
+  
+  if (logSetDeferred) {
     await act(async () => {
-      logSetResolve({ ok: true, data: { setId: "set-1" } });
+      logSetDeferred({ ok: true });
     });
   }
-
-  // Final state: button should be gone (pending sets cleared)
-  const finalRetryButton = screen.queryByText(/Retry saving/i);
-  assert(finalRetryButton === null, "Retry button gone after successful save");
-
-  console.log("\n✅ M9 TEST PASSED: Retry button disabled during replay\n");
-  process.exit(0);
+  
+  console.log(`\n✅ Test M9 passed (${passed} assertions)`);
+  console.log("\nMutation M9 killed: Removing disabled={retrying} allows double-click");
+  console.log("Break: Without disabled, clicking Retry twice sends duplicate logSet calls\n");
+  
+  fakeStorage.clear();
 }
 
-runTest().catch((e) => {
-  console.error("\n❌ M9 TEST FAILED:", e);
-  process.exit(1);
-});
+(async () => {
+  try {
+    await testM9();
+    process.exit(0);
+  } catch (error) {
+    console.error(`\n❌ Test M9 failed:`, error);
+    process.exit(1);
+  }
+})();

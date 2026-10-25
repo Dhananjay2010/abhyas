@@ -76,9 +76,10 @@ const fakeTimer = {
 };
 
 async function testR4AndR4s() {
-  console.log("\n📋 Test R4/R4s: Retry button visibility and replay trigger\n");
+  console.log("\n📋 Test R4/R4s/M9: Retry button visibility, replay trigger, and disabled state\n");
   
   let replayCallCount = 0;
+  let logSetDeferred: ((value: { ok: true }) => void) | null = null;
   
   const actions: SessionActions = {
     markWarmupDone: async () => ({ ok: true }),
@@ -89,7 +90,10 @@ async function testR4AndR4s() {
         throw new Error("Network error");
       }
       replayCallCount++;
-      return { ok: true };
+      // Return a deferred promise to hold "retrying" state for M9
+      return new Promise<{ ok: true }>((resolve) => {
+        logSetDeferred = resolve;
+      });
     },
     deleteSet: async () => ({ ok: true }),
     finishExercise: async () => ({ ok: true, data: null }),
@@ -196,11 +200,36 @@ async function testR4AndR4s() {
   
   assert(replayCallCount > beforeClick, "R4s: Clicking Retry button triggers controller.replay() (replayCallCount increased)");
   
-  console.log(`\n✅ Tests R4/R4s passed (${passed} assertions)`);
+  // M9: Assert button is disabled while retrying
+  const savingButtons = screen.queryAllByText(/Saving.*set/i);
+  assert(savingButtons.length > 0, "M9: Button shows 'Saving...' text while retrying");
+  const savingButton = savingButtons[savingButtons.length - 1];
+  assert('disabled' in savingButton && savingButton.disabled === true, "M9: Button is disabled while retrying");
+  
+  // M9: Try to click again (should be blocked)
+  const beforeSecondClick = replayCallCount;
+  await act(async () => {
+    savingButton.click();
+  });
+  
+  await act(async () => {});
+  
+  assert(replayCallCount === beforeSecondClick, "M9: logSet NOT called again (button disabled prevents double-click)");
+  
+  // Resolve the deferred promise
+  if (logSetDeferred) {
+    await act(async () => {
+      logSetDeferred({ ok: true });
+    });
+  }
+  
+  console.log(`\n✅ Tests R4/R4s/M9 passed (${passed} assertions)`);
   console.log("\nMutation R4 killed: Removing error state or Retry button breaks retry UI");
   console.log("Break: Without Retry button, users cannot manually trigger replay");
   console.log("\nMutation R4s killed: Removing replay() call on Retry button onClick breaks retry action");
-  console.log("Break: Without replay(), clicking Retry does nothing\n");
+  console.log("Break: Without replay(), clicking Retry does nothing");
+  console.log("\nMutation M9 killed: Removing disabled={retrying} allows double-click");
+  console.log("Break: Without disabled, clicking Retry twice sends duplicate logSet calls\n");
   
   fakeStorage.clear();
 }
