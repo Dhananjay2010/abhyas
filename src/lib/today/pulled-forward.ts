@@ -108,7 +108,7 @@ export function pulledForwardDays(input: PulledForwardInput): Map<string, Pulled
  * Get the "Done Monday (your choice)" label for a pulled-forward day.
  */
 export function pulledForwardLabel(info: PulledForwardInfo): string {
-  const dayName = DAY_NAMES[info.pulledToDayIndex];
+  const dayName = DAY_NAMES[info.pulledToDayIndex - 1]; // day_index is 1-7, DAY_NAMES is 0-6
   return `Done ${dayName} (your choice)`;
 }
 
@@ -116,7 +116,7 @@ export function pulledForwardLabel(info: PulledForwardInfo): string {
  * Get the "You already did Push A on Monday (your choice)." message for Today.
  */
 export function pulledForwardMessage(info: PulledForwardInfo): string {
-  const dayName = DAY_NAMES[info.pulledToDayIndex];
+  const dayName = DAY_NAMES[info.pulledToDayIndex - 1]; // day_index is 1-7, DAY_NAMES is 0-6
   const label = info.originalLabel ?? "training";
   return `You already did ${label} on ${dayName} (your choice).`;
 }
