@@ -74,15 +74,20 @@ export function buildWarmupInput(
   availableEquipment: Set<string> | null,
   hasAllEquipment: boolean
 ): WarmupInput {
-  // All injuries go into injuryRegions and prehabRegions (past injuries need warm-up too)
-  const allInjuryRegions = injuries.map(i => i.body_region);
+  // QA Steer (n): Only past KNEE changes the warm-up.
+  // Past shoulder and past lower_back must produce byte-identical warm-ups to main.
+  // Filter injuries to include only current injuries and past knee injuries.
+  const warmupRelevantInjuries = injuries.filter(i => 
+    i.severity === "current" || (i.severity === "past" && i.body_region === "knee")
+  );
+  const injuryRegionsForWarmup = warmupRelevantInjuries.map(i => i.body_region);
   const pastKneeInjury = injuries.some(i => i.severity === "past" && i.body_region === "knee");
   
   return {
     warmups,
     trainingMuscles,
-    injuryRegions: allInjuryRegions,
-    prehabRegions: allInjuryRegions,
+    injuryRegions: injuryRegionsForWarmup,
+    prehabRegions: injuryRegionsForWarmup,
     track,
     availableEquipment,
     hasAllEquipment,
