@@ -6,6 +6,8 @@
  */
 
 import { supabaseCloseStaleQueries, type SessionExerciseRow } from "../src/lib/session/close-stale-deps";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../src/lib/database.types";
 
 type CallRecord = {
   table?: string;
@@ -77,7 +79,7 @@ function check(label: string, ok: boolean, detail = "") {
 console.log("\n1. ad1: updateSessionIfStatus passes guardStatus to .eq");
 {
   const client = new RecordingSupabaseClient();
-  const adapter = supabaseCloseStaleQueries(client as any);
+  const adapter = supabaseCloseStaleQueries(client as unknown as SupabaseClient<Database>);
   
   await adapter.updateSessionIfStatus("sess1", "in_progress", { status: "completed" });
   
@@ -89,7 +91,7 @@ console.log("\n1. ad1: updateSessionIfStatus passes guardStatus to .eq");
 console.log("\n2. ad2: updateSessionIfStatus passes { count: 'exact' }");
 {
   const client = new RecordingSupabaseClient();
-  const adapter = supabaseCloseStaleQueries(client as any);
+  const adapter = supabaseCloseStaleQueries(client as unknown as SupabaseClient<Database>);
   
   await adapter.updateSessionIfStatus("sess2", "planned", { status: "skipped" });
   
@@ -100,7 +102,7 @@ console.log("\n2. ad2: updateSessionIfStatus passes { count: 'exact' }");
 console.log("\n3. selectSessionSets calls session_exercises with .in");
 {
   const client = new RecordingSupabaseClient();
-  const adapter = supabaseCloseStaleQueries(client as any);
+  const adapter = supabaseCloseStaleQueries(client as unknown as SupabaseClient<Database>);
   
   await adapter.selectSessionSets(["s1", "s2"]);
   
