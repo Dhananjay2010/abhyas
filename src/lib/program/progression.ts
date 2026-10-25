@@ -534,7 +534,7 @@ export function evaluateProgression(input: {
     // Bodyweight with added weight: smaller steps, never doubled.
     // Loaded exercises: with equipment, ONE grid step only (never doubled); without equipment, standard increment (doubled on easy).
     const isBodyweightWithAddedWeight = meta.isBodyweight && heaviest > 0;
-    const from = baseWeight;
+    const from = baseWeight ?? heaviest;
     
     let next: number;
     if (equipmentIds && unit) {

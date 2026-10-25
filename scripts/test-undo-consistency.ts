@@ -58,7 +58,7 @@ console.log("\n=== Undo Consistency: Final Logged Sets ===\n");
   
   check("Planned 4 but logged 3x12@60 → drops from mode 60 to 57.5 kg (first miss)", result.nextWorkingWeightKg === 57.5);
   check("  message includes '57.5 kg'", result.message.includes("57.5 kg"));
-  check("  message weight matches next", result.message.includes(result.nextWorkingWeightKg.toString()));
+  check("  message weight matches next", result.nextWorkingWeightKg !== null && result.message.includes(result.nextWorkingWeightKg.toString()));
   check("  outcome is hold", result.outcome === "hold");
 }
 
@@ -115,7 +115,7 @@ console.log("\n=== Undo Consistency: Final Logged Sets ===\n");
   
   check("After undo: 2x12@60 + 1x12@62.5 → drops from mode 60 to 57.5 kg", result.nextWorkingWeightKg === 57.5);
   check("  message includes '57.5 kg'", result.message.includes("57.5 kg"));
-  check("  message weight matches next", result.message.includes(result.nextWorkingWeightKg.toString()));
+  check("  message weight matches next", result.nextWorkingWeightKg !== null && result.message.includes(result.nextWorkingWeightKg.toString()));
   check("  outcome is hold", result.outcome === "hold");
 }
 

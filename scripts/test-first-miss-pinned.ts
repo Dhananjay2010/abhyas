@@ -85,6 +85,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 // Dumbbell 6 → holds at 6 (Rule 2 clamp: two-miss RAW 90%=5.4, no loadable in range, holds at 6)
 {
   const d = run({
+    sets: sets(4, 10, 6),
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: CURL,
@@ -97,6 +98,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 // Dumbbell 12 → holds at 12 (Rule 2 clamp: two-miss RAW 90%=10.8, ceil to 12.5 >= 12, holds at 12)
 {
   const d = run({
+    sets: sets(4, 10, 12),
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: CURL,
@@ -109,6 +111,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 // Dumbbell 5 → holds (smallest loadable, or below increment)
 {
   const d = run({
+    sets: sets(4, 10, 5),
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: CURL,
@@ -121,6 +124,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (metric) ===");
 // Dumbbell 7.5 → holds (33% cut triggers 20% threshold)
 {
   const d = run({
+    sets: sets(4, 10, 7.5),
     equipmentIds: ["dumbbell"],
     unit: "kg",
     meta: CURL,
@@ -138,6 +142,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 // Imperial: Dumbbell 6 kg → holds (Rule 2 clamp)
 {
   const d = run({
+    sets: sets(4, 10, 6),
     equipmentIds: ["dumbbell"],
     unit: "lb",
     meta: CURL,
@@ -150,6 +155,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 // Imperial: Dumbbell 12 kg → holds (Rule 2 clamp)
 {
   const d = run({
+    sets: sets(4, 10, 12),
     equipmentIds: ["dumbbell"],
     unit: "lb",
     meta: CURL,
@@ -161,6 +167,7 @@ console.log("\n=== First-Miss: Dumbbell Cases (imperial) ===");
 
 {
   const d = run({
+    sets: sets(4, 10, 5),
     equipmentIds: ["dumbbell"],
     unit: "lb",
     meta: CURL,
@@ -381,7 +388,6 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     sets: sets(4, 10, 3),
-    sets: sets(4, 10, 3),
     equipmentIds: ["kettlebell"],
     unit: "kg",
     meta: CURL,
@@ -394,8 +400,6 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     sets: sets(4, 10, 3),
-    sets: sets(4, 10, 3),
-    equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
     state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 0 }),
@@ -407,8 +411,6 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     sets: sets(4, 10, 3),
-    sets: sets(4, 10, 3),
-    equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
     state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 1 }),
@@ -420,8 +422,6 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     sets: sets(4, 10, 4.5),
-    sets: sets(4, 10, 4.5),
-    equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
     state: fresh({ currentWorkingWeightKg: 4.5, consecutiveFailures: 0 }),
