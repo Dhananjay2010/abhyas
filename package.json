@@ -331,7 +331,8 @@
     "test:session-guards": "tsx scripts/test-session-guards.ts",
     "test:warmup-exclusion": "tsx scripts/test-warmup-exclusion.ts",
     "test:epoch-1970-protection": "tsx scripts/test-epoch-1970-protection.ts",
-    "test:abandon-end-early-real-db": "tsx scripts/test-abandon-end-early-real-db.ts"
+    "test:abandon-end-early-real-db": "tsx scripts/test-abandon-end-early-real-db.ts",
+    "test:abandon-stale-duration": "tsx scripts/test-abandon-stale-duration.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
