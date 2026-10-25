@@ -39,7 +39,7 @@ export function computeSessionDuration(
  * @returns Formatted string like "45 min" or "<1 min", or null if no duration
  */
 export function formatDurationMinutes(seconds: number | null): string | null {
-  if (seconds === null || seconds === undefined) return null;
+  if (seconds === null || seconds === undefined) return "—";
   
   // A real 0 duration (ended early with no sets) returns null - let caller show "Ended early"
   if (seconds === 0) return null;

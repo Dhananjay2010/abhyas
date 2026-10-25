@@ -71,9 +71,9 @@ test("formatDurationMinutes shows <1 min for very short", () => {
   assertEqual(result, "<1 min");
 });
 
-test("formatDurationMinutes returns null for NULL", () => {
+test("formatDurationMinutes returns '—' for NULL (QA Bot 1 new LOW)", () => {
   const result = formatDurationMinutes(null);
-  assertEqual(result, null, "Should return null for NULL duration");
+  assertEqual(result, "—", "Should return '—' for NULL duration (legacy History rows)");
 });
 
 test("formatDurationMinutes returns null for 0 (not '0 min')", () => {
