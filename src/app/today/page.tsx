@@ -19,7 +19,7 @@ import { buildTodayRows } from "@/lib/today/build-today-rows";
 import { previousDayResumeHref } from "@/lib/today/session-detection";
 import { isMissedYesterday } from "@/lib/today/is-missed-yesterday";
 import { weekWindow } from "@/lib/today/week-window";
-import { pulledForwardDays, pulledForwardMessage as makePulledForwardMessage } from "@/lib/today/pulled-forward";
+import { pulledForwardDays } from "@/lib/today/pulled-forward";
 import { WarmupSection } from "@/components/today/warmup-section";
 
 export const dynamic = "force-dynamic";
@@ -312,8 +312,6 @@ export default async function TodayPage() {
     days: days ?? [],
     localToday,
   });
-  const pulledForwardInfo = pulledForward.size === 1 ? pulledForward.values().next().value : null;
-  const pulledForwardMessage = pulledForwardInfo ? makePulledForwardMessage(pulledForwardInfo) : null;
 
   // Only worth asking while today is still open to being changed.
   const askAboutToday = missedYesterday && !strengthDone && !strengthOpen;
@@ -434,9 +432,6 @@ export default async function TodayPage() {
         )}
       </header>
 
-      {pulledForwardMessage && (
-        <p className="mt-4 text-sm text-gray-600">{pulledForwardMessage}</p>
-      )}
 
       {needsEquipment && (
         <p className="mt-4 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-accent">
@@ -596,6 +591,8 @@ export default async function TodayPage() {
           todayExercises={todayExercises}
           actual={performedRows?.data ?? null}
           strengthDone={strengthDone}
+          isDeload={isDeload}
+          isTraining={isTraining}
         />
       )}
 

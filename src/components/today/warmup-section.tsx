@@ -22,14 +22,15 @@ export function WarmupSection({
   todayExercises,
   actual,
   strengthDone,
+  isDeload,
+  isTraining,
 }: {
   todayExercises: Exercise[];
   actual: unknown[] | null;
   strengthDone: boolean;
+  isDeload: boolean;
+  isTraining: boolean;
 }) {
-  if (todayExercises.length === 0) {
-    return null;
-  }
 
   const heading = !(actual && actual.length > 0)
     ? "Warm-up, then"
@@ -57,9 +58,9 @@ export function WarmupSection({
                 {row.metric === "seconds" ? "s" : ""}
               </span>
             </div>
-            {(row.swappedIn || row.skipped) && (
+            {(row.swappedIn || row.skipped || (isDeload && isTraining && !row.skipped && !(actual && actual.length > 0))) && (
               <p className="mt-1 text-xs font-medium text-muted uppercase tracking-wider">
-                {row.skipped ? "Skipped" : "Swapped in"}
+                {row.skipped ? "Skipped" : row.swappedIn ? "Swapped in" : "Deload"}
               </p>
             )}
             {row.cue && <p className="mt-1 text-sm text-muted">{row.cue}</p>}
