@@ -14,9 +14,19 @@ import {
   buildProgressionInput,
   type SessionExerciseRow,
   type SessionSetRow,
-  type ExerciseProgressRow,
   type SessionRow,
 } from "../src/lib/session/build-progression-input";
+
+type ExerciseProgressRow = {
+  current_working_weight_kg: string | number | null;
+  current_target_reps: number | null;
+  consecutive_failures: number;
+  best_weight_kg: string | number | null;
+  best_reps: number | null;
+  best_e1rm: string | number | null;
+  total_sessions: number;
+  weight_at_failure_start_kg?: string | number | null;
+} | null;
 import {
   writeExerciseProgressCore,
   type ProgressClient,
@@ -87,6 +97,7 @@ async function main() {
       best_reps: 10,
       best_e1rm: "53.33",
       total_sessions: 1,
+      weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -152,6 +163,7 @@ async function main() {
       best_reps: 10,
       best_e1rm: "53.33",
       total_sessions: 1,
+      weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
@@ -213,6 +225,7 @@ async function main() {
       best_reps: 10,
       best_e1rm: "53.33",
       total_sessions: 1,
+      weight_at_failure_start_kg: null,
     };
 
     const session: SessionRow = {
