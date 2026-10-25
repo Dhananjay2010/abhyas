@@ -44,6 +44,8 @@ export type FinishSessionDeps = {
   loadSessionStatus(id: string): Promise<{ data: { status: "completed" | "skipped" | "in_progress" } | null; error: string | null }>;
   loadExercisesForUpdate(sessionId: string): Promise<{ data: ExerciseForUpdate[] | null; error: string | null }>;
   updateExerciseStatus(id: string, status: Database["public"]["Enums"]["exercise_status"]): Promise<{ error: string | null }>;
+  /** Injectable clock for deterministic testing. Defaults to () => new Date().toISOString() */
+  now?: () => string;
 };
 
 export function makeFinishSessionDeps(supabase: Client): FinishSessionDeps {

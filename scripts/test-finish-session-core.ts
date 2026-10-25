@@ -26,7 +26,7 @@ function assertTrue(condition: boolean, message: string) {
   }
 }
 
-type Call = { method: string; filters?: Record<string, unknown> };
+type Call = { method: string; filters?: Record<string, unknown>; patch?: Record<string, unknown> };
 
 function makeFakeFinishSessionDeps(
   exercises: SessionExerciseWithSets[],
@@ -55,8 +55,8 @@ function makeFakeFinishSessionDeps(
       if (readError) return { data: null, error: readError };
       return { data: exercises, error: null };
     },
-    async updateSession() {
-      calls.push({ method: "update", filters: { status: "in_progress" } });
+    async updateSession(_id: string, patch: Record<string, unknown>) {
+      calls.push({ method: "update", filters: { status: "in_progress" }, patch });
       if (updateError) return { error: updateError, updatedCount: 0 };
       return { error: null, updatedCount: updateCount ?? 1 };
     },
@@ -304,6 +304,94 @@ async function testAbandonSessionHandlesReadError() {
   }
 }
 
+// --- Null duration tests (item 5) ---
+
+async function testFinishSessionNullDurationForNullStartedAt() {
+  // Session with null started_at and working sets logged
+  const exercises = [
+    {
+      rest_seconds: 90,
+      session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:05:00Z" }],
+    },
+  ];
+
+  const fake = makeFakeFinishSessionDeps(exercises, [], undefined, undefined, 1);
+  // Override to return null started_at
+  fake.loadSession = async () => ({
+    data: {
+      started_at: null,
+      local_date: "2026-10-24",
+      user_id: "user-123",
+    },
+    error: null,
+  });
+
+  const result = await finishSessionCore(fake, {
+    sessionId: "s1",
+    durationSeconds: 100,
+    cooldownCompleted: true,
+  });
+
+  assertTrue(result.ok, "finishSession with null started_at should succeed");
+  const updateCall = fake.calls.find((c: Call) => c.method === "update");
+  assertTrue(updateCall !== undefined, "finishSession must call update");
+  assertEquals(updateCall?.patch?.duration_seconds, null, "duration_seconds === null for null started_at (nullstart)");
+}
+
+async function testFinishSessionNullDurationForInvalidStartedAt() {
+  // Session with invalid (unparseable) started_at and working sets logged
+  const exercises = [
+    {
+      rest_seconds: 90,
+      session_sets: [{ id: "1", is_warmup_set: false, completed_at: "2026-10-24T14:05:00Z" }],
+    },
+  ];
+
+  const fake = makeFakeFinishSessionDeps(exercises, [], undefined, undefined, 1);
+  // Override to return invalid started_at
+  fake.loadSession = async () => ({
+    data: {
+      started_at: "invalid-date-string",
+      local_date: "2026-10-24",
+      user_id: "user-123",
+    },
+    error: null,
+  });
+
+  const result = await finishSessionCore(fake, {
+    sessionId: "s1",
+    durationSeconds: 100,
+    cooldownCompleted: true,
+  });
+
+  assertTrue(result.ok, "finishSession with invalid started_at should succeed");
+  const updateCall = fake.calls.find((c: Call) => c.method === "update");
+  assertTrue(updateCall !== undefined, "finishSession must call update");
+  assertEquals(updateCall?.patch?.duration_seconds, null, "duration_seconds === null for invalid started_at (invalidstale)");
+}
+
+async function testFinishSessionNullDurationForInvalidLastSetTime() {
+  // Session with valid started_at but invalid lastSet completed_at
+  const exercises = [
+    {
+      rest_seconds: 90,
+      session_sets: [{ id: "1", is_warmup_set: false, completed_at: "not-a-valid-timestamp" }],
+    },
+  ];
+
+  const fake = makeFakeFinishSessionDeps(exercises, [], undefined, undefined, 1);
+  const result = await finishSessionCore(fake, {
+    sessionId: "s1",
+    durationSeconds: 100,
+    cooldownCompleted: true,
+  });
+
+  assertTrue(result.ok, "finishSession with invalid lastSet time should succeed");
+  const updateCall = fake.calls.find((c: Call) => c.method === "update");
+  assertTrue(updateCall !== undefined, "finishSession must call update");
+  assertEquals(updateCall?.patch?.duration_seconds, null, "duration_seconds === null for invalid lastSet completed_at (nullclamp)");
+}
+
 // --- Run all tests ---
 
 (async () => {
@@ -315,6 +403,9 @@ async function testAbandonSessionHandlesReadError() {
   await testFinishSessionHandlesReadError();
   await testFinishSessionHandlesUpdateError();
   await testFinishSessionSetsCooldownCompletedOnlyWhenCompleted();
+  await testFinishSessionNullDurationForNullStartedAt();
+  await testFinishSessionNullDurationForInvalidStartedAt();
+  await testFinishSessionNullDurationForInvalidLastSetTime();
 
   await testAbandonSessionRequiresInProgressFilter();
   await testAbandonSessionRespectsDecideAbandonStatus();

@@ -102,44 +102,41 @@ async function runTests() {
 
   console.log("1. Session started yesterday in Asia/Kolkata is treated as stale (7, 7b)");
   {
-    // Scenario: Started at 23:30 IST yesterday (18:00 UTC yesterday)
-    // Now it's 00:30 IST today (19:00 UTC yesterday, same UTC day)
-    // In IST: different day -> stale
-    // In UTC: same day -> not stale
-    // The test passes if duration is capped (stale) rather than actual elapsed
+    // Scenario: Started at 23:30 IST yesterday, now it's 00:30 IST today
+    // In IST these are different days -> stale
+    // Pin the timestamps:
+    // - started_at: 2026-10-24T18:00:00Z (= 2026-10-24 23:30 IST)
+    // - now:        2026-10-24T19:00:00Z (= 2026-10-25 00:30 IST)
+    // This is a 1-hour elapsed session, but crosses midnight in IST so it's stale.
     
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    yesterday.setHours(18, 0, 0, 0); // 23:30 IST yesterday = 18:00 UTC yesterday
-    
-    const yesterdayISO = yesterday.toISOString();
-    const yesterdayLocalDate = new Date(yesterday.getTime() + 5.5 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0]; // Yesterday in IST
+    const startedAt = "2026-10-24T18:00:00Z";
+    const nowPinned = "2026-10-24T19:00:00Z";
+    const localDate = "2026-10-24"; // Started on 2026-10-24 in IST
 
-    const { client, getSavedDuration } = makeFakeClient("Asia/Kolkata", yesterdayISO, yesterdayLocalDate);
+    const { client, getSavedDuration } = makeFakeClient("Asia/Kolkata", startedAt, localDate);
     const deps = makeFinishSessionDeps(client);
+    // Inject pinned "now"
+    deps.now = () => nowPinned;
 
     const result = await finishSessionCore(deps, {
       sessionId: "session-1",
-      durationSeconds: 18000, // 5 hours elapsed
+      durationSeconds: 3600, // 1 hour elapsed
       cooldownCompleted: false,
     });
 
     if (result.ok) {
       assertTrue(true, "finishSessionCore should succeed");
-      // If timezone is used correctly, the session is stale and duration should be capped
-      // A stale duration uses the sets and rest times, not the actual elapsed time
-      // With 1 set and 60s rest, capped duration should be much less than 18000s
+      // The session is stale (crossed midnight in IST), so duration should be capped
+      // With 1 set and 60s rest, capped duration should be much less than 3600s
       const duration = getSavedDuration();
       assertTrue(
-        duration !== null && duration !== undefined && duration < 18000,
-        "Duration should be capped for stale session (not the full 5 hours)",
-        `Got ${duration}s, expected < 18000s`
+        duration !== null && duration !== undefined && duration < 3600,
+        "Duration should be capped for stale session (not the full hour)",
+        `Got ${duration}s, expected < 3600s`
       );
       assertTrue(
-        duration !== null && duration !== undefined && duration < 3600,
-        "Duration should NOT be the actual duration (stale)",
+        duration !== null && duration !== undefined && duration < 300,
+        "Duration should be based on set time + rest, not actual elapsed",
         `Got ${duration}s`
       );
     } else {
@@ -150,13 +147,14 @@ async function runTests() {
 
   console.log("\n2. Null timezone falls back to UTC");
   {
-    const now = new Date();
-    now.setHours(now.getHours() - 2);
-    const twoHoursAgo = now.toISOString();
-    const todayLocalDate = new Date().toISOString().split("T")[0];
+    // Pin timestamps for deterministic test
+    const startedAt = "2026-10-24T16:00:00Z";
+    const nowPinned = "2026-10-24T18:00:00Z";
+    const localDate = "2026-10-24";
 
-    const { client } = makeFakeClient(null, twoHoursAgo, todayLocalDate);
+    const { client } = makeFakeClient(null, startedAt, localDate);
     const deps = makeFinishSessionDeps(client);
+    deps.now = () => nowPinned;
 
     const result = await finishSessionCore(deps, {
       sessionId: "session-1",

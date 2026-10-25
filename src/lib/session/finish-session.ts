@@ -65,7 +65,7 @@ export async function finishSessionCore(
     }
   }
 
-  const now = new Date().toISOString();
+  const now = deps.now?.() ?? new Date().toISOString();
 
   // If started_at is null, treat as stale and save null duration like main did
   const startedAt = session.started_at;
