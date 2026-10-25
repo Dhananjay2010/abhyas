@@ -15,7 +15,7 @@ import {
 import { validateSet } from "@/lib/session/validation";
 import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
-import { kgToDisplay, displayToKg, formatLoad, type UnitsPreference } from "@/lib/units";
+import { kgToDisplay, displayToKg, formatLoad, roundToPlate, type UnitsPreference } from "@/lib/units";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { formatTargetRange } from "@/lib/session/format-target-range";
 import { applySwapResult } from "@/lib/session/apply-swap";
@@ -924,6 +924,7 @@ export function SessionRunner({
             defaultReps={defaultReps}
             setNumber={nextSetNumber}
             isBodyweight={current.isBodyweight}
+            units={settings.units}
             onLog={(reps, weightKg, durationSeconds) =>
               onLogSet(current.id, reps, weightKg, durationSeconds)
             }
@@ -1150,6 +1151,7 @@ function SetEntry({
   defaultReps,
   setNumber,
   isBodyweight,
+  units,
   onLog,
   onHoldComplete,
   disabled = false,
@@ -1165,6 +1167,7 @@ function SetEntry({
   setNumber: number;
   /** True for bodyweight exercises: changes weight label and default. */
   isBodyweight: boolean;
+  units: "metric" | "imperial";
   onLog: (
     reps: number | null,
     weightKg: number | null,
@@ -1181,9 +1184,13 @@ function SetEntry({
   const [reps, setReps] = useState(defaultReps !== null ? String(defaultReps) : "");
   // For bodyweight exercises, only prefill if the last set actually used added weight.
   const shouldPrefillWeight = !isBodyweight || (defaultWeight !== null && defaultWeight > 0);
-  const [weight, setWeight] = useState(
-    shouldPrefillWeight && defaultWeight !== null ? String(defaultWeight) : "",
-  );
+  const [weight, setWeight] = useState(() => {
+    if (!shouldPrefillWeight || defaultWeight === null) return "";
+    // Convert to display units and round to plate steps (2.5 kg / 5 lb)
+    const displayValue = kgToDisplay(defaultWeight, units);
+    const rounded = roundToPlate(displayValue, units);
+    return String(rounded);
+  });
 
   /**
    * The hold timer.
@@ -1292,11 +1299,15 @@ function SetEntry({
           />
         </label>
         <label className="block">
-          <span className="text-sm text-muted">{isBodyweight ? "Added weight (kg)" : "Weight (kg)"}</span>
+          <span className="text-sm text-muted">
+            {isBodyweight 
+              ? `Added weight (${units === "metric" ? "kg" : "lb"})` 
+              : `Weight (${units === "metric" ? "kg" : "lb"})`}
+          </span>
           <input
             type="number"
             inputMode="decimal"
-            step="0.5"
+            step={units === "metric" ? "2.5" : "5"}
             min={0}
             max={999}
             value={weight}
@@ -1317,14 +1328,12 @@ function SetEntry({
       <div className="mt-3">
         <BigButton
           disabled={disabled || invalid !== null || holdEndsAt !== null}
-          onClick={() =>
-            isTimed
-              ? onLog(null, weight === "" ? null : Number(weight), Number(reps))
-              : onLog(
-                  reps === "" ? null : Number(reps),
-                  weight === "" ? null : Number(weight),
-                )
-          }
+          onClick={() => {
+            const weightKg = weight === "" ? null : displayToKg(Number(weight), units);
+            return isTimed
+              ? onLog(null, weightKg, Number(reps))
+              : onLog(reps === "" ? null : Number(reps), weightKg);
+          }}
         >
           Log set {setNumber}
         </BigButton>
