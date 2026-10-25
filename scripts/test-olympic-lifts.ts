@@ -10,10 +10,10 @@ import {
   type CandidateExercise, 
   type GeneratorInput,
   isOlympicLift,
-  // isAllowedSwapTarget, // Removed in Step 1: replaced with buildEligibleSwapList
   isEligible,
 } from "../src/lib/program/generate";
 import { buildPatternList, rankAlternatives } from "../src/lib/program/alternatives";
+import { buildEligibleSwapList } from "../src/lib/session/eligible-swap-list";
 
 const catalogue: CandidateExercise[] = JSON.parse(readFileSync(__dirname + "/fixtures/catalogue.json", "utf8"));
 
@@ -106,38 +106,60 @@ console.log("\n2. Current-knee user glute-bridge swaps contain NO Olympic lifts"
   }
 }
 
-// TODO Step 2: Rewrite this test to use buildEligibleSwapList instead of isAllowedSwapTarget
-// console.log("\n3. isAllowedSwapTarget validator rejects Olympic lifts for current-injury users");
-// {
-//   const powerClean = catalogue.find(e => e.slug === "power-clean");
-//   if (!powerClean) {
-//     check("power-clean exists in catalogue", false);
-//   } else {
-//     // Current knee injury: should reject
-//     const kneeInput = base({
-//       currentInjuryRegions: ["knee"],
-//       anyKneeInjury: true,
-//     });
-//     const kneeRejected = !isAllowedSwapTarget(powerClean, kneeInput);
-//     check("Validator rejects power-clean for current knee", kneeRejected);
-//     
-//     // Current shoulder injury: should reject
-//     const shoulderInput = base({
-//       currentInjuryRegions: ["shoulder"],
-//       anyKneeInjury: false,
-//     });
-//     const shoulderRejected = !isAllowedSwapTarget(powerClean, shoulderInput);
-//     check("Validator rejects power-clean for current shoulder", shoulderRejected);
-//     
-//     // Past knee injury (no current): Steer 1 decision - REJECT Olympic lifts in swaps (stricter than plans)
-//     const pastKneeInput = base({
-//       currentInjuryRegions: [],
-//       anyKneeInjury: true,
-//     });
-//     const pastKneeRejected = !isAllowedSwapTarget(powerClean, pastKneeInput);
-//     check("Validator rejects power-clean for past knee (swap-only restriction)", pastKneeRejected);
-//   }
-// }
+console.log("\n3. Swap eligibility rejects Olympic lifts for current-injury and past-knee users");
+{
+  const powerClean = catalogue.find(e => e.slug === "power-clean");
+  const barbellSquat = catalogue.find(e => e.slug === "barbell-squat");
+  
+  if (!powerClean || !barbellSquat) {
+    check("power-clean and barbell-squat exist in catalogue", false);
+  } else {
+    // Current knee injury: should reject Olympic lifts
+    const kneeInput = base({
+      currentInjuryRegions: ["knee"],
+      anyKneeInjury: true,
+    });
+    const kneeSwaps = buildEligibleSwapList({
+      currentExercise: barbellSquat,
+      sessionExerciseId: "test-session-ex",
+      generatorInput: kneeInput,
+      pool: catalogue,
+      alreadyInSession: new Set([barbellSquat.id]),
+    });
+    const kneeSlugs = kneeSwaps.map(e => e.slug);
+    check("Swap list excludes power-clean for current knee", !kneeSlugs.includes("power-clean"));
+    
+    // Current shoulder injury: should reject Olympic lifts
+    const shoulderInput = base({
+      currentInjuryRegions: ["shoulder"],
+      anyKneeInjury: false,
+    });
+    const shoulderSwaps = buildEligibleSwapList({
+      currentExercise: barbellSquat,
+      sessionExerciseId: "test-session-ex",
+      generatorInput: shoulderInput,
+      pool: catalogue,
+      alreadyInSession: new Set([barbellSquat.id]),
+    });
+    const shoulderSlugs = shoulderSwaps.map(e => e.slug);
+    check("Swap list excludes power-clean for current shoulder", !shoulderSlugs.includes("power-clean"));
+    
+    // Past knee injury (no current): Decision (a) - REJECT Olympic lifts in swaps
+    const pastKneeInput = base({
+      currentInjuryRegions: [],
+      anyKneeInjury: true,
+    });
+    const pastKneeSwaps = buildEligibleSwapList({
+      currentExercise: barbellSquat,
+      sessionExerciseId: "test-session-ex",
+      generatorInput: pastKneeInput,
+      pool: catalogue,
+      alreadyInSession: new Set([barbellSquat.id]),
+    });
+    const pastKneeSlugs = pastKneeSwaps.map(e => e.slug);
+    check("Decision (a): Swap list excludes power-clean for past knee", !pastKneeSlugs.includes("power-clean"));
+  }
+}
 
 console.log("\n4. Healthy user is offered Olympic lifts where equipment allows");
 {
