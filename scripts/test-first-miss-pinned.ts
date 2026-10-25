@@ -387,6 +387,7 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     sets: sets(4, 10, 3),
+    equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
     state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 0 }),
@@ -398,6 +399,7 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     sets: sets(4, 10, 3),
+    equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
     state: fresh({ currentWorkingWeightKg: 3, consecutiveFailures: 1 }),
@@ -409,6 +411,7 @@ console.log("\n=== NEVER-RAISE Tests ===");
 {
   const d = run({
     sets: sets(4, 10, 4.5),
+    equipmentIds: ["lat_pulldown"],
     unit: "kg",
     meta: { ...CURL, mechanic: "isolation", movementPattern: "vertical_pull" },
     state: fresh({ currentWorkingWeightKg: 4.5, consecutiveFailures: 0 }),
@@ -571,6 +574,8 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
 }
 
 // Test 20-25% range: barbell compound 10kg -> 7.5kg = 25% cut
+// This kills mutant (l): with threshold 0.20, Rule 1 triggers (message "cut more than 20%")
+// With threshold 0.25, Rule 1 doesn't trigger, Rule 2 would trigger instead (different message)
 {
   const d = run({
     sets: sets(4, 10, 10),
@@ -582,6 +587,24 @@ console.log("\n=== THRESHOLD BEHAVIOR ===");
   const nextDown = 7.5;
   const cutPct = (10 - nextDown) / 10;
   check(`Threshold 0.20: 10kg with ${(cutPct*100).toFixed(1)}% cut holds (> 20%, < 25%)`, d.nextWorkingWeightKg === 10);
+  check(`  message says "cut more than 20%" (kills threshold->0.25 mutant)`, d.message.includes("cut more than 20%"));
+}
+
+// Kill threshold mutant (l): no-equipment case with cut between 20% and 25%
+// 11 kg -> 8.75 kg = 20.45% cut
+// With threshold 0.20: 20.45% > 20%, holds at 11 kg
+// With threshold 0.25: 20.45% < 25%, drops to 8.75 kg
+// No equipment: mainFloor = floor(0.9*11/2.5)*2.5 = 7.5, candidate 8.75 >= 7.5 (no clamp)
+{
+  const d = run({
+    sets: sets(4, 10, 11),
+    equipmentIds: undefined,
+    unit: undefined,
+    meta: { ...BENCH, mechanic: "compound" },
+    state: fresh({ currentWorkingWeightKg: 11, consecutiveFailures: 0 }),
+  });
+  const cutPct = (11 - 8.75) / 11;
+  check(`No-equipment 11 kg: ${(cutPct*100).toFixed(1)}% cut holds (kills threshold 0.20->0.25 mutant)`, d.nextWorkingWeightKg === 11);
 }
 
 console.log("\n=== HARD-FEEL HOLD ===");

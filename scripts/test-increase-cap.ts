@@ -123,18 +123,7 @@ console.log("\nCase 2: Barbell Squat 72.5 kg, all sets hit, EASY feel");
   console.log(`  Outcome: ${d.outcome}`);
   console.log(`  Message: "${d.message}"`);
   console.log(`  Jump: ${d.nextWorkingWeightKg !== null ? d.nextWorkingWeightKg - 72.5 : 'N/A'} kg`);
-  
-  // Current behavior might double on easy: 72.5 + 5.0 = 77.5 → rounds to 80
-  // This test documents the BUG if it produces 80
-  if (d.nextWorkingWeightKg === 80) {
-    console.log(`  ⚠️  BUG DETECTED: Multi-step jump (72.5 → 80 = +7.5 kg = 3 steps)`);
-    check("  (documenting bug) produces 80 kg", d.nextWorkingWeightKg === 80);
-  } else if (d.nextWorkingWeightKg === 75) {
-    check("Barbell squat 72.5 kg (EASY feel) → 75 kg (capped to one step)", d.nextWorkingWeightKg === 75);
-  } else {
-    console.log(`  Unexpected result: ${d.nextWorkingWeightKg} kg`);
-    check("Barbell squat 72.5 kg (EASY feel) → 75 kg", d.nextWorkingWeightKg === 75);
-  }
+  check("Barbell squat 72.5 kg (EASY feel) → 75 kg (capped to one step)", d.nextWorkingWeightKg === 75);
 }
 
 console.log("\nCase 3: Dumbbell Lunge 14 kg → check if snaps to 20 kg bar");
@@ -288,13 +277,7 @@ console.log("\nCase 4: Dumbbell 14 kg with EASY feel");
   console.log(`  Next weight: ${d.nextWorkingWeightKg} kg`);
   console.log(`  Jump: ${d.nextWorkingWeightKg !== null ? d.nextWorkingWeightKg - 14 : 'N/A'} kg`);
   
-  // With easy + doubling: 14 + 5 = 19 → rounds up to 20
-  if (d.nextWorkingWeightKg === 20) {
-    console.log(`  ⚠️  BUG: EASY feel doubles step, causing multi-step jump`);
-    check("  (documenting bug) easy feel → 20 kg", d.nextWorkingWeightKg === 20);
-  } else if (d.nextWorkingWeightKg && d.nextWorkingWeightKg <= 17.5) {
-    check("Dumbbell 14 kg (EASY) → capped to reasonable step", true);
-  }
+  check("Dumbbell 14 kg (EASY) → 15 kg (one-step cap)", d.nextWorkingWeightKg === 15);
 }
 
 console.log("\nCase 5: Kettlebell 22 kg → next bell");

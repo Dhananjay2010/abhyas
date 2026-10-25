@@ -110,4 +110,36 @@ console.log("\n=== Timed Hold Message Consistency ===\n");
   check("Plank 3x45s (currentTargetReps=45) → progressed to 50s", result.outcome === "progressed" && result.nextTargetReps === 50);
 }
 
+// Weighted barbell: currentTargetReps 12, repsMax 10, 4x10 -> progressed (checks repsMax, not currentTargetReps)
+{
+  const SQUAT: ExerciseMeta = {
+    mechanic: "compound",
+    metric: "reps",
+    movementPattern: "squat",
+    isBodyweight: false,
+    progressionChain: null,
+    progressionRank: null,
+  };
+  
+  const result = evaluateProgression({
+    sets: [
+      { reps: 10, weightKg: 100 },
+      { reps: 10, weightKg: 100 },
+      { reps: 10, weightKg: 100 },
+      { reps: 10, weightKg: 100 },
+    ],
+    plannedSets: 4,
+    repsMin: 8,
+    repsMax: 10,
+    feel: "right",
+    equipmentIds: ["barbell"],
+    unit: "kg",
+    meta: SQUAT,
+    state: fresh({ currentTargetReps: 12, currentWorkingWeightKg: 100 }),
+    isDeload: false,
+  });
+  
+  check("Weighted barbell currentTargetReps=12, repsMax=10, 4x10 → progressed (weighted uses repsMax)", result.outcome === "progressed");
+}
+
 console.log("\n✅ All timed-hold message tests passed\n");

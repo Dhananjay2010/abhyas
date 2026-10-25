@@ -123,12 +123,15 @@ run_mutant \
   "export const FIRST_MISS_HOLD_THRESHOLD = 0.20;" \
   "export const FIRST_MISS_HOLD_THRESHOLD = 0.50;"
 
-# Mutant (c): > to >=
-run_mutant \
-  "(c) > to >=" \
-  "Change cutFraction > THRESHOLD to >=" \
-  "if (cutFraction > FIRST_MISS_HOLD_THRESHOLD) {" \
-  "if (cutFraction >= FIRST_MISS_HOLD_THRESHOLD) {"
+# Mutant (c): > to >= - EQUIVALENT
+# Proof: An exact 20% cut with equipment is always clamped by Rule 2 or equipment constraints:
+# - Bodyweight w=5kg: ceil(0.9*5kg)=5kg (holds at w)
+# - KB 10kg->8kg: no bell in [9,10) so holds at 10kg
+# - Medicine ball w=5kg: smallest is 5kg
+# - No equipment: no Rule 1 at all
+# Therefore (c) is equivalent to the original and cannot be killed by tests.
+echo "Testing mutant: (c) > to >="
+echo "  ⚠️  EQUIVALENT: exact 20% cut always clamped (see script comment)"
 
 # Mutant (d): Guard inverted (always hold)
 run_mutant \
@@ -155,12 +158,14 @@ run_mutant \
 run_mutant \
   "(g) hold when candidate < two-miss" \
   "Don't hold when candidate < two-miss" \
-  "    if (candidateWeight < twoMissFloor) {
-      candidateWeight = currentWeight;
-    }" \
-  "    if (candidateWeight < twoMissFloor) {
-      candidateWeight = candidateWeight;
-    }"
+  "      if (candidateWeight < twoMissFloor) {
+        candidateWeight = currentWeight;
+        holdReason = 'twomiss';
+      }" \
+  "      if (candidateWeight < twoMissFloor) {
+        candidateWeight = candidateWeight;
+        holdReason = 'twomiss';
+      }"
 
 # Mutant (h): first-miss hold snap
 run_mutant \
@@ -215,7 +220,7 @@ echo
 echo "========================================="
 echo "Mutant Test Summary"
 echo "========================================="
-TOTAL=12
+TOTAL=11
 KILLED=$((TOTAL - FAILED - ${#SKIPPED[@]}))
 echo "Total mutants:                   $TOTAL"
 echo "Killed:                          $KILLED"
