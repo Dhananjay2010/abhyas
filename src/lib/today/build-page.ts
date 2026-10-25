@@ -51,10 +51,10 @@ export type BuildPageInput = {
   // Session queries
   allSessionsRes: {
     data: Array<{
-      local_date: string;
-      status: string;
+      local_date?: string;
+      status?: string;
       actual_type: DayType | null;
-      program_day_id: string | null;
+      program_day_id?: string | null;
       started_at: string | null;
     }> | null;
     error: Error | null;
@@ -290,7 +290,10 @@ export function buildPage(input: BuildPageInput): BuildPageOutput {
   // Build chosen days map
   // For each day in the week, check if there's a planned/in_progress session
   // that differs from the template, and store its label
-  const allSessions = allSessionsRes.data ?? [];
+  const allSessions = (allSessionsRes.data ?? []).filter(
+    (x): x is typeof x & { local_date: string; status: string } =>
+      x.local_date !== undefined && x.status !== undefined
+  );
   const chosenByDayIndex = new Map<number, string>();
   for (const d of days) {
     // The next time this weekday comes round, which is today for today
