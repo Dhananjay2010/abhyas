@@ -283,6 +283,7 @@
     "test:remembers-weights-direct": "tsx scripts/test-remembers-weights-direct.ts",
     "test:swap-exercise-for-user": "tsx scripts/test-swap-exercise-for-user.ts",
     "test:ended-early-helper": "tsx scripts/test-ended-early-helper.ts",
+    "test:ended-early-real-db": "tsx scripts/test-ended-early-real-db.ts",
     "test:today-ended-early-banner": "tsx scripts/test-today-ended-early-banner.ts",
     "test:today-ended-early-page-wiring": "tsx scripts/test-today-ended-early-page-wiring.ts",
     "test:pick-latest-completed-strength": "tsx scripts/test-pick-latest-completed-strength.ts",
