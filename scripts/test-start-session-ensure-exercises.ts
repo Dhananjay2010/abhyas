@@ -2,15 +2,23 @@
 /**
  * Test startSession existing-session branch calls ensureSessionExercises (A1).
  * 
- * Verifies that when startSession finds an existing planned or empty session,
- * it calls ensureSessionExercises to populate the exercises.
+ * LIMITATION: This test cannot directly invoke startSession without editing
+ * actions.ts:104-260 because:
+ * - startSession is a server action requiring Next.js runtime
+ * - It calls getAuthedClient() which needs server context
+ * - Module mocking for ESM is unreliable
  * 
- * Mutant A1 (skip ensureSessionExercises call) must FAIL this test.
+ * This test verifies ensureSessionExercises behavior (which startSession calls),
+ * but CANNOT catch mutant A1 (removing the ensureSessionExercises call at line 151).
+ * 
+ * To properly test A1, actions.ts would need dependency injection or a test seam
+ * outside the protected 104-260 range.
  */
 
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { randomUUID } from "crypto";
+import { ensureSessionExercises } from "@/lib/session/ensure-session-exercises";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://localhost:54321";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
@@ -62,7 +70,8 @@ async function testStartSessionEnsureExercises() {
   });
 
   console.log("✓ Using service_role key\n");
-  console.log("Test startSession calls ensureSessionExercises (A1)\n");
+  console.log("Test ensureSessionExercises (called by startSession at line 151)\n");
+  console.log("⚠️  LIMITATION: Cannot test startSession directly without editing protected code\n");
 
   // Create test user
   const userEmail = `test-start-ensure-${randomUUID()}@example.com`;
@@ -80,7 +89,7 @@ async function testStartSessionEnsureExercises() {
   const userId = authData.user.id;
   console.log(`✓ Created test user: ${userId}\n`);
 
-  // Update profile with timezone
+  // Update profile
   const { error: profileError } = await adminClient
     .from("profiles")
     .update({
@@ -120,7 +129,7 @@ async function testStartSessionEnsureExercises() {
 
   // Create program day with 2 exercises
   const dayId = randomUUID();
-  const { error: dayError } = await adminClient
+  const { error: dayError} = await adminClient
     .from("program_days")
     .insert({
       id: dayId,
@@ -180,7 +189,7 @@ async function testStartSessionEnsureExercises() {
   check("Program day exercises created", !pdeError, pdeError?.message);
   if (pdeError) return false;
 
-  // Create an EMPTY planned session (the path startSession's existing-session branch takes)
+  // Create an EMPTY planned session
   const sessionId = randomUUID();
   const localDate = "2026-10-25";
   const { error: sessionError } = await adminClient
@@ -199,7 +208,7 @@ async function testStartSessionEnsureExercises() {
   check("Empty planned session created", !sessionError, sessionError?.message);
   if (sessionError) return false;
 
-  // Verify session has no exercises before startSession
+  // Verify session has no exercises before
   const { data: beforeData } = await adminClient
     .from("sessions")
     .select("session_exercises(id)")
@@ -208,14 +217,12 @@ async function testStartSessionEnsureExercises() {
 
   check("Session has no exercises before", (beforeData?.session_exercises ?? []).length === 0);
 
-  console.log("\nSimulating startSession existing-session path...");
-  console.log("(directly calling ensureSessionExercises, as startSession would)\n");
+  console.log("\nCalling ensureSessionExercises (what startSession calls at line 151)...\n");
 
-  // Import and call ensureSessionExercises (this is what startSession does at line 151)
-  const { ensureSessionExercises } = await import("@/lib/session/ensure-session-exercises");
+  // Call ensureSessionExercises (what startSession does)
   await ensureSessionExercises(adminClient, userId, sessionId);
 
-  // A1: Verify the session now HAS exercises (proves ensureSessionExercises ran)
+  // Verify exercises exist after
   const { data: afterData } = await adminClient
     .from("sessions")
     .select("session_exercises(id, planned_sets, exercise_id)")
@@ -225,20 +232,24 @@ async function testStartSessionEnsureExercises() {
   const exerciseCount = (afterData?.session_exercises ?? []).length;
 
   check(
-    "A1: Session has exercises after ensureSessionExercises",
+    "Session has exercises after ensureSessionExercises",
     exerciseCount === 2,
     `got ${exerciseCount}, expected 2`,
   );
 
-  // Verify the exercises have the correct sets
+  // Verify correct sets
   const sessionExercises = afterData?.session_exercises ?? [];
   check("Bench exercise created", sessionExercises.some((e: any) => e.planned_sets === 4));
   check("Dumbbell exercise created", sessionExercises.some((e: any) => e.planned_sets === 3));
 
-  console.log("\n✅ A1 test passed: ensureSessionExercises populated the session");
+  console.log("\n✅ ensureSessionExercises test passed");
+  console.log("\n⚠️  MUTANT A1 LIMITATION:");
+  console.log("   This test CANNOT catch mutant A1 (removing ensureSessionExercises call)");
+  console.log("   because it doesn't invoke the actual startSession server action.");
+  console.log("   To test A1, actions.ts would need a test seam outside lines 104-260.\n");
 
   // Cleanup
-  console.log("\nCleaning up...");
+  console.log("Cleaning up...");
   await adminClient.auth.admin.deleteUser(userId);
   console.log("✓ Test user deleted\n");
 
@@ -250,9 +261,7 @@ async function main() {
   if (success === false) {
     process.exit(1);
   } else {
-    console.log("✅ All tests passed\n");
-    console.log("Mutant A1 (skip ensureSessionExercises) would FAIL this test:");
-    console.log("  The session would remain empty (0 exercises instead of 2)\n");
+    console.log("✅ Test passed (with limitation noted above)\n");
     process.exit(0);
   }
 }
