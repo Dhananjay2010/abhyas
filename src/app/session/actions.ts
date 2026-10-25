@@ -634,27 +634,6 @@ export async function swapExercise(input: {
   const equipmentIds = replacement?.equipment_ids ?? [];
   const profile = profileRes.data;
 
-  // Resolve weight prefill and working weight for the swapped-in exercise
-  const { weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = await resolveSwapWeights(
-    supabase,
-    user.id,
-    current.session_id,
-    input.newExerciseId,
-    equipmentIds,
-    metric,
-    replacementRes.data?.movement_pattern ?? "other",
-  );
-
-  // Filter target reps for daily_menu users (they don't remember weights/targets)
-  const swapPayload = resolveSwapResultPayload({
-    planningMode: settingsRes.data?.planning_mode,
-    rawCurrentTargetReps: currentTargetReps,
-    rawWorkingWeightKg: workingWeightKg,
-    planRepsMin: repsMin,
-    planRepsMax: repsMax,
-  });
-  const filteredTargetReps = swapPayload.currentTargetReps;
-
   /*
     A changed unit needs a changed range. `planned_reps_min/max` are the range
     in the exercise's own metric, so swapping eight-to-twelve reps for a hold
@@ -679,6 +658,27 @@ export async function swapExercise(input: {
 
   const repsMin = reranged ? reranged.repsMin : current.planned_reps_min;
   const repsMax = reranged ? reranged.repsMax : current.planned_reps_max;
+
+  // Resolve weight prefill and working weight for the swapped-in exercise
+  const { weightPrefill, workingWeightKg, currentTargetReps, isBodyweight } = await resolveSwapWeights(
+    supabase,
+    user.id,
+    current.session_id,
+    input.newExerciseId,
+    equipmentIds,
+    metric,
+    replacementRes.data?.movement_pattern ?? "other",
+  );
+
+  // Filter target reps for daily_menu users (they don't remember weights/targets)
+  const swapPayload = resolveSwapResultPayload({
+    planningMode: settingsRes.data?.planning_mode,
+    rawCurrentTargetReps: currentTargetReps,
+    rawWorkingWeightKg: workingWeightKg,
+    planRepsMin: repsMin,
+    planRepsMax: repsMax,
+  });
+  const filteredTargetReps = swapPayload.currentTargetReps;
 
   const { error } = await supabase
     .from("session_exercises")
