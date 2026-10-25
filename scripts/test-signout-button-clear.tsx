@@ -11,8 +11,6 @@ import { render, act } from "@testing-library/react";
 import { SignOutButton } from "../src/app/settings/signout-button";
 
 // Mock signOutAction to return success
-let signOutCalled = false;
-
 import { createRequire } from "module";
 const testRequire = createRequire(import.meta.url);
 type ModuleLoadFunction = (request: string, parent: unknown, isMain: boolean) => unknown;
