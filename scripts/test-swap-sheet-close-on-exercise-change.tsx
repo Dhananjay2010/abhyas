@@ -40,6 +40,8 @@ function makeExercise(
     plannedSets,
     repsMin: 8,
     repsMax: 12,
+    plannedRepsMin: 8,
+    plannedRepsMax: 12,
     restSeconds: 60,
     workingWeightKg: 50,
     suggestedWeightKg: 50,
