@@ -64,6 +64,8 @@ export type RunnerExerciseOutput = {
   metric: ExerciseMetric;
   primaryMuscles: Muscle[];
   plannedSets: number;
+  plannedRepsMin: number;
+  plannedRepsMax: number;
   repsMin: number;
   repsMax: number;
   restSeconds: number;
@@ -145,6 +147,8 @@ export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseO
     metric,
     primaryMuscles: [...(ex?.primary_muscles ?? [])],
     plannedSets: r.planned_sets ?? 3,
+    plannedRepsMin: r.planned_reps_min ?? 8,
+    plannedRepsMax: r.planned_reps_max ?? 12,
     repsMin: target.min,
     repsMax: target.max,
     restSeconds: r.rest_seconds ?? 90,
@@ -177,6 +181,7 @@ export function buildRunnerExercise(input: RunnerExerciseInput): RunnerExerciseO
  * 
  * @param exercise - The original exercise being swapped
  * @param swapped - The swapped exercise row data
+ * @param replacementPlan - The replacement exercise's plan range (from server)
  * @param progress - The progress row for the swapped exercise (if any)
  * @param remembersWeights - Whether the planning mode remembers weights
  * @returns Updated exercise with recomputed targets
@@ -191,6 +196,10 @@ export function applySwap(
     readonly primary_muscles: readonly Muscle[];
     readonly equipment_ids: readonly string[];
   },
+  replacementPlan: {
+    readonly repsMin: number | null;
+    readonly repsMax: number | null;
+  },
   progress: ProgressInput,
   remembersWeights: boolean,
 ): RunnerExerciseOutput {
@@ -203,11 +212,15 @@ export function applySwap(
   const equipmentIds = swapped.equipment_ids ?? [];
   const isBodyweight = equipmentIds.length === 0;
   
+  // Use replacement exercise's plan range, falling back to old plan if null
+  const plannedRepsMin = replacementPlan.repsMin ?? exercise.plannedRepsMin;
+  const plannedRepsMax = replacementPlan.repsMax ?? exercise.plannedRepsMax;
+  
   // Recompute target for the swapped exercise
   const target = resolveTarget({
     metric: swapped.metric,
-    plannedMin: exercise.repsMin, // Keep plan range from session
-    plannedMax: exercise.repsMax,
+    plannedMin: plannedRepsMin,
+    plannedMax: plannedRepsMax,
     currentTargetReps: progressData?.current_target_reps,
     equipmentIds,
     currentWorkingWeightKg: working,
@@ -220,6 +233,8 @@ export function applySwap(
     cue: swapped.cue,
     metric: swapped.metric,
     primaryMuscles: [...(swapped.primary_muscles ?? [])],
+    plannedRepsMin,
+    plannedRepsMax,
     repsMin: target.min,
     repsMax: target.max,
     isBodyweight,

@@ -17,6 +17,7 @@ import { DayPlanPrompt } from "@/components/day-plan-prompt";
 import type { NextDayPlan } from "@/lib/program/day-plan";
 import { runnerErrorMessage } from "@/lib/session/runner-error-message";
 import { applySwapResult } from "@/lib/session/apply-swap";
+import { applySwapTarget } from "@/lib/session/apply-swap-target";
 import {
   abandonSession,
   deleteSet,
@@ -84,6 +85,8 @@ export type RunnerExercise = {
   metric: Database["public"]["Enums"]["exercise_metric"];
   primaryMuscles: Muscle[];
   plannedSets: number;
+  plannedRepsMin: number;
+  plannedRepsMax: number;
   repsMin: number;
   repsMax: number;
   restSeconds: number;
@@ -959,14 +962,32 @@ export function SessionRunner({
                         });
                         if (!ok || !box.value) return;
                         const swapped = box.value;
-                        setExercises((prev) =>
-                          applySwapResult(prev, current.id, {
+                        setExercises((prev) => {
+                          // #125: Apply weight prefill and metric change
+                          const withSwap = applySwapResult(prev, current.id, {
                             ...swapped,
                             exerciseId: a.exerciseId,
                             name: a.name,
                             cue: a.cue,
-                          }) as RunnerExercise[],
-                        );
+                          }) as RunnerExercise[];
+                          
+                          // #127: Apply target resolution for unloaded exercises
+                          return withSwap.map((e) => {
+                            if (e.id !== current.id) return e;
+                            const plannedRepsMin = swapped.repsMin ?? e.plannedRepsMin;
+                            const plannedRepsMax = swapped.repsMax ?? e.plannedRepsMax;
+                            return applySwapTarget(
+                              { ...e, plannedRepsMin, plannedRepsMax },
+                              {
+                                equipmentIds: swapped.equipmentIds,
+                                currentTargetReps: swapped.currentTargetReps,
+                                currentWorkingWeightKg: swapped.workingWeightKg,
+                                plannedRepsMin,
+                                plannedRepsMax,
+                              }
+                            );
+                          });
+                        });
                         setAlternatives(null);
                       }}
                       className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent disabled:opacity-60"
