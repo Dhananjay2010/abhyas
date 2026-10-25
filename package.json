@@ -293,6 +293,7 @@
     "test:history-in-progress-row": "tsx scripts/test-history-in-progress-row.ts",
     "test:remembers-weights-direct": "tsx scripts/test-remembers-weights-direct.ts",
     "test:swap-exercise-for-user": "tsx scripts/test-swap-exercise-for-user.ts",
+    "test:progression-real-path-mutants": "bash scripts/test-progression-real-path-mutants.sh",
     "test:rest-timer-persistence": "tsx scripts/test-rest-timer-persistence.ts",
     "test:rest-timer-reload": "tsx scripts/test-rest-timer-reload.tsx",
     "test:call-site-wiring": "tsx scripts/test-call-site-wiring.ts",
