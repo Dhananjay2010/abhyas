@@ -406,7 +406,6 @@ async function test(name: string, fn: () => Promise<void>) {
     
     await deps.updateSession("sess-1", "2026-10-26", { status: "in_progress" });
     
-    const updateCalls = calls.filter(c => c.table === "sessions" && c.method === "PATCH");
     const rereadCall = calls.filter(c => c.table === "sessions" && c.method === "GET")[0];
     if (!rereadCall) throw new Error("No 23505 re-read found");
     eq(rereadCall.params.local_date, "eq.2026-10-26", "23505 re-read filters by passed local_date");
