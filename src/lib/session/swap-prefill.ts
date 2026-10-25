@@ -28,6 +28,7 @@ type TypedSupabase = SupabaseClient<Database>;
  * @param exerciseId - The swapped-in exercise ID
  * @param isDeload - Whether this is a deload session
  * @param equipmentIds - Equipment IDs for the exercise (for bodyweight detection)
+ * @param mechanic - Exercise mechanic type (isolation/compound)
  * @param metric - Exercise metric
  * @param movementPattern - Movement pattern (for suggestedWeight)
  * @param progressValue - Optional pre-fetched progress value (removes duplicate query)
@@ -40,6 +41,7 @@ export async function resolveSwapPrefill(
   exerciseId: string,
   isDeload: boolean,
   equipmentIds: string[],
+  mechanic: Database["public"]["Enums"]["mechanic_type"] | null,
   metric: Database["public"]["Enums"]["exercise_metric"],
   movementPattern: Database["public"]["Enums"]["movement_pattern"],
   progressValue: number | null | undefined,
@@ -78,7 +80,7 @@ export async function resolveSwapPrefill(
           { currentWorkingWeightKg: working },
           isDeload,
           {
-            mechanic: null,
+            mechanic,
             movementPattern,
             metric,
             isBodyweight,
@@ -105,7 +107,7 @@ export async function resolveSwapPrefill(
         { currentWorkingWeightKg: weight },
         isDeload,
         {
-          mechanic: null,
+          mechanic,
           movementPattern,
           metric,
           isBodyweight,
