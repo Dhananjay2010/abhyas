@@ -917,7 +917,7 @@ const container8 = document.createElement("div");
 container8.innerHTML = serverHtml;
 document.body.appendChild(container8);
 
-const hydrationErrors: Error[] = [];
+const hydrationErrors: unknown[] = [];
 const root8 = hydrateRoot(
   container8,
   <SessionRunner
@@ -944,14 +944,14 @@ await act(async () => {
 });
 
 check("No hydration errors", hydrationErrors.length === 0);
-check("No #418 hydration mismatch", !hydrationErrors.some((e) => e.message.includes("418") || e.message.includes("Hydration")));
+check("No #418 hydration mismatch", !hydrationErrors.some((e) => e instanceof Error && (e.message.includes("418") || e.message.includes("Hydration"))));
 
 // (c) After effects, rest panel should appear
 const hasRestAfterHydration = container8.textContent?.includes("Rest") && container8.textContent?.includes("1:");
-check("Rest panel appears after hydration (client effects ran)", hasRestAfterHydration);
+check("Rest panel appears after hydration (client effects ran)", hasRestAfterHydration ?? false);
 
-const restTimeText = container8.textContent?.match(/Rest.*?(1:\d\d)/s)?.[1];
-check("Rest shows ~1:30 remaining after hydration", restTimeText?.startsWith("1:2") || restTimeText?.startsWith("1:3") || restTimeText?.startsWith("1:29"), restTimeText);
+const restTimeText = container8.textContent?.match(/Rest.*?(1:\d\d)/)?.[1];
+check("Rest shows ~1:30 remaining after hydration", !!(restTimeText?.startsWith("1:2") || restTimeText?.startsWith("1:3") || restTimeText?.startsWith("1:29")), restTimeText);
 
 root8.unmount();
 document.body.removeChild(container8);
