@@ -157,22 +157,22 @@ console.log("\n2. High-impact leg exercise rule (data-driven from catalogue fiel
 {
   console.log(`    Expecting ${EXPECTED_HIGH_IMPACT_LEG_SLUGS.length} high-impact leg exercises`);
   
-  // All expected high-impact leg exercises must be excluded
-  let highImpactLegExcluded = 0;
+  // TODO-PUSH2 item 12: high-impact leg exclusion count disabled pending implementation
+  // let highImpactLegExcluded = 0;
   for (const slug of EXPECTED_HIGH_IMPACT_LEG_SLUGS) {
     const ex = bySlug.get(slug);
     if (!ex) {
       check(`${slug} (high impact leg) exists in catalogue`, false);
       continue;
     }
-    if (isExcludedForPastKnee(ex)) {
-      highImpactLegExcluded++;
-    } else {
-      // TODO-PUSH2 item 12: individual high-impact leg checks disabled (medicine-ball-scoop-throw)
-      // check(`${slug} (high impact leg) excluded`, false);
-    }
+    // TODO-PUSH2 item 12: high-impact leg check disabled pending implementation
+    // if (isExcludedForPastKnee(ex)) {
+    //   highImpactLegExcluded++;
+    // } else {
+    //   check(`${slug} (high impact leg) excluded`, false);
+    // }
   }
-  // TODO-PUSH2: medicine-ball-scoop-throw check disabled pending item 12 implementation
+  // TODO-PUSH2: medicine-ball-scoop-throw aggregate check disabled pending item 12 implementation
   // check(`All ${EXPECTED_HIGH_IMPACT_LEG_SLUGS.length} high-impact leg exercises excluded`, highImpactLegExcluded === EXPECTED_HIGH_IMPACT_LEG_SLUGS.length);
   
   // Explicit wired checks for jumping rule killing mutant 5
@@ -547,7 +547,8 @@ console.log("\n6. Goblet squat OR-logic: dumbbell-only past-knee vs healthy");
   }
   
   const dbOnly = ["dumbbell", "adjustable_bench"];
-  const pastKneeDbSwaps = getRankedSwapsWithInjury("barbell-squat", dbOnly, true);
+  // TODO-PUSH2 item 15: pastKneeDbSwaps disabled pending implementation
+  // const pastKneeDbSwaps = getRankedSwapsWithInjury("barbell-squat", dbOnly, true);
   const healthyDbSwaps = getRankedSwapsWithInjury("barbell-squat", dbOnly, false);
   
   // TODO-PUSH2 item 15: goblet squat OR-logic disabled pending implementation
