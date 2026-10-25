@@ -224,7 +224,11 @@
     "test:first-build-ended-on": "tsx scripts/test-first-build-ended-on.ts",
     "test:equipment-two-client": "tsx scripts/test-equipment-two-client.tsx",
     "test:injuries-two-client": "tsx scripts/test-injuries-two-client.tsx",
-    "test:stale-stash-two-client": "tsx scripts/test-stale-stash-two-client.ts"
+    "test:stale-stash-two-client": "tsx scripts/test-stale-stash-two-client.ts",
+    "test:first-miss-two-miss-invariant": "tsx scripts/test-first-miss-two-miss-invariant.ts",
+    "test:first-miss-pinned": "tsx scripts/test-first-miss-pinned.ts",
+    "test:exact-20-percent-cut-clamp": "tsx scripts/test-exact-20-percent-cut-clamp.ts",
+    "test:progression-call-path": "tsx scripts/test-progression-call-path.ts"
   },
   "dependencies": {
     "@sentry/nextjs": "^11.9.0",
