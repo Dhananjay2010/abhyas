@@ -2,6 +2,7 @@ import type { Database } from "@/lib/database.types";
 import { applyDeload, prescribe, type Prescription } from "./prescription";
 import { activeDayIndices, placeYoga, splitFor, templatesFor } from "./splits";
 import { EXCLUDED_EXERCISE_SLUGS } from "./exclusions";
+import { isExcludedForPastKnee, getKneeFriendlyPrimaries, isKneeFriendlyPrimary, kneeFriendlyBonus, isBarbellBackSquat } from "./past-knee";
 
 type Enums = Database["public"]["Enums"];
 type Pattern = Enums["movement_pattern"];
@@ -44,6 +45,8 @@ export type GeneratorInput = {
   equipmentIds: string[];
   /** Current injuries hard-filter. Past ones only drive warm-up prehab. */
   currentInjuryRegions: BodyRegion[];
+  /** Past knee injury: apply lighter restrictions than current knee. */
+  pastKneeInjury: boolean;
   /** Preferred session length in minutes. Affects exercise count. */
   preferredSessionMinutes?: number;
   catalogue: CandidateExercise[];
@@ -450,6 +453,11 @@ export function isEligible(ex: CandidateExercise, input: GeneratorInput): boolea
       return false;
     }
   }
+  
+  // Past knee injury: exclude problematic moves (pistol, single-leg squat, jumping/walking lunges, sissy squats)
+  if (input.pastKneeInjury && isExcludedForPastKnee(ex)) {
+    return false;
+  }
 
   // BMI >= 30 excludes high-impact work
   if (input.bmi !== null && input.bmi >= 30 && ex.impact === "high") return false;
@@ -473,6 +481,8 @@ export function score(
   wantCompound: boolean,
   level: Level,
   primaryTrack: Track = "weights",
+  pastKneeInjury: boolean = false,
+  slotIndex: number = 0,
 ): number {
   let s = 0;
   if (wantCompound && ex.mechanic === "compound") s += 4;
@@ -498,6 +508,11 @@ export function score(
   // is what bench press needs, not a reason to avoid it.
   if (primaryTrack === "bodyweight") {
     s -= Math.max(0, ex.equipment_ids.length - 1);
+  }
+  
+  // Past knee: prefer knee-friendly primaries in main slots
+  if (pastKneeInjury) {
+    s += kneeFriendlyBonus(ex, slotIndex);
   }
 
   return s;
@@ -616,7 +631,7 @@ function pickForSlot(
     const ranked = candidates
       .map((e) => ({
         e,
-        score: score(e, wantCompound, input.level, input.primaryTrack),
+        score: score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, slotIndex),
         stapleKey: isMainSlot
           ? stapleSortKey(e, p, input.hasAllEquipment, input.primaryTrack)
           : `1:${e.slug}`, // Non-main slots: no staple bonus
@@ -658,7 +673,7 @@ function pickForSlot(
     const ranked = filtered
       .map((e) => ({
         e,
-        score: score(e, slotIndex < 4, input.level, input.primaryTrack),
+        score: score(e, slotIndex < 4, input.level, input.primaryTrack, input.pastKneeInjury, slotIndex),
         stapleKey: stapleSortKey(e, altPattern, input.hasAllEquipment, input.primaryTrack),
         rng: rng(),
       }))
@@ -812,7 +827,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
           })
           .map(e => ({
             e,
-            score: score(e, i < 4, input.level, input.primaryTrack),
+            score: score(e, i < 4, input.level, input.primaryTrack, input.pastKneeInjury, i),
             stapleKey: stapleSortKey(e, pattern, input.hasAllEquipment, input.primaryTrack),
             rng: rng(),
           }))
@@ -877,7 +892,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return true;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.pastKneeInjury, pickedExercises.length) - score(a, false, input.level, input.primaryTrack, input.pastKneeInjury, pickedExercises.length) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -906,7 +921,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return isEligible(e, input);
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.pastKneeInjury, pickedExercises.length) - score(a, false, input.level, input.primaryTrack, input.pastKneeInjury, pickedExercises.length) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -943,7 +958,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.pastKneeInjury, 99) - score(a, false, input.level, input.primaryTrack, input.pastKneeInjury, 99) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -983,7 +998,7 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             return hasLoadedEquipment;
           })
           .sort((a, b) => 
-            score(b, false, input.level, input.primaryTrack) - score(a, false, input.level, input.primaryTrack) ||
+            score(b, false, input.level, input.primaryTrack, input.pastKneeInjury, 99) - score(a, false, input.level, input.primaryTrack, input.pastKneeInjury, 99) ||
             a.slug.localeCompare(b.slug)
           );
         
@@ -1087,8 +1102,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
         .filter((e) => !usedInBlock.has(e.id) && !EXCLUDED_EXERCISE_SLUGS.has(e.slug))
         .sort(
           (a, b) =>
-            score(b, true, input.level, input.primaryTrack) -
-              score(a, true, input.level, input.primaryTrack) ||
+            score(b, true, input.level, input.primaryTrack, input.pastKneeInjury, 99) -
+              score(a, true, input.level, input.primaryTrack, input.pastKneeInjury, 99) ||
             a.slug.localeCompare(b.slug),
         );
       
@@ -1266,8 +1281,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
               !EXCLUDED_EXERCISE_SLUGS.has(e.slug)
             )
             .sort((a, b) => 
-              score(b, true, input.level, input.primaryTrack) -
-              score(a, true, input.level, input.primaryTrack) ||
+              score(b, true, input.level, input.primaryTrack, input.pastKneeInjury, exercises.length) -
+              score(a, true, input.level, input.primaryTrack, input.pastKneeInjury, exercises.length) ||
               a.slug.localeCompare(b.slug)
             );
           
@@ -1322,8 +1337,8 @@ export function generateProgram(input: GeneratorInput): GeneratedProgram {
             !EXCLUDED_EXERCISE_SLUGS.has(e.slug)
           )
           .sort((a, b) => 
-            score(b, true, input.level, input.primaryTrack) -
-            score(a, true, input.level, input.primaryTrack) ||
+            score(b, true, input.level, input.primaryTrack, input.pastKneeInjury, exercises.length) -
+            score(a, true, input.level, input.primaryTrack, input.pastKneeInjury, exercises.length) ||
             a.slug.localeCompare(b.slug)
           );
         

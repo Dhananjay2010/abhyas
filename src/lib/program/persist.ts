@@ -215,6 +215,8 @@ export async function createBlockForUser(
     currentInjuryRegions: (injuriesRes.data ?? [])
       .filter((i) => i.severity === "current")
       .map((i) => i.body_region),
+    pastKneeInjury: (injuriesRes.data ?? [])
+      .some((i) => i.severity === "past" && i.body_region === "knee"),
     // M2 QA fix: Fall back to 45 when preferred_session_minutes is NULL
     // (happens for new users after migration 20261025000021, before they save the step)
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,

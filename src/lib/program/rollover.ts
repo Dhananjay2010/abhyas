@@ -167,6 +167,8 @@ async function callRolloverRPC(
     currentInjuryRegions: (injuriesRes.data ?? [])
       .filter((i) => i.severity === "current")
       .map((i) => i.body_region),
+    pastKneeInjury: (injuriesRes.data ?? [])
+      .some((i) => i.severity === "past" && i.body_region === "knee"),
     preferredSessionMinutes: profile.preferred_session_minutes ?? DEFAULT_SESSION_LENGTH,
     catalogue,
     carryOver,

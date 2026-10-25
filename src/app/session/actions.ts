@@ -640,6 +640,9 @@ export async function findAlternatives(
   const currentInjuryRegions = (injuriesRes.data ?? [])
     .filter((i) => i.severity === "current")
     .map((i) => i.body_region);
+  
+  const pastKneeInjury = (injuriesRes.data ?? [])
+    .some((i) => i.severity === "past" && i.body_region === "knee");
 
   const input = {
     userId: user.id,
@@ -654,6 +657,7 @@ export async function findAlternatives(
     hasAllEquipment: profile.has_all_equipment ?? false,
     equipmentIds: (equipmentRes.data ?? []).map((r) => r.equipment_id),
     currentInjuryRegions,
+    pastKneeInjury,
     catalogue: [] as CandidateExercise[],
   };
 
@@ -730,8 +734,9 @@ export async function findAlternatives(
       level: input.level,
       availableEquipment: input.hasAllEquipment ? null : new Set(input.equipmentIds),
       injuryRegions: input.currentInjuryRegions,
+      pastKneeInjury: input.pastKneeInjury,
       limit: 5,
-      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack),
+      scoreFn: (e) => score(e, wantCompound, input.level, input.primaryTrack, input.pastKneeInjury, 0),
       tieBreakFn: tieBreak,
     },
   );

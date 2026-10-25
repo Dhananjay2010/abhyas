@@ -1,6 +1,7 @@
 import type { Database } from "@/lib/database.types";
 import type { CandidateExercise } from "@/lib/program/generate";
 import { EXCLUDED_EXERCISE_SLUGS } from "@/lib/program/exclusions";
+import { isExcludedForPastKnee } from "@/lib/program/past-knee";
 
 export type ExerciseRow = CandidateExercise;
 type MovementPattern = Database["public"]["Enums"]["movement_pattern"];
@@ -9,6 +10,7 @@ export type AlternativesContext = {
   level: Database["public"]["Enums"]["fitness_level"];
   availableEquipment: Set<string> | null;
   injuryRegions: Database["public"]["Enums"]["body_region"][];
+  pastKneeInjury: boolean;
   limit?: number;
   scoreFn: (exercise: ExerciseRow) => number;
   tieBreakFn: (slug: string) => number;
@@ -223,7 +225,12 @@ export function rankAlternatives<T extends ExerciseRow>(
       continue;
     }
     
-    // 9. Equipment check: all-of semantics
+    // 9. Past knee: exclude problematic moves
+    if (ctx.pastKneeInjury && isExcludedForPastKnee(candidate)) {
+      continue;
+    }
+    
+    // 10. Equipment check: all-of semantics
     if (ctx.availableEquipment !== null && candidate.equipment_ids.length > 0) {
       const equipment = ctx.availableEquipment;
       const allAvailable = candidate.equipment_ids.every((id) =>
