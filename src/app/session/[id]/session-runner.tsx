@@ -784,8 +784,9 @@ export function SessionRunner({
 
       if (result.status === "saved") {
         if ("reason" in result && result.reason === "set_exists") {
-          const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, result);
-          setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, result).exercises);
+          const conflictResult = { ok: false as const, reason: "set_exists" as const, savedSets: result.savedSets };
+          const resolution = resolveSetConflict(exercises, target.sessionExerciseId, exerciseIndex, conflictResult);
+          setExercises((prev) => resolveSetConflict(prev, target.sessionExerciseId, exerciseIndex, conflictResult).exercises);
           setExerciseIndex(resolution.nextExerciseIndex);
           setMessage(resolution.message);
           setError(null);

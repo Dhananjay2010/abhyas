@@ -25,7 +25,7 @@ export type LogSetFunction = (input: {
   reps: number | null;
   weightKg: number | null;
   durationSeconds?: number | null;
-}) => Promise<Result>;
+}) => Promise<Result | { ok: false; reason: "set_exists"; savedSets: Array<{ setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }> }>;
 
 /**
  * Helper: Can we replay pending sets for this session status?
@@ -45,6 +45,7 @@ export type PendingSetState = {
 
 export type SubmitResult =
   | { status: "saved" }
+  | { status: "saved"; reason: "set_exists"; savedSets: Array<{ setNumber: number; reps: number | null; weightKg: number | null; durationSeconds: number | null }> }
   | { status: "expired" }
   | { status: "failed"; error: string };
 
@@ -157,11 +158,12 @@ export function createPendingSetController(config: {
       }
 
       if ("reason" in result && result.reason === "set_exists") {
-        return { status: "saved" };
+        return { status: "saved", reason: "set_exists", savedSets: result.savedSets };
       }
 
-      setState({ error: result.error ?? "Failed to save set" });
-      return { status: "failed", error: result.error ?? "Failed to save set" };
+      const errorMessage = "error" in result ? result.error ?? "Failed to save set" : "Failed to save set";
+      setState({ error: errorMessage });
+      return { status: "failed", error: errorMessage };
     } catch (err) {
       if (isSessionExpired(err)) {
         const pending: PendingSet = {
@@ -246,7 +248,8 @@ export function createPendingSetController(config: {
             if (!firstError) firstError = "Session still expired";
             authFailed = true;
           } else {
-            if (!firstError) firstError = result.error ?? "Failed to replay set";
+            const errorMessage = "error" in result ? result.error ?? "Failed to replay set" : "Failed to replay set";
+            if (!firstError) firstError = errorMessage;
           }
         } catch (err) {
           if (isDuplicateError(err)) {

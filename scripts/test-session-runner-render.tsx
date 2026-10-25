@@ -105,13 +105,13 @@ async function test1b1d() {
       return { ok: true };
     },
     deleteSet: async () => ({ ok: true }),
-    finishExercise: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
-    findAlternatives: async () => ({ ok: true, data: { alternatives: [] } }),
-    swapExercise: async () => ({ ok: true, data: { sessionExerciseId: "ex1" } }),
-    refreshAfterSession: async () => {},
-    planDay: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -121,18 +121,22 @@ async function test1b1d() {
       name: "Squat",
       cue: null,
       metric: "reps",
-      primaryMuscles: ["quadriceps"],
+      primaryMuscles: ["quads"],
       plannedSets: 3,
-      plannedRepsMin: 8,
-      plannedRepsMax: 12,
+      repsMin: 8,
+      repsMax: 12,
       restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
       status: "pending",
       feel: null,
       sets: [],
+      isBodyweight: false,
     },
   ];
   
   const settings: RunnerSettings = {
+    perSetLogging: false,
     restSound: false,
     restVibrate: false,
     restAutostart: false,
@@ -211,13 +215,13 @@ async function testN7() {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async () => ({ ok: true }),
     deleteSet: async () => ({ ok: true }),
-    finishExercise: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
-    findAlternatives: async () => ({ ok: true, data: { alternatives: [] } }),
-    swapExercise: async () => ({ ok: true, data: { sessionExerciseId: "ex1" } }),
-    refreshAfterSession: async () => {},
-    planDay: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -227,18 +231,22 @@ async function testN7() {
       name: "Squat",
       cue: null,
       metric: "reps",
-      primaryMuscles: ["quadriceps"],
+      primaryMuscles: ["quads"],
       plannedSets: 3,
-      plannedRepsMin: 8,
-      plannedRepsMax: 12,
+      repsMin: 8,
+      repsMax: 12,
       restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
       status: "pending",
       feel: null,
       sets: [],
+      isBodyweight: false,
     },
   ];
   
   const settings: RunnerSettings = {
+    perSetLogging: false,
     restSound: false,
     restVibrate: false,
     restAutostart: false,
@@ -314,13 +322,13 @@ async function test7b7c() {
       return { ok: false, error: "Not signed in", code: "SESSION_EXPIRED" };
     },
     deleteSet: async () => ({ ok: true }),
-    finishExercise: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
-    findAlternatives: async () => ({ ok: true, data: { alternatives: [] } }),
-    swapExercise: async () => ({ ok: true, data: { sessionExerciseId: "ex1" } }),
-    refreshAfterSession: async () => {},
-    planDay: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -330,18 +338,22 @@ async function test7b7c() {
       name: "Squat",
       cue: null,
       metric: "reps",
-      primaryMuscles: ["quadriceps"],
+      primaryMuscles: ["quads"],
       plannedSets: 3,
-      plannedRepsMin: 8,
-      plannedRepsMax: 12,
+      repsMin: 8,
+      repsMax: 12,
       restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
       status: "pending",
       feel: null,
       sets: [],
+      isBodyweight: false,
     },
   ];
   
   const settings: RunnerSettings = {
+    perSetLogging: false,
     restSound: false,
     restVibrate: false,
     restAutostart: false,
@@ -423,13 +435,13 @@ async function test8d8e() {
       return { ok: true };
     },
     deleteSet: async () => ({ ok: true }),
-    finishExercise: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
-    findAlternatives: async () => ({ ok: true, data: { alternatives: [] } }),
-    swapExercise: async () => ({ ok: true, data: { sessionExerciseId: "ex1" } }),
-    refreshAfterSession: async () => {},
-    planDay: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -439,18 +451,22 @@ async function test8d8e() {
       name: "Squat",
       cue: null,
       metric: "reps",
-      primaryMuscles: ["quadriceps"],
+      primaryMuscles: ["quads"],
       plannedSets: 3,
-      plannedRepsMin: 8,
-      plannedRepsMax: 12,
+      repsMin: 8,
+      repsMax: 12,
       restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
       status: "pending",
       feel: null,
       sets: [],
+      isBodyweight: false,
     },
   ];
   
   const settings: RunnerSettings = {
+    perSetLogging: false,
     restSound: false,
     restVibrate: false,
     restAutostart: false,
@@ -541,13 +557,13 @@ async function test9b() {
       return { ok: true };
     },
     deleteSet: async () => ({ ok: true }),
-    finishExercise: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
-    findAlternatives: async () => ({ ok: true, data: { alternatives: [] } }),
-    swapExercise: async () => ({ ok: true, data: { sessionExerciseId: "ex1" } }),
-    refreshAfterSession: async () => {},
-    planDay: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -557,18 +573,22 @@ async function test9b() {
       name: "Squat",
       cue: null,
       metric: "reps",
-      primaryMuscles: ["quadriceps"],
+      primaryMuscles: ["quads"],
       plannedSets: 1,
-      plannedRepsMin: 8,
-      plannedRepsMax: 12,
+      repsMin: 8,
+      repsMax: 12,
       restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
       status: "pending",
       feel: null,
       sets: [],
+      isBodyweight: false,
     },
   ];
   
   const settings: RunnerSettings = {
+    perSetLogging: false,
     restSound: false,
     restVibrate: false,
     restAutostart: false,
@@ -653,16 +673,16 @@ async function testN11() {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async () => ({ ok: true }),
     deleteSet: async () => ({ ok: true }),
-    finishExercise: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => {
       finishSessionCalled = true;
       return { ok: true };
     },
     abandonSession: async () => ({ ok: true }),
-    findAlternatives: async () => ({ ok: true, data: { alternatives: [] } }),
-    swapExercise: async () => ({ ok: true, data: { sessionExerciseId: "ex1" } }),
-    refreshAfterSession: async () => {},
-    planDay: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -672,18 +692,22 @@ async function testN11() {
       name: "Squat",
       cue: null,
       metric: "reps",
-      primaryMuscles: ["quadriceps"],
+      primaryMuscles: ["quads"],
       plannedSets: 1,
-      plannedRepsMin: 8,
-      plannedRepsMax: 12,
+      repsMin: 8,
+      repsMax: 12,
       restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
       status: "completed",
-      feel: "normal",
+      feel: "right",
       sets: [{setNumber: 1, reps: 10, weightKg: 50, durationSeconds: null}],
+      isBodyweight: false,
     },
   ];
   
   const settings: RunnerSettings = {
+    perSetLogging: false,
     restSound: false,
     restVibrate: false,
     restAutostart: false,
@@ -751,13 +775,13 @@ async function testN12() {
     markWarmupDone: async () => ({ ok: true }),
     logSet: async () => ({ ok: true }),
     deleteSet: async () => ({ ok: true }),
-    finishExercise: async () => ({ ok: true }),
+    finishExercise: async () => ({ ok: true, data: null }),
     finishSession: async () => ({ ok: true }),
     abandonSession: async () => ({ ok: true }),
-    findAlternatives: async () => ({ ok: true, data: { alternatives: [] } }),
-    swapExercise: async () => ({ ok: true, data: { sessionExerciseId: "ex1" } }),
-    refreshAfterSession: async () => {},
-    planDay: async () => ({ ok: true }),
+    findAlternatives: async () => ({ ok: true, data: [] }),
+    swapExercise: async () => ({ ok: true, data: { metric: "reps", repsMin: 8, repsMax: 12, equipmentIds: [] } }),
+    refreshAfterSession: async () => ({ ok: true }),
+    planDay: async () => ({ ok: true, data: null }),
   };
   
   const exercises: RunnerExercise[] = [
@@ -767,18 +791,22 @@ async function testN12() {
       name: "Squat",
       cue: null,
       metric: "reps",
-      primaryMuscles: ["quadriceps"],
+      primaryMuscles: ["quads"],
       plannedSets: 3,
-      plannedRepsMin: 8,
-      plannedRepsMax: 12,
+      repsMin: 8,
+      repsMax: 12,
       restSeconds: 90,
+      workingWeightKg: null,
+      suggestedWeightKg: null,
       status: "pending",
       feel: null,
       sets: [],
+      isBodyweight: false,
     },
   ];
   
   const settings: RunnerSettings = {
+    perSetLogging: false,
     restSound: false,
     restVibrate: false,
     restAutostart: false,

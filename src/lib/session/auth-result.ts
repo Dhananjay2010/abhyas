@@ -18,8 +18,8 @@ export { SESSION_EXPIRED_CODE };
  */
 export async function resolveAuth<T>(
   authFn: () => Promise<{ user: unknown | null }>,
-  action: () => Promise<Result<T>>,
-): Promise<Result<T>> {
+  action: () => Promise<T>,
+): Promise<T | { ok: false; error: string; code: string }> {
   try {
     const { user } = await authFn();
     if (!user) {
