@@ -303,8 +303,18 @@ export async function logSet(input: {
   const { supabase, user } = await requireUser();
 
   // Reject writes to sessions that are no longer in_progress or don't exist
+  // For ended sessions, allow idempotent retry if the exact set already exists
   const validationDeps = buildLogSetValidationDeps(supabase);
-  const validationResult = await validateSessionForLogSet(validationDeps, input.sessionExerciseId);
+  const validationResult = await validateSessionForLogSet(
+    validationDeps, 
+    input.sessionExerciseId,
+    {
+      setNumber: input.setNumber,
+      reps: input.reps,
+      weightKg: input.weightKg,
+      durationSeconds,
+    }
+  );
   
   if (!validationResult.ok) {
     return validationResult;

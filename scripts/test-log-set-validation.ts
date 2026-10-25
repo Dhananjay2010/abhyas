@@ -12,7 +12,8 @@
 import { 
   validateSessionForLogSet,
   type LogSetValidationDeps,
-  type SessionExerciseWithStatus
+  type SessionExerciseWithStatus,
+  type ExistingSetRow
 } from "../src/lib/session/log-set-validation";
 
 class FakeLogSetValidationDeps implements LogSetValidationDeps {
@@ -47,6 +48,15 @@ class FakeLogSetValidationDeps implements LogSetValidationDeps {
     }
 
     return { sessions: session };
+  }
+
+  async lookupExistingSet(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _sessionExerciseId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _setNumber: number
+  ): Promise<ExistingSetRow | null> {
+    return null;
   }
 }
 
