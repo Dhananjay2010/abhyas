@@ -617,8 +617,9 @@ async function test8d8e() {
   // 8f: Fire focus handler and assert another replay
   logSetCalls.length = 0;
   if (focusHandler) {
-    focusHandler();
-    await act(async () => {});
+    await act(async () => {
+      if (focusHandler) focusHandler();
+    });
     assert(logSetCalls.length === 1, "8f: logSet called after focus event");
   }
   
@@ -707,7 +708,7 @@ async function test9b() {
       warmupAlreadyDone={true}
       startedAt={new Date(FIXED_TIME).toISOString()}
       warmup={[]}
-      cooldown={[{ phase: "stretch", type: "cat-cow", durationSeconds: 30, id: "c1", slug: "cat-cow", name: "Cat-Cow", target_regions: [], target_muscles: [], instructions: [], equipment_ids: [], contraindicated_regions: [], duration_seconds: 30 }]}
+      cooldown={[]}
       exercises={exercises}
       settings={settings}
       actions={actions}
