@@ -19,7 +19,7 @@ echo ""
 # Run test
 set +e
 npx tsx scripts/test-in-progress-session.ts 2>&1 | tee /tmp/mutant-output.txt
-TEST_EXIT=$?
+TEST_EXIT=${PIPESTATUS[0]}
 set -e
 
 # Restore original
