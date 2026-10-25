@@ -51,7 +51,7 @@ const CARDIO_EQUIPMENT: Record<string, string> = {
  * from injuryRegions to include past injuries in prehab while excluding only
  * current injuries from mobility.
  */
-export function selectWarmup(input: {
+export type WarmupInput = {
   warmups: WarmupRow[];
   trainingMuscles: Muscle[];
   injuryRegions?: BodyRegion[];
@@ -60,7 +60,37 @@ export function selectWarmup(input: {
   availableEquipment: Set<string> | null;
   hasAllEquipment: boolean;
   pastKneeInjury?: boolean;
-}): WarmupItem[] {
+};
+
+/**
+ * Item 8: Build warm-up input from injury rows.
+ * Exported pure function for testing.
+ */
+export function buildWarmupInput(
+  injuries: Array<{ severity: "current" | "past"; body_region: BodyRegion }>,
+  warmups: WarmupRow[],
+  trainingMuscles: Muscle[],
+  track: Track,
+  availableEquipment: Set<string> | null,
+  hasAllEquipment: boolean
+): WarmupInput {
+  // All injuries go into injuryRegions and prehabRegions (past injuries need warm-up too)
+  const allInjuryRegions = injuries.map(i => i.body_region);
+  const pastKneeInjury = injuries.some(i => i.severity === "past" && i.body_region === "knee");
+  
+  return {
+    warmups,
+    trainingMuscles,
+    injuryRegions: allInjuryRegions,
+    prehabRegions: allInjuryRegions,
+    track,
+    availableEquipment,
+    hasAllEquipment,
+    pastKneeInjury,
+  };
+}
+
+export function selectWarmup(input: WarmupInput): WarmupItem[] {
   const { warmups, trainingMuscles, injuryRegions = [], prehabRegions = injuryRegions, track, availableEquipment, hasAllEquipment, pastKneeInjury = false } = input;
   const muscles = new Set(trainingMuscles);
   const regions = new Set(injuryRegions);
@@ -88,10 +118,10 @@ export function selectWarmup(input: {
     return !needs || availableEquipment === null || availableEquipment.has(needs);
   };
   
-  // Past knee: exclude walking-lunge and skipping-light
+  // Item 8: Past knee excludes walking-lunge, skipping-light, and worlds-greatest
   const isExcludedForPastKnee = (slug: string) => {
     if (pastKneeInjury !== true) return false;
-    return slug === "walking-lunge" || slug === "skipping-light";
+    return slug === "walking-lunge" || slug === "skipping-light" || slug === "worlds-greatest";
   };
   
   const cardioPool = byType("cardio");

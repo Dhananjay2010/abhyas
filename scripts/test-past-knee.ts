@@ -821,5 +821,58 @@ console.log("\n11. Item 13: Current-knee 4-move lunge list enforced in CODE (not
   }
 }
 
+console.log("\n12. Item 8: Warm-up input builder and past-knee exclusions");
+{
+  const { buildWarmupInput, selectWarmup } = require("../src/lib/program/warmup");
+  const warmupFixture = JSON.parse(readFileSync(__dirname + "/fixtures/warmups.json", "utf8"));
+  
+  // Test buildWarmupInput with past knee injury
+  const pastKneeInjuries = [
+    { severity: "past" as const, body_region: "knee" as const },
+  ];
+  
+  const warmupInput = buildWarmupInput(
+    pastKneeInjuries,
+    warmupFixture,
+    ["quads", "glutes"],
+    "weights" as const,
+    null,
+    true
+  );
+  
+  check("Item 8: buildWarmupInput sets pastKneeInjury flag", warmupInput.pastKneeInjury === true);
+  check("Item 8: buildWarmupInput includes all injury regions", 
+    warmupInput.injuryRegions?.includes("knee") ?? false);
+  check("Item 8: buildWarmupInput includes prehab regions",
+    warmupInput.prehabRegions?.includes("knee") ?? false);
+  
+  // Test warm-up selection excludes past-knee problematic moves
+  const warmup = selectWarmup(warmupInput);
+  const warmupSlugs = warmup.map(w => w.slug);
+  
+  check("Item 8: walking-lunge NOT in past-knee warmup", !warmupSlugs.includes("walking-lunge"));
+  check("Item 8: skipping-light NOT in past-knee warmup", !warmupSlugs.includes("skipping-light"));
+  check("Item 8: worlds-greatest NOT in past-knee warmup", !warmupSlugs.includes("worlds-greatest"));
+  
+  // Test that instructions don't contain "full depth" for knee injuries
+  const hasFullDepth = warmup.some(w => 
+    w.instructions.some(inst => inst.toLowerCase().includes("full depth"))
+  );
+  check("Item 8: no 'full depth' instructions for past-knee warmup", !hasFullDepth);
+  
+  // Test healthy user still gets these moves
+  const healthyInput = buildWarmupInput(
+    [],
+    warmupFixture,
+    ["quads", "glutes"],
+    "weights" as const,
+    null,
+    true
+  );
+  
+  check("Item 8: buildWarmupInput doesn't set pastKneeInjury for healthy user", 
+    healthyInput.pastKneeInjury === false);
+}
+
 console.log(`\n${failures === 0 ? "✓ All checks passed" : `✗ ${failures} check(s) failed`}\n`);
 process.exit(failures === 0 ? 0 : 1);

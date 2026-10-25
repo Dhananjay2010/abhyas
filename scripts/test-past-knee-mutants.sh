@@ -368,4 +368,24 @@ sed -i 's/const skipKneeCheck = hasCurrentKnee && KNEE_SAFE_LUNGE_EXERCISES.has(
 run_mutant "Item 13: Disable skipKneeCheck in contraindication filtering" "src/lib/program/generate.ts" || true
 restore_file "src/lib/program/generate.ts"
 
+# === Item 8: Warm-up past-knee exclusions mutants ===
+
+# Mutant 40: Allow walking-lunge for past knee (remove from exclusion list)
+restore_file "src/lib/program/warmup.ts"
+sed -i 's/slug === "walking-lunge" ||/false ||/' src/lib/program/warmup.ts
+run_mutant "Item 8: Allow walking-lunge for past knee" "src/lib/program/warmup.ts" || true
+restore_file "src/lib/program/warmup.ts"
+
+# Mutant 41: Allow worlds-greatest for past knee (remove from exclusion list)
+restore_file "src/lib/program/warmup.ts"
+sed -i 's/slug === "worlds-greatest"/false/' src/lib/program/warmup.ts
+run_mutant "Item 8: Allow worlds-greatest for past knee" "src/lib/program/warmup.ts" || true
+restore_file "src/lib/program/warmup.ts"
+
+# Mutant 42: Disable full-depth cue filtering
+restore_file "src/lib/program/warmup.ts"
+sed -i 's/const hasKneeInjury = injuryRegions.includes("knee") || pastKneeInjury === true;/const hasKneeInjury = false;/' src/lib/program/warmup.ts
+run_mutant "Item 8: Disable full-depth cue filtering" "src/lib/program/warmup.ts" || true
+restore_file "src/lib/program/warmup.ts"
+
 echo ""

@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getAuthedClient } from "@/lib/supabase/auth";
-import { selectWarmup, selectCooldown, type WarmupRow } from "@/lib/program/warmup";
+import { selectWarmup, selectCooldown, buildWarmupInput, type WarmupRow } from "@/lib/program/warmup";
 import { nextDayPlan } from "@/lib/program/day-plan";
 import { resolveTimezoneWithProfile } from "@/lib/timezone";
 import type { Database } from "@/lib/database.types";
@@ -136,27 +136,27 @@ export default async function SessionPage({
   const trainingMuscles = [...new Set(exercises.flatMap((e) => e.primaryMuscles))];
   const allWarmupRows = (warmupsRes.data ?? []) as WarmupRow[];
   
-  // Separate current and past injuries: prehab uses ALL (past injuries benefit from warming up),
-  // but exclusion logic (mobility filter and cool-down) uses only CURRENT to avoid over-filtering
-  const allInjuries = injuriesRes.data ?? [];
-  const allInjuryRegions = allInjuries.map((i) => i.body_region);
-  const currentInjuryRegions = allInjuries.filter((i) => i.severity === "current").map((i) => i.body_region);
-  const pastKneeInjury = allInjuries.some((i) => i.severity === "past" && i.body_region === "knee");
+  // Item 8: Pass ALL injuries (current + past) to warm-up picker
+  const allInjuries = (injuriesRes.data ?? []).map(i => ({
+    severity: i.severity as "current" | "past",
+    body_region: i.body_region
+  }));
   
-  const warmup = selectWarmup({
-    warmups: allWarmupRows,
+  const warmupInput = buildWarmupInput(
+    allInjuries,
+    allWarmupRows,
     trainingMuscles,
-    injuryRegions: currentInjuryRegions,
-    prehabRegions: allInjuryRegions,
-    track: profileRes.data?.primary_track ?? "weights",
-    hasAllEquipment: profileRes.data?.has_all_equipment ?? false,
-    availableEquipment: profileRes.data?.has_all_equipment
+    profileRes.data?.primary_track ?? "weights",
+    profileRes.data?.has_all_equipment
       ? null
       : new Set((equipmentRes.data ?? []).map((e) => e.equipment_id)),
-    pastKneeInjury,
-  });
+    profileRes.data?.has_all_equipment ?? false
+  );
+  
+  const warmup = selectWarmup(warmupInput);
 
   // Cool-down uses only CURRENT injuries for exclusion
+  const currentInjuryRegions = allInjuries.filter(i => i.severity === "current").map(i => i.body_region);
   const cooldown = selectCooldown({
     stretches: allWarmupRows,
     trainingMuscles,
