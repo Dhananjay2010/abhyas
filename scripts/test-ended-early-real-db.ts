@@ -137,7 +137,9 @@ async function runTests() {
       const { error: ex1Error } = await adminClient.from("session_exercises").insert({
         id: ex1Id,
         session_id: sessionId,
+        order_index: 1,
         exercise_id: exercise1.id,
+        order_index: 1,
         planned_sets: 4,
         status: "completed",
       });
@@ -158,6 +160,7 @@ async function runTests() {
       const { error: ex2Error } = await adminClient.from("session_exercises").insert({
         id: ex2Id,
         session_id: sessionId,
+        order_index: 1,
         exercise_id: exercise2.id,
         planned_sets: 3,
         status: "completed",
@@ -201,6 +204,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: ex1Id,
         session_id: sessionId,
+        order_index: 1,
         exercise_id: exercise1.id,
         planned_sets: 4,
         status: "completed",
@@ -218,6 +222,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: ex2Id,
         session_id: sessionId,
+        order_index: 1,
         exercise_id: exercise1.id,
         planned_sets: 3,
         status: "pending",
@@ -256,6 +261,7 @@ async function runTests() {
         {
           id: randomUUID(),
           session_id: sessionId,
+        order_index: 1,
           exercise_id: exercise1.id,
           planned_sets: 4,
           status: "pending",
@@ -263,6 +269,7 @@ async function runTests() {
         {
           id: randomUUID(),
           session_id: sessionId,
+        order_index: 1,
           exercise_id: exercise1.id,
           planned_sets: 3,
           status: "pending",
@@ -295,6 +302,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: ex1Id,
         session_id: sessionId,
+        order_index: 1,
         exercise_id: exercise1.id,
         planned_sets: 4,
         status: "completed",
@@ -311,6 +319,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: randomUUID(),
         session_id: sessionId,
+        order_index: 1,
         exercise_id: exercise1.id,
         planned_sets: 3,
         status: "skipped",
@@ -341,6 +350,7 @@ async function runTests() {
       await adminClient.from("session_exercises").insert({
         id: exId,
         session_id: sessionId,
+        order_index: 1,
         exercise_id: exercise1.id,
         planned_sets: 2,
         status: "completed",
